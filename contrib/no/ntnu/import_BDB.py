@@ -36,37 +36,12 @@ num_persons = 0
 ant_persons = 0
 verbose = False
 dryrun = False
-traceback = False
+show_traceback = False
 
 
 
 def _get_password(_account):
     return _account.get('password2')
-
-def _update_password(_account, ac):
-    bdb_blowfish = None
-    try:
-        bdb_blowfish = ac.get_account_authentication(const.auth_type_bdb_blowfish)
-        logger.debug("Found blowfish in cerebrum")
-    except Errors.NotFoundError:
-        pass
-
-    if bdb_blowfish == _account.get('password'):
-        logger.debug("Password has not changed since last run")
-        return
-    else:
-        # Store the blowfish directly first.
-        logger.debug("Password has changed since last. Updating blowfish and other auth-types")
-        ac.affect_auth_types(const.auth_type_bdb_blowfish)
-        ac.populate_authentication_type(const.auth_type_bdb_blowfish, _account.get('password'))
-        ac.write_db()
-        ac.set_password(_get_password(_account))
-        ac.write_db()
-        # Ayeeee - definately wrong place for the commit - but no time to debug today
-        if dryrun:
-            self.db.rollback()
-        else:
-            self.db.commit()
 
 def _is_posix(_account):
     res = True
@@ -90,6 +65,7 @@ class BDBSync:
         self.const = Factory.get('Constants')(self.db)
         self.ou = Factory.get('OU')(self.db)
         self.new_person = Factory.get('Person')(self.db)
+        self.fnr_person = Factory.get('Person')(self.db)
         self.ac = Factory.get('Account')(self.db)
         self.group = Factory.get('Group')(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
@@ -295,18 +271,35 @@ class BDBSync:
 
     def sync_persons(self):
         self.logger.debug("Getting persons from BDB...")
-        global ant_persons
+        global ant_persons, num_persons
         if verbose:
             print "Getting persons from BDB"
         persons = self.bdb.get_persons()
         ant_persons = len(persons)
         self.logger.debug("Done fetching persons from BDB")
         for person in persons:
-            self._sync_person(person)
+            self.logger.debug('Syncronizing BDB-person %s' % person['id'])
+            try:
+                self._sync_person(person)
+            except Exception, e:
+                if show_traceback:
+                    traceback.print_exc()
+                self.db.rollback()
+                self.logger.error('Syncronizing of BDB-person %s failed: %s' % (
+                    person['id'], e))
+            else:
+                if dryrun:
+                    self.db.rollback()
+                    logger.debug('Rollback called. Changes omitted.')
+                else:
+                    num_persons+=1
+                    self.db.commit()
+                    self.logger.debug('Changes on %s commited to Cerebrum' % person['id'])
         if verbose:
             print "%s persons had missing personnumber" % missing_personnr
             print "%s persons had bad checksum on personnumber" % wrong_nss_checksum
             print "%s persons where added or updated" % num_persons
+
 
     def __validate_person(self, person):
         # Returns true||false if enough attributes are set
@@ -362,9 +355,26 @@ class BDBSync:
         else:
             return True
 
+
+    def check_free_fnr(self, fnr, new_person):
+        p = self.fnr_person
+        const=self.const
+        p.clear()
+        try:
+            p.find_by_external_id(const.externalid_fodselsnr, fnr,
+                                  const.system_bdb)
+        except Errors.NotFoundError:
+            pass
+        else:
+            if p.entity_id != new_person.entity_id:
+                raise self.db.IntegrityError(
+                    "Person cerebrum-%s's BDB-fnr <%s> is used by cerebrum-%s!" %
+                    (new_person.entity_id, fnr,
+                     p.entity_id))
+
     def _sync_person(self, person):
         global num_persons,ant_persons
-        self.logger.info("Process %s" % person['id'])
+        self.logger.debug("Process person %s" % person['id'])
         const = self.const
         new_person = self.new_person
 
@@ -375,6 +385,7 @@ class BDBSync:
         fnr = self.__get_fodselsnr(person)
 
         new_person.clear()
+        found_person=False
         try:
             new_person.find_by_external_id(const.externalid_bdb_person,person['id'])
         except Errors.NotFoundError:
@@ -392,34 +403,45 @@ class BDBSync:
                     except Errors.NotFoundError:
                         pass
                     else:
+                        found_person=True
                         self.logger.debug("Found matching fnr in source-system %s" % source)
                         break
+                else:
+                    self.logger.debug("No fnr in any prefered system")
             except Errors.NotFoundError:
-                pass
+                self.logger.debug("No fnr in any system")
+            else:
+                found_person=True
+                self.logger.debug("Found person by fnr")
         else:
-            self.logger.debug("Got match on bdb-id as entity_externalid using %s" % person['id'])
+            found_person=True
+            self.logger.debug("Found BDB-id %s in cerebrum" % person['id'])
+
+        if found_person:
+            self.logger.info("Updating cerebrum person %s from BDB-person %s" %
+                              (new_person.entity_id, person['id']))
+        else:
+            self.logger.info("Creating new cerebrum person from BDB-person %s" %
+                              person['id'])
 
         # Rewrite glob to a method?
         # Populate person with names 
         fodt_dato = mx.DateTime.Date(*fodselsnr.fodt_dato(fnr))
         new_person.populate(fodt_dato, gender)
+        new_person.write_db()
         new_person.affect_names(const.system_bdb,
                                 const.name_first,
                                 const.name_last,
                                 const.name_personal_title)
-        try:
-            new_person.populate_name(const.name_first, person['first_name'])
-            new_person.populate_name(const.name_last, person['last_name'])
-        except ValueError,ve:
-            fname = person['first_name'] or ''
-            sname = person['last_name'] or ''
-            self.logger.error("ValueError when trying to populate names for %s. Reason: %s" % (fnr,str(ve)))
-            self.db.rollback()
-            return
+        new_person.populate_name(const.name_first, person['first_name'])
+        new_person.populate_name(const.name_last, person['last_name'])
 
         if person.get('tittel_personlig'):
             new_person.populate_name(const.name_personal_title,
                                      person['tittel_personlig'])
+
+        self.check_free_fnr(fnr, new_person)
+        
         # TBD: rewrite
         np = new_person
         np.affect_external_id(const.system_bdb,
@@ -431,32 +453,9 @@ class BDBSync:
         np.populate_external_id(const.system_bdb,
                                 const.externalid_fodselsnr,
                                 fnr)
-        # Write to database and commit transaction
-        try:
-            new_person.write_db()
-        except self.db.IntegrityError,ie:
-            self.db.rollback()
-            new_person.clear()
-            try:
-                new_person.find_by_external_id(const.externalid_fodselsnr,fnr,const.system_bdb)
-            except Errors.NotFoundError:
-                # ok.. its an integrity-error, but its not a problem with fnr from bdb. 
-                raise ie
-            else:
-                self.logger.error("Person %s is already registered with ext-id %s! While BDB-person %s is trying to use it" % 
-                                  (new_person.entity_id,fnr,person['id']))
-                self.db.rollback()
-                return
-        if dryrun:
-            self.db.rollback()
-            if verbose:
-                print "Person %s not written. Dryrun only" % person['id']
-        else:
-            self.db.commit()
-            num_persons += 1
-            self.logger.debug("Person %s written into Cerebrum." % person['id'])
-            if verbose:
-                print "Person %s (%s/%s )written into Cerebrum." % (person['id'],num_persons,ant_persons)
+        # Write to database
+        new_person.write_db()
+        self.logger.info("Wrote cerebrum person %s", new_person.entity_id)
 
     def _is_posix_group(self,group):
         res = False
@@ -561,23 +560,15 @@ class BDBSync:
         group = self.group
         posix_user = self.posix_user
         posix_group = self.posix_group
-        ac = self.ac
 
-        ac.clear()
         posix_user.clear()
         posix_group.clear()
 
-        try:
-            ac.find(account_info['account_id'])
-        except Errors.NotFoundError:
-            if verbose:
-                print "Account with id %s not found. Cannot promote." % account_info['account_id']
-            return False
+        self.check_uid(account_info)
 
         uid = account_info.get('unix_uid', None)
         shell = account_info.get('shell',self.const.posix_shell_bash)
 
-        self.check_uid(account_info)
 
         try:
             posix_group.find_by_gid(account_info.get('unix_gid'))
@@ -586,16 +577,18 @@ class BDBSync:
             posix_group.find_by_name(grp_name,domain=self.const.group_namespace)
             pass
 
-        posix_user.populate(uid,posix_group.entity_id, None, shell, parent=ac)
+        posix_user.populate(uid, posix_group.entity_id, None, shell, parent=ac)
         posix_user.write_db()
 
         self.logger.info("Account %s with posix-uid %s promoted to posix." %
-                         (account_info['username'], uid))
+                         (account_info['name'], uid))
 
 
-    def check_uid(account_info):
+    def check_uid(self, account_info):
         # self.posix_user may already be used by caller
         posix_user = self.posix_user2
+        uid=account_info['unix_uid']
+        posix_user.clear()
         try:
             posix_user.find_by_uid(uid)
         except Errors.NotFoundError:
@@ -710,14 +703,37 @@ class BDBSync:
             else:
                 self._copy_account_data(account_info, ac, owner)
 
+    def _update_password(self, _account, ac):
+        bdb_blowfish = None
+        const=self.const
+        logger=self.logger
+        try:
+            bdb_blowfish = ac.get_account_authentication(const.auth_type_bdb_blowfish)
+            self.logger.debug("Found blowfish in cerebrum")
+        except Errors.NotFoundError:
+            pass
+
+        if bdb_blowfish == _account.get('password'):
+            logger.debug("Password has not changed since last run")
+            return
+        else:
+            # Store the blowfish directly first.
+            logger.debug("Password has changed since last. Updating blowfish and other auth-types")
+            ac.affect_auth_types(const.auth_type_bdb_blowfish)
+            ac.populate_authentication_type(const.auth_type_bdb_blowfish, _account.get('password'))
+            ac.write_db()
+            ac.set_password(_get_password(_account))
+            ac.write_db()
+
     def _sync_account_password(self, account_info, ac):
+        logger=self.logger
         _pwd = _get_password(account_info)
         if _pwd is None:
             logger.warning('Account %s has no password!' %
                            account_info.get('name'))
             return
 
-        _update_password(account_info, ac)
+        self._update_password(account_info, ac)
         logger.debug('Updating password for %s' % account_info.get('name'))
 
 
@@ -757,12 +773,7 @@ class BDBSync:
                 posix_user.clear()
                 posix_user.find(ac.entity_id)
             except Errors.NotFoundError:
-                # posix-search returned NotFound. promote to posix
-                account_info['account_id'] = ac.entity_id
-                if self._promote_posix(account_info, ac):
-                    logger.info("Account %s promoted to posix" % ac.entity_id)
-                else:
-                    logger.info("Account %s not promoted to posix" % ac.entity_id)
+                self._promote_posix(account_info, ac)
             else:
                 self._copy_posixuser(account_info, posix_user)
 
@@ -778,7 +789,7 @@ class BDBSync:
         except Errors.NotFoundError:
             uname = account_info['name']
 
-        self.logger.info('Adding new account %s on person %s' % (uname,person_entity))
+        self.logger.info('Adding new account %s on person %s' % (uname,owner.entity_id))
 
         expire_date = account_info.get('expire_date',None)
 
@@ -792,7 +803,6 @@ class BDBSync:
         
         if _is_posix(account_info):
             self._promote_posix(account_info, ac)
-            posix_user.write_db()
 
         self._sync_account_password(account_info, ac)
         
@@ -814,7 +824,7 @@ class BDBSync:
                 self._sync_account(account,password_only)
             except Exception, e:
                 self.db.rollback()
-                if traceback:
+                if show_traceback:
                     traceback.print_exc()
                 self.logger.error('Syncronizing %s failed: %s' % (
                     account['name'], e))
@@ -1018,6 +1028,7 @@ def usage():
     Available options:
 
         --dryrun    (-d) Does not commit changes to Cerebrum
+        --traceback      Show traceback of errors
         --people    (-p) Syncronize persons
         --group     (-g) Syncronise posixGrourp
         --account   (-a) Syncronize posixAccounts
@@ -1036,7 +1047,7 @@ def usage():
     sys.exit(0)
 
 def main():
-    global verbose,dryrun,traceback
+    global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvh',
                     ['password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
@@ -1054,7 +1065,8 @@ def main():
         elif opt in ('-d','--dryrun'):
             dryrun = True
         elif opt in ('--traceback',):
-            traceback = True
+            global show_traceback
+            show_traceback = True
         elif opt in ('--personid',):
             # Konverter val til noe saklig
             print "Syncronizing BDBPerson: %s" % val
