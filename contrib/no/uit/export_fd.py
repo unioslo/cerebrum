@@ -87,6 +87,7 @@ class ad_export:
         self.co = Factory.get('Constants')(self.db)
         self.ou = Factory.get('OU')(self.db)
         self.ent_name = Entity.EntityName(self.db)
+        self.ent_sprd = Entity.EntitySpread(self.db)
         self.group = Factory.get('Group')(self.db)
         self.account = Factory.get('Account')(self.db)
         self.person = Factory.get('Person')(self.db)
@@ -344,7 +345,7 @@ class ad_export:
         count = 0
 
         for spread in spreadlist:
-            for row in self.ent_name.list_all_with_spread(spread):
+            for row in self.ent_sprd.list_all_with_spread(spread):
                 count = count+1
                 if count > max_nmbr_users: break
                 self.ent_name.clear()
