@@ -330,19 +330,18 @@ class BDBSync:
         new_person.clear()
         try:
             new_person.find_by_external_id(const.externalid_bdb_person,person['id'])
-            self.logger.debug("Got match on bdb-id as entity_externalid using %s" % person['id'])
         except Errors.NotFoundError:
-            # Search on nssn failed. Search on bdb-external-id instead
+            self.logger.debug("No match on bdb-id. Filtering by fodselsnr instead")
             try:
-                new_person.find_by_external_id(const.externalid_fodselsnr, fnr)
-            except Errors.TooManyRowsError:
-                # Person matches too many external-Ids of same value from different sources
-                # Narrow down the search
-                new_person.find_by_external_id(const.externalid_fodselsnr, \
-                                               fnr,const.system_lt)
-            except Errors.NotFoundError:
-                # Got no match on nss or bdb-id. Guess we have a new person
+                new_person.find_by_external_id(const.externalid_fodselsnr,fnr)
+            except Errors.TooManyRows:
+                self.logger.debug("Too many matching fodselsnr. Narrow down the filter")
+                new_person.find_by_external_id(const.externalid_fodselsnr,fnd,
+                                               const.system_cached)
+            except Error.NotFoundError:
                 pass
+        else:
+            self.logger.debug("Got match on bdb-id as entity_externalid using %s" % person['id'])
 
         # Rewrite glob to a method?
         # Populate person with names 
@@ -380,9 +379,18 @@ class BDBSync:
         try:
             new_person.write_db()
         except self.db.IntegrityError,ie:
-            self.logger.warning("This External-ID is already in use from this source_system. Clean up please. BDB-person: %s" % person['id'])
             self.db.rollback()
-            return
+            new_person.clear()
+            try:
+                new_person.find_by_external_id(const.externalid_fodselsnr,fnr,const.system_bdb)
+            except Errors.NotFoundError:
+                # ok.. its an integrity-error, but its not a problem with fnr from bdb. 
+                raise ie
+            else:
+                self.logger.error("Person %s is already registered with ext-id %s! While BDB-person %s is trying to use it" % 
+                                  (new_person.entity_id,fnr,person['id']))
+                self.db.rollback()
+                return
         if dryrun:
             self.db.rollback()
             if verbose:
