@@ -94,6 +94,7 @@ class BDBSync:
         self.group = Factory.get('Group')(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
         self.posix_user = PosixUser.PosixUser(self.db)
+        self.posix_user2 = PosixUser.PosixUser(self.db)
         self.et = Email.EmailTarget(self.db)
         self.ea = Email.EmailAddress(self.db)
         self.ed = Email.EmailDomain(self.db)
@@ -566,7 +567,6 @@ class BDBSync:
         posix_user.clear()
         posix_group.clear()
 
-
         try:
             ac.find(account_info['account_id'])
         except Errors.NotFoundError:
@@ -577,14 +577,7 @@ class BDBSync:
         uid = account_info.get('unix_uid', None)
         shell = account_info.get('shell',self.const.posix_shell_bash)
 
-        try:
-            posix_user.find_by_uid(uid)
-        except Errors.NotFoundError:
-            pass
-        else:
-            raise self.db.IntegrityError("Account %s's uid %d is used by %s!" %
-                                         (account_info["name"], uid,
-                                         posix_user.get_account_name()))
+        self.check_uid(account_info)
 
         try:
             posix_group.find_by_gid(account_info.get('unix_gid'))
@@ -599,6 +592,19 @@ class BDBSync:
         self.logger.info("Account %s with posix-uid %s promoted to posix." %
                          (account_info['username'], uid))
 
+
+    def check_uid(account_info["name"]):
+        # self.posix_user may already be used by caller
+        posix_user = self.posix_user2
+        try:
+            posix_user.find_by_uid(uid)
+        except Errors.NotFoundError:
+            pass
+        else:
+            raise self.db.IntegrityError("Account %s's uid %d is used by %s!" %
+                                             (account_info["name"], uid,
+                                              posix_user.get_account_name()))
+
     def _copy_posixuser(self, account_info, posix_user):
         self.logger.info("Account %s is already posix. Updating" %
                          account_info["name"])
@@ -610,6 +616,7 @@ class BDBSync:
         _gid = posix_user.gid_id
 
         if posix_user.posix_uid != account_info['unix_uid']:
+            self.check_uid(account_info)
             posix_user.posix_uid = account_info['unix_uid']
             _has_changed = True
 
@@ -809,7 +816,7 @@ class BDBSync:
                 self.db.rollback()
                 if traceback:
                     traceback.print_exc()
-                self.logger.warning('Syncronizing %s failed: %s' % (
+                self.logger.error('Syncronizing %s failed: %s' % (
                     account['name'], e))
             else:
                 num_accounts += 1
