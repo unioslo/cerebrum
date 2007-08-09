@@ -165,7 +165,7 @@ class system_xRepresentation(object):
         const = Factory.get('Constants')(db)
         stedkode = Stedkode.Stedkode(db)
         
-        print "start processing guests"
+        #print "start processing guests"
         current_source_system= const.system_x
         # Get all persons that come from SysX  ONLY, _and_ has a norwegian SSN! 
         entities = person.list_external_ids(source_system=const.system_x,id_type=const.externalid_fodselsnr,entity_type=8)
@@ -290,7 +290,7 @@ class system_xRepresentation(object):
                 writer.endElement("gjest")
                 writer.endElement("gjester")
                 writer.endElement("person")
-        print "end processing guests"
+        #print "end processing guests"
         #generate XML data
 
 
