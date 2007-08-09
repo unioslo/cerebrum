@@ -336,9 +336,18 @@ class BDBSync:
                 new_person.find_by_external_id(const.externalid_fodselsnr,fnr)
             except Errors.TooManyRowsError:
                 self.logger.debug("Too many matching fodselsnr. Narrow down the filter")
-                new_person.find_by_external_id(const.externalid_fodselsnr,fnr,
-                                               const.system_cached)
-            except Error.NotFoundError:
+                # Iterate over the different source-systems
+                for source in (const.system_lt,const.system_bdb,const.system_fs,
+                               const.system_manual):
+                    try:
+                        new_person.find_by_external_id(const.externalid_fodselsnr,fnr,
+                                                       source)
+                    except Errors.NotFoundError:
+                        pass
+                    else:
+                        self.logger.debug("Found matching fnr in source-system %s" % source)
+                        break
+            except Errors.NotFoundError:
                 pass
         else:
             self.logger.debug("Got match on bdb-id as entity_externalid using %s" % person['id'])
