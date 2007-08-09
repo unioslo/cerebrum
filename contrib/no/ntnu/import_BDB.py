@@ -589,7 +589,7 @@ class BDBSync:
             pass
         else:
             raise self.db.IntegrityError("Account %s's uid %d is used by %s!" %
-                                         account_info["name"], uid,
+                                         (account_info["name"], uid,
                                          posix_user.get_account_name()))
 
         try:
