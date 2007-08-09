@@ -771,14 +771,14 @@ class BDBSync:
                 
 
     def _make_account(self, account_info, ac, owner):
-
+        
         ac.clear()
         try:
             ac.find_by_name(account_info['name'])
         except Errors.NotFoundError:
             uname = account_info['name']
 
-        logger.info('Adding new account %s on person %s' % (uname,person_entity))
+        self.logger.info('Adding new account %s on person %s' % (uname,person_entity))
 
         expire_date = account_info.get('expire_date',None)
 
