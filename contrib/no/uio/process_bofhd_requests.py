@@ -455,27 +455,29 @@ def process_email_move_requests():
                     continue
                 elif ret == 0:
                     logger.debug("Process reaped: '%d'", pid)
-                    # The move was successful, update the user's server
+
+                    acc = get_account(a_id)
+                    old_server = get_email_server(r['entity_id'])
                     new_server = Email.EmailServer(db)
                     new_server.find(r['destination_id'])
-                    et = Email.EmailTarget(db)
-                    et.find_by_entity(a_id)
-                    et.email_server_id = new_server.entity_id
-                    et.write_db()
-                    # Now set the correct quota.
-                    hq = get_email_hardquota(a_id)
-                    cyrus_set_quota(a_id, hq, host=new_server)
-                    # We need to delete this request before adding the
-                    # delete to avoid triggering the conflicting request
-                    # test.
-                    acc = get_account(a_id)
                     cmd = [cereconf.MANAGESIEVE_SCRIPT,
                            '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
                            acc.account_name, old_server.name, new_server.name]
-                    
                     if (spawn_and_log_output(cmd, connect_to=[old_server.name, new_server.name])) != 0:
                         logger.error('%s: managesieve_sync failed!', acc.account_name)
                     else:
+                        logger.info('%s: managesieve_sync completed successfully', acc.account_name)
+                        # The move was successful, update the user's server
+                        et = Email.EmailTarget(db)
+                        et.find_by_entity(a_id)
+                        et.email_server_id = new_server.entity_id
+                        et.write_db()
+                        # Now set the correct quota.
+                        hq = get_email_hardquota(a_id)
+                        cyrus_set_quota(a_id, hq, host=new_server)
+                        # We need to delete this request before adding the
+                        # delete to avoid triggering the conflicting request
+                        # test.
                         logger.info('%s: managesieve_sync completed successfully', acc.account_name)
                         br = BofhdRequests(db, const)
                         br.delete_request(request_id=r_id)
