@@ -334,7 +334,7 @@ class BDBSync:
             self.logger.debug("No match on bdb-id. Filtering by fodselsnr instead")
             try:
                 new_person.find_by_external_id(const.externalid_fodselsnr,fnr)
-            except Errors.TooManyRows:
+            except Errors.TooManyRowsError:
                 self.logger.debug("Too many matching fodselsnr. Narrow down the filter")
                 new_person.find_by_external_id(const.externalid_fodselsnr,fnd,
                                                const.system_cached)
