@@ -11,12 +11,10 @@ import time
 
 from Cerebrum.Utils import Factory
 
-
+logger = Factory.get_logger("cronjob")
 
 def ldap_export():
 
-    logger = Factory.get_logger("console")   
-    #logger = Factory.get_logger("cronjob")
     global_ret = 0
     date = time.localtime()
     year = date[0]
@@ -26,14 +24,14 @@ def ldap_export():
     min = date[4]
     script_dir = os.path.join(cereconf.CB_PREFIX,'share','cerebrum','contrib')
     
-    #logger.info("Starting export of ldap data")
+    logger.info("Starting export of ldap data")
 
 
     # 1. create the posix_user_ldif
     script = os.path.join(script_dir,'generate_posix_ldif.py')
-    script_arg = "-U fronter@uit,AD_account,NIS_user@uit,SUT@uit,fd@uit -u /cerebrum/var/dumps/ldap/users_ldif"
+    script_arg = "-U ldap@uit -u /cerebrum/var/dumps/ldap/users_ldif"
     script_cmd = "%s %s %s" % ('python', script, script_arg)
-    #logger.debug("Running %s" % script_cmd)
+    logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
     global_ret +=ret
     logger.info("   generate_posix_ldif.py: %s" % ret)
@@ -61,13 +59,13 @@ def ldap_export():
     script = os.path.join(script_dir,'no','uit','ldif-diff.pl')
     script_arg = "/cerebrum/var/dumps/ldap/uit_ldif /cerebrum/var/dumps/ldap/temp_uit_ldif > /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d" % (year,month,day)
     script_cmd = "%s %s %s" % ('perl', script, script_arg)
-    #logger.debug("Running %s" % script_cmd)
+    logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd) 
     aret = os.system("cp  /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d_%02d%02d " % (year,month,day,year,month,day,hour,min))
     global_ret +=ret
     logger.info("   ldif-diff.pl %s" % ret)
 
-    #logger.debug("Finished running ldap export: global ret=%s " % global_ret)
+    logger.debug("Finished running ldap export: global ret=%s " % global_ret)
     return global_ret
 
 
