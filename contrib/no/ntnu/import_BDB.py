@@ -336,7 +336,7 @@ class BDBSync:
                 new_person.find_by_external_id(const.externalid_fodselsnr,fnr)
             except Errors.TooManyRowsError:
                 self.logger.debug("Too many matching fodselsnr. Narrow down the filter")
-                new_person.find_by_external_id(const.externalid_fodselsnr,fnd,
+                new_person.find_by_external_id(const.externalid_fodselsnr,fnr,
                                                const.system_cached)
             except Error.NotFoundError:
                 pass
