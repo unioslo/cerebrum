@@ -593,7 +593,7 @@ class BDBSync:
                          (account_info['username'], uid))
 
 
-    def check_uid(account_info["name"]):
+    def check_uid(account_info):
         # self.posix_user may already be used by caller
         posix_user = self.posix_user2
         try:
