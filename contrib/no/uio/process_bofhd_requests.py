@@ -357,7 +357,6 @@ def process_email_move_requests():
                    'mail-imap2' : 0,
                    'mail-imap3' : 0,
                    'mail-imap4' : 0,
-                   'mail-imap5' : 0,
                    'mail-imap6' : 0}
     def get_srv():
         srv = ""
@@ -478,7 +477,6 @@ def process_email_move_requests():
                         # We need to delete this request before adding the
                         # delete to avoid triggering the conflicting request
                         # test.
-                        logger.info('%s: managesieve_sync completed successfully', acc.account_name)
                         br = BofhdRequests(db, const)
                         br.delete_request(request_id=r_id)
                         db.commit()
