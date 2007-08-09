@@ -71,7 +71,7 @@ from Cerebrum.modules.no.uit import Email
 
 max_nmbr_users = 20000
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
-logger = Factory.get_logger(logger_name)
+logger = Factory.get_logger('console')
 
 default_user_file = cereconf.OMNI_DEFAULT_USER_FILE
 default_group_file = cereconf.OMNI_DEFAULT_GROUP_FILE
@@ -275,9 +275,10 @@ class ad_export:
             keys.sort()            
             for name in keys:
                 entry = myUserlist[name]
-                if type in ['user','adminuser']:
-                    values = [ name,
-                               entry['name_first'],
+                try:
+                  if type in ['user','adminuser']:
+                      values = [ name,
+                                entry['name_first'],
                                entry['name_last'],
                                entry['title'],
                                entry['dept'],
@@ -293,14 +294,17 @@ class ad_export:
                                str(entry['posixgid']),
                                str(entry['ou']),
                                ]
-                elif type in ['group','admingroup']:
-                    values = [name,
+                  elif type in ['group','admingroup']:
+                      values = [name,
                               entry['description'],
                               entry['members'],
                               entry['posixgid'],
                               entry['ou']
                               ]
-                
+                except KeyError:
+                   logger.error("Person without posix user detected!")
+                   continue                
+
                 try:
                     line = ";".join(values)
                 except Exception,m:
