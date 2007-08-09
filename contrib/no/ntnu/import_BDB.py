@@ -36,7 +36,7 @@ num_persons = 0
 ant_persons = 0
 verbose = False
 dryrun = False
-
+traceback = False
 
 
 
@@ -163,7 +163,6 @@ class BDBSync:
         return
 
     def _sync_vacation(self,vac):
-        global dryrun,verbose
         const = self.const
         person = self.new_person
         person.clear()
@@ -197,7 +196,6 @@ class BDBSync:
         return
 
     def _sync_forward(self,forward):
-        global dryrun
         # This method to be called from sync_persons, so person.entity_id should
         # already be set.
         person = self.new_person
@@ -230,7 +228,6 @@ class BDBSync:
         self.aff_map[7] = self.const.affiliation_manuell_emeritus
         self.aff_map[9] = self.const.affiliation_manuell_alumni
         self.aff_map[12] = self.const.affiliation_manuell_annen
-        global verbose,dryrun
         if verbose:
             print "Getting affiliations from BDB"
         affiliations = self.bdb.get_affiliations()
@@ -242,7 +239,6 @@ class BDBSync:
         #aff is a dict with keys. aff['person'] is the bdb-external-id which can be found
         #as an externalid on persons in Cerebrum. We use this to connect affiliations and
         #persons.
-        global dryrun,verbose
         self.logger.info("Process affiliation for %s" % aff['person'])
         if verbose:
             print "Process affiliation for bdb-person: %s" % aff['person']
@@ -298,7 +294,7 @@ class BDBSync:
 
     def sync_persons(self):
         self.logger.debug("Getting persons from BDB...")
-        global ant_persons,verbose,dryrun
+        global ant_persons
         if verbose:
             print "Getting persons from BDB"
         persons = self.bdb.get_persons()
@@ -306,7 +302,6 @@ class BDBSync:
         self.logger.debug("Done fetching persons from BDB")
         for person in persons:
             self._sync_person(person)
-        global missing_personnr,wrong_nss_checksum
         if verbose:
             print "%s persons had missing personnumber" % missing_personnr
             print "%s persons had bad checksum on personnumber" % wrong_nss_checksum
@@ -367,7 +362,7 @@ class BDBSync:
             return True
 
     def _sync_person(self, person):
-        global num_persons,ant_persons,dryrun,verbose
+        global num_persons,ant_persons
         self.logger.info("Process %s" % person['id'])
         const = self.const
         new_person = self.new_person
@@ -479,7 +474,6 @@ class BDBSync:
         """
         This method synchronizes all BDB groups into Cerebrum.
         """
-        global verbose,dryrun
         groups = self.bdb.get_groups()
         posix_group = self.posix_group
         group = self.group
@@ -562,7 +556,7 @@ class BDBSync:
     def _promote_posix(self, account_info, ac):
         # TBD: rewrite and consolidate this method and the method of same name
         #      from process_employees.py
-        global num_accounts, verbose, dryrun
+        global num_accounts
         group = self.group
         posix_user = self.posix_user
         posix_group = self.posix_group
@@ -652,7 +646,7 @@ class BDBSync:
 
     def _sync_account(self,account_info,update_password_only=False):
         """Callback-function. To be used from sync_accounts-method."""
-        global num_accounts,verbose,dryrun
+        global num_accounts
         logger = self.logger
         logger.debug("Callback for %s@%s" % (account_info['id'],account_info['name']))
 
@@ -801,7 +795,7 @@ class BDBSync:
         """
         This method synchronizes all BDB accounts into Cerebrum.
         """
-        global num_accounts,verbose,dryrun
+        global num_accounts
         if verbose:
             print "Fetching accounts from BDB"
 
@@ -813,7 +807,8 @@ class BDBSync:
                 self._sync_account(account,password_only)
             except Exception, e:
                 self.db.rollback()
-                traceback.print_exc()
+                if traceback:
+                    traceback.print_exc()
                 self.logger.warning('Syncronizing %s failed: %s' % (
                     account['name'], e))
             else:
@@ -829,7 +824,6 @@ class BDBSync:
 
 
     def _sync_spread(self,spread):
-        global verbose,dryrun
         s_map = self.spread_mapping
         ac = self.ac
         ac.clear()
@@ -893,7 +887,6 @@ class BDBSync:
 
     def sync_spreads(self):
         """This method syncronizes all spreads on accounts from BDB into Cerebrum."""
-        global verbose,dryrun
         if verbose:
             print "Fetching accounts with spreads from BDB"
         spreads = self.bdb.get_account_spreads()
@@ -903,7 +896,6 @@ class BDBSync:
 
     def sync_email_domains(self):
         print "Fetching email-domains"
-        global verbose, dryrun
         domains = self.bdb.get_email_domains()
         for domain in domains:
             self._sync_email_domain(domain)
@@ -918,7 +910,6 @@ class BDBSync:
         return
 
     def _sync_email_domain(self,domain):
-        global verbose, dryrun
         if verbose:
             print "Syncronizing %s" % domain.get('email_domain')
         ed=Email.EmailDomain(self.db)
@@ -937,7 +928,6 @@ class BDBSync:
 
 
     def sync_email_addresses(self):
-        global dryrun,verbose
         if verbose:
             print "Fetching email addresses from BDB"
         addresses = self.bdb.get_email_addresses()
@@ -954,7 +944,6 @@ class BDBSync:
         return
 
     def _sync_email_address(self,address):
-        global verbose
         if verbose:
             print "Processing %s@%s" % (address.get('email_address'),address.get('email_domain_name'))
 
@@ -1040,10 +1029,10 @@ def usage():
     sys.exit(0)
 
 def main():
-    global verbose,dryrun
+    global verbose,dryrun,traceback
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvh',
-                    ['password-only','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
+                    ['password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
     if (('--password-only','')) in opts:
@@ -1057,6 +1046,8 @@ def main():
             verbose = True
         elif opt in ('-d','--dryrun'):
             dryrun = True
+        elif opt in ('--traceback',):
+            traceback = True
         elif opt in ('--personid',):
             # Konverter val til noe saklig
             print "Syncronizing BDBPerson: %s" % val
