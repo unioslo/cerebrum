@@ -443,11 +443,24 @@ def process_email_move_requests():
             start = time.time()            
             for r_id in cur_procs.copy():
                 proc, r, a_id, reqlock = cur_procs[r_id]
-                for l in proc.fromchild.readline():
-                    # TBD: Look for something here
-                    pass
-                for l in proc.childerr.readline():
-                    logger.error('pid: %d caught: "%s".', proc.pid, l)
+
+                # Stolen from Utils.py:spawn_and_log_output()
+                descriptor = {proc.fromchild: logger.debug,
+                              proc.childerr: logger.error}
+                while descriptor:
+                    # select() is called for _every_ line, since we can't inspect
+                    # the buffering in Python's file object.  This works OK since
+                    # select() will return "readable" for an unread EOF, and
+                    # Python won't read the EOF until the buffers are exhausted.
+                    ready, x, x = select(descriptor.keys(), [], [])
+                    for fd in ready:
+                        line = fd.readline()
+                        if line == '':
+                            fd.close()
+                            del descriptor[fd]
+                        else:
+                            descriptor[fd]("[%d] %s" % (pid, line.rstrip()))
+
                 pid = proc.pid
                 ret = proc.poll()
                 if ret == -1:
