@@ -170,43 +170,36 @@ class system_xRepresentation(object):
         # Get all persons that come from SysX  ONLY, _and_ has a norwegian SSN! 
         entities = person.list_external_ids(source_system=const.system_x,id_type=const.externalid_fodselsnr,entity_type=8)
         for entity in entities:
-
             account.clear()
             person.clear()
             stedkode.clear()
-
+            
             # find account and person objects
-            person.find(entity['entity_id'])
-                        
+            external_id = entity['external_id']
+            person.find(entity['entity_id'])                        
+
+            # Get the affiliation status code string
+            aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
+            #print "AFFS for person %s, %s" % (person.entity_id,aff)
+            if not aff:
+                logger.debug("No systemX aff for person %s.. skip" % external_id)
+                continue
+                                 
+            aff_str = const.PersonAffStatus(aff[0]['status'])
+            aff_id = aff[0]['ou_id']
+            fornavn = person.get_name(current_source_system,const.name_first)
+            etternavn = person.get_name(current_source_system,const.name_last)    
+
+
             acc_id = person.get_primary_account()
             if (acc_id):
                 account.find(acc_id)
             else:
                 logger.warn("SysX person ID=(%s) Fnr=(%s) has no active account" % (entity['entity_id'],entity['external_id']))
-                continue
-                             
-
-            external_id = entity['external_id']
-
-           
+                continue           
 
             person_attrs = {"fnr":external_id,"reservert":"N"}
             account_name = account.account_name            
-            
-            # Get the affiliation status code string
-            try:
-                aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
-                fornavn = person.get_name(current_source_system,const.name_first)
-                etternavn = person.get_name(current_source_system,const.name_last)
-                aff_str = const.PersonAffStatus(aff[0]['status'])
-                aff_id = aff[0]['ou_id']
-            except Errors.NotFoundError:
-                # Frida spread from another source system, we dont care about these here...
-                continue
-            except Exception,msg:
-                logger.error("Error: %s,account_id =%s,person_id=%s" % (msg,account.entity_id,person.entity_id))
-                continue
-
 
             # Got info, output!
             found=False
@@ -215,6 +208,7 @@ class system_xRepresentation(object):
                 if external_id==existing_person_ssn:
                     found=True
             if (found==False):
+                logger.info("Output sysx person %s" % (external_id))
                 writer.startElement("person",person_attrs)
 
                 writer.startElement("etternavn")
@@ -223,7 +217,6 @@ class system_xRepresentation(object):
 
                 writer.startElement("fornavn")
                 writer.data(fornavn)
-                #writer.endElement("givenName")
                 writer.endElement("fornavn")
 
                 writer.startElement("brukernavn")
@@ -263,25 +256,6 @@ class system_xRepresentation(object):
                 dato_fra ="%s-%s-%s" % (create_date.year,create_date.month,create_date.day)
                 writer.data(dato_fra)
                 writer.endElement("datoFra")
-
-#              # traverse through the global list and check if the external_id already exists there.
-#             # if it does, then set the guest field dato_til to that persons tils.fra_dato
-#             # result is that all guests who now come as an employee will have the guest.dato_til
-#             # set to that persons start date as an employee.
-#             for i in person_list:
-#                 existing_person_ssn="%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
-#                 if external_id==existing_person_ssn:
-#                     print "gjeste:%s%s%s%s == ansatt:%s" % (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'],external_id)
-#                     temp_dato= i['tils']['dato_fra']
-#                     dato_list=temp_dato.split("/")
-#                     dato_til_mnd=dato_list[0]
-#                     dato_til_dag=dato_list[1]
-#                     dato_til_aar = dato_list[2]
-#                     dato_til="%s-%s-%s" % (dato_til_aar,dato_til_mnd,dato_til_dag)
-#                     if dato_til > dato_fra:
-#                         writer.startElement("datoTil")
-#                         writer.data(str(dato_til))
-#                         writer.endElement("datoTil")
 
                 writer.startElement("gjestebetegnelse")
                 writer.data(aff_str.status_str)
@@ -1273,25 +1247,9 @@ def output_people(writer, db, person_file):
               "name_last", "name_first", "contact_phone"]:
         logger.debug("%s -> %s (%d)",
                      c, getattr(constants,c), getattr(constants,c))
-    # od
-
+        
     #writer.startElement("NorPersons")
     writer.startElement("personer")
-
-    # NB! The callable object (2nd argument) is invoked each time the parser
-    # sees a </person> tag.
-    # 
-#    execute = email_address()
-#    email_list = execute.build_email_list()
-    
-#    parser = LTPersonParser(person_file,
-#                            lambda p: output_person(execute,email_list,writer = writer,
-#                                                    pobj = p,
-#                                                    db_person = db_person,
-#                                                    db_account = db_account,
-#                                                    constants = constants,
-#                                                    system_source = constants.system_lt))
-
     parser = LTPersonParser(person_file,
                             lambda p: output_person(writer = writer,
                                                     pobj = p,
@@ -1299,12 +1257,10 @@ def output_people(writer, db, person_file):
                                                     db_account = db_account,
                                                     constants = constants,
                                                     system_source = constants.system_lt))
-
-
     parser.parse()
+    
     system_x_parser = system_xRepresentation()
     system_x_parser.execute(person_file,writer = writer,system_source = constants.system_x)
-    #writer.endElement("NorPersons")
     writer.endElement("personer")
 # end output_people    
 
