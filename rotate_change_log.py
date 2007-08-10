@@ -29,14 +29,14 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import ChangeLog
 from Cerebrum.Constants import Constants
 
+logger = Factory.get_logger("cronjob")
+
 class access_log:
 
     def __init__(self,file_dump,change_type_list=None):
         
-        logger_name = cereconf.DEFAULT_LOGGER_TARGET
         self.db = Factory.get('Database')()
         self.constants = Factory.get('Constants')(self.db)
-        self.logger = Factory.get_logger(logger_name)
 
         # no_touch_change_type_id contains a list over change_type_id's which will not be deleted under any sircumstances.
         self.no_touch_change_type_id=(int(self.constants.account_create),
@@ -54,7 +54,7 @@ class access_log:
         try:
             for change_type in change_type_list:
                 if int(change_type) in self.no_touch_change_type_id:
-                    print "%s is not a valid change_type." % int(change_type)
+                    logger.error("%s is not a valid change_type." % int(change_type))
                     sys.exit(1)
         except TypeError:
             # no change_type given
@@ -66,10 +66,10 @@ class access_log:
             else:
                #file already exists. concatenate data
                self.file_handle=open(file_dump,"a")
-               self.logger.debug("opening %s for appending" % file_dump)
+               logger.debug("opening %s for appending" % file_dump)
         else:
             #no data will be stored in log files
-            self.logger.debug("No dump file spesified")
+            logger.debug("No dump file spesified")
 
 
     #get all change_ids we want to delete.
@@ -90,7 +90,7 @@ class access_log:
                 self.db.remove_log_event(row['change_id'])
             self.file_handle.close()
         except AttributeError, m:
-            self.logger.debug("No dump file has been given. deleting withouth taking backup")
+            logger.debug("No dump file has been given. deleting withouth taking backup")
             # unable to write to file. no log file has been given
         self.db.commit()
         
@@ -131,7 +131,7 @@ class access_log:
             where.append("tstamp < :sdate")
             bind['sdate'] = sdate
         where = "WHERE (" + ") AND (".join(where) + ")"
-        print "WJHERE=%s" % where
+        logger.debug("WJHERE=%s" % where)
         return self.db.query("""
         SELECT tstamp, change_id, subject_entity, change_type_id, dest_entity,
                change_params, change_by, change_program
@@ -140,8 +140,6 @@ class access_log:
 
 
 def main():
-
-   
     
     try:
         opts,args = getopt.getopt(sys.argv[1:],'d:D:c:C:',['dump_file=','date=','change_program=','change_type=',])
