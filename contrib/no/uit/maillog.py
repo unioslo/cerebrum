@@ -141,11 +141,12 @@ def filter_uninteresting(text, uninter, jobname=None):
         #print "0ORGjobname=%s" %(orgJobName)
         if (t == ''):
             continue
-        #print "1jobname=%s" % jobname # t='%s', uinter=%s" %(jobname,t,uninter)
+        #print "1jobname=%s  t='%s', uinter=%s" %(jobname,t,uninter)
         if (orgJobName == None):
              re_entry = re.compile(r'^\d+-\d+-\d+ \d+:\d+:\d+ ([^\[]+)\[(\d+)\]:')
              m=re_entry.match(t)
-             jobname=m.group(1)
+             if m:
+                 jobname=m.group(1)
         #print "2jobname=%s" %(jobname)
         if jobname in uninter and re.search(uninter[jobname], t):
             #print "filtering %s" % t
@@ -312,4 +313,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# arch-tag: b7620e44-b426-11da-8e65-d4d0bffc2111
