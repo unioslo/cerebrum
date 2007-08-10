@@ -435,8 +435,8 @@ def process_email_move_requests():
             cyrus_set_quota(acc.entity_id, 0, host=new_server)
             # Call the script
             cmd = cmd_str(acc.account_name, old_server, new_server)
-            logger.debug("Calling cmd: '%s'", cmd)
             proc = popen2.Popen3(cmd, capturestderr=True, bufsize=10240)
+            logger.debug("Called cmd(%d): '%s'", proc.pid, cmd)
             proc.tochild.close()
             cur_procs[r_id] = (proc, r, acc.entity_id, reqlock)
         while True:
@@ -446,6 +446,8 @@ def process_email_move_requests():
                 for l in proc.fromchild.readline():
                     # TBD: Look for something here
                     pass
+                for l in proc.childerr.readline():
+                    logger.error('pid: %d caught: "%s".', proc.pid, l)
                 pid = proc.pid
                 ret = proc.poll()
                 if ret == -1:
