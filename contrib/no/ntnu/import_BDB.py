@@ -57,6 +57,48 @@ def _is_primary(_account):
     else:
         return False
 
+def valid_nin(dato, personnr):
+    # Valid date-formats are DDMMYYYY and DDMMYY
+    # dato = string, personnr = str/int
+    fnr = dato[:4] + dato[-2:] + "%0.5d"%int(personnr)
+
+    vekt1 = [3,7,6,1,8,9,4,5,2]
+    vekt2 = [5,4,3,2,7,6,5,4,3,2]
+
+    sum1 = sum2 = 0
+    for i in range(9): sum1 += vekt1[i] * int(fnr[i])
+    for i in range(10): sum2 += vekt2[i] * int(fnr[i])
+
+    sif1 = sum1 % 11
+    sif2 = sum2 % 11
+
+    if (sif1>0): sif1 = 11-sif1
+    if (sif2>0): sif2 = 11-sif2
+
+    return ( (str(sif1) == fnr[-2]) and (str(sif2)==fnr[-1]) )
+
+
+def avknekk_ytlendinger(fnr):
+    #    Foreign student have +40 on days, or +50 on months in their
+    #    birthdate. This is stripped by BDB, and we're now putting it
+    #    back.
+    if valid_nin(fnr[:6], fnr[6:]):
+        return fnr
+
+    day = int(fnr[0:2])
+    month = int(fnr[2:4])
+
+    pluss40 = str("%0.2d" % (day+40)) + fnr[2:]
+    if valid_nin(pluss40[:6], pluss40[6:]):
+        return pluss40
+
+    pluss50 = fnr[0:2]  + str("%0.2d" % (month+50)) + fnr[4:]
+    if valid_nin(pluss50[:6], pluss50[6:]):
+        return pluss50
+
+    return fnr
+
+
 class BDBSync:
     def __init__(self):
         self.bdb = access_BDB.BDB()
@@ -344,6 +386,7 @@ class BDBSync:
         year = year[2:]
         # Format fnr correctly
         fnr = "%02d%02d%02d%05d" % (int(day),int(month),int(year),int(pnr))
+        fnr = avknekk_ytlendinger(fnr)
         return fnr
 
     def __validate_names(self,person): 
