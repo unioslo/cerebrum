@@ -58,11 +58,11 @@ class access_log:
                     sys.exit(1)
         except TypeError:
             # no change_type given
-            self.logger.debug("No change type given as parameter to program")
+            logger.debug("No change type given as parameter to program")
         if(file_dump !=None):
             if not (os.path.isfile(file_dump)):
                 self.file_handle=bz2.BZ2File(file_dump,"w")
-                self.logger.debug("opening %s for writing" % file_dump)
+                logger.debug("opening %s for writing" % file_dump)
             else:
                #file already exists. concatenate data
                self.file_handle=open(file_dump,"a")
