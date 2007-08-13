@@ -25,6 +25,7 @@ import cerebrum_path, cereconf
 from Cerebrum.Utils import Factory, AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
+
 # We can process these export IDs only
 selectors = { "uname"    : { "xmlname"  : "userid",
                              "function" : lambda fnr, person, const: person2uname(fnr) },
@@ -223,7 +224,10 @@ def output_person(writer, fnr, data):
     data is a dictionary mapping id kind to id value.
     """
 
-    key_order = ["fullname", "phone", "mail", "URL"]
+    key_order = ["fullname", "phone", "mail", "URL", "uname"]
+    # IVR 2007-08-13 Make sure that we do not forget any keys.
+    assert set(key_order) == set(selectors.keys()), \
+           "Did you forget to update code?"
     writer.startElement("perskomm")
     writer.dataElement("persnr", fnr)
     
