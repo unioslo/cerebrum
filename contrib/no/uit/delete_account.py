@@ -22,7 +22,11 @@ class delete:
         delete_tables.append({'entity_info':'entity_id'})
 
         delete_mail_tables=[]
-        delete_mail_tables.append({'email_target_server':'target_id'})
+
+        #RMI000 - 20070813
+        #Doesn't exist after updating email module
+        #delete_mail_tables.append({'email_target_server':'target_id'})
+
         delete_mail_tables.append({'email_primary_address':'target_id'})
         delete_mail_tables.append({'email_address':'target_id'})
         delete_mail_tables.append({'email_target':'target_id'})
@@ -107,4 +111,3 @@ def usage():
 if __name__ == '__main__':
     main()
 
-# arch-tag: c32eed0e-b431-11da-8813-60271a4aff4f
