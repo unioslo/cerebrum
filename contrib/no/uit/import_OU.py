@@ -49,6 +49,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program='import_OU')
 co = Factory.get('Constants')(db)
 
+logger=Factory.get_logger('cronjob')
 
 # <data>
 #   <sted fakultetnr="ff" instituttnr="ii" gruppenr="gg"
@@ -89,10 +90,10 @@ class OUData(xml.sax.ContentHandler):
         self.tp = TrivialParser()
         for source_spec in sources:
             source_sys_name, filename = source_spec.split(':')
-            print "source_sys_name %s" % source_sys_name
+            logger.debug("source_sys_name %s" % source_sys_name)
             source_system = getattr(co, source_sys_name)
-            print "source_system = %s" % source_system
-            print "filename = %s" % filename
+            logger.debug("source_system = %s" % source_system)
+            logger.debug("filename = %s" % filename)
             xml.sax.parse(filename, self.tp)
 
     def __iter__(self):
