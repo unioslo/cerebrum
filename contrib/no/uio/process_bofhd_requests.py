@@ -269,7 +269,6 @@ def process_requests(types):
             process_move_student_requests()
         if t == 'email':
             process_email_move_requests()
-            return
         for op, process, delay in operations[t]:
             set_operator()
             start_time = time.time()
