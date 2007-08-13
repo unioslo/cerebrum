@@ -410,10 +410,10 @@ class AccountUtil(object):
         if changes:
             if ac.is_deleted():
                 AccountUtil.restore_uname(account_id, profile)
-            for q in ac.get_quarantines():
-                if q in [int(const.quarantine_generell),
-                         int(const.quarantine_autopassord)]:
-                    changes.append(('remove_quarantine_at_restore', q))
+                for q in ac.get_quarantines():
+                    if q in [int(const.quarantine_generell),
+                             int(const.quarantine_autopassord)]:
+                        changes.append(('remove_quarantine_at_restore', q))
             
         if changes:
             AccountUtil._handle_user_changes(changes, account_id, as_posix)
