@@ -747,7 +747,7 @@ class SkippingIterator:
                 [re.compile("\d{6}00[0,1,2]00"), ],
             ValueError:
                 # this is how SAP/POLS tag invalid person entries
-                [re.compile("Name contains '\*'")],
+                [re.compile("Name contains '@' or '\*'")],
             AssertionError:
                 # These OUs are broken, since they lack the proper names
                 [re.compile("No name available for OU \(0, 0, 0\)")],
@@ -767,20 +767,24 @@ class SkippingIterator:
                 exc, value, tb = sys.exc_info()
                 # it's not one of the "known" errors
                 if exc not in self.ignore_errors:
-                    self.logger.exception("failed to process next element")
+                    if self.logger:
+                        self.logger.exception("failed to process next element")
                     continue
 
                 value = str(value)
                 matched = False
                 for pobj in self.ignore_errors[exc]:
                     if pobj.search(value):
-                        self.logger.debug("(Known) error for next element. "
-                                          "Element ignored: %s %s", str(exc), value)
+                        if self.logger:
+                            self.logger.debug("(Known) error for next element. "
+                                              "Element ignored: %s %s", str(exc), value)
                         matched = True
                         break
 
                 # It's not a "known" error
                 if not matched:
-                    self.logger.exception("failed to process next (known) element")
+                    if self.logger:
+                        self.logger.exception("failed to process next (known) element")
                     continue
+    # end next
 # end SkippingIterator
