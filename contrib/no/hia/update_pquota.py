@@ -74,8 +74,9 @@ def check_paid_semfee():
     return paid_semfee
 
 def update_quota(update, ldap_handle, pq, edir_ut, noup):
-    total = 0
     for k, v in update.iteritems():
+        total = 0
+        pq_stat = [0]
         try:
             pq.find(int(k))
         except Errors.NotFoundError:
@@ -88,9 +89,13 @@ def update_quota(update, ldap_handle, pq, edir_ut, noup):
         if pq_bal:
             total = int(pq_bal[0]) + int(cereconf.NW_FREEQUOTA)
             logger.info('Updating total quota for %s, new total %d (old total = %d)' % (update[k],
-                                                                                        total,
-                                                                                        int(pq_bal[0])))
-            pq.update_total(int(k), total)
+                                                                                       total,
+                                                                                       int(pq_bal[0])))
+        else:
+            total = int(cereconf.NW_FREEQUOTA)
+            logger.info('Updating total quota for %s, new total %d (old total = 0)' % (update[k],
+                                                                                       total))
+        pq.update_total(int(k), total)
         if noup:
             logger.debug('Should update edir with new total %d for %s.' % (total,
                                                                            update[k]))
