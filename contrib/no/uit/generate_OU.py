@@ -36,9 +36,10 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum.modules.no.uit.access_FS import FS
-from Cerebrum.modules.no.uit.uit_txt2xml_lib import FSImport
+from Cerebrum.Utils import Factory, AtomicFileWriter
+from Cerebrum.extlib import xmlprinter
 
-logger = None
+logger = Factory.get_logger("cronjob")
 
 # Default file locations
 t = time.localtime()
@@ -74,7 +75,7 @@ class ou:
         query = "select old_ou_id from ou_history where old_ou_id='%s'" % INST_NR
         db_row = self.db.query(query)
         if(len(db_row) > 0):
-            logger.debug("%s IS NOT TO BE REGISTRED IN CEREBRUM" % INST_NR)
+            logger.error("%s IS NOT TO BE REGISTRED IN CEREBRUM" % INST_NR)
             # indication that all references to this ou is to be replaced with another one.
             # i.e, this ou is not to be inserted
             return 0
@@ -261,24 +262,24 @@ class ou:
 
 
     def print_ou(self,final_ou,out_file):
-        man_ou_handle = FSImport()
-        bar = {'name' : 'data', 'attr' : 'None'}
-        foo = []
+        stream = AtomicFileWriter(out_file, "w")
+        writer = xmlprinter.xmlprinter(stream,
+                                       indent_level = 2,
+                                       data_mode = True,
+                                       input_encoding = "latin1")
+        writer.startDocument(encoding = "iso8859-1")
+        writer.startElement("data")
         for ou in final_ou:
             # lets check if this is an OU that is not to be presented in BAS
             if self.remove_surp_ou(ou['temp_inst_nr'])==1:
                 del ou['temp_inst_nr']
-                # OU is ok.
-                foo.append({'name': 'sted', 'child': 'None', 'attr' : ou})
-        bar['child'] = foo
-        # write the list to the xml file
-        man_ou_handle.writeXML("kenny", bar,out_file)
+                writer.emptyElement("sted",ou)
+        writer.endElement("data")
+        writer.endDocument()
+        stream.close()
 
         
 def main():
-
-    global logger
-    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
     try:
         opts,args = getopt.getopt(sys.argv[1:],'o:O:',['ou_source=','Out_file='])
