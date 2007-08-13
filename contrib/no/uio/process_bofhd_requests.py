@@ -356,8 +356,6 @@ pwfile = os.path.join(cereconf.DB_AUTH_DIR,
                                         cereconf.CYRUS_HOST))
 
 def email_move_child(host, r):
-    db = Factory.get('Database')()
-    global db
     r_id = r['request_id']
     if not is_valid_request(r_id):
         return
