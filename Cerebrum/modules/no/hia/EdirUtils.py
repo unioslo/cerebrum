@@ -188,6 +188,7 @@ class EdirUtils:
            Change_log - lars vil ha updates inn der."""
         tmp = 0
         attrs = {}
+        action = 'add'
         ldap_object = self._find_object(account_name,
                                         self.c_person,
                                         self.pq_attrlist)
@@ -195,12 +196,11 @@ class EdirUtils:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             if 'accountBalance' in ldap_attr.keys():
                 tmp = int(ldap_attr['accountBalance'][0])
-                pquota = tmp + pquota
-                attrs['accountBalance'] = [str(pquota)]
-                attrs['allowUnlimitedCredit'] = ['False']
-                self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attrs)
-            else:
-                self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'add', attrs)
+                action = 'replace'
+            pquota = tmp + pquota
+            attrs['accountBalance'] = [str(pquota)]
+            attrs['allowUnlimitedCredit'] = ['False']
+            self.__ldap_handle.ldap_modify_object(ldap_object_dn, action, attrs)
             self.logger.info("Updated quota for %s, new quota is %s" % (account_name,
                                                                    pquota))
             desc = "Cerebrum: update_quota (%s), old=%s, new=%s" % (self.date,
