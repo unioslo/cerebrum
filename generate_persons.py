@@ -35,11 +35,11 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
-from Cerebrum.modules.no.uit.uit_txt2xml_lib import FSImport
+from Cerebrum.Utils import Factory, AtomicFileWriter
+from Cerebrum.extlib import xmlprinter
 
 db = Factory.get('Database')()
-logger = None
-locale.setlocale(locale.LC_ALL,"en_US.ISO-8859-1")
+logger = Factory.get_logger("cronjob")
 
 
 # Define default file locations
@@ -305,12 +305,14 @@ class create_person_xml:
         hovedkat['AVDELINGSDIREKTØR'] = "ØVR"
         hovedkat['UNIVERSI.BIBLIOTEKAR'] = "ØVR"
         hovedkat['FØRSTESEKRETÆR'] = "ØVR"
-        
-        out_handle = open(out_file,"w")
-        person_handle = FSImport()
-        #person_handle.readConfig("config.xml")
-        bar = {'name' : 'data', 'attr' : 'None'}
-        foo = []
+
+        stream = AtomicFileWriter(out_file, "w")
+        writer = xmlprinter.xmlprinter(stream,
+                                       indent_level = 2,
+                                       data_mode = True,
+                                       input_encoding = "latin1")
+        writer.startDocument(encoding = "iso8859-1")
+        writer.startElement("data")
 
         for person_dict in person_hash:
             temp_bilag = []
@@ -342,15 +344,15 @@ class create_person_xml:
             temp_tils.append({'name' : 'tils','child' : 'None','attr' : tils_value})
             del person_dict['stedkode']
             person_dict['tittel'] = person_dict['tittel'].capitalize()
-            foo.append({'name': 'person', 'child': temp_bilag, 'child': temp_tils, 'attr' : person_dict})
-        bar['child'] = foo
-        person_handle.writeXML("kenny",bar,out_file)
+            writer.startElement("person",person_dict)
+            writer.emptyElement("tils",tils_value)
+            writer.endElement("person")
+        writer.endElement("data")
+        writer.endDocument()
+        stream.close()
 
 
 def main():
-    global logger
-    logger_name = cereconf.DEFAULT_LOGGER_TARGET 
-    logger = Factory.get_logger(logger_name)
     
     # lets set default out_file file
     date = time.localtime()
@@ -392,6 +394,8 @@ def usage():
     -o | --out_file   : alternative xml file to store data in
     -t | --type       : type of data. AD or FRIDA.. use AD for now
     -s | --slp4_file  : file with slp4 data
+    --logger-name     : name of logger to use
+    --logger-level    : loglevel to use
     
     """
     sys.exit(0)
