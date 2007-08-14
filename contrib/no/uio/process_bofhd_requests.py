@@ -443,13 +443,13 @@ def email_move_child(host, r):
         return
     logger.info('%s: managesieve_sync completed successfully', acc.account_name)
     # The move was successful, update the user's server
+    # Now set the correct quota.
+    hq = get_email_hardquota(acc.entity_id, local_db=local_db)
+    cyrus_set_quota(acc.entity_id, hq, host=new_server, local_db=local_db)
     et = Email.EmailTarget(local_db)
     et.find_by_entity(acc.entity_id)
     et.email_server_id = new_server.entity_id
     et.write_db()
-    # Now set the correct quota.
-    hq = get_email_hardquota(acc.entity_id, local_db=local_db)
-    cyrus_set_quota(acc.entity_id, hq, host=new_server, local_db=local_db)
     # We need to delete this request before adding the
     # delete to avoid triggering the conflicting request
     # test.
