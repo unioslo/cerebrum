@@ -1015,6 +1015,7 @@ def make_letters(data_file=None, type=None, range=None):
     account = Factory.get('Account')(db)
     ou = Factory.get('OU')(db)
     primary_email_address = "N/A"
+    sko = None
     dta = {}
     logger.debug("Making %i letters" % len(all_passwords))
     for account_id in all_passwords.keys():
@@ -1027,7 +1028,7 @@ def make_letters(data_file=None, type=None, range=None):
             logger.warn("NotFoundError for account_id=%s" % account_id)
             continue
         # get e-mail address
-        primary_email_address = account.get_primary_mailadress()
+        primary_email_address = account.get_primary_mailaddress()
         # get valid ou for the student
         ou_id = None
         sko = None
@@ -1037,8 +1038,8 @@ def make_letters(data_file=None, type=None, range=None):
                 break
         if ou_id:
             ou.clear()
-            ou.find()
-        sko = "02%d02%d02%d" % (ou['fakultet'], ou['institutt'], ou['avdeling'])
+            ou.find(ou_id)
+            sko = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
         tpl = {}
         address = None
         for source, kind in ((const.system_fs, const.address_post),
