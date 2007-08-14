@@ -387,7 +387,7 @@ def email_move_child(host, r):
     reqlock = RequestLockHandler('/cerebrum/var/log/cerebrum/.lock-%d')
     reqlock.grab(r_id)
     # Disable quota while copying so the move doesn't fail
-    cyrus_set_quota(acc.entity_id, 0, host=new_server)
+    cyrus_set_quota(acc.entity_id, 0, host=new_server, local_db=local_db)
     # Call the script
     cmd = [SUDO_CMD, WRAPPER_CMD, '-c', 'imap_move',
            '--', host,
@@ -599,14 +599,14 @@ def cyrus_delete(host, uname, generation):
     return True
 
 
-def cyrus_set_quota(user_id, hq, host=None):
+def cyrus_set_quota(user_id, hq, host=None, local_db=db):
     try:
-        uname = get_account(user_id).account_name
+        uname = get_account(user_id, local_db=local_db).account_name
     except Errors.NotFoundError:
         logger.error("cyrus_set_quota: %d: user not found", user_id)
         return False
     if host is None:
-        host = get_email_server(user_id)
+        host = get_email_server(user_id, local_db=local_db)
     if not (cereconf.DEBUG_HOSTLIST is None or
             host.name in cereconf.DEBUG_HOSTLIST):
         logger.info("cyrus_set_quota(%s, %d, %s): skipping",
