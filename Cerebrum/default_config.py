@@ -293,6 +293,11 @@ CWEB_TPL_DIR='.'
 
 # Logdir for AutoStud jobs
 AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write access
+
+# decide whether autostud should produce letters for students with address
+# registered (if =True letters are produced)
+AUTOADMIN_MAKE_ABROAD_LETTERS=False
+
 # Socket used to query the job-runner server, should not be writeable by untrusted users
 JOB_RUNNER_SOCKET="/tmp/jr-socket"
 
