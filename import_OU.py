@@ -101,7 +101,6 @@ class OUData(xml.sax.ContentHandler):
 
     def next(self):
         try:
-            #print "self.tp.org_units.pop(0) = %s" % self.tp.org_units.pop(0)
             return self.tp.org_units.pop(0)
         except IndexError:
             raise StopIteration, "End of file"
@@ -137,16 +136,14 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
     """Recursively create the ou_id -> parent_id mapping"""
     ou_data = org_units[stedkode]
     org_stedkode = get_stedkode_str(ou_data, suffix='_for_org_sted')
-    #print "ORG_STEDKODE=%s" % org_stedkode
-    #print "STEDKODE2OU=%s" % stedkode2ou
     if not stedkode2ou.has_key(org_stedkode):
-        print "Error in dataset:"\
-              " %s references missing STEDKODE: %s, using None" % (
-            stedkode, org_stedkode)
+        logger.error("Error in dataset:"\
+                     " %s references missing STEDKODE: %s, using None" % (
+            stedkode, org_stedkode))
         org_stedkode = None
         org_stedkode_ou = None
     elif stedkode == org_stedkode:
-        print "Warning: %s has self as parent, using None" % stedkode
+        logger.warn("%s has self as parent, using None" % stedkode)
         org_stedkode = None
         org_stedkode_ou = None
     else:
@@ -155,16 +152,15 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
     if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
         if existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou:
             # TODO: Update ou_structure
-            print "Mapping for %s changed (%s != %s)" % (
+            logger.info("Mapping for %s changed (%s != %s)" % (
                 stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
-                org_stedkode_ou)
+                org_stedkode_ou))
             # uitø extension follows.
             # Ou's registred with parent_id as None, or wrong parent_id
             # will have to update their parent_id if a new one is submitted
             # in the stedkode.xml file. This is initially not done
             # this extension fixes this
             query = "update ou_structure set parent_id=%s where ou_id=%s" % (org_stedkode_ou,stedkode2ou[stedkode])
-            #print "query = %s" % query
             db.query(query)
             
         return
@@ -177,12 +173,11 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
 
     ou.clear()
     ou.find(stedkode2ou[stedkode])
-    #print "hit?"
     if stedkode2ou.has_key(org_stedkode):
-        print "setting parent to %s" % stedkode2ou[org_stedkode]
+        logger.debug("setting parent to %s" % stedkode2ou[org_stedkode])
         ou.set_parent(perspective, stedkode2ou[org_stedkode])
     else:
-        print "setting parent to None"
+        logger.debug("setting parent to None for %s" % org_stedkode)
         ou.set_parent(perspective, None)
     existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
 
@@ -197,8 +192,8 @@ def import_org_units(sources):
         i += 1
         org_units[get_stedkode_str(k)] = k
         if verbose:
-            print "Processing %s '%s'" % (get_stedkode_str(k),
-                                          k['forkstednavn']),
+            logger.info("Processing %s '%s'" % (get_stedkode_str(k),
+                                                k['forkstednavn']),)
         ou.clear()
         try:
             ou.find_stedkode(k['fakultetnr'], k['instituttnr'], k['gruppenr'],
@@ -267,7 +262,7 @@ def import_org_units(sources):
             if nrtypes.has_key(t['kommtypekode']):
                 nr = t.get('telefonnr', t.get('kommnrverdi', None))
                 if nr is None:
-                    print "Warning: unknown contact: %s" % str(t)
+                    logger.warn("unknown contact: %s" % str(t))
                     continue
                 ou.populate_contact_info(source_system, nrtypes[t['kommtypekode']],
                                          nr, contact_pref=n)
@@ -287,11 +282,11 @@ def import_org_units(sources):
         op = ou.write_db()
         if verbose:
             if op is None:
-                print "**** EQUAL ****"
+                logger.info("**** EQUAL ****")
             elif op:
-                print "**** NEW ****"
+                logger.info("**** NEW ****")
             else:
-                print "**** UPDATE ****"
+                loggger.info("**** UPDATE ****")
 
         stedkode = get_stedkode_str(k)
         # Not sure why this casting to int is required for PostgreSQL
@@ -304,7 +299,7 @@ def import_org_units(sources):
 
     # Now populate ou_structure
     if verbose:
-        print "Populate ou_structure"
+        logger.info("Populate ou_structure")
     for stedkode in org_units.keys():
         rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
                     stedkode2ou, co)
@@ -351,7 +346,7 @@ def main():
             perspective = getattr(co, val)
         elif opt in ('-s', '--source-spec'):
             sources.append(val)
-            print "VAL=%s" % val
+            logger.debug("VAL=%s" % val)
         elif opt in ('-o', '--ou-file'):
             # This option is deprecated; use --source-spec instead.
             source_file = val
@@ -368,7 +363,7 @@ def main():
      
     if sources:
         if source_file is None and source_system is None:
-            print sources
+            logger.debug(sources)
             import_org_units(sources)
         else:
             usage(3)
