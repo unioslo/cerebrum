@@ -449,7 +449,7 @@ def email_move_child(host, r):
     et.write_db()
     # Now set the correct quota.
     hq = get_email_hardquota(acc.entity_id, local_db=local_db)
-    cyrus_set_quota(acc.entity_id, hq, host=new_server)
+    cyrus_set_quota(acc.entity_id, hq, host=new_server, local_db=local_db)
     # We need to delete this request before adding the
     # delete to avoid triggering the conflicting request
     # test.
