@@ -21,7 +21,7 @@
 
 """This Module ads expire_date to any Entity. It will enable basic 
 functionality to administer the new attribute. For example
-L{EntityExpire.set_expire_date}, L{EntityExpire.delete_expire_date},
+L{EntityExpire._set_expire_date}, L{EntityExpire._delete_expire_date},
 L{EntityExpire.is_expired}, etc.
 
 The Entity module itself must guarantee that its API functions 
@@ -63,6 +63,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Constants import Constants
+from Cerebrum.Utils import NotSet
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum.Entity import Entity
 from Cerebrum import Errors
@@ -91,8 +92,43 @@ class EntityExpire(Entity):
     to any given entity.
     
     """
+    __read_attr__ = ()
+    __write_attr__ = ('_expire_date',)
+
+    def clear(self):
+        """Clears current object instance."""
+        self._expire_date = NotSet
+        self.__updated = []
+        self.__super.clear()
+        
+    def delete(self):
+        """Deletes current object from DB."""
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=entity_expire]
+        WHERE entity_id=:e_id""", {'e_id': self.entity_id})
+        self.__super.delete()    
+
+    def populate_expire_date(self, expire_date):
+        """Sets expire date on current object instance.
+        
+        @param expire_date: If expire_date is None, deletion is assumed.
+        @type expire_date: String on format YYYYMMDD or Date/Time.
+        @return: Void.
+        
+        """
+        self._expire_date = expire_date    
+
+    def write_db(self):
+        """Writes changes in current object to database."""
+        self.__super.write_db()
+        if self._expire_date is not NotSet:
+            if '_expire_date' in self.__updated:
+                if self._expire_date is None:
+                    self._delete_expire_date()
+                else:
+                    self._set_expire_date(self._expire_date)
     
-    def set_expire_date(self, expire_date=None):
+    def _set_expire_date(self, expire_date=None):
         """
         Will set C{expire_date} on an entity. C{expire_date} should not
         be set for entitites that do not have a defined date on 
@@ -143,7 +179,7 @@ class EntityExpire(Entity):
                                 None,
                                 change_params=parameters)
 
-    def delete_expire_date(self):
+    def _delete_expire_date(self):
         """
         Removes expire_date for current entity.
         
@@ -170,6 +206,30 @@ class EntityExpire(Entity):
                             self.const.entity_expire_del, 
                             None,
                             change_params=parameters)
+
+    def find(self, entity_id, expired_before=None):
+        """Find with filter on expire date.
+        
+        @param expired_before: See L{EntityExpire.is_expired}.
+       
+        """
+
+        # Find object
+        self.__super.find(entity_id)
+        
+        # If the find doesn't fail, we can assume the OU is found and
+        # already in memory. Now check if it's not expired!
+        if self.is_expired(expired_before=expired_before):
+            tmp_id = self.entity_id
+            self.__super.clear()
+            raise EntityExpiredError('Entity %s expired.' % tmp_id)
+            
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = []                            
 
     def is_expired(self, entity_id=None, expired_before=None):
         """
@@ -256,7 +316,7 @@ class EntityExpire(Entity):
         except Errors.NotFoundError:
             return None
 
-    def expired_list(self, entity_type=None, expired_before=None):
+    def list_expired(self, entity_type=None, expired_before=None):
         """
         Obtains a list over expired entities.
         

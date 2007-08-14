@@ -36,31 +36,6 @@ class OUEntityExpireMixin(EntityExpire, OU):
     behaviour is to exclude all entitites that are expired at the
     time of the query."""
 
-    def find(self, ou_id, expired_before=None):
-        """
-        Overridden method. See L{OU} for functionality.
-        
-        @param expired_before: See L{EntityExpire.is_expired}.
-       
-        """
-
-        # Find OU object
-        self.__super.find(ou_id)
-        
-        # If the find doesn't fail, we can assume the OU is found and
-        # already in memory. Now check if it's not expired!
-        if self.is_expired(expired_before=expired_before):
-            tmp_id = self.entity_id
-            self.__super.clear()
-            raise EntityExpiredError('Entity %s expired.' % tmp_id)
-            
-        try:
-            del self.__in_db
-        except AttributeError:
-            pass
-        self.__in_db = True
-        self.__updated = []
-
     # Will only find non-expired OUs from non-expired parents
     def find_by_parent(self, acronym, perspective, parent_id, 
                                             expired_before=None):
