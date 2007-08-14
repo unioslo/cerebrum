@@ -219,10 +219,10 @@ def connect_cyrus(host=None, username=None, as_admin=True):
     return imapconn
 
 
-def dependency_pending(dep_id):
+def dependency_pending(dep_id, local_db=db, local_co=const):
     if not dep_id:
         return False
-    br = BofhdRequests(db, const)
+    br = BofhdRequests(local_db, local_co)
     for dr in br.get_requests(request_id=dep_id):
         logger.debug("waiting for request %d" % int(dep_id))
         return True
@@ -359,10 +359,12 @@ def email_move_child(host, r):
     local_db = Factory.get('Database')()
     local_co = Factory.get('Constants')(local_db)
     r_id = r['request_id']
-    if not is_valid_request(r_id):
+    if not is_valid_request(r_id, local_db=local_db, local_co=local_co):
         return
-    if dependency_pending(r['state_data']):
-        logger.debug("Request '%d' still has deps: '%s'.",  r_id, r['state_data'])
+    if dependency_pending(r['state_data'], local_db=local_db,
+                          local_co=local_co):
+        logger.debug("Request '%d' still has deps: '%s'.",  r_id,
+                     r['state_data'])
         return
     try:
         acc = get_account(r['entity_id'], local_db=local_db)
@@ -1060,9 +1062,9 @@ def get_group(id, grtype="Group"):
     return group
 
 
-def is_valid_request(req_id):
+def is_valid_request(req_id, local_db=db, local_co=const):
     # The request may have been canceled very recently
-    br = BofhdRequests(db, const)
+    br = BofhdRequests(local_db, local_co)
     for r in br.get_requests(request_id=req_id):
         return True
     return False
