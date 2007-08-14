@@ -154,11 +154,11 @@ def get_email_hardquota(user_id):
     return eq.email_quota_hard
 
 
-def get_email_server(account_id):
+def get_email_server(account_id, local_db=db):
     """Return Host object for account's mail server."""
-    et = Email.EmailTarget(db)
+    et = Email.EmailTarget(local_db)
     et.find_by_entity(account_id)
-    server = Email.EmailServer(db)
+    server = Email.EmailServer(local_db)
     server.find(et.email_server_id)
     return server
 
@@ -356,6 +356,8 @@ pwfile = os.path.join(cereconf.DB_AUTH_DIR,
                                         cereconf.CYRUS_HOST))
 
 def email_move_child(host, r):
+    local_db = Factory.get('Database')()
+    local_co = Factory.get('Constants')(local_db)
     r_id = r['request_id']
     if not is_valid_request(r_id):
         return
@@ -363,13 +365,13 @@ def email_move_child(host, r):
         logger.debug("Request '%d' still has deps: '%s'.",  r_id, r['state_data'])
         return
     try:
-        acc = get_account(r['entity_id'])
+        acc = get_account(r['entity_id'], local_db=local_db)
     except Errors.NotFoundError:
         logger.error("email_move: user %d not found",
                      r['entity_id'])
         return
-    old_server = get_email_server(r['entity_id'])
-    new_server = Email.EmailServer(db)
+    old_server = get_email_server(r['entity_id'], local_db=local_db)
+    new_server = Email.EmailServer(local_db)
     new_server.find(r['destination_id'])
     if old_server.entity_id == new_server.entity_id:
         logger.error("trying to move %s from and to the same server!",
@@ -439,7 +441,7 @@ def email_move_child(host, r):
         return
     logger.info('%s: managesieve_sync completed successfully', acc.account_name)
     # The move was successful, update the user's server
-    et = Email.EmailTarget(db)
+    et = Email.EmailTarget(local_db)
     et.find_by_entity(acc.entity_id)
     et.email_server_id = new_server.entity_id
     et.write_db()
@@ -449,11 +451,11 @@ def email_move_child(host, r):
     # We need to delete this request before adding the
     # delete to avoid triggering the conflicting request
     # test.
-    br = BofhdRequests(db, const)
+    br = BofhdRequests(local_db, local_co)
     br.delete_request(request_id=r_id)
-    db.commit()
+    local_db.commit()
     br.add_request(r['requestee_id'], r['run_at'],
-                   const.bofh_email_delete,
+                   local_co.bofh_email_delete,
                    r['entity_id'], old_server.entity_id)
     logger.info("%s: move_email success.", acc.account_name)
     reqlock.release()
@@ -1014,9 +1016,9 @@ def get_disk(disk_id):
     return host.name, disk.path
 
 
-def get_account(account_id=None, name=None):
+def get_account(account_id=None, name=None, local_db=db):
     assert account_id or name
-    acc = Factory.get('Account')(db)
+    acc = Factory.get('Account')(local_db)
     if account_id:
         acc.find(account_id)
     elif name:
