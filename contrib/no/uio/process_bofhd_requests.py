@@ -144,8 +144,8 @@ def email_delivery_stopped(user):
     return True
 
 
-def get_email_hardquota(user_id):
-    eq = Email.EmailQuota(db)
+def get_email_hardquota(user_id, local_db=db):
+    eq = Email.EmailQuota(local_db)
     try:
         eq.find_by_entity(user_id)
     except Errors.NotFoundError:
@@ -448,7 +448,7 @@ def email_move_child(host, r):
     et.email_server_id = new_server.entity_id
     et.write_db()
     # Now set the correct quota.
-    hq = get_email_hardquota(acc.entity_id)
+    hq = get_email_hardquota(acc.entity_id, local_db=local_db)
     cyrus_set_quota(acc.entity_id, hq, host=new_server)
     # We need to delete this request before adding the
     # delete to avoid triggering the conflicting request
