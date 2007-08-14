@@ -50,7 +50,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program='process_bofhd_r')
 cl_const = Factory.get('CLConstants')(db)
 const = Factory.get('Constants')(db)
-logger = Factory.get_logger("cronjob")
+logger = Factory.get_logger("bofhd_req")
 
 max_requests = 999999
 ou_perspective = None
