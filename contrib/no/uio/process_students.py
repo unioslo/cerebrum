@@ -608,6 +608,7 @@ class BuildAccounts(object):
                                                            fnr, [pinfo.get_best_deleted_ac()])
                 else:
                     account_id = AccountUtil.create_user(fnr, profile)
+                    logger.debug("would create account fo %s", fnr)
                     if account_id is None:
                         logger.set_indent(0)
                         return
@@ -1012,6 +1013,8 @@ def make_letters(data_file=None, type=None, range=None):
             all_passwords[tmp[0]] = tmp[1]
     person = Factory.get('Person')(db)
     account = Factory.get('Account')(db)
+    ou = Factory.get('OU')(db)
+    primary_email_address = "N/A"
     dta = {}
     logger.debug("Making %i letters" % len(all_passwords))
     for account_id in all_passwords.keys():
@@ -1023,6 +1026,19 @@ def make_letters(data_file=None, type=None, range=None):
         except Errors.NotFoundError:
             logger.warn("NotFoundError for account_id=%s" % account_id)
             continue
+        # get e-mail address
+        primary_email_address = account.get_primary_mailadress()
+        # get valid ou for the student
+        ou_id = None
+        sko = None
+        for at in account.get_account_types():
+            if at['affiliation'] == int(const.affiliation_student):
+                ou_id = at['ou_id']
+                break
+        if ou_id:
+            ou.clear()
+            ou.find()
+        sko = "02%d02%d02%d" % (ou['fakultet'], ou['institutt'], ou['avdeling'])
         tpl = {}
         address = None
         for source, kind in ((const.system_fs, const.address_post),
@@ -1036,6 +1052,7 @@ def make_letters(data_file=None, type=None, range=None):
             continue
         address = address[0]
         alines = address['address_text'].split("\n")+[""]
+        logger.debug("ALINES: %s", alines)
         fullname = person.get_name(const.system_cached, const.name_full)
         tpl['address_line1'] = fullname
         tpl['address_line2'] = alines[0]
@@ -1051,8 +1068,9 @@ def make_letters(data_file=None, type=None, range=None):
         tmp = person.get_external_id(id_type=const.externalid_fodselsnr,
                                      source_system=const.system_fs)
         tpl['birthno'] =  tmp[0]['external_id']
-        tpl['emailadr'] =  "TODO"  # We probably don't need to support this...
+        tpl['emailadr'] =  primary_email_address
         tpl['account_id'] = account_id
+        tpl['sko'] = sko
 
         # First we group letters by 'order_by', default is 'zip'
         brev_profil = all_passwords[account_id][1]
@@ -1077,15 +1095,17 @@ def make_letters(data_file=None, type=None, range=None):
     tpls = {}
     counters = {}
     printers = {}
+    send_abroad = cereconf.AUTOADMIN_PRODUCE_ABROAD_LETTERS
     for account_id in sorted_keys:
         password, brev_profil = all_passwords[account_id][:2]
         order_by = 'zip'
         if brev_profil.has_key('order_by'):
             order_by = brev_profil['order_by']
-        if not dta[order_by][account_id]['zip'] or dta[order_by][account_id]['country']:
-            # TODO: Improve this check, which is supposed to skip foreign addresses
-            logger.info("Not sending abroad: %s" % dta[order_by][account_id]['uname'])
-            continue
+        if not send_abroad:
+            if not dta[order_by][account_id]['zip'] or dta[order_by][account_id]['country']:
+                # TODO: Improve this check, which is supposed to skip foreign addresses
+                logger.info("Not sending abroad: %s" % dta[order_by][account_id]['uname'])
+                continue
         printer = cereconf.PRINT_PRINTER
         if brev_profil.has_key('printer'):
             printer = brev_profil['printer']
