@@ -626,7 +626,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
         return self.query("""
         SELECT person_id, ou_id, affiliation, source_system, status,
-          deleted_date, create_date
+          deleted_date, create_date, last_date
         FROM [:table schema=cerebrum name=person_affiliation_source]
         %s""" % where, fetchall = fetchall)
 
