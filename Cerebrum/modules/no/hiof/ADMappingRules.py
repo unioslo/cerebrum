@@ -45,7 +45,7 @@ class Fag(object):
     DOMAIN_NAME = "fag.hiof.no"
     DOMAIN_DN = ""
     sted_mapping = {
-        ('*', '*', '00'): 'Halden', # RH: Avdeling 00 er Halden i følge Trond
+        ('*', '*', '00'): 'Halden',
         ('*', '*', '10'): 'Halden',
         ('*', '*', '20'): 'Sarp',
         ('*', '*', '30'): 'Fredr',
@@ -71,6 +71,18 @@ class Fag(object):
         ('70', '*', '00'): {'All': 'SCE'},
         ('60', '*', '*'): {'All': 'SF'},
         ('90', '*', '*'): {'All': 'SF'},
+        ('00', '*', '10'): {'All': 'LU'},
+        ('00', '*', '20'): {'All': 'IR'},
+        ('00', '*', '30'): {'All': 'HS'},
+        ('20', '*', '10'): {'All': 'LU'},
+        ('20', '*', '20'): {'All': 'IR'},
+        ('20', '*', '30'): {'All': 'HS'},
+        ('98', '00', '10'): {'All': 'LU'},
+        ('98', '00', '20'): {'All': 'IR'},
+        ('98', '00', '30'): {'All': 'HS'},
+        ('98', '20', '10'): {'All': 'LU'},
+        ('98', '20', '20'): {'All': 'IR'},
+        ('98', '20', '30'): {'All': 'HS'}
         }
 
     def _findBestMatch(self, sko, mapping):
