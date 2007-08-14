@@ -459,6 +459,7 @@ def email_move_child(host, r):
     br.add_request(r['requestee_id'], r['run_at'],
                    local_co.bofh_email_delete,
                    r['entity_id'], old_server.entity_id)
+    local_db.commit()
     logger.info("%s: move_email success.", acc.account_name)
     reqlock.release()
     
