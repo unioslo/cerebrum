@@ -498,9 +498,9 @@ def process_email_move_requests():
                 email_move_child(host, r)
                 sys.exit(0)
             else:
-                procs.append(pid)
+                procs.append((pid, host))
 
-        for pid in procs:
+        for pid, host in procs:
             status = os.waitpid(pid, os.WNOHANG)
             # (X, Y) = waitpid
             # X = 0   - still running
@@ -510,7 +510,8 @@ def process_email_move_requests():
                 # process finished
                 if status[1] != 0:
                     logger.error("fork exited with code: %d", status[1])
-                procs.remove(pid)
+                procs.remove((pid, host))
+                round_robin[host] -= 1
         # Don't hog the CPU while throttling
         if time.time() <= start + 1:
             time.sleep(0.5)
