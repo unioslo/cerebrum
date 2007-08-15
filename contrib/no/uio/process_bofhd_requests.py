@@ -385,7 +385,8 @@ def email_move_child(host, r):
         return
     logger.debug("User being moved: '%s'.",  acc.account_name)
     reqlock = RequestLockHandler('/cerebrum/var/log/cerebrum/.lock-%d')
-    reqlock.grab(r_id)
+    if not reqlock.grab(r_id):
+        return
     # Disable quota while copying so the move doesn't fail
     cyrus_set_quota(acc.entity_id, 0, host=new_server, local_db=local_db)
     # Call the script
@@ -509,7 +510,8 @@ def process_email_move_requests():
             if status[0] != 0:
                 # process finished
                 if status[1] != 0:
-                    logger.error("fork exited with code: %d", status[1])
+                    logger.error("fork '%d' exited with code: %d",
+                                 status[0], status[1])
                 procs.remove((pid, host))
                 round_robin[host] -= 1
         # Don't hog the CPU while throttling
