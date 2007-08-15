@@ -65,9 +65,12 @@ def _group_make_dn(group_id, org):
 def group_mod(mod_type, group_id, member_id):
     group = Factory.get("Group")(db)
     grp = Factory.get("Group")(db)
+    gp = Factory.get("Group")(db)
     acc = Factory.get("Account")(db)
     member_name = ""
     member_type = "account"
+    member_in_serv_group = False
+    serv_groups = ['server-rype', 'server-orrhane', 'server-uer', 'server-abbor']
     edir_group = False
     known_group = False
     group.clear()
@@ -94,6 +97,12 @@ def group_mod(mod_type, group_id, member_id):
     if subj_ent.entity_type == constants.entity_account:
         acc.find(member_id)
         member_name = acc.account_name
+        for g in serv_groups:
+            gp.clear()
+            gp.find_by_name(g)
+            if gp.has_member(member_id):
+                member_in_serv_group = True
+                break
     elif subj_ent.entity_type == constants.entity_group:
         grp.find(member_id)
         for row in group.get_spread():
@@ -108,8 +117,12 @@ def group_mod(mod_type, group_id, member_id):
         logger.warn("Only groups or accounts may be members!")
         return
     if mod_type == constants.group_add:
-        edir_util.group_modify('add', group_name, member_name, member_type)
-        logger.info('New member %s added to %s' % (member_name, group_name))
+        if group_name in serv_groups and not member_in_serv_group:
+            edir_util.group_modify('add', group_name, member_name, member_type)
+            logger.info('New member %s added to %s' % (member_name, group_name))
+        else:
+            logger.warn('Cannot update, %s is already a member in a server_group!',
+                        member_name)
     elif mod_type == constants.group_rem:
         logger.info('Removing from group')
         edir_util.group_modify('delete', group_name, member_name, member_type)
