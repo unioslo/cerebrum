@@ -405,7 +405,7 @@ def email_move_child(host, r):
     proc.tochild.close()
     # Stolen from Utils.py:spawn_and_log_output()
     descriptor = {proc.fromchild: logger.debug,
-                  proc.childerr: logger.error}
+                  proc.childerr: logger.info}
     while descriptor:
         # select() is called for _every_ line, since we can't inspect
         # the buffering in Python's file object.  This works OK since
