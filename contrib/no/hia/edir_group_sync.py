@@ -117,7 +117,7 @@ def group_mod(mod_type, group_id, member_id):
         logger.warn("Only groups or accounts may be members!")
         return
     if mod_type == constants.group_add:
-        if group_name in serv_groups and not member_in_serv_group:
+        if group.group_name in serv_groups and not member_in_serv_group:
             edir_util.group_modify('add', group_name, member_name, member_type)
             logger.info('New member %s added to %s' % (member_name, group_name))
         else:
