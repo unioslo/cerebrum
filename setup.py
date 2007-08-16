@@ -234,18 +234,21 @@ class my_sdist(sdist, object):
 # Ugly hack to get path names from configure
 # Please fix this if you see a better solution.
 vars = locals()
-for line in open('Makefile'):
-    if line.find(':') != -1: break # Only scan until the first target.
-    if line.find('$') != -1: continue # Don't read in variable names.
-    try:
-        name, value = line.split('=')
-        name = name.strip()
-        value = value.strip()
-        # We only overwrite variables that are not already set.
-        if not vars.has_key(name):
-            vars[name] = value
-    except ValueError, e:
-        continue
+try:
+    for line in open('Makefile'):
+        if line.find(':') != -1: break # Only scan until the first target.
+        if line.find('$') != -1: continue # Don't read in variable names.
+        try:
+            name, value = line.split('=')
+            name = name.strip()
+            value = value.strip()
+            # We only overwrite variables that are not already set.
+            if not vars.has_key(name):
+                vars[name] = value
+        except ValueError, e:
+            continue
+except IOError, e:
+    pass
 
 # Then we set the default value of these variables.  If they are already
 # set, we keep the original value.
@@ -277,8 +280,13 @@ share_files = [
     ('client/passweb_form.html', 0644),
     ('client/passweb_receipt.html', 0644),
 ]
-if (bofh): 
-    share_files.append(('java/jbofh/dist/lib/JBofh.jar', 0644))
+if (bofh):
+    jar_file = 'java/jbofh/dist/lib/JBofh.jar'
+    try:
+        open(jar_file)
+        share_files.append((jar_file, 0644))
+    except IOError, e:
+        print "'%s': not found. Skipping." % jar_file 
 
 data_files = [
     ({'path': "%s/doc/cerebrum/design" % sharedir,
