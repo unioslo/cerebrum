@@ -272,8 +272,8 @@ class Object2Cerebrum(object):
         for grp in self._groups.keys():
             self._group.clear()
             self._group.find_by_name(grp)
-            for member in self._group.list_members(get_entity_name=True)[0]:
-                if member[2] not in self._groups[grp]:
+            for member in self._group.list_members()[0]:
+                if member[1] not in self._groups[grp]:
                     self._group.remove_member(member[1], self.co.group_memberop_union)
                     self.logger.debug("'%s' removed '%s'", grp, member[1])
             self._group.write_db()
