@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -81,8 +81,9 @@ class EphorteConstants(ConstantsBase):
     ephorte_journenhet_nikk = _EphorteJournalenhetCode(
         'J-NIKK', 'Journalenhet for NIKK - Nordisk institutt for kvinne- og kjønnsforskn')
 
-    spread_ephorte_person = _SpreadCode('ePhorte_person', Constants.Constants.entity_person,
-                                         'Person included in ePhorte exprot')
+    spread_ephorte_person = _SpreadCode('ePhorte_person',
+                                        Constants.Constants.entity_person,
+                                        'Person included in ePhorte export')
 
     EphorteRole = _EphorteRoleTypeCode
     EphorteArkivdel = _EphorteArkivdelCode

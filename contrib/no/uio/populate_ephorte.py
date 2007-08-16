@@ -5,6 +5,7 @@ import getopt
 import pickle
 import sys
 import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
@@ -95,7 +96,7 @@ class PopulateEphorte(object):
         #    [self.ouid2sko[x] for x in self.known_ephorte_ou]))
         
         self.ou_id2parent = {}
-        for row in ou.get_structure_mappings(co.perspective_lt):
+        for row in ou.get_structure_mappings(co.perspective_sap):
             i = row['parent_id'] and int(row['parent_id']) or None
             self.ou_id2parent[int(row['ou_id'])] = i
 
@@ -136,7 +137,7 @@ class PopulateEphorte(object):
         # doesn't have much support for that, so we map user->owner_id
         # instead
         superusers = []
-        group.find_by_name("ephorte-admins")
+        group.find_by_name(cereconf.EPHORTE_SUPERUSERS)
         for account_id in group.get_members():
             ac.clear()
             ac.find(account_id)

@@ -115,7 +115,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
                 {'id': '%s@UIO.NO' % row['name'].upper()})
             account2pid[int(row['account_id'])] = int(row['owner_id'])
         for account_id in potential_changed_feideid.keys():
-            p = persons.get(account2pid[account_id])
+            p = persons.get(account2pid[account_id], None)
             if p:
                 p['potential_feideid'] = pid2accounts[account2pid[account_id]]
 
@@ -131,6 +131,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         tmp['last_name'] = dta[int(co.name_last)]
         tmp['full_name'] = dta[int(co.name_full)]
 
+    # TODO: this is very slow. Maybe just find addresses for the relevant persons?
     logger.debug("Fetching e-mailadresses...")
     for entity_id, email in pe.list_primary_email_address(co.entity_person):
         tmp = persons.get(entity_id, None)
