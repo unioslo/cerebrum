@@ -275,6 +275,7 @@ class Object2Cerebrum(object):
             for member in self._group.list_members(get_entity_name=True)[0]:
                 if member[2] not in self._groups[grp]:
                     self._group.remove_member(member[1], self.co.group_memberop_union)
+                    self.logger.debug("'%s' removed '%s'", grp, member[1])
             self._group.write_db()
         # Get group names
         group_names = dict()
@@ -285,10 +286,11 @@ class Object2Cerebrum(object):
         for row in self._group.list_traits(self.co.trait_group_imported):
             name = group_names[int(row['entity_id'])]
             if not self._groups.has_key(name):
-                self.logger.info("Group '%s' deleted as it is no longer in file." % name)
                 self._group.clear()
                 self._group.find_by_name(name)
                 self._group.delete()
+                self.logger.info("Group '%s' deleted as it is no longer in file." % name)
+                
 
     def _update_person_affiliations(self):
         """Run through the cache and remove people's affiliation if it hasn't
