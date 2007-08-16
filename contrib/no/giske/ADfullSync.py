@@ -140,6 +140,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 				elif retur[e_name]['title'] == 'Tilsett':
 					retur[e_name]['profilePath'] = '\\\\spurv\\profiler\\%s' % e_name
 					retur[e_name]['homeDirectory'] = '\\\\spurv\\tilsette\\%s' % e_name
+					retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name					
 				else:
 					self.logger.info("unknown title field: %s" % retur[e_name]['title'])
 
