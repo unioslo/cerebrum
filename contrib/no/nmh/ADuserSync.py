@@ -219,20 +219,17 @@ def compare(adusers,cerebrumusers):
             #
             ou = exp.match(dta['distinguishedName'])
             deaktiv_ou = ou.group(1)
-            if deaktiv_ou == cereconf.AD_CEREBRUM_DELETED:
-                logger.debug2("Ignoring deleted account %s", usr)
+			if deaktiv_ou == cereconf.AD_CEREBRUM_DELETED:
+				logger.debug2("Ignoring deleted account %s", usr)
             else:
-                changes['type'] = 'DELUSR'
-                changes['distinguishedName'] = adusers[usr]['distinguishedName']
-                logger.debug("Deleting account %s (%s)", adusers[usr]['distinguishedName'], usr)
+				changes['type'] = 'DELUSR'
+				changes['distinguishedName'] = adusers[usr]['distinguishedName']
                 
         # Append changes to changelist.
         #
-        if len(changes):
-            changes['distinguishedName'] = adusers[usr]['distinguishedName']
-            changelist.append(changes)    
-
-    logger.info("Creating %d accounts in AD", len(cerebrumusers))
+		if len(changes):
+			changes['distinguishedName'] = adusers[usr]['distinguishedName']
+			changelist.append(changes)    
     
     # Add accounts still registered in cerebrumusers to AD
     for cusr, cdta in cerebrumusers.items():
@@ -321,11 +318,20 @@ def move_user(chg):
 
 
 def del_user(chg):
-    chg['type'] = 'MOVEUSR'
-    chg['affiliation'] = cereconf.AD_CEREBRUM_DELETED
-    move_user(chg)
+	
+	#Disabling account, before moving it.
+	chgdisable = {} 
+	chgdisable['type'] = 'UPDATEUSR'
+	chgdisable['ACCOUNTDISABLE'] = True
+	chgdisable['distinguishedName'] = chg['distinguishedName']
+	update_user(chgdisable)
 
-    
+	chg['type'] = 'MOVEUSR'
+	chg['affiliation'] = cereconf.AD_CEREBRUM_DELETED
+	move_user(chg)
+
+	logger.debug("Disabling and moving account %s" % (chg['distinguishedName']))    
+
 def update_user(chg):
     ret = run_cmd('bindObject',chg['distinguishedName'])
     if not ret[0]:
