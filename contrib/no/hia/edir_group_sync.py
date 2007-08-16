@@ -100,7 +100,9 @@ def group_mod(mod_type, group_id, member_id):
         for g in serv_groups:
             gp.clear()
             gp.find_by_name(g)
-            if gp.has_member(member_id):
+            if gp.has_member(member_id,
+                             constants.entity_account,
+                             constants.group_memberop_union):
                 member_in_serv_group = True
                 break
     elif subj_ent.entity_type == constants.entity_group:
