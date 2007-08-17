@@ -1062,12 +1062,13 @@ class BDBSync:
             self.logger.error("Cannot add %s. Domain %s not found in Cerebrum." % (address.get('email_address'),address.get('email_domain_name')))
             return
 
+        # If address is not already set, populate it
+        _address = address.get('email_address') + '@' + address.get('email_domain_name')
         try:
+            ea.find_by_address(_address)
+        except Errors.NotFoundError:
             ea.populate(address.get('email_address'), ed.email_domain_id, et.email_target_id)
             ea.write_db()
-        except self.db.IntegrityError,ie:
-            self.logger.info("Address %s@%s already exists" % (address.get('email_address'),address.get('email_domain_name')))
-            self.db.rollback()
         if dryrun:
             self.db.rollback()
         else:
@@ -1086,9 +1087,9 @@ def usage():
         --group     (-g) Syncronise posixGrourp
         --account   (-a) Syncronize posixAccounts
         --spread    (-s) Synronize account-spreads
-        --affiliations (-t) Syncronize affiliations on persons
-        --email_domains  Syncronize email-domains
-        --email_address  Syncronize email-addresses
+        --affiliations (-t)   Syncronize affiliations on persons
+        --email_domains       Syncronize email-domains
+        --email_address (-e)  Syncronize email-addresses
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
 
@@ -1102,7 +1103,7 @@ def usage():
 def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
-                    'dptgasvh',
+                    'dptgasvhe',
                     ['password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
 
     sync = BDBSync()
@@ -1145,7 +1146,7 @@ def main():
             sync.sync_affiliations()
         elif opt in ('--email_domains',):
             sync.sync_email_domains()
-        elif opt in ('--email_address',):
+        elif opt in ('-e','--email_address'):
             sync.sync_email_addresses()
         elif opt in ('--password-only',):
             accounts = sync.bdb.get_accounts(last=30) 
