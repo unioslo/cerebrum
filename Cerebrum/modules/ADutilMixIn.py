@@ -90,6 +90,7 @@ class ADutil(object):
 
 
     def delete_object(self, chg, dry_run):
+        self.logger.debug('DELETE %s', chg)
         ret = self.run_cmd('deleteObject', dry_run)
         if not ret[0]:
             self.logger.warning("%s on %s failed: %r" % \
@@ -97,6 +98,7 @@ class ADutil(object):
 
 
     def create_object(self, chg, dry_run):
+        self.logger.debug('CREATE %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'Group', chg['OU'], 
                       chg['sAMAccountName'])
         if not ret[0]:
