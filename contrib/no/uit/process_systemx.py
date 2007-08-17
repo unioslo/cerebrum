@@ -29,6 +29,8 @@ progname=__file__.split(os.sep)[-1]
 __doc__="""
     usage:: %s [-d|--dryrun]
     --dryrun : do no commit changes to database
+    --logger-name name: name of logger to use
+    --logger-level level: loglevel to use
 """ % (progname)
 
 
@@ -43,8 +45,6 @@ from Cerebrum.modules.no.uit.access_SYSX import SYSX
 from Cerebrum.modules.no.uit import Email
 
 accounts=persons=logger=None
-logger_name=cereconf.DEFAULT_LOGGER_TARGET
-
 sysx=None
 skipped=added=updated=unchanged=deletedaff=0
 
@@ -52,8 +52,7 @@ skipped=added=updated=unchanged=deletedaff=0
 db=Factory.get('Database')()
 db.cl_init(change_program='process_systemx')
 co=Factory.get('Constants')(db)
-#person=Factory.get('Person')(db)
-#posix_user_obj=PosixUser.PosixUser(db)
+logger=Factory.get_logger("cronjob")
 
 
 def get_existing_accounts():
@@ -228,12 +227,12 @@ def _populate_account_affiliations(account_id, sysx_id):
     """
 
     changes=[]
-    account_ous=[ou for aff, ou in accounts[account_id].get_affiliations()]
+    account_affs=accounts[account_id].get_affiliations()
 
-##    print "-->Person SysXID=%s has affs=%s" % (sysx_id,persons[sysx_id].get_affiliations())
-##    print "-->Account_id=%s,SysXID=%s has account affs=%s" % (account_id,sysx_id,account_ous)
+    logger.debug("-->Person SysXID=%s has affs=%s" % (sysx_id,persons[sysx_id].get_affiliations()))
+    logger.debug("-->Account_id=%s,SysXID=%s has account affs=%s" % (account_id,sysx_id,account_affs))
     for aff, ou, status in persons[sysx_id].get_affiliations():
-        if not ou in account_ous:
+        if not (aff,ou) in account_affs:
             changes.append(('set_ac_type', (ou, aff)))
 ##  TODO: Fix removal of account affs
     return changes
@@ -397,7 +396,7 @@ class Build(object):
 
 
     def _process_sysx(self,sysx_id, person_info):
-        
+        logger.info("Starting process of sysXid=%s" % (sysx_id))
         p_obj=persons.get(sysx_id,None)
         if not p_obj:
             logger.error("ERROR Nonexistent sysx_id %s. Skipping" % (sysx_id))
@@ -580,10 +579,10 @@ class ExistingPerson(object):
 
 
 def main():
-    global logger,sysx
+    global sysx
     global accounts,persons,dryrun
     
-    logger=Factory.get_logger(logger_name)
+
     dryrun=False
     
     try:
