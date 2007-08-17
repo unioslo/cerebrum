@@ -364,7 +364,8 @@ class ProcHandler(object):
         except Errors.NotFoundError:
             self._group.populate(self.default_creator_id,
                                  self._co.group_visibility_all,
-                                 grp_name)
+                                 grp_name,
+                                 description=grp_name)
             self._group.write_db()
             for spread in procconf.AC_TYPE_GROUP_SPREAD:
                 if not self._group.has_spread(int(self.str2const[spread])):
