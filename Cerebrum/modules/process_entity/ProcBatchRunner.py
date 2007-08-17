@@ -203,7 +203,7 @@ class ProcBatchRunner(object):
                         aff_grp2ac.setdefault((int(a),ou.ou_id), []).append(m_id)
                         break
                 if not found:
-                    self.proc.ac_type_del(m_id, affiliation, ou.ou_id)
+                    self.proc.ac_type_del(m_id, txt2aff[affiliation], ou.ou_id)
         # Let the handler take take of added account_types.
         for i in ac2aff:
             for account in ac2aff[i]:
