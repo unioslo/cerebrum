@@ -388,12 +388,8 @@ class ProcHandler(object):
         ou = Factory.get("OU")(self.db)
         ou.find(ou_id)
 
-        aff2txt = { int(self._co.affiliation_ansatt) : 'Tilsette',
-                    int(self._co.affiliation_teacher) : 'Tilsette',
-                    int(self._co.affiliation_elev) : 'Elevar' }
-
         # Look up the group
-        grp_name = "%s %s" % (ou.acronym, aff2txt[int(affiliation)])
+        grp_name = "%s %s" % (ou.acronym, affiliation)
         if not self._group:
             self._group = Factory.get('Group')(self.db)
         try:

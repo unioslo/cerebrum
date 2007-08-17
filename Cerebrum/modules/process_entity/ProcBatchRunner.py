@@ -163,6 +163,7 @@ class ProcBatchRunner(object):
             ac2aff.setdefault((int(row['affiliation']), int(row['ou_id'])), []).append(row['account_id'])
 
         group_name_re = re.compile('(\w+)\s+(\w+)')
+        # TODO: move into procconf.py
         txt2aff = { 'Tilsette': (self.co.affiliation_ansatt,self.co.affiliation_teacher),
                     'Elevar' : (self.co.affiliation_elev,) }
         aff_grp2ac = {}
@@ -203,7 +204,7 @@ class ProcBatchRunner(object):
                         aff_grp2ac.setdefault((int(a),ou.ou_id), []).append(m_id)
                         break
                 if not found:
-                    self.proc.ac_type_del(m_id, txt2aff[affiliation], ou.ou_id)
+                    self.proc.ac_type_del(m_id, affiliation, ou.ou_id)
         # Let the handler take take of added account_types.
         for i in ac2aff:
             for account in ac2aff[i]:
