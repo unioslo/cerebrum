@@ -4588,6 +4588,8 @@ class BofhdExtension(object):
             if isinstance(idtype, _CerebrumCode):
                 person.find_by_external_id(idtype, id)
             elif idtype == 'entity_id':
+                if not id.isdigit():
+                    raise CerebrumError, "Entity IDs must be numeric."
                 person.find(id)
             else:
                 raise CerebrumError, "Unknown idtype"
