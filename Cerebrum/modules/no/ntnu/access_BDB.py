@@ -52,11 +52,8 @@ class BDB:
 
     def get_email_domains(self):
         cursor = self.db.cursor()
-        cursor.execute("select m.id,m.navn,m.system,s.navn as spread_name from \
-                        mail_domain m, system s \
-                        where m.system = s.id and \
-                        s.user_domain=1 and \
-                        s.operational=1")
+        cursor.execute("select m.id,m.navn,m.system from \
+                        mail_domain m where m.navn like '%ntnu.no' ") 
         domains = []
         bdb_domains = cursor.fetchall()
         for dom in bdb_domains:
@@ -67,8 +64,6 @@ class BDB:
                 d['email_domain'] = dom[1]
             if dom[2]:
                 d['spread_id'] = dom[2]
-            if dom[3]:
-                d['spread_name'] = dom[3]
             domains.append(d)
         cursor.close()
         return domains
