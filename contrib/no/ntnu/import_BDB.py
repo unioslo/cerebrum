@@ -523,6 +523,27 @@ class BDBSync:
         creator_id = self.initial_account
         const = self.const
 
+        posix_group.clear()
+        try:
+            # Every installation should have this group. Make one if it doesn't exist.
+            posix_group.find_by_name('posixgroup')
+        except Errors.NotFoundError:
+            posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
+                                 name='posixgroup', description='Bootstrapped posixgroup')
+            if not posix_group.has_spread(const.spread_ntnu_group):
+                posix_group.add_spread(const.spread_ntnu_group)
+            try:
+                posix_group.write_db()
+            except self.db.IntegrityError,ie: 
+                self.logger.error("Integrity error catched while trying to add posixgroup named 'posixgroup' . Reason: %s" % \
+                                  (str(ie)))
+                self.db.rollback()
+        else:
+            if dryrun:
+                self.db.rollback()
+            else:
+                self.db.commit()
+
         def _clean_name(name):
             name = name.replace('-','_')
             name = name.replace(' ','_')
@@ -959,33 +980,25 @@ class BDBSync:
         domains = self.bdb.get_email_domains()
         for domain in domains:
             self._sync_email_domain(domain)
-        if dryrun:
-            if verbose:
-                print "Email-domains rollback."
-            self.db.rollback()
-        else:
-            if verbose:
-                print "Commiting changes to email_domains"
-            self.db.commit()
         return
 
     def _sync_email_domain(self,domain):
-        if verbose:
-            print "Syncronizing %s" % domain.get('email_domain')
-        ed=Email.EmailDomain(self.db)
+        self.logger.info("Syncronizing %s" % domain.get('email_domain'))
+        ed=self.ed
         ed.clear()
         try:
             ed.find_by_domain(domain.get('email_domain'))
-            if verbose:
-                print "EmailDomain %s already exists." % domain.get('email_domain')
-        except Errors.NotFound:
-            description = "Domain handled by spread %s" % domain.get('spread_name')
-            if verbose:
-                print "Adding EmailDomain %s" % domain.get('email_domain')
+        except Errors.NotFoundError:
+            description = "Domain imported from BDB")
+            self.logger.info("Adding EmailDomain %s" % domain.get('email_domain'))
             ed.populate(domain.get('email_domain'),description)
             ed.write_db()
-        return
-
+        else:
+            self.logger.debug("EmailDomain %s already exists." % domain.get('email_domain'))
+        if dryrun:
+            self.db.rollback()
+        else:
+            self.db.commit()
 
     def sync_email_addresses(self):
         if verbose:
@@ -1004,8 +1017,7 @@ class BDBSync:
         return
 
     def _sync_email_address(self,address):
-        if verbose:
-            print "Processing %s@%s" % (address.get('email_address'),address.get('email_domain_name'))
+        self.logger.info( "Processing %s@%s" % (address.get('email_address'),address.get('email_domain_name')))
 
         person = self.new_person
         ac = self.ac
@@ -1023,45 +1035,43 @@ class BDBSync:
         try:
             ac.find_by_name(address.get('username'))
         except Errors.NotFoundError:
-            pass
-
-        if not hasattr(ac,'entity_id'):
-            try:
-                person.find_by_external_id(co.externalid_bdb_person, address.get('id'), \
-                                           co.system_bdb, co.entity_person)
-            except Errors.NotFoundError:
-                # aye.. neither username or person matches.. 
-                return
-            try:
-                ac.clear()
-                ac.find(person.get_primary_account())
-            except Errors.NotFoundError:
-                # Person has no primary.. what to do?
-                return
+            self.logger.error("Got no match on username %s" % address.get('username'))
+            return
 
         # Does the account have an EmailTarget?
         try:
             et.find_by_entity(ac.entity_id)
+        except Errors.TooManyRowsError:
+            self.logger.debug("Account (%s): %s has several EmailTargets. Which to choose? FIXME please" % (ac.entity_id,address.get('username')))
+            self.db.rollback()
+            return
         except Errors.NotFoundError:
-            # Populate a new EmailTarget for this Account
-            et.populate(co.email_target_account, ac.entity_id, ac.entity_type)
-            # Need to write it to the db before we can use it.
-            op = et.write_db()
+            # Shouldn't need this try-clause.. wtf
+            try:
+                # Populate a new EmailTarget for this Account
+                et.populate(co.email_target_account, ac.entity_id, ac.entity_type)
+                # Need to write it to the db before we can use it.
+                op = et.write_db()
+            except self.db.IntegrityError,ie:
+                self.logger.error("WTF! Grrrr EmailTarget already exists for account %s" % ac.entity_id)
 
         # Does this domain exist in Cerebrum?
         try:
             ed.find_by_domain(address.get('email_domain_name'))
         except Errors.NotFoundError:
-            self.logger.error("Domain %s not found in Cerebrum." % address.get('email_domain_name'))
+            self.logger.error("Cannot add %s. Domain %s not found in Cerebrum." % (address.get('email_address'),address.get('email_domain_name')))
             return
 
         try:
             ea.populate(address.get('email_address'), ed.email_domain_id, et.email_target_id)
             ea.write_db()
         except self.db.IntegrityError,ie:
-            if verbose:
-                print "Address %s@%s already exists" % (address.get('email_address'),address.get('email_domain_name'))
+            self.logger.info("Address %s@%s already exists" % (address.get('email_address'),address.get('email_domain_name')))
             self.db.rollback()
+        if dryrun:
+            self.db.rollback()
+        else:
+            self.db.commit()
         return
 
 def usage():
