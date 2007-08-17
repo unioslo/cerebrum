@@ -989,7 +989,7 @@ class BDBSync:
         try:
             ed.find_by_domain(domain.get('email_domain'))
         except Errors.NotFoundError:
-            description = "Domain imported from BDB")
+            description = "Domain imported from BDB"
             self.logger.info("Adding EmailDomain %s" % domain.get('email_domain'))
             ed.populate(domain.get('email_domain'),description)
             ed.write_db()
