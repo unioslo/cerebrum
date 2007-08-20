@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,6 +23,7 @@ import time
 import getopt
 import sys
 import pickle
+import re
 import email
 import smtplib
 from email import Header
@@ -99,20 +100,33 @@ def fix_manual_updates(excempt_users):
     quarantine up to 7 days.
     """
     tmp = []
+    guest_prefix = 'guest'
     for u in excempt_users.split(","):
         if not u:
             continue
+        # special syntax for uio guest users
+        if re.match('%s\d\d\d-\d\d\d' % guest_prefix, u):
+            first, last = u.split('-')
+            first = int(first[len(guest_prefix):])
+            last = int(last)
+            for i in range(first, last+1):
+                tmp.append('%s%03d' % (guest_prefix, i))
+        else:
+            # Normal case
+            tmp.append(u)
+
+    excempt_account_ids = []
+    for u in tmp:
         account.clear()
         account.find_by_name(u)
-        tmp.append(int(account.entity_id))
-    excempt_users = tmp
+        excempt_account_ids.append(int(account.entity_id))
     
     threshold = db.Date(*([ int(x) for x in (
         "%d-%d-%d" % time.localtime(time.time()+3600*24*7)[:3]).split('-')]))
     change_quarantines = {}
     for row in account.list_entity_quarantines():
         if row['quarantine_type'] == int(co.quarantine_autopassord):
-            if int(row['entity_id']) in excempt_users:
+            if int(row['entity_id']) in excempt_account_ids:
                 continue
             if row['end_date']:
                 logger.debug("Clearing end-date for %i" % row['entity_id'])
@@ -124,10 +138,12 @@ def fix_manual_updates(excempt_users):
                     "password not changed", db_now, None)
                 db.commit()
             if row['disable_until'] is not None and row['disable_until'] > threshold:
-                logger.debug("reducing disable_until to threshold for %i" % row['entity_id'])
+                logger.debug("reducing disable_until to threshold for %i" %
+                             row['entity_id'])
                 account.clear()
                 account.find(row['entity_id'])
-                account.disable_entity_quarantine(int(co.quarantine_autopassord), threshold)
+                account.disable_entity_quarantine(int(co.quarantine_autopassord),
+                                                  threshold)
                 db.commit()
                 
 def process_data(status_mode=False, normal_mode=False):
