@@ -296,8 +296,8 @@ class BDBSync:
             self.logger.error("Got no match on stedkode %s for bdb-person: %s" % (_oucode,aff['person']))
             return 
 
-        aff_type = self.aff_map[aff['aff_type']]
-        aff_status = const.affiliation_tilknyttet
+        aff_status = self.aff_map[aff['aff_type']]
+        aff_type = aff_status.affiliation
 
         person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status) 
 
