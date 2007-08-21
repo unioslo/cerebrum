@@ -30,10 +30,10 @@ import org.xml.sax.SAXException;
  * log4j.appender.A1.layout=org.apache.log4j.PatternLayout
  * log4j.appender.A1.layout.ConversionPattern=%-4r [%t] %-5p %c %x - %m%n
  */
-public class EporteConnectionTest extends EphorteConnection {
+public class EphorteConnectionTest extends EphorteConnection {
     DocumentBuilderFactory factory;
 
-    public EporteConnectionTest() {
+    public EphorteConnectionTest() {
         factory = DocumentBuilderFactory.newInstance();
     }
 
