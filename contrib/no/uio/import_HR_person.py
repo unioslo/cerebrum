@@ -306,55 +306,6 @@ def make_reservation(to_be_reserved, p_id, group):
 # end make_reservation
 
 
-def consistent_ids(xmlperson):
-    """Check that person IDs on file point to the same entity in Cerebrum.
-
-    No matter how many IDs there are on file, they should all point to the
-    same entity in Cerebrum. Ideally a situation where, e.g. NO_SSN and SAP_NR
-    lead to two different person entities in Cerebrum cannot
-    exist. Nevertheless, this may happen, and we need to be prepared to trap
-    such situations.
-
-    This check does not superseed the checks in fnr_update.py.
-
-    :Parameters:
-      xmlperson : an instance of xml2object.HRDataPerson
-
-    :Returns:
-      True, if all IDs for xmlperson lead to the same entity_id in
-      Cerebrum. Otherwise False.
-    """
-
-    file2db = {xmlperson.NO_SSN: const.externalid_fodselsnr,}
-    if hasattr(xmlperson, "SAP_NR"):
-        file2db[xmlperson.SAP_NR] = const.externalid_sap_ansattnr
-
-    people = list()
-    for kind, id_on_file in xmlperson.iterids():
-
-        try:
-            person.clear()
-            person.find_by_external_id(file2db[kind], id_on_file)
-            if int(person.entity_id) not in people:
-                people.append(int(person.entity_id))
-        except Errors.NotFoundError:
-            # A new ID means that this person has not been registered with
-            # this external id before. This is not an error.
-            pass
-        except Errors.TooManyRowsError:
-            logger.error("Found more than one person with ID=%s", id_on_file)
-            return False
-
-    # Ok, how many IDs are there?
-    if len(people) > 1:
-        logger.error("%d people in Cerebrum (entity_ids: %s) share %s from file",
-                     len(people), people, list(xmlperson.iterids()))
-        return False
-
-    return True
-# end consistent_ids
-
-
 
 def parse_data(parser, source_system, group, gen_groups, old_affs):
     """Process all people data available.
@@ -379,7 +330,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
     logger.info("processing file %s for system %s", parser, source_system)
     logger.debug("Group for reservations is: %s", group.group_name)
 
-    xml2db = XML2Cerebrum(db, source_system)
+    xml2db = XML2Cerebrum(db, source_system, logger)
     it = parser.iter_persons()
 
     for xmlperson in SkippingIterator(it, logger):
@@ -407,12 +358,11 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
                                 zip = addr['postal_number'] or '',
                                 city = addr['city'] or '',
                                 country = addr['country'] or ''))
-        if not consistent_ids(xmlperson):
-            logger.error("person with IDs %s points to several entities in Cerebrum",
-                         list(xmlperson.iterids()))
-            continue
-                
         status, p_id = xml2db.store_person(xmlperson, affiliations, work_title)
+        if p_id is None:
+            logger.warn("Skipping person %s (invalid information on file)",
+                        list(xmlperson.iterids()))
+            continue
 
         if gen_groups == 1:
             make_reservation(xmlperson.reserved, p_id, group)

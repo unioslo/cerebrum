@@ -33,9 +33,9 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.Stedkode import Stedkode
 
-from xml2object import DataAddress, DataContact
-from xml2object import HRDataPerson
-from sapxml2object import SAPPerson
+from Cerebrum.modules.xmlutils.xml2object import DataAddress, DataContact
+from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
+from Cerebrum.modules.xmlutils.sapxml2object import SAPPerson
 
 
 
@@ -43,7 +43,7 @@ from sapxml2object import SAPPerson
 
 class XML2Cerebrum:
 
-    def __init__(self, db, source_system, ou_ldap_visible = True):
+    def __init__(self, db, source_system, logger, ou_ldap_visible = True):
         self.db = db
         # IVR 2007-01-22 TBD: Do we really want this here? Should db
         # not have this set already?
@@ -55,22 +55,148 @@ class XML2Cerebrum:
         self.person = Factory.get("Person")(db)
         self.constants = Factory.get("Constants")(db)
         self.lang_priority = ("no", "en")
+        self.logger = logger
 
         const = self.constants
         # Hammer in contact information
-        self.xmlcontact2db = { DataContact.CONTACT_PHONE: const.contact_phone,
-                               DataContact.CONTACT_FAX: const.contact_fax,
-                               DataContact.CONTACT_URL: const.contact_url,
-                               DataContact.CONTACT_EMAIL: const.contact_email,
-                               DataContact.CONTACT_PRIVPHONE:
-                                   const.contact_phone_private,
-                               DataContact.CONTACT_MOBILE:
-                                   const.contact_mobile_phone,}
-        self.xmladdr2db = { DataAddress.ADDRESS_BESOK: const.address_street,
-                            DataAddress.ADDRESS_POST: const.address_post,
-                            DataAddress.ADDRESS_PRIVATE: 
-                                const.address_post_private }
+        self.xmlcontact2db = {DataContact.CONTACT_PHONE: const.contact_phone,
+                              DataContact.CONTACT_FAX: const.contact_fax,
+                              DataContact.CONTACT_URL: const.contact_url,
+                              DataContact.CONTACT_EMAIL: const.contact_email,
+                              DataContact.CONTACT_PRIVPHONE:
+                                const.contact_phone_private,
+                              DataContact.CONTACT_MOBILE:
+                                const.contact_mobile_phone,}
+        self.xmladdr2db = {DataAddress.ADDRESS_BESOK: const.address_street,
+                           DataAddress.ADDRESS_POST: const.address_post,
+                           DataAddress.ADDRESS_PRIVATE: 
+                             const.address_post_private }
+
+        self.idxml2db = {HRDataPerson.NO_SSN: const.externalid_fodselsnr,
+                         SAPPerson.SAP_NR: const.externalid_sap_ansattnr, }
     # end __init__
+
+
+    def locate_or_create_person(self, xmlperson, dbperson):
+        """Locate (or indeed create) the proper person entity in the db.
+
+        An external system (e.g. SAP) uses several external IDs to identify a
+        person. None of the IDs are permanent in practice. This means that
+        logically the 'same' person can change (some of the) IDs between runs
+        of this script.
+
+        This method looks up all IDs present in xmlperson, and associates
+        dbperson with the proper person object in Cerebrum, provided that:
+
+        - All external IDs point to the same person_id in Cerebrum (this is
+          the situation when there are no ID changes for the person)
+        - Some external IDs point to the same person_id in Cerebrum, whereas
+          others do not exist in Cerebrum (this is the situation when new IDs
+          are given to the person)
+        - The IDs point to different person_ids in Cerebrum. This is
+          potentially an error, so we implement the following changes:
+
+          * const.externalid_fodselsnr can be changed. All other IDs have to
+            match.
+          * SAP ansatt# cannot be changed (they are supposed to be permanent
+            and unique).
+
+        @param xmlperson
+          Object representation of the source XML element describing one
+          person.
+        @type xmlperson : instance of L{HRDataPerson}
+
+        @param dbperson
+          Object to associate with a person's representation in Cerebrum
+        @type dbperson : instance of Factory.get('Person')(db)
+
+        @return
+          dbperson is clear()'ed and re-populated. If the person cannot be
+          assigned IDs from xmlperson, no guarantees are made about the state
+          of dbperson.
+        """
+
+        id_collection = list()
+        for kind, id_on_file in xmlperson.iterids():
+            # If a new ID appears, do not roll over and die
+            if kind not in self.idxml2db:
+                self.logger.error("New(?) external ID type %s will be ignored "
+                                  "while locating person %s",
+                                  kind, list(xmlperson.iterids()))
+                continue
+
+            # Now the ID type is known and we can try to locate the person
+            try:
+                dbperson.clear()
+                dbperson.find_by_external_id(self.idxml2db[kind], id_on_file)
+                if int(dbperson.entity_id) not in id_collection:
+                    id_collection.append(int(dbperson.entity_id))
+            except Errors.NotFoundError:
+                # This is a new ID of this type for this source system; that
+                # is perfectly fine.
+                self.logger.debug("New or changing ID from file (type: %s "
+                                  "value %s)", kind, id_on_file)
+            except Errors.TooManyRowsError:
+                dbperson.clear()
+                try:
+                    dbperson.find_by_external_id(self.idxml2db[kind],
+                                                 id_on_file,
+                                                 self.source_system)
+                    if int(dbperson.entity_id) not in id_collection:
+                        id_collection.append(int(dbperson.entity_id))
+                except Errors.NotFoundError:
+                    # Same as before
+                    self.logger.debug("New ID from file for source %s (type: %s"
+                                      " value %s)",
+                                      self.source_system, kind, id_on_file)
+
+        # Now that we are done with the IDs, we can run some checks and report
+        # on the inconsistencies
+        if len(id_collection) > 1:
+            self.logger.error("""Person on file with IDs %s maps to several
+                              person_ids in Cerebrum (%s). Manual intervention
+                              required. No changes made in Cerebrum""",
+                              list(xmlperson.iterids()), id_collection)
+            return False
+
+        dbperson.clear()
+        # We have a person_id that we have to update (potentially with some of
+        # the new IDs)
+        if len(id_collection) == 1:
+            self.logger.debug("One person_id exists for %s: %s",
+                              list(xmlperson.iterids()), id_collection)
+            dbperson.find(id_collection[0])
+
+            # IVR 2007-08-21 We cannot allow automatic ansatt# changes 
+            if not self.match_sap_ids(xmlperson, dbperson):
+                self.logger.error("SAP ID on file does not match SAP ID in "
+                  "Cerebrum for file ids %s. This is an error. Person is "
+                  "ignored. This has to be corrected manually.",
+                                  list(xmlperson.iterids()))
+                return False
+        else:
+            self.logger.debug("No person in cerebrum located for XML element with IDs: %s",
+                              list(xmlperson.iterids()))
+
+        return True
+    # end locate_or_create_person
+
+
+
+    def match_sap_ids(self, xmlperson, dbperson):
+        "Check if SAP IDs (ansatt#) on file matches the value in Cerebrum."
+
+        sap_id_on_file = xmlperson.get_id(xmlperson.SAP_NR)
+        sap_id_in_db = ""
+        row = dbperson.get_external_id(self.source_system,
+                                       self.constants.externalid_sap_ansattnr)
+        if row:
+            sap_id_in_db = row[0]["external_id"]
+
+        # Either the DB is empty (a new ID is allowed) or they *MUST* match
+        return (sap_id_in_db == "") or (sap_id_on_file == sap_id_in_db)
+    # end match_sap_ids
+
 
 
     def store_person(self, xmlperson, affiliations, work_title):
@@ -96,26 +222,14 @@ class XML2Cerebrum:
                     xmlperson.NAME_LAST  : const.name_last,
                     xmlperson.NAME_TITLE : const.name_personal_title, }
         
-        idxml2db = { HRDataPerson.NO_SSN : const.externalid_fodselsnr,
-                     SAPPerson.SAP_NR    : const.externalid_sap_ansattnr, }
+        idxml2db = self.idxml2db
         xmlcontact2db = self.xmlcontact2db
 
-        person.clear()
-        # Can this fail?
-        fnr = xmlperson.get_id(xmlperson.NO_SSN)
-        try:
-            person.find_by_external_id(const.externalid_fodselsnr, fnr)
-        except Errors.NotFoundError:
-            pass
-        except Errors.TooManyRowsError:
-            try:
-                person.find_by_external_id(const.externalid_fodselsnr, fnr,
-                                           source_system)
-            except Errors.NotFoundError:
-                pass
-            # yrt
-        # yrt
-            
+        # If we cannot coincide IDs on file with IDs on Cerebrum, the person
+        # is skipped.
+        if not self.locate_or_create_person(xmlperson, person):
+            return "INVALID", None
+
         person.populate(xmlperson.birth_date, gender2db[xmlperson.gender])
         person.affect_names(source_system, *name2db.values())
         # TBD: This may be too permissive 
