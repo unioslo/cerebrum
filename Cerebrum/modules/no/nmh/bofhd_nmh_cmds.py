@@ -48,6 +48,7 @@ class BofhdExtension(object):
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
     all_commands = {}
+    external_id_mappings = {}
 
     copy_commands = (
         #
@@ -141,6 +142,7 @@ class BofhdExtension(object):
         self.ba = BofhdAuth(self.db)
 
         # From uio
+        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         self.num2const = {}
         self.str2const = {}
         for c in dir(self.const):
