@@ -46,6 +46,11 @@ class EdirUtils:
         self.now = tstamp
         self.c_person = 'objectClass=inetOrgPerson'
         self.c_group = 'objectClass=group'
+        self.serv_groups_stud = ['bas-server-rype',
+                                 'bas-server-rev',
+                                 'bas-server-abbor']
+        self.serv_group_ans = ['bas-server-orrhane',
+                               'bas-server-uer']
 
 ## CREATE OBJECT:
     def object_edir_create(self, dn, attrdict):
@@ -71,6 +76,16 @@ class EdirUtils:
             self.logger.debug("Found target group %s", ldap_group_dn)
             if ldap_member:
                 (ldap_member_dn, ldap_attr) = ldap_member[0]
+                if 'groupMembership' in ldap_attr.keys():
+                    for g in self.serv_groups_stud:
+                        dn_stud_grp = "cn=%s,ou=grp,ou=Stud,o=HiA" % g
+                        if dn_stud_grp in ldap_attr['groupMembership']:
+                            self.logger.info("User %s already member in a server group", member_name)
+                            return False
+                        dn_ans_grp = "cn=%s,ou=grp,ou=Ans,o=HiA" % g
+                        if cn_ans_grp in ldap_attr['groupMembership']:
+                            self.logger.info("User %s already member in a server group", member_name)
+                            return False
                 self.logger.debug("Found member %s", ldap_member_dn)
                 attr_g['member'] = [ldap_member_dn]
                 attr_g['equivalentToMe'] = [ldap_member_dn]
@@ -107,14 +122,18 @@ class EdirUtils:
                     self.logger.debug("Replaced attributes %s for %s", ldap_member_dn, attr_m)
                 elif mod_type == 'delete':
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g)
-                    membership_list = ldap_attr['groupMembership']
-                    if ldap_group_dn in ldap_attr['groupMembership']:
-                        membership_list.remove(ldap_group_dn)
-                    attr_m['groupMembership'] = membership_list
+                    if 'group_Membership' in ldap_attr.keys():
+                        membership_list = ldap_attr['groupMembership']
+                        if ldap_group_dn in ldap_attr['groupMembership']:
+                            membership_list.remove(ldap_group_dn)
+                    if membership_list:
+                        attr_m['groupMembership'] = membership_list
                     if member_type == 'account':
-                        sec_eq_list = ldap_attr['securityEquals']
-                        if ldap_group_dn in ldap_attr['securityEquals']:
-                            sec_eq_list.remove(ldap_group_dn)
+                        if 'securityEquals' in ldap_attr.keys():
+                            sec_eq_list = ldap_attr['securityEquals']
+                            if ldap_group_dn in ldap_attr['securityEquals']:
+                                sec_eq_list.remove(ldap_group_dn)
+                        if sec_eq_list:
                             attr_m['securityEquals'] = sec_eq_list
                         ## we always replace attributtes related to account-objects...
                         self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'replace', attr_m)
@@ -124,7 +143,7 @@ class EdirUtils:
                 self.logger.error("No such account |%s|" % member_name)
         else:
             self.logger.error("No such group, |%s|." % group_name)
-
+        return True
             
 ## QUARANTINE: set/remove quarantine
     def account_set_quarantine(self, account_name):
@@ -202,7 +221,7 @@ class EdirUtils:
             attrs['allowUnlimitedCredit'] = ['False']
             self.__ldap_handle.ldap_modify_object(ldap_object_dn, action, attrs)
             self.logger.info("Updated quota for %s, new quota is %s" % (account_name,
-                                                                   pquota))
+                                                                        pquota))
             desc = "Cerebrum: update_quota (%s), old=%s, new=%s" % (self.date,
                                                                     tmp,
                                                                     pquota)
