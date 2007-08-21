@@ -3608,8 +3608,8 @@ class BofhdExtension(object):
     all_commands['group_memberships'] = Command(
         ('group', 'memberships'), EntityType(default="account"), Id(),
         fs=FormatSuggestion(
-        "%-9s %-18s %s", ("memberop", "group", "spreads"),
-        hdr="%-9s %-18s %s" % ("Operation", "Group", "Spreads")))
+        "%-9s %-18s %s", ("memberop", "group"),
+        hdr="%-9s %-18s %s" % ("Operation", "Group")))
     def group_memberships(self, operator, entity_type, id):
         entity = self._get_entity(entity_type, id)
         group = self.Group_class(self.db)
