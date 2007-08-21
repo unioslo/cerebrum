@@ -49,8 +49,8 @@ class EdirUtils:
         self.serv_groups_stud = ['bas-server-rype',
                                  'bas-server-rev',
                                  'bas-server-abbor']
-        self.serv_group_ans = ['bas-server-orrhane',
-                               'bas-server-uer']
+        self.serv_groups_ans = ['bas-server-orrhane',
+                                'bas-server-uer']
 
 ## CREATE OBJECT:
     def object_edir_create(self, dn, attrdict):
@@ -76,21 +76,22 @@ class EdirUtils:
             self.logger.debug("Found target group %s", ldap_group_dn)
             if ldap_member:
                 (ldap_member_dn, ldap_attr) = ldap_member[0]
-                if 'groupMembership' in ldap_attr.keys():
-                    for g in self.serv_groups_stud:
-                        dn_stud_grp = "cn=%s,ou=grp,ou=Stud,o=HiA" % g
-                        if dn_stud_grp in ldap_attr['groupMembership']:
-                            self.logger.info("User %s already member in a server group", member_name)
-                            return False
-                        dn_ans_grp = "cn=%s,ou=grp,ou=Ans,o=HiA" % g
-                        if dn_ans_grp in ldap_attr['groupMembership']:
-                            self.logger.info("User %s already member in a server group", member_name)
-                            return False
                 self.logger.debug("Found member %s", ldap_member_dn)
                 attr_g['member'] = [ldap_member_dn]
                 attr_g['equivalentToMe'] = [ldap_member_dn]
                 self.logger.debug("Making target group attributes member and equivalentToMe")
                 if mod_type == 'add':
+                    if 'groupMembership' in ldap_attr.keys():
+                        for g in self.serv_groups_stud:
+                            dn_stud_grp = "cn=%s,ou=grp,ou=Stud,o=HiA" % g
+                            if dn_stud_grp in ldap_attr['groupMembership']:
+                                self.logger.info("User %s already member in a server group", member_name)
+                                return False
+                        for g in self.serv_groups_ans:
+                            dn_ans_grp = "cn=%s,ou=grp,ou=Ans,o=HiA" % g
+                            if dn_ans_grp in ldap_attr['groupMembership']:
+                                self.logger.info("User %s already member in a server group", member_name)
+                                return False
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g)
                     self.logger.debug("Added target group attributes %s to %s", attr_g, ldap_group_dn)
                     if 'groupMembership' in ldap_attr.keys():
