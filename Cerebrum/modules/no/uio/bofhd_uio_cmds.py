@@ -3620,8 +3620,6 @@ class BofhdExtension(object):
             ret.append({'memberop': str(co.GroupMembershipOp(row['operation'])),
                         'entity_id': grp.entity_id,
                         'group': grp.group_name,
-                        'spreads': ",".join([str(co.Spread(a['spread']))
-                                             for a in grp.get_spread()])
                        })
         ret.sort(lambda a,b: cmp(a['group'], b['group']))
         return ret
