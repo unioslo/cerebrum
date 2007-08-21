@@ -83,7 +83,7 @@ class EdirUtils:
                             self.logger.info("User %s already member in a server group", member_name)
                             return False
                         dn_ans_grp = "cn=%s,ou=grp,ou=Ans,o=HiA" % g
-                        if cn_ans_grp in ldap_attr['groupMembership']:
+                        if dn_ans_grp in ldap_attr['groupMembership']:
                             self.logger.info("User %s already member in a server group", member_name)
                             return False
                 self.logger.debug("Found member %s", ldap_member_dn)
