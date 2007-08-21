@@ -78,6 +78,18 @@ def format_time(field):
     fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
     return ':'.join((field, "date", fmt))
 
+def date_to_string(date):
+    """Takes a DateTime-object and formats a standard ISO-datestring
+    from it.
+
+    Custom-made for our purposes, since the standard XMLRPC-libraries
+    restrict formatting to years after 1899, and we see years prior to
+    that.
+
+    """
+    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
+
+
 class TimeoutException(Exception):
     pass
 
@@ -4859,7 +4871,7 @@ class BofhdExtension(object):
         ("person", "find"), PersonSearchType(), SimpleString(),
         SimpleString(optional=True, help_ref="affiliation_optional"),
         fs=FormatSuggestion("%6i   %10s   %-12s  %s",
-                            ('id', format_day('birth'), 'account', 'name'),
+                            ('id', 'birth', 'account', 'name'),
                             hdr="%6s   %10s   %-12s  %s" % \
                             ('Id', 'Birth', 'Account', 'Name')))
     def person_find(self, operator, search_type, value, filter=None):
@@ -4950,7 +4962,7 @@ class BofhdExtension(object):
             # it's a lot of work.  We cheat and use the last word
             # of the name, which should work for 99.9% of the users.
             ret.append({'id': p_id,
-                        'birth': person.birth_date,
+                        'birth': date_to_string(person.birth_date),
                         'export_id': person.export_id,
                         'account': account_name,
                         'name': pname,
@@ -4967,7 +4979,7 @@ class BofhdExtension(object):
          "Entity-id:     %i\n" +
          "Birth:         %s\n" +
          "Affiliations:  %s [from %s]",
-         ("name", "entity_id", format_day("birth"),
+         ("name", "entity_id", "birth",
           "affiliation_1", "source_system_1")),
         ("               %s [from %s]",
          ("affiliation", "source_system")),
@@ -4989,7 +5001,7 @@ class BofhdExtension(object):
             raise CerebrumError("No name is registered for this person")
         data = [{'name': p_name,
                  'entity_id': person.entity_id,
-                 'birth': person.birth_date,
+                 'birth': date_to_string(person.birth_date),
                  'entity_id': person.entity_id}]
         affiliations = []
         sources = []
