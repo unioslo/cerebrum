@@ -218,7 +218,7 @@ def import_org_units(sources, target_system, cer_ou_tab):
     perspective = source2perspective[source_system]
     for system, filename in sources:
         logger.debug("Processing %s data from %s", system, filename)
-        db_writer = XML2Cerebrum(db, source_system, def_kat_merke)
+        db_writer = XML2Cerebrum(db, source_system, logger, def_kat_merke)
 
         it = system2parser(system)(filename, False).iter_ou()
         for xmlou in SkippingIterator(it, logger):
