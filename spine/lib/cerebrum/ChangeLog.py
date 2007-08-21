@@ -63,7 +63,6 @@ class ChangeLog(DatabaseClass):
         DatabaseAttr('params', table, str),
         DatabaseAttr('change_by', table, Entity),
         DatabaseAttr('change_program', table, str),
-        DatabaseAttr('description', table, str),
         Attribute('message', str),
     )
     db_attr_aliases = {
