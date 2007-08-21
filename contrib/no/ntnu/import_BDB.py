@@ -299,7 +299,8 @@ class BDBSync:
         aff_status = self.aff_map[aff['aff_type']]
         aff_type = aff_status.affiliation
 
-        person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status) 
+        person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status)
+        person.write_db()
 
         if dryrun:
             self.db.rollback()
