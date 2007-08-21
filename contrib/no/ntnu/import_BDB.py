@@ -237,18 +237,24 @@ class BDBSync:
         return
 
     def sync_affiliations(self):
+        #  1 student
+        #  2 fast ansatt
+        #  3 midlertidig ansatt
+        #  4 stipendiat
+        #  5 alias
+        #  7 gjest
+        #  9 alumnus
+        # 12 familie
         self.logger.debug("Getting affiliations from BDB...")
         self.aff_map = {}
-        self.aff_map[1] = self.const.affiliation_student
-        self.aff_map[2] = self.const.affiliation_ansatt
-        self.aff_map[3] = self.const.affiliation_ansatt
-        self.aff_map[4] = self.const.affiliation_manuell_ekst_stip
-        self.aff_map[5] = self.const.affiliation_manuell_annen
-        self.aff_map[7] = self.const.affiliation_manuell_emeritus
-        self.aff_map[9] = self.const.affiliation_manuell_alumni
-        self.aff_map[12] = self.const.affiliation_manuell_annen
-        if verbose:
-            print "Getting affiliations from BDB"
+        self.aff_map[1] = self.const.affiliation_status_student_student
+        self.aff_map[2] = self.const.affiliation_status_ansatt_ansatt
+        self.aff_map[3] = self.const.affiliation_status_ansatt_ansatt
+        self.aff_map[4] = self.const.affiliation_status_student_drgrad
+        self.aff_map[5] = self.const.affiliation_status_tilknyttet_annen
+        self.aff_map[7] = self.const.affiliation_status_tilknyttet_gjest
+        self.aff_map[9] = self.const.affiliation_status_alumni_aktiv
+        self.aff_map[12] = self.const.affiliation_status_tilknyttet_annen
         affiliations = self.bdb.get_affiliations()
         for affiliation in affiliations:
             self._sync_affiliation(affiliation)
@@ -259,9 +265,6 @@ class BDBSync:
         #as an externalid on persons in Cerebrum. We use this to connect affiliations and
         #persons.
         self.logger.info("Process affiliation for %s" % aff['person'])
-        if verbose:
-            print "Process affiliation for bdb-person: %s" % aff['person']
-
         const = self.const
         person = self.new_person
         person.clear()
@@ -271,12 +274,8 @@ class BDBSync:
         try: 
             person.find_by_external_id(const.externalid_bdb_person,aff['person'])
             self.logger.debug("Got match on bdb-id as entity_externalid using %s" % aff['person'])
-            if verbose:
-                print "Got match on bdb-id as entity_externalid using %s" % aff['person']
         except Errors.NotFoundError:
             self.logger.error("Got no match on bdb-id as entity_externalid using %s" % aff['person'])
-            if verbose:
-                print "Error: Got no match on bdb-id as entity_externalid using %s" % aff['person']
             return
 
         # Convert codes to IDs,type and status
