@@ -86,6 +86,15 @@ def main():
             print "Will use regular 'user' (%s) instead." % db_user
     db = Factory.get('Database')(user=db_user)
     db.cl_init(change_program="makedb")
+
+
+    # Force all Constants-writing to use the same db-connection
+    # as CREATE TABLE++
+    # TDB: could _CerebrumCode have a classmethod to do this, and
+    # also empty all cached constants?
+    from Cerebrum.Constants import _CerebrumCode
+    _CerebrumCode.sql = db
+
     meta = Metainfo.Metainfo(db)
     for opt, val in opts:
         if opt == '--help':
