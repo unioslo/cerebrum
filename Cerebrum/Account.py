@@ -646,13 +646,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return False
 
     def write_db(self):
-        tmp = self.illegal_name(self.account_name)
-        if tmp:
-            raise self._db.IntegrityError, "Illegal username: %s" % tmp
-
         self.__super.write_db()
         if not self.__updated:
             return
+        if 'account_name' in self.__updated:
+            tmp = self.illegal_name(self.account_name)
+            if tmp:
+                raise self._db.IntegrityError, "Illegal username: %s" % tmp
+
         is_new = not self.__in_db
         # make dict of changes to send to changelog
         newvalues = {}

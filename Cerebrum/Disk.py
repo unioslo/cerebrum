@@ -279,13 +279,14 @@ class Host(EntityName, EntitySpread, Entity_class):
         If you want to populate instances with data found in the
         Cerebrum database, use the .find() method."""
 
-        tmp = self.illegal_name(self.name)
-        if tmp:
-            raise self._db.IntegrityError, "Illegal host name: %s" % tmp
-
         self.__super.write_db()
         if not self.__updated:
             return
+        if 'name' in self.__updated:
+            tmp = self.illegal_name(self.name)
+            if tmp:
+                raise self._db.IntegrityError, "Illegal host name: %s" % tmp
+
         is_new = not self.__in_db
         if is_new:
             self.execute("""

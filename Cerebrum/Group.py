@@ -109,12 +109,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         this object.
 
         """
-        tmp = self.illegal_name(self.group_name)
-        if tmp:
-            raise self._db.IntegrityError, "Illegal groupname: %s" % tmp
         self.__super.write_db()
         if not self.__updated:
             return
+        if 'group_name' in self.__updated:
+            tmp = self.illegal_name(self.group_name)
+            if tmp:
+                raise self._db.IntegrityError, "Illegal groupname: %s" % tmp
+
         is_new = not self.__in_db
         if is_new:
             cols = [('entity_type', ':e_type'),
