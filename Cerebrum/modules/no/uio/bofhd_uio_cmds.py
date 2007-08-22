@@ -87,6 +87,9 @@ def date_to_string(date):
     that.
 
     """
+    if not date:
+        return "<not set>"
+    
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
 
@@ -6560,10 +6563,7 @@ class BofhdExtension(object):
             name = person.get_name(self.const.system_cached,
                                    getattr(self.const,
                                            cereconf.DEFAULT_GECOS_NAME))
-            if person.birth_date:
-                bd = person.birth_date.strftime('%Y-%m-%d')
-            else:
-                bd = '<not set>'
+            bd = date_to_string(person.birth_date)
             extra_msg = "\nRestoring '%s', belonging to '%s' (born %s)\n" % (
                 account.account_name, name, bd)
         else:
