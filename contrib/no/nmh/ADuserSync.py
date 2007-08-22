@@ -219,17 +219,17 @@ def compare(adusers,cerebrumusers):
             #
             ou = exp.match(dta['distinguishedName'])
             deaktiv_ou = ou.group(1)
-			if deaktiv_ou == cereconf.AD_CEREBRUM_DELETED:
-				logger.debug2("Ignoring deleted account %s", usr)
+            if deaktiv_ou == cereconf.AD_CEREBRUM_DELETED:
+                logger.debug2("Ignoring deleted account %s", usr)
             else:
-				changes['type'] = 'DELUSR'
-				changes['distinguishedName'] = adusers[usr]['distinguishedName']
+                changes['type'] = 'DELUSR'
+                changes['distinguishedName'] = adusers[usr]['distinguishedName']
                 
         # Append changes to changelist.
         #
-		if len(changes):
-			changes['distinguishedName'] = adusers[usr]['distinguishedName']
-			changelist.append(changes)    
+        if len(changes):
+            changes['distinguishedName'] = adusers[usr]['distinguishedName']
+            changelist.append(changes)    
     
     # Add accounts still registered in cerebrumusers to AD
     for cusr, cdta in cerebrumusers.items():
