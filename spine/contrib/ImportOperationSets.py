@@ -40,8 +40,12 @@ class AuthImporter(object):
                 print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
                 print "Will use regular 'user' (%s) instead." % db_user
         self.db = Factory.get('Database')(user=db_user)
+        self.db.cl_init(change_program="import_op_sets")
         self.op_sets = module.op_sets
         self.op_roles = module.op_roles
+        creator = Factory.get('Account')(self.db)
+        creator.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        self.creator_id = creator.entity_id
 
 
     def __del__(self):
@@ -139,9 +143,10 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
             try:
                 group.find_by_name(group_name)
             except Cerebrum.Errors.NotFoundError:
-                print """ERROR: Could not find the group '%s' in the database.
-Please make sure it exists and then run this script again.""" % group_name
-                sys.exit(1)
+                # Create empty group
+                group.populate(self.creator_id, group.const.group_visibility_all,
+                               group_name)
+                group.write_db()
             gid = group.entity_id
 
             oid = op_set.op_set_id
