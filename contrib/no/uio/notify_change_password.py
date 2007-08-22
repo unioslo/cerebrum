@@ -100,33 +100,20 @@ def fix_manual_updates(excempt_users):
     quarantine up to 7 days.
     """
     tmp = []
-    guest_prefix = 'guest'
     for u in excempt_users.split(","):
         if not u:
             continue
-        # special syntax for uio guest users
-        if re.match('%s\d\d\d-\d\d\d' % guest_prefix, u):
-            first, last = u.split('-')
-            first = int(first[len(guest_prefix):])
-            last = int(last)
-            for i in range(first, last+1):
-                tmp.append('%s%03d' % (guest_prefix, i))
-        else:
-            # Normal case
-            tmp.append(u)
-
-    excempt_account_ids = []
-    for u in tmp:
         account.clear()
         account.find_by_name(u)
-        excempt_account_ids.append(int(account.entity_id))
-    
+        tmp.append(int(account.entity_id))
+    excempt_users = tmp
+
     threshold = db.Date(*([ int(x) for x in (
         "%d-%d-%d" % time.localtime(time.time()+3600*24*7)[:3]).split('-')]))
     change_quarantines = {}
     for row in account.list_entity_quarantines():
         if row['quarantine_type'] == int(co.quarantine_autopassord):
-            if int(row['entity_id']) in excempt_account_ids:
+            if int(row['entity_id']) in excempt_users:
                 continue
             if row['end_date']:
                 logger.debug("Clearing end-date for %i" % row['entity_id'])
@@ -145,8 +132,9 @@ def fix_manual_updates(excempt_users):
                 account.disable_entity_quarantine(int(co.quarantine_autopassord),
                                                   threshold)
                 db.commit()
+
                 
-def process_data(status_mode=False, normal_mode=False):
+def process_data(status_mode=False, normal_mode=False, exception_users=[]):
     # mail_data_file always contain information about users that
     # currently has been warned that their account will be locked.
     global max_users, spread
@@ -173,6 +161,20 @@ def process_data(status_mode=False, normal_mode=False):
     else:
         account_ids = debug_account_ids
     logger.debug("Found %i users" % len(account_ids))
+
+    # Find the difference set of accounts that should be dealt with
+    # and excepted accounts. 
+    exception_users_ids = []
+    for u in exception_users:
+        account.clear()
+        try:
+            account.find_by_name(u)
+            exception_users_ids.append(int(account.entity_id))
+        except Errors.NotFoundError:
+            logger.warn("Could not find user with name %s" % u)
+    logger.debug("Found %i excepted users" % len(exception_users_ids))
+    account_ids = list(set(account_ids) - set(exception_users_ids))
+
     num_mailed = num_splatted = num_previously_warned = num_reminded = 0
     for account_id in account_ids:
         max_users -= 1
@@ -262,7 +264,7 @@ def main():
              'max-password-age=', 'grace-period=', 'data-file=',
              'max-users=', 'debug', 'status', 'reminder-delay=',
              'reminder-msg-file=', 'debug-data=', 'fix-manual-updates=',
-             'home-spread='])
+             'home-spread=', 'skip-guests='])
     except getopt.GetoptError:
         usage(1)
     if len(opts) == 0:
@@ -270,21 +272,24 @@ def main():
 
     global summary_email_info, max_users, max_password_age, \
            grace_period, mail_data_file, email_info, reminder_delay, \
-           spread
+           spread, guest_users
     max_users = 999999
     email_info = {}
     summary_email_info = {}
+    guest_users = []
     reminder_delay = None
     spread = ""
     mail_data_file = '/cerebrum/var/logs/notify_change_password.dta'
+    normal_mode=False
+    status_mode=False
 
     for opt, val in opts:
         if opt in ('--help',):
             usage()
         elif opt in ('--home-spread',):
             spread = val
-        elif opt in ('-p',):
-            process_data(normal_mode=True)
+        elif opt in ('-p',):            
+            normal_mode=True
         elif opt in ('--from',):
             summary_email_info['From'] = val
         elif opt in ('--to',):
@@ -319,12 +324,26 @@ def main():
         elif opt in ('--max-users',):
             max_users = int(val)
         elif opt in ('--status', ):
+            status_mode=True
             if not debug_enabled:
                 print "Must use --debug with --status"
                 sys.exit(1)
-            process_data(status_mode=True)
         elif opt in ('--fix-manual-updates',):
             fix_manual_updates(val)
+        elif opt in ('--skip-guests',):
+            guest_prefix = 'guest'
+            if not re.match('%s\d\d\d-\d\d\d' % guest_prefix, val):
+                print "Guest users should be on the form %sNNN-NNN" % guest_prefix
+                sys.exit(1)
+            first, last = val.split('-')
+            first = int(first[len(guest_prefix):])
+            for i in range(first, int(last)+1):
+                guest_users.append('%s%03d' % (guest_prefix, i))
+    
+        if normal_mode:
+            process_data(normal_mode=True, exception_users=guest_users)
+        elif status_mode:
+            process_data(status_mode=True, exception_users=guest_users)            
 
 def usage(exitcode=0):
     print """Usage: [options]
@@ -354,6 +373,9 @@ def usage(exitcode=0):
     --fix-manual-updates excempt_users: Override any manual changes
       that has been done to a password-quarantine.  excempt_users is a
       comma separated list of users that are skipped
+    --skip-guests guest_users: Do not do send mail, set quarantine or
+      do any other actions for these users. guest_users is in the form
+      guestNNN-NNN, e.g. guest001-750. 
 
 Example: notify_change_password.py --logger-name=console --debug --debug-data uname --from foo@bar.com --to foo@bar.com --msg-file templates/no_NO/email/skiftpassordmail.txt --reminder-msg-file templates/no_NO/email/skiftpassordmail_reminder.txt --max-password-age 350 --grace-period 30 --reminder-delay 16 --data-file notify_change_password.dat --home-spread home_spread_foo -p
          """
