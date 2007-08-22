@@ -1049,7 +1049,7 @@ def make_letters(data_file=None, type=None, range=None):
             if address:
                 break
         if not address:
-            logger.warn("Could not find authoritative address for %s" % account_id)
+            logger.info("Could not find authoritative address for %s" % account_id)
             continue
         address = address[0]
         alines = address['address_text'].split("\n")+[""]
