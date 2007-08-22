@@ -27,10 +27,10 @@ from Cerebrum.extlib import xmlprinter
 
 
 # We can process these export IDs only
-selectors = { "uname"    : { "xmlname"  : "userid",
-                             "function" : lambda fnr, person, const: person2uname(fnr) },
-              "phone"    : { "xmlname"  : "direktetelefon",
-                             "function" : lambda fnr, person, const: person2phone(person, const) },
+selectors = { #"uname"    : { "xmlname"  : "userid",
+              #               "function" : lambda fnr, person, const: person2uname(fnr) },
+              #"phone"    : { "xmlname"  : "direktetelefon",
+              #               "function" : lambda fnr, person, const: person2phone(person, const) },
               "mail"     : { "xmlname"  : "e-mail",
                              "function" : lambda fnr, person, const: person2email(fnr) },
               "fullname" : { "xmlname"  : "persnavn",
@@ -56,7 +56,11 @@ Specifically, this script generates an XML file according to schema
 specified.
 
 Only the employees are exported. We export the following data items:
-e-mail, uname, fullname and URL. Other elements may be added later.
+#
+# Jazz: 2007-08-22
+# unames cannot be exported to SAP for now as SSØ did not implement
+# functionality for reading uname-tag
+e-mail, uname , fullname and URL. Other elements may be added later.
 
 An example of a person element might look something like this:
 
@@ -108,13 +112,13 @@ def person2email(fnr):
     return __cache_fnr2mail.get(fnr)
 
 
-def person2uname(fnr):
-    """Find the primary user name for the given person.
+#def person2uname(fnr):
+#    """Find the primary user name for the given person.
 
-    Return None if no uname is found.
-    """
+#    Return None if no uname is found.
+#    """
 
-    return __cache_fnr2uname.get(fnr)
+#    return __cache_fnr2uname.get(fnr)
 
 
 def person2fullname(person, const):
@@ -126,17 +130,17 @@ def person2fullname(person, const):
     return person.get_name(const.system_cached, const.name_full)
 
 
-def person2phone(person, const):
-    """Find the primary phone number for the given person.
+#def person2phone(person, const):
+#    """Find the primary phone number for the given person.
 
-    Return None if no phone number is found.
-    """
+#    Return None if no phone number is found.
+#    """
 
-    phonerows = person.get_contact_info(type=const.contact_phone)
-    if len(phonerows) > 0:
-        return phonerows[0]["contact_value"]
+#    phonerows = person.get_contact_info(type=const.contact_phone)
+#    if len(phonerows) > 0:
+#        return phonerows[0]["contact_value"]
 
-    return None
+#    return None
 
 
 def person2URL(person, const):
@@ -224,7 +228,9 @@ def output_person(writer, fnr, data):
     data is a dictionary mapping id kind to id value.
     """
 
-    key_order = ["fullname", "phone", "mail", "URL", "uname"]
+    key_order = ["fullname", "mail", "URL"]
+    #"phone", 
+    # "uname"]
     # IVR 2007-08-13 Make sure that we do not forget any keys.
     assert set(key_order) == set(selectors.keys()), \
            "Did you forget to update code?"
