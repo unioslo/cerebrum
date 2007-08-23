@@ -859,6 +859,7 @@ class BDBSync:
         self.logger.info('Adding new account %s on person %s' % (uname,owner.entity_id))
 
         expire_date = account_info.get('expire_date',None)
+        create_date = account_info.get('creation_date')
 
         ac.populate(name=uname,
                     owner_type = owner.entity_type,
@@ -866,6 +867,8 @@ class BDBSync:
                     np_type = None,
                     creator_id = self.default_creator_id,
                     expire_date = expire_date)
+        ac.create_date = create_date
+        
         ac.write_db()
         
         if _is_posix(account_info):
