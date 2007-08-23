@@ -708,7 +708,7 @@ class BDBSync:
             res = False
         return res
 
-    def _sync_account(self,account_info,update_password_only=False):
+    def _sync_account(self,account_info,update_password_only=False,add_missing=True):
         """Callback-function. To be used from sync_accounts-method."""
         global num_accounts
         logger = self.logger
@@ -750,16 +750,22 @@ class BDBSync:
             person.find_by_external_id(bdb_person_type,
                                        account_info['person'],bdb_source_type)
             logger.debug('Found person for account %s' % account_info['name'])
-        except Exception,e:
-            logger.warning('Person with BDB-ID %s not found.' % account_info['person'])
-            return
+        except Errors.NotFoundError,e:
+            bdb_person = self.bdb.get_persons(bdbid=account_info['person'])
+            self._sync_person(bdb_person[0])
+            person.clear()
+            person.find_by_external_id(bdb_person_type,account_info['person'],bdb_source_type)
+        else:
+            logger.info("Wrote bdb-person with id %s" % account_info['person'])
+            
         owner=person
 
         ac.clear()
         try:
             ac.find_by_name(account_info.get('name'))
         except Errors.NotFoundError:
-            if not update_password_only:
+            # Add account if it doesn't exists ?
+            if add_missing:
                 self._make_account(account_info, ac, owner)
         else:
             if update_password_only:
@@ -816,11 +822,11 @@ class BDBSync:
             ac.owner_type = owner.entity_type
             ac.write_db()
 
-        # ... we'll update expire-date and possibly 
-        # promote the account to posix if we have enough information
+        # ... we'll update expire-date and create-date 
         logger.info('Updating account %s on person %s' % (username,person_entity))
-
-        ac.expire_date = account_info.get('expire_date',None)
+        #ac.expire_date = account_info.get('expire_date',None)
+        # How do we fix creation-date. This doesn't seem to work. FIXME!
+        #ac.create_date = account_info.get('creation_date') 
 
 
         """
@@ -832,6 +838,7 @@ class BDBSync:
             ac.write_db()
         """
 
+        # promote the account to posix if we have enough information
         if _is_posix(account_info):
             try:
                 posix_user.clear()
@@ -840,10 +847,6 @@ class BDBSync:
                 self._promote_posix(account_info, ac)
             else:
                 self._copy_posixuser(account_info, posix_user)
-
-
-
-                
 
     def _make_account(self, account_info, ac, owner):
         
@@ -1151,10 +1154,19 @@ def main():
         elif opt in ('--password-only',):
             accounts = sync.bdb.get_accounts(last=30) 
             for account in accounts:
-                sync._sync_account(account,update_password_only=True)
+                try:
+                    sync._sync_account(account,update_password_only=True,add_missing=True)
+                except sync.db.IntegrityError:
+                    sync.logger.error("Warning while sync account %s" % account.entity_id)
+                    sync.db.rollback()
+                    continue
+                if dryrun:
+                    sync.db.rollback()
+                else:
+                    sync.db.commit()
         elif opt in ('--accountname',):
             print "Syncronizing account: %s" % val
-            sync.sync_accounts(username=val,password_only=_password_only)
+            sync.sync_accounts(username=val,password_only=_password_only,add_missing=True)
         else:
             usage()
 
