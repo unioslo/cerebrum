@@ -114,7 +114,7 @@ class create_person_xml:
                 gruppenr = ansvarssted[4:6]
 
 		try:
-                    etternavn,fornavn = personnavn.title().split(" ",1)
+                    etternavn,fornavn = personnavn.decode('iso8859-1').title().encode('iso8859-1').split(" ",1)
 		except ValueError,m:
 		    logger.error("Person %s %s is missing part of name (%s), ignoring" % (fodt_dato, fodselsnr, personnavn))
 		    continue
@@ -316,8 +316,8 @@ class create_person_xml:
 
         for person_dict in person_hash:
             temp_bilag = []
-            temp_tils = []
-            tittel = person_dict['tittel'].capitalize()
+            temp_tils = []            
+            tittel = person_dict['tittel'].decode('iso8859-1').capitalize().encode('iso8859-1')
             # figgure out the stillingstype each person has
             query = "select stillingstype from person_stillingskoder where stillingskode = %s" % (person_dict['stillingskode'])
             db_row = db.query(query)
@@ -343,7 +343,7 @@ class create_person_xml:
             temp_bilag.append({'name' : 'bilag','child' : 'None', 'attr' : stedkode_value})
             temp_tils.append({'name' : 'tils','child' : 'None','attr' : tils_value})
             del person_dict['stedkode']
-            person_dict['tittel'] = person_dict['tittel'].capitalize()
+            person_dict['tittel'] = person_dict['tittel'].decode('iso8859-1').capitalize().encode('iso8859-1')
             writer.startElement("person",person_dict)
             writer.emptyElement("tils",tils_value)
             writer.endElement("person")
