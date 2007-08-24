@@ -565,9 +565,17 @@ The currently defined id-types are:
         # Throws subclass for CerebrumError, which bofhd.py will handle
         pu.undo_transaction(person_id, job_id, num_pages,
                             why, update_by=operator.get_entity_id())
-        self.logger.info("pquota_undo for %i, job %s with %s pages by %i (%s)" %
-                         (person_id, job_id, num_pages, operator.get_entity_id(),
-                         repr(why)))
+
+        # IVR 2007-08-24 Do *NOT* embed the parameters into the message itself
+        # at this point. *If* 'why' contains a %-character followed by
+        # something interesting, the logger will not like it later and the
+        # command will fail (but the pquota transaction itself will not). This
+        # happened at least once. The logger does msg % arguments, which
+        # fails, if message has a %-something directive, and arguments is an
+        # empty tuple.
+        self.logger.info("pquota_undo for %i, job %s with %s pages by %i (%s)",
+                         person_id, job_id, num_pages, operator.get_entity_id(),
+                         repr(why))
         return "OK"
 
 
