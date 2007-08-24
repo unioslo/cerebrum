@@ -48,7 +48,7 @@ div.worklist h2 {
 }
 
 div.worklist form {
-    margin: 0; // Ie and opera adds a small margin.
+    margin: 0; /* Ie and opera adds a small margin.*/
     padding: 0;
 }
 
