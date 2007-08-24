@@ -212,7 +212,7 @@ div.tableheader {
 div.td_lead_info{
     padding: 0 0.5em 0 0.5em;
     width: auto;
-    border-bottom: 1px dashed grey;
+    border-bottom: 1px dashed gray;
     font-style: oblique;
     font-weight: bold;
 }
@@ -238,8 +238,8 @@ div.view_content div.notice {
  * a specified width.
  */
 form {
-    margin: 0;
-    padding 0;
+    margin: 0em;
+    padding: 0em;
 }
 
 form label {
@@ -370,7 +370,7 @@ div.info table th {
 /* The yellow box for notes in entities. */
 div.note {
     background: #ffc;
-    border-background: #dda;
+    /* border-background: #dda; */
 }
 
 div.note h3 {
@@ -420,7 +420,7 @@ div.view_info {
 }
 
 div.view_info div.item {
-    border-bottom-style: dashed
+    border-bottom-style: dashed;
     border-bottom-color: gray;
 }
 
