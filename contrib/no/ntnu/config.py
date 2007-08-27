@@ -1,5 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
+import sys
 import ConfigParser
 import logging
 import logging.config
@@ -9,4 +10,9 @@ conf = ConfigParser.ConfigParser()
 conf.read(('sync.conf.template', 'sync.conf'))
 
 # Set up logging
-logging.config.fileConfig('log.conf')
+logconfig='log.conf'
+try:
+    logging.config.fileConfig(logconfig)
+except ConfigParser.NoSectionError,nse:
+    print "Missing section in %s. Message was: %s" % (logconfig,nse)
+    sys.exit(255)
