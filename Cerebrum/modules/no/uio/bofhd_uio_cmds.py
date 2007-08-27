@@ -5778,6 +5778,16 @@ class BofhdExtension(object):
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
+
+        # Only superusers should be allowed to create users with
+        # capital letters in their ids, and even then, just for system
+        # users
+        if uname != uname.lower():
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise CerebrumError("Account names cannot contain capital letters")
+            else:
+                if owner_type != self.const.entity_group:
+                    raise CerebrumError("Personal account names cannot contain capital letters")
             
         group = self._get_group(filegroup, grtype="PosixGroup")
         posix_user = PosixUser.PosixUser(self.db)
