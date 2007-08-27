@@ -581,8 +581,6 @@ class BDBSync:
                     posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
                                          name=grp['name'], description=grp['description'], \
                                          gid=grp['gid'])
-                    if not posix_group.has_spread(const.spread_ntnu_group):
-                        posix_group.add_spread(const.spread_ntnu_group)
                     try:
                         posix_group.write_db()
                     except self.db.IntegrityError,ie: 
@@ -592,6 +590,9 @@ class BDBSync:
                             print "Integrity error catched on bdb group %s. Reason: %s" % \
                                     (grp['name'],str(ie))
                         continue
+                    if not posix_group.has_spread(const.spread_ntnu_group):
+                        posix_group.add_spread(const.spread_ntnu_group)
+                    posix_group.write_db()
                     if verbose:
                         print "PosixGroup %s written to db" % grp['name']
             else:
