@@ -72,3 +72,11 @@ class AccountNMHMixin(Account.Account):
             ph = PasswordHistory.PasswordHistory(self._db)
             ph.add_history(self, plain)
         return ret
+
+class AccountNmhEmailMixin(Account.Account):
+    def get_primary_mailaddress(self):
+        primary = self.get_contact_info(type=self.const.contact_email)
+        if primary:
+            return primary[0]['contact_value']
+        else:
+            return "<ukjent>"
