@@ -530,14 +530,16 @@ class BDBSync:
         except Errors.NotFoundError:
             posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
                                  name='posixgroup', description='Bootstrapped posixgroup')
-            if not posix_group.has_spread(const.spread_ntnu_group):
-                posix_group.add_spread(const.spread_ntnu_group)
             try:
                 posix_group.write_db()
             except self.db.IntegrityError,ie: 
                 self.logger.error("Integrity error catched while trying to add posixgroup named 'posixgroup' . Reason: %s" % \
                                   (str(ie)))
                 self.db.rollback()
+            else:
+                if not posix_group.has_spread(const.spread_ntnu_group):
+                    posix_group.add_spread(const.spread_ntnu_group)
+                posix_group.write_db()
         else:
             if dryrun:
                 self.db.rollback()
