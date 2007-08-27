@@ -36,7 +36,7 @@ from Cerebrum.Constants import _SpreadCode
 targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
-             'rel_0_9_10', 'rel_0_9_11'),
+             'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12'),
     'bofhd': ('bofhd_1_1', ),
     'changelog': ('changelog_1_2', ),
     'email': ('email_1_0','email_1_1'),
@@ -441,6 +441,17 @@ def migrate_to_rel_0_9_11():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,11))
     print "Migration to 0.9.11 completed successfully"
+    db.commit()
+
+def migrate_to_rel_0_9_12():
+    """Migrate from 0.9.11 database to the 0.9.12 database schema."""
+    assert_db_version("0.9.11")
+    # drop description column
+    makedb('0_9_12', 'pre')
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,12))
+    print "Migration to 0.9.12 completed successfully"
     db.commit()
 
 def migrate_to_bofhd_1_1():

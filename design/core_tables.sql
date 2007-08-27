@@ -500,7 +500,7 @@ CREATE TABLE entity_address
 		  REFERENCES address_code(code),
   address_text	CHAR VARYING(256),
   p_o_box	CHAR VARYING(10),
-  postal_number	CHAR VARYING(8),
+  postal_number	CHAR VARYING(32),
   city		CHAR VARYING(128),
   country	NUMERIC(6,0)
 		CONSTRAINT entity_address_country
