@@ -133,7 +133,7 @@ CLASS_ALLOCATION = ['Cerebrum.modules.Hpc/Allocation']
 CLASS_ALLOCATION_PERIOD = ['Cerebrum.modules.Hpc/AllocationPeriod']
 
 # OUs that have no parent, typically the ones at the top of any
-# OU-tree. Note that OU ids er strings, and therefore any ids listed
+# OU-tree. Note that OU ids are strings, and therefore any ids listed
 # here need to be strings too.
 OUS_WITHOUT_PARENT = []
 
