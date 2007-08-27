@@ -137,7 +137,13 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
     xmlou = org_units[my_sko]
     parent_sko = format_parent_sko(xmlou)
 
-    if (not parent_sko) or (parent_sko not in stedkode2ou):
+    if my_sko in cereconf.OUS_WITHOUT_PARENT:
+        # This is a top-level OU and should not have a parent, nor
+        # should it report that as an error
+        logger.info("Found top-level OU '%s'. No parent assigned." % my_sko)
+        parent_sko = None
+        parent_ouid = None       
+    elif (not parent_sko) or (parent_sko not in stedkode2ou):
         # It's not always an error -- OU-hierarchy roots do not have parents
         # by design.
         logger.warn("Error in dataset:"
@@ -188,8 +194,6 @@ def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
     existing_ou_mappings[my_ouid] = parent_ouid
 # end rec_make_ou
 
-
-#        import_org_units(sources, target_system, cer_ou_tab)
 
 def import_org_units(sources, target_system, cer_ou_tab):
     """Scan the sources and import all the OUs into Cerebrum.

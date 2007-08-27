@@ -132,6 +132,11 @@ CLASS_PROJECT = ['Cerebrum.modules.Hpc/Project']
 CLASS_ALLOCATION = ['Cerebrum.modules.Hpc/Allocation']
 CLASS_ALLOCATION_PERIOD = ['Cerebrum.modules.Hpc/AllocationPeriod']
 
+# OUs that have no parent, typically the ones at the top of any
+# OU-tree. Note that OU ids er strings, and therefore any ids listed
+# here need to be strings too.
+OUS_WITHOUT_PARENT = []
+
 # Which module(s) to use as ClientAPI
 # (use Cerebrum.Utils.Factory.get_module("ClientAPI")
 MODULE_CLIENTAPI = ['Cerebrum.client.BofhModel']
