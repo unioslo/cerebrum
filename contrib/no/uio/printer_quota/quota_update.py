@@ -229,11 +229,7 @@ def get_bet_fritak_utv_data(sysname, person_file):
     """Finn pc-stuevakter/gruppelærere mfl. ved å parse SAP-dumpen."""
     ret = {}
     fnr2pid = {}
-    # TBD/TODO: Denne burde være i cereconf
-    roller_fritak = ('PCVAKT', 'GRP-LÆRER', 'ST-POL FRI', 'ST-ORG FRI',
-                     'EF-FORSKER', 'EF-STIP', 'EMERITUS', 'GJ-FORSKER',
-                     'REG-ANSV', 'EKST. KONS', 'SENIORFORS',
-                     'POLS-ANSAT', 'ASSOSIERT', 'EKST. PART', 'SIVILARB')
+    roller_fritak = cereconf.PQUOTA_ROLLER_FRITAK
     for p in person.list_external_ids(source_system=const.system_sap,
                                       id_type=const.externalid_fodselsnr):
         fnr2pid[p['external_id']] = int(p['entity_id'])
