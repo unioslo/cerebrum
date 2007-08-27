@@ -208,7 +208,7 @@ def makeInitialUsers(db):
         return False
     
     # TODO:  These should have a permanent quarantine and be non-visible
-    a = Factory.get('Account')(db)
+    a = Account.Account(db)
     a.illegal_name = false
     a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
                eg.entity_id, int(co.account_program), ea.entity_id,
