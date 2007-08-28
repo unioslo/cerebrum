@@ -156,11 +156,14 @@ class SpineClient:
         source = spine.get_idl_commented()
         print>>sys.stderr, '- (%s bytes)' % len(source)
         if not os.path.exists(self.idl_path):
+            print '- Making idl_path: ', self.idl_path
+            print>>sys.stderr, '- Making idl_path: ', self.idl_path
             os.makedirs(self.idl_path)
         fd = open(self.idl_file, 'w')
         fd.write(source)
         fd.close()
-        print>>sys.stderr, '- Compiling to', self.idl_path
+        print '- Compiling to: ', self.idl_path
+        print>>sys.stderr, '- Compiling to: ', self.idl_path
 
         os.system('omniidl -bpython -C %s %s %s' % (self.idl_path, self.spine_core, self.idl_file))
 
