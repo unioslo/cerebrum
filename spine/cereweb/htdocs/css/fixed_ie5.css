@@ -19,7 +19,9 @@
  */
 
 body {
-  overflow-y: hidden;
+  /* tag does not exist */
+  /* overflow-y: hidden;*/
+    overflow: hidden;
 }
 
 div.page_content {
@@ -33,7 +35,8 @@ div.page_bottom {
   padding-left: 20px;
   z-index: 1;
   overflow: hidden;
-  overflow-y: auto;
+  /* tag does not exists */
+  /* overflow-y: auto; */
 }
 
 div.page_menu {

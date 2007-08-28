@@ -346,8 +346,8 @@ div.box a:hover { color: gray; }
 div.box h3 a { color: black; text-decoration: none; }
 
 /* Style action-links */
-a.action:before { content: "["; }
-a.action:after { content: "]"; }
+a.action:before { content: " ["; }
+a.action:after { content: "] "; }
 
 /* The bluish-colored boxes used for most stuff. */
 div.info {
