@@ -131,10 +131,10 @@ class CerebrumProxy(object):
         search = self._get_search_str(
             etype='user', entity_id=entity_id, name=uname)
         for r in self.run_command('group_user', search):
-            tmp = []
-            for s in r['spreads'].split(","):
-                tmp.append(s)
-            r['spreads'] = tmp
+            #tmp = []
+            #for s in r['spreads'].split(","):
+            #    tmp.append(s)
+            #r['spreads'] = tmp
             ret.append(r)
         return ret
 
