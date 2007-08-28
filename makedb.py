@@ -208,6 +208,14 @@ def makeInitialUsers(db):
         return False
     
     # TODO:  These should have a permanent quarantine and be non-visible
+
+    # Use Account.Account to avoid getting the wrong Account Mixins
+    # fiddling with the bootstrap account. Every instance may use this
+    # account as they see fit, but have to append functionality
+    # manually afterwards. makedb an account that can be created with
+    # a fully populated cereconf, but an empty database(which may
+    # break a lot of Mixins).
+    
     a = Account.Account(db)
     a.illegal_name = false
     a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
