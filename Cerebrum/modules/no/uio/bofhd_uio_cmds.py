@@ -1078,7 +1078,7 @@ class BofhdExtension(object):
          ("valid_addr",)),
         ("Mail quota:       %d MiB, warn at %d%% (not enforced)",
          ("dis_quota_hard", "dis_quota_soft")),
-        ("Mail quota:       %d MiB, warn at %d%% (%s MiB used)",
+        ("Mail quota:       %d MiB, warn at %d%% (%s used (MiB))",
          ("quota_hard", "quota_soft", "quota_used")),
         ("                  (currently %d MiB on server)",
          ("quota_server",)),
@@ -1251,23 +1251,23 @@ class BofhdExtension(object):
             es = Email.EmailServer(self.db)
             es.find(et.email_server_id)
             if es.email_server_type == self.const.email_server_type_cyrus:
-                pw = self.db._read_password(cereconf.CYRUS_HOST,
-                                            cereconf.CYRUS_ADMIN)
+#                pw = self.db._read_password(cereconf.CYRUS_HOST,
+#                                            cereconf.CYRUS_ADMIN)
                 used = 'N/A'; limit = None
-                try:
-                    cyrus = imaplib.IMAP4(es.name)
-                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
-                    res, quotas = cyrus.getquota("user." + acc.account_name)
-                    if res == "OK":
-                        for line in quotas:
-                            folder, qtype, qused, qlimit = line.split()
-                            if qtype == "(STORAGE":
-                                used = str(int(qused)/1024)
-                                limit = int(qlimit.rstrip(")"))/1024
-                except TimeoutException:
-                    used = 'DOWN'
-                except ConnectException, e:
-                    used = str(e)
+#                try:
+#                    cyrus = imaplib.IMAP4(es.name)
+#                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
+#                    res, quotas = cyrus.getquota("user." + acc.account_name)
+#                    if res == "OK":
+#                        for line in quotas:
+#                            folder, qtype, qused, qlimit = line.split()
+#                            if qtype == "(STORAGE":
+#                                used = str(int(qused)/1024)
+#                                limit = int(qlimit.rstrip(")"))/1024
+#                except TimeoutException:
+#                    used = 'DOWN'
+#                except ConnectException, e:
+#                    used = str(e)
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
                              'quota_used': used})
@@ -3643,10 +3643,10 @@ class BofhdExtension(object):
     all_commands['group_user'] = Command(
         ('group', 'user'), AccountName(),
         fs=FormatSuggestion(
-        "%-9s %-18s %s", ("memberop", "group", "spreads"),
+        "%-9s %-18s", ("memberop", "group"),
         hdr=("WARNING: This command is deprecated and will be removed.  "
-             "Please use 'group memberships'\n%-9s %-18s %s") % (
-        "Operation", "Group", "Spreads")))
+             "Please use 'group memberships'\n%-9s %-18s ") % (
+        "Operation", "Group")))
     def group_user(self, operator, accountname):
         return self.group_memberships(operator, 'account', accountname)
 
