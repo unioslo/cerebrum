@@ -256,7 +256,7 @@ def process_affiliations(employment_file):
             person.find_by_external_id(constants.externalid_sap_ansattnr,
                                        sap_ansattnr, constants.system_sap)
             person_id = int(person.entity_id)
-        except Erorrs.NotFoundError:
+        except Errors.NotFoundError:
             logger.warn("Cannot map SAP ansattnr %s to cerebrum person_id",
                         sap_ansattnr)
             continue
