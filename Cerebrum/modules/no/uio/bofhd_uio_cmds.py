@@ -1251,23 +1251,31 @@ class BofhdExtension(object):
             es = Email.EmailServer(self.db)
             es.find(et.email_server_id)
             if es.email_server_type == self.const.email_server_type_cyrus:
-#                pw = self.db._read_password(cereconf.CYRUS_HOST,
-#                                            cereconf.CYRUS_ADMIN)
+                pw = self.db._read_password(cereconf.CYRUS_HOST,
+                                            cereconf.CYRUS_ADMIN)
                 used = 'N/A'; limit = None
-#                try:
-#                    cyrus = imaplib.IMAP4(es.name)
-#                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
-#                    res, quotas = cyrus.getquota("user." + acc.account_name)
-#                    if res == "OK":
-#                        for line in quotas:
-#                            folder, qtype, qused, qlimit = line.split()
-#                            if qtype == "(STORAGE":
-#                                used = str(int(qused)/1024)
-#                                limit = int(qlimit.rstrip(")"))/1024
-#                except TimeoutException:
-#                    used = 'DOWN'
-#                except ConnectException, e:
-#                    used = str(e)
+                try:
+                    cyrus = imaplib.IMAP4(es.name)
+                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
+                    # IVR 2007-08-29 If the server is too busy, we do not want
+                    # to lock the entire bofhd. Caveat: this may be unsafe,
+                    # since the file object on which imaplib operates requires
+                    # *blocking* socket and timeouts are implemented probably
+                    # with non-blocking sockets.
+                    # 5 seconds should be enough
+                    cyrus.sock.settimeout(5)
+                    res, quotas = cyrus.getquota("user." + acc.account_name)
+                    cyrus.sock.settimeout(None)
+                    if res == "OK":
+                        for line in quotas:
+                            folder, qtype, qused, qlimit = line.split()
+                            if qtype == "(STORAGE":
+                                used = str(int(qused)/1024)
+                                limit = int(qlimit.rstrip(")"))/1024
+                except (TimeoutException, socket.timeout):
+                    used = 'DOWN'
+                except ConnectException, e:
+                    used = str(e)
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
                              'quota_used': used})
