@@ -36,7 +36,7 @@ public class EphorteGW {
     public EphorteGW(Properties props) {
         brukerId2Person = new Hashtable<String, Person>();
         if (USE_DEBUG_CONNECTION) {
-            conn = new EporteConnectionTest();
+            conn = new EphorteConnectionTest();
         } else {
             conn = new EphorteConnectionImpl(props);
         }
