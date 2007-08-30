@@ -157,8 +157,7 @@ class ProcHandler(object):
             self._ac.clear()
             self._ac.find(account['account_id'])
             # Update affiliations
-            for row in self._ac.get_account_types(all_persons_types=True,
-                                                  filter_expired=False):
+            for row in self._ac.get_account_types(filter_expired=False):
                 account_affiliations.append((row['ou_id'], row['affiliation']))
 
             rem, add = _diff_aff(person_affiliations, account_affiliations)
