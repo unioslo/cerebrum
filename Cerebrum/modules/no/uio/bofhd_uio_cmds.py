@@ -34,6 +34,10 @@ import os
 import email.Generator, email.Message
 import imaplib
 import pickle
+import socket
+import select
+import errno
+
 from mx import DateTime
 try:
     from sets import Set
@@ -1258,14 +1262,11 @@ class BofhdExtension(object):
                     cyrus = imaplib.IMAP4(es.name)
                     cyrus.login(cereconf.CYRUS_ADMIN, pw)
                     # IVR 2007-08-29 If the server is too busy, we do not want
-                    # to lock the entire bofhd. Caveat: this may be unsafe,
-                    # since the file object on which imaplib operates requires
-                    # *blocking* socket and timeouts are implemented probably
-                    # with non-blocking sockets.
+                    # to lock the entire bofhd.
                     # 5 seconds should be enough
-                    cyrus.sock.settimeout(5)
+                    cyrus.socket().settimeout(5)
                     res, quotas = cyrus.getquota("user." + acc.account_name)
-                    cyrus.sock.settimeout(None)
+                    cyrus.socket().settimeout(None)
                     if res == "OK":
                         for line in quotas:
                             folder, qtype, qused, qlimit = line.split()
