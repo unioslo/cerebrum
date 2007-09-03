@@ -467,13 +467,10 @@ def email_move_child(host, r):
     
 def process_email_move_requests():    
     # Easy round robin to balance load on real mail servers
-    # TODO: get this into cereconf
-    round_robin = {'mail-imap1' : 0,
-                   'mail-imap2' : 0,
-                   'mail-imap3' : 0,
-                   'mail-imap4' : 0,
-                   'mail-imap5' : 0,
-                   'mail-imap6' : 0}
+    round_robin = {}
+    for i in cereconf.PROC_BOFH_REQ_MOVE_SERVERS:
+        round_robin[i] = 0
+        
     def get_srv():
         srv = ""
         low = -1

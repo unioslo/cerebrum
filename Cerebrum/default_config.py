@@ -362,6 +362,10 @@ EMAIL_ADD_QUOTA_REQUEST = False
 # If this value is set to False, no changes are made.
 EMAIL_EXPIRE_ADDRESSES = 180
 
+# contrib/no/uio/process_bofhd_requests.py needs a list of servers to
+# pass off to cereconf.IMAPSYNC_SCRIPT.
+PROC_BOFH_REQ_MOVE_SERVERS = []
+
 # Base reference for URLs on webpages
 WEBROOT = "/"
 
