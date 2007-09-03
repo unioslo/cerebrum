@@ -1269,10 +1269,17 @@ class BofhdExtension(object):
                     cyrus.socket().settimeout(None)
                     if res == "OK":
                         for line in quotas:
-                            folder, qtype, qused, qlimit = line.split()
-                            if qtype == "(STORAGE":
-                                used = str(int(qused)/1024)
-                                limit = int(qlimit.rstrip(")"))/1024
+                            try:
+                                folder, qtype, qused, qlimit = line.split()
+                                if qtype == "(STORAGE":
+                                    used = str(int(qused)/1024)
+                                    limit = int(qlimit.rstrip(")"))/1024
+                            except ValueError:
+                                # line.split fails e.g. because quota isn't set on server
+                                folder, junk = line.split()
+                                self.logger.warning("No IMAP quota set for '%s'" % acc.account_name)
+                                used = "N/A"
+                                limit = None
                 except (TimeoutException, socket.timeout):
                     used = 'DOWN'
                 except ConnectException, e:
