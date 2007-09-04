@@ -1199,7 +1199,10 @@ class BofhdExtension(object):
     def email_create_list(self, operator, listname):
         """Create e-mail addresses listname needs to be a Mailman
         list."""
-        lp, dom = listname.split('@')
+        try:
+            lp, dom = listname.split('@')
+        except ValueError:
+            raise CerebrumError, "List-name must contain '@'; '%s' doesn't." % listname
         ed = self._get_email_domain(dom)
         op = operator.get_entity_id()
         self.ba.is_superuser(op, ed)
