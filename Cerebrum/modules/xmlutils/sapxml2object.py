@@ -287,7 +287,8 @@ class XMLPerson2Object(XMLEntity2Object):
                 "Ukjent": HRDataPerson.GENDER_UNKNOWN,
                 "HovedStilling": DataEmployment.HOVEDSTILLING,
                 "Bistilling": DataEmployment.BISTILLING,
-                "Ansattnr": SAPPerson.SAP_NR, }
+                "Ansattnr": SAPPerson.SAP_NR,
+                "Title": HRDataPerson.NAME_TITLE,}
 
     def __init__(self, xmliter):
         """Constructs an iterator supplying SAPPerson objects."""
@@ -584,6 +585,8 @@ class XMLPerson2Object(XMLEntity2Object):
                 emp = self._make_role(sub)
                 if emp is not None:
                     result.add_employment(emp)
+            elif sub.tag == "Title":
+                result.add_name(DataName(self.tag2type[sub.tag], value))
 
         # We need to order 'Telefon 1' and 'Telefon 2' properly
         celems = list(element.findall("PersonKomm"))

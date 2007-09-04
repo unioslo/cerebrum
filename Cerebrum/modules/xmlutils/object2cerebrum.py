@@ -244,10 +244,10 @@ class XML2Cerebrum:
         # od
 
         # ... and allow others to be missing
-        if xmlperson.get_name(xmlperson.NAME_TITLE):
+        ptitle = xmlperson.get_name(xmlperson.NAME_TITLE)
+        if ptitle and ptitle.value:
             # FIXME: How many names can potentially match?
-            person.populate_name(name2db[xmlperson.NAME_TITLE],
-                                 xmlperson.get_name(xmlperson.NAME_TITLE).value) 
+            person.populate_name(name2db[xmlperson.NAME_TITLE], ptitle.value)
         # fi
 
         # TBD: The implicit assumption here is that idxml2db contains all the
