@@ -139,7 +139,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if v:
                 try:
                     tmp = pickle.loads(row['strval'])[int(spread)]
-                    v['profilePath'] = tmp
+                    v['profilePath'] = unicode(tmp, 'ISO-8859-1')
                 except Exception, e:
                     self.logger.warn("Error getting profilepath for %i: %s" % (row['entity_id'], e))
         for row in self.ac.list_traits(self.co.trait_ad_account_ou):
@@ -147,7 +147,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if v:
                 try:
                     tmp = pickle.loads(row['strval'])[int(spread)]
-                    v['OU'] = tmp + "," + self.ad_ldap
+                    v['OU'] = unicode(tmp,'ISO-8859-1') + "," + self.ad_ldap
                 except Exception, e:
                     self.logger.warn("Error getting OU for %i: %s" % (row['entity_id'], e))
         for row in self.ac.list_traits(self.co.trait_ad_homedir):
@@ -155,7 +155,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if v:
                 try:
                     tmp = pickle.loads(row['strval'])[int(spread)]
-                    v['homeDirectory'] = tmp
+                    v['homeDirectory'] = unicode(tmp, 'ISO-8859-1')
                 except Exception, e:
                     self.logger.warn("Error getting homedir for %i: %s" % (row['entity_id'], e))
 
@@ -185,13 +185,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             object_list.append(self.ad_ldap)
             self.logger.debug("OU-list: %s" % repr(object_list))
         for ou in required_ous:
-            if unicode(ou, 'ISO-8859-1') not in object_list:
+            if ou not in object_list:
                 name, parent_ou = ou.split(",", 1)
-                name = unicode(name, 'ISO-8859-1')
                 self.logger.debug("Creating missing OU: %s", name)
                 if not parent_ou in object_list:
                     # Recursively create parent
-                    self._make_ou_if_missing([parent_ou], object_list=object_list, dryrun=dryrun)
+                    self._make_ou_if_missing([unicode(parent_ou, 'ISO-8859-1')], object_list=object_list, dryrun=dryrun)
                 name = name[name.find("=")+1:]
                 self.run_cmd('createObject', dryrun, "organizationalUnit", parent_ou, name)
                 object_list.append(ou)
