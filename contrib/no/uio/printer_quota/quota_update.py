@@ -348,11 +348,11 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
     # Ansatte har fritak
     # TODO: sparer litt ytelse ved å gjøre dette i get_students()
     for row in person.list_affiliations(affiliation=const.affiliation_ansatt,
-                                        include_deleted=False, fetchall=False):
-        if int(row['status']) not in (
-            int(const.affiliation_status_ansatt_vit),
-            int(const.affiliation_status_ansatt_tekadm)):
-            continue
+                          status=(const.affiliation_status_ansatt_bil,
+                                  const.affiliation_status_ansatt_vit,
+                                  const.affiliation_status_ansatt_tekadm,),
+                          source_system=const.system_sap,
+                          include_deleted=False, fetchall=False):
         if quota_victim.has_key(int(row['person_id'])):
             del(quota_victim[int(row['person_id'])])
     logger.debug("removed employees: %i" % len(quota_victim))
