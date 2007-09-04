@@ -190,7 +190,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 self.logger.debug("Creating missing OU: %s", name)
                 if not parent_ou in object_list:
                     # Recursively create parent
-                    self._make_ou_if_missing([unicode(parent_ou, 'ISO-8859-1')], object_list=object_list, dryrun=dryrun)
+                    self._make_ou_if_missing([parent_ou], object_list=object_list, dryrun=dryrun)
                 name = name[name.find("=")+1:]
                 self.run_cmd('createObject', dryrun, "organizationalUnit", parent_ou, name)
                 object_list.append(ou)
