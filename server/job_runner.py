@@ -297,8 +297,8 @@ class JobRunner(object):
             tmp_queue = self.job_queue.get_run_queue()[:]   # loop modifies list
             tmp_delta, completed_nowait_job, num_running = self.process_queue(
                 tmp_queue, num_running)
-            logger.debug("Proc Queue: '%s', '%s', '%s'", tmp_delta,
-                         completed_nowait_job, num_running)
+            logger.debug("Proc Queue: '%s', '%s', '%s', delta: '%s'", tmp_delta,
+                         completed_nowait_job, num_running, delta)
             if tmp_delta is not None:
                 delta = tmp_delta
             
