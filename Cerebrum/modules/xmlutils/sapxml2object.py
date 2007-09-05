@@ -605,12 +605,15 @@ class XMLPerson2Object(XMLEntity2Object):
         to_reserve = not result.has_active_employments()
 
         # Everyone with 'RESE' is reserved (regardless of everything else)
+        # If no 'RESE' exists, but there is a 'SAMT' => no reservation
         for i in element.findall("Adresse/Reservert"):
             if i.text:
                 tmp = i.text.strip()
                 if tmp == "RESE":
                     to_reserve = True
                     break
+                elif tmp == "SAMT":
+                    to_reserve = False
         result.reserved = to_reserve
 
         # Address magic
