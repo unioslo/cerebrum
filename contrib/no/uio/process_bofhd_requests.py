@@ -428,13 +428,13 @@ def email_move_child(host, r):
         sig = os.WTERMSIG(status)
         logger.warning('[%d] Command "%r" was killed by signal %d',
                        pid, cmd, sig)
-        sys.exit(status)
+        return
     else:
         # The process exited with an exit status
         sig = os.WSTOPSIG(status)
         logger.warning("[%d] Return value was %d from command %r",
                        pid, sig, cmd)
-        sys.exit(status)
+        return
     # Need move SIEVE filters as well
     cmd = [cereconf.MANAGESIEVE_SCRIPT,
            '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
