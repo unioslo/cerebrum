@@ -426,21 +426,21 @@ def email_move_child(host, r):
     elif os.WIFSIGNALED(status):
         # The process was killed by a signal.        
         sig = os.WTERMSIG(status)
-        logger.error('[%d] Command "%r" was killed by signal %d',
-                     pid, cmd, sig)
+        logger.warning('[%d] Command "%r" was killed by signal %d',
+                       pid, cmd, sig)
         sys.exit(status)
     else:
         # The process exited with an exit status
         sig = os.WSTOPSIG(status)
-        logger.error("[%d] Return value was %d from command %r",
-                     pid, sig, cmd)
+        logger.warning("[%d] Return value was %d from command %r",
+                       pid, sig, cmd)
         sys.exit(status)
     # Need move SIEVE filters as well
     cmd = [cereconf.MANAGESIEVE_SCRIPT,
            '-v', '-a', cereconf.CYRUS_ADMIN, '-p', pwfile,
            acc.account_name, old_server.name, new_server.name]
     if (spawn_and_log_output(cmd, connect_to=[old_server.name, new_server.name])) != 0:
-        logger.error('%s: managesieve_sync failed!', acc.account_name)
+        logger.warning('%s: managesieve_sync failed!', acc.account_name)
         return
     logger.info('%s: managesieve_sync completed successfully', acc.account_name)
     # The move was successful, update the user's server
