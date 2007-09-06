@@ -257,49 +257,20 @@ class UiTStudent(access_FS.Student):
 
 
 class UiTUndervisning(access_FS.Undervisning):
-    def list_undervisningenheter(self, sem="current"):
-	"""Metoden som henter data om undervisningsenheter
-	i nåverende (current) eller neste (next) semester. Default
-	vil være nåværende semester. For hver undervisningsenhet 
-	henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall 
-	og terminnr."""
-	qry = """
-        SELECT DISTINCT
-          r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
-          e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
-          e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall
-          FROM fs.emne e, fs.undervisningsenhet r
-          WHERE r.emnekode = e.emnekode AND
-          r.versjonskode = e.versjonskode AND """ 
-        if (sem=="current"):
-	    qry +="""%s""" % self._get_termin_aar(only_current=1)
-        else: 
-	    qry +="""%s""" % self._get_next_termin_aar()
-	return self.db.query(qry)
-
+    '''UIT version of access_FS in modules.no.'''
+    
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
-	"""Finn fødselsnumrene til alle studenter på et gitt 
-	undervisningsenhet. Skal brukes til å generere grupper for
-	adgang til CF."""
-	qry = """
-        SELECT DISTINCT
-          fodselsdato, personnr
-        FROM fs.undervisningsmelding
-        WHERE
-          institusjonsnr = :institusjonsnr AND
-          emnekode = :emnekode AND
-          versjonskode = :versjonskode AND
-          terminnr = :terminnr AND
-          terminkode = :terminkode AND
-          arstall = :arstall """
-        return self.db.query(qry, {'institusjonsnr': institusjonsnr,
-                                   'emnekode': emnekode,
-                                   'versjonskode': versjonskode,
-                                   'terminnr': terminnr,
-                                   'terminkode': terminkode,
-                                   'arstall': arstall}
-                             )
+        '''This function merely translates between no.access_FS argument names and
+        database column and no.uit.access_FS argument names and then calls the .no function.'''
+        
+        return super(UiTUndervisning, self).list_studenter_underv_enhet(Instnr=institusjonsnr,
+                                                                        emnekode=emnekode,
+                                                                        versjon=versjonskode,
+                                                                        termk=terminkode,
+                                                                        aar=arstall,
+                                                                        termnr=terminnr)
+        
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
