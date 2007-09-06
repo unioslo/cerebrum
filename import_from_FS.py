@@ -68,7 +68,6 @@ def write_uit_person_info(outfile):
     f.set_minimum_size_limit(500*KiB)
     f.write(xml.xml_hdr + "<data>\n")
 
-
     # Studenter med opptak
     cols, students = _ext_cols(fs.student.list())
     for s in students:
@@ -206,18 +205,21 @@ def write_undenh_student(outfile):
 
     f.set_minimum_size_limit(2*KiB)
     f.write(xml.xml_hdr + "<data>\n")
-    for semester in ('current', 'next'):
-        cols, undenh = uitfs.GetUndervEnhet(sem=semester)
+    
+    for semester in access_FS.get_semester(uppercase=True):
+        semester_aar, semester_sem = semester
+        undenh = fs.undervisning.list_undervisningenheter(year=semester_aar, sem=semester_sem)
         for u in undenh:
             u_attr = {}
-            for k in ('institusjonsnr', 'emnekode', 'versjonskode',
-                      'terminnr', 'terminkode', 'arstall'):
+            for k in ['institusjonsnr', 'emnekode', 'versjonskode',
+                      'terminkode', 'arstall', 'terminnr']:
                 u_attr[k] = u[k]
-            student_cols, student = uitfs.GetStudenterUndervEnhet(**u_attr)
+            student = fs.undervisning.list_studenter_underv_enhet(**u_attr)
+            s_attr = {}
             for s in student:
                 s_attr = u_attr.copy()
                 for k in ('fodselsdato', 'personnr'):
-                    s_attr[k] = s[k]
+                    s_attr[k] = int(s[k])
                 f.write(xml.xmlify_dbrow({}, (), 'student',
                                          extra_attr=s_attr)
                         + "\n")
@@ -354,7 +356,7 @@ def usage(exitcode=0):
     sys.exit(exitcode)
 
 def assert_connected(user="CEREBRUM", service="FSUIT.uio.no"):
-    global uitfs, fs
+    global uitfs, fs, nofs
     if fs is None or uitfs is None:
         db = Database.connect(user=user, service=service,
                               DB_driver='Oracle')
