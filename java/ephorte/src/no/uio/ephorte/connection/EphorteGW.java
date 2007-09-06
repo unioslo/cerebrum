@@ -121,8 +121,8 @@ public class EphorteGW {
                 continue;
             p.addAddress(ht);
         }
-        PersonRolle.setup(conn.getDataSet("object=admindel", "AdminDel"), conn.getDataSet(
-                "object=rolle", "Rolle"));
+        PersonRolle.setup(conn.getDataSet("object=admindel", "AdminDel"), 
+			  conn.getDataSet("object=rolle", "Rolle"));
 
         for (Hashtable<String, String> ht : conn.getDataSet("object=perrolle", "PerRolle")) {
             Person p = personId2Person.get(Integer.parseInt(ht.get("PR_PEID_PE")));
@@ -135,8 +135,9 @@ public class EphorteGW {
             log.debug("Parsed persons from ePhorte:");
             for (Iterator iter = personId2Person.values().iterator(); iter.hasNext();) {
                 Person p = (Person) iter.next();
-                log.debug(p + "; " + p.getPersonNavn() + "; " + p.getAdresse(Adresse.ADRTYPE_A) + "; "
-                        + p.getRoller());
+                log.debug(p + "; " + p.getPersonNavn() + "; " + 
+			  p.getAdresse(Adresse.ADRTYPE_A) + "; " +
+			  p.getRoller());
             }
         }
         log.info("EphorteGW.fetchPersons() done...");
@@ -168,8 +169,8 @@ public class EphorteGW {
                 newPerson.toXML(xml);
                 isDirty = true;
             } else {                
-        		newPerson.toSeekXML(xml);
-        	}
+		newPerson.toSeekXML(xml);
+	    }
         }
         if (oldPerson == null || !(newPerson.getPersonNavn().equals(oldPerson.getPersonNavn()))) {
             if (oldPerson != null && oldPerson.getPersonNavn() != null) {
@@ -179,7 +180,7 @@ public class EphorteGW {
             isDirty = true;
         }
         if (oldPerson == null || oldPerson.getAdresse(Adresse.ADRTYPE_A) == null
-                || !(oldPerson.getAdresse(Adresse.ADRTYPE_A).equals(newPerson.getAdresse(Adresse.ADRTYPE_A)))) {
+	    || !(oldPerson.getAdresse(Adresse.ADRTYPE_A).equals(newPerson.getAdresse(Adresse.ADRTYPE_A)))) {
             if (oldPerson != null && oldPerson.getAdresse(Adresse.ADRTYPE_A) != null) {
                 newPerson.getAdresse(Adresse.ADRTYPE_A).setId(oldPerson.getAdresse(Adresse.ADRTYPE_A).getId());
             }
@@ -198,7 +199,7 @@ public class EphorteGW {
                     // Skal normalt returnere id til personen som ble
                     // laget/oppdatert
                     log.warn("Problem modifying " + newPerson.getBrukerId() + ", ret should be > 0, was: "
-                            + ret + " problematic request:" + xml.toString());
+			     + ret + " problematic request:" + xml.toString());
                 } else {
                     if(newPerson.getPersonNavn().isChanged()) {
                         xml = new XMLUtil();
@@ -209,7 +210,7 @@ public class EphorteGW {
                         ret = conn.updatePersonByXML(xml.toString());
                         if (ret < 0) {
                             log.warn("Problem fixing name-change for " + newPerson.getBrukerId() + ", ret should be > 0, was: "
-                                    + ret + " problematic request:" + xml.toString());
+				     + ret + " problematic request:" + xml.toString());
                         }                       
                     }
                 }
@@ -222,20 +223,20 @@ public class EphorteGW {
     }
 
     /**
-	 * Try to match the person from the XML person with an existing ePhorte
-	 * person. Note that we also check any previous feide IDs the XML-person
-	 * might have had, as this should result in a change of username.
-	 * 
-	 * @param newPerson
-	 * @return
-	 */
+     * Try to match the person from the XML person with an existing ePhorte
+     * person. Note that we also check any previous feide IDs the XML-person
+     * might have had, as this should result in a change of username.
+     * 
+     * @param newPerson
+     * @return
+     */
     private Person getPerson(Person newPerson) {
-		Person ret = brukerId2Person.get(newPerson.getBrukerId());
-		if(ret != null) return ret;
+	Person ret = brukerId2Person.get(newPerson.getBrukerId());
+	if(ret != null) return ret;
     	for (String feideId : newPerson.getPotentialFeideIds()) {
-    		ret = brukerId2Person.get(feideId);
-    		if(ret != null) return ret;
-		}
+	    ret = brukerId2Person.get(feideId);
+	    if(ret != null) return ret;
+	}
         for(Person p: brukerId2Person.values()){
             String oldInit = null;
             if(p.getPersonNavn() != null) oldInit = p.getPersonNavn().getInitialer(); 
