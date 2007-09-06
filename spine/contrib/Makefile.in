@@ -1,5 +1,5 @@
 ##
-## Makefile for Spine
+## Makefile for spine/server
 ##
 ## Copyright 2004, 2005 University of Oslo, Norway
 ##
@@ -19,41 +19,23 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 ##
+INSTALL = @INSTALL@
 
+prefix = @prefix@
 
-.PHONY: all install install-lib clean distclean
+sources = UpdateSpineConstants.py ImportOperationSets.py operation_sets.template.py
+
+.PHONY: all install install-lib clean distclean print
 
 all: 
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
-	$(MAKE) -C contrib $@
-	$(MAKE) -C client $@
-	$(MAKE) -C cereweb $@
 
-install: install-lib
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
-	$(MAKE) -C contrib $@
-	$(MAKE) -C client $@
-	$(MAKE) -C cereweb $@
+install: $(sources)
+	$(INSTALL) -d $(prefix)/share/cerebrum/contrib/spine
+	$(INSTALL) -v -m 755 $(sources) $(prefix)/share/cerebrum/contrib/spine
 
 install-lib:
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
-	$(MAKE) -C contrib $@
-	$(MAKE) -C client $@
-	$(MAKE) -C cereweb $@
 
 clean:
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
-	$(MAKE) -C contrib $@
-	$(MAKE) -C client $@
-	$(MAKE) -C cereweb $@
 
 distclean: clean
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
-	$(MAKE) -C contrib $@
-	$(MAKE) -C client $@
-	$(MAKE) -C cereweb $@
+	rm -f Makefile

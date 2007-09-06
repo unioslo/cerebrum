@@ -81,6 +81,7 @@ AC_CONFIG_FILES([
     spine/lib/cerebrum/Makefile
     spine/lib/server/Makefile
     spine/lib/server/idl/Makefile
+    spine/contrib/Makefile
     spine/client/Makefile
     spine/cereweb/Makefile
     spine/cereweb/htdocs/Makefile
