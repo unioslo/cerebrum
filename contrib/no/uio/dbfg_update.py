@@ -31,7 +31,6 @@ External db	table/source				Cerebrum group
 OFPROD		select user_name FROM applsys.fnd_user	ofprod
 FSPROD		select username FROM all_users		fsprod
 AJPROD		select username FROM all_users		ajprod
-LTPROD		select username FROM all_users		ltprod
 OAPRD		select user_name FROM applsys.fnd_user	oaprd
 OEPATST		[1], [2], [3], [4], [5]
 OEPAPRD         [6], [7]
@@ -93,7 +92,6 @@ import Cerebrum
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
-from Cerebrum.modules.no.uio.access_LT import LT
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.access_OF import OF
 from Cerebrum.modules.no.uio.access_AJ import AJ
@@ -438,7 +436,7 @@ def check_owner_status(person, owner_id, username):
             person.get_bilag() or
             person.get_gjest(now)):
         return (("Owner of account %s has no tilsetting/bilag/gjest " +
-                 "records in LT\n") % username)
+                 "records in POLS\n") % username)
     # fi
 
     return ""
@@ -510,7 +508,7 @@ def report_users(stream_name, external_dbs):
         
     #
     # Report NIS spread / owner's work record
-    for dbname in ("ofprod", "oaprd", "fsprod", "ltprod",
+    for dbname in ("ofprod", "oaprd", "fsprod",
                    "basware-users", "basware-masters"):
         item = external_dbs[dbname]
         message = make_report(user, True, item, item["report_accessor"],
@@ -585,7 +583,6 @@ information about certain kind of expired accounts
 
 --ofprod		   update ofprod group
 --fsprod		   update fsprod group
---ltprod		   update ltprod group
 --ajprod		   update ajprod group
 --oaprd			   update oaprd group
 --basware-users            update basware-users group
@@ -621,12 +618,6 @@ def main():
                                   "sync_accessor"  : "list_dbfg_usernames",
                                   "report_accessor" : "list_dba_usernames",
                                   "ceregroup" : "fsprod" },
-                     "ltprod" : { "dbname"    : "LTPROD.uio.no",
-                                  "dbuser"    : "ureg2000",
-                                  "class"     : LT,
-                                  "sync_accessor"  : "list_dbfg_usernames",
-                                  "report_accessor"  : "list_dba_usernames",
-                                  "ceregroup" : "ltprod" },
                      "ajprod" : { "dbname"    : "AJPROD.uio.no",
                                   "dbuser"    : "ureg2000",
                                   "class"     : AJ,
