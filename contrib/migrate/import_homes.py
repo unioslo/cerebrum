@@ -40,6 +40,7 @@ Example of use:
 
 import getopt
 import sys
+import os
 
 import cerebrum_path
 import cereconf
@@ -79,7 +80,7 @@ def process_line(infile):
             continue
         
         uname = fields[0]
-        home = fields[5]
+        path = fields[5]
         if uname == "":
             logger.warn("No username: %s. Skipping", line)
             continue
@@ -91,63 +92,100 @@ def process_line(infile):
         except Errors.NotFoundError:
             logger.warn("User %s does not exists in Cerebrum", uname)
             continue
-        disk_id = process_home(home)
-        if disk_id == None:
-            logger.warn("User %s got strange home %s.", uname, home)
-            account.write_db()                
-            continue
-        
+
+        odisk_id = ohome = ohomedir_id = None
         try:
             tmp = account.get_home(spread)
-            logger.debug3("User %s got home %s, %s, %s.", uname,
-                          disk_id, home, tmp['status'])
         except Errors.NotFoundError:
-            homedir_id = account.set_homedir(disk_id=disk_id,
-                                             status=co.home_status_not_created)
+            pass
+        else:
+            odisk_id = tmp['disk_id']
+            ohome = tmp['home']
+            ohomedir_id = tmp['homedir_id']
+            
+        (disk_id, home) = process_home(path, uname)
+        if odisk_id != disk_id or ohome != home:
+            try:
+                homedir_id = find_home(account, disk_id, home)
+            except Errors.NotFoundError:
+                homedir_id = account.set_homedir(disk_id=disk_id, home=home,
+                                                 status=co.home_status_not_created)
+                logger.debug("Creating new homedir %s on %s:%s",
+                             path, disk_id, home)
+                
             account.set_home(spread, homedir_id)
             account.write_db()
-            logger.debug3("User %s got new home %s", uname, home)
-
+            logger.info("User %s got new home %s on %s:%s", uname, path,
+                        disk_id, home)
+        
         # Handle spread
         if not account.has_spread(spread):
             account.add_spread(spread)
             account.write_db()
-            logger.debug("Added spread %s for user %s", spread, uname)
+            logger.info("Added spread %s for user %s", spread, uname)
 
         if commit_count % commit_limit == 0:
             attempt_commit()
 
-    
-def process_home(home):
-    """
-    Get disk from homedir and create disk if it does not exist.
-    return disk_id.
-    """
-    
-    fields = home.strip().split("/")
 
-    path = '/'.join(home.split('/')[:-1])
+def set_home(account, disk_id, home):
     try:
-        disk.clear()
-        disk.find_by_path(path)
-        logger.debug3("disk %s exists in Cerebrum", path)
-        return disk.entity_id
+        homedir_id = find_home(account.disk_id, home)
     except Errors.NotFoundError:
-        logger.debug4("Disk %s not found.", path)
+        homedir_id = account.set_homedir(disk_id=disk_id, home=home,
+                                         status=co.home_status_not_created)
+    account.set_home(spread, homedir_id)
+    
 
+def find_home(account, disk_id, home):
+    for h in account.get_homes():
+        if h['home'] == home and h['disk_id'] == disk_id:
+            return h['homedir_id']
+    raise Errors.NotFoundError
+
+def split_disk_home(opath):
+    """Suggest a (disk_id, home) for this path"""
+    disk.clear()
+    end = []
+    path = opath
+    while True:
+        (path, dir) = os.path.split(path)
+        end.insert(0, dir)
+        if path == "/":
+            return (None, opath)
+        try:
+            disk.find_by_path(path)
+            return (disk.entity_id, os.path.join(*end))
+        except Errors.NotFoundError:
+            pass
+
+def create_disk(opath):
+    """Create a directory at the most likely place"""
+    (path, dir) = os.path.split(opath)
+    disk.clear()
     disk.populate(host.entity_id, path, "A disk")
     disk.write_db()
-    logger.debug3("Disk %s created in Cerebrum", path)
-    return disk.entity_id
+    logger.info("Disk %s created in Cerebrum", path)
+    
 
+def process_home(path, uname):
+    """Find (or create) a disk for path. Return (disk_id, home)"""
+    (disk_id, home) = split_disk_home(path)
+    if disk_id is None and make_disk:
+        create_disk(path)
+        (disk_id, home) = split_disk_home(path)
+    if home == uname:
+        home = None
+    return (disk_id, home)
 
+    
 def usage():
     print """Usage: import_homes.py
     -h, --help   : Show this
     -d, --dryrun : Fake run
     -f, --file   : File to parse.
     -s, --spread : spread
-    -h, --host   : host disks belongs to
+    -h, --host   : create new disks on this host
     """
     sys.exit(0)
 
@@ -155,7 +193,7 @@ def usage():
 
 def main():
     global db, co, account, default_creator_id
-    global disk, spread, host, dryrun, logger
+    global disk, spread, host, dryrun, logger, make_disk
 
     logger = Factory.get_logger("console")
     
@@ -170,6 +208,9 @@ def main():
         usage()
 
     dryrun = False
+    make_disk = False
+    infile = given_host = given_spread = None
+    
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
@@ -180,7 +221,7 @@ def main():
         elif opt in ('-s', '--spread'):
             given_spread = val
 
-    if not infile or not given_spread or not given_host:
+    if not infile or not given_spread:
         usage()
 
     db = Factory.get('Database')()
@@ -191,11 +232,13 @@ def main():
     host = Factory.get('Host')(db)
 
     # Find host
-    try:
-        host.find_by_name(given_host)
-    except Errors.NotFoundError:
-        logger.error("No host %s found" % given_host)
-        sys.exit(1)
+    if given_host:
+        make_disk = True
+        try:
+            host.find_by_name(given_host)
+        except Errors.NotFoundError:
+            logger.error("No host %s found" % given_host)
+            sys.exit(1)
 
     # find spread
     try:
