@@ -115,6 +115,9 @@ def generate_export(fname, spread=co.spread_ephorte_person):
                 {'id': '%s@UIO.NO' % row['name'].upper()})
             account2pid[int(row['account_id'])] = int(row['owner_id'])
         for account_id in potential_changed_feideid.keys():
+            # Recently expired users will not be in account2pid
+            if not account2pid.has_key(account_id):
+                continue
             p = persons.get(account2pid[account_id], None)
             if p:
                 p['potential_feideid'] = pid2accounts[account2pid[account_id]]
