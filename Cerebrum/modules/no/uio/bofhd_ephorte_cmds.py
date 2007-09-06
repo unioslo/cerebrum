@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -133,7 +133,7 @@ class BofhdExtension(object):
             raise CerebrumError("Unexpectedly found more than one person")
         ou = self._get_ou(stedkode=sko)
         extra_msg = ""
-        if not int(self.const.spread_ephorte_person) in person.get_spread():
+        if not person.has_spread(self.const.spread_ephorte_person):
             person.add_spread(self.const.spread_ephorte_person)
             extra_msg = " (implicitly added ephorte-spread)"
         if arkivdel:
