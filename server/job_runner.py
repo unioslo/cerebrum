@@ -244,7 +244,7 @@ class JobRunner(object):
                     # the queue for re-evaluation the next time around
                     logger.debug2("has conflicting job(s) running: %s" % job_name)
                     continue
-                logger.debug2("  ready: %s" % job_name)
+            logger.debug("  ready: %s (force: %s)" % job_name, force)
 
             if job_ref.call is not None:
                 logger.debug("  exec: %s, # running_jobs=%i" % (
@@ -260,14 +260,11 @@ class JobRunner(object):
                     if job_ref.call.wait:
                         num_running += 1
             # Mark jobs that we should not wait for as completed
-            if job_ref.call is None:
-                if not job_ref.call.wait:
-                    logger.debug("  Call-less job '%s' processed" , job_name)
-                    self.job_queue.job_done(job_name, None, force=force)
-                    completed_nowait_job = True
-                else:
-                    logger.debug("  Job with no call, but call.wait. Should never get here? '%s'",
-                                 job_name)
+            if job_ref.call is None or not job_ref.call.wait:
+                logger.debug("  Call-less/No-wait job '%s' processed" , job_name)
+                self.job_queue.job_done(job_name, None, force=force)
+                completed_nowait_job = True
+                
         return delta, completed_nowait_job, num_running
 
     def run_job_loop(self):
