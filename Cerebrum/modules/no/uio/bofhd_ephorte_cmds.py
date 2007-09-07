@@ -139,7 +139,7 @@ class BofhdExtension(object):
   
 
     all_commands['ephorte_add_role'] = Command(("ephorte", "add_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
-        perm_filter='is_superuser')
+        perm_filter='can_add_ephorte_role')
     def ephorte_add_role(self, operator, person_id, role, sko, arkivdel, journalenhet):
         if not self.ba.can_add_ephorte_role(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
@@ -165,7 +165,7 @@ class BofhdExtension(object):
         return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
 
     all_commands['ephorte_remove_role'] = Command(("ephorte", "remove_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
-        perm_filter='is_superuser')
+        perm_filter='can_remove_ephorte_role')
     def ephorte_remove_role(self, operator, person_id, role, sko, arkivdel, journalenhet):
         if not self.ba.can_remove_ephorte_role(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
@@ -189,7 +189,7 @@ class BofhdExtension(object):
         return "OK, removed %s role for %s" % (role, person_id)
 
     all_commands['ephorte_list_roles'] = Command(("ephorte", "list_roles"), PersonId(), 
-        perm_filter='is_superuser', fs=FormatSuggestion(
+        perm_filter='can_list_ephorte_roles', fs=FormatSuggestion(
         "%-5s %-25s %-15s %s", ('role', 'adm_enhet', 'arkivdel', 'journalenhet'),
         hdr="%-5s %-25s %-15s %s" % ("Rolle", "Adm enhet", "Arkivdel", "Journalenhet")))
     def ephorte_list_roles(self, operator, person_id):
