@@ -19,11 +19,27 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
+import cereconf
 from Cerebrum import Cache
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
+
+
+class UiOEphorteAuth(BofhdAuth):
+    """Authorisation. UiO ePhorte specific operations."""
+
+    def can_add_ephorte_role(self, operator, query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if self.is_group_member(operator, cereconf.EPHORTE_ADMINS):
+            return True
+        return False
+
+    can_remove_ephorte_role = can_add_ephorte_role
+    can_list_ephorte_roles = can_add_ephorte_role
+
 
 class Journalenhet(Parameter):
     _type = 'journalenhet'
@@ -59,7 +75,7 @@ class BofhdExtension(object):
         self.util = server.util
         self.const = Factory.get('Constants')(self.db)
         self.ephorte_role = EphorteRole(self.db)
-        self.ba = BofhdAuth(self.db)
+        self.ba = UiOEphorteAuth(self.db)
 
         self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
                                                            Cache.cache_slots,
@@ -69,13 +85,13 @@ class BofhdExtension(object):
 
     def get_help_strings(self):
         group_help = {
-            'eph': "Commands for administrating ePhorte data"
+            'ephorte': "Commands for administrating ePhorte data"
             }
         command_help = {
-            'eph': {
-            'eph_add_role': 'Add an ePhorte role for a person',
-            'eph_remove_role': 'Remove an ePhorte role from a person',
-            'eph_list_roles': 'List a persons ePhorte roles'
+            'ephorte': {
+            'ephorte_add_role': 'Add an ePhorte role for a person',
+            'ephorte_remove_role': 'Remove an ePhorte role from a person',
+            'ephorte_list_roles': 'List a persons ePhorte roles'
             }
             }
         arg_help = {
@@ -122,11 +138,11 @@ class BofhdExtension(object):
             raise CerebrumError("Unknown journalenhet")
   
 
-    all_commands['eph_add_role'] = Command(("eph", "add_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
+    all_commands['ephorte_add_role'] = Command(("ephorte", "add_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
         perm_filter='is_superuser')
-    def eph_add_role(self, operator, person_id, role, sko, arkivdel, journalenhet):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+    def ephorte_add_role(self, operator, person_id, role, sko, arkivdel, journalenhet):
+        if not self.ba.can_add_ephorte_role(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to ephorte admins")
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
@@ -148,11 +164,11 @@ class BofhdExtension(object):
                                    arkivdel, journalenhet)
         return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
 
-    all_commands['eph_remove_role'] = Command(("eph", "remove_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
+    all_commands['ephorte_remove_role'] = Command(("ephorte", "remove_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
         perm_filter='is_superuser')
-    def eph_remove_role(self, operator, person_id, role, sko, arkivdel, journalenhet):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+    def ephorte_remove_role(self, operator, person_id, role, sko, arkivdel, journalenhet):
+        if not self.ba.can_remove_ephorte_role(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to ephorte admins")
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
@@ -172,13 +188,13 @@ class BofhdExtension(object):
                                    
         return "OK, removed %s role for %s" % (role, person_id)
 
-    all_commands['eph_list_roles'] = Command(("eph", "list_roles"), PersonId(), 
+    all_commands['ephorte_list_roles'] = Command(("ephorte", "list_roles"), PersonId(), 
         perm_filter='is_superuser', fs=FormatSuggestion(
         "%-5s %-25s %-15s %s", ('role', 'adm_enhet', 'arkivdel', 'journalenhet'),
         hdr="%-5s %-25s %-15s %s" % ("Rolle", "Adm enhet", "Arkivdel", "Journalenhet")))
-    def eph_list_roles(self, operator, person_id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+    def ephorte_list_roles(self, operator, person_id):
+        if not self.ba.can_list_ephorte_roles(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to ephorte admins")
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
