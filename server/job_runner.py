@@ -244,7 +244,7 @@ class JobRunner(object):
                     # the queue for re-evaluation the next time around
                     logger.debug2("has conflicting job(s) running: %s" % job_name)
                     continue
-            logger.debug("  ready: %s (force: %s)" % job_name, force)
+            logger.debug("  ready: %s (force: %s)", job_name, force)
 
             if job_ref.call is not None:
                 logger.debug("  exec: %s, # running_jobs=%i" % (
