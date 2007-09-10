@@ -163,9 +163,15 @@ def create_sysx_person(sxp):
             # This persons fnr has multiple rows in entity_external_id table
             # This is an error, person should not have not more than one entry.
             # Don't know which person object to use, return error message.
-            logger.error("person with ssn:%s has multiple entries in entity_external_id. Resolve manually" % fnr)
+            logger.error("Person with ssn:%s has multiple entries in entity_external_id. "
+                         "Resolve manually" % fnr)
             return
         else:
+            if pers_fnr.entity_id != pers_sysx.entity_id:
+                logger.error("SysXID=%s with fnr=%s is owned by different personid's! "
+                             "Fnr owned by person_id=%s in db " 
+                             "Resolve manually" % (pers_sysx.entity_id,fnr,pers_fnr.entity_id))
+                return
             fnr_found=True
                       
     else:
