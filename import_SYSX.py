@@ -167,7 +167,7 @@ def create_sysx_person(sxp):
                          "Resolve manually" % fnr)
             return
         else:
-            if pers_fnr.entity_id != pers_sysx.entity_id:
+            if not add_sysx_id and (pers_fnr.entity_id != pers_sysx.entity_id):
                 logger.error("SysXID=%s with fnr=%s is owned by different personid's! "
                              "Fnr owned by person_id=%s in db " 
                              "Resolve manually" % (pers_sysx.entity_id,fnr,pers_fnr.entity_id))
@@ -257,9 +257,13 @@ def create_sysx_person(sxp):
        # in case this is a new person object...
     except Errors.ProgrammingError,m:
        logger.warn("WHOOOO. Programming errror: %s"  % m)
+       
  
     #write the person data to the database
     op2 = person.write_db()
+
+    logger.debug("OP codes: op=%s,op2=%s,op3=%s" % (op,op2,op3))
+    
     if op is None and op2 is None:
        logger.info("**** EQUAL ****")
        unchanged+=1
