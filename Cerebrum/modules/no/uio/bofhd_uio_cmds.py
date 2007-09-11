@@ -3745,6 +3745,16 @@ class BofhdExtension(object):
     def misc_dadd(self, operator, hostname, diskname):
         host = self._get_host(hostname)
         self.ba.can_create_disk(operator.get_entity_id(), host)
+
+        if not diskname.startswith("/"):
+            raise CerebrumError("'%s' does not start with '/'" % diskname)
+        
+        if cereconf.VALID_DISK_TOPLEVELS is not None:
+            toplevel_mountpoint = diskname.split("/")[1]
+            if toplevel_mountpoint not in cereconf.VALID_DISK_TOPLEVELS:
+                raise CerebrumError("'%s' is not a valid toplevel mountpoint"
+                                    " for disks" % toplevel_mountpoint)
+            
         disk = Utils.Factory.get('Disk')(self.db)
         disk.populate(host.entity_id, diskname, 'uio disk')
         try:

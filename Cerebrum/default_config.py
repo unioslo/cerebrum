@@ -281,6 +281,10 @@ BOFHD_AUTH_SYSTEMS = ("system_manual",)
 # Directory for templates
 TEMPLATE_DIR=None
 
+# List of valid values for toplevel mountpoints for disks. Checked
+# when disks are added. None = no check performed
+VALID_DISK_TOPLEVELS = None
+
 # Configure commands needed to send processed templates to printer
 PRINT_LATEX_CMD=None
 PRINT_DVIPS_CMD=None
