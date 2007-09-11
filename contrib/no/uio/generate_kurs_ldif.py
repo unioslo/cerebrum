@@ -24,6 +24,7 @@ import sys
 import cerebrum_path
 import locale
 from Cerebrum.Utils import Factory, SimilarSizeWriter
+from Cerebrum.modules.LDIFutils import *
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
 
 logger = Factory.get_logger("cronjob")
@@ -174,6 +175,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
     # uioEduCourseOffering - urn:mace:uio.no:section:<noe>
     n = 0
     ret = {}
+    top_dn = ldapconf('KURS', 'dn')
     for entry in sip.undervisningsaktiviteter:
         try:
             emne = sip.emnekode2info[entry['emnekode']]
@@ -197,23 +199,23 @@ def gen_undervisningsaktivitet(cgi, sip, out):
                 aktivitet_id["%i" % entity_id] = role
         if len(aktivitet_id) != 2:
             continue
-        out.write("dn: cn=ua-%i,cn=course,dc=uio,dc=no\n" % n)
-        out.write("objectClass: top\n")
-        out.write("objectClass: uioEduSection\n")
-        out.write("cn: ua-%i\n" % n)
-        out.write("uioEduCourseCode: %s\n" % entry['emnekode'])
-        out.write("uioEduCourseAdministrator: %s\n" % emne['sko'])
-        out.write("uioEduCourseLevel: %s\n" % emne['studienivakode'])
-        out.write("uioEduCourseName: %s\n" % emne['emnenavn_bokmal'])
-        out.write("uioEduCourseSectionName: %s\n" % entry['aktivitetsnavn'])
-        out.write("uioEduCourseInstitution: %s\n" % emne['institusjonsnr'])
-        out.write("uioEduCourseVersion: %s\n" % emne['versjonskode'])
-        out.write("uioEduCourseSectionCode: %s\n" % entry['aktivitetkode'])
-        out.write("uioEduOfferingTermCode: %s\n" % entry['terminkode'])
-        out.write("uioEduOfferingYear: %s\n" % entry['arstall'])
-        out.write("uioEduOfferingTermNumber: %s\n" % entry['terminnr'])
-        urn = 'urn:mace:uio.no:section:aktivitet-%s' % "_".join(aktivitet_id.keys())
-        out.write("uioEduCourseOffering: %s\n\n" % urn)
+        keys = aktivitet_id.keys()
+        keys.sort()
+        urn = 'urn:mace:uio.no:section:aktivitet-%s' % "_".join(keys)
+        out.write(entry_string("cn=ua-%i,%s" % (n, top_dn), {
+            'objectClass':               ("top", "uioEduSection"),
+            'uioEduCourseCode':          (iso2utf(entry['emnekode']),),
+            'uioEduCourseAdministrator': (iso2utf(emne['sko']),),
+            'uioEduCourseLevel':         (iso2utf(emne['studienivakode']),),
+            'uioEduCourseName':          (iso2utf(emne['emnenavn_bokmal']),),
+            'uioEduCourseSectionName':   (iso2utf(entry['aktivitetsnavn']),),
+            'uioEduCourseInstitution':   (iso2utf(emne['institusjonsnr']),),
+            'uioEduCourseVersion':       (iso2utf(emne['versjonskode']),),
+            'uioEduCourseSectionCode':   (iso2utf(entry['aktivitetkode']),),
+            'uioEduOfferingTermCode':    (iso2utf(entry['terminkode']),),
+            'uioEduOfferingYear':        (iso2utf(entry['arstall']),),
+            'uioEduOfferingTermNumber':  (iso2utf(entry['terminnr']),),
+            'uioEduCourseOffering':      (iso2utf(urn),)}))
         n += 1
         ret[urn] = aktivitet_id
     return ret
@@ -227,6 +229,7 @@ def gen_undervisningsenhet(cgi, sip, out):
     # uioEduCourseOffering - urn:mace:uio.no:offering:<noe>
     n = 0
     ret = {}
+    top_dn = ldapconf('KURS', 'dn')
     for entry in sip.undervisningsenheter:
         emne = sip.emnekode2info.get(entry['emnekode'])
         if not emne:
@@ -244,21 +247,21 @@ def gen_undervisningsenhet(cgi, sip, out):
                 aktivitet_id["%i" % entity_id] = role
         if len(aktivitet_id) != 2:
             continue
-        out.write("dn: cn=ue-%i,cn=course,dc=uio,dc=no\n" % n)
-        out.write("objectClass: top\n")
-        out.write("objectClass: uioEduOffering\n")
-        out.write("cn: ue-%i\n" % n)
-        out.write("uioEduCourseCode: %s\n" % entry['emnekode'])
-        out.write("uioEduCourseAdministrator: %s\n" % emne['sko'])
-        out.write("uioEduCourseLevel: %s\n" % emne['studienivakode'])
-        out.write("uioEduCourseName: %s\n" % emne['emnenavn_bokmal'])
-        out.write("uioEduCourseInstitution: %s\n" % emne['institusjonsnr'])
-        out.write("uioEduCourseVersion: %s\n" % emne['versjonskode'])
-        out.write("uioEduOfferingTermCode: %s\n" % entry['terminkode'])
-        out.write("uioEduOfferingYear: %s\n" % entry['arstall'])
-        out.write("uioEduOfferingTermNumber: %s\n" % entry['terminnr'])
-        urn = 'urn:mace:uio.no:offering:enhet-%s' % "_".join(aktivitet_id.keys())
-        out.write("uioEduCourseOffering: %s\n\n" % urn)
+        keys = aktivitet_id.keys()
+        keys.sort()
+        urn = 'urn:mace:uio.no:offering:enhet-%s' % "_".join(keys)
+        out.write(entry_string("cn=ue-%i,%s" % (n, top_dn), {
+            'objectClass':               ("top", "uioEduOffering"),
+            'uioEduCourseCode':          (iso2utf(entry['emnekode']),),
+            'uioEduCourseAdministrator': (iso2utf(emne['sko']),),
+            'uioEduCourseLevel':         (iso2utf(emne['studienivakode']),),
+            'uioEduCourseName':          (iso2utf(emne['emnenavn_bokmal']),),
+            'uioEduCourseInstitution':   (iso2utf(emne['institusjonsnr']),),
+            'uioEduCourseVersion':       (iso2utf(emne['versjonskode']),),
+            'uioEduOfferingTermCode':    (iso2utf(entry['terminkode']),),
+            'uioEduOfferingYear':        (iso2utf(entry['arstall']),),
+            'uioEduOfferingTermNumber':  (iso2utf(entry['terminnr']),),
+            'uioEduCourseOffering':      (iso2utf(urn),)}))
         n += 1
         ret[urn] = aktivitet_id
     return ret
@@ -290,6 +293,9 @@ def main():
     except getopt.GetoptError:
         usage(1)
 
+    aktivitetfile, enhetfile, emnefile, picklefile, ldiffile = map(
+        cereconf.LDAP_KURS.get,
+        ('aktivitetfile', 'enhetfile', 'emnefile', 'picklefile', 'file'))
     for opt, val in opts:
         if opt in ('--help',):
             usage()
@@ -302,23 +308,19 @@ def main():
         elif opt in ('--picklefile',):
             picklefile = val
         elif opt in ('--ldiffile',):
-            destfile = SimilarSizeWriter(val, "w")
-            destfile.set_size_change_limit(10)
-
-            destfile.write("dn: cn=course,dc=uio,dc=no\n")
-            destfile.write("objectClass: top\n")
-            destfile.write("objectClass: uioUntypedObject\n")
-            destfile.write("cn: course\n")
-            destfile.write("description: Kursinformasjon ved UiO.\n\n")
-
-            cgi = CerebrumGroupInfo()
-            sip = StudinfoParsers(emnefile, aktivitetfile, enhetfile)
-            dump_pickle_file(picklefile,
-                             gen_undervisningsaktivitet(cgi, sip, destfile),
-                             gen_undervisningsenhet(cgi, sip, destfile))            
-            destfile.close()
-    if not opts:
+            ldiffile = val
+    if not (aktivitetfile and enhetfile and
+            emnefile and picklefile and ldiffile) or args:
         usage(1)
+
+    destfile = ldif_outfile('KURS', ldiffile)
+    destfile.write(container_entry_string('KURS'))
+    cgi = CerebrumGroupInfo()
+    sip = StudinfoParsers(emnefile, aktivitetfile, enhetfile)
+    dump_pickle_file(picklefile,
+                     gen_undervisningsaktivitet(cgi, sip, destfile),
+                     gen_undervisningsenhet(cgi, sip, destfile))
+    end_ldif_outfile('KURS', destfile)
 
 def usage(exitcode=0):
     print __doc__
