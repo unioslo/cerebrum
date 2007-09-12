@@ -343,7 +343,7 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
             fak_sko = "%02d0000" % emne_info[emnekode]['fak']
 
             # Rom for undervisningsenheten.
-            emne_id_prefix = ':'.join((cereconf.INSTITUTION_DOMAIN_NAME,
+            emne_id_prefix = ':'.join((cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                                        'fs', 'emner'))
             emne_rom_id = fronter_lib.FronterUtils.UE2RomID(
                 'ROOM:%s' % emne_id_prefix,
@@ -441,17 +441,17 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                 fak_sko = '%02d0000' % stprog_info[stprog]['fak']
                 # Opprett fellesrom for dette studieprogrammet.
                 fellesrom_sted_id = ':'.join((
-                    'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
+                    'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                     'fs', 'fellesrom', institusjonsnr, fak_sko))
                 fellesrom_stprog_rom_id = ':'.join((
-                    'ROOM', cereconf.INSTITUTION_DOMAIN_NAME, 'fs',
+                    'ROOM', cereconf.INSTITUTION_DOMAIN_NAME_LMS, 'fs',
                     'fellesrom', 'studieprogram', stprog))
                 register_room(stprog.upper(), fellesrom_stprog_rom_id,
                               fellesrom_sted_id,
                               profile=romprofil_id['studieprogram'])
                 if subg_name_el[-1] == 'student':
                     brukere_studenter_id = ':'.join((
-                        'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
+                        'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                         'fs', 'brukere', institusjonsnr, fak_sko, 'student'))
                     brukere_stprog_id = brukere_studenter_id + \
                                         ':%s' % stprog
@@ -578,15 +578,15 @@ def main():
     register_group('Høyskolen i Agder', root_node_id, root_node_id)
 
     manuell_node_id = 'STRUCTURE:%s:manuell' % \
-                      cereconf.INSTITUTION_DOMAIN_NAME
+                      cereconf.INSTITUTION_DOMAIN_NAME_LMS
     register_group('Manuell', manuell_node_id, root_node_id,
                    allow_room=True)
 
     auto_node_id = "STRUCTURE:%s:automatisk" % \
-                   cereconf.INSTITUTION_DOMAIN_NAME
+                   cereconf.INSTITUTION_DOMAIN_NAME_LMS
     register_group("Automatisk", auto_node_id, root_node_id)
 
-    emner_id = 'STRUCTURE:%s:fs:emner' % cereconf.INSTITUTION_DOMAIN_NAME
+    emner_id = 'STRUCTURE:%s:fs:emner' % cereconf.INSTITUTION_DOMAIN_NAME_LMS
     register_group('Emner', emner_id, auto_node_id)
 
     this_sem, next_sem = get_semester()
@@ -616,16 +616,16 @@ def main():
             node_id = sem_node_id + ':' + suffix
             register_group(title, node_id, sem_node_id)
 
-    brukere_id= 'STRUCTURE:%s:fs:brukere' % cereconf.INSTITUTION_DOMAIN_NAME
+    brukere_id= 'STRUCTURE:%s:fs:brukere' % cereconf.INSTITUTION_DOMAIN_NAME_LMS
     register_group('Brukere', brukere_id, auto_node_id)
 
     fellesrom_id = 'STRUCTURE:%s:fs:fellesrom' % \
-                   cereconf.INSTITUTION_DOMAIN_NAME
+                   cereconf.INSTITUTION_DOMAIN_NAME_LMS
     register_group('Fellesrom', fellesrom_id, auto_node_id)
 
     # Registrer statiske EVU-strukturnoder.
     # Ting blir litt enklere, hvis vi drar med oss institusjonsnummeret
-    evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (cereconf.INSTITUTION_DOMAIN_NAME,
+    evu_node_id = 'STRUCTURE:%s:fs:%s:evu' % (cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                                               cereconf.DEFAULT_INSTITUSJONSNR)
     register_group('EVU', evu_node_id, auto_node_id)
     for (suffix,
@@ -702,7 +702,7 @@ def main():
             else:
                 faknavn = ou.short_name
         fak_ans_id = "%s:sap:gruppe:%s:%s:ansatte" % \
-                     (cereconf.INSTITUTION_DOMAIN_NAME,
+                     (cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                       cereconf.DEFAULT_INSTITUSJONSNR,
                       fak_sko)
         ans_title = "Ansatte ved %s" % faknavn
