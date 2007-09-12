@@ -333,6 +333,10 @@ DEFAULT_INSTITUSJONSNR=None
 # "uio.no".
 INSTITUTION_DOMAIN_NAME = "my-institution.example"
 
+# We might need to use a separate domain name for LMS
+# INSTITUTION_DOMAIN_NAME_LMS = "my-lms-institution.example"
+INSTITUTION_DOMAIN_NAME_LMS = None
+
 # The Email module's algorithm for determining a user's "default"
 # email domain needs a default.  This should be a string, naming fully
 # qualified domain name that is registered in the installation's
