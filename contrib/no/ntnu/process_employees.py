@@ -36,6 +36,7 @@ import time
 import datetime
 import string
 import xml.sax
+from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
@@ -43,7 +44,7 @@ from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum.modules.no.Stedkode import Stedkode
-from Cerebrum.modules.no.uit import Email
+from Cerebrum.modules.no.ntnu import Email
 from Cerebrum.modules.xmlutils import GeneralXMLParser
 
 
@@ -81,7 +82,7 @@ class execute:
         #init variables
         self.db = Factory.get('Database')()
         self.person = Factory.get('Person')(self.db)
-        self.account = Factory.get('Account')(self.db)
+        self.account = Account.Account()(self.db)
         self.constants = Factory.get('Constants')(self.db)
         self.group = Factory.get('Group')(self.db)
         self.OU = Factory.get('OU')(self.db)
@@ -221,7 +222,7 @@ class execute:
                 if type(acc) == long:
                     acc = int(acc)
                 try:
-                    ac_tmp = Factory.get('Account')(self.db)
+                    ac_tmp = Account.Account(self.db)
                     ac_tmp.find(acc)
                     ac_tmp_name = ac_tmp.get_name(self.constants.account_namespace)
                 except Exception,m:
@@ -246,7 +247,7 @@ class execute:
     def _promote_posix(self,account_id):
         group = Factory.get('Group')(self.db)
         pu = PosixUser.PosixUser(self.db)    
-        ac = Factory.get('Account')(self.db)
+        ac = Account.Account()(self.db)
         ac.find(account_id)
         uid = pu.get_free_uid()
         shell = self.constants.posix_shell_bash
