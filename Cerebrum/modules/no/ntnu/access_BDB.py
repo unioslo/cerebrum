@@ -70,11 +70,12 @@ class BDB:
 
     def get_email_addresses(self):
         cursor = self.db.cursor()
-        cursor.execute("select p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id, \
+        cursor.execute("SELECT p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id, \
                         m.navn as domain_name, b.brukernavn \
-                        from person p, mail_domain m, bruker b \
-                        where p.mail_domain = m.id and \
-                        p.id = b.person and \
+                        FROM person p, mail_domain m, bruker b \
+                        WHERE p.mail_domain = m.id AND \
+                        p.id = b.person AND \
+                        p.personnr IS NOT NULL AND \
                         b.user_domain = 1 \
                         ")
         addresses = []
@@ -103,8 +104,10 @@ class BDB:
         cursor.execute("SELECT k.id, g.unix_gid, g.navn as gruppenavn, \
                         k.system, b.brukernavn , s.navn as spread_name, \
                         s.domene, s.skall as require_shell\
-                        FROM konto k, bruker b, gruppe g, bdb.system s \
-                        WHERE k.bruker = b.id AND \
+                        FROM person p,konto k, bruker b, gruppe g, bdb.system s \
+                        WHERE p.id = b.person AND \
+                              p.personnr IS NOT NULL AND \
+                              k.bruker = b.id AND \
                               k.gruppe = g.id AND \
                               k.system = s.id AND \
                               s.user_domain = 1 \
@@ -140,6 +143,7 @@ class BDB:
                         FROM vacation v, person p, bruker b \
                         WHERE v.person = p.id AND \
                               p.id = b.person AND \
+                              p.personnr IS NOT NULL \
                               b.user_domain = 1 ")
         bdb_vacations = cursor.fetchall()
         vacations = []
@@ -232,7 +236,7 @@ class BDB:
                             h.bruker = b.id AND
                             h.konto IS NULL AND
                             b.person = p.id AND
-                            p.personnr is not null AND
+                            p.personnr IS NOT NULL AND
                             b.gruppe =  g.id 
                            """ % int(last))
                               
@@ -246,7 +250,7 @@ class BDB:
                             WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
                               b.gruppe =  g.id AND \
-                              p.personnr is not null")
+                              p.personnr IS NOT NULL")
         # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
         accounts = []
