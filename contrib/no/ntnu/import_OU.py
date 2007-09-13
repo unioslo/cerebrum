@@ -31,6 +31,7 @@ import string
 
 import xml.sax
 
+from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import Stedkode
@@ -310,7 +311,7 @@ def get_cere_ou_table():
 def set_quaran():
     ous = OU_class(db)
     now = db.DateFromTicks(time.time())
-    acc = Factory.get("Account")(db)
+    acc = Account.Account(db)
     acc.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     for k in cer_ou_tab.keys():
 	ous.clear()

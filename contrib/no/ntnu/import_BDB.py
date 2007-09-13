@@ -4,6 +4,7 @@ import config
 import sys
 import cerebrum_path
 import cereconf
+from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
@@ -108,7 +109,7 @@ class BDBSync:
         self.ou = Factory.get('OU')(self.db)
         self.new_person = Factory.get('Person')(self.db)
         self.fnr_person = Factory.get('Person')(self.db)
-        self.ac = Factory.get('Account')(self.db)
+        self.ac = Account.Account(self.db)
         self.group = Factory.get('Group')(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
         self.posix_user = PosixUser.PosixUser(self.db)
@@ -905,7 +906,7 @@ class BDBSync:
                 num_accounts += 1
                 if dryrun:
                     self.db.rollback()
-                    logger.debug('Rollback called. Changes omitted.')
+                    self.logger.debug('Rollback called. Changes omitted.')
                 else:
                     self.db.commit()
                     self.logger.debug('Changes on %s commited to Cerebrum' % account['name'])
