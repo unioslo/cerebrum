@@ -74,9 +74,16 @@ def send_mail(uname, user_info, nr, forward=False):
     occurs or sending the actual mail fails return False, else return True.
     """
     global num_sent
-    
+
     #logger.debug("send_mail kalled with uname=%s, user_info=%s, nr=%s" % (uname, user_info,nr))
 
+    ac.clear()
+    ac.find_by_name(uname)
+    # Do not send mail to quarantined accounts
+    if ac.get_entity_quarantine():
+        logger.info("Account is quarantened - no mail sent: %s"% uname)
+        return False
+    
     def compare(a, b):
         return cmp(a['type'], b['type']) or cmp(a['name'], b['name'])
 
@@ -120,12 +127,16 @@ def send_mail(uname, user_info, nr, forward=False):
     if ac.owner_type == co.entity_person:
         if nr != 3:    # Don't send mail to account that is expired
             email_addrs.append(ac.get_primary_mailaddress())
-        # Get account owner's primary mail address
+        # Get account owner's primary mail address or use current account
         try:
             prs.clear()
             prs.find(ac.owner_id)
-            ac.clear()
-            ac.find(prs.get_primary_account())
+
+            ac_prim = prs.get_primary_account()
+            if ac_prim:
+                ac.clear()
+                ac.find(ac_prim)
+                
             email_addrs.append(ac.get_primary_mailaddress())
         except Errors.NotFoundError:
             logger.warn("Couldn't find acoount owner's primary mail adress: %s"%
