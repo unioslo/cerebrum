@@ -77,16 +77,20 @@ class create_person_xml:
         for person in person_handle:
             lineno += 1
             if(person[0] != "#"):
-                (personnavn,
-                 fodt_dato,
-                 fodselsnr,
-                 kjonn,
-                 ansvarssted,
-                 fakultet,
-                 institutt,
-                 stillingskode,
-                 stillingsbetegnelse,
-                 begynt) = person.split(",")
+                try:
+                    (personnavn,
+                     fodt_dato,
+                     fodselsnr,
+                     kjonn,
+                     ansvarssted,
+                     fakultet,
+                     institutt,
+                     stillingskode,
+                     stillingsbetegnelse,
+                     begynt) = person.split(",")
+                except ValueError:
+                    logger.error("Person info with wrong format in person file: %s", person);
+                    continue
 
 		#print "###person name of this person is %s " % (personnavn)
                 if(personnavn =='' or fodt_dato =='' or fodselsnr =='' or kjonn =='' or ansvarssted ==''
