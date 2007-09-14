@@ -8,7 +8,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
-from Cerebrum.modules import MountHost
+#from Cerebrum.modules import MountHost
 from Cerebrum.modules import ADutilMixIn
 
 db = Factory.get('Database')()
@@ -155,6 +155,91 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
 					retur[e_name]['msRTCSIP-UserEnabled'] = True
 
 		return retur
+
+
+	def create_object(self, chg, dry_run):
+		#CreateUser mixin overides version in ADutilMixIn class.
+		
+		if chg.has_key('OU'):
+			ou = chg['OU']
+		else:
+			ou = self.get_default_ou(chg)
+
+        ret = self.run_cmd('createObject', dry_run, 'User', ou,
+                              chg['sAMAccountName'])
+
+        if not ret[0]:
+            self.logger.warning("create user %s failed: %r" % \
+                           (chg['sAMAccountName'], ret))
+        else:
+            if not dry_run:
+                self.logger.info("created user %s" % ret)
+
+            pw = unicode(self.ac.make_passwd(chg['sAMAccountName']),
+                         'iso-8859-1')
+
+            ret = self.run_cmd('setPassword', dry_run, pw)
+            if not ret[0]:
+                self.logger.warning("setPassword on %s failed: %s" % \
+                               (chg['sAMAccountName'], ret))
+            else:
+                #Important not to enable a new account if setPassword
+                #fail, it will have a blank password.
+
+                uname = ""
+                del chg['type']
+                if chg.has_key('distinguishedName'):
+                    del chg['distinguishedName']
+                if chg.has_key('sAMAccountName'):
+                    uname = chg['sAMAccountName']       
+                    del chg['sAMAccountName']               
+
+                #Setting default for undefined AD_ACCOUNT_CONTROL values.
+                for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
+                    if not chg.has_key(acc):
+                        chg[acc] = value                
+
+                ret = self.run_cmd('putProperties', dry_run, chg)
+                if not ret[0]:
+                    self.logger.warning("putproperties on %s failed: %r" % \
+                                   (uname, ret))
+
+                ret = self.run_cmd('setObject', dry_run)
+                if not ret[0]:
+                    self.logger.warning("setObject on %s failed: %r",uname, ret)
+
+                else:
+                    #Additonal lines below that overided create method in Adfusync class.
+					#So far so good, setObject worked, now create homedir, profileDir
+					#and exchangeaccount.
+					ret = self.run_cmd('createDir', dry_run)
+					if not ret[0]:
+						self.logger.warning("createDir on %s failed: %r" % \
+											(uname, ret))
+					else:
+				        #Checking existence of homedir.
+						ret = self.run_cmd('checkDir', dry_run)
+						if not ret[0]:
+							self.logger.warning("HomeDir for %s not found: %r" % \
+												(uname, ret))
+
+					ret = self.run_cmd('createDir', dry_run, "profilePath")
+					if not ret[0]:
+						self.logger.warning("createDir on %s failed: %r" % \
+											(uname, ret))
+					else:	
+				        #Checking existence of profileDir.
+						ret = self.run_cmd('checkDir', dry_run, "profilePath")
+						if not ret[0]:
+							self.logger.warning("ProfileDir for %s not found: %r" % \
+												(uname, ret))
+
+				    #Creating mailbox in Exchange
+					ret = self.run_cmd('createMDB', dry_run)
+					if not ret[0]:
+						self.logger.warning("Create exchange mailbox for %s failed: %r" % \
+											(uname, ret))
+
 
 
 
