@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.modules.PosixLDIF import PosixLDIF
+from Cerebrum.QuarantineHandler import QuarantineHandler
 from Cerebrum.Utils import Factory
 
 class PosixLDIF_UiOMixin(PosixLDIF):
@@ -86,11 +87,17 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 	except KeyError:
 	    pass
 	else:
-	    entry['sambaNTPassword'] = (hash,)
-	    # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
-	    entry['objectClass'].append('sambaSamAccount')
-	    entry['sambaSID'] = entry['uidNumber']
-	    added = True
+            skip = False
+            if self.quarantines.has_key(account_id):
+                qh = QuarantineHandler(self.db, self.quarantines[account_id])
+                if qh.should_skip() or qh.is_locked():
+                    skip = True
+            if not skip:
+                entry['sambaNTPassword'] = (hash,)
+                # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
+                entry['objectClass'].append('sambaSamAccount')
+                entry['sambaSID'] = entry['uidNumber']
+                added = True
 
 	# Object class which allows the additional attributes
 	if added:
