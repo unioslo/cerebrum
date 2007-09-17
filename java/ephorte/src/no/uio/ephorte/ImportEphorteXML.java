@@ -46,21 +46,23 @@ public class ImportEphorteXML {
     public static void main(String[] args) throws SAXException, IOException,
             ParserConfigurationException {
         String fname = null, table = null, tag = null;
+	boolean testconn = false;
         Properties props = null;
         
         if(args.length < 2) usage();
         for (int i = 0; i < args.length; i++) {
             String cmd = args[i];
-            String val=args[++i];
-            if(cmd.equals("-p")) {
+            if (cmd.equals("-c")) {
+                testconn = true;
+	    } else if(cmd.equals("-p")) {
                 props = new Properties();
-                props.load(new FileInputStream(val));
+                props.load(new FileInputStream(args[++i]));
             } else if (cmd.equals("-i")) {
-                fname = val;
+                fname = args[++i];
             } else if (cmd.equals("-d")) {
-                table = val;
+                table = args[++i];
             } else if (cmd.equals("-t")) {
-                tag = val;
+                tag = args[++i];
             } else {
                 usage();
             }
@@ -70,7 +72,9 @@ public class ImportEphorteXML {
             System.exit(1);
         }
         ImportEphorteXML imp = new ImportEphorteXML(new EphorteGW(props));
-        if(table != null) {
+        if(testconn) {
+            System.out.println("Connection established. Look in log file for more details");
+        } else if(table != null) {
             imp.dumpTable(table, tag);
         } else if (fname != null) {
             imp.runSync(fname);
