@@ -117,6 +117,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         for account_id in potential_changed_feideid.keys():
             # Recently expired users will not be in account2pid
             if not account2pid.has_key(account_id):
+                logger.warn("Could not find user %s. User is probably expired.")
                 continue
             p = persons.get(account2pid[account_id], None)
             if p:
@@ -134,7 +135,6 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         tmp['last_name'] = dta[int(co.name_last)]
         tmp['full_name'] = dta[int(co.name_full)]
 
-    # TODO: this is very slow. Maybe just find addresses for the relevant persons?
     logger.debug("Fetching e-mailadresses...")
     for entity_id, email in pe.list_primary_email_address(co.entity_person):
         tmp = persons.get(entity_id, None)
@@ -167,7 +167,8 @@ def generate_export(fname, spread=co.spread_ephorte_person):
                 tmp['feide_id'] =  tmp['initials']+"@UIO.NO"
     
     logger.debug("Fetching contact info...")
-    for row in pe.list_contact_info(source_system=co.system_sap, contact_type=co.contact_phone):
+    for row in pe.list_contact_info(source_system=co.system_sap,
+                                    contact_type=co.contact_phone):
         tmp = persons.get(int(row['entity_id']), None)
         if tmp is None or not row['contact_value']:
             continue
@@ -198,7 +199,6 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             })
                                   
     xml = ExtXMLHelper()
-#    print repr(persons)
     f.write(xml.xml_hdr)
     f.write("<ephortedata>\n")
     for p in persons.values():
