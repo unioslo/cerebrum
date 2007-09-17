@@ -76,7 +76,7 @@ import re
 import string
 import sys
 import time
-
+import types
 
 # IVR 2007-02-08: This is to help logging.findCaller(). The problem is that
 # logging.findCaller looks for the first function up the stack that does not
@@ -566,6 +566,10 @@ class CerebrumLogger(logging.Logger, object):
             
         frame = inspect.currentframe()
         while frame:
+            # psyco replaces frame objects with proxies
+            if type(frame) is not types.FrameType:
+                return rv
+        
             source = inspect.getsourcefile(frame)
             if source:
                 source = os.path.normcase(source)
