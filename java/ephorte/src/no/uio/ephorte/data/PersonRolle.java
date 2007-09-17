@@ -4,6 +4,8 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.Vector;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import no.uio.ephorte.xml.XMLUtil;
 
@@ -16,6 +18,7 @@ import no.uio.ephorte.xml.XMLUtil;
 public class PersonRolle {
     static Hashtable<String, Integer> stedkode2Id;
     static Hashtable<String, Integer> rolleType2Id;
+    private static Log log = LogFactory.getLog(PersonRolle.class);
 
     private Person person;
     private int id = -1;
@@ -124,7 +127,12 @@ public class PersonRolle {
             Vector<Hashtable<String, String>> rolleDataSet) {
         stedkode2Id = new Hashtable<String, Integer>();
         for (Hashtable<String, String> ht : adminDelDataSet) {
-            stedkode2Id.put(ht.get("AI_FORKDN"), Integer.parseInt(ht.get("AI_ID")));
+	    try {
+		stedkode2Id.put(ht.get("AI_FORKDN"), Integer.parseInt(ht.get("AI_ID")));
+	    } catch (Exception e) {
+		log.warn("Wrong format: AI_FORKDN: " + ht.get("AI_FORKDN") + 
+			 ", AI_ID: " + ht.get("AI_ID"));
+	    }
         }
 
         rolleType2Id = new Hashtable<String, Integer>();

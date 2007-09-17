@@ -121,7 +121,8 @@ public class EphorteGW {
                 continue;
             p.addAddress(ht);
         }
-        PersonRolle.setup(conn.getDataSet("object=admindel", "AdminDel"), 
+	// setup is a static method
+        PersonRolle.setup(conn.getDataSet("object=admindel", "AdminDel"),
 			  conn.getDataSet("object=rolle", "Rolle"));
 
         for (Hashtable<String, String> ht : conn.getDataSet("object=perrolle", "PerRolle")) {
@@ -131,15 +132,15 @@ public class EphorteGW {
             p.addRolle(ht);
 
         }
-        if (log.isDebugEnabled()) {
-            log.debug("Parsed persons from ePhorte:");
-            for (Iterator iter = personId2Person.values().iterator(); iter.hasNext();) {
-                Person p = (Person) iter.next();
-                log.debug(p + "; " + p.getPersonNavn() + "; " + 
-			  p.getAdresse(Adresse.ADRTYPE_A) + "; " +
-			  p.getRoller());
-            }
-        }
+        // if (log.isDeqbugEnabled()) {
+        //     log.debug("Parsed persons from ePhorte:");
+        //     for (Iterator iter = personId2Person.values().iterator(); iter.hasNext();) {
+        //         Person p = (Person) iter.next();
+        //         log.debug(p + "; " + p.getPersonNavn() + "; " + 
+	// 		  p.getAdresse(Adresse.ADRTYPE_A) + "; " +
+	// 		  p.getRoller());
+        //     }
+        // }
         log.info("EphorteGW.fetchPersons() done...");
     }
 

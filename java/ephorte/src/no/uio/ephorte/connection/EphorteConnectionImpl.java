@@ -38,6 +38,8 @@ public class EphorteConnectionImpl extends EphorteConnection {
 
     protected void connect(String url, String userName, String passWord, String dataBase) {
         ServicesLocator locator = new ServicesLocator();
+	log.info("Using web-service at url: " + url);
+	log.info("Using database: " + dataBase + ", user: " + userName);
         try {
             if (url == null) {
                 service = locator.getServicesSoap();
@@ -77,8 +79,12 @@ public class EphorteConnectionImpl extends EphorteConnection {
                 criteriaCollectionString+";MaxRecords=30000");  
         /* MaxRecords was a guess based on 
          * C:\Program Files\ePhorteWeb\shared\WebServices\DataSamples\ASP\ExtCust.asp */
-        // System.out.println("RES: "+res.toString());
         for (MessageElement me : res.get_any()) {
+	    /* TODO: This hack should not run in a production system. 
+	     *       For now MaxRecords and AbsoluteMaxRecords will be
+	     *       set to values large enough to avoid this
+	     *       situation, but this code must be more robust.
+	     */
             NodeList nl = me.getElementsByTagName("PartialResult");
             for (int i = 0; i < nl.getLength(); i++) {
                 Node node = nl.item(i);
@@ -111,6 +117,7 @@ public class EphorteConnectionImpl extends EphorteConnection {
 
     private Vector<Hashtable<String, String>> queryDatabase(String table) {
         Vector<Hashtable<String, String>> ret = new Vector<Hashtable<String, String>>();
+	log.debug("Try to connect to db (using JDBC)");
         try {
             Class.forName(props.getProperty("db_driver"));
         } catch (ClassNotFoundException e) {

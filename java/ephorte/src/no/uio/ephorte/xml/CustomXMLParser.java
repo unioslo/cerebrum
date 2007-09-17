@@ -55,7 +55,7 @@ public class CustomXMLParser {
                             .getValue("arkivdel"), attr.getValue("journalenhet"), attr
                             .getValue("rolletittel"), attr.getValue("stilling"));
                 } catch (BadDataException e) {
-                    log.error("Caugh BadDataException: " + e.toString() + " for "
+                    log.error("Caught BadDataException: " + e.toString() + " for "
                             + tmpPerson.getBrukerId());
                 }
             } else if ("potential_feideid".equals(qName)) {
