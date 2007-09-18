@@ -84,6 +84,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     persons = {}
     for row in pe.list_all_with_spread(spread):
         persons[int(row['entity_id'])] = {'roles': []}
+    logger.debug("Found %d persons with ephorte spread" % len(persons))
 
     # People who no longer shall be exported
     # Detect that the person has a new feide id, meaning that ePhorte
@@ -185,7 +186,12 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         journalenhet = row['journalenhet']
         if journalenhet:
             journalenhet = str(co.EphorteJournalenhet(journalenhet))
-                                              
+
+        if not tmp.has_key('role'):
+            logger.error("person dict has no key 'roles'. This shouldn't happen.",
+                         "Person: ", str(tmp))
+            continue
+        
         tmp['roles'].append({
             'role_type': str(co.EphorteRole(row['role_type'])) ,
             'standard_rolle': row['standard_role'],
