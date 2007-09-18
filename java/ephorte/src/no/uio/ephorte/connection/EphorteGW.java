@@ -195,7 +195,7 @@ public class EphorteGW {
                 int ret = conn.updatePersonByXML(xml.toString());
                 if (newPerson.getId() == -1)
                     newPerson.setId(ret);
-                log.info("DO: " + xml.toString() + " -> " + ret);
+                log.debug("DO: " + xml.toString() + " -> " + ret);
                 if (ret < 0) {
                     // Skal normalt returnere id til personen som ble
                     // laget/oppdatert
