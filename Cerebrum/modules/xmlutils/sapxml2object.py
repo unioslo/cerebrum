@@ -586,7 +586,8 @@ class XMLPerson2Object(XMLEntity2Object):
                 if emp is not None:
                     result.add_employment(emp)
             elif sub.tag == "Title":
-                result.add_name(DataName(self.tag2type[sub.tag], value))
+                if value:
+                    result.add_name(DataName(self.tag2type[sub.tag], value))
 
         # We need to order 'Telefon 1' and 'Telefon 2' properly
         celems = list(element.findall("PersonKomm"))
