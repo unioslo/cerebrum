@@ -20,6 +20,7 @@
 
 import sys
 import cereconf
+from Cerebrum import QuarantineHandler
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum.Utils import Factory
 import pickle
