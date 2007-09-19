@@ -66,7 +66,7 @@ class BofhdExtension(object):
         self.server = server
         self.db = server.db
         self.util = server.util
-        self.co = Factory.get('Constants')(self.db)
+        self.const = Factory.get('Constants')(self.db)
         self.bgu = BofhdUtils(server)
         self.ba = BofhdAuth(self.db)
         self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
@@ -163,10 +163,10 @@ class BofhdExtension(object):
     def user_create_guest(self, operator, *args):
         "Create <nr> new guest users"
         nr, owner_group_name, filegroup, shell, home = args
-        owner_type = self.co.entity_group
+        owner_type = self.const.entity_group
         owner_id = self.util.get_target(owner_group_name,
                                         default_lookup="group").entity_id
-        np_type = self.co.account_guest
+        np_type = self.const.account_guest
         group = self.util.get_target(filegroup, default_lookup="group")
         posix_user = PosixUser.PosixUser(self.db)
         shell = self._get_shell(shell)
@@ -191,18 +191,18 @@ class BofhdExtension(object):
                 posix_user.write_db()
                 homedir_id = posix_user.set_homedir(
                     disk_id=disk_id, home=home,
-                    status=self.co.home_status_not_created)
-                posix_user.set_home(self.co.spread_uio_nis_user, homedir_id)
+                    status=self.const.home_status_not_created)
+                posix_user.set_home(self.const.spread_uio_nis_user, homedir_id)
                 # For correct ordering of ChangeLog events, new users
                 # should be signalled as "exported to" a certain system
                 # before the new user's password is set.  Such systems are
                 # flawed, and should be fixed.
                 for spread in cereconf.GUESTS_USER_SPREADS:
-                    posix_user.add_spread(self.co.Spread(spread))
+                    posix_user.add_spread(self.const.Spread(spread))
             except self.db.DatabaseError, m:
                 raise CerebrumError, "Database error: %s" % m
             self.bgu.update_group_memberships(posix_user.entity_id)
-            posix_user.populate_trait(self.co.trait_guest_owner, target_id=None)
+            posix_user.populate_trait(self.const.trait_guest_owner, target_id=None)
             # The password must be set _after_ the trait, or else it
             # won't be stored using the 'PGP-guest_acc' method.
             posix_user.set_password(posix_user.make_passwd(uname))
@@ -239,7 +239,7 @@ class BofhdExtension(object):
         owner = self.util.get_target(groupname, default_lookup="group")
         try:
             user_list = self.bgu.request_guest_users(int(nr), end_date, comment,
-                                                     self.co.entity_group,
+                                                     self.const.entity_group,
                                                      owner.entity_id,
                                                      operator.get_entity_id())
             for uname, comment, e_id, passwd in user_list:
