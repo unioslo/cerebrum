@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2005 University of Oslo, Norway
+# Copyright 2002-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -190,7 +190,8 @@ class BofhdExtension(object):
             try:
                 posix_user.write_db()
                 homedir_id = posix_user.set_homedir(
-                    disk_id=disk_id, status=self.co.home_status_not_created)
+                    disk_id=disk_id, home=home,
+                    status=self.co.home_status_not_created)
                 posix_user.set_home(self.co.spread_uio_nis_user, homedir_id)
                 # For correct ordering of ChangeLog events, new users
                 # should be signalled as "exported to" a certain system
