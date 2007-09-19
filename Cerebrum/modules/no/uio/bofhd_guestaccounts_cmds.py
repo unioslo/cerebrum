@@ -170,7 +170,7 @@ class BofhdExtension(object):
         group = self.util.get_target(filegroup, default_lookup="group")
         posix_user = PosixUser.PosixUser(self.db)
         shell = self._get_shell(shell)
-        disk_id = self._get_disk(home)[1]
+        disk_id, home = self._get_disk(home)[1:3]
         gecos = None
         expire_date = None
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
