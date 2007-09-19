@@ -39,7 +39,7 @@ if True:
 else:
     class liksom_module(object): pass
     cereconf = liksom_module()
-    cereconf.INSTITUTION_DOMAIN_NAME = 'hia.no'
+    cereconf.INSTITUTION_DOMAIN_NAME_LMS = 'hia.no'
 
 # Define all global variables, to avoid pychecker warnings.
 db = logger = fnr2account_id = const = None
@@ -350,12 +350,12 @@ class fs_supergroup(group_tree):
 
     def __init__(self):
         super(fs_supergroup, self).__init__()
-        self._prefix = ('internal', cereconf.INSTITUTION_DOMAIN_NAME, 'fs')
+        self._prefix = ('internal', cereconf.INSTITUTION_DOMAIN_NAME_LMS, 'fs')
         self._name = ('{supergroup}',)
 
     def description(self):
         return "Supergruppe for alle FS-avledede grupper ved %s" % (
-            cereconf.INSTITUTION_DOMAIN_NAME,)
+            cereconf.INSTITUTION_DOMAIN_NAME_LMS,)
 
     def add(self, gtype, attrs):
         if gtype == 'undenh':
@@ -404,7 +404,7 @@ class fs_undenh_1(fs_undenh_group):
     def description(self):
         return ("Supergruppe for alle grupper avledet fra"
                 " undervisningsenhetene i %s sin FS" %
-                cereconf.INSTITUTION_DOMAIN_NAME)
+                cereconf.INSTITUTION_DOMAIN_NAME_LMS)
 
     def list_matches(self, gtype, data, category):
         if gtype <> 'undenh':
@@ -429,7 +429,7 @@ class fs_undenh_2(fs_undenh_group):
 
     def description(self):
         return ("Supergruppe for alle %s sine FS-undervisningsenhet-grupper"
-                " %s %s" % (cereconf.INSTITUTION_DOMAIN_NAME,
+                " %s %s" % (cereconf.INSTITUTION_DOMAIN_NAME_LMS,
                             self._prefix[1], self._prefix[0]))
 
     def list_matches(self, gtype, data, category):
@@ -558,7 +558,7 @@ class fs_stprog_1(fs_stprog_group):
     def description(self):
         return ("Supergruppe for alle grupper relatert til"
                 " studieprogram i %s sin FS" %
-                (cereconf.INSTITUTION_DOMAIN_NAME,))
+                (cereconf.INSTITUTION_DOMAIN_NAME_LMS,))
 
     def list_matches(self, gtype, data, category):
         if gtype <> 'studieprogram':
@@ -764,7 +764,7 @@ class fs_evu_1(fs_undenh_group):
     def description(self):
         return ("Supergruppe for alle grupper avledet fra"
                 " EVU-kurs i %s sin FS" %
-                cereconf.INSTITUTION_DOMAIN_NAME)
+                cereconf.INSTITUTION_DOMAIN_NAME_LMS)
     # end description
 
 
