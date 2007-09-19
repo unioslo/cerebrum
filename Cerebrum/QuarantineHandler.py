@@ -117,14 +117,14 @@ class QuarantineHandler(object):
     def _get_matches(self):
         ret = []
         for q in self.quarantines:
-            spread2settings = self.qc2rules[int(q['quarantine_type'])]
+            spread2settings = self.qc2rules[int(q)]
             # Note that for each spread, we only extract the first
             # matching setting.  Otherwise it would not be possible to
             # have a quarantine that did not lock the account for a
             # specific spread.
             for spread in self.spreads:
                 if spread2settings.has_key(spread):
-                    ret.append((spread2settings[spread], int(q['quarantine_type'])))
+                    ret.append((spread2settings[spread], int(q)))
                     break
         if self._explicit_sort:
             ret.sort(lambda a, b: a[0]['sort_num'] - b[0]['sort_num'])
