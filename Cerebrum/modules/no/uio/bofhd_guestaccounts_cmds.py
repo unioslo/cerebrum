@@ -189,16 +189,16 @@ class BofhdExtension(object):
                                 expire_date=expire_date)            
             try:
                 posix_user.write_db()
-                homedir_id = posix_user.set_homedir(
-                    disk_id=disk_id, home=home,
-                    status=self.const.home_status_not_created)
-                posix_user.set_home(self.const.spread_uio_nis_user, homedir_id)
                 # For correct ordering of ChangeLog events, new users
                 # should be signalled as "exported to" a certain system
                 # before the new user's password is set.  Such systems are
                 # flawed, and should be fixed.
                 for spread in cereconf.GUESTS_USER_SPREADS:
                     posix_user.add_spread(self.const.Spread(spread))
+                homedir_id = posix_user.set_homedir(
+                    disk_id=disk_id, home=home,
+                    status=self.const.home_status_not_created)
+                posix_user.set_home(self.const.spread_uio_nis_user, homedir_id)
             except self.db.DatabaseError, m:
                 raise CerebrumError, "Database error: %s" % m
             self.bgu.update_group_memberships(posix_user.entity_id)
