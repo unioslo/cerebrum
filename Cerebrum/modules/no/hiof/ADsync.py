@@ -28,9 +28,12 @@ import pickle
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def _filter_quarantines(self, user_dict):
         def apply_quarantines(entity_id, quarantines):
+            q_types = []
+            for q in quarantines:
+                q_types.append(q['quarantine_type'])
             if not user_dict.has_key(entity_id):
                 return
-            qh = QuarantineHandler.QuarantineHandler(self.db, quarantines)
+            qh = QuarantineHandler.QuarantineHandler(self.db, q_types)
             if qh.should_skip():
                 del(user_dict[entity_id])
             if qh.is_locked():
