@@ -75,16 +75,16 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                     miss_OU = miss_OU + 1
                     #self.logger.info('%s missing OU info, skipping' % row['account_id'])
                     continue
-                if id2ou.has_key(row['ou_id']):
-                    accinfo[row['account_id']]['department'] = 	unicode(id2ou[row['ou_id']]['name'],
-                                                                        'ISO-8859-1')
-                    if pid2name.has_key(row['person_id']):
-                        accinfo[row['account_id']]['sn'] = unicode(pid2name[row['person_id']][int(co.name_last)],
+            if id2ou.has_key(row['ou_id']):
+                accinfo[row['account_id']]['department'] = unicode(id2ou[row['ou_id']]['name'],
                                                                    'ISO-8859-1')
-                        accinfo[row['account_id']]['givenName'] = unicode(pid2name[row['person_id']][int(co.name_first)],
-                                                                          'ISO-8859-1')
-                        accinfo[row['account_id']]['displayName'] = unicode(pid2name[row['person_id']][int(co.name_full)],
-                                                                            'ISO-8859-1')
+            if pid2name.has_key(row['person_id']):
+                accinfo[row['account_id']]['sn'] = unicode(pid2name[row['person_id']][int(co.name_last)],
+                                                           'ISO-8859-1')
+                accinfo[row['account_id']]['givenName'] = unicode(pid2name[row['person_id']][int(co.name_first)],
+                                                                  'ISO-8859-1')
+                accinfo[row['account_id']]['displayName'] = unicode(pid2name[row['person_id']][int(co.name_full)],
+                                                                    'ISO-8859-1')
         self.logger.info("Fetched %i accounts with AD spread" % len(accinfo))
         self.logger.info('%i accounts missing OU info' % miss_OU)
         pid2name = None 
