@@ -53,7 +53,8 @@ def _er_ansatt(person):
 
 def check_paid_semfee():
     paid_semfee = []
-    fs_db = Database.connect(user='cerebrum', service='FSHIA.uio.no',
+    fs_db = Database.connect(user=cereconf.FS_USER,
+                             service=cereconf.FS_DATABASE_NAME,
                              DB_driver='Oracle')
 
     fs = FS(fs_db)
