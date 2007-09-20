@@ -109,7 +109,8 @@ class BDBSync:
         self.ou = Factory.get('OU')(self.db)
         self.new_person = Factory.get('Person')(self.db)
         self.fnr_person = Factory.get('Person')(self.db)
-        self.ac = Account.Account(self.db)
+        self.ac = Factory.get('Account')(self.db)
+        #self.ac = Account.Account(self.db)
         self.group = Factory.get('Group')(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
         self.posix_user = PosixUser.PosixUser(self.db)
@@ -636,8 +637,11 @@ class BDBSync:
 
         uid = account_info.get('unix_uid', None)
         shell = account_info.get('shell',self.const.posix_shell_bash)
+        username = account_info.get('name')
 
-
+        if uid == 0:
+            self.logger.warn("User %s has uid=0. Not promoted to posix" % username)
+            return
         try:
             posix_group.find_by_gid(account_info.get('unix_gid'))
         except Errors.NotFoundError:
@@ -648,8 +652,7 @@ class BDBSync:
         posix_user.populate(uid, posix_group.entity_id, None, shell, parent=ac)
         posix_user.write_db()
 
-        self.logger.info("Account %s with posix-uid %s promoted to posix." %
-                         (account_info['name'], uid))
+        self.logger.info("Account %s with posix-uid %s promoted to posix." % (username,uid))
 
 
     def check_uid(self, account_info):
@@ -860,11 +863,19 @@ class BDBSync:
         except Errors.NotFoundError:
             uname = account_info['name']
 
-        self.logger.info('Adding new account %s on person %s' % (uname,owner.entity_id))
 
         expire_date = account_info.get('expire_date',None)
         create_date = account_info.get('creation_date')
+        uid = account_info.get('unix_uid',None)
+        
+        if uid and uid == 0:
+            # Accounts with uidNumber=0 should be of non-personal type. I.e. some odd system-user
+            np_type = self.co.account_program
+            # These users should have a group as owner, not person. FIXME
+        else:
+            np_type = None
 
+        self.logger.info('Adding new account %s on owner %s' % (uname,owner.entity_id))
         ac.populate(name=uname,
                     owner_type = owner.entity_type,
                     owner_id = owner.entity_id,
