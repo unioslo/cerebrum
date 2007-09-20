@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-
 This file performs group membership synchronization between several external
 databases and cerebrum.
 
@@ -419,7 +418,7 @@ def perform_synchronization(services):
 
 
 
-def check_owner_status(person, owner_id, username):
+def check_owner_status(person, constants, owner_id, username):
     """
     A help function for report_expired_users.
     """
@@ -429,15 +428,18 @@ def check_owner_status(person, owner_id, username):
         person.find(owner_id)
     except Cerebrum.Errors.NotFoundError:
         return "Username %s has no owner\n" % username
-    # yrt
 
-    now = time.strftime("%Y%m%d", time.gmtime(time.time()))
-    if not (person.get_tilsetting(now) or
-            person.get_bilag() or
-            person.get_gjest(now)):
+    # We need to know if person is tilsatt/bilag/gjest.
+    # tilsatt => ANSATT-affiliation
+    # bilag => ANSATT-affiliation
+    # gjest => TILKNYTTET-affiliation
+    # As long as there is at least one such affiliation, we are good to go.
+    if not person.list_affiliations(person_id=owner_id,
+                                    affiliation=(constants.affiliation_ansatt,
+                                                 constants.affiliation_tilknyttet),
+                                    include_deleted=False):
         return (("Owner of account %s has no tilsetting/bilag/gjest " +
                  "records in POLS\n") % username)
-    # fi
 
     return ""
 # end check_owner_status
@@ -510,12 +512,14 @@ def report_users(stream_name, external_dbs):
     # Report NIS spread / owner's work record
     for dbname in ("ofprod", "oaprd", "fsprod",
                    "basware-users", "basware-masters"):
+        logger.debug("Accessing db %s", dbname)
         item = external_dbs[dbname]
         message = make_report(user, True, item, item["report_accessor"],
                               check_expired,
                               lambda acc: check_spread(acc,
                                             constants.spread_uio_nis_user),
                               lambda acc: check_owner_status(person,
+                                            constants,
                                             acc.owner_id,
                                             acc.account_name))
         if message:
