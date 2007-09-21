@@ -318,19 +318,20 @@ def move_user(chg):
 
 
 def del_user(chg):
-	
-	#Disabling account, before moving it.
-	chgdisable = {} 
-	chgdisable['type'] = 'UPDATEUSR'
-	chgdisable['ACCOUNTDISABLE'] = True
-	chgdisable['distinguishedName'] = chg['distinguishedName']
-	update_user(chgdisable)
+    #Disabling account, before moving it.
+    chgdisable = {} 
+    chgdisable['type'] = 'UPDATEUSR'
+    chgdisable['ACCOUNTDISABLE'] = True
+    chgdisable['distinguishedName'] = chg['distinguishedName']
 
-	chg['type'] = 'MOVEUSR'
-	chg['affiliation'] = cereconf.AD_CEREBRUM_DELETED
-	move_user(chg)
+    update_user(chgdisable)
 
-	logger.debug("Disabling and moving account %s" % (chg['distinguishedName']))    
+    chg['type'] = 'MOVEUSR'
+    chg['affiliation'] = cereconf.AD_CEREBRUM_DELETED
+
+    move_user(chg)
+
+    logger.debug("Disabling and moving account %s" % (chg['distinguishedName']))    
 
 def update_user(chg):
     ret = run_cmd('bindObject',chg['distinguishedName'])
