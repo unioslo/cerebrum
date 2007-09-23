@@ -242,9 +242,16 @@ def make_temp_dir(dir="/tmp", prefix="cerebrum_tmp"):
     os.mkdir(name)
     return name
 
+# U-umlaut is treated specially and is therefore defined in
+# latin1_specials to be transcribed to 'ue' instead of the single
+# character 'u'. The reason for this is a wish for email addresses to
+# reflect the common transcribation choice for this
+# character. O-umlaut and a-umlaut are not getting such special
+# treatment.
 _latin1_specials = {'Ğ': 'Dh',  'ğ': 'dh',
                     'Ş': 'Th',  'ş': 'th',
-                    'ß': 'ss'}
+                    'ß': 'ss',  'Ü': 'Ue',
+                    'ü': 'ue'}
 _latin1_wash_cache = {}
 
 def latin1_wash(data, target_charset, expand_chars=False, substitute=''):
@@ -260,20 +267,21 @@ def latin1_wash(data, target_charset, expand_chars=False, substitute=''):
         (tr, xlate_subst, xlate_match) = _latin1_wash_cache[key]
     except KeyError:
         tr_from = ('ÆØÅæøå[\\]{|}¦¿'
-                   'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ'
+                   'ÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛİàáâãäçèéêëìíîïñòóôõöùúûıÿ'
                    '¨­¯´')
         xlate = _latin1_specials.copy()
         if target_charset == 'iso646-60':
             tr_to = ('[\\]{|}[\\]{|}||'
-                     'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                     'AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy'
                      '"--\'')
             xlate_re = '[^\x1f-\x7e\xff]'  # Should be [^\x20-\x7e].
         elif target_charset == 'POSIXname':
             tr_to = ('AOAaoaAOAaoaoo'
-                     'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy'
+                     'AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuyy'
                      '"--\'')
             if expand_chars:
-                xlate.update({'Æ': 'Ae', 'æ': 'ae',  'Å': 'Aa', 'å': 'aa'})
+                xlate.update({'Æ': 'Ae', 'æ': 'ae',  'Å': 'Aa', 'å': 'aa',
+                              'Ü': 'Ue', 'ü': 'ue'})
             xlate_re = r'[^a-zA-Z0-9 -]'
         else:
             raise ValueError, "Unknown target charset: %r" % (target_charset,)
@@ -293,8 +301,8 @@ def latin1_wash(data, target_charset, expand_chars=False, substitute=''):
     return xlate_subst(xlate_match, str(data).translate(tr))
 
 _lat1_646_tr = string.maketrans(
-    'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ¨­¯´',
-    '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyy"--\'')
+    'ÆØÅæø¦¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛİàáâãäçèéêëìíîïñòóôõöùúûıÿ¨­¯´',
+    '[\\]{|||}AAAAACEEEEIIIINOOOOOUUUYaaaaaceeeeiiiinooooouuuyy"--\'')
 _lat1_646_subst = re.compile('[^\x1f-\x7e\xff]').sub  # Should be [^\x20-\x7e].
 _lat1_646_cache = {}
 
