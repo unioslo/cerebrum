@@ -1198,7 +1198,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return xlated
 
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
-               filter_expired=True):
+               expire_start='[:now]', expire_stop=None):
         """Retrieves a list of Accounts filtered by the given criterias.
         
         Returns a list of tuples with the info (account_id, name).
@@ -1244,19 +1244,25 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if owner_type is not None:
             where.append("ai.owner_type=:owner_type")
 
-        if filter_expired:
-            where.append("(ai.expire_date IS NULL OR ai.expire_date > [:now])")
-
+        if expire_start and expire_stop:
+            where.append("(ai.expire_date>=:expire_start and ai.expire_date<:expire_stop)")
+        elif expire_start and expire_stop is None:
+            where.append("(ai.expire_date>=:expire_start or ai.expire_date IS NULL)")
+        elif expire_start is None and expire_stop:
+            where.append("ai.expire_date<:expire_stop")
+  
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
 
         return self.query("""
         SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name,
-                        ai.owner_id AS owner_id, ai.owner_type AS owner_type
+                        ai.owner_id AS owner_id, ai.owner_type AS owner_type,
+                        ai.expire_date AS expire_date
         FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_account),
              'name': name, 'owner_id': owner_id, 'owner_type': owner_type,
-             'vdomain': int(self.const.account_namespace)})
+             'vdomain': int(self.const.account_namespace), 
+             'expire_start': expire_start, 'expire_stop': expire_stop})
 
 # arch-tag: 680912b6-ae4f-4915-bbec-4e71ffc302be

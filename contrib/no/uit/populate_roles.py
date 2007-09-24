@@ -39,8 +39,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uit import access_SYSY
 
-
-"""
+__doc__="""
 Populate role groups from SystemY
 
 rolenames=role:<rolename from xml>
@@ -131,13 +130,10 @@ class ITRole(object):
         self.group_name = role_name
         self.buildadmins = admin
         self.group_members = members
-        pass
-
 
     def group_creator(self):
         creator_ac = get_account(cereconf.INITIAL_ACCOUNTNAME)
         return  creator_ac.entity_id
-
 
     def maybe_create(self,group_name):
         try:
@@ -150,7 +146,8 @@ class ITRole(object):
                         self.group_name,
                         description=description)
             pg.write_db()
-            logger.info("Created group: name=%s, id=%d, gid=%d, desc='%s'" % (pg.group_name,pg.entity_id,pg.posix_gid,pg.description))
+            logger.info("Created group: name=%s, id=%d, gid=%d, desc='%s'" % \
+                (pg.group_name,pg.entity_id,pg.posix_gid,pg.description))
 
             if (self.buildadmins):
                 pg.add_spread(const.spread_uit_ad_lit_admingroup)
@@ -169,16 +166,19 @@ class ITRole(object):
         person.find(person_id)
         pri_account_id = person.get_primary_account()
         pri_ac.find(pri_account_id)
-        existing_acc_types = pri_ac.get_account_types(owner_id=person_id, filter_expired=False)
+        existing_acc_types = pri_ac.get_account_types(owner_id=person_id, \
+            filter_expired=False)
         default_expire_date = pri_ac.expire_date
         admin_priority = 999
 
-        accounts = new_ac.search(spread=const.spread_uit_ad_lit_admin,owner_id=person_id,filter_expired=False)
+        accounts = new_ac.search(spread=const.spread_uit_ad_lit_admin, \
+            owner_id=person_id,expire_start=None)
         if (len(accounts)==0):
-            #does not have account in spread ad_lit_admin, create account and set spread
+            #does not have account in spread ad_lit_admin, create and set spread
             logger.debug("Create admin account for %s" % (person_id))
             ext_id = person.get_external_id(id_type=const.externalid_fodselsnr)
-            ssn = ext_id[0]['external_id']  # may bang if person only from sysX !??
+            # FIXME: may bang if person only from sysX !??
+            ssn = ext_id[0]['external_id']  
             full_name = person.get_name(const.system_cached, const.name_full)
             new_username = new_ac.get_uit_uname(ssn,full_name,Regime='ADMIN')
             logger.debug("GOT acc_name=%s" % new_username)
@@ -193,7 +193,6 @@ class ITRole(object):
                             expire_date = default_expire_date,
                             posix_uid = new_ac.get_free_uid(),
                             gid_id = 1623, #int(group.entity_id),
-                            #                                gid_id = 199,
                             gecos = new_ac.simplify_name(full_name,as_gecos=1),
                             shell = const.posix_shell_bash
                             )
@@ -218,22 +217,20 @@ class ITRole(object):
             return new_ac.account_name            
         elif len(accounts) == 1:
             # sync account to person's primary account. expire date that is...
-            logger.info("Sync expire date to primary account for account %s (id=%s)" % (accounts[0]['name'],accounts[0]['account_id']))
             new_ac.clear()
             new_ac.find(accounts[0]['account_id'])
             new_ac.expire_date = default_expire_date
             if not new_ac.has_spread(const.spread_uit_sut_user):
                 new_ac.add_spread(const.spread_uit_sut_user)
                 new_ac.set_home_dir(const.spread_uit_sut_user)
-                logger.info("Added %s spread to account %s" % (const.spread_uit_sut_user,accounts[0]['name']))
+                logger.info("Added %s spread to account %s" % \
+                    (const.spread_uit_sut_user,accounts[0]['name']))
             new_ac.write_db()            
             return accounts[0]['name']
         else:
             logger.error("TOO MANY ACCOUNTS FOUND for with spread_uit_ad_lit_admin for %s!" % (person_id))
             raise Errors.IntegretyError
-            
 
-        
 
     def translate2admins(self,accountList):
         admlist = []
@@ -283,11 +280,6 @@ class ITRole(object):
                 logger.error("Could not add %s to %s, account not found" % (name,group.group_name))
                 continue
 
-        
-
-
-        
-
 
 def process_role(name,attrs,members):
     logger.info("PROCESS ROLE: name=%s, attrs=%s,members=%s" % (name,attrs,members))
@@ -297,8 +289,6 @@ def process_role(name,attrs,members):
     admin = attrs.get('admin')
     work = ITRole(role_name,admin,members)
     work.sync_members()
-    
-
 
 
 def rolle_helper(obj,el_name):
@@ -334,7 +324,8 @@ def main():
     role_file = sys_y_default_file
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'r:dh',['role_file','dryrun','help'])
+        opts,args = getopt.getopt(sys.argv[1:],'r:dh',
+            ['role_file','dryrun','help'])
     except getopt.GetoptError,m:
         usage(m)
 
@@ -349,7 +340,6 @@ def main():
             dryrun = True
         if opt in('-h','--help'):
             usage()
-    
 
     roles_xml_parser(role_file, rolle_helper)
 
@@ -360,6 +350,6 @@ def main():
         logger.info("Commiting changes")
         db.commit()
 
-    
+
 if __name__=='__main__':
     main()

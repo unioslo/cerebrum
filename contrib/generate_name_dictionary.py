@@ -86,7 +86,7 @@ def generate_list():
     #
     # Then the accounts
     account = Factory.get("Account")(db)
-    for row in account.search(filter_expired=False):
+    for row in account.search(expire_start=None):
         name = row["name"]
         if name_is_valid(name):
             result.add(name)
