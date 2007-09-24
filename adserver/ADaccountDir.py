@@ -76,22 +76,23 @@ class AccountDir(ADObject):
  
 		fileRights = win32file.FILE_ALL_ACCESS
 		propagation = win32security.CONTAINER_INHERIT_ACE|win32security.OBJECT_INHERIT_ACE
+		security_information = win32security.DACL_SECURITY_INFORMATION|win32security.OWNER_SECURITY_INFORMATION 
 
 		try:
 			pySD = win32security.GetNamedSecurityInfo(path, 
 								win32security.SE_FILE_OBJECT, 
-								win32security.DACL_SECURITY_INFORMATION)
+								security_information)
 
 			Dacls = pySD.GetSecurityDescriptorDacl()
-			SID = win32security.LookupAccountName(None, uname)
+			SID = win32security.LookupAccountName(None, uname)[0]
 
 			Dacls.AddAccessAllowedAceEx(win32security.ACL_REVISION_DS, 
-									propagation, fileRights, SID[0])
+									propagation, fileRights, SID)
 
 			win32security.SetNamedSecurityInfo(path, 
 							win32security.SE_FILE_OBJECT, 
-							win32security.DACL_SECURITY_INFORMATION,
-							None, None, Dacls, None)
+							security_information,
+							SID, None, Dacls, None)
 
 			return True
 		except:
