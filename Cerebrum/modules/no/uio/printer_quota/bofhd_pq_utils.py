@@ -65,6 +65,10 @@ class SimpleLogger(object):
     def critical(self, msg, *args, **kwargs):
         self.show_msg("CRITICAL", msg, *args, **kwargs)
 
+    def warn(self, msg, *args, **kwargs):
+        self.show_msg("WARN", msg, *args, **kwargs)
+        
+
 class BofhdUtils(object):
     def __init__(self, server):
         self.server = server
