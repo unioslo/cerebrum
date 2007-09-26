@@ -131,6 +131,19 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.__super.init_person_dump(use_mail_module)
         self.init_person_course()
 
+    def init_person_titles(self):
+        # Change from original: Search titles first by system_lookup_order,
+        # then within each system let personal title override work title.
+        timer = self.make_timer("Fetching personal titles...")
+        self.person_title = person_title = {}
+        for source in self.system_lookup_order:
+            for name_type in (int(self.const.name_personal_title),
+                              int(self.const.name_work_title)):
+                for row in self.person.list_persons_name(source_system=source,
+                                                         name_type=name_type):
+                    person_title.setdefault(int(row['person_id']), row['name'])
+        timer("...personal titles done.")
+
     def make_person_entry(self, row):
         """Add data from person_course to a person entry."""
         dn, entry, alias_info = self.__super.make_person_entry(row)
