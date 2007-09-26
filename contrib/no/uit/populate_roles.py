@@ -165,6 +165,9 @@ class ITRole(object):
         person.clear()
         person.find(person_id)
         pri_account_id = person.get_primary_account()
+        if pri_account_id is None:
+            logger.error("Primary account for personID=%s not found, acc expired?" % (person_id))
+            return
         pri_ac.find(pri_account_id)
         existing_acc_types = pri_ac.get_account_types(owner_id=person_id, \
             filter_expired=False)
@@ -241,7 +244,8 @@ class ITRole(object):
                 logger.error("Account %s not found. Cannot create admin account!" % (a))
                 continue
             admin = self.maybe_create_admin(parent.owner_id)
-            admlist.append(admin)
+            if admin:
+                admlist.append(admin)
         return admlist
 
 
