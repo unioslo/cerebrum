@@ -173,7 +173,7 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
             #Setting default for undefined AD_ACCOUNT_CONTROL values.
             for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
                 if not chg.has_key(acc):
-					chg[acc] = value                
+                    chg[acc] = value                
             ret = self.run_cmd('putProperties', dry_run, chg)
             if not ret[0]:
                 self.logger.warning("putproperties on %s failed: %r", uname,
