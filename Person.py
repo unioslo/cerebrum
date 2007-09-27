@@ -47,34 +47,6 @@ class UiTPersonMixin(Person.Person):
       return None
 
 
-
-  def list_affiliations(self, person_id=None, source_system=None,
-                        affiliation=None, status=None, ou_id=None,
-                        include_deleted=False, fetchall = True, include_last=False):
-      where = []
-      last_field=""
-      for t in ('person_id', 'affiliation', 'source_system', 'status', \
-                'ou_id'):
-          val = locals()[t]
-          if val is not None:
-              if isinstance(val, (list, tuple)):
-                  where.append("%s IN (%s)" %
-                               (t, ", ".join(map(str, map(int, val)))))
-              else:
-                where.append("%s = %d" % (t, val))
-      if not include_deleted:
-          where.append("(deleted_date IS NULL OR deleted_date > [:now])")
-      where = " AND ".join(where)
-      if where:
-          where = "WHERE " + where
-      if include_last:
-          last_field = ", last_date"
-      return self.query("""
-      SELECT person_id, ou_id, affiliation, source_system, status,
-      deleted_date, create_date%s
-      FROM [:table schema=cerebrum name=person_affiliation_source]
-      %s""" % (last_field,where), fetchall = fetchall)
-
   def _compare_names(self, type, other):
         """Returns True if names are equal.
 
