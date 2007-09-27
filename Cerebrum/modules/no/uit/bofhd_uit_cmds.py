@@ -4211,7 +4211,7 @@ class BofhdExtension(object):
         affiliations = []
         sources = []
         last_dates = []
-        for row in person.list_affiliations(person_id=person.entity_id,include_last=True):
+        for row in person.list_affiliations(person_id=person.entity_id):
             ou = self._get_ou(ou_id=row['ou_id'])
             date = row['last_date'].strftime("%Y-%m-%d")
             last_dates.append(date)
