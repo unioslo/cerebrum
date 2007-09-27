@@ -445,8 +445,8 @@ def usage(exitcode=0):
 def load_all_affi_entry():
     affi_list = {}
     for row in new_person.list_affiliations(source_system=const.system_lt):
-	key_l = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
-	affi_list[key_l] = True
+        key_l = "%s:%s:%s" % (row['person_id'],row['ou_id'],row['affiliation'])
+        affi_list[key_l] = True
     return(affi_list)
 # end load_all_affi_entry
 
@@ -455,20 +455,20 @@ def load_all_affi_entry():
 def clean_affi_s_list():
     for k,v in cere_list.items():
         logger.info("clean_affi_s_list: k=%s,v=%s" % (k,v))
-	if v:
+        if v:
             logger.info("CLEAN")
-	    #ent_id,ou,affi = k.split(':')
+            #ent_id,ou,affi = k.split(':')
             #ent_id = int(ent_id)
             #ou=int(ou)
             #affi=int(affi)
             [ent_id,ou,affi] = [int(x) for x in k.split(':')]
-	    new_person.clear()
-	    #new_person.find(int(ent_id))
-	    new_person.entity_id = int(ent_id)
-            affs = new_person.list_affiliations(ent_id,affiliation=affi,ou_id=ou ,include_last=True)
+            new_person.clear()
+            #new_person.find(int(ent_id))
+            new_person.entity_id = int(ent_id)
+            affs = new_person.list_affiliations(ent_id,affiliation=affi,ou_id=ou)
             for aff in affs:
-                last_date = datetime.datetime.fromtimestamp(aff['last_date'])               
-                end_grace_period = last_date + datetime.timedelta(days=cereconf.GRACEPERIOD_EMPLOYEE)                
+                last_date = datetime.datetime.fromtimestamp(aff['last_date'])
+                end_grace_period = last_date + datetime.timedelta(days=cereconf.GRACEPERIOD_EMPLOYEE)
                 if datetime.datetime.today() > end_grace_period:
                     logger.warn("Deleting system_lt affiliation for person_id=%s,ou=%s,affi=%s last_date=%s,grace=%s" % (ent_id,ou,affi,last_date,cereconf.GRACEPERIOD_EMPLOYEE))
                     new_person.delete_affiliation(ou, affi, const.system_lt)

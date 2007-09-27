@@ -97,7 +97,7 @@ class execute:
         self.db.cl_init(change_program='process_empl')
         self.emp_list = []
         # lag en liste over alle som har affiliation lik ansatt og som kommer fra SLP4
-        self.existing_emp_list = self.person.list_affiliations(source_system=self.constants.system_lt,affiliation=self.constants.affiliation_ansatt,include_last=True,include_deleted=True)
+        self.existing_emp_list = self.person.list_affiliations(source_system=self.constants.system_lt,affiliation=self.constants.affiliation_ansatt,include_deleted=True)
         
         # lag liste over eksisterende kontoer og dets owner_id
         logger.info('Building owner2account cache')

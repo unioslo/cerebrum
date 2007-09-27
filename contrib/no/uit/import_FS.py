@@ -219,7 +219,7 @@ def rem_old_aff():
             ent_id,ou,affi = k.split(':')
             person.clear()
             person.find(int(ent_id))
-            affs = person.list_affiliations(int(ent_id),affiliation=int(affi),ou_id=int(ou) ,include_last=True)
+            affs = person.list_affiliations(int(ent_id),affiliation=int(affi),ou_id=int(ou))
             for aff in affs:
                 last_date = datetime.datetime.fromtimestamp(aff['last_date'])               
                 end_grace_period = last_date + datetime.timedelta(days=cereconf.GRACEPERIOD_STUDENT)                
