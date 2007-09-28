@@ -28,6 +28,7 @@
 #attr $page = 'cereweb'
 #attr $links = ()
 #attr $action = []
+#attr $charset = 'UTF-8'
 
 ## Content is usually replaced with a lambda function from the view.
 #def content: stub
@@ -61,37 +62,37 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
     <head>
         <title>Cereweb $strip_html($title)</title>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta http-equiv="Content-Type" content="text/html; charset=$charset" />
         <meta http-equiv="Pragma" content="no-cache" />
         <meta http-equiv="Cache-Control" content="max-age=0" />
         <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
         <!-- Include yui styles -->
-        <link rel="stylesheet" type="text/css" href="/yui/build/reset-fonts-grids/reset-fonts-grids.css"/>
-        <link rel="stylesheet" type="text/css" href="/yui/build/container/assets/container.css"/>
-        <link rel="stylesheet" type="text/css" href="/yui/build/logger/assets/logger.css"/>
-        <link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/datatable.css"/>
-        <link rel="stylesheet" type="text/css" href="/yui/build/tabview/assets/tabview.css"/>
-        <link rel="stylesheet" type="text/css" href="/yui/build/tabview/assets/border_tabs.css"/> 
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/build/reset-fonts-grids/reset-fonts-grids.css"/>
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/build/container/assets/container.css"/>
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/build/logger/assets/logger.css"/>
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/build/datatable/assets/datatable.css"/>
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/build/tabview/assets/tabview.css"/>
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/build/tabview/assets/border_tabs.css"/> 
 
         <!-- Include yui components -->
-        <script type="text/javascript" src="/yui/build/utilities/utilities.js"></script>
-        <script type="text/javascript" src="/yui/build/logger/logger-min.js"></script>
-        <script type="text/javascript" src="/yui/build/container/container-min.js"></script>
-        <script type="text/javascript" src="/yui/build/element/element-beta-min.js"></script>
-        <script type="text/javascript" src="/yui/build/datasource/datasource-beta-min.js"></script>
-        <script type="text/javascript" src="/yui/build/datatable/datatable-beta-min.js"></script>
-        <script type="text/javascript" src="/yui/build/autocomplete/autocomplete-min.js"></script>
-        <script type="text/javascript" src="/yui/build/tabview/tabview-min.js"></script> 
+        <script type="text/javascript" charset="$charset" src="/yui/build/utilities/utilities.js"></script>
+        <script type="text/javascript" charset="$charset" src="/yui/build/logger/logger-min.js"></script>
+        <script type="text/javascript" charset="$charset" src="/yui/build/container/container-min.js"></script>
+        <script type="text/javascript" charset="$charset" src="/yui/build/element/element-beta-min.js"></script>
+        <script type="text/javascript" charset="$charset" src="/yui/build/datasource/datasource-beta-min.js"></script>
+        <script type="text/javascript" charset="$charset" src="/yui/build/datatable/datatable-beta-min.js"></script>
+        <script type="text/javascript" charset="$charset" src="/yui/build/autocomplete/autocomplete-min.js"></script>
+        <script type="text/javascript" charset="$charset" src="/yui/build/tabview/tabview-min.js"></script> 
 
 
         <!-- Include our styles -->
-        <link rel="stylesheet" type="text/css" href="/css/default.css"/>
-        <link rel="stylesheet" type="text/css" href="/css/style.css"/>
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/css/default.css"/>
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/css/style.css"/>
 
         <!-- Include our javascript application -->
         <!-- $len($jscripts) -->
         #for $i in $jscripts
-            <script type="text/javascript" src="/jscript/$i"></script>
+            <script type="text/javascript" charset="$charset" src="/jscript/$i"></script>
         #end for
     </head>
     <body>
