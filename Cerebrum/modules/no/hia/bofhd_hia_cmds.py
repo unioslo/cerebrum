@@ -4468,6 +4468,12 @@ class BofhdExtension(object):
                 dest = self._get_entity_name(None, dest)
             except Errors.NotFoundError:
                 pass
+            # If the subject is there, but there is no name, this is what we end
+            # up with (this could happen if we have a group and its name has
+            # been deleted).
+            except CerebrumError:
+                dest = "<name N/A, group_id=%s>" % (dest,)
+                
         this_cl_const = self.num2const[int(row['change_type_id'])]
 
         msg = this_cl_const.msg_string % {
