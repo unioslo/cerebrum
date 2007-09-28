@@ -44,7 +44,7 @@ logger = Factory.get_logger("cronjob")
 # Default file locations
 t = time.localtime()
 sourcedir = cereconf.CB_SOURCEDATA_PATH
-default_input_file = os.path.join(sourcedir, 'stedtre_%02d_%d.csv' % (1, t[0]))
+default_input_file = os.path.join(sourcedir, 'stedtre-gjeldende.csv')
 
 dumpdir = os.path.join(cereconf.DUMPDIR,"ou")
 default_output_file = os.path.join(dumpdir,'uit_ou_%d%02d%02d.xml' % (t[0], t[1], t[2]))
@@ -86,6 +86,7 @@ class ou:
         
     # lets collect data about all active ou's from FS.
     def get_fs_ou(self):
+        logger.info("Reading OU's from FS")
         ouer = self.fs.ou.GetAlleOUer(institusjonsnr=186)
         poststednr_besok_adr=''
         poststednr_alternativ_adr=''
@@ -162,6 +163,7 @@ class ou:
         authoritative_ou=[]
         
         import codecs
+        logger.info("Reading authoritative OU file %s" % self.ou_file)
         fileObj = codecs.open( self.ou_file, "r", "utf-8" )
         for line in fileObj:
             line = line.encode('iso-8859-1')
@@ -262,6 +264,7 @@ class ou:
 
 
     def print_ou(self,final_ou,out_file):
+        logger.info("Wrinting OU file %s" % out_file)
         stream = AtomicFileWriter(out_file, "w")
         writer = xmlprinter.xmlprinter(stream,
                                        indent_level = 2,
