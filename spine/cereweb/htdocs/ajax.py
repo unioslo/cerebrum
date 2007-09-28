@@ -27,6 +27,19 @@ from SpineIDL.Errors import NotFoundError
 from gettext import gettext as _
 from lib.utils import *
 
+##
+## it seems like javascript uses unicode and the strings must be decoded
+## ,- at least itcured my problems by displaying norwegian characters.
+##
+## 2007-09-28 tk.
+##
+def from_spine_enc(str):
+    spine_enc = cherrypy.session['encoding']
+    if spine_enc:
+        return str.decode(spine_enc)
+    else:
+        return str
+
 def get_owner(owner):
     owner_type = owner.get_type().get_name() 
     if owner_type == 'person':
@@ -45,7 +58,7 @@ def get_owner(owner):
 def get_account_info(account, owner=None):
     data = {
             "id": "%s" % account.get_id(),
-            "name": "%s" % account.get_name(),
+            "name": "%s" % from_spine_enc(account.get_name()),
             "type": "account",
     }
 
@@ -62,7 +75,7 @@ def get_account_info(account, owner=None):
 def get_person_name(person):
     for n in person.get_names():
         if n.get_name_variant().get_name() == "FULL":
-            return n.get_name()
+            return from_spine_enc(n.get_name())
     return None
 
 def get_person_info(person):
@@ -74,9 +87,10 @@ def get_person_info(person):
     return data
 
 def get_group_info(group):
+    spine_enc = cherrypy.session['encoding']
     data = {
         'id': group.get_id(),
-        'name': group.get_name(),
+        'name': from_spine_enc(group.get_name()),
         'type': 'group',
     }
     return data

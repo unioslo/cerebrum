@@ -742,13 +742,16 @@ div.sub-nav ul li {
 
 #searchresult td {
     padding-right: 0.5em;
+    width: auto;
 }
 
 #searchresult th {
-    padding-right: 0.5em;
     font-size: 110%;
     font-weight: bold;
     padding-bottom: 5px;
+    padding-right: 0.5em;
+    width: auto;
 }
 
+*/
 /* vim: sw=4 sts=4 expandtab */
