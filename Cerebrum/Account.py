@@ -1200,12 +1200,40 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
                expire_start='[:now]', expire_stop=None):
         """Retrieves a list of Accounts filtered by the given criterias.
+        If no criteria is given, all non-expired accounts are returned.
         
-        Returns a list of tuples with the info (account_id, name).
-        If no criteria is given, all accounts are returned. ``name`` should
-        be string if given. ``spread`` can either be string or int. ``owner_id``
-        and ``owner_type`` should be int. Wildcards * and ? are expanded for
-        "any chars" and "one char"."""
+        If expire_start and expire_stop is used, accounts with expire_date 
+        between expire_start and expire_stop is returned. 
+       
+        @param spread: Return entities that has this spread
+        @type spread: Either be integer or string. A string with wildcards * 
+        and ? are expanded for "any chars" and "one char".
+        
+        @param name: Return only entities that matches name
+        @type name: String. Wildcards * and ? are expanded for "any chars" and 
+        "one char".
+        
+        @param owner_id: Return entities that is owned by this owner_id
+        @type owner_id: Integer
+        
+        @param owner_type: Return entities where owners type is of owner_type
+        @type owner_type: Integer
+        
+        @param expire_start: Filter on expire_date. If not specified use current
+        time. If specified then filter on expire_date>=expire_start.
+        If expire_start is None, don't apply a start_date filter.
+        @type expire_start: Date. Either a string on format 'YYYY-mm-dd' or a 
+        mx.DateTime object
+        
+        @param expire_stop: Filter on expire_date. If None, don't apply a 
+        stop filter on expire_date. If other than None, filter on 
+        expire_date<expire_stop.
+        @type expire_stop: Date. Either a string on format 'YYYY-mm-dd' or a 
+        mx.DateTime object
+       
+        @return a list of tuples with the info (account_id,name,owner_id,
+        owner_type,expire_date).        
+        """
 
         def prepare_string(value):
             value = value.replace("*", "%")
