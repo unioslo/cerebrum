@@ -39,7 +39,7 @@ from Cerebrum import Utils, Disk
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
      EntityContactInfo, EntitySpread
 from Cerebrum.modules import PasswordChecker
-from Cerebrum.Database import Errors
+from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
 import cereconf
 
@@ -530,6 +530,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         Note: affect_auth_types is automatically extended to contain
         these methods.
         """
+        notimpelmented=[]
         for method_name in cereconf.AUTH_CRYPT_METHODS:
             method = self.const.Authentication(method_name)
             if not method in self._acc_affect_auth_types:
@@ -548,9 +549,15 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 # have to decline it in wants_auth_data until it's all
                 # gone.
                 continue
-            enc = self.encrypt_password(method, plaintext)
-            self.populate_authentication_type(method, enc)
+            try:
+                enc = self.encrypt_password(method, plaintext)
+            except Errors.NotImplementedAuthTypeError, e:
+                notimpelmented.append(str(e))
+            else:
+                self.populate_authentication_type(method, enc)
         self.__plaintext_password = plaintext
+        if notimpelmented:
+            raise Errors.NotImplementedAuthTypeError, "\n".join(notimpelmented)
 
     def encrypt_password(self, method, plaintext, salt=None):
         """Returns the plaintext encrypted according to the specified
@@ -583,7 +590,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         elif method == self.const.auth_type_md5_unsalt:
             import md5
             return md5.md5(plaintext).hexdigest()
-        raise ValueError, "Unknown method " + repr(method)
+        raise Errors.NotImplementedAuthTypeError, "Unknown method " + repr(method)
 
     def decrypt_password(self, method, cryptstring):
         """Returns the decrypted plaintext according to the specified
