@@ -54,12 +54,21 @@ spread_homedirs = {
 
 
 account_name_regex=re.compile("^[a-z][a-z0-9]*$")
+account_name_np_regex=re.compile("^[a-z][a-z0-9._-]*$")
+
 
 class AccountNTNUMixin(Account.Account):
     def illegal_name(self, name):
-        if len(name) > 8:
+        maxlen=8
+        regex=account_name_regex
+        # Allow weird usernames for non-personal accounts.
+        # XXX only works when self refers to the account!
+        if self.np_type:
+            maxlen=64
+            regex=account_name_np_regex
+        if len(name) > maxlen:
             return "too long (%s)" % name
-        if not re.match(account_name_regex, name):
+        if not regex.match(name):
             return "misformed (%s)" % name
         return self.__super.illegal_name(name)
 
