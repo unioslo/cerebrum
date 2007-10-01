@@ -22,6 +22,8 @@ from Cerebrum import Account
 from Cerebrum import Errors
 #from Cerebrum.modules import PosixUser
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
+
 import re
 import random
 
@@ -116,5 +118,31 @@ class AccountNTNUMixin(Account.Account):
             import smbpasswd
             return smbpasswd.lmhash(plaintext)
         return self.__super.encrypt_password(method, plaintext, salt=salt)
+
+
+    password_bdb_regex=re.compile("^[A-Za-z0-9!#()*+,.=?@\[\]_{}~-]+$")
+    password_big_regex=re.compile("[A-Z]")
+    password_small_regex=re.compile("[a-z]")
+    password_num_regex=re.compile("[0-9]")
+    password_special_regex=re.compile("[!#()*+,.=?@\[\]_{}~-]")
+    def set_password(self, plaintext):
+        # Enable this after BDB is phased out:
+        # From PasswordChecker...
+        # self.goodenough(plaintext)
+
+        # BDB-compatible password checking:
+        if len(plaintext) != 8:
+            raise PasswordGoodEnoughException("The password must be 8 characters long.")
+        if not self.password_bdb_regex.match(plaintext):
+            raise PasswordGoodEnoughException("Illegal character in password")
+        num = (self.password_big_regex.search(plaintext) and 1 or 0) \
+              + (self.password_small_regex.search(plaintext) and 1 or 0) \
+              + (self.password_num_regex.search(plaintext) and 1 or 0) \
+              + (self.password_special_regex.search(plaintext) and 1 or 0)
+        if num < 3:
+            raise PasswordGoodEnoughException("Need mix of small characters, big characters, numbers and special characters")
+
+        # Ok, then. Acctually set the password.
+        return self.__super.set_password(plaintext)
 
 # arch-tag: 115d851e-d604-11da-80dd-29649c6d89a0
