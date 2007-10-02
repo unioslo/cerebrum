@@ -116,7 +116,10 @@ class Person(FSObject):
           dato_fra, dato_til, institusjonsnr, faknr, gruppenr, 
           studieprogramkode, emnekode, versjonskode, aktivitetkode, 
           terminkode, arstall, terminnr, etterutdkurskode, 
-          kurstidsangivelsekode, prioritetsnr, klassekode, undplanlopenr
+          kurstidsangivelsekode
+          /* IVR 2007-10-02 FIXME: Temporarily removed, pending */
+          /* registration fixes in FS. */
+          /* , prioritetsnr, klassekode, undplanlopenr */
         FROM fs.personrolle
         WHERE 
           fodselsdato=:fnr AND 
@@ -636,8 +639,10 @@ class Undervisning(FSObject):
           gruppenr, studieprogramkode, emnekode,
           versjonskode, aktivitetkode, terminkode, 
           arstall, terminnr, etterutdkurskode, 
-          kurstidsangivelsekode, prioritetsnr,
-          klassekode, undplanlopenr
+          kurstidsangivelsekode
+          /* IVR 2007-10-02 FIXME: Temporarily removed, pending */
+          /* registration fixes in FS. */
+          /* , prioritetsnr, klassekode, undplanlopenr */
         FROM fs.personrolle
         WHERE 
           dato_fra < SYSDATE AND
