@@ -51,7 +51,8 @@ db.cl_init(change_program="ad_fullsync")
 co = Utils.Factory.get('Constants')(db)
 ac = Utils.Factory.get('Account')(db)
 
-logger = Utils.Factory.get_logger("cronjob")
+# Own logger for adsync
+logger = Utils.Factory.get_logger("adsync")
 
 def fullsync(user_class_ref, url, user_spread=None, group_spread=None,
              dryrun=False, delete_objects=False, ad_ldap=None):
