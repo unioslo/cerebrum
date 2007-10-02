@@ -451,10 +451,15 @@ def dump_perspective(sources, target_system):
         # od
 
         # Display structure
-        # dump_part(None, 0)
+        # A root node (we can have many) is either the one where it is its own
+        # parent, or it is assumed to be the one, the parent of which is
+        # unknown. The latter may happen if a given file contains only a
+        # 'part' of the hierarchy. Naturally, this interpretation would
+        # consider typos in parent information to potentially be roots. 
         top_keys = tree_info.keys(); top_keys.sort()
         for t in top_keys:
-            if tree_info[t].parent == tree_info[t].name:
+            if (tree_info[t].parent == tree_info[t].name or
+                tree_info[t].parent not in tree_info):
                 dump_part(t, 0)
             # fi
         # od
