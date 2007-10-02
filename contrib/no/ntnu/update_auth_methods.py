@@ -24,7 +24,6 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum import Person
 from Cerebrum import Utils
-from util import Pgp
 
 import sets
 import getopt
@@ -36,8 +35,7 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 db.cl_init(change_program='update_auth_methods')
 
-ac = Account.Account(db)
-pgp = Pgp()
+ac = Factory.get("Account")(db)
 
 def usage():
     print """Usage: %s <option>
@@ -51,13 +49,16 @@ def usage():
     """ % sys.argv[0]
     sys.exit(1)
 
+
+
 def main():
     try:
         opts,args = getopt.getopt(sys.argv[1:],'vdh',['verbose','dryrun','help'])
     except getopt.GetoptError:
         usage()
 
-    dryrun = verbose = status = username = False
+    global dryrun, verbose
+    dryrun = verbose = False
     for opt,val in opts:
         if opt in ('-d','--dryrun'):
             dryrun = True
@@ -66,33 +67,35 @@ def main():
         if opt in ('-h','--help'):
             usage()
 
-    if (len(args) < 1):
-        usage()
+    if (len(args) > 0):
+        for arg in args:
+            ac.clear()
+            ac.find_by_name(arg)
+            update_auth(ac)
+    else:
+        accounts = ac.list_all_with_type(co.entity_account)
+        for account in accounts:
+            ac.clear()
+            ac.find(account[0])
+            update_auth(ac)
+            
+def update_auth(ac):
+    if verbose:
+        print "Processing entity %s with username: %s" % (ac.entity_id,ac.get_account_name())
+    try:
+        password = ac.get_account_authentication(co.auth_type_pgp_offline)
+    except Errors.NotFoundError:
+        print "Error: %s has no hash pgp_offline" % ac.get_account_name()
+        db.rollback()
+        return
+    cleartext = ac.decrypt_password(co.auth_type_pgp_offline, password)
 
-    accounts = ac.list_all_with_type(co.entity_account)
-    for account in accounts:
-        ac.clear()
-        ac.find(account[0])
-        if verbose:
-            print "Processing entity %s with username: %s" % (ac.entity_id,ac.get_account_name())
-        try:
-            password = ac.get_account_authentication(co.auth_type_pgp_offline)
-        except Errors.NotFoundError:
-            print "Error: %s has no hash pgp_offline" % ac.get_account_name()
-            db.rollback()
-            continue
-        try:
-            cleartext = pgp.decrypt(password)
-        except IOError:
-            print "Secret key propably not available. Exiting."
-            sys.exit(255)
-
-        ac.set_password(cleartext)
-        ac.writedb()
-        if dryrun:
-            db.rollback()
-        else:
-            db.commit()
+    ac.set_password(cleartext)
+    ac.writedb()
+    if dryrun:
+        db.rollback()
+    else:
+        db.commit()
 
 if __name__ == '__main__':
     main()
