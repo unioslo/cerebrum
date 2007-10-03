@@ -146,6 +146,12 @@ class Job(object):
                                             include_nohome=True):
                 entity_id = int(row['account_id'])
                 # Ikke gjør noe hvis OU og profile_path allerede er satt
+                #
+                # TBD: Hva skal gjøres her hvis brukere blir flyttet
+                # til annet domene? Det var først bestemt at brukere
+                # ikke skulle flyttes, men så ble man enige om at det
+                # skulle kunne skje likevel. Derfor må noe gjøres her.
+                # Antagelig bør gammel verdi bare overskrives.
                 if (self.entity_id2profile_path.has_key(entity_id) and
                     self.entity_id2account_ou.has_key(entity_id) and
                     self.entity_id2account_home.has_key(entity_id)):
