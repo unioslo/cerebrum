@@ -83,7 +83,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
           'OU': '',            # Container-OU, used by ADutilMixIn
           'ACCOUNTDISABLE'     # Flag, used by ADutilMixIn
         """
-        disk_spread = spread
         db = self.db
         const = self.co
         self.person = Factory.get('Person')(db)
@@ -92,17 +91,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         # Find all users with relevant spread
         #
         tmp_ret = {}
-        disk = Factory.get('Disk')(db)
-        diskid2path = {}
-        for d in disk.list():
-            diskid2path[int(d['disk_id'])] = d['path']
-        self.logger.debug("Found info about %d disks" % len(diskid2path.keys()))
-        
         # We use list_account_home even if we don't get home from
         # here, but since it's the only list-method that returns
-        # owner_id and antity_name
-        for row in self.ac.list_account_home(
-            home_spread=disk_spread, account_spread=spread, filter_expired=True, include_nohome=True):
+        # owner_id and entity_name
+        for row in self.ac.list_account_home(account_spread=spread,
+                                             filter_expired=True,
+                                             include_nohome=True):
             tmp_ret[int(row['account_id'])] = {
                 'homeDrive': 'N:',
                 'TEMPownerId': row['owner_id'],
@@ -138,30 +132,21 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         # Set data from traits
         #
-        for row in self.ac.list_traits(self.co.trait_ad_profile_path):
-            v = tmp_ret.get(int(row['entity_id']))
-            if v:
-                try:
-                    tmp = pickle.loads(row['strval'])[int(spread)]
-                    v['profilePath'] = unicode(tmp, 'ISO-8859-1')
-                except Exception, e:
-                    self.logger.warn("Error getting profilepath for %i: %s" % (row['entity_id'], e))
-        for row in self.ac.list_traits(self.co.trait_ad_account_ou):
-            v = tmp_ret.get(int(row['entity_id']))
-            if v:
-                try:
-                    tmp = pickle.loads(row['strval'])[int(spread)]
-                    v['OU'] = unicode(tmp,'ISO-8859-1') + "," + self.ad_ldap
-                except Exception, e:
-                    self.logger.warn("Error getting OU for %i: %s" % (row['entity_id'], e))
-        for row in self.ac.list_traits(self.co.trait_ad_homedir):
-            v = tmp_ret.get(int(row['entity_id']))
-            if v:
-                try:
-                    tmp = pickle.loads(row['strval'])[int(spread)]
-                    v['homeDirectory'] = unicode(tmp, 'ISO-8859-1')
-                except Exception, e:
-                    self.logger.warn("Error getting homedir for %i: %s" % (row['entity_id'], e))
+        for ad_trait, key in ((self.co.trait_ad_profile_path, 'profilePath'),
+                              (self.co.trait_ad_account_ou, 'OU'),
+                              (self.co.trait_ad_homedir, 'homeDirectory')):
+            for row in self.ac.list_traits(ad_trait):
+                v = tmp_ret.get(int(row['entity_id']))
+                if v:
+                    try:
+                        tmp = pickle.loads(row['strval'])[int(spread)]
+                        v[key] = unicode(tmp, 'ISO-8859-1')
+                    except KeyError:
+                        self.logger.warn("No %s -> %s mapping for user %i" % (
+                            spread, key, row['entity_id']))
+                    except Exception, e:
+                        self.logger.warn("Error getting %s for %i: %s" % (
+                            key, row['entity_id'], e))
 
         #
         # Set mail adresses
@@ -187,7 +172,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         if object_list is None:
             object_list = self.server.listObjects('organizationalUnit')
             object_list.append(self.ad_ldap)
-            self.logger.debug("OU-list: %s" % repr(object_list))
+            # self.logger.debug("OU-list: %s" % repr(object_list))
         for ou in required_ous:
             if ou not in object_list:
                 name, parent_ou = ou.split(",", 1)
