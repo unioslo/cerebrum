@@ -141,6 +141,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     try:
                         tmp = pickle.loads(row['strval'])[int(spread)]
                         v[key] = unicode(tmp, 'ISO-8859-1')
+                        if key == 'OU':                            
+                            v[key] += "," + self.ad_ldap                        
                     except KeyError:
                         self.logger.warn("No %s -> %s mapping for user %i" % (
                             spread, key, row['entity_id']))
