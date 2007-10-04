@@ -20,6 +20,7 @@
 
 
 import cereconf
+from Cerebrum import Errors
 from Cerebrum import Cache
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.cmd_param import *
