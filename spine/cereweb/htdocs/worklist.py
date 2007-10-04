@@ -24,18 +24,20 @@ from lib import cjson
 from lib import utils
 from SpineIDL.Errors import NotFoundError
 from lib.templates.WorkListTemplate import WorkListTemplate
+from lib.utils import transaction_decorator, _spine_type
 
 def get_worklist():
     return cherrypy.session.setdefault('wl_remembered', {})
 
-def add(ids):
+def add(transaction, ids):
     """Adds an element to the list of remembered objects."""
     elms = []
     for i in ids.split(','):
-        elm = _get(i)
+        elm = _get(transaction, i)
         _remember(elm)
         elms.append(elm)
     return cjson.encode({'result': 'success', 'objects': elms})
+add = transaction_decorator(add)
 add.exposed = True
 
 def remove(ids):
@@ -45,17 +47,17 @@ def remove(ids):
     return cjson.encode({'result': 'success'})
 remove.exposed = True
 
-def get_all():
+def get_all(tr):
     """Returns the remembered objects, including information about
     which elements are selected."""
     remembered = get_worklist()
-    tr = utils.new_transaction()
     for id_ in remembered.keys():
         try:
             tr.get_entity(int(id_))
         except NotFoundError, e:
             del remembered[id_]
     return cjson.encode({'result': 'success', 'objects': remembered.values()})
+get_all = transaction_decorator(get_all)
 get_all.exposed = True
 
 def select(ids=''):
@@ -70,8 +72,7 @@ def select(ids=''):
     return cjson.encode({'result': 'success'})
 select.exposed = True
 
-def _get(el):
-    tr = utils.new_transaction()
+def _get(tr, el):
     entity = tr.get_entity(int(el))
     type = utils._spine_type(entity)
     try:

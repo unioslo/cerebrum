@@ -69,8 +69,8 @@ def save(transaction, restore=None, **vargs):
         
         options.set(section, key, value)
     
-    options.save()
-    
+    options.save(transaction)
+        
     msg = _('Options saved successfully.')
     commit_url(transaction, 'index', msg=msg)
 save = transaction_decorator(save)

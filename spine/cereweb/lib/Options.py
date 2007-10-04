@@ -41,7 +41,12 @@ class Options(ConfigParser.ConfigParser):
         ConfigParser.ConfigParser.__init__(self)
         self.session = session
         self.user = user
-        self.load()
+        tr = session.new_transaction()
+        try:
+            self.load(tr)
+        finally:
+            tr.rollback()
+            
     
     def _get_user(self, tr):
         """Finds the user by the name."""
@@ -61,17 +66,16 @@ class Options(ConfigParser.ConfigParser):
                             if config.default_options.get(s, k) != v])
         return changes
     
-    def save(self):
+    def save(self, transaction):
         """Save changes to the database.
         
         Write options which differ from the default config to the database.
         """
-        tr = self.session.new_transaction()
-        commands = tr.get_commands()
-        user = self._get_user(tr)
+        commands = transaction.get_commands()
+        user = self._get_user(transaction)
         
         changes = self._get_changes_from_default()
-        structs = self._read_from_db(tr)
+        structs = self._read_from_db(transaction)
 
         # update changes not already in db
         for s, k, v in changes:
@@ -79,19 +83,17 @@ class Options(ConfigParser.ConfigParser):
             if not tmp:
                 commands.create_cereweb_option(user, s, k, v)
             elif tmp[0].value != v:
-                option = tr.get_cereweb_option(int(tmp[0].id))
+                option = transaction.get_cereweb_option(int(tmp[0].id))
                 option.set_value(v)
 
         # remove changes from db which equals default-values
         for s in structs:
             tmp = [i for i in changes if i[0] == s.section and i[1] == s.key]
             if not tmp:
-                option = tr.get_cereweb_option(int(s.id))
+                option = transaction.get_cereweb_option(int(s.id))
                 option.delete()
-        
-        tr.commit()
 
-    def load(self):
+    def load(self, transaction):
         """Read options from file and database.
 
         Default options are stored on file, and options which differ from
@@ -100,11 +102,9 @@ class Options(ConfigParser.ConfigParser):
         ConfigParser.ConfigParser.read(self, config.option_template)
         ConfigParser.ConfigParser.read(self, config.option_config)
         
-        tr = self.session.new_transaction()
-        result = self._read_from_db(tr)
+        result = self._read_from_db(transaction)
         for struct in result:
             self.set(struct.section, struct.key, struct.value)
-        tr.rollback()
 
     def read():
         raise Exception('Use load to read from file and db.')
