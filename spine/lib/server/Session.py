@@ -37,12 +37,6 @@ from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.spine.SpineLib.SpineExceptions import NotFoundError, OperationalError
 from Cerebrum.spine.SpineLib.Transaction import Transaction, TransactionError
 
-def count():
-    i = 0
-    while True:
-        i += 1
-        yield i
-
 class Session:
     """
     This class implements sessions in Spine.
@@ -134,7 +128,6 @@ for cls in classes:
 class SessionImpl(Session, SpineIDL__POA.SpineSession):
     def __init__(self, client):
         self._encoding = getattr(cereconf, 'SPINE_DEFAULT_CLIENT_ENCODING', 'iso-8859-1')
-        self.counter = count()
         self.client = client
         self._transactions = {}
         self.authorization = Authorization(client)
