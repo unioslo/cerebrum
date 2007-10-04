@@ -98,6 +98,13 @@ class SessionHandler(threading.Thread):
 
         self._session_lock.release()
 
+    def list(self):
+        return self._sessions[:]
+
+    def printlist(self):
+        for s in self._sessions:
+            print s.client.get_name(), len(s._transactions.keys())
+
     def run(self):
         self.running = True
         while self.running:

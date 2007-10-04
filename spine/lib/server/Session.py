@@ -95,6 +95,10 @@ class Session:
         pass
     is_admin.signature = int
 
+    def debug_transactions(self):
+        pass
+    debug_transactions.signature = None
+
 # Build corba-classes and IDL
 
 Builder.build_everything()
@@ -197,6 +201,10 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
             return 1
         else:
             return 0
+
+    def debug_transactions(self):
+        handler = SessionHandler.get_handler()
+        handler.printlist()
 
     def logout(self):
         handler = SessionHandler.get_handler()
