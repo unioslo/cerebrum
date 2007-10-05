@@ -1,6 +1,5 @@
-#!/usr/bin/env python
+#!/bin/env python
 # -*- coding: iso-8859-1 -*-
-#
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -19,173 +18,279 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# This script exports OID data for all users in BAS, on the following format:
-# first_name;last_name;uid;primary_email;[affiliation-student,ou];[affiliation-employee,ou],[affiliation-affiliate,ou],MD5-crypt
+
+#
+# UiT specific extension to Cerebrum
+# This script creates an xml file that our portal project reads.
+#
+
+
+import getopt
+import sys
+import os
+import mx.DateTime
 
 import cerebrum_path
 import cereconf
-import getopt
-import sys
-import string
-from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
+from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
+from Cerebrum.extlib.xmlprinter import xmlprinter
 
-class data:
+db=Factory.get('Database')()
+ou = Factory.get('OU')(db)
+p=Factory.get('Person')(db)
+co=Factory.get('Constants')(db)
+ac=Factory.get('Account')(db)
+stedkode = Stedkode(db)
+logger=Factory.get_logger("console")
 
-    def __init__(self,file):
-        self.db = Factory.get('Database')()
-        self.account = Factory.get('Account')(self.db)
-        self.person = Factory.get('Person')(self.db)
-        self.constants = Factory.get('Constants')(self.db)
-        self.stedkode = Stedkode(self.db)
-        self.logger_name=cereconf.DEFAULT_LOGGER_TARGET
-        self.logger = Factory.get_logger('cronjob')
-        self.num2const = {}
-        self.file_handle = open(file,"w")
 
-        # Merk: ANSATT vil bli oversatt til enten VIT eller OVR. Disse 2 bestemmer hvilken EduPersonAffiliation personen vil få.
-        self.affiliate_dict={'STUDENT' : ['STUDENT','MEMBER'],
-                             'VIT':['FACULTY','EMPLOYEE','MEMBER'],
-                             'OVR':['STAFF','EMPLOYEE','MEMBER'],
-                             }
-        self.affiliation_status_dict={211 : 'VIT',
-                                      210 : 'OVR',
-                                      465 : 'OVR'}
+def load_cache():
+    global account2name,owner2account,persons,uname2mail
+    global num2const, name_cache, auth_list, person2contact
+
+    logger.info("Retreiving persons and their birth_dates")
+    persons =dict()
+    for pers in p.list_persons():
+        persons[pers['person_id']]=pers['birth_date']
+
+    logger.info("Retreiving person names")
+    name_cache = p.getdict_persons_names( name_types=(co.name_first, \
+        co.name_last,co.name_work_title))
+
+    logger.info("Retreiving account names")
+    account2name=dict()
+    for a in ac.list_names(co.account_namespace):
+        account2name[a['entity_id']]=a['entity_name']
+
+    logger.info("Retreiving account emailaddrs")
+    uname2mail=ac.getdict_uname2mailaddr()
+
+    logger.info("Retreiving account owners")
+    owner2account=dict()
+    for a in ac.list(filter_expired=False):
+        owner2account[a['owner_id']]=a['account_id']
+
+    logger.info("Retreiving auth strings")
+    auth_list=dict()
+    auth_type=co.auth_type_md5_b64
+    for auth in ac.list_account_authentication(auth_type=auth_type):
+        auth_list[auth['account_id']]=auth['auth_data']
+
+    logger.info("Retreiving contact info (phonenrs and such)")
+    person2contact=dict()
+    for c in p.list_contact_info(entity_type=co.entity_person):
+        person2contact.setdefault(c['entity_id'], list()).append(c)
+
+    logger.info("Start get constants")
+    num2const=dict()
+    for c in dir(co):
+        tmp = getattr(co, c)
+        if isinstance(tmp, _CerebrumCode):
+            num2const[int(tmp)] = tmp
+
+    ou_cache=dict()
+    logger.info("Cache finished")
+
+def load_cb_data():
+    global export_attrs,person_affs
+    logger.info("Listing affiliations")
+    export_attrs=dict()
+    person_affs=dict()
+    ou_cache=dict()
+    for aff in p.list_affiliations():
+
+        # simple filtering
+        aff_status_filter=(co.affiliation_status_student_tilbud,) 
+        if aff['status'] in aff_status_filter:
+            continue
         
+        ou_id = aff['ou_id']
+        last_date=aff['last_date'].strftime("%Y-%m-%d")
+        if not ou_cache.get(ou_id,None):
+            ou.clear()
+            ou.find(ou_id)
+            stedkode.clear()
+            stedkode.find(ou_id)
+            sko="%02d%02d%02d"  % ( stedkode.fakultet,stedkode.institutt,
+                stedkode.avdeling)
+            ou_cache[ou_id]=(ou.name,sko)
+        sko_name,sko=ou_cache[ou_id]
 
-        # storing all person names in a list
-        self.person_names = self.person.getdict_persons_names(self.constants.system_cached,self.constants.name_full)
-    # {A person never has more than 1 account}
-    def get_data(self):
-        person_list=[]
-        for c in dir(self.constants):
-            tmp = getattr(self.constants, c)
-            if isinstance(tmp, _CerebrumCode):
-                self.num2const[int(tmp)] = tmp
+        p_id = aff['person_id']
+        aff_stat=num2const[aff['status']]
+        
+        # account
+        acc_id=owner2account.get(p_id,None)
+        acc_name=account2name.get(acc_id,None)
+        if not acc_name:
+            logger.error("Skipping personID=%s, no account found" % p_id)
+            continue
 
-        self.logger.warn("før account.list_account_home")
-        all_accounts = self.account.list(filter_expired=True)
-        #all_accounts=[2155]
+        namelist = name_cache.get(p_id,None)
+        first_name=last_name=worktitle=""
+        if namelist:
+            first_name = namelist.get(int(co.name_first),"")
+            last_name = namelist.get(int(co.name_last),"")
+            worktitle = namelist.get(int(co.name_work_title),"")
+        if not acc_name:
+            logger.warn("No account for %s %s (fnr=%s)(pid=%s)" % \
+                (first_name, last_name,pnr,p_id))
+            acc_name=""
 
+        affstr = "%s::%s::%s::%s" % (str(aff_stat),sko,sko_name,last_date)
+        person_affs.setdefault(p_id, list()).append(affstr)
+        #auth
+        auth_str=auth_list.get(acc_id,"")
+        #contacts
+        contacts = person2contact.get(p_id,None)
+        #birth date
+        birth_date=persons.get(p_id,"").Format('%d-%m-%Y')
+        #email 
+        email=uname2mail.get(acc_name,"")
 
-        for accounts in all_accounts:
-            self.account.clear()
-            #self.account.find(2155)
-            self.account.find(accounts.account_id)
-            #print "account:id=%s" % self.account.entity_id
-            try:
-                quarantine=self.account.get_entity_quarantine(only_active=True)
-                if (len(quarantine)!=0):
-                    # This account has a quarantine, lets skip to the next account.
-                    self.logger.warn("account_id:%s has active quarantine" % self.account.entity_id)
-                    continue
-                
-                account_type_data=self.account.get_account_types(filter_expired=True)
-                if(len(account_type_data)==0):
-                    # this account has no active affiliations, lets skip to the next account.
-                    self.logger.warn("person:%s has no active affiliation" % self.account.owner_id)
-                    continue
-
-                account_spread=''
-                if(self.account.has_spread(self.constants.spread_uit_ldap_account)==False):
-                   self.logger.warn("account:%s does not have ldap spread" % self.account.entity_id)
-                   continue
-                #account is not expired, has no quarantine, and has ldap spread. person also has active affiliation, lets continue.
-                name = self.person_names[self.account.owner_id]
-                (first_name,last_name) = string.split(name[162],' ',1)
-                uid = self.account.get_account_name()
-                email = self.account.get_primary_mailaddress()
-                crypt = self.account.get_account_authentication(self.constants.auth_type_md5_crypt)
-                self.person.clear()
-                self.person.find(self.account.owner_id)
-                person_affiliations= self.person.get_affiliations()
-                pers_aff={}
-                my_status=[]
-                for aff in person_affiliations:
-                     self.stedkode.clear()
-                     self.stedkode.find(aff.ou_id)
-                     my_stedkode='%02d%02d%02d' % (self.stedkode.fakultet,self.stedkode.institutt,self.stedkode.avdeling)
-
-                     if(aff.affiliation == self.constants.affiliation_ansatt):
-                         #print "key:%s" % self.affiliation_status_dict[aff.status]
-                         #print "%s" % (self.affiliate_dict[self.affiliation_status_dict[aff.status]])
-                         my_status=(self.affiliate_dict[self.affiliation_status_dict[aff.status]])
-                         pers_aff[my_stedkode]= my_status
-                     elif(aff.affiliation==self.constants.affiliation_student):
-                         #my_status=(self.affiliate_dict[self.affiliation_status_dict[aff.status]])
-                         #my_status= str(self.num2const[int(aff.affiliation)])
-                         my_status=self.affiliate_dict[str(self.num2const[int(aff.affiliation)])]
-                         pers_aff[my_stedkode]= my_status
-
-                #print "pers_aff=%s" % pers_aff
-                if (len(pers_aff)>0):
-                    #All data for 1 object collected. store in dict20
-                    person_list.append({'first_name': first_name,'last_name' : last_name,'uid' : uid,'primary_email' : email,'affiliations' : pers_aff,'crypt' : crypt})
-                
-            except Errors.NotFoundError,m:
-                self.logger.info("Error collecting account data for person id:%s. %s. Account probably expired" % (self.account.owner_id,m))
+        attrs = dict()
+        for key,val in (('uname',acc_name),
+                        ('given',first_name),
+                        ('sn',last_name),
+                        ('birth',birth_date),
+                        ('worktitle',worktitle),
+                        ('contacts',contacts),
+                        ('auth_str',auth_str),
+                        ('email',email)
+                        ):
+            attrs[key]=val
+        if not export_attrs.get(acc_name,None):
+            export_attrs[p_id]=attrs
+        else:
+            logger.error("Why are we here? %s" % attrs)
+    return export_attrs,person_affs
 
 
-        for l_person in person_list:
-            self.file_handle.writelines("%s;%s;%s;%s;" % (l_person['first_name'],l_person['last_name'],l_person['uid'],l_person['primary_email']))
-            #print "writing:%s - %s" % (l_person['affiliations'],l_person['uid'])
+def build_csv(outfile):
+    
+    if not outfile.endswith('.csv'):
+        outfile=outfile+'.csv'
 
-            for lfp in l_person['affiliations'].keys():
-                #ou_counter=0
-                for aff_status in l_person['affiliations'][lfp]:
-                    self.file_handle.writelines("%s," % aff_status)
-                    self.file_handle.writelines("%s:" % lfp)
-                    #ou_counter = ou_counter+1
-                    #if(ou_counter<(len(l_person['affiliations'][lfp]))):
-                    #    self.file_handle.writelines(":")
+    fh = file(outfile,'w')
 
-            #self.file_handle.writelines("%s;" %)    
-            self.file_handle.seek(-1,1) # setting the file_handler to point to the last element in the file and overwrite the ":" with the ";" below
-            self.file_handle.writelines(";%s\n" % l_person['crypt'])
-        self.file_handle.close()
-        self.logger.warn("etter account.list_account_home")                
-                                        
-                                        
+    for person_id,attrs in export_attrs.items():
+        
+        affs = person_affs.get(person_id,None)
+        affname=sko=sko_name=last_date=affkode=affstatus=""
+        for aff in affs:
+            affname,sko,sko_name,last_date = aff.split('::')
+            affkode,affstatus=affname.split('/')
+        
+        sep=""
+        for txt in (attrs['sn'],attrs['given'],attrs['birth'],attrs['uname'],
+                    attrs['email'],affkode,sko,sko_name):
+            fh.write("%s%s" % (sep,txt))
+            sep=";"
+        fh.write('\n')
+    fh.close()
+
+def build_xml(outfile):
+    logger.info("Start building export, writing to %s" % outfile)
+    fh = file(outfile,'w')
+    xml = xmlprinter(fh,indent_level=2,data_mode=True,input_encoding='ISO-8859-1')
+    xml.startDocument(encoding='utf-8')
+    xml.startElement('data')
+    xml.startElement('properties')
+    xml.dataElement('exportdate', str(mx.DateTime.now()))
+    xml.endElement('properties')
+    for person_id in export_attrs:
+        attrs=export_attrs[person_id]
+        xml_attr={'given': attrs['given'],
+                  'sn': attrs['sn'],
+                  'birth': attrs['birth'],
+                  }
+        if attrs['worktitle']: xml_attr['worktitle'] = attrs['worktitle']
+        xml.startElement('person')
+        for key,val in xml_attr.items():
+            xml.dataElement(key,val)
+        xml.emptyElement('account', {'username': attrs['uname'], 
+                                     'userpassword': attrs['auth_str'],
+                                     'email': attrs['email']})
+        affs = person_affs.get(person_id)
+        if affs:
+            xml.startElement('affiliations')
+            for aff in affs:
+                affname,sko,sko_name,last_date = aff.split('::')
+                affkode,affstatus=affname.split('/')
+                xml.emptyElement('aff',{'affiliation': affkode,
+                                    'status':affstatus,
+                                    'stedkode': sko,
+                                    'last_date':last_date
+                                    })
+            xml.endElement('affiliations')
+        contactinfo=attrs['contacts']
+        if contactinfo:
+            xml.startElement('contactinfo')
+            for c in contactinfo:
+                source=str(co.AuthoritativeSystem(c['source_system']))
+                ctype=str(co.ContactInfo(c['contact_type']))
+                xml.emptyElement('contact', 
+                    {'source':source,
+                    'type':ctype,
+                    'pref':str(c['contact_pref']),
+                    'value':str(c['contact_value'])
+                    })
+            xml.endElement('contactinfo')
+        xml.endElement('person')
+    xml.endElement('data')
+    xml.endDocument()
+
+
+def usage(exit_code=0,msg=""):
+    if msg:
+        print msg
+    
+    print """Usage: [options]
+    -h | --help             : show this message
+    -o | --outfile=filname  : write result to filename
+    --csv | write a csv file instead of a xml file
+    --logger-name=loggername: write logs to logtarget loggername
+    --logger-level=loglevel : use this loglevel
+
+    """
+    sys.exit(exit_code)
+
+
 def main():
+    default_outfile=os.path.join(cereconf.DUMPDIR,"oid","oid_export_%s.xml" % cereconf._TODAY)
+    user_outfile=None
+    exportCSV=False
+
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'f:h',
-                                   ['file=','help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'o:hx',
+                                   ['outfile=', 'csv','help',])
     except getopt.GetoptError:
-        usage()
-        sys.exit(1)
+        usage(1)
+    disk_spread = None
+    outfile = None
+    for opt, val in opts:
+        if opt in ['-o', '--outfile']:
+            user_outfile = val
+        if opt in ['--csv']:
+            exportCSV = True
+        elif opt in ['-h', '--help']:
+            usage(0)
 
-    storage_file=None
+    if exportCSV and not user_outfile:
+        usage(1,"Must specify -o or --outfile when using --csv")
 
-    for opt,val in opts:
-        if opt in('-f','--file'):
-            storage_file=val
-        if opt in('-h','--help'):
-            usage()
-            sys.exit(1)
-
-    if storage_file is not None:
-        oid_export = data(storage_file)
-        oid_export.get_data()
+    outfile = user_outfile or default_outfile    
+    load_cache()
+    load_cb_data()
+    if exportCSV:
+        build_csv(outfile)
     else:
-        usage()
-        sys.exit(1)
-    
-
-    
-
-def usage():
-    print """
-usage: export_uid.py -f <filename>
-
-   -f | --file : Filename to store the uid data in
-   -h | --help : This text
-
-This script exports OID data for all users in BAS, on the following format:
-first_name;last_name;uid;primary_email;[affiliation-student,ou];[affiliation-employee,ou],[affiliation-affiliate,ou],MD5-crypt
-"""
+        build_xml(outfile)
+    logger.info("Finished")
 
 
-if __name__ == '__main__':
+if __name__=="__main__":
     main()
