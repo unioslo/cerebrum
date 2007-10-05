@@ -208,9 +208,7 @@ def build_xml(outfile):
                   'birth': attrs['birth'],
                   }
         if attrs['worktitle']: xml_attr['worktitle'] = attrs['worktitle']
-        xml.startElement('person')
-        for key,val in xml_attr.items():
-            xml.dataElement(key,val)
+        xml.startElement('person',xml_attr)
         xml.emptyElement('account', {'username': attrs['uname'], 
                                      'userpassword': attrs['auth_str'],
                                      'email': attrs['email']})
