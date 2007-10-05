@@ -185,16 +185,30 @@ def  write_undakt_info(outfile):
 
 def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
+#     f = MinimumSizeWriter(outfile)
+#     f.set_minimum_size_limit(100*KiB)
+#     f.write(xml.xml_hdr + "<undervenhet>\n")
+#     for semester in ('current', 'next'):
+#         cols, undenh = uitfs.GetUndervEnhet(sem=semester)
+#         for u in undenh:
+#             f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
+#                     + "\n")
+#     f.write("</undervenhet>\n")
+#     f.close()
+
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(100*KiB)
+    f.set_minimum_size_limit(1)
     f.write(xml.xml_hdr + "<undervenhet>\n")
-    for semester in ('current', 'next'):
-        cols, undenh = uitfs.GetUndervEnhet(sem=semester)
+    for semester in access_FS.get_semester(uppercase=True):
+        semester_aar, semester_sem = semester
+        cols,undenh = _ext_cols(fs.undervisning.list_undervisningenheter(year=semester_aar, sem=semester_sem))
+        print "her, got %d" % len(undenh)
         for u in undenh:
-            f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
-                    + "\n")
+            f.write(xml.xmlify_dbrow(u,xml.conv_colnames(cols),"undenhet") + '\n')
     f.write("</undervenhet>\n")
     f.close()
+
+    
 
 def write_undenh_student(outfile):
     """Skriv oversikt over personer oppmeldt til undervisningsenheter.
@@ -215,6 +229,8 @@ def write_undenh_student(outfile):
                       'terminkode', 'arstall', 'terminnr']:
                 u_attr[k] = u[k]
             student = fs.undervisning.list_studenter_underv_enhet(**u_attr)
+            if len(student)==0:
+                print "ZERO for %s, %s %s" % (u_attr['emnekode'],u_attr['arstall'],u_attr['terminkode'])
             s_attr = {}
             for s in student:
                 s_attr = u_attr.copy()
