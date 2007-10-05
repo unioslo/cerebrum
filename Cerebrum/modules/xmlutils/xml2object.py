@@ -749,7 +749,7 @@ class SkippingIterator:
                 # this is how SAP/POLS tag invalid person entries
                 [re.compile("Name contains '@' or '\*'")],
             AssertionError:
-                # These OUs are broken, since they lack the proper names
+                # These OUs are broken, since they lack proper names
                 [re.compile("No name available for OU \(0, 0, 0\)")],
             }
 

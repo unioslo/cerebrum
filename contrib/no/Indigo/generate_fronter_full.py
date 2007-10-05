@@ -161,6 +161,8 @@ class Fronter(object):
         for e in group.list_all_with_spread(self.const.spread_oid_grp):
             group.clear()
             group.find(e['entity_id'])
+            if not group.group_name:
+                continue
             tmp = {'title': group.group_name,
                    'group_id': group.group_name,
                    'parent_id': None}
@@ -175,7 +177,7 @@ class Fronter(object):
         for group in g_parser:
             nk = group._ids.values()[0]
             fk = group._ids.keys()[0]
-            school, year, tmp_name = nk.split(':')
+            school, year, tmp_name = nk.split(':', 3)
             if tmp_name == "":
                 logger.warn("Invalid name for group (%s):%s" % (fk, school))
                 continue

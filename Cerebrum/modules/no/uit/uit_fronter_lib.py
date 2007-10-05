@@ -210,7 +210,8 @@ class Fronter(object):
                                                             self.spread))):
                 group.clear()
                 group.find(e['entity_id'])
-                ret.append(group.group_name)
+                if group.group_name:
+                    ret.append(group.group_name)
             return ret
         elif 'FS_all' in self.export:
             # Ser ikke ut til å være i bruk.

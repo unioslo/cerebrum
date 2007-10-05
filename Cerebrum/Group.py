@@ -185,7 +185,12 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             DELETE FROM [:table schema=cerebrum name=group_member]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
             # Remove name of group from the group namespace.
-            self.delete_entity_name(self.const.group_namespace)
+            try:
+                self.delete_entity_name(self.const.group_namespace)
+            except Errors.NotFoundError:
+                # This group does not have a name. It is an error, but it does
+                # not really matter, since the group is being removed.
+                pass
             # Remove entry in table `group_info'.
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=group_info]
@@ -230,12 +235,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
          self.query_1("""
         SELECT gi.description, gi.visibility, gi.creator_id,
                gi.create_date, gi.expire_date, en.entity_name
-        FROM [:table schema=cerebrum name=group_info] gi,
+        FROM [:table schema=cerebrum name=group_info] gi
+        LEFT OUTER JOIN
              [:table schema=cerebrum name=entity_name] en
+        ON
+          gi.group_id = en.entity_id AND
+          en.value_domain = :domain
         WHERE
-          gi.group_id=:g_id AND
-          en.entity_id=gi.group_id AND
-          en.value_domain=:domain""",
+          gi.group_id=:g_id""",
                       {'g_id': group_id,
                        'domain': int(self.const.group_namespace)})
         try:
@@ -244,6 +251,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             pass
         self.__in_db = True
         self.__updated = []
+    # end find
 
     def find_by_name(self, name, domain=None):
         """Connect object to group having ``name`` in ``domain``."""
@@ -475,10 +483,13 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
 
         tables = []
         where = []
-        tables.append("[:table schema=cerebrum name=group_info] gi")
-        tables.append("[:table schema=cerebrum name=entity_name] en")
-        where.append("en.entity_id=gi.group_id")
-        where.append("en.value_domain=:vdomain")
+        tables.append("""[:table schema=cerebrum name=group_info] gi
+                           LEFT OUTER JOIN 
+                             [:table schema=cerebrum name=entity_name] en
+                           ON
+                             en.entity_id=gi.group_id AND
+                             en.value_domain=:vdomain
+                      """)
         
         if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")

@@ -45,6 +45,9 @@ def group_make_attrs(group_id):
     group = Factory.get("Group")(db)
     group.clear()
     group.find(group_id)
+    if not group.group_name:
+        return {}
+    
     group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name
     desc = unicode(group.description).encode('utf-8')
     attr = {'objectClass': ['group'],
@@ -57,6 +60,9 @@ def _group_make_dn(group_id, org):
     group = Factory.get("Group")(db)
     group.clear()
     group.find(group_id)
+    if not group.group_name:
+        return ''
+    
     group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name
     utf8_dn = unicode('cn=%s' % group_name, 'iso-8859-1').encode('utf-8')
     ldap_dn = utf8_dn + ',ou=grp,' + org + ',' + cereconf.NW_LDAP_ROOT    
@@ -75,6 +81,10 @@ def group_mod(mod_type, group_id, member_id):
     known_group = False
     group.clear()
     group.find(group_id)
+    if not group.group_name:
+        logger.warn("Ignoring cl event on group_id=%s, since group has no name",
+                    group_id)
+        return
 
     for row in group.get_spread():
         if row['spread'] in [int(constants.spread_hia_novell_group),
@@ -178,7 +188,13 @@ def main():
                 else:
                     logger.debug("Unknown spread, skipping.")
                     continue
-                edir_util.object_edir_create(dn, group_make_attrs(event['subject_entity']))
+                attrs = group_make_attrs(event['subject_entity'])
+                if not attrs or not dn:
+                    logger.warn("Ignoring event, since group_id=%s has no name",
+                                event['subject_entity'])
+                else:
+                    edir_util.object_edir_create(
+                        dn, group_make_attrs(event['subject_entity']))
                 cl_handler.confirm_event(event)             
     except TypeError, e:
         logger.warn("No such event, %s" % e)
