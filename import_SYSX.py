@@ -75,8 +75,7 @@ def rem_old_aff():
          person.find(int(ent_id))
          for aff in person.list_affiliations(int(ent_id),
                                          affiliation=int(affi),
-                                         ou_id=int(ou),
-                                         include_last=True):
+                                         ou_id=int(ou)):
             last_date = aff['last_date']
             end_grace_period = last_date + mx.DateTime.DateTimeDelta(grace)
             if mx.DateTime.today() > end_grace_period:
