@@ -831,7 +831,13 @@ class BDBSync:
 
         # ... we'll update expire-date and create-date 
         logger.info('Updating account %s on person %s' % (username,person_entity))
-        #ac.expire_date = account_info.get('expire_date',None)
+
+        
+        expire_date = account_info.get('expire_date',None)
+        if ac.expire_date != expire_date:
+            ac.expire_date = expire_date
+            ac.write_db()
+
         # How do we fix creation-date. This doesn't seem to work. FIXME!
         #ac.create_date = account_info.get('creation_date') 
 
@@ -844,6 +850,7 @@ class BDBSync:
             ac.set_account_type(ou_id, affiliation, priority)
             ac.write_db()
         """
+
 
         # promote the account to posix if we have enough information
         if _is_posix(account_info):
@@ -893,7 +900,7 @@ class BDBSync:
         
 
 
-    def sync_accounts(self,username=None,password_only=False):
+    def sync_accounts(self,username=None,password_only=False, add_missing=False):
         """
         This method synchronizes all BDB accounts into Cerebrum.
         """
@@ -906,7 +913,7 @@ class BDBSync:
         for account in accounts:
             self.logger.debug('Syncronizing %s' % account['name'])
             try:
-                self._sync_account(account,password_only)
+                self._sync_account(account,password_only, add_missing)
             except Exception, e:
                 self.db.rollback()
                 if show_traceback:
