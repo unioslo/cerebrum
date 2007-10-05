@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-import config
+
+import cereconf
 import sys
 from Cerebrum.modules.no import fodselsnr
-import util
+from Cerebrum.modules.no.ntnu import util
+from Cerebrum.Utils import read_password
 import getopt
 import cx_Oracle
 import logging
@@ -11,16 +13,16 @@ import time
 import os
 
 # Set the client encoding for the Oracle client libraries
-os.environ['NLS_LANG'] = config.conf.get('bdb', 'encoding')
+os.environ['NLS_LANG'] = cereconf.BDB_ENCODING
 cnt_missing_nin = 0
 
 class BDB:
     def __init__(self):
-        dsn = cx_Oracle.makedsn(config.conf.get('bdb', 'host'), int(config.conf.get('bdb', 'port')),
-                config.conf.get('bdb', 'sid'))
+        dsn = cx_Oracle.makedsn(cereconf.BDB_HOST, cereconf.BDB_PORT,
+                                cereconf.BDB_SID)
         try:
-            self.db = cx_Oracle.connect(dsn=dsn, user=config.conf.get('bdb', 'user'),
-                password=config.conf.get('bdb', 'password'))
+            self.db = cx_Oracle.connect(dsn=dsn, user=cereconf.BDB_USER,
+                password = read_password(cereconf.BDB_USER, "BDB"))
         except Exception,e:
             print "Error connecting to remote Oracle RDBMS. Reason: %s" % str(e)
             sys.exit()
@@ -366,7 +368,7 @@ class BDB:
 
     def get_ous(self):
         cursor = self.db.cursor()
-        cursor.execute('SELECT UNIQUE f.id, f.navn, f.fork, f.postadresse, f.postnummer, f.poststed FROM fakultet f WHERE f.org_enhet=%s' % config.conf.get('bdb-sync', 'bdb_ntnu_ou'))
+        cursor.execute('SELECT UNIQUE f.id, f.navn, f.fork, f.postadresse, f.postnummer, f.poststed FROM fakultet f WHERE f.org_enhet=%s' % cereconf.BDB_NTNU_OU)
         bdb_ous = cursor.fetchall()
         ous = []
         for bdb_fak in bdb_ous:

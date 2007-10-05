@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-import config
+
 import sys
 import cerebrum_path
 import cereconf
@@ -14,12 +14,13 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import Email
 
 import mx
-import util
+from Cerebrum.modules.no.ntnu import util
 import getopt
 import logging
 import time
 import os
 import traceback
+import ConfigParser
 
 import locale
 locale.setlocale(locale.LC_ALL,'nb_NO')
@@ -27,9 +28,11 @@ locale.setlocale(locale.LC_ALL,'nb_NO')
 """
 Import orgunits,persons and accounts from NTNUs old UserAdministrative System.
 """
+#config = ConfigParser.ConfigParser()
+#config.read(('import_BDB.conf.template', 'import_BDB.conf'))
 
 # Set the client encoding for the Oracle client libraries
-os.environ['NLS_LANG'] = config.conf.get('bdb', 'encoding')
+os.environ['NLS_LANG'] = cereconf.BDB_ENCODING
 missing_personnr = 0
 wrong_nss_checksum = 0
 num_accounts = 0
@@ -127,7 +130,6 @@ class BDBSync:
         self.initial_account = self.ac.entity_id
         self.ac.clear()
         self.spread_mapping = self.get_spread_mapping()
-        bdb_key = config.conf.get('bdb-sync','bdb_key')
 
         self.ac.clear()
         self.ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
