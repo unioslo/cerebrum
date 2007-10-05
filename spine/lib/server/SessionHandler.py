@@ -102,8 +102,14 @@ class SessionHandler(threading.Thread):
         return self._sessions[:]
 
     def printlist(self):
-        for s in self._sessions:
-            print s.client.get_name(), len(s._transactions.keys())
+        print "%d sessions:" % len(self._sessions)
+        now=time.time()
+        for s,timeo in self._sessions.items():
+            print "%x: user=%s transactions=%d timeout=%d\n" % (
+                id(s),
+                s.client.get_name(),
+                len(s._transactions),
+                timeo-now)
 
     def run(self):
         self.running = True
