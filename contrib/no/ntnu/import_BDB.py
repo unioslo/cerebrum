@@ -20,7 +20,6 @@ import logging
 import time
 import os
 import traceback
-import ConfigParser
 
 import locale
 locale.setlocale(locale.LC_ALL,'nb_NO')
@@ -28,8 +27,6 @@ locale.setlocale(locale.LC_ALL,'nb_NO')
 """
 Import orgunits,persons and accounts from NTNUs old UserAdministrative System.
 """
-#config = ConfigParser.ConfigParser()
-#config.read(('import_BDB.conf.template', 'import_BDB.conf'))
 
 # Set the client encoding for the Oracle client libraries
 os.environ['NLS_LANG'] = cereconf.BDB_ENCODING
@@ -126,11 +123,24 @@ class BDBSync:
         self.logger = Factory.get_logger("console")
         self.logger = Factory.get_logger("syslog")
         self.logger.info("Starting import_BDB")
+
         self.ac.find_by_name('bootstrap_account')
         self.initial_account = self.ac.entity_id
         self.ac.clear()
         self.spread_mapping = self.get_spread_mapping()
 
+        self.np_owner = Factory.get('Group')(self.db)
+        try:
+            self.np_owner.find_by_name(cereconf.BDB_NP_OWNER_GROUP)
+        except Errors.NotFoundError:
+            self.np_owner.populate(self.initial_account,
+                                   self.const.group_visibility_all,
+                                   cereconf.BDB_NP_OWNER_GROUP)
+            self.np_owner.write_db()
+            self.db.commit()
+        self.group.clear()
+        
+                                
         self.ac.clear()
         self.ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         self.default_creator_id = self.ac.entity_id
@@ -681,6 +691,10 @@ class BDBSync:
         _uid = posix_user.posix_uid
         _gid = posix_user.gid_id
 
+        if account_info['unix_uid'] == 0:
+            self.logger.warn("User %s has uid=0. Not updated posix" % username)
+            return
+            
         if posix_user.posix_uid != account_info['unix_uid']:
             self.check_uid(account_info)
             posix_user.posix_uid = account_info['unix_uid']
@@ -722,7 +736,7 @@ class BDBSync:
         global num_accounts
         logger = self.logger
         logger.debug("Callback for %s@%s" % (account_info['id'],account_info['name']))
-
+        
         # TODO: IMPLEMENT SYNC OF ACCOUNTS WITHOUT A PERSON
         if not 'person' in account_info:
             logger.error('Account %s has no person, skipping.' % account_info)
@@ -753,21 +767,27 @@ class BDBSync:
         bdb_account_type = const.externalid_bdb_account
         bdb_person_type = const.externalid_bdb_person
         bdb_source_type = const.system_bdb
-        
-        person.clear()
-        try:
-            person.find_by_external_id(bdb_person_type,
-                                       account_info['person'],bdb_source_type)
-            logger.debug('Found person for account %s' % account_info['name'])
-        except Errors.NotFoundError,e:
-            bdb_person = self.bdb.get_persons(bdbid=account_info['person'])
-            self._sync_person(bdb_person[0])
-            person.clear()
-            person.find_by_external_id(bdb_person_type,account_info['person'],bdb_source_type)
+        np_type = None
+
+        if account_info['person'] in cereconf.BDB_NP_PERSONS:
+            np_type = const.Account(cereconf.BDB_NP_PERSONS[account_info['person']])
+            owner = self.np_owner
         else:
-            logger.info("Wrote bdb-person with id %s" % account_info['person'])
-            
-        owner=person
+            person.clear()
+            try:
+                person.find_by_external_id(bdb_person_type,
+                                           account_info['person'],bdb_source_type)
+                logger.debug('Found person for account %s' % account_info['name'])
+            except Errors.NotFoundError,e:
+                if not add_missing: raise e
+                bdb_person = self.bdb.get_persons(bdbid=account_info['person'])
+                self._sync_person(bdb_person[0])
+                person.clear()
+                person.find_by_external_id(bdb_person_type,account_info['person'],bdb_source_type)
+            else:
+                logger.info("Wrote bdb-person with id %s" %
+                            account_info['person'])
+            owner=person
 
         ac.clear()
         try:
@@ -775,12 +795,12 @@ class BDBSync:
         except Errors.NotFoundError:
             # Add account if it doesn't exists ?
             if add_missing:
-                self._make_account(account_info, ac, owner)
+                self._make_account(account_info, ac, owner, np_type)
         else:
             if update_password_only:
                 self._sync_account_password(account_info, ac)
             else:
-                self._copy_account_data(account_info, ac, owner)
+                self._copy_account_data(account_info, ac, owner, np_type)
 
     def _update_password(self, _account, ac):
         bdb_blowfish = None
@@ -819,16 +839,17 @@ class BDBSync:
 
     # copy data from account_info to ac.
     # ac is a valid cerebrum account object.
-    def _copy_account_data(self, account_info, ac, owner):
+    def _copy_account_data(self, account_info, ac, owner, np_type=None):
 
         username = account_info["name"]
         logger = self.logger
         posix_user = self.posix_user
         
         person_entity = owner.entity_id
-        if ac.owner_id != owner.entity_id:
+        if ac.owner_id != owner.entity_id or ac.np_type != np_type:
             ac.owner_id = owner.entity_id
             ac.owner_type = owner.entity_type
+            ac.np_type = np_type
             ac.write_db()
 
         # ... we'll update expire-date and create-date 
@@ -864,7 +885,7 @@ class BDBSync:
             else:
                 self._copy_posixuser(account_info, posix_user)
 
-    def _make_account(self, account_info, ac, owner):
+    def _make_account(self, account_info, ac, owner, np_type=None):
         
         ac.clear()
         try:
@@ -881,14 +902,12 @@ class BDBSync:
             # Accounts with uidNumber=0 should be of non-personal type. I.e. some odd system-user
             np_type = self.co.account_program
             # These users should have a group as owner, not person. FIXME
-        else:
-            np_type = None
 
         self.logger.info('Adding new account %s on owner %s' % (uname,owner.entity_id))
         ac.populate(name=uname,
                     owner_type = owner.entity_type,
                     owner_id = owner.entity_id,
-                    np_type = None,
+                    np_type = np_type,
                     creator_id = self.default_creator_id,
                     expire_date = expire_date)
         ac.create_date = create_date

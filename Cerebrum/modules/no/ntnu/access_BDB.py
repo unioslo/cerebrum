@@ -224,7 +224,7 @@ class BDB:
                             WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
                               b.gruppe =  g.id AND \
-                              p.personnr is not null AND b.brukernavn='%s'" % username)
+                              b.brukernavn='%s'" % username)
         elif last:
             cursor.execute("""
                             select distinct b.passord_type, b.gruppe, b.person,
@@ -238,7 +238,6 @@ class BDB:
                             h.bruker = b.id AND
                             h.konto IS NULL AND
                             b.person = p.id AND
-                            p.personnr IS NOT NULL AND
                             b.gruppe =  g.id 
                            """ % int(last))
                               
@@ -251,8 +250,7 @@ class BDB:
                             FROM bruker b,person p, gruppe g \
                             WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
-                              b.gruppe =  g.id AND \
-                              p.personnr IS NOT NULL")
+                              b.gruppe =  g.id AND")
         # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
         accounts = []
