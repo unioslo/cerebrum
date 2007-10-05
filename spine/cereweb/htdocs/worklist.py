@@ -47,13 +47,13 @@ def remove(ids):
     return cjson.encode({'result': 'success'})
 remove.exposed = True
 
-def get_all(tr):
+def get_all(transaction):
     """Returns the remembered objects, including information about
     which elements are selected."""
     remembered = get_worklist()
     for id_ in remembered.keys():
         try:
-            tr.get_entity(int(id_))
+            transaction.get_entity(int(id_))
         except NotFoundError, e:
             del remembered[id_]
     return cjson.encode({'result': 'success', 'objects': remembered.values()})
