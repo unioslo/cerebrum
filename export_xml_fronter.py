@@ -137,11 +137,11 @@ def load_acc2name():
 	    l_name, f_name = pers['fs_l_name'],pers['fs_f_name']
         
         #UIT: added next line to get email address for account going to classfronter
-        person.clear()
-        person.find(pers['person_id'])
-        primary_account = person.get_primary_account()
+        #person.clear()
+        #person.find(pers['person_id'])
+        #primary_account = person.get_primary_account()
         account.clear()
-        account.find(primary_account)
+        account.find(pers['account_id'])
         try:
             my_email = account.get_primary_mailaddress()
         except Errors.NotFoundError:
@@ -356,7 +356,7 @@ def register_spread_groups(emne_info, stprog_info):
             # gruppene på nivå 4.
             group.clear()
             group.find(r['group_id'])
-	    # Legges inn new group hvis den ikke er opprettet
+	    # Legges inn new group hvis den ikke er opprettet            
             for op, subg_id, subg_name in \
                     group.list_members(None, int(const.entity_group),
                                        get_entity_name=True)[0]:
@@ -367,34 +367,49 @@ def register_spread_groups(emne_info, stprog_info):
                 fronter_gname = ':'.join(subg_name_el)
                 institusjonsnr = subg_name_el[2]
                 stprog = subg_name_el[4]
-                #if(stprog_info[stprog]['fak'] != 'samfkhf'
                 fak_sko = '%02d0000' % stprog_info[stprog]['fak']
+
                 # Opprett fellesrom for dette studieprogrammet.
                 fellesrom_sted_id = ':'.join((
                     'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
-                    'fs', 'fellesrom', subg_name_el[2], # institusjonsnr
-                    fak_sko))
+                    'fs', 'fellesrom', institusjonsnr, fak_sko))
                 fellesrom_stprog_rom_id = ':'.join((
                     'ROOM', cereconf.INSTITUTION_DOMAIN_NAME, 'fs',
-                    'fellesrom', 'studieprogram', stprog))
+                    'fellesrom', '186',fak_sko, 'studieprogram', stprog))
                 register_room(stprog.upper(), fellesrom_stprog_rom_id,
                               fellesrom_sted_id,
                               profile=romprofil_id['studieprogram'])
+
                 if subg_name_el[-1] == 'student':
-                    brukere_studenter_id = ':'.join((
-                        'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
-                        'fs', 'brukere', subg_name_el[2], # institusjonsnr
-                        fak_sko, 'student'))
-                    brukere_stprog_id = brukere_studenter_id + \
-                                        ':%s' % stprog
+                    #brukere_studenter_id = ':'.join((
+                    #    'STRUCTURE', cereconf.INSTITUTION_DOMAIN_NAME,
+                    #    'fs', 'brukere', subg_name_el[2], # institusjonsnr
+                    #    fak_sko, 'student'))
+                    #brukere_stprog_id = brukere_studenter_id + \
+                    #                    ':%s' % stprog
+                    #print "$18"
+                    #register_group(stprog.upper(), brukere_stprog_id,
+                    #               brukere_studenter_id)
+                    #print "$19"
+                    #register_group(
+                    #    'Studenter på %s' % subg_name_el[6], # kullkode
+                    #    fronter_gname, brukere_stprog_id,
+                    #    allow_contact=True)
+                    fellesrom_studenter_id = fellesrom_sted_id + \
+                                                ':studenter'
                     print "$18"
-                    register_group(stprog.upper(), brukere_stprog_id,
-                                   brukere_studenter_id)
+                    register_group("Studenter", fellesrom_studenter_id,
+                                   fellesrom_sted_id)
                     print "$19"
+                    kull =  subg_name_el[-3]
+                    sem =  subg_name_el[-2]                    
                     register_group(
-                        'Studenter på %s' % subg_name_el[6], # kullkode
-                        fronter_gname, brukere_stprog_id,
+                        "Studenter på %s (Kull %s %s)" %
+                        (stprog.upper(),kull,sem),
+                        fronter_gname, fellesrom_studenter_id,
                         allow_contact=True)
+
+                    
                     # Gi denne studiekullgruppen 'skrive'-rettighet i
                     # studieprogrammets fellesrom.
                     register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
@@ -533,6 +548,7 @@ def main():
     # Spytt ut PERSON-elementene.
     for user in acc2names.itervalues():
 	# 2 = recstatus modify fix denne senere # uit
+
 	fxml.user_to_XML(user['NAME'],2,user)
 
     # Registrer en del semi-statiske strukturnoder.
@@ -554,10 +570,6 @@ def main():
     this_sem, next_sem = access_FSUiT.get_semester()
     emner_this_sem_id = emner_id + ':%s:%s' % tuple(this_sem)
     emner_next_sem_id = emner_id + ':%s:%s' % tuple(next_sem)
-
-    print this_sem
-    print next_sem
-    exit
 
     print "$10#"
     register_group('Emner %s %s' % (this_sem[1].upper(), this_sem[0]),
@@ -584,8 +596,9 @@ def main():
                                              sem[0])),
             ('foreleser', 'Forelesere %s %s' % (sem[1].upper(),
                                                 sem[0])),
-            ('studieleder', 'Studieledere %s %s' % (sem[1].upper(),
-                                                    sem[0]))):
+            #('studieleder', 'Studieledere %s %s' % (sem[1].upper(),
+            #                                        sem[0]))
+            ):
             node_id = sem_node_id + ':' + suffix
             #print "7"
             print "$6#"
@@ -595,8 +608,8 @@ def main():
     print "$5#"
     register_group('Brukere', brukere_id, root_node_id)
 
-    #fellesrom_id = 'STRUCTURE:%s:fs:fellesrom' % \
-    fellesrom_id = 'STRUCTURE:%s:fs:fellesrom:186:000000' % \
+    #fellesrom_id = 'STRUCTURE:%s:fs:fellesrom:186:000000' % \
+    fellesrom_id = 'STRUCTURE:%s:fs:fellesrom' % \
                    cereconf.INSTITUTION_DOMAIN_NAME
     print "$4#"
     register_group('Fellesrom', fellesrom_id, root_node_id)

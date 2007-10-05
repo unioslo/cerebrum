@@ -267,8 +267,8 @@ class group_tree(object):
             # det lite dette scriptet kan gjøre med, og det bør derfor
             # ikke føre til noen ERROR-loggmelding.
             logger.debug("Ikke gyldig kull eller studieprog: args=%r", args)
-            import pprint
-            pprint.pprint(self.subnodes)
+            #import pprint
+            #pprint.pprint(self.subnodes)
             #sys.exit(1)
             return () 
         logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
@@ -501,7 +501,8 @@ class fs_undenh_3(fs_undenh_group):
 
     def add(self, ue):
         children = self.subnodes
-        for category in ('student', 'foreleser', 'studieleder'):
+        #for category in ('student', 'foreleser', 'studieleder'):
+        for category in ('student', 'foreleser'):
             gr = fs_undenh_users(self, ue, category)
             if gr in children:
                 logger.warn('Undervisningsenhet %r forekommer flere ganger.',
@@ -534,8 +535,8 @@ class fs_undenh_users(fs_undenh_group):
             return "Studenter på %s" % (emne,)
         elif ctg == 'foreleser':
             return "Forelesere på %s" % (emne,)
-        elif ctg == 'studieleder':
-            return "Studieledere på %s" % (emne,)
+        #elif ctg == 'studieleder':
+        #    return "Studieledere på %s" % (emne,)
         else:
             raise ValueError, "Ukjent UE-bruker-gruppe: %r" % (ctg,)
 
@@ -844,9 +845,6 @@ class fs_evu_1(fs_undenh_group):
             return ()
 
         return super(fs_evu_1, self).list_matches(gtype, data, category)
-    # end list_matches
-# end class fs_evu_1
-
 
 
 class fs_evu_2(fs_undenh_group):
@@ -857,14 +855,10 @@ class fs_evu_2(fs_undenh_group):
         self._prefix = (evudata["etterutdkurskode"],
                         evudata["kurstidsangivelsekode"])
         self.spreads = (const.spread_uit_fronter,)
-    # end __init__
-
 
     def description(self):
         return ("Supergruppe for grupper tilknyttet EVU-kurs %s:%s" %
                 (self._prefix[0], self._prefix[1]))
-    # end description
-
 
     def list_matches(self, gtype, data, category):
         if data.get("etterutdkurskode", self._prefix[0]) != self._prefix[0]:
@@ -872,9 +866,7 @@ class fs_evu_2(fs_undenh_group):
         if (data.get("kurstidsangivelsekode", self._prefix[1]) !=
             self._prefix[1]):
             return ()
-
         return super(fs_evu_2, self).list_matches(gtype, data, category)
-    # end list_matches
 
 
     def add(self, evudata):
@@ -885,13 +877,7 @@ class fs_evu_2(fs_undenh_group):
                 logger.warn("EVU-kurs %r forekommer flere ganger.",
                             evudata)
                 continue 
-            # fi
-
             children[gr] = gr
-        # od
-    # end add
-# end class fs_evu_2
-
 
 
 class fs_evu_users(fs_undenh_group):
@@ -901,8 +887,6 @@ class fs_evu_users(fs_undenh_group):
     def __init__(self, parent, evudata, category):
         super(fs_evu_users, self).__init__(parent)
         self._name = (category,)
-    # end __init__
-
 
     def description(self):
         category = self._name[0]
@@ -912,16 +896,10 @@ class fs_evu_users(fs_undenh_group):
             return "Forelesere på %s" % self.parent.name()
         else:
             raise ValueError, "Ukjent EVU-brukergrupper: %r" % (category,)
-        # fi
-    # end description
-
 
     def list_matches(self, gtype, data, category):
         if category == self._name[0]:
             yield self
-        # fi
-    # end list_matches
-
 
     def add(self, user):
         fnr = "%06d%05d" % (int(user["fodselsdato"]), int(user["personnr"]))
@@ -930,11 +908,7 @@ class fs_evu_users(fs_undenh_group):
                         " flere ganger (XML = %r).",
                         fnr, self.name(), user)
             return
-        # fi
-
         self.users[fnr] = user
-    # end add
-# end class fs_evu_users
 
 
 
@@ -1000,7 +974,7 @@ def init_globals():
     dump_dir = dumpdir
     dryrun = False
     immediate_evu_expire = False
-    logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
+    logger = Factory.get_logger('cronjob')
 
     opts, rest = getopt.getopt(sys.argv[1:],
                                "d:rl:",
@@ -1091,7 +1065,6 @@ def main():
     # Meld forelesere og studieledere inn i passende
     # undervisningsenhet/EVU-kurs -gruppene
     def rolle_helper(el_name, attrs):
-        print "rolle helper" 
         logger.info("melder forelesere og studieledere inn i grupper: el_name=%s,attrs=%s" % (el_name,attrs))
         if el_name != 'rolle':
             return
@@ -1100,36 +1073,31 @@ def main():
         if len(target) != 1:
             return
         target = target[0]
-        logger.info("har rolle og target=%s" % target)
-        logger.info("attrs = %s" % attrs)
         if target in ('undenh', 'stprog'):
-            #print "target=%s" % target
-            #logger.debug("target=%s" % target)
             #UIT: endret denne linja: if rolle == 'FORELESER':
-            if rolle in ['FORELESER','ANSVLEDER', 'HOVEDLÆRER', 'KONTAKTPER', 'LÆRER', 'SEMINARLÆR', 'VEILEDER']:
-                logger.debug("logger=%s" % rolle)
+            if rolle in ['ANSVLEDER','ASSISTENT','FORELESER','HOVEDLÆRER',
+                         'KONTAKT','LÆRER','SEMINARLÆR','VEILEDER']:
+                logger.debug("1.rolle_helper: rolle=%s, sjekker list_matches(undenh,attrs,foreleser)" % rolle)
 
                 for ue_foreleser in fs_super.list_matches('undenh', attrs,
                                                           'foreleser'):
-                    logger.debug("1.adding: %s" % attrs)
+                    logger.debug("1.1.adding: %s" % attrs)
                     ue_foreleser.add(attrs)
-                    #print "UE_FORELESER = %s" % ue_foreleser
                 #for und_foreleser in fs_super.list_matches('undakt', attrs,'foreleser'):#uit
-                #    logger.info("und_adding: %s" % attrs) # uit
+                #    logger.debug("1.2.adding: %s" % attrs)
                 #    und_foreleser.add(attrs) # uit
                     
-            elif rolle in ('STUDILEDER', 'STUDKOORD'):
-                logger.info("logger=%s" % rolle)
-                for ue_studieleder in fs_super.list_matches('undenh', attrs,
-                                                            'studieleder'):
-                    logger.debug("2.adding: %s" % attrs)
-                    ue_studieleder.add(attrs)
+            if rolle in ['ANSVLEDER',]:
+                logger.debug("2.rolle_helper: rolle=%s, sjekker list_matches(undenh,attrs,foreleser)" % rolle)
+                #for ue_studieleder in fs_super.list_matches('undenh', attrs,
+                #                                            'studieleder'):
+                #    logger.debug("2.1 adding: %s" % attrs)
+                #    ue_studieleder.add(attrs)
                 for stpr_studieleder in fs_super.list_matches('studieprogram',
                                                               attrs,
                                                               'studieleder'):
-                    logger.debug("3.adding: %s" % attrs)
+                    logger.debug("2.2.adding: %s" % attrs)
                     stpr_studieleder.add(attrs)
-            # fi
         elif target in ('evu',):
             logger.info("target=%s" % target)
             if rolle == 'FORELESER':
@@ -1138,11 +1106,6 @@ def main():
                 for evu_foreleser in fs_super.list_matches('evu', attrs,
                                                            "foreleser"):
                     evu_foreleser.add(attrs)
-                # od
-            # fi
-        # fi
-
-    # end rolle_helper
     
     logger.info("Leser XML-fil: %s", default_role_file)
     access_FS.roles_xml_parser(os.path.join(dump_dir, default_role_file),
