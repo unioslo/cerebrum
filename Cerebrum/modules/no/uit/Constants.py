@@ -54,6 +54,7 @@ class Constants(Constants.Constants):
     # Authoritative systems
     system_lt = _AuthoritativeSystemCode('SLP4', 'SLP4')
     system_x = _AuthoritativeSystemCode('SYS_X', 'Manuelt personal system')
+    system_tlf = _AuthoritativeSystemCode('TLF', 'Telefoni system')
 
     # Account codes
     account_test = _AccountCode('T', 'Testkonto')
@@ -63,6 +64,11 @@ class Constants(Constants.Constants):
     account_forening = _AccountCode('F','Forening') 
     account_maskin = _AccountCode('M','Maskin') 
     account_prosess = _AccountCode('P','Prosess') 
+
+    # Contact codes
+    contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
+    contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
+
 
     # Ansatt affiliation and status
     affiliation_ansatt = _PersonAffiliationCode(
