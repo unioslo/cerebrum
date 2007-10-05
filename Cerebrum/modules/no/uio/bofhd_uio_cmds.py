@@ -6605,7 +6605,7 @@ class BofhdExtension(object):
         else:
             grp = self._get_group(account.owner_id, idtype='id')
             extra_msg = "Restoring '%s', belonging to group: '%s'\n" % (
-                grp.group_name)
+                account.account_name, grp.group_name)
         extra_msg += ('NOTE: Please assert that the above line is correct '
                       'before proceeding!\n\n')
         choices = {'account': account}
