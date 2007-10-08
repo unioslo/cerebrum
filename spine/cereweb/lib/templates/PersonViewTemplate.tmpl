@@ -142,11 +142,11 @@
     <td>$html_quote($source.get_name())</td>
 
     <td class="actions">
-            #set $args = $url_quote("id=%s&ou=%s&affil=%s&ss=%s" % (
+            #set $args = "id=%s&ou=%s&affil=%s&ss=%s" % (
                             $html_quote($person.get_id()),
                             $html_quote($ou.get_id()),
                             $html_quote($affil_type.get_name()),
-                            $html_quote($source.get_name())))
+                            $html_quote($source.get_name()))
             <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a>
     </td>
     </tr>
