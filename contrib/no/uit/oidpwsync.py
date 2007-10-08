@@ -44,13 +44,16 @@ account = Factory.get('Account')(db)
 cl = CLHandler.CLHandler(db)
 
 # GLOBALS
-logger = None
 ldap_conn = None
-ldap_active = 'OID'
-ldap_server = "ldap://portalt1.uit.no"
-base = "dc=uit,dc=no"
-who = "cn=orcladmin,cn=users,dc=uit,dc=no"
-cred = "t4ntdy4l4m4"
+logger = None
+
+#Cereconf values
+default_logger = cereconf.OID_LOGGER
+ldap_active = cereconf.OID_LDAP
+ldap_server = cereconf.OID_LDAP_SERVER
+base = cereconf.OID_SEARCH_BASE
+who = cereconf.OID_MANAGER
+cred = cereconf.OID_MANAGER_PASS
 
 
 def pwd_sync(changes):
@@ -133,9 +136,9 @@ def change_pw(account_id,pw_params):
 
 
 def main():
-    global logger, ldap_conn, ldap_active, ldap_server, who, cred
+    global logger, default_logger, ldap_conn, ldap_active, ldap_server, who, cred
 
-    logger = Factory.get_logger('cronjob')
+    logger = Factory.get_logger(default_logger)
 
     changes = cl.get_events(ldap_active, (clco.account_password,))
     num_changes = len(changes)
