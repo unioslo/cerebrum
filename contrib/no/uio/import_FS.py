@@ -398,20 +398,14 @@ def process_person_callback(person_info):
             p = person_info[dta_type][0]
             if isinstance(p, str):
                 continue
-            # Presence of 'fagperson' elements for a person should not
-            # affect that person's reservation status.
-            if dta_type in ('fagperson',):
+
+            # Reservations are found in the tag nettpubl
+            if dta_type not in ('nettpubl'):
                 continue
-            # We only fetch the column in these queries
-            if dta_type not in ('tilbud', 'opptak', 'alumni',
-                                'privatist_emne', 'evu',
-                                'privatist_studieprogram'):
-                continue
-            # If 'status_reserv_nettpubl' == "N": add to group
-            if p.get('status_reserv_nettpubl', "") == "N":
+            # All types of akseptansetypekode are retrieved from FS,
+            # but we are only interested in those where 'NETTPUBL=J'
+            if p.get('akseptansetypekode', "") == "NETTPUBL" and p.get('status_svar', "") == "J":
                 should_add = True
-            else:
-                should_add = False
         if should_add:
             # The student has explicitly given us permission to be
             # published in the directory.
