@@ -264,6 +264,8 @@ form input, form textarea {
 form select {
     width: 12em;
     margin-bottom: 0.4em;
+    overflow: visible;
+    clip: auto;
 }
 
 
