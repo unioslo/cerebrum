@@ -27,10 +27,11 @@ import sys
 from Cerebrum.Utils import XMLHelper,SimilarSizeWriter
 
 class CollectParser(xml.sax.ContentHandler):
-    def __init__(self, filename, results, hash_keys):
+    def __init__(self, filename, results, hash_keys, append_file=False):
         self.results = results
         self.level = 0
         self.hash_keys = hash_keys
+        self.append_file = append_file
         xml.sax.parse(filename, self)
         
     def startElement(self, name, attrs):
@@ -38,12 +39,14 @@ class CollectParser(xml.sax.ContentHandler):
         if self.level > 1:
             tmp = {}
             hash_key = "¦".join([attrs[x].encode('iso8859-1') for x in self.hash_keys])
+            if self.append_file and hash_key not in self.results:
+                return
             for k in attrs.keys():
                 if k not in self.hash_keys:
                     tmp[k.encode('iso8859-1')] = attrs[k].encode('iso8859-1')
             tmp['TagName'] = name.encode('iso8859-1')
             self.results.setdefault(hash_key, []).append(tmp)
-    
+                        
     def endElement(self, name):
         self.level -= 1
         pass
@@ -64,10 +67,15 @@ files are parsed, the new XML file is written from this hash.
 -t | -tag tag: name of tag in output file
 -d | -delim delim: name of attribute(s) to use as common_key separated by :
 -f | -file file: file to parse
+-a | -append file: file to append
 -o | -out file: file to write
 
 -d and -f can be repeated.  The last -d is used as attribute names for
 the -t tag.
+
+Note: If you wish to append data from a file, the option '-a' must be
+preceeded by the file you wish to append it to (orelse the result will
+be empty).
 
 Example:
 merge_xml_files.py -d fodselsdato:personnr -f person_file.xml -f regkort.xml -t person -o out.dat
@@ -77,7 +85,7 @@ Note that memory usage may equal the total size of all XML files."""
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'd:f:o:t:', ['delim=', 'file=', 'out=', 'tag='])
+        opts, args = getopt.getopt(sys.argv[1:], 'd:f:o:t:a:', ['delim=', 'file=', 'out=', 'tag=', 'append='])
     except getopt.GetoptError:
         usage(2)
         
@@ -89,6 +97,8 @@ def main():
             delim = val.split(":")
         elif opt in ('-f', '--file'):
             CollectParser(val, big_xml, delim)
+        elif opt in ('-a', '--append'):
+            CollectParser(val, big_xml, delim, True)
         elif opt in ('-o', '--out'):
             f = SimilarSizeWriter(val, "w")
             f.set_size_change_limit(10)
