@@ -135,7 +135,7 @@ def change_pw(account_id,pw_params):
 def main():
     global logger, ldap_conn, ldap_active, ldap_server, who, cred
 
-    logger = Factory.get_logger('console')
+    logger = Factory.get_logger('cronjob')
 
     changes = cl.get_events(ldap_active, (clco.account_password,))
     num_changes = len(changes)
