@@ -100,6 +100,8 @@ class Constants(Constants.Constants):
         "PGP encrypted password for offline use") # XXX use PGP-crypt?
     auth_type_pgp_win_ntnu_no =  _AuthenticationCode('PGP-win_ntnu_no',
         "PGP encrypted password for the system win_ntnu_no")
+    auth_type_pgp_kerberos =  _AuthenticationCode('PGP-kerberos',
+        "PGP encrypted password for the system kerberos")
     auth_type_blowfish =  _AuthenticationCode('Blowfish',
         "Blowfish-encrypted password")
     auth_type_ssha = _AuthenticationCode('SSHA',
