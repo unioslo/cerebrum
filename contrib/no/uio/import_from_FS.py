@@ -393,7 +393,7 @@ def main():
                                     "studprog-file=", "regkort-file=",
                                     'emne-file=', "ou-file=", "db-user=",
                                     'fnr-update-file=', 'betalt-papir-file=',
-				    'role-file=', 'netpubl-file', "db-service=",
+				    'role-file=', 'netpubl-file=', "db-service=",
                                     "misc-func=", "misc-file=", "misc-tag="])
     except getopt.GetoptError:
         usage()
