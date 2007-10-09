@@ -91,7 +91,7 @@ def update_auth(ac):
     cleartext = ac.decrypt_password(co.auth_type_pgp_offline, password)
 
     ac.set_password(cleartext)
-    ac.writedb()
+    ac.write_db()
     if dryrun:
         db.rollback()
     else:
