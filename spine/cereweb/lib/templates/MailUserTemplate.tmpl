@@ -383,6 +383,7 @@
 #set $targets = $getTargets($emailtargets)
 <div class="edit box" >
     <h3>$_('Add a vacation')</h3>
+        #if $targets
         <form action="/user_client/add_vacation" method="post">
             <div class="required">
                 $form_widgets.input("start", "Start", $start)
@@ -402,6 +403,16 @@
             </div>
         </p>
         </form>
+        #else
+        <form action="/user_client/mail" method="post">
+            <div class="required">
+                $_('You do not have any email-addresses. Cannot add vacation without an email-address.')
+            </div>
+            <div class="buttons">
+                <input type="button" class="cancel" value="$_('Ok')" />
+            </div>
+        </form>
+        #end if
 </div>
 #end def
 
@@ -412,6 +423,7 @@
 #set $targets = $getTargets($emailtargets)
 <div class="edit box" >
     <h3>$_('Add a forward')</h3>
+        #if $targets
         <form action="/user_client/add_forward" method="post">
             <div class="required">
                 $form_widgets.input("forward", "Forward", $forward)
@@ -425,6 +437,16 @@
             </div>
         </p>
         </form>
+        #else
+        <form action="/user_client/mail" method="post">
+            <div class="required">
+                $_('You do not have any email-addresses. Cannot add forward without an email-address.')
+            </div>
+            <div class="buttons">
+                <input type="button" class="cancel" value="$_('Ok')" />
+            </div>
+        </form>
+        #end if
 </div>
 #end def
 
