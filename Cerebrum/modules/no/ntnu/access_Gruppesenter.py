@@ -31,7 +31,9 @@ class Gruppesenter(object):
             group['group_members'] = []
             groups[group['name']] = group
 
-        cursor.execute("""SELECT group_name, member, flags FROM members""")
+        cursor.execute("""SELECT m.group_name, m.member, m.flags
+        FROM members m, groups g
+        WHERE g.group_name = m.group_name AND g.closed = 0""")
         member_result = cursor.fetchall()
 
         for m in member_result:
