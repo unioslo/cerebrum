@@ -55,7 +55,7 @@ class BDB:
     def get_email_domains(self):
         cursor = self.db.cursor()
         cursor.execute("select m.id,m.navn,m.system from \
-                        mail_domain m where m.navn like '%ntnu.no' ") 
+                        mail_domain m ") 
         domains = []
         bdb_domains = cursor.fetchall()
         for dom in bdb_domains:
