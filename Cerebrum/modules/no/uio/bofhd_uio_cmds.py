@@ -2569,7 +2569,7 @@ class BofhdExtension(object):
         acc = self._get_account(uname)
         op = operator.get_entity_id()
         self.ba.can_email_set_quota(op, acc)
-        if not hquota.isdigit() or not str(squota).isdigit():
+        if not str(hquota).isdigit() or not str(squota).isdigit():
             raise CerebrumError, "Quota must be numeric"
         hquota = int(hquota)
         squota = int(squota)
