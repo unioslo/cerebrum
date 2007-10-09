@@ -117,6 +117,9 @@ class NoEntityAssociationError(CerebrumError):
 class RequiresPosixError(CerebrumError):
     """Posix object required"""
 
+class NotImplementedAuthTypeError(NotImplementedError):
+    """Auth type not implemented"""
+
 def _test():
     import doctest,Errors 
     return doctest.testmod(Errors)
