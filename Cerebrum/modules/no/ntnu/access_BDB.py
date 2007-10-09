@@ -54,8 +54,7 @@ class BDB:
 
     def get_email_domains(self):
         cursor = self.db.cursor()
-        cursor.execute("select m.id,m.navn,m.system from \
-                        mail_domain m ") 
+        cursor.execute("select id,navn,system from mail_domain")
         domains = []
         bdb_domains = cursor.fetchall()
         for dom in bdb_domains:
