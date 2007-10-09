@@ -2,6 +2,7 @@
 import cerebrum_path
 import cereconf
 import MySQLdb
+from Cerebrum.Utils import read_password
 
 
 class Gruppesenter(object):
@@ -11,15 +12,15 @@ class Gruppesenter(object):
             db = cereconf.GRUPPESENTER_DB,
             host = cereconf.GRUPPESENTER_HOST)
         
-        self.cursor=connection.cursor()
+        self.cursor=self.connection.cursor()
 
     def get_groups(self):
         groups = {}
 
-        cursor.execute("""SELECT group_name, unix_gid, description,
+        self.cursor.execute("""SELECT group_name, unix_gid, description,
         relation, closed
         FROM groups WHERE closed = 0""")
-        group_result = cursor.fetchall()
+        group_result = self.cursor.fetchall()
 
         for g in group_result:
             group = {}
@@ -31,10 +32,10 @@ class Gruppesenter(object):
             group['group_members'] = []
             groups[group['name']] = group
 
-        cursor.execute("""SELECT m.group_name, m.member, m.flags
+        self.cursor.execute("""SELECT m.group_name, m.member, m.flags
         FROM members m, groups g
         WHERE g.group_name = m.group_name AND g.closed = 0""")
-        member_result = cursor.fetchall()
+        member_result = self.cursor.fetchall()
 
         for m in member_result:
             name = m[0]
