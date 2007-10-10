@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -784,7 +784,7 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
     "Cerebrum's own rotating handler."
 
     def __init__(self, logdir, mode="a", maxBytes=0, backupCount=0,
-                 encoding=None):
+                 encoding=None, directory=None, basename=None):
         """
         Open a file somewhere[*] in LOGDIR and use it as the stream for
         logging.
@@ -806,33 +806,32 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
 
         If MAXBYTES is zero, rollover never occurs.
 
-        [*] The file naming scheme is a bit different from standard logging
-        practice. LOGDIR indicates the base directory where *all* Cerebrum
-        logs live. Each application gets its own directory. This is
-        calculated dynamically from sys.argv[0]. Within such a directory,
-        this handler would create a log file named 'log'. This log file's
+        [*] The file naming scheme is a bit different from standard
+        logging practice. LOGDIR indicates the base directory where
+        *all* Cerebrum logs live. Each application gets its own
+        directory, based on the given parameter. If directory is not
+        given it is calculated dynamically from sys.argv[0]. Within
+        such a directory, this handler would create a log file named
+        as given by basename or 'log' if not given. This log file's
         rotation is controlled by MAXBYTES/BACKUPCOUNT.
         """
 
-        # All log files would be named "log", but this should not really be
-        # a problem.
 
         self.logdir = logdir
-        self.directory = os.path.basename(sys.argv[0])
-        self.basename = "log"
-        directory = os.path.join(self.logdir, self.directory)
-        if not os.path.exists(directory):
+        self.directory = directory or os.path.basename(sys.argv[0])
+        self.basename = basename or "log"
+            
+        dirpath = os.path.join(self.logdir, self.directory)
+        if not os.path.exists(dirpath):
             try:
-                os.makedirs(directory, 0770)
+                os.makedirs(dirpath, 0770)
             except OSError, e:    
-                if not os.path.exists(directory):
+                if not os.path.exists(dirpath):
                     # the error is not 'file exists', which we ignore
                     raise e
         # fi
 
-        self.filename = os.path.join(self.logdir,
-                                     self.directory,
-                                     self.basename)
+        self.filename = os.path.join(dirpath, self.basename)
         super(CerebrumRotatingHandler, self).__init__(self.filename,
                                                       mode,
                                                       encoding)
@@ -928,7 +927,8 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
 
 
     def __init__(self, logdir, maxBytes, backupCount,
-                 permissions, substitute, replacement, encoding=None):
+                 permissions, substitute, replacement, encoding=None,
+                 directory=None, basename=None):
         """
         LOGDIR       -- which directory the log goes to
         MAXBYTES     -- maximum file size before it is rotated (0 means no
@@ -937,11 +937,14 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
         PERMISSIONS  -- UNIX-style permission number for the log file
         SUBSTITUTE   -- regular expression to perform substitution on
         REPLACEMENT  -- ... what to replace SUBSTITUTE with.
+        DIRECTORY    -- log file actually ends up in LOGDIR/DIRECTORY/
+        BASENAME     -- basename of log file
         """
 
         super(CerebrumSubstituteHandler, self).__init__(logdir, "a",
                                                         maxBytes,
-                                                        backupCount, encoding)
+                                                        backupCount, encoding,
+                                                        directory, basename)
 
         self.substitution = re.compile(substitute)
         self.replacement = replacement
