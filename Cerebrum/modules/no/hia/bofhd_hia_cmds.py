@@ -3022,10 +3022,8 @@ class BofhdExtension(object):
         person.populate(bdate, gender,
                         description='Manually created')
         person.affect_names(self.const.system_manual, self.const.name_first, self.const.name_last)
-        person.populate_name(self.const.name_first,
-                             person_name_first.encode('iso8859-1'))
-	person.populate_name(self.const.name_last,
-                             person_name_last.encode('iso8859-1'))
+        person.populate_name(self.const.name_first, person_name_first)
+	person.populate_name(self.const.name_last, person_name_last)
         try:
             person.write_db()
             self._person_affiliation_add_helper(
