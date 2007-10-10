@@ -51,8 +51,6 @@ db.cl_init(change_program="ad_fullsync")
 co = Utils.Factory.get('Constants')(db)
 ac = Utils.Factory.get('Account')(db)
 
-# Own logger for adsync
-logger = Utils.Factory.get_logger("adsync")
 
 def fullsync(user_class_ref, url, user_spread=None, group_spread=None,
              dryrun=False, delete_objects=False, ad_ldap=None):
@@ -65,6 +63,9 @@ def fullsync(user_class_ref, url, user_spread=None, group_spread=None,
     if group_spread:
         sync_type = 'group'
         spread=group_spread
+    # Different logger for different adsyncs
+    logger_name = "ad_" + sync_type + "sync_" + str(spread).split('@ad_')[1]
+    logger = Utils.Factory.get_logger(logger_name)
     # instantiate sync_class and call full_sync
     sync_class(db, co, logger, url=url, ad_ldap=ad_ldap).full_sync(
         sync_type, delete_objects, spread, dryrun, user_spread)
