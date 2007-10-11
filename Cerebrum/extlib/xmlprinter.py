@@ -85,6 +85,11 @@ class xmlprinter(object):
         self._data_mode = data_mode
         self._input_encoding = input_encoding
 
+    def _encode_str(self, chunk):
+        if type(chunk) is str:
+            chunk = chunk.decode(self._input_encoding)
+        return chunk.encode(self._encoding)
+
     def startDocument(self, encoding='UTF-8'):
         """Begin writing out a document, including the XML declaration.
         Currently the encoding header can be changed from the default,
@@ -135,10 +140,11 @@ class xmlprinter(object):
         if self._data_mode:
             self.fp.write("\n")
         self.fp.write(" " * (self._indent_level * len(self._elstack)) +
-                      "<%s" % name)
+                      "<%s" % self._encode_str(name))
         
         for attr, val in attrs.items():
-            self.fp.write(" %s=%s" % (attr, quoteattr(val)))
+            self.fp.write(" %s=%s" % (self._encode_str(attr), 
+                                      self._encode_str( quoteattr(val))))
 
         self.fp.write(">")
         self._elstack.append(name)
@@ -156,12 +162,7 @@ class xmlprinter(object):
             raise WellFormedError, "attempt to add data outside of root"
         self._has_data = 1
         data = escape(data)
-        if self._input_encoding != self._encoding:
-            if self._input_encoding == 'UTF-8':
-                data = data.encode(self._encoding)
-            else:
-                data = data.decode(self._input_encoding).encode(self._encoding)
-        self.fp.write(data)
+        self.fp.write(self._encode_str(data))
 
     def dataElement(self, name, data, attrs={}):
         self.startElement(name, attrs)
@@ -176,10 +177,13 @@ class xmlprinter(object):
         if self._data_mode:
             self.fp.write("\n")
         self.fp.write(" " * (self._indent_level * len(self._elstack)) +
-                      "<%s" % name)
+                      "<%s " % self._encode_str(name))
+        space=""
         for attr, val in attrs.items():
-            self.fp.write(" %s=%s" % (attr, quoteattr(val)))
-        self.fp.write(" />")
+            self.fp.write("%s%s=%s" % (space,self._encode_str(attr),
+                self._encode_str(quoteattr(val))))
+            space=" "
+        self.fp.write("/>")
         
 
     def endElement(self, name=None):
@@ -201,7 +205,7 @@ class xmlprinter(object):
             if self._data_mode:
                 self.fp.write("\n")
             self.fp.write(" " * (self._indent_level * len(self._elstack)))
-        self.fp.write("</%s>" % name)
+        self.fp.write("</%s>" % self._encode_str(name))
 
         if len(self._elstack) == 0:
             self._inroot = False
