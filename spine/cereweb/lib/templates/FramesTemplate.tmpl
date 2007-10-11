@@ -83,8 +83,22 @@
         <script type="text/javascript" charset="$charset" src="/yui/build/datatable/datatable-beta-min.js"></script>
         <script type="text/javascript" charset="$charset" src="/yui/build/autocomplete/autocomplete-min.js"></script>
         <script type="text/javascript" charset="$charset" src="/yui/build/tabview/tabview-min.js"></script> 
-
-
+##
+## Maybe an *ugly* fix for selects that are too narrow in ie.
+## Check FormWidgets for more...   tk.
+##
+##         <script type="text/javascript" charset="$charset">
+##             <!--
+##             function expandSelect(sel){
+##                 sel.style.width = '25em';
+##             }
+## 
+##             function contractSelect(sel){
+##                 sel.style.width = '12em';
+##             }
+##             // -->
+##         </script>
+##
         <!-- Include our styles -->
         <link rel="stylesheet" type="text/css" charset="$charset" href="/css/default.css"/>
         <link rel="stylesheet" type="text/css" charset="$charset" href="/css/style.css"/>

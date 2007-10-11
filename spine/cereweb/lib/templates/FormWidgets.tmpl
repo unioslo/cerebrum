@@ -27,6 +27,7 @@
     #if not $id
         #set $id = $name
     #end if
+    ##<select name="$name" id="$id" onfocus="expandSelect(this);" onblur="contractSelect(this);">
     <select name="$name" id="$id">
     #for $name, $desc in $types
         #set $is_selected = ""
