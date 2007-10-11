@@ -54,7 +54,7 @@ class BDB:
 
     def get_email_domains(self):
         cursor = self.db.cursor()
-        cursor.execute("select id,navn,system from mail_domain WHERE system IS NOT NULL")
+        cursor.execute("SELECT id,navn,system FROM mail_domain WHERE system IS NOT NULL")
         domains = []
         bdb_domains = cursor.fetchall()
         for dom in bdb_domains:
@@ -71,13 +71,14 @@ class BDB:
 
     def get_email_addresses(self, all_addresses=False):
         cursor = self.db.cursor()
-        sql = """SELECT p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id,
-        m.navn as domain_name, b.brukernavn
+        sql = """
+        SELECT p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id,
+               m.navn as domain_name, b.brukernavn
         FROM person p, mail_domain m, bruker b
-        m.system IS NOT NULL AND
-        p.id = b.person AND
-        p.personnr IS NOT NULL AND
-        b.user_domain = 1
+        WHERE m.system IS NOT NULL AND
+              p.id = b.person AND
+              p.personnr IS NOT NULL AND
+              b.user_domain = 1
         """
         if not all_addresses:
             sql += "AND m.system IS NOT NULL\n"
@@ -252,7 +253,7 @@ class BDB:
                             FROM bruker b,person p, gruppe g \
                             WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
-                              b.gruppe =  g.id AND")
+                              b.gruppe =  g.id ") 
         # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
         accounts = []
