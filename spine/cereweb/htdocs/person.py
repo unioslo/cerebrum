@@ -150,6 +150,14 @@ def create(transaction, **vargs):
 
     if not form.has_required() or not form.is_correct():
         return create_form(form, message=form.get_error_message())
+
+    extid = vargs.get('externalid', '').strip()
+    desc = vargs.get('description', '').strip()
+
+    if not extid and not desc:
+        mess = 'If NIN is empty the reason must be specified in description.'
+        return create_form(form, message=mess)
+        
     else:
         try:
             affiliation, status = vargs.get('affiliation').split(':')
