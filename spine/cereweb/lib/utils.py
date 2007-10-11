@@ -25,6 +25,8 @@ import mx.DateTime
 import cherrypy
 import re
 import cgi
+import string
+import random
 from omniORB import CORBA
 from datetime import datetime
 import Messages
@@ -471,3 +473,20 @@ def html_quote(s):
 
 def url_quote(s):
     return urllib.quote(str(s))
+
+def getsalt(chars = string.letters + string.digits, length=16):
+    salt = ''
+    for i in range(int(length)):
+        salt += random.choice(chars)
+    return salt
+
+def randpasswd(length=8)
+    """ Returns a random password at a given length based on a character set. 
+    """
+    result = ''
+    az = string.ascii_lowercase
+    AZ = string.ascii_uppercase
+    dig = string.digits
+    for i in range(length):
+        result += getsalt(chars,1)
+    return result
