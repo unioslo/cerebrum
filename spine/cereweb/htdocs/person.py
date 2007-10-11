@@ -156,7 +156,7 @@ def create(transaction, **vargs):
 
     if not extid and not desc:
         mess = 'If NIN is empty the reason must be specified in description.'
-        return create_form(form, message=mess)
+        return create_form(form, message=mess )
         
     else:
         try:
