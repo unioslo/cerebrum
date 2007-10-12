@@ -394,18 +394,12 @@ def process_person_callback(person_info):
     # Reservations    
     if gen_groups:
         should_add = False
-        for dta_type in person_info.keys():
-            p = person_info[dta_type][0]
-            if isinstance(p, str):
-                continue
 
-            # Reservations are found in the tag nettpubl
-            if dta_type not in ('nettpubl'):
-                continue
-            # All types of akseptansetypekode are retrieved from FS,
-            # but we are only interested in those where 'NETTPUBL=J'
-            if p.get('akseptansetypekode', "") == "NETTPUBL" and p.get('status_svar', "") == "J":
-                should_add = True
+        if person_info.has_key('nettpubl'):
+            for row in person_info['nettpubl']:
+                if row.get('akseptansetypekode', "") == "NETTPUBL" and row.get('status_svar', "") == "J":
+                    should_add = True
+
         if should_add:
             # The student has explicitly given us permission to be
             # published in the directory.
