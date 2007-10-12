@@ -487,6 +487,8 @@ def randpasswd(length=8):
     az = string.ascii_lowercase
     AZ = string.ascii_uppercase
     dig = string.digits
+    chars = az + AZ + dig
+    # FIXME: Make shure passwords are according to the passwd-regexp
     for i in range(length):
         result += getsalt(chars,1)
     return result
