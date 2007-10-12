@@ -284,6 +284,8 @@ class BDBSync:
         person.clear()
         ou = self.ou
         ou.clear()
+        ac = self.ac
+        ac.clear()
 
         try: 
             person.find_by_external_id(const.externalid_bdb_person,aff['person'])
@@ -314,6 +316,21 @@ class BDBSync:
 
         person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status)
         person.write_db()
+
+        # FIXME: Make a wrapper-call to auto-prioritize affiliations
+        """
+        # Commented out until we're 100% shure it works the way we want.
+        try:
+            ac.find_by_name(aff.get('username'))
+        except Errors.NotFoundError,nfe:
+            self.logger.warning("Could not weight account for user %s since its not in Cerebrum" \
+                    % aff.get('username'))
+        else:
+            priority = 50
+            affiliation = ???
+            ac.set_account_type(ou.entity_id, affiliation, priority)
+            ac.write_db()
+        """
 
         if dryrun:
             self.db.rollback()
@@ -865,14 +882,6 @@ class BDBSync:
         #ac.create_date = account_info.get('creation_date') 
 
 
-        """
-        if _is_primary(account_info):
-            # Fetch the affiliations from the person-object
-            affs = person.get_affiliations()
-            # FIXME: Make a wrapper-call to auto-prioritize affiliations
-            ac.set_account_type(ou_id, affiliation, priority)
-            ac.write_db()
-        """
 
 
         # promote the account to posix if we have enough information
