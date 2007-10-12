@@ -81,10 +81,21 @@ def get_existing_accounts():
     tmp_ac={}
     account_obj=Factory.get('Account')(db)
     logger.info("Loading accounts...")
+
+    
     for row in account_obj.list(filter_expired=False,fetchall=False):
         sysx_id=pid2sysxid.get(int(row['owner_id']),None)
+
         if not sysx_id or not tmp_persons.has_key(sysx_id):
             continue
+        
+        # Exclude accounts that are NOT a person's PRIMARY account =====
+        x = account_obj.get_account_types(owner_id = row['owner_id'])
+        if x and (x[0]['account_id'] != row['account_id']):
+            logger.warn('Excluded account because it is not the primary account: %s' % (row['account_id']))
+            continue
+        # ==============================================================
+        
         tmp_ac[row['account_id']]=ExistingAccount(sysx_id,row['expire_date'])
         
 ##    # PosixGid
