@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-#-*- coding: iso-8859-1 -*-
+
+#-*- coding: utf8 -*-
+
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -44,6 +46,10 @@ from Cerebrum.Utils import Factory
 
 logger = None
 
+# List of SSN to exclude
+exceptions = ['63056501284',]
+
+
 # Define default file locations
 date = time.localtime()
 dumpdir = os.path.join(cereconf.DUMPDIR, "slp4")
@@ -75,6 +81,7 @@ class process:
         not_imported = 0
         for elem in list:
             i = 0
+
             begynt = "%s" % elem[9]
             #print "%s" % begynt
             #try:
@@ -91,7 +98,14 @@ class process:
                 #print "fodselsdato = '%s' AND personnr = '%s'" % (elem[1],elem[2])
                 elem[2] = "0%s" % elem[2]
                 #print "new elem[2] = '%s'" % elem[2]
-                
+
+            # Exclude some SSN from the import
+            ssn = elem[1][0:2] + elem[1][3:5] + elem[1][6:8] + elem[2]
+            if exceptions.count(ssn) > 0:
+                logger.warn("Person excluded from SLP4 data by exception file. SSN: %s" % ssn)
+                continue
+
+            
             if(begynt != 'None'):
                 dag,mnd,aar = begynt.split(".")
             elem[9]="%s/%s/%s" % (mnd,dag,aar)
