@@ -480,7 +480,7 @@ def getsalt(chars = string.letters + string.digits, length=16):
         salt += random.choice(chars)
     return salt
 
-def randpasswd(length=8)
+def randpasswd(length=8):
     """ Returns a random password at a given length based on a character set. 
     """
     result = ''
