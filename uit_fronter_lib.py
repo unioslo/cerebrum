@@ -461,17 +461,19 @@ class FronterXML(object):
             #    #                  {'password': data['PASSWORD_CRYPT'],'passwordtype': data['PASSWORD_TYPE']})
             #    self.xml.emptyTag('password',
             #                      {'passwordtype': 'ldap1'})
+            self.xml.emptyTag('useraccess', {'accesstype': data['USERACCESS']})
+
             self.xml.emptyTag('emailclient',
                               {'clienttype': data['EMAILCLIENT']})
-            self.xml.emptyTag('useraccess', {'accesstype': data['USERACCESS']})
-            self.xml.emptyTag('emailsettings', 
-                {'mail_username': id,
-                 'mail_password': 'FRONTERLOGIN',
-                 'description': 'UiT IMAP Server',
-                 'mailserver': cereconf.IMAPSERVER,
-                 'mailtype': '1', #RMI000 20070919: DTD says IMAP, Fronter Support says 1
-                 'use_ssl': '1',
-                 'is_primary':'1'})
+            if data['USE_EMAILCLIENT'] == 1:
+                self.xml.emptyTag('emailsettings', 
+                                  {'mail_username': id,
+                                   'mail_password': data['IMAPPASSWD'],
+                                   'description': 'UiT IMAP Server',
+                                   'mailserver': data['IMAPSERVER'],
+                                   'mailtype': '1', #RMI000 20070919: DTD says IMAP, Fronter Support says 1
+                                   'use_ssl': '1',
+                                   'is_primary':'1'})
             self.xml.endTag('extension')
         self.xml.endTag('person')
 
