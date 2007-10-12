@@ -62,17 +62,18 @@ romprofil_id = {}
 
 
 def init_globals():
-    global db, const, logger
+    global db, const, logger, use_emailclient
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
     logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
     cf_dir = dumpdir
     log_dir = default_log_dir
+    use_emailclient = 0
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
                                    ['host=', 'rom-profil=',
-                                    'debug-file=', 'debug-level='])
+                                    'debug-file=', 'debug-level=', 'activate-emailclient'])
     except getopt.GetoptError:
         usage(1)
     debug_file = os.path.join(log_dir, default_debug_file)
@@ -88,6 +89,8 @@ def init_globals():
         elif opt == 'rom-profil':
             profil_navn, profil_id = val.split(':')
             romprofil_id[profil_navn] = profil_id
+        elif opt == '--activate-emailclient':
+            use_emailclient = 1
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
 
@@ -151,6 +154,15 @@ def load_acc2name():
                                                                                            account.account_name,
                                                                                            account.entity_id))
             continue
+
+        # Define which IMAP server should be used for different people
+        imap = ""
+        if my_email.find("mailbox.uit.no") >= 0:
+            imap = cereconf.IMAPMAILBOX
+            passw = 'FRONTERLOGIN'
+        else:
+            imap = cereconf.IMAPEXCHANGE
+            passw = ''
         
         
         ret[pers['account_id']] = {
@@ -164,7 +176,10 @@ def load_acc2name():
             #'PASSWORD': 1,
             'PASSWORD_TYPE':1,
             #'PASSWORD_CRYPT': auth_data,
-            'EMAILCLIENT': 1}
+            'USE_EMAILCLIENT': use_emailclient,
+            'EMAILCLIENT': 1,
+            'IMAPSERVER': imap,
+            'IMAPPASSWD': passw}
        
     return ret
 
