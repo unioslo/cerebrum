@@ -79,21 +79,20 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     f = SimilarSizeWriter(fname, "w")
     f.set_size_change_limit(10)
 
-    logger.debug("Started ephorte export to %s" % fname)
+    logger.info("Started ephorte export to %s" % fname)
 
     persons = {}
     for row in pe.list_all_with_spread(spread):
         persons[int(row['entity_id'])] = {'roles': []}
-    logger.debug("Found %d persons with ephorte spread" % len(persons))
+    logger.info("Found %d persons with ephorte spread" % len(persons))
 
-    # People who no longer shall be exported
-    # Detect that the person has a new feide id, meaning that ePhorte
-    # potentially will need to set an existing account to point to
-    # this new value
-    pid2events = {}
-    potential_changed_feideid = {}
-    
-    logger.debug("Checking changelog")
+    # 1. Check changelog to find persons that no longer shall be
+    #    exported, i.e. persons that have lost ephorte-spread.
+    # 2. Try also to detect if a person has a new feide id, meaning
+    #    that ePhorte potentially will need to set an existing account
+    #    to point to this new value
+    potential_changed_feideid = {}    
+    logger.info("Checking changelog")
     for event in cl.get_events('eph_exp', (
         co.spread_del, co.account_type_add, co.account_type_del,
         co.account_type_mod)):
@@ -106,9 +105,13 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         change_params = pickle.loads(event['change_params'])
         if change_params['spread'] == int(co.spread_ephorte_person):
             persons[int(event['subject_entity'])] = {'delete': 1}
+            logger.debug("Person %s has lost ephorte_spread since last run" %
+                         event['subject_entity'])
     cl.commit_confirmations()
 
     if potential_changed_feideid:
+        logger.debug("Nr of persons with potential changed feide_id: %d" %
+                     len(potential_changed_feideid))
         pid2accounts = {}
         account2pid = {}
         for row in ac.search():
@@ -122,9 +125,12 @@ def generate_export(fname, spread=co.spread_ephorte_person):
                 continue
             p = persons.get(account2pid[account_id], None)
             if p:
+                # Let ephorte know about poential feide-ids for this person
                 p['potential_feideid'] = pid2accounts[account2pid[account_id]]
+                logger.debug("Potential feide_ids for person %s: %s" %
+                             (account2pid[account_id], p['potential_feideid']))
 
-    logger.debug("Fetching names...")
+    logger.info("Fetching names...")
     for entity_id, dta in pe.getdict_persons_names(
         source_system=co.system_cached,
         name_types=(co.name_first,
@@ -136,14 +142,14 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         tmp['last_name'] = dta[int(co.name_last)]
         tmp['full_name'] = dta[int(co.name_full)]
 
-    logger.debug("Fetching e-mailadresses...")
+    logger.info("Fetching e-mailadresses...")
     for entity_id, email in pe.list_primary_email_address(co.entity_person):
         tmp = persons.get(entity_id, None)
         if tmp is None:
             continue
         tmp['email'] = email
 
-    logger.debug("Fetching post-adresses...")
+    logger.info("Fetching post-adresses...")
     for row in pe.list_entity_addresses(entity_type=co.entity_person,
                                         source_system=co.system_sap,
                                         address_type=co.address_street):
@@ -155,7 +161,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         tmp['postal_number'] = row['postal_number']
         tmp['city'] = row['city']
 
-    logger.debug("Fetching Feide-ID and unames...")
+    logger.info("Fetching Feide-ID and unames...")
     account_id2pid = {}
     for row in ac.list_accounts_by_type(primary_only=True):
         account_id2pid[int(row['account_id'])] = int(row['person_id'])
@@ -167,7 +173,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
                 tmp['initials'] = row['entity_name'].upper()
                 tmp['feide_id'] =  tmp['initials']+"@UIO.NO"
     
-    logger.debug("Fetching contact info...")
+    logger.info("Fetching contact info...")
     for row in pe.list_contact_info(source_system=co.system_sap,
                                     contact_type=co.contact_phone):
         tmp = persons.get(int(row['entity_id']), None)
@@ -175,22 +181,24 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             continue
         tmp['phone'] = row['contact_value']
 
-    logger.debug("Fetching roles...")
+    logger.info("Fetching roles...")
     for row in ephorte_role.list_roles():
         tmp = persons.get(int(row['person_id']), None)
         if tmp is None:
+            logger.warn("Person %s has ephorte role, but not ephorte spread" %
+                        row['person_id'])
             continue
+        if not tmp.has_key('roles'):
+            logger.error("person dict has no key 'roles'. This shouldn't happen." +
+                         "Person: %s " % row['person_id'])
+            continue
+
         arkivdel = row['arkivdel']
         if arkivdel:
             arkivdel = str(co.EphorteArkivdel(arkivdel))
         journalenhet = row['journalenhet']
         if journalenhet:
             journalenhet = str(co.EphorteJournalenhet(journalenhet))
-
-        if not tmp.has_key('role'):
-            logger.error("person dict has no key 'roles'. This shouldn't happen.",
-                         "Person: ", str(tmp))
-            continue
         
         tmp['roles'].append({
             'role_type': str(co.EphorteRole(row['role_type'])) ,
@@ -213,6 +221,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         f.write(xml.xmlify_tree("person", p))
     f.write("</ephortedata>\n")
     f.close()
+    logger.info("%s written. All done" % fname)
 
 def main():
     try:
