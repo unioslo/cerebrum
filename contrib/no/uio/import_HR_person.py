@@ -73,12 +73,19 @@ def get_sko((fakultet, institutt, gruppe), system):
     fakultet, institutt, gruppe = int(fakultet), int(institutt), int(gruppe)
     stedkode = (fakultet, institutt, gruppe)
     system = int(system)
+    system2perspective = {int(const.system_lt): const.perspective_lt,
+                          int(const.system_sap): const.perspective_sap,}
     
     if not ou_cache.has_key((stedkode, system)):
         ou = Factory.get('OU')(db)
         try:
             ou.find_stedkode(fakultet, institutt, gruppe,
                              institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
+            # Check that OU is present in the OU-hierarchy. Basically, it is
+            # the only way to make sure that the OU referred to originated
+            # from system.
+            ou.get_parent(system2perspective[system])
+
             addr_street = ou.get_entity_address(source=system,
                                                 type=const.address_street)
             if len(addr_street) > 0:
@@ -95,7 +102,7 @@ def get_sko((fakultet, institutt, gruppe), system):
             else:
                 addr_street = None
             addr_post = ou.get_entity_address(source=system,
-                                                type=const.address_post)
+                                              type=const.address_post)
             if len(addr_post) > 0:
                 addr_post = addr_post[0]
                 addr_post = {'address_text': addr_post['address_text'],
