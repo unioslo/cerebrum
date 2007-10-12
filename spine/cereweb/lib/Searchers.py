@@ -446,6 +446,21 @@ class PersonSearcher(Searcher):
             else:
                 main.add_join(main.join_name, searcher, searcher.join_name)
 
+        account_name = form.get('accountname', '').strip()
+        if account_name:
+            entity_type = self.transaction.get_entity_type('person')
+
+            searcher = self.transaction.get_account_searcher()
+            searcher.set_name_like(account_name)
+            searcher.set_owner_type(entity_type)
+            searcher.join_name = 'owner'
+            searchers['account'] = searcher
+
+            if not main:
+                main = searcher
+            #else:
+            #    main.add_join(main.join_name, searcher, searcher.join_name)
+
         description = form.get('description', '').strip()
         if description:
             person.set_description_like("*%s*" % description)
