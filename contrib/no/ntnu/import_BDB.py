@@ -1197,7 +1197,7 @@ def main():
         elif opt in ('-g','--group'):
             sync.sync_groups()
         elif opt in ('-a','--account'):
-            sync.sync_accounts(password_only=_password_only)
+            sync.sync_accounts(password_only=_password_only,add_missing=True)
         elif opt in ('-s','--spread'):
             sync.sync_spreads()
         elif opt in ('-t','--affiliations'):
