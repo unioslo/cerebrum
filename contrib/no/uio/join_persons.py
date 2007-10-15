@@ -30,6 +30,7 @@ from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.extlib import logging
+from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 
 def get_constants_by_type(co, class_type):
     ret = []
@@ -72,7 +73,7 @@ def person_join(old_person, new_person, with_pq):
                 new_person.populate_external_id(ss, id['id_type'], id['external_id'])
         except Errors.NotFoundError:
             pass
-        old_person.write_db()   # Avoids unique external_id constaint violation
+        old_person.write_db()   # Avoids unique external_id constraint violation
         new_person.write_db()
             
     # person_name
@@ -208,6 +209,17 @@ def person_join(old_person, new_person, with_pq):
             group.add_member(new_person.entity_id, g['member_type'], g['operation'])
         group.remove_member(old_person.entity_id, g['operation'])
 
+    # Ephorte roles
+    # All ephorte roels old_person may have should be deleted.
+    # TBD: If old_person have any non-automatic roles, i.e. roles of
+    # type other than SY and SB, should they be transferred to new
+    # person?
+    for row in ephorte_role.list_roles(person_id=old_id):
+        ephorte_role.remove_role(old_id, int(row['role_type']), int(row['adm_enhet']),
+                                 row['arkivdel'], row['journalenhet'])
+        logger.debug("removing ephorte role: %s" % row['role_type'])
+
+
 def join_printerquotas(old_id, new_id):
     # Delayed import in case module is not installed
     from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
@@ -305,6 +317,7 @@ logger = Factory.get_logger("console")
 db = Factory.get('Database')()
 db.cl_init(change_program="join_persons")
 co = Factory.get('Constants')(db)
+ephorte_role = EphorteRole(db)
 source_systems = get_constants_by_type(co, Constants._AuthoritativeSystemCode)
 
 if __name__ == '__main__':
