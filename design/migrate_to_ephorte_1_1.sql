@@ -27,3 +27,12 @@
 category:pre;
 ALTER TABLE ephorte_role ADD CONSTRAINT ephorte_role_person_id 
       FOREIGN KEY (person_id) REFERENCES person_info(person_id);
+
+/* Make unique constraint on coloumns person_id, role_type, adm_enhet,
+ * arkivdel, journalenhet in table ephorte_role. It shouldn't be
+ * possible to add the same role twice. 
+ */
+
+category:pre;
+ALTER TABLE ephorte_role ADD CONSTRAINT ephorte_role_unique
+      UNIQUE (person_id, role_type, adm_enhet, arkivdel, journalenhet);

@@ -1,7 +1,7 @@
 category:metainfo;
 name=ephorte;
 category:metainfo;
-version=1.0;
+version=1.1;
 category:drop;
 drop TABLE ephorte_role;
 category:drop;
@@ -56,7 +56,10 @@ CREATE TABLE ephorte_journalenhet_code
 category:main;
 CREATE TABLE ephorte_role
 (
-  person_id       NUMERIC(12,0) NOT NULL,
+  person_id       NUMERIC(12,0) 
+  		  NOT NULL
+		  CONSTRAINT ephorte_role_person_id
+		  REFERENCES person_info(person_id),
   role_type       NUMERIC(6,0)
                   NOT NULL
                   CONSTRAINT ephorte_role_type
@@ -78,5 +81,6 @@ CREATE TABLE ephorte_role
   rolletittel     CHAR VARYING(256),
   stilling        CHAR VARYING(256),
   start_date      DATE,
-  end_date        DATE
+  end_date        DATE,
+  UNIQUE (person_id, role_type, adm_enhet, arkivdel, journalenhet)
 );
