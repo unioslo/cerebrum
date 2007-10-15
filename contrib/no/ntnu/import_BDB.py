@@ -13,7 +13,7 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import Email
 
-import mx
+import mx.DateTime
 from Cerebrum.modules.no.ntnu import util
 import getopt
 import logging
@@ -61,7 +61,7 @@ def _is_primary(_account):
 def valid_nin(dato, personnr):
     # Valid date-formats are DDMMYYYY and DDMMYY
     # dato = string, personnr = str/int
-    fnr = dato[:4] + dato[-2:] + "%0.5d"%int(personnr)
+    fnr = dato[:4] + dato[-2:] + "%0.5d" % int(personnr)
 
     vekt1 = [3,7,6,1,8,9,4,5,2]
     vekt2 = [5,4,3,2,7,6,5,4,3,2]
@@ -187,6 +187,20 @@ class BDBSync:
         s['ipt_soil'] =  int(co.Spread("user@%s" % 'ipt_soil'))
         s['kerberos'] = int(co.Spread("user@%s" % 'kerberos'))
         return s
+
+
+    def check_commit(self, fun, *args, **kw):
+        try:
+            fun(*args, **kw)
+        except Exception, e:
+            self.logger.error('Error while syncing: %s' % e)
+            self.db.rollback()
+        else:
+            if dryrun:
+                self.db.rollback()
+            else:
+                self.db.commit()
+
 
     def sync_vacation(self):
         """Not implemented yet"""
@@ -376,38 +390,37 @@ class BDBSync:
 
     def __validate_person(self, person):
         # Returns true||false if enough attributes are set
-        _valid = True
-        if not person.get("person_number"):
-            self.logger.warn("Person with bdb-external-id %s has no person-number" % person['id'])
-            _valid = False
-        elif not person.get("birth_date"): 
+        if not self.__validate_names(person):
+            self.logger.warn("Person with bdb-external-id %s has bad names" % person['id'])
+            return False
+        if not person.get("birth_date"): 
             self.logger.warn("Person with bdb-external-id %s has no birthdate" % person['id'])
-            _valid = False
-        elif not self.__validate_names(person):
-            _valid = False
-        if not _valid:
             return False
         try:
-            fnr = self.__get_fodselsnr(person)
-        except fodselsnr.InvalidFnrError,e:
-            _valid = False
-        try:
-            gender = self.__get_gender(person)
-        except fodselsnr.InvalidFnrError,e:
-            # Checksum-error on gender
-            _valid = False
-        return _valid
+            #XXX check with mx.DateTime....
+            person.get("birth_date")
+        except:
+            self.logger.warn("Person with bdb-external-id %s has bad birthdate" % person['id'])
+            return False
+        if not person['id'] in cereconf.BDB_NO_NIN_PERSONS:
+            if not person.get("person_number"):
+                self.logger.warn("Person with bdb-external-id %s has no person-number" % person['id'])
+                return False
+            try:
+                fnr = self.__get_fodselsnr(person)
+            except fodselsnr.InvalidFnrError,e:
+                return False
+        return True
 
     def __get_gender(self,person):
-        gender = self.const.gender_male
-        fnr = self.__get_fodselsnr(person)
         try:
+            fnr = self.__get_fodselsnr(person)
             if (fodselsnr.er_kvinne(fnr)):
-                gender = self.const.gender_female
+                return self.const.gender_female
+            else:
+                return self.const.gender_male
         except fodselsnr.InvalidFnrError,e:
-            self.logger.error("Fnr for %s is suddenly invalid. Shouldn't happen. Reason :%s." % (person['id'],str(e)))
-            raise e
-        return gender
+            return self.const.gender_unknown
 
     def __get_fodselsnr(self,person):
         # We should not get a key-error since __validate_person should take care
@@ -416,7 +429,10 @@ class BDBSync:
         year,month,day = person.get("birth_date").split('-')
         year = year[2:]
         # Format fnr correctly
-        fnr = "%02d%02d%02d%05d" % (int(day),int(month),int(year),int(pnr))
+        try:
+            fnr = "%02d%02d%02d%05d" % (int(day),int(month),int(year),int(pnr))
+        except ValueError:
+            raise fodselsnr.InvalidFnrError()
         fnr = avknekk_ytlendinger(fnr)
         return fnr
 
@@ -456,37 +472,43 @@ class BDBSync:
             return
 
         gender = self.__get_gender(person)
-        fnr = self.__get_fodselsnr(person)
+
+        try:
+            fnr = self.__get_fodselsnr(person)
+        except fodselsnr.InvalidFnrError, e:
+            fnr = None
 
         new_person.clear()
         found_person=False
         try:
             new_person.find_by_external_id(const.externalid_bdb_person,person['id'])
         except Errors.NotFoundError:
-            self.logger.debug("No match on bdb-id. Filtering by fodselsnr instead")
-            try:
-                new_person.find_by_external_id(const.externalid_fodselsnr,fnr)
-            except Errors.TooManyRowsError:
-                self.logger.debug("Too many matching fodselsnr. Narrow down the filter")
-                # Iterate over the different source-systems
-                for source in (const.system_lt,const.system_bdb,const.system_fs,
-                               const.system_manual):
-                    try:
-                        new_person.find_by_external_id(const.externalid_fodselsnr,fnr,
+            if not fnr:
+                self.logger.debug("No match on bdb-id. Filtering by fodselsnr instead")
+                try:
+                    new_person.find_by_external_id(const.externalid_fodselsnr,fnr)
+                except Errors.TooManyRowsError:
+                    self.logger.debug("Too many matching fodselsnr. Narrow down the filter")
+                    # Iterate over the different source-systems
+                    for source in (const.system_lt,const.system_bdb,const.system_fs,
+                                   const.system_manual):
+                        try:
+                            new_person.find_by_external_id(const.externalid_fodselsnr,fnr,
                                                        source)
-                    except Errors.NotFoundError:
-                        pass
+                        except Errors.NotFoundError:
+                            pass
+                        else:
+                            found_person=True
+                            self.logger.debug("Found matching fnr in source-system %s" % source)
+                            break
                     else:
-                        found_person=True
-                        self.logger.debug("Found matching fnr in source-system %s" % source)
-                        break
+                        self.logger.debug("No fnr in any prefered system")
+                        raise Errors.NotFoundError
+                except Errors.NotFoundError:
+                    self.logger.debug("No fnr in any system")
                 else:
-                    self.logger.debug("No fnr in any prefered system")
-            except Errors.NotFoundError:
-                self.logger.debug("No fnr in any system")
-            else:
-                found_person=True
-                self.logger.debug("Found person by fnr")
+                    found_person=True
+                    self.logger.debug("Found person by fnr")
         else:
             found_person=True
             self.logger.debug("Found BDB-id %s in cerebrum" % person['id'])
@@ -500,7 +522,7 @@ class BDBSync:
 
         # Rewrite glob to a method?
         # Populate person with names 
-        fodt_dato = mx.DateTime.Date(*fodselsnr.fodt_dato(fnr))
+        fodt_dato = person.get("birth_date")
         new_person.populate(fodt_dato, gender)
         new_person.write_db()
         new_person.affect_names(const.system_bdb,
@@ -514,19 +536,17 @@ class BDBSync:
             new_person.populate_name(const.name_personal_title,
                                      person['tittel_personlig'])
 
-        self.check_free_fnr(fnr, new_person)
-        
-        # TBD: rewrite
-        np = new_person
-        np.affect_external_id(const.system_bdb,
-                              const.externalid_fodselsnr, 
-                              const.externalid_bdb_person)
-        np.populate_external_id(const.system_bdb,
-                                const.externalid_bdb_person,
-                                person['id'])
-        np.populate_external_id(const.system_bdb,
-                                const.externalid_fodselsnr,
-                                fnr)
+        new_person.affect_external_id(const.system_bdb,
+                                      const.externalid_fodselsnr, 
+                                      const.externalid_bdb_person)
+        new_person.populate_external_id(const.system_bdb,
+                                        const.externalid_bdb_person,
+                                        person['id'])
+        if fnr:
+            self.check_free_fnr(fnr, new_person)
+            new_person.populate_external_id(const.system_bdb,
+                                            const.externalid_fodselsnr,
+                                            fnr)
         # Write to database
         new_person.write_db()
         self.logger.info("Wrote cerebrum person %s", new_person.entity_id)
@@ -1188,9 +1208,9 @@ def main():
                 person = sync.bdb.get_persons(bdbid=val) 
             # person is now a list of one element (dict)
             if len(person) == 1:
-                sync._sync_person(person[0])
+                sync.check_commit(sync._sync_person, person[0])
             else:
-                print "Too many persons match criteria. Exiting.."
+                print "No person or too many persons match criteria. Exiting.."
             sys.exit()
         elif opt in ('-p','--people'):
             sync.sync_persons()
@@ -1207,18 +1227,10 @@ def main():
         elif opt in ('-e','--email_address'):
             sync.sync_email_addresses()
         elif opt in ('--password-only',):
-            accounts = sync.bdb.get_accounts(last=30) 
+            accounts = sync.bdb.get_accounts(last=30)
             for account in accounts:
-                try:
-                    sync._sync_account(account,update_password_only=True,add_missing=True)
-                except sync.db.IntegrityError:
-                    sync.logger.error("Warning while sync account %s" % account.entity_id)
-                    sync.db.rollback()
-                    continue
-                if dryrun:
-                    sync.db.rollback()
-                else:
-                    sync.db.commit()
+                sync.check_commit(sync._sync_account, account,
+                                  update_password_only=True,add_missing=True)
         elif opt in ('--accountname',):
             print "Syncronizing account: %s" % val
             sync.sync_accounts(username=val,password_only=_password_only,add_missing=True)
