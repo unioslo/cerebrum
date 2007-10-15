@@ -177,8 +177,7 @@ class BDB:
         if not fdato and not pnr and not bdbid:
             cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
                         p.fornavn, p.etternavn, p.sperret, p.forward FROM person p,bruker b \
-                        WHERE b.person = p.id and b.user_domain=1 AND \
-                        p.personnr IS NOT NULL")
+                        WHERE b.person = p.id and b.user_domain=1")
         elif bdbid:
             cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), \
                         p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward \
