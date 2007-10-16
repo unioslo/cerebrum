@@ -22,6 +22,7 @@ from gettext import gettext as _
 import cgi
 import cherrypy
 from lib.utils import legal_date
+from lib.utils import randpasswd
 
 """
 Helper-module for search-pages and search-result-pages in cereweb.
@@ -35,9 +36,13 @@ class Form(object):
 
         self.init_form()
 
+        ## print '**************** Form:: init:  init called......'
+
         for key, field in self.fields.items():
             value = self.values.get(key) or field.get('value')
-            field['name'] = key
+            name = field.get('name', '')
+            if not name:
+               field['name'] = key
             field['value'] = value
 
     def init_form(self):
@@ -45,6 +50,7 @@ class Form(object):
         self.fields = {}
 
     def get_fields(self):
+        ## print '================== Form:: get_fields:   called...'
         res = []
         for key in self.order:
             field = self.fields[key]
@@ -270,10 +276,11 @@ class PersonEditForm(PersonCreateForm):
 
 class AccountCreateForm(Form):
     def init_form(self):
+        print '////////////////// Form:: AccountCreate:: init_form:    called....'
         self.action = '/account/create'
 
         self.order = [
-            'owner', 'name', '_other', 'group', 'expire_date', 'description',
+            'owner', 'name', '_other', 'group', 'expire_date', 'description', 'password0', 'password1', 'randpasswd',
         ]
         self.fields = {
             'owner': {
@@ -309,7 +316,24 @@ class AccountCreateForm(Form):
                 'cls': 'ac_group',
                 'type': 'text',
                 'quote': 'reject',
-            }
+            },
+            'password0': {
+                'label': _('Enter password'),
+                'required': False,
+                'type': 'password',
+            },
+            'password1': {
+                'label': _('Re-type password'),
+                'required': False,
+                'type': 'password',
+            },
+            'randpasswd': {
+                'label': _('Random password'),
+                'required': False,
+                'type': 'radio',
+                'name': 'randpwd',
+                'value': [randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(),],
+            },
         }
 
         owner = self.transaction.get_entity(int(self.values.get('owner')))
@@ -332,6 +356,7 @@ class AccountCreateForm(Form):
             }
             self.order.append('np_type')
             self.order.append('join')
+        ## print '+++++++++++++++++++ Form:: AccountCreate:: init_form:    finished....'
 
     def get_name_options(self):
         names = self.name.split(' ')
@@ -351,6 +376,38 @@ class AccountCreateForm(Form):
 
     def get_title(self):
         return "%s %s" % (_('Owner is'), self.name)
+
+    def is_correct(self):
+        correct = self.has_required()
+        if correct:
+            correct = self.quote_all()
+
+        if correct:
+            for field in self.fields.values():
+                if field['value'] and field['name'] != 'password0' and field['name'] != 'password1':
+                    func = getattr(self, 'check_%s' % field['name'], None)
+                    if func and not func(field['value']):
+                        correct = False
+                        message = "Field '%s' " % field['label']
+                        self.error_message = message + self.error_message
+                        break
+        if correct:
+            pwd0 = self.fields['password0'].get('value', '')
+            pwd1 = self.fields['password1'].get('value', '')
+            
+            msg = 'The two passwords differ.'
+            if (pwd0 and pwd1) and (pwd0 != pwd1):
+                self.error_message = msg
+                correct = False
+            if correct:
+                if (pwd0 and pwd1) and (pwd0 == pwd1) and (len(pwd0) < 8):
+                    self.error_message = 'The password must be 8 chars long.'
+                    correct = False
+            if correct:
+                if (pwd0 and not pwd1) or (not pwd0 and pwd1):
+                    self.error_message = msg
+                    correct = False
+        return correct
 
 class AccountEditForm(AccountCreateForm):
     def init_form(self):

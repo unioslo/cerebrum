@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#import random
 #from lib.Main import Main
 #extends Main
 
@@ -44,13 +45,43 @@
                         $form_widgets.generate_loption($field['name'],
                             $field['label'], $field['options'], $field['value'])
                     #elif $field['type'] == 'hidden'
-                        <input class="$field.get('cls')" type="hidden" name="$field['name']" value="$field['value']" />
+                        <input class="$cls" type="hidden" name="$field['name']" id="$field['name']" value="$field['value']" />
                     #elif $field['type'] == 'checkbox'
                         <label for="$field['name']">$field['label']:</label>
-                        <input type="checkbox" name="$field['name']" value=$field['value'] />
+                        <input type="checkbox" name="$field['name']" id="$field['name']" value=$field['value'] />
+                    #elif $field['type'] == 'radio'
+                        #set $i = 0
+                        <div class="randpassword">
+                        <table>
+                        <tr>
+                        <th colspan="2">
+                        <label for="$field['name']$i$_('00')">$field['label']:</label>
+                        </th>
+                        </tr>
+                        #for $val in $field['value']
+                            #set $col = $i + 1
+                            #if $col % 2 == 0
+                                <td>
+                                <input type="radio" name="$field['name']" id="$field['name']$i$_('00')" value="$val" />$val
+                                </td>
+                                </tr>
+                            #else
+                                <tr>
+                                <td>
+                            <input type="radio" name="$field['name']" id="$field['name']$i$_('00')" value="$val" 
+                                #if $i == 0
+                                    checked="checked"
+                                #end if
+                                    />$val
+                                </td>
+                            #end if
+                            #set $i = $i+1
+                        #end for
+                        </table>
+                        </div>
                     #else
                         <label for="$field['name']">$field['label']:</label>
-                        <input class="$field.get('cls')" type="$field['type']" value="$field['value']" name="$field['name']" />
+                        <input class="$cls" type="$field['type']" value="$field['value']" name="$field['name']" id="$field['name']" />
                     #end if
                     #if $field.get('help')
                         <img alt="?" class="tt" src='/yui/build/container/assets/hlp16_1.gif' /><span class="nojs">$field['help']</span>
