@@ -133,6 +133,7 @@ def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_da
             rollback_url(referer, _("Could not find group %s.  Account is not created." % primary_group), err=True)
     if desc:
         account.set_description(desc)
+
     if not password:
         rollback_url(referer, 'Password is empty. Account is not created.', err=True)
     if password:
