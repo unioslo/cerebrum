@@ -53,6 +53,7 @@ h3 {
 
 #messages div.error {
     color: red;
+    background-color: white;
 }
 
 #messages div {
@@ -224,6 +225,21 @@ div.td_passwd_info {
     font-weight: bold;
 }
 
+div.randpassword {
+    margin: 1em 0em 1em 0em;
+    text-align: center;
+}
+
+div.randpassword label {
+    margin: 1em 0em 1em 0em;
+    text-align: left;
+    width: 12em;
+}
+
+div.randpassword table {
+    width: 25em;
+}
+
 div.view_content div.notice {
     font-weight: bold;
     color: #f00;
@@ -265,9 +281,8 @@ form select {
     width: 12em;
     margin-bottom: 0.4em;
     overflow: visible;
-    clip: auto;
+    /* clip: auto; */
 }
-
 
 /**
  * Form fields can be either optional or required.
@@ -486,16 +501,40 @@ div.log td, div.activitylog_full td, table.results td, div.memberlists td {
 }
 
 /* For the permissions-system. */
-span.perm_added { color: green; font-size: 12px; }
-span.perm_removed { color: red; font-size: 12px; }
-table.perm_methods tr.gray { empty-cells: show; background-color: #dadada; }
-table.perm_methods th { text-align: left; }
-a.perm_all:hover { color: gray; }
+span.perm_added {
+    color: green;
+    font-size: 12px;
+}
 
-div.tree { margin-left: 2em; }
+span.perm_removed {
+    color: red;
+    background-color: white;
+    font-size: 12px;
+}
+
+table.perm_methods tr.gray {
+    empty-cells: show;
+    background-color: #dadada;
+}
+
+table.perm_methods th {
+    text-align: left;
+}
+
+a.perm_all:hover {
+    color: gray;
+}
+
+div.tree {
+    margin-left: 2em;
+}
 
 /* Styles for the Error-pages. */
-div.errorpage { margin: 5px; }
+div.errorpage { 
+    margin: 5px;
+    color: black;
+    background-color: white;
+ }
 
 div.errorpage div.title {
     margin-bottom: 5px;
@@ -755,5 +794,5 @@ div.sub-nav ul li {
     width: auto;
 }
 
-*/
+
 /* vim: sw=4 sts=4 expandtab */

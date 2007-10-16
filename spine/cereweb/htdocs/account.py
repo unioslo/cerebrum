@@ -28,7 +28,7 @@ from lib.Forms import AccountCreateForm, AccountEditForm
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
-from SpineIDL.Errors import NotFoundError, IntegrityError
+from SpineIDL.Errors import NotFoundError, IntegrityError, PasswordGoodEnoughException
 
 def _get_links():
     return (
@@ -77,6 +77,9 @@ def create(transaction, **vargs):
     
     make(transaction, owner, 
             vargs.get('name'),
+            vargs.get('password0'),
+            vargs.get('password1'),
+            vargs.get('randpwd'),
             vargs.get('expire_date'),
             vargs.get('np_type'),
             vargs.get('_other'),
@@ -86,9 +89,15 @@ def create(transaction, **vargs):
 create = transaction_decorator(create)
 create.exposed = True
 
-def make(transaction, owner, name, expire_date="", np_type=None,
+def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_date="", np_type=None,
          _other=None, join=False, primary_group=None, desc=""):
     commands = transaction.get_commands()
+    
+    password = ''
+    if passwd0 and passwd1:
+        password = passwd0
+    else:
+        password = randpwd
 
     referer = cherrypy.request.headerMap.get('Referer', '')
     id = owner.get_id()
@@ -121,9 +130,16 @@ def make(transaction, owner, name, expire_date="", np_type=None,
             if primary_group.is_posix():
                 _promote_posix(transaction, account, primary_group)
         except NotFoundError, e:
-            rollback_url(referer, _("Could not find group %s.  Account not created." % primary_group), err=True)
+            rollback_url(referer, _("Could not find group %s.  Account is not created." % primary_group), err=True)
     if desc:
         account.set_description(desc)
+    if not password:
+        rollback_url(referer, 'Password is empty. Account is not created.', err=True)
+    if password:
+        try :
+            account.set_password(password)
+        except PasswordGoodEnoughException, ex:
+            rollback_url(referer, 'Password is not strong enough. Account is not created.', err=True)
     commit(transaction, account, msg=_("Account successfully created."))
 
 def view(transaction, id, **vargs):
