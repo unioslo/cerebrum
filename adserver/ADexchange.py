@@ -37,25 +37,24 @@ class Exchange(ADObject):
 
 
     def createMDB(self):
-        """Creates a mailbox. Must bing to object, remember setinfo 
-           afterwords."""
+        """Creates a mailbox. Must bind to object. Do not seem like the method 
+        returns other than None in case of failure or success, so no 
+        errorchecking is performed."""
 	MDB = self.Object.Get('HomeMDB') 
         if MDB == None:
+            logging.debug("No mailbox registered for %s." % (self.distinguished))
             return [False, 'No Mailbox registered in AD']
-	else:		
+	else:
             ret = self.Object.CreateMailbox(MDB)
-	    return [ret, 'createMDB']
+            logging.debug("Creating mailbox on %s for %s, return:%s" % (MDB, self.distinguished, ret))
+	    return [True, 'createMDB']
 
 
     def deleteMDB(self):
-	"""Deletes a mailbox. Must bing to object, remember setinfo 
-           afterwords.""" 
-	MDB = self.Object.Get('HomeMDB')
-        if MDB == None: 
-            return [False, 'No Mailbox registered in AD']
-	else:		
-            ret = self.Object.DeleteMailbox(MDB)
-            return [ret, 'deleteMDB']
+	"""Deletes a mailbox. Must bind to object. No proper returnvalue""" 
+        ret = self.Object.DeleteMailbox()
+        logging.debug("Deleting mailbox on %s for %s." % (MDB, self.distinguished))
+        return [True, 'deleteMDB']
 
 
     def checkMDB(self):
@@ -75,4 +74,5 @@ class Exchange(ADObject):
             return [False, 'No mailbox to move']
 	else:
             ret = self.Object.MoveMailBox(MDB)
-	    return [ret, 'moveMDB']	
+            logging.debug("Creating mailbox on %s for %s, return:%s." % (MDB, self.distinguished, ret))
+	    return [True, 'moveMDB']	
