@@ -35,6 +35,17 @@ LDIFutils.base64_attrs.update({
     'userpassword': 0, 'ofkpassword': 0, 'userpasswordct': 0})
 
 
+def get_person_contact():
+    global p_id2cont
+
+    p_id2cont = dict()
+    for row in p.list_contact_info(contact_type=co.contact_phone_private,
+                                   entity_type=co.entity_person):
+        # Assume we have only one contact type of this sort
+        p_id2cont[row['entity_id']] = row['contact_value']
+        
+
+
 def get_account_info():
     global a_id2email, p_id2name, p_id2fnr, a_id2auth
     global a_id2p_id, p_id2a_id, ou_id2name, const2str
@@ -183,6 +194,8 @@ def process_users(affiliation, file):
             'fnr': (p_id2fnr[a_id2p_id[id][1]],)}
         if a_id2email.has_key(id):
             entry['mail'] = (a_id2email[id],)
+        if p_id2cont.has_key(a_id2p_id[id][1]):
+            entry['mobile'] = (p_id2cont[a_id2p_id[id][1]],)
         file.write(entry_string(dn, entry, False))
     return known_dns.keys()
         
@@ -279,6 +292,7 @@ def main():
 
     # Load dicts with misc info.
     get_account_info()
+    get_person_contact()
 
     # Dump OFK info 
     f = SimilarSizeWriter("%s/ofk.txt" % txt_path, "w")
