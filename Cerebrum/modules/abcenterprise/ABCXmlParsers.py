@@ -256,6 +256,8 @@ class XMLOrg2Object(XMLEntity2Object):
             elif sub.tag == "contactinfo":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in contact: %s" % value
+                if not sub.text:
+                    continue
                 type = sub.attrib.get("contacttype")
                 result.add_contact(ABCTypes.get_type("contacttype",
                                                      ("organization", type,)),
@@ -326,6 +328,8 @@ class XMLOU2Object(XMLEntity2Object):
             elif sub.tag == "contactinfo":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error on contactinfo: %s" % value
+                if not sub.text:
+                    continue
                 type = sub.attrib.get("contacttype")
                 result.add_contact(ABCTypes.get_type("contacttype",
                                                      ("organization", type,)),
@@ -427,6 +431,8 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "contactinfo":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in contactinfo: %s" % value
+                if not sub.text:
+                    continue
                 type = sub.attrib.get("contacttype")
                 result.add_contact(ABCTypes.get_type("contacttype",
                                                      ("person", type,)),
