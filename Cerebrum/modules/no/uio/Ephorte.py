@@ -21,10 +21,11 @@
 import pickle
 
 from Cerebrum import Constants
+from Cerebrum import Errors
+from Cerebrum import Person
 from Cerebrum.Constants import ConstantsBase, _CerebrumCode, _SpreadCode
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.errors import CerebrumError
 
@@ -109,7 +110,9 @@ class EphorteRole(DatabaseAccessor):
         binds = {
             'person_id': person_id,
             'role_type': role,
-            'standard_role': 'F',  # TODO: verdi?
+            # TODO: Hva skal standard_role være? Bør i hvert fall ikke
+            # hardkodes på denne måten.
+            'standard_role': 'F',  
             'adm_enhet': sko,
             'arkivdel': arkivdel,
             'journalenhet': journalenhet,
@@ -160,3 +163,13 @@ class EphorteRole(DatabaseAccessor):
         FROM [:table schema=cerebrum name=ephorte_role] %s""" % where, {
             'person_id': person_id})
 
+
+class PersonEphorteMixin(Person.Person):
+    """Ephorte specific methods for Person entities"""
+
+    def delete(self):
+        """Remove any ephorte roles before deleting"""
+        for row in ephorte_role.list_roles(person_id=self.entity_id):
+            ephorte_role.remove_role(old_id, int(row['role_type']), int(row['adm_enhet']),
+                                     row['arkivdel'], row['journalenhet'])
+        self.__super.delete()
