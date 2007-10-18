@@ -195,7 +195,7 @@ def has_valid_session():
     contact, False otherwise."""
     try:
         cherrypy.session['session'].ping()
-    except (CORBA.COMM_FAILURE, CORBA.TRANSIENT, KeyError), e:
+    except (CORBA.COMM_FAILURE, CORBA.TRANSIENT, CORBA.OBJECT_NOT_EXIST, KeyError), e:
         return False
     return True
 
