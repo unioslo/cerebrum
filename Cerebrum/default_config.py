@@ -380,7 +380,8 @@ WEBROOT = "/"
 # Used when pgp-encrypting passwords:
 PGPPROG = '/usr/bin/gpg'
 PGPID = "enter your string here"
-PGP_DEC_OPTS = ['--batch', '--passphrase-fd', "0", '--decrypt', '--quiet']
+PGP_DEC_OPTS = ['--batch', '--decrypt', '--quiet']
+PGP_DEC_OPTS_PASSPHRASE = [ '--passphrase-fd', "0" ]
 # ['--recipient', id, '--default-key', id] is appended to PGP_ENC_OPTS
 PGP_ENC_OPTS = ['--encrypt', '--armor', '--batch', '--quiet']
 
