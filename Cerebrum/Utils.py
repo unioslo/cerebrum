@@ -426,11 +426,13 @@ def pgp_decrypt(message, keyid, passphrase):
     cmd = [cereconf.PGPPROG]
     cmd.extend(cereconf.PGP_DEC_OPTS)
     cmd.extend(('--default-key', keyid))
+    if passphrase != "":
+        cmd.exend(cereconf.PGP_DEC_OPTS_PASSPHRASE)
+
     child = popen2.Popen3(cmd)
 
     if passphrase != "":
         child.tochild.write(passphrase + "\n")
-        cmd.exend(cereconf.PGP_DEC_OPTS_PASSPHRASE)
     child.tochild.write(message)
     child.tochild.close()
     msg = child.fromchild.read()
