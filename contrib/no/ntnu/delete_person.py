@@ -19,7 +19,7 @@ import locale
 locale.setlocale(locale.LC_ALL,'nb_NO')
 dryrun = verbose = cascade = False
 db = Factory.get('Database')()
-db.cl_init(change_program='Manual intervention superuser')
+db.cl_init(change_program='Manual')
 const = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
 account = Factory.get('Account')(db)
