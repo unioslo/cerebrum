@@ -39,7 +39,7 @@ def get_person_contact():
     global p_id2cont
 
     p_id2cont = dict()
-    for row in p.list_contact_info(contact_type=co.contact_phone_private,
+    for row in p.list_contact_info(contact_type=co.contact_mobile_phone,
                                    entity_type=co.entity_person):
         # Assume we have only one contact type of this sort
         p_id2cont[row['entity_id']] = row['contact_value']
