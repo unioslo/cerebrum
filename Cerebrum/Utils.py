@@ -427,7 +427,7 @@ def pgp_decrypt(message, keyid, passphrase):
     cmd.extend(cereconf.PGP_DEC_OPTS)
     cmd.extend(('--default-key', keyid))
     if passphrase != "":
-        cmd.exend(cereconf.PGP_DEC_OPTS_PASSPHRASE)
+        cmd.extend(cereconf.PGP_DEC_OPTS_PASSPHRASE)
 
     child = popen2.Popen3(cmd)
 
