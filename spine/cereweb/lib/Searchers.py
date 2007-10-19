@@ -897,6 +897,7 @@ class PersonAffiliationsSearcher(Searcher):
 
     def filter_rows(self, results):
         rows = []
+        #print 'filter_rows: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! len(results)=',len(results)
         for elm in results:
             p = elm.get_person()
             affs = [utils.html_quote(a.get_ou().get_name()) for a in p.get_affiliations()]
@@ -909,6 +910,7 @@ class PersonAffiliationsSearcher(Searcher):
         return rows
 
 class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
+    len = 0
     def search(self):
         """Executes the search and returns the result."""
         if not self.is_valid():
@@ -921,6 +923,9 @@ class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
         ou = transaction.get_ou(int(id))
         perspective = vargs.get('source', '')
         affiliation = vargs.get('affiliation','')
+        withoutssn = vargs.get('withoutssn', '')
+        recursive = vargs.get('recursive', '')
+        #print '===================================== withoutssn =',withoutssn
         perspectives = []
         if perspective == 'All':
             perspectives.extend(transaction.get_ou_perspective_type_searcher().search())
@@ -928,7 +933,7 @@ class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
             perspectives.append(transaction.get_ou_perspective_type(perspective))
         ou_list = [ou]
         for perspective in perspectives:
-            if vargs.get('recursive'):
+            if recursive:
                 try:
                     ret = utils.flatten(ou.get_children(perspective), perspective)
                     if ret:
@@ -940,7 +945,7 @@ class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
             affs.extend(transaction.get_person_affiliation_type_searcher().search())
         else:
             affs.append(transaction.get_person_affiliation_type(affiliation))
-        results = []
+        allresults = []
         for theOu in ou_list:
             for aff in affs:
                 aff_searcher = transaction.get_person_affiliation_searcher()
@@ -948,5 +953,54 @@ class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
                 aff_searcher.set_affiliation(aff)
                 res = aff_searcher.search()
                 if res:
-                    results.extend(res)
-        return results
+                    allresults.extend(res)
+        if withoutssn:
+            #print '//////////////////////////////////// withoutssn'
+            #print '$$$$$$$$$$$$$$$$$$$$$$$$$$ len(allresults)=',len(allresults)
+            filtered = []
+            for personAff in allresults:
+                person = personAff.get_person()
+                extidsList = utils.extidlist(person)
+                found = False
+                for id in extidsList:
+                    #print '**********************',person.get_id()
+                    #print '**********************',id.variant.get_name()
+                    if id.variant.get_name() == 'NO_BIRTHNO':
+                        found = True
+                if not found:
+                    filtered.append(personAff)
+            #print '||||||||||||||||||||||||||||||||||| len(filtered)=',len(filtered)
+            allresults = filtered
+        #print '~~~~~~~~~~~~~~~~~~~~~~~~~~~ len(allresults)=',len(allresults)
+        self.len = len(allresults)
+        return allresults
+
+    def get_results(self):
+        results = self.search()
+        rows = self.filter_rows(results)
+        #hits = self.searchers['main'].length()
+        #hits = len(results)
+        hits = self.len
+        headers = self.create_table_headers()
+        offset = self.url_args['offset']
+        result = {
+            'headers': headers,
+            'rows': rows,
+            'url': self.url,
+            'url_args': self.url_args,
+            'hits': hits,
+            'is_paginated': hits > self.max_hits,
+            'results_per_page': min(hits, self.max_hits),
+            'has_next': (offset + self.max_hits) < hits,
+            'has_previous': offset > 0,
+            'next_offset': offset + self.max_hits,
+            'previous_offset': offset - self.max_hits,
+            'page': (offset / self.max_hits) + 1,
+            'pages': (hits / self.max_hits) + 1,
+            'first_on_page': offset + 1,
+            'last_on_page': offset + self.max_hits,
+        }
+        if result['last_on_page'] > hits:
+            result['last_on_page'] = hits
+        return result
+
