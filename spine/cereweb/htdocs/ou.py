@@ -255,7 +255,7 @@ def _get_display_name(ou):
         return ou.get_name()
 
 def perform_search(transaction, **vargs):
-    args = ('id', 'source', 'affiliation', 'recursive')
+    args = ('id', 'source', 'affiliation', 'recursive','withoutssn')
     searcher = PersonAffiliationsOuSearcher(transaction, *args, **vargs)
     return searcher.respond() or search_form(searcher.get_remembered())
 perform_search = utils.transaction_decorator(perform_search)

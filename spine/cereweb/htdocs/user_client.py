@@ -204,13 +204,19 @@ def set_password(transaction, **vargs):
     myId = vargs.get('id')
     pass1 = vargs.get('passwd1')
     pass2 = vargs.get('passwd2')
-    if myId and pass1 and pass2 and pass1 == pass2:
+    if myId and pass1 and pass2 and pass1 == pass2 and len(pass1) > 7:
         account = transaction.get_account(int(myId))
-        account.set_password(pass1)
+        try :
+            account.set_password(pass1)
+        except SpineIDL.Errors.PasswordGoodEnoughException, ex:
+            queue_message('Password is too weak. Passwords must contain lowercase- and uppercase-letters and numbers,- in addition it is recommended to use special characters like slash(/), periode(.), comma(,), dash(-), ampersand(&), etc...', error=True)
+            utils.redirect('/user_client')
         transaction.commit()
         queue_message("Password changed successfully")
     elif (not myId):
         queue_message("Account-Id missing. Missing transaction?",error=True)
+    elif (pass1 and pass2 and pass1 == pass2 and len(pass1) < 8):
+        queue_message('Password is too short. Passwords must be at least 8 characters.', error=True)
     elif (not pass1):
         queue_message("Passwords doesn't match",error=True)
     elif ( not pass2):
