@@ -190,6 +190,7 @@ class Object2Cerebrum(object):
         ret = self._person.write_db()
         self._add_entity_addresses(self._person, person._address)
         self._add_entity_contact_info(self._person, person._contacts)
+        ret = self._person.write_db()
         return ret
 
 
