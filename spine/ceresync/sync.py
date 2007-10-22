@@ -8,9 +8,9 @@ class Sync:
         self.incr=incr
         self.auth_type= auth_type or config.conf.get('sync','auth_type')
         connection = SpineClient.SpineClient(config=config.conf).connect()
-        session = connection.login(config.conf.get('spine', 'login'),
-                                   config.conf.get('spine', 'password'))
-        self.tr = session.new_transaction()
+        self.session = connection.login(config.conf.get('spine', 'login'),
+                                        config.conf.get('spine', 'password'))
+        self.tr = self.session.new_transaction()
         self.cmd = self.tr.get_commands()
         self.view = self.tr.get_view()
         account_spread=config.conf.get('sync', 'account_spread')
@@ -50,6 +50,10 @@ class Sync:
 
     def get_ous(self, incr=None):
         return self._do_get("ou", incr)
+    
+    def close(self):
+        self.tr.commit()
+        self.session.logout()
 
 class Pgp:
     def __init__(self, pgp_prog=None, enc_opts='', dec_opts='', keyid=None):
