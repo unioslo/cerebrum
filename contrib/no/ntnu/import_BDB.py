@@ -590,7 +590,7 @@ class BDBSync:
             else:
                 if not posix_group.has_spread(const.spread_ntnu_group):
                     posix_group.add_spread(const.spread_ntnu_group)
-                posix_group.write_db()
+                    posix_group.write_db()
         else:
             if dryrun:
                 self.db.rollback()
@@ -753,13 +753,13 @@ class BDBSync:
             posix_user.gid_id = posix_group.entity_id
             _has_changed = True
 
-            if _has_changed:
-                try:
-                    posix_user.write_db()
-                except self.db.IntegrityError,ie:
-                    uid,gid,name = account_info['unix_uid'],account_info['unix_gid'],account_info['name']
-                    self.logger.error('Uid/gid (%s/%s) already in use for account %s' % (uid,gid,name))
-                    raise ie
+        if _has_changed:
+            try:
+                posix_user.write_db()
+            except self.db.IntegrityError,ie:
+                uid,gid,name = account_info['unix_uid'],account_info['unix_gid'],account_info['name']
+                self.logger.error('Uid/gid (%s/%s) already in use for account %s' % (uid,gid,name))
+                raise ie
 
     def _validate_account(self, account_info):
         res = True
