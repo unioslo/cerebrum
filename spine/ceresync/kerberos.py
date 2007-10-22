@@ -49,7 +49,14 @@ class Account:
         self.pgp = Pgp()
         self.principal= principal or config.conf.get('kerberos','principal')
         self.keytab= keytab or config.conf.get('kerberos', 'keytab')
-        # Use a non-default cache-file, so a rogue kinit won't affect the script.
+
+        # If dryrun is True, no changes will be made to kerberos.
+        self.dryrun= config.conf.has_option('kerberos','dryrun') and \
+                config.conf.getboolean('kerberos','dryrun') or \
+                False
+        if self.dryrun: info("Dry run. No changes will be made to kerberos.\n")
+
+        # Use a non-default cache-file so a rogue kinit won't affect the script.
         os.putenv('KRB5CCNAME', 'FILE:/tmp/krb5cc_%d_synckerberos' % os.geteuid())
 
         flavor= flavor or config.conf.get('kerberos','flavor')
@@ -113,10 +120,14 @@ class Account:
             password = self.pgp.decrypt(account.passwd)
             options = None # or some defaults from config in dict-format
             if not password:
-                info("'%s' has blank password. Not adding.\n"%princ)
+                if allow_add:
+                    info("'%s' has blank password. Not adding.\n"%princ)
+                else:
+                    info("'%s' has blank password. Ignoring.\n"%princ)
                 return
             if allow_add:
-                self.k.CreatePrincipal(princ,password,options)
+                if not self.dryrun: 
+                    self.k.CreatePrincipal(princ,password,options)
                 info("'%s' added\n"%princ)
             if (not self.incr):
                 self.added_princs.add(princ)
@@ -137,7 +148,7 @@ class Account:
         princ = account.name + '@' + self.k.realm # or from config
         password = self.pgp.decrypt(account.passwd)
         try:
-            self.k.SetPassword(princ,password)
+            if not self.dryrun: self.k.SetPassword(princ,password)
             info("password updated for '%s'\n"%princ)
             if (not self.incr):
                 self.added_princs.add(princ)
@@ -148,7 +159,7 @@ class Account:
         """Delete account from kerberos database
         """
         princ = account.name + '@' + self.k.realm # or from config
-        self.k.DeletePrincipal(princ)
+        if not self.dryrun: self.k.DeletePrincipal(princ)
         info("'%s' removed.\n"%princ)
 
 class User:
