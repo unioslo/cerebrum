@@ -26,7 +26,10 @@ import config
 import traceback
 from getopt import getopt
 from sys import argv, exit
+from sets import Set as set
 import os
+
+spine_cache= "/var/cache/cerebrum/spine_lastupdate"
 
 def usage():
     print 'USAGE: %s -i|-b [OPTIONS]' % argv[0]
@@ -47,7 +50,7 @@ def usage():
     
 
 def main():
-    spine_cache= './spine.cache'
+    #spine_cache= os.path.join(state_dir, 'spine.cache')
     shortargs= 'abdhiuv'
     longargs= [
         'incremental', 'bulk',
@@ -102,60 +105,66 @@ def main():
         usage()
         exit(2)
 
+    local_id= 0
+    if os.path.isfile(spine_cache):
+        local_id= long( file(spine_cache).read() )
+    print "Local changelog-id:",local_id
+    s= sync.Sync(incr,local_id)
+    server_id= s.cmd.get_last_changelog_id()
+    print "Server changelog-id:",server_id
+
+    if local_id >= server_id:
+        print "Nothing to be done."
+        return
+
+    user= kerberos.Account()
+    user.begin(incr)
+    try: all_accounts= list(s.get_accounts())
+    except Exception,e:
+        print "Exception '%s' occured, aborting" % e
+        s.close()
+        exit(1)
+    s.close()
+
     if incr:
-        local_id= -1
-        s = sync.Sync(incr,local_id)
-
-        server_id= s.cmd.get_last_changelog_id()
-        print "Server changelog-id:", server_id
-
-        if os.path.isfile(spine_cache):
-            local_id= long( file(spine_cache).read() )
-        print "Local changelog-id:",local_id
-
-        if local_id == -1 or local_id >= server_id:
-            print "Seems to be up-to-date. Incremental sync done."
-            return
-
-        print "Incremental sync"
-
-        for id in range(local_id+1,server_id+1):
-            s = sync.Sync(incr,id)
-            user = kerberos.Account()
-
-            print "Synchronizing users to changelog",id
-            user.begin(incr)
-            try:
-                for account in s.get_accounts():
-                    if account.posix_uid == None:
-                        continue
-                    user.add(account)
-                            
-            except Exception,e:
-                print "Exception %s occured, aborting" % e
-                exit(1)
-            else:
-                user.close()
-            file(spine_cache, 'w').write( str(id) )
-    else:
-        s= sync.Sync(incr)
-        id= s.cmd.get_last_changelog_id()
-        user= kerberos.Account()
-        print "Synchronizing users (bulk)"
-        user.begin(incr)
+        print "Synchronizing users (incr) to changelog",server_id
         try:
-            for account in s.get_accounts():
+            processed= set([])
+            for account in all_accounts:
+                if account.posix_uid == None:
+                    continue
+                if account.name not in processed:
+                    user.add(account)
+                    processed.add(account.name)
+        except Exception,e:
+            print "Exception '%s' occured, aborting" % e
+            user.close()
+            exit(1)
+        else:
+            user.close()
+        
+        if not user.dryrun:
+            file(spine_cache, 'w').write( str(server_id) )
+    else:
+        print "Synchronizing users (bulk) to changelog",server_id
+        print "Options:",add and "add" or "", update and "update" or "",
+        print delete and "delete" or ""
+        try:
+            for account in all_accounts:
                 if account.posix_uid == None:
                     continue
                 user.add(account, add, update)
         except Exception, e:
             print "Exception %s occured, aborting" % e
+            user.close()
             exit(1)
         else:
             user.close(delete)
         # If we did a full bulk sync, we should update the changelog-id
-        if add and update and delete:
-            file(spine_cache, 'w').write( str(id) )
+        if add and update and delete and not user.dryrun:
+            file(spine_cache, 'w').write( str(server_id) )
+    
+    print "Synchronization completed successfully"
         
 
 if __name__ == "__main__":
