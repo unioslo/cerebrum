@@ -33,7 +33,7 @@ Factory = Utils.Factory
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-db.cl_init(change_program='update_auth_methods')
+db.cl_init(change_program='update_auth')
 
 ac = Factory.get("Account")(db)
 
