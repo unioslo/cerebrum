@@ -209,7 +209,8 @@ def set_password(transaction, **vargs):
         try :
             account.set_password(pass1)
         except SpineIDL.Errors.PasswordGoodEnoughException, ex:
-            queue_message('Password is too weak. Passwords must contain lowercase- and uppercase-letters and numbers,- in addition it is recommended to use special characters like slash(/), periode(.), comma(,), dash(-), ampersand(&), etc...', error=True)
+            queue_message('Password is too weak.<br /><br />The password must be different from your last.<br />The password must contain at least one character from all of these three groups:<br /><br />Uppercase letters (A-Z)<br />Lowercase letters(a-z)<br />Specialcharacters (!#()*+,.=?-[]_{}~)<br /><br />')
+
             utils.redirect('/user_client')
         transaction.commit()
         queue_message("Password changed successfully")
