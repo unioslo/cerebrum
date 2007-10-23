@@ -32,18 +32,20 @@ import SpineClient
 def usage():
     print """Usage %s
     -u <user> | --user <user>        log in as <user>
-    -c <file> | --configfile <file>  use configfile for more options
+    -c <file> | --config <file>  use configfile for more options
     """ % sys.argv[0]
 
 username=None
 password=None
 conf=None
+ior_file=None
+cache_dir=None
 try:
-    opts,args = getopt.getopt(sys.argv[1:],'u:c:', ['user', 'config'])
+    opts,args = getopt.getopt(sys.argv[1:],'u:c:', ['user=', 'config='])
     for opt, val in opts:
         if opt in ('-u', '--user'):
             username = val
-        if opt in ('-c', '--configfile'):
+        if opt in ('-c', '--config'):
             import ConfigParser
             conf = ConfigParser.ConfigParser()
             conf.read((val + '.template', val))
@@ -54,14 +56,14 @@ except getopt.GetoptError:
 
 if conf is not None:
     if username is None:
-        try:
-            username=conf.get("login", "username")
-        except:
-            pass
-    try:
-        password=conf.get("login", "password")
-    except:
-        pass
+        try: username=conf.get("login", "username")
+        except: pass
+    try: password=conf.get("login", "password")
+    except: pass
+    try: ior_file=conf.get("SpineClient", "url")
+    except: pass
+    try: cache_dir=conf.get("SpineClient", "idl_path")
+    except: pass
 
 if username is None:
     username='bootstrap_account'
@@ -69,8 +71,12 @@ if username is None:
 if password is None:
     password=getpass.getpass("%s's password: " % username)
 
-ior_file=cereconf.SPINE_IOR_FILE
-cache_dir="/tmp/test-spine-IDL"
+if ior_file is None:
+    ior_file=cereconf.SPINE_IOR_FILE
+
+if cache_dir is None:
+    cache_dir="/tmp/test-spine-IDL"
+
 
 spine=SpineClient.SpineClient(ior_file, idl_path=cache_dir,
                               config=conf).connect()
