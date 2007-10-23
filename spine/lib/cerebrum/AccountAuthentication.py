@@ -21,7 +21,10 @@
 
 import crypt
 
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory 
+from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
+#from SpineLib import SpineExceptions
+#from SpineLib.SpineExceptions import PasswordGoodEnoughException
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
@@ -95,6 +98,7 @@ def set_password(self, password):
 set_password.signature = None 
 set_password.signature_write = True
 set_password.signature_args = [str] 
+set_password.signature_exceptions = [PasswordGoodEnoughException]
 
 Account.register_methods([get_authentications, authenticate, set_authentication, set_password])
 
