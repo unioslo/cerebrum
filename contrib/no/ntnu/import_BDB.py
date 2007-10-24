@@ -292,6 +292,9 @@ class BDBSync:
         #aff is a dict with keys. aff['person'] is the bdb-external-id which can be found
         #as an externalid on persons in Cerebrum. We use this to connect affiliations and
         #persons.
+        # FIXME: rewrite this to sync all affiliations for one person at
+        # the same time.
+
         self.logger.info("Process affiliation for %s" % aff['person'])
         const = self.const
         person = self.new_person
@@ -894,6 +897,7 @@ class BDBSync:
 
         
         expire_date = account_info.get('expire_date',None)
+        expire_date = mx.DateTime.strptime(expire_date, "%Y-%m-%d")
         if ac.expire_date != expire_date:
             ac.expire_date = expire_date
             ac.write_db()
@@ -924,7 +928,9 @@ class BDBSync:
 
 
         expire_date = account_info.get('expire_date',None)
+        expire_date = mx.DateTime.strptime(expire_date, "%Y-%m-%d")
         create_date = account_info.get('creation_date')
+        create_date = mx.DateTime.strptime(create_date, "%Y-%m-%d")
         uid = account_info.get('unix_uid',None)
         
         if uid and uid == 0:
