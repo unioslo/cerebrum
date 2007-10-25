@@ -39,24 +39,45 @@ from Cerebrum import Errors
 
 db = Factory.get("Database")()
 consts = Factory.get("Constants")(db)
+log = Factory.get_logger("console")
 
 def get_name(person):
-    """Return a name.
+    """Return person's name.
     The returned name should be on the form:
     Last, First
     And be at most 40 characters wide.
     """
     try:
+        log.debug("Fetching names from SAP")
         last = person.get_name(consts.system_sap, consts.name_last)
         first = person.get_name(consts.system_sap, consts.name_first)
     except Errors.NotFoundError:
+        log.warning("Person has no name in SAP")
         try:
-            last = person.get_name(consts.system_lt, consts.name_last)
-            first = person.get_name(consts.system_lt, consts.name_first)
+            log.debug("Fetching names from cache")
+            last = person.get_name(consts.system_cached, consts.name_last)
+            first = person.get_name(consts.system_cached, consts.name_first)
         except Errors.NotFoundError:
+            log.warning("Person no name in cache")
             # If everything is correct, this is the last option.
-            # XXX: Should we consider the possibility of the person being a student as well?
-            return person.get_name(consts.system_manual, consts.name_full)
+            names = person.get_all_names()
+            ncount = 0
+            for i in names:
+                if i['name_variant'] == consts.name_last:
+                    last = i['name']
+                    ncount |= 1
+                    log.debug("Found last name from source %d" % i['source_system'])
+                elif i['name_variant'] == consts.name_first:
+                    first = i['name']
+                    ncount |= 2
+                    log.debug("Found first name from source %d" % i['source_system'])
+                elif i['name_variant'] == consts.name_full:
+                    full = i['name']
+                    log.debug("Found full name from source %d" % i['source_system'])
+                if ncount == 3:
+                    break
+            if ncount != 3:
+                return full[:40]
     full = "%s, %s" % (last, first)
     return full[:40]
 
@@ -81,31 +102,35 @@ def get_address(person):
     * Zip : 4
     * City: 16
     * Country: 20
+    If the address doesn't exist, return None
     """
     try:
         # Priority one: post from SAP
+        log.debug("Fetching address from SAP")
         address = person.get_entity_address(consts.system_sap, consts.address_post)[0]
     except IndexError:
         try:
         # Priority two: priv from SAP
+            log.debug("Fetching private address from SAP")
             address = person.get_entity_address(consts.system_sap, consts.address_post_private)[0]
         except IndexError:
             # SAP doesn't have the wanted info, try other means.
+            log.warning("Person %d has no address in SAP" % person.entity_id)
             rows = person.list_entity_addresses(address_type=consts.address_post)
             if not rows:
                 rows = person.list_entity_addresses(address_type=consts.address_post_private)
             if rows:
                 address=rows[0]
             else:
-                return ('','','','','')
+                log.warning("Person has no address, ignoring")
+                return None
             
     if address['address_text']:
         lines = address['address_text'].split('\n')
     else:
         lines = ()
     if len(lines) > 2: # XXX: This doesn't seem to be a problem
-        import sys
-        print >>sys.stderr, "Address:\n\t" + "\n\t".join(lines)
+        log.warning("Person %d has more than two address lines" % person.entity_id)
         line1, line2 = lines[:2]
     elif len(lines) == 1:
         line1, line2 = lines[0], ''
@@ -120,6 +145,7 @@ def get_address(person):
     # Non-norwegians seem to be registered with Zip = None, and foreign zip in city
     Zip = address['postal_number'] or ""
     if len(Zip) < 4 and Zip.isdigit(): # Fix erroneous zip codes.
+        log.warning("Person %d has zip code %s" % (person.entity_id, Zip))
         Zip = '0' + Zip
     city = address['city']
 
@@ -165,26 +191,40 @@ def get_address_type_code(person, ad):
                 return "INT"
     return 'EKST'
 
-def main():
-    import sys
+def main(outfile):
     person = Factory.get("Person")(db)
 
-    # query copied from person.list_affiliations, but we only need
-    # distinct person_id's.
-    query = """SELECT DISTINCT person_id
-               FROM [:table schema=cerebrum name=person_affiliation_source]
-               WHERE affiliation = %d and (deleted_date IS NULL OR deleted_date > [:now]);""" % \
-    consts.affiliation_ansatt
+    log.debug("Getting all persons with affiliation=ansatt")
+    result = person.list_affiliations(affiliation=consts.affiliation_ansatt)
+    persons = set(map(lambda x: x[0], result)) # set of person ids
     
-    #for p in person.list_affiliations(affiliation=consts.affiliation_ansatt):
-    for p in db.query(query, fetchall = True):
+    for p in persons:
         person.clear()
-        person.find(p[0])
+        log.debug("Finding person id %d" % p)
+        person.find(p)
         ad = get_address(person)
-        print "%-40s%-2s" % (get_name(person), get_num_copies(person)) + \
-              "%-40s%-40s%-4s%-16s%-20s" % ad + \
-              "%-4s%-10s%-2s%-4s" % (get_feed_code(person), get_register_group(person),
-                                     get_register_code(person), get_address_type_code(person, ad))
+        if not ad:
+            continue
+        print >>outfile, "%-40s%-2s" % (get_name(person), get_num_copies(person)) + \
+                         "%-40s%-40s%-4s%-16s%-20s" % ad + \
+                         "%-4s%-10s%-2s%-4s" % (get_feed_code(person), get_register_group(person),
+                                                get_register_code(person), get_address_type_code(person, ad))
+
+def usage(prog):
+    print """%s [-f filename]
+    Writes to filename if given, else standard output
+""" % prog
 
 if __name__ == '__main__':
-    main()
+    import sys, getopt
+    opts = getopt.getopt(sys.argv[1:], "hf:")
+    file = sys.stdout
+    for i in opts[0]:
+        if i[0] == '-f':
+            log.debug("Using %s for output" % i[1])
+            file = open(i[1], 'w')
+        if i[0] == '-h':
+            usage(sys.argv[0])
+            sys.exit(0)
+    main(file)
+
