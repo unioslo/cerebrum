@@ -1,5 +1,23 @@
 #! python
 # -*- coding: iso-8859-1 -*-
+#
+# Copyright 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
 Create address list with data from Cerebrum.
@@ -52,38 +70,15 @@ def get_name(person):
         last = person.get_name(consts.system_sap, consts.name_last)
         first = person.get_name(consts.system_sap, consts.name_first)
     except Errors.NotFoundError:
-        log.warning("Person has no name in SAP")
-        try:
-            log.debug("Fetching names from cache")
-            last = person.get_name(consts.system_cached, consts.name_last)
-            first = person.get_name(consts.system_cached, consts.name_first)
-        except Errors.NotFoundError:
-            log.warning("Person no name in cache")
-            # If everything is correct, this is the last option.
-            names = person.get_all_names()
-            ncount = 0
-            for i in names:
-                if i['name_variant'] == consts.name_last:
-                    last = i['name']
-                    ncount |= 1
-                    log.debug("Found last name from source %d" % i['source_system'])
-                elif i['name_variant'] == consts.name_first:
-                    first = i['name']
-                    ncount |= 2
-                    log.debug("Found first name from source %d" % i['source_system'])
-                elif i['name_variant'] == consts.name_full:
-                    full = i['name']
-                    log.debug("Found full name from source %d" % i['source_system'])
-                if ncount == 3:
-                    break
-            if ncount != 3:
-                return full[:40]
+# SAP import asserts both first and last name to be valid.
+        log.warning("Person entity_id=%d has no name in SAP, ignoring" % person.entity_id)
+        return None
     full = "%s, %s" % (last, first)
     return full[:40]
 
 def get_num_copies(*args):
     """
-    For now, returns the string ' 1'
+    For now, returns the string '1 '
     Field size: 2
     """
     return '1 '
@@ -114,16 +109,9 @@ def get_address(person):
             log.debug("Fetching private address from SAP")
             address = person.get_entity_address(consts.system_sap, consts.address_post_private)[0]
         except IndexError:
-            # SAP doesn't have the wanted info, try other means.
+            # SAP doesn't have the wanted info.
             log.warning("Person %d has no address in SAP" % person.entity_id)
-            rows = person.list_entity_addresses(address_type=consts.address_post)
-            if not rows:
-                rows = person.list_entity_addresses(address_type=consts.address_post_private)
-            if rows:
-                address=rows[0]
-            else:
-                log.warning("Person has no address, ignoring")
-                return None
+            return None
             
     if address['address_text']:
         lines = address['address_text'].split('\n')
@@ -147,12 +135,15 @@ def get_address(person):
     if len(Zip) < 4 and Zip.isdigit(): # Fix erroneous zip codes.
         log.warning("Person %d has zip code %s" % (person.entity_id, Zip))
         Zip = '0' + Zip
+
+    # XXX: Should we check the validity of zip codes?
+
     city = address['city']
 
     # The country field seems unused in the database.
+    # XXX: this would set country = Norway for all entries
     country = address['country'] or 'NORGE'
-    if not Zip and city.find('-') > -1:
-        country = city[:city.find('-')]
+
     return (line1[:40], line2[:40], Zip[:4], city[:16], country[:20])
 
 def get_feed_code(person):
@@ -185,7 +176,7 @@ def get_address_type_code(person, ad):
     Ex: 'EKST'
     field size: 4
     """
-    if ad[0].find('Blindern')>-1:
+    if ad[0].find('Blindern')>-1: # Ugly hack
         for i in ad[0].split(' '):
             if i.isdigit() and len(i) == 4:
                 return "INT"
@@ -194,18 +185,21 @@ def get_address_type_code(person, ad):
 def main(outfile):
     person = Factory.get("Person")(db)
 
-    log.debug("Getting all persons with affiliation=ansatt")
+    log.debug("Getting all persons with affiliation ansatt")
     result = person.list_affiliations(affiliation=consts.affiliation_ansatt)
-    persons = set(map(lambda x: x[0], result)) # set of person ids
+    persons = set(map(lambda x: x[0], result)) # set of person ids with affiliation ansatt
     
     for p in persons:
         person.clear()
         log.debug("Finding person id %d" % p)
         person.find(p)
+        name = get_name(person)
+        if not name:
+            continue
         ad = get_address(person)
         if not ad:
             continue
-        print >>outfile, "%-40s%-2s" % (get_name(person), get_num_copies(person)) + \
+        print >>outfile, "%-40s%-2s" % (name, get_num_copies(person)) + \
                          "%-40s%-40s%-4s%-16s%-20s" % ad + \
                          "%-4s%-10s%-2s%-4s" % (get_feed_code(person), get_register_group(person),
                                                 get_register_code(person), get_address_type_code(person, ad))
