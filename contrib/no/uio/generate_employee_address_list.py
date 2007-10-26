@@ -66,14 +66,32 @@ def get_name(person):
     And be at most 40 characters wide.
     """
     try:
-        log.debug("Fetching names from SAP")
-        last = person.get_name(consts.system_sap, consts.name_last)
-        first = person.get_name(consts.system_sap, consts.name_first)
+        log.debug("Fetching last name from cache")
+        last = person.get_name(consts.system_cached, consts.name_last)
     except Errors.NotFoundError:
-# SAP import asserts both first and last name to be valid.
-        log.warning("Person entity_id=%d has no name in SAP, ignoring" % person.entity_id)
-        return None
-    full = "%s, %s" % (last, first)
+        try:
+            log.debug("... last not found. Trying SAP")
+            last = person.get_name(consts.system_sap, consts.name_last)
+        except Errors.NotFoundError:
+            log.warning("Person entity_id=%d has no last name in SAP" % person.entity_id)
+            last = ''
+    try:
+        log.debug("Fetching first name from cache")
+        first = person.get_name(consts.system_cached, consts.name_first)
+    except Errors.NotFoundError:
+        try:
+            log.debug("... first not found. Trying SAP")
+            first = person.get_name(consts.system_sap, consts.name_first)
+        except Errors.NotFoundError:
+            if last:
+                log.warning("Person entity_id=%d has no first name in SAP" % person.entity_id)
+                return last
+            log.warning("Person entity_id=%d has no name in SAP, ignoring" % person.entity_id)
+            return None
+    if last:
+        full = "%s, %s" % (last, first)
+    else:
+        full = first
     return full[:40]
 
 def get_num_copies(*args):
@@ -117,7 +135,7 @@ def get_address(person):
         lines = address['address_text'].split('\n')
     else:
         lines = ()
-    if len(lines) > 2: # XXX: This doesn't seem to be a problem
+    if len(lines) > 2: # TBD: This doesn't seem to be a problem
         log.warning("Person %d has more than two address lines" % person.entity_id)
         line1, line2 = lines[:2]
     elif len(lines) == 1:
@@ -136,12 +154,12 @@ def get_address(person):
         log.warning("Person %d has zip code %s" % (person.entity_id, Zip))
         Zip = '0' + Zip
 
-    # XXX: Should we check the validity of zip codes?
+    # TBD: Should we check the validity of zip codes?
 
     city = address['city']
 
     # The country field seems unused in the database.
-    # XXX: this would set country = Norway for all entries
+    # TBD: this would set country = Norway for all entries
     country = address['country'] or 'NORGE'
 
     return (line1[:40], line2[:40], Zip[:4], city[:16], country[:20])
