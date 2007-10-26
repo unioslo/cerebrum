@@ -990,7 +990,7 @@ def parse_xml_roles(fname):
             key = (data["etterutdkurskode"],
                    data["kurstidsangivelsekode"])
             if kind == "kursakt":
-                key = key + (data["aktivitetskode"],)
+                key = key + (data["aktivitetkode"],)
             # fi
         else:
             logger.warn("%s%s: Wrong role entry kind: %s",
