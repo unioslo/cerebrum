@@ -118,9 +118,8 @@ class XMLOU2Object(XMLEntity2Object):
     def _make_contact(self, element):
         comm_type = element.find("Stedknavn")
         value = element.find("Stedkomm")
-        if comm_type is None or value is None:
+        if comm_type is None or value is None or value.text is None:
             return None
-        # fi
 
         priority = element.find("Stedprio")
         if priority is not None and priority.text is not None:
@@ -136,12 +135,10 @@ class XMLOU2Object(XMLEntity2Object):
         comm_type = comm_type.text.encode("latin1")
         if comm_type not in comm2const:
             return None
-        # fi
-        value = value.text.encode("latin1")
 
+        value = value.text.encode("latin1")
         if comm_type in ("Telefax", "Telefon1", "Telefon2"):
             value = deuglify_phone(value)
-        # fi
 
         return DataContact(comm2const[comm_type], value, priority)
     # end _make_contact
