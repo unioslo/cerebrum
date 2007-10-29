@@ -162,7 +162,7 @@ def extend_account(d):
         if d["full_name"]:
             d["gecos"] = d["full_name"]
         elif d["owner_group_name"]:
-            d["gecos"] = "%s user (%s)" % d["name"], d["owner_group_name"]
+            d["gecos"] = "%s user (%s)" % (d["name"], d["owner_group_name"])
         else:
             d["gecos"] = "%s user" % d["name"]
     return d
