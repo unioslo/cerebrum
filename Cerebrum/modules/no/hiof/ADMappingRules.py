@@ -21,25 +21,25 @@ class MappingError(Exception):
 class Adm(object):
     DOMAIN_NAME = "adm.hiof.no"
     DOMAIN_DN = ""
-    mapping = {
+    sted_mapping = {
         '00': 'olivia',
         '10': 'olivia',
-        '20': 'tora',
+        '20': 'tana',   # tidligere tora
         '30': 'katta',
         '35': 'katta'
         }
 
     def getDN(self, sko, uname):
-        serv = Adm.mapping[sko[-2:]].capitalize()
+        serv = Adm.sted_mapping[sko[-2:]].capitalize()
         return "CN=%s,OU=Ansatte %s%s" % (uname, serv, Adm.DOMAIN_DN)
 
     def getProfilePath(self, sko, uname):
-        serv = Adm.mapping[sko[-2:]]
-        return r"\\%s\%s$\profile" % (serv, uname)
+        serv = Adm.sted_mapping[sko[-2:]]
+        return r"\\%s\home\%s\profile" % (serv, uname)
 
     def getHome(self, sko, uname):
-        serv = Adm.mapping[sko[-2:]]
-        return r"\\%s$\%s" % (serv, uname)
+        serv = Adm.sted_mapping[sko[-2:]]
+        return r"\\%s\home\%s" % (serv, uname)
 
 class Fag(object):
     DOMAIN_NAME = "fag.hiof.no"
