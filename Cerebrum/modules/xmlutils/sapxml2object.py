@@ -122,7 +122,9 @@ class XMLOU2Object(XMLEntity2Object):
             return None
 
         priority = element.find("Stedprio")
-        if priority is not None and priority.text is not None:
+        if (priority is not None and
+            priority.text is not None and
+            priority.text.isdigit()):
             priority = int(priority.text)
         else:
             return None
