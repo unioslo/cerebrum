@@ -222,10 +222,14 @@ def makeInitialUsers(db):
     a.populate(cereconf.INITIAL_ACCOUNTNAME, co.entity_group,
                eg.entity_id, int(co.account_program), ea.entity_id,
                None, parent=ea)
-    try:
-        a.set_password(cereconf.INITIAL_ACCOUNTNAME_PASSWORD)
-    except Errors.NotImplementedAuthTypeError:
-        pass
+    # Get rid of errors because of missing prerequisites for password
+    # mechanisms not needed for initial setup.
+    # 
+    # TBD: implement cereconf.INITIAL_PASSWORD_MECHANISM?
+    method = co.auth_type_md5_crypt
+    a.affect_auth_types(method)
+    enc = a.encrypt_password(method, cereconf.INITIAL_ACCOUNTNAME_PASSWORD)
+    a.populate_authentication_type(method, enc)
     a.write_db()
 
     g = Group.Group(db)
