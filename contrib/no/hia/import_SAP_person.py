@@ -372,25 +372,13 @@ def populate_address(person, fields, const):
 	try:
 	    country = int(const.Country(fields[24].strip()))
 	except Errors.NotFoundError:
-	    logger.warn("Could not find country code for «%s», please define country in Constants.py",fields[24].strip())
+	    logger.warn("Could not find country code for «%s», "
+                        "please define country in Constants.py",
+                        fields[24].strip())
     postal_number = fields[23].strip() or None
-    if postal_number != None and len(postal_number) > 8:
-        # Today (2007-05-08) the cerebrum db schema does not allow zip codes
-        # longer than 8 characters. However, it is quite possible for
-        # non-Norwegian addresses to have such zip codes. For now, we'd issue
-        # a warn() if a Norwegian zip is longer, and an info() if a foreign
-        # address is longer before we NULLify the zip code. This should
-        # prevent unnecessary log spam.
-        # 
-        # This is suboptimal (as we essentially throw away valid zip codes),
-        # but a db schema change takes a bit of doing (not worth it for 1
-        # entry only).
-        if country != const.country_no:
-            logger.info("Cannot register zip code for %s (%s): len(%s) > 8",
-                        person.entity_id, person.get_all_names(), postal_number)
-        else:
-            logger.warn("Norwegian zip codes are 4 digits! %s (%s) has '%s'",
-                        person.entity_id, person.get_all_names(), postal_number)
+    if postal_number != None and len(postal_number) > 32:
+        logger.warn("Cannot register zip code for %s (%s): len(%s) > 32",
+                    person.entity_id, person.get_all_names(), postal_number)
         postal_number = None
 
     person.populate_address(const.system_sap,
