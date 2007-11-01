@@ -78,6 +78,10 @@ class Constants(Constants.Constants):
     externalid_bdb_faculty = _EntityExternalIdCode('BDB_FACULTY_ID',
         Constants.Constants.entity_ou,
         'BDBs internal ID for the faculty')
+    
+    externalid_feideid = _EntityExternalIdCode('FEIDE_ID',
+        Constants.Constants.entity_person,
+        'The unique identifier for a user in FEIDE')
 
     system_lt = _AuthoritativeSystemCode('Kjernen', 'Kjernen')
     system_kjernen = _AuthoritativeSystemCode('Kjernen', 'Kjernen')
