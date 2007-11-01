@@ -1238,7 +1238,10 @@ class BofhdExtension(object):
         result = []
         et = Email.EmailTarget(self.db)
         ea = Email.EmailAddress(self.db)
-        ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        try:
+            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Email list (%s) not found" % listname
         list_id = ea.email_addr_id
         for interface in self._interface2addrs.keys():
             alias = self._mailman_pipe % { 'interface': interface,
