@@ -42,11 +42,11 @@ Antalleksemplarer   The number 1, to be extended
 Adresselinje1
 Adresselinje2
 Poststednr          norwegian zip code. Empty for foreign addresses.
-Landnavn            Country. Cerebrum has no country information, tries to extract from zip
+Landnavn            Country. Cerebrum has no country information.
 Adrmatekode         empty
 Registergruppe      This version, only POLS-TILS
 Registerkode        empty
-Adrtypekode         EKST || INT for addresses outside/inside campus.
+Adrtypekode         empty
 """
 
 import cerebrum_path
@@ -56,8 +56,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
 db = Factory.get("Database")()
-consts = Factory.get("Constants")(db)
-log = Factory.get_logger("console")
+constants = Factory.get("Constants")(db)
+logger = Factory.get_logger("console")
 
 def get_name(person):
     """Return person's name.
@@ -66,27 +66,27 @@ def get_name(person):
     And be at most 40 characters wide.
     """
     try:
-        log.debug("Fetching last name from cache")
-        last = person.get_name(consts.system_cached, consts.name_last)
+        logger.debug("Fetching last name from cache")
+        last = person.get_name(constants.system_cached, constants.name_last)
     except Errors.NotFoundError:
         try:
-            log.debug("... last not found. Trying SAP")
-            last = person.get_name(consts.system_sap, consts.name_last)
+            logger.debug("... last not found. Trying SAP")
+            last = person.get_name(constants.system_sap, constants.name_last)
         except Errors.NotFoundError:
-            log.warning("Person entity_id=%d has no last name in SAP" % person.entity_id)
+            logger.warning("Person entity_id=%d has no last name in SAP" % person.entity_id)
             last = ''
     try:
-        log.debug("Fetching first name from cache")
-        first = person.get_name(consts.system_cached, consts.name_first)
+        logger.debug("Fetching first name from cache")
+        first = person.get_name(constants.system_cached, constants.name_first)
     except Errors.NotFoundError:
         try:
-            log.debug("... first not found. Trying SAP")
-            first = person.get_name(consts.system_sap, consts.name_first)
+            logger.debug("... first not found. Trying SAP")
+            first = person.get_name(constants.system_sap, constants.name_first)
         except Errors.NotFoundError:
             if last:
-                log.warning("Person entity_id=%d has no first name in SAP" % person.entity_id)
+                logger.warning("Person entity_id=%d has no first name in SAP" % person.entity_id)
                 return last
-            log.warning("Person entity_id=%d has no name in SAP, ignoring" % person.entity_id)
+            logger.warning("Person entity_id=%d has no name in SAP, ignoring" % person.entity_id)
             return None
     if last:
         full = "%s, %s" % (last, first)
@@ -96,10 +96,10 @@ def get_name(person):
 
 def get_num_copies(*args):
     """
-    For now, returns the string '1 '
+    For now, returns the string ' 1'
     Field size: 2
     """
-    return '1 '
+    return ' 1'
 
 def get_address(person):
     """
@@ -119,16 +119,16 @@ def get_address(person):
     """
     try:
         # Priority one: post from SAP
-        log.debug("Fetching address from SAP")
-        address = person.get_entity_address(consts.system_sap, consts.address_post)[0]
+        logger.debug("Fetching address from SAP")
+        address = person.get_entity_address(constants.system_sap, constants.address_post)[0]
     except IndexError:
         try:
         # Priority two: priv from SAP
-            log.debug("Fetching private address from SAP")
-            address = person.get_entity_address(consts.system_sap, consts.address_post_private)[0]
+            logger.debug("Fetching private address from SAP")
+            address = person.get_entity_address(constants.system_sap, constants.address_post_private)[0]
         except IndexError:
             # SAP doesn't have the wanted info.
-            log.warning("Person %d has no address in SAP" % person.entity_id)
+            logger.warning("Person %d has no address in SAP" % person.entity_id)
             return None
             
     if address['address_text']:
@@ -136,7 +136,7 @@ def get_address(person):
     else:
         lines = ()
     if len(lines) > 2: # TBD: This doesn't seem to be a problem
-        log.warning("Person %d has more than two address lines" % person.entity_id)
+        logger.warning("Person %d has more than two address lines" % person.entity_id)
         line1, line2 = lines[:2]
     elif len(lines) == 1:
         line1, line2 = lines[0], ''
@@ -146,12 +146,13 @@ def get_address(person):
         line1, line2 = lines
 
     if address['p_o_box']:
-        line1 = 'Postboks ' + address['p_o_box'] + line1
+        # People tend to be registered with the PO box number encoded in the address in SAP
+        line1 = 'Pb ' + address['p_o_box'] + ' ' + line1
 
-    # Non-norwegians seem to be registered with Zip = None, and foreign zip in city
+    # Non-norwegians seem to be registered with Zip = None, and foreign zip encoded in city
     Zip = address['postal_number'] or ""
     if len(Zip) < 4 and Zip.isdigit(): # Fix erroneous zip codes.
-        log.warning("Person %d has zip code %s" % (person.entity_id, Zip))
+        logger.warning("Person %d has zip code %s" % (person.entity_id, Zip))
         Zip = '0' + Zip
 
     # TBD: Should we check the validity of zip codes?
@@ -166,7 +167,7 @@ def get_address(person):
 
 def get_feed_code(person):
     """
-    I seriously don't know what this is
+    Return ''
     Field size: 4
     """
     return ''
@@ -187,38 +188,30 @@ def get_register_code(person):
 
 def get_address_type_code(person, ad):
     """
-    return 'INT' for PO Boxes on Blindern, or 'EKST' for other.
-    PO Boxes on Blindern should:
-    * Have 'Blindern' somewhere in the address
-    * Have a four digit number in the address
-    Ex: 'EKST'
+    Return ''
     field size: 4
     """
-    if ad[0].find('Blindern')>-1: # Ugly hack
-        for i in ad[0].split(' '):
-            if i.isdigit() and len(i) == 4:
-                return "INT"
-    return 'EKST'
+    return ''
 
 def main(outfile):
     person = Factory.get("Person")(db)
 
-    log.debug("Getting all persons with affiliation ansatt")
-    result = person.list_affiliations(affiliation=consts.affiliation_ansatt)
+    logger.debug("Getting all persons with affiliation ansatt")
+    result = person.list_affiliations(affiliation=constants.affiliation_ansatt)
     persons = set(map(lambda x: x[0], result)) # set of person ids with affiliation ansatt
     
     for p in persons:
         person.clear()
-        log.debug("Finding person id %d" % p)
+        logger.debug("Finding person id %d" % p)
         person.find(p)
         name = get_name(person)
         if not name:
             continue
-        ad = get_address(person)
-        if not ad:
+        address = get_address(person)
+        if not address:
             continue
         print >>outfile, "%-40s%-2s" % (name, get_num_copies(person)) + \
-                         "%-40s%-40s%-4s%-16s%-20s" % ad + \
+                         "%-40s%-40s%-4s%-16s%-20s" % address + \
                          "%-4s%-10s%-2s%-4s" % (get_feed_code(person), get_register_group(person),
                                                 get_register_code(person), get_address_type_code(person, ad))
 
@@ -233,7 +226,7 @@ if __name__ == '__main__':
     file = sys.stdout
     for i in opts[0]:
         if i[0] == '-f':
-            log.debug("Using %s for output" % i[1])
+            logger.debug("Using %s for output" % i[1])
             file = open(i[1], 'w')
         if i[0] == '-h':
             usage(sys.argv[0])
