@@ -144,12 +144,15 @@ class AccountNTNUMixin(Account.Account):
             raise PasswordGoodEnoughException("The password must be 8 characters long.")
         if not self.password_bdb_regex.match(plaintext):
             raise PasswordGoodEnoughException("Illegal character in password")
+        # Commented out until BDB get a neck-shot
+        """
         num = (self.password_big_regex.search(plaintext) and 1 or 0) \
               + (self.password_small_regex.search(plaintext) and 1 or 0) \
               + (self.password_num_regex.search(plaintext) and 1 or 0) \
               + (self.password_special_regex.search(plaintext) and 1 or 0)
         if num < 3:
             raise PasswordGoodEnoughException("Need mix of small characters, big characters, numbers and special characters")
+        """
 
         # Ok, then. Acctually set the password.
         return self.__super.set_password(plaintext)
