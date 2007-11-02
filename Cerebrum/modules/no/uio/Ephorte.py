@@ -18,8 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import pickle
-
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum import Person
@@ -98,10 +96,22 @@ class EphorteConstants(ConstantsBase):
         'ephorte', 'role_rem', 'remove ephorte role @ %(dest)s')
 
 
+##
+## TBD: Bør denne klassen egentlig være en PersonMixin? Fordi alle
+##      disse funksjonene er relative til personer. Da vil det være
+##      lettere å få til følgende businesslogikk som nå er
+##      implementert litt teit:
+##      
+##        * hvis en person slettes skal dens ephorte-roller og spreads
+##          automatisk fjernes
+##        * hvis en person mister alle sine roller, skal også spread
+##          fjernes automatisk.
+##
 class EphorteRole(DatabaseAccessor):
     def __init__(self, database):
         super(EphorteRole, self).__init__(database)
         self.co = Factory.get('Constants')(database)
+        self.pe = Factory.get('Person')(database)
 
     def add_role(self, person_id, role, sko, arkivdel, journalenhet,
                  rolletittel='', stilling=''):
@@ -130,7 +140,7 @@ class EphorteRole(DatabaseAccessor):
 #            'adm_enhet': adm_enhet and str(adm_enhet) or '',
             'rolle_type': str(role)})
     
-    def remove_role(self, person_id, role, sko, arkivdel, journalenhet):
+    def _remove_role(self, person_id, role, sko, arkivdel, journalenhet):
         binds = {
             'person_id': person_id,
             'role_type': role,
@@ -151,6 +161,17 @@ class EphorteRole(DatabaseAccessor):
 #            'adm_enhet': adm_enhet and str(adm_enhet) or '',
             'rolle_type': str(role)})
 
+    # Wrapper for _remove_role.
+    # This is a bit hackish, see the class comment for more info.
+    def remove_role(self, person_id, role, sko, arkivdel, journalenhet):
+        self._remove_role(person_id, role, sko, arkivdel, journalenhet)
+        # If person doesn't have any roles left the ephorte-spread
+        # should be removed
+        if not self.list_roles(person_id=person_id):
+            self.pe.clear()
+            self.pe.find(person_id)
+            self.pe.delete_spread(self.co.spread_ephorte_person)
+            
     def list_roles(self, person_id=None):
         if person_id:
             where = "WHERE person_id=:person_id"
@@ -164,12 +185,13 @@ class EphorteRole(DatabaseAccessor):
             'person_id': person_id})
 
 
-class PersonEphorteMixin(Person.Person):
-    """Ephorte specific methods for Person entities"""
-
-    def delete(self):
-        """Remove any ephorte roles before deleting"""
-        for row in ephorte_role.list_roles(person_id=self.entity_id):
-            ephorte_role.remove_role(old_id, int(row['role_type']), int(row['adm_enhet']),
-                                     row['arkivdel'], row['journalenhet'])
-        self.__super.delete()
+## Denne koden er ikke klar ennå
+# class PersonEphorteMixin(Person.Person):
+#     """Ephorte specific methods for Person entities"""
+# 
+#     def delete(self):
+#         """Remove any ephorte roles before deleting"""
+#         for row in ephorte_role.list_roles(person_id=self.entity_id):
+#             ephorte_role.remove_role(old_id, int(row['role_type']), int(row['adm_enhet']),
+#                                      row['arkivdel'], row['journalenhet'])
+#         self.__super.delete()
