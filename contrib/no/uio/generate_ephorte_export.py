@@ -86,8 +86,8 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         persons[int(row['entity_id'])] = {'roles': []}
     logger.info("Found %d persons with ephorte spread" % len(persons))
 
-    # 1. Check changelog to find persons that no longer shall be
-    #    exported, i.e. persons that have lost ephorte-spread.
+    # 1. Check changelog to find persons that have lost
+    #    ephorte-spread. These should be marked as deleted    
     # 2. Try also to detect if a person has a new feide id, meaning
     #    that ePhorte potentially will need to set an existing account
     #    to point to this new value
@@ -105,8 +105,8 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         change_params = pickle.loads(event['change_params'])
         if change_params['spread'] == int(co.spread_ephorte_person):
             persons[int(event['subject_entity'])] = {'delete': 1}
-            logger.debug("Person %s has lost ephorte_spread since last run" %
-                         event['subject_entity'])
+            logger.debug("Person %s has lost ephorte_spread since last run. " %
+                         event['subject_entity'] + "Set person as deletable")
     cl.commit_confirmations()
 
     if potential_changed_feideid:
@@ -126,7 +126,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
                 continue
             p = persons.get(account2pid[account_id], None)
             if p:
-                # Let ephorte know about poential feide-ids for this person
+                # Let ephorte know about potential feide-ids for this person
                 p['potential_feideid'] = pid2accounts[account2pid[account_id]]
                 logger.debug("Potential feide_ids for person %s: %s" %
                              (account2pid[account_id], p['potential_feideid']))
