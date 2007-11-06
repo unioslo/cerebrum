@@ -70,14 +70,19 @@ public class Person {
                 pXML = this;
                 pEphorte = (Person) obj;
             }
-            if(pXML.isDeletable && (pEphorte.tilDato == null || pEphorte.tilDato.after(new Date()))) {
+            if(pXML.isDeletable && (pEphorte.tilDato == null || 
+				    pEphorte.tilDato.after(new Date()))) {
                 tilDatoNeedsUpdate = true;
-            } else if(! pXML.isDeletable && pEphorte.tilDato != null && pEphorte.tilDato.before(new Date())) {
+            } else if(! pXML.isDeletable && pEphorte.tilDato != null && 
+		      pEphorte.tilDato.before(new Date())) {
                 tilDatoNeedsUpdate = true;
             }            
-            
-            return (! tilDatoNeedsUpdate) /* && XMLUtil.equals(fraDato, p.fraDato) */ /* && XMLUtil.equals(tilDato, p.tilDato) */
-                    && XMLUtil.equals(pEphorte.brukerId, pXML.brukerId);
+            // return (! tilDatoNeedsUpdate) && 
+            //     XMLUtil.equals(fraDato, p.fraDato) && 
+            //     XMLUtil.equals(tilDato, p.tilDato) && 
+            //     XMLUtil.equals(pEphorte.brukerId, pXML.brukerId);
+            return (! tilDatoNeedsUpdate) && 
+		XMLUtil.equals(pEphorte.brukerId, pXML.brukerId);
         }
         return super.equals(obj);
     }
@@ -87,15 +92,16 @@ public class Person {
         xml.writeElement("PE_ID", "" + id);
         xml.writeElement("PE_BRUKERID", brukerId);
         if (id == -1) {
-            // Since we use FEIDE login, we assign a random password in case it
-            // is possible to log in with the normal password
+            // Since we use FEIDE login, we assign a random password
+            // in case it is possible to log in with the normal
+            // password
             StringBuffer password = new StringBuffer();
             for (int i = 0; i < 30; i++) {
-                password.append(passwordCharacters.charAt(secRand.nextInt(passwordCharacters
-                        .length() - 1)));
+                password.append(passwordCharacters.charAt(secRand.nextInt(passwordCharacters.length() - 1)));
             }
             xml.writeElement("PE_PASSORD_G", password.toString());
-            // "Skrivetilgang til alle registrerte roller av samme type" -> alltid nei
+            // "Skrivetilgang til alle registrerte roller av samme
+            // type" -> alltid nei
             xml.writeElement("PE_REDALLEROLLER_G", "0");
             xml.writeElement("PE_FRADATO", dayFormat.format(fraDato));
         } else {
@@ -111,19 +117,19 @@ public class Person {
                 }
             }
         }
-/*        if(isDeletable) {
-            xml.writeElement("PE_FRADATO", dayFormat.format(new Date()));
-        } */
+	// if(isDeletable) {
+        //     xml.writeElement("PE_FRADATO", dayFormat.format(new Date()));
+        // } 
         xml.endTag("PERSON");
         return "";
     }
 
     public void toSeekXML(XMLUtil xml) {
         /*
-		 * The PE_ID is used for referencing other elements in the file, while
-		 * the SEEKFIELDS tells ePhorte that we're actually talking about an
-		 * existing record.
-		 */
+	 * The PE_ID is used for referencing other elements in the file, while
+	 * the SEEKFIELDS tells ePhorte that we're actually talking about an
+	 * existing record.
+	 */
         xml.startTag("PERSON");
         xml.writeElement("PE_ID", "" + id);
         xml.writeElement("SEEKFIELDS", "PE_ID");
@@ -131,18 +137,21 @@ public class Person {
         xml.endTag("PERSON");
     }
 
-    public void addName(String initialer, String navn, String fornavn, String mellomnavn,
-            String etternavn, boolean aktiv) {
+    public void addName(String initialer, String navn, String fornavn, 
+			String mellomnavn, String etternavn, boolean aktiv) {
         if(personNavn == null || ! personNavn.isAktiv()) {
-            // Vi er kun interessert i det aktive personnavnet ettersom det er det vi evt. skal endre
-            personNavn = new PersonNavn(this, initialer, navn, fornavn, mellomnavn, etternavn, aktiv);
+            // Vi er kun interessert i det aktive personnavnet
+            // ettersom det er det vi evt. skal endre
+            personNavn = new PersonNavn(this, initialer, navn, fornavn, 
+					mellomnavn, etternavn, aktiv);
         }
     }
 
-    public void addAddress(String adrType, String navn, String postadr, String postnr,
-            String poststed, String ePost, String tlf) {
-        adresse.put(adrType, 
-        		new Adresse(this, adrType, navn, postadr, postnr, poststed, ePost, tlf));
+    public void addAddress(String adrType, String navn, String postadr, 
+			   String postnr, String poststed, String ePost, 
+			   String tlf) {
+        adresse.put(adrType, new Adresse(this, adrType, navn, postadr, postnr, 
+					 poststed, ePost, tlf));
     }
 
     public void addAddress(Hashtable<String, String> ht) {
@@ -169,10 +178,11 @@ public class Person {
         return roller;
     }
 
-    public void addRolle(String rolleType, boolean stdRolle, String sko, String arkivDel,
-            String journalEnhet, String tittel, String stilling) throws BadDataException {
-        roller.add(new PersonRolle(this, rolleType, stdRolle, sko, arkivDel, journalEnhet, tittel,
-                stilling));
+    public void addRolle(String rolleType, boolean stdRolle, String sko, 
+			 String arkivDel, String journalEnhet, String tittel, 
+			 String stilling) throws BadDataException {
+        roller.add(new PersonRolle(this, rolleType, stdRolle, sko, arkivDel, 
+				   journalEnhet, tittel, stilling));
     }
 
     public PersonNavn getPersonNavn() {
@@ -211,17 +221,17 @@ public class Person {
 		return isDeletable;
 	}
 */
-	public void setDeletable(boolean isDeletable) {
-		this.isDeletable = isDeletable;
-	}
-
-	public void addPotentialFeideId(String feideId) {
-		potentialFeideIds.add(feideId);
-	}
-
-	public Vector<String> getPotentialFeideIds() {
-		return potentialFeideIds;
-	}
+    public void setDeletable(boolean isDeletable) {
+	this.isDeletable = isDeletable;
+    }
+    
+    public void addPotentialFeideId(String feideId) {
+	potentialFeideIds.add(feideId);
+    }
+    
+    public Vector<String> getPotentialFeideIds() {
+	return potentialFeideIds;
+    }
 
     public void setTilDato(Date tilDato) {
         this.tilDato = tilDato;

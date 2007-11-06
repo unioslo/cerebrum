@@ -3,7 +3,7 @@ package no.uio.ephorte.connection;
 import java.rmi.RemoteException;
 import java.util.Date;
 import java.util.Hashtable;
-import java.util.Iterator;
+//import java.util.Iterator;
 import java.util.Properties;
 
 import no.uio.ephorte.data.Adresse;
@@ -146,7 +146,7 @@ public class EphorteGW {
 
     /**
      * Oppdater, eller opprett person i ePhorte med informasjon om navn og
-     * adresser
+     * adresser. newPerson er fra xml-dumpen fra Cerebrum.
      * 
      * @param newPerson
      * @throws RemoteException
@@ -156,8 +156,9 @@ public class EphorteGW {
         Person oldPerson = getPerson(newPerson);
         boolean isDirty = false;
         xml.startTag("PersonData");
+	// Check if Person needs to be updated
         if (oldPerson == null || oldPerson.getId() == -1) {
-            // Ny person
+            // Person doesn't exist in ePhorte. Create new person
             newPerson.toXML(xml);
             brukerId2Person.put(newPerson.getBrukerId(), newPerson);
             newPerson.setNew(true);
@@ -165,14 +166,18 @@ public class EphorteGW {
         } else {
             // old person. There are no data that we want to update
             newPerson.setId(oldPerson.getId());
+	    // We can't delete persons in ePhorte. Instead the tilDato is set.
             newPerson.setTilDato(oldPerson.getTilDato());
             if(! newPerson.equals(oldPerson)) {
-                newPerson.toXML(xml);
+		log.debug("Set tilDato for person " + newPerson.getBrukerId() +
+			  " to " + newPerson.getTilDato().toString());
+                newPerson.toXML(xml); 
                 isDirty = true;
             } else {                
 		newPerson.toSeekXML(xml);
 	    }
         }
+	// Check if PersonName needs to be updated
         if (oldPerson == null || !(newPerson.getPersonNavn().equals(oldPerson.getPersonNavn()))) {
             if (oldPerson != null && oldPerson.getPersonNavn() != null) {
                 newPerson.getPersonNavn().setId(oldPerson.getPersonNavn().getId());
@@ -180,6 +185,7 @@ public class EphorteGW {
             newPerson.getPersonNavn().toXML(xml);
             isDirty = true;
         }
+	// Check if Adresse needs to be updated
         if (oldPerson == null || oldPerson.getAdresse(Adresse.ADRTYPE_A) == null
 	    || !(oldPerson.getAdresse(Adresse.ADRTYPE_A).equals(newPerson.getAdresse(Adresse.ADRTYPE_A)))) {
             if (oldPerson != null && oldPerson.getAdresse(Adresse.ADRTYPE_A) != null) {
@@ -188,35 +194,42 @@ public class EphorteGW {
             newPerson.getAdresse(Adresse.ADRTYPE_A).toXML(xml);
             isDirty = true;
         }
+	// Check if roles need to be updated
         isDirty = updateRoles(xml, newPerson) || isDirty;
         xml.endTag("PersonData");
         if (isDirty) {
+	    // We need to update ephorte 
             try {
                 int ret = conn.updatePersonByXML(xml.toString());
                 if (newPerson.getId() == -1)
                     newPerson.setId(ret);
-                log.debug("DO: " + xml.toString() + " -> " + ret);
-                if (ret < 0) {
-                    // Skal normalt returnere id til personen som ble
-                    // laget/oppdatert
-                    log.warn("Problem modifying " + newPerson.getBrukerId() + ", ret should be > 0, was: "
-			     + ret + " problematic request:" + xml.toString());
-                } else {
-                    if(newPerson.getPersonNavn().isChanged()) {
-                        xml = new XMLUtil();
-                        xml.startTag("PersonData");
-                        newPerson.toSeekXML(xml);
-                        newPerson.getPersonNavn().fixChangedName(xml);
-                        xml.endTag("PersonData");
-                        ret = conn.updatePersonByXML(xml.toString());
-                        if (ret < 0) {
-                            log.warn("Problem fixing name-change for " + newPerson.getBrukerId() + ", ret should be > 0, was: "
+		if (ret > 0) {
+		    log.info("Successfully updated person " + 
+			     newPerson.getBrukerId() + " (" + ret + ")");
+		    // give some more info if logger-level is debug
+		    log.debug("DO: " + xml.toString() + " -> " + ret);
+		    // Check if name info must be updated
+		    if(newPerson.getPersonNavn().isChanged()) {
+			xml = new XMLUtil();
+			xml.startTag("PersonData");
+			newPerson.toSeekXML(xml);
+			newPerson.getPersonNavn().fixChangedName(xml);
+			xml.endTag("PersonData");
+			ret = conn.updatePersonByXML(xml.toString());
+			if (ret < 0) {
+			    log.warn("Problem fixing name-change for " + 
+				     newPerson.getBrukerId() + ", ret should be > 0, was: "
 				     + ret + " problematic request:" + xml.toString());
-                        }                       
-                    }
-                }
+			}
+		    }
+		} else {
+                    log.warn("Problem modifying " + newPerson.getBrukerId() + 
+			     ", ret should be > 0, was: " + ret + 
+			     " problematic request:" + xml.toString());
+                } 
             } catch (AxisFault e) {
-                log.warn("DO: " + xml.toString() + " -> " + e.toString());
+                log.warn("Problems updating ephorte. Sent xml: " + xml.toString() + 
+			 " -> " + e.toString());
             }
         } else {
             log.debug(newPerson.getBrukerId() + " not modified");
@@ -224,7 +237,7 @@ public class EphorteGW {
     }
 
     /**
-     * Try to match the person from the XML person with an existing ePhorte
+     * Try to match the person from XML (newPerson) with an existing ePhorte
      * person. Note that we also check any previous feide IDs the XML-person
      * might have had, as this should result in a change of username.
      * 
@@ -232,12 +245,16 @@ public class EphorteGW {
      * @return
      */
     private Person getPerson(Person newPerson) {
+	// brukerId2Person are persons from ePhorte
 	Person ret = brukerId2Person.get(newPerson.getBrukerId());
 	if(ret != null) return ret;
+	// Didn't find person in brukerId2Person. Check potentialFeideIds
     	for (String feideId : newPerson.getPotentialFeideIds()) {
 	    ret = brukerId2Person.get(feideId);
 	    if(ret != null) return ret;
 	}
+	// Didn't find person in potentialFeideIds either. Check if
+	// another PersonObject has the same initialer (aka user name)
         for(Person p: brukerId2Person.values()){
             String oldInit = null;
             if(p.getPersonNavn() != null) oldInit = p.getPersonNavn().getInitialer(); 
@@ -258,17 +275,17 @@ public class EphorteGW {
         }
         for (PersonRolle pr : p.getRoller()) {
             if (oldPerson.isNew() || !oldPerson.getRoller().contains(pr)) {
-                log.debug("  add: " + pr);
+                log.debug("Add role: " + pr);
                 pr.toXML(xml);
                 isDirty = true;
             } else {
-                log.debug("  already has: " + pr);
+                log.debug("Person already has role: " + pr);
                 oldPerson.getRoller().remove(pr);
             }
         }
         if (!oldPerson.isNew()) {
             for (PersonRolle pr : oldPerson.getRoller()) {
-                log.debug("  remove: " + pr);
+                log.debug("Remove role: " + pr);
                 pr.setTilDato(new Date());
                 pr.toDeleteXML(xml);
                 isDirty = true;
