@@ -25,7 +25,7 @@ import locale
 locale.setlocale(locale.LC_ALL,'nb_NO')
 
 
-class ImportError(Exception):
+class BDBImportError(Exception):
     pass
 
 """
@@ -825,7 +825,7 @@ class BDBSync:
             except Errors.NotFoundError,e:
                 print "blapp"
                 if not add_missing:
-                    raise ImportError('No person for account %s (BDB-id %s)' %
+                    raise BDBImportError('No person for account %s (BDB-id %s)' %
                                       (account_info['name'], account_info['person']))
                     
                 bdb_person = self.bdb.get_persons(bdbid=account_info['person'])
@@ -834,7 +834,7 @@ class BDBSync:
                 try:
                     person.find_by_external_id(bdb_person_type,account_info['person'],bdb_source_type)
                 except Errors.NotFoundError,e:
-                    raise ImportError('Failed syncronizing person for account %s (BDB-id %s)' %
+                    raise BDBImportError('Failed syncronizing person for account %s (BDB-id %s)' %
                                       (account_info['name'], account_info['person']))
             else:
                 logger.info("Wrote bdb-person with id %s" %
