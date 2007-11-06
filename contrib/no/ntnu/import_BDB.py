@@ -24,6 +24,10 @@ import traceback
 import locale
 locale.setlocale(locale.LC_ALL,'nb_NO')
 
+
+class ImportError(Exception):
+    pass
+
 """
 Import orgunits,persons and accounts from NTNUs old UserAdministrative System.
 """
@@ -819,11 +823,19 @@ class BDBSync:
                                            account_info['person'],bdb_source_type)
                 logger.debug('Found person for account %s' % account_info['name'])
             except Errors.NotFoundError,e:
-                if not add_missing: raise e
+                print "blapp"
+                if not add_missing:
+                    raise ImportError('No person for account %s (BDB-id %s)' %
+                                      (account_info['name'], account_info['person']))
+                    
                 bdb_person = self.bdb.get_persons(bdbid=account_info['person'])
                 self._sync_person(bdb_person[0])
                 person.clear()
-                person.find_by_external_id(bdb_person_type,account_info['person'],bdb_source_type)
+                try:
+                    person.find_by_external_id(bdb_person_type,account_info['person'],bdb_source_type)
+                except Errors.NotFoundError,e:
+                    raise ImportError('Failed syncronizing person for account %s (BDB-id %s)' %
+                                      (account_info['name'], account_info['person']))
             else:
                 logger.info("Wrote bdb-person with id %s" %
                             account_info['person'])
