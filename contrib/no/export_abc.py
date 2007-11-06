@@ -302,6 +302,56 @@ def prepare_ue():
 # end prepare_ue
 
 
+def fetch_external_ids(db_person):
+    """Fetch all external-ids for everyone, respecting SYSTEM_LOOKUP_ORDER.
+
+    If a person has several external-ids of the same type but coming from
+    different source systems, the one with the 'more important' source system
+    will be used. 'more important' refers to the placement in
+    SYSTEM_LOOKUP_ORDER: more important systems come earlier in that sequence.
+
+    @type db_person: an instance of Factory.get('Person')(db)
+    @type constants: an instance of Factory.get('Constants')(db)
+    @rtype: dict
+    @return:
+      Returns a dictionary D1 mapping entity_id (for people) to D2. Each D2 is
+      a dictionary mapping external id type to its value. 
+    """
+
+    # First, we assign weights to all source systems. The greater the number,
+    # the less important the system. 'None' is also included, to help deal
+    # with non-existing entries. Any source_system is more important than
+    # None.
+    system_weights = dict()
+    for counter, system in enumerate([int(getattr(constants, s))
+                                      for s in cereconf.SYSTEM_LOOKUP_ORDER]):
+        system_weights[system] = counter
+    unknown_weight = counter+1
+    system_weights[None] = unknown_weight+1
+
+    tmp = dict()
+    seq = db_person.list_external_ids(entity_type=constants.entity_person)
+    for entity_id, id_type, source, external_id in seq:
+        entity_id, id_type, source = map(int, (entity_id, id_type, source))
+
+        e_dict = tmp.get(entity_id, dict())
+        old_source, old_ext_id = e_dict.get(id_type, (None, None))
+        # if the source system for this id is more important, take it
+        if (system_weights.get(source, unknown_weight) <
+            system_weights.get(old_source, unknown_weight)):
+            e_dict[id_type] = (source, external_id)
+        tmp[entity_id] = e_dict
+
+    # stage 2 -- remove the source system from all the values. We do not need
+    # the source system anymore.
+    for e_dict in tmp.itervalues():
+        for key, value in e_dict.iteritems():
+            e_dict[key] = value[1] # strip away the source system
+
+    return tmp
+# end fetch_external_ids
+
+
 
 def cache_person_info(db_person, db_account):
     """Fetch all person info for all people for this export.
@@ -320,16 +370,15 @@ def cache_person_info(db_person, db_account):
     logger.debug("person-id -> names")
 
     person_id2names = db_person.getdict_persons_names(
+        source_system=constants.system_cached,
         name_types=(constants.name_full, constants.name_last,
                     constants.name_first, constants.name_work_title))
 
     logger.debug("person-id -> external ids")
-    seq = db_person.list_external_ids(entity_type=constants.entity_person)
-    tmp = dict()
-    for entity_id, id_type, junk, external_id in seq:
-        key = int(entity_id)
-        tmp.setdefault(key, dict())[int(id_type)] = external_id
-    person_id2external_ids = tmp
+    # IVR 2007-11-06: We cannot blindly grab external ids, since there may be
+    # several of them. The only sensible thing to do is to respect
+    # SYSTEM_LOOKUP_ORDER.
+    person_id2external_ids = fetch_external_ids(db_person)
 
     logger.debug("fnr -> primary uname")
     fnr2uname = db_person.getdict_external_id2primary_account(
@@ -371,7 +420,7 @@ def output_people():
 
         name_collection = dict()
         # We have to delay person output, until we are sure that a few key
-        # attributes are present
+        # attributes are present.
         names = person_id2name.get(id, {})
         for tmp, xml_name in ((constants.name_full, "fn"),
                               (constants.name_last, "family"),
