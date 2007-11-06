@@ -2,12 +2,6 @@ package no.uio.ephorte.connection;
 
 import java.net.MalformedURLException;
 import java.rmi.RemoteException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
 import java.util.Hashtable;
 import java.util.Properties;
 import java.util.Vector;
@@ -70,29 +64,31 @@ public class EphorteConnectionImpl extends EphorteConnection {
      * @param criteriaCollectionString
      * @param tagName
      * @return
-     * @throws RemoteException
+     * @throws RemoteException, TooManyRecordsException
      */
     public Vector<Hashtable<String, String>> getDataSet(String criteriaCollectionString,
-            String tagName) throws RemoteException {
+							String tagName) 
+	throws RemoteException, TooManyRecordsException 
+    {
         Vector<Hashtable<String, String>> ret = new Vector<Hashtable<String, String>>();
         GetDataSetResponseGetDataSetResult res = service.getDataSet(sessionID,
                 criteriaCollectionString+";MaxRecords=30000");  
-        /* MaxRecords was a guess based on 
-         * C:\Program Files\ePhorteWeb\shared\WebServices\DataSamples\ASP\ExtCust.asp */
+        /* 
+	 * IMPORTANT! Don't set MaxRecords any lower than 30000, until
+	 * the code can handle partial results from the web service.
+         */
         for (MessageElement me : res.get_any()) {
-	    /* TODO: This hack should not run in a production system. 
+	    /* TODO: This hack should not run in a production system.
 	     *       For now MaxRecords and AbsoluteMaxRecords will be
 	     *       set to values large enough to avoid this
-	     *       situation, but this code must be more robust.
+	     *       situation, but this code must handle partial
+	     *       results sooner or later..
 	     */
             NodeList nl = me.getElementsByTagName("PartialResult");
             for (int i = 0; i < nl.getLength(); i++) {
-                Node node = nl.item(i);
+                Node node = nl.item(i);		
                 if ("true".equals(node.getFirstChild().getNodeValue())) {
-                    log.warn("WebService returned partial result.  Using JDBC hack");
-                    ret = queryDatabase(criteriaCollectionString.substring(criteriaCollectionString.indexOf('=') + 1));
-                    log.info("getDataSet("+criteriaCollectionString+") found "+ret.size()+" entries (using JDBC)");
-                    return ret;
+		    throw new TooManyRecordsException("WebService returned partial result. Giving up! ("+nl.getLength()+" records)");
                 }
             }
             nl = me.getElementsByTagName(tagName);
@@ -111,49 +107,9 @@ public class EphorteConnectionImpl extends EphorteConnection {
                 entry = new Hashtable<String, String>();
             }
         }
-        log.info("getDataSet("+criteriaCollectionString+") found "+ret.size()+" entries (using WebService)");
+        log.info("getDataSet("+criteriaCollectionString+") found " + 
+		 ret.size() + " entries (using WebService)");
         return ret;
-    }
-
-    private Vector<Hashtable<String, String>> queryDatabase(String table) {
-        Vector<Hashtable<String, String>> ret = new Vector<Hashtable<String, String>>();
-	log.debug("Try to connect to db (using JDBC)");
-        try {
-            Class.forName(props.getProperty("db_driver"));
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-            return null;
-        }
-        try {
-            Connection conn = DriverManager.getConnection(props.getProperty("db_url"), props
-                    .getProperty("db_user"), props.getProperty("db_password"));
-            PreparedStatement qry = conn.prepareStatement("SELECT * FROM " + table);
-            ResultSet rs = qry.executeQuery();
-            ResultSetMetaData meta = rs.getMetaData();
-            String[] cols = new String[meta.getColumnCount()];
-            for (int n = 1; n <= meta.getColumnCount(); n++) {
-                cols[n - 1] = meta.getColumnName(n);
-            }
-
-            while (rs.next()) {
-                Hashtable<String, String> entry = new Hashtable<String, String>();
-                for (int n = 0; n < cols.length; n++) {
-                    String tmp = rs.getString(cols[n]);
-                    if (tmp != null) {
-                        entry.put(cols[n], tmp);
-                    }
-                }
-                ret.add(entry);
-            }
-
-            rs.close();
-            qry.close();
-            conn.close();
-            return ret;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 
 }

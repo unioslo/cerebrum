@@ -50,6 +50,8 @@ public class EphorteGW {
             fetchPersons();
         } catch (RemoteException e) {
             e.printStackTrace();
+        } catch (TooManyRecordsException e) {
+            log.error(e.toString());
         }
     }
 
@@ -61,7 +63,7 @@ public class EphorteGW {
      * manuelt basert på kjennskap til fremmednøkler i datamodellen.
      * 
      */
-    private void fetchPersons() throws RemoteException {
+private void fetchPersons() throws RemoteException, TooManyRecordsException {
         /*
          * Følgende er eksempler på datastrukturer returnert med ePhortes
          * GetDataSet metode der criteriaCollectionString er angitt f.eks som
@@ -206,8 +208,6 @@ public class EphorteGW {
 		if (ret > 0) {
 		    log.info("Successfully updated person " + 
 			     newPerson.getBrukerId() + " (" + ret + ")");
-		    // give some more info if logger-level is debug
-		    log.debug("DO: " + xml.toString() + " -> " + ret);
 		    // Check if name info must be updated
 		    if(newPerson.getPersonNavn().isChanged()) {
 			xml = new XMLUtil();
@@ -230,7 +230,7 @@ public class EphorteGW {
             } catch (AxisFault e) {
                 log.warn("Problems updating ephorte. Sent xml: " + xml.toString() + 
 			 " -> " + e.toString());
-            }
+	    }
         } else {
             log.debug(newPerson.getBrukerId() + " not modified");
         }

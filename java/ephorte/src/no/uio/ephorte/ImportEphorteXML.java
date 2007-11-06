@@ -11,6 +11,7 @@ import java.util.Vector;
 import javax.xml.parsers.ParserConfigurationException;
 
 import no.uio.ephorte.connection.EphorteGW;
+import no.uio.ephorte.connection.TooManyRecordsException;
 import no.uio.ephorte.data.Person;
 import no.uio.ephorte.xml.CustomXMLParser;
 
@@ -84,7 +85,12 @@ public class ImportEphorteXML {
     private void dumpTable(String table, String tag) throws RemoteException {
         // Example: -d pernavn -t PerNavn
         Vector<String> keys = new Vector<String>();
-        Vector<Hashtable<String, String>> tmp = ephorteGW.getConn().getDataSet("object="+table, tag);
+	Vector<Hashtable<String, String>> tmp = new Vector<Hashtable<String, String>>();
+	try {
+	    tmp = ephorteGW.getConn().getDataSet("object="+table, tag);
+	} catch (TooManyRecordsException e) {
+	    log.error(e.toString());
+	}
         for (Hashtable<String, String> ht : tmp) {
             for ( Enumeration<String> e = ht.keys(); e.hasMoreElements() ;) {
                 String n = e.nextElement();
