@@ -31,39 +31,33 @@ def delete_person(entity,cascade=False):
     except Errors.NotFoundError:
         print "Person with entity %s not found. Exiting.." % entity
         sys.exit(0)
-    try:
+    if cascade:
+        # Remove traits
+        for t in person.get_traits():
+            person.delete_trait(t)
+            person.write_db()
+        # Remote spreads
+        for s in person.get_spread():
+            person.delete_spread(s)
+            person.write_db()
+        # Remove address
+        for ea in person.get_entity_address():
+            continue
+            #person.delete_entity_address(ea.get('source_type'), ea.get('a_type'))
+            #person.write_db()
+        # Remove all affiliations
+        for a in person.get_affiliations():
+            ou = a.get('ou_id')
+            affiliation = a.get('affiliation')
+            source = a.get('source_system')
+            person.delete_affiliation(ou_id, affiliation, source)
+            person.write_db()
+        # Remove contact info
+        for c in person.get_contact_info():
+            continue
+            #person.delete_contact_info(source, type, pref='ALL')
+            #person.write_db()
         person.delete()
-    except db.IntegrityError,ie:
-        if cascade:
-            # Remove traits
-            for t in person.get_traits():
-                person.delete_trait(t)
-                person.write_db()
-            # Remote spreads
-            for s in person.get_spread():
-                person.delete_spread(s)
-                person.write_db()
-            # Remove address
-            for ea in person.get_entity_address():
-                continue
-                #person.delete_entity_address(ea.get('source_type'), ea.get('a_type'))
-                #person.write_db()
-            # Remove all affiliations
-            for a in person.get_affiliations():
-                ou = a.get('ou_id')
-                affiliation = a.get('affiliation')
-                source = a.get('source_system')
-                person.delete_affiliation(ou_id, affiliation, source)
-                person.write_db()
-            # Remove contact info
-            for c in person.get_contact_info():
-                continue
-                #person.delete_contact_info(source, type, pref='ALL')
-                #person.write_db()
-        else:
-            print "Unable to delete person. Reason: %s" % str(ie)
-            print "Run once more with cascade enabled"
-            raise ie
 
 def usage():
     print "RTFC"
@@ -85,11 +79,14 @@ def main():
             entity = val
             try:
                 delete_person(entity,cascade)
-            except:
+            except Exception, e:
                 db.rollback()
-
-            if dryrun:
-                db.rollback()
+		print e
+	    else:
+                if dryrun:
+                    db.rollback()
+                else:
+                    db.commit()
 
 if __name__ == '__main__':
     main()
