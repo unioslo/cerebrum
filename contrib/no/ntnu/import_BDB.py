@@ -897,7 +897,8 @@ class BDBSync:
 
         
         expire_date = account_info.get('expire_date',None)
-        expire_date = mx.DateTime.strptime(expire_date, "%Y-%m-%d")
+        if expire_date:
+            expire_date = mx.DateTime.strptime(expire_date, "%Y-%m-%d")
         if ac.expire_date != expire_date:
             ac.expire_date = expire_date
             ac.write_db()
