@@ -326,6 +326,8 @@ def fetch_external_ids(db_person):
     for counter, system in enumerate([int(getattr(constants, s))
                                       for s in cereconf.SYSTEM_LOOKUP_ORDER]):
         system_weights[system] = counter
+    # If an id is registered to some now-unknown system (like migrate), it is
+    # less important than the "official" systems.
     unknown_weight = counter+1
     system_weights[None] = unknown_weight+1
 
