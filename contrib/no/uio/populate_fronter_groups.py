@@ -21,85 +21,273 @@
 
 """Populer Cerebrum med FS-avledede grupper.
 
-Disse gruppene blir så brukt ved eksport av data til ClassFronter.
+Disse gruppene blir bl.a. brukt ved eksport av data til ClassFronter, og ved
+populering av visse NIS (Ifi).
 
- Navngiving:
-   Gruppene er organisert i en tre-struktur.  Øverst finnes en
-   supergruppe; denne brukes for å holde orden på hvilke grupper som
-   er automatisk opprettet av dette scriptet, og dermed hvilke grupper
-   som skal slettes i det dataene de bygger på ikke lenger finnes i
-   FS.  Supergruppen har navnet
+Først litt terminologi:
 
-     internal:uio.no:fs:{supergroup}
+  - Studieprogram: et studium som normalt leder frem til en grad. Bygges opp
+                   ved emner.
+  - Emne: den enheten som er byggesteinen i alle studium. Har en omfang, og
+          normalt en eller annen form for avsluttende evaluering.
+  - Undervisningsenhet (undenh): en instansiering av et emne.
+  - Undervisningsaktivitet (undakt): en serie aktivitet knyttet til en
+                                     undenh. F.eks. en forelesningsrekke, et
+                                     labparti, en serie regneøvinger. Kan også
+                                     være en enkel aktivitet.
+  - Kurs (evu): Samsvarer med undenh, men er for etter- og videreutdanning
+  - Kursaktivitet: Samsvarer med undakt, men er for etter- og videreutdanning
+  - Kull: Årsklasse av et studieprogram.
 
-   Denne supergruppen har så medlemmer som også er grupper.
-   Medlemsgruppene har navn på følgende format:
+Gruppene er organisert i en tre-struktur.  Øverst finnes en supergruppe; denne
+brukes for å holde orden på hvilke grupper som er automatisk opprettet av
+dette scriptet, og dermed hvilke grupper som skal slettes i det dataene de
+bygger på ikke lenger finnes i FS.  Supergruppen har navnet::
 
-     internal:uio.no:kurs:<emnekode>
-     internal:uio.no:evu:<kurskode>
+  internal:uio.no:fs:{supergroup}
 
-   Hver av disse "kurs-supergruppene" har medlemmer som er grupper med
-   navn på følgende format:
+Denne supergruppen har så medlemmer som også er grupper.
+Medlemsgruppene har navn på følgende format::
 
-     internal:uio.no:fs:kurs:<institusjonsnr>:<emnekode>:<versjon>:<sem>:<år>
-     internal:uio.no:fs:evu:<kurskode>:<tidsangivelse>
+  internal:uio.no:kurs:<emnekode>
+  internal:uio.no:evu:<kurskode>
+  internal:uio.no:kull:<studieprogram>
 
-   Det er disse "undervisningsenhet"-gruppene som brukes til å markere
-   eksport til ClassFronter (ved at de tildeles passende spread).
+Hver av disse 'enhet-supergruppene' har medlemmer som er grupper med navn på
+følgende format::
 
-   Merk at en undervisningsenhetsgruppe ikke er *helt* ekvivalent med
-   begrepet undervisningsenhet slik det brukes i FS.  Gruppen
-   representerer semesteret et gitt kurs startet i (terminnr == 1).
-   For kurs som strekker seg over mer enn ett semester vil det derfor
-   i FS finnes multiple undervisningsenheter, mens gruppen som
-   representerer kurset vil beholde navnet sitt i hele kurstiden.
+  internal:uio.no:fs:kurs:<institusjonsnr>:<emnekode>:<versjon>:<sem>:<år>
+  internal:uio.no:fs:evu:<kurskode>:<tidsangivelse>
+  internal:uio.no:fs:kull:<studieprogram>:<terminkode>:<aar>
 
-   Undervisningsenhetgruppene har igjen grupper som medlemmer; disse
-   kan deles i to kategorier:
+Merk at for undenh, så er ikke en tilsvarende 'enhet'-gruppe *helt* ekvivalent
+med begrepet undervisningsenhet slik det brukes i FS.  Gruppen representerer
+semesteret et gitt kurs startet i (terminnr == 1).  For kurs som strekker seg
+over mer enn ett semester vil det derfor i FS finnes multiple
+undervisningsenheter, mens gruppen som representerer kurset vil beholde navnet
+sitt i hele kurstiden.
 
-     Grupper (med primærbrukermedlemmer) som brukes ved eksport til
-     ClassFronter, har navn på følgende format:
-   
-       Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar
-       Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar:<aktkode>
-       Alle stud. v/enh:     uio.no:fs:<enhetid>:student
-       Alle stud. v/akt:     uio.no:fs:<enhetid>:student:<aktkode>
+'enhet'-gruppene har igjen grupper som medlemmer; disse kan deles i to
+kategorier:
 
-     Ytterligere grupper hvis medlemmer kun er ikke-primære
-     ("sekundære") konti.  Genereres kun for informatikk-emner, og har
-     navn på formen:
+  - Grupper (med primærbrukermedlemmer) som brukes ved eksport til
+    ClassFronter, har navn på følgende format::
 
-       Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar-sek
-       Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
-       Alle stud. v/enh:     uio.no:fs:<enhetid>:student-sek
+      Rolle ved undenh:     uio.no:fs:<enhetid>:<rolletype>
+      Rolle ved undakt:     uio.no:fs:<enhetid>:<rolletype>:<aktkode>
+      Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar
+      Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar:<aktkode>
+      Alle stud. v/enh:     uio.no:fs:<enhetid>:student
+      Alle stud. v/akt:     uio.no:fs:<enhetid>:student:<aktkode>
 
- I tillegg blir disse nettgruppene laget med spread til Ifi:
+  - Ytterligere grupper hvis medlemmer kun er ikke-primære ('sekundære')
+    konti. Genereres kun for informatikk-emner, og har navn på formen::
+
+      Ansvar und.enh:       uio.no:fs:<enhetid>:enhetsansvar-sek
+      Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
+      Alle stud. v/enh:     uio.no:fs:<enhetid>:student-sek
+
+<rolletype> er en av 11 predefinerte roller (jfr. valid_roles). enhetsansvar
+og aktivitetsansvar-gruppene finnes kun for Ifi, som ønsker sine grupper (for
+NIS) bygget litt annerledes. Alle slike grupper hvor det er meningen det skal
+være accounts, får en passende fronterspread, basert på informasjonen fra
+FS. Det er kun slike grupper, hvis fronterspreads vil ha noe å si (dvs. andre
+grupper kan også få fronterspreads, men generate_fronter_full.py vil ignorere
+dem). 
+
+Poenget med å ha dette nokså kompliserte hierarkiet var å tillate
+DML/Houston/andre å kunne enkelt si at de vil eksportere en bestemt entitet
+til fronter uten å bry seg om gruppene som måtte være generert for denne
+entiteten. Dette er ikke mer nødvendig for undenh/undakt/kurs/kursakt, siden
+de populeres automatisk, men det *er* nødvendig for kull.
+
+Kullgruppene har også grupper som medlemmer; det er en gruppe med studenter,
+samt en gruppe for hver rolle ved kullet::
+
+  Alle stud. på kull:   uio.no:fs:<enhetid>:student
+  Rolle ved kull:       uio.no:fs:<enhetid>:<rolletype>
+
+Siden <enhetid> inneholder gruppetypen (kurs, evu og kull), vil det ikke
+oppstå navnekollisjon forskjellige enhetgrupper imellom.
+
+I tillegg blir disse nettgruppene laget med spread til Ifi::
  
-    Ansvar und.enh:        g<enhetid>-0          (alle konti)
-    Ansvar und.akt:        g<enhetid>-<aktkode>  (alle konti)
-    Ansvar enh. og akt.:   g<enhetid>            (alle konti)
-    Alle stud. v/enh:      s<enhetid>            (alle konti)
-    Alle stud. v/akt:      s<enhetid>-<aktkode>  (primærkonti)
-    Alle stud. kun eks:    s<enhetid>-e          (primærkonti)
-    Alle akt-ansv:         ifi-g                 (alle konti)
-    Alle akt- og enh-ansv: lkurs                 (alle konti)
+  Ansvar und.enh:        g<enhetid>-0          (alle konti)
+  Ansvar und.akt:        g<enhetid>-<aktkode>  (alle konti)
+  Ansvar enh. og akt.:   g<enhetid>            (alle konti)
+  Alle stud. v/enh:      s<enhetid>            (alle konti)
+  Alle stud. v/akt:      s<enhetid>-<aktkode>  (primærkonti)
+  Alle stud. kun eks:    s<enhetid>-e          (primærkonti)
+  Alle akt-ansv:         ifi-g                 (alle konti)
+  Alle akt- og enh-ansv: lkurs                 (alle konti)
 
+Som sagt, populering av disse gruppene er litt annerledes. *Alle* med en eller
+annen rolle til Ifi-kursene havner i 'g'-ansvarlige-gruppene.
 """
 
 import sys
 import getopt
 import re
 import locale
+from itertools import izip, repeat
 
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, latin1_wash
+from Cerebrum.Utils import Factory, latin1_wash, NotSet
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.auth import BofhdAuthRole, BofhdAuthOpTarget
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.access_FS import roles_xml_parser
-from Cerebrum.modules.no.uio.fronter_lib import FronterUtils
+from Cerebrum.modules.no.uio.fronter_lib \
+     import UE2KursID, key2fields, str2key, fields2key
+
+
+
+# IVR 2007-11-08 FIXME: Should this be in fronter_lib?
+# Roles that are considered at all
+valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
+               "GRUPPELÆRE", "HOVEDLÆRER", "IT-ANSVARL", "LÆRER", "SENSOR",
+               "STUDIEKONS")
+# Roles that are inherited by entities located at a certain sko or at a
+# certain stprog.
+recursive_roles = ("ADMIN", "DLO", "IT-ANSVARL", "STUDIEKONS")
+
+
+
+def make_sko(row, suffix=""):
+    """Construct a sko (formatted XXYYZZ) from a db-row.
+
+    suffix is added to the standard names 'faknr', 'instituttnr' and
+    'gruppenr' to extract the proper fields from the db-row instance.
+
+    @param row:
+      A database row with information including the triplet we are looking
+      for.
+    @param row: L{db_row}
+
+    @param suffix:
+      An optional suffix to add to standard names before extracting the
+      corresponding values.
+    @param suffix: basestring.
+    """
+    
+    return "%02d%02d%02d" % tuple(map(int,
+                                      (row["faknr" + suffix],
+                                       row["instituttnr" + suffix],
+                                       row["gruppenr" + suffix])))
+# end make_sko
+
+
+
+def extract_all_roles(enhet_id, roles_mapping, sted, stprog=""):
+    """Return a sequence with accounts whose owners have any roles associated
+    with enhet_id.
+    
+    @param enhet_id:
+      enhet for which all the roles are merged.
+    @type enhet_id: basestring
+
+    @param roles_mapping:
+      cf. L{parse_xml_roles}.
+    @type roles_mapping: dict
+
+    @return:
+      a list with account_ids.
+    @rtype: dict
+    """
+
+    result = list()
+    key = str2key(enhet_id)
+    for coll in (roles_mapping.get(key, dict()),
+                 roles_mapping.get("sted:" + sted, dict()),
+                 roles_mapping.get("stprog:" + stprog, dict())):
+        for role, people in coll.iteritems():
+            for p in people:
+                if p not in result:
+                    result.append(p)
+
+    return result
+# end extract_all_roles
+
+
+
+def process_role(enhet_id, template_id, roles_mapping,
+                 parent_id, description, mtype, auto_spread, sted, stprog=""):
+    """Create additional groups stemming from roles associated with enhet
+    (kurs, kursakt, undenh, undakt) enhet_id.
+
+    @param enhet_id:
+      enhet for which all the roles are to be processed (undenh, undakt,
+      evukurs, evukursakt, kull).
+    @type enhet_id: basestring
+
+    @param template_id:
+      template_id is the template for the names we will generate from
+      L{roles_mapping} for the given enhet_id. This template is a ':'-separated
+      string (much like L{parent_id} or L{enhet_id}), with one 'slot' reserved
+      (that 'slot' is '%s', so that the exact name can be interpolated later).
+
+      The name to interpolate is derived from the role names. That is what we
+      do here.
+    @type template_id: basestring
+
+    @param roles_mapping: mapping from enhet_ids to dicts, where each inner
+      dict maps role types to sequences (e.g. 'FAGLÆRER' -> [s1, s2, ...,
+      sN]). Each s_i is a dict (faking a L{db_row}) with a fnr.
+    @type roles_mapping: dict
+    
+    @param parent_id:
+      parent_id is the group name for the parent of the enhet_id group.
+    @type parent_id: basestring
+
+    @param sted:
+      Sko (stedkode) for the place with which L{enhet_id} is associated. Some
+      roles are assigned to sko, and inherited by every 'entity' associated
+      with that sko.
+    @type sted: basestring
+
+    @param stprog:
+      Studieprogramkode for the place with which L{enhet_id} is
+      associated. Some roles are associated with studieprogramkode, and
+      inherited by every kull associated with that studieprogramkode.
+    @type stprog: basestring
+    
+    description, mtype and auto_spread have the same meaning as in
+    L{sync_group}.
+
+    @return: nothing
+    """
+    stedroller = roles_mapping.get(fields2key("sted", sted), {})
+    stprogroller = roles_mapping.get(fields2key("stprog", stprog), {})
+
+    key = str2key(enhet_id)
+    logger.debug("Locating roles for enhet_id <<%s>> (description template: %s). "
+                 "template is %s; key is %s", enhet_id, description,
+                 template_id, key)
+    if ((key not in roles_mapping) and
+        (not stedroller) and
+        (not stprogroller)):
+        logger.debug("No roles for enhet %s found", enhet_id)
+        return
+
+    my_roles = roles_mapping.get(key, {})
+    for role in valid_roles:
+        stedr = stedroller.get(role, list())
+        stprogr = stprogroller.get(role, list())
+        people = (my_roles.get(role, list()) + stedr + stprogr)
+        if not people:
+            continue
+
+        group_name = str2key(template_id % role)
+        fnrs = dict(izip(dbrows2account_ids(people), repeat(1)))
+        logger.debug("Registering %d people with role %s for %s (%s sted; %s stprog)",
+                     len(fnrs), role, enhet_id, len(stedr), len(stprog))
+        sync_group(parent_id, group_name, description % role, mtype, fnrs, 
+                   auto_spread=auto_spread)
+# end process_role
+
+
 
 def ordered_uniq(input):
     """Take a list as input and remove (later) duplicates without
@@ -109,6 +297,9 @@ def ordered_uniq(input):
         if el not in output:
             output.append(el)
     return output
+# end ordered_uniq
+
+
 
 def prefetch_primaryusers():
     global fnr2account_id, fnr2stud_account_id
@@ -164,16 +355,28 @@ def prefetch_primaryusers():
     fnr2stud_account_id = fnr2account_id
     del fnr_source
 
-def fnrs2account_ids(rows, primary_only=True, prefer_student=False):
+
+
+def dbrows2account_ids(rows, primary_only=True, prefer_student=False):
     """Return list of primary accounts for the persons identified by
     row(s).  Optionally return a tuple of (primaries, secondaries)
     instead.  The secondaries are a single list, so when more than one
     row is passed, you can't tell which person owns them."""
+    def fnr_generator():
+        for row in rows:
+            yield "%06d%05d" % (int(row['fodselsdato']), int(row['personnr']))
+    # end fnr_generator
+    
+    return fnrs2account_ids(fnr_generator(), primary_only, prefer_student)
+# end dbrows2account_ids
+
+
+
+def fnrs2account_ids(seq, primary_only=True, prefer_student=False):
+    """Just like L{dbrows2account_ids}, except operate on seqs of fnrs.""" 
     prim = []
     sec = []
-    for r in rows:
-        fnr = "%06d%05d" % (
-            int(r['fodselsdato']), int(r['personnr']))
+    for fnr in seq:
         if fnr2account_id.has_key(fnr):
             if prefer_student:
                 account_list = fnr2stud_account_id[fnr]
@@ -186,59 +389,75 @@ def fnrs2account_ids(rows, primary_only=True, prefer_student=False):
         return prim
     else:
         return (prim, sec)
+# end fnrs2account_ids    
+    
+
 
 def process_kursdata(role_mapping):
     logger.debug("Getting all primaryusers")
     prefetch_primaryusers()
     logger.debug(" ... done")
-    get_undervisningsenheter()    # Utvider UndervEnhet med mer data
+    get_undervisningsenheter()    # extends UndervEnhet with more data
     get_undervisningsaktiviteter()
-    get_evukurs_aktiviteter(role_mapping)
-    # logger.debug(UndervEnhet)
+    get_evukurs_aktiviteter()
+    get_kull()
 
     for k in UndervEnhet.keys():
-        # Legger inn brukere i gruppene på nivå 3.
+        # Add users to level-3 groups.
         #
-        # $enhet er her enten en undervisningsenhet (starter med "kurs:")
-        # eller en EVU-enhet (starter med "evu:"); vi overlater til
-        # populate_enhet_groups å behandle forskjellige type enheter på
-        # passende vis.
+        # $enhet here is either an undenh (starting with "kurs:"), or a
+        # EVU-kurs (starting with "evu:") or kull (starting with "kull:");
+        # populate_enhet_groups decides on its own how to process these 3
+        # types.
         populate_enhet_groups(k, role_mapping)
 
-    # Nettgrupper for Ifi med data på tvers av enheter
+    # netgroups for Ifi
     populate_ifi_groups()
 
-    # Oppdaterer gruppene på nivå 2.
+    # fixup level-2 groups.
     #
-    # Må skille mellom EVU-kurs og vanlige kurs da identifikatorene deres
-    # har forskjellig antall felter i $kurs_id.
-    #
+    # We have to distinguish between undenh, EVU-kurs and kull, since their
+    # IDs have a different number of fields.
     logger.info("Oppdaterer enhets-supergrupper:")
     for kurs_id in AffiliatedGroups.keys():
         if kurs_id == auto_supergroup:
             continue
-        rest = kurs_id.split(":")
-        type = rest.pop(0).lower()
+
+        rest = key2fields(kurs_id)
+        type = rest.pop(0)
         if type == 'kurs':
             instnr, emnekode, versjon, termk, aar = rest
             sync_group("%s:%s" % (type, emnekode), kurs_id,
                        "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"+
                        " data om kurset <%s> skal eksporteres." % kurs_id,
                        co.entity_group,
-                       AffiliatedGroups[kurs_id])
+                       AffiliatedGroups[kurs_id],
+                       auto_spread=False)
         elif type == 'evu':
             kurskode, tidsrom = rest
+            logger.debug("Kursid: %s; rest: %s", kurs_id, rest)
             sync_group("%s:%s" % (type, kurskode), kurs_id,
                        "Ikke-eksporterbar gruppe.  Brukes for å definere hvor"+
                        " data om emnet <%s> skal eksporteres. " % kurs_id,
                        co.entity_group,
-                       AffiliatedGroups[kurs_id])
+                       AffiliatedGroups[kurs_id],
+                       auto_spread=False)
+        elif type == 'kull':
+            stprog, termkode, aar = rest
+            sync_group("%s:%s" % (type, stprog), kurs_id,
+                       "Ikke-eksporterbar gruppe. Brukes for å definere hvor"
+                       " data om kullet <%s> skal eksporteres." % kurs_id,
+                       co.entity_group,
+                       AffiliatedGroups[kurs_id],
+                       # NotSet, since we do NOT want to change whichever
+                       # fronter spreads this kull already has.
+                       auto_spread=NotSet)
         else:
-            logger.warn("Ukjent kurstype <%s> for kurs <%s>" % (type, k))
+            logger.warn("Ukjent kurstype <%s> for kurs <%s>" % (type, kurs_id))
 
-        # Kallene på sync_group legger inn nye entries i
-        # %AffiliatedGroups; ting blir mye greiere å holde rede på om vi
-        # fjerner "våre" nøkler derfra så snart vi er ferdige.
+        # sync_group calls insert new entries into AffiliatedGroups; if we
+        # remove "our" keys from that dict as soon as we are done, working
+        # with AffiliatedGroups gets easier later.
         del AffiliatedGroups[kurs_id]
     logger.info(" ... done")
 
@@ -258,16 +477,11 @@ def process_kursdata(role_mapping):
                    co.entity_group, AffiliatedGroups[gname]);
     logger.info(" ... done")
 
-
-    #
-    # Alle emnekode-supergrupper skal meldes inn i en supergruppe
-    # spesifikk for denne importmekanismen.
-    #
-    # På denne måten holdes det oversikt over hvilke grupper som er
-    # automatisk opprettet på bakgrunn av import fra FS.  Uten en slik
-    # oversikt vil man ikke kunne foreta automatisk sletting av grupper
-    # tilhørende "utgåtte" undervisningsenheter og -aktiviteter.
-
+    # All supergroups (i.e. containers for other groups) must be members of
+    # auto_supergroup, specific to this import. This makes it easier to track
+    # down groups automatically created by this import. Without such a
+    # mechanism it would be impossible to automatically delete groups that
+    # have been created earlier and that are not longer meaningful.
     logger.info("Oppdaterer supergruppe for alle ekstra grupper")
     sync_group(None, auto_supergroup,
                "Ikke-eksporterbar gruppe.  Definerer hvilke andre "+
@@ -284,89 +498,215 @@ def process_kursdata(role_mapping):
                co.entity_group,
                AffiliatedGroups[fs_supergroup])
     logger.info(" ... done")
+# process_kursdata
 
 
 
-## send_mail("\n$warn_msg",
-##        sender => 'ureg2000-core@usit.uio.no',
-##        recips => [ split(m/\s+/, $warn_addr) ],
-##        subject => 'Bygging av ureg2000-grupper fra FS-data',
-##        dryrun => $dryrun,
-##        dryrun_output => '>&STDOUT')
-##   if $warn_msg;
+def destined_for_lms(entity):
+    """Decide if entity gets fronter spreads.
 
-## $u2k.commit() unless $dryrun;
+    Several entities from which we create the groups in Cerebrum have an
+    attribute controlling the entities' export to Fronter.
+
+
+    @param entity:
+      Entity (undenh, undakt, evukurs, evuakt, kull) in question
+    @type entity: L{db_row}.
+
+    @return:
+      True, if entity is to receive all fronter spreads, False otherwise.
+    @rtype: bool
+    """
+
+    return entity["status_eksport_lms"] == 'J'
+# end destined_for_lms
+
+
+
+def get_kull():
+    for kull in fs.info.list_kull():
+        stprog, termkode, aar = (kull["studieprogramkode"],
+                                 kull["terminkode"],
+                                 kull["arstall"])
+        enhet_id = fields2key("kull", stprog, termkode, aar)
+        if enhet_id in UndervEnhet:
+            raise ValueError, "Duplikat undervisningsenhet: <%s>" % enhet_id
+
+        # In general, we do not change the spreads for 'kull' groups, since
+        # they are administered manually. NotSet will accomplish just that.
+        UndervEnhet[enhet_id] = {"fronter_spreads": NotSet,
+                                 "sted": make_sko(kull, suffix="_studieansv"),
+                                 "stprog": fields2key(stprog),}
+        UndervEnhet[enhet_id]['kullnavn'] = kull["studiekullnavn"]
+        UndervEnhet[enhet_id]['students'] = dict()
+
+        for student in dbrows2account_ids(
+            fs.undervisning.list_studenter_kull(stprog, termkode, aar),
+            prefer_student=True):
+            UndervEnhet[enhet_id]['students'][student] = 1
+
+        logger.debug("kull <%s> med %d studenter", enhet_id,
+                     len(UndervEnhet[enhet_id]['students']))
+# end get_kull
+
+
 
 def get_undervisningsenheter():
-    # TODO: Dumpe alle unervisningsenheter til fil
+    # IVR 2007-09-15 The point of this caching magic is to reduce the number
+    # of calls to FS. The price is around 80MB of memory. The cache does not
+    # survive this function call.
+    logger.debug("Preloading all undenh students")
+    undenh = dict()
+    for row in fs.undervisning.list_studenter_alle_undenh():
+        key = fields2key("kurs", row["institusjonsnr"], row["emnekode"],
+                         row["versjonskode"], row["terminkode"],
+                         # NB! int because of DCOracle2-float stupidity
+                         row["arstall"], int(row["terminnr"]))
+        fnr = "%06d%05d" % (row["fodselsdato"], row["personnr"])
+        undenh.setdefault(key, list()).append(fnr)
+    logger.debug("... done")
+
     for enhet in fs.undervisning.list_undervisningenheter():
-        # Prefikser alle nøkler i %UndervEnhet som stammer fra
-        # undervisningsenheter med "kurs:".
-        enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
-            enhet['institusjonsnr'], enhet['emnekode'],
-            enhet['versjonskode'], enhet['terminkode'],
-            enhet['arstall'], enhet['terminnr'])
+        enhet_id = fields2key("kurs", enhet['institusjonsnr'],
+                              enhet['emnekode'], enhet['versjonskode'],
+                              enhet['terminkode'], enhet['arstall'],
+                              enhet['terminnr'])
         if UndervEnhet.has_key(enhet_id):
             raise ValueError, "Duplikat undervisningsenhet: <%s>" % enhet_id
-        UndervEnhet[enhet_id] = {'aktivitet': {}}
-        multi_id = ":".join([str(x).lower() for x in
-                             (enhet['institusjonsnr'], enhet['emnekode'],
-                              enhet['terminkode'], enhet['arstall'])])
+
+        primary, secondary = fnrs2account_ids(undenh.get(enhet_id, ()),
+                                              primary_only=False,
+                                              prefer_student=True)
+        UndervEnhet[enhet_id] = {'aktivitet': {},
+                                 'fronter_spreads': destined_for_lms(enhet),
+                                 'sted': make_sko(enhet, suffix="_kontroll"),
+                                 'students': (primary, secondary)}
+        multi_id = fields2key(enhet['institusjonsnr'], enhet['emnekode'],
+                              enhet['terminkode'], enhet['arstall'])
         # Finnes det flere enn en undervisningsenhet tilknyttet denne
         # emnekoden i inneværende semester?
-        emne_versjon.setdefault(multi_id, {})[enhet['versjonskode']] = 1
-        emne_termnr.setdefault(multi_id, {})[enhet['terminnr']] = 1
+        emne_versjon.setdefault(multi_id,
+                                {})[fields2key(enhet['versjonskode'])] = 1
+        emne_termnr.setdefault(multi_id,
+                               {})[fields2key(enhet['terminnr'])] = 1
+        logger.debug("undenh <%s> med multi-id <%s>, %d/%d student(er) (CF: %s)",
+                     enhet_id, multi_id,
+                     len(UndervEnhet[enhet_id]["students"][0]),
+                     len(UndervEnhet[enhet_id]["students"][1]),
+                     UndervEnhet[enhet_id]['fronter_spreads'])
+
+    del undenh
+# end get_undervisningsenheter
+
+
 
 def get_undervisningsaktiviteter():
+    #
+    # Same caching story as with get_undervisningsenheter
+    logger.debug("Preloading all undakt students")
+    undakt = dict()
+    for row in fs.undervisning.list_studenter_alle_undakt():
+        key = fields2key("kurs",
+                         *[row[x] for x in ("institusjonsnr", "emnekode",
+                                            "versjonskode", "terminkode",
+                                            "arstall", "terminnr",
+                                            "aktivitetkode")])
+        fnr = "%06d%05d" % (row["fodselsdato"], row["personnr"])
+        undakt.setdefault(key, list()).append(fnr)
+    logger.debug("... done")
+    
     for akt in fs.undervisning.list_aktiviteter():
-        enhet_id = "kurs:%s:%s:%s:%s:%s:%s" % (
-            akt['institusjonsnr'], akt['emnekode'],
-            akt['versjonskode'], akt['terminkode'],
-            akt['arstall'], akt['terminnr'])
+        enhet_id = fields2key("kurs", akt['institusjonsnr'], akt['emnekode'],
+                              akt['versjonskode'], akt['terminkode'],
+                              akt['arstall'], akt['terminnr'])
+        aktkode = fields2key(akt["aktivitetkode"])
         if not UndervEnhet.has_key(enhet_id):
-            raise ValueError, "Ikke-eksisterende enhet <%s> har aktiviteter" %\
-                  enhet_id
-        if UndervEnhet[enhet_id]['aktivitet'].has_key(akt['aktivitetkode']):
+            logger.error("Ikke-eksisterende enhet <%s> har aktiviteter "
+                         "(aktkode %s)", enhet_id, aktkode)
+            continue
+                         
+        if aktkode in UndervEnhet[enhet_id]['aktivitet']:
             raise ValueError, "Duplikat undervisningsaktivitet <%s:%s>" % (
-                enhet_id, akt['aktivitetkode'])
-        UndervEnhet[enhet_id][
-            'aktivitet'][akt['aktivitetkode']] = akt['aktivitetsnavn']
+                enhet_id, aktkode)
 
-def get_evukurs_aktiviteter(role_mapping):
+        # Fetch the students from cache, and remap to account-ids. This has to
+        # be a dict(), since sync_group expects a dict-like interface.
+        tmp = dict()
+        cache_key = fields2key(enhet_id, aktkode)
+        for account_id in fnrs2account_ids(undakt.get(cache_key, ()),
+                                           prefer_student=True):
+            tmp[account_id] = 1
+        UndervEnhet[enhet_id][
+            'aktivitet'][aktkode] = {'aktivitetsnavn': akt['aktivitetsnavn'],
+                                     'fronter_spreads': destined_for_lms(akt),
+                                     'sted': make_sko(akt, suffix="_kontroll"),
+                                     'students': tmp}
+        logger.debug("undakt <%s> for undenh <%s>; %d student(er) (CF: %s)",
+                     aktkode, enhet_id, len(tmp),
+                     destined_for_lms(akt))
+
+    # This is a pretty big dict, so, help GC get rid of this immediately. 
+    del undakt
+# end get_undervisningsaktiviteter
+
+
+
+def get_evukurs_aktiviteter():
+    # Same caching story as with get_undervisningsenheter
+    kursakt = dict()
+    logger.debug("Preloading all kursakt students")
+    for row in fs.evu.list_studenter_alle_kursakt():
+        key = fields2key("evu",
+                        *[row[x] for x in ("etterutdkurskode",
+                                           "kurstidsangivelsekode",
+                                           "aktivitetskode")])
+        fnr = "%06d%05d" % (row["fodselsdato"], row["personnr"])
+        kursakt.setdefault(key, list()).append(fnr)
+    logger.debug("...done")
+    
     for kurs in fs.evu.list_kurs():
-        kurs_id = "evu:%s:%s" % (kurs['etterutdkurskode'],
-                                 kurs['kurstidsangivelsekode'])
-        UndervEnhet[kurs_id] = {}
+        kurs_id = fields2key("evu", kurs['etterutdkurskode'],
+                             kurs['kurstidsangivelsekode'])
+        UndervEnhet[kurs_id] = {"fronter_spreads": destined_for_lms(kurs),
+                                "sted": make_sko(kurs, suffix="_adm_ansvar"),}
+                     
         for aktivitet in fs.evu.get_kurs_aktivitet(
             kurs['etterutdkurskode'], kurs['kurstidsangivelsekode']):
-            UndervEnhet[kurs_id].setdefault('aktivitet', {})[
-                aktivitet['aktivitetskode']] = aktivitet['aktivitetsnavn']
-        tmp = {}
 
-        evu_key = (kurs['etterutdkurskode'], kurs['kurstidsangivelsekode'])
-        for evuansv in \
-            fnrs2account_ids(role_mapping.get(evu_key, list())):
-            tmp[evuansv] = 1
-        UndervEnhet[kurs_id]['fagansv'] = tmp.copy()
+            aktkode = fields2key(aktivitet['aktivitetskode'])
+            cache_key = fields2key(kurs_id, aktkode)
+            students = dict()
+            for account_id in fnrs2account_ids(kursakt.get(cache_key, ()),
+                                               prefer_student=True):
+                students[account_id] = 1
+            tmp = {'aktivitetsnavn': aktivitet['aktivitetsnavn'],
+                   'fronter_spreads': destined_for_lms(aktivitet),
+                   'sted': make_sko(kurs, suffix="_adm_ansvar"),
+                   'students': students}
+            UndervEnhet[kurs_id].setdefault('aktivitet', {})[aktkode] = tmp
+
+            logger.debug("evuakt <%s> (kurs <%s>); %d student(er) (CF: %s)",
+                         aktkode, kurs_id, len(students),
+                         destined_for_lms(aktivitet))
+            
         tmp = {}
         for student in \
-            fnrs2account_ids(fs.evu.list_kurs_stud(kurs['etterutdkurskode'],
+            dbrows2account_ids(fs.evu.list_kurs_stud(kurs['etterutdkurskode'],
                                                    kurs['kurstidsangivelsekode']),
-                             prefer_student=True):
+                               prefer_student=True):
             tmp[student] = 1
-        UndervEnhet[kurs_id]['students'] = tmp.copy()
+        UndervEnhet[kurs_id]['students'] = tmp
+        logger.debug("EVU-kurs <%s>, %d student(er) (CF: %s)",
+                     kurs_id, len(tmp), destined_for_lms(kurs))
+# end get_evukurs_aktiviteter
 
-def get_evu_ansv(kurskode, tidsrom):
-    kurs_id = "evu:%s:%s" % (kurskode, tidsrom)
-    return UndervEnhet[kurs_id]['fagansv']
 
-def get_evu_students(kurskode, tidsrom):
-    kurs_id = "evu:%s:%s" % (kurskode, tidsrom)
-    return UndervEnhet[kurs_id]['students']
 
+# IVR 2007-11-08 FIXME: OMG! split this monstrosity into something manageable.
 def populate_enhet_groups(enhet_id, role_mapping):
-    type_id = enhet_id.split(":")
-    type = type_id.pop(0).lower()
+    enhet_id = str2key(enhet_id)
+    type_id = key2fields(enhet_id)
+    type = type_id.pop(0)
 
     if type == 'kurs':
         Instnr, emnekode, versjon, termk, aar, termnr = type_id
@@ -388,45 +728,6 @@ def populate_enhet_groups(enhet_id, role_mapping):
         logger.debug("Oppdaterer grupper for %s %s %s%s:" % (
             emnekode, termk, aar, enhet_suffix))
 
-        #
-        # Ansvarlige for undervisningsenheten.
-        logger.debug(" enhetsansvar")
-        enhet_ansv = {}
-
-        role_undenh_key = (Instnr, emnekode, versjon, termk, aar, termnr)
-        prim, sec = fnrs2account_ids(
-                        role_mapping.get(role_undenh_key, list()),
-                        primary_only = False)
-        for account_id in prim:
-            enhet_ansv[account_id] = 1
-
-        # I tillegg til de "ekte ansvarlige" knyttet direkte til emnet, så
-        # er alle de ansvarlige for aktivitet 'forelesning' (undformkode =
-        # 'FOR'), også ansvarlige for emnet. Slike ansvarlige slår vi opp i
-        # rollefilen (enn så lenge). Ytterlige spørsmål til hvordan dette
-        # skal foregå, henvises til baardj@usit.uio.no.
-        for row in \
-            fs.undervisning.get_undform_aktiviteter(Instnr, emnekode, versjon,
-                                                    termk, aar, termnr, "FOR"):
-            tmp_key = tuple([str(x) for x in
-                             (row["institusjonsnr"], row["emnekode"],
-                              row["versjonskode"], row["terminkode"],
-                              row["arstall"], row["terminnr"],
-                              row["aktivitetkode"])])
-
-            additionals = role_mapping.get(tmp_key, list())
-            if additionals:
-                logger.debug("%d additional entries for enhet_ansv: %s",
-                             len(additionals), tmp_key)
-            # fi
-
-            prim_tmp, sec_tmp = fnrs2account_ids(additionals,
-                                                 primary_only = False)
-            for account_id_tmp in prim_tmp:
-                enhet_ansv[account_id_tmp] = 1
-            # od
-        # od
-
         # TODO: generaliser ifi-hack seinare
         if (re.match(r"(dig|inf|med-inf|tool|humit)", emnekode.lower())
             and termk == fs.info.semester
@@ -445,67 +746,93 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # at kurset/emnet starter hvert semester.  Utvider strukturen
         # til å ta høyde for at det til enhver tid kan finnes flere
         # kurs av samme type til enhver tid.
-        kurs_id = FronterUtils.UE2KursID('kurs', Instnr, emnekode,
-                                         versjon, termk, aar, termnr)
-
-        # Også supergruppene til undervisningsenhet - og
-        # -aktivitets-avledede grupper skal ha "kurs:"-prefiks.
-        sync_group(kurs_id, "%s:enhetsansvar" % enhet_id,
-                   "Ansvarlige %s %s %s%s" % (emnekode, termk,
-                                              aar, enhet_suffix),
-                   co.entity_account, enhet_ansv);
+        kurs_id = UE2KursID('kurs', Instnr, emnekode,
+                            versjon, termk, aar, termnr)
+        logger.debug("Lister opp ansvarlige, kurs_id = <%s>, enhet_id = <%s>",
+                     kurs_id, enhet_id)
+        sted = UndervEnhet[enhet_id]['sted']
+        process_role(enhet_id,
+                     fields2key(enhet_id, "%s"),
+                     role_mapping,
+                     kurs_id,
+                     "Ansvarlige (%s) %s %s %s%s" % ("%s", emnekode,
+                                                     termk,
+                                                     aar, enhet_suffix),
+                     co.entity_account,
+                     # Dersom undenh i seg selv skal eksporteres til Fronter,
+                     # så må nødvendigvis grupper med dens ansvarlige gjøre
+                     # det også.
+                     UndervEnhet[enhet_id]["fronter_spreads"],
+                     sted)
         
         # Ifi vil ha at alle konti til en gruppelærer skal listes opp
         # på lik linje.  Alle ikke-primære konti blir derfor lagt inn i
         # en egen interngruppe, og de to interngruppene blir medlemmer
         # i Ifis nettgruppe.
         if ifi_hack:
-            enhet_ansv_sek = {}
-            for account_id in sec:
-                enhet_ansv_sek[account_id] = 1
-            sync_group(kurs_id, "%s:enhetsansvar-sek" % enhet_id,
+            prim, sec = dbrows2account_ids(extract_all_roles(enhet_id,
+                                                             role_mapping,
+                                                             sted),
+                                           primary_only = False)
+            # sync_group forventer en dict (ellers kunne vi ha brukt
+            # sequence/set)
+            enhet_ansv = dict(izip(prim, repeat(1)))
+            sync_group(kurs_id,
+                       fields2key(enhet_id, "enhetsansvar"),
+                       "Ansvarlige %s %s %s%s" % (emnekode, termk,
+                                                  aar, enhet_suffix),
+                       co.entity_account,
+                       enhet_ansv)
+
+            enhet_ansv_sek = dict(izip(sec, repeat(1)))
+            sync_group(kurs_id,
+                       fields2key(enhet_id, "enhetsansvar-sek"),
                        ("Ansvarlige %s %s %s%s (sekundærkonti)" %
                         (emnekode, termk, aar, enhet_suffix)),
-                       co.entity_account, enhet_ansv_sek);
-            gname = mkgname("%s:enhetsansvar" % enhet_id,
+                       co.entity_account,
+                       enhet_ansv_sek)
+            gname = mkgname(fields2key(enhet_id, "enhetsansvar"),
                             prefix = 'uio.no:fs:')
-            gmem = { gname: 1,
-                     "%s-sek" % gname: 1 }
+            gmem = {gname: 1,
+                    "%s-sek" % gname: 1}
             netgr_navn = "g%s-0" % netgr_emne
             sync_group(auto_supergroup, netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
-                       co.entity_group, gmem, visible=True);
+                       co.entity_group,
+                       gmem,
+                       visible=True)
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
             alle_ansv[netgr_navn] = 1
         #
         # Alle nåværende undervisningsmeldte samt nåværende+fremtidige
         # eksamensmeldte studenter.
         logger.debug(" student")
-        alle_stud = {}
-        prim, sec = \
-              fnrs2account_ids(fs.undervisning.list_studenter_underv_enhet(\
-                                   Instnr, emnekode, versjon, termk, aar,
-                                   termnr),
-                               primary_only=False,
-                               prefer_student=True)
-        for account_id in prim:
-            alle_stud[account_id] = 1
+        primary, secondary = UndervEnhet[enhet_id]["students"]
+        alle_stud = dict(izip(primary, repeat(1)))
 
-        sync_group(kurs_id, "%s:student" % enhet_id,
+        sync_group(kurs_id,
+                   fields2key(enhet_id, "student"),
                    "Studenter %s %s %s%s" % (emnekode, termk,
                                              aar, enhet_suffix),
-                   co.entity_account, alle_stud);
+                   co.entity_account,
+                   alle_stud,
+                   # Dersom undenh skal eksporteres til fronter selv, så må
+                   # også gruppen med studentene gjøre det.
+                   auto_spread=UndervEnhet[enhet_id]["fronter_spreads"])
         if ifi_hack:
             alle_stud_sek = {}
             alle_aktkoder = {}
-            for account_id in sec:
+            for account_id in secondary:
                 alle_stud_sek[int(account_id)] = 1
-            gname = mkgname("%s:student-sek" % enhet_id, prefix = 'uio.no:fs:')
-            sync_group(kurs_id, gname,
+            gname = mkgname(fields2key(enhet_id, "student-sek"),
+                            prefix = 'uio.no:fs:')
+            sync_group(kurs_id,
+                       gname,
                        ("Studenter %s %s %s%s (sekundærkonti)" %
                         (emnekode, termk, aar, enhet_suffix)),
-                       co.entity_account, alle_stud_sek);
+                       co.entity_account,
+                       alle_stud_sek)
             # Vi legger sekundærkontoene inn i sKURS, slik at alle
             # kontoene får privelegier knyttet til kurset.  Dette
             # innebærer at alle kontoene får e-post til
@@ -526,30 +853,46 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # til noen aktiviteter.
         student_med_akt = {}
 
-        for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}).keys():
+        for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}):
             #
             # Ansvarlige for denne undervisningsaktiviteten.
             logger.debug(" aktivitetsansvar:%s" % aktkode)
-            akt_ansv = {}
-            role_undakt_key = (Instnr, emnekode, versjon, termk,
-                               aar, termnr, aktkode)
-            prim, sec = \
-                  fnrs2account_ids(
-                      role_mapping.get(role_undakt_key, list()),
-                                   primary_only=False)
-            for account_id in prim:
-                akt_ansv[account_id] = 1
 
-            gname = mkgname("%s:aktivitetsansvar" % enhet_id,
+            gname = mkgname(fields2key(enhet_id, "%s", aktkode),
                             prefix = 'uio.no:fs:')
-            sync_group(kurs_id, "%s:%s" % (gname, aktkode),
-                       "Ansvarlige %s %s %s%s %s" % (
-                emnekode, termk, aar, enhet_suffix,
-                UndervEnhet[enhet_id]['aktivitet'][aktkode]),
-                       co.entity_account, akt_ansv);
-
+            aktivitet = UndervEnhet[enhet_id]["aktivitet"][aktkode]
+            sted = aktivitet["sted"]
+            process_role(fields2key(enhet_id, aktkode),
+                         gname,
+                         role_mapping,
+                         kurs_id,
+                         "Ansvarlig (%s) %s %s %s%s %s" %
+                             ("%s", emnekode, termk, aar, enhet_suffix,
+                              aktivitet["aktivitetsnavn"]),
+                         co.entity_account,
+                         # Hvis aktiviteten skal til fronter, så må også de
+                         # ansvarlige for aktiviteten det. 
+                         aktivitet["fronter_spreads"],
+                         sted)
+            
             if ifi_hack:
                 akt_ansv = {}
+                prim, sec = \
+                      dbrow2account_ids(
+                        extract_all_roles("%s:%s" % (enhet_id, aktkode),
+                                          role_mapping, sted),
+                        primary_only=False)
+                akt_ansv = dict(izip(prim, repeat(1)))
+                aktivitet = UndervEnhet[enhet_id]['aktivitet'][aktkode]
+                gname = mkgname(fields2key(enhet_id, "aktivitetsansvar"),
+                                prefix = 'uio.no:fs:')
+                sync_group(kurs_id,
+                           fields2key(gname, aktkode),
+                           "Ansvarlige %s %s %s%s %s" % (
+                                emnekode, termk, aar, enhet_suffix,
+                                aktivitet["aktivitetsnavn"]),
+                           co.entity_account,
+                           akt_ansv)
                 for account_id in sec:
                     akt_ansv[account_id] = 1
                     
@@ -570,9 +913,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                 # etter et tall i navnet og bruke dette, hvis ikke,
                 # bruke hele navnet med blanke erstattet av
                 # bindestreker.
-
-                aktnavn = UndervEnhet[enhet_id]['aktivitet'][aktkode].\
-                          lower().strip()
+                aktnavn = aktivitet["aktivitetsnavn"].lower().strip()
                 m = re.match(r'\S+ (\d+)$', aktnavn)
                 if m:
                     aktnavn = m.group(1)
@@ -581,38 +922,42 @@ def populate_enhet_groups(enhet_id, role_mapping):
                     aktnavn = latin1_wash(aktnavn, target_charset='POSIXname',
                                           expand_chars=True).lower()
                 logger.debug("Aktivitetsnavn '%s' -> '%s'" %
-                             (UndervEnhet[enhet_id]['aktivitet'][aktkode],
-                              aktnavn))
-                sync_group(kurs_id, "%s-sek:%s" % (gname, aktkode),
+                             (aktivitet["aktivitetsnavn"], aktnavn))
+                sync_group(kurs_id,
+                           "%s-sek:%s" % (gname, aktkode),
                            ("Ansvarlige %s %s %s%s %s (sekundærkonti)" %
                             (emnekode, termk, aar, enhet_suffix, aktnavn)),
-                           co.entity_account, akt_ansv)
-                gmem = { "%s:%s" % (gname, aktkode) : 1,
-                         "%s-sek:%s" % (gname, aktkode): 1 }
+                           co.entity_account,
+                           akt_ansv)
+                gmem = {fields2key(gname, aktkode): 1,
+                        "%s-sek:%s" % (gname, aktkode): 1}
                 netgr_navn = "g%s-%s" % (netgr_emne, aktnavn)
-                sync_group(auto_supergroup, netgr_navn,
+                sync_group(auto_supergroup,
+                           netgr_navn,
                            "Ansvarlige %s-%s %s %s%s" % (emnekode, aktnavn,
                                                          termk, aar,
                                                          enhet_suffix),
-                           co.entity_group, gmem, visible=True)
+                           co.entity_group,
+                           gmem,
+                           visible=True)
                 # midlertidig
-                sync_group(auto_supergroup, netgr_navn,
+                sync_group(auto_supergroup,
+                           netgr_navn,
                            "Ansvarlige %s-%s %s %s%s" % (emnekode, aktnavn,
                                                          termk, aar,
                                                          enhet_suffix),
-                           co.entity_account, empty, visible=True)
+                           co.entity_account,
+                           empty,
+                           visible=True)
                 add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
                 alle_ansv[netgr_navn] = 1
                 ifi_netgr_g[netgr_navn] = 1
 
             # Studenter meldt på denne undervisningsaktiviteten.
             logger.debug(" student:%s" % aktkode)
+            aktivitet = UndervEnhet[enhet_id]['aktivitet'][aktkode]
             akt_stud = {}
-            for account_id in \
-                fnrs2account_ids(fs.undervisning.list_aktivitet(
-                                     Instnr, emnekode, versjon, termk, aar,
-                                     termnr, aktkode),
-                                 prefer_student=True):
+            for account_id in aktivitet['students']:
                 if not alle_stud.has_key(account_id):
                     logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i"
                                 " undaktivitet <%s>, men ikke i"
@@ -620,30 +965,44 @@ def populate_enhet_groups(enhet_id, role_mapping):
                         account_id, account_id2fnr[account_id],
                         "%s:%s" % (enhet_id, aktkode), enhet_id))
                 akt_stud[account_id] = 1
-
+            
+            logger.debug("%d studenter ved undakt <%s> for undenh <%s>",
+                         len(akt_stud), aktkode, enhet_id)
             student_med_akt.update(akt_stud)
+            sync_group(kurs_id,
+                       fields2key(enhet_id, "student", aktkode),
+                       "Studenter %s %s %s%s %s" % (emnekode, termk, aar,
+                                                    enhet_suffix,
+                                                    aktivitet["aktivitetsnavn"]),
+                       co.entity_account,
+                       akt_stud,
+                       # Hvis aktiviteten skal til fronter
+                       # (jfr. status_eksport_lms), så må studentene på
+                       # aktiviteten også eksporteres til fronter
+                       auto_spread=aktivitet["fronter_spreads"])
 
-            sync_group(kurs_id, "%s:student:%s" % (enhet_id, aktkode),
-                       "Studenter %s %s %s%s %s" % (
-                emnekode, termk, aar, enhet_suffix,
-                UndervEnhet[enhet_id]['aktivitet'][aktkode]),
-                       co.entity_account, akt_stud)
             if ifi_hack:
-                gname = mkgname("%s:student:%s" % (enhet_id, aktkode),
+                gname = mkgname(fields2key(enhet_id, "student", aktkode),
                                 prefix = 'uio.no:fs:')
-                gmem = { gname: 1 }
+                gmem = {gname: 1}
                 netgr_navn = "s%s-%s" % (netgr_emne, aktnavn)
-                sync_group(auto_supergroup, netgr_navn,
+                sync_group(auto_supergroup,
+                           netgr_navn,
                            "Studenter %s-%s %s %s%s" % (emnekode, aktnavn,
                                                         termk, aar,
                                                         enhet_suffix),
-                           co.entity_group, gmem, visible=True);
+                           co.entity_group,
+                           gmem,
+                           visible=True)
                 # midlertidig
-                sync_group(auto_supergroup, netgr_navn,
+                sync_group(auto_supergroup,
+                           netgr_navn,
                            "Studenter %s-%s %s %s%s" % (emnekode, aktnavn,
                                                         termk, aar,
                                                         enhet_suffix),
-                           co.entity_account, empty, visible=True);
+                           co.entity_account,
+                           empty,
+                           visible=True)
                 add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
                 alle_aktkoder[netgr_navn] = 1
 
@@ -655,103 +1014,159 @@ def populate_enhet_groups(enhet_id, role_mapping):
                 # kun er meldt til eksamene.
                 del alle_stud[account_id]
         if ifi_hack:
-            gname = mkgname("%s:student:%s" % (enhet_id, "kuneksamen"),
+            gname = mkgname(fields2key(enhet_id, "student", "kuneksamen"),
                             prefix = 'uio.no:fs:')
-            sync_group(kurs_id, gname,
+            sync_group(kurs_id,
+                       gname,
                        ("Studenter %s %s %s%s %s" %
                         (emnekode, termk, aar, enhet_suffix, "kun eksamen")),
-                       co.entity_account, alle_stud)
-            gmem = { gname: 1 }
+                       co.entity_account,
+                       alle_stud)
+            gmem = {gname: 1}
             netgr_navn = "s%s-e" % netgr_emne
-            sync_group(auto_supergroup, netgr_navn,
+            sync_group(auto_supergroup,
+                       netgr_navn,
                        "Studenter %s-e %s %s%s" % (emnekode, termk, aar,
                                                    enhet_suffix),
-                       co.entity_group, gmem, visible=True);
+                       co.entity_group,
+                       gmem,
+                       visible=True)
             # midlertidig
-            sync_group(auto_supergroup, netgr_navn,
+            sync_group(auto_supergroup,
+                       netgr_navn,
                        "Studenter %s-e %s %s%s" % (emnekode, termk, aar,
                                                    enhet_suffix),
-                       co.entity_account, empty, visible=True);
+                       co.entity_account,
+                       empty,
+                       visible=True)
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
             alle_aktkoder[netgr_navn] = 1
             # alle studenter på kurset
             netgr_navn = "s%s" % netgr_emne
-            sync_group(auto_supergroup, netgr_navn,
+            sync_group(auto_supergroup,
+                       netgr_navn,
                        "Studenter %s %s %s%s" % (emnekode, termk, aar,
                                                  enhet_suffix),
-                       co.entity_group, alle_aktkoder, visible=True);
+                       co.entity_group,
+                       alle_aktkoder,
+                       visible=True)
             # midlertidig
-            sync_group(auto_supergroup, netgr_navn,
+            sync_group(auto_supergroup,
+                       netgr_navn,
                        "Studenter %s %s %s%s" % (emnekode, termk, aar,
                                                  enhet_suffix),
-                       co.entity_account, empty, visible=True);
+                       co.entity_account,
+                       empty,
+                       visible=True)
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
             # alle gruppelærere og kursledelsen
             netgr_navn = "g%s" % netgr_emne
-            sync_group(auto_supergroup, netgr_navn,
+            sync_group(auto_supergroup,
+                       netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
-                       co.entity_group, alle_ansv, visible=True);
+                       co.entity_group,
+                       alle_ansv,
+                       visible=True)
             # midlertidig
-            sync_group(auto_supergroup, netgr_navn,
+            sync_group(auto_supergroup,
+                       netgr_navn,
                        "Ansvarlige %s %s %s%s" % (emnekode, termk, aar,
                                                   enhet_suffix),
-                       co.entity_account, empty, visible=True);
+                       co.entity_account,
+                       empty,
+                       visible=True)
             add_spread_to_group(netgr_navn, co.spread_ifi_nis_ng)
+
+    elif type == 'kull':
+        stprog, terminkode, aar = type_id
+        kull_id = UE2KursID("kull", stprog, terminkode, aar)
+        logger.debug("Oppdaterer grupper for %s:", enhet_id)
+
+        #
+        # Alle studenter på kullet
+        sync_group(kull_id,
+                   fields2key(enhet_id, "student"),
+                   "Studenter på kull %s, %s, %s" % (stprog, terminkode, aar),
+                   co.entity_account,
+                   UndervEnhet[enhet_id].get('students', {}),
+                   auto_spread=UndervEnhet[enhet_id]["fronter_spreads"])
+
+        # IVR 2007-08-17: 'Ansvarlige' for kullet: hver rolle får sin egen
+        # gruppe.
+        sted = UndervEnhet[enhet_id]["sted"]
+        program = UndervEnhet[enhet_id]["stprog"]
+        process_role(kull_id,
+                     fields2key(kull_id, "%s"),
+                     role_mapping,
+                     kull_id,
+                     "Ansvarlige (%s) på kull %s" % ("%s", kull_id),
+                     co.entity_account,
+                     UndervEnhet[enhet_id]["fronter_spreads"],
+                     sted,
+                     program)
 
     elif type == 'evu':
         kurskode, tidsrom = type_id
-        kurs_id = FronterUtils.UE2KursID("evu", kurskode, tidsrom)
+        kurs_id = UE2KursID("evu", kurskode, tidsrom)
         logger.debug("Oppdaterer grupper for %s: " % enhet_id)
-        #
-        # Ansvarlige for EVU-kurset
-        logger.debug(" evuAnsvar")
-        evuans = get_evu_ansv(kurskode, tidsrom)
-        sync_group(kurs_id, "%s:enhetsansvar" % enhet_id,
-                   "Ansvarlige EVU-kurs %s, %s" % (kurskode, tidsrom),
-                   co.entity_account, evuans)
+        sted = UndervEnhet[enhet_id]["sted"]
+        process_role(enhet_id,
+                     fields2key(enhet_id, "%s"),
+                     role_mapping,
+                     kurs_id,
+                     "Ansvarlige (%s) EVU-kurs %s, %s" % ("%s", kurskode, tidsrom),
+                     co.entity_account,
+                     # Samme situasjon som med undenh
+                     UndervEnhet[enhet_id]["fronter_spreads"],
+                     sted)
+        
         #
         # Alle påmeldte studenter
         logger.debug(" evuStudenter")
-        evustud = get_evu_students(kurskode, tidsrom)
-        sync_group(kurs_id, "%s:student" % enhet_id,
+        evustud = UndervEnhet[fields2key("evu", kurskode, tidsrom)]['students']
+        sync_group(kurs_id,
+                   fields2key(enhet_id, "student"),
                    "Studenter EVU-kurs %s, %s" % (kurskode, tidsrom),
-                   co.entity_account, evustud)
+                   co.entity_account,
+                   evustud,
+                   auto_spread=UndervEnhet[enhet_id]["fronter_spreads"])
 
         for aktkode in UndervEnhet[enhet_id].get('aktivitet', {}).keys():
-            #
-            # Ansvarlige for kursaktivitet
-            logger.debug(" aktivitetsansvar:%s" % aktkode)
-            evu_akt_ansv = {}
-            evu_akt_key = (kurskode, tidsrom, aktkode)
-            for account_id in \
-                fnrs2account_ids(role_mapping.get(evu_akt_key, list())):
-                evu_akt_ansv[account_id] = 1
-
-            sync_group(kurs_id, "%s:aktivitetsansvar:%s" % (enhet_id, aktkode),
-                       "Ansvarlige EVU-kurs %s, %s: %s" % (
-                kurskode, tidsrom,
-                UndervEnhet[enhet_id]['aktivitet'][aktkode]),
-                       co.entity_account, evu_akt_ansv)
+            aktivitet = UndervEnhet[enhet_id]['aktivitet'][aktkode]
+            sted = aktivitet["sted"]
+            process_role(fields2key(enhet_id, aktkode),
+                         fields2key(enhet_id, "%s", aktkode), 
+                         role_mapping,
+                         kurs_id,
+                         "Ansvarlige (%s) EVU-kurs %s, %s: %s" %
+                           ("%s", kurskode, tidsrom, aktivitet["aktivitetsnavn"]),
+                         co.entity_account,
+                         # Samme situasjon som undakt
+                         aktivitet["fronter_spreads"],
+                         sted)
 
             # Studenter til denne kursaktiviteten
             logger.debug(" student:%s" % aktkode)
             evu_akt_stud = {}
-            for account_id in \
-                fnrs2account_ids(fs.evu.list_aktivitet_stud(kurskode, tidsrom,
-                                                            aktkode),
-                                 prefer_student=True):
+            for account_id in aktivitet['students']:
                 if not evustud.has_key(account_id):
-                    logger.warn("""OBS: Bruker <%s> (fnr <%s>) er med i aktivitet <%s>, men ikke i kurset <%s>.""" % (
-                        account_id, account_id2fnr[account_id],
+                    logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i "
+                                "aktivitet <%s>, men ikke i kurset <%s>." %
+                                (account_id, account_id2fnr[account_id],
                         "%s:%s" % (enhet_id, aktkode), enhet_id))
                 evu_akt_stud[account_id] = 1
-            sync_group(kurs_id, "%s:student:%s" % (enhet_id, aktkode),
+            sync_group(kurs_id,
+                       fields2key(enhet_id, "student", aktkode),
                        "Studenter EVU-kurs %s, %s: %s" % (
-                kurskode, tidsrom,
-                UndervEnhet[enhet_id]['aktivitet'][aktkode]),
-                       co.entity_account, evu_akt_stud)
+                       kurskode, tidsrom, aktivitet["aktivitetsnavn"]),
+                       co.entity_account,
+                       evu_akt_stud,
+                       auto_spread=aktivitet["fronter_spreads"])
     logger.debug(" done")
+# end populate_enhet_groups
+
+
 
 def populate_ifi_groups():
     sync_group(auto_supergroup, "ifi-g", "Alle gruppelærere for Ifi-kurs",
@@ -760,10 +1175,53 @@ def populate_ifi_groups():
     sync_group(auto_supergroup, "lkurs", "Alle laveregradskurs ved Ifi",
                co.entity_group, ifi_netgr_lkurs, visible=True)
     add_spread_to_group("lkurs", co.spread_ifi_nis_ng)
+# end populate_ifi_groups
 
-def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True):
-    logger.debug("sync_group(%s; %s; %s; %s; %s; %s; %s)" %
-                 (affil, gname, descr, mtype, memb.keys(), visible, recurse))
+
+
+def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
+               auto_spread=NotSet):
+    """Update/create a fronter group with new information.
+
+    Locate (and create if necessary) a group representing an entity (corridor,
+    rom, etc.) in Fronter.
+
+    @type affil: basestring
+    @param affil:
+      Parent for gname in the internal group structure (?)
+
+    @type gname: basestring
+    @param gname:
+      Basis for constructing the group name. For invisible groups, it is
+      prefixed with 'uio:fs'.
+       
+    @type descr: basestring
+    @param descr:
+      Description of the group to register in group_info in Cerebrum.
+
+    @type mtype: A suitable constant object
+    @param mtype:
+      Constant describing member types in memb. Can be group or account
+
+    @type memb: dict
+    @param memb:
+      Dictionary with member ids to add to gname. 
+      
+    @type auto_spread: bool or NotSet
+    @param auto_spread:
+      auto_spread decides whether to adjust fronter spreads belonging to
+      L{gname} automatically. Some groups receive and lose fronter spreads
+      automatically (cf. eksport_status_lms from FS). Others are updated
+      manually and should not be touched.
+
+      NotSet means that the spread information should be left alone.
+      False means that fronter spreads should be removed.
+      True meands that fronter spreads should be added.
+    """
+   
+    logger.debug("sync_group(%s; %s; %s; %s; %s; %s; %s); auto_spread=%s" %
+                 (affil, gname, descr, mtype, memb.keys(), visible, recurse,
+                  auto_spread is NotSet and "NotSet" or auto_spread))
     if mtype == co.entity_group:   # memb has group_name as keys
         members = {}
         for tmp_gname in memb.keys():
@@ -780,19 +1238,17 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True):
     else:
         gname = mkgname(gname, 'uio.no:fs:')
         correct_visib = co.group_visibility_none
-        if (affil is None or               # Nivå 0; $gname er supergruppen
-            affil == fs_supergroup or         # $gname er på nivå 1
-            re.search(r'^(evu|kurs):[^:]+$', affil, re.I)): # $gname er på nivå 2
-            # Grupper så langt oppe i strukturen skal være rent interne;
-            # de brukes kun til kontroll av hierarki og eksport.
+        if (affil is None or              # level 0; $gname is the supergroup
+            affil == fs_supergroup or     # $gname is at level 1
+            re.search(r'^(evu|kurs|kull):[^:]+$', affil, re.I)): # $gname is at level 2
+            # The aforementioned groups are for internal usage only;
+            # they are used to control the hierarchy and export.
             gname = mkgname(gname)
             correct_visib = co.group_visibility_internal
     if affil is not None:
         AffiliatedGroups.setdefault(affil, {})[gname] = 1
     known_FS_groups[gname] = 1
 
-    # Gjør objektet $Group klar til å modifisere gruppen med navn
-    # $gname.
     try:
         group = get_group(gname)
     except Errors.NotFoundError:
@@ -801,8 +1257,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True):
         group.populate(group_creator, correct_visib, gname, description=descr)
         group.write_db()
     else:
-        # Dersom gruppen $gname fantes, er $gr nå en peker til samme
-        # objekt som $Group; i motsatt fall er $gr false.
+        # If group already exists, update its information...
         if group.visibility != correct_visib:
             logger.fatal("Group <%s> has wrong visibility." % gname)
 
@@ -836,6 +1291,21 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True):
 
     for member in members.keys():
         group.add_member(member, mtype, co.group_memberop_union)
+
+    # Finally fixup fronter spreads, if we have to.
+    if auto_spread is not NotSet:
+        logger.debug("Group %s changes fronter spreads", gname)
+        for spread in (co.spread_fronter_kladdebok,
+                       co.spread_fronter_blyant,
+                       co.spread_fronter_petra):
+            if auto_spread:
+                add_spread_to_group(gname, spread)
+            else:
+                remove_spread_from_group(gname, spread)
+    else:
+        logger.debug("Spreads for group %s are unchanged", gname)
+# end sync_group
+    
 
 def destroy_group(gname, max_recurse=2, recurse=True):
     gr = get_group(gname)
@@ -918,13 +1388,27 @@ def destroy_group(gname, max_recurse=2, recurse=True):
     if recurse:
         for subg in u:
             destroy_group(subg[1], max_recurse - 1)
+# end destroy_group
+
 
 
 def add_spread_to_group(group, spread):
     gr = get_group(group)
     if not gr.has_spread(spread):
         gr.add_spread(spread)
-        logger.debug("Adding spread %s to %s\n" % (spread, group))
+        logger.debug("Adding spread %s to %s" % (spread, group))
+# end add_spread_to_group
+
+
+
+def remove_spread_from_group(group, spread):
+    gr = get_group(group)
+    if gr.has_spread(spread):
+        gr.delete_spread(spread)
+        logger.debug("Removing spread %s from %s" % (spread, group))
+# end remove_spread_from_group
+
+
 
 def get_group(id):
     gr = Factory.get('Group')(db)
@@ -933,77 +1417,124 @@ def get_group(id):
     else:
         gr.find(id)
     return gr
+# end get_group
+
+
 
 def get_account(name):
     ac = Factory.get('Account')(db)
     ac.find_by_name(name)
     return ac
+# end get_account
+
+
 
 def mkgname(id, prefix='internal:'):
     if id.startswith(prefix):
         return id.lower()
     return (prefix + id).lower()
+# end mkgname
+
+
 
 def usage(exitcode=0):
     print """Usage: [options]
     --db-user name: connect with given database username
     --db-service name: connect to given database"""
     sys.exit(exitcode)
+# end usage
+
+
 
 def parse_xml_roles(fname):
-    """
-    Parse XML dump of FS roles (roller) and return a mapping structured thus:
+    """Parse a files with FS roles and return a dict structured thus::
 
-    map = { K1 : [ S_1, S_2, ... S_k ],
-            ...
-            Kn : [ S_1, ..., S_kn ], }
+      map = { K1 : D1={ X1: [ S_1, S_2, ... S_k ],
+                        X2: [ ... ], },
+              ...
+              Kn : Dn={ X1: [ S_1, ..., S_kn ], }
 
-    ... where each K_i is a key falling into one of these four categories:
-    undakt, undenh, kursakt, evu; and each S_i is a mapping structured thus:
+    ... where each K_i is a key falling into one of these 7 categories:
+    undakt, undenh, kursakt, evu, kull, sted and stprog; each key K_i
+    identifies an instance of undakt/undenh/kursakt/evu/kull.
 
-    map2 = { 'fodselsdato' : ...,
-             'personnr'    : ..., }
+    Each D_i is (again) a dictionary mapping specific roles (X_i being the
+    keys 'ADMIN', 'DLO', and so on) to sequences of S_i; and each S_i is
+    a mapping structured thus::
+
+      map2 = { 'fodselsdato' : ...,
+               'personnr'    : ..., }
 
     S_i are an attempt to mimic db_rows (output from this function is used
     elsewhere where such keys are required).
+
+    This structure is pretty complicated, but we need to hold *all* roles in
+    memory while processing fronter groups (a sequential scan of the file for
+    each undenh/undakt/etc. is out of the question).
     """
 
-    result = dict()
-    def gimme_lambda(element, data):
+    detailed_roles = dict()
+    def element_to_role(element, data):
         kind = data[roles_xml_parser.target_key]
         if len(kind) > 1:
             logger.warn("Cannot decide on role kind for: %s", kind)
             return
         kind = kind[0]
 
-        if kind in ("undakt", "undenh"):
-            key = (data["institusjonsnr"],
+        # IVR 2007-11-08 ivr, jazz and baardj agreed that "timeplan"-roles
+        # have to be treated the same as undakt roles when it comes to
+        # fronter. 
+        if kind in ("undakt", "undenh", "timeplan",):
+            key = ("kurs",
+                   data["institusjonsnr"],
                    data["emnekode"],
                    data["versjonskode"],
                    data["terminkode"],
                    data["arstall"],
                    data["terminnr"])
-            if kind == "undakt":
+            if kind in ("undakt", "timeplan"):
                 key = key + (data["aktivitetkode"],)
-            # fi
         elif kind in ("kursakt", "evu"):
-            key = (data["etterutdkurskode"],
+            key = ("evu",
+                   data["etterutdkurskode"],
                    data["kurstidsangivelsekode"])
             if kind == "kursakt":
                 key = key + (data["aktivitetkode"],)
-            # fi
+        elif kind in ("kull",):
+            key = ("kull",
+                   data["studieprogramkode"],
+                   data["terminkode"],
+                   data["arstall"])
+        elif kind in ("sted",) and data["rollekode"] in recursive_roles:
+            key = ("sted", make_sko(data))
+            logger.debug("Rekursiv rolle: %s -> %s", key, data["rollekode"])
+        elif kind in ("stprog",) and data["rollekode"] in recursive_roles:
+            key = ("stprog",
+                   data["studieprogramkode"])
+            logger.debug("Rekursiv rolle: %s -> %s", key, data["rollekode"])
         else:
             logger.warn("%s%s: Wrong role entry kind: %s",
                         data["fodselsdato"], data["personnr"], kind)
             return
-        # fi
-        
-        result.setdefault(key, list()).append(
-            { "fodselsdato" : int(data["fodselsdato"]),
-              "personnr"    : int(data["personnr"]), })
 
-    roles_xml_parser(fname, gimme_lambda)
-    return result
+        key = fields2key(*key)
+        fnr = {"fodselsdato": int(data["fodselsdato"]),
+               "personnr": int(data["personnr"]), }
+        if data["rollekode"] in valid_roles:
+            logger.debug("role %s given for %s to %s",
+                         data["rollekode"], key, fnr)
+            detailed_roles.setdefault(key, dict()).setdefault(data["rollekode"],
+                                                              list()).append(fnr)
+        else:
+            logger.debug("role %s for person %s for unit %s is not recognized "
+                         "and will be ignored",
+                         data["rollekode"], fnr, key)
+        
+    roles_xml_parser(fname, element_to_role)
+    return detailed_roles
+# end parse_xml_roles
+
+
 
 def main():
     global fs, db, co, logger, emne_versjon, emne_termnr, account_id2fnr, \
@@ -1013,31 +1544,24 @@ def main():
            ifi_netgr_g, ifi_netgr_lkurs
 
     logger = Factory.get_logger("cronjob")
+    logger.debug("populating fronter groups")
     
-    # Håndter upper- og lowercasing av strenger som inneholder norske
-    # tegn.
+    # Upper/lowercasing of Norwegian letters.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "",
-                                   ["db-user=", "db-service=",
-                                    "role-file=", "dryrun"])
+                                   ["role-file=", "dryrun"])
     except getopt.GetoptError:
         usage(2)
-    db_user = None         # TBD: cereconf value?
-    db_service = None      # TBD: cereconf value?
     role_file = None
     dryrun = False
     for o, val in opts:
-        if o in ('--db-user',):
-            db_user = val
-        elif o in ('--db-service',):
-            db_service = val
-        elif o in ('--role-file',):
+        if o in ('--role-file',):
             role_file = val
         elif o in ('--dryrun',):
             dryrun = True
-    fs = FS(user = db_user, database = db_service)
+    fs = Factory.get("FS")()
 
     db = Factory.get('Database')()
     db.cl_init(change_program='CF_gen_groups')
@@ -1058,10 +1582,9 @@ def main():
     ifi_netgr_g = {}
     ifi_netgr_lkurs = {}
 
-    # Inneholder tre av FS-grupper.
+    # Contains the tree of FS-groups.
     fs_supergroup = "{supergroup}"
-    # Inneholder gruppene som refererer til FS-gruppene over.  Flat
-    # struktur.
+    # Contains groups that refer to the groups above. Flat structure.
     auto_supergroup = "{autogroup}"
     group_creator = get_account(cereconf.INITIAL_ACCOUNTNAME).entity_id
 
@@ -1076,8 +1599,9 @@ def main():
         logger.debug("Committing all changes...")
         db.commit()
     logger.info("All done")
+# end main
+
+
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: 2950e19e-1017-4f6f-b3af-7f81667ad5ac

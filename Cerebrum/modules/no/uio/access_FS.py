@@ -563,7 +563,6 @@ class UiOPortal(access_FS.FSObject):
         """
 
         semester = "%s" % self.semester
-        # FIXME! Herregud da, hvorfor må de ha hver sitt navn?
         return self.db.query(query,
                              {"aar1" : self.year,
                               "aar2" : self.year,
@@ -677,6 +676,238 @@ class UiOBetaling(access_FS.FSObject):
                                    'year': self.year,
                                    'year2': self.year})
 
+class UiOUndervisning(access_FS.Undervisning):
+
+    def list_undervisningenheter(self, year=None, sem=None): # GetUndervEnhetAll
+        if year is None:
+            year = self.year
+        if sem is None:
+            sem = self.semester
+        return self.db.query("""
+        SELECT
+          ue.institusjonsnr, ue.emnekode, ue.versjonskode, ue.terminkode,
+          ue.arstall, ue.terminnr, e.institusjonsnr_kontroll,
+          e.faknr_kontroll, e.instituttnr_kontroll, e.gruppenr_kontroll,
+          e.emnenavn_bokmal, e.emnenavnfork, ue.status_eksport_lms
+        FROM
+          fs.undervisningsenhet ue, fs.emne e, fs.arstermin t
+        WHERE
+          ue.institusjonsnr = e.institusjonsnr AND
+          ue.emnekode       = e.emnekode AND
+          ue.versjonskode   = e.versjonskode AND
+          ue.terminkode IN ('VÅR', 'HØST') AND
+          ue.terminkode = t.terminkode AND
+          (ue.arstall > :aar OR
+           (ue.arstall = :aar2 AND
+            EXISTS(SELECT 'x' FROM fs.arstermin tt
+            WHERE tt.terminkode = :sem AND
+                  t.sorteringsnokkel >= tt.sorteringsnokkel)))
+          """, {'aar': year,
+                'aar2': year, # db-driver bug work-around
+                'sem': sem})
+    
+    def list_aktiviteter(self, start_aar=time.localtime()[0],
+                         start_semester=None):
+        if start_semester is None:
+            start_semester = self.semester
+            
+        return self.db.query("""
+        SELECT  
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode,
+          ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
+          ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn,
+          ua.lmsrommalkode, ua.status_eksport_lms,
+          e.institusjonsnr_kontroll, e.faknr_kontroll,
+          e.instituttnr_kontroll, e.gruppenr_kontroll
+        FROM
+          fs.undaktivitet ua,
+          fs.arstermin t,
+          fs.emne e
+        WHERE
+          ua.institusjonsnr = e.institusjonsnr AND
+          ua.emnekode       = e.emnekode AND
+          ua.versjonskode   = e.versjonskode AND
+          ua.undpartilopenr IS NOT NULL AND
+          ua.disiplinkode IS NOT NULL AND
+          ua.undformkode IS NOT NULL AND
+          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode = t.terminkode AND
+          ((ua.arstall = :aar AND
+            EXISTS (SELECT 'x' FROM fs.arstermin tt
+                    WHERE tt.terminkode = :semester AND
+                          t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
+           ua.arstall > :aar)""",
+                             {'aar': start_aar,
+                              'semester': start_semester})
+
+    
+    def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
+        """Hent alle studentene som er oppført på et gitt kull."""
+
+        query = """
+        SELECT DISTINCT
+            fodselsdato, personnr
+        FROM
+            fs.studieprogramstudent
+        WHERE
+            studentstatkode IN ('AKTIV', 'PERMISJON') AND
+            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+            studieprogramkode = :studieprogramkode AND
+            terminkode_kull = :terminkode_kull AND
+            arstall_kull = :arstall_kull
+        """
+
+        return self.db.query(query, {"studieprogramkode" : studieprogramkode,
+                                     "terminkode_kull"   : terminkode,
+                                     "arstall_kull"      : arstall})
+
+    def list_studenter_alle_undenh(self):
+        """Hent alle studenter på alle undenh.
+
+        NB! Det er ca. 800'000+ rader i FSPROD i fs.undervisningsmelding.
+        Dette kan koste en del minne, så 1) fetchall=True er nok dumt 2) Man
+        burde bearbeide strukturen litt raskere. 
+
+        Spørringen *er* litt annerledes enn L{list_studenter_underv_enhet},
+        men baardj har foreslått denne spørringen også.
+        """
+
+        qry = """
+        SELECT
+          fodselsdato, personnr,
+          institusjonsnr, emnekode, versjonskode, terminkode, arstall, terminnr
+        FROM
+          fs.undervisningsmelding
+        WHERE
+          terminkode in ('VÅR', 'HØST') AND
+          arstall >= :aar1
+
+        UNION
+
+        SELECT
+          fodselsdato, personnr,
+          institusjonsnr, emnekode, versjonskode,
+            (case when manednr <= 6 then 'VÅR'
+                  when manednr >= 7 then 'HØST'
+             end) as terminkode,
+          arstall, 1 as terminnr
+        FROM
+          fs.eksamensmelding
+        WHERE
+          arstall >= :aar2
+        """
+
+        return self.db.query(qry, {"aar1": self.year,
+                                   "aar2": self.year}, fetchall=False)
+    # end list_studenter_alle_undenh
+
+
+    def list_studenter_alle_undakt(self):
+        """Hent alle studenter på alle undakt.
+
+        NB! Det er ca. 500'000+ rader i FSPROD i student_pa_undervisningsparti.
+        Det kan koste en del minne.
+        """
+        
+        qry = """
+        SELECT
+          su.fodselsdato, su.personnr,
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode, ua.terminkode,
+          ua.arstall, ua.terminnr, ua.aktivitetkode
+        FROM
+          fs.student_pa_undervisningsparti su,
+          fs.undaktivitet ua
+        WHERE
+          su.terminnr       = ua.terminnr       AND
+          su.institusjonsnr = ua.institusjonsnr AND
+          su.emnekode       = ua.emnekode       AND
+          su.versjonskode   = ua.versjonskode   AND
+          su.terminkode     = ua.terminkode     AND
+          su.arstall        = ua.arstall        AND
+          su.undpartilopenr = ua.undpartilopenr AND
+          su.disiplinkode   = ua.disiplinkode   AND
+          su.undformkode    = ua.undformkode AND
+          su.arstall >= :aar
+        """
+
+        return self.db.query(qry, {"aar": self.year}, fetchall=False)
+    # end list_studenter_alle_undakt
+
+
+class UiOEVU(access_FS.EVU):
+
+    def list_kurs(self, date=time.localtime()):  # GetEvuKurs
+        """Henter info om aktive EVU-kurs, der aktive er de som har
+        status_aktiv satt til 'J' og som ikke er avsluttet
+        (jmf. dato_til).
+        """
+        
+        qry = """
+        SELECT etterutdkurskode, kurstidsangivelsekode,
+          etterutdkursnavn, etterutdkursnavnkort, emnekode,
+          institusjonsnr_adm_ansvar, faknr_adm_ansvar,
+          instituttnr_adm_ansvar, gruppenr_adm_ansvar,
+          TO_CHAR(NVL(dato_fra, SYSDATE), 'YYYY-MM-DD') AS dato_fra,
+          TO_CHAR(NVL(dato_til, SYSDATE), 'YYYY-MM-DD') AS dato_til,
+          status_aktiv, status_nettbasert_und, status_eksport_lms
+        FROM fs.etterutdkurs
+        WHERE status_aktiv='J' AND
+          NVL(dato_til, SYSDATE) >= (SYSDATE - 30)
+        """
+        return self.db.query(qry)
+    # end list_kurs
+
+
+    def get_kurs_aktivitet(self, kurs, tid): # GetAktivitetEvuKurs
+        """Henter information om aktive EVU-kursaktiviteter som tilhører et
+        gitt EVU-kurs.
+        """
+        
+        qry = """
+        SELECT k.etterutdkurskode, k.kurstidsangivelsekode, k.aktivitetskode,
+               k.aktivitetsnavn, k.undformkode, k.status_eksport_lms
+        FROM fs.kursaktivitet k
+        WHERE k.etterutdkurskode='%s' AND
+              k.kurstidsangivelsekode='%s'
+        """ % (kurs, tid)
+
+        return self.db.query(qry)
+    # end get_kurs_aktivitet
+
+
+    def list_studenter_alle_kursakt(self):
+        qry = """
+        SELECT
+          d.fodselsdato, d.personnr,
+          k.etterutdkurskode, k.kurstidsangivelsekode, k.aktivitetskode
+        FROM fs.deltaker d, fs.kursaktivitet_deltaker k
+        WHERE k.deltakernr = d.deltakernr
+        """
+        return self.db.query(qry)
+    # end list_studenter_alle_kursakt
+# end UiOEVU
+
+
+class UiOStudieInfo(access_FS.StudieInfo):
+
+    def list_kull(self):
+        """Henter informasjon om aktive studiekull."""
+        qry = """
+        SELECT DISTINCT
+          k.studieprogramkode, k.terminkode, k.arstall, k.studiekullnavn, 
+          k.kulltrinn_start, k.terminnr_maks, k.status_generer_epost,
+          s.institusjonsnr_studieansv, s.faknr_studieansv,
+          s.instituttnr_studieansv, s.gruppenr_studieansv
+        FROM  fs.kull k, fs.studieprogram s, fs.studieprogram
+        WHERE
+          k.status_aktiv = 'J' AND
+          s.studieprogramkode = k.studieprogramkode
+        """
+        return self.db.query(qry, {"year": self.year})
+    # end list_kull
+# end UiOStudieInfo
+
+
 class FS(access_FS.FS):
     def __init__(self, db=None, user=None, database=None):
         super(FS, self).__init__(db=db, user=user, database=database)
@@ -685,6 +916,9 @@ class FS(access_FS.FS):
         self.student = UiOStudent(self.db)
         self.portal = UiOPortal(self.db)
         self.betaling = UiOBetaling(self.db)
+        self.undervisning = UiOUndervisning(self.db)
+        self.evu = UiOEVU(self.db)
+        self.info = UiOStudieInfo(self.db)
 
     def list_dbfg_usernames(self, fetchall = False):
         """Get all usernames and return them as a sequence of db_rows.

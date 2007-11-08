@@ -111,15 +111,14 @@ class Person(FSObject):
             'fornavn2': fornavn, 'etternavn2': etternavn})
 
     def get_personroller(self, fnr, pnr):
+        """Helt alle personroller til fnr+pnr."""
+        
         return self.db.query("""
-        SELECT fodselsdato, personnr, rollenr, rollekode, 
-          dato_fra, dato_til, institusjonsnr, faknr, gruppenr, 
-          studieprogramkode, emnekode, versjonskode, aktivitetkode, 
-          terminkode, arstall, terminnr, etterutdkurskode, 
-          kurstidsangivelsekode
-          /* IVR 2007-10-02 FIXME: Temporarily removed, pending */
-          /* registration fixes in FS. */
-          /* , prioritetsnr, klassekode, undplanlopenr */
+        /* Vi henter absolutt *alle* attributtene og lar valideringskoden vår
+           ta hånd om verifisering av attributtene. På denne måten får vi en
+           ERROR-melding i loggene når FS finner på å populere tidligere
+           upopulerte attributter. */
+        SELECT *
         FROM fs.personrolle
         WHERE 
           fodselsdato=:fnr AND 
@@ -632,17 +631,10 @@ class Undervisning(FSObject):
             'aktkode': aktkode})
 
     def list_alle_personroller(self):
+        """Hent alle roller til aller personer."""
         qry = """
-        SELECT DISTINCT
-          fodselsdato, personnr, rollenr, rollekode,
-          dato_fra, dato_til, institusjonsnr, faknr, 
-          gruppenr, studieprogramkode, emnekode,
-          versjonskode, aktivitetkode, terminkode, 
-          arstall, terminnr, etterutdkurskode, 
-          kurstidsangivelsekode
-          /* IVR 2007-10-02 FIXME: Temporarily removed, pending */
-          /* registration fixes in FS. */
-          /* , prioritetsnr, klassekode, undplanlopenr */
+        /* Som i get_personroller, henter vi *alle* kolonnene */
+        SELECT * 
         FROM fs.personrolle
         WHERE 
           dato_fra < SYSDATE AND
@@ -1194,9 +1186,29 @@ class roles_xml_parser(non_nested_xml_parser):
         return super(roles_xml_parser, self).endElement(name)
 
     def validate_role(self, attrs):
-        # Verifiser at rollen _enten_ gjelder en (fullstendig
-        # spesifisert) undervisningsenhet _eller_ en und.aktivitet
-        # _eller_ et studieprogram, osv. -- og ikke litt av hvert.
+        # Verifiser at rollen _enten_ gjelder en (fullstendig spesifisert)
+        # undervisningsenhet _eller_ en und.aktivitet _eller_ et
+        # studieprogram, osv. -- og ikke litt av hvert. Hovedproblemet er at
+        # personrolletabellen i FS har overhodet ingen skranker på seg og man
+        # kan stappe inn hva som helst av attributter (noe som gjerne også
+        # blir gjort). 
+        #
+        # Det er *KJEMPE*viktig at man er *VELDIG* forsiktig med å endre på
+        # reglene i denne tabellen. Det er til syvende og sist de som
+        # bestemmer om rollene blir bedømt som gyldige/ugyldige.
+        #
+        # Dersom FS tar i bruk nye attributter (som resulterer i
+        # feilmeldingene i loggene våre), *MÅ* man avklare attributtbruken med
+        # dem FØR denne tabellen oppdateres.
+        #
+        # Nøklene i tabellen er kolonnenavn fra FS (== attributtnavn i
+        # roles.xml-filen generert fra FS).
+        #
+        # Verdiene forteller enten at attributtet ikke har noe betydning
+        # (None), eller forteller hvilke rolletyper den nøkkelen kan være en
+        # del av. Legg merke til at selv om et attributt ikke har noe
+        # betydning, så er oppføringen i seg selv en bekreftelse av at
+        # attributtet er gyldig.
         col2target = {
             'fodselsdato': None,
             'personnr': None,
@@ -1205,9 +1217,9 @@ class roles_xml_parser(non_nested_xml_parser):
             'dato_fra': None,
             'dato_til': None,
             'institusjonsnr': ['sted', 'emne', 'undenh', 'undakt', 'timeplan'],
-            'faknr': ['sted'],
-            'instituttnr': ['sted'],
-            'gruppenr': ['sted'],
+            'faknr': ['sted',],
+            'instituttnr': ['sted',],
+            'gruppenr': ['sted',],
             'studieprogramkode': ['stprog', 'kull', 'kullklasse'],
             'emnekode': ['emne', 'undenh', 'undakt', 'timeplan'],
             'versjonskode': ['emne', 'undenh', 'undakt', 'timeplan'],
@@ -1223,8 +1235,10 @@ class roles_xml_parser(non_nested_xml_parser):
             'dato_endring': None,
             'merknadtekst': None,
             'prioritetsnr': None,
-            'klassekode' : ['kullklasse'],
-            'undplanlopenr': ['timeplan'],
+            'klassekode' : ['kullklasse',],
+            'undplanlopenr': ['timeplan',],
+            'status_publisering': None,
+            'status_default_veileder': None,
             }
         data = attrs.copy()
         target = None

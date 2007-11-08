@@ -261,7 +261,7 @@ class EntitySpread(Entity):
     def delete_spread(self, spread):
         """Remove ``spread`` from this entity."""
         self._db.log_change(self.entity_id, self.clconst.spread_del,
-                                None, change_params={'spread': int(spread)})
+                            None, change_params={'spread': int(spread)})
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_spread]
         WHERE entity_id=:e_id AND spread=:spread""", {'e_id': self.entity_id,
