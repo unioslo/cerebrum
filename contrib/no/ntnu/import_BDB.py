@@ -904,9 +904,8 @@ class BDBSync:
             ac.np_type = np_type
             ac.write_db()
 
-        # ... we'll update expire-date and create-date 
+        # ... we'll update expire-date 
         logger.info('Updating account %s on person %s' % (username,person_entity))
-
         
         expire_date = account_info.get('expire_date',None)
         if expire_date:
@@ -914,11 +913,6 @@ class BDBSync:
         if ac.expire_date != expire_date:
             ac.expire_date = expire_date
             ac.write_db()
-
-        # How do we fix creation-date. This doesn't seem to work. FIXME!
-        #ac.create_date = account_info.get('creation_date') 
-
-
 
 
         # promote the account to posix if we have enough information
@@ -943,9 +937,6 @@ class BDBSync:
         expire_date = account_info.get('expire_date',None)
         if expire_date:
             expire_date = mx.DateTime.strptime(expire_date, "%Y-%m-%d")
-        create_date = account_info.get('creation_date')
-        if create_date:
-            create_date = mx.DateTime.strptime(create_date, "%Y-%m-%d")
         uid = account_info.get('unix_uid',None)
         
         if uid and uid == 0:
@@ -960,9 +951,6 @@ class BDBSync:
                     np_type = np_type,
                     creator_id = self.default_creator_id,
                     expire_date = expire_date)
-        # create-date is when the object is created in cerebrum.. how do we store info 
-        # on then an object is created in bdb.. do we need it?
-        #ac.create_date = create_date
         
         ac.write_db()
         
