@@ -160,10 +160,16 @@ def get_address(person):
     city = address['city']
 
     # The country field seems unused in the database.
-    # TBD: this would set country = Norway for all entries
-    country = address['country'] or 'NORGE'
+    # TBD: Fix this when SAP import imports country
+    #country = address['country'] or ''
+    country = ''
 
-    return (line1[:40], line2[:40], Zip[:4], city[:16], country[:20])
+    return {'address1': line1[:40], 
+            'address2': line2[:40], 
+            'zip':     Zip[:4], 
+            'city':    city[:16], 
+            'country': country[:20]
+            }
 
 def get_feed_code(person):
     """
@@ -193,27 +199,63 @@ def get_address_type_code(person, ad):
     """
     return ''
 
+def compare_addresses(a, b):
+    """
+    Return -1, 0, 1 for comparison between person_information dicts as seen below.
+    Both arguments should be dicts following that scheme.
+    Priority:
+    * country
+    * zip/city
+    * address1
+    """
+    value = cmp(a['country'], b['country'])
+    if value: return value
+    value = cmp(a['zip'], b['zip'])
+    if value: return value
+    value = cmp(a['city'], b['city'])
+    if value: return value
+    value = cmp(a['address1'], b['address1'])
+    if value: return value
+    return cmp(a['name'], b['name'])
+
 def main(outfile):
     person = Factory.get("Person")(db)
 
     logger.debug("Getting all persons with affiliation ansatt")
     result = person.list_affiliations(affiliation=constants.affiliation_ansatt)
     persons = set(map(lambda x: x[0], result)) # set of person ids with affiliation ansatt
-    
+    addresses=[]
     for p in persons:
         person.clear()
         logger.debug("Finding person id %d" % p)
         person.find(p)
         name = get_name(person)
+        # Persons without name or address should be skipped
         if not name:
             continue
-        address = get_address(person)
-        if not address:
+        person_information = get_address(person)
+        if not person_information:
             continue
-        print >>outfile, "%-40s%-2s" % (name, get_num_copies(person)) + \
-                         "%-40s%-40s%-4s%-16s%-20s" % address + \
-                         "%-4s%-10s%-2s%-4s" % (get_feed_code(person), get_register_group(person),
-                                                get_register_code(person), get_address_type_code(person, ad))
+        person_information.update({
+            'name': name,
+            'copies': get_num_copies(person),
+            'feed_code': get_feed_code(person),
+            'register_group': get_register_group(person),
+            'register_code': get_register_code(person),
+            'type_code': get_address_type_code(person, person_information)
+            })
+        addresses.append(person_information)
+    addresses.sort(compare_addresses)
+    for i in addresses:
+        print >>outfile, "%(name)-40s%(copies)-2s%(address1)-40s" \
+                "%(address2)-40s%(zip)-4s%(city)-16s%(country)-20s" \
+                "%(feed_code)-4s%(register_group)-10s%(register_code)-2s%(type_code)-4s" \
+                % i
+
+    #print >>outfile, "%-40s%-2s" % (name, get_num_copies(person)) + \
+    #                 "%-40s%-40s%-4s%-16s%-20s" % address + \
+    #                 "%-4s%-10s%-2s%-4s" % (get_feed_code(person), get_register_group(person),
+    #                                        get_register_code(person), get_address_type_code(person, ad))
 
 def usage(prog):
     print """%s [-f filename]
