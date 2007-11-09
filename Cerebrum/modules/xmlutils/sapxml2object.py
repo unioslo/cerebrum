@@ -325,8 +325,8 @@ class XMLPerson2Object(XMLEntity2Object):
             # IVR 2007-07-06 spelling-lol
             elif sub.tag in ("AdressType",):
                 addr_kind = sap2intern.get(value, "")
-            # fi
-        # od
+            elif sub.tag in ("CO",):
+                street.insert(0, value)
 
         # If we do not know the address kind, we *cannot* register it.
         if not addr_kind:
