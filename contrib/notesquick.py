@@ -35,9 +35,8 @@ from Cerebrum.modules import NotesUtils
 
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
-clco = Factory.get('CLConstants')(db)
+clco = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
-entity = Entity.Entity(db)
 entityname = Entity.EntityName(db)
 ou = Factory.get('OU')(db)
 account = Factory.get('Account')(db)
@@ -47,42 +46,44 @@ logger = Factory.get_logger("cronjob")
 
 def quick_sync():
 
-#Change_log entries to react on:
-#
-#OK notes add spread
-#OK notes del spread
-#OK notes changed passwd
-#OK notes add quarantine
-#OK notes del quarantine
-#
-#Secondary:
-#Account changed OU 
-#Account connected same Person changed spread.
+    # Change_log entries to react on:
+    #
+    # OK notes add spread
+    # OK notes del spread
+    # OK notes changed passwd
+    # OK notes add quarantine
+    # OK notes del quarantine
+    #
+    # Secondary:
+    # Account changed OU 
+    # Account connected same Person changed spread.
 
-    answer=cl.get_events('notes',(
-        clco.account_password, clco.spread_add, clco.spread_del,
-        clco.quarantine_add, clco.quarantine_del,
-        clco.quarantine_mod, clco.quarantine_refresh))
+    # TODO: force Account-only events
+    answer = cl.get_events('notes',
+                           (clco.account_password, clco.spread_add,
+                            clco.spread_del, clco.quarantine_add,
+                            clco.quarantine_del, clco.quarantine_mod,
+                            clco.quarantine_refresh))
+    event_account = Factory.get("Account")(db)
 
     for ans in answer:
         cl.confirm_event(ans)   
         chg_type = ans['change_type_id']
         try:
-            entity.clear()
-            entity.find(ans['subject_entity'])
-#            entity.has_spread(int(co.spread_uio_notes_account))
+            event_account.clear()
+            event_account.find(ans['subject_entity'])
         
-            if entity.has_spread(int(co.spread_uio_notes_account)):        
+            if event_account.has_spread(co.spread_uio_notes_account):
                 if chg_type == clco.account_password:
                     change_params = pickle.loads(ans['change_params'])  
                     change_pw(ans['subject_entity'],change_params)
                 elif chg_type == clco.spread_add:
                     change_params = pickle.loads(ans['change_params'])
-                    if change_params['spread'] == int(co.spread_uio_notes_account):    
+                    if change_params['spread'] == co.spread_uio_notes_account:
                         add_user(ans['subject_entity'])
                 elif chg_type == clco.spread_del:
                     change_params = pickle.loads(ans['change_params'])
-                    if change_params['spread'] == int(co.spread_uio_notes_account):    
+                    if change_params['spread'] == co.spread_uio_notes_account:
                         delundel_user(ans['subject_entity'],'splatt')
                 elif (chg_type == clco.quarantine_add or
                       chg_type == clco.quarantine_del or
