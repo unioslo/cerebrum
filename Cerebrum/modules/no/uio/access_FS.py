@@ -901,9 +901,12 @@ class UiOStudieInfo(access_FS.StudieInfo):
         FROM  fs.kull k, fs.studieprogram s, fs.studieprogram
         WHERE
           k.status_aktiv = 'J' AND
-          s.studieprogramkode = k.studieprogramkode
+          s.studieprogramkode = k.studieprogramkode AND
+          /* IVR 2007-11-12: According to baardj, it makes no sense to
+             register 'kull' for earlier timeframes. */
+          k.arstall >= 2005
         """
-        return self.db.query(qry, {"year": self.year})
+        return self.db.query(qry)
     # end list_kull
 # end UiOStudieInfo
 
