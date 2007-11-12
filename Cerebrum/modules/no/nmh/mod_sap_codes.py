@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-This file provides code values to be used with SAP's SAP extension to
+This file provides code values to be used with NMH's SAP extension to
 Cerebrum -- mod_sap.
 """
 
