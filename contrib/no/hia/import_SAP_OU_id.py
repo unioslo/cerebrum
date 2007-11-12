@@ -53,23 +53,20 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 
-import sys
 import getopt
+import re
 import string
+import sys
 
 
 
 
-
-def process_OUs(db):
+def process_OUs(db, ou_stream):
 
     ou = Factory.get("OU")(db)
-    fs = Factory.get("FS")()
 
     total = 0; success = 0
-
-    OUs = fs.info.list_ou()
-    for row in OUs:
+    for row in ou_stream:
         total += 1
         try:
             ou.clear()
@@ -126,6 +123,8 @@ def process_OUs(db):
                 logger.exception("Failed writing SAP id «%s-%s» to the db",
                                  orgeh, gsber)
         else:
+            # IVR 2007-11-12 FIXME: get_SAP_id() will fail, if we ran rollback
+            # above.
             logger.debug("[%10d] <=> [%15s] <=> [%12s]",
                          ou.entity_id, ou.get_SAP_id(),
                          "(%d, %d, %d)" % 
@@ -137,6 +136,27 @@ def process_OUs(db):
 
 
 
+def ou_id_generator(filename, separator=";"):
+    keys = ("faknr", "instituttnr", "gruppenr", "stedkode_konv")
+
+    for line in file(filename, "r"):
+        line = line.strip()
+        # skip empty lines
+        if not line:
+            continue
+        # skip commented lines
+        if line[0] == "#":
+            continue
+
+        fields = re.split(separator, line)
+        result = dict()
+        for index, key in enumerate(keys):
+            result[key] = fields[index]
+        yield result
+# end ou_id_generator
+
+
+
 def main():
     "Entry point for this script." 
 	
@@ -144,19 +164,26 @@ def main():
     logger = Factory.get_logger("cronjob")
 
     options, rest = getopt.getopt(sys.argv[1:],
-                                  "d",
-                                  ["dryrun",])
+                                  "do:",
+                                  ["dryrun","ou-file="])
 
     global dryrun
     dryrun = False
+    ou_stream = None
     for option, value in options:
         if option in ("-d", "--dryrun"):
             dryrun = True
+        elif option in ("-o", "--ou-file",):
+            ou_stream = ou_id_generator(value)
+
+    if ou_stream is None:
+        fs = Factory.get("FS")()
+        ou_stream = fs.info.list_ou()
 
     db = Factory.get("Database")()
     db.cl_init(change_program="import_SAP")
 
-    process_OUs(db)
+    process_OUs(db, ou_stream)
 # end main
 
 
