@@ -50,7 +50,7 @@ from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uio.fronter_lib \
-     import XMLWriter, UE2KursID, key2fields, fields2key
+     import XMLWriter, UE2KursID, key2fields, fields2key, host_config
 
 
 root_sko = '900199'
@@ -63,53 +63,6 @@ db = const = logger = None
 fronter = fxml = None
 include_this_sem = True
 new_users = None
-
-
-def get_members(group_name):
-    db = Factory.get("Database")()
-    group = Factory.get("Group")(db)
-    usernames = ()
-    try:
-        group.find_by_name(group_name)
-    except Errors.NotFoundError:
-        pass
-    else:
-        members = group.get_members(get_entity_name=True)
-        usernames = tuple([x[1] for x in members])
-
-    return usernames
-# end get_members
-
-
-host_config = {
-    'internkurs.uio.no': { 'DBinst': 'DLOUIO.uio.no',
-                           'admins':
-                           get_members('classfronter-internkurs-drift'),
-                           'export': ['All_users'],
-                           },
-    'tavle.uio.no': {'DBinst': 'DLOOPEN.uio.no',
-                     'admins': get_members('classfronter-tavle-drift'),
-                     'export': ['All_users'],
-                     },
-    'kladdebok.uio.no': { 'DBinst': 'DLOUTV.uio.no',
-                          'admins':
-                          get_members('classfronter-kladdebok-drift'),
-                          'export': ['FS'],
-                          'plain_users': ['mgrude', 'gunnarfk'],
-                          'spread': 'spread_fronter_kladdebok',
-                          },
-    'petra.uio.no': { 'DBinst': 'DLODEMO.uio.no',
-                      'admins': get_members('classfronter-petra-drift'),
-                      'export': ['FS', 'All_users'],
-                      'spread': 'spread_fronter_petra',
-                      },
-    'blyant.uio.no': { 'DBinst': 'DLOPROD.uio.no',
-                       'admins': get_members('classfronter-blyant-drift'),
-                       'export': ['FS', 'All_users'],
-                       'spread': 'spread_fronter_blyant',
-                       }
-    }
-
 
 
 class Fronter(object):
