@@ -878,7 +878,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
             if ifi_hack:
                 akt_ansv = {}
                 prim, sec = \
-                      dbrow2account_ids(
+                      dbrows2account_ids(
                         extract_all_roles("%s:%s" % (enhet_id, aktkode),
                                           role_mapping, sted),
                         primary_only=False)
