@@ -65,9 +65,10 @@ def quick_sync():
                             clco.quarantine_del, clco.quarantine_mod,
                             clco.quarantine_refresh))
     event_account = Factory.get("Account")(db)
+    entity = Factory.get("Entity")(db)
 
     for ans in answer:
-        cl.confirm_event(ans)   
+        cl.confirm_event(ans)
         chg_type = ans['change_type_id']
         try:
             event_account.clear()
@@ -76,7 +77,7 @@ def quick_sync():
             if event_account.has_spread(co.spread_uio_notes_account):
                 if chg_type == clco.account_password:
                     change_params = pickle.loads(ans['change_params'])  
-                    change_pw(ans['subject_entity'],change_params)
+                    change_pw(ans['subject_entity'], change_params)
                 elif chg_type == clco.spread_add:
                     change_params = pickle.loads(ans['change_params'])
                     if change_params['spread'] == co.spread_uio_notes_account:
@@ -84,16 +85,31 @@ def quick_sync():
                 elif chg_type == clco.spread_del:
                     change_params = pickle.loads(ans['change_params'])
                     if change_params['spread'] == co.spread_uio_notes_account:
-                        delundel_user(ans['subject_entity'],'splatt')
+                        delundel_user(ans['subject_entity'], 'splatt')
                 elif (chg_type == clco.quarantine_add or
                       chg_type == clco.quarantine_del or
                       chg_type == clco.quarantine_mod or
                       chg_type == clco.quarantine_refresh):
                     change_quarantine(ans['subject_entity']) 
         except Errors.NotFoundError:
-            logger.warn("Could not find entity %s", ans['subject_entity'])
+            #
+            # Accounts are not the only ones that can have the type of events
+            # scanned for in the get_events()-call earlier.
+            try:
+                entity.clear()
+                entity.find(ans['subject_entity'])
+                # group can have spread_add, e.g. In that case we do not want
+                # to see any warnings/errors (it is meaningless).
+                logger.debug("Looking for accounts, but found entity id=%s "
+                             "(type %s)",
+                             ans["subject_entity"], entity.entity_type)
+            except Errors.NotFoundError:
+                logger.warn("Could not find any *entity* with id=%s "
+                            "although there is a change_log entry for it",
+                            ans['subject_entity'])
 
-    cl.commit_confirmations()    
+    cl.commit_confirmations()
+# end quick_sync
 
 def change_quarantine(entity_id):
     if NotesUtils.chk_quarantine(entity_id):
