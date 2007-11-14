@@ -32,27 +32,120 @@
 ## The following hack removes the tabview
 #def tabview:
 
+#def header()
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xml:lang="en">
+    <head>
+        <title>Activate account</title>
+        <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+        <meta http-equiv="Pragma" content="no-cache" />
+        <meta http-equiv="Cache-Control" content="max-age=0" />
+        <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
+        <!-- Include yui styles -->
+
+        <link rel="stylesheet" type="text/css" charset="UTF-8" href="/yui/build/reset-fonts-grids/reset-fonts-grids.css"/>
+        <link rel="stylesheet" type="text/css" charset="UTF-8" href="/yui/build/container/assets/container.css"/>
+        <link rel="stylesheet" type="text/css" charset="UTF-8" href="/yui/build/logger/assets/logger.css"/>
+        <link rel="stylesheet" type="text/css" charset="UTF-8" href="/yui/build/datatable/assets/datatable.css"/>
+        <link rel="stylesheet" type="text/css" charset="UTF-8" href="/yui/build/tabview/assets/tabview.css"/>
+        <link rel="stylesheet" type="text/css" charset="UTF-8" href="/yui/build/tabview/assets/border_tabs.css"/> 
+
+        <!-- Include yui components -->
+        <script type="text/javascript" charset="UTF-8" src="/yui/build/utilities/utilities.js"></script>
+        <script type="text/javascript" charset="UTF-8" src="/yui/build/logger/logger-min.js"></script>
+
+        <script type="text/javascript" charset="UTF-8" src="/yui/build/container/container-min.js"></script>
+        <script type="text/javascript" charset="UTF-8" src="/yui/build/element/element-beta-min.js"></script>
+        <script type="text/javascript" charset="UTF-8" src="/yui/build/datasource/datasource-beta-min.js"></script>
+        <script type="text/javascript" charset="UTF-8" src="/yui/build/datatable/datatable-beta-min.js"></script>
+        <script type="text/javascript" charset="UTF-8" src="/yui/build/autocomplete/autocomplete-min.js"></script>
+        <script type="text/javascript" charset="UTF-8" src="/yui/build/tabview/tabview-min.js"></script> 
+        <!-- Include our styles -->
+
+        <link rel="stylesheet" type="text/css" charset="UTF-8" href="/css/default.css"/>
+        <link rel="stylesheet" type="text/css" charset="UTF-8" href="/css/style.css"/>
+
+        <!-- Include our javascript application -->
+        <!-- 6 -->
+            <script type="text/javascript" charset="UTF-8" src="/jscript/base.js"></script>
+            <script type="text/javascript" charset="UTF-8" src="/jscript/search.js"></script>
+            <script type="text/javascript" charset="UTF-8" src="/jscript/timeout.js"></script>
+
+            <script type="text/javascript" charset="UTF-8" src="/jscript/worklist.js"></script>
+            <script type="text/javascript" charset="UTF-8" src="/jscript/error.js"></script>
+            <script type="text/javascript" charset="UTF-8" src="/jscript/motd.js"></script>
+
+    </head>
+    <body>
+        <div id="container">
+#end def
+
+#def footer()
+        </div>
+	<div>
+	<a href="http://www.totalvalidator.com/validator/Revalidate?revalidate=true">
+        <img src="http://www.totalvalidator.com/images/valid_n_xhtml_11.gif"
+        alt="Totally Valid XHTML 1.1" /> </a>
+	</div>
+    </body>
+    </html>
+#end def
+
 #def welcome($lang='no')
-Congratulations! You are now welcome to use your new account<br>
-here at our Campus. You can use the same URL (http://bas.ntnu.no) to  <br>
-look at your accounts, group-membership, manage groups (if you are owner<br>
-of one or many). You have to set a new password every N months - and of <br>
+
+$header()
+<h3>Congratulations!</h3>
+
+<div>
+You are now welcome to use your new account here at our Campus.
+</div>
+
+<div>
+You can use the same URL <a href="http://bas.ntnu.no/">
+(http://bas.ntnu.no)</a> to look at your accounts, group-membership,
+ manage groups (if you are owner of one or many).
+</div>
+
+<div>
+You have to set a new password every N months - and of 
 course, you can do that here as well.
+</div>
+
+$footer()
 #end def
 
 #def initpassword($lang='no')
-  <form method=post>
-    <input type=hidden name=page value=initpassword>
+
+$header()
+<div>
+  <form method="post" action="/activation/">
+    <input type="hidden" name="page" value="initpassword" />
     #if $lang=='no'
-      Vennligst oppgi hvilket passord du vil bruke.
-      <table border=0>
+        <div>
+            Vennligst oppgi hvilket passord du vil bruke.
+        </div>
+
+        <div>
+      <table border="0">
         <tr>
-          <td>Velg passord selv:</td><td>Velg et forhåndsgenerert passord:</td>
+          <td>
+                Velg passord selv:
+          </td>
+          <td>
+                Velg et forh&aring;ndsgenerert passord:
+            </td>
         </tr>
         <tr>
           <td>
-            Passord: <input type=password name=pw1>
-            Gjenta:  <input type=password name=pw2>
+
+            <div>
+                Passord: <input type="password" name="pw1" />
+            </div>
+
+            <div>
+                Gjenta:  <input type="password" name="pw2" />
+            </div>
+
           </td>
           <td>
             H3mmel16 <br>
@@ -63,129 +156,234 @@ course, you can do that here as well.
           </td>
         </tr>
         <tr>
-          <td cellspan=2>
-            NB: Passord blir ikke vist igjen. Sørg for at du husker passordet.
-            <input type=submit name=submit_pw value='OK'>
+          <td cellspan="2">
+            <div>
+                <em>NB:</em> Passord blir ikke vist igjen. S&oslash;rg for at
+                du husker passordet.
+            </div>
+            <div>
+            <input type="submit" name="submit_pw" value="OK" />
+            </div>
           </td>
         </tr>
       </table>
-
-    <p>
-      <li>Passordet må være 8 tegn langt
-      <li>Passordet må være forskjellig fra ditt siste passord
-      <li>Passordet må inneholodet minst ett tegn fra tre av de fire gruppene:
-      <ul>
-        <li>Store bokstaver (A-Z)
-        <li>Små bokstaver (a-z)
-        <li>Siffer (0-9)
-        <li>Spesialtegn (F&oslash;lgende spesialtegn godtas ikke: space'<>;:%^&\/\\|
-    </p>
+        </div>
+    <div>
+        <ul>
+            <li>Passordet m&aring; v&aelig;re 8 tegn langt</li>
+            <li>Passordet m&aring; v&aelig;re forskjellig fra ditt siste passord</li>
+            <li>Passordet m&aring; inneholodet minst ett tegn fra tre av de fire gruppene:</li>
+            <li>
+                <ul>
+                    <li>Store bokstaver (A-Z)</li>
+                    <li>Sm&aring; bokstaver (a-z)</li>
+                    <li>Siffer (0-9)</li>
+                    <li>Spesialtegn (F&oslash;lgende spesialtegn godtas ikke: space'<>;:%^&\/\\|</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
     #elif $lang=='en'
     #end if
   </form>
+</div>
+$footer()
 #end def
 
 #def eula($lang='no')
-  <FORM method=post action=/activation/>
+
+$header()
+<div>
+  <form method="post" action="/activation/">
   #if $lang == 'no'
     <h3>Aktivering (4/5)</h3>
-      <input type=hidden name=page value=eula>
-      <input type=hidden name=studentnr value=631120>
-      <input type=hidden name=fodselsnr value=07047646353>
-      <input type=hidden name=pin value=4410>
-      <p>
-        <a href='itreg_no.html' target='itreg'>Bokm&aring;l</A> &nbsp; 
-        <a href='itreg_en.html' target='itreg'>English</a>
-      </p>
-          Jeg bekrefter herved å ha lest NTNUs IT-reglement og jeg påtar meg de
-          forpliktelser som reglementet til enhver tid legger på meg. Jeg
-          aksepterer også de sanksjonsmuligheter som NTNU har ved brudd på
-          IT-reglementet slik det er angitt i IT-reglementets punk 4.3, 7.1 og 7.2.
-      </p>
-      <p>
-        <INPUT TYPE=checkbox NAME=godkjent_logger> 
-          Jeg gir herved tillatelse til at det kan benyttes driftslogger for å
-          identifisere min bruk av dataanlegget med de begrensninger som er spesifisert 
-          i IT-reglementets punkt 5.10.
-      </p>
-      <p>
-        <INPUT TYPE=submit name=submit_btn value='OK'>
-      </p>
+      <input type="hidden" name="page" value="eula" />
+      <input type="hidden" name="studentnr" value="631120" />
+      <input type="hidden" name="fodselsnr" value="07047646353" />
+      <input type="hidden" name="pin" value="4410" />
+
+        <div>
+        <a href="itreg_no.html" target="itreg">Bokm&aring;l</A> &nbsp;
+        <a href="itreg_en.html" target="itreg">English</a>
+        </div>
+    
+        <div>
+          Jeg bekrefter herved &aring; ha lest NTNUs IT-reglement og
+             jeg p&aring;tar meg de
+          forpliktelser som reglementet til enhver tid legger p&aring; meg.
+            Jeg aksepterer ogs&aring; de sanksjonsmuligheter som NTNU har
+           ved brudd p&aring; IT-reglementet slik det er angitt i
+         IT-reglementets punk 4.3, 7.1 og 7.2.
+        </div>
+
+        <div>
+        <input type="checkbox" name="godkjent_logger" /> 
+          Jeg gir herved tillatelse til at det kan benyttes driftslogger
+             for &aring; identifisere min bruk av dataanlegget med de
+             begrensninger som er spesifisert i IT-reglementets punkt 5.10.
+        </div>
+
+        <div>
+        <input type="submit" name="submit_btn" value="OK" />
+        </div>
+
  #elif $lang == 'en'
   <h3>Activation (4/5)</h3>
   not implemented yet
  #end if
   </form>
+</div>
+$footer()
 #end def
 
 #def studentnr($lang='no')
-  <form method=post>
+
+$header()
+<div>
+  <form method="post" action="/activation/">
     #if $lang == 'no'
       <h3>Aktivering (2/5)</h3>
-      Vennligst oppgi ditt studentnr.
-      Studentnummer: <input type=text name=studentnr> <input type=submit name=blapp value='OK'>
+
+        <div>
+            Vennligst oppgi ditt studentnr.
+        </div>
+
+        <div>
+            Studentnummer:&nbsp;
+            <input type="text" name="studentnr" />&nbsp;
+            <input type="submit" name="blapp" value="OK" />
+        </div>
+
     #elif $lang == 'en'
       <h3>Activation (3/5)</h3>
       Not implemented yet
     #end if 
-    <input type=hidden name=page value=studentnr>
+    <input type="hidden" name="page" value="studentnr" />
   </form>
+</div>
+$footer()
 #end def
 
 #def pinkode($lang='no')
-  <form method=post>
+
+$header()
+<div>
+  <form method="post" action="/activation/">
     #if $lang == 'no'
       <h3>Aktivering (3/5)</h3>
-      Vennligst oppgi PIN-kode
-      PIN-kode: <input type=text name=pin> <input type=submit name=blapp value='OK'>
-      PIN-koden (4 siffer) skal stå på den giroen du får tilsendt for betaling av semesteravgift. 
-      Hvis du ikke har fått giroen, eller har glemt koden, må du ta kontakt med 
-      <a href=http://www.ntnu.no/studentservice>Studentservice</a>
+
+        <div>
+            Vennligst oppgi PIN-kode
+        </div>
+
+        <div>
+            PIN-kode:&nbsp;
+            <input maxlength="4" type="text" name="pin" /> &nbsp;
+            <input type="submit" name="blapp" value="OK" />
+        </div>
+
+        <div>
+            PIN-koden (4 siffer) skal st&aring; p&aring; den giroen du 
+            f&aring;r tilsendt for betaling av semesteravgift.
+        </div>
+
+        <div>
+            Hvis du ikke har f&aring;tt giroen, eller har glemt koden, 
+            m&aring; du ta kontakt med
+            <a href="http://www.ntnu.no/studentservice">Studentservice</a>
+        </div>
+
     #elif $lang == 'en'
       <h3>Activation (2/5)</h3>
       Not implemented yet
     #end if
-    <input type=hidden name=page value=pinkode>
+    <input type="hidden" name="page" value="pinkode" />
   </form>
+</div>
+$footer()
 #end def
 
 #def fodselsnr($lang='no')
-  <form method=post>
+
+$header()
+<div>
+  <form method="post" action="/activation/">
     #if $lang == 'no'
       <h3>Aktivering (1/5)</h3>
-      Du har kommet til en tjeneste som krever at du identifiserer deg.
-      Vennligst oppgi fødselsnummer (11 siffer).
-      F&oslash;dselsnummer: <input type=text name=fnr><input type=submit name=blapp value='OK'>
+
+        <div>
+            Du har kommet til en tjeneste som krever at du identifiserer deg.
+        </div>
+
+        <div>
+            Vennligst oppgi f&oslash;dselsnummer (11 siffer).
+        </div>
+
+        <div>
+            F&oslash;dselsnummer:&nbsp;
+            <input maxlength="11" type="text" name="fnr" /> &nbsp;
+            <input type="submit" name="blapp" value="OK" />
+    </div>
+
     #elif $lang == 'en'
       <h3>Activation (1/5)</h3>
-      This service requires you to type in your 11-digit national ID number 
-      (your birth date: dd/mm/yy plus the five extra digits on your matriculation certificate). 
+        <div>
+            This service requires you to type in your 11-digit national
+            ID number (your birth date: dd/mm/yy plus the five extra
+            digits on your matriculation certificate). 
+        </div>
     #end if
-    <table>
-    </table>
-    <input type=hidden name=page value=fodselsnr>
+    <input type="hidden" name="page" value="fodselsnr" />
   </form>
+</div>
+$footer()
 #end def
 
 #def language 
-Vennligst velg språk / Please select language:
-<FORM METHOD=post ACTION='/activation/'>
-  <SELECT NAME=lang>
-    <OPTION VALUE="no">Norsk
-    <OPTION VALUE="en">English
-  </SELECT>
-  <input type=hidden name=page value=language>
-  <input type=submit name=language value='OK'>
-</FORM>
+
+$header()
+<div>
+Vennligst velg spr&aring;k / Please select language:
+</div>
+
+<div>
+<form method="post" action="/activation/">
+      <div>
+  <select name="lang">
+    <option value="no">Norsk</option>
+    <option value="en">English</option>
+  </select>
+  </div>
+
+  <div>
+  <input type="hidden" name="page" value="language" />
+  <input type="submit" name="language" value="OK" />
+  </div>
+
+</form>
+</div>
+$footer()
 #end def
 
 #def content
+
+$header()
 <div class="view_content">
     ## Content
-    Du har nå kommet til siden for å aktivere brukerkonto ved NTNUs IT-systemer.<br>
-    You have now reached the page used to activate your user-account at NTNUs Computer-systems.<br>
+    <div>
+        Du har n&aring; kommet til siden for &aring; aktivere brukerkonto
+        ved NTNUs IT-systemer.
+    </div>
+
+    <div>
+        You have now reached the page used to activate your user-account
+        at NTNUs Computer-systems.
+    </div>
+
     $choose_language()
+
 </div>
+$footer()
 #end def
 
 $content()
