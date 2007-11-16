@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2006 University of Oslo, Norway
+# Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,779 +23,280 @@ The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
-import cereconf
-from Cerebrum.DatabaseAccessor import DatabaseAccessor
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum import Constants
+from Cerebrum.Constants import \
+     _AuthoritativeSystemCode, \
+     _OUPerspectiveCode, \
+     _SpreadCode, \
+     _QuarantineCode, \
+     _EntityExternalIdCode, \
+     _PersonAffiliationCode, \
+     _PersonAffStatusCode, \
+     _AccountCode, \
+     _ContactInfoCode, \
+     _CerebrumCode, \
+     _AuthenticationCode
+from Cerebrum.modules.PosixUser import \
+     _PosixShellCode
+from Cerebrum.modules.Email import \
+     _EmailServerTypeCode
+from Cerebrum.modules.EntityTrait import \
+     _EntityTraitCode
+
+class Constants(Constants.Constants):
+
+    # ID's from external systems
+    externalid_sys_x_id = _EntityExternalIdCode(
+        'SYS_X_ID',
+        Constants.Constants.entity_person,
+        'Internal sys_x identifier')
+
+    # Authoritative systems
+    system_lt = _AuthoritativeSystemCode('SLP4', 'SLP4')
+    system_x = _AuthoritativeSystemCode('SYS_X', 'Manuelt personal system')
+    system_tlf = _AuthoritativeSystemCode('TLF', 'Telefoni system')
+    system_sysacc = _AuthoritativeSystemCode('SYSACC', 'System Accounts')
+
+    # Account codes
+    account_test = _AccountCode('T', 'Testkonto')
+    account_felles_drift = _AccountCode('FD','Felles Drift') 
+    account_felles_intern = _AccountCode('FI','Felles Intern') 
+    account_kurs = _AccountCode('K','Kurs') 
+    account_forening = _AccountCode('F','Forening') 
+    account_maskin = _AccountCode('M','Maskin') 
+    account_prosess = _AccountCode('P','Prosess') 
+
+    # Contact codes
+    contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
+    contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
 
 
-class CodeValuePresentError(RuntimeError):
-    """Error raised when an already existing code value is inserted."""
-    pass
+    # Ansatt affiliation and status
+    affiliation_ansatt = _PersonAffiliationCode(
+        'ANSATT',
+        'Ansatt ved UiT (i følge LT)') 
+    affiliation_status_ansatt_sys_x = _PersonAffStatusCode(
+        affiliation_ansatt, 
+        'sys_x-ansatt',
+        'Manuelt gitt tilgang til AD (bør nyanseres)')
 
-
-class _CerebrumCode(DatabaseAccessor):
-    """Abstract base class for accessing code tables in Cerebrum.
-       Note that the database connection must be prepared first by
-       setting _CerebrumCode.sql = db"""
-
-    sql = None
-    _lookup_table = None                # Abstract class.
-    _lookup_code_column = 'code'
-    _lookup_str_column = 'code_str'
-    _lookup_desc_column = 'description'
-    _code_sequence = '[:sequence schema=cerebrum name=code_seq op=next]'
-    # How many of the arguments to the constructor are the key value?
-    _key_size = 1
-
-    # Should we postpone INSERTion of code value in this class until
-    # some other code value class has been fully INSERTed (e.g. due to
-    # foreign key constraint checks)?
-    _insert_dependency = None
-
-    # Turn constant objects into instance singletons: there can
-    # only be one instance of a given state.
-    #
-    # The implementation is a bit tricky, since we need to avoid
-    # lookup the integer code value of objects while initialising.
+    # Student affiliation and status
+    affiliation_student = _PersonAffiliationCode(
+        'STUDENT', 
+        'Student ved UiT (i følge FS)') 
+    affiliation_status_student_sys_x = _PersonAffStatusCode(
+        affiliation_student, 
+        'sys_x-student',
+        'Manuelt gitt tilgang til SUT (bør nyanseres)')
+    affiliation_status_student_tilbud = _PersonAffStatusCode(
+        affiliation_student, 
+        'tilbud', 
+        'Har fått tilbud om opptak')
+    affiliation_status_student_opptak = _PersonAffStatusCode(
+        affiliation_student, 
+        'opptak', 
+        'Har studierett ved studieprogram')
+    affiliation_status_student_perm = _PersonAffStatusCode(
+        affiliation_student, 
+        'permisjon', 
+        'Har gyldig permisjonstatus i FS')
+    affiliation_status_student_alumni = _PersonAffStatusCode(
+        affiliation_student, 
+        'alumni', 
+        'Har fullført studieprogram i FS')
+    affiliation_status_student_drgrad = _PersonAffStatusCode(
+        affiliation_student, 
+        'drgrad', 
+        'Registrert student på doktorgrad')
     
-    def __new__(cls, *args, **kwargs):
-        # Each instance is stored in the class variable _cache using
-        # two keys: the integer value (code) and the string value
-        # (code_str).  If the constructor key to the code table
-        # contains more than value (_key_size > 1), a tuple of the
-        # string values is used as key as well.
-        #
-        # The mapping from integer is delayed and filled in the first
-        # time a constructor is called with an integer argument.  The
-        # cache either contains all keys, or just the string (and
-        # tuple) key.
-        if cls.__dict__.get("_cache") is None:
-            cls._cache = {}
-
-        # If the key is composite and only one argument is given, it
-        # _should_ be the code value as an integer of some sort, and
-        # enter the else branch.
-        if isinstance(args[0], (str, _CerebrumCode)):
-            if cls._key_size > 1 and len(args) > 1:
-                code = ()
-                for i in range(cls._key_size):
-                    if isinstance(args[i], int):
-                        raise TypeError, "Arguments must be constants or str."
-                    code += (str(args[i]), )
-            else:
-                code = str(args[0])
-            if code in cls._cache:
-                return cls._cache[code]
-            new = DatabaseAccessor.__new__(cls)
-            if cls._key_size > 1:
-                # We must call __init__ explicitly to fetch code_str.
-                # When __new__ is done, __init__ is called again by
-                # Python.  Wasted effort, but not worth worrying
-                # about.
-                new.__init__(*args, **kwargs)
-                cls._cache[str(new)] = new
-        else:
-            if cls._key_size > 1 and len(args) > 1:
-                raise ValueError, ("When initialising a multi key constant, "
-                                   "the first argument must be a CerebrumCode "
-                                   "or string")
-            # Handle PgNumeric and other integer-like types
-            try:
-                code = int(args[0])
-            except ValueError:
-                raise TypeError, "Argument 'code' must be int or str."
-            if code in cls._cache:
-                return cls._cache[code]
-
-            # The cache may be incomplete, only containing code_str as
-            # key.  So we make a new object based on the integer
-            # value, and if it turns out the code was in the cache
-            # after all, we throw away the new instance and use the
-            # cached one instead.
-            new = DatabaseAccessor.__new__(cls)
-            new.__init__(*args, **kwargs)
-            code_str = str(new)
-            if code_str in cls._cache:
-                cls._cache[code] = cls._cache[code_str]
-                return cls._cache[code]
-            cls._cache[code_str] = new
-
-        cls._cache[code] = new
-        return new
-
-    # TBD: Should this take DatabaseAccessor args as well?  Maybe use
-    # some kind of currying in Constants to avoid having to pass the
-    # Database arg every time?
-    def __init__(self, code, description=None):
-        # self may be an already initialised singleton.
-        if isinstance(description, str):
-            description = description.strip()
-        self._desc = description
-        if isinstance(code, str):
-            # We can't initialise self.int here since the database is
-            # unavailable while all the constants are defined, nor
-            # would we want to, since we often never need the
-            # information.
-            if not hasattr(self, "int"):
-                self.int = None
-            self.str = code
-        elif not hasattr(self, "int"):
-            self.int = code
-            self.str = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
-                                        (self._lookup_str_column,
-                                         self._lookup_table,
-                                         self._lookup_code_column),
-                                        {'code': code})
-
-    def __str__(self):
-        return self.str
-
-    def __repr__(self):
-        int = ""
-        if self.int is not None:
-            int = " int=%d" % self.int
-        return "<%(class)s instance code_str='%(str)s'%(int)s at %(id)s>" % {
-            'class': self.__class__.__name__,
-            'str': self.str,
-            'int': int,
-            'id': hex(id(self) & 2**32-1)} # Avoid FutureWarning in hex conversion
-
-    def _get_description(self):
-        if self._desc is None:
-            self._desc = self.sql.query_1("SELECT %s FROM %s WHERE %s=:code" %
-                                          (self._lookup_desc_column,
-                                           self._lookup_table,
-                                           self._lookup_code_column),
-                                          {'code': int(self)})
-        return self._desc
-    description = property(_get_description, None, None,
-                           "This code value's description.")
-
-    def __int__(self):
-        if not cereconf.CACHE_CONSTANTS:
-            self.int = None
-
-        if self.int is None:
-            self.int = int(self.sql.query_1("SELECT %s FROM %s WHERE %s=:str" %
-                                            (self._lookup_code_column,
-                                             self._lookup_table,
-                                             self._lookup_str_column),
-                                            self.__dict__))
-        return self.int
-
-    def __hash__(self):
-        "Help method to be able to hash constants directly."
-        return hash(self.__int__())
+    #Tilknyttet affiliation and status
+    affiliation_tilknyttet = _PersonAffiliationCode(
+        'TILKNYTTET', 
+        'Tilknyttet UiT uten å være student eller ansatt')
+    affiliation_tilknyttet_fagperson = _PersonAffStatusCode(
+        affiliation_tilknyttet, 
+        'fagperson', 
+        'Registrert som fagperson i FS')
+    affiliation_tilknyttet_emeritus = _PersonAffStatusCode(
+        affiliation_tilknyttet, 
+        'emeritus',
+        'Registrert i LT med gjestetypekode EMERITUS')
+    affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
+        affiliation_tilknyttet, 
+        'ekst_stip',
+        'Personer registrert i LT med gjestetypekode=EF-STIP')
     
+    affiliation_manuell = _PersonAffiliationCode(
+        'MANUELL', 
+        'Tilknyttet enheter/instutusjoner som UiT har avtale med')
+    affiliation_manuell_sito = _PersonAffStatusCode(
+        affiliation_manuell, 
+        'sito', 
+        'Sito')
+    affiliation_manuell_unn = _PersonAffStatusCode(
+        affiliation_manuell,
+        'UNN',
+        'Universitets sykheuset i Nord Norge')
+    affiliation_manuell_gjest = _PersonAffStatusCode(
+        affiliation_manuell, 
+        'gjest', 
+        'Gjest')
+    affiliation_manuell_utdanning_no = _PersonAffStatusCode(
+        affiliation_manuell, 
+        'utdanning_no',
+        'Utdanning.no')
+    affiliation_manuell_akademisk_kvarter = _PersonAffStatusCode(
+        affiliation_manuell, 
+        'akademisk_kvart', 
+        'Akademisk Kvarter')
+    affiliation_manuell_norges_universitetet = _PersonAffStatusCode(
+        affiliation_manuell, 
+        'norges_universi', 
+        'Norgesuniversitetet')
+    affiliation_manuell_kirkutdnor = _PersonAffStatusCode(
+        affiliation_manuell, 
+        'kirkutdnor', 
+        'Kirkelig Utdanningssenter Nord-Norge')
+    affiliation_manuell_gjesteforsker = _PersonAffStatusCode(
+        affiliation_manuell, 'gjesteforsker',
+        'Gjesteforsker (under utfasing)')
+    affiliation_manuell_konsulent = _PersonAffStatusCode(
+        affiliation_manuell, 'konsulent',
+        'Konsulent (under utfasing)')
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        elif (
-            # It should be OK to compare _CerebrumCode instances with
-            # themselves or ints.
-            isinstance(other, (int, _CerebrumCode))
-            # The following test might catch a few more cases than we
-            # really want to, e.g. comparison with floats.
-            #
-            # However, it appears to be the best alternative if we
-            # want to support comparison with e.g. PgNumeric instances
-            # without introducing a dependency on whatever database
-            # driver module is being used.
-            or hasattr(other, '__int__')):
-            return self.__int__() == other.__int__()
-        # This allows reflexive comparison (other.__eq__)
-        return NotImplemented
+    # We override the default settings for shells, thus this file
+    # should be before PosixUser in cereconf.CLASS_CONSTANTS
+    posix_shell_bash = _PosixShellCode(
+        'bash', 
+        '/bin/bash')
+    posix_shell_csh = _PosixShellCode(
+        'csh', 
+        '/bin/csh')
+    posix_shell_false = _PosixShellCode(
+        'false', 
+        '/bin/false')
+    posix_shell_nologin = _PosixShellCode(
+        'nologin', 
+        '/local/etc/nologin')
+    posix_shell_sh = _PosixShellCode(
+        'sh', 
+        '/bin/sh')
+    posix_shell_zsh = _PosixShellCode(
+        'zsh',
+        '/local/bin/zsh')
+    
+    # Spread constants
+    spread_uit_fronter = _SpreadCode(
+        'fronter@uit', 
+        Constants.Constants.entity_group,
+        'fronter user')
+    spread_uit_fronter_account = _SpreadCode(
+        'fronter_acc@uit',
+        Constants.Constants.entity_account,
+        'fronter account')
+    spread_uit_evu = _SpreadCode(
+        'evu@uit', 
+        Constants.Constants.entity_account,
+        'evu person')
+    spread_uit_frida = _SpreadCode(
+        'frida@uit',
+        Constants.Constants.entity_account,
+        'Accounts with FRIDA spread')
+    spread_uit_fd = _SpreadCode(
+        'fd@uit',
+        Constants.Constants.entity_account,
+        'Accounts with FD spread')
+    spread_uit_nis_user = _SpreadCode(
+        'NIS_user@uit',
+        Constants.Constants.entity_account,
+        'User in NIS domain "uit"')
+    spread_uit_sut_user = _SpreadCode(
+        'SUT@uit',
+        Constants.Constants.entity_account,
+        'Accounts with SUT spread')    
+    spread_uit_ldap_account = _SpreadCode(
+        'ldap@uit',
+        Constants.Constants.entity_account,
+        'Accounts with ldap spread')
+    spread_uit_ldap_person = _SpreadCode(
+        'LDAP_person', Constants.Constants.entity_person,
+        'Person included in LDAP directory')
+    spread_uit_ad_account = _SpreadCode(
+        'AD_account',
+        Constants.Constants.entity_account,
+        'account included in Active Directory')
+    spread_uit_ad_group = _SpreadCode(
+        'AD_group',
+        Constants.Constants.entity_group,
+        'group included in Active Directory')
+    spread_uit_ad_lit_admin = _SpreadCode(
+        'AD_litadmin',  
+        Constants.Constants.entity_account,
+        'AD admin local IT') 
+    spread_uit_ad_admin = _SpreadCode(
+        'AD_admin',
+        Constants.Constants.entity_account,
+        'AD admin central IT')    
+    spread_uit_ad_lit_admingroup = _SpreadCode(
+        'AD_group_litadmn',
+        Constants.Constants.entity_group,
+        'AD admingroup for local IT')
 
-    def __ne__(self, other):
-        equal = self.__eq__(other)
-        if equal is NotImplemented:
-            return NotImplemented
-        return not equal
+    # Email constants
+    spread_uit_imap = _SpreadCode(
+        'IMAP@uit', 
+        Constants.Constants.entity_account,
+        'IMAP account')
+    email_server_type_exchange_imap= _EmailServerTypeCode(
+            'exchange_imap',
+            "Server is an Exchange server")
 
-    # Allow pickling of code values.
-    def __getstate__(self):
-        return int(self)
-
-    def _pre_insert_check(self):
-        try:
-            # Attempt converting self into integer code value; this
-            # should raise NotFoundError for not-yet-created code
-            # values.
-            code = int(self)
-            # If conversion worked without raising NotFoundError, our
-            # job has been done before.
-            raise CodeValuePresentError, "Code value %r present." % self
-        except Errors.NotFoundError:
-            pass
-
-    def _update_description(self, stats):
-        if self._desc is None:
-            return
-        new_desc = self._desc
-        # Force fetching the description from the database
-        self._desc = None
-        db_desc = self._get_description()
-        if new_desc <> db_desc:
-            self._desc = new_desc
-            stats['updated'] += 1
-            self.sql.execute("UPDATE %s SET %s=:desc WHERE %s=:code" %
-                             (self._lookup_table, self._lookup_desc_column,
-                              self._lookup_code_column),
-                             {'desc': new_desc, 'code': self.int})
-
-    def insert(self):
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (%(code_col)s, %(str_col)s, %(desc_col)s)
-        VALUES
-          (%(code_seq)s, :str, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'str': self.str,
-                          'desc': self._desc})
-
-
-    def delete(self):
-        self.sql.execute("""
-        DELETE FROM %s
-        WHERE %s=:code""" % (self._lookup_table, self._lookup_code_column),
-                         {'code': int(self)})
-
-class _EntityTypeCode(_CerebrumCode):
-    "Mappings stored in the entity_type_code table"
-    _lookup_table = '[:table schema=cerebrum name=entity_type_code]'
-    pass
-
-class _CerebrumCodeWithEntityType(_CerebrumCode):
-    """Auxilliary class for code tables with an additional entity_type
-    column.  Should not and can not be instantiated directly."""
-    _insert_dependency = _EntityTypeCode
-
-    def __init__(self, code, entity_type=None, description=None):
-        if entity_type is not None:
-            if not isinstance(entity_type, _EntityTypeCode):
-                entity_type = _EntityTypeCode(entity_type)
-            self._entity_type = entity_type
-        super(_CerebrumCodeWithEntityType, self).__init__(code, description)
-
-    def insert(self):
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (entity_type, %(code_col)s, %(str_col)s, %(desc_col)s)
-        VALUES
-          (:entity_type, %(code_seq)s, :str, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'entity_type': int(self.entity_type),
-                          'str': self.str,
-                          'desc': self._desc})
-
-    def _get_entity_type(self):
-        if not hasattr(self, '_entity_type'):
-            self._entity_type = _EntityTypeCode(self.sql.query_1(
-                """
-                SELECT entity_type
-                FROM %(table)s
-                WHERE %(code_col)s = :code
-                """ % {'table': self._lookup_table,
-                       'code_col': self._lookup_code_column},
-                {'code': int(self)}))
-        return self._entity_type
-    entity_type = property(_get_entity_type)
-
-class _SpreadCode(_CerebrumCodeWithEntityType):
-    """Code values for entity `spread`; table `entity_spread`."""
-    _lookup_table = '[:table schema=cerebrum name=spread_code]'
-    pass
-
-class _ContactInfoCode(_CerebrumCode):
-    "Mappings stored in the contact_info_code table"
-    _lookup_table = '[:table schema=cerebrum name=contact_info_code]'
-    pass
-
-class _CountryCode(_CerebrumCode):
-    """Interface to code values in the `country_code' table."""
-    _lookup_table = '[:table schema=cerebrum name=country_code]'
-
-    def __init__(self, code, country=None, phone_prefix=None,
-                 description=None):
-        if country is not None:
-            self._country = country
-            self._phone_prefix = phone_prefix
-        super(_CountryCode, self).__init__(code, description)
-
-    def insert(self):
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (%(code_col)s, %(str_col)s, country, phone_prefix, %(desc_col)s)
-        VALUES
-          (%(code_seq)s, :str, :country, :phone, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'str': self.str,
-                          'country': self._country,
-                          'phone': self._phone_prefix,
-                          'desc': self.description})
-
-    def _fetch_column(self, col_name):
-        attr_name = "_" + col_name
-        if not hasattr(self, attr_name):
-            self.__setattr__(attr_name, self.sql.query_1(
-                """
-                SELECT %(col_name)s
-                FROM %(table)s
-                WHERE %(code_col)s = :code
-                """ % {'col_name': col_name,
-                       'table': self._lookup_table,
-                       'code_col': self._lookup_code_column},
-                {'code': int(self)}))
-        return getattr(self, attr_name)
-
-    country = property(lambda (self): self._fetch_column("country"))
-    phone_prefix = property(lambda (self): self._fetch_column("phone_prefix"))
-
-
-class _AddressCode(_CerebrumCode):
-    "Mappings stored in the address_code table"
-    _lookup_table = '[:table schema=cerebrum name=address_code]'
-    pass
-
-class _GenderCode(_CerebrumCode):
-    "Mappings stored in the gender_code table"
-    _lookup_table = '[:table schema=cerebrum name=gender_code]'
-    pass
-
-class _EntityExternalIdCode(_CerebrumCodeWithEntityType):
-    "Mappings stored in the entity_external_id_code table"
-    _lookup_table = '[:table schema=cerebrum name=entity_external_id_code]'
-    pass
-
-class _PersonNameCode(_CerebrumCode):
-    "Mappings stored in the person_name_code table"
-    _lookup_table = '[:table schema=cerebrum name=person_name_code]'
-    pass
-
-class _PersonAffiliationCode(_CerebrumCode):
-    "Mappings stored in the person_affiliation_code table"
-    _lookup_table = '[:table schema=cerebrum name=person_affiliation_code]'
-    pass
-
-class _PersonAffStatusCode(_CerebrumCode):
-    "Mappings stored in the person_aff_status_code table"
-    # TODO: tror ikke dette er riktig?  I.E, pk=affiliation+status?
-    _lookup_code_column = 'status'
-    _lookup_str_column = 'status_str'
-    _lookup_table = '[:table schema=cerebrum name=person_aff_status_code]'
-    _insert_dependency = _PersonAffiliationCode
-    _key_size = 2
-
-    # The constructor accepts __init__(int) and
-    # __init__(<one of str, int or _PersonAffiliationCode>, str [, str])
-    def __init__(self, affiliation, status=None, description=None):
-        if status is None:
-            try:
-                code = int(affiliation)
-            except ValueError:
-                raise TypeError, ("Must pass integer when initialising " +
-                                  "from code value")
-
-            self.int = code
-            (affiliation, status, description) = \
-                         self.sql.query_1("""
-                         SELECT affiliation, %s, %s FROM %s
-                         WHERE %s=:status""" % (self._lookup_str_column,
-                                                self._lookup_desc_column,
-                                                self._lookup_table,
-                                                self._lookup_code_column),
-                                          {'status': code})
-        if isinstance(affiliation, _PersonAffiliationCode):
-            self.affiliation = affiliation
-        else:
-            self.affiliation = _PersonAffiliationCode(affiliation)
-        super(_PersonAffStatusCode, self).__init__(status, description)
-
-    def __int__(self):
-        if self.int is None:
-            self.int = int(self.sql.query_1("""
-            SELECT %s FROM %s WHERE affiliation=:aff AND %s=:str""" %
-                                            (self._lookup_code_column,
-                                             self._lookup_table,
-                                             self._lookup_str_column),
-                                            {'str': self.str,
-                                             'aff' : int(self.affiliation)}))
-        return self.int
-
-    def __str__(self):
-        return "%s/%s" % (self.affiliation, self.str)
-
-    def _get_status(self):
-        return self.str
-    status_str = property(_get_status, None, None,
-                          "The 'status_str' field of this code value.")
-
-    def insert(self):
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (affiliation, %(code_col)s, %(str_col)s, %(desc_col)s)
-        VALUES
-          (:affiliation, %(code_seq)s, :str, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'affiliation': int(self.affiliation),
-                          'str': self.str,
-                          'desc': self._desc})
-
-class _AuthoritativeSystemCode(_CerebrumCode):
-    "Mappings stored in the authoritative_system_code table"
-    _lookup_table = '[:table schema=cerebrum name=authoritative_system_code]'
-    pass
-
-class _OUPerspectiveCode(_CerebrumCode):
-    "Mappings stored in the ou_perspective_code table"
-    _lookup_table = '[:table schema=cerebrum name=ou_perspective_code]'
-    pass
-
-class _AccountCode(_CerebrumCode):
-    "Mappings stored in the account_code table"
-    _lookup_table = '[:table schema=cerebrum name=account_code]'
-    pass
-
-class _AccountHomeStatusCode(_CerebrumCode):
-    "Mappings stored in the home_status_code table"
-    _lookup_table = '[:table schema=cerebrum name=home_status_code]'
-    pass
-
-class _ValueDomainCode(_CerebrumCode):
-    "Mappings stored in the value_domain_code table"
-    _lookup_table = '[:table schema=cerebrum name=value_domain_code]'
-    pass
-
-class _AuthenticationCode(_CerebrumCode):
-    "Mappings stored in the value_domain_code table"
-    _lookup_table = '[:table schema=cerebrum name=authentication_code]'
-    pass
-
-class _GroupMembershipOpCode(_CerebrumCode):
-    "Mappings stored in the group_membership_op_code table"
-    _lookup_table = '[:table schema=cerebrum name=group_membership_op_code]'
-    pass
-
-class _GroupVisibilityCode(_CerebrumCode):
-    "Code values for groups' visibilities."
-    _lookup_table = '[:table schema=cerebrum name=group_visibility_code]'
-
-class _QuarantineCode(_CerebrumCode):
-    "Mappings stored in quarantine_code table"
-    _lookup_table = '[:table schema=cerebrum name=quarantine_code]'
-
-    def __init__(self, code, description=None, duration=None):
-        self.duration = duration
-        super(_QuarantineCode, self).__init__(code, description)
-
-    def insert(self):
-        self.sql.execute("""
-        INSERT INTO %(code_table)s
-          (duration, %(code_col)s, %(str_col)s, %(desc_col)s)
-        VALUES
-          (:duration, %(code_seq)s, :str, :desc)""" % {
-            'code_table': self._lookup_table,
-            'code_col': self._lookup_code_column,
-            'str_col': self._lookup_str_column,
-            'desc_col': self._lookup_desc_column,
-            'code_seq': self._code_sequence},
-                         {'duration': self.duration,
-                          'str': self.str,
-                          'desc': self._desc})
-
-class ConstantsBase(DatabaseAccessor):
-
-    def map_const(self, num):
-        """Returns the Constant object as a reverse lookup on integer num"""
-        skip = list(dir(_CerebrumCode.sql))
-        skip.extend(("map_const", "initialize"))
-        for x in filter(lambda x: x[0] != '_' and not x in skip, dir(self)):
-            v = getattr(self, x)
-            if isinstance(v, type):
-                continue
-            if int(v) == num:
-                return v
-        return None
-
-    def initialize(self, update=True, delete=False):
-        # {dependency1: {class: [object1, ...]},
-        #  ...}
-        order = {}
-        for x in dir(self):
-            attr = getattr(self, x)
-            if isinstance(attr, _CerebrumCode):
-                dep = attr._insert_dependency
-                if not order.has_key(dep):
-                    order[dep] = {}
-                cls = type(attr)
-                if not order[dep].has_key(cls):
-                    order[dep][cls] = {}
-                order[dep][cls][str(attr)]=attr
-        if not order.has_key(None):
-            raise ValueError, "All code values have circular dependencies."
-        stats = {'total': 0, 'inserted': 0, 'updated': 0, 'deleted': 0}
-
-        def insert(root, update, stats=stats):
-            for cls in order[root].keys():
-                cls_code_count = 0
-                for code in order[root][cls].values():
-                    stats['total'] += 1
-                    cls_code_count += 1
-                    try:
-                        code._pre_insert_check()
-                    except CodeValuePresentError:
-                        if update:
-                            code._update_description(stats)
-                            continue
-                        raise
-                    code.insert()
-                    stats['inserted'] += 1
-                rows = self._db.query(
-                    """SELECT * FROM %s""" % cls._lookup_table)
-                if cls_code_count <> len(rows):
-                    table_vals = [int(r[cls._lookup_code_column]) for r in rows]
-                    code_vals = [int(x) for x in order[root][cls].values()]
-                    table_vals.sort()
-                    code_vals.sort()
-                    if delete:
-                        for c in table_vals:
-                            if c not in code_vals:
-                                cls(c).delete()
-                                stats['deleted'] += 1
-                    else:
-                        raise RuntimeError, \
-                              ("Number of %s code attributes (%d)"
-                               " differs from number of %s rows (%d)\n"
-                               "In table: %s\n"
-                               "In class: %s\n") % \
-                              (cls.__name__, cls_code_count,
-                               cls._lookup_table, len(rows),
-                               ",".join([str(x) for x in table_vals]),
-                               ",".join([str(x) for x in code_vals]))
-                del order[root][cls]
-                if order.has_key(cls):
-                    insert(cls, update)
-            del order[root]
+    # Quarantine constants
+    quarantine_tilbud = _QuarantineCode(
+            'Tilbud',
+            "Pre-generert konto til studenter som har fått studietilbud,"
+            "men som ikke har aktivert kontoen.")
+    quarantine_sys_x_approved = _QuarantineCode(
+            'sys-x_approved',
+            'Konto fra system-x som ikke er godkjent')
+    quarantine_generell = _QuarantineCode(
+            'generell', 
+            'Generell splatt')
+    quarantine_slutta = _QuarantineCode(
+            'slutta', 
+            'Personen har slutta')
+    quarantine_system = _QuarantineCode(
+            'system', 
+            'Systembrukar som ikke skal logge inn')
+    quarantine_permisjon = _QuarantineCode(
+            'permisjon', 
+            'Brukeren har permisjon')
+    quarantine_svakt_passord = _QuarantineCode(
+            'svakt_passord', 
+            'For dårlig passord')
+    quarantine_autopassord = _QuarantineCode(
+            'autopassord',
+            'Passord ikke skiftet trass pålegg')
+    quarantine_sut_disk_usage = _QuarantineCode(
+            'sut_disk',
+            "Bruker for mye disk på sut")
             
-        insert(None, update)
-        if order:
-            raise ValueError, "Some code values have circular dependencies."
-        return (stats['inserted'], stats['total'], stats['updated'],
-                stats['deleted'])
-
-    def __init__(self, database=None):
-        # The database parameter is deprecated.
-        # SH 2007-07-18 TDB: warn whenever this parameter is set.
-
-        # All CerebrumCodes use a common private db connection,
-        # stored in _CerebrumCode.sql.
-        # This connection must never be closed or invalidated.
-
-        if _CerebrumCode.sql == None:
-            _CerebrumCode.sql = Factory.get('Database')()
-
-        # initialize myself with the CerebrumCode db.connection
-        # This makes Constants.commit() and such possible.
-        
-        super(ConstantsBase, self).__init__(_CerebrumCode.sql)
-
-    def fetch_constants(self, wanted_class, prefix_match=""):
-        """Return all constant instances of wanted_class.  The list is
-        sorted by the name of the constants.  If prefix_match is set,
-        only return constants whose string representation starts with
-        the given substring."""
-        clist = []
-        for name in dir(self):
-            const = getattr(self, name)
-            if (isinstance(const, wanted_class) and
-                str(const).startswith(prefix_match)):
-                clist.append(const)
-        return clist
+    # Auth codes
+    auth_type_md5_crypt_hex = _AuthenticationCode(
+            'MD5-crypt2',
+            "MD5-derived 32 bit password non unix style, no salt")
+    auth_type_md5_b64= _AuthenticationCode(
+            'MD5-crypt_base64',
+            "MD5-derived 32 bit password base 64 encoded")
 
 
-class CoreConstants(ConstantsBase):
+    # Trait codes
+    trait_sysx_registrar_notified = _EntityTraitCode(
+        'sysx_reg_mailed', Constants.Constants.entity_account,
+        "Trait set on account when systemx processing is done"
+        )
+    trait_sysx_user_notified = _EntityTraitCode(
+        'sysx_user_mailed', Constants.Constants.entity_account,
+        "Trait set on account after account created mail is sent to user"
+        )
 
-    entity_person = _EntityTypeCode(
-        'person',
-        'Person - see table "cerebrum.person_info" and friends.')
-    entity_ou = _EntityTypeCode(
-        'ou',
-        'Organizational Unit - see table "cerebrum.ou_info" and friends.')
-    entity_account = _EntityTypeCode(
-        'account',
-        'User Account - see table "cerebrum.account_info" and friends.')
-    entity_group = _EntityTypeCode(
-        'group',
-        'Group - see table "cerebrum.group_info" and friends.')
-    entity_host = _EntityTypeCode('host', 'see table host_info')
-    entity_disk = _EntityTypeCode('disk', 'see table disk_info')
-
-    group_namespace = _ValueDomainCode(
-        cereconf.ENTITY_TYPE_NAMESPACE['group'],
-        'Default domain for group names')
-    account_namespace = _ValueDomainCode(
-        cereconf.ENTITY_TYPE_NAMESPACE['account'],
-        'Default domain for account names')
-    host_namespace = _ValueDomainCode(
-        cereconf.ENTITY_TYPE_NAMESPACE['host'],
-        'Default domain for host names')
-
-    group_memberop_union = _GroupMembershipOpCode('union', 'Union')
-    group_memberop_intersection = _GroupMembershipOpCode(
-        'intersection', 'Intersection')
-    group_memberop_difference = _GroupMembershipOpCode(
-        'difference', 'Difference')
-
-    system_cached = _AuthoritativeSystemCode('Cached',
-                                             'Internally cached data')
-
-
-class CommonConstants(ConstantsBase):
-
-    auth_type_md5_crypt = _AuthenticationCode(
-        'MD5-crypt',
-        "MD5-derived password hash as implemented by crypt(3) on some Unix"
-        " variants passed a `salt` that starts with '$1$'.  See <URL:http:"
-        "//www.users.zetnet.co.uk/hopwood/crypto/scan/algs/md5crypt.txt>.")
-    auth_type_crypt3_des = _AuthenticationCode(
-        'crypt3-DES',
-        "Password hash generated with the 'traditional' Unix crypt(3)"
-        " algorithm, based on DES.  See <URL:http://www.users.zetnet.co.uk"
-        "/hopwood/crypto/scan/ph.html#Traditional-crypt3>.")
-    auth_type_pgp_crypt = _AuthenticationCode(
-        'PGP-crypt',
-        "PGP-encrypt the password so that we later can get at the plaintext "
-        "password if we want to populate new backends.  The secret key "
-        "should be stored offline.")
-    auth_type_md4_nt =  _AuthenticationCode(
-        'MD4-NT',
-        "MD4-derived password hash with Microsoft-added security.  "
-        "Requires the smbpasswd module to be installed.")
-    auth_type_plaintext = _AuthenticationCode(
-        'plaintext',
-        "Plaintext passwords. Usefull for installations where non-encrypted "
-        "passwords need to be used and exported. Use with care!")
-    auth_type_ssha = _AuthenticationCode(
-        'SSHA',
-        "A salted SHA1-encrypted password. More info in RFC 2307 and at "
-        "<URL:http://www.openldap.org/faq/data/cache/347.html>")
-    auth_type_md5_unsalt = _AuthenticationCode(
-        'md5-unsalted',
-        "Unsalted MD5-crypt. Use with care!")
- 
-    contact_phone = _ContactInfoCode('PHONE', 'Phone')
-    contact_phone_private = _ContactInfoCode('PRIVPHONE',
-                                             "Person's private phone number")
-    contact_fax = _ContactInfoCode('FAX', 'Fax')
-    contact_email = _ContactInfoCode('EMAIL', 'Email')
-    contact_url = _ContactInfoCode('URL', 'URL')
-    contact_mobile_phone = _ContactInfoCode('MOBILE', 'Mobile phone')
-
-    address_post = _AddressCode('POST', 'Post address')
-    address_post_private = _AddressCode('PRIVPOST',
-                                        "Person's private post address")
-    address_street = _AddressCode('STREET', 'Street address')
-
-    gender_male = _GenderCode('M', 'Male')
-    gender_female = _GenderCode('F', 'Female')
-    gender_unknown = _GenderCode('X', 'Unknown gender')
-
-    group_visibility_all = _GroupVisibilityCode('A', 'All')
-    group_visibility_none = _GroupVisibilityCode('N', 'None')
-    group_visibility_internal = _GroupVisibilityCode('I', 'Internal')
-
-    name_first = _PersonNameCode('FIRST', 'First name')
-    name_last = _PersonNameCode('LAST', 'Last name')
-    name_full = _PersonNameCode('FULL', 'Full name')
-    name_personal_title = _PersonNameCode('PERSONALTITLE', 'Persons personal title')
-    name_work_title = _PersonNameCode('WORKTITLE', 'Persons work title')
-
-    system_manual = _AuthoritativeSystemCode('Manual', 'Manual registration')
-
-    # bootstrap_account is of this type:
-    account_program = _AccountCode('programvare', 'Programvarekonto')
-    home_status_not_created = _AccountHomeStatusCode('not_created', 'Not created')
-    home_status_create_failed = _AccountHomeStatusCode(
-        'create_failed', 'Creation failed')
-    home_status_on_disk = _AccountHomeStatusCode(
-        'on_disk', 'Currently on disk')
-    home_status_archived = _AccountHomeStatusCode(
-        'archived', 'Has been archived')
-    home_status_pending_restore = _AccountHomeStatusCode(
-        'pending_restore', 'Pending restore')
-
-class Constants(CoreConstants, CommonConstants):
-
-    CerebrumCode = _CerebrumCode
-    EntityType = _EntityTypeCode
-    Spread = _SpreadCode
-    ContactInfo = _ContactInfoCode
-    Country = _CountryCode
-    Address = _AddressCode
-    Gender = _GenderCode
-    EntityExternalId = _EntityExternalIdCode
-    PersonName = _PersonNameCode
-    PersonAffiliation = _PersonAffiliationCode
-    PersonAffStatus = _PersonAffStatusCode
-    AuthoritativeSystem = _AuthoritativeSystemCode
-    OUPerspective = _OUPerspectiveCode
-    Account = _AccountCode
-    AccountHomeStatus = _AccountHomeStatusCode
-    ValueDomain = _ValueDomainCode
-    Authentication = _AuthenticationCode
-    GroupMembershipOp = _GroupMembershipOpCode
-    GroupVisibility = _GroupVisibilityCode
-    Quarantine = _QuarantineCode
-
-class ExampleConstants(Constants):
-    """Singleton whose members make up all needed coding values.
-
-    Defines a number of variables that are used to get access to the
-    string/int value of the corresponding database key."""
-
-    affiliation_employee = _PersonAffiliationCode('EMPLOYEE', 'Employed')
-    affiliation_status_employee_valid = _PersonAffStatusCode(
-        affiliation_employee, 'VALID', 'Valid')
-
-    affiliation_student = _PersonAffiliationCode('STUDENT', 'Student')
-    affiliation_status_student_valid = _PersonAffStatusCode(
-        affiliation_student, 'VALID', 'Valid')
-
-def main():
-    from Cerebrum.Utils import Factory
-    from Cerebrum import Errors
-
-    Cerebrum = Factory.get('Database')()
-    co = Constants(Cerebrum)
-
-    skip = dir(Cerebrum)
-    skip.append('map_const')
-    for x in filter(lambda x: x[0] != '_' and not x in skip, dir(co)):
-        try:
-            print "co.%s: %s = %d" % (x, getattr(co, x), getattr(co, x))
-        except Errors.NotFoundError:
-            print "NOT FOUND: co.%s" % x
-    print "Map '7' back to str: %s" % co.map_const(7)
-
-if __name__ == '__main__':
-    main()
-
-# arch-tag: 187248cd-c3e9-4817-b93e-e6da2a4a53e8
