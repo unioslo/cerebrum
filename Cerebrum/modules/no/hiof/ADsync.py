@@ -178,7 +178,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         for ou in required_ous:
             if ou not in object_list:
                 name, parent_ou = ou.split(",", 1)
-                self.logger.debug("Creating missing OU: %s", name)
+                self.logger.debug("Creating missing OU: %s (%s)" % (name, ou))
                 if not parent_ou in object_list:
                     # Recursively create parent
                     self._make_ou_if_missing([parent_ou], object_list=object_list, dryrun=dryrun)
