@@ -270,7 +270,7 @@ class ou:
                                        indent_level = 2,
                                        data_mode = True,
                                        input_encoding = "latin1")
-        writer.startDocument(encoding = "iso8859-1")
+        writer.startDocument(encoding = "iso-8859-1")
         writer.startElement("data")
         for ou in final_ou:
             # lets check if this is an OU that is not to be presented in BAS
