@@ -163,7 +163,7 @@ def determine_affiliations(person):
         if t['hovedkat'] == 'ØVR':
             aff_stat = const.affiliation_status_ansatt_tekadm
         elif t['hovedkat'] == 'VIT':
-            aff_stat = const.affiliation_status_ansatt_vit
+            aff_stat = const.affiliation_status_ansatt_vitenskapelig
         else:
             logger.warn("Unknown hovedkat: %s" % t['hovedkat'])
             continue
