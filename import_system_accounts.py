@@ -31,7 +31,7 @@ XML Structure
   <account>
     <account_name></account_name>
     <account_type></account_type>
-    <default_pass></default_pass>
+    <initial_pass></initial_pass>
     <gecos></gecos>
     <contact_info>
       <email></email>
@@ -62,7 +62,7 @@ Ex.: FD (Felles Drift)
      T (Testkonto)
 Is set at account creation, and can be changed later.
      
-*** default_pass *** MANDATORY (element)
+*** initial_pass *** MANDATORY (element)
 String
 Is set at account creation, and can will not be changed by the script later.
 
@@ -147,7 +147,7 @@ class SystemAccountsParser(xml.sax.ContentHandler):
             else:
                 logger.warn("Unknown element on account level: %s" % name)
         elif self.elementstack[-1] == "account":
-            if name in ('account_name','default_pass', 'gecos', 'contact_info', 'expire_date', 'spreads', 'account_type'):
+            if name in ('account_name','initial_pass', 'gecos', 'contact_info', 'expire_date', 'spreads', 'account_type'):
                 logger.debug("Inside account level - %s " % name)
             else:
                 logger.warn("Unknown element inside account level: %s" % name)
@@ -217,7 +217,7 @@ def process_account(account_data):
         account_name = account_data['account_name']
         account_type = account_data['account_type']
         account_type_id = int(co.Account(account_type.encode('iso-8859-1')))        
-        default_pass = account_data['default_pass']
+        initial_pass = account_data['initial_pass']
         gecos = account_data['gecos']
         contact_info = account_data['contact_info']
         spreads = account_data['spreads']
@@ -250,7 +250,7 @@ def process_account(account_data):
                     account_type_id,
                     default_creator_id,
                     expire_date)
-        ac.set_password(default_pass)
+        ac.set_password(initial_pass)
         ac.write_db()
         new_account = True
 
@@ -397,7 +397,7 @@ def main():
     default_creator_id = ac.entity_id
     default_owner_id = ac.owner_id
 
-    default_source_system = co.system_manual
+    default_source_system = co.system_sysacc
     valid_contact_types = {}
     valid_contact_types[co.contact_email.str] = co.contact_email
     valid_contact_types[co.contact_url.str] = co.contact_url
