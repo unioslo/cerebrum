@@ -29,15 +29,14 @@ defined in cereconf assigned to the account.
 '''
 
 
-import cerebrum_path
-import cereconf
 import getopt
 import sys
-import time
-import datetime
-import string
+import os
 import mx
 import xml.sax
+
+import cerebrum_path
+import cereconf
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
@@ -135,13 +134,14 @@ class execute:
         person_list.append(fnr)
     
     def get_all_employees(self,pers_id,person_file):
-        logger.info("Retreiving all persons...")
+        logger.info("Retreiving all persons from %s." % person_file)
         our_source_sys = self.constants.system_lt
         id_type = self.constants.externalid_fodselsnr
         entity_type = self.constants.entity_person,
         empl_aff = self.constants.affiliation_ansatt
         p_list=[]
         if(pers_id !=0):
+            print "her: ->%s<-" % (pers_id)
             p_entry=self.person.find(pers_id)
             t=({'person_id':int(pers_id),'birth_date' :self.person.birth_date})
             p_list.append(t)
@@ -480,13 +480,13 @@ def main():
 
     ret = 0
     person_id = 0
-    person_file = 0
-    dryrun = 0
+    person_file = os.path.join(cereconf.DUMPDIR,'employees','uit_persons_%s.xml' % cereconf._TODAY) 
+    dryrun = False
     for opt,val in opts:
         if opt in('-p','--person_id'):
             person_id = val
         if opt in('-d','--dryrun'):
-            dryrun = 1
+            dryrun = True
         if opt in('-f','--file'):
             person_file = val
             
@@ -517,4 +517,3 @@ def usage():
 if __name__=='__main__':
     main()
 
-# arch-tag: b91dbb20-b426-11da-9571-e924a65eb821
