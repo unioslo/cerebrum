@@ -463,11 +463,11 @@ class AccountUtil(object):
                 changes.append(('add_quarantine', (q['quarantine'], q['start_at'])))
 
         # Remove auto quarantines
-        for q in (const.quarantine_auto_inaktiv,
-                  const.quarantine_auto_emailonly):
-            if (int(q) in ac.get_quarantines() and
-                int(q) not in tmp):
-                changes.append(("remove_autostud_quarantine", q))
+#        for q in (const.quarantine_auto_inaktiv,
+#                  const.quarantine_auto_emailonly):
+#            if (int(q) in ac.get_quarantines() and
+#                int(q) not in tmp):
+#                changes.append(("remove_autostud_quarantine", q))
 
         # Remove Tilbud quarantine for STUDENT\drgrad affs
         for aff in persons[fnr].get_affiliations():
