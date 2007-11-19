@@ -25,6 +25,11 @@
 */
 
 category:pre;
-ALTER TABLE entity_address ALTER postal_number TYPE CHAR VARYING(32);
-
+ALTER TABLE entity_address ADD COLUMN postal_number_new  CHAR VARYING(32);
+category:pre;
+UPDATE entity_address SET postal_number_new = postal_number;
+category:pre;
+ALTER TABLE entity_address DROP COLUMN postal_number;
+category:pre;
+ALTER TABLE entity_address RENAME COLUMN postal_number_new TO postal_number;
 
