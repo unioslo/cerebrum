@@ -65,7 +65,8 @@ aff_status_pri_order = [int(x) for x in (  # Most significant first
     co.affiliation_status_student_opptak,
     co.affiliation_status_student_alumni,
     co.affiliation_status_student_tilbud,
-    co.affiliation_status_student_soker)]
+#    co.affiliation_status_student_soker
+    )]
 aff_status_pri_order = dict([(aff_status_pri_order[i], i)
                               for i in range(len(aff_status_pri_order))] )
 
@@ -302,12 +303,15 @@ def process_person_callback(person_info):
         if p.has_key('studentnr_tildelt'):
             studentnr = p['studentnr_tildelt']
         # Get affiliations
-        if dta_type in ('drgrad' ):            
+        if dta_type in ('drgrad' ):
             _process_affiliation(co.affiliation_student, 
                                  co.affiliation_status_student_drgrad,
                                  affiliations, 
                                  _get_sko(p, 'faknr','instituttnr', 'gruppenr', 'institusjonsnr')) 
-        elif dta_type in ('fagperson',):            
+        elif dta_type in ('fagperson',):
+            if p['institusjonsnr'] != cereconf.DEFAULT_INSTITUSJONSNR:
+                logger.debug("Skipping FS/fagperson from another institution!")
+                continue
             _process_affiliation(co.affiliation_tilknyttet,
                                  co.affiliation_tilknyttet_fagperson,
                                  affiliations, _get_sko(p, 'faknr',
@@ -473,12 +477,14 @@ def main():
     global old_aff, include_delete, no_name
     verbose = 0
     include_delete = False
+    dryrun=False
     
     logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
     
     opts, args = getopt.getopt(sys.argv[1:], 'vp:s:l:gdf', [
         'verbose', 'person-file=', 'studieprogram-file=',
-        'generate-groups','include-delete','logger-name' ])
+        'generate-groups','include-delete','logger-name',
+        'dryrun'])
 
     personfile = default_personfile
     studieprogramfile = default_studieprogramfile
@@ -491,8 +497,10 @@ def main():
             studieprogramfile = val
         elif opt in ('-g', '--generate-groups'):
             gen_groups = True
-        elif opt in ('-d', '--include-delete'):
+        elif opt in ('-d', '--include-delete'):            
             include_delete = True
+        elif opt in ('--dryrun'):
+            dryrun=True
 
     if "system_fs" not in cereconf.SYSTEM_LOOKUP_ORDER:
         print "Check your config, SYSTEM_LOOKUP_ORDER is wrong!"
@@ -532,7 +540,12 @@ def main():
     StudentInfo.StudentInfoParser(personfile, process_person_callback, logger)
     if include_delete:
         rem_old_aff()
-    db.commit()
+    if dryrun:
+        db.rollback()
+        logger.info("Dryrun, rolled back all changes")
+    else:
+        db.commit()
+        logger.info("Committed all changes to db")
     logger.info("Found %d persons without name." % no_name)
     logger.info("Completed")
 
