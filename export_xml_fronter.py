@@ -68,7 +68,7 @@ def init_globals():
     logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
     cf_dir = dumpdir
     log_dir = default_log_dir
-    use_emailclient = 0
+    use_emailclient = 1
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
@@ -162,7 +162,7 @@ def load_acc2name():
             passw = 'FRONTERLOGIN'
         else:
             imap = cereconf.IMAPEXCHANGE
-            passw = ''
+            passw = ' '
         
         
         ret[pers['account_id']] = {
