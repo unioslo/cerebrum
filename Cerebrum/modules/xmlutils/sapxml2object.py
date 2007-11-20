@@ -31,6 +31,8 @@ import sys
 
 import cerebrum_path
 import cereconf
+from Cerebrum.Utils import Factory
+
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, HRDataPerson, DataAddress, \
      DataEmployment, DataOU, DataContact, DataName
@@ -39,7 +41,7 @@ from Cerebrum.modules.no.fodselsnr import personnr_ok
 from Cerebrum.extlib.sets import Set as set
 
 
-
+logger = Factory.get_logger("cronjob")
 
 
 def deuglify_phone(phone):
@@ -372,54 +374,59 @@ class XMLPerson2Object(XMLEntity2Object):
             
             value = sub.text.strip().encode("latin1")
             
-            if sub.tag == "stillingsprosent":
-                percentage = float(value)
-            elif sub.tag == "stillingsgruppebetegnelse":
-                code = int(value[0:4])
+            try:
+                if sub.tag == "stillingsprosent":
+                    percentage = float(value)
+                elif sub.tag == "stillingsgruppebetegnelse":
+                    code = int(value[0:4])
 
-                # 0000 are to be discarded. This is by design.
-                if code == 0:
-                    return None
-                # Some elements have the proper category set in adm_forsk
-                if category is None:
-                    category = self._code2category(code)
-            elif sub.tag == "Stilling":
-                tmp = value.split(" ")
-                if len(tmp) == 1:
-                    title = tmp[0]
-                else:
-                    title = " ".join(tmp[1:])
+                    # 0000 are to be discarded. This is by design.
+                    if code == 0:
+                        return None
+                    # Some elements have the proper category set in adm_forsk
                     if category is None:
-                        category = self._code2category(tmp[0])
-            elif sub.tag == "Start_Date":
-                start_date = self._make_mxdate(value)
-            elif sub.tag == "End_Date":
-                end_date = self._make_mxdate(value)
-            elif sub.tag == "Orgenhet":
-                sko = make_sko(value)
-                if sko is not None:
-                    ou_id = (DataOU.NO_SKO, sko)
-            elif sub.tag == "adm_forsk":
-                # if neither is specified, use, the logic in
-                # stillingsgruppebetegnelse to decide on the category
-                if value == "Vit":
-                    category = DataEmployment.KATEGORI_VITENSKAPLIG
-                elif value == "T/A":
-                    category = DataEmployment.KATEGORI_OEVRIG
-            elif sub.tag == "Status":
-                # <Status> indicates whether the employment entry is
-                # actually valid.
-                if value != "Aktiv":
-                    return None
-            elif sub.tag == "Stillnum":
-                # this code means that the employment has been terminated (why
-                # would there be two elements for that?)
-                if value == "99999999":
-                    return None
-                # these are temp employments (bilagslønnede) that we can
-                # safely disregard (according to baardj).
-                if value == "30010895":
-                    return None
+                        category = self._code2category(code)
+                elif sub.tag == "Stilling":
+                    tmp = value.split(" ")
+                    if len(tmp) == 1:
+                        title = tmp[0]
+                    else:
+                        title = " ".join(tmp[1:])
+                        if category is None:
+                            category = self._code2category(tmp[0])
+                elif sub.tag == "Start_Date":
+                    start_date = self._make_mxdate(value)
+                elif sub.tag == "End_Date":
+                    end_date = self._make_mxdate(value)
+                elif sub.tag == "Orgenhet":
+                    sko = make_sko(value)
+                    if sko is not None:
+                        ou_id = (DataOU.NO_SKO, sko)
+                elif sub.tag == "adm_forsk":
+                    # if neither is specified, use, the logic in
+                    # stillingsgruppebetegnelse to decide on the category
+                    if value == "Vit":
+                        category = DataEmployment.KATEGORI_VITENSKAPLIG
+                    elif value == "T/A":
+                        category = DataEmployment.KATEGORI_OEVRIG
+                elif sub.tag == "Status":
+                    # <Status> indicates whether the employment entry is
+                    # actually valid.
+                    if value != "Aktiv":
+                        return None
+                elif sub.tag == "Stillnum":
+                    # this code means that the employment has been terminated (why
+                    # would there be two elements for that?)
+                    if value == "99999999":
+                        return None
+                    # these are temp employments (bilagslønnede) that we can
+                    # safely disregard (according to baardj).
+                    if value == "30010895":
+                        return None
+            except ValueError, ve:
+                logger.error("Unable to parse value '%s' for '%s': %s" % (value, sub.tag, ve))
+                return None
+
 
             # IVR 2007-07-11 FIXME: We should take a look at <Arsak>, since it
             # contains deceased status for a person.
