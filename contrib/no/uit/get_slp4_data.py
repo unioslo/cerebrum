@@ -47,7 +47,7 @@ from Cerebrum.Utils import Factory
 logger = None
 
 # List of SSN to exclude
-exceptions = ['63056501284',]
+exceptions = cereconf.SSN_IGNORE_SLP4
 
 
 # Define default file locations
