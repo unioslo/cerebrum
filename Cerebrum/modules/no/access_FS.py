@@ -733,6 +733,28 @@ class Undervisning(FSObject):
     # end get_undform_aktiviteter
 
 
+    def list_undform_aktiviteter(self, undformkode):
+        """Hent alle aktivitetene med en gitt undformkode. Omtrent som
+        get_undform_aktiviteter, bare at denne henter *alle*"""
+
+        return self.db.query("""
+        SELECT
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode,
+          ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
+          ua.undformkode
+        FROM
+          fs.undaktivitet ua,
+          fs.arstermin t
+        WHERE
+          ua.undformkode = :undformkode AND
+          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode = t.terminkode AND
+          (EXISTS (SELECT 'x' FROM fs.arstermin tt
+                   WHERE t.sorteringsnokkel >= tt.sorteringsnokkel))
+          """, {"undformkode" : undformkode,})
+    # end list_undform_aktiviteter
+
+
     def list_studenter_underv_enhet(self,  # GetStudUndervEnhet
                                 Instnr, emnekode, versjon, termk, aar, termnr):
         if termk == 'VÅR':
