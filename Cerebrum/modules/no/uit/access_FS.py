@@ -258,6 +258,36 @@ class UiTStudent(access_FS.Student):
 
 class UiTUndervisning(access_FS.Undervisning):
     '''UIT version of access_FS in modules.no.'''
+
+    def list_undervisningenheter(self, year=None, sem=None): 
+
+        """Metoden som henter data om undervisningsenheter
+	i nåverende (current) eller neste (next) semester. Default
+	vil være nåværende semester. For hver undervisningsenhet 
+	henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall 
+	og terminnr.
+
+        """
+        if year is None:
+            year = self.year
+        if sem is None:
+            sem = self.semester
+	qry = """
+        SELECT DISTINCT
+           r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
+           e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll,
+           e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall
+        FROM
+           fs.emne e, fs.undervisningsenhet r, fs.undaktivitet u
+        WHERE
+           r.emnekode = e.emnekode AND
+           u.emnekode = r.emnekode AND
+           r.versjonskode = e.versjonskode AND
+           r.terminkode = :sem AND
+           r.arstall = :year
+           """
+        return self.db.query(qry, {'sem': sem, 'year': year})
+    
     
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
