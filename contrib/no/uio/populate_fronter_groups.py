@@ -1506,22 +1506,20 @@ def parse_xml_roles(fname):
                    data["terminkode"],
                    data["arstall"])
         elif kind in ("sted",):
+            key = ("sted", make_sko(data))
             logger.debug("Rekursiv rolle (%s): %s -> %s",
                          data["rollekode"] in recursive_roles
                            and "brukt" or "ignorert",
                          key, data["rollekode"])
-            if data["rollekode"] in recursive_roles:
-                key = ("sted", make_sko(data))
-            else:
+            if data["rollekode"] not in recursive_roles:
                 return
         elif kind in ("stprog",):
+            key = ("stprog", data["studieprogramkode"])
             logger.debug("Rekursiv rolle (%s): %s -> %s",
                          data["rollekode"] in recursive_roles
                            and "brukt" or "ignorert",
                          key, data["rollekode"])
-            if data["rollekode"] in recursive_roles:
-                key = ("stprog", data["studieprogramkode"])
-            else:
+            if data["rollekode"] not in recursive_roles:
                 return
         else:
             logger.warn("%s%s: Wrong role entry kind: %s",
