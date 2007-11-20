@@ -97,6 +97,12 @@ class XMLOU2Object(XMLEntity2Object):
                                                    "gruppenr_for_org_sted")])
         result.parent = (result.NO_SKO, sko)
 
+        # stedkode_konv occationally contains SAP-OU-id for some
+        # SAP-implementations. NB! This does not apply to UiO (as UiO's
+        # implementation uses sko).
+        if element.get("stedkode_konv"):
+            result.add_id(result.NO_SAP_ID, element.get("stedkode_konv"))
+
         # IVR 2007-01-02: Everything coming from FS is publishable. However,
         # we may want to revise that at some point.
         result.publishable = True

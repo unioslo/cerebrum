@@ -52,6 +52,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
+from Cerebrum.modules.xmlutils.system2parser import system2parser
+from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 import getopt
 import re
@@ -61,31 +63,36 @@ import sys
 
 
 
-def process_OUs(db, ou_stream):
-
+def process_OUs(db, parser):
     ou = Factory.get("OU")(db)
 
     total = 0; success = 0
-    for row in ou_stream:
+    for elem in SkippingIterator(parser.iter_ou(), logger):
         total += 1
+        sko = elem.get_id(elem.NO_SKO)
+        if sko is None:
+            logger.error("OU %s has no sko", elem.iterids())
+            continue
+        faknr, instituttnr, gruppenr = sko
+        
         try:
             ou.clear()
-            ou.find_stedkode(row["faknr"], row["instituttnr"], row["gruppenr"],
+            ou.find_stedkode(faknr, instituttnr, gruppenr,
                              cereconf.DEFAULT_INSTITUSJONSNR)
         except Errors.NotFoundError:
             logger.warn("  cerebrum id: n/a for (%s, %s, %s)",
-                        row["faknr"], row["instituttnr"], row["gruppenr"])
+                        faknr, instituttnr, gruppenr)
             continue
 
         # Not every OU has SAP ids. Those that do not, cannot be mapped to SAP
         # IDs.
-        if not row["stedkode_konv"]:
+        stedkode_konv = elem.get_id(elem.NO_SAP_ID)
+        if not stedkode_konv:
             continue
 
-        orgeh, gsber = string.split(row["stedkode_konv"], "-")
-        # This forces us to check data for sanity
-        # However, try-catch should be unnecessary unless the data source
-        # is erroneous.
+        orgeh, gsber = stedkode_konv.split("-")
+        # This forces us to check data for sanity. However, try-catch should be
+        # unnecessary unless the data source is erroneous.
         try:
             internal_gsber = int(SAPForretningsOmradeKode(gsber))
         except Errors.NotFoundError:
@@ -94,7 +101,6 @@ def process_OUs(db, ou_stream):
             continue
         
         ou.populate_SAP_id(orgeh, internal_gsber)
-
         # FIXME: This is a hack for catching up OUs that share a SAP id. It
         # should be impossible, but it happens nonetheless. The exception
         # thrown concerns violation of a unique constraint. The hack below
@@ -123,10 +129,8 @@ def process_OUs(db, ou_stream):
                 logger.exception("Failed writing SAP id «%s-%s» to the db",
                                  orgeh, gsber)
         else:
-            # IVR 2007-11-12 FIXME: get_SAP_id() will fail, if we ran rollback
-            # above.
             logger.debug("[%10d] <=> [%15s] <=> [%12s]",
-                         ou.entity_id, ou.get_SAP_id(),
+                         ou.entity_id, stedkode_konv,
                          "(%d, %d, %d)" % 
                          (ou.fakultet, ou.institutt, ou.avdeling))
 
@@ -136,54 +140,34 @@ def process_OUs(db, ou_stream):
 
 
 
-def ou_id_generator(filename, separator=";"):
-    keys = ("faknr", "instituttnr", "gruppenr", "stedkode_konv")
-
-    for line in file(filename, "r"):
-        line = line.strip()
-        # skip empty lines
-        if not line:
-            continue
-        # skip commented lines
-        if line[0] == "#":
-            continue
-
-        fields = re.split(separator, line)
-        result = dict()
-        for index, key in enumerate(keys):
-            result[key] = fields[index]
-        yield result
-# end ou_id_generator
-
-
-
 def main():
     "Entry point for this script." 
-	
+        
     global logger
     logger = Factory.get_logger("cronjob")
 
     options, rest = getopt.getopt(sys.argv[1:],
                                   "do:",
-                                  ["dryrun","ou-file="])
+                                  ["dryrun", "ou-file="])
 
     global dryrun
     dryrun = False
-    ou_stream = None
+    source_system = filename = None
     for option, value in options:
         if option in ("-d", "--dryrun"):
             dryrun = True
         elif option in ("-o", "--ou-file",):
-            ou_stream = ou_id_generator(value)
+            source_system, filename = value.split(":", 1)
 
-    if ou_stream is None:
-        fs = Factory.get("FS")()
-        ou_stream = fs.info.list_ou()
+    if not filename:
+        logger.error("Missing OU input file")
+        sys.exit(1)
 
     db = Factory.get("Database")()
     db.cl_init(change_program="import_SAP")
-
-    process_OUs(db, ou_stream)
+    
+    parser = system2parser("system_fs")
+    process_OUs(db, parser(filename))
 # end main
 
 
