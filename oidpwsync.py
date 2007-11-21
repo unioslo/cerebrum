@@ -21,6 +21,7 @@
 
 
 import sys
+import getopt
 import pickle
 
 import cerebrum_path
@@ -54,6 +55,7 @@ ldap_server = cereconf.OID_LDAP_SERVER
 base = cereconf.OID_SEARCH_BASE
 who = cereconf.OID_MANAGER
 cred = cereconf.OID_MANAGER_PASS
+max_changes = cereconf.OID_MAX_PWD_CHANGES
 
 
 def pwd_sync(changes):
@@ -72,6 +74,7 @@ def pwd_sync(changes):
         if changed:
             cl.confirm_event(chg)
         
+    print "committing"
     cl.commit_confirmations()    
 
 
@@ -84,6 +87,7 @@ def change_pw(account_id,pw_params):
         account.find(account_id)
     except Exception, ex:
         logger.error("Account not found in BAS (%s)" % account_id)
+        return False
 
     result_set = []
     all = 0 # receive results as they are returned (do not wait until all results are received)
@@ -122,6 +126,7 @@ def change_pw(account_id,pw_params):
             except ldap.LDAPError, error_message:
                 logger.error("  - Failed modifying password for %s on %s. Error follows: %s" %
                              (account.account_name, ldap_active, error_message))
+                return False
     
         if entries_found == 0:
             logger.info("Account %s NOT FOUND in %s" % (account.account_name, ldap_active))
@@ -136,15 +141,46 @@ def change_pw(account_id,pw_params):
 
 
 def main():
-    global logger, default_logger, ldap_conn, ldap_active, ldap_server, who, cred
+    global logger, default_logger, ldap_conn, ldap_active, ldap_server, who, cred, max_changes
 
     logger = Factory.get_logger(default_logger)
+
+
+    try:
+        opts,args = getopt.getopt(sys.argv[1:], \
+                                  'c:l:s:u:p:m:',\
+                                  ['changelog_id=', 'ldap_server=', 'search_base=', 'username=', 'password=','max_changes='])
+    except getopt.GetoptError:
+        usage()
+
+    for opt,val in opts:
+        if opt in('-c','--changelog_id'):
+            ldap_active = val
+        elif opt in('-l','--ldap_server'):
+            ldap_server = val
+        elif opt in('-s','--search_base'):
+            base = val
+        elif opt in('-u','--username'):
+            who = val
+        elif opt in('-p','--password'):
+            cred = val
+        elif opt in ('-m','--max_changes'):
+            max_changes = int(val)
+
+
+    if ldap_active == '' or ldap_active is None:
+        logger.error("Empty change handler id! This would go through the entire change-log. No way! Quitting!")
+        sys.exit(1)
 
     changes = cl.get_events(ldap_active, (clco.account_password,))
     num_changes = len(changes)
     if num_changes == 0:
         logger.info("Nothing to do on %s" % ldap_server)
         return
+    elif num_changes > max_changes:
+        logger.error("Too many changes (%s)! Check if change handler id (%s) is correct, or override limit in command-line or cereconf" %
+                     (num_changes, ldap_active))
+        sys.exit(1)
 
     logger.info("Starting to sync %s password changes since last sync" % num_changes)
     
@@ -168,6 +204,23 @@ def main():
         sys.exit(1)
 
     return
+
+
+
+def usage():
+    global cereconf
+    
+    print """
+    usage:: python oidpwsync.py 
+    -c | --changelog_id: changelog_id to monitor for changes. Default is %s
+    -l | --ldap_server: ldap server to connect to. Default is %s
+    -s | --search_base : ldap server search base. Default is %s
+    -u | --username: ldap username with admin rights. Default is %s
+    -p | --password: ldap password for admin user. Default is ******* (YOU WISH!)
+    -m | --max_changes: maximum number of passwords to sync. Default is %s
+    Default values are defined in cereconf.
+    """ % (cereconf.OID_LDAP, cereconf.OID_LDAP_SERVER, cereconf.OID_SEARCH_BASE, cereconf.OID_MANAGER, cereconf.OID_MAX_PWD_CHANGES)
+    sys.exit(1)
 
 
 if __name__ == '__main__':
