@@ -74,7 +74,6 @@ def pwd_sync(changes):
         if changed:
             cl.confirm_event(chg)
         
-    print "committing"
     cl.commit_confirmations()    
 
 
