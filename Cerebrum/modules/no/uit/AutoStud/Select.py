@@ -302,7 +302,6 @@ class SelectTool(object):
             smd._logger = logger
             smd._pc = profile_config
         for p in profiles:
-            print "P: %s" % p
             for select_name, select_attrs in p.selection_criterias.items():
                 self._logger.debug2("S: %s -> %s" % (select_name, select_attrs))
                 sm_obj = self.select_map_defs[select_name]
