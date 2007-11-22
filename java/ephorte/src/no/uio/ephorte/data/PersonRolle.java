@@ -75,9 +75,10 @@ public class PersonRolle {
         if (obj instanceof PersonRolle) {
             PersonRolle pr = (PersonRolle) obj;
             // Vi ser ikke på self.id ettersom denne vil være -1 fra import filen
-            return  XMLUtil.equals(rolleId, pr.rolleId) && XMLUtil.equals(journalEnhet, pr.journalEnhet)
-                    && XMLUtil.equals(arkivDel, pr.arkivDel)
-                    && XMLUtil.equals(adminDel, pr.adminDel);
+            return  XMLUtil.equals(rolleId, pr.rolleId) && 
+		XMLUtil.equals(journalEnhet, pr.journalEnhet) && 
+		XMLUtil.equals(arkivDel, pr.arkivDel) &&
+		XMLUtil.equals(adminDel, pr.adminDel);
         }
         return super.equals(obj);
     }
@@ -143,9 +144,10 @@ public class PersonRolle {
 
     @Override
     public String toString() {
-        return "Rolle: pid=" + person.getId() + ", id=" + id + ", rolleid=" + rolleId + ", tittel="
-                + tittel + ", journEnhet=" + journalEnhet + ", adminDel=" + adminDel
-                + ", arkivDel=" + arkivDel;
+        return "Rolle: pid=" + person.getId() + ", id=" + id + ", rolleid=" + 
+	    rolleId + ", tittel=" + tittel + ", journEnhet=" + journalEnhet + 
+	    ", adminDel=" + adminDel + ", arkivDel=" + arkivDel + 
+	    ", stdRolle=" + (stdRolle ? "0" : "-1");
     }
 
     public void setTilDato(Date tilDato) {

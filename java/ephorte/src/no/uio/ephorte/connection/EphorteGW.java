@@ -161,6 +161,8 @@ private void fetchPersons() throws RemoteException, TooManyRecordsException {
 	// Check if Person needs to be updated
         if (oldPerson == null || oldPerson.getId() == -1) {
             // Person doesn't exist in ePhorte. Create new person
+	    log.debug("Person doesn't exist in ePhorte. Create new person " +
+		      newPerson.getBrukerId());
             newPerson.toXML(xml);
             brukerId2Person.put(newPerson.getBrukerId(), newPerson);
             newPerson.setNew(true);
@@ -172,7 +174,7 @@ private void fetchPersons() throws RemoteException, TooManyRecordsException {
             newPerson.setTilDato(oldPerson.getTilDato());
             if(! newPerson.equals(oldPerson)) {
 		log.debug("Set tilDato for person " + newPerson.getBrukerId() +
-			  " to " + newPerson.getTilDato().toString());
+			  " to " + newPerson.getTilDato());
                 newPerson.toXML(xml); 
                 isDirty = true;
             } else {                
@@ -202,6 +204,7 @@ private void fetchPersons() throws RemoteException, TooManyRecordsException {
         if (isDirty) {
 	    // We need to update ephorte 
             try {
+		log.debug("Try to update person " + newPerson.getBrukerId());
                 int ret = conn.updatePersonByXML(xml.toString());
                 if (newPerson.getId() == -1)
                     newPerson.setId(ret);
