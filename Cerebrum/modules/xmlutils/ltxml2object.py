@@ -42,9 +42,9 @@ class LTXMLDataGetter(XMLDataGetter):
     # end iter_ou
 
 
-    def iter_persons(self):
+    def iter_person(self):
         return self._make_iterator("person", XMLPerson2Object)
-    # end iter_persons
+    # end iter_person
 # end LTXMLDataGetter
 
 
@@ -170,8 +170,7 @@ class XMLPerson2Object(XMLEntity2Object):
     # end _make_employment
     
 
-    def next(self):
-        element = self._xmliter.next()
+    def next_object(self, element):
         result = HRDataPerson()
 
         # Pull out all names
@@ -292,9 +291,7 @@ class XMLOU2Object(XMLEntity2Object):
     # end _make_contact
 
     
-    def next(self):
-
-        element = self._xmliter.next()
+    def next_object(self, element):
         result = DataOU()
 
         # A lot of data is buried in attributes
@@ -377,12 +374,5 @@ class XMLOU2Object(XMLEntity2Object):
         # od
 
         return result
-    # end next
+    # end next_object
 # end XMLOU2Object
-
-
-
-
-
-# arch-tag: 38d18853-6d9a-4da6-aa78-70d62d2e1704
-

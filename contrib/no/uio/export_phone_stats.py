@@ -48,10 +48,11 @@ import sys
 
 import cerebrum_path
 import cereconf
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.xml2object import DataContact, DataOU
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
+
 
 
 def split_emps(emp_iter):
@@ -86,9 +87,8 @@ def split_emps(emp_iter):
 def output_data(sysname, pfile):
     """Scan through pfile with a parser derived from sysname."""
 
-    parser = system2parser(sysname)
-    it = parser(pfile, False).iter_persons()
-    for person in SkippingIterator(it, None):
+    parser = system2parser(sysname)(pfile, logger, False)
+    for person in parser.iter_person():
         phones = person.get_contact(DataContact.CONTACT_PHONE)
         if not phones:
             continue
@@ -111,7 +111,9 @@ def output_data(sysname, pfile):
 
 
 def main():
+    global logger
 
+    logger = Factory.get_logger("console")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "s:",
                                    ["source-spec=",])
@@ -136,9 +138,3 @@ def main():
 if __name__ == "__main__":
     main()
 # fi
-
-
-
-
-
-# arch-tag: 497fb31a-acb8-4b95-ad36-4d259662bd91

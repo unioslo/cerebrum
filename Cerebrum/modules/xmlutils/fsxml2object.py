@@ -20,10 +20,9 @@
 """
 This module implements an abstraction layer for FS-originated data.
 """
-
 from mx.DateTime import Date
-import time
 import sys
+import time
 
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, DataOU, DataName, \
@@ -33,16 +32,28 @@ from Cerebrum.modules.xmlutils.xml2object import \
 
 
 
+class FSOU(DataOU):
+    """Class for representing FS-specific information about OUs."""
+
+    NO_SAP_ID    = "sap-ou-id"
+    
+    def validate_id(self, kind, value):
+        if kind in (self.NO_SAP_ID,):
+            return
+
+        super(FSOU, self).validate_id(kind, value)
+    # end validate_id
+# end SAPPerson
+
+
+
 class FSXMLDataGetter(XMLDataGetter):
     """An abstraction layer for FS XML files."""
-
 
     def iter_ou(self):
         return self._make_iterator("sted", XMLOU2Object)
     # end iter_ou
 # end FSXMLDataGetter
-
-
 
 
 
@@ -79,12 +90,11 @@ class XMLOU2Object(XMLEntity2Object):
         return None, None
     # end _make_contact
     
-    
-    def next(self):
+
+    def next_object(self, element):
         """Returns a DataEntity representation of the 'next' XML element."""
 
-        element = self._xmliter.next()
-        result = DataOU()
+        result = FSOU()
 
         sko = tuple([int(element.get(x)) for x in ("fakultetnr",
                                                    "instituttnr",
@@ -136,8 +146,11 @@ class XMLOU2Object(XMLEntity2Object):
                 result.add_contact(DataContact(kind, value, priority))
                 priority += 1
 
+        assert result.get_id(result.NO_SKO)
+        assert result.get_name(result.NAME_LONG)
+
         return result
-    # end next
+    # end next_object
 # end XMLOU2Object
         
             

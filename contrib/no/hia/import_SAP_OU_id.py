@@ -53,7 +53,6 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 import getopt
 import re
@@ -67,7 +66,7 @@ def process_OUs(db, parser):
     ou = Factory.get("OU")(db)
 
     total = 0; success = 0
-    for elem in SkippingIterator(parser.iter_ou(), logger):
+    for elem in parser.iter_ou():
         total += 1
         sko = elem.get_id(elem.NO_SKO)
         if sko is None:
@@ -167,7 +166,7 @@ def main():
     db.cl_init(change_program="import_SAP")
     
     parser = system2parser("system_fs")
-    process_OUs(db, parser(filename))
+    process_OUs(db, parser(filename, logger))
 # end main
 
 

@@ -69,11 +69,8 @@ from Cerebrum.extlib.sets import Set as set
 from Cerebrum.modules.no.Stedkode import Stedkode
 
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-from Cerebrum.modules.xmlutils.xml2object import DataOU, DataAddress
-from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
-from Cerebrum.modules.xmlutils.xml2object import DataEmployment
-from Cerebrum.modules.xmlutils.xml2object import DataContact, DataPerson
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
+from Cerebrum.modules.xmlutils.xml2object import DataAddress
+from Cerebrum.modules.xmlutils.xml2object import DataContact
 
 
 
@@ -257,7 +254,7 @@ def output_OU(writer, ou):
 
     if ou is None:
         return
-    sko = ou.get_id(DataOU.NO_SKO)
+    sko = ou.get_id(ou.NO_SKO)
 
     # step2: output OU info
     writer.startElement("enhet")
@@ -270,7 +267,7 @@ def output_OU(writer, ou):
 
     # Is a missing parent at all possible here?
     if ou.parent:
-        assert ou.parent[0] == DataOU.NO_SKO 
+        assert ou.parent[0] == ou.NO_SKO 
         psko = ou.parent[1]
     else:
         psko = (None, None, None)
@@ -290,19 +287,19 @@ def output_OU(writer, ou):
         output_element(writer, value, element)
     # od
 
-    for kind, lang, element in ((DataOU.NAME_LONG, "no", "navnBokmal"),
-                                (DataOU.NAME_LONG, "nb", "navnBokmal"),
-                                (DataOU.NAME_LONG, "en", "navnEngelsk")):
+    for kind, lang, element in ((ou.NAME_LONG, "no", "navnBokmal"),
+                                (ou.NAME_LONG, "nb", "navnBokmal"),
+                                (ou.NAME_LONG, "en", "navnEngelsk")):
         tmp = ou.get_name_with_lang(kind, lang)
         output_element(writer, tmp, element)
     # od
 
-    nsd = ou.get_id(DataOU.NO_NSD)
+    nsd = ou.get_id(ou.NO_NSD)
     if nsd:
         output_element(writer, str(nsd), "NSDKode")
     # fi
     
-    output_element(writer, ou.get_name_with_lang(DataOU.NAME_ACRONYM, "no",
+    output_element(writer, ou.get_name_with_lang(ou.NAME_ACRONYM, "no",
                    "nb", "nn", "en"),
                    "akronym")
 
@@ -340,9 +337,9 @@ def output_OUs(writer, sysname, oufile):
 
     # First we build an ID cache.
     ou_cache = dict()
-    parser = system2parser(sysname)(oufile, False)
-    for ou in SkippingIterator(parser.iter_ou(), logger):
-        sko = ou.get_id(DataOU.NO_SKO, None)
+    parser = system2parser(sysname)(oufile, logger, False)
+    for ou in parser.iter_ou():
+        sko = ou.get_id(ou.NO_SKO, None)
         if sko:
             ou_cache[sko] = ou
 
@@ -481,12 +478,11 @@ def output_person(writer, person, phd_cache, ou_cache):
     <person>
     """
 
-    employments = filter(lambda x: x.kind in (DataEmployment.HOVEDSTILLING,
-                                              DataEmployment.BISTILLING) and
+    employments = filter(lambda x: x.kind in (x.HOVEDSTILLING,
+                                              x.BISTILLING) and
                                    x.is_active(),
                          person.iteremployment())
-    guests = filter(lambda x: x.kind == DataEmployment.GJEST and
-                              x.is_active(),
+    guests = filter(lambda x: x.kind == x.GJEST and x.is_active(),
                     person.iteremployment())
 
     if not (employments or guests):
@@ -498,12 +494,12 @@ def output_person(writer, person, phd_cache, ou_cache):
     reserved = {True: "J",
                 False: "N",
                 None: "N",}[person.reserved]
-    fnr = person.get_id(DataPerson.NO_SSN)
+    fnr = person.get_id(person.NO_SSN)
     writer.startElement("person", { "fnr" : fnr,
                                     "reservert" : reserved })
-    for attribute, element in ((DataPerson.NAME_LAST, "etternavn"),
-                               (DataPerson.NAME_FIRST, "fornavn"),
-                               (DataPerson.NAME_TITLE, "personligTittel")):
+    for attribute, element in ((person.NAME_LAST, "etternavn"),
+                               (person.NAME_FIRST, "fornavn"),
+                               (person.NAME_TITLE, "personligTittel")):
         # NB! I assume here that there is only *one* name. Is this always true
         # for personligTittel?
         name = person.get_name(attribute)
@@ -674,8 +670,8 @@ def output_people(writer, sysname, personfile, ou_cache):
     logger.info("cached PhD students (%d people)", len(phd_students))
 
     writer.startElement("personer")
-    parser = system2parser(sysname)(personfile, False)
-    for person in SkippingIterator(parser.iter_persons(), logger):
+    parser = system2parser(sysname)(personfile, logger, False)
+    for person in parser.iter_person():
         # NB! phd_students is updated destructively
         output_person(writer, person, phd_students, ou_cache)
 

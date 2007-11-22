@@ -29,9 +29,9 @@
 # - betaling_fritak fritak for å betale for den enkelte utskrift
 
 import getopt
+import mx
 import sys
 import time
-import mx
 
 import cerebrum_path
 import cereconf
@@ -48,7 +48,6 @@ from Cerebrum.modules.no.uio.printer_quota import PaidPrinterQuotas
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
 from Cerebrum.modules.no.uio.AutoStud.StudentInfo import GeneralDataParser
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 db = Factory.get('Database')()
 update_program = 'quota_update'
@@ -234,9 +233,9 @@ def get_bet_fritak_utv_data(sysname, person_file):
                                       id_type=const.externalid_fodselsnr):
         fnr2pid[p['external_id']] = int(p['entity_id'])
     # Parse person file
-    parser = system2parser(sysname)(person_file, False)
-    for pers in SkippingIterator(parser.iter_persons(), logger):
-        fnr = pers.get_id("NO SSN")
+    parser = system2parser(sysname)(person_file, logger, False)
+    for pers in parser.iter_person():
+        fnr = pers.get_id(pers.NO_SSN)
         for employment in pers.iteremployment():
             if (employment.is_guest() and employment.is_active() and
                 employment.code in roller_fritak):

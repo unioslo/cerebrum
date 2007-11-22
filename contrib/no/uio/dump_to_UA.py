@@ -62,8 +62,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-from Cerebrum.modules.xmlutils.xml2object import DataContact, DataPerson
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 
 
@@ -360,12 +358,12 @@ def generate_output(stream, do_employees, do_students, sysname, person_file):
         logger.info("Extracting employee info from %s", person_file)
 
         source_system = getattr(const, sysname)
-        parser = system2parser(sysname)(person_file, False)
+        parser = system2parser(sysname)(person_file, logger, False)
 
         # Go through all persons in person_info_file
-        for xml_person in SkippingIterator(parser.iter_persons(), logger):
+        for xml_person in parser.iter_person():
             try:
-                fnr = xml_person.get_id(DataPerson.NO_SSN)
+                fnr = xml_person.get_id(xml_person.NO_SSN)
                 db_person.find_by_external_id(const.externalid_fodselsnr, fnr,
                                               source_system=source_system)
             except Errors.NotFoundError:

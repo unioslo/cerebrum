@@ -60,7 +60,6 @@ from Cerebrum import Database
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 
 logger = None
@@ -136,11 +135,10 @@ def build_employee_cache(db, sysname, filename):
     logger.debug("... done (%d mappings)", len(fnr2uname))
 
     # Build mapping for the employees
-    parser = system2parser(sysname)(filename, False)
-    it = parser.iter_persons()
+    parser = system2parser(sysname)(filename, logger, False)
     # mapping from uname to employment status
     employee_cache = dict()
-    for xmlperson in SkippingIterator(it, logger):
+    for xmlperson in parser.iter_person():
         fnr = xmlperson.get_id(xmlperson.NO_SSN)
         if not fnr:
             logger.debug("Person %s has no fnr in XML source",

@@ -45,15 +45,16 @@ TODO:
 """
 
 import copy
+import os.path
 import re
 import sys
 import time
+import traceback
 import types
 
 from cElementTree import parse, iterparse
 # from elementtree.ElementTree import parse, iterparse
 from mx.DateTime import Date
-
 
 
 
@@ -379,7 +380,6 @@ class DataOU(DataEntity):
 
     NO_SKO       = "sko"
     NO_NSD       = "nsdkode"
-    NO_SAP_ID    = "sap-ou-id"
 
     NAME_ACRONYM = "acronym"
     NAME_SHORT   = "short"
@@ -396,7 +396,7 @@ class DataOU(DataEntity):
 
 
     def validate_id(self, kind, value):
-        assert kind in (self.NO_SKO, self.NO_NSD, self.NO_SAP_ID)
+        assert kind in (self.NO_SKO, self.NO_NSD,)
     # end validate_id
 
 
@@ -528,13 +528,14 @@ class AbstractDataGetter(object):
     stream twice).
     """
 
-    def __init__(self, fetchall = True):
+    def __init__(self, logger, fetchall = True):
         """Initialize the data source extractor.
 
         fetchall decides whether the data is fetched incrementally or is
         loaded entirely into memory (cf. db_row).
         """
-        
+
+        self.logger = logger
         self.fetch(fetchall)
     # end __init__
 
@@ -545,47 +546,12 @@ class AbstractDataGetter(object):
     # end fetch
     
     
-    def search_persons(self, predicate):
-        """List all persons matching given criteria."""
-
-        for person in self.iter_persons():
-            if predicate(person):
-                # TBD: Do we want a generator here?
-                yield person
-            # fi
-        # od
-    # end search_persons
-
-
-    def list_persons(self):
-        """List all persons available from the data source."""
-        return list(self.iter_persons())
-    # end list_persons
-
-
-    def iter_persons(self):
-        """Give an iterator over people objects in the data source."""
-        raise NotImplementedError("iter_persons not implemented")
-    # end iter_persons
+    def iter_person(self):
+        """Give an iterator over person objects in the data source."""
+        raise NotImplementedError("iter_person not implemented")
+    # end iter_person
 
             
-    def search_ou(self, predicate):
-        """List all OUs matching given criteria."""
-
-        for ou in self.iter_ou():
-            if predicate(ou):
-                yield ou
-            # fi
-        # od
-    # end search_ou
-
-
-    def list_ou(self):
-        """List all OUs available from the data source."""
-        return list(self.iter_ou())
-    # end list_ou
-
-
     def iter_ou(self):
         """Give an iterator over OU objects in the data source."""
         raise NotImplementedError("iter_ou not implemented")
@@ -597,11 +563,11 @@ class AbstractDataGetter(object):
 class XMLDataGetter(AbstractDataGetter):
     """This class provides abstractions to operate on XML files."""
 
-    def __init__(self, filename, fetchall = True):
+    def __init__(self, filename, logger, fetchall = True):
         self._filename = filename
         self._data_source = None
 
-        super(XMLDataGetter, self).__init__(fetchall)
+        super(XMLDataGetter, self).__init__(logger, fetchall)
     # end __init__
 
 
@@ -616,9 +582,8 @@ class XMLDataGetter(AbstractDataGetter):
             it = self._data_source.getiterator(element)
         else:
             it = XMLEntityIterator(self._filename, element)
-        # fi
 
-        return klass(iter(it))
+        return klass(iter(it), self.logger)
     # end _make_iterator
 
 
@@ -635,16 +600,20 @@ class XMLDataGetter(AbstractDataGetter):
             # they are no longer needed (or they'll end up cached in memory;
             # something we are trying to avoid here).
             self._data_source = parse(self._filename)
-        # fi
     # end fetch
 # end XMLDataGetter
 
 
 
 class XMLEntity2Object(object):
-    """A small helper for common XML -> Data*-class conversions."""
+    """A small helper for common XML -> Data*-class conversions.
 
-    def __init__(self, xmliter):
+    The subclasses of this class have to implement one method, essentially:
+    next_object(element). This method should create an object (an instance of
+    DataEntity) that is the representation of an XML subtree.
+    """
+
+    def __init__(self, xmliter, logger):
         """Constructs an iterator supplying DataEntity objects.
 
         xmliter is the the underlying ElementTree iterator (here we do not
@@ -652,15 +621,57 @@ class XMLEntity2Object(object):
         """
 
         self._xmliter = iter(xmliter)
+        self.logger = logger
     # end __init__
 
 
     def next(self):
-        return self._xmliter.next()
+        while 1:
+            try:
+                # Fetch next XML subtree...
+                element = self._xmliter.next()
+                # ... and dispatch to subclass to create an object
+                obj = self.next_object(element)
+                # Helps alleviate memory problems
+                element.clear()
+                return obj
+            except StopIteration:
+                raise
+            except:
+                # If *any* sort of exception occurs, log this, and continue
+                # with the parsing. We cannot afford one defective entry to
+                # break down the entire data import run.
+                #
+                # TBD: Ideally, we'd like to know what specific
+                # element/attribute caused the exception. That may be
+                # difficult to implement, though.
+                element.clear()
+                if self.logger:
+                    self.logger.warn("%s. Skipping next element.",
+                                     self._format_exc_context(sys.exc_info()))
     # end next
 
 
+    def __iter__(self):
+        return self
+    # end __iter__
+
+
     def _make_mxdate(self, text, format = "%Y%m%d"):
+        """Helper method to convert strings to dates.
+
+        @param text:
+          A string containing formatted date. The string may be empty.
+        @type text: basestring
+
+        @param format:
+          A format string (cf. strptime) describing the datum in text.
+        @type format: basestring
+
+        @return
+        @rtype: mx.DateTime.Date
+
+        """
         if not text:
             return None
         
@@ -669,14 +680,78 @@ class XMLEntity2Object(object):
     # end _make_mxdate
 
 
-    def __iter__(self):
-        return self
-    # end __iter__
+    def exception_wrapper(functor, exc_list=(), return_on_error=None):
+        """Helper method for discarding exceptions easier.
+
+        We can wrap around a call to a method, so that a certain exception (or
+        a sequence thereof) would result in in returning a specific
+        value. A typical use case would be:
+
+            >>> class A(XMLEntity2Object):
+            ...    def foo(self, ...):
+            ...        # do something
+            ...    # end foo
+            ...    foo = A.exception_wrapper(foo, (AttributeError, ValueError),
+            ...                              (None, None))
+
+        ... which would result in a warn message in the logs, if foo() raises
+        AttributeError or ValueError. foo() above can take rest and keyword
+        arguments.
+
+        @param functor:
+          A callable object which we want to wrap around.
+        @type functor:
+          A function, a method (bound or unbound) or an object implementing
+          the __call__ special method.
+
+        @param exc_list
+          A sequence of exception classes to intercept. An empty list would
+          mean all exceptions are let through. 'object' would mean that
+          everything is intercepted.
+        @type exc_list: a tuple, a list, a set or another class implementing
+          the __iter__ special method.
+
+        @return: A function invoking functor when called. rest and keyword
+        arguments are supported.
+        @rtype: function.
+
+        IVR 2007-11-22 TBD: Maybe this belongs in Utils.py somewhere?
+        """
+
+        def wrapper(*rest, **kw_args):
+            try:
+                return functor(*rest, **kw_args)
+            except tuple(exc_list):
+                if self.logger:
+                    self.logger.warn(
+                        XMLEntity2Object._format_exc_context(sys.exc_info()))
+                return return_on_error
+            # end wrapper
+
+        return wrapper
+    # end exception_wrapper
+    exception_wrapper = staticmethod(exception_wrapper)
+
+
+    def _format_exc_context((etype, evalue, etraceback)):
+        """Small helper for printing exception context.
+
+        This static method helps format an exception traceback.
+        """
+        tmp = traceback.extract_tb(etraceback)
+        filename, line, funcname, text = tmp[-1]
+        filename = os.path.basename(filename)
+        return ("Exception %s while parsing XML (in context %s): %s" %
+                (etype,
+                 "%s/%s() @line %s" % (filename, funcname, line),
+                 evalue))
+    # end _format_exc_context
+    _format_exc_context = staticmethod(_format_exc_context)
 # end XMLEntity2Object
 
 
     
-class XMLEntityIterator:
+class XMLEntityIterator(object):
     """Iterate over an XML file and return complete elements of a given kind.
 
     Iterative parsing in ElementTree is based on (event, element) pairs. For
@@ -696,18 +771,27 @@ class XMLEntityIterator:
         
 
     def next(self):
-        """Return next specified element, ignoring all else."""
+        """Return next specified element, ignoring all else.
+
+        This method operates on cElementTree's trees. The specified element is
+        returned as such a tree. The intention is for the subclasses to call
+        this method, get a tree back, remap the tree to
+        DataAddress/DataPerson/and so forth, and return a suitable
+        Data*-object.
+        """
         
-        # Each time next is called, we drop whatever is dangling under
-        # root. It might be problematic if there is *a lot* of elements
-        # between two consecutive self.element_name elements.
+        # Each time next is called, we drop whatever is dangling under root.
+        # It might be problematic if there is *a lot* of elements between two
+        # consecutive self.element_name elements, as all of them are kept in
+        # memory (it's like that by design).
         self._root.clear()
         
         for event, element in self.it:
             if event == "end" and element.tag == self.element_name:
                 return element
-            # fi
-        # od
+
+            # See the explanation above.
+            self._root.clear()
 
         raise StopIteration
     # end next
@@ -717,75 +801,3 @@ class XMLEntityIterator:
         return self
     # end __iter__
 # end XMLEntityIterator
-
-
-
-class SkippingIterator:
-    """Iterate over elements while ignoring exceptions.
-
-    This comes in handy when we simply want to log and skip erroneous
-    entries. If no logging is desired, set logger to None. No indication of
-    failure would be provided (erroneous elements are going to be silently
-    ignored).
-    """
-
-    def __init__(self, iterator, logger):
-        self.iterator = iterator
-        self.logger = logger
-
-        # IVR 2007-07-18 FIXME: These are the errors that we want to ignore,
-        # since
-        # 1) there are too many of them
-        # 2) they are known and they will not be fixed in the nearest future
-        # 
-        # The format of this dictionary is <ErrorType>: list of regexs
-        # ... where <ErrorType> specifies the exception type and list of regexs
-        # represents the specific values of the exceptions we want to ignore.
-        from Cerebrum.modules.no import fodselsnr
-        self.ignore_errors = {
-            fodselsnr.InvalidFnrError:
-                # temporary fnrs that are known to fail fnr checksum
-                [re.compile("\d{6}00[0,1,2]00"), ],
-            ValueError:
-                # this is how SAP/POLS tag invalid person entries
-                [re.compile("Name contains '@' or '\*'")],
-            AssertionError:
-                # These OUs are broken, since they lack proper names
-                [re.compile("No name available for OU \(0, 0, 0\)")],
-            }
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        while 1:
-            try:
-                element = self.iterator.next()
-                return element
-            except StopIteration:
-                raise
-            except:
-                exc, value, tb = sys.exc_info()
-                # it's not one of the "known" errors
-                if exc not in self.ignore_errors:
-                    if self.logger:
-                        self.logger.exception("failed to process next element")
-                    continue
-
-                value = str(value)
-                matched = False
-                for pobj in self.ignore_errors[exc]:
-                    if pobj.search(value):
-                        if self.logger:
-                            self.logger.debug("(Known) error for next element. "
-                                              "Element ignored: %s %s", str(exc), value)
-                        matched = True
-                        break
-
-                # It's not a "known" error
-                if not matched:
-                    if self.logger:
-                        self.logger.exception("failed to process next (known) element")
-                    continue
-    # end next
-# end SkippingIterator

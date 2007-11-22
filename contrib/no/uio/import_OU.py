@@ -42,7 +42,6 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 
 OU_class = Factory.get('OU')
@@ -55,8 +54,8 @@ logger = Factory.get_logger("cronjob")
 # exist on a particular installation.
 source2perspective = dict()
 for system_name, perspective_name in (("system_lt", "perspective_lt"),
-                                        ("system_sap", "perspective_sap"),
-                                        ("system_fs", "perspective_fs")):
+                                      ("system_sap", "perspective_sap"),
+                                      ("system_fs", "perspective_fs")):
     if hasattr(co, system_name) and hasattr(co, perspective_name):
         source2perspective[getattr(co, system_name)] = \
                                        getattr(co, perspective_name)
@@ -96,7 +95,6 @@ def format_parent_sko(xmlou):
     else:
         return None
 # end format_parent_sko
-
 
 
 def rec_make_ou(my_sko, ou, existing_ou_mappings, org_units,
@@ -224,8 +222,8 @@ def import_org_units(sources, target_system, cer_ou_tab):
         logger.debug("Processing %s data from %s", system, filename)
         db_writer = XML2Cerebrum(db, source_system, logger, def_kat_merke)
 
-        it = system2parser(system)(filename, False).iter_ou()
-        for xmlou in SkippingIterator(it, logger):
+        parser = system2parser(system)(filename, logger, False)
+        for xmlou in parser.iter_ou():
             formatted_sko = format_sko(xmlou)
             if not formatted_sko:
                 logger.error("Missing sko for OU %s (names: %s). Skipped!" %
@@ -272,7 +270,6 @@ def import_org_units(sources, target_system, cer_ou_tab):
 # end import_org_units
 
 
-
 def get_cere_ou_table():
     """Collect sko available in Cerebrum now.
 
@@ -289,7 +286,6 @@ def get_cere_ou_table():
     
     return sted_tab
 # end get_cere_ou_table
-
 
 
 def set_quaran(cer_ou_tab):
@@ -322,7 +318,6 @@ def set_quaran(cer_ou_tab):
                                       start = now) 
     db.commit()
 # end set_quaran
-
 
 
 def dump_perspective(sources, target_system):
@@ -418,8 +413,8 @@ def dump_perspective(sources, target_system):
         org_units = dict()
 
         # Slurp in data
-        it = system2parser(system)(filename, False).iter_ou()
-        for xmlou in SkippingIterator(it, logger):
+        parser = system2parser(system)(filename, logger, False)
+        for xmlou in parser.iter_ou():
             sko = format_sko(xmlou)
             if sko is None:
                 print ("Missing sko for OU %s (names: %s). Skipped!" %
@@ -467,7 +462,6 @@ def dump_perspective(sources, target_system):
 # end dump_perspective
 
 
-
 def usage(exitcode=0):
     print """Usage: [options] [file ...]
 Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
@@ -484,6 +478,8 @@ Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
     particular file.
     """
     sys.exit(exitcode)
+# end usage
+
 
 def main():
     global verbose, clean_obsolete_ous, def_kat_merke
@@ -534,8 +530,9 @@ def main():
     else:
         usage(4)
     set_quaran(cer_ou_tab)
+# end main
+
+
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: 859f1333-238e-43e6-89ee-d9ce39b11e6f

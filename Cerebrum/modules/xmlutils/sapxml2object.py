@@ -31,17 +31,15 @@ import sys
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory
 
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, HRDataPerson, DataAddress, \
      DataEmployment, DataOU, DataContact, DataName
-
 from Cerebrum.modules.no.fodselsnr import personnr_ok
 from Cerebrum.extlib.sets import Set as set
 
 
-logger = Factory.get_logger("cronjob")
+
 
 
 def deuglify_phone(phone):
@@ -89,9 +87,9 @@ def make_sko(data):
 class SAPXMLDataGetter(XMLDataGetter):
     """An abstraction layer for SAP XML files."""
 
-    def iter_persons(self):
+    def iter_person(self):
         return self._make_iterator("sap_basPerson", XMLPerson2Object)
-    # end iter_persons
+    # end iter_person
 
 
     def iter_ou(self):
@@ -111,11 +109,6 @@ class XMLOU2Object(XMLEntity2Object):
                  "Kortnavn" : DataOU.NAME_SHORT,
                  "Langnavn" : DataOU.NAME_LONG,
                  }
-
-    def __init__(self, xmliter):
-        super(XMLOU2Object, self).__init__(xmliter)
-    # end
-
 
     def _make_contact(self, element):
         comm_type = element.find("Stedknavn")
@@ -202,12 +195,9 @@ class XMLOU2Object(XMLEntity2Object):
     # end _make_names
 
 
-    def next(self):
+    def next_object(self, element):
         """Return the next DataOU object."""
 
-        # This call with propagate StopIteration when all the (XML) elements
-        # are exhausted.
-        element = super(XMLOU2Object, self).next()
         result = DataOU()
 
         # Iterate over *all* subelements
@@ -258,7 +248,7 @@ class XMLOU2Object(XMLEntity2Object):
                    "No name available for OU %s" % str(result.get_id(DataOU.NO_SKO))
 
         return result
-    # end next
+    # end next_object
 # end XMLOU2Object
 
 
@@ -267,11 +257,11 @@ class XMLPerson2Object(XMLEntity2Object):
     """A converter class that maps ElementTree's Element to SAPPerson."""
 
     # Each employment has a 4-digit Norwegian state employment code. Ideally
-    # SAP should tag the employments as either VITENSKAPELIG or
-    # TEKADM/OEVRIG. Unfortunately, it does not always happen, and we are
-    # forced to deduce the categories ourselves. This list of codes is derived
-    # from LT-data. Unless there is an <adm_forsk> element with the right
-    # values, this set will be used to determine vit/tekadm categories.
+    # SAP should tag the employments as either VITENSKAPELIG or TEKADM/OEVRIG
+    # themselves. Unfortunately, it does not always happen, and we are forced
+    # to deduce the categories ourselves. This list of codes is derived from
+    # LT-data. Unless there is an <adm_forsk> element with the right values,
+    # this set will be used to determine vit/tekadm categories.
     #
     # Everything IN this set is tagged with KATEGORI_VITENSKAPLIG
     # Everything NOT IN this set is tagged with KATEGORI_OEVRIG
@@ -279,6 +269,7 @@ class XMLPerson2Object(XMLEntity2Object):
                              1018, 1019, 1020, 1108, 1109, 1110, 1111, 1183,
                              1198, 1199, 1200, 1260, 1352, 1353, 1378, 1404,
                              1474, 1475, 8013, ])
+
 
     tag2type = {"Fornavn": HRDataPerson.NAME_FIRST,
                 "Etternavn": HRDataPerson.NAME_LAST,
@@ -290,12 +281,6 @@ class XMLPerson2Object(XMLEntity2Object):
                 "Bistilling": DataEmployment.BISTILLING,
                 "Ansattnr": SAPPerson.SAP_NR,
                 "Title": HRDataPerson.NAME_TITLE,}
-
-    def __init__(self, xmliter):
-        """Constructs an iterator supplying SAPPerson objects."""
-
-        super(XMLPerson2Object, self).__init__(xmliter)
-    # end
 
 
     def _make_address(self, addr_element):
@@ -374,60 +359,54 @@ class XMLPerson2Object(XMLEntity2Object):
             
             value = sub.text.strip().encode("latin1")
             
-            try:
-                if sub.tag == "stillingsprosent":
-                    percentage = float(value)
-                elif sub.tag == "stillingsgruppebetegnelse":
-                    code = int(value[0:4])
+            if sub.tag == "stillingsprosent":
+                percentage = float(value)
+            elif sub.tag == "stillingsgruppebetegnelse":
+                code = int(value[0:4])
 
-                    # 0000 are to be discarded. This is by design.
-                    if code == 0:
-                        return None
-                    # Some elements have the proper category set in adm_forsk
+                # 0000 are to be discarded. This is by design.
+                if code == 0:
+                    return None
+                # Some elements have the proper category set in adm_forsk
+                if category is None:
+                    category = self._code2category(code)
+            elif sub.tag == "Stilling":
+                tmp = value.split(" ")
+                if len(tmp) == 1:
+                    title = tmp[0]
+                else:
+                    title = " ".join(tmp[1:])
                     if category is None:
-                        category = self._code2category(code)
-                elif sub.tag == "Stilling":
-                    tmp = value.split(" ")
-                    if len(tmp) == 1:
-                        title = tmp[0]
-                    else:
-                        title = " ".join(tmp[1:])
-                        if category is None:
-                            category = self._code2category(tmp[0])
-                elif sub.tag == "Start_Date":
-                    start_date = self._make_mxdate(value)
-                elif sub.tag == "End_Date":
-                    end_date = self._make_mxdate(value)
-                elif sub.tag == "Orgenhet":
-                    sko = make_sko(value)
-                    if sko is not None:
-                        ou_id = (DataOU.NO_SKO, sko)
-                elif sub.tag == "adm_forsk":
-                    # if neither is specified, use, the logic in
-                    # stillingsgruppebetegnelse to decide on the category
-                    if value == "Vit":
-                        category = DataEmployment.KATEGORI_VITENSKAPLIG
-                    elif value == "T/A":
-                        category = DataEmployment.KATEGORI_OEVRIG
-                elif sub.tag == "Status":
-                    # <Status> indicates whether the employment entry is
-                    # actually valid.
-                    if value != "Aktiv":
-                        return None
-                elif sub.tag == "Stillnum":
-                    # this code means that the employment has been terminated (why
-                    # would there be two elements for that?)
-                    if value == "99999999":
-                        return None
-                    # these are temp employments (bilagslønnede) that we can
-                    # safely disregard (according to baardj).
-                    if value == "30010895":
-                        return None
-            except ValueError, ve:
-                logger.error("Unable to parse value '%s' for '%s': %s" % (value, sub.tag, ve))
-                return None
-
-
+                        category = self._code2category(tmp[0])
+            elif sub.tag == "Start_Date":
+                start_date = self._make_mxdate(value)
+            elif sub.tag == "End_Date":
+                end_date = self._make_mxdate(value)
+            elif sub.tag == "Orgenhet":
+                sko = make_sko(value)
+                if sko is not None:
+                    ou_id = (DataOU.NO_SKO, sko)
+            elif sub.tag == "adm_forsk":
+                # if neither is specified, use, the logic in
+                # stillingsgruppebetegnelse to decide on the category
+                if value == "Vit":
+                    category = DataEmployment.KATEGORI_VITENSKAPLIG
+                elif value == "T/A":
+                    category = DataEmployment.KATEGORI_OEVRIG
+            elif sub.tag == "Status":
+                # <Status> indicates whether the employment entry is actually
+                # valid.
+                if value != "Aktiv":
+                    return None
+            elif sub.tag == "Stillnum":
+                # this code means that the employment has been terminated (why
+                # would there be two elements for that?)
+                if value == "99999999":
+                    return None
+                # these are temp employments (bilagslønnede) that we can
+                # safely disregard (according to baardj).
+                if value == "30010895":
+                    return None
             # IVR 2007-07-11 FIXME: We should take a look at <Arsak>, since it
             # contains deceased status for a person.
 
@@ -441,6 +420,10 @@ class XMLPerson2Object(XMLEntity2Object):
                              place = ou_id, category = category)
         return tmp
     # end _make_employment
+    _make_employment = XMLEntity2Object.exception_wrapper(_make_employment,
+                                                          exc_list=(object,
+                                                                    Exception),
+                                                          return_on_error=None)
 
 
     def _make_role(self, elem):
@@ -489,6 +472,10 @@ class XMLPerson2Object(XMLEntity2Object):
                               start = start_date, end = end_date,
                               place = ou_id, category = None)
     # end _make_role
+    _make_role = XMLEntity2Object.exception_wrapper(_make_role,
+                                                    exc_list=(object,
+                                                              Exception),
+                                                    return_on_error=None)
 
 
     def _make_contact(self, elem, priority):
@@ -514,9 +501,13 @@ class XMLPerson2Object(XMLEntity2Object):
 
         return DataContact(ctype, cvalue, priority)
     # end _make_contact
+    _make_contact = XMLEntity2Object.exception_wrapper(_make_contact,
+                                                       exc_list=(object,
+                                                                 Exception),
+                                                       return_on_error=None)
 
 
-    def next(self):
+    def next_object(self, element):
         """Return the next SAPPerson object.
 
         Consume the next XML-element describing a person, and return a
@@ -526,10 +517,6 @@ class XMLPerson2Object(XMLEntity2Object):
         proper SAPPerson object), an exception is raised.
         """
 
-        # This call with propagate StopIteration when all the (XML) elements
-        # are exhausted. element is the ElementTree element containing the
-        # parsed chunk of XML data.
-        element = super(XMLPerson2Object, self).next()
         result = SAPPerson()
 
         # Per baardj's request, we consider middle names as first names.
@@ -671,8 +658,6 @@ class XMLPerson2Object(XMLEntity2Object):
         assert (result.get_name(result.NAME_FIRST) and
                 result.get_name(result.NAME_LAST))
         
-        # NB! This is crucial to save memory on XML elements
-        element.clear()
         return result
-    # end next
+    # end next_object
 # end XMLPerson2Object

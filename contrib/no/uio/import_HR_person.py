@@ -42,8 +42,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU, DataAddress
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
-from Cerebrum.modules.no import fodselsnr
 
 db = Factory.get('Database')()
 db.cl_init(change_program='import_HR')
@@ -338,9 +336,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
     logger.debug("Group for reservations is: %s", group.group_name)
 
     xml2db = XML2Cerebrum(db, source_system, logger)
-    it = parser.iter_persons()
-
-    for xmlperson in SkippingIterator(it, logger):
+    for xmlperson in parser.iter_person():
         logger.debug("Loading next person: %s", list(xmlperson.iterids()))
         affiliations, work_title = determine_affiliations(xmlperson,
                                                           source_system)
@@ -517,7 +513,7 @@ def main():
 
         # Read in the file, and register the information in cerebrum
         if filename is not None:
-            parse_data(parser(filename, False),
+            parse_data(parser(filename, logger, False),
                        source_system,
                        group,
                        gen_groups,
