@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2007 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -30,6 +30,8 @@ etc are updated. Thes script is implemented after the specification
 found in cerebrum_eksterne/docs/HIOF/spec/blackboard_hiof.rst.
 
 """
+
+# http://imsproject.org/enterprise/entv1p1/imsent_bindv1p1.html
 
 import sys
 import locale
@@ -81,6 +83,15 @@ def out(element, element_data, attributes={}):
         xmlwriter.dataElement(element, element_data, attributes)
 
 
+def out_extension(element, element_data, attributes={}):
+    """
+    Output extension elements
+    """
+    xmlwriter.startElement("extension")
+    out(element, element_data, attributes)
+    xmlwriter.endElement("extensions")
+    
+
 def out_id(id, source):
     """
     Output sourcedid element
@@ -104,38 +115,113 @@ def out_name(family_name, given_name):
     xmlwriter.endElement("name")
 
 
-# TODO: Dette er ikke all informasjon...
-def output_person(person):
+def out_description(short, long, full):
     """
-    Output person element
-    """    
-    xmlwriter.startElement("person")
-    out_id(person['uname'], 'Cerebrum')
-    out('userid', person['uname'])
-    out_name(person['family_name'], person['given_name'])
-    out('email', person['email'])
-    xmlwriter.endElement("person")
-    
+    Output description element
+    """
+    xmlwriter.startElement("description")
+    out('short', short)
+    out('long', long)
+    out('full', full)
+    xmlwriter.endElement("description")
+
+
+# TODO: ikke ferdig
+def out_role(role):
+    xmlwriter.startElement("role")
+    # status
+    xmlwriter.endElement("role")
+
+
+def out_member(member_id, id_source, role, status):
+    xmlwriter.startElement("member")
+    out_id(member_id, id_source)
+    out_role(role)
+    xmlwriter.endElement("member")
+
 
 # TBD: hva skal vi skrive av info egentlig? Må diskuteres med hiof
 def output_properties():
     """
     Output properties element
-    """    
+    """
+    # TBD specify lang?
     xmlwriter.startElement("properties")
+    # TBD: output comments?
     out("datasource", "cerebrum")
     out("target", "Blackboard LMS")
+    # TBD: output type?
     out("datetime", time.strftime("%Y-%m-%dT%H:%M:%S"))
     xmlwriter.endElement("properties")
 
 
-def generate_document(persons, courses):
+# TODO: Antar at person info er en dict. Mulig at det må endres.
+def output_person(person):
+    """
+    Output person element
+    """    
+    xmlwriter.startElement("person")
+    # spec: EXTERNAL_PERSON_KEY
+    out_id(person['uname'], 'Cerebrum')
+    # spec: USER_ID
+    out('userid', person['uname'])
+    # spec: SYSTEM_ROLE
+    out('systemroletype', {'systemroletypetype': 'None'})
+    # spec: FIRSTNAME, LASTNAME
+    out_name(person['family_name'], person['given_name'])
+    # spec: EMAIL
+    out('email', person['primary_email_address'])
+    # spec: INSTITUTION_ROLE
+    out('institutionrole', {'institutionroletype': 'Student'})
+    # spec: PASSWD
+    # TODO: spec ikke ferdig
+    out_extension('x_bb_password', person['passwd'])
+    # spec: STUDENT_ID
+    out_extension('x_bb_studentid', person['studentid'])
+    # spec: JOB_TITLE
+    # TODO: spec ikke ferdig
+    out_extension('x_bb_?', person['job_title'])
+    # spec: DEPARTMENT
+    # TODO: spec ikke ferdig
+    out_extension('x_bb_?', person['department'])
+    # spec: M_PHONE
+    out('tel', person['tel'], {'teltype': 'mobile'})
+    # spec: PUBLIC_IND
+    out_extension('x_bb_public_indicator', 'N')
+    xmlwriter.endElement("person")
+    
+
+# TODO: datastruktur...
+def output_course(course):
+    """
+    Output course information for a course
+    """
+    xmlwriter.startElement("group")
+    # spec: COURSE_ID
+    out_id(course['course_id'], 'FS')
+    # TODO: avklar om EXTERNAL_COURSE_KEY == <description><short>
+    # spec: EXTERNAL_COURSE_KEY, COURSE_NAME, DESCRIPTION
+    output_description(**course['description'])
+    xmlwriter.endElement("group")
+    
+
+def output_membership(membership):
+    xmlwriter.startElement("membership")
+    # spec: EXTERNAL_COURSE_KEY
+    out_id(membership['course_id'], 'FS')
+    # spec: EXTERNAL_PERSON_KEY, ROLE, STATUS
+    out_member(membership['person_id'], membership['id_source'],
+               membership['person_role'], membership['person_status'])
+    xmlwriter.endElement("membership")
+
+
+def generate_document(persons, courses, course_memberships, assignements):
     """
     Write the boilerplate part of the document.
     """
     xmlwriter.startDocument(encoding="UTF-8")
     xmlwriter.startElement("enterprise")
-    
+    # TBD: output comments?
     output_properties()
     # Write all persons
     for person in persons:
@@ -144,9 +230,11 @@ def generate_document(persons, courses):
     for course in courses:
         output_course(course)
     # Write course memberships (kursdeltagelse)
-    # ...
+    for membership in course_memberships:
+        output_membership(membership)
     # Write staff assignments (undervisningsoppdrag)
-    # ...
+    for membership in assignments:
+        output_membership(membership)
     # Write category data (kurskategori)
     # ...
     # Write category memberships (kurskategorimedlemskap)
