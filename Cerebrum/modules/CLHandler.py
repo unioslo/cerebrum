@@ -38,7 +38,7 @@ class CLHandler(DatabaseAccessor):
         pass
 
     def get_events(self, key, types):
-        """Fetch all new events of type.
+        """Fetch all new events of type key.
 
         types is a tuple of event-types to listen for.  The client
         should call confirm_event() for each event that it does not want
