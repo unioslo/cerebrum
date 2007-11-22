@@ -516,6 +516,7 @@ class CalendarPerson(Person):
         # s['mail'] = obj.mail
         # s['ou'] = obj.orgunits
         # s['title'] = obj.title
+        return s
 
 ###
 ### UnitTesting is good for you
