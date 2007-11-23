@@ -25,6 +25,7 @@ from Cerebrum import Cache
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 
 
