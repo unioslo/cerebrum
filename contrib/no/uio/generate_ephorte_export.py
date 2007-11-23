@@ -121,7 +121,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         for account_id in potential_changed_feideid.keys():
             # Recently expired users will not be in account2pid
             if not account2pid.has_key(account_id):
-                logger.warn("Couldn't find user %s. User is probably expired" %
+                logger.info("Couldn't find user %s. User is probably expired" %
                             account_id)
                 continue
             p = persons.get(account2pid[account_id], None)
