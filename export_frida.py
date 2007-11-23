@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -75,11 +75,6 @@ from Cerebrum.modules.no.uit.Email import email_address
 
 from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.xmlutils.system2parser import system2parser
-from Cerebrum.modules.xmlutils.xml2object import DataOU, DataAddress
-from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
-from Cerebrum.modules.xmlutils.xml2object import DataEmployment
-from Cerebrum.modules.xmlutils.xml2object import DataContact, DataPerson
-from Cerebrum.modules.xmlutils.xml2object import SkippingIterator
 
 logger = Factory.get_logger('cronjob')
 
@@ -1401,9 +1396,9 @@ def output_OUs_new(writer, sysname, oufile):
 
     # First we build an ID cache.
     ou_cache = dict()
-    parser = system2parser(sysname)(oufile, False)
-    for ou in SkippingIterator(parser.iter_ou(), logger):
-        sko = ou.get_id(DataOU.NO_SKO, None)
+    parser = system2parser(sysname)(oufile, logger, False)
+    for ou in parser.iter_ou():
+        sko = ou.get_id(ou.NO_SKO, None)
         if sko:
             ou_cache[sko] = ou
 
