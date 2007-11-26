@@ -5064,8 +5064,16 @@ class BofhdExtension(object):
         account = self.Account_class(self.db)
         account_ids = [int(r['account_id'])
                        for r in account.list_accounts_by_owner_id(person.entity_id)]
+        ## Ugly hack: We use membership in a given group (defined in
+        ## cereconf) to enable viewing fnr in person info.
+        is_member_of_priviliged_group = False
+        if cereconf.BOFHD_FNR_ACCESS_GROUP is not None:
+            g_view_fnr =  Utils.Factory.get("Group")(self.db)
+            g_view_fnr.find_by_name(cereconf.BOFHD_FNR_ACCESS_GROUP)
+            is_member_of_priviliged_group = g_view_fnr.has_member(operator.get_entity_id())
         if (self.ba.is_superuser(operator.get_entity_id()) or
-            operator.get_entity_id() in account_ids):
+            operator.get_entity_id() in account_ids or
+            is_member_of_priviliged_group):
             for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
