@@ -929,8 +929,8 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
             # Do NOT move the files, unless self.baseFilename actually
             # exists. This is just a precaution (it should not be necessary,
             # though
-            if os.access(self.baseFilename, os.F_OK) and
-               self.backupCount > 0:
+            if (os.access(self.baseFilename, os.F_OK) and
+                self.backupCount > 0):
                 for i in range(self.backupCount - 1, 0, -1):
                     sfn = "%s.%d" % (self.baseFilename, i)
                     dfn = "%s.%d" % (self.baseFilename, i + 1)
