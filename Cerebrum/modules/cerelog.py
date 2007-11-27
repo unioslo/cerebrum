@@ -75,6 +75,8 @@ import os.path
 import re
 import string
 import sys
+import thread
+import threading
 import time
 import types
 
@@ -707,7 +709,18 @@ class DelayedFileHandler(logging.FileHandler, object):
         self.encoding = encoding or "latin1"
         self.formatter = None
         self.stream = None
+
+        self._lock = threading.RLock()
     # end __init__
+
+
+    def acquire_lock(self):
+        self._lock.acquire()
+    # end acquire_lock
+
+    def release_lock(self):
+        self._lock.release()
+    # end 
 
 
     def flush(self):
@@ -855,7 +868,7 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
         """
         try:
             if self.shouldRollover(record):
-                self.doRollover()
+                self.doRollover(record)
             super(CerebrumRotatingHandler, self).emit(record)
         except (KeyboardInterrupt, SystemExit):
             raise
@@ -872,37 +885,72 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
         # technically, we can cross a rollover limit :(
         
         # maxBytes == 0 => no rollover. Ever
-        if self.maxBytes > 0:
-            msg = self.format(record)
-            if (self.stream and
-                self.stream.tell() + len(msg) >= self.maxBytes):
-                return True
+        if self.maxBytes <= 0:
+            return False
+
+        msg = self.format(record)
+        if (self.stream and
+            not self.stream.closed and
+            self.stream.tell() + len(msg) >= self.maxBytes):
+            return True
 
         return False
     # end shouldRollover
 
 
-    def doRollover(self):
-        """This is a copy of logging.RotatingFileHandler."""
+    def doRollover(self, record):
+        """This is a slightly modified copy of logging.RotatingFileHandler.
 
-        self.stream.close()
-        if self.backupCount > 0:
-            for i in range(self.backupCount - 1, 0, -1):
-                sfn = "%s.%d" % (self.baseFilename, i)
-                dfn = "%s.%d" % (self.baseFilename, i + 1)
-                if os.path.exists(sfn):
-                    #print "%s -> %s" % (sfn, dfn)
-                    if os.path.exists(dfn):
-                        os.remove(dfn)
-                    os.rename(sfn, dfn)
-            dfn = self.baseFilename + ".1"
-            if os.path.exists(dfn):
-                os.remove(dfn)
-            os.rename(self.baseFilename, dfn)
-            #print "%s -> %s" % (self.baseFilename, dfn)
+        Essentially, we need to prevent multiple threads from screwing things
+        up.
+        """
 
-        # delayed opening. The superclass will take care of everything
-        self.stream = None
+        # IVR 2007-11-27 If two threads sharing the same logger (e.g. in
+        # job_runner) arrive here simultaneously, we need to make sure that
+        # only one of them actually rotates the logger. The only way to force
+        # this is to make sure that the calling thread has to grab a lock and
+        # perform the entire operation as a critical section.
+        #
+        # Additionally, no matter how this method fails, the lock must be
+        # released.
+        
+        try:
+            self.acquire_lock()
+
+            # Check one more time, if we *really* should roll over. Perhaps a
+            # differnt thread has already done that.
+            if not self.shouldRollover(record):
+                return
+
+            # IVR 2007-11-27 TBD: Are the tests really necessary?
+            if self.stream and not self.stream.closed:
+                self.stream.close()
+
+            # Do NOT move the files, unless self.baseFilename actually
+            # exists. This is just a precaution (it should not be necessary,
+            # though
+            if os.access(self.baseFilename, os.F_OK) and
+               self.backupCount > 0:
+                for i in range(self.backupCount - 1, 0, -1):
+                    sfn = "%s.%d" % (self.baseFilename, i)
+                    dfn = "%s.%d" % (self.baseFilename, i + 1)
+                    if os.path.exists(sfn):
+                        if os.path.exists(dfn):
+                            os.remove(dfn)
+
+                        os.rename(sfn, dfn)
+
+                dfn = self.baseFilename + ".1"
+                if os.path.exists(dfn):
+                    os.remove(dfn)
+
+                os.rename(self.baseFilename, dfn)
+
+            # delayed opening. The superclass will take care of everything
+            self.stream = None
+
+        finally:
+            self.release_lock()
     # end doRollover
 # end CerebrumRotatingHandler
 
