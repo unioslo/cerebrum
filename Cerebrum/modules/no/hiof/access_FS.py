@@ -25,7 +25,7 @@ class HiOfStudent(access_FS.Student):
     ## Vi bruker list_privatist, og list_tilbud fra no/access_FS
     def list_aktiv(self, fodselsdato=None, personnr=None):
 	""" Hent opplysninger om studenter definert som aktive 
-	ved NMH. En aktiv student er en student som har et gyldig
+	ved HiOF. En aktiv student er en student som har et gyldig
         opptak til et studieprogram der studentstatuskode er 'AKTIV'
         eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
         ikke satt."""
@@ -50,8 +50,11 @@ class HiOfStudent(access_FS.Student):
           p.personnr = sps.personnr AND
           p.fodselsdato = s.fodselsdato AND
           p.personnr = s.personnr AND
-          p.fodselsdato = kks.fodselsdato(+) AND
-          p.personnr = kks.personnr(+) AND
+          sps.fodselsdato = kks.fodselsdato(+) AND
+          sps.personnr = kks.personnr(+) AND
+          sps.studieprogramkode = kks.studieprogramkode(+) AND
+          sps.terminkode_start = kks.terminkode_start(+) AND
+          sps.arstall_start = kks.arstall_start(+) AND
           %s AND
           %s
           sps.status_privatist = 'N' AND
