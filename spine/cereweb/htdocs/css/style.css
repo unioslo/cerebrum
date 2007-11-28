@@ -187,6 +187,12 @@ div.search_range a:hover { color: blue; text-decoration: none; }
 div.search_range a.first, div.search_range a.last { text-decoration: none; }
 div.search_range .first, div.search_range .last { font-size: 90%; }
 
+div.view_content {
+    background: white;
+    color: black;
+    float: right;
+}
+
 div.view_content div.view_actions {
     float: right;
     border-width: 1px 0 0 1px;

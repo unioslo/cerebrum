@@ -18,6 +18,7 @@
 ##from lib.Main import Main
 ##from FormWidgets import FormWidgets
 ##from Widgets import Widgets
+
 #implements respond
 #encoding utf8
 
@@ -25,17 +26,24 @@
 ##attr $widgets = Widgets()
 ##attr $form_widgets = FormWidgets()
 
+#from gettext import gettext as _
+
 ## This tells us not to load the worklist.js 
 #attr $wl = 0
 ## The following hack removes the bottom div which includes the $wl.
 #def page_bottom:
 ## The following hack removes the tabview
 #def tabview:
+#import lib.activation_no as no
+#import lib.activation_en as en
+#from lib.Languages import Languages
+
+#set $texts = None
 
 #def header()
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xml:lang="en">
-    <head>
+<head>
         <title>Activate account</title>
         <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
         <meta http-equiv="Pragma" content="no-cache" />
@@ -50,7 +58,9 @@
         <link rel="stylesheet" type="text/css" charset="UTF-8" href="/yui/build/tabview/assets/tabview.css"/>
         <link rel="stylesheet" type="text/css" charset="UTF-8" href="/yui/build/tabview/assets/border_tabs.css"/> 
 
+
         <!-- Include yui components -->
+
         <script type="text/javascript" charset="UTF-8" src="/yui/build/utilities/utilities.js"></script>
         <script type="text/javascript" charset="UTF-8" src="/yui/build/logger/logger-min.js"></script>
 
@@ -59,14 +69,21 @@
         <script type="text/javascript" charset="UTF-8" src="/yui/build/datasource/datasource-beta-min.js"></script>
         <script type="text/javascript" charset="UTF-8" src="/yui/build/datatable/datatable-beta-min.js"></script>
         <script type="text/javascript" charset="UTF-8" src="/yui/build/autocomplete/autocomplete-min.js"></script>
-        <script type="text/javascript" charset="UTF-8" src="/yui/build/tabview/tabview-min.js"></script> 
+        <script type="text/javascript" charset="UTF-8"
+        src="/yui/build/tabview/tabview-min.js"></script> 
+
         <!-- Include our styles -->
 
         <link rel="stylesheet" type="text/css" charset="UTF-8" href="/css/default.css"/>
+
+    <!-- 
         <link rel="stylesheet" type="text/css" charset="UTF-8" href="/css/style.css"/>
+	-->
+	<link rel="stylesheet" type="text/css" charset="UTF-8" href="/css/activation.css" />
 
         <!-- Include our javascript application -->
         <!-- 6 -->
+
             <script type="text/javascript" charset="UTF-8" src="/jscript/base.js"></script>
             <script type="text/javascript" charset="UTF-8" src="/jscript/search.js"></script>
             <script type="text/javascript" charset="UTF-8" src="/jscript/timeout.js"></script>
@@ -75,75 +92,87 @@
             <script type="text/javascript" charset="UTF-8" src="/jscript/error.js"></script>
             <script type="text/javascript" charset="UTF-8" src="/jscript/motd.js"></script>
 
-    </head>
-    <body>
-        <div id="container">
+
+</head>
+<body>
+  <div class="logo_img">
+<img src="/img/logo_eksternweb_norsk.gif" alt="NTNU, det skapende universitet" />
+  </div>
+  <div id="container">
+  <div id="content">
+  <div class="view_content">
+
 #end def
 
 #def footer()
-        </div>
-	<div>
-	<a href="http://www.totalvalidator.com/validator/Revalidate?revalidate=true">
-        <img src="http://www.totalvalidator.com/images/valid_n_xhtml_11.gif"
+
+    <div id="bottom">
+    <a href="http://www.totalvalidator.com/validator/Revalidate?revalidate=true">
+    <img src="http://www.totalvalidator.com/images/valid_n_xhtml_11.gif"
         alt="Totally Valid XHTML 1.1" /> </a>
-	</div>
-    </body>
-    </html>
+    </div>
+    </div>
+    </div>
+    </div>
+</body>
+</html>
 #end def
 
 #def welcome($lang='no')
 
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
+
+#set $theLang = Languages($lang)
 $header()
-<h3>Congratulations!</h3>
 
-<div>
-You are now welcome to use your new account here at our Campus.
+<div class="list box">
+    <h3>$theLang.get_congratulations_header_text()</h3>
+    <div>
+    $theLang.get_congratulations_body_text()
+    </div>
 </div>
-
-<div>
-You can use the same URL <a href="http://bas.ntnu.no/">
-(http://bas.ntnu.no)</a> to look at your accounts, group-membership,
- manage groups (if you are owner of one or many).
-</div>
-
-<div>
-You have to set a new password every N months - and of 
-course, you can do that here as well.
-</div>
-
 $footer()
 #end def
 
 #def initpassword($lang='no')
 
-$header()
-<div>
-  <form method="post" action="/activation/">
-    <input type="hidden" name="page" value="initpassword" />
-    #if $lang=='no'
-        <div>
-            Vennligst oppgi hvilket passord du vil bruke.
-        </div>
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
 
-        <div>
+#set $theLang = Languages($lang)
+$header()
+
+<div class="list box">
+  <form method="post" action="/activation/">
+  <h3>$theLang.get_setpassword_header_text()</h3>
+    <div>
+    <input type="hidden" name="page" value="initpassword" />
+    <input type="hidden" id="theLang" name="lang" value="$lang" />
+    </div>
+    <div>
       <table border="0">
         <tr>
-          <td>
-                Velg passord selv:
+          <td class="info">
+                $theLang.get_setpassword_choose_self_text()
           </td>
-          <td>
-                Velg et forh&aring;ndsgenerert passord:
+          <td class="info">
+                $theLang.get_setpassword_choose_generated_text()
             </td>
         </tr>
         <tr>
           <td>
 
-            <div>
-                Passord: <input type="password" name="pw1" />
+            <div class="required">
+	      <label for="passwd1">$theLang.get_setpassword_password_label1_text()</label>
+	      <input type="password" id="passwd1" name="pw1" />
             </div>
 
-            <div>
-                Gjenta:  <input type="password" name="pw2" />
+            <div class="required">
+	      <label for="passwd2">$theLang.get_setpassword_password_label2_text()</label>
+              <input type="password" id="passwd2" name="pw2" />
             </div>
 
           </td>
@@ -157,34 +186,19 @@ $header()
         </tr>
         <tr>
           <td cellspan="2">
-            <div>
-                <em>NB:</em> Passord blir ikke vist igjen. S&oslash;rg for at
-                du husker passordet.
-            </div>
-            <div>
-            <input type="submit" name="submit_pw" value="OK" />
-            </div>
+           <div>
+                $theLang.get_setpassword_warning_text()
+           </div>
+           <div class="buttons">
+             <input type="submit" name="submit_pw" value="$theLang.get_setpassword_submit_button_text()" />
+           </div>
           </td>
         </tr>
       </table>
-        </div>
-    <div>
-        <ul>
-            <li>Passordet m&aring; v&aelig;re 8 tegn langt</li>
-            <li>Passordet m&aring; v&aelig;re forskjellig fra ditt siste passord</li>
-            <li>Passordet m&aring; inneholodet minst ett tegn fra tre av de fire gruppene:</li>
-            <li>
-                <ul>
-                    <li>Store bokstaver (A-Z)</li>
-                    <li>Sm&aring; bokstaver (a-z)</li>
-                    <li>Siffer (0-9)</li>
-                    <li>Spesialtegn (F&oslash;lgende spesialtegn godtas ikke: space'<>;:%^&\/\\|</li>
-                </ul>
-            </li>
-        </ul>
     </div>
-    #elif $lang=='en'
-    #end if
+    <div>
+        $theLang.get_setpassword_legal_passwords_text()
+    </div>
   </form>
 </div>
 $footer()
@@ -192,45 +206,44 @@ $footer()
 
 #def eula($lang='no')
 
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
+
+#set theLang = Languages($lang)
+
 $header()
-<div>
+
+<div class="list box">
   <form method="post" action="/activation/">
-  #if $lang == 'no'
-    <h3>Aktivering (4/5)</h3>
+    <h3>$theLang.get_eula_header_text()</h3>
+
+      <div>
       <input type="hidden" name="page" value="eula" />
       <input type="hidden" name="studentnr" value="631120" />
       <input type="hidden" name="fodselsnr" value="07047646353" />
       <input type="hidden" name="pin" value="4410" />
+      <input type="hidden" id="theLang" name="lang" value="$lang" />
+      </div>
 
-        <div>
-        <a href="itreg_no.html" target="itreg">Bokm&aring;l</A> &nbsp;
-        <a href="itreg_en.html" target="itreg">English</a>
-        </div>
+      <div>
+        <a href="$theLang.get_eula_bokmaal_link()" target="itreg">$theLang.get_eula_bokmaal_link_text()</a>
+        <a href="$theLang.get_eula_english_link()" target="itreg">$theLang.get_eula_english_link_text()</a>
+      </div>
     
-        <div>
-          Jeg bekrefter herved &aring; ha lest NTNUs IT-reglement og
-             jeg p&aring;tar meg de
-          forpliktelser som reglementet til enhver tid legger p&aring; meg.
-            Jeg aksepterer ogs&aring; de sanksjonsmuligheter som NTNU har
-           ved brudd p&aring; IT-reglementet slik det er angitt i
-         IT-reglementets punk 4.3, 7.1 og 7.2.
-        </div>
+      <div>
+        $theLang.get_eula_legal_notes_text()
+      </div>
 
-        <div>
-        <input type="checkbox" name="godkjent_logger" /> 
-          Jeg gir herved tillatelse til at det kan benyttes driftslogger
-             for &aring; identifisere min bruk av dataanlegget med de
-             begrensninger som er spesifisert i IT-reglementets punkt 5.10.
-        </div>
+      <div class="required">
+	   <label for="godkjent">$theLang.get_eula_accept_label_text()</label>
+	   <input type="checkbox" id="godkjent" name="godkjent_logger" />
+	   </div>
 
-        <div>
-        <input type="submit" name="submit_btn" value="OK" />
-        </div>
+      <div class="buttons">
+        <input type="submit" name="submit_btn" value="$theLang.get_eula_accept_button_text()" />
+      </div>
 
- #elif $lang == 'en'
-  <h3>Activation (4/5)</h3>
-  not implemented yet
- #end if
   </form>
 </div>
 $footer()
@@ -238,27 +251,33 @@ $footer()
 
 #def studentnr($lang='no')
 
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
+
+#set $theLang = Languages($lang)
 $header()
-<div>
+
+<div class="list box">
   <form method="post" action="/activation/">
-    #if $lang == 'no'
-      <h3>Aktivering (2/5)</h3>
+      <h3>$theLang.get_sid_header_text()</h3>
 
         <div>
-            Vennligst oppgi ditt studentnr.
+            $theLang.get_sid_body_text()
         </div>
 
-        <div>
-            Studentnummer:&nbsp;
-            <input type="text" name="studentnr" />&nbsp;
-            <input type="submit" name="blapp" value="OK" />
+        <div class="required">
+	  <label for="studentnummer">$theLang.get_sid_submit_label_text()</label>
+          <input type="text" id="studentnummer" name="studentnr" />&nbsp;
         </div>
 
-    #elif $lang == 'en'
-      <h3>Activation (3/5)</h3>
-      Not implemented yet
-    #end if 
-    <input type="hidden" name="page" value="studentnr" />
+	<div class="buttons">
+            <input type="submit" name="blapp" value="$theLang.get_sid_submit_button_text()" />
+	</div>
+    <div>
+    <input type="hidden" id="studentnummer" name="page" value="studentnr" />
+    <input type="hidden" id="theLang" name="lang" value="$lang" />
+    </div>
   </form>
 </div>
 $footer()
@@ -266,38 +285,40 @@ $footer()
 
 #def pinkode($lang='no')
 
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
+
+#set $theLang = Languages($lang)
 $header()
-<div>
+
+<div class="list box">
   <form method="post" action="/activation/">
-    #if $lang == 'no'
-      <h3>Aktivering (3/5)</h3>
+      <h3>$theLang.get_pin_header_text()</h3>
 
         <div>
-            Vennligst oppgi PIN-kode
+            $theLang.get_pin_body_text()
         </div>
+
+        <div class="required">
+            <label for="pincode">$theLang.get_pin_submit_label_text()</label>
+            <input maxlength="4" id="pincode" type="text" name="pin" />
+
+        </div>
+
+	<div class="buttons">
+            <input type="submit" id="pinkodeok" name="blapp" value="$theLang.get_pin_submit_button_text()" />
+	</div>
 
         <div>
-            PIN-kode:&nbsp;
-            <input maxlength="4" type="text" name="pin" /> &nbsp;
-            <input type="submit" name="blapp" value="OK" />
+            $theLang.get_pin_help_text()
         </div>
 
-        <div>
-            PIN-koden (4 siffer) skal st&aring; p&aring; den giroen du 
-            f&aring;r tilsendt for betaling av semesteravgift.
-        </div>
+    <div>
+    <input type="hidden" id="thepincode" name="page" value="pinkode" />
+    <input type="hidden" id="theLang" name="lang" value="$lang" />
+    </div>
 
-        <div>
-            Hvis du ikke har f&aring;tt giroen, eller har glemt koden, 
-            m&aring; du ta kontakt med
-            <a href="http://www.ntnu.no/studentservice">Studentservice</a>
-        </div>
-
-    #elif $lang == 'en'
-      <h3>Activation (2/5)</h3>
-      Not implemented yet
-    #end if
-    <input type="hidden" name="page" value="pinkode" />
   </form>
 </div>
 $footer()
@@ -305,81 +326,94 @@ $footer()
 
 #def fodselsnr($lang='no')
 
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
+
+#set $theLang = Languages($lang)
+
 $header()
-<div>
+
+<div class="list box">
   <form method="post" action="/activation/">
-    #if $lang == 'no'
-      <h3>Aktivering (1/5)</h3>
+      <h3>$theLang.get_nin_header_text()</h3>
 
-        <div>
-            Du har kommet til en tjeneste som krever at du identifiserer deg.
-        </div>
+      <div>
+        $theLang.get_nin_body_text()
+      </div>
 
-        <div>
-            Vennligst oppgi f&oslash;dselsnummer (11 siffer).
-        </div>
+      <div class="required">
+        <label for="fnummer">$theLang.get_nin_submit_label_text()</label>
+        <input maxlength="11" type="text" id="fnummer" name="fnr" />
+      </div>
 
-        <div>
-            F&oslash;dselsnummer:&nbsp;
-            <input maxlength="11" type="text" name="fnr" /> &nbsp;
-            <input type="submit" name="blapp" value="OK" />
+      <div class="buttons">
+        <input type="submit" id="fodselsnrok" name="blapp" value="$theLang.get_nin_submit_button_text()" />
+      </div>
+
+
+    <div>
+    <input type="hidden" id="thefodselsnummer" name="page" value="fodselsnr" />
+    <input type="hidden" id="theLang" name="lang" value="$lang" />
     </div>
 
-    #elif $lang == 'en'
-      <h3>Activation (1/5)</h3>
-        <div>
-            This service requires you to type in your 11-digit national
-            ID number (your birth date: dd/mm/yy plus the five extra
-            digits on your matriculation certificate). 
-        </div>
-    #end if
-    <input type="hidden" name="page" value="fodselsnr" />
   </form>
 </div>
 $footer()
 #end def
 
-#def language 
+#def language
 
+#set $theLang = Languages('no')
 $header()
-<div>
-Vennligst velg spr&aring;k / Please select language:
-</div>
+<div class="list box">
+<h3>$theLang.get_choose_language_header_text()</h3>
 
-<div>
-<form method="post" action="/activation/">
-      <div>
-  <select name="lang">
-    <option value="no">Norsk</option>
-    <option value="en">English</option>
-  </select>
-  </div>
 
-  <div>
-  <input type="hidden" name="page" value="language" />
-  <input type="submit" name="language" value="OK" />
-  </div>
+  <form method="post" action="/activation/">
 
-</form>
+    <div class="required">
+      <label for="thelang">$theLang.get_choose_language_label_text()</label>
+
+      <select id="thelang" name="lang">
+        <option value="no">Norsk</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+
+    <div>
+    <input type="hidden" id="thepage" name="page" value="language" />
+    </div>
+
+    <div class="buttons">
+      <input type="submit" id="thelangbutton" name="language" value="$theLang.get_choose_language_button_text()" />
+    </div>
+
+  </form>
 </div>
 $footer()
 #end def
 
-#def content
+#def content($lang='no')
+
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
 
 $header()
 <div class="view_content">
     ## Content
-    <div>
+    <div class="info box">
+      <div>
         Du har n&aring; kommet til siden for &aring; aktivere brukerkonto
         ved NTNUs IT-systemer.
-    </div>
+      </div>
 
-    <div>
+      <div>
         You have now reached the page used to activate your user-account
         at NTNUs Computer-systems.
+      </div>
     </div>
-
     $choose_language()
 
 </div>

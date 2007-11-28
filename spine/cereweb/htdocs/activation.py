@@ -74,6 +74,7 @@ def _get_next_page(tr, **vargs):
     return _get_page(tr, next, **vargs)
 
 def _get_page(tr, name, **vargs):
+    lang = vargs.get('lang','')
     try:
         page = ActivationTemplate()
         page.vargs = vargs
