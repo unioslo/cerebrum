@@ -1,0 +1,958 @@
+/*
+ * Copyright 2004, 2005 University of Oslo, Norway
+ *
+ * This file is part of Cerebrum.
+ *
+ * Cerebrum is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Cerebrum is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Cerebrum; if not, write to the Free Software Foundation,
+ * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+body {
+    background-color: #d9e2ef;
+    color: black;
+    /* border: 1px dotted black; */
+    margin: 0;
+    /* margin: 0.5em 0.5em 0.5em 0.5em; */
+    /* min-height: 500px; */
+    /* min-width: 600px; */
+    /* padding: 0.5em 0.5em 0.5em 0.5em; */
+    /* text-align: center; */
+    text-align: left;
+}
+
+h1 {
+    font-size: 200%;
+}
+
+h3 {
+    font-size: 135%;
+}
+
+body div.logo_img {
+    background-color: #d9e2ef;
+    color: black;
+    margin: 1em 1em 1em 1em;
+    text-align: left;
+}
+
+#container {
+    align: left;
+    background-color: white;
+    /* border: 1px solid black; */
+    /* margin: 10px auto 10px auto; */
+    margin: 10px 0em 10px 0em;
+    text-align: left;
+    width: 800px;
+}
+
+/*
+#messages {
+    margin-left: 159px;
+    margin-bottom: 5px;
+    margin-top: 3em;
+    clear: both;
+    width: 625px;
+    overflow: visible;
+}
+*/
+
+/*
+#messages div.error {
+    color: red;
+    background-color: white;
+}
+*/
+
+/*
+#messages div {
+    position: relative;
+    padding: 8px;
+    margin-top: 1em;
+
+    border: 1px dotted black;
+    background: #FFFF80;
+}
+*/
+
+/*
+#messages div:first-child {
+    margin-top: 0px;
+}
+*/
+
+/*
+#messages div div {
+    margin-top: 0.5em;
+    border: 0px none;
+    padding: 0px;
+}
+*/
+
+/*
+#messages .short {
+}
+*/
+
+/*
+#messages .traceback {
+    color: black;
+}
+*/
+
+/*
+#messages .traceback pre {
+    font-size: 90%;
+}
+*/
+
+/*
+img.upperRight {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+*/
+
+/*
+#actions {
+    float: left;
+    margin-left: 5px;
+    margin-right: 0px;
+    padding: 5px 5px 5px 5px;
+    border:1px solid #404040;
+    width: 135px;
+}
+*/
+
+/*
+#actions ul {
+    padding-left: 0px;
+    list-style: none;
+}
+*/
+
+/*
+#actions h3,h4 {
+    margin: 0;
+    padding-bottom: 8px;
+}
+*/
+
+/*
+#actions a.action:before,
+#actions a.action:after { content: ""; }
+*/
+
+#content {
+    background-color: white;
+    border: 1px dotted black;
+    color: black;
+    float: left;
+    margin: 0em 0em 0em 0.5em;
+    /* min-height: 270px; */
+    padding: 0.5em 0.5em 0.5em 0.5em;
+    text-align: left;
+    width: 625px;
+}
+
+#bottom {
+    clear: both;
+    margin: 0em 0em 1em 0em;
+    overflow: hidden; 
+    text-align: center;
+    width: 100%;
+}
+
+/* Main title on the all pages. */
+div.title {
+    color: black;
+    background-color: white;
+    overflow: visible;
+    border-bottom: 1px solid gray;
+    margin-bottom: 0.7em;
+    padding-left: 5px;
+    width: auto;
+    clear: both;
+}
+
+div.title h1 {
+    margin: 0.1em;
+}
+
+/*
+div.help {
+    border: 1px dotted black;
+    padding: 2px;
+    margin: 1em 1em 1em 2px;
+}
+*/
+
+/* Styles for searchpages. */
+/*
+div.searchtitle {
+    border-bottom: 1px solid gray;
+    padding-left: 10px;
+    margin-bottom: 0.5em;
+    width: 440px;
+}
+*/
+
+/*
+div.searchtitle h3 {
+    margin: 0;
+}
+*/
+
+/*
+div.searchform br {
+    clear: left;
+}
+*/
+
+/*
+div.searchresult {
+    empty-cells: show; 
+    margin-bottom: 0.5em;
+}
+*/
+
+/*
+div.searchresult th a { color: black; text-decoration: none; }
+div.searchresult th a:hover { text-decoration: underline; }
+div.searchresult th a:visited { color: black; }
+div.searchresult th a.current { color: #06C; }
+*/
+
+/*
+div.searcherror {
+    margin-bottom: 0.5em;
+}
+*/
+
+/*
+div.search_range { padding-left: 1.5em; margin: 1px; font-size: 95%; }
+div.search_range a:link { color: blue; text-decoration: underline; }
+div.search_range a:visited { color: blue; }
+div.search_range a.current { color: black; text-decoration: none; }
+div.search_range a:hover { color: blue; text-decoration: none; }
+div.search_range a.first, div.search_range a.last { text-decoration: none; }
+div.search_range .first, div.search_range .last { font-size: 90%; }
+*/
+
+div.view_content {
+    background: white;
+    /* border: 1px dotted black; */
+    color: black;
+    float: right;
+    margin: 0em 0em 0em 0em;
+    width: auto;
+}
+
+/*
+div.view_content div.view_actions {
+    float: right;
+    border-width: 1px 0 0 1px;
+    border-style: solid;
+    border-color: black;
+    padding: 0 0 10px 5px;
+    background: white;
+}
+*/
+
+/*
+div.view_content div.view_actions h4 {
+    margin: 5px 0 0 0;
+}
+*/
+
+/*
+div.tableheader {
+    background: #aac1df;
+    color: black;
+    padding: 0.3em 0.5em 0.3em 0.5em;
+    width: auto;
+    font-size: 18px;
+    margin-bottom: 0.4em;
+    text-align: left;
+}
+*/
+
+/*
+div.td_lead_info{
+    padding: 0 0.5em 0 0.5em;
+    width: auto;
+    border-bottom: 1px dashed gray;
+    font-style: oblique;
+    font-weight: bold;
+}
+*/
+
+/*
+div.td_passwd_info {
+    padding: 0 0.5em 0 0.5em;
+    width: auto;
+    font-style: oblique;
+    font-weight: bold;
+}
+*/
+
+div.randpassword {
+    margin: 1em 0em 1em 0em;
+    text-align: center;
+}
+
+div.randpassword label {
+    margin: 1em 0em 1em 0em;
+    text-align: left;
+    width: 12em;
+}
+
+div.randpassword table {
+    width: 25em;
+}
+
+/*
+div.view_content div.notice {
+    font-weight: bold;
+    color: #f00;
+    text-align: center;
+    padding: 5px;
+    font-size: 125%;
+}
+*/
+
+/**
+ * Forms should be styled using CSS, not tables.
+ * This is accomplished using a floated label with
+ * a specified width.
+ */
+form {
+    margin: 0em;
+    padding: 0em;
+}
+
+form label {
+    float: left;
+    width: 9em;
+    text-align: right;
+    padding-right: 0.5em;
+}
+
+/**
+ * Input fields should be styled so that it's obvious which
+ * field has focus and what is required and not.
+ */
+form input:focus, form textarea:focus {
+    background: #ffe;
+}
+
+form input, form textarea {
+    text-align: left;
+    width: auto;
+    margin-bottom: 0.4em;
+}
+
+form select {
+    width: 12em;
+    margin-bottom: 0.4em;
+    overflow: visible;
+    /* clip: auto; */
+}
+
+/**
+ * Form fields can be either optional or required.
+ */
+div.optional label {
+    font-weight: normal;
+    font-style: normal;
+    width: 12em;
+}
+
+div.required label {
+    font-style: oblique;
+    font-weight: bold;
+    width: 12em;
+}
+
+/**
+ * Make the buttons start after the labels.
+ */
+div.buttons {
+    margin: 1em 1em 1em 9em;
+    padding: 0em 0em 0em 9.5em;
+    /* margin-left: 9.5em; */
+}
+
+/**
+ * The class hidden should set visibility to hidden.
+ * It's not limited to labels.
+ */
+.hidden {
+    visibility: hidden;
+}
+
+
+/* A generic floating box for page contents. */
+div.box {
+    width: 100%;
+    float: left;
+
+    margin: 0;
+    margin-bottom: 1em;
+    padding: 0;
+
+    border: 1px solid;
+    overflow: visible;
+}
+
+div.box h3 {
+    padding: 0; 
+    padding-left: 0.4em;
+    margin: 0;
+    font-size: 105%; 
+}
+
+div.box h4 { margin: 0; }
+div.box input {
+    font-size: 80%;
+    margin-top: 2px;
+}
+
+div.box span.extra {
+    font-size: 90%;
+    color: gray;
+}
+
+div.box span.name { font-weight: bold; }
+div.box span.value { }
+div.box span.date { font-size: 85%; }
+
+div.box div.item {
+    padding: 2px 0 2px 0.5em;
+    border-bottom: 1px dashed;
+}
+
+div.box div.description {
+    white-space: normal;
+    padding-left: 2em;
+}
+
+div.box div.actions a {
+    color: blue;
+    white-space: nowrap;
+    margin-bottom: 0.1em;
+    padding-right: 0.2em;
+    text-align: center;
+    text-decoration: none;
+}
+
+div.box div.actions { float: right; }
+div.box a:hover { color: gray; }
+div.box h3 a { color: black; text-decoration: none; }
+
+/* Style action-links */
+a.action:before { content: " ["; }
+a.action:after { content: "] "; }
+
+/* The bluish-colored boxes used for most stuff. */
+div.info {
+    background: #eff;
+    border-color: #bdf;
+}
+
+div.info h3 {
+    font-weight: bold;
+    background: #bdf;
+}
+
+div.info div.item {
+    border-bottom-color: #bdf;
+}
+
+div.info table th {
+    border-bottom: 1px dashed;
+    border-bottom-style: dashed;
+    border-bottom-color: #bdf;
+}
+ 
+/* The yellow box for notes in entities. */
+/*
+div.note {
+    background: #ffc;
+    /* border-background: #dda; */
+}
+*/
+
+/*
+div.note h3 {
+    font-weight: bold;
+    background: #dda;
+}
+*/
+
+/*
+div.note div.item {
+    border-bottom-style: dashed;
+    border-bottom-color: #dda;
+}
+*/
+
+/* The reddish-colored boxes used for quarantines. */
+div.important {
+    background: #cba;
+    border-color: #da9;
+}
+div.important h3 {
+    font-weight: bold;
+    background: #da9;
+}
+div.important div.item {
+    border-color: #da9;
+}
+
+/**
+ * Boxes for editing items on view-pages.
+ */
+div.edit {
+    margin: 10px 10px 10px 0;
+}
+div.edit form {
+    padding-top: 10px;
+}
+div.edit h3 {
+    font-weight: bold;
+    margin: 0px;
+    background: #bde;
+}
+
+/* The topmost box on almost all the pages */
+div.view_info {
+    margin-bottom: 0.2em;
+    padding: 0;
+    clear: none;
+    float: none;
+}
+
+div.view_info div.item {
+    border-bottom-style: dashed;
+    border-bottom-color: gray;
+}
+
+div.view_info h4 { margin-bottom: 2px; }
+table { width: 100%; }
+div.view_info col.name { width: 30%; }
+div.view_info tr.even { background-color: #d9e2c5; }
+div.view_info tr.odd { }
+div.view_info td.name { font-weight: bold; }
+
+/* Boxes for showing information and other stuff.
+ * Usually not floated.  Need to figure out what
+ * to call this class for real as the current name
+ * isn't very descriptive.
+ */
+div.view {
+    background: #d9e2ef;
+    border: 1px solid black;
+    color: black;
+    width: auto;
+    font-size: 15px;
+    margin-bottom: 1em;
+    text-align: left;
+    white-space: normal;
+}
+
+div.view form {
+   padding: 0.5em 0 1em 0;
+}
+
+/* list boxes and log boxes are a bit different. */
+/* div.log, */
+div.list {
+    margin: 1em 0em 2em 0em;
+    padding: 0 0 1em 0;
+    width: 100%;
+}
+
+div.list div.item {
+	border-bottom-width: 0;
+}
+
+div.list h3 {
+    font-weight: bold;
+    background: #bdf;
+    border-top-color: #06C;
+    border-bottom-color: #06C;
+    padding-top: 2px;
+    padding-left: 2px;
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+}
+
+div.list div {
+    margin: 1em 0em 1em 2px;
+}
+
+/*
+div.log h3 {
+    font-weight: bold;
+    background: #ad9;
+    border-top-color: #060;
+    border-bottom-color: #060;
+}
+*/
+
+/*
+div.log td, div.activitylog_full td, table.results td, div.memberlists td {
+    border-bottom: 1px dotted #aaa;
+    padding: 1px 2px 1px 2px;
+}
+*/
+
+/* For the permissions-system. */
+/*
+span.perm_added {
+    color: green;
+    font-size: 12px;
+}
+*/
+
+/*
+span.perm_removed {
+    color: red;
+    background-color: white;
+    font-size: 12px;
+}
+*/
+
+/*
+table.perm_methods tr.gray {
+    empty-cells: show;
+    background-color: #dadada;
+}
+*/
+
+/*
+table.perm_methods th {
+    text-align: left;
+}
+*/
+
+/*
+a.perm_all:hover {
+    color: gray;
+}
+*/
+
+/*
+div.tree {
+    margin-left: 2em;
+}
+*/
+
+/* Styles for the Error-pages. */
+/*
+div.errorpage { 
+    margin: 5px;
+    color: black;
+    background-color: white;
+ }
+*/
+
+/*
+div.errorpage div.title {
+    margin-bottom: 5px;
+    padding: 10px;
+    border: 1px dotted black;
+    background: red;
+    font-size: 24px;
+}
+*/
+
+/*
+div.errorpage div.message, div.errorpage div.contact {
+    margin-bottom: 5px;
+    padding: 5px;
+}
+*/
+
+/*
+div.errorpage div.contact {
+    margin-bottom: 5px;
+    padding: 5px;
+}
+*/
+
+/*
+div.errorpage div.bottom {
+    padding: 0 5px 0 5px;
+}
+*/
+
+/*
+div.errorpage div.report, div.errorpage div.traceback {
+    margin: 5px 0 5px 0;
+}
+*/
+
+/*
+div.errorpage div.report form {
+    margin: 0;
+}
+*/
+
+/*
+div.errorpage div.traceback pre {
+    margin: 0;
+    font-size: 12px;
+}
+*/
+
+/* Styles for message of today on index-page. */
+/*
+div.motd {
+    width: 100%;
+    margin-bottom: 1em;
+}
+*/
+
+/*
+div.motd div.subject {
+    font-weight: bold;
+    border-bottom: 1px solid black;
+    padding-left: 10px;
+    width: auto;
+    font-size: 110%;
+}
+*/
+
+/*
+div.motd span.by {
+    padding-left: 5px;
+    font-size: 90%;
+    font-style: italic;
+}
+*/
+
+/*
+div.motd span.when {
+    font-size: 80%;
+    margin-left: 5px;
+}
+*/
+
+/*
+div.motd input.text,
+div.motd textarea {
+    width: 400px;
+}
+*/
+
+/*
+div.motd label {
+    width: 5em;
+}
+*/
+
+/**
+ * Styles for options-page.
+ * FIXME: Still using tables for this one, should be
+ * converted to CSS formated form.
+ */
+div.options form {
+    margin: 0;
+}
+
+div.options th {
+    border-bottom: 1px solid black;
+    padding-left: 10px;
+    font-size: 125%;
+}
+div.options td {
+    padding-right: 5px;
+}
+div.options td.shelp {
+    font-style: italic;
+    font-size: 95%;
+    padding: 1px 0 5px 5px;
+}
+div.options td.buttons {
+    padding-top: 0.8em;
+}
+
+
+/**
+ * Classes used for styling the Account Create Form.
+ */
+.usernamechoice { float: left; }
+.usernamechoice label { text-align: left; }
+.usernamechoice input { float: left; }
+.lastchoice { clear: left; }
+
+
+/**
+ * Style the quicksearch box
+ */
+#quicksearch {
+    position: absolute;
+    top: 20px;
+    left: 650px;
+    right: auto;
+    bottom: auto;
+}
+#quicksearch form {
+    position: relative;
+}
+#quicksearch div.autocomplete_container {
+    float: left;
+}
+#quicksearch input {
+    width: 9.5em;
+}
+#quicksearch label {
+    position: absolute;
+    top: 3px;
+    left: 5px;
+    z-index: 1;
+    color: #999;
+    text-align: left;
+    font-style: normal;
+    font-weight: normal;
+}
+#quicksearch div.buttons {
+    display: none;
+}
+
+/* Temporary fix of autocomplete. */
+div.required,
+div.buttons,
+div.optional {
+    clear: left;
+}
+/**
+ * Classes used for styling the autocomplete input
+ */
+.autocomplete_container { position:relative; }
+.autocomplete_container .ac_group,
+.autocomplete_container .ac_account { background: #eee;}
+.autocomplete_container .autocomplete {
+    position:absolute;
+    top:1.7em;
+}
+.autocomplete_container .autocomplete .yui-ac-content {
+    position:absolute;
+    border:1px solid #404040;
+    background:#fff;
+    z-index:9050;
+    width: 300px;
+    overflow: hidden;
+}
+.autocomplete_container .autocomplete .yui-ac-shadow {
+    position:absolute;
+    margin:.3em;
+    background:#a0a0a0;
+    z-index:9049;
+}
+.autocomplete_container .autocomplete ul {
+    padding:5px 0;
+}
+.autocomplete_container .autocomplete li {
+    padding:0 5px;
+    cursor:default;
+    white-space:nowrap;
+}
+.autocomplete_container .autocomplete li.yui-ac-highlight {
+    background:#ff0;
+}
+
+/* tooltip icons should align to the input element */
+img.tt {
+    position: relative;
+    top: -3px;
+    left: 3px;
+}
+
+div#tabview {
+    background-color: #ffffff;
+}
+
+div#tabview ul.yui-nav {
+    clear: left;
+    margin: 0px 0pt 0pt 15px;
+    overflow: hidden;
+    padding-top: 17px;
+}
+
+div#tabview ul.yui-nav li {
+    float: left;
+    height: 32px;
+    list-style-image: none;
+    list-style-position: outside;
+    list-style-type: none;
+    padding: 0pt;
+}
+
+div#tabview div.yui-content {
+    display: none;
+    border-width: 0px;
+}
+
+.yui-navset .yui-nav .selected a,
+.yui-navset .yui-nav a:hover,
+.yui-navset .yui-content {
+    background-color: #d9e2ef;
+}
+
+div.sub-nav {
+    border-bottom: 1px solid #000;
+    background-color: #d9e2ef;
+    border-width: 1px 0pt 0pt;
+    overflow: hidden;
+    padding: 3px 0px;
+    float: left;
+    width: 100%;
+}
+div.sub-nav ul {
+    list-style-type: none;
+    margin-bottom: -2px;
+    margin-top: -1px;
+}
+
+div.sub-nav ul li {
+    color: #666;
+    float:left;
+    font-size: 92%;
+    font-weight: bold;
+    padding: 6px 16px;
+    text-transform: uppercase;
+}
+
+#searchbox {
+    overflow: hidden;
+}
+
+#searchresult td {
+    padding-right: 0.5em;
+    width: auto;
+}
+
+#searchresult th {
+    font-size: 110%;
+    font-weight: bold;
+    padding-bottom: 5px;
+    padding-right: 0.5em;
+    width: auto;
+}
+
+
+/* vim: sw=4 sts=4 expandtab */
