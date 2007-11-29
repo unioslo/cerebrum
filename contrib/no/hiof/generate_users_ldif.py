@@ -49,18 +49,19 @@ class UserLDIF(object):
                           self.const.auth_type_md5_crypt):
             self.auth = self.make_auths(auth_type, self.auth)
         self.load_quaratines()
-        self.id2vlan = {}
+        self.id2vlan_vpn = {}
         for spread in reversed(cereconf.LDAP_USER['spreads']):
-            vlan = cereconf.LDAP_USER['spread2vlan'][spread]
+            vlan_vpn = (cereconf.LDAP_USER['spread2vlan'][spread],
+                        "OU=%s;" % cereconf.LDAP_USER['spread2vpn'][spread])
             spread = self.const.Spread(spread)
             for row in self.account.search(spread=spread):
-                self.id2vlan[row['account_id']] = vlan
+                self.id2vlan_vpn[row['account_id']] = vlan_vpn
 
     def dump(self):
         fd = LDIFutils.ldif_outfile('USER')
         fd.write(LDIFutils.container_entry_string('USER'))
         noAuth = (None, None)
-        for account_id, vlan in self.id2vlan.iteritems():
+        for account_id, vlan_vpn in self.id2vlan_vpn.iteritems():
             info = self.auth[account_id]
             uname = LDIFutils.iso2utf(str(info[0]))
             auth = info[1]
@@ -78,7 +79,8 @@ class UserLDIF(object):
                 'uid': (uname,),
                 'radiusTunnelType': ('13',),
                 'radiusTunnelMediumType': ('6',),
-                'radiusTunnelPrivateGroupId': (vlan,)}
+                'radiusTunnelPrivateGroupId': (vlan_vpn[0],),
+                'radiusClass': (vlan_vpn[1],)}
             if auth:
                 entry['objectClass'].append('simpleSecurityObject')
                 entry['userPassword'] = ('{crypt}' + auth,)
