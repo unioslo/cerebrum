@@ -370,18 +370,19 @@ automatically generated from FS.''')
     email_spam_level_none = _EmailSpamLevelCode(
         'no_filter', 9999, "No email will be filtered as spam")
     email_spam_level_standard = _EmailSpamLevelCode(
-        'standard_spam', 20, "Only filter email that obviously is spam")
+        'standard_spam', 8, "Only filter email that obviously is spam")
     email_spam_level_heightened = _EmailSpamLevelCode(
-        'most_spam', 12, "Filter most emails that look like spam ")
+        'most_spam', 5, "Filter most emails that look like spam ")
     email_spam_level_aggressive = _EmailSpamLevelCode(
-        'aggressive_spam', 6, "Filter everything that resembles spam")
+        'aggressive_spam', 3, "Filter everything that resembles spam")
     email_spam_action_none = _EmailSpamActionCode(
         'noaction', "Deliver spam just like legitimate email")
     email_spam_action_folder = _EmailSpamActionCode(
         'spamfolder', "Deliver spam to a separate IMAP folder")
     email_spam_action_delete = _EmailSpamActionCode(
         'dropspam', "Reject messages classified as spam")
-    email_spam_action_greylist = _EmailSpamActionCode(
+    # define greylist as a an anti-spam tool
+    email_other_spam_tool_greylist = _EmailOtherSpamToolsCode(
         'greylist', "Reject messages classified as spam, delay unknown servers")
 
     trait_email_server_weight = _EntityTraitCode(
