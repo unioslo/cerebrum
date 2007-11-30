@@ -381,8 +381,7 @@ automatically generated from FS.''')
         'spamfolder', "Deliver spam to a separate IMAP folder")
     email_spam_action_delete = _EmailSpamActionCode(
         'dropspam', "Reject messages classified as spam")
-    # define greylist as a an anti-spam tool
-    email_other_spam_tool_greylist = _EmailOtherSpamToolsCode(
+    email_smap_action_greylist = _EmailSpamActionCode(
         'greylist', "Reject messages classified as spam, delay unknown servers")
 
     trait_email_server_weight = _EntityTraitCode(
