@@ -84,11 +84,12 @@ def str_upper_no(string, encoding='iso-8859-1'):
     Ex. Usage: my_string = str_upper_no('aæeøå')'''
     return unicode(string, encoding).upper().encode(encoding)
 
-def init_cache(checknames):
+def init_cache(checknames,checkmail):
     global uname2mail,uname2ownerid,person2contact,uname2expire,name_cache
 
-    logger.info("Caching account email addresses")
-    uname2mail = ac.getdict_uname2mailaddr(filter_expired=False)
+    if checkmail:
+        logger.info("Caching account email addresses")
+        uname2mail = ac.getdict_uname2mailaddr(filter_expired=False)
     logger.info("Caching account owners")
     uname2ownerid=dict()
     uname2expire=dict()
@@ -147,7 +148,7 @@ def handle_changes(p_id,changes):
 
 s_errors=dict()
 processed = list()
-def process_contact(userid, data,checknames):
+def process_contact(userid,data,checknames,checkmail):
     global source_errors,processed,notify_queue 
     
     ownerid=uname2ownerid.get(userid,None)
@@ -196,7 +197,7 @@ def process_contact(userid, data,checknames):
                     changes.append(('del_contact',(idx,None)))
                
         # check if sourcesys has same mailaddr as we do
-        if mail and uname2mail.get(userid,"").lower()!=mail.lower():
+        if checkmail and mail and uname2mail.get(userid,"").lower()!=mail.lower():
             s_errors.setdefault(userid,list()).append( \
                 "Email wrong: yours=%s, ours=%s" % (mail,
                                                     uname2mail.get(userid)))
@@ -223,7 +224,7 @@ def process_contact(userid, data,checknames):
         logger.info("Update contact and write_db done")
     processed.append(ownerid)
 
-def process_telefoni(filename,checknames):
+def process_telefoni(filename,checknames,checkmail):
     reader=csv.reader(open(filename,'r'))
     phonedata=dict()
     for row in reader:
@@ -238,7 +239,7 @@ def process_telefoni(filename,checknames):
             phonedata.setdefault(row[USERID],list()).append(data)
 
     for userid,pdata in phonedata.items():         
-        process_contact(userid, pdata,checknames)
+        process_contact(userid, pdata,checknames,checkmail)
 
     unprocessed = Set(person2contact.keys()) - Set(processed)
     for p_id in unprocessed:
@@ -250,21 +251,30 @@ def process_telefoni(filename,checknames):
         handle_changes(p_id,changes)
     
     if s_errors:
-        msg=""
-        for userid,error in s_errors.items():
+        msg=dict()
+        for userid, error in s_errors.items():
             fname = phonedata[userid][0]['firstname']
             lname = phonedata[userid][0]['lastname']
-            msg+="%s\nUserID '%s' (%s %s) has these errors:\n" % \
-                ("-"*50,userid,fname,lname)
+            key = '%s %s (%s)' % (fname,lname,userid)
+            msg[key] = list()
             for i in error:
-                msg+="\t%s\n" % (i,)
-        notify_phoneadmin(msg)
+                msg[key].append("\t%s\n" % (i,))
+
+        keys = msg.keys()
+        keys.sort()
+        mailmsg=""
+        for k in keys:
+            mailmsg+=k+'\n'
+            for i in msg[k]:
+                mailmsg+=i        
+
+        notify_phoneadmin(mailmsg)
 
 
 def notify_phoneadmin(msg):    
     recipient=cereconf.TELEFONIERRORS_RECEIVER
     sender=cereconf.SYSX_EMAIL_NOTFICATION_SENDER
-    subject="Errors from Cerebrum %s" % cereconf._TODAY
+    subject="Import telefoni errors from Cerebrum %s" % cereconf._TODAY
     body=msg
     debug=dryrun    
     # finally, send the message    
@@ -284,10 +294,10 @@ def main():
     global dryrun
     default_phonefile='%s/telefoni/user_%s.txt' % (cereconf.DUMPDIR,
                                                    cereconf._TODAY)
-    phonefile=dryrun=checknames=False
+    phonefile=dryrun=checknames=checkmail=False
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h?f:',
-                                   ['help','dryrun','file','checknames'])
+                                   ['help','dryrun','file','checknames','checkmail'])
     except getopt.GetoptError,m:
         usage(1,m)
 
@@ -298,12 +308,14 @@ def main():
             dryrun=True
         elif opt in ['--checknames']:
             checknames=True
+        elif opt in ['--checkmail']:
+            checkmail=True
         elif opt in ['-f', '--file']:
             phonefile=val
     
-    init_cache(checknames)
+    init_cache(checknames,checkmail)
     logger.info("Using sourcefile '%s'" % (phonefile or default_phonefile))
-    process_telefoni(phonefile or default_phonefile,checknames)
+    process_telefoni(phonefile or default_phonefile,checknames,checkmail)
 
     if dryrun:
         db.rollback()
