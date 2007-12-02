@@ -120,6 +120,30 @@ class BofhdExtension(object):
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
 
+    # user delete_ad_traits
+    all_commands['user_delete_ad_traits'] = Command(
+        ('user', 'delete_ad_traits'), AccountName(), Spread(),
+        perm_filter='is_superuser')
+    def user_delete_ad_traits(self, operator, uname, spread):
+        account = self._get_account(uname, idtype='name')
+        spread = self._get_constant(self.const.Spread, spread)
+        traits = account.get_traits()
+        del_traits = []
+        relevant_traits = [self.const.trait_ad_homedir,
+                           self.const.trait_ad_profile_path,
+                           self.const.trait_ad_account_ou]
+        for k, v in traits.iteritems():
+            if k in relevant_traits:
+                unpickle_val = pickle.loads(v['strval'])
+                for u in unpickle_val.keys():
+                    if self._get_constant(self.const.Spread, u, 'spread') == spread:
+                        trait = self._get_constant(self.const.EntityTrait,
+                                                   k, "trait")
+                        del_traits.append(trait)
+        for t in del_traits:
+            account.delete_trait(t)
+        return "Removed all AD-traits for %s" % uname
+    
     # user create prompt
     #
     def user_create_prompt_func(self, session, *args):
