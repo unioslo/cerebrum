@@ -462,6 +462,8 @@ abbreviated.  (Some of the types may not make sense for this command.)
          'the Mailman list'],
     'mailman_list':
         ['address', 'Enter address for Mailman list'],
+    'mailman_list_alias':
+        ['address', 'Enter alias for a Mailman list'],
     'mailman_list_exist':
         ['address', 'Enter address of existing Mailman list'],
     'move_type':
