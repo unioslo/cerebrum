@@ -1607,6 +1607,36 @@ class BofhdExtension(object):
         ea.write_db()
         return "OK, created pipe address %s" % addr
 
+    # email delete_pipe <address>
+    all_commands['email_delete_pipe'] = Command(
+        ("email", "delete_pipe"),
+        EmailAddress(help_ref="email_address"),
+        perm_filter="can_email_pipe_create")
+    def email_delete_pipe(self, operator, addr):
+        lp, dom = self._split_email_address(addr)
+        ed = self._get_email_domain(dom)
+        self.ba.can_email_pipe_create(operator.get_entity_id(), ed)
+        ea = Email.EmailAddress(self.db)
+        et = Email.EmailTarget(self.db)
+        try:
+            ea.clear()
+            ea.find_by_address(addr)
+        except Errors.NotFoundError:
+            raise CerebrumError, "No such address %s" % addr
+        try:
+            et.clear()
+            et.find(ea.email_addr_target_id)
+        except Errors.NotFoundError:
+            raise CerebrumError, "No e-mail target for %s" % addr
+        for a in et.get_addresses():
+            ea.clear()
+            ea.find(a['address_id'])
+            ea.delete()
+            ea.write_db()
+        et.delete()
+        et.write_db()
+        return "Ok, deleted pipe for address %s" % addr
+
     # email failure_message <username> <message>
     all_commands['email_failure_message'] = Command(
         ("email", "failure_message"),
@@ -2010,6 +2040,36 @@ class BofhdExtension(object):
         self._register_list_addresses(listname, lp, dom)
         return "OK, list-alias '%s' created" % listname
 
+    # email remove_list_alias
+    all_commands['email_remove_list_alias'] = Command(
+        ('email', 'remove_list_alias'),
+        EmailAddress(help_ref='mailman_list_alias'),
+        perm_filter='can_email_list_create')
+    def email_remove_list_alias(self, operator, alias):
+        lp, dom = self._split_email_address(alias)
+        ed = self._get_email_domain(dom)
+        remove_addrs = [alias]
+        self.ba.can_email_list_create(operator.get_entity_id(), ed)
+        ea = Email.EmailAddress(self.db)
+        et = Email.EmailTarget(self.db)
+        for iface in ('post', 'mailcmd', 'mailowner'):
+            for addr_format in self._interface2addrs[iface]:
+                addr = addr_format % {'local_part': lp,
+                                      'domain': dom}
+                print addr
+                try:
+                    ea.clear()
+                    ea.find_by_address(addr)
+                except Errors.NotFoundError:
+                    raise CerebrumError, "No such address %s" % addr
+                try:
+                    et.clear()
+                    et.find(ea.email_addr_target_id)
+                except Errors.NotFoundError:
+                    raise CerebrumError, "Could not find e-mail target for %s" % addr
+                self._remove_email_address(et, addr)
+        return "Ok, removed alias %s and all automatically registered aliases" % alias
+                
     # email delete_list <list-address>
     all_commands['email_delete_list'] = Command(
         ("email", "delete_list"),
@@ -5870,6 +5930,18 @@ class BofhdExtension(object):
                                                     'password': passwd})
         return {'uid': uid}
 
+    def _check_for_pipe_run_as(self, account_id):
+        et = Email.EmailTarget(self.db)
+        try:
+            et.clear()
+            et.find_by_email_target_attrs(target_type=self.const.email_target_pipe,
+                                          using_uid=account_id)
+        except Errors.NotFoundError:
+            return False
+        except Errors.TooManyRowsError:
+            return True
+        return True
+    
     # user delete
     all_commands['user_delete'] = Command(
         ("user", "delete"), AccountName(), perm_filter='can_delete_user')
@@ -5879,14 +5951,14 @@ class BofhdExtension(object):
         self.ba.can_delete_user(operator.get_entity_id(), account)
         if account.is_deleted():
             raise CerebrumError, "User is already deleted"
+        if self._check_for_pipe_run_as(account.entity_id):
+            raise CerebrumError, "User is associated with an e-mail pipe, delete pipe target first"
         br = BofhdRequests(self.db, self.const)
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
                        account.entity_id, None,
                        state_data=int(self.const.spread_uio_nis_user))
         return "User %s queued for deletion immediately" % account.account_name
-
-        # raise NotImplementedError, "Feel free to implement this function"
 
     all_commands['user_set_disk_quota'] = Command(
         ("user", "set_disk_quota"), AccountName(), Integer(help_ref="disk_quota_size"),
