@@ -392,6 +392,7 @@ class Student(FSObject):
         r.fodselsdato, r.personnr
         FROM fs.registerkort r
         WHERE (status_bet_ok = 'J' OR betformkode = 'FRITATT') AND
+               NVL(r.status_ugyldig, 'N') = 'N' AND 
         %s""" % self._get_termin_aar(only_current=1)
         return self.db.query(qry)
     # end list_betalt_semesteravgift
