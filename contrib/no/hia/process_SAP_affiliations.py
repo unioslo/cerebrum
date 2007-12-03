@@ -247,7 +247,7 @@ def process_affiliations(employment_file):
         ou_id = sap_ou_number2ou_id(fo_kode, sap_ou_number)
         if ou_id is None:
             logger.warn("Cannot map SAP OU %s-%s to Cerebrum ou_id",
-                        fo_kode, sap_ou_number)
+                        sap_ou_number, fo_kode)
             continue
 
         # Can we find the person in Cerebrum?
