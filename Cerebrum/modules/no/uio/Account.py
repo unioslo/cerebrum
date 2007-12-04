@@ -166,7 +166,7 @@ class AccountUiOMixin(Account.Account):
                 # this is to check whether the server has trait_email_server_weight
                 # if no such trait is registered we can assume that the server is
                 # not in use and the target should be assigned a new server
-                if es.email_server_type == server_type and email_server_in_user:
+                if es.email_server_type == server_type and email_server_in_use:
                     # All is well
                     return et
                 if es.email_server_type == self.const.email_server_type_cyrus and email_server_in_use:
