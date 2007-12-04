@@ -148,16 +148,28 @@ class AccountUiOMixin(Account.Account):
         et = Email.EmailTarget(self._db)
         es = Email.EmailServer(self._db)
         old_server = None
+        # this variable should now be called "is_on_active_cyrus" as
+        # we actually check whether the registered server is
+        # in use in addition to checking that the registered server
+        # is a cyrus-type server
         is_on_cyrus = False
+        email_server_in_use = None
         try:
             et.find_by_entity(self.entity_id)
             try:
                 old_server = et.email_server_id
                 es.find(old_server)
-                if es.email_server_type == server_type:
+                email_server_in_use = es.get_trait(self.const.trait_email_server_weight)
+                # not alle registered e-mail servers are in use. in addition to
+                # checking whether registered server is of correct type, we need
+                # to make sure that the server is in use and the only way to do
+                # this is to check whether the server has trait_email_server_weight
+                # if no such trait is registered we can assume that the server is
+                # not in use and the target should be assigned a new server
+                if es.email_server_type == server_type and email_server_in_user:
                     # All is well
                     return et
-                if es.email_server_type == self.const.email_server_type_cyrus:
+                if es.email_server_type == self.const.email_server_type_cyrus and email_server_in_use:
                     is_on_cyrus = True
             except Errors.NotFoundError:
                 pass
