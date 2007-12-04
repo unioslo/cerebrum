@@ -22,7 +22,7 @@
 import ldap
 import errors
 import sync
-import directory
+import ldapbackend
 import config
 import traceback
 
@@ -32,9 +32,9 @@ def main():
     s = sync.Sync(incr,id)
 
     # Defaults to fetch configuration from sync.conf
-    user = directory.PosixUser(base=config.sync.get("ldap","user_base"))
-    groups = directory.PosixGroup(base=config.sync.get("ldap","group_base"))
-    persons = directory.Person(base=config.sync.get("ldap","people_base"))
+    user = ldapbackend.PosixUser(base=config.sync.get("ldap","user_base"))
+    groups = ldapbackend.PosixGroup(base=config.sync.get("ldap","group_base"))
+    persons = ldapbackend.Person(base=config.sync.get("ldap","people_base"))
 
     # Syncronize users
     print "Syncronizing users"

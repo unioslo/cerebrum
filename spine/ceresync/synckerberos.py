@@ -21,7 +21,7 @@
 
 import errors
 import sync
-import kerberos
+import kerberosbackend
 import config
 import traceback
 from getopt import getopt
@@ -92,7 +92,7 @@ def main():
             delete= True
         elif o in ('-v', '--verbose'):
             verbose= True
-            kerberos.verbose=True
+            kerberosbackend.verbose=True
         elif o == '--no-add':
             add= False
         elif o == '--no-update':
@@ -117,7 +117,7 @@ def main():
         print "Nothing to be done."
         return
 
-    user= kerberos.Account()
+    user= kerberosbackend.Account()
     user.begin(incr)
     try: all_accounts= list(s.get_accounts())
     except Exception,e:

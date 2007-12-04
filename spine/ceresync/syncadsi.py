@@ -22,7 +22,7 @@
 import errors
 import sync
 import config
-import adsi
+import adsibackend
 
 def main():
     incr = False
@@ -30,8 +30,8 @@ def main():
     s = sync.Sync(incr,id)
 
     # FIXME: URLs from config
-    userAD = adsi.ADUser("LDAP://OU=Brukere,DC=twin,DC=itea,DC=ntnu,DC=no")
-    groupAD = adsi.ADGroup("LDAP://OU=Grupper,DC=twin,DC=itea,DC=ntnu,DC=no")
+    userAD = adsibackend.ADUser("LDAP://OU=Brukere,DC=twin,DC=itea,DC=ntnu,DC=no")
+    groupAD = adsibackend.ADGroup("LDAP://OU=Grupper,DC=twin,DC=itea,DC=ntnu,DC=no")
 
     # Syncronize users
     print "Syncronizing users"
