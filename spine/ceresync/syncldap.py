@@ -19,11 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import ldap
-import errors
-import sync
-import ldapbackend
-import config
+import ceresync.errors
+import ceresync.sync
+import ceresync.backend.ldap as ldapbackend
+import ceresync.config
 import traceback
 
 def main():

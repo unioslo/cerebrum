@@ -21,8 +21,8 @@
 """File based backends for ceresync. (like /etc/passwd)"""
 
 import os
-import errors
-import config
+from ceresync import errors
+from ceresync import config
 import re
 
 # Need to handle exceptions better?

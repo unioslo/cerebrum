@@ -35,7 +35,7 @@ from dsml import DSMLParser,DSMLWriter
 import unittest
 from errors import ServerError
 
-import config
+from ceresync import config
 
 
 def ldapDict(s):

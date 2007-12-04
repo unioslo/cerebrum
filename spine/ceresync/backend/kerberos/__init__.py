@@ -24,14 +24,14 @@
 
 import unittest
 
-import kadm5
-import heimdal_error
-import mit_error
-import errors
-import config
+from ceresync.backend.kerberos import kadm5
+from ceresync.backend.kerberos import heimdal_error
+from ceresync.backend.kerberos import mit_error
+from ceresync import errors
+from ceresync import config
 import os
 import re
-from sync import Pgp
+from ceresync.sync import Pgp
 from sets import Set as set
 import sys
 

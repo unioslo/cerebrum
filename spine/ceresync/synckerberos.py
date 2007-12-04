@@ -19,10 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import errors
-import sync
-import kerberosbackend
-import config
+import ceresync.errors
+import ceresync.sync
+import ceresync.backend.kerberos kerberosbackend
+import ceresync.config
 import traceback
 from getopt import getopt
 from sys import argv, exit

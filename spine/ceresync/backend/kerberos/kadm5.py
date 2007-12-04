@@ -452,7 +452,7 @@ def init_libs(flavor=KRB_FLAVOR_MIT, local = False):
     global error
  
     if (flavor == KRB_FLAVOR_HEIMDAL):
-        import heimdal_error
+        from ceresync.backend import heimdal_error
         error = heimdal_error
         if (local):
             libkrb5 = CDLL (HEIMDAL_KRB5)
@@ -465,7 +465,7 @@ def init_libs(flavor=KRB_FLAVOR_MIT, local = False):
             constants = KADM5_HEIMDAL_CONST()
 
     elif (flavor == KRB_FLAVOR_MIT):
-        import mit_error
+        from ceresync.backend import mit_error
         error = mit_error
         if (local):
             libkrb5 = CDLL (MIT_KRB5)

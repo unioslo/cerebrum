@@ -22,12 +22,12 @@
 import sys
 import os
 #from win32com.client import GetObject
-from ad_types import constants
-import ad_errors
-import active_directory as ad
+from ceresync.backend.adsi.ad_types import constants
+from ceresync.backend.adsi import ad_errors
+from ceresync.backend.adsi import active_directory as ad
 # Wrapped version that catches ADSI errors
 ad = ad_errors.wrapComError(ad)
-import errors
+from ceresync import errors
 from sets import Set
 import unittest
 import tempfile

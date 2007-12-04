@@ -21,7 +21,7 @@
 
 
 
-import config
+import ceresync.config
 import SpineClient
 import os
 
