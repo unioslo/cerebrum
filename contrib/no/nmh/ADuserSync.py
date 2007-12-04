@@ -293,7 +293,7 @@ def create_user(elem):
             logger.warn("Could not register properties for account %s", elem['sAMAaccountName'])
 
         logger.debug("Creating homeDirectory %s", elem['homeDirectory'])
-        ret = run_cmd('createHomedir')
+        ret = run_cmd('createDir')
         if not ret:
             logger.error("Could not create homedir for %s, (%s)" % (elem['sAMAaccountName'], elem['homeDirectory']))
             
