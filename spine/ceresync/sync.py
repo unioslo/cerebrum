@@ -1,4 +1,4 @@
-import ceresync.config
+from ceresync import config
 import SpineClient
 from popen2 import Popen3
 import unittest
