@@ -2556,9 +2556,10 @@ class BofhdExtension(object):
         ("email", "move"),
         AccountName(help_ref="account_name", repeat=True),
         SimpleString(help_ref='string_email_host'),
+        SimpleString(help_ref='string_email_move_type', optional=True),
         Date(optional=True),
         perm_filter='can_email_move')
-    def email_move(self, operator, uname, server, when=None):
+    def email_move(self, operator, uname, server, move_type='file', when=None):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
         et = Email.EmailTarget(self.db)
@@ -2568,6 +2569,10 @@ class BofhdExtension(object):
         es.find_by_name(server)
         if old_server == es.entity_id:
             raise CerebrumError, "User is already at %s" % server
+        if move_type == 'nofile':
+            et.email_server_id = es.entity_id
+            et.write_db()
+            return "OK, updated e-mail server for %s (to %s)" % (uname, server)
         if when is None:
             when = DateTime.now()
         else:
@@ -2579,7 +2584,7 @@ class BofhdExtension(object):
                 # UiO's add_spread mixin will not do much since
                 # email_server_id is set to a Cyrus server already.
                 acc.add_spread(self.const.spread_uio_imap)
-            # Create the mailbox.
+            # Create the mailbox.	
             req = br.add_request(operator.get_entity_id(), when,
                                  self.const.bofh_email_create,
                                  acc.entity_id, es.entity_id)
