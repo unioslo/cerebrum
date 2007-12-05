@@ -584,6 +584,11 @@ printer."""],
 	['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: cyrus02'],
+    'string_email_move_type':
+        ['email_move_type', 'Enter e-mail move type',
+         """Legal move types:
+            - file
+            - nofile"""],
     'string_filename':
         ['filename', 'Enter filename'],
     'string_group_filter':
