@@ -6204,22 +6204,22 @@ class BofhdExtension(object):
                             hdr="%6s   %-10s   %-12s" % \
                             ('Id', 'Username', 'Expire date')))
     def user_find(self, operator, search_type, value,
-                  include_expired="no", filter=None,
+                  include_expired="no", aff_filter=None,
                   perm_filter='is_superuser'):
         if not self.ba.is_superuser(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to superusers")
         acc = self.Account_class(self.db)
-        if filter is not None:
+        if aff_filter is not None:
             try:
-                filter = int(self.const.PersonAffiliation(filter))
+                aff_filter = int(self.const.PersonAffiliation(aff_filter))
             except Errors.NotFoundError:
-                raise CerebrumError, "Invalid affiliation %s" % affiliation
+                raise CerebrumError, "Invalid affiliation %s" % aff_filter
         filter_expired = not self._get_boolean(include_expired)
 
         if search_type == 'stedkode':
             ou = self._get_ou(stedkode=value)
             rows = acc.list_accounts_by_type(ou_id=ou.entity_id,
-                                             affiliation=filter,
+                                             affiliation=aff_filter,
                                              filter_expired=filter_expired)
         elif search_type == 'host':
             # FIXME: filtering on affiliation is not implemented
