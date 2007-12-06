@@ -113,18 +113,20 @@ def main():
     server_id= s.cmd.get_last_changelog_id()
     print "Server changelog-id:",server_id
 
-    if local_id >= server_id:
+    if incr and local_id == server_id:
         print "Nothing to be done."
+	s.close()
         return
 
     user= kerberosbackend.Account()
     user.begin(incr)
-    try: all_accounts= list(s.get_accounts())
+    try:
+	all_accounts= list(s.get_accounts())
+	s.close()
     except Exception,e:
         print "Exception '%s' occured, aborting" % e
         s.close()
         exit(1)
-    s.close()
 
     if incr:
         print "Synchronizing users (incr) to changelog",server_id
