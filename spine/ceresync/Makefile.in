@@ -1,0 +1,39 @@
+##
+## Makefile for SpineClient
+##
+
+INSTALL = @INSTALL@
+pythondir = @PYTHONDIR@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+SBINDIR = @sbindir@
+
+.PHONY: all install install-lib clean distclean
+
+progs = syncfile.py syncldap.py synckerberos.py syncadsi.py
+backend = backend/file.py backend/ldap.py __init__.py
+adsibackend = backend/adsi/__init__.py backend/adsi/active_directory.py backend/adsi/ad_types.py backend/adsi/ad_errors.py backend/adsi/wrapper.py
+kerberosbackend = backend/kerberos/__init__.py backend/kerberos/kadm5.py backend/kerberos/heimdal_error.py backend/kerberos/mit_error.py
+common = cerelog.py config.py doc_exception.py errors.py sync.py __init__.py
+
+all: 
+
+install: install-lib
+	$(INSTALL) -v -m 755 $(progs) $(SBINDIR)/
+
+
+install-lib: 
+	$(INSTALL) -v -d $(pythondir)/ceresync
+	$(INSTALL) -v -m 644 $(common)  $(pythondir)/ceresync
+	$(INSTALL) -v -d $(pythondir)/ceresync/backend
+	$(INSTALL) -v -d $(pythondir)/ceresync/backend/kerberos
+	$(INSTALL) -v -d $(pythondir)/ceresync/backend/adsi
+	$(INSTALL) -v -m 644 $(backend)  $(pythondir)/ceresync/backend
+	$(INSTALL) -v -m 644 $(kerberosbackend)  $(pythondir)/ceresync/backend/kerberos
+	$(INSTALL) -v -m 644 $(adsibackend)  $(pythondir)/ceresync/backend/adsi
+
+
+clean:
+
+distclean: clean
+
