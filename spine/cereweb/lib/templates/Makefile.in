@@ -36,7 +36,7 @@ clean:
 
 install: $(templates)
 	$(INSTALL) -d $(WEBROOT)/lib/templates/
-	$(INSTALL) -v -m 644 $^ $(WEBROOT)/lib/templates/
+	$(INSTALL) -m 644 $^ $(WEBROOT)/lib/templates/
 
 distclean: clean
 	rm -f Makefile

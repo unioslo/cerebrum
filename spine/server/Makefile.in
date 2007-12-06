@@ -31,7 +31,7 @@ all:
 
 install: $(sources)
 	$(INSTALL) -d $(prefix)/sbin
-	$(INSTALL) -v -m 755 $(sources) $(prefix)/sbin
+	$(INSTALL) -m 755 $(sources) $(prefix)/sbin
 
 install-lib:
 

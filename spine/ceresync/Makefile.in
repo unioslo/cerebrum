@@ -19,18 +19,18 @@ common = cerelog.py config.py doc_exception.py errors.py sync.py __init__.py
 all: 
 
 install: install-lib
-	$(INSTALL) -v -m 755 $(progs) $(SBINDIR)/
+	$(INSTALL) -m 755 $(progs) $(SBINDIR)/
 
 
 install-lib: 
-	$(INSTALL) -v -d $(pythondir)/ceresync
-	$(INSTALL) -v -m 644 $(common)  $(pythondir)/ceresync
-	$(INSTALL) -v -d $(pythondir)/ceresync/backend
-	$(INSTALL) -v -d $(pythondir)/ceresync/backend/kerberos
-	$(INSTALL) -v -d $(pythondir)/ceresync/backend/adsi
-	$(INSTALL) -v -m 644 $(backend)  $(pythondir)/ceresync/backend
-	$(INSTALL) -v -m 644 $(kerberosbackend)  $(pythondir)/ceresync/backend/kerberos
-	$(INSTALL) -v -m 644 $(adsibackend)  $(pythondir)/ceresync/backend/adsi
+	$(INSTALL) -d $(pythondir)/ceresync
+	$(INSTALL) -m 644 $(common)  $(pythondir)/ceresync
+	$(INSTALL) -d $(pythondir)/ceresync/backend
+	$(INSTALL) -d $(pythondir)/ceresync/backend/kerberos
+	$(INSTALL) -d $(pythondir)/ceresync/backend/adsi
+	$(INSTALL) -m 644 $(backend)  $(pythondir)/ceresync/backend
+	$(INSTALL) -m 644 $(kerberosbackend)  $(pythondir)/ceresync/backend/kerberos
+	$(INSTALL) -m 644 $(adsibackend)  $(pythondir)/ceresync/backend/adsi
 
 
 clean:

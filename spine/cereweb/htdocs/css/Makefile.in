@@ -30,4 +30,4 @@ distclean: clean
 
 install: $(stylesheets) 
 	$(INSTALL) -d ${WEBROOT}/htdocs/css/
-	$(INSTALL) -v -m 644 $^ ${WEBROOT}/htdocs/css/
+	$(INSTALL) -m 644 $^ ${WEBROOT}/htdocs/css/

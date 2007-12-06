@@ -31,7 +31,7 @@ all:
 
 install: $(sources)
 	$(INSTALL) -d $(prefix)/share/cerebrum/contrib/spine
-	$(INSTALL) -v -m 755 $(sources) $(prefix)/share/cerebrum/contrib/spine
+	$(INSTALL) -m 755 $(sources) $(prefix)/share/cerebrum/contrib/spine
 
 install-lib:
 

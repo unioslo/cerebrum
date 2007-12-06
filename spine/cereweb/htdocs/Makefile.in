@@ -17,19 +17,19 @@ all:
 install: install-lib
 	$(MAKE) -C css $@
 
-install-lib: install-py install-images install-jscripts install-yui
+install-lib: install-py install-images install-jscripts
 	
 install-py: $(sources)
 	$(INSTALL) -d ${WEBROOT}/htdocs/
-	$(INSTALL) -v -m 644 $^ ${WEBROOT}/htdocs/
+	$(INSTALL) -m 644 $^ ${WEBROOT}/htdocs/
 
 install-images: $(images)
 	$(INSTALL) -d ${WEBROOT}/htdocs/img/
-	$(INSTALL) -v -m 644 $^ ${WEBROOT}/htdocs/img/
+	$(INSTALL) -m 644 $^ ${WEBROOT}/htdocs/img/
 
 install-jscripts: $(jscripts)
 	$(INSTALL) -d ${WEBROOT}/htdocs/jscript/
-	$(INSTALL) -v -m 644 $^ ${WEBROOT}/htdocs/jscript/
+	$(INSTALL) -m 644 $^ ${WEBROOT}/htdocs/jscript/
 
 install-yui:
 	$(INSTALL) -d ${WEBROOT}/htdocs/yui/
