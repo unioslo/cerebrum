@@ -43,10 +43,19 @@ class AuthImporter(object):
         self.db.cl_init(change_program="import_op_sets")
         self.op_sets = module.op_sets
         self.op_roles = module.op_roles
+
         creator = Factory.get('Account')(self.db)
         creator.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         self.creator_id = creator.entity_id
 
+        ceresync_group = Factory.get('Group')(self.db)
+        try:
+            ceresync_group.find_by_name("ceresync")
+        except Cerebrum.Errors.NotFoundError:
+            group.populate(self.creator_id, group.const.group_visibility_all,
+                           "ceresync")
+            group.write_db()
+        self.ceresync_group_id = ceresync_group.entity_id
 
     def __del__(self):
         if hasattr(self, 'db'):
@@ -113,41 +122,74 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
     def _get_op_roles(self):
         bo_roles = BofhdAuthRole(self.db)
         self.roles = []
+        entity = Factory.get('Entity')(self.db)
         group = Factory.get('Group')(self.db)
+        account = Factory.get('Account')(self.db)
         op_set = BofhdAuthOpSet(self.db)
         op_target = BofhdAuthOpTarget(self.db)
 
         for eid, oid, tid in bo_roles.list():
-            group.find(eid)
+            entity.find(eid)
+            if entity.entity_type == entity.const.entity_account:
+                account.find(eid)
+                ename = account.account_name
+                etype = 'account'
+            elif entity.entity_type == entity.const.entity_group:
+                group.find(eid)
+                ename = group.group_name
+                etype = 'group'
+            else:
+                print "ERROR: Invalid entity_type %d" % entity.entity_type
+                sys.exit(1)
             op_set.find(oid)
             op_target.find(tid)
-            self.roles.append((group.group_name, op_set.name,
+            self.roles.append((etype, ename, op_set.name,
                 (op_target.target_type,
                  op_target.entity_id,
                  op_target.attr)))
             group.clear()
+            account.clear()
+            entity.clear()
         return self.roles
 
     def _convert_op_roles(self, roles):
         res = []
         group = Factory.get('Group')(self.db)
+        account = Factory.get('Account')(self.db)
         op_set = BofhdAuthOpSet(self.db)
         op_target = BofhdAuthOpTarget(self.db)
-
-        for group_name, op_set_name, target in roles:
+        
+        for entity_type, entity_name, op_set_name, target in roles:
             try:
                 op_set.find_by_name(op_set_name)
             except Cerebrum.Errors.NotFoundError:
+                print "WARNING: invalid op_set %s, ignoring" % op_set_name
                 continue
 
-            try:
-                group.find_by_name(group_name)
-            except Cerebrum.Errors.NotFoundError:
-                # Create empty group
-                group.populate(self.creator_id, group.const.group_visibility_all,
-                               group_name)
-                group.write_db()
-            gid = group.entity_id
+            if entity_type=='group':
+                entity = group
+                try:
+                    group.find_by_name(entity_name)
+                except Cerebrum.Errors.NotFoundError:
+                    # Create empty group
+                    group.populate(self.creator_id, group.const.group_visibility_all,
+                                   entity_name)
+                    group.write_db()
+            elif entity_type=='account':
+                entity = account
+                try:
+                    account.find_by_name(entity_name)
+                except Cerebrum.Errors.NotFoundError:
+                    account.populate(entity_name,
+                                     account.const.entity_group,
+                                     self.ceresync_group_id,
+                                     account.const.account_program,
+                                     self.creator_id, None)
+                    account.write_db()
+            else:
+                print "ERROR: Invalid entity_type %s" % entity_type
+                sys.exit(1)
+            eid = entity.entity_id
 
             oid = op_set.op_set_id
             ttype, tid, tattr = target
@@ -160,19 +202,20 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
             else:
                 tid = r[0]['op_target_id']
 
-            res.append((gid, oid, tid))
+            res.append((eid, oid, tid))
+            account.clear()
             group.clear()
         return res
     
     def _add_op_roles(self, roles):
         role = BofhdAuthRole(self.db)
-        for gid, oid, tid in self._convert_op_roles(roles):
-            role.grant_auth(gid, oid, tid)
+        for eid, oid, tid in self._convert_op_roles(roles):
+            role.grant_auth(eid, oid, tid)
             
     def _remove_op_roles(self, roles):
         role = BofhdAuthRole(self.db)
-        for gid, oid, tid in self._convert_op_roles(roles):
-            role.revoke_auth(gid, oid, tid)
+        for eid, oid, tid in self._convert_op_roles(roles):
+            role.revoke_auth(eid, oid, tid)
 
     def _remove_op_set(self, name):
         op_set = BofhdAuthOpSet(self.db)
@@ -215,7 +258,7 @@ if __name__ == '__main__':
         file = os.path.basename(path)
         sys.path.append(os.path.dirname(path))
         source = __import__(file[:-3])
-    except Exception, e:
+    except ImportError, e:
         print e
         print """Please supply a python file containing an op_sets dict and an op_roles list."""
         source = None
