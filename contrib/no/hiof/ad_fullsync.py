@@ -25,9 +25,11 @@ ad-sync script that can be used with any module that extends ADutilMixIn.ADuserU
 Usage: [options]
   --url url
   --user_spread spread
-  --group_spread spread
+  --group_spread spread (only given if group sync is to be performed)
   -m ModuleName/ClassName
-  --dryrun
+  --dryrun (report changes that would have been done without --dryrun)
+  --delete (this option ensures deleting superfluous groups. default
+            is _not_ to delete groups)
   --ad-ldap domain_dn (overrides cereconf.AD_LDAP)
   
 Example:
@@ -74,7 +76,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'm:', [
             'help', 'user_spread=', 'url=', 'dryrun', 'ad-ldap=',
-            'delete', 'group_spread='])
+            'delete', 'group_spread=', 'logger-level=', 'logger-name='])
     except getopt.GetoptError:
         usage(1)
 
@@ -101,8 +103,6 @@ def main():
             user_spread = _SpreadCode(val)
         elif opt == '--group_spread':
             group_spread = _SpreadCode(val)
-    if not opts:
-        usage(1)
         
     fullsync(ad_mod, url, user_spread, group_spread, dryrun=dryrun,
              delete_objects=delete_objects, ad_ldap=ad_ldap)
