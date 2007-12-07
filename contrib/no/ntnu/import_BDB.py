@@ -194,10 +194,14 @@ class BDBSync:
 
 
     def check_commit(self, fun, *args, **kw):
+        msg='syncing'
+        if 'msg' in kw:
+            msg=kw['msg']
+            del kw['msg']
         try:
             fun(*args, **kw)
         except Exception, e:
-            self.logger.error('Error while syncing: %s' % e)
+            self.logger.error('Error while %s: %s' % (msg, e))
             self.db.rollback()
         else:
             if dryrun:
@@ -363,12 +367,79 @@ class BDBSync:
                 print "Commiting affiliation to database for entity %s" % person.entity_id
         return
 
+    def delete_bdb_fodselsnr(self, entity_id):
+        person=self.new_person
+        person.clear()
+        person.find(entity_id)
+        person.affect_external_id(self.const.system_bdb,
+                                       self.const.externalid_fodselsnr)
+        person.write_db()
+        
+
+    def clean_persons_extids(self, persons):
+        bdbfnr={}
+        oldbdbfnr={}
+        bdbid={}
+        rbdbid={}
+        person=self.new_person
+        self.logger.debug("Looking for invalid bdb fdselsnrs")
+
+        self.logger.debug("Fetching bdb fnrs")
+        for p in persons:
+            if p.get("birth_date") and p.get("person_number"):
+                bdbfnr[p['id']] = self.__get_fodselsnr(p)
+
+        self.logger.debug("Fetching cerebrum bdb-ids")
+        for i in person.list_external_ids(source_system=self.const.system_bdb,
+                                          id_type=self.const.externalid_bdb_person):
+            #bdbid[i['external_id']] = i['entity_id']
+            bdbid[int(i['entity_id'])] = int(i['external_id'])
+
+        self.logger.debug("Fetching bdb fnrs in cerebrum")
+        for i in person.list_external_ids(source_system=self.const.system_bdb,
+                                          id_type=self.const.externalid_fodselsnr):
+            if not i['entity_id'] in bdbid:
+                self.logger.warning(("cerebrum person-%s " +
+                                     "has BDB fnr but not BDB-id")
+                                    % i['entity_id'])
+                continue
+            bid = bdbid[int(i['entity_id'])]
+            fnr = i['external_id']
+            if bdbfnr.has_key(bid) and bdbfnr[bid] == fnr:
+                pass
+            else:
+                self.logger.debug("Deleting invalid bdb fodselsnr on %s"
+                                  % i['entity_id'])
+                self.check_commit(self.delete_bdb_fodselsnr, i['entity_id'],
+                                  msg='deleting invalid bdb fodselsnr')
+                
+
+
+    def compare_person_bdbids(self):
+        from sets import Set
+
+        cerebrum=Set()
+        bdb=Set()
+        person=self.new_person
+        for i in person.list_external_ids(source_system=self.const.system_bdb,
+                                          id_type=self.const.externalid_bdb_person):
+            cerebrum.add(str(i['external_id']))
+
+        for p in self.bdb.get_persons():
+            bdb.add(str(p['id']))
+
+        print "cerebrum - BDB:", ",".join(cerebrum - bdb)
+        print "BDB - cerebrum:", ",".join(bdb - cerebrum)
+        
+
+
     def sync_persons(self):
         self.logger.debug("Getting persons from BDB...")
         global ant_persons, num_persons
         if verbose:
             print "Getting persons from BDB"
         persons = self.bdb.get_persons()
+        #self.clean_persons_extids(persons)
         ant_persons = len(persons)
         self.logger.debug("Done fetching persons from BDB")
         for person in persons:
@@ -1193,7 +1264,7 @@ def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvhe',
-                    ['password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','verbose','help'])
+                    ['password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','compare-people', 'verbose','help'])
 
     sync = BDBSync()
     if (('--password-only','')) in opts:
@@ -1223,6 +1294,8 @@ def main():
             else:
                 print "No person or too many persons match criteria. Exiting.."
             sys.exit()
+        elif opt in ('--compare-people'):
+            sync.compare_person_bdbids()
         elif opt in ('-p','--people'):
             sync.sync_persons()
         elif opt in ('-g','--group'):
