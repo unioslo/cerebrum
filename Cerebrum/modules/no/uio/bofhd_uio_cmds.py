@@ -5957,7 +5957,10 @@ class BofhdExtension(object):
         if account.is_deleted():
             raise CerebrumError, "User is already deleted"
         if self._check_for_pipe_run_as(account.entity_id):
-            raise CerebrumError, "User is associated with an e-mail pipe, delete pipe target first"
+            raise CerebrumError, ("User is associated with an e-mail pipe " +
+                                  "and cannot be deleted until the pipe is " +
+                                  "removed. Please notify postmaster if you " +
+                                  "are not able to remove the pipe yourself.")                                  
         br = BofhdRequests(self.db, self.const)
         br.add_request(operator.get_entity_id(), br.now,
                        self.const.bofh_delete_user,
