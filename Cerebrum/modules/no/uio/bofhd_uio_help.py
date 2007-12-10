@@ -123,6 +123,8 @@ command_help = {
         "Make an e-mail target which expands to the members of a group",
     "email_create_pipe":
         "Make an e-mail target which points to a pipe",
+    "email_delete_pipe":
+        "Delete an e-mail target that points to a pipe",
     "email_delete_archive":
         "Remove address for a Mailman archive",
     "email_delete_list":
