@@ -130,6 +130,7 @@ class BDBSync:
 
         self.ac.find_by_name('bootstrap_account')
         self.initial_account = self.ac.entity_id
+        self.default_shell = self.const.posix_shell_bash
         self.ac.clear()
         self.spread_mapping = self.get_spread_mapping()
 
@@ -191,7 +192,6 @@ class BDBSync:
         s['ipt_soil'] =  int(co.Spread("user@%s" % 'ipt_soil'))
         s['kerberos'] = int(co.Spread("user@%s" % 'kerberos'))
         return s
-
 
     def check_commit(self, fun, *args, **kw):
         msg='syncing'
@@ -763,7 +763,9 @@ class BDBSync:
         self.check_uid(account_info)
 
         uid = account_info.get('unix_uid', None)
-        shell = account_info.get('shell',self.const.posix_shell_bash)
+        shell = self.default_shell
+
+
         username = account_info.get('name')
 
         if uid == 0:
@@ -877,7 +879,7 @@ class BDBSync:
         # Use BDB-creator?
         default_expire_date = None
         const = self.const
-        default_shell = const.posix_shell_bash
+        shell = self.default_shell
 
         bdb_account_type = const.externalid_bdb_account
         bdb_person_type = const.externalid_bdb_person
