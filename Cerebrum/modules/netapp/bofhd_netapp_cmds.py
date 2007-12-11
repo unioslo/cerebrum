@@ -33,18 +33,20 @@ More specifically, it offers the following:
 """
 
 __version__ = "$Revision$"
-# $URL$
+
+from mx import DateTime
 
 import cereconf
 
 from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Constants
 from Cerebrum import Cache
 
 from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,Integer,SimpleString,GroupName
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-
+from Cerebrum.modules.bofhd.utils import BofhdRequests,_BofhdRequestOpCode
 
 class NetAppServer(Parameter):
     _type = 'netappserver'
@@ -59,6 +61,17 @@ class QtreeSize(Integer):
     _help_ref = 'qtreesize'
 
 
+class Constants(Constants.Constants):
+    bofh_netapp_create_quotatree = _BofhdRequestOpCode('br_netapp_cr_qt',
+                                                       'NetApp create quota-tree')
+    bofh_netapp_resize_quotatree = _BofhdRequestOpCode('br_netapp_rs_qt',
+                                                       'NetApp resize quota-tree')
+    bofh_netapp_add_export = _BofhdRequestOpCode('br_netapp_add_ex',
+                                                 'NetApp export QT to NFS')
+    bofh_netapp_remove_export = _BofhdRequestOpCode('br_netapp_rem_ex',
+                                                    'NetApp de-export QT to NFS')
+
+
 class BofhdExtension(object):
     """Adds functionality for adminsitrating NetApp servers via bofhd."""
     all_commands = {}
@@ -70,7 +83,16 @@ class BofhdExtension(object):
         self.db = server.db
         self.constants = Factory.get('Constants')(self.db)
         self.ba = BofhdAuth(self.db)
-
+        
+        self.br = BofhdRequests(self.db, self.constants)
+        c = self.constants
+        self.br.conflicts.update({
+            int(c.bofh_netapp_create_quotatree): None,
+            int(c.bofh_netapp_resize_quotatree): None,
+            int(c.bofh_netapp_add_export): [c.bofh_netapp_remove_export],
+            int(c.bofh_netapp_remove_export): [c.bofh_netapp_add_export],
+            })
+        
         self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
                                                            Cache.cache_slots,
                                                            Cache.cache_timeout],
@@ -135,13 +157,22 @@ class BofhdExtension(object):
         return commands
 
 
-    def execute_command_on_netapp(self, server, command):
-        """Utility-method for executing commands on NetApp servers
-        remotely.
+    def verify_host_group(self, groupname):
+        """Utility-method to verify that the name given is a valid
+        hostgroup.
 
         """
-        self.logger.debug("Executing command '%s' on server '%s" %
-                          (command, server))        
+        group = Factory.get('Group')(self.db)
+        try:
+            group.find_by_name(groupname)
+        except Errors.NotFoundError:
+            raise CerebrumError, "Unable to find group named '%s'" % groupname
+
+        if not group.has_spread(self.constants.spread_uio_machine_netgroup):
+            raise CerebrumError, ("Group '%s' does not seem to be a valid " + 
+                                  "hostgroup") % groupname
+
+        return group.entity_id
 
 
     all_commands['netapp_create_qtree'] = Command(('netapp', 'create_qtree'),
@@ -149,7 +180,12 @@ class BofhdExtension(object):
                                                   QtreeSize())
     def netapp_create_qtree(self, operator, server, qtree, size):
         """Command for creating a new quota-tree."""
-        return ("OK, created '%s' on server '%s'; size: %s GB." %
+        op = operator.get_entity_id()
+        request_parameters = "%s+%s+%s" % (server, qtree, size)
+        self.br.add_request(op, DateTime.now(),
+                            self.constants.bofh_netapp_create_quotatree,
+                            None, None, request_parameters)
+        return ("OK, queued creation of '%s' on server '%s'; size: %s GB." %
                 (qtree, server, size))
 
 
@@ -158,7 +194,11 @@ class BofhdExtension(object):
                                                   QtreeSize())
     def netapp_resize_qtree(self, operator, server, qtree, size):
         """Command for resizing a new quota-tree."""
-        return "OK, resized '%s' to '%s' GB." % (qtree, size)
+        op = operator.get_entity_id()
+        self.br.add_request(op, DateTime.now(),
+                            self.constants.bofh_netapp_resize_quotatree,
+                            None, None, request_parameters)
+        return "OK, queued resize of '%s' to '%s' GB." % (qtree, size)
 
 
     all_commands['netapp_add_export'] = Command(('netapp', 'add_export'),
@@ -166,7 +206,14 @@ class BofhdExtension(object):
                                                 GroupName())
     def netapp_add_export(self, operator, server, qtree, groupname):
         """Command for setting a quote-tree to be exported."""
-        return "OK, exporting '%s' to '%s'." % (qtree, groupname)
+        op = operator.get_entity_id()        
+        group_id = self.verify_host_group(groupname)
+        request_parameters = "%s+%s" % (server, qtree)
+        
+        self.br.add_request(op, DateTime.now(),
+                            self.constants.bofh_netapp_add_export,
+                            None, group_id, request_parameters)
+        return "OK, queued export of '%s' to '%s'." % (qtree, groupname)
 
 
     all_commands['netapp_remove_export'] = Command(('netapp', 'remove_export'),
@@ -174,7 +221,14 @@ class BofhdExtension(object):
                                                    GroupName())
     def netapp_remove_export(self, operator, server, qtree, groupname):
         """Command for setting a quote-tree to no longer be exported."""
-        return "OK, no longer exporting '%s' to '%s'." % (qtree, groupname)
+        op = operator.get_entity_id()
+        group_id = self.verify_host_group(groupname)
+        request_parameters = "%s+%s" % (server, qtree)
+
+        self.br.add_request(op, DateTime.now(),
+                            self.constants.bofh_netapp_remove_export,
+                            None, group_id, request_parameters)
+        return "OK, queued removal of export of '%s' to '%s'." % (qtree, groupname)
 
 
 
