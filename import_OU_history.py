@@ -64,7 +64,7 @@ class ou_history:
                 {'l_new_ou_id': int(foo['new_ou_id']),
                  'l_name': foo['name'],
                  'l_old_ou_id': foo['old_ou_id']})
-                logger.info("Inserted new_id=%, old_ou_id=%s, name=%s" %
+                logger.info("Inserted new_id=%s, old_ou_id=%s, name=%s" %
                             (foo['new_ou_id'],foo['old_ou_id'],foo['name']))
 
 
