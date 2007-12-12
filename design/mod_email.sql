@@ -448,6 +448,48 @@ GRANT SELECT ON email_spam_filter TO read_mod_email;
 category:main/Oracle;
 GRANT INSERT, UPDATE, DELETE ON email_spam_filter TO read_mod_email;
 
+/*     email_target_filter_code
+
+
+*/
+category:code;
+CREATE TABLE email_target_filter_code
+(
+  code		NUMERIC(6,0)
+		CONSTRAINT email_target_filter_code_pk PRIMARY KEY,
+  code_str	CHAR VARYING(16)
+		NOT NULL
+		CONSTRAINT email_target_filter_codestr_u UNIQUE,
+  description	CHAR VARYING(512)
+		NOT NULL
+);
+category:code/Oracle;
+GRANT SELECT ON email_target_filter_code TO read_mod_email;
+category:code/Oracle;
+GRANT INSERT, UPDATE, DELETE ON email_target_filter_code TO read_mod_email;
+
+/*     email_target_filter
+
+
+
+*/
+category:main;
+CREATE TABLE email_target_filter
+(
+  target_id	NUMERIC(12,0)
+		CONSTRAINT email_target_filter_target_id
+		  REFERENCES email_target(target_id),
+  filter	NUMERIC(6,0)
+		CONSTRAINT email_target_filter_filter
+		  REFERENCES email_target_filter_code(code),
+  CONSTRAINT email_target_filter_pk PRIMARY KEY (target_id, filter)
+);
+category:main/Oracle;
+GRANT SELECT ON email_target_filter TO read_mod_email;
+category:main/Oracle;
+GRANT INSERT, UPDATE, DELETE ON email_target_filter TO read_mod_email;
+
+
 
 /*	email_virus_found_code
 
@@ -615,6 +657,10 @@ GRANT INSERT, UPDATE, DELETE ON email_primary_address TO read_mod_email;
 
 
 
+category:drop;
+DROP TABLE email_target_filter;
+category:drop;
+DROP TABLE email_target_filter_code;
 category:drop;
 DROP TABLE email_target_server;
 category:drop;

@@ -39,7 +39,7 @@ targets = {
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12'),
     'bofhd': ('bofhd_1_1', ),
     'changelog': ('changelog_1_2', ),
-    'email': ('email_1_0','email_1_1'),
+    'email': ('email_1_0','email_1_1', 'email_1_2'),
     'ephorte': ('ephorte_1_1', ),
     }
 
@@ -483,6 +483,15 @@ def migrate_to_email_1_1():
     print "Migration to email 1.1 completed successfully"
     db.commit()
 
+def migrate_to_email_1_2():
+    print "\ndone."
+    assert_db_version("1.1", component='email')
+    makedb('email_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_email", "1.2")
+    print "Migration to email 1.2 completed successfully"
+    db.commit()
+
 def migrate_to_ephorte_1_1():
     print "\ndone."
     assert_db_version("1.0", component='ephorte')
@@ -491,6 +500,7 @@ def migrate_to_ephorte_1_1():
     meta.set_metainfo("sqlmodule_ephorte", "1.1")
     print "Migration to ephorte 1.1 completed successfully"
     db.commit()
+
 
 def init():
     global db, co, str2const, num2const

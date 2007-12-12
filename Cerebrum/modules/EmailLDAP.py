@@ -52,6 +52,7 @@ class EmailLDAP(DatabaseAccessor):
         self.targ2addr = {}
         self.targ2prim = {}
         self.targ2spam = {}
+        self.targ2filter = {}
         self.targ2quota = {}
         self.targ2virus = {}
         self.serv_id2server = {}
@@ -128,6 +129,18 @@ class EmailLDAP(DatabaseAccessor):
                                                       row['removed_str'],
                                                       row['enable']]
 
+    def read_target_filter(self):
+        const2str = {}
+        for c in dir(self.const):
+            tmp = getattr(self.const, c)
+            if isinstance(tmp, Email._EmailTargetFilterCode):
+                const2str[int(tmp)] = str(tmp)
+
+        mail_target_filter = Email.EmailTargetFilter(self._db)
+        for row in mail_target_filter.list_email_target_filter():
+            t_id = int(row['target_id'])
+            f_id = int(row['filter'])
+            self.targ2filter.setdefault(t_id, []).append(const2str[f_id])
 
     def read_server(self, spread):
         mail_serv = Email.EmailServer(self._db)

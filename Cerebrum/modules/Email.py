@@ -82,6 +82,10 @@ class _EmailServerTypeCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_server_type_code]'
 
 
+class _EmailTargetFilterCode(Constants._CerebrumCode):
+    _lookup_table = '[:table schema=cerebrum name=email_target_filter_code]'
+
+
 class _EmailSpamLevelCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_spam_level_code]'
 
@@ -134,6 +138,7 @@ class EmailConstants(Constants.Constants):
     EmailServerType = _EmailServerTypeCode
     EmailSpamLevel = _EmailSpamLevelCode
     EmailSpamAction = _EmailSpamActionCode
+    EmailTargetFilter = _EmailTargetFilterCode
     EmailVirusFound = _EmailVirusFoundCode
     EmailVirusRemoved = _EmailVirusRemovedCode
 
@@ -215,7 +220,10 @@ class EmailConstants(Constants.Constants):
         'cyrus_IMAP',
         "Server is a Cyrus IMAP server, which keeps mailboxes in a"
         " Cyrus-specific format.")
-
+    
+    email_target_filter_greylist = _EmailTargetFilterCode(
+        'greylist',
+        "Reject messages classified as spam, delay unknown servers")
 
 class EmailEntity(DatabaseAccessor):
     """Abstract superclass for email 'entities'.
@@ -461,7 +469,8 @@ class EmailTarget(EmailEntity):
         # (and by extension, in email_primary_address) to reduce the
         # chance of catastrophic mistakes.
         for table in ('email_forward', 'email_vacation', 'email_quota',
-                      'email_spam_filter', 'email_virus_scan'):
+                      'email_spam_filter', 'email_virus_scan',
+                      'email_target_filter'):
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=%s]
             WHERE target_id=:e_id""" % table, {'e_id': self.email_target_id})
@@ -1007,6 +1016,99 @@ class EmailQuota(EmailTarget):
                           {'server': int(server),
                            't_type': int(EmailConstants.email_target_account)
                            })
+
+
+class EmailTargetFilter(EmailTarget):
+    """Container class for various filters placed on EmailTarget.
+    Primarily designed for filters such as gray-listing, but the class
+    supports other types of filters."""
+    __read_attr__ = ('__in_db',)
+    __write_attr__ = ('email_target_filter_filter',)
+
+    def clear(self):
+        self.__super.clear()
+        self.clear_class(EmailTargetFilter)
+        self.__updated = []
+
+    def populate(self, filter, parent=None):
+        """Registered settings for other filters than pre-set
+        spam filters."""
+        if parent is not None:
+            self.__xerox__(parent)
+        try:
+            if not self.__in_db:
+                raise RuntimeError, "populate() called multiple times."
+        except AttributeError:
+            self.__in_db = False
+        self.email_target_filter_filter = filter
+
+    def write_db(self):
+        self.__super.write_db()
+        if not self.__updated:
+            return
+        is_new = not self.__in_db
+        if is_new:
+            self.execute("""
+            INSERT INTO [:table schema=cerebrum name=email_target_filter]
+              (target_id, filter)
+            VALUES (:t_id, :filter)""",
+                         {'t_id': self.email_target_id,
+                          'filter': int(self.email_target_filter_filter)})
+        else:
+            self.execute("""
+            UPDATE [:table schmea=cerebrum name=email_target_filter]
+            SET filter=:filter
+            WHERE target_id=:t_id""",
+                         {'t_id': self.email_target_id,
+                          'filter': int(self.email_target_filter_filter)})
+        del self.__in_db
+        self.__in_db = True
+        self.__updated = []
+        return is_new
+
+    def find(self, target_id, filter):
+        self.__super.find(target_id)
+        self.email_target_filter_filter = self.query_1("""
+        SELECT filter
+        FROM [:table schema=cerebrum name=email_target_filter]
+        WHERE target_id=:t_id""",{'t_id': self.email_target_id,
+                                  'filter': filter})
+        try:
+            del self.__in_db
+        except AttributeError:
+            pass
+        self.__in_db = True
+        self.__updated = []    
+
+    def enable_email_target_filter(self, filter):
+        """Helper method, used to enable a given filter. Needs
+        write_db()"""
+        self.email_target_filter_filter = filter
+
+    def disable_email_target_filter(self, filter):
+        """Helper method, used to enable a given filter."""
+        return self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_target_filter]
+        WHERE target_id=:t_id AND filter=:filter""",
+                            {'t_id': self.email_target_id,
+                             'forward': filter})
+            
+    def list_email_target_filter(self, target_id=None, filter=None):
+        """List all registered email_target_filters, filtered on target_id
+        and/or filter_type."""
+        lst = []
+        if target_id:
+            lst.append("target_id=:t_id")
+        if filter:
+            lst.append("filter=:filter")
+        where = ""
+        if lst:
+            where = "WHERE " + " AND ".join(lst)
+        return self.query("""
+        SELECT target_id, filter
+        FROM [:table schema=cerebrum name=email_target_filter]
+        %s""" % where,{'t_id': target_id,
+                       'filter': filter})
 
 
 class EmailSpamFilter(EmailTarget):

@@ -265,6 +265,11 @@ def write_ldif():
                 f.write("spamLevel: %s\n" % default_spam_level)
                 f.write("spamAction: %s\n" % default_spam_action)
 
+            # Filters
+            if ldap.targ2filter.has_key(t):
+                for a in ldap.targ2filter[t]:
+                    f.write("emailFilter: %s\n" % a)
+                
             # Find virus-setting:
             if ldap.targ2virus.has_key(t):
                 found, rem, enable = ldap.targ2virus[t]
@@ -313,6 +318,11 @@ def get_data(spread):
         print "Starting read_spam()..."
         curr = now()
     ldap.read_spam()
+    if verbose:
+        print "  done in %d sec." % (now() - curr)
+        print "Starting read_target_filter()..."
+        curr = now()
+    ldap.read_target_filter()
     if verbose:
         print "  done in %d sec." % (now() - curr)
         print "Starting read_quota()..."
