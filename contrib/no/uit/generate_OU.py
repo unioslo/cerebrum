@@ -64,30 +64,14 @@ class ou:
         service="fsprod"
         self.fs_db = Database.connect(user=user,service=service,DB_driver='Oracle')
         self.fs = FS(self.fs_db)
-        self.fs_data=[]
+        self.fs_data=dict()
 
 
-    # sertain ou's, are not to be stored in cerebrum. all references to these ou's
-    # need to be redirected to its parent ou. This function checks a mapping table in cerebrum
-    # and generates the correct mapping for ou's and persons
-    def remove_surp_ou(self,INST_NR):
-
-        query = "select old_ou_id from ou_history where old_ou_id='%s'" % INST_NR
-        db_row = self.db.query(query)
-        if(len(db_row) > 0):
-            logger.error("%s IS NOT TO BE REGISTRED IN CEREBRUM" % INST_NR)
-            # indication that all references to this ou is to be replaced with another one.
-            # i.e, this ou is not to be inserted
-            return 0
-        return 1 
-
-
-
-        
     # lets collect data about all active ou's from FS.
     def get_fs_ou(self):
         logger.info("Reading OU's from FS")
-        ouer = self.fs.ou.GetAlleOUer(institusjonsnr=186)
+        #ouer = self.fs.ou.GetAlleOUer(institusjonsnr=186)
+        ouer = self.fs.ou.GetAktiveOUer(institusjonsnr=186)
         poststednr_besok_adr=''
         poststednr_alternativ_adr=''
         for i in ouer:
@@ -105,8 +89,7 @@ class ou:
 
             if(postnr_besok.isdigit()):
                 poststednr_alternativ_adr = postnr_besok
-                #print i.keys()
-            #print "telefonnr før = %s" % i['telefonnr']
+
             if not i['telefonlandnr'] : i['telefonlandnr']="0"
             if not i['telefonretnnr'] : i['telefonretnnr']="0"
             if not i['telefonnr'] : i['telefonnr']="0"
@@ -114,53 +97,51 @@ class ou:
             if not i['adrlin2'] : i['adrlin2'] = i['stednavn_bokmal'] 
             if not i['postnr'] : i['postnr'] = '9037'
             if not i['adrlin3'] : i['adrlin3'] = 'Tromsø'
-            
-            self.fs_data.append({
-                                 'temp_inst_nr' : temp_inst_nr,
-                                 'fakultetnr' : "%02d" % int(i['faknr']),
-                                 'instituttnr' : "%02d" % int(i['instituttnr']),
-                                 'gruppenr' : "%02d" % int(i['gruppenr']),
-                                 'stednavn' : i['stednavn_bokmal'],
-                                 'forkstednavn' : i['stedkortnavn'],
-                                 'akronym' : i['stedakronym'],
-                                 'stedkortnavn_bokmal' : i['stedkortnavn'],
-                                 'stedkortnavn_nynorsk' : i['stednavn_nynorsk'],
-                                 'stedkortnavn_engelsk' : i['stednavn_engelsk'],
-                                 'stedlangnavn_bokmal': i['stednavn_bokmal'],
-                                 'stedlangnavn_nynorsk': i['stednavn_nynorsk'],
-                                 'stedlangnavn_engelsk' : i['stednavn_engelsk'],
-                                 'fakultetnr_for_org_sted' : "%02d" % int(i['faknr_org_under']),
-                                 'instituttnr_for_org_sted': "%02d" % int(i['instituttnr_org_under']),
-                                 'gruppenr_for_org_sted' : "%02d" % int(i['gruppenr_org_under']),
-                                 'opprettetmerke_for_oppf_i_kat' : 'X', #i['opprettetmerke_for_oppf_i_kat'],
-                                 'telefonnr' : i['telefonnr'],
-                                 'innvalgnr' : '%s%s'%(i['telefonlandnr'],i['telefonretnnr']),
-                                 'linjenr' : i['telefonnr'],
-                                 'stedpostboks' : '',#i['stedpostboks'],
-                                 'adrtypekode_besok_adr': 'INT',#i['adrtypekode_besok_adr'],
-                                 'adresselinje1_besok_adr' :i['adrlin1'],
-                                 'adresselinje2_besok_adr': i['adrlin2'],
-                                 'poststednr_besok_adr' : poststednr_besok_adr,
-                                 'poststednavn_besok_adr' : '%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],i['adrlin3_besok']),
-                                 'landnavn_besok_adr' : i['adresseland_besok'],
-                                 'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
-                                 'adresselinje1_intern_adr' : i['adrlin1'],
-                                 'adresselinje2_intern_adr': i['adrlin2'],
-                                 'poststednr_intern_adr': i['postnr'],
-                                 'poststednavn_intern_adr': i['adrlin3'],
-                                 'landnavn_intern_adr': i['adresseland'],
-                                 'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
-                                 'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
-                                 'adresselinje2_alternativ_adr': '',#i['adrlin2_besok'],
-                                 'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
-                                 'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
-                                 'landnavn_alternativ_adr': '',#i['adresseland_besok']
-                                 })
-    
+
+            self.fs_data[temp_inst_nr] = {
+                'fakultetnr' : "%02d" % int(i['faknr']),
+                'instituttnr' : "%02d" % int(i['instituttnr']),
+                'gruppenr' : "%02d" % int(i['gruppenr']),
+                'stednavn' : i['stednavn_bokmal'],
+                'forkstednavn' : i['stedkortnavn'],
+                'akronym' : i['stedakronym'],
+                'stedkortnavn_bokmal' : i['stedkortnavn'],
+                'stedkortnavn_nynorsk' : i['stednavn_nynorsk'],
+                'stedkortnavn_engelsk' : i['stednavn_engelsk'],
+                'stedlangnavn_bokmal': i['stednavn_bokmal'],
+                'stedlangnavn_nynorsk': i['stednavn_nynorsk'],
+                'stedlangnavn_engelsk' : i['stednavn_engelsk'],
+                'fakultetnr_for_org_sted' : "%02d" % int(i['faknr_org_under']),
+                'instituttnr_for_org_sted': "%02d" % int(i['instituttnr_org_under']),
+                'gruppenr_for_org_sted' : "%02d" % int(i['gruppenr_org_under']),
+                'opprettetmerke_for_oppf_i_kat' : 'X', #i['opprettetmerke_for_oppf_i_kat'],
+                'telefonnr' : i['telefonnr'],
+                'innvalgnr' : '%s%s'%(i['telefonlandnr'],i['telefonretnnr']),
+                'linjenr' : i['telefonnr'],
+                'stedpostboks' : '',#i['stedpostboks'],
+                'adrtypekode_besok_adr': 'INT',#i['adrtypekode_besok_adr'],
+                'adresselinje1_besok_adr' :i['adrlin1'],
+                'adresselinje2_besok_adr': i['adrlin2'],
+                'poststednr_besok_adr' : poststednr_besok_adr,
+                'poststednavn_besok_adr' : '%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],i['adrlin3_besok']),
+                'landnavn_besok_adr' : i['adresseland_besok'],
+                'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
+                'adresselinje1_intern_adr' : i['adrlin1'],
+                'adresselinje2_intern_adr': i['adrlin2'],
+                'poststednr_intern_adr': i['postnr'],
+                'poststednavn_intern_adr': i['adrlin3'],
+                'landnavn_intern_adr': i['adresseland'],
+                'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
+                'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
+                'adresselinje2_alternativ_adr': '',#i['adrlin2_besok'],
+                'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
+                'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
+                'landnavn_alternativ_adr': '',#i['adresseland_besok']
+                }    
         return self.fs_data
     
     def get_authoritative_ou(self):
-        authoritative_ou=[]
+        authoritative_ou=dict()
         
         import codecs
         logger.info("Reading authoritative OU file %s" % self.ou_file)
@@ -168,13 +149,17 @@ class ou:
         for line in fileObj:
             line = line.encode('iso-8859-1')
             if line and not line.startswith("#"):
-                faknr,fakultet,instnr,institutt,avdnr,avdeling=line.split(",")
+                try:
+                    faknr,fakultet,instnr,institutt,avdnr,avdeling=line.split(",")
+                except ValueError,m:
+                    logger.critical("Unpack error: List of wrong size")
+                    logger.critical(line)
+                    sys.exit(1)
                 faknr=faknr.strip("\"")
                 fakultet=fakultet.strip("\"")
                 instnr=instnr.strip("\"")
                 avdnr=avdnr.strip("\"")
-                avdeling=avdeling.rstrip("\n").strip("\"")
-                #print "avdeling=%s" % avdeling
+                avdeling=avdeling.rstrip("\n").rstrip("\r").strip("\"")
 
                 if ((avdnr[4:6] == '00') and(instnr[2:4] == '00')):
                     # we have a fakulty, must reference the uit institution
@@ -195,71 +180,92 @@ class ou:
                     instituttnr_org_under = '00'
                     gruppenr_org_under = '00'
                 
-                authoritative_ou.append({
-                                 'temp_inst_nr' : avdnr,
-                                 'fakultetnr' : faknr,
-                                 'instituttnr' : instnr[2:4],
-                                 'gruppenr' : avdnr[4:6],
-                                 'stednavn' : avdeling,
-                                 'forkstednavn' : '',#i['stedkortnavn'],
-                                 'display_name' : avdeling,
-                                 'akronym' : '',#i['stedakronym'],
-                                 'stedkortnavn_bokmal' : '',#i['stedkortnavn'],
-                                 'stedkortnavn_nynorsk' : '',#i['stednavn_nynorsk'],
-                                 'stedkortnavn_engelsk' : '',#i['stednavn_engelsk'],
-                                 'stedlangnavn_bokmal': avdeling,#i['stednavn_bokmal'],
-                                 'stedlangnavn_nynorsk': '',#i['stednavn_nynorsk'],
-                                 'stedlangnavn_engelsk' : '',#i['stednavn_engelsk'],
-                                 'fakultetnr_for_org_sted' : faknr_org_under,
-                                 'instituttnr_for_org_sted': instituttnr_org_under,
-                                 'gruppenr_for_org_sted' : gruppenr_org_under,
-                                 'opprettetmerke_for_oppf_i_kat' : 'X', #i['opprettetmerke_for_oppf_i_kat'],
-                                 'telefonnr' :"77644000",
-                                 'innvalgnr' : '0',#'%s%s'%(i['telefonlandnr'],i['telefonretnnr']),
-                                 'linjenr' : '0',#i['telefonnr'],
-                                 'stedpostboks' : '',#i['stedpostboks'],
-                                 'adrtypekode_besok_adr': 'INT',#i['adrtypekode_besok_adr'],
-                                 'adresselinje1_besok_adr' :'',#:i['adrlin1'],
-                                 'adresselinje2_besok_adr': '',#i['adrlin2'],
-                                 'poststednr_besok_adr' : '',#poststednr_besok_adr,
-                                 'poststednavn_besok_adr' : '',#'%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],i['adrlin3_besok']),
-                                 'landnavn_besok_adr' : '',#i['adresseland_besok'],
-                                 'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
-                                 'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
-                                 'adresselinje2_intern_adr': avdeling,
-                                 'poststednr_intern_adr': '9037',
-                                 'poststednavn_intern_adr': 'Tromsø',
-                                 'landnavn_intern_adr': '',#i['adresseland'],
-                                 'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
-                                 'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
-                                 'adresselinje2_alternativ_adr': '',#i['adrlin2_besok'],
-                                 'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
-                                 'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
-                                 'landnavn_alternativ_adr': '',#i['adresseland_besok']
-                                 })
+                authoritative_ou[avdnr]  = {
+                    'fakultetnr' : faknr,
+                    'instituttnr' : instnr[2:4],
+                    'gruppenr' : avdnr[4:6],
+                    'stednavn' : avdeling,
+                    'display_name' : avdeling,
+                    'stedlangnavn_bokmal': avdeling,
+                    'fakultetnr_for_org_sted' : faknr_org_under,
+                    'instituttnr_for_org_sted': instituttnr_org_under,
+                    'gruppenr_for_org_sted' : gruppenr_org_under,
+                    'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
+                    'adresselinje2_intern_adr': avdeling,
+                    'poststednr_intern_adr': '9037',
+                    'poststednavn_intern_adr': 'Tromsø',
+                    'opprettetmerke_for_oppf_i_kat' : 'X', 
+                    'telefonnr' : "77644000",
+                    'forkstednavn' : ''
+                    }
+
+#                 authoritative_ou.append({
+#                                  'temp_inst_nr' : avdnr,
+#                                  'fakultetnr' : faknr,
+#                                  'instituttnr' : instnr[2:4],
+#                                  'gruppenr' : avdnr[4:6],
+#                                  'stednavn' : avdeling,
+#                                  'forkstednavn' : '',#i['stedkortnavn'],
+#                                  'display_name' : avdeling,
+#                                  'akronym' : '',#i['stedakronym'],
+#                                  'stedkortnavn_bokmal' : '',#i['stedkortnavn'],
+#                                  'stedkortnavn_nynorsk' : '',#i['stednavn_nynorsk'],
+#                                  'stedkortnavn_engelsk' : '',#i['stednavn_engelsk'],
+#                                  'stedlangnavn_bokmal': avdeling,#i['stednavn_bokmal'],
+#                                  'stedlangnavn_nynorsk': '',#i['stednavn_nynorsk'],
+#                                  'stedlangnavn_engelsk' : '',#i['stednavn_engelsk'],
+#                                  'fakultetnr_for_org_sted' : faknr_org_under,
+#                                  'instituttnr_for_org_sted': instituttnr_org_under,
+#                                  'gruppenr_for_org_sted' : gruppenr_org_under,
+#                                  'opprettetmerke_for_oppf_i_kat' : 'X', #i['opprettetmerke_for_oppf_i_kat'],
+#                                  'telefonnr' :"77644000",
+#                                  'innvalgnr' : '0',#'%s%s'%(i['telefonlandnr'],i['telefonretnnr']),
+#                                  'linjenr' : '0',#i['telefonnr'],
+#                                  'stedpostboks' : '',#i['stedpostboks'],
+#                                  'adrtypekode_besok_adr': 'INT',#i['adrtypekode_besok_adr'],
+#                                  'adresselinje1_besok_adr' :'',#:i['adrlin1'],
+#                                  'adresselinje2_besok_adr': '',#i['adrlin2'],
+#                                  'poststednr_besok_adr' : '',#poststednr_besok_adr,
+#                                  'poststednavn_besok_adr' : '',#'%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],i['adrlin3_besok']),
+#                                  'landnavn_besok_adr' : '',#i['adresseland_besok'],
+#                                  'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
+#                                  'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
+#                                  'adresselinje2_intern_adr': avdeling,
+#                                  'poststednr_intern_adr': '9037',
+#                                  'poststednavn_intern_adr': 'Tromsø',
+#                                  'landnavn_intern_adr': '',#i['adresseland'],
+#                                  'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
+#                                  'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
+#                                  'adresselinje2_alternativ_adr': '',#i['adrlin2_besok'],
+#                                  'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
+#                                  'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
+#                                  'landnavn_alternativ_adr': '',#i['adresseland_besok']
+#                                  })
         fileObj.close()
         return authoritative_ou
 
         
     def generate_ou(self,fs_ou,auth_ou):
-        result_ou=[]
-        for a_ou in auth_ou:
-            a_ou_check=False
-            for f_ou in fs_ou:
-                if a_ou['temp_inst_nr']==f_ou['temp_inst_nr']:
-                    # Match. generate result data
-                    f_ou['stedlangnavn_bokmal'] = a_ou['stedlangnavn_bokmal']
-                    f_ou['display_name'] = a_ou['display_name']
-                    f_ou['adresselinje1_intern_adr'] = a_ou['adresselinje1_intern_adr']
-                    f_ou['adresselinje2_intern_adr'] = a_ou['adresselinje2_intern_adr'] 
-                    #print "%s in FS" % f_ou['temp_inst_nr']
-                    result_ou.append(f_ou)
-                    a_ou_check=True
-                    break
-            if a_ou_check==False:
-                # The OU from the authoritative file does not exist in FS. Add the authoritative OU data to the list
-                logger.warn("Not in FS: %s - %s" % (a_ou['temp_inst_nr'],a_ou['stedlangnavn_bokmal']))
-                result_ou.append(a_ou)
+        result_ou=dict()
+        for a_ou,a_ou_data in auth_ou.items():
+            f_ou = fs_ou.get(a_ou,None)
+            if f_ou:
+                # fill in OU data elemnts from FS where we have no
+                # eqivalent data in authoritative ou file
+                for k,v in f_ou.items():
+                    if not a_ou_data.has_key(k):
+                        #logger.debug("no reinert data for %s: use '%s' from FS" % (k,v))
+                        a_ou_data[k]=v
+                del fs_ou[a_ou]
+            else:
+                logger.warn("OU %s not in FS, only using steddata from Reinert" % a_ou)
+                # insert some defaults needed by import_OU.
+
+            result_ou[a_ou]= a_ou_data
+
+        # log remaining FS ou's as errors
+        for f_ou,f_ou_data in fs_ou.items():            
+            logger.error("OU in FS not in Reinert file: %s-%s" % (f_ou, f_ou_data['stednavn']))
         return result_ou
 
 
@@ -272,11 +278,8 @@ class ou:
                                        input_encoding = "latin1")
         writer.startDocument(encoding = "iso-8859-1")
         writer.startElement("data")
-        for ou in final_ou:
-            # lets check if this is an OU that is not to be presented in BAS
-            if self.remove_surp_ou(ou['temp_inst_nr'])==1:
-                del ou['temp_inst_nr']
-                writer.emptyElement("sted",ou)
+        for ou,ou_data in final_ou.items():
+            writer.emptyElement("sted",ou_data)
         writer.endElement("data")
         writer.endDocument()
         stream.close()
@@ -285,9 +288,9 @@ class ou:
 def main():
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'o:O:',['ou_source=','Out_file='])
-    except getopt.GetoptError:
-        usage()
+        opts,args = getopt.getopt(sys.argv[1:],'o:O:h',['ou_source=','Out_file=','help'])
+    except getopt.GetoptError,m:
+        usage(1,m)
         
     ou_file = default_input_file
     out_file = default_output_file
@@ -296,6 +299,8 @@ def main():
             ou_file = val
         if opt in ('-O','-Out_file'):
             out_file = val
+        if opt in ('-h','--help'):
+            usage()
 
             
     # initiate the ou instance
@@ -310,12 +315,17 @@ def main():
     my_ou.print_ou(final_ou,out_file)
 
 
-def usage():
-    print """Usage: python new_generate_OU.py -o ou_file -O out_file.xml | -l
+def usage(exit_code=0,msg=None):
+    if msg:
+        print msg
+
+    print """
+
+    Usage: python new_generate_OU.py -o ou_file -O out_file.xml | -l
     
     -o | --ou_source - ou data source file
     -O | --Out_file - indicates file to write result xml"""
-    sys.exit(0)
+    sys.exit(exit_code)
 
 if __name__ == '__main__':
     main()
