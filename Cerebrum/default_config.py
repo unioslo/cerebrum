@@ -279,6 +279,8 @@ BOFHD_CLIENT_SOCKET_TIMEOUT=None
 BOFHD_AUTH_SYSTEMS = ("system_manual",)
 # Directory for templates
 TEMPLATE_DIR=None
+# Location of locks used by bofhd-request processing system
+BOFHD_REQUEST_LOCK_DIR='/cerebrum/var/log/cerebrum/.lock-%d'
 
 # List of valid values for toplevel mountpoints for disks. Checked
 # when disks are added. None = no check performed

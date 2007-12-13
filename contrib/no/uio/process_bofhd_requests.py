@@ -74,8 +74,11 @@ class RequestLocked(Exception):
 
 
 class RequestLockHandler(object):
-    def __init__(self, lockdir):
+    def __init__(self, lockdir=None):
         """lockdir should be a template holding exactly one %d."""
+        if lockdir is None:
+            lockdir = cereconf.BOFHD_REQUEST_LOCK_DIR
+        logger.debug("RequestLockHandler using lockdir '%s'" % lockdir)
         self.lockdir = lockdir
         self.lockfd = None
 
@@ -249,7 +252,12 @@ def process_requests(types):
         'mailman':
         [(const.bofh_mailman_create, proc_mailman_create, 2*60),
          (const.bofh_mailman_add_admin, proc_mailman_add_admin, 1*60),
-         (const.bofh_mailman_remove, proc_mailman_remove, 2*60)]
+         (const.bofh_mailman_remove, proc_mailman_remove, 2*60)],
+        'netapp':
+        [(const.bofh_netapp_create_quotatree, proc_netapp_create_qtree, 1*60),
+        (const.bofh_netapp_resize_quotatree, proc_netapp_resize_qtree, 1*60),
+        (const.bofh_netapp_add_export, proc_netapp_add_export, 1*60),
+        (const.bofh_netapp_remove_export, proc_netapp_remove_export, 1*60)]
         }
     """Each type (or category) of requests consists of a list of which
     requests to process.  The tuples are operation, processing function,
@@ -261,7 +269,7 @@ def process_requests(types):
     # TODO: There is no variable containing the default log directory
     # in cereconf
 
-    reqlock = RequestLockHandler('/cerebrum/var/log/cerebrum/.lock-%d')
+    reqlock = RequestLockHandler()
     br = BofhdRequests(db, const)
     for t in types:
         if t == 'move' and is_ok_batch_time(time.strftime("%H:%M")):
@@ -384,7 +392,7 @@ def email_move_child(host, r):
                      acc.account_name)
         return
     logger.debug("User being moved: '%s'.",  acc.account_name)
-    reqlock = RequestLockHandler('/cerebrum/var/log/cerebrum/.lock-%d')
+    reqlock = RequestLockHandler()
     if not reqlock.grab(r_id):
         return
     # Disable quota while copying so the move doesn't fail
@@ -1065,6 +1073,29 @@ def get_group(id, grtype="Group"):
     return group
 
 
+def proc_netapp_create_qtree(request):
+    """Create NetApp quota-tree, based on given request."""
+    logger.debug("Processing request for netapp_create_qtree: '%s'" % request)
+
+
+def proc_netapp_resize_qtree(request):
+    """Resize NetApp quota-tree, based on given request."""
+    logger.debug("Processing request for netapp_resize_qtree: '%s'" % request)
+
+
+def proc_netapp_add_export(request):
+    """Export NetApp quotatree to NFS, based on given request.."""
+    logger.debug("Processing request for netapp_add_export: '%s'" % request)
+
+
+def proc_netapp_remove_export(request):
+    """No longer export NetApp quotatree to NFS, based on given
+    requests.
+
+    """
+    logger.debug("Processing request for netapp_remove_export: '%s'" % request)
+
+
 def is_valid_request(req_id, local_db=db, local_co=const):
     # The request may have been canceled very recently
     br = BofhdRequests(local_db, local_co)
@@ -1099,7 +1130,8 @@ def main():
             max_requests = int(val)
         elif opt in ('-p', '--process'):
             if not types:
-                types = ['quarantine', 'delete', 'move', 'email', 'mailman']
+                types = ['quarantine', 'delete', 'move',
+                         'email', 'mailman', 'netapp']
             process_requests(types)
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
@@ -1128,6 +1160,7 @@ def usage(exitcode=0):
       move
       quarantine
       delete
+      netapp
 
     Needed for move_student requests:
     --ou-perspective code_str: set ou_perspective (default: perspective_fs)
