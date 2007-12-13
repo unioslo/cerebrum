@@ -108,10 +108,11 @@ class BDB:
         cursor = self.db.cursor()
         cursor.execute("SELECT k.id, g.unix_gid, g.navn as gruppenavn, \
                         k.system, b.brukernavn , s.navn as spread_name, \
-                        s.domene, s.skall as require_shell\
+                        s.domene, s.skall as require_shell, \
+                        k.sperr_status, k.badpw_status \
                         FROM person p,konto k, bruker b, gruppe g, bdb.system s \
                         WHERE p.id = b.person AND \
-                              p.personnr IS NOT NULL AND \
+                              (p.personnr IS NOT NULL) AND \
                               k.bruker = b.id AND \
                               k.gruppe = g.id AND \
                               k.system = s.id AND \
@@ -136,7 +137,11 @@ class BDB:
             if sp[6]:
                 s['domain'] = sp[6]
             if sp[7]:
-                s['require_shell'] = sp[7]
+                s['shell'] = sp[7]
+            if sp[8]:
+                s['sperret'] = sp[8[
+            if sp[9]:
+                s['badpw'] = sp[9[
             spreads.append(s)
         cursor.close()
         return spreads
@@ -176,8 +181,10 @@ class BDB:
         cursor = self.db.cursor()
         if not fdato and not pnr and not bdbid:
             cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
-                        p.fornavn, p.etternavn, p.sperret, p.forward FROM person p,bruker b \
-                        WHERE b.person = p.id and b.user_domain=1")
+                        p.fornavn, p.etternavn, p.sperret, p.forward FROM person p,bruker b, no_nin_persons n \
+                        WHERE b.person = p.id AND \
+                        b.user_domain=1 AND \
+                        (p.personnr IS NOT NULL OR (p.id = n.person AND n.utloper IS NULL)) ")
         elif bdbid:
             cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), \
                         p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward \
@@ -313,14 +320,15 @@ class BDB:
 
     def get_affiliations(self):
         cursor = self.db.cursor()
-        cursor.execute("""SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'),t.org_enhet, \
-                        t.fakultet, t.institutt, \
-                        t.tilkn_form, t.familie, f.navn, f.alltidsluttdato, k.kode \
-                        FROM tilknyttet t, person p, bruker b, tilkn_former f, ksted k\
-                        WHERE t.person = p.id AND \
+        cursor.execute("""SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'), \
+                            t.org_enhet, t.fakultet, t.institutt, t.tilkn_form, \
+                            t.familie, f.navn, f.alltidsluttdato, k.kode, b.brukernavn \
+                          FROM tilknyttet t, person p, bruker b, tilkn_former f, ksted k\
+                          WHERE t.person = p.id AND \
                               b.person = p.id AND \
                               p.personnr IS NOT NULL AND \
                               b.user_domain = 1 AND \
+                              b.status = 1 AND \
                               t.tilkn_form = f.id AND \
                               t.fakultet = k.fakultet AND \
                               t.institutt = k.institutt \
@@ -340,6 +348,7 @@ class BDB:
             aff['aff_name'] = af[8]
             aff['has_end_date'] = af[9]
             aff['ou_code'] = af[10]
+            aff['username'] = af[11]
             affiliations.append(aff)
         cursor.close()
         return affiliations
