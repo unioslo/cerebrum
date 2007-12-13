@@ -121,7 +121,7 @@
 #def welcome($lang='no')
 
 #if $vargs
-    #set $lang = $vargs['lang']
+    #set $lang = $vargs.get('lang', '')
 #end if
 
 #set $theLang = Languages($lang)
@@ -139,7 +139,11 @@ $footer()
 #def initpassword($lang='no')
 
 #if $vargs
-    #set $lang = $vargs['lang']
+    #set $lang = $vargs.get('lang', '')
+    #set $godkjent_logger = $vargs.get('godkjent_logger', '')
+    #set $pin = $vargs.get('pin', '')
+    #set $fnr = $vargs.get('fnr', '')
+    #set $studentnr= $vargs.get('studentnr', '')
 #end if
 
 #set $theLang = Languages($lang)
@@ -150,6 +154,10 @@ $header()
   <h3>$theLang.get_setpassword_header_text()</h3>
     <div>
     <input type="hidden" name="page" value="initpassword" />
+    <input type="hidden" id="accepted" name="godkjent_logger" value="$godkjent_logger" />
+    <input type="hidden" id="thepin" name="pin" value="$pin" />
+    <input type="hidden" id="fodselsnr" name="fnr" value="$fnr" />
+    <input type="hidden" id="studnr" name="studentnr" value="$studentnr" />
     <input type="hidden" id="theLang" name="lang" value="$lang" />
     </div>
     <div>
@@ -207,7 +215,10 @@ $footer()
 #def eula($lang='no')
 
 #if $vargs
-    #set $lang = $vargs['lang']
+    #set $lang = $vargs.get('lang', '')
+    #set $pin = $vargs.get('pim', '')
+    #set $fnr = $vargs.get('fnr', '')
+    #set $studentnr = $vargs.get('studentnr', '')
 #end if
 
 #set theLang = Languages($lang)
@@ -219,10 +230,10 @@ $header()
     <h3>$theLang.get_eula_header_text()</h3>
 
       <div>
-      <input type="hidden" name="page" value="eula" />
-      <input type="hidden" name="studentnr" value="631120" />
-      <input type="hidden" name="fodselsnr" value="07047646353" />
-      <input type="hidden" name="pin" value="4410" />
+      <input type="hidden" id="thepage" name="page" value="eula" />
+      <input type="hidden" id="thepin" name="pin" value="$pin" />
+      <input type="hidden" id="fodselsnr" name="fnr" value="$fnr" />
+      <input type="hidden" id="studnr" name="studentnr" value="$studentnr" />
       <input type="hidden" id="theLang" name="lang" value="$lang" />
       </div>
 
@@ -252,7 +263,8 @@ $footer()
 #def studentnr($lang='no')
 
 #if $vargs
-    #set $lang = $vargs['lang']
+    #set $lang = $vargs.get('lang', '')
+    #set $fnr = $vargs.get('fnr', '')
 #end if
 
 #set $theLang = Languages($lang)
@@ -266,18 +278,19 @@ $header()
             $theLang.get_sid_body_text()
         </div>
 
+        <div>
+            <input type="hidden" id="studnr" name="page" value="studentnr" />
+            <input type="hidden" id="fodnr" name="fnr" value="$vargs['fnr']" />
+            <input type="hidden" id="theLang" name="lang" value="$lang" />
+        </div>
         <div class="required">
 	  <label for="studentnummer">$theLang.get_sid_submit_label_text()</label>
-          <input type="text" id="studentnummer" name="studentnr" />&nbsp;
+          <input type="text" id="studentnummer" name="studentnr" />
         </div>
 
 	<div class="buttons">
             <input type="submit" name="blapp" value="$theLang.get_sid_submit_button_text()" />
 	</div>
-    <div>
-    <input type="hidden" id="studentnummer" name="page" value="studentnr" />
-    <input type="hidden" id="theLang" name="lang" value="$lang" />
-    </div>
   </form>
 </div>
 $footer()
@@ -287,6 +300,8 @@ $footer()
 
 #if $vargs
     #set $lang = $vargs['lang']
+    #set $fnr = $vargs.get('fnr', '')
+    #set $studentnr = $vargs.get('studentnr', '')
 #end if
 
 #set $theLang = Languages($lang)
@@ -299,7 +314,12 @@ $header()
         <div>
             $theLang.get_pin_body_text()
         </div>
-
+        <div>
+        <input type="hidden" id="thepage" name="page" value="pinkode" />
+        <input type="hidden" id="fodselsnr" name="fnr" value="$fnr" />
+        <input type="hidden" id="studnr" name="studentnr" value="$studentnr" />
+        <input type="hidden" id="theLang" name="lang" value="$lang" />
+        </div>
         <div class="required">
             <label for="pincode">$theLang.get_pin_submit_label_text()</label>
             <input maxlength="4" id="pincode" type="text" name="pin" />
@@ -313,11 +333,6 @@ $header()
         <div>
             $theLang.get_pin_help_text()
         </div>
-
-    <div>
-    <input type="hidden" id="thepincode" name="page" value="pinkode" />
-    <input type="hidden" id="theLang" name="lang" value="$lang" />
-    </div>
 
   </form>
 </div>
@@ -342,20 +357,21 @@ $header()
         $theLang.get_nin_body_text()
       </div>
 
+    <div>
+        <input type="hidden" id="thePage" name="page" value="fodselsnr" />
+        <input type="hidden" id="theLang" name="lang" value="$lang" />
+    </div>
+
       <div class="required">
         <label for="fnummer">$theLang.get_nin_submit_label_text()</label>
         <input maxlength="11" type="text" id="fnummer" name="fnr" />
       </div>
 
       <div class="buttons">
-        <input type="submit" id="fodselsnrok" name="blapp" value="$theLang.get_nin_submit_button_text()" />
+        <input type="submit" id="fodselsnrok" name="submit" value="$theLang.get_nin_submit_button_text()" />
       </div>
 
 
-    <div>
-    <input type="hidden" id="thefodselsnummer" name="page" value="fodselsnr" />
-    <input type="hidden" id="theLang" name="lang" value="$lang" />
-    </div>
 
   </form>
 </div>
@@ -397,7 +413,7 @@ $footer()
 #def content($lang='no')
 
 #if $vargs
-    #set $lang = $vargs['lang']
+    #set $lang = $vargs.get('lang', '')
 #end if
 
 $header()

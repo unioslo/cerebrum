@@ -108,7 +108,8 @@ cereweb.callbacks.htmlSnippet.prototype = {
  * Set the cereweb.debug variable to true to enable the YUI logger widget.
  * Useful for IE debugging.  Firebug is better though.
  */
-cereweb.debug = false;
+//cereweb.debug = false;
+//cereweb.debug = true;
 if(cereweb.debug) {
     YE.onAvailable("container", function(o) {
         var logger = cereweb.createDiv('logger');

@@ -51,7 +51,8 @@ def index(**vargs):
     tr = session.new_transaction()
     print 'post-args: %s' % vargs
     print 'session-args: %s' % cherrypy.session
-
+    currentPage = vargs.get('page', '')
+    
     try:
         page = _get_next_page(tr, **vargs)
         cherrypy.session.update(vargs)
