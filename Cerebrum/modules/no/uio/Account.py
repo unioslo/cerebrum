@@ -108,6 +108,35 @@ class AccountUiOMixin(Account.Account):
            and int(self.const.spread_ifi_nis_user) in spreads:
             self.__super.set_home(self.const.spread_ifi_nis_user, homedir_id)
 
+    def _UiO_set_spam_settings(self, email_target):
+        t_id = email_target.email_target_id
+        tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
+        # Set default spam settings iff none found on this target
+        esf = Email.EmailSpamFilter(self._db)
+        if cereconf.EMAIL_DEFAULT_SPAM_SETTINGS.has_key(tt_str):
+            if not len(cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[tt_str]) == 2:
+                raise Errors.CerebrumError, "Error in " +\
+                      "cereconf.EMAIL_DEFAULT_SPAM_SETTINGS. Expected 'key': " +\
+                      "('val', 'val')"
+            l, a = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[tt_str]
+            lvl = int(Email._EmailSpamLevelCode(l))
+            act = int(Email._EmailSpamActionCode(a))
+            try:
+                esf.find(t_id)
+            except Errors.NotFoundError:
+                esf.clear()
+                esf.populate(lvl, act, parent=email_target)
+                esf.write_db()
+        # Set default filters iff noen found on this target
+        etf = Email.EmailTargetFilter(self._db)
+        if cereconf.EMAIL_DEFAULT_FILTERS.has_key(tt_str):
+            for f in cereconf.EMAIL_DEFAULT_FILTERS[tt_str]:
+                f_id = int(Email._EmailTargetFilterCode(f))
+                etf.clear()
+                etf.populate(f_id, parent=email_target)
+                etf.write_db()
+                    
+
     def _UiO_order_cyrus_action(self, action, destination, state_data=None):
         br = BofhdRequests(self._db, self.const)
         # If there are any registered BofhdRequests for this account
@@ -178,6 +207,9 @@ class AccountUiOMixin(Account.Account):
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
+            # This is the only time a new EmailTarget is created. Set
+            # default spam and filter rules.
+            self._UiO_set_spam_settings(et)
         if old_server is None \
            or (server_type == self.const.email_server_type_cyrus
                and not is_on_cyrus):

@@ -363,6 +363,20 @@ EMAIL_SOFT_QUOTA = 90
 # whether a request should be added or not {True/False}
 EMAIL_ADD_QUOTA_REQUEST = False
 
+# When an email_target is created default spam settings should be
+# registered. Keys must be _EmailTargetCode code strings.
+# example:
+# EMAIL_DEFAULT_SPAM_SETTINGS = {'account':
+#                                ('standard_spam', 'spamfolder'),} 
+EMAIL_DEFAULT_SPAM_SETTINGS = {}
+
+# When an email_target is created default filters should be
+# registered. Keys must be _EmailTargetCode code strings.
+# example:
+# EMAIL_DEFAULT_FILTERS = {'account': ('greylist',),} 
+EMAIL_DEFAULT_FILTERS = {}
+
+
 # When an account is deleted, the e-mail addresses associated with its
 # target will be set to expire some time in the future.  When an
 # account is resurrected, any expire dates on its addresses are

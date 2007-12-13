@@ -1055,12 +1055,8 @@ class EmailTargetFilter(EmailTarget):
                          {'t_id': self.email_target_id,
                           'filter': int(self.email_target_filter_filter)})
         else:
-            self.execute("""
-            UPDATE [:table schmea=cerebrum name=email_target_filter]
-            SET filter=:filter
-            WHERE target_id=:t_id""",
-                         {'t_id': self.email_target_id,
-                          'filter': int(self.email_target_filter_filter)})
+            # Binary table. No need to update with the same info
+            pass
         del self.__in_db
         self.__in_db = True
         self.__updated = []
