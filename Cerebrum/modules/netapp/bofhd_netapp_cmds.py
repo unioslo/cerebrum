@@ -195,6 +195,7 @@ class BofhdExtension(object):
     def netapp_resize_qtree(self, operator, server, qtree, size):
         """Command for resizing a new quota-tree."""
         op = operator.get_entity_id()
+        request_parameters = "%s+%s+%s" % (server, qtree, size)
         self.br.add_request(op, DateTime.now(),
                             self.constants.bofh_netapp_resize_quotatree,
                             None, None, request_parameters)
