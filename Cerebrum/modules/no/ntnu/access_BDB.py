@@ -354,25 +354,3 @@ class BDB:
             affiliations.append(aff)
         cursor.close()
         return affiliations
-
-    def _get_ous(self, query, type):
-        cursor = self.db.cursor()
-        cursor.execute(query)
-        bdb_ous = cursor.fetchall()
-        ous = []
-        for bo in bdb_ous:
-            ou = {}
-            ou['id'] = bo[0]
-            ou['name'] = bo[1]
-            ou['acronym'] = bo[2]
-            ou['postal_address'] = bo[3]
-            ou['postal_code'] = bo[4]
-            ou['postal_city'] = bo[5]
-            ou['stedkode'] = '194' + str(bo[6])
-            if type == 'f':
-                ou['stedkode'] = ou['stedkode'][:5] + '0000'
-            elif type == 'i':
-                ou['stedkode'] = ou['stedkode'][:7] + '00'
-            ous.append(ou)
-        cursor.close()
-        return ous
