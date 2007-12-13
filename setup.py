@@ -53,15 +53,13 @@
 # testsuite/
 #   *:            Not installed
 #
-# server/
+# servers/bofhd/
 #   bofhd.py:     usr/sbin/
 #   config.dat:   etc/cerebrum/bofhd.config
 #   *.py:         usr/share/cerebrum/bofhd (site-packages/modules/bofhd better?)
 #
-# client/
+# clients/examples/
 #   bofh.py:      usr/bin
-#   config-files: etc/cerebrum/client
-#   template.ps:  usr/share/cerebrum/client
 #   passweb.py:   usr/share/cerebrum/client ?
 #
 #   As the client will be installed stand-alone on numerous machines,
@@ -69,7 +67,7 @@
 #   distribution easier.  All clients should share at least one config
 #   file
 #
-# java/jbofh/
+# clients/jbofh/
 #   jbofh.jar:    usr/share/cerebrum/client
 #   libJavaReadline.so:
 #                 usr/share/cerebrum/client/linux
@@ -227,7 +225,7 @@ class test(Command):
 class my_sdist(sdist, object):
     def finalize_options (self):
         super(my_sdist, self).finalize_options()
-        if bofh and os.system('cd java/jbofh && ant dist') != 0:
+        if bofh and os.system('cd clients/jbofh && ant dist') != 0:
             raise RuntimeError, "Error running ant"
 
 
@@ -261,27 +259,27 @@ vars.setdefault('logdir', "%s/var/log/cerebrum" % prefix) # Should be /var/log/c
 # End ugly hack
 
 sbin_files = [
-    ('server/job_runner.py', 0755),
+    ('servers/job_runner/job_runner.py', 0755),
     ('makedb.py', 0755)
 ]
 if (bofh):
-    sbin_files.append(('server/bofhd.py', 0755))
+    sbin_files.append(('servers/bofhd/bofhd.py', 0755))
 
 if (bofh):
     bin_files = [
-       ('client/bofh.py', 0755),
-       ('java/jbofh/fix_jbofh_jar.py', 0755)
+       ('clients/examples/bofh.py', 0755),
+       ('clients/jbofh/fix_jbofh_jar.py', 0755)
     ]
 else:
     bin_files = []
 
 share_files = [
-    ('client/passweb.py', 0755),
-    ('client/passweb_form.html', 0644),
-    ('client/passweb_receipt.html', 0644),
+    ('clients/examples/passweb.py', 0755),
+    ('clients/examples/passweb_form.html', 0644),
+    ('clients/examples/passweb_receipt.html', 0644),
 ]
 if (bofh):
-    jar_file = 'java/jbofh/dist/lib/JBofh.jar'
+    jar_file = 'clients/jbofh/dist/lib/JBofh.jar'
     try:
         open(jar_file)
         share_files.append((jar_file, 0644))
@@ -331,10 +329,6 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/no/Indigo/*.py', 0755)]),
-    ({'path': "%s/cerebrum/contrib/no/Indigo/web" % sharedir,
-      'owner': cerebrum_user,
-      'mode': 0755},
-     [('contrib/no/Indigo/web/*.py', 0755)]),
     ({'path': "%s/cerebrum/contrib/no/Indigo/web/templates" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
@@ -433,7 +427,7 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('design/cereconf.py', 0644),
-      ('server/config.dat', 0644),
+      ('servers/bofhd/config.dat', 0644),
       ('design/logging.ini', 0644)
       ]),
     ({'path': logdir,
