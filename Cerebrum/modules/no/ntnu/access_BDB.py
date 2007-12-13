@@ -139,9 +139,9 @@ class BDB:
             if sp[7]:
                 s['shell'] = sp[7]
             if sp[8]:
-                s['sperret'] = sp[8[
+                s['sperret'] = sp[8]
             if sp[9]:
-                s['badpw'] = sp[9[
+                s['badpw'] = sp[9]
             spreads.append(s)
         cursor.close()
         return spreads
@@ -229,7 +229,7 @@ class BDB:
                               to_char(b.utloper,'YYYY-MM-DD'), \
                               b.unix_uid, b.skall, b.standard_passord, \
                               b.id, b.status, g.unix_gid, b.nt_passord \
-                            FROM bruker b,person p, gruppe g \
+                            FROM bruker b,person p, gruppe g, no_nin_persons n \
                             WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
                               b.gruppe =  g.id AND \
@@ -241,24 +241,26 @@ class BDB:
                             to_char(b.utloper,'YYYY-MM-DD'),
                             b.unix_uid, b.skall, b.standard_passord,
                             b.id, b.status, g.unix_gid, b.nt_passord
-                            FROM bruker b,person p, gruppe g, har_hatt_pw h
+                            FROM bruker b,person p, gruppe g, har_hatt_pw h,no_nin_persons n
                             WHERE b.user_domain=1 AND
                             h.byttet > sysdate - interval '%s' minute AND
                             h.bruker = b.id AND
                             h.konto IS NULL AND
                             b.person = p.id AND
+                            (p.personnr IS NOT NULL OR (p.id=n.person AND n.utloper IS NULL)) AND 
                             b.gruppe =  g.id 
                            """ % int(last))
                               
         else:
-            cursor.execute("SELECT b.passord_type, b.gruppe, b.person, \
+            cursor.execute("SELECT DISTINCT b.passord_type, b.gruppe, b.person, \
                               b.brukernavn, to_char(b.siden,'YYYY-MM-DD'), \
                               to_char(b.utloper,'YYYY-MM-DD'),  \
                               b.unix_uid, b.skall, b.standard_passord, \
                               b.id, b.status, g.unix_gid, b.nt_passord \
-                            FROM bruker b,person p, gruppe g \
+                            FROM bruker b,person p, gruppe g,no_nin_persons n\
                             WHERE b.user_domain=1 AND \
                               b.person = p.id AND \
+                             (p.personnr IS NOT NULL OR (p.id=n.person AND n.utloper IS NULL)) AND \
                               b.gruppe =  g.id ") 
         # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
