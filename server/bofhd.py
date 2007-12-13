@@ -900,7 +900,8 @@ if __name__ == '__main__':
         usage()
         sys.exit()
         
-    logger.info("Server starting at port: %d" % port)
+    logger.info("Server connected to DB '%s' starting at port: %d" %
+                (cereconf.CEREBRUM_DATABASE_NAME, port))
     if multi_threaded:
         db = ProxyDBConnection(Utils.Factory.get('Database'))
     else:
