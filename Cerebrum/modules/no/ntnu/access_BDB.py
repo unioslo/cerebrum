@@ -358,15 +358,21 @@ class BDB:
     def get_email_aliases(self):
         cursor = self.db.cursor()
         cursor.execute("""
-            SELECT DISTINCT e.id,e.person,b.brukernavn,e.alias,e.mail_domain
-            FROM aliases e,person p,bruker b,no_nin_persons n
+            SELECT DISTINCT e.id,
+                            e.person,
+                            b.brukernavn,
+                            e.alias,
+                            e.mail_domain,
+                            d.navn
+            FROM aliases e,person p,bruker b,no_nin_persons n,mail_domain d
             WHERE
                 b.user_domain = 1 AND
                 b.person = p.id AND
                 (p.personnr IS NOT NULL OR 
                  (n.person = p.id AND n.utloper IS NULL)
                 ) AND 
-                p.id = e.person
+                p.id = e.person AND
+                e.mail_domain = d.id
         """)
         aliases = []
         bdb_aliases = cursor.fetchall()
@@ -377,6 +383,7 @@ class BDB:
             al['username'] = a[2]
             al['alias'] = a[3]
             al['domain'] = a[4]
+            al['domainname'] = a[5]
             aliases.append(al)
         cursor.close()
         return aliases
