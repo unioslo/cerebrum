@@ -21,7 +21,7 @@
 
 from ceresync import errors
 from ceresync import sync
-import ceresync.backend.kerberos kerberosbackend
+import ceresync.backend.kerberos as kerberosbackend
 from ceresync import config
 import traceback
 from getopt import getopt
