@@ -32,7 +32,7 @@ from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupEditTemplate import GroupEditTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
-from SpineIDL.Errors import NotFoundError, AlreadyExistsError
+from SpineIDL.Errors import NotFoundError, AlreadyExistsError, ValueError
 
 def search_form(remembered):
     page = GroupSearchTemplate()
@@ -186,15 +186,17 @@ def make(transaction, name, expire="", description=""):
             msg=_("Expire-date is not a legal date.")
     if not msg:
         commands = transaction.get_commands()
-        group = commands.create_group(name)
-
+        try:
+            group = commands.create_group(name)
+        except ValueError, e:
+            msg = _("Group '%s' already exists.") % name
+    if not msg:    
         if expire:
             expire = commands.strptime(expire, "%Y-%m-%d")
             group.set_expire_date(expire)
 
         if description:
             group.set_description(description)
-    
         commit(transaction, group, msg=_("Group successfully created."))
     else:
         rollback_url('/group/create', msg, err=True)
