@@ -1162,6 +1162,22 @@ class BDBSync:
         else:
             self.db.commit()
 
+    def sync_email_aliases(self):
+        if verbose:
+            print "Fetching email aliases from BDB"
+        aliases = self.bdb.get_email_aliases()
+        for alias in aliases:
+            self._sync_email_address(alias,is_alias=True)
+        if dryrun:
+            if verbose:
+                print "Rolling back changes on email addresses"
+            self.db.rollback()
+        else:
+            if verbose:
+                print "Commiting changes on email addresses"
+            self.db.commit()
+        return
+
     def sync_email_addresses(self):
         if verbose:
             print "Fetching email addresses from BDB"
@@ -1170,15 +1186,15 @@ class BDBSync:
             self._sync_email_address(address)
         if dryrun:
             if verbose:
-                "Rolling back changes on email addresses"
+                print "Rolling back changes on email addresses"
             self.db.rollback()
         else:
             if verbose:
-                "Commiting changes on email addresses"
+                print "Commiting changes on email addresses"
             self.db.commit()
         return
 
-    def _sync_email_address(self,address):
+    def _sync_email_address(self,address,is_alias=False):
         self.logger.info( "Processing %s@%s" % (address.get('email_address'),address.get('email_domain_name')))
 
         person = self.new_person
@@ -1211,6 +1227,7 @@ class BDBSync:
             # Shouldn't need this try-clause.. wtf
             try:
                 # Populate a new EmailTarget for this Account
+                # Need to specify difference from email-account and email-alias?
                 et.populate(co.email_target_account, ac.entity_id, ac.entity_type)
                 # Need to write it to the db before we can use it.
                 op = et.write_db()
@@ -1229,8 +1246,15 @@ class BDBSync:
         try:
             ea.find_by_address(_address)
         except Errors.NotFoundError:
-            ea.populate(address.get('email_address'), ed.email_domain_id, et.email_target_id)
-            ea.write_db()
+            try:
+                ea.populate(address.get('email_address'), ed.email_domain_id, et.email_target_id)
+                ea.write_db()
+            except self.db.IntegrityError,ie:
+                print "Writing alias %s@%s failed for user %s. Reason: %s" % (address.get('email_address'),
+                                                                              address.get('email_domain'),
+                                                                              address.get('username'),
+                                                                              str(ie))
+                self.db.rollback()
         if dryrun:
             self.db.rollback()
         else:
@@ -1248,10 +1272,11 @@ def usage():
         --people    (-p) Syncronize persons
         --group     (-g) Syncronise posixGrourp
         --account   (-a) Syncronize posixAccounts
-        --spread    (-s) Synronize account-spreads
+        --spread    (-s) Syncronize account-spreads
         --affiliations (-t)   Syncronize affiliations on persons
         --email_domains       Syncronize email-domains
         --email_address (-e)  Syncronize email-addresses
+        --email_alias    Syncronize email aliases
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
 
@@ -1266,7 +1291,7 @@ def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
                     'dptgasvhe',
-                    ['password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','compare-people', 'verbose','help'])
+                    ['email_alias','password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','compare-people', 'verbose','help'])
 
     sync = BDBSync()
     if (('--password-only','')) in opts:
@@ -1320,6 +1345,8 @@ def main():
         elif opt in ('--accountname',):
             print "Syncronizing account: %s" % val
             sync.sync_accounts(username=val,password_only=_password_only,add_missing=True)
+        elif opt in ('--email_alias',):
+            sync.sync_email_aliases()
         else:
             usage()
 
