@@ -381,9 +381,9 @@ class BDB:
             al['id'] = a[0]
             al['person'] = a[1]
             al['username'] = a[2]
-            al['alias'] = a[3]
+            al['email_address'] = a[3]
             al['domain'] = a[4]
-            al['domainname'] = a[5]
+            al['email_domain_name'] = a[5]
             aliases.append(al)
         cursor.close()
         return aliases
