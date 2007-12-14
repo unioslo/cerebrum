@@ -2556,7 +2556,7 @@ class BofhdExtension(object):
         ("email", "move"),
         AccountName(help_ref="account_name", repeat=True),
         SimpleString(help_ref='string_email_host'),
-        SimpleString(help_ref='string_email_move_type', optional=True),
+        SimpleString(help_ref='string_email_move_type'),
         Date(optional=True),
         perm_filter='can_email_move')
     def email_move(self, operator, uname, server, move_type='file', when=None):
@@ -2569,10 +2569,16 @@ class BofhdExtension(object):
         es.find_by_name(server)
         if old_server == es.entity_id:
             raise CerebrumError, "User is already at %s" % server
+
+        # Explicitly check if move_type is 'file' or 'nofile'. Abort if it isn't
         if move_type == 'nofile':
             et.email_server_id = es.entity_id
             et.write_db()
             return "OK, updated e-mail server for %s (to %s)" % (uname, server)
+        elif not move_type == 'file':
+            raise CerebrumError, ("Unknown move_type '%s'; must be "
+                                  "either 'file' or 'nofile'" % move_type)
+        
         if when is None:
             when = DateTime.now()
         else:
