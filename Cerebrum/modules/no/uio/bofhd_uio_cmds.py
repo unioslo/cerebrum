@@ -2556,7 +2556,7 @@ class BofhdExtension(object):
         ("email", "move"),
         AccountName(help_ref="account_name", repeat=True),
         SimpleString(help_ref='string_email_host'),
-        SimpleString(help_ref='string_email_move_type'),
+        SimpleString(help_ref='string_email_move_type', optional=True),
         Date(optional=True),
         perm_filter='can_email_move')
     def email_move(self, operator, uname, server, move_type='file', when=None):
