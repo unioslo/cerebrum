@@ -268,7 +268,7 @@ def write_ldif():
             # Filters
             if ldap.targ2filter.has_key(t):
                 for a in ldap.targ2filter[t]:
-                    f.write("emailFilter: %s\n" % a)
+                    f.write("mailFilter: %s\n" % a)
                 
             # Find virus-setting:
             if ldap.targ2virus.has_key(t):
