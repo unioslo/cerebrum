@@ -86,6 +86,10 @@ command_help = {
         "Add an alias address",
     "email_remove_address":
         "Remove an alias address",
+    "email_add_filter":
+        "Add a target filter",
+    "email_remove_filter":
+        "Remove target_filter",
     "email_reassign_address":
         "Move an address from one account to another",
     "email_update":
@@ -552,7 +556,6 @@ printer."""],
     'spam_action':
         ['spam action', 'Enter spam action',
           """Choose one of
-          'greylist'    Reject messages classified as spam, delay unknown servers
           'dropspam'    Reject messages classified as spam
           'spamfolder'  Deliver spam to a separate IMAP folder
           'noaction'    Deliver spam just like legitimate email"""],
@@ -591,6 +594,13 @@ printer."""],
          """Legal move types:
             - file
             - nofile"""],
+    'string_email_filter':
+        ['email_filter', 'Enter e-mail filter type',
+         """Legal filter types:
+            - greylist"""],
+    'string_email_target_name':
+        ['email_target_name', 'Enter e-mail target name',
+         """Target name should be a valid e-mail address"""],
     'string_filename':
         ['filename', 'Enter filename'],
     'string_group_filter':
