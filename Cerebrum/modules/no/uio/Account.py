@@ -78,11 +78,13 @@ class AccountUiOMixin(Account.Account):
         if spread == self.const.spread_uio_imap:
             # Unless this account already has been associated with an
             # Cyrus EmailTarget, we need to do so.
-            et = self._UiO_update_email_server(
-                self.const.email_server_type_cyrus)
+            et = self._UiO_update_email_server(self.const.email_server_type_cyrus)
 
             self._UiO_order_cyrus_action(self.const.bofh_email_create,
                                          et.email_server_id)
+            # register default spam and filter settings
+            self._UiO_default_spam_settings(et)
+            self._UiO_default_filter_settings(et)
             # The user's email target is now associated with an email
             # server; try generating email addresses connected to the
             # target.
@@ -108,10 +110,25 @@ class AccountUiOMixin(Account.Account):
            and int(self.const.spread_ifi_nis_user) in spreads:
             self.__super.set_home(self.const.spread_ifi_nis_user, homedir_id)
 
-    def _UiO_set_spam_settings(self, email_target):
+    def _UiO_default_filter_settings(self, email_target):
         t_id = email_target.email_target_id
         tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
-        # Set default spam settings iff none found on this target
+        # Set default filters if none found on this target
+        etf = Email.EmailTargetFilter(self._db)
+        if cereconf.EMAIL_DEFAULT_FILTERS.has_key(tt_str):
+            for f in cereconf.EMAIL_DEFAULT_FILTERS[tt_str]:
+                f_id = int(Email._EmailTargetFilterCode(f))
+                try:
+                    etf.find(t_id, f_id)
+                except Errors.NotFoundError:
+                    etf.clear()
+                    etf.populate(f_id, parent=email_target)
+                    etf.write_db()
+        
+    def _UiO_default_spam_settings(self, email_target):
+        t_id = email_target.email_target_id
+        tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
+        # Set default spam settings if none found on this target
         esf = Email.EmailSpamFilter(self._db)
         if cereconf.EMAIL_DEFAULT_SPAM_SETTINGS.has_key(tt_str):
             if not len(cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[tt_str]) == 2:
@@ -127,15 +144,6 @@ class AccountUiOMixin(Account.Account):
                 esf.clear()
                 esf.populate(lvl, act, parent=email_target)
                 esf.write_db()
-        # Set default filters iff noen found on this target
-        etf = Email.EmailTargetFilter(self._db)
-        if cereconf.EMAIL_DEFAULT_FILTERS.has_key(tt_str):
-            for f in cereconf.EMAIL_DEFAULT_FILTERS[tt_str]:
-                f_id = int(Email._EmailTargetFilterCode(f))
-                etf.clear()
-                etf.populate(f_id, parent=email_target)
-                etf.write_db()
-                    
 
     def _UiO_order_cyrus_action(self, action, destination, state_data=None):
         br = BofhdRequests(self._db, self.const)
@@ -207,9 +215,6 @@ class AccountUiOMixin(Account.Account):
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-            # This is the only time a new EmailTarget is created. Set
-            # default spam and filter rules.
-            self._UiO_set_spam_settings(et)
         if old_server is None \
            or (server_type == self.const.email_server_type_cyrus
                and not is_on_cyrus):
@@ -309,7 +314,6 @@ class AccountUiOMixin(Account.Account):
             self._UiO_order_cyrus_action(self.const.bofh_email_delete,
                                          et.email_server_id)
             # TBD: should we also perform a "cascade delete" from EmailTarget?
-
         #
         # (Try to) perform the actual spread removal.
         ret = self.__super.delete_spread(spread)
