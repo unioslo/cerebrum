@@ -1087,7 +1087,7 @@ class EmailTargetFilter(EmailTarget):
         DELETE FROM [:table schema=cerebrum name=email_target_filter]
         WHERE target_id=:t_id AND filter=:filter""",
                             {'t_id': self.email_target_id,
-                             'forward': filter})
+                             'filter': filter})
             
     def list_email_target_filter(self, target_id=None, filter=None):
         """List all registered email_target_filters, filtered on target_id
