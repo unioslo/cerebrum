@@ -1141,6 +1141,8 @@ class BofhdExtension(object):
         #
         ("Spam level:       %s (%s)\nSpam action:      %s (%s)",
          ("spam_level", "spam_level_desc", "spam_action", "spam_action_desc")),
+        ("Filters:          %s",
+         ("filters",)),
         ]))
     def email_info(self, operator, uname):
         et, acc = self.__get_email_target_and_account(uname)
@@ -1200,6 +1202,7 @@ class BofhdExtension(object):
             ret += self._email_info_spam(et)
             ret += self._email_info_detail(acc)
             ret += self._email_info_forwarding(et, addrs)
+            ret += self._email_info_filters(et)
         return ret
 
     def __get_valid_email_addrs(self, et, special=False, sort=False):
@@ -1245,6 +1248,18 @@ class BofhdExtension(object):
             pass
         return info
 
+    def _email_info_filters(self, target):
+        filters = []
+        info ={}
+        etf = Email.EmailTargetFilter(self.db)
+        for f in etf.list_email_target_filter(target_id=target.email_target_id):
+            filters.append(str(Email._EmailTargetFilterCode(f['filter'])))
+        if len(filters) > 0: 
+            info["filters"] =  ", ".join([x for x in filters]),
+        else:
+            info["filters"] = "None"
+        return [ info ]
+            
     def _email_info_detail(self, acc):
         info = []
         eq = Email.EmailQuota(self.db)
@@ -1358,6 +1373,7 @@ class BofhdExtension(object):
         addrs = self.__get_valid_email_addrs(et, sort=True)
         ret += self._email_info_spam(et)
         ret += self._email_info_forwarding(et, addrs)
+        ret += self._email_info_filters(et)
         aliases = []
         for r in et.get_addresses():
             a = "%(local_part)s@%(domain)s" % r
@@ -1950,6 +1966,31 @@ class BofhdExtension(object):
             raise CerebrumError, "Forward address added already (%s)" % addr
         return "OK, created forward address '%s'" % localaddr
 
+    # helper-func, register spam settings
+    def _register_list_spam_settings(self, listname):
+        email_target, addr = self.__get_email_target_and_address(listname)
+        esf = Email.EmailSpamFilter(self.db)        
+        target_type = str(self.const.email_target_Mailman)
+        if cereconf.EMAIL_DEFAULT_SPAM_SETTINGS.has_key(target_type):
+            sl, sa = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[target_type]
+            spam_level = int(Email._EmailSpamLevelCode(sl))
+            spam_action = int(Email._EmailSpamActionCode(sa))
+            esf.clear()
+            esf.populate(spam_level, spam_action, parent=email_target)
+            esf.write_db()
+            
+    # helper-func, register filter settings
+    def _register_list_filter_settings(self, listname):
+        email_target, addr = self.__get_email_target_and_address(listname)
+        etf = Email.EmailTargetFilter(self.db)
+        target_type = str(self.const.email_target_Mailman)
+        if cereconf.EMAIL_DEFAULT_FILTERS.has_key(target_type):
+            for f in cereconf.EMAIL_DEFAULT_FILTERS[target_type]:
+                filter_code = int(Email._EmailTargetFilterCode(f))
+                etf.clear()
+                etf.populate(filter_code, parent=email_target)
+                etf.write_db()
+                
     # email create_list <list-address> [admin,admin,admin]
     all_commands['email_create_list'] = Command(
         ("email", "create_list"),
@@ -1986,7 +2027,11 @@ class BofhdExtension(object):
                 raise CerebrumError, "%s is an existing username" % lp
         if not (self._is_ok_mailman_name(lp) or self.ba.is_postmaster(op)):
             raise CerebrumError, "Illegal mailing list name: %s" % listname
+        # register all relevant addresses for the list
         self._register_list_addresses(listname, lp, dom)
+        # register auto spam and filter settings for the list
+        self._register_list_spam_settings(listname)
+        self._register_list_filter_settings(listname)
         if admins:
             br = BofhdRequests(self.db, self.const)
             ea.clear()
@@ -2056,7 +2101,6 @@ class BofhdExtension(object):
             for addr_format in self._interface2addrs[iface]:
                 addr = addr_format % {'local_part': lp,
                                       'domain': dom}
-                print addr
                 try:
                     ea.clear()
                     ea.find_by_address(addr)
@@ -2228,7 +2272,6 @@ class BofhdExtension(object):
                         epat.populate(ea.email_addr_id, parent=et)
                         epat.write_db()
                     found_target = True
-
 
     # email create_multi <multi-address> <group>
     all_commands['email_create_multi'] = Command(
@@ -2696,6 +2739,44 @@ class BofhdExtension(object):
                                acc.entity_id, None)
         return "OK, set quota for '%s'" % uname
 
+    # email add_filter filter address
+    all_commands['email_add_filter'] = Command(
+        ('email', 'add_filter'),
+        SimpleString(help_ref='string_email_filter'),
+        SimpleString(help_ref='string_email_target_name', repeat="True"),
+        perm_filter='is_postmaster')
+    def email_add_filter(self, operator, filter, address):
+        """Add a filter to an existing e-mail target"""
+        etf = Email.EmailTargetFilter(self.db)
+        filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
+        et, addr = self.__get_email_target_and_address(address)
+        try:
+            etf.find(et.email_target_id, filter_code)
+        except Errors.NotFoundError:
+            etf.clear()
+            etf.populate(filter_code, parent=et)
+            etf.write_db()
+        return "Ok, registered filter %s for %s" % (filter, address)
+
+    # email remove_filter filter address
+    all_commands['email_remove_filter'] = Command(
+        ('email', 'remove_filter'),
+        SimpleString(help_ref='string_email_filter'),
+        SimpleString(help_ref='string_email_target_name', repeat="True"),
+        perm_filter='is_postmaster')
+    def email_remove_filter(self, operator, filter, address):
+        etf = Email.EmailTargetFilter(self.db)
+        filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
+        et, addr = self.__get_email_target_and_address(address)
+        try:
+            etf.find(et.email_target_id, filter_code)
+        except Errors.NotFoundError:
+            raise CerebrumError, ("Could not find filter %s for target %s") % (filter,
+                                                                               address)
+        etf.disable_email_target_filter(filter_code)
+        etf.write_db()
+        return "Ok, removed filter %s for %s" % (filter, address)
+    
     # email spam_level <level> <uname>+
     all_commands['email_spam_level'] = Command(
         ('email', 'spam_level'),
