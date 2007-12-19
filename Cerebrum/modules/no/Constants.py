@@ -79,6 +79,10 @@ class ConstantsHigherEdu(Constants.Constants):
         affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
         affiliation_ansatt, 'tekadm', 'Tekniske/administrative ansatte')
+
+    spread_ldap_group = _SpreadCode(
+        'group@ldap', Constants.Constants.entity_group,
+        'Gruppen eksporteres til gruppetreet i LDAP')
     
 
 class ConstantsUniversityColleges(Constants.Constants):
