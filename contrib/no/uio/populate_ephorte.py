@@ -128,7 +128,7 @@ class PopulateEphorte(object):
         for row in pe.list_affiliations(source_system=co.system_sap,
                                         affiliation=co.affiliation_ansatt):
             ou_id = int(row['ou_id'])
-            while ou_id is not None and ou_id not in self.known_ephorte_ou:
+            if ou_id is not None and ou_id not in self.known_ephorte_ou:
                 if not ou_id in non_ephorte_ous:
                     non_ephorte_ous.append(ou_id)
                     logger.debug("OU %s is not an ePhorte OU. Try parent: %s" % (
@@ -138,7 +138,7 @@ class PopulateEphorte(object):
             # No ePhorte OU found. Log a warning
             # Her kunne vi valgt å plasere personen på root-noden
             # (900199), men det ønsker vi ikke(?)
-            if ou_id is None:
+            if ou_id is None or ou_id not in self.known_ephorte_ou:
                 logger.warn("Failed mapping '%s' to known ePhorte OU. " %
                             self.ouid2sko[int(row['ou_id'])] + 
                             "Skipping affiliation %s@%s for person %s" % (
