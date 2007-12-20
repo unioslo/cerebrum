@@ -229,7 +229,7 @@ class Fronter(object):
         - kull:    kull:realmas:høst:2007
 
         NB! Multiple-semester entities are a bit tough, since terminnr part of
-        the key has to be ignored on occations. However, the key for such
+        the key has to be ignored on occasions. However, the key for such
         entities will nonetheless contain terminnr.
 
         @type name: basestring
