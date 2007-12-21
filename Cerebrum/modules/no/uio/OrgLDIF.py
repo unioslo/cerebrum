@@ -125,11 +125,19 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
         self.ownerid2urnlist = pickle.load(file(fn))
         timer("...person courses done.") 
 
+    def init_person_groups(self):
+        """Populate dicts with a person's group information."""
+        timer = self.make_timer("Processing person groups...")
+        fn = "/cerebrum/dumps/LDAP/personid2group.pickle"
+        self.person2group = pickle.load(file(fn))
+        timer("...person groups done.") 
+
     def init_person_dump(self, use_mail_module):
         """Suplement the list of things to run before printing the
         list of people."""
         self.__super.init_person_dump(use_mail_module)
         self.init_person_course()
+        self.init_person_groups()
 
     def init_person_titles(self):
         # Change from original: Search titles first by system_lookup_order,
@@ -152,5 +160,8 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             return dn, entry, alias_info
         if self.ownerid2urnlist.has_key(p_id):
             entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
+        if self.person2group.has_key(p_id):
+            entry['member'] = self.person2group[p_id]
+                
         return dn, entry, alias_info
 # arch-tag: e13d2650-dd88-4cac-a5fb-6a7cc6884914
