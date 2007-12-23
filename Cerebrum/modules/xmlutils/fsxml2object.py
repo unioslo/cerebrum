@@ -35,6 +35,8 @@ from Cerebrum.modules.xmlutils.xml2object import \
 class FSOU(DataOU):
     """Class for representing FS-specific information about OUs."""
 
+    # magic number + geographical code (forretningsområdekode), where
+    # applicable. This magic key is registered in FS, rather than SAP.
     NO_SAP_ID    = "sap-ou-id"
     
     def validate_id(self, kind, value):
