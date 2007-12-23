@@ -409,6 +409,11 @@ automatically generated from FS.''')
         'ac_generation', Constants.Constants.entity_account,
         "When a users homedir is archived, this value is increased.")
 
+    trait_auto_group = _EntityTraitCode(
+        'auto_group',
+        Constants.Constants.entity_group,
+        "Trait marking automatically administrated groups.")
+
     # bofhd constants
     auth_rt_create = _AuthRoleOpCode(
         'rt_create', 'Create e-mail target for Request Tracker')
