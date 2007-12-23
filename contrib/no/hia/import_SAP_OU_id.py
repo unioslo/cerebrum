@@ -124,7 +124,18 @@ def process_OUs(db, parser):
                 != -1):
                 logger.error("Attempt to insert duplicate key «%s-%s»",
                              orgeh, gsber)
+                # IVR 2007-12-23: This one is rather interesting -- if we
+                # attempt to insert a duplicate and trip an integrity
+                # constraint in the database, at least for some autocommit
+                # values, the database will refuse further writes until the
+                # end of the transaction (!). This means that even properly
+                # formatted OUs, following a failed one, will fail, if we do
+                # not abort the transaction here.
+                db.rollback()
             else:
+                # If an update failed (for any reason), it makes to abort the
+                # transaction (see above).
+                db.rollback()
                 logger.exception("Failed writing SAP id «%s-%s» to the db",
                                  orgeh, gsber)
         else:
