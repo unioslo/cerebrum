@@ -38,6 +38,19 @@ A few salient points:
 
 * Some groups have people as members (person_ids); others have other automatic
   groups as members.
+
+* ansatt@<sko>, ansatt_vitenskapelig@<sko>, ansatt_tekadm@<sko>,
+  ansatt_bilag@<sko> have person_id as members. The contain the employees (of
+  the given type) at the specified OU. If a person_id is a member of
+  ansatt_vitenskapelig, ansatt_tekadm or ansatt_bilag, (s)he is also a member
+  of ansatt@<sko>.
+
+* alle_ansatte@<sko1> are 'metagroups' in a sense. They contain other employee
+  groups (specifically ansatt@<sko2>, where sko2 is a child of sko1 in the
+  specified hierarchy). At the very least alle_ansatte@<sko1> will have one
+  member -- ansatt@<sko1>. Should sko1 have any child OUs with employees, the
+  for each such child OU sko2, alle_ansatte@<sko1> will have a member
+  ansatt@<sko2>.
 """
 
 import getopt
