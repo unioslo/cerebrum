@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""This script loads organizational units data from various DBs into
+"""This script loads organizational units data from various sources into
 Cerebrum.
 
 Specifically, XML input file with information about OUs is processed and
