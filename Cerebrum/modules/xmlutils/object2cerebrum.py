@@ -430,7 +430,7 @@ class XML2Cerebrum:
         # If a special dict has been defined in cereconf, try to assign a
         # spread to this OU.
         if (hasattr(cereconf, "OU_USAGE_SPREAD") and
-            hasattr(xmlou.get_name(xmlou.NAME_USAGE_AREA))):
+            xmlou.get_name(xmlou.NAME_USAGE_AREA)):
             usage2spread = cereconf.OU_USAGE_SPREAD
             ou_usage = xmlou.get_name(xmlou.NAME_USAGE_AREA)
 
