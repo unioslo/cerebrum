@@ -384,6 +384,7 @@ class DataOU(DataEntity):
     NAME_ACRONYM = "acronym"
     NAME_SHORT   = "short"
     NAME_LONG    = "long"
+    NAME_USAGE_AREA = "usage area"
 
     def __init__(self):
         super(DataOU, self).__init__()

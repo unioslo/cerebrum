@@ -200,6 +200,10 @@ class XMLOU2Object(XMLEntity2Object):
 
         result = DataOU()
 
+        # IVR 2007-12-24 FIXME: One of the attributes is special, and tags the
+        # OU's intended usage code (bruksområde). Find out which attribute
+        # this is.
+
         # Iterate over *all* subelements
         for sub in element.getiterator():
             value = None

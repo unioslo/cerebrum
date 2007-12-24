@@ -423,6 +423,27 @@ class XML2Cerebrum:
                                      contact_pref = contact.priority)
         # od
         op = ou.write_db()
+
+        # Before we can give a spread, we need an entity_id. Thus, this
+        # operation happens after the first write_db().
+        #
+        # If a special dict has been defined in cereconf, try to assign a
+        # spread to this OU.
+        if (hasattr(cereconf, "OU_USAGE_SPREAD") and
+            hasattr(xmlou.get_name(xmlou.NAME_USAGE_AREA))):
+            usage2spread = cereconf.OU_USAGE_SPREAD
+            ou_usage = xmlou.get_name(xmlou.NAME_USAGE_AREA)
+
+            if ou_usage in usage2spread:
+                try:
+                    spread = int(const.Spread(usage2spread[ou_usage]))
+                    if not ou.has_spread(spread):
+                        ou.add_spread(spread)
+                        op2 = ou.write_db()
+                        op = op or op2
+                except Errors.NotFoundError:
+                    self.logger.warn("Will not add unknown spread %s to ou_id=%s",
+                                     usage2spread[ou_usage], ou.entity_id)
         
         if op is None:
             status = "EQUAL"
@@ -435,10 +456,3 @@ class XML2Cerebrum:
         return status, ou.entity_id
     # end store_ou
 # end XML2Cerebrum
-        
-        
-        
-
-
-# arch-tag: 67a1b79a-6600-4e09-aaaf-41c1f4dc4d40
-
