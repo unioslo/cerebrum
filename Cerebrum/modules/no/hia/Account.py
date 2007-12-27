@@ -60,12 +60,9 @@ class AccountHiAMixin(Account.Account):
             return
         # if an account email_target without email_server is found assign
         # the appropriate server
-        est = Email.EmailServerTarget(self._db)
-        try:
-            est.find(et.email_target_id)
-        except Errors.NotFoundError:
+        if not et.email_server_id:
             if self.get_account_types() or self.owner_type == self.const.entity_group:
-                est = self._update_email_server()
+                et = self._update_email_server()
             else:
                 # do not set email_server_target until account_type is registered
                 return
@@ -141,7 +138,6 @@ class AccountHiAMixin(Account.Account):
 
     # TODO: check this method, may probably be done better
     def _update_email_server(self):
-        est = Email.EmailServerTarget(self._db)
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
         if self.is_employee() or self.is_affiliate():
@@ -159,15 +155,10 @@ class AccountHiAMixin(Account.Account):
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-        try:
-            est.find_by_entity(self.entity_id)
-            if est.server_id == es.entity_id:
-                return est
-        except:
-            est.clear()
-            est.populate(es.entity_id, parent = et)
-            est.write_db()
-        return est
+        if not et.email_server_id:
+            et.email_server_id=es.entity_id
+            et.write_db()
+        return et
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
