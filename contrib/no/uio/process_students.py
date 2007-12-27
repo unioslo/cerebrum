@@ -1108,6 +1108,7 @@ def make_letters(data_file=None, type=None, range=None):
                 logger.info("Not sending abroad: %s" % dta[order_by][account_id]['uname'])
                 continue
         printer = cereconf.PRINT_PRINTER
+        letter_dir = cereconf.AUTOADMIN_PRINT_LETTER_DIRECTORY
         if brev_profil.has_key('printer'):
             printer = brev_profil['printer']
         letter_type = "%s-%s.%s" % (brev_profil['mal'], printer, brev_profil['type'])
@@ -1115,7 +1116,7 @@ def make_letters(data_file=None, type=None, range=None):
             files[letter_type] = file("letter-%i-%s" % (time(), letter_type), "w")
             printers[letter_type] = printer
             tpls[letter_type] = TemplateHandler(
-                'no_NO/letter', brev_profil['mal'], brev_profil['type'])
+                letter_dir, brev_profil['mal'], brev_profil['type'])
             if tpls[letter_type]._hdr is not None:
                 files[letter_type].write(tpls[letter_type]._hdr)
             counters[letter_type] = 1
