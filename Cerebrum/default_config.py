@@ -308,6 +308,9 @@ AUTOADMIN_LOG_DIR='.'     # Set to a place where only 'cerebrum' has write acces
 # registered (if =True letters are produced)
 AUTOADMIN_MAKE_ABROAD_LETTERS=False
 
+# directory where the letter templates used by proc_stud are found
+AUTOADMIN_PRINT_LETTER_DIRECTORY='no_NO/letter'
+
 # Socket used to query the job-runner server, should not be writeable by untrusted users
 JOB_RUNNER_SOCKET="/tmp/jr-socket"
 
