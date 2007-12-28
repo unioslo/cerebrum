@@ -148,8 +148,17 @@ class XMLOU2Object(XMLEntity2Object):
                 result.add_contact(DataContact(kind, value, priority))
                 priority += 1
 
-        assert result.get_id(result.NO_SKO)
-        assert result.get_name(result.NAME_LONG)
+        # We require a sko from FS ...
+        if not result.get_id(result.NO_SKO):
+            self.logger.warn("OU %s is missing stedkode. Skipped",
+                             list(ou.iterids()))
+            return None
+
+        # ... and a name
+        if not result.get_name(result.NAME_LONG):
+            self.logger.warn("OU %s is missing name. Skipped",
+                             list(ou.iterids()))
+            return None
 
         return result
     # end next_object
