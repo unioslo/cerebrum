@@ -366,7 +366,7 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                 # rettigheter til flersemesterkursets rom, selv om
                 # dette på det tidspunktet fortsatt ligger i
                 # korridoren for inneværende semester.
-                register_room('%s (ver %s, %d. termin, %s, %s)' % (emnekode.upper(),
+                register_room('%s (ver %s, %d. termin, %s %s)' % (emnekode.upper(),
                                                                    versjon,
                                                                    int(terminnr),
                                                                    ar,
@@ -405,10 +405,12 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                     rettighet = fronter_lib.Fronter.ROLE_DELETE
                 else:
                     raise RuntimeError, "Ukjent kategori: %r" % (kategori,)
-                title += '%s (ver %s, %d. termin)' % (
+                title += '%s (ver %s, %d. termin, %s %s)' % (
                     subg_name_el[6].upper(), # EMNEKODE
                     subg_name_el[7],    # VERSJONSKODE
-                    int(subg_name_el[8])) # TERMINNR
+                    int(subg_name_el[8]), # TERMINNR
+                    subg_name_el[4], #ARSTALL
+                    subg_name_el[5]) # TERMINKODE
                 fronter_gname = ':'.join(subg_name_el)
                 register_group(title, fronter_gname, parent_id,
                                allow_contact=True)
