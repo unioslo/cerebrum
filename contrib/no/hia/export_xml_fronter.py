@@ -83,9 +83,8 @@ def init_globals():
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
 
-    host_profiles = {'hia': {'emnerom': 1520,
-                             # FIXME: dette er ren gjetting
-                             'evukursrom' : 1520,
+    host_profiles = {'hia': {'emnerom': 2696,
+                             'evukursrom' : 2696,
                              'studieprogram': 1521},
                      'hia2': {'emnerom': 42,
                               'evukursrom' : 42,
