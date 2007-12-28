@@ -326,6 +326,7 @@ class group_tree(object):
                         self.name(),
                         description=self.description())
             gr.write_db()
+            logger.debug("Created group %s", self.name())
             return gr
 
     def group_creator(self):
@@ -448,8 +449,7 @@ class fs_undenh_3(fs_undenh_group):
 
     def __init__(self, parent, ue):
         super(fs_undenh_3, self).__init__(parent)
-        self._prefix = (ue['emnekode'], ue['versjonskode'], ue['terminnr'],
-                        ue['terminkode'], ue['arstall'])
+        self._prefix = (ue['emnekode'], ue['versjonskode'], ue['terminnr'])
         multi_id = ":".join([str(x)
                              for x in(ue['institusjonsnr'], ue['emnekode'],
                                       ue['arstall'], ue['terminkode'])])
@@ -465,8 +465,6 @@ class fs_undenh_3(fs_undenh_group):
             multi_suffix.append("v%s" % (self._prefix[1],))
         if len(self.ue_termin.get(multi_id, {})) > 1:
             multi_suffix.append("%s. termin" % (self._prefix[2],))
-        # we need to add terminkode and arstall for the undeenh
-        multi_suffix.append(", %s %s" %(self._prefix[3], self._prefix[4]))
         if multi_suffix:
             return (" " + " ".join(multi_suffix))
         return ""
