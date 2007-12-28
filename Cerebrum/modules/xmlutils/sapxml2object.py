@@ -157,7 +157,6 @@ class XMLOU2Object(XMLEntity2Object):
                      "Postadresse"   : DataAddress.ADDRESS_POST, }
         if kind not in xml2kind:
             return None
-        # fi
 
         result = DataAddress(kind = xml2kind[kind],
                              street = (ext("Cnavn"),
@@ -245,11 +244,12 @@ class XMLOU2Object(XMLEntity2Object):
             if ct:
                 result.add_contact(ct)
 
-        # Oh, this is not pretty -- expired OUs should not be in the file, but
-        # for now we'd settle for quelling the errors
-        if result.end_date >= now():
-            assert result.get_name(DataOU.NAME_LONG) is not None, \
-                   "No name available for OU %s" % str(result.get_id(DataOU.NO_SKO))
+        # We require an OU to have a name.
+        if result.get_name(DataOU.NAME_LONG) is None:
+            if self.logger:
+                self.logger.warn("No name available for OU %s",
+                                 result.get_id(DataOU.NO_SKO))
+            return None
 
         return result
     # end next_object

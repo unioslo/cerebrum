@@ -37,11 +37,11 @@ We rely on the cElementTree/ElementTree library for parsing XML files:
 
 TODO:
 -----
-* Timing of LT-converter vs. earlier import strategies (xml.sax + dict
-  manipulation).
+* Timing of cElementTree vs. other parsers (xml.sax + dict manipulation).
 * Decision on sko-representation. I do not think a simple string would do,
   as a sko is often regarded as a tuple or as a dict. We need something more
   flexible.
+* Fix the documentation and provide a few more examples.
 """
 
 import copy
@@ -52,7 +52,7 @@ import time
 import traceback
 import types
 
-from cElementTree import parse, iterparse
+from cElementTree import parse, iterparse, ElementTree
 # from elementtree.ElementTree import parse, iterparse
 from mx.DateTime import Date
 
@@ -523,10 +523,6 @@ class AbstractDataGetter(object):
     This class operates in terms of DataPerson, DataOU, DataGroup and the
     like. It relies exclusively on the information available through these
     interfaces.
-
-    An implementation must make sure that the data stream might be traversed
-    multiple times (e.g. to consecutive search()s must scan the entire data
-    stream twice).
     """
 
     def __init__(self, logger, fetchall = True):
@@ -611,7 +607,8 @@ class XMLEntity2Object(object):
 
     The subclasses of this class have to implement one method, essentially:
     next_object(element). This method should create an object (an instance of
-    DataEntity) that is the representation of an XML subtree.
+    DataEntity) that is the representation of an XML subtree. If for some
+    reason such an object cannot be created, None must be returned.
     """
 
     def __init__(self, xmliter, logger):
@@ -627,29 +624,54 @@ class XMLEntity2Object(object):
 
 
     def next(self):
+        """Return next object constructed from a suitable XML element
+
+        Reads the 'next' element and returns an object constructed out of it,
+        if at all possible. The object construction is dispatched to
+        subclasses (via next_object). If the object construction fails,
+        next_object should return None.
+
+        This method would consume subsequent XML elements/subtrees until a
+        suitable object can be constructed or we run out of XML elements. In
+        the latter case StopIteration is thrown (as per iterator protocol).
+
+        IVR 2007-12-25 TBD: releasing the memory occupied by subtrees is quite
+        helpful, but very ugly in this code. This should be implemented more
+        elegantly.
+        """
+        
         while 1:
             try:
-                # Fetch next XML subtree...
+                # Fetch the next XML subtree...
                 element = self._xmliter.next()
                 # ... and dispatch to subclass to create an object
                 obj = self.next_object(element)
-                # Helps alleviate memory problems
+
+                # free the memory in the ElementTree framework.
                 element.clear()
-                return obj
+
+                # IVR 2007-12-28 TBD: Do we want some generic 'no object
+                # created' error message here? The problem with such a message
+                # is that it is difficult to ignore a separate generic error
+                # line in the logs. Typically, when obj is None,
+                # next_element() would have made (or at least, it should have)
+                # some sort of error message which explains far better what
+                # went wrong, thus making a generic message here somewhat
+                # moot.
+                if obj is not None:
+                    return obj
             except StopIteration:
                 raise
             except:
                 # If *any* sort of exception occurs, log this, and continue
                 # with the parsing. We cannot afford one defective entry to
                 # break down the entire data import run.
-                #
-                # TBD: Ideally, we'd like to know what specific
-                # element/attribute caused the exception. That may be
-                # difficult to implement, though.
-                element.clear()
                 if self.logger:
-                    self.logger.warn("%s. Skipping next element.",
-                                     self._format_exc_context(sys.exc_info()))
+                    self.logger.warn("%s occurred while processing "
+                                     "XML element %s. Skipping it.",
+                                     self._format_exc_context(sys.exc_info()),
+                                     self.format_xml_element(element))
+                element.clear()
     # end next
 
 
@@ -748,6 +770,31 @@ class XMLEntity2Object(object):
                  evalue))
     # end _format_exc_context
     _format_exc_context = staticmethod(_format_exc_context)
+
+
+    def format_xml_element(self, element):
+        """Returned a 'serialized' version of an XML element.
+
+        Occasionally it is useful to know which XML subtree caused the
+        problem. This helper method does just that. StringIO is probably not
+        particularily fast, so use sparingly.
+
+        @type element: Element instance.
+        @param subtree:
+          An Element object (from ElementTree), the string representation of
+          which is returned.
+
+        @rtype: basestring
+        @return:
+          String representation of L{subtree}. This is the XML used to
+          construct subtree initially (up to varying whitespace, perhaps).
+        """
+
+        import cStringIO
+        stream = cStringIO.StringIO()
+        ElementTree(element).write(stream)
+        return stream.getvalue()
+    # end format_xml_element
 # end XMLEntity2Object
 
 
