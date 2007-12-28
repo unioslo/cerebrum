@@ -2897,7 +2897,7 @@ class BofhdExtension(object):
         act_date = None
         for r in ev.get_vacation():
             if r['end_date'] is not None and r['start_date'] > r['end_date']:
-                self.logger.warn(
+                self.logger.info(
                     "bogus tripnote for %s, start at %s, end at %s"
                     % (uname, r['start_date'], r['end_date']))
                 ev.delete_vacation(r['start_date'])
