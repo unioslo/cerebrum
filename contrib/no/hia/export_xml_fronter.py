@@ -366,9 +366,11 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                 # rettigheter til flersemesterkursets rom, selv om
                 # dette på det tidspunktet fortsatt ligger i
                 # korridoren for inneværende semester.
-                register_room('%s (ver %s, %d. termin)' % (emnekode.upper(),
-                                                           versjon,
-                                                           int(terminnr)),
+                register_room('%s (ver %s, %d. termin, %s, %s)' % (emnekode.upper(),
+                                                                   versjon,
+                                                                   int(terminnr),
+                                                                   ar,
+                                                                   term),
                               emne_rom_id, emne_sted_id,
                               profile=romprofil_id['emnerom'])
 
