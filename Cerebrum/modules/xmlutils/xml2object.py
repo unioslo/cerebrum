@@ -670,7 +670,7 @@ class XMLEntity2Object(object):
                     self.logger.warn("%s occurred while processing "
                                      "XML element %s. Skipping it.",
                                      self._format_exc_context(sys.exc_info()),
-                                     self.format_xml_element(element))
+                                     element.tag)
                 element.clear()
     # end next
 
