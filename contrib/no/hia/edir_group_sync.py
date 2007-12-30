@@ -80,7 +80,11 @@ def group_mod(mod_type, group_id, member_id):
     edir_group = False
     known_group = False
     group.clear()
-    group.find(group_id)
+    try:
+        group.find(group_id)
+    except Errors.NotFoundError:
+        logger.info("Could not find group id:%s, group may be deleted", group_id)
+        return
     if not group.group_name:
         logger.warn("Ignoring cl event on group_id=%s, since group has no name",
                     group_id)
