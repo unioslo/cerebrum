@@ -373,8 +373,7 @@ class FileGroup(NISGroupUtil):
             try:
                 group_members, user_members = self._expand_group(group_id)
             except Errors.NotFoundError:
-                logger.warn("Group %s, spread %s has no GID", group_id,
-                            group_spread)
+                logger.warn("Group %s has no GID", group_id)
                 continue
             tmp_users = self._filter_illegal_usernames(user_members)
 
