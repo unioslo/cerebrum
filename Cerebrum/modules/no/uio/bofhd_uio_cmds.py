@@ -3245,6 +3245,20 @@ class BofhdExtension(object):
         return self._group_add(operator, src_name, dest_group,
                                group_operator, type="account")
 
+    # FIXME - this is sort of stupid. we should make a
+    # more generic solution for adding members for groups,
+    # something like 'group add <src_type> <src_name> <dest_name>'
+    # where src_type=[account|group|person]' but that will have to
+    # wait as it will be a change of existing functionality
+    # group padd - add person to group
+    all_commands['group_padd'] = Command(
+        ("group", "padd"), PersonId(help_ref="id:target:person", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
+        GroupOperation(optional=True), perm_filter='can_alter_group')
+    def group_padd(self, operator, src_name, dest_group,
+                   group_operator=None):
+        return self._group_add(operator, src_name, dest_group,
+                               group_operator, type="person")
     # group gadd
     all_commands['group_gadd'] = Command(
         ("group", "gadd"), GroupName(help_ref="group_name_src", repeat=True),
@@ -3261,6 +3275,11 @@ class BofhdExtension(object):
             src_entity = self._get_group(src_name)
         elif type == "account":
             src_entity = self._get_account(src_name)
+        elif type == "person":
+            try:
+                src_entity = self.util.get_target(src_name, restrict_to=['Person'])
+            except Errors.TooManyRowsError:
+                raise CerebrumError("Unexpectedly found more than one person")
         return self._group_add_entity(operator, src_entity, 
                                       dest_group, group_operator)    
 
@@ -3538,8 +3557,8 @@ class BofhdExtension(object):
                               ('owner_type', 'owner', 'opset')),
                              ("Gid:          %i",
                               ('gid',)),
-                             ("Members:      %i groups, %i accounts",
-                              ('c_group_u', 'c_account_u')),
+                             ("Members:      %i groups, %i accounts, %i persons",
+                              ('c_group_u', 'c_account_u', 'c_person_u')),
                              ("Members (intersection): %i groups, %i accounts",
                               ('c_group_i', 'c_account_i')),
                              ("Members (difference):   %i groups, %i accounts",
@@ -3581,7 +3600,8 @@ class BofhdExtension(object):
             tmp = {}
             for ret_pfix, entity_type in (
                 ('c_group_', int(co.entity_group)),
-                ('c_account_', int(co.entity_account))):
+                ('c_account_', int(co.entity_account)),
+                ('c_person_', int(co.entity_person))):
                 tmp[ret_pfix+op] = len(
                     [x for x in members if int(x[0]) == entity_type])
             if [x for x in tmp.values() if x > 0]:
