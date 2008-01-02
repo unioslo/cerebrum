@@ -185,7 +185,7 @@ def  write_undakt_info(outfile):
 def write_undenh_metainfo(outfile):
     "Skriv metadata om undervisningsenheter for inneværende+neste semester."
     f = MinimumSizeWriter(outfile)
-    f.set_minimum_size_limit(200*KiB)
+    f.set_minimum_size_limit(150*KiB)
     f.write(xml.xml_hdr + "<undervenhet>\n")
     for semester in access_FS.get_semester(uppercase=True):
         semester_aar, semester_sem = semester
@@ -204,7 +204,7 @@ def write_undenh_student(outfile):
     semester."""
     f = MinimumSizeWriter(outfile)
 
-    f.set_minimum_size_limit(1500*KiB)
+    f.set_minimum_size_limit(800*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     
     for semester in access_FS.get_semester(uppercase=True):
