@@ -2077,13 +2077,13 @@ class BofhdExtension(object):
         except CerebrumError:
             pass
         else:
-            raise CerebrumError, ("Won't create list %s, as %s is an "
+            raise CerebrumError, ("Won't create list-alias %s, as %s is an "
                                   "existing username") % (address, lp)
         # we _don't_ check for "more than 8 characters in local
         # part OR it contains hyphen" since we assume the people
         # who have access to this command know what they are doing
         self._register_list_addresses(listname, lp, dom)
-        return "OK, list-alias '%s' created" % listname
+        return "OK, list-alias '%s' created" % address
 
     # email remove_list_alias
     all_commands['email_remove_list_alias'] = Command(
