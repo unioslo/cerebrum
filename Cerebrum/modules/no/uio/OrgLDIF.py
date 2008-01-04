@@ -162,6 +162,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
         if self.person2group.has_key(p_id):
             entry['member'] = self.person2group[p_id]
+            entry['objectClass'].append('uioPersonObject')
                 
         return dn, entry, alias_info
 # arch-tag: e13d2650-dd88-4cac-a5fb-6a7cc6884914
