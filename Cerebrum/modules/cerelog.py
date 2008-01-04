@@ -562,39 +562,33 @@ class CerebrumLogger(logging.Logger, object):
         # Python versions prior to 2.4 want a 2-tuple in return from
         # this function, while later versions want a 3-tuple.
         if sys.version_info < (2, 4):
-            rv = (None, None)
+            rv = ("(unknown file)", 0)
         else:
-            rv = (None, None, None)
+            rv = ("(unknown file)", 0, "(unknown function)")
             
         frame = inspect.currentframe()
-        while frame:
+        while frame and hasattr(frame, "f_code"):
             # psyco replaces frame objects with proxies
-            if type(frame) is not types.FrameType:
-                return rv
-        
-            source = inspect.getsourcefile(frame)
-            if source:
-                source = os.path.normcase(source)
-            #
-            # We should test that source is neither *this* file, nor
-            # anything else within the logging framework (be it 2.2 (extlib)
-            # og 2.3 version).
-            #
+            code_object = frame.f_code
+            source = os.path.normcase(code_object.co_filename)
+
+            # We should test that source is neither *this* file, nor anything
+            # else within the logging framework (be it 2.2 (extlib) og 2.3
+            # version).
             if ((source != _srcfile) and
                 (source and
                  (source.find("logging/__init__.py") == -1) and
                  (source.find("logging.py") == -1))):
-                lineno = inspect.getlineno(frame)
                 if sys.version_info < (2, 4):
-                    rv = (source, lineno)
+                    rv = (source, frame.f_lineno)
                 else:
-                    co = frame.f_code
-                    rv = (source, lineno, co)
+                    rv = (source, frame.f_lineno, code_object.co_name)
                 break
 
             frame = frame.f_back
 
         return rv
+    # end findCaller
       
 
     def __cerebrum_debug(self, level, msg, *args, **kwargs):
