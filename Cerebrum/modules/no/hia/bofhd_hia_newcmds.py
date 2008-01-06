@@ -973,11 +973,10 @@ class BofhdExtension(object):
 
     # user move
     #
-    all_commands['user_move'] = Command(
-        ("user", "move"), AccountName(help_ref="account_name", repeat=False),
-        Spread(), DiskId(),
-        perm_filter='is_superuser')
-    def user_move(self, operator, accountname, spread, path):
+    all_commands['user_move_nofile'] = Command(
+        ("user", "move_nofile"), AccountName(help_ref="account_name", repeat=False),
+        Spread(), DiskId(), perm_filter='is_superuser')
+    def user_move_nofile(self, operator, accountname, spread, path):
         account = self._get_account(accountname)
         move_ok = False
         if account.is_expired():
