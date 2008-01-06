@@ -113,9 +113,7 @@ class BofhdExtension(object):
         'user_find', 'user_password', 'user_set_expire',
         'user_reserve', 'user_gecos', 'user_promote_posix', 'user_demote_posix',
         'user_set_np_type', 'user_shell', 'user_set_disk_status',
-        '_user_create_set_account_type',
-#        '_user_create_prompt_func_helper', 'user_create_basic_prompt_func',
-#        '_user_create_set_account_type',
+        '_user_create_set_account_type', '_get_shell',
         'user_set_owner', 'user_set_owner_prompt_func',
         #
         # copy relevant spread-cmds and util methods
@@ -162,9 +160,8 @@ class BofhdExtension(object):
         from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
              UiOBofhdExtension
 
-        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
-#                        'user_create_basic_prompt_func',
-#                        'user_create_prompt_func',)
+        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',
+                        'user_create_basic_prompt_func', 'user_create_prompt_func',)
         for func in BofhdExtension.copy_commands:
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
             if func[0] != '_' and func not in non_all_cmds:
@@ -219,7 +216,8 @@ class BofhdExtension(object):
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
 
-    # needed for email_info, cannot be copied in the usual way
+    # helpers needed for email_info, cannot be copied in the usual way
+    #
     def __get_valid_email_addrs(self, et, special=False, sort=False):
         """Return a list of all valid e-mail addresses for the given
         EmailTarget.  Keep special domain names intact if special is
@@ -324,7 +322,6 @@ class BofhdExtension(object):
             pass
         return info
 
-    #
     # email move
     #
     all_commands['email_move'] = Command(
@@ -475,11 +472,6 @@ class BofhdExtension(object):
         account.write_db()
         return "Home made for %s in spread %s" % (accountname, spread)
     
-    # user create prompt
-    #
-#    def user_create_prompt_func(self, session, *args):
-#        return self._user_create_prompt_func_helper('Account', session, *args)    
-
     # user info
     #
     all_commands['user_info'] = Command(
@@ -586,7 +578,8 @@ class BofhdExtension(object):
             ret['quarantined'] = quarantined
         return ret
 
-    # misc list_passwords
+    # misc list_passwords_prompt_func
+    #
     def misc_list_passwords_prompt_func(self, session, *args):
         """  - Går inn i "vis-info-om-oppdaterte-brukere-modus":
   1 Skriv ut passordark
@@ -630,6 +623,8 @@ class BofhdExtension(object):
                     'help_ref': 'print_select_range',
                     'default': str(n-1)}
 
+    # misc list_passwords
+    #
     all_commands['misc_list_passwords'] = Command(
         ("misc", "list_passwords"), prompt_func=misc_list_passwords_prompt_func,
         fs=FormatSuggestion("%-8s %-20s %s", ("account_id", "operation", "password"),
@@ -641,12 +636,6 @@ class BofhdExtension(object):
         args.pop(0)
         tpl_lang, tpl_name, tpl_type = self._map_template(args.pop(0))
         skriver = None
-	# kommenterer ut dette fram til det er kommet fram en bedre løsning
-	# på problemet med overføring av passordark til HiA-maskinen
-        #if not tpl_lang.endswith("letter"):
-        #    skriver = args.pop(0)
-        #else:
-        #    skriver = cereconf.PRINT_PRINTER
 	try:
             acc = self._get_account(operator.get_entity_id(), idtype='id')
 	    opr=acc.account_name
@@ -746,3 +735,227 @@ class BofhdExtension(object):
                        account.entity_id, None,
                        state_data=None)
         return "User %s queued for deletion at 20:00" % account.account_name
+
+    # user_create_prompt_fun_helper
+    #
+    def _user_create_prompt_func_helper(self, ac_type, session, *args):
+        """A prompt_func on the command level should return
+        {'prompt': message_string, 'map': dict_mapping}
+        - prompt is simply shown.
+        - map (optional) maps the user-entered value to a value that
+          is returned to the server, typically when user selects from
+          a list."""
+        all_args = list(args[:])
+
+        if not all_args:
+            return {'prompt': "Person identification",
+                    'help_ref': "user_create_person_id"}
+        arg = all_args.pop(0)
+        if arg.startswith("group:"):
+            group_owner = True
+        else:
+            group_owner = False
+        if not all_args or group_owner:
+            if group_owner:
+                group = self._get_group(arg.split(":")[1])
+                if all_args:
+                    all_args.insert(0, group.entity_id)
+                else:
+                    all_args = [group.entity_id]
+            else:
+                c = self._find_persons(arg)
+                map = [(("%-8s %s", "Id", "Name"), None)]
+                for i in range(len(c)):
+                    person = self._get_person("entity_id", c[i]['person_id'])
+                    map.append((
+                        ("%8i %s", int(c[i]['person_id']),
+                         person.get_name(self.const.system_cached, self.const.name_full)),
+                        int(c[i]['person_id'])))
+                if not len(map) > 1:
+                    raise CerebrumError, "No persons matched"
+                return {'prompt': "Choose person from list",
+                        'map': map,
+                        'help_ref': 'user_create_select_person'}
+        owner_id = all_args.pop(0)
+        if not group_owner:
+            person = self._get_person("entity_id", owner_id)
+            existing_accounts = []
+            account = self.Account_class(self.db)
+            for r in account.list_accounts_by_owner_id(person.entity_id):
+                account = self._get_account(r['account_id'], idtype='id')
+                if account.expire_date:
+                    exp = account.expire_date.strftime('%Y-%m-%d')
+                else:
+                    exp = '<not set>'
+                existing_accounts.append("%-10s %s" % (account.account_name,
+                                                       exp))
+            if existing_accounts:
+                existing_accounts = "Existing accounts:\n%-10s %s\n%s\n" % (
+                    "uname", "expire", "\n".join(existing_accounts))
+            else:
+                existing_accounts = ''
+            if existing_accounts:
+                if not all_args:
+                    return {'prompt': "%sContinue? (y/n)" % existing_accounts}
+                yes_no = all_args.pop(0)
+                if not yes_no == 'y':
+                    raise CerebrumError, "Command aborted at user request"
+            if not all_args:
+                map = [(("%-8s %s", "Num", "Affiliation"), None)]
+                for aff in person.get_affiliations():
+                    ou = self._get_ou(ou_id=aff['ou_id'])
+                    name = "%s@%s" % (
+                        self.const.PersonAffStatus(aff['status']),
+                        self._format_ou_name(ou))
+                    map.append((("%s", name),
+                                {'ou_id': int(aff['ou_id']), 'aff': int(aff['affiliation'])}))
+                if not len(map) > 1:
+                    raise CerebrumError(
+                        "Person has no affiliations. Try person affiliation_add")
+                return {'prompt': "Choose affiliation from list", 'map': map}
+            affiliation = all_args.pop(0)
+        else:
+            if not all_args:
+                return {'prompt': "Enter np_type",
+                        'help_ref': 'string_np_type'}
+            np_type = all_args.pop(0)
+        if ac_type == 'PosixUser':
+            if not all_args:
+                return {'prompt': "Default filegroup"}
+            filgruppe = all_args.pop(0)
+            if not all_args:
+                return {'prompt': "Shell", 'default': 'bash'}
+            shell = all_args.pop(0)
+            if not all_args:
+                return {'prompt': "Disk", 'help_ref': 'disk'}
+            disk = all_args.pop(0)
+            if not all_args.pop(0):
+                return {'prompt': "Novell disk", 'help_ref': 'disk'}
+            ndisk = all_args.pop(0)
+        if not all_args:
+            ret = {'prompt': "Username", 'last_arg': True}
+            posix_user = PosixUser.PosixUser(self.db)
+            if not group_owner:
+                try:
+                    person = self._get_person("entity_id", owner_id)
+                    fname, lname = [
+                        person.get_name(self.const.system_cached, v)
+                        for v in (self.const.name_first, self.const.name_last) ]
+                    sugg = posix_user.suggest_unames(self.const.account_namespace, fname, lname)
+                    if sugg:
+                        ret['default'] = sugg[0]
+                except ValueError:
+                    pass    # Failed to generate a default username
+            return ret
+        if len(all_args) == 1:
+            return {'last_arg': True}
+        raise CerebrumError, "Too many arguments"
+
+    #
+    # user create
+    all_commands['user_create'] = Command(
+        ('user', 'create'), prompt_func=user_create_prompt_func,
+        fs=FormatSuggestion("Created uid=%i", ("uid",)),
+        perm_filter='can_create_user')
+    def user_create(self, operator, *args):
+        if args[0].startswith('group:'):
+            group_id, np_type, filegroup, shell, home, novell_home, uname = args
+            owner_type = self.const.entity_group
+            owner_id = self._get_group(group_id.split(":")[1]).entity_id
+            np_type = self._get_constant(self.const.Account, np_type,
+                                         "account type")
+        else:
+            if len(args) == 7:
+                idtype, person_id, affiliation, filegroup, shell, home, novell_home, uname = args
+            else:
+                idtype, person_id, yes_no, affiliation, filegroup, shell, home, novell_home, uname = args
+            owner_type = self.const.entity_person
+            owner_id = self._get_person("entity_id", person_id).entity_id
+            np_type = None
+
+        # Only superusers should be allowed to create users with
+        # capital letters in their ids, and even then, just for system
+        # users
+        if uname != uname.lower():
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise CerebrumError("Account names cannot contain capital letters")
+            else:
+                if owner_type != self.const.entity_group:
+                    raise CerebrumError("Personal account names cannot contain capital letters")
+            
+        group = self._get_group(filegroup, grtype="PosixGroup")
+        posix_user = PosixUser.PosixUser(self.db)
+        uid = posix_user.get_free_uid()
+        shell = self._get_shell(shell)
+        if home[0] != ':':  # Hardcoded path
+            disk_id, home = self._get_disk(home)[1:3]
+        else:
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied("only superusers may use hardcoded path")
+            disk_id, home = None, home[1:]
+        if novell_home[0] != ':':  # Hardcoded path
+            ndisk_id, novell_home = self._get_disk(novell_home)[1:3]
+        else:
+            if not self.ba.is_superuser(operator.get_entity_id()):
+                raise PermissionDenied("only superusers may use hardcoded path")
+            ndisk_id, novell_home = None, home[1:]            
+        posix_user.clear()
+        gecos = None
+        expire_date = None
+        self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
+
+        posix_user.populate(uid, group.entity_id, gecos, shell, name=uname,
+                            owner_type=owner_type,
+                            owner_id=owner_id, np_type=np_type,
+                            creator_id=operator.get_entity_id(),
+                            expire_date=expire_date)
+        try:
+            posix_user.write_db()
+            for spread in cereconf.BOFHD_NEW_USER_SPREADS:
+                posix_user.add_spread(self.const.Spread(spread))
+            homedir_id = posix_user.set_homedir(
+                disk_id=disk_id, home=home,
+                status=self.const.home_status_not_created)
+            posix_user.set_home(self.const.spread_nis_user, homedir_id)
+            nhomedir_id = posix_user.set_homedir(
+                disk_id=ndisk_id, home=novell_home,
+                status=self.const.home_status_not_created)
+            posix_user.set_home(self.const.spread_hia_novell_user, nhomedir_id)
+            # For correct ordering of ChangeLog events, new users
+            # should be signalled as "exported to" a certain system
+            # before the new user's password is set.  Such systems are
+            # flawed, and should be fixed.
+            passwd = posix_user.make_passwd(uname)
+            posix_user.set_password(passwd)
+            # And, to write the new password to the database, we have
+            # to .write_db() one more time...
+            posix_user.write_db()
+            if len(args) != 6:
+                ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
+                self._user_create_set_account_type(posix_user, owner_id,
+                                                   ou_id, affiliation)
+        except self.db.DatabaseError, m:
+            raise CerebrumError, "Database error: %s" % m
+        operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
+                                                    'password': passwd})
+        self._meld_inn_i_server_gruppe(int(posix_user.entity_id), operator)        
+        return "Ok, create %s" % {'uid': uid}
+
+    # helper func, let new account join appropriate server_group
+    #
+    def _meld_inn_i_server_gruppe(self, acc_id, operator):
+        # fikser innmelding i edir-servergrupper _midlertidig_. skal fikses i nye edir-sync
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.clear()
+        acc.find(acc_id)
+        acc_stuff= acc.get_home(self.const.spread_hia_novell_user)
+        disk_id = acc_stuff['disk_id']
+        disk = Utils.Factory.get('Disk')(self.db)
+        disk.clear()
+        disk.find(disk_id)
+        tmp = string.split(disk.path, '/')
+        grp_name = 'server-' + str(tmp[1])
+        grp = Utils.Factory.get("Group")(self.db)
+        grp.clear()
+        grp.find_by_name(grp_name)
+        grp.add_member(acc.entity_id, self.const.entity_account, self.const.group_memberop_union)
