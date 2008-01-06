@@ -35,6 +35,7 @@ from Cerebrum import Database
 from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
