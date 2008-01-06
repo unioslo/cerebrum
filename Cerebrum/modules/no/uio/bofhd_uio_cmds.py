@@ -6569,9 +6569,10 @@ class BofhdExtension(object):
         if password is None:
             password = account.make_passwd(accountname)
         else:
-            if operator.get_entity_id() <> account.entity_id:
-                raise CerebrumError, \
-                      "Cannot specify password for another user."
+            if not BOFHD_SU_CAN_SPECIFY_PASSWORDS:
+                if operator.get_entity_id() <> account.entity_id:
+                    raise CerebrumError, \
+                          "Cannot specify password for another user."
         try:
             account.goodenough(account, password)
         except PasswordChecker.PasswordGoodEnoughException, m:
