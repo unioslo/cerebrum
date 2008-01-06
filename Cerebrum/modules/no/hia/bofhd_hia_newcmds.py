@@ -23,6 +23,8 @@
 import mx
 import pickle
 import time
+import os
+import sys
 
 import cereconf
 from Cerebrum.Utils import Factory
