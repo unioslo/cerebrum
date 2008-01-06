@@ -971,60 +971,33 @@ class BofhdExtension(object):
         grp.find_by_name(grp_name)
         grp.add_member(acc.entity_id, self.const.entity_account, self.const.group_memberop_union)
 
-    # user move_prompt_func
-    #
-    def user_move_prompt_func(self, session, *args):
-        all_args = list(args[:])
-        if not all_args:
-            mt = MoveType()
-            return mt.get_struct(self)
-        mtype = all_args.pop(0)
-        if not all_args:
-            an = AccountName()
-            return an.get_struct(self)
-        ac_name = all_args.pop(0)
-        if mtype == "nofile":
-            if not all_args:
-                spread = Spread(help_ref="spread")
-                r = spread.get_struct(self)
-                r['last_arg'] = True
-                return r
-            spread = all_args.pop(0)
-            if not all_args:
-                di = DiskId()
-                r = di.get_struct(self)
-                r['last_arg'] = True
-                return r
-            di = all_args.pop(0)
-            return {'last_arg': True}
-        raise CerebrumError, "Bad user_move command (%s)" % mtype
-
     # user move
     #
     all_commands['user_move'] = Command(
-        ("user", "move"), prompt_func=user_move_prompt_func,
+        ("user", "move"), AccountName(help_ref="account_name", repeat=False),
+        Spread(), DiskId(),
         perm_filter='is_superuser')
-    def user_move(self, operator, move_type, accountname, *args):
+    def user_move(self, operator, accountname, spread, path):
         account = self._get_account(accountname)
+        move_ok = False
         if account.is_expired():
             raise CerebrumError, "Account %s has expired" % account.account_name
-        if move_type == "nofile":
-            move_ok = False
-            spread = int(self._get_constant(self.const.Spread, spread))
-            for r in account.get_spread():
-                if int(r['spread']) == spread:
-                    move_ok = True
-            if not move_ok:
-                raise CerebrumError, "You can not move a user that does not have homedir in the given spread. Use home_create."
-            path = args[1]
-            disk_id = self._get_disk(path)[1]
-            if disk_id is None:
-                raise CerebrumError, "Bad destination disk"
-            ah = account.get_home(spread)
-            account.set_homedir(current_id=ah['homedir_id'],
-                                disk_id=disk_id)
-            account.set_home(spread, ah['homedir_id'])
-            account.write_db()
+        spread = int(self._get_constant(self.const.Spread, spread))
+        tmp_s = []
+        for r in account.get_spread():
+            tmp_s.append(int(r['spread']))
+        if spread in tmp_s:
+            move_ok = True
+        if not move_ok:
+            raise CerebrumError, "You can not move a user that does not have homedir in the given spread. Use home_create."
+        disk_id = self._get_disk(path)[1]
+        if disk_id is None:
+            raise CerebrumError, "Bad destination disk"
+        ah = account.get_home(spread)
+        account.set_homedir(current_id=ah['homedir_id'],
+                            disk_id=disk_id)
+        account.set_home(spread, ah['homedir_id'])
+        account.write_db()
         return "Ok, user %s moved." % accountname        
 
     # email set_primary_address account lp@dom
