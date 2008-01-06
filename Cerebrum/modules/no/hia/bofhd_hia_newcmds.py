@@ -160,8 +160,7 @@ class BofhdExtension(object):
         from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
              UiOBofhdExtension
 
-        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',
-                        'user_create_basic_prompt_func', 'user_create_prompt_func',)
+        non_all_cmds = ('num2str', 'user_set_owner_prompt_func',)
         for func in BofhdExtension.copy_commands:
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
             if func[0] != '_' and func not in non_all_cmds:
@@ -851,6 +850,16 @@ class BofhdExtension(object):
             return {'last_arg': True}
         raise CerebrumError, "Too many arguments"
 
+    # user_create_prompt_func
+    #
+    def user_create_prompt_func(self, session, *args):
+        return self._user_create_prompt_func_helper('PosixUser', session, *args)
+    
+    # user_create_basic_prompt_func
+    #
+    def user_create_basic_prompt_func(self, session, *args):
+        return self._user_create_prompt_func_helper('Account', session, *args)
+    
     #
     # user create
     all_commands['user_create'] = Command(
