@@ -36,6 +36,7 @@ from Cerebrum import Errors
 from Cerebrum import Database
 
 from Cerebrum.modules import Email
+from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -828,7 +829,7 @@ class BofhdExtension(object):
             if not all_args:
                 return {'prompt': "Disk", 'help_ref': 'disk'}
             disk = all_args.pop(0)
-            if not all_args.pop(0):
+            if not all_args:
                 return {'prompt': "Novell disk", 'help_ref': 'disk'}
             ndisk = all_args.pop(0)
         if not all_args:
