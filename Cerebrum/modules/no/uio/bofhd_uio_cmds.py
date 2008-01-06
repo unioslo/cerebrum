@@ -6575,7 +6575,7 @@ class BofhdExtension(object):
             # otherwise superusers may change passwords by assigning
             # automatic passwords only.
             if self.ba.is_superuser(operator.get_entity_id()):
-                if (operator.get_entity_id_() != account.entity_id and
+                if (operator.get_entity_id() != account.entity_id and
                     not cereconf.BOFHD_SU_CAN_SPECIFY_PASSWORDS):
                     raise CerebrumError("Superuser cannot specify passwords "
                                         "for other users")
