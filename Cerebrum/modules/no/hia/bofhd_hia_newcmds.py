@@ -970,3 +970,93 @@ class BofhdExtension(object):
         grp.clear()
         grp.find_by_name(grp_name)
         grp.add_member(acc.entity_id, self.const.entity_account, self.const.group_memberop_union)
+
+    # user move_prompt_func
+    #
+    def user_move_prompt_func(self, session, *args):
+        all_args = list(args[:])
+        if not all_args:
+            mt = MoveType()
+            return mt.get_struct(self)
+        mtype = all_args.pop(0)
+        if not all_args:
+            an = AccountName()
+            return an.get_struct(self)
+        ac_name = all_args.pop(0)
+        if mtype == "nofile":
+            if not all_args:
+                spread = Spread(help_ref="spread")
+                r = spread.get_struct(self)
+                r['last_arg'] = True
+                return r
+            spread = all_args.pop(0)
+            if not all_args:
+                di = DiskId()
+                r = di.get_struct(self)
+                r['last_arg'] = True
+                return r
+            di = all_args.pop(0)
+            return {'last_arg': True}
+        raise CerebrumError, "Bad user_move command (%s)" % mtype
+
+    # user move
+    #
+    all_commands['user_move'] = Command(
+        ("user", "move"), prompt_func=user_move_prompt_func,
+        perm_filter='is_superuser')
+    def user_move(self, operator, move_type, accountname, *args):
+        account = self._get_account(accountname)
+        if account.is_expired():
+            raise CerebrumError, "Account %s has expired" % account.account_name
+        if move_type == "nofile":
+            move_ok = False
+            spread = int(self._get_constant(self.const.Spread, spread))
+            for r in account.get_spread():
+                if int(r['spread']) == spread:
+                    move_ok = True
+            if not move_ok:
+                raise CerebrumError, "You can not move a user that does not have homedir in the given spread. Use home_create."
+            path = args[1]
+            disk_id = self._get_disk(path)[1]
+            if disk_id is None:
+                raise CerebrumError, "Bad destination disk"
+            ah = account.get_home(spread)
+            account.set_homedir(current_id=ah['homedir_id'],
+                                disk_id=disk_id)
+            account.set_home(spread, ah['homedir_id'])
+            account.write_db()
+        return "Ok, user %s moved." % accountname        
+
+    # email set_primary_address account lp@dom
+    #
+    all_commands['email_set_primary_address'] = Command(
+	("email", "set_primary_address"), 
+        AccountName(help_ref="account_name", repeat=False),
+        EmailAddress(help_ref='email_address', repeat=False),
+	perm_filter='is_superuser')
+    def email_set_primary_address(self, operator, uname, address):
+	et, acc = self.__get_email_target_and_account(uname)
+        ea = Email.EmailAddress(self.db)
+	if address == '':
+	    return "Primary address cannot be an empty string!"
+	lp, dom = address.split('@')
+        ed = self._get_email_domain(dom)
+        ea.clear()
+        try:
+            ea.find_by_address(address)
+	    if ea.email_addr_target_id <> et.email_target_id:
+		raise CerebrumError, "Address (%s) is in use by another user" % address
+        except Errors.NotFoundError:
+            pass
+	ea.populate(lp, ed.email_domain_id, et.email_target_id)
+	ea.write_db()
+	epat = Email.EmailPrimaryAddressTarget(self.db)
+	epat.clear()
+	try:
+	    epat.find(ea.email_addr_target_id)
+	    epat.populate(ea.email_addr_id)
+	except Errors.NotFoundError:
+	    epat.clear()
+	    epat.populate(ea.email_addr_id, parent = et)
+	epat.write_db()
+	return "Registered %s as primary address for %s" % (address, uname)
