@@ -25,6 +25,7 @@ import pickle
 import time
 import os
 import sys
+import string
 
 import cereconf
 from Cerebrum.Utils import Factory
