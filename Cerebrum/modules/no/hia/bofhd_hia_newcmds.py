@@ -87,7 +87,7 @@ class BofhdExtension(object):
         #
         'misc_affiliations', 'misc_check_password', 'misc_clear_passwords',
         'misc_stedkode', 'misc_verify_password', 'misc_cancel_request',
-        'misc_list_requests', '_map_template', 
+        'misc_list_requests', '_map_template', '_parse_range',
         # 'misc_list_passwords_prompt_func',
         # 'misc_list_passwords',
         #
