@@ -43,6 +43,7 @@ from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
 from mx import DateTime
 from Cerebrum.modules.no.hia.access_FS import FS
+from Cerebrum.modules.templates.letters import TemplateHandler
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
