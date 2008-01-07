@@ -876,7 +876,7 @@ class BofhdExtension(object):
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
         else:
-            if len(args) == 7:
+            if len(args) == 8:
                 idtype, person_id, affiliation, filegroup, shell, home, novell_home, uname = args
             else:
                 idtype, person_id, yes_no, affiliation, filegroup, shell, home, novell_home, uname = args
