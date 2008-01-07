@@ -119,11 +119,6 @@ def format_sko(*rest):
 
 
 
-def sko2ou_id(sko):
-    pass
-
-
-
 def ou_id2ou_info(ou_id):
     """Locate information about OU with the specied ou_id.
 
