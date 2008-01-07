@@ -37,19 +37,19 @@ posix_spreads=(
 
 spread_homedirs = {
     "user@ansatt":
-    [  ("/home/ahomea", 1),
-       ("/home/ahomeb", 1),
-       ("/home/ahomec", 1),
-       ("/home/ahomed", 1),
-       ("/home/ahomee", 1),
-       ("/home/ahomef", 1) ],
+    [  ("/home/ahomea", 1, 1),
+       ("/home/ahomeb", 1, 1),
+       ("/home/ahomec", 1, 1),
+       ("/home/ahomed", 1, 1),
+       ("/home/ahomee", 1, 1),
+       ("/home/ahomef", 1, 1) ],
     "user@stud":
-    [  ("/home/shomeo", 1),
-       ("/home/shomep", 1),
-       ("/home/shomeq", 1),
-       ("/home/shomer", 1),
-       ("/home/shomes", 1),
-       ("/home/shomet", 1) ]
+    [  ("/home/homeo", 2, 1),
+       ("/home/homep", 2, 1),
+       ("/home/homeq", 2, 1),
+       ("/home/homer", 2, 1),
+       ("/home/homes", 2, 1),
+       ("/home/homet", 2, 1) ]
     }
 
 
@@ -103,12 +103,15 @@ class AccountNTNUMixin(Account.Account):
 
     def make_homedir(self, spread):
         all_disks = spread_homedirs[str(self.const.Spread(spread))]
-        avail_disks = [d[0] for d in all_disks if d[1]]
-        diskpath = random.choice(avail_disks)
+        avail_disks = [d for d in all_disks if d[2]]
+        diskpath,ulen,weight = random.choice(avail_disks)
+        home = None
+        if ulen:
+            home = self.account_name[:ulen] + "/" + self.account_name
         disk = Factory.get('Disk')(self._db)
         disk.find_by_path(diskpath)
-        homedir = self.set_homedir(disk_id=disk.entity_id,
-                                status=self.const.home_status_not_created)
+        homedir = self.set_homedir(disk_id=disk.entity_id, home=home,
+                                   status=self.const.home_status_not_created)
         self.set_home(spread, homedir)
 
     home_path_regex=re.compile("^(/[a-z0-9][a-z0-9_-]*)+$")
