@@ -98,10 +98,13 @@ def process_delete_requests():
             br.delete_request(request_id=r['request_id'])
             db.commit()
             continue
-
+        logger.info("Trying to delete account %s", account.account_name)
         posix_user = PosixUser.PosixUser(db)
         set_operator(r['requestee_id'])
-
+        ## Set expire_date (do not export data about this account)
+        account.expire_date = br.now
+        logger.debug("expire_date for %s registered as %s", account.account_name, br.now)
+        account.write_db()
         # check for posix attrs
         posix_user.clear()
         try:
@@ -111,28 +114,36 @@ def process_delete_requests():
 
         ## Deal with all the systems that account data is exported to 
         spreads = account.get_spread()
-
+        logger.debug("Fetched all spreads for %s, %s", account.account_name, spreads)
         for row in spreads:
-
             ## Account is valid in AD, remove account@ad spread
             if row['spread'] == const.spread_hia_ad_account:
+                try:
+                    home = account.get_home(row['spread'])
+                except Errors.NotFoundError:
+                    continue
+                account.set_homedir(current_id=home['homedir_id'],
+                                    status=const.home_status_archived)
+                account.clear_home(row['spread'])
                 account.delete_spread(row['spread'])
+                logger.debug("Deleted account@ad spread for %s", account.account_name)
             ## student-accounts usually have account@ldap, remove this
             elif row['spread'] == const.spread_ldap_account:
                 account.delete_spread(row['spread'])
+                logger.debug("Deleted account@ldap spread for %s", account.account_name)                
             ## An email account exists, remove account@imap spread, register email account delete
             elif row['spread'] == const.spread_hia_email:
-                est = Email.EmailServerTarget(db)
+                et = Email.EmailTarget(db)
                 try:
-                    est.find_by_entity(account.entity_id)
+                    et.find_by_entity(account.entity_id)
                 except Errors.NotFoundError:
-                    logger.warn('No email server assigned to %s, removing imap spread only.' % account.account_name)
-                if est:
+                    logger.warn('No email target for %s, removing imap spread only.' % account.account_name)
+                logger.debug("Found e-mail target for %s", account.account_name)
+                if et:
                     es = Email.EmailServer(db)
-                    es.find(est.email_server_id)
+                    es.find(et.email_server_id)
                     del_file.append('EMAIL:' + account.account_name + ':' + es.name)
                 account.delete_spread(row['spread'])
-
             ## Account is valid in nis@hia, remove account@nis spread, register nis-home delete
             elif row['spread'] == const.spread_nis_user:
                 posix_home = posix_user.get_posix_home(row['spread'])
@@ -142,14 +153,16 @@ def process_delete_requests():
                 line = string.join([account.account_name, pwd, str(uid), str(gid), gecos, posix_home, str(shell)], ':')
                 line = 'NIS:' + line
                 del_file.append(line)
-                account.delete_spread(row['spread'])
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
                     continue
                 account.set_homedir(current_id=home['homedir_id'],
                                     status=const.home_status_archived)
-
+                logger.debug("Set home to archived %s (%s)", home['homedir_id'], row['spread'])
+                account.clear_home(row['spread'])
+                logger.debug("clear_home in %s", row['spread'])
+                account.delete_spread(row['spread'])
             ## Account is valid in nisans@hia, remove account@nisans spread, register nisans-home delete
             elif row['spread'] == const.spread_ans_nis_user:
                 posix_home = posix_user.get_posix_home(row['spread'])
@@ -159,14 +172,15 @@ def process_delete_requests():
                 line = string.join([account.account_name, pwd, str(uid), str(gid), gecos, posix_home, str(shell)], ':')
                 line = 'NISANS:' + line
                 del_file.append(line)
-                account.delete_spread(row['spread'])
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
                     continue
                 account.set_homedir(current_id=home['homedir_id'],
                                     status=const.home_status_archived)
-
+                logger.debug("Set home to archived %s (%s)", home['homedir_id'], row['spread'])
+                account.clear_home(row['spread'])
+                account.delete_spread(row['spread'])
             ## Account is valid in eDir, remove account@edir spread, delete user-object in eDir
             elif row['spread'] == const.spread_hia_novell_user:
                 passwd = db._read_password(cereconf.NW_LDAPHOST,
@@ -181,27 +195,28 @@ def process_delete_requests():
                     (ldap_object_dn, ldap_attrs) = ldap_objects[0]
                     ldap_handle.ldap_delete_object(ldap_object_dn)
                     ldap_handle.close_connection()
-                account.delete_spread(row['spread'])
+
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
-                    continue
+                    pass
                 account.set_homedir(current_id=home['homedir_id'],
                                     status=const.home_status_archived)
-            if posix_user:
-                posix_user.delete_posixuser()
-                
-            ## Remove account from all groups (including eDir-server groups)
-            for g in group.list_groups_with_entity(account.entity_id):
-                group.clear()
-                group.find(g['group_id'])
-                group.remove_member(account.entity_id, g['operation'])
-                
-            ## Set expire_date (do not export data about this account)
-            account.expire_date = br.now
-            account.write_db()
-
-    ## All done, remove request, commit results
+                account.clear_home(row['spread'])
+                logger.debug("clear_home in %s", row['spread'])                
+                logger.debug("Set home to archived %s (%s)", home['homedir_id'], row['spread'])
+                account.delete_spread(row['spread'])                
+        if posix_user:
+            posix_user.delete_posixuser()
+        ## Remove account from all groups (including eDir-server groups)
+        for g in group.list_groups_with_entity(account.entity_id):
+            group.clear()
+            group.find(g['group_id'])
+            group.remove_member(account.entity_id, g['operation'])
+        ## All done, remove request, commit results
+        account.write_db()
+        if posix_user:
+            posix_user.write_db()
         br.delete_request(request_id=r['request_id'])
         db.commit()
     return del_file
