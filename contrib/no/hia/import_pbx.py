@@ -19,17 +19,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
                                                                                                                                                       
 """
-Import from a pbx in ldif-format. Options 'optimize' only updates 
-necessary changes and do not create changelog of all entries.
+Import from a pbx in ldif-format. 
 
 > python import_pbx.py [-r] [-o] -l <file>
 
 '-l' or '--ldif_file=' 	: full path to ldif-file 
 '-r' or '--dryrun' 	: do not commit to base
-'-o' or '--optimize'	: only updates changes, less entries in changelog
 
 """
-
+import re
 import cerebrum_path
 import cereconf
 import getopt, locale, sys
@@ -43,7 +41,6 @@ logger = Factory.get_logger("cronjob")
 db.cl_init(change_program='import_pbx')
 
 db_list = {}
-optimal = False 
 
 def get_db_entr():
     for row in person.list_contact_info(source_system = \
@@ -60,39 +57,45 @@ def get_db_entr():
  
 		
 def get_ldif_info(ldif_file):
-    fax, fax_num = int(co.contact_fax),'facsimiletelephonenumber'
-    phone, ph_num = int(co.contact_phone),'internationalisdnnumber'
+    fax, fax_num = co.contact_fax,'facsimiletelephonenumber'
+    phone, ph_num = co.contact_phone,'internationalisdnnumber'
     mobile, mob_num = int(co.contact_phone_cellular),'mobile'
     acc = Factory.get('Account')(db)
     con_info = {}
     lt = LDIFutils.ldif_parser(ldif_file)
+    r = re.compile("^(\w+)@[uh]ia\.no(\/(\w+))?")
     for val in lt.parse().values():
-	if val.has_key('uid'): 
-	    acc.clear()
-	    try:
-		uname = val['uid'][0].split('@')[0]
-		if '/' in uname:
-		    uname = uname.split('/')[0]
-                acc.find_by_name(uname)
-                if not acc.owner_type == int(co.entity_person):
-                    logger.debug("Owner (%d) for '%s' is not a person" % 
-                                 (acc.owner_id,uname))
-                    continue
-		pers_id = acc.owner_id
-	    except Errors.NotFoundError:
-		logger.debug("Could not find person: %s" % uname) 
-		continue
-	    if not con_info.has_key(pers_id):
-		con_info[pers_id] = {}
-	    if val.has_key(ph_num):
-		con_info[pers_id][phone] = val[ph_num]
-		con_info[pers_id][phone].sort()
-	    if val.has_key(fax_num):
-		con_info[pers_id][fax] = val[fax_num]
-		con_info[pers_id][fax].sort()
-            if val.has_key(mob_num):
-		con_info[pers_id][mobile] = val[mob_num]
-		con_info[pers_id][mobile].sort()
+        if not val.has_key('uid'):
+            continue
+        # check for syntax in 'uid'
+        m = r.match(val['uid'][0])
+        if not m:
+            continue
+        # Iff '/x' the 'x' has to be a digit
+        if m.group(2) and not m.group(3).isdigit():
+            continue
+        uname = m.group(1)
+        acc.clear()
+        try:
+            acc.find_by_name(uname)
+            if not acc.owner_type == int(co.entity_person):
+                logger.debug("Owner (%d) for '%s' is not a person" % 
+                             (acc.owner_id,uname))
+                continue
+            pers_id = acc.owner_id
+        except Errors.NotFoundError:
+            logger.debug("Could not find person: %s" % uname) 
+            continue
+        if not con_info.has_key(pers_id):
+            con_info[pers_id] = {}
+        if val.has_key(ph_num):
+            con_info[pers_id].setdefault(phone,[]).append(val[ph_num][0])
+        if val.has_key(fax_num):
+            con_info[pers_id][fax] = val[fax_num]
+            con_info[pers_id][fax].sort()
+        if val.has_key(mob_num):
+            con_info[pers_id][mobile] = val[mob_num]
+            con_info[pers_id][mobile].sort()
     return(con_info)
 
 def sync_contact_info(cont_info):
@@ -103,26 +106,35 @@ def sync_contact_info(cont_info):
 	except Errors.NotFoundError:
 	    logger.info("Person not found. owner_id:%d" % pers_id)
 	    continue
-	if optimal:
-	    do_update = False
-	    for attr, info_l in val.items():
-		try:
-		    if info_l != db_list[pers_id][attr]:
-			do_update = True
-		except KeyError:
-		    do_update = True
-	if optimal and not do_update:
+        do_update = False
+        for attr, info_l in val.items():
+            try:
+                if info_l != db_list[pers_id][attr]:
+                    do_update = True
+            except KeyError:
+                do_update = True
+	if not do_update:
 	    continue
 	for attr, info_l in val.items():
 	    pref = 1
 	    for inf in info_l:
 		person.populate_contact_info(co.AuthoritativeSystem('PBX'),
-						type = attr,
-						value = inf,
-						contact_pref=pref)
-		logger.debug("Person(%s) contact info updated" % pers_id)
+                                             type = attr,
+                                             value = inf,
+                                             contact_pref=pref)
+		logger.debug("Person(%s) contact info updated: %s %s" % \
+                             (pers_id, attr, inf))
 	 	pref += 1
 	person.write_db()
+    # Clean up after update of valid data
+    for pers_id, types in db_list.iteritems():
+        for c_type in types:
+            if cont_info.has_key(pers_id) and cont_info[pers_id].has_key(c_type):
+                continue
+            person.clear()
+            person.find(pers_id)
+            person.delete_contact_info(co.AuthoritativeSystem('PBX'), c_type)
+            logger.debug("Person(%s) contact info deleted: %s" % (pers_id, c_type)) 
 
 def usage(exit_code=0):
     if exit_code:
@@ -134,11 +146,11 @@ def usage(exit_code=0):
 	
 
 def main():
-    global db_list, optimal
+    global db_list
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
     try:
 	opts, args = getopt.getopt(sys.argv[1:],
-				'l:or', ['ldif-file=','optimize','dryrun'])
+                                   'l:r', ['ldif-file=','dryrun'])
     except getopt.GetoptError, e:
 	usage(str(e))
     l_file = None
@@ -147,8 +159,6 @@ def main():
     for opt, val in opts:
 	if opt in ('-l', '--ldif-file'):
 	    l_file = val
-	if opt in ('-o', '--optimize'):
-	    optimal = True
 	elif opt in ('-r', '--dryrun'):
 	    dryrun = True	
     try:
@@ -157,8 +167,8 @@ def main():
 	usage(str(e))
     cont_info = get_ldif_info(f)
     f.close()
-    if optimal:
-	get_db_entr()
+    
+    get_db_entr()
     sync_contact_info(cont_info)
     if dryrun:
 	db.rollback()
