@@ -111,8 +111,11 @@ def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret['postal_number'] = postal_number
     ret['city'] =  a_dict.get(kline3, '')
     if len(ret['address_text']) == 1:
-        logger.info("Address might not be complete, but we need to cover one-line addresses")
-    if len(ret['address_text']) < 1:
+        logger.debug("Address might not be complete, but we need to cover one-line addresses")
+    # we have to register at least the city in order to have a "proper" address
+    # this mean that addresses containing only ret['city'] will be imported as well
+    if len(ret['address_text']) < 1 and not ret['city']:
+        logger.debug("No address available")
         return None
     return ret
 
