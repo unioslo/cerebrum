@@ -245,11 +245,19 @@ class XMLOU2Object(XMLEntity2Object):
                 result.add_contact(ct)
 
         # We require an OU to have a name.
+        # Ideally, the information about expired OUs should be complete as
+        # well, but we won't be this lucky in our lifetimes. So, for expired
+        # OUs we won't care about the names.
         if result.get_name(DataOU.NAME_LONG) is None:
-            if self.logger:
-                self.logger.warn("No name available for OU %s",
-                                 result.get_id(DataOU.NO_SKO))
-            return None
+            if result.end_date and result.end_date < now():
+                if self.logger:
+                    self.logger.debug("No name for expired OU %s",
+                                      result.get_id(DataOU.NO_SKO))
+            else:
+                if self.logger:
+                    self.logger.warn("No name available for OU %s",
+                                     result.get_id(DataOU.NO_SKO))
+                return None
 
         return result
     # end next_object
