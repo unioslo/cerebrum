@@ -564,11 +564,20 @@ class XMLPerson2Object(XMLEntity2Object):
                 # for '*' as well in order to skipp all the invalid elements
                 #
                 if '*' in value or '@' in value:
-                    raise ValueError("Name contains '@' or '*', ignored")
+                    if self.logger:
+                        self.logger.debug("Name contains '@' or '*', ignored")
+                    # Since the element is marked as void, there is no need to
+                    # process further (we have no guarantee that any data
+                    # would make sense and we won't have even more spurious
+                    # warnings). 
+                    return None
                 result.add_name(DataName(self.tag2type[sub.tag], value))
             elif sub.tag == "Etternavn":
                 if '*' in value or '@' in value:
-                    raise ValueError("Name contains '@' or '*', ignored")
+                    if self.logger:
+                        self.logger.debug("Name contains '@' or '*', ignored")
+                    # Se <Fornavn>.
+                    return None
                 result.add_name(DataName(self.tag2type[sub.tag], value))
             elif sub.tag == "Fodselsnummer":
                 result.add_id(self.tag2type[sub.tag], personnr_ok(value))
