@@ -153,9 +153,9 @@ class XML2Cerebrum:
         # Now that we are done with the IDs, we can run some checks and report
         # on the inconsistencies
         if len(id_collection) > 1:
-            self.logger.error("""Person on file with IDs %s maps to several
-                              person_ids in Cerebrum (%s). Manual intervention
-                              required. No changes made in Cerebrum""",
+            self.logger.error("Person on file with IDs %s maps to several"
+                              " person_ids in Cerebrum (%s). Manual intervention"
+                              " required. No changes made in Cerebrum",
                               list(xmlperson.iterids()), id_collection)
             return False
 
