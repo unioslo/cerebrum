@@ -84,7 +84,7 @@ def get_ldif_info(ldif_file):
                 continue
             pers_id = acc.owner_id
         except Errors.NotFoundError:
-            logger.debug("Could not find person: %s" % uname) 
+            logger.debug("Could not find account: %s" % uname) 
             continue
         if not con_info.has_key(pers_id):
             con_info[pers_id] = {}
@@ -104,7 +104,7 @@ def sync_contact_info(cont_info):
 	try:
 	    person.find(pers_id)
 	except Errors.NotFoundError:
-	    logger.info("Person not found. owner_id:%d" % pers_id)
+	    logger.debug("Person not found. owner_id:%d" % pers_id)
 	    continue
         do_update = False
         for attr, info_l in val.items():
@@ -122,7 +122,7 @@ def sync_contact_info(cont_info):
                                              type = attr,
                                              value = inf,
                                              contact_pref=pref)
-		logger.debug("Person(%s) contact info updated: %s %s" % \
+		logger.info("Person(%s) contact info updated: %s %s" % \
                              (pers_id, attr, inf))
 	 	pref += 1
 	person.write_db()
@@ -134,7 +134,7 @@ def sync_contact_info(cont_info):
             person.clear()
             person.find(pers_id)
             person.delete_contact_info(co.AuthoritativeSystem('PBX'), c_type)
-            logger.debug("Person(%s) contact info deleted: %s" % (pers_id, c_type)) 
+            logger.info("Person(%s) contact info deleted: %s" % (pers_id, c_type)) 
 
 def usage(exit_code=0):
     if exit_code:
