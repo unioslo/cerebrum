@@ -206,7 +206,8 @@ class AccountUiOMixin(Account.Account):
                 if es.email_server_type == server_type and email_server_in_use:
                     # All is well
                     return et
-                if es.email_server_type == self.const.email_server_type_cyrus and email_server_in_use:
+                if es.email_server_type == self.const.email_server_type_cyrus \
+                       and email_server_in_use:
                     is_on_cyrus = True
             except Errors.NotFoundError:
                 pass
@@ -243,9 +244,16 @@ class AccountUiOMixin(Account.Account):
                 if pick <= 0:
                     break
 
-            et.email_server_id = svr_id
-            et.write_db()
-            return et
+            # This breaks a lot of IMAP accounts. We need to send a
+            # move request, not just update the database. Let
+            # process_bofhd_requests handle the actual update of
+            # et.email_server_id
+            #
+            #et.email_server_id = svr_id
+            #et.write_db()
+            #return et
+            self._UiO_order_cyrus_action(self.const.bofh_email_move, svr_id)
+            
         elif is_on_cyrus:
             # Even though this Account's email target already resides
             # on one of the Cyrus servers, something has called this
