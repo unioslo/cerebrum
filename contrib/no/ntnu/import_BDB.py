@@ -561,7 +561,7 @@ class BDBSync:
         try:
             new_person.find_by_external_id(const.externalid_bdb_person,person['id'])
         except Errors.NotFoundError:
-            if not fnr:
+            if fnr:
                 self.logger.debug("No match on bdb-id. Filtering by fodselsnr instead")
                 try:
                     new_person.find_by_external_id(const.externalid_fodselsnr,fnr)
