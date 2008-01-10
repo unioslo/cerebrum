@@ -212,8 +212,11 @@ class AccountUiOMixin(Account.Account):
                     # if old_server is an unused cyrus or is not cyrus at all
                     # move the target to a new server through proc_bofhd_req
                     new_server = self._pick_email_server()
+                    et.email_server_id = new_server
+                    et.write_db()
                     self._UiO_order_cyrus_action(self.const.bofh_email_move, new_server)
-                    self.logger.info("Moving %s to %s", self.entity_id, new_server)                    
+                    self.logger.info("Moving %s to %s", self.entity_id, new_server)
+                    return et
             except Errors.NotFoundError:
                 pass
         except Errors.NotFoundError:
