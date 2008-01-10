@@ -214,8 +214,12 @@ class AccountUiOMixin(Account.Account):
                     new_server = self._pick_email_server()
                     et.email_server_id = new_server
                     et.write_db()
-                    self._UiO_order_cyrus_action(self.const.bofh_email_move, new_server)
-                    self.logger.info("Moving %s to %s", self.entity_id, new_server)
+                    # we don't have to move mailbox if the target is deleted
+                    # as the target wil be assigned an active server and create-
+                    # request registered automatically
+                    if not et.email_target_type == self.const.email_target_deleted:
+                        self._UiO_order_cyrus_action(self.const.bofh_email_move, new_server)
+                        self.logger.info("Moving %s to %s", self.entity_id, new_server)
                     return et
             except Errors.NotFoundError:
                 pass
