@@ -281,6 +281,8 @@ class Constants(Constants.Constants):
                                     'File group in NIS domain "ifi"')
     spread_ifi_nis_ng = _SpreadCode('NIS_ng@ifi', Constants.Constants.entity_group,
                                     'Net group in NIS domain "ifi"')
+    spread_hpc_nis_fg = _SpreadCode('NIS_fg@hpc', Constants.Constants.entity_group,
+                                    'File group in NIS domain "uio" exported to HPC')    
     spread_uio_ldap_person = _SpreadCode('LDAP_person', Constants.Constants.entity_person,
                                          'Person included in LDAP directory')
     spread_uio_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,
