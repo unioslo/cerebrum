@@ -779,22 +779,21 @@ class EntityExternalId(Entity):
 
     def write_db(self):
         self.__super.write_db()
+        
         if hasattr(self, '_extid_source'):
-            types = list(self._extid_types[:])
+            dbvalues = {}
             for row in self.get_external_id(source_system=self._extid_source):
-                if int(row['id_type']) not in self._extid_types:
-                    continue
-                tmp = self._external_id.get(int(row['id_type']), None)
-                if tmp is None:
-                    self._delete_external_id(self._extid_source, row['id_type'])
-                elif tmp <> row['external_id']:
-                    self._set_external_id(self._extid_source, row['id_type'],
-                                          tmp, update=True)
-                types.remove(int(row['id_type']))
-            for type in types:
-                if self._external_id.has_key(type):
-                    self._set_external_id(self._extid_source, type,
-                                          self._external_id[type])
+                dbvalues[row['id_type']] = str(row['external_id'])
+            for type in self._extid_types:
+                val = self._external_id.get(type)
+                dbval = dbvalues.get(type)
+                if val != dbval:
+                    if val is None:
+                        self._delete_external_id(self._extid_source, type)
+                    elif dbval is None:
+                        self._set_external_id(self._extid_source, type, val)
+                    else:
+                        self._set_external_id(self._extid_source, type, val, update=True)
     
 
     def affect_external_id(self, source, *types):
