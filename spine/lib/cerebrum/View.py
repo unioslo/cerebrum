@@ -13,10 +13,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.EntityTrait import EntityTrait
 from Cerebrum.Entity import EntityQuarantine
 
-db = Factory.get('Database')()
-co = Factory.get('Constants')(db)
-acc = Factory.get('Account')(db)
-person = Factory.get('Person')(db)
+co = Factory.get('Constants')()
 
 
 # Accountviews are accounts as "seen from" a spread, and may contain
@@ -152,20 +149,6 @@ ON (change_log.subject_entity = account_info.account_id AND change_log.change_id
 account_search_cl_o = """
 ORDER BY change_log.change_id
 """
-
-def extend_account(d):
-    d["homedir"] = acc.resolve_homedir(account_name=d['name'],
-                                       disk_path=d['disk_path'],
-                                       home=d['home'])
-    # TDB: extend get_gecos() to do this job.
-    if not d["gecos"]:
-        if d["full_name"]:
-            d["gecos"] = d["full_name"]
-        elif d["owner_group_name"]:
-            d["gecos"] = "%s user (%s)" % (d["name"], d["owner_group_name"])
-        else:
-            d["gecos"] = "%s user" % d["name"]
-    return d
 
 # Groupviews are groups as seen from a spread.
 # They are tailored for efficient dumping of all data related to a spread.
@@ -358,7 +341,7 @@ JOIN change_log
 ON (change_log.subject_entity = ou_info.ou_id AND change_log.change_id > :changelog_id)
 """
 
-person_search_cl_o = """
+ou_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
@@ -488,63 +471,15 @@ person_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
-def add_quarantines(entities):
-    quarantines = {}
-    quarantines_has = quarantines.has_key
-    for quarantine in EntityQuarantine(db).list_entity_quarantines(only_active=True):
-        id = quarantine["entity_id"]
-        qtype = str(co.Quarantine(quarantine["quarantine_type"]))
-
-        if quarantines_has(id):
-            quarantines[id].append(qtype)
-        else:
-            quarantines[id] = [qtype]
-
-    for e in entities:
-        e["quarantines"] = quarantines.get(e["id"], [])
-    
-    return entities
-
-
-def extend_persons(rows):
-    persons = []
-
-    traits = {}
-    traits_has = traits.has_key
-    for trait in EntityTrait(db).list_traits():
-        pid = trait[0]
-        tid = trait[1]
-
-        if traits_has(pid):
-            traits[pid].append(tid)
-        else:
-            traits[pid] = [tid]
-    
-    affiliations = {}
-    affiliations_has = affiliations.has_key
-    for affiliation in person.list_affiliations():
-        pid = affiliation[0]
-        aid = affiliation[1]
-
-        if affiliations_has(pid):
-            affiliations[pid].append(aid)
-        else:
-            affiliations[pid] = [aid]
-
-    for row in rows:
-        row = row.dict()
-        pid = row['id']
-        if traits_has(pid):
-            row['traits'] = traits[pid]
-        if affiliations_has(pid):
-            row['affiliations'] = affiliations[pid]
-
-        persons.append(row)
-    return persons
 
 class View(DatabaseTransactionClass):
     def __init__(self, *args, **vargs):
         super(View, self).__init__(spread=None, *args, **vargs)
+
+        self.acc = Factory.get('Account')(self.get_database())
+        self.person = Factory.get('Person')(self.get_database())
+        self.db = self.get_database()
+
         self.query_data = {
             "account_namespace": co.account_namespace,
             "group_namespace": co.group_namespace,
@@ -568,6 +503,75 @@ class View(DatabaseTransactionClass):
             "perspective": co.perspective_kjernen,
         }
         
+    def extend_account(self, d):
+        d["homedir"] = self.acc.resolve_homedir(account_name=d['name'],
+                                                disk_path=d['disk_path'],
+                                                home=d['home'])
+        # TDB: extend get_gecos() to do this job.
+        if not d["gecos"]:
+            if d["full_name"]:
+                d["gecos"] = d["full_name"]
+            elif d["owner_group_name"]:
+                d["gecos"] = "%s user (%s)" %(d["name"], d["owner_group_name"])
+            else:
+                d["gecos"] = "%s user" % d["name"]
+        return d
+
+    def extend_persons(self, rows):
+        persons = []
+
+        traits = {}
+        traits_has = traits.has_key
+        for trait in EntityTrait(self.db).list_traits():
+            pid = trait[0]
+            tid = trait[1]
+
+            if traits_has(pid):
+                traits[pid].append(tid)
+            else:
+                traits[pid] = [tid]
+    
+        affiliations = {}
+        affiliations_has = affiliations.has_key
+        for affiliation in self.person.list_affiliations():
+            pid = affiliation[0]
+            aid = affiliation[1]
+
+            if affiliations_has(pid):
+                affiliations[pid].append(aid)
+            else:
+                affiliations[pid] = [aid]
+
+        for row in rows:
+            row = row.dict()
+            pid = row['id']
+            if traits_has(pid):
+                row['traits'] = traits[pid]
+            if affiliations_has(pid):
+                row['affiliations'] = affiliations[pid]
+
+            persons.append(row)
+        return persons
+
+
+    def add_quarantines(self, entities):
+        quarantines = {}
+        quarantines_has = quarantines.has_key
+        eq = EntityQuarantine(self.db)
+        for quarantine in eq.list_entity_quarantines(only_active=True):
+            id = quarantine["entity_id"]
+            qtype = str(co.Quarantine(quarantine["quarantine_type"]))
+            
+            if quarantines_has(id):
+                quarantines[id].append(qtype)
+            else:
+                quarantines[id] = [qtype]
+
+        for e in entities:
+            e["quarantines"] = quarantines.get(e["id"], [])
+    
+        return entities
+
     # Allow the user to define spreads.
     # These must be set 'globally' because membership-type
     # attributes will need more than one spread.
@@ -602,48 +606,52 @@ class View(DatabaseTransactionClass):
     def get_accounts(self):
         db = self.get_database()
         rows=db.query(account_search % "", self.query_data)
-        return add_quarantines([extend_account(r.dict()) for r in rows])
+        return self.add_quarantines([self.extend_account(r.dict())
+                                     for r in rows])
     get_accounts.signature = [Struct(AccountView)]
     def get_accounts_cl(self):
         db = self.get_database()
         rows=db.query(account_search % account_search_cl + account_search_cl_o,
                       self.query_data)
-        return add_quarantines([extend_account(r.dict()) for r in rows])
+        return self.add_quarantines([self.extend_account(r.dict())
+                                     for r in rows])
     get_accounts_cl.signature = [Struct(AccountView)]
     def get_groups(self):
         db = self.get_database()
         members=group_members(db)
         rows=db.query(group_search % "", self.query_data)
-        return add_quarantines([members.addto_group(r.dict()) for r in rows])
+        return self.add_quarantines([members.addto_group(r.dict())
+                                     for r in rows])
     get_groups.signature = [Struct(GroupView)]
     def get_groups_cl(self):
         db = self.get_database()
         members=group_members(db)
         rows=db.query(group_search % group_search_cl + group_search_cl_o,
                       self.query_data)
-        return add_quarantines([members.addto_group(r.dict()) for r in rows])
+        return self.add_quarantines([members.addto_group(r.dict())
+                                     for r in rows])
     get_groups_cl.signature = [Struct(GroupView)]
     def get_ous(self):
         db = self.get_database()
         rows=db.query(ou_search % "", self.query_data)
-        return add_quarantines([r.dict() for r in rows])
+        return self.add_quarantines([r.dict() for r in rows])
     get_ous.signature = [Struct(OUView)]
     def get_ous_cl(self):
         db = self.get_database()
         rows=db.query(ou_search % ou_search_cl + ou_search_cl_o,
                       self.query_data)
-        return add_quarantines([r.dict() for r in rows])
+        return self.add_quarantines([r.dict() for r in rows])
     get_ous_cl.signature = [Struct(OUView)]
     def get_persons(self):
         db = self.get_database()
         rows=db.query(person_search % "", self.query_data)
-        return add_quarantines(extend_persons(rows))
+        return self.add_quarantines(self.extend_persons(rows))
     get_persons.signature = [Struct(PersonView)]
     def get_persons_cl(self):
         db = self.get_database()
         rows=db.query(person_search % person_search_cl +person_search_cl_o,
                       self.query_data)
-        return add_quarantines(extend_persons(rows))
+        return self.add_quarantines(self.extend_persons(rows))
     get_persons_cl.signature = [Struct(PersonView)]
 registry.register_class(View)
 
