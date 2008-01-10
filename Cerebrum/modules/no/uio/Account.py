@@ -79,7 +79,6 @@ class AccountUiOMixin(Account.Account):
             # Unless this account already has been associated with an
             # Cyrus EmailTarget, we need to do so.
             et = self._UiO_update_email_server(self.const.email_server_type_cyrus)
-
             self._UiO_order_cyrus_action(self.const.bofh_email_create,
                                          et.email_server_id)
             # register default spam and filter settings
@@ -183,7 +182,7 @@ class AccountUiOMixin(Account.Account):
 
     def _UiO_update_email_server(self, server_type):
         et = Email.EmailTarget(self._db)
-        es = Email.EmailServer(self._db)
+        es = Email.EmailServer(self._db)        
         old_server = None
         # this variable should now be called "is_on_active_cyrus" as
         # we actually check whether the registered server is
@@ -209,6 +208,12 @@ class AccountUiOMixin(Account.Account):
                 if es.email_server_type == self.const.email_server_type_cyrus \
                        and email_server_in_use:
                     is_on_cyrus = True
+                else:
+                    # if old_server is an unused cyrus or is not cyrus at all
+                    # move the target to a new server through proc_bofhd_req
+                    new_server = self._pick_email_server()
+                    self._UiO_order_cyrus_action(self.const.bofh_email_move, server)
+                    self.logger.info("Moving %s to %s", self.entity_id, server)                    
             except Errors.NotFoundError:
                 pass
         except Errors.NotFoundError:
@@ -216,44 +221,12 @@ class AccountUiOMixin(Account.Account):
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-        if old_server is None \
-           or (server_type == self.const.email_server_type_cyrus
-               and not is_on_cyrus):
-
-            # We try to spread the usage across servers, but want a
-            # random component to the choice of server.  The choice is
-            # weighted, although the determination of weights happens
-            # externally to Cerebrum since it is a relatively
-            # expensive operation (can take several seconds).
-            # Typically the weight will vary with the amount of users
-            # already assigned, the disk space available or similar
-            # criteria.
-            #
-            # Servers MUST have a weight trait to be considered for
-            # allocation.
-
-            user_weight = {}
-            total_weight = 0
-            for row in es.list_traits(self.const.trait_email_server_weight):
-                total_weight += row['numval']
-                user_weight[row['entity_id']] = row['numval']
-
-            pick = random.randint(0, total_weight - 1)
-            for svr_id in user_weight:
-                pick -= user_weight[svr_id]
-                if pick <= 0:
-                    break
-
-            # This breaks a lot of IMAP accounts. We need to send a
-            # move request, not just update the database. Let
-            # process_bofhd_requests handle the actual update of
-            # et.email_server_id
-            #
-            #et.email_server_id = svr_id
-            #et.write_db()
-            #return et
-            self._UiO_order_cyrus_action(self.const.bofh_email_move, svr_id)
-            
+        if old_server is None:
+            server = self._pick_email_server()
+            et.email_server_id = server
+            self.logger.debug("Assigning server %s to %s", self.entity_id, server)
+            et.write_db()
+            return et
         elif is_on_cyrus:
             # Even though this Account's email target already resides
             # on one of the Cyrus servers, something has called this
@@ -270,6 +243,32 @@ class AccountUiOMixin(Account.Account):
                 raise self._db.IntegrityError, \
                       "Can't move email target away from IMAP."
 
+    def _pick_email_server(self):
+            # We try to spread the usage across servers, but want a
+            # random component to the choice of server.  The choice is
+            # weighted, although the determination of weights happens
+            # externally to Cerebrum since it is a relatively
+            # expensive operation (can take several seconds).
+            # Typically the weight will vary with the amount of users
+            # already assigned, the disk space available or similar
+            # criteria.
+            #
+            # Servers MUST have a weight trait to be considered for
+            # allocation.
+        es = Email.EmailServer(self._db)
+        user_weight = {}
+        total_weight = 0
+        for row in es.list_traits(self.const.trait_email_server_weight):
+            total_weight += row['numval']
+            user_weight[row['entity_id']] = row['numval']
+            
+        pick = random.randint(0, total_weight - 1)
+        for svr_id in user_weight:
+            pick -= user_weight[svr_id]
+            if pick <= 0:
+                break
+        return svr_id
+        
     def illegal_name(self, name):
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
