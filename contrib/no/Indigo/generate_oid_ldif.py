@@ -113,9 +113,9 @@ def process_txt_file(file):
         pwd = ""
         if a_id2auth[a_id][1] is not None:
             pwd = a_id2auth[a_id][1][int(co.auth_type_plaintext)]
-        if not (p_id2name.has_key(id) or \
-                p_id2name[id].get(int(co.name_first)) or \
-                p_id2name[id].get(int(co.name_last))):
+        if not p_id2name.has_key(id) or \
+               (not p_id2name[id].get(int(co.name_first)) or \
+                not p_id2name[id].get(int(co.name_last))):
             logger.warning("Names not found for '%s'" % id)
             continue
         if not ou_id2name.has_key(ou_id):
