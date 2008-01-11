@@ -787,7 +787,9 @@ class EntityExternalId(Entity):
             for type in self._extid_types:
                 val = self._external_id.get(type)
                 dbval = dbvalues.get(type)
-                if str(val) != dbval:
+                if val is not None:
+                    val = str(val)
+                if val != dbval:
                     if val is None:
                         self._delete_external_id(self._extid_source, type)
                     elif dbval is None:
