@@ -600,8 +600,13 @@ class BDBSync:
 
         # Rewrite glob to a method?
         # Populate person with names 
-        fodt_dato = person.get("birth_date")
-        new_person.populate(fodt_dato, gender)
+        birth_date = mx.DateTime.DateFrom(person.get("birth_date"))
+        if new_person.birth_date != birth_date:
+            new_person.birth_date = birth_date
+        if new_person.gender != gender:
+            new_person.gender = gender
+
+
         new_person.write_db()
         new_person.affect_names(const.system_bdb,
                                 const.name_first,
