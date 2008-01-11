@@ -157,10 +157,14 @@ def process_users(affiliation, file):
             logger.warning("No owner-ID and type for '%s'" % id)
             continue
         if a_id2p_id[id][0] == int(co.entity_person):
+            if a_id2p_id[id][1] not in p_id2name:
+                logger.warning("No names found for '%s'", id)
+                continue
+
             p_names = p_id2name[a_id2p_id[id][1]]
-            if not (p_names.get(int(co.name_first)) or \
+            if not (p_names.get(int(co.name_first)) or
                     p_names.get(int(co.name_last))):
-                logger.warning("Names not found for '%s'" % id)
+                logger.warning("No names found for '%s'" % id)
                 continue
             first = p_names[int(co.name_first)]
             last = p_names[int(co.name_last)]
