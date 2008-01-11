@@ -53,7 +53,9 @@ class SpineImpl(SpineCore__POA.Spine):
         self._db = None
 
     def get_database(self):
-        if self._db: self._db.close()
+        if self._db:
+            self._db.close()
+            self._db = None
         self._db = Database.SpineDatabase()
         return self._db
 
