@@ -665,6 +665,12 @@ LDAP_MAIL_DNS_MAX_CHANGE = 10
 # DNS
 # reserved ip's by netmask.  The values are added to the first IP on the subnet
 DEFAULT_RESERVED_IP_BY_NETMASK = {
+    # The first 10 addresses are reserved for routers (tradition).
+    # The last address is reserved for broadcast.
+    # The few addresses inbetween for /22 and /23 should help us split nets,
+    # should such a split become desirable/necessary.
+    20: range(0, 10) + [2**(32-20)-1],
+    21: range(0, 10) + [2**(32-21)-1],
     22: range(0, 10) + [255, 256] + [255*2+1, 255*2+2] + [2**(32-22)-1],
     23: range(0, 10) + [255, 256] +  [2**(32-23)-1],
     24: range(0, 10) + [2**(32-24)-1],
