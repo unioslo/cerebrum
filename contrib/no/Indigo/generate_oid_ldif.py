@@ -116,7 +116,7 @@ def process_txt_file(file):
         if id not in p_id2name or \
                (int(co.name_first) not in p_id2name[id] or \
                 int(co.name_last) not in p_id2name[id]):
-            logger.warning("Names not found for '%s'" % id)
+            logger.warning("Names not found for person id='%s'" % id)
             continue
         if not ou_id2name.has_key(ou_id):
             logger.warning("OU name not found for '%s'" % ou_id)
@@ -158,13 +158,13 @@ def process_users(affiliation, file):
             continue
         if a_id2p_id[id][0] == int(co.entity_person):
             if a_id2p_id[id][1] not in p_id2name:
-                logger.warning("No names found for '%s'", id)
+                logger.warning("No names found for account id='%s'", id)
                 continue
 
             p_names = p_id2name[a_id2p_id[id][1]]
             if not (p_names.get(int(co.name_first)) or
                     p_names.get(int(co.name_last))):
-                logger.warning("No names found for '%s'" % id)
+                logger.warning("No names found for accound id='%s'" % id)
                 continue
             first = p_names[int(co.name_first)]
             last = p_names[int(co.name_last)]
