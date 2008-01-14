@@ -253,6 +253,8 @@ class Constants(Constants.Constants):
                                             'User on system "ipt_soil"')
     spread_ntnu_kerberos_user = _SpreadCode('user@kerberos' , Constants.Constants.entity_account,
                                             'User on system "kerberos"')
+    spread_ntnu_ivtsan_user = _SpreadCode('user@ivtsan' , Constants.Constants.entity_account,
+                                            'User on system "ivtsan"')
 
     spread_ntnu_group = _SpreadCode('group@ntnu', Constants.Constants.entity_group,
                                     'File group at NTNU')
