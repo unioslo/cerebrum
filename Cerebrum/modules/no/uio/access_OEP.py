@@ -43,10 +43,13 @@ class OEP(object):
         """
 
         query = """
-                SELECT user_network_name AS username
-                FROM basware.ip_group_user                                               
-                WHERE group_name = 'BasWareBrukere' AND
-                      upper(DOMAIN) = 'UIO'                 
+                SELECT igu.user_network_name AS username
+                FROM basware.ip_group_user igu,
+                     basware.eflow_users eu
+                WHERE igu.group_name = 'BasWareBrukere' AND
+                      upper(igu.DOMAIN) = 'UIO' AND
+                      igu.user_network_name = eu.user_network_name AND
+                      eu.active = 1
                 """
         
         return self.db.query(query, fetchall = fetchall)
@@ -60,10 +63,13 @@ class OEP(object):
         """
 
         query = """
-                SELECT user_network_name AS username
-                FROM basware.ip_group_user                                               
-                WHERE group_name = 'Masterbrukere' AND
-                      upper(DOMAIN) = 'UIO'
+                SELECT igu.user_network_name AS username
+                FROM basware.ip_group_user igu,
+                     basware.eflow_users eu
+                WHERE igu.group_name = 'Masterbrukere' AND
+                      upper(igu.DOMAIN) = 'UIO' AND
+                      igu.user_network_name = eu.user_network_name AND
+                      eu.active = 1
                 """
         
         return self.db.query(query, fetchall = fetchall)
@@ -77,10 +83,13 @@ class OEP(object):
         """
 
         query = """
-                SELECT user_network_name AS username
-                FROM basware.ip_group_user                                               
-                WHERE group_name = 'Monitorbrukere' AND
-                      upper(DOMAIN) = 'UIO'
+                SELECT igu.user_network_name AS username
+                FROM basware.ip_group_user igu,
+                     basware.eflow_users eu
+                WHERE igu.group_name = 'Monitorbrukere' AND
+                      upper(igu.DOMAIN) = 'UIO' AND
+                      igu.user_network_name = eu.user_network_name AND
+                      eu.active = 1
                 """
         
         return self.db.query(query, fetchall = fetchall)
@@ -94,10 +103,13 @@ class OEP(object):
         """
 
         query = """
-                SELECT user_network_name AS username
-                FROM basware.ip_group_user                                               
-                WHERE group_name = 'Readsoftbrukere' AND
-                      upper(DOMAIN) = 'UIO'
+                SELECT igu.user_network_name AS username
+                FROM basware.ip_group_user igu,
+                     basware.eflow_users eu
+                WHERE igu.group_name = 'Readsoftbrukere' AND
+                      upper(igu.DOMAIN) = 'UIO' AND
+                      igu.user_network_name = eu.user_network_name AND
+                      eu.active = 1
                 """
         
         return self.db.query(query, fetchall = fetchall)
@@ -111,14 +123,15 @@ class OEP(object):
         """
 
         query = """
-                SELECT user_network_name AS username
-                FROM basware.ip_group_user                                               
-                WHERE group_name = 'UserAdminbrukere' AND
-                      upper(DOMAIN) = 'UIO'
+                SELECT igu.user_network_name AS username
+                FROM basware.ip_group_user igu,
+                     basware.eflow_users eu
+                WHERE igu.group_name = 'UserAdminbrukere' AND
+                      upper(igu.DOMAIN) = 'UIO' AND
+                      igu.user_network_name = eu.user_network_name AND
+                      eu.active = 1
                 """
         
         return self.db.query(query, fetchall = fetchall)
     # end list_useradmin_users        
 # end OEP
-
-# arch-tag: bcbf6648-d6b1-42b3-9ace-d7c5b3d8c8ec
