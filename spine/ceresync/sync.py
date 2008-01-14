@@ -21,6 +21,13 @@ class Sync:
         self.view.set_authentication_method(self.tr.get_authentication_type(self.auth_type))
         self.view.set_changelog(id)
 
+    def __del__(self):
+        for i in self.session.get_transactions():
+            try: i.rollback()
+            except: pass
+        try: self.session.logout()
+        except: pass
+
     def set_authtype(self, auth_type):
         self.auth_type = auth_type
         self.view.set_authentication_method(self.tr.get_authentication_type(auth_type))
@@ -32,12 +39,14 @@ class Sync:
             m = "get_%ss_cl" % objtype
         else:
             m = "get_%ss" % objtype
+        res=[]
         for obj in getattr(self.view, m)():
             obj.type=objtype
             config.apply_override(obj, objtype)
             config.apply_default(obj, obj.type)
             #config.apply_quarantine(obj, obj.type)
-            yield obj
+            res.append(obj)
+        return res
     
     def get_accounts(self, incr=None):
         return self._do_get("account", incr)
