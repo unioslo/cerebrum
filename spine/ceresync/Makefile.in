@@ -11,7 +11,7 @@ SBINDIR = @sbindir@
 .PHONY: all install install-lib clean distclean
 
 progs = syncfile.py syncldap.py synckerberos.py syncadsi.py
-backend = backend/file.py backend/ldap.py __init__.py
+backend = backend/file.py backend/ldap.py backend/__init__.py
 adsibackend = backend/adsi/__init__.py backend/adsi/active_directory.py backend/adsi/ad_types.py backend/adsi/ad_errors.py backend/adsi/wrapper.py
 kerberosbackend = backend/kerberos/__init__.py backend/kerberos/kadm5.py backend/kerberos/heimdal_error.py backend/kerberos/mit_error.py
 common = cerelog.py config.py doc_exception.py errors.py sync.py __init__.py
