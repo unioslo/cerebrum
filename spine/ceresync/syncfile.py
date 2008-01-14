@@ -56,11 +56,13 @@ def main():
 
     accounts = filebackend.Account()
     groups = filebackend.Group()
+    primary_group = {}
 
     print "Syncronizing accounts"
     accounts.begin(incr)
     try:
         for account in s.get_accounts():
+            primary_group[account.name]=account.primary_group
             fail = check_account(account)
             if not fail: 
                 accounts.add(account)
@@ -76,6 +78,9 @@ def main():
     try:
         for group in s.get_groups():
             fail = check_group(group)
+            group.members = [m for m in group.members
+                             if (primary_group.get(m) is not None and
+                                 primary_group.get(m) != group.name)]
             if not fail:
                 groups.add(group)
             else:
