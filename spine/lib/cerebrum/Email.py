@@ -29,7 +29,7 @@ from SpineLib.Date import Date
 
 from Entity import Entity
 from Types import PersonAffiliationType
-from EmailTypes import EmailDomainCategory, EmailTargetType, EmailServerType
+from EmailTypes import EmailDomainCategory, EmailTargetType, EmailServerType, EmailFilter
 from Host import Host
 from Account import Account
 from Person import Person
@@ -894,5 +894,24 @@ get_vacations.signature_args = []
 
 EmailTarget.register_methods([add_vacation, remove_vacation, get_vacations])
 
+table = 'email_target_filter'
+class EmailTargetFilter(DatabaseClass):
+    primary = (
+        DatabaseAttr('target', table, EmailTarget),
+    )
+    slots = (
+        DatabaseAttr('filter', table, EmailFilter, write=True),
+    )
+    db_attr_aliases = {
+        table : {
+            'target' : 'target_id',
+        }
+    }
+ 
+    def get_auth_entity(self):
+        return self.get_target()
+    get_auth_entity.signature = Entity
+
+registry.register_class(EmailTargetFilter)
 
 # arch-tag: bd478dc6-f9ef-11d9-905c-b1284ed93a3d

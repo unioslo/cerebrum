@@ -34,6 +34,7 @@ for name, table in [
     ('EmailServerType', 'email_server_type_code'),
     ('EmailVirusFound', 'email_virus_found_code'),
     ('EmailVirusRemoved', 'email_virus_removed_code'),
+    ('EmailFilter', 'email_target_filter_code'),
     ]:
 
     exec 'class %s(CodeType):\n pass\ncls=%s' % (name, name)
