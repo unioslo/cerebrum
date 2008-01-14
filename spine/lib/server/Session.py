@@ -175,7 +175,8 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         # if we iterate over it
         transactions = self._transactions.keys() 
         for transaction in transactions:
-            transaction.rollback() # This will make the transaction remove itself
+            try: transaction.rollback() # This will make the transaction remove itself
+            except: pass
         self.client = None
 
     def remove_transaction(self, transaction):
