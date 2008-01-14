@@ -69,19 +69,19 @@ class BDB:
         cursor.close()
         return domains
 
-    def get_email_addresses(self, all_addresses=False):
+    def get_email_addresses(self):
         cursor = self.db.cursor()
         sql = """
-        SELECT p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id,
-               m.navn as domain_name, b.brukernavn
-        FROM person p, mail_domain m, bruker b
-        WHERE m.system IS NOT NULL AND
-              p.id = b.person AND
-              p.personnr IS NOT NULL AND
-              b.user_domain = 1
+            SELECT p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id,
+                   m.navn as domain_name, b.brukernavn
+            FROM person p, mail_domain m, bruker b, no_nin_persons n
+            WHERE
+                b.user_domain = 1 AND
+                b.person = p.id AND
+                (p.personnr IS NOT NULL OR (p.id = n.person AND n.utloper IS NULL)) AND
+                p.mail_domain = m.id AND
+                m.system IS NOT NULL
         """
-        if not all_addresses:
-            sql += "AND m.system IS NOT NULL\n"
         cursor.execute(sql)
         addresses = []
         bdb_addresses = cursor.fetchall()
