@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -45,10 +45,12 @@ class _EphorteJournalenhetCode(_CerebrumCode):
 class EphorteConstants(ConstantsBase):
     # Values from the ePhorte table ROLE
     ephorte_role_ar1 = _EphorteRoleTypeCode('AR1', 'Arkivansvarlig')
-    ephorte_role_ar2 = _EphorteRoleTypeCode('AR2', 'Arkival')
+    ephorte_role_ar2 = _EphorteRoleTypeCode('AR2', 'Arkivar')
     ephorte_role_ld = _EphorteRoleTypeCode('LD', 'Leder/saksfordeler')
+    ephorte_role_ld_les = _EphorteRoleTypeCode('LD LES', 'Leserolle - leder')
     ephorte_role_sb = _EphorteRoleTypeCode('SB', 'Saksbehandler')
     ephorte_role_sy = _EphorteRoleTypeCode('SY', 'Systemansvarlig')
+    ephorte_role_mal = _EphorteRoleTypeCode('MAL', 'Mal-ansvarlige')
 
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
