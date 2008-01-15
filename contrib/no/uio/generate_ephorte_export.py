@@ -116,7 +116,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         account2pid = {}
         for row in ac.search():
             pid2accounts.setdefault(int(row['owner_id']), []).append(
-                {'id': '%s@UIO.NO' % row['name'].upper()})
+                {'id': '%s@uio.no' % row['name']})
             account2pid[int(row['account_id'])] = int(row['owner_id'])
         for account_id in potential_changed_feideid.keys():
             # Recently expired users will not be in account2pid
@@ -171,8 +171,8 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         if pid:
             tmp = persons.get(pid)
             if tmp:
-                tmp['initials'] = row['entity_name'].upper()
-                tmp['feide_id'] =  tmp['initials']+"@UIO.NO"
+                tmp['initials'] = row['entity_name']
+                tmp['feide_id'] =  tmp['initials']+"@uio.no"
     
     logger.info("Fetching contact info...")
     for row in pe.list_contact_info(source_system=co.system_sap,
