@@ -114,6 +114,21 @@ class PopulateEphorte(object):
     def map_ou2role(self, ou_id):
         arkiv, journal = self.ouid_2roleinfo[ou_id]
         return SimpleRole(int(co.ephorte_role_sb), ou_id, arkiv, journal)
+
+    def _print_person_info(self, person_id):
+        ret = "id: %s" % person_id
+        try:
+            pe.clear()
+            pe.find(person_id)
+            tmp_id = pe.get_external_id(source_system=co.system_sap,
+                                        id_type=co.externalid_sap_ansattnr)
+            first_name = pe.get_name(source_system=co.system_sap, variant=co.name_first)
+            last_name = pe.get_name(source_system=co.system_sap, variant=co.name_last)
+            ret += ", SAP ID: %s, name: %s %s" % (tmp_id[0]['external_id'],
+                                                  first_name, last_name)
+        except Errors.NotFoundError:
+            logger.warn("Couldn't find person with id %s" % person_id)
+        return ret
     
     def run(self):
         """Automatically add roles and spreads for employees according to
@@ -141,9 +156,9 @@ class PopulateEphorte(object):
             if ou_id is None or ou_id not in self.known_ephorte_ou:
                 logger.warn("Failed mapping '%s' to known ePhorte OU. " %
                             self.ouid2sko[int(row['ou_id'])] + 
-                            "Skipping affiliation %s@%s for person %s" % (
+                            "Skipping affiliation %s@%s for person with %s" % (
                     co.affiliation_ansatt, self.ouid2sko[int(row['ou_id'])],
-                    row['person_id']))
+                    self._print_person_info(row['person_id'])))
                 continue
             person2ou.setdefault(int(row['person_id']), {})[ou_id] = 1
 
