@@ -136,7 +136,7 @@ def get_sko((fakultet, institutt, gruppe), system):
 
 
 
-def determine_traits(xmlperson):
+def determine_traits(xmlperson, source_system):
     """Determine traits to assign to this person.
 
     cereconf.EMPLOYEE_TRAITS decides which traits are assigned to each
@@ -146,6 +146,10 @@ def determine_traits(xmlperson):
     @param xmlperson:
       Next person to process
 
+    @type source_system: ??
+    @param source_system:
+      Source system where the data originated from (useful for OU-lookup).
+
     @rtype: sequence
     @return:
       A sequence of traits to adorn the corresponding cerebrum person object
@@ -153,8 +157,7 @@ def determine_traits(xmlperson):
       only guarantee made about the sequence is that it is without duplicates
       and it is iterable.
 
-    
-
+    IVR 2008-01-15 FIXME: Fix this comment.
     sapxml2object registrerer rollene
     import_HR_person slår opp mappingen i cereconf
     import_HR_person konverterer rolle fra mellomrepresentasjon til traitliste
@@ -179,13 +182,23 @@ def determine_traits(xmlperson):
         if roleid not in emp_traits:
             continue
 
+        sko = role.place
+        if not sko:
+            logger.debug("role <%s> for <%s> is missing ou. skipped",
+                         roleid, list(xmlperson.iterids()))
+            continue
+
+        assert role.place[0] == DataOU.NO_SKO
+        # Map the sko from HR data to a dict with OU info (and ou_id)
+        ou_info = get_sko(role.place[1], source_system)
+        if not ou_info:
+            logger.debug("role <%s> for <%s> has unknown ou. skipped",
+                         roleid, list(xmlperson.iterids()))
+            continue
+        ou_id = ou_info["id"]
         try:
             trait = const.EntityTrait(emp_traits[roleid])
-            # look it up in Cerebrum. Technically, we can collect just the
-            # ints, but for debugging and what not it is nicer to have an
-            # object which is easier to interpret for humans.
-            int(trait)
-            answer.add(trait)
+            answer.add((int(trait), int(ou_id)))
         except Errors.NotFoundError:
             logger.warn("Trait '%s' is unknown in the db, but defined in "
                         "cereconf.EMPLOYEE_TRAITS", emp_traits[roleid])
@@ -407,7 +420,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
         logger.debug("Loading next person: %s", list(xmlperson.iterids()))
         affiliations, work_title = determine_affiliations(xmlperson,
                                                           source_system)
-        traits = determine_traits(xmlperson)
+        traits = determine_traits(xmlperson, source_system)
 
         # If the person has primary_ou set, we set the besok/post
         # address in the xmlperson unless it is already set

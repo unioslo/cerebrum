@@ -392,8 +392,8 @@ class XML2Cerebrum:
         """
 
         # 2008-01-15 IVR: Potentially, we may have to do much more than this.
-        for trait in traits:
-            person.populate_trait(trait)
+        for trait, ou_id in traits:
+            person.populate_trait(trait, target_id=ou_id)
     # end _assign_person_traits
 
 
