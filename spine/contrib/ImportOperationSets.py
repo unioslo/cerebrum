@@ -52,9 +52,9 @@ class AuthImporter(object):
         try:
             ceresync_group.find_by_name("ceresync")
         except Cerebrum.Errors.NotFoundError:
-            group.populate(self.creator_id, group.const.group_visibility_all,
+            ceresync_group.populate(self.creator_id, group.const.group_visibility_all,
                            "ceresync")
-            group.write_db()
+            ceresync_group.write_db()
         self.ceresync_group_id = ceresync_group.entity_id
 
     def __del__(self):
