@@ -21,7 +21,7 @@
 
 
 
-import ceresync.config
+from ceresync import config 
 import SpineClient
 import os
 
@@ -31,12 +31,21 @@ def setup_home(path, uid, gid):
         os.mkdir(path, 0700)
         os.chown(path, uid, gid)
 
+class sync(object):
+    def __init__(self):
+        self.connection = SpineClient.SpineClient(config=config.conf).connect()
+        self.session = self.connection.login(config.conf.get('spine', 'login'),
+                                   config.conf.get('spine', 'password'))
+        self.tr = self.session.new_transaction()
+        self.cmd = self.tr.get_commands()
 
-connection = SpineClient.SpineClient(config=config.conf).connect()
-session = connection.login(config.conf.get('spine', 'login'),
-                           config.conf.get('spine', 'password'))
-tr = session.new_transaction()
-cmd = tr.get_commands()
+    def __del__(self):
+        try: self.session.logout()
+        except: pass
+
+s = sync()
+tr = s.tr
+cmd = s.cmd    
 
 try:
     hostname = config.conf.get('homedir', 'hostname')
@@ -70,7 +79,7 @@ def get_path(hd):
     if disk:
         path = disk.get_path()
         if home:
-            return path + home
+            return path + "/" + home
         else:
             return path + "/" + hd.get_account().get_name()
     else:
@@ -103,3 +112,4 @@ for hd in hds.search():
         hd.set_status(status_create_failed)
 
 tr.commit()
+s.session.logout()
