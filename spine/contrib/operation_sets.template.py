@@ -155,11 +155,11 @@ op_sets = {
         ('Account.is_expired', None),
         ('Account.is_posix', None),
         ('Account.is_quarantined', None),
-	('AccountAffiliation.get_account', None),
-	('AccountAffiliation.get_affiliation', None),
-	('AccountAffiliation.get_ou', None),
-	('AccountAffiliation.get_person', None),
-	('AccountAffiliation.get_priority', None),
+        ('AccountAffiliation.get_account', None),
+        ('AccountAffiliation.get_affiliation', None),
+        ('AccountAffiliation.get_ou', None),
+        ('AccountAffiliation.get_person', None),
+        ('AccountAffiliation.get_priority', None),
         ('AccountSearcher.add_intersection', None),
         ('AccountSearcher.length', None),
         ('AccountSearcher.search', None),
@@ -760,15 +760,45 @@ op_sets = {
         ('PersonAffiliation.get_ou', None),
         ('PersonAffiliation.get_status', None),
     ],
+
+
+    'sync_stud': [
+        ('View.get_accounts', None),
+        ('View.get_accounts_cl', None),
+        ('View.get_groups', None),
+        ('View.get_groups_cl', None),
+        ('View.set_changelog', None),
+        ('View.set_account_spread', 'user@stud'),
+        ('View.set_group_spread', 'group@ntnu'),
+        ('View.set_authentication_method', 'MD5-crypt'),
+        ('View.set_authentication_method', 'crypt3-DES'),
+        ],
+
+    'sync_kerberos': [
+        ('View.get_accounts', None),
+        ('View.get_accounts_cl', None),
+        ('View.get_groups', None),
+        ('View.get_groups_cl', None),
+        ('View.set_changelog', None),
+        ('View.set_account_spread', 'user@kerberos'),
+        ('View.set_group_spread', 'group@ntnu'),
+        ('View.set_authentication_method', 'PGP-kerberos'),
+        ],
 }
 
+# Entry syntax: (entity_type, entity_name, op_set, op_target)
+#       entity_type = 'group' | 'account'
+#       entity_name = group_name | account_name
+#       op_set as defined above
+#       op_target = (target_entity, target_id, target_value)
+#       target_entity = 'entity' | 'global'
+#
 
 op_roles = [
-    # group,            op_set,          # op_target
+    # entity_type, entity_name,   op_set,          op_target
     ('group', 'cereweb_orakel', 'modify_user', ('entity', 15850, None)),
     ('group', 'cereweb_orakel', 'create_user', ('entity', 15850, None)),
     ('group', 'cereweb_orakel', 'modify_itea', ('global', None, None)),
-    ('group', 'cereweb_orakel', 'read_all', ('global', None, None)),
     ('group', 'cereweb_orakel', 'admin_client', ('global', None, None)),
 
     #('group', 'idi_drift', 'modify_user', ('entity', 15850, None)),
