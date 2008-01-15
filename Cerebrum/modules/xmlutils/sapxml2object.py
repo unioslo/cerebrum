@@ -456,14 +456,14 @@ class XMLPerson2Object(XMLEntity2Object):
             value = sub.text.strip().encode("latin1")
 
             if sub.tag == "Rolleid":
+                code = value
+
                 if value == "BILAGSLØNN":
                     kind = DataEmployment.BILAG
                 else:
                     # For guests, we distinguish between different guest kinds
                     # For bilagslønnede, we don't care (they are all alike)
                     kind = DataEmployment.GJEST
-                    code = value
-                # fi
             elif sub.tag == "Stedkode":
                 sko = make_sko(value)
                 if sko is not None:

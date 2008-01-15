@@ -42,6 +42,11 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.object2cerebrum import XML2Cerebrum
 from Cerebrum.modules.xmlutils.xml2object import DataEmployment, DataOU, DataAddress
+try:
+    set()
+except NameError:
+    from Cerebrum.extlib.sets import Set as set
+
 
 db = Factory.get('Database')()
 db.cl_init(change_program='import_HR')
@@ -128,6 +133,68 @@ def get_sko((fakultet, institutt, gruppe), system):
 
     return ou_cache[stedkode, system]
 # end get_sko
+
+
+
+def determine_traits(xmlperson):
+    """Determine traits to assign to this person.
+
+    cereconf.EMPLOYEE_TRAITS decides which traits are assigned to each
+    employee, based on the information obtained from the authoritative system data. 
+
+    @type xmlperson: xml2object.DataHRPerson instance
+    @param xmlperson:
+      Next person to process
+
+    @rtype: sequence
+    @return:
+      A sequence of traits to adorn the corresponding cerebrum person object
+      with. If no traits could be assigned, an empty sequence is returned. The
+      only guarantee made about the sequence is that it is without duplicates
+      and it is iterable.
+
+    
+
+    sapxml2object registrerer rollene
+    import_HR_person slår opp mappingen i cereconf
+    import_HR_person konverterer rolle fra mellomrepresentasjon til traitliste
+    object2cerebrum sync'er trait-listen. Det må være sync, ikke bare
+    addisjon. Må antageligvis involvere import_HR_person i denne (samle opp
+    alle, sync'e + fjerne fra cachen, så fjerne resterende ting i cachen fra db).
+    """
+
+    if not hasattr(cereconf, "EMPLOYEE_TRAITS"):
+        return set()
+
+    # emp_traits looks like <roleid> -> <trait (code_str)>
+    # So, we'd have to remap them.
+    emp_traits = cereconf.EMPLOYEE_TRAITS
+
+    answer = set()
+    available_roles = [x for x in xmlperson.iteremployment()
+                       if x.kind in (x.BILAG, x.GJEST) and
+                          x.is_active()]
+    for role in available_roles:
+        roleid = role.code
+        if roleid not in emp_traits:
+            continue
+
+        try:
+            trait = const.EntityTrait(emp_traits[roleid])
+            # look it up in Cerebrum. Technically, we can collect just the
+            # ints, but for debugging and what not it is nicer to have an
+            # object which is easier to interpret for humans.
+            int(trait)
+            answer.add(trait)
+        except Errors.NotFoundError:
+            logger.warn("Trait '%s' is unknown in the db, but defined in "
+                        "cereconf.EMPLOYEE_TRAITS", emp_traits[roleid])
+            continue
+
+    logger.debug("Person %s gets %d traits: %s",
+                 list(xmlperson.iterids()), len(answer), answer)
+    return answer
+# end determine_traits
 
 
 
@@ -340,6 +407,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
         logger.debug("Loading next person: %s", list(xmlperson.iterids()))
         affiliations, work_title = determine_affiliations(xmlperson,
                                                           source_system)
+        traits = determine_traits(xmlperson)
 
         # If the person has primary_ou set, we set the besok/post
         # address in the xmlperson unless it is already set
@@ -361,7 +429,9 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
                                 zip = addr['postal_number'] or '',
                                 city = addr['city'] or '',
                                 country = addr['country'] or ''))
-        status, p_id = xml2db.store_person(xmlperson, affiliations, work_title)
+        status, p_id = xml2db.store_person(xmlperson, work_title,
+                                           affiliations,
+                                           traits)
         if p_id is None:
             logger.warn("Skipping person %s (invalid information on file)",
                         list(xmlperson.iterids()))

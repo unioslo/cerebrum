@@ -199,17 +199,49 @@ class XML2Cerebrum:
 
 
 
-    def store_person(self, xmlperson, affiliations, work_title):
+    def store_person(self, xmlperson, work_title, affiliations, traits):
         """Store all information we can from xmlperson.
 
-        xmlperson is a class inheriting from xml2object.DataPerson,
-        representing the person we want to register. affiliations is a
-        dictionary of all affiliations for this person for the given
-        source_system. 
+        @type xmlperson:
+          An instance of xml2object.DataPerson or its subclasses.
+        @param xmlperson:
+          An object representing the person we want to register. This person
+          may already exist in the database, and the IDs of xmlperson may be
+          inconsistent with the information in Cerebrum.
 
-        The method returns a pair (status, p_id), where status is the update
-        status of the operation, and p_id is the entity_id in Cerebrum of a
-        person corresponding to xmlperson.
+        @type work_title: basestring
+        @param work_title:
+          Work title (it is derived from HR data, and therefore not registered
+          directly)
+
+        @type affiliations: dict
+        @param affiliations:
+          A mapping of affiliations to be assigned to this person. The
+          affiliations are calculated elsewhere on the basis of employment
+          information available in L{xmlperson}. The dict itself is a mapping
+          from <FIXME> keys to 3-tuples of values (ou_id, affiliation,
+          status) for the specified source system (self.source_system).
+        
+        @type traits: sequence
+        @param traits:
+          A sequence of traits to be assigned to this person. The traits are
+          calculated elsewhere on the basis of employment and role information
+          available in L{xmlperson}.
+
+        @rtype: tuple (basestring, int)
+        @return:
+          The method returns a pair (status, p_id), where status is the update
+          status of the operation, and p_id is the entity_id in Cerebrum of a
+          person corresponding to xmlperson.
+
+          If the update failed for some reasong, the tuple ('INVALID', <junk>)
+          is returned; no guarantees are made about the type/content of
+          <junk>.
+
+          If the update succeeds, status is one of 'NEW', 'UPDATE' or 'EQUAL',
+          representing a new person entity, an update for an existing person
+          entity or a no-op respectively. The p_id is the person_id of the
+          person affected by the operation.
         """
         
         person = self.person
@@ -287,12 +319,8 @@ class XML2Cerebrum:
                                     city = addr.city or None,)
         # od 
 
-        person.populate_affiliation(source_system)
-        for value in affiliations.itervalues():
-            ou_id, aff, aff_stat = value
-            person.populate_affiliation(source_system, ou_id, 
-                                        int(aff), int(aff_stat))
-        # od
+        self._assign_person_affiliations(person, source_system, affiliations)
+        self._assign_person_traits(person, traits)
 
         person.populate_contact_info(source_system)
         for ct in xmlperson.itercontacts():
@@ -312,6 +340,62 @@ class XML2Cerebrum:
 
         return status, person.entity_id
     # end store_person
+
+
+    def _assign_person_affiliations(self, person, source_system, affiliations):
+        """Assign affiliations to person.
+
+        @type person: An instance of Factory.get('Person')
+        @param person:
+          A Person object representing an *existing* person entity in
+          Cerebrum.
+
+        @param source_system:
+          Source_system for which the affiliation assignment is to be
+          performed.
+
+        @type affiliations: dict
+        @param affiliations:
+          A mapping from basestring keys to triples (ou_id, affiliation,
+          status). The keys themselves are irrelevant in this method, but they
+          are formatted as 'ou_id:affiliation'.
+
+        @return: Nothing
+        """
+
+        person.populate_affiliation(source_system)
+        for value in affiliations.itervalues():
+            ou_id, aff, aff_stat = value
+            person.populate_affiliation(source_system, ou_id, 
+                                        int(aff), int(aff_stat))
+    # end _assign_person_affiliations
+        
+
+
+    def _assign_person_traits(self, person, traits):
+        """Assign HR-data originated traits to a person.
+
+        HR source data contains some information which we want to mirror in
+        Cerebrum as traits. The traits pertinent to each person are collected
+        elsewhere and passed to this method for registering in Cerebrum. 
+
+        @type person: an instance of Factory.get('Person')
+        @param person:
+          A Person object representing an *existing* person entity in
+          Cerebrum. This person will receive traits.
+
+        @type traits: sequence
+        @param traits:
+          A sequence of traits to assign to person. Each one is an object that
+          can be passed directly to the EntityTrait-API (i.e. either an int or
+          a suitable instance of _EntityTraitCode).
+        """
+
+        # 2008-01-15 IVR: Potentially, we may have to do much more than this.
+        for trait in traits:
+            person.populate_trait(trait)
+    # end _assign_person_traits
+
 
 
     def __extract_name_lang(self, xmlou, kind, length=None):
