@@ -246,8 +246,8 @@ class BofhdExtension(object):
         es = Email.EmailServer(self.db)
         es.clear()
         es.find_by_name(server_name)
-        if et.email_server_id != es.server_id:
-            et.email_server_id = es.server_id
+        if et.email_server_id != es.entity_id:
+            et.email_server_id = es.entity_id
             try:
                 et.write_db()
             except self.db.DatabaseError, m:
