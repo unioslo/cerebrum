@@ -353,7 +353,7 @@ class BDBSync:
         else:
             priority = 50
             affiliation = ???
-            ac.set_account_type(ou.entity_id, affiliation, priority)
+            ac.set_account_type(ou.entity_id, affiliation)
             ac.write_db()
         """
 
@@ -550,6 +550,7 @@ class BDBSync:
             return
 
         gender = self.__get_gender(person)
+        birth_date = mx.DateTime.DateFrom(person.get("birth_date"))
 
         try:
             fnr = self.__get_fodselsnr(person)
@@ -594,20 +595,19 @@ class BDBSync:
         if found_person:
             self.logger.info("Updating cerebrum person %s from BDB-person %s" %
                               (new_person.entity_id, person['id']))
+            if new_person.birth_date != birth_date:
+                new_person.birth_date = birth_date
+            if new_person.gender != gender:
+                new_person.gender = gender
         else:
             self.logger.info("Creating new cerebrum person from BDB-person %s" %
                               person['id'])
-
-        # Rewrite glob to a method?
-        # Populate person with names 
-        birth_date = mx.DateTime.DateFrom(person.get("birth_date"))
-        if new_person.birth_date != birth_date:
-            new_person.birth_date = birth_date
-        if new_person.gender != gender:
-            new_person.gender = gender
-
-
+            new_person.populate(birth_date, gender)
         new_person.write_db()
+            
+
+        # Populate person with names 
+
         new_person.affect_names(const.system_bdb,
                                 const.name_first,
                                 const.name_last,
