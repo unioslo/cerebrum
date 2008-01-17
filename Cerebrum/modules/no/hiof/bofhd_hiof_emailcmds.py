@@ -145,7 +145,8 @@ class BofhdExtension(object):
             es = Email.EmailServer(self.db)
             es.find(et.email_server_id)
             info["server"] = es.name
-            info["server_type"] = str(self.const.EmailServerType(type))
+            info["server_type"] = "N/A"
+            #str(self.const.EmailServerType(type))
         else:
             info["server"] = "<none>"
             info["server_type"] = "N/A"
