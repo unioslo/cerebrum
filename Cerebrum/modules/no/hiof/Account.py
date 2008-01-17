@@ -59,6 +59,7 @@ class AccountHiOfMixin(Account.Account):
         # Find, create or update a proper EmailTarget for this
         # account.
         et = Email.EmailTarget(self._db)
+        old_server = None
         target_type = self.const.email_target_account
         if self.is_deleted() or self.is_reserved():
             target_type = self.const.email_target_deleted
@@ -86,20 +87,20 @@ class AccountHiOfMixin(Account.Account):
                     ea.email_addr_expire_date = expire_date
                 ea.write_db()
             return
-        #
-        # we will not be assigning e-mail server automatically for now
-        #
         # if an account without email_server_target is found assign
         # the appropriate server
-        # est = Email.EmailServerTarget(self._db)
-        # try:
-        #     est.find(et.email_target_id)
-        # except Errors.NotFoundError:
-        #     if self.get_account_types() or self.owner_type == self.const.entity_group:
-        #         est = self._update_email_server()
-        #     else:
+        old_server = et.email_server_id
+        acc_types = self.get_account_types()
+        if not old_server:
+            if self.is_fag_employee():
+                self._update_email_server('mail.fag.hiof.no')
+            elif self.is_adm_employee():
+                self._update_email_server('mail.adm.hiof.no')
+            elif self.is_student():
+                self._update_email_server('mail.stud.hiof.no')
+            else:
                 # do not set email_server_target until account_type is registered
-        #         return
+                return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
@@ -166,11 +167,9 @@ class AccountHiOfMixin(Account.Account):
                     primary_set = True
 
     def _update_email_server(self, server_name):
-        est = Email.EmailServerTarget(self._db)
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
-        s_name = server_name
-        es.find_by_name(s_name)
+        es.find_by_name(server_name)
         try:
             et.find_by_email_target_attrs(entity_id = self.entity_id)
         except Errors.NotFoundError:
@@ -181,15 +180,9 @@ class AccountHiOfMixin(Account.Account):
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-        try:
-            est.find_by_entity(self.entity_id)
-            if est.server_id == es.entity_id:
-                return est
-        except:
-            est.clear()
-            est.populate(es.entity_id, parent = et)
-            est.write_db()
-        return est
+        et.email_server_id = es.server_id
+        et.write_db()
+        return et
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
@@ -230,4 +223,13 @@ class AccountHiOfMixin(Account.Account):
         for a in person.get_affiliations():
             if a['status'] == self.const.affiliation_status_ansatt_tekadm:
                 return True
-        return False        
+        return False
+
+    def is_student(self):
+        person = Factory.get("Person")(self._db)
+        person.clear()
+        person.find(self.owner_id)
+        for a in person.get_affiliations():
+            if a['affiliation'] == self.const.affiliation_student:
+                return True
+        return False            
