@@ -43,6 +43,8 @@ class AuthImporter(object):
         self.db.cl_init(change_program="import_op_sets")
         self.op_sets = module.op_sets
         self.op_roles = module.op_roles
+        self.old_op_sets = self._get_op_sets()
+        self.old_op_roles = self._get_op_roles()
 
         creator = Factory.get('Account')(self.db)
         creator.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -101,7 +103,6 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
             op_id = bofhd_os.add_operation(op_code)
             if attribute:
                 bofhd_os.add_op_attrs(op_id, attribute)
-            self.commit()
 
     def _remove_ops_from_set(self, name, operations):
         bofhd_os = BofhdAuthOpSet(self.db)
@@ -224,33 +225,36 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
         except Cerebrum.Errors.NotFoundError:
             return
         for code, oid, sid in op_set.list_operations():
-            op_set.del_operation(code)
+            for row in op_set.list_operation_attrs(oid):
+                attr = row['attr']
+                op_set.del_op_attrs(oid, attr)
+            op_set.del_operation(code, op_id=oid)
 
         op_set.delete()
         op_set.write_db()
 
     def update_operation_sets(self):
-        existing = self._get_op_sets()
 
         # Add and update op_sets in the config file.
         for key, new in self.op_sets.items():
             new = Set(new)
-            old = Set(existing.get(key))
+            old = Set(self.old_op_sets.get(key))
 
             self._add_ops_to_set(key, new - old)
             self._remove_ops_from_set(key, old - new)
 
+    def delete_operation_sets(self):
         # Remove op_sets not in the config file.
-        for key in existing.keys():
+        for key in self.old_op_sets.keys():
             if not key in self.op_sets:
                 self._remove_op_set(key)
 
     def update_roles(self):
-        old = Set(self._get_op_roles())
+        old = Set(self.old_op_roles)
         new = Set(self.op_roles)
 
         self._add_op_roles(new - old)
-        #self._remove_op_roles(old - new)
+        self._remove_op_roles(old - new)
 
 if __name__ == '__main__':
     try:
@@ -266,5 +270,6 @@ if __name__ == '__main__':
         importer = AuthImporter(source)
         importer.update_operation_sets()
         importer.update_roles()
+        importer.delete_operation_sets()
         importer.commit()
 
