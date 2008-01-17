@@ -180,7 +180,7 @@ class AccountHiOfMixin(Account.Account):
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-        et.email_server_id = es.server_id
+        et.email_server_id = es.entity_id
         et.write_db()
         return et
 
