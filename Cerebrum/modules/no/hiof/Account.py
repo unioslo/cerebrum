@@ -92,11 +92,16 @@ class AccountHiOfMixin(Account.Account):
         old_server = et.email_server_id
         acc_types = self.get_account_types()
         if not old_server:
-            if self.is_fag_employee():
-                self._update_email_server('mail.fag.hiof.no')
-            elif self.is_adm_employee():
-                self._update_email_server('mail.adm.hiof.no')
-            elif self.is_student():
+            # we should update servers for employees as well, but we
+            # cannot do that for now as there are no clear criteria
+            # for when we should consider someone av fag-employee or
+            # adm-employee. we will therefor update servers for students
+            # only
+            # if self.is_fag_employee():
+            #    self._update_email_server('mail.fag.hiof.no')
+            # elif self.is_adm_employee():
+            #    self._update_email_server('mail.adm.hiof.no')
+            if self.is_student():
                 self._update_email_server('mail.stud.hiof.no')
             else:
                 # do not set email_server_target until account_type is registered
