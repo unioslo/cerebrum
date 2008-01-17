@@ -60,7 +60,7 @@ class BofhdExtension(object):
         'email_domain_info', 'email_add_domain_affiliation',
         'email_remove_domain_affiliation',
         '_email_info_account', '__get_valid_email_addrs',
-        '_email_info_spam',
+        '_email_info_spam', 'email_update',
         '_email_info_detail', '_email_info_forwarding',
         '_email_info_mailman', '_email_info_multi',
         '_email_info_file', '_email_info_pipe',
