@@ -141,20 +141,15 @@ class BofhdExtension(object):
             et.email_target_alias is not None):
             info['alias_value'] = et.email_target_alias
         info["account"] = acc.account_name
-        est = Email.EmailServerTarget(self.db)
-        try:
-            est.find_by_entity(acc.entity_id)
-        except Errors.NotFoundError:
+        if et.email_server_id:
+            es = Email.EmailServer(self.db)
+            es.find(et.email_server_id)
+            info["server"] = es.name
+            info["server_type"] = str(self.const.EmailServerType(type))
+        else:
             info["server"] = "<none>"
             info["server_type"] = "N/A"
-        else:
-            es = Email.EmailServer(self.db)
-            es.find(est.email_server_id)
-            info["server"] = es.name
-            type = int(es.email_server_type)
-            info["server_type"] = str(self.const.EmailServerType(type))
         return data
-
 
     def __get_email_target_and_account(self, address):
         """Returns a tuple consisting of the email target associated
@@ -248,15 +243,14 @@ class BofhdExtension(object):
     def email_replace_server(self, operator, user, server_name):
         et, acc = self.__get_email_target_and_account(user)
         server = self._get_host(server_name)
-        est = Email.EmailServerTarget(self.db)
-        est.clear()
-        try:
-            est.find(et.email_target_id)
-        except Errors.NotFoundError:
-            acc._update_email_server(server_name)
-            return
-        est.populate(server.host_id)
-        try:
-            est.write_db()
-        except self.db.DatabaseError, m:
-            raise CerebrumError, "Database error: %s" % m
+        es = Email.EmailServer(self.db)
+        es.clear()
+        es.find_by_name(server_name)
+        if et.email_server_id != es.server_id:
+            et.email_server_id = es.server_id
+            try:
+                et.write_db()
+            except self.db.DatabaseError, m:
+                raise CerebrumError, "Database error: %s" % m
+        else:
+            raise CerebrumError, "Nothing to do, from-server equeals to-server: %s" % server_name
