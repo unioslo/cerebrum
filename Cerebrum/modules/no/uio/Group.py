@@ -78,6 +78,10 @@ class GroupUiOMixin(Group.Group):
             except Errors.NotFoundError:
                 raise self._db.IntegrityError, \
                       "Can't add NIS-spread to non-posix group."
+            tmp = pg.illegal_name(pg.group_name)
+            if tmp:
+                raise self._db.IntegrityError, \
+                      "Illegal name for filegroup, %s." % tmp                
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
@@ -88,11 +92,9 @@ class GroupUiOMixin(Group.Group):
 
         if isinstance(self, PosixGroup.PosixGroup):
             if len(name) > 8:
-                return "too long (%s)" % name
+                return "name too long (% characters)" % len(name)
             if re.search("^[^a-z]", name):
-                return "must start with a character (%s)" % name
+                return "name must start with a character (%s)" % name
             if re.search("[^a-z0-9\-_]", name):
-                return "contains illegal characters (%s)" % name
+                return "name contains illegal characters (%s)" % name
         return False
-
-# arch-tag: ed190fbb-c85a-4b09-820d-4296aa7b4197
