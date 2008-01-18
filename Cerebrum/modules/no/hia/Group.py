@@ -42,9 +42,10 @@ class GroupHiAMixin(Group.Group):
             except Errors.NotFoundError:
                 raise self._db.IntegrityError, \
                       "Can't add NIS-spread to non-posix group."
-            if self.illegal_name(pg.group_name):
+            tmp = pg.illegal_name(pg.group_name)
+            if tmp:
                 raise self._db.IntegrityError, \
-                      "Illegal name for a filegroup."
+                      "Illegal name for filegroup, %s." % tmp                
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
@@ -55,9 +56,9 @@ class GroupHiAMixin(Group.Group):
 
         if isinstance(self, PosixGroup.PosixGroup):
             if len(name) > 8:
-                return "too long (%s)" % name
+                return "name too long (%d characters)" % len(name)
             if re.search("^[^a-z]", name):
-                return "must start with a character (%s)" % name
+                return "name must start with a character (%s)" % name
             if re.search("[^a-z0-9\-_]", name):
-                return "contains illegal characters (%s)" % name
+                return "name contains illegal characters (%s)" % name
         return False
