@@ -33,8 +33,8 @@ class GroupHiAMixin(Group.Group):
         from Cerebrum.modules import PosixGroup
 
         # When adding a NIS-spread, assert that group is a PosixGroup
-        if int(spread) in (self.const.spread_uio_nis_fg,
-                           self.const.spread_ifi_nis_fg):
+        if int(spread) in (self.const.spread_nis_fg,
+                           self.const.spread_ans_nis_fg):
             pg = PosixGroup.PosixGroup(self._db)
             try:
                 pg.clear()
