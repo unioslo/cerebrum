@@ -43,7 +43,6 @@ def get_valid_email_addrs(et):
 def generate_email_data():
     all_accounts = account.list()
     all_email_data = {}
-    est = Email.EmailServerTarget(db)
     es = Email.EmailServer(db)
     for k in all_accounts:
         account.clear()
@@ -65,15 +64,14 @@ def generate_email_data():
             continue
         # fetch all valid adresses for account
         valid_addrs = get_valid_email_addrs(et)
-        try:
-            est.clear()
-            est.find_by_entity(account.entity_id)
-        except Errors.NotFoundError:
+        if not et.email_server_id:
             logger.warn("No server registered for %s", account.account_name)
             email_server = "N/A"
+        else:
+            email_server = et.email_server_id
         if email_server <> "N/A":
             es.clear()    
-            es.find(est.email_server_id)
+            es.find(et.email_server_id)
             email_server = es.name
         valid = "valid:"
         for a in valid_addrs:
