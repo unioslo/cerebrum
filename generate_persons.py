@@ -117,12 +117,19 @@ class create_person_xml:
                 instituttnr = ansvarssted[2:4]
                 gruppenr = ansvarssted[4:6]
 
+                last_name_length=1
+                if personnavn.startswith("VAN ") or personnavn.startswith("VON "):
+                    last_name_length=2
+                if personnavn.startswith("VAN DER "):
+                    last_name_length=3
+
 		try:
-                    etternavn,fornavn = personnavn.decode('iso8859-1').title().encode('iso8859-1').split(" ",1)
+                    name_split= personnavn.decode('iso8859-1').title().encode('iso8859-1').split(" ",last_name_length)
+                    etternavn=" ".join(name_split[:last_name_length])
+                    fornavn=" ".join(name_split[last_name_length:])
 		except ValueError,m:
 		    logger.error("Person %s %s is missing part of name (%s), ignoring" % (fodt_dato, fodselsnr, personnavn))
 		    continue
-		    
 
                 try:
                     # some people have a ' in their name. f.eks: d'acoz
@@ -145,7 +152,6 @@ class create_person_xml:
                     fornavn = "%s'%s" % (fornavn_part1,fornavn_part2.capitalize())
                 except:
                     pass
-
                     
                 # lets create a new personnavn with the new fornavn and etternavn
                 personnavn = "%s %s" % (fornavn,etternavn)
