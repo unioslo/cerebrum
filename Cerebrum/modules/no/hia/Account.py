@@ -79,7 +79,8 @@ class AccountHiAMixin(Account.Account):
         ed.find(self.get_primary_maildomain())
         domains = [ed.email_domain_name]
 	if ed.email_domain_name == cereconf.EMAIL_DEFAULT_DOMAIN:
-	    primary_set = True
+            if not self.owner_type == self.const.entity_group:
+                primary_set = True
         if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
             domains.append(cereconf.EMAIL_DEFAULT_DOMAIN)
         # Iterate over the available domains, testing various
