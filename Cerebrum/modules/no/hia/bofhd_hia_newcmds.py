@@ -116,7 +116,7 @@ class BofhdExtension(object):
         'user_reserve', 'user_gecos', 'user_promote_posix', 'user_demote_posix',
         'user_set_np_type', 'user_shell', 'user_set_disk_status',
         '_user_create_set_account_type', '_get_shell',
-        'user_set_owner', 'user_set_owner_prompt_func', '._lookup_old_uid',
+        'user_set_owner', 'user_set_owner_prompt_func', '_lookup_old_uid',
         #
         # copy relevant spread-cmds and util methods
         #
