@@ -59,7 +59,19 @@ def import_data(fname):
             person.find_by_external_id(
                 co.externalid_fodselsnr, fnr, source_system=co.system_fs)
         except Errors.NotFoundError:
-            logger.warn("Payment for unknown person: %s" % fnr)
+            #
+            # This is actually not a real problem as the person in
+            # question usually is registered a day or two after
+            # The proper solution would be to check whether
+            # this error occurs more than twice and issue a warning
+            # if that is the case, but we cannot support that
+            # kind of solution at the time being
+            # For now we log the error each time it occurs but we don't
+            # issue a warning of any kind.
+            #
+            # TODO (Jazz, 2008-01-21): implement some kind of support for
+            # registration of repetitive errors
+            logger.info("Payment for unknown person: %s" % fnr)
             continue
         person_id = person.entity_id
         # Asert that person has a quota_status entry
