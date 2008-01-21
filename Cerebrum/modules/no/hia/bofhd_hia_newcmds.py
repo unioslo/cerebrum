@@ -116,7 +116,7 @@ class BofhdExtension(object):
         'user_reserve', 'user_gecos', 'user_promote_posix', 'user_demote_posix',
         'user_set_np_type', 'user_shell', 'user_set_disk_status',
         '_user_create_set_account_type', '_get_shell',
-        'user_set_owner', 'user_set_owner_prompt_func',
+        'user_set_owner', 'user_set_owner_prompt_func', '._lookup_old_uid',
         #
         # copy relevant spread-cmds and util methods
         #
@@ -941,7 +941,7 @@ class BofhdExtension(object):
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
-            if len(args) != 6:
+            if posix_user.owner_type == self.const.entity_account:
                 ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
