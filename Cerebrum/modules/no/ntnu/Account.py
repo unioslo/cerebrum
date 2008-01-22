@@ -93,7 +93,8 @@ class AccountNTNUMixin(Account.Account):
 
         if spread_homedirs.has_key(str(self.const.Spread(spread))):
             if not self.has_homedir(spread):
-                self.make_homedir(spread)
+                #self.make_homedir(spread)
+                raise self._db.IntegrityError("Need homedir to set spread")
 
     def has_homedir(self, spread):
         try:
