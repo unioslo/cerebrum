@@ -233,7 +233,7 @@ class XMLOU2Object(XMLEntity2Object):
         # directories)
         mark = False
         for tmp in element.findall(".//stedbruk/StedType"):
-            if tmp.text == "Elektronisk katalog":
+            if tmp.text == "Tillatt Organisasjon":
                 mark = True
                 break
         result.publishable = mark
