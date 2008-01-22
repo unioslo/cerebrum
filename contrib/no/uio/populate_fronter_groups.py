@@ -1309,14 +1309,14 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
 
 def destroy_group(gname, max_recurse=2, recurse=True):
     gr = get_group(gname)
-    if recurse:
-        # 2004-07-01: Deletion of groups has been disabled until we've
-        # managed to come up with a deletion process that can be
-        # committed at multiple checkpoints, rather than having to
-        # wait with commit until we're completely done.
-        logger.debug("destroy_group(%s/%d, %d) [DISABLED]"
-                     % (gr.group_name, gr.entity_id, max_recurse))
-        return
+    # if recurse:
+    #     # 2004-07-01: Deletion of groups has been disabled until we've
+    #     # managed to come up with a deletion process that can be
+    #     # committed at multiple checkpoints, rather than having to
+    #     # wait with commit until we're completely done.
+    #     logger.debug("destroy_group(%s/%d, %d) [DISABLED]"
+    #                  % (gr.group_name, gr.entity_id, max_recurse))
+    #     return
     logger.debug("destroy_group(%s/%d, %d) [After get_group]"
                  % (gr.group_name, gr.entity_id, max_recurse))
     if recurse and max_recurse < 0:
