@@ -275,17 +275,12 @@ def process_person_callback(person_info):
     address_info = None
     aktiv_sted = []
 
-    # Iterate over all person_info entries and extract relevant data    
+    # Iterate over all person_info entries and extract relevant data
     if person_info.has_key('aktiv'):
-        #print "HAS_KEY: aktiv"
         for row in person_info['aktiv']:
-            #print "AKTIV: %s" % row
-            if studieprog2sko[row['studieprogramkode']] is not None:
+            if studieprog2sko.get(row['studieprogramkode'],None) is not None:
                 aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
                 logger.debug("App2akrivts")
-            else:
-                logger.error("Student %s aktiv i ukjent sted: studieprog2sko[row['studieprogramkode'] (%s) er NONE!" % (fnr, row['studieprogramkode']))
-                continue
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
@@ -318,19 +313,11 @@ def process_person_callback(person_info):
                                  'instituttnr', 'gruppenr', 'institusjonsnr'))
         elif dta_type in ('opptak','aktiv' ):
             for row in x:
-                #subtype = co.affiliation_status_student_aktiv
-                #print "HER: %s DTA_TYPE: %s : AKTIV_STED=%s\nROW=%s" % (fnr,dta_type,aktiv_sted,row)
-                #keys2 = studieprog2sko.keys()
-                #keys2.sort()
-                #for i in keys2:
-                #    print "HER2: %s -> %s" % (i,studieprog2sko[i])
-                #print "HER3: %s" % studieprog2sko
-                #print "HER4: %s" % x
+                if studieprog2sko.get(row['studieprogramkode'],None) == None:
+                    logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,row['studieprogramkode']))
+                    continue                    
                 if dta_type in ('opptak'):
-                    subtype = co.affiliation_status_student_opptak
-                if dta_type in ('aktiv') and studieprog2sko[row['studieprogramkode']] == None:
-                    logger.error("Student %s aktiv i ukjent sted studieprog2sko=None for %s:  " % (fnr,row['studieprogramkode']))
-                    continue
+                    subtype = co.affiliation_status_student_opptak                
                 if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
                     subtype = co.affiliation_status_student_aktiv
                 elif row['studierettstatkode'] == 'EVU':
@@ -347,17 +334,26 @@ def process_person_callback(person_info):
                                      studieprog2sko[row['studieprogramkode']])
                     
         elif dta_type in ('privatist_studieprogram',):
+            if studieprog2sko.get(p['studieprogramkode'],None) == None:
+                logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,p['studieprogramkode']))
+                continue                    
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_privatist,
                                  affiliations, 
                                  studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('perm',):
+            if studieprog2sko.get(p['studieprogramkode'],None) == None:
+                logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,p['studieprogramkode']))
+                continue                    
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_aktiv,
                                  affiliations, 
                                  studieprog2sko[p['studieprogramkode']])
         elif dta_type in ('tilbud',):
             for row in x:
+                if studieprog2sko.get(row['studieprogramkode'],None) == None:
+                    logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,row['studieprogramkode']))
+                    continue                    
                 _process_affiliation(co.affiliation_student,
                                      co.affiliation_status_student_tilbud,
                                      affiliations, 
@@ -367,7 +363,7 @@ def process_person_callback(person_info):
                                  co.affiliation_status_student_evu,
                                  affiliations, _get_sko(p, 'faknr_adm_ansvar',
                                  'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar'))
-            
+
             
     if etternavn is None:
         logger.error("Ikke noe navn på %s" % fnr)
@@ -522,7 +518,6 @@ def main():
         logger.warn("Warning: ENABLE_MKTIME_WORKAROUND is set")
 
     for s in StudentInfo.StudieprogDefParser(studieprogramfile):
-        #print "\nPOPULATE 2SKO: %s fra fil %s" % (s,studieprogramfile)
         studieprog2sko[s['studieprogramkode']] = \
             _get_sko(s, 'faknr_studieansv', 'instituttnr_studieansv',
                      'gruppenr_studieansv')
