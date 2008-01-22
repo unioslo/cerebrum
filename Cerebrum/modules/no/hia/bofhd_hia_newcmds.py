@@ -941,7 +941,7 @@ class BofhdExtension(object):
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
-            if posix_user.owner_type == self.const.entity_account:
+            if posix_user.owner_type == self.const.entity_person:
                 ou_id, affiliation = affiliation['ou_id'], affiliation['aff']
                 self._user_create_set_account_type(posix_user, owner_id,
                                                    ou_id, affiliation)
