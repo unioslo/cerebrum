@@ -1070,77 +1070,86 @@ class BDBSync:
         print "%s accounts added or updated in sync_accounts." % str(num_accounts)
         return
 
+    def _sync_spread(self, username, spreads):
+        from sets import Set
 
-    def _sync_spread(self,spread):
         s_map = self.spread_mapping
         ac = self.ac
         ac.clear()
-        if not spread.has_key('username'):
-            print "Key 'username' missing from spread-dict. %s" % spread
-            return
         try:
-            ac.find_by_name(spread.get('username'))
+            ac.find_by_name(username)
         except Errors.NotFoundError,e:
             if verbose:
-                print "Account with name %s not found. Continuing." % spread['username']
-            self.logger.warn("Account with name %s not found. Continuing." % spread['username'])
+                print "Account with name %s not found. Continuing." % username
+            self.logger.warn("Account with name %s not found. Continuing." % username)
             return
 
-        spreads = ac.get_spread()
+        oldspreads = Set([s['spread'] for s in ac.get_spread()])
+        newspreads = Set()
+        for s in spreads:
+            i=s_map.get(s['spread_name'])
+            if i: newspreads.add(i)
 
-        # We need a match between cerebrum-spreads and bdb-spreads
-        bdbspread = spread.get('spread_name')
-        if not bdbspread:
+        for s in oldspreads - newspreads:
+            ac.delete_spread(s)
+
+        for s in newspreads - oldspreads:
+            ac.add_spread(s)
+        
+        
+
+    def _sync_quarantenes(self, username, spreads):
+        from sets import Set
+
+        s_map = self.spread_mapping
+        ac = self.ac
+        ac.clear()
+        try:
+            ac.find_by_name(username)
+        except Errors.NotFoundError,e:
+            if verbose:
+                print "Account with name %s not found. Continuing." % username
+            self.logger.warn("Account with name %s not found. Continuing." % username)
             return
 
-        c_spread = s_map.get(bdbspread)
+        newquarantines = Set()
 
-        for spread in spreads:
-            if c_spread in spread:
-                # Account already has this spread
-                return
+        # any /bin/badpw gives quarantine_svakt_passord
+        # /bin/sperret on opprint gives quarantine_remote
+        # other /bin/sperret gives quarantine_generell
+        for s in spreads:
+            if s['shell'] == '/bin/badpw':
+                newquarantines.add(ac.const.quarantine_svakt_passord)
+            if s['shell'] == '/bin/sperret':
+                if s['spread_name'] in ('oppringt', 'ansoppr'):
+                    newquarantines.add(ac.const.quarantine_remote)
+                else:
+                    newquarantines.add(ac.const.quarantine_generell)
+        
+        oldquarantines = Set([q['quarantine_type']
+                              for q in ac.get_entity_quarantine()])
+        
+        for s in oldquarantines - newquarantines:
+            ac.delete_entity_quarantine(s)
 
-        if c_spread:
-            try:
-                ac.add_spread(c_spread)
-            except Errors.NotFoundError,nfe:
-                if verbose:
-                    print "Failed when adding spread. Reason: %s" % str(nfe)
-                self.logger.error("Failed when adding spread. Reason: %s" % str(nfe))
-                self.db.rollback()
-                return
-            except Errors.RequiresPosixError,rpe:
-                if verbose:
-                    print "Spread %s propably require posix, but %s isn't. " % (c_spread,ac.entity_id)
-            except self.db.IntegrityError,ie:
-                self.logger.error("Integrity-Error caught. Reason: %s" % (str(ie)))
-                self.db.rollback()
-                return
-        else:
-            print spread
-            username = spread.get('username')
-            s_name = spread.get('spread_name')
-            if verbose:
-                print "Found no matching spread %s for user %s" % (s_name,username)
-            self.logger.warning("Found no matching spread %s for user %s" % (s_name,username))
-        if not dryrun:
-            if verbose:
-                print "Commiting changes to database"
-            self.db.commit()
-        else:
-            if verbose:
-                print "Rollback changes in database"
-            self.db.rollback()
-        return
+        for s in newquarantines - oldquarantines:
+            ac.add_entity_quarantine(s, creator=self.initial_account,
+                                     description="imported from BDB",
+                                     start=mx.DateTime.now())
+        
 
     def sync_spreads(self):
-        """This method syncronizes all spreads on accounts from BDB into Cerebrum."""
         if verbose:
             print "Fetching accounts with spreads from BDB"
         spreads = self.bdb.get_account_spreads()
-        for spread in spreads:
-            self._sync_spread(spread)
-        return
+        userspreads={}
+        for s in spreads:
+            if not userspreads.has_key(s['username']):
+                userspreads[s['username']]=[]
+            userspreads[s['username']].append(s)
+        for u in userspreads.keys():
+            self.check_commit(self._sync_spread, u, userspreads[u])
+            self.check_commit(self._sync_quarantenes, u, userspreads[u])
 
     def sync_email_domains(self):
         print "Fetching email-domains"
