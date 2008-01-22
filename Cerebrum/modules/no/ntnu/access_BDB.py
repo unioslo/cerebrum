@@ -78,7 +78,10 @@ class BDB:
             WHERE
                 b.user_domain = 1 AND
                 b.person = p.id AND
-                (p.personnr IS NOT NULL OR (p.id = n.person AND n.utloper IS NULL)) AND
+                b.status = 1 AND
+                n.person (+) = p.id AND
+                (p.personnr IS NOT NULL
+                   OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
                 p.mail_domain = m.id AND
                 m.system IS NOT NULL
         """
