@@ -122,12 +122,23 @@ class PopulateEphorte(object):
             pe.find(person_id)
             tmp_id = pe.get_external_id(source_system=co.system_sap,
                                         id_type=co.externalid_sap_ansattnr)
-            first_name = pe.get_name(source_system=co.system_sap, variant=co.name_first)
-            last_name = pe.get_name(source_system=co.system_sap, variant=co.name_last)
-            ret += ", SAP ID: %s, name: %s %s" % (tmp_id[0]['external_id'],
+            first_name = pe.get_name(source_system=co.system_sap,
+                                     variant=co.name_first)
+            last_name = pe.get_name(source_system=co.system_sap,
+                                    variant=co.name_last)
+            ret += ", SAP id: %s, name: %s %s" % (tmp_id[0]['external_id'],
                                                   first_name, last_name)
         except Errors.NotFoundError:
             logger.warn("Couldn't find person with id %s" % person_id)
+
+        try:
+            a_id = ac.list_accounts_by_type(person_id=person_id, primary_only=True)
+            ac.clear()
+            ac.find(a_id[0]['account_id'])
+            ret += ", initials: %s" % ac.account_name
+        except (Errors.NotFoundError, IndexError):
+            logger.warn("Couldn't find primary account for person %s" % person_id)
+
         return ret
     
     def run(self):
@@ -151,8 +162,6 @@ class PopulateEphorte(object):
                         self.ouid2sko.get(self.ou_id2parent.get(ou_id))))
                 ou_id = self.ou_id2parent.get(ou_id)
             # No ePhorte OU found. Log a warning
-            # Her kunne vi valgt å plasere personen på root-noden
-            # (900199), men det ønsker vi ikke(?)
             if ou_id is None or ou_id not in self.known_ephorte_ou:
                 logger.warn("Failed mapping '%s' to known ePhorte OU. " %
                             self.ouid2sko[int(row['ou_id'])] + 
