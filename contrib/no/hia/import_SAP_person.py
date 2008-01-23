@@ -146,22 +146,18 @@ def match_external_ids(person, sap_id, no_ssn, const):
     # There is at most one such ID, get_external_id returns a sequence, though
     if cerebrum_sap_id:
         cerebrum_sap_id = str(cerebrum_sap_id[0]["external_id"])
-    # fi
+
     if cerebrum_no_ssn:
         cerebrum_no_ssn = str(cerebrum_no_ssn[0]["external_id"])
-    # fi
 
     if (cerebrum_sap_id and cerebrum_sap_id != sap_id):
         logger.error("SAP id in Cerebrum != SAP id in datafile "
                      "«%s» != «%s»", cerebrum_sap_id, sap_id)
         return False
-    # fi
 
-    #
-    # A mismatch in SSN means that Cerebrum's data has to be updated.
-    # 
+    # A mismatch in fnr only means that Cerebrum's data has to be updated.
     if (cerebrum_no_ssn and cerebrum_no_ssn != no_ssn):
-        person_id_cerebrum = check_no_ssn(person, no_ssn, const)
+        person_id_cerebrum = fnr2person_id(no_ssn, const)
 
         # *IF* there is a person in cerebrum that already holds no_ssn, AND
         # it's a different person than the one we've associated with sap_id,
@@ -175,24 +171,32 @@ def match_external_ids(person, sap_id, no_ssn, const):
             return False
         logger.info("NO_SSN in Cerebrum != NO_SSN in datafile. Updating "
                     "«%s» -> «%s»", cerebrum_no_ssn, no_ssn)
-    # fi
 
     return True
 # end match_external_ids
-        
 
-def check_no_ssn(person, no_ssn, const):
-    person_id_current = person.entity_id
-    person_id_cerebrum = None
-    person.clear()
+
+def fnr2person_id(fnr, const):
+    """Locate person_id owning fnr, if any.
+
+    We need to be able to remap a fnr (from file) to a person_id.
+    """
+    
+    person = Factory.get("Person")(database)
+    const = Factory.get("Constants")(database)
+
     try:
-        person.find_by_external_id(const.externalid_fodselsnr, no_ssn,
-                                   entity_type=const.entity_person)
+        person.find_by_external_id(const.externalid_fodselsnr, fnr)
+        return person.entity_id
     except Errors.NotFoundError:
         return None
-    return person.entity_id
 
-def populate_external_ids(db, person, fields, const):
+    # NOTREACHED
+    assert False
+# end fnr2person_id
+
+
+def populate_external_ids(person, fields, const):
     """
     Locate (or create) a person holding the IDs contained in FIELDS and
     register these external IDs if necessary.
@@ -256,7 +260,7 @@ def populate_external_ids(db, person, fields, const):
 
     # This would allow us to update birthdays and gender information for
     # both new and existing people.
-    person.populate(db.Date(year, month, day), gender)
+    person.populate(database.Date(year, month, day), gender)
 
     person.affect_external_id(const.system_sap,
                               const.externalid_fodselsnr,
@@ -455,19 +459,21 @@ def add_person_to_group(group, person, fields, const):
     
 
 
-def process_people(filename, db):
+def process_people(filename):
     """
     Scan FILENAME and perform all the necessary imports.
 
     Each line in FILENAME contains SAP information about one person.
     """
 
-    person = Factory.get("Person")(db)
-    const = Factory.get("Constants")(db)
-    group = Factory.get("Group")(db)
+    person = Factory.get("Person")(database)
+    const = Factory.get("Constants")(database)
+    group = Factory.get("Group")(database)
 
     stream = open(filename, "r")
     for entry in stream:
+        person.clear()
+        
         fields = sap_row_to_tuple(entry)
         if len(fields) != FIELDS_IN_ROW:
             logger.debug("Strange line: «%s»", entry)
@@ -475,7 +481,7 @@ def process_people(filename, db):
         # fi
 
         # If the IDs are inconsistent with Cerebrum, skip the record
-        if not populate_external_ids(db, person, fields, const):
+        if not populate_external_ids(person, fields, const):
             continue
         # fi
 
@@ -528,18 +534,18 @@ def main():
         # fi
     # od
 
-    db = Factory.get("Database")()
-    db.cl_init(change_program='import_SAP')
+    global database
+    database = Factory.get("Database")()
+    database.cl_init(change_program='import_SAP')
 
-    process_people(input_name, db)
+    process_people(input_name)
 
     if dryrun:
-        db.rollback()
+        database.rollback()
         logger.info("Rolled back all changes")
     else:
-        db.commit()
+        database.commit()
         logger.info("Committed all changes")
-    # fi
 # end main
 
 
@@ -548,6 +554,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# fi
-
-# arch-tag: 6a045932-f272-4752-9fba-75e08b1dd68c
