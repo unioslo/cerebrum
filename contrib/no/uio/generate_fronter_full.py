@@ -1253,8 +1253,8 @@ def get_sted(stedkode=None, entity_id=None):
         # set for this OU, return it, so that they get their own
         # corridor.
         return sted
-    parent_id = sted.get_parent(const.perspective_lt)
-    if parent_id is not None and parent_id <> sted.entity_id:
+    parent_id = sted.get_parent(const.perspective_sap)
+    if parent_id is not None and parent_id != sted.entity_id:
         return get_sted(entity_id = parent_id)
     return None
 
@@ -1368,18 +1368,24 @@ def build_structure(sko, allow_room=False, allow_contact=False):
             return None
         try:
             parent_sted = get_sted(
-                entity_id=sted.get_parent(const.perspective_lt))
+                entity_id=sted.get_parent(const.perspective_sap))
+            if parent_sted is None:
+                logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
+                            (sko, root_sko))
+                parent = build_structure(root_sko)
+            else:
+                parent = build_structure("%02d%02d%02d" % (
+                    parent_sted.fakultet,
+                    parent_sted.institutt,
+                    parent_sted.avdeling))
         except Errors.NotFoundError:
 	    logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
                         (sko, root_sko))
 	    parent = build_structure(root_sko)
-        else:
-            parent = build_structure("%02d%02d%02d" % (
-                parent_sted.fakultet,
-                parent_sted.institutt,
-                parent_sted.avdeling))
+
 	register_group(sted.name, struct_id, parent, allow_room, allow_contact)
     return struct_id
+# end build_structure
 
 
 def make_profile(enhet_id, aktkode):
