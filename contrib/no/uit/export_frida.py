@@ -701,10 +701,10 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     has_any = (lambda sequence, field:
                       [x for x in sequence
                          if x[field] is not None])
-    if (not has_any(ou_names, "name") or 
-        not has_any(ou_acronyms, "acronym")):
-        logger.error("Missing name/acronym information for ou_id = %s",
-                     id)
+    if (not (has_any(ou_names, "name") or 
+             has_any(ou_acronyms, "acronym"))):
+        logger.error("Missing name/acronym information for ou_id = %s %s" %
+                     (id, stedkode))
         return
 
     writer.startElement("enhet")
@@ -1404,6 +1404,20 @@ def output_OUs_new(writer, sysname, oufile):
 
     logger.info("Cached info on %d OUs from %s", len(ou_cache), oufile)
 
+    db = Factory.get('Database')()
+    db_ou = Factory.get("OU")(db)
+    stedkode = Stedkode(db)
+    constants = Factory.get("Constants")(db)
+
+    writer.startElement("organisasjon")
+    for ou in ou_cache:
+        db_ou.clear()
+        db_ou.find_stedkode(ou[0],ou[1],ou[2], 186)
+        id = db_ou.ou_id
+        db_ou.clear()
+        output_OU(writer, id, db_ou, stedkode, constants,db)
+    writer.endElement("organisasjon")    
+
 
 
 def output_xml(output_file,
@@ -1460,8 +1474,13 @@ def output_xml(output_file,
     # Dump all OUs
     ##output_OUs(writer, db)
     #output_OUs_new(writer,'system_lt','/cerebrum/var/dumps/ou/uit_ou_20071102.xml')
-    output_OUs_new(writer,'system_lt',sted_file)
 
+    ## RMI000 20071218
+    output_OUs_new(writer,'system_lt',sted_file)
+    ##output_OUs(writer, db)
+    ## /RMI000
+
+    
     # Dump all people
     output_people(writer, db, person_file)
     
