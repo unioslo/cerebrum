@@ -142,25 +142,31 @@ class ou:
     
     def get_authoritative_ou(self):
         authoritative_ou=dict()
-        
+        # positions in file
+        FAKNR=0
+        FAKNAME=1
+        INSTNR=2
+        INSTNAME=3
+        GRPNR=4
+        GRPNAME=5
+        SHORTNAME=6
+        LEVEL=7
         import codecs
         logger.info("Reading authoritative OU file %s" % self.ou_file)
         fileObj = codecs.open( self.ou_file, "r", "utf-8" )
         for line in fileObj:
             line = line.encode('iso-8859-1')
             if line and not line.startswith("#"):
-                try:
-                    faknr,fakultet,instnr,institutt,avdnr,avdeling=line.split(",")
-                except ValueError,m:
-                    logger.critical("Unpack error: List of wrong size")
-                    logger.critical(line)
-                    sys.exit(1)
-                faknr=faknr.strip("\"")
-                fakultet=fakultet.strip("\"")
-                instnr=instnr.strip("\"")
-                avdnr=avdnr.strip("\"")
-                avdeling=avdeling.rstrip("\n").rstrip("\r").strip("\"")
-
+                items=line.rstrip().split(";")
+                if len(items)!=8:
+                    logger.critical("Wrong length: %s" % line.rstrip())
+                    sys.exit(1)                    
+                faknr=items[FAKNR].strip("\"")
+                fakultet=items[FAKNAME].strip("\"")
+                instnr=items[INSTNR].strip("\"")
+                avdnr=items[GRPNR].strip("\"")
+                avdeling=items[GRPNAME].strip("\"")
+                shortname=items[SHORTNAME].strip("\"")
                 if ((avdnr[4:6] == '00') and(instnr[2:4] == '00')):
                     # we have a fakulty, must reference the uit institution
                     faknr_org_under = '00'
@@ -173,9 +179,10 @@ class ou:
                     instituttnr_org_under = instnr[2:4]
                     gruppenr_org_under='00'
 
-                if(((instnr[2:4] == '00')and(avdnr[4:6] != '00'))or((instnr[2:4] != '00')and(avdnr[4:6] =='00'))):
-                    # we have either a institute or a group directly under a faculty. in either case
-                    # it should reference he faculty
+                if (((instnr[2:4] == '00')and(avdnr[4:6] != '00')) or
+                    ((instnr[2:4] != '00')and(avdnr[4:6] =='00'))):
+                    # we have either a institute or a group directly under a 
+                    # faculty. in either case it should reference he faculty
                     faknr_org_under = faknr
                     instituttnr_org_under = '00'
                     gruppenr_org_under = '00'
@@ -186,6 +193,7 @@ class ou:
                     'gruppenr' : avdnr[4:6],
                     'stednavn' : avdeling,
                     'display_name' : avdeling,
+                    'forkstednavn' : shortname,
                     'stedlangnavn_bokmal': avdeling,
                     'fakultetnr_for_org_sted' : faknr_org_under,
                     'instituttnr_for_org_sted': instituttnr_org_under,
@@ -196,58 +204,15 @@ class ou:
                     'poststednavn_intern_adr': 'Tromsø',
                     'opprettetmerke_for_oppf_i_kat' : 'X', 
                     'telefonnr' : "77644000",
-                    'forkstednavn' : ''
                     }
 
-#                 authoritative_ou.append({
-#                                  'temp_inst_nr' : avdnr,
-#                                  'fakultetnr' : faknr,
-#                                  'instituttnr' : instnr[2:4],
-#                                  'gruppenr' : avdnr[4:6],
-#                                  'stednavn' : avdeling,
-#                                  'forkstednavn' : '',#i['stedkortnavn'],
-#                                  'display_name' : avdeling,
-#                                  'akronym' : '',#i['stedakronym'],
-#                                  'stedkortnavn_bokmal' : '',#i['stedkortnavn'],
-#                                  'stedkortnavn_nynorsk' : '',#i['stednavn_nynorsk'],
-#                                  'stedkortnavn_engelsk' : '',#i['stednavn_engelsk'],
-#                                  'stedlangnavn_bokmal': avdeling,#i['stednavn_bokmal'],
-#                                  'stedlangnavn_nynorsk': '',#i['stednavn_nynorsk'],
-#                                  'stedlangnavn_engelsk' : '',#i['stednavn_engelsk'],
-#                                  'fakultetnr_for_org_sted' : faknr_org_under,
-#                                  'instituttnr_for_org_sted': instituttnr_org_under,
-#                                  'gruppenr_for_org_sted' : gruppenr_org_under,
-#                                  'opprettetmerke_for_oppf_i_kat' : 'X', #i['opprettetmerke_for_oppf_i_kat'],
-#                                  'telefonnr' :"77644000",
-#                                  'innvalgnr' : '0',#'%s%s'%(i['telefonlandnr'],i['telefonretnnr']),
-#                                  'linjenr' : '0',#i['telefonnr'],
-#                                  'stedpostboks' : '',#i['stedpostboks'],
-#                                  'adrtypekode_besok_adr': 'INT',#i['adrtypekode_besok_adr'],
-#                                  'adresselinje1_besok_adr' :'',#:i['adrlin1'],
-#                                  'adresselinje2_besok_adr': '',#i['adrlin2'],
-#                                  'poststednr_besok_adr' : '',#poststednr_besok_adr,
-#                                  'poststednavn_besok_adr' : '',#'%s %s %s' % (i['adrlin1_besok'],i['adrlin2_besok'],i['adrlin3_besok']),
-#                                  'landnavn_besok_adr' : '',#i['adresseland_besok'],
-#                                  'adrtypekode_intern_adr': '',#i['adrtypekode_intern_adr'],
-#                                  'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
-#                                  'adresselinje2_intern_adr': avdeling,
-#                                  'poststednr_intern_adr': '9037',
-#                                  'poststednavn_intern_adr': 'Tromsø',
-#                                  'landnavn_intern_adr': '',#i['adresseland'],
-#                                  'adrtypekode_alternativ_adr' : '',#i['adrtypekode_alternativ_adr'],
-#                                  'adresselinje1_alternativ_adr': '',#i['adrlin1_besok'],
-#                                  'adresselinje2_alternativ_adr': '',#i['adrlin2_besok'],
-#                                  'poststednr_alternativ_adr': '',#poststednr_alternativ_adr,
-#                                  'poststednavn_alternativ_adr' : '',#i['poststednavn_alternativ_adr'],
-#                                  'landnavn_alternativ_adr': '',#i['adresseland_besok']
-#                                  })
         fileObj.close()
         return authoritative_ou
 
         
     def generate_ou(self,fs_ou,auth_ou):
         result_ou=dict()
-        for a_ou,a_ou_data in auth_ou.items():
+        for a_ou,a_ou_data in auth_ou.items():            
             f_ou = fs_ou.get(a_ou,None)
             if f_ou:
                 # fill in OU data elemnts from FS where we have no
@@ -259,7 +224,6 @@ class ou:
                 del fs_ou[a_ou]
             else:
                 logger.warn("OU %s not in FS, only using steddata from Reinert" % a_ou)
-                # insert some defaults needed by import_OU.
 
             result_ou[a_ou]= a_ou_data
 

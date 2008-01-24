@@ -31,11 +31,12 @@ class ou_history:
         linenr = 0
         for i in lines:
             linenr += 1
-            i=i.rstrip()
             if ( i == '' or i.startswith('#')):
                 continue
+            i=i.rstrip()
             try:
-                (new_ou_id,name,old_ou_id) = i.split(splitchar)
+                #(new_ou_id,name,old_ou_id) = i.split(splitchar)
+                (old_ou_id,new_ou_id,name) = i.split(splitchar)
                 self.ou_hist.append({'new_ou_id':new_ou_id,'name':name,'old_ou_id':old_ou_id})
             except ValueError:
                 logger.error("Invalid data in line %i: '%s'" % (linenr, i))
@@ -53,29 +54,49 @@ class ou_history:
                      'new_ou_id': foo['new_ou_id']}
             db_row = db.query(query,params)
             if(len(db_row)>0):
-                # info on this ou mapping already exists, do nothing
-                logger.info("%s (new=%s,old=%s) already exists in ou_history" % 
-                            (foo['name'],foo['new_ou_id'],foo['old_ou_id']))                            
+                # info on this ou mapping already exists, update name if needed
+                if db_row[0]['name'] != foo['name']:
+                    sql="""
+                    UPDATE 
+                        [:table schema=cerebrum name=ou_history]
+                    SET 
+                        name=:name
+                    WHERE 
+                        new_ou_id=:new_ou_id AND
+                        old_ou_id=:old_ou_id                    
+                    """
+                    params['name']=foo['name']
+                    db.execute(sql,params)
+                    logger.info("%s (new=%s,old=%s) already exists in "\
+                                "ou_history. Name updated" % \
+                                (foo['name'],foo['new_ou_id'],foo['old_ou_id']))
+                else:
+                    logger.info("%s (new=%s,old=%s) already exists in "\
+                                "ou_history" % \
+                                (foo['name'],foo['new_ou_id'],foo['old_ou_id']))
+                            
             else:
-                db.execute("""INSERT INTO [:table schema=cerebrum name=ou_history]
+                sql="""
+                INSERT INTO [:table schema=cerebrum name=ou_history]
                   (new_ou_id,name,old_ou_id)
-                  VALUES
-                  (:l_new_ou_id, :l_name, :l_old_ou_id)""",
-                {'l_new_ou_id': int(foo['new_ou_id']),
+                VALUES
+                  (:l_new_ou_id, :l_name, :l_old_ou_id)"""
+                params={'l_new_ou_id': int(foo['new_ou_id']),
                  'l_name': foo['name'],
-                 'l_old_ou_id': foo['old_ou_id']})
+                 'l_old_ou_id': foo['old_ou_id']}
+                db.execute(sql,params)
                 logger.info("Inserted new_id=%s, old_ou_id=%s, name=%s" %
                             (foo['new_ou_id'],foo['old_ou_id'],foo['name']))
 
 
-        # Now we will delete all entries in ou_history which is not in the ou_history.txt file
-        # this will ensure that the database is in sync with the import data.
+        # Now we will delete all entries in ou_history which is not in the 
+        # ou_history.txt file. This will ensure that the database is in sync 
+        # with the import data.
         query="""
         SELECT new_ou_id, name,old_ou_id
         FROM [:table schema=cerebrum name=ou_history]
         """
         db_row=db.query(query)
-
         for row in db_row:
             check=False
             for single_ou in self.ou_hist:
@@ -99,7 +120,6 @@ class ou_history:
         return 0
 
 
-
 def main():
     try:
         opts,args = getopt.getopt(sys.argv[1:],'o:dh?',
@@ -118,8 +138,7 @@ def main():
             dryrun=True
 
     if (ou_file==''):
-        print "No ou file"
-        usage(1)
+        usage(1,'No OU file')
 
     my_ou = ou_history(ou_file)
     my_ou.execute_ou_info()
@@ -143,12 +162,13 @@ def usage(exit_code=0,msg=None):
     Usage: import_OU_history -o ou_file -h -d|--dryrun
 
     ou_file needs to be of the following format:
-    <new_ou_id>;<name>;<old_ou_id>.
+    <old_ou_id>;<new_ou_id>;<name>
 
     new_ou_id and old_ou_id is a 6 digit stedkode
 
     -h | -?              : show help
     -d | --dryrun        : do not change DB
+    -o filename          : read data from filename
     --logger-name name   : use this logger
     --logger-level level : use this loglevel
     """
