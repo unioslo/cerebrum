@@ -47,6 +47,7 @@ class SocketCom(object):
 
     p = re.compile('210 OK')
     s = re.compile('(&pass&.+)&|(&pass&.+)\n')
+    lastcmd = ""
     
     def __init__(self):
         self.connect()
@@ -76,10 +77,12 @@ class SocketCom(object):
             logger.debug('<< %s&pass&XXXXXXXX%s' % (message[0:m.start(gr)],message[m.end(gr):-1]))
         else:
             logger.debug("<< %s" %  message.strip())
+
+        self.lastcmd = message    
         self.sockobj.send(message)
         
 
-    def read(self,out=1):
+    def read(self, out=1, RPCloop=1):
         received = []
         rec = []
 
@@ -96,7 +99,17 @@ class SocketCom(object):
         if out:     
             for elem in rec:
                  logger.debug('>> %s' % elem)
+
+        while rec[0][0:21] == "300 Failed 0x800706bb" and RPCloop != 0:
+                #Hack to handle RPC server is busy errors. Probably ntbackup 
+                #running on the domaincontroller, so database is locked.
+                logger.debug("sleeping 15 sec, then trying again...")         
+                time.sleep(15)
+                self.send(self.lastcmd)
+                rec = self.read(out, 0)
+
         return rec    
+
 
     def readgrp(self,out=1):
         received = []
@@ -163,7 +176,7 @@ def chk_quarantine(account_id):
     for row in quarantines:
         qua.append(row['quarantine_type']) 
     try:
-	qh = QuarantineHandler.QuarantineHandler(db, qua)
+        qh = QuarantineHandler.QuarantineHandler(db, qua)
         if qh.is_locked():           
             return True
     except (KeyError,Errors.NotFoundError):
