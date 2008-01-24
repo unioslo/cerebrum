@@ -213,7 +213,7 @@ class ITRole(object):
             new_ac.set_password(password)
 
             new_ac.set_account_type(existing_acc_types[0]['ou_id'],
-                                    const.affiliation_ansatt,
+                                    existing_acc_types[0]['affiliation'],
                                     admin_priority)
             
             new_ac.write_db()
