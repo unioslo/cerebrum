@@ -1075,8 +1075,9 @@ def main():
         target = target[0]
         if target in ('undenh', 'stprog'):
             #UIT: endret denne linja: if rolle == 'FORELESER':
-            if rolle in ['ANSVLEDER','ASSISTENT','FORELESER','HOVEDLÆRER',
-                         'KONTAKT','LÆRER','SEMINARLÆR','VEILEDER']:
+            if rolle in ['ANSVLEDER','ASSISTENT','FAGANSVARL','FORELESER',
+                         'GRUPPELÆRE','HOVEDLÆRER','KONTAKT','LÆRER',
+                         'SENSOR','VEILEDER']:
                 logger.debug("1.rolle_helper: rolle=%s, sjekker list_matches(undenh,attrs,foreleser)" % rolle)
 
                 for ue_foreleser in fs_super.list_matches('undenh', attrs,
