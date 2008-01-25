@@ -414,7 +414,12 @@ automatically generated from FS.''')
     trait_auto_group = _EntityTraitCode(
         'auto_group',
         Constants.Constants.entity_group,
-        "Trait marking automatically administrated groups.")
+        "Trait marking automatically administrated groups with person members.")
+
+    trait_auto_meta_group = _EntityTraitCode(
+        'auto_meta_group',
+        Constants.Constants.entity_group,
+        "Trait marking automatically administrated groups with group members.")
 
     # bofhd constants
     auth_rt_create = _AuthRoleOpCode(

@@ -22,7 +22,7 @@
 """Synchronize several automatically maintained groups in Cerebrum.
 
 The complete specification of this script is in
-cerebrum-sites/doc/intern/felles/utviling/auto-grupper-spesifikasjon.rst.
+cerebrum-sites/doc/intern/felles/utvikling/auto-grupper-spesifikasjon.rst.
 
 A few salient points:
 
@@ -31,10 +31,13 @@ A few salient points:
   Cerebrum. Technically, it duplicates information otherwise available;
   however having these groups will make a number of tasks considerably easier.
 
-* All such automatic groups are tagged with a special trait
-  (trait_auto_group). Only such automatic groups can have this trait. Beware!
-  If you give this trait to *any* other group, it will be collected by this
-  script and probably deleted (as no OU would be 'associated' with it). 
+* All such automatic groups are tagged with special traits (trait_auto_group,
+  trait_auto_meta_group). Only such automatic groups can have these
+  trait. Beware! If you give these traits to *any* other group, it will be
+  collected by this script and probably deleted (as no OU would be
+  'associated' with it). Autogroups with human members are tagged with
+  trait_auto_group; metagroups (autogroups with group members) are tagged with
+  trait_auto_meta_group.
 
 * Some groups have people as members (person_ids); others have other automatic
   groups as members.
@@ -45,11 +48,11 @@ A few salient points:
   ansatt_vitenskapelig, ansatt_tekadm or ansatt_bilag, (s)he is also a member
   of ansatt@<sko>.
 
-* alle_ansatte@<sko1> are 'metagroups' in a sense. They contain other employee
-  groups (specifically ansatt@<sko2>, where sko2 is a child of sko1 in the
-  specified hierarchy). At the very least alle_ansatte@<sko1> will have one
+* meta_ansatt@<sko1> are 'metagroups' in a sense. They contain other employee
+  groups (specifically ansatt@<sko2>, where sko2 is sko1 or its child in the
+  specified hierarchy). At the very least meta_ansatt@<sko1> will have one
   member -- ansatt@<sko1>. Should sko1 have any child OUs with employees, the
-  for each such child OU sko2, alle_ansatte@<sko1> will have a member
+  for each such child OU sko2, meta_ansatt@<sko1> will have a member
   ansatt@<sko2>.
 """
 
@@ -60,7 +63,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, NotSet
 try:
     set()
 except NameError:
@@ -83,7 +86,10 @@ def simple_memoize(callobj):
     [1] <http://en.wikipedia.org/wiki/Memoize>.
     
     The idea is to memoize a callable object supporting rest/optional
-    arguments without placing a limit on the amount of cached pairs.
+    arguments without placing a limit on the amount of cached pairs. This is
+    useful for mapping ou_id to names and such (i.e. situations where the
+    number of cached values is small, and the information is requested many
+    times for the same 'key').
 
     @type callobj: callable
     @param callobj:
@@ -120,7 +126,7 @@ def format_sko(*rest):
 
 
 def ou_id2ou_info(ou_id):
-    """Locate information about OU with the specied ou_id.
+    """Locate information about the OU with the specied ou_id.
 
     We need sko and name elsewhere.
 
@@ -130,7 +136,7 @@ def ou_id2ou_info(ou_id):
 
     @rtype: dict
     @return:
-      A mapping with name and sko or None.
+      A mapping with name and sko or None, if OU is not found/is quarantined.
     """
 
     ou = Factory.get("OU")(database)
@@ -140,7 +146,7 @@ def ou_id2ou_info(ou_id):
             return None
         
         return {"sko": format_sko(ou.fakultet, ou.institutt, ou.avdeling),
-                "name": ou.name}
+                "name": ou.name,}
     except Errors.NotFoundError:
         return None
 
@@ -154,10 +160,9 @@ ou_id2ou_info = simple_memoize(ou_id2ou_info)
 def ou_id2parent_info(ou_id, perspective):
     """Similar to L{ou_id2ou_info}, except return info for the parent.
 
-
     @type ou_id: basestring
     @param ou_id:
-      ou_id for the OU in question. We look up its parent.
+      ou_id for the OU in question. We look up the parent of this ou_id.
 
     @type perspective: Cerebrum constant
     @param perspective:
@@ -186,6 +191,38 @@ ou_id2parent_info = simple_memoize(ou_id2parent_info)
 
 
 
+def ou_has_children(ou_id, perspective):
+    """Check if ou_id has any subordinate OUs in perspective.
+
+    @type ou_id: basestring
+    @param ou_id:
+      ou_id for the OU in question. We look up the parent of this ou_id.
+
+    @type perspective: Cerebrum constant
+    @param perspective:
+      Perspective for parent information.
+
+    @rtype: bool
+    @return:
+      True if ou_id has any children in perspective, False otherwise.
+    """
+
+    ou = Factory.get("OU")(database)
+    try:
+        ou.find(ou_id)
+        if ou.list_children(perspective, entity_id=ou_id):
+            return True
+    except Errors.NotFoundError:
+        # If we can't find the OU, it does not have a parent :)
+        return False
+
+    # NOTREACHED
+    assert False
+# end ou_has_children
+ou_has_children = simple_memoize(ou_has_children)
+
+
+
 def get_create_account_id():
     """Fetch account_id for group creation.
 
@@ -204,7 +241,7 @@ get_create_account_id = simple_memoize(get_create_account_id)
 def find_all_auto_groups():
     """Collect and return all groups that are administrered by this script.
 
-    We tag all auto groups with trait_auto_group. It is the only sane and
+    We tag all auto groups with a number of traits. It is the only sane and
     reliable way of gathering *all* of them later (using special name prefixes
     is too cumbersome and error prone; organising them into a hierarchy (like
     fronter groups) is a bit icky, since the tree has to be stored in a
@@ -215,14 +252,19 @@ def find_all_auto_groups():
       A mapping group_name -> group_id.
     """
 
+    def slurp_data(result, trait):
+        for row in entity.list_traits(code=trait, return_name=True):
+            group_id = int(row["entity_id"])
+            group_name = row["name"]
+            result[group_name] = group_id
+    # end slurt_data
+
     result = dict()
     entity = Factory.get("Group")(database)
-    logger.debug("Collecting all auto groups")
-    for row in entity.list_traits(code=constants.trait_auto_group,
-                                  return_name=True):
-        group_id = int(row["entity_id"])
-        group_name = row["name"]
-        result[group_name] = group_id
+    logger.debug("Collecting all auto groups with humans")
+    slurp_data(result, constants.trait_auto_group)
+    logger.debug("Collecting all auto metagroups")
+    slurp_data(result, constants.trait_auto_meta_group)
 
     logger.debug("Collected %d existing auto groups", len(result))
     return result
@@ -230,10 +272,10 @@ def find_all_auto_groups():
 
 
 
-def group_name2group_id(group_name, description, current_groups):
+def group_name2group_id(group_name, description, current_groups, trait=NotSet):
     """Look up (and create if necessary) a group by name and return its id.
 
-    Convert a specific auto group name to a group_id. Create group if
+    Convert a specific auto group name to a group_id. Create the group if
     necessary and adorn it with proper traits.
 
     @type group_name: basestring
@@ -246,6 +288,11 @@ def group_name2group_id(group_name, description, current_groups):
 
     @type current_groups: dict
     @param current_groups: Return value of L{find_all_auto_groups}.
+
+    @type traits: a constant (int or basestring)
+    @param traits:
+      Additional trait to adorn L{group_name} with. The trait is added *only*
+      if the group is created.
 
     @rtype: int or long
     @return:
@@ -261,8 +308,11 @@ def group_name2group_id(group_name, description, current_groups):
                        description)
         group.write_db()
         # before committing traits we need an existing group_id
-        group.populate_trait(constants.trait_auto_group)
-        group.write_db()
+        if trait != NotSet:
+            # int() is just a safety mechanism to ensure that the trait
+            # actually exists.
+            group.populate_trait(int(constants.EntityTrait(trait)))
+            group.write_db()
 
         logger.debug("Created a new auto group. Id=%s, name=%s, description=%s",
                      group.entity_id, group_name, description)
@@ -273,13 +323,122 @@ def group_name2group_id(group_name, description, current_groups):
 
 
 
+def temporary_employee_hack(row, current_groups, perspective):
+    """Return groups that arise from the affilaition in row.
+
+    This function performs a similar task to L{employee2groups}. However,
+    given, for the time being (2008-01-25), we'll populate meta_ansatt@<sko>
+    groups differently.
+
+    Specifically, given an affiliation in row with ou_id B, we generate the
+    following groups and add row['person_id'] as member:
+
+      * ansatt@B
+      * ansatt_vitenskapelig@B or ansatt_tekadm@B, depending on aff status
+      * *IF* B has subordinate OUs, then:
+          meta_ansatt@B
+          meta_ansatt@C1
+          meta_ansatt@C_n
+
+        ... where C1 is a parent of B and C_{i+1} is a parent of C_i. The
+        'chain' of OUs continues as long as possible in the specified
+        perspective.
+      * *IF* B has NO subordinate OUs, we don't do anything.
+
+    IVR thinks this is weird, but JAZZ insists that this is what we want. In
+    any event, this is supposed to be a temporary replacement of
+    L{employee2groups}.
+
+    The parameters and the result values are identical to L{employee2groups}.
+    """
+
+    person_id = row["person_id"]
+    ou_id = row["ou_id"]
+    ou_info = ou_id2ou_info(ou_id)
+    if not ou_info:
+        logger.warn("Missing ou information for ou_id=%s "
+                    "(OU quarantined or missing); person_id=%s",
+                    ou_id, person_id)
+        return list()
+
+    affiliation = int(row["affiliation"])
+    status = int(row["status"])
+
+    prefix = "meta_ansatt"
+    suffix = "@%s" % ou_info["sko"]
+    result = list()
+    if status == constants.affiliation_status_ansatt_vitenskapelig:
+        result.append(
+            (person_id,
+             constants.entity_person, 
+             group_name2group_id("ansatt_vitenskapelig" + suffix,
+                                 "Vitenskapelige tilsatte ved "+ou_info["name"],
+                                 current_groups,
+                                 constants.trait_auto_group)))
+    elif status == constants.affiliation_status_ansatt_tekadm:
+        result.append(
+            (person_id,
+             constants.entity_person,
+             group_name2group_id("ansatt_tekadm" + suffix,
+                                 "Teknisk-administrativt tilsatte ved " +
+                                 ou_info["name"],
+                                 current_groups,
+                                 constants.trait_auto_group)))
+    elif status == constants.affiliation_status_ansatt_bil:
+        result.append(
+            (person_id,
+             constants.entity_person,
+             group_name2group_id("ansatt_bilag" + suffix,
+                                 "Bilagslønnede ved " + ou_info["name"],
+                                 current_groups,
+                                 constants.trait_auto_group)))
+
+    # Now we create ansatt@<sko> and all the metagroups.
+    if affiliation == constants.affiliation_ansatt:
+        # First, person_id is a member of ansatt@sko.
+        employee_group_id = group_name2group_id("ansatt" + suffix,
+                                                "Tilsatte ved "+ou_info["name"],
+                                                current_groups,
+                                                constants.trait_auto_group)
+        result.append((person_id, constants.entity_person, employee_group_id))
+
+        # If the OU is at the "bottom" of the hierarchy, we do NOT generate a
+        # meta_ansatt group for it. Ask JAZZ for an explanation.
+        if not ou_has_children(ou_id, perspective):
+            return result
+
+        # Now, the OU has some OU-children, and is itself a child of another
+        # OU. Walk up the hierarchy and generate an membership for each
+        # group. NB! meta_ansatt@<root OU> will have A LOT of members.
+        tmp_id = ou_id
+        parent_info = ou_id2parent_info(tmp_id, perspective)
+        while parent_info:
+            parent_name = "meta_ansatt@" + parent_info["sko"]
+            meta_parent_id = group_name2group_id(
+                parent_name,
+                ("Tilsatte ved %s og underordnede organisatoriske enheter" %
+                 parent_info["name"]),
+                current_gruops,
+                constants.trait_auto_meta_group)
+            result.append((person_id, constants.entity_group, meta_parent_id))
+            logger.debug("Person id=%s added to meta group id=%s, name=%s",
+                         person_id, meta_parent_id, parent_name)
+            # Walk up 1 level
+            tmp_id = meta_parent_id
+            parent_info = ou_id2parent_info(tmp_id, perspective)
+
+    return result
+# end temporary_employee_hack
+
+
+
 def employee2groups(row, current_groups, perspective):
     """Return groups that arise from the affiliation in row.
 
     A person's affiliation, represented by a db row, decides which groups this
     person should be a member of. Additionally, some of these memberships
     could trigger additional memberships (check the documentation for
-    alle_ansatte@<sko>).
+    meta_ansatt@<sko>).
 
     @type row: A db_row instance
     @param row:
@@ -317,6 +476,7 @@ def employee2groups(row, current_groups, perspective):
     affiliation = int(row["affiliation"])
     status = int(row["status"])
 
+    prefix = "meta_ansatt"
     suffix = "@%s" % ou_info["sko"]
     result = list()
     #
@@ -325,30 +485,33 @@ def employee2groups(row, current_groups, perspective):
         # First, person_id is a member of ansatt@sko.
         employee_group_id = group_name2group_id("ansatt" + suffix,
                                                 "Tilsatte ved "+ou_info["name"],
-                                                current_groups)
+                                                current_groups,
+                                                constants.trait_auto_group)
         result.append((person_id, constants.entity_person, employee_group_id))
-        # Then, ansatt@sko is a member of alle_ansatte@sko
-        scoped_name = "alle_ansatte" + suffix
-        scoped_group_id = group_name2group_id(
-                   scoped_name,
+        # Then, ansatt@sko is a member of meta_ansatt@sko
+        meta_name = prefix + suffix
+        meta_group_id = group_name2group_id(
+                   meta_name,
                    ("Tilsatte ved %s og underordnede organisatoriske enheter" % 
                     ou_info["name"]),
-                   current_groups)
+                   current_groups,
+                   constants.trait_auto_meta_group)
         result.append((employee_group_id,
                        constants.entity_group,
-                       scoped_group_id))
-        # And, naturally, ansatt@sko, is a direct member of alle_ansatte@parentsko
+                       meta_group_id))
+        # And, naturally, ansatt@sko, is a direct member of meta_ansatt@parentsko
         parent_info = ou_id2parent_info(ou_id, perspective)
         if parent_info:
-            parent_name = "alle_ansatte@" + parent_info["sko"]
-            scoped_parent_id = group_name2group_id(
+            parent_name = prefix + "@" + parent_info["sko"]
+            meta_parent_id = group_name2group_id(
                 parent_name,
                 ("Tilsatte ved %s og underordnede organisatoriske enheter" %
                  parent_info["name"]),
-                current_groups)
+                current_groups,
+                constants.trait_auto_meta_group)
             result.append((employee_group_id,
                            constants.entity_group,
-                           scoped_parent_id))
+                           meta_parent_id))
         else:
             logger.warn("Missing parent info for OU id=%s, sko=%s, name=%s. "
                         "%s will not be a member of any parent group",
@@ -361,7 +524,8 @@ def employee2groups(row, current_groups, perspective):
              constants.entity_person, 
              group_name2group_id("ansatt_vitenskapelig" + suffix,
                                  "Vitenskapelige tilsatte ved "+ou_info["name"],
-                                 current_groups)))
+                                 current_groups,
+                                 constants.trait_auto_group)))
     elif status == constants.affiliation_status_ansatt_tekadm:
         result.append(
             (person_id,
@@ -369,17 +533,93 @@ def employee2groups(row, current_groups, perspective):
              group_name2group_id("ansatt_tekadm" + suffix,
                                  "Teknisk-administrativt tilsatte ved " +
                                  ou_info["name"],
-                                 current_groups)))
+                                 current_groups,
+                                 constants.trait_auto_group)))
     elif status == constants.affiliation_status_ansatt_bil:
         result.append(
             (person_id,
              constants.entity_person,
              group_name2group_id("ansatt_bilag" + suffix,
                                  "Bilagslønnede ved " + ou_info["name"],
-                                 current_groups)))
+                                 current_groups,
+                                 constants.trait_auto_group)))
 
     return result
 # end employee2groups
+
+
+
+def employee_role2groups(row, current_groups, perspective):
+    """Return groups that arise from roles in row.
+
+    All employees can have roles associated with them in HR data. After some
+    processing, these roles are stored in Cerebrum as person traits.
+    cereconf.EMPLOYEE_TRAITS has the specific mapping of which roles are
+    mapped to which traits.
+
+    Once these person traits are stored in Cerebrum, we can look people up by
+    these traits and register them as group members of certain groups. This
+    function calculates which groups a person_id should be a member of, based
+    on the information in L{row}.
+
+    @type row:
+    @param row:
+
+    @type current_groups: dict
+    @param current_groups:
+      Return value of L{find_all_auto_groups}.
+
+    @type perspective: Cerebrum constant
+    @param perspective:
+      Perspective for OU-hierarchy queries.
+
+    @rtype: sequence
+    @return:
+      A sequence of triples (x, y, z), where
+        - x is the member id (entity_id)
+        - y is the member type (entity_person, entity_group, etc.)
+        - z is the group id where x is to be member.
+
+      An empty sequence is returned if no memberships can be derived. This is
+      identical to L{employee2groups}' return value.
+    """
+
+    person_id = row["entity_id"]
+    ou_id = row["target_id"]
+    trait_code = row["code"]
+    description = row["strval"]
+    # Now, we need to have the text description of 'role'. It has been mapped
+    # to a trait_code by import_HR_person.py, and we need a reverse
+    # mapping. This can be accomplished by using trait's strval, but is this
+    # the right way?
+
+    if row["entity_type"] != constants.entity_person:
+        logger.warn("Entity with id=%s (type %s) is not a person entity, "
+                    "although trait <%s> is assignable to persons only",
+                    person_id, row["entity_type"], trait_code)
+        return list()
+
+    if not description.strip():
+        logger.warn("Person id=%s with trait code=%s has no associated "
+                    "description. No group can be created. Trait ignored",
+                    person_id, trait_code)
+        return list()
+
+    ou_info = ou_id2ou_info(ou_id)
+    if not ou_info:
+        logger.warn("Missing OU information for ou_id=%s (trait for "
+                    "person_id=%s trait code=%s",
+                    ou_id, person_id, trait_code)
+        return list()
+
+    group_name = "%s@%s" % (description, ou_info["sko"])
+    group_id = group_name2group_id(group_name,
+                                   "Alle %s ved %s" % (description,
+                                                       ou_info["name"]),
+                                   current_groups,
+                                   constants.trait_auto_group)
+    return ((person_id, constants.entity_person, group_id),)
+# end employee_role2groups
 
 
 
@@ -404,7 +644,7 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
       Function that converts a row returned by L{person_generator} to a list
       of memberships. Calling row2groups on any row D returned by
       L{person_generator} returns a list of triples (x, y, z) (cf.
-      L{employee2groups} for a precise description of their meanings).
+      L{employee2groups} for the precise description of their meanings).
 
     @type current_groups: dict
     @param current_groups:
@@ -707,27 +947,70 @@ def delete_defunct_groups(groups):
         group.delete()
         logger.info("Deleted group id=%s, name=%s", group_id, group_name)
 # end delete_defunct_groups
-    
 
 
-def main():
-    options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:d",
-                                  ("perspective=",
-                                   "dryrun",))
 
-    dryrun = False
-    perspective = None
-    for option, value in options:
-        if option in ("-p", "--perspective",):
-            perspective = int(constants.OUPerspective(value))
-        elif option in ("-d", "--dryrun",):
-            dryrun = True
+def _locate_all_auto_traits():
+    """Extract all automatically assigned traits from cereconf.
+
+    cereconf.AFFILIATE_TRAITS contains a mapping for translating role ids in
+    source data to trait descriptions for all automatically awarded
+    traits. This function processes this mapping and returns a sequence of all
+    auto traits.
+
+    @rtype: sequence
+    @return:
+      A sequence of trait codes for all automatically awarded traits. The
+      actual trait assignment (from role ids) happens in
+      L{import_HR_person.py}. This script takes the traits and assigns group
+      membersships based on them.
+    """
+
+    # IVR 2008-01-17 FIXME: This is a copy of a similar function from
+    # import_HR_person.py. Duplication is bad.
+    # Collect all known auto traits.
+    if not hasattr(cereconf, "AFFILIATE_TRAITS"):
+        return set()
+
+    auto_traits = set()
+    for trait_code_str in cereconf.AFFILIATE_TRAITS.itervalues():
+        try:
+            trait = constants.EntityTrait(trait_code_str)
+            int(trait)
+        except Errors.NotFoundError:
+            logger.error("Trait <%s> is defined in cereconf.AFFILIATE_TRAITS, "
+                         "but it is unknown i Cerebrum (code)", trait_code_str)
+            continue
+
+        # Check that the trait is actually associated with a person (and not
+        # something else. AFFILIATE_TRAITS is supposed to "cover" person
+        # objects ONLY!)
+        if trait.entity_type != constants.entity_person:
+            logger.error("Trait <%s> from AFFILIATE_TRAITS is associated with "
+                         "<%s>, but we allow person traits only",
+                         trait, trait.entity_type)
+            continue
+
+        auto_traits.add(int(trait))
+
+    return auto_traits
+# end _locate_all_auto_traits
+
+
+
+def perform_sync(perspective):
+    """Set up the environment for synchronisation and synch all groups.
+
+    @type perspective: Cerebrum constant
+    @param perspective:
+      OU perspective, indicating which OU hierarchy should be searched in for
+      parent-child OU relationships.
+    """
 
     assert perspective is not None, "Must have a perspective"
-    # collect all existing auto groups
-    # whatever is left here after several processing passes are groups that no
-    # longer have data foundation of their existence.
+
+    # Collect all existing auto groups. Whatever is left here after several
+    # processing passes are groups that no longer have any reason to exist.
     current_groups = find_all_auto_groups()
     new_groups = dict()
 
@@ -735,16 +1018,23 @@ def main():
     # Each rule is a tuple. The first object is a callable that generates a
     # sequence of db-rows that are candidates for group addition (typically
     # person_id and a few more attributes). The second object is a callable
-    # that yields a sequence of groups ids, which an item returned by the
-    # first callable should be a member of.
+    # that yields a data structure indicating which group membership additions
+    # should be performed.
     person = Factory.get("Person")(database)
     global_rules = [
-        # Employee rules (ansatt@<ou>, ansatt_vitenskapelig@<ou>, etc.)
+        # Employee rule: (ansatt@<ou>, ansatt_vitenskapelig@<ou>, etc.)
         (lambda: person.list_affiliations(
                    affiliation=(constants.affiliation_ansatt,)),
-         lambda *rest: employee2groups(perspective=perspective, *rest)),
+         # IVR 2008-01-25 The fix is temporary.
+         lambda *rest: # employee2groups(perspective=perspective, *rest)),
+                       temporary_employee_hack(perspective=perspective, *rest)),
+
+        # Employee rule: role holder groups (e.g. EF-STIP@<ou>)
+        (lambda: person.list_traits(code=_locate_all_auto_traits()),
+         lambda *rest: employee_role2groups(perspective=perspective, *rest)),
         
         # Student rules
+        # ...
         ]
     for rule in global_rules:
         # How do we get all the people for registering in the groups?
@@ -763,6 +1053,57 @@ def main():
     # And finally, from these empty groups, delete the ones that should no
     # longer exist.
     delete_defunct_groups(current_groups)
+# end perform_sync
+
+
+
+def perform_delete():
+    """Delete all groups generated by this script.
+
+    This functionality could be useful for testing purposes or 'one-off'
+    administrative tasks.
+
+    Since *all* autogroups have a special trait marking them, this task is
+    rather easily accomplished. NB! Do not abuse this function (i.e. do NOT
+    run populate-remove cycles back to back, as it is likely to pollute the
+    change_log with creation/update/removal information).
+    """
+
+    # Collect all existing auto groups ...
+    existing_groups = find_all_auto_groups()
+    
+    # ... empty all of them for members (otherwise deletion is not possible)
+    empty_defunct_groups(existing_groups)
+
+    # ... and delete the group themselves
+    delete_defunct_groups(existing_groups)
+# end perform_delete
+    
+
+
+def main():
+    options, junk = getopt.getopt(sys.argv[1:],
+                                  "p:d",
+                                  ("perspective=",
+                                   "dryrun",
+                                   "remove-all-auto-groups",))
+
+    dryrun = False
+    perspective = None
+    wipe_all = False
+    for option, value in options:
+        if option in ("-p", "--perspective",):
+            perspective = int(constants.OUPerspective(value))
+        elif option in ("-d", "--dryrun",):
+            dryrun = True
+        elif option in ("--remove-all-auto-groups",):
+            wipe_all = True
+
+    if wipe_all:
+        perform_deletion()
+    else:
+        logger.debug("All auto traits: %s", _locate_all_auto_traits())
+        perform_sync(perspective)
 
     if dryrun:
         database.rollback()

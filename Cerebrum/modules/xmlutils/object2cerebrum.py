@@ -392,8 +392,12 @@ class XML2Cerebrum:
         """
 
         # 2008-01-15 IVR: Potentially, we may have to do much more than this.
-        for trait, ou_id in traits:
-            person.populate_trait(trait, target_id=ou_id)
+        for trait, ou_id, roleid in traits:
+            # strval is mainly to make it easier to deduce the role that gave
+            # a certain trait. This is needed later (in populate-auto-groups)
+            # to *automatically* create group descriptions with sensible
+            # names. We *could* perhaps 
+            person.populate_trait(trait, target_id=ou_id, strval=roleid)
     # end _assign_person_traits
 
 

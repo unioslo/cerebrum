@@ -139,8 +139,9 @@ def get_sko((fakultet, institutt, gruppe), system):
 def determine_traits(xmlperson, source_system):
     """Determine traits to assign to this person.
 
-    cereconf.EMPLOYEE_TRAITS decides which traits are assigned to each
-    employee, based on the information obtained from the authoritative system data. 
+    cereconf.AFFILIATE_TRAITS decides which traits are assigned to each
+    person, based on the information obtained from the authoritative system
+    data.
 
     @type xmlperson: xml2object.DataHRPerson instance
     @param xmlperson:
@@ -150,28 +151,25 @@ def determine_traits(xmlperson, source_system):
     @param source_system:
       Source system where the data originated from (useful for OU-lookup).
 
-    @rtype: sequence
+    @rtype: set of triples
     @return:
       A sequence of traits to adorn the corresponding cerebrum person object
       with. If no traits could be assigned, an empty sequence is returned. The
       only guarantee made about the sequence is that it is without duplicates
       and it is iterable.
 
-    IVR 2008-01-15 FIXME: Fix this comment.
-    sapxml2object registrerer rollene
-    import_HR_person slår opp mappingen i cereconf
-    import_HR_person konverterer rolle fra mellomrepresentasjon til traitliste
-    object2cerebrum sync'er trait-listen. Det må være sync, ikke bare
-    addisjon. Må antageligvis involvere import_HR_person i denne (samle opp
-    alle, sync'e + fjerne fra cachen, så fjerne resterende ting i cachen fra db).
+      The items in the sequence are triples -- (trait, ou_id, description),
+      where trait is the trait itself (int or constant), ou_id is the
+      associated ou_id (traits collected here are always tied to an OU) and
+      description is a string to make trait assignment more human-friendly.
     """
 
-    if not hasattr(cereconf, "EMPLOYEE_TRAITS"):
+    if not hasattr(cereconf, "AFFILIATE_TRAITS"):
         return set()
 
     # emp_traits looks like <roleid> -> <trait (code_str)>
     # So, we'd have to remap them.
-    emp_traits = cereconf.EMPLOYEE_TRAITS
+    emp_traits = cereconf.AFFILIATE_TRAITS
 
     answer = set()
     available_roles = [x for x in xmlperson.iteremployment()
@@ -198,10 +196,10 @@ def determine_traits(xmlperson, source_system):
         ou_id = ou_info["id"]
         try:
             trait = const.EntityTrait(emp_traits[roleid])
-            answer.add((int(trait), int(ou_id)))
+            answer.add((int(trait), int(ou_id), roleid))
         except Errors.NotFoundError:
             logger.warn("Trait '%s' is unknown in the db, but defined in "
-                        "cereconf.EMPLOYEE_TRAITS", emp_traits[roleid])
+                        "cereconf.AFFILIATE_TRAITS", emp_traits[roleid])
             continue
 
     logger.debug("Person %s gets %d traits: %s",
@@ -392,24 +390,42 @@ def make_reservation(to_be_reserved, p_id, group):
 
 
 
-def parse_data(parser, source_system, group, gen_groups, old_affs):
+def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
     """Process all people data available.
 
-    For each person extracted from XML, register the changes in Cerebrum. 
-    We try to treat all sources uniformly here.
+    For each person extracted from XML, register the changes in Cerebrum.  We
+    try to treat all sources uniformly here.
 
-    :Parameters:
-      parser : instance of xmlutils.XMLDataGetter
-        Parser suitable for the given source XML file.
-      source_system : instance of AuthoritativeSystem (or int)
-        Source system for which the data is to be registered.
-      group : instance of Group associated with group for reservations
-        For each person, his/her reservations for online directory publishing
-        are expressed as membership in this group.
-      old_affs : dictionary
-        Contains affiliations for every person currently present in
-        Cerebrum. Used to clean up old affiliations (affiliations which are no
-        longer present in the employee data)
+    @type parser: instance of xmlutils.XMLDataGetter
+    @param parser:
+      Suitable parser for the given XML source file.
+
+    @type source_system: instance of AuthoritativeSystem (or int)
+    @param source_system:
+      Source system where the data being parsed originated.
+
+    @type group: instance of Factory.get('Group')
+    @param group:
+      Group for reservations for online directory publishing. For each person,
+      his/her reservations for online directory publishing are expressed as
+      the membership in this group.
+
+    @type old_affs: dict
+    @param old_affs:
+      This mapping contains affiliations for every person currently present in
+      Cerebrum. It is used to synchronise affiliation information (clean up
+      'old' affiliations that are no longer present in the employee data).
+
+    @type old_traits: dict (person_id -> set(trait_code1, ... trait_codeN))
+    @param old_traits:
+      This mapping containts traits for every person currently present in
+      Cerebrum. It is used to synchronise trait information (clean up 'old'
+      auto person traits that are no longer present in the employee data).
+
+      For each person this function processes, the person's *current* traits
+      are removed from old_traits. Whatever old_traits is left with, when we
+      are done here, are the traits that have no longer basis in the
+      authoritative system data. Thus, they can be deleted.
     """
 
     logger.info("processing file %s for system %s", parser, source_system)
@@ -461,6 +477,20 @@ def parse_data(parser, source_system, group, gen_groups, old_affs):
                 if tmp in old_affs:
                     old_affs[tmp] = False
 
+        # Now we update the cache with traits (in case trait synchronisation
+        # is requested later). This is similar to affiliation processing,
+        # although the same goal is accomplished with a different data
+        # structure.
+        if old_affs:
+            my_old_traits = old_traits.get(p_id, set())
+            # select trait codes
+            my_current_traits = set([x[0] for x in traits])
+            logger.debug("Person id=%s has %d new traits, %d old traits. %d "
+                         "old trait(s) will be removed",
+                         p_id, len(my_current_traits), len(my_old_traits),
+                         len(my_old_traits.difference(my_current_traits)))
+            my_old_traits.difference_update(my_current_traits)
+
         logger.info("**** %s (%s) %s ****", p_id, dict(xmlperson.iterids()),
                     status)
 # end parse_data
@@ -509,6 +539,120 @@ def load_old_affiliations(source_system):
 
     return affi_set
 # end load_old_affiliations
+
+
+def load_old_traits():
+    """Collect all auto traits into a cache for later processing.
+
+    This script assigns a number of traits automatically to people based on
+    role information in the source data AND a mapping in cereconf. However,
+    these traits have to be synchronised, and the obvious way of accomplishing
+    this is to:
+
+      # collect all existing auto traits into a data structure.
+      # for each call of L{determine_traits}, update the data structure
+        (i.e. remove the traits returned by L{determine_traits} from the data
+        structure)
+      # the remaining traits in the data structure have to be cleared out
+        (there is no longer authoritative source system data to justify their
+        existence)
+
+    We can collect the list of currently valid auto traits from
+    cereconf.AFFILIATE_TRAITS. Caveat: if someone removes an entry for a trait
+    from that mapping, this script will no longer be able to sync that
+    trait. That is fine, given that removing a trait from code (and from
+    AFFILIATE_TRAITS) requires a cleanup stage anyway.
+
+    @rtype: dict
+    @return:
+      A mapping person_id -> set, where each set contains the known auto
+      traits for a given person (trait codes, specifically).
+    """
+
+    # Collect all known auto traits.
+    if not hasattr(cereconf, "AFFILIATE_TRAITS"):
+        return dict()
+
+    auto_traits = set()
+    for trait_code_str in cereconf.AFFILIATE_TRAITS.itervalues():
+        try:
+            trait = const.EntityTrait(trait_code_str)
+            int(trait)
+        except Errors.NotFoundError:
+            logger.error("Trait <%s> is defined in cereconf.AFFILIATE_TRAITS, "
+                         "but it is unknown i Cerebrum (code)", trait_code_str)
+            continue
+
+        # Check that the trait is actually associated with a person (and not
+        # something else. AFFILIATE_TRAITS is supposed to "cover" person
+        # objects ONLY!)
+        if trait.entity_type != const.entity_person:
+            logger.error("Trait <%s> from AFFILIATE_TRAITS is associated with "
+                         "<%s>, but we allow person traits only",
+                         trait, trait.entity_type)
+            continue
+
+        auto_traits.add(int(trait))
+
+    # Now, let's build the mapping.
+    answer = dict()
+    # IVR 2008-01-16 FIXME: This assumes that list_traits can handle sequence
+    # arguments.
+    for row in person.list_traits(code=auto_traits):
+        person_id = int(row["entity_id"])
+        trait_id = int(row["code"])
+
+        answer.setdefault(person_id, set()).add(trait_id)
+
+    logger.debug("built person_id -> traits mapping. %d entries", len(answer))
+    return answer
+# end load_old_traits
+
+
+def remove_traits(leftover_traits):
+    """Remove traits from Cerebrum to synchronise the information.
+
+    L{load_old_traits} builds a cache data structure that keeps track of all
+    traits assigned to people in Cerebrum. Other functions update that cache
+    and remove entries that should be considered up to date. When this
+    function is called, whatever is left in cache is considered to be traits
+    that have been assigned to people, but which should no longer exist, since
+    the data from the authoritative source system says so.
+    
+    So, this function sweeps through leftover_traits and removes the traits
+    from Cerebrum.
+
+    @type leftover_traits: dict (see L{load_old_traits})
+    @param leftover_traits:
+      Cache of no longer relevant traits that should be removed.
+    """
+
+    logger.debug("Removing old traits (%d person objects concerned)",
+                 len(leftover_traits))
+    # Technically, EntityTrait and Person are different objects, but trait
+    # auto administration in this context assumes person objects, so we can
+    # safely ask for a 'Person' rather than an EntityTrait.
+    person = Factory.get("Person")(db)
+    for person_id, traits in leftover_traits.iteritems():
+        try:
+            person.clear()
+            person.find(person_id)
+        except Errors.NotFoundError:
+            logger.warn("Person id=%s is in cache, but not in Cerebrum. "
+                        "Another job removed it from the db?",
+                        person_id)
+            continue
+
+        for trait in traits:
+            try:
+                person.delete_trait(trait)
+            except Errors.NotFoundError:
+                logger.warn("Trait %s for person %s has already been deleted.",
+                            const.EntityTrait(trait), person_id)
+
+        person.write_db()
+    logger.debug("Deleted all old traits")
+# end remove_traits
 
 
 
@@ -581,6 +725,11 @@ def main():
                      "Internal group for people from SAP which will not be shown online"), }
 
     logger.debug("sources is %s", sources)
+
+    # Load current automatic traits (AFFILIATE_TRAITS)
+    if include_del:
+        cerebrum_traits = load_old_traits()
+    
     for system_name, filename in sources:
         # Locate the appropriate Cerebrum constant
         source_system = getattr(const, system_name)
@@ -600,17 +749,21 @@ def main():
                        source_system,
                        group,
                        gen_groups,
-                       include_del and cerebrum_affs or dict())
+                       include_del and cerebrum_affs or dict(),
+                       include_del and cerebrum_traits or dict())
 
         if include_del:
             clean_old_affiliations(source_system, cerebrum_affs)
-        
-        if dryrun:
-            db.rollback()
-            logger.info("All changes rolled back")
-        else:
-            db.commit()
-            logger.info("All changes committed")
+
+    if include_del:
+        remove_traits(cerebrum_traits)
+
+    if dryrun:
+        db.rollback()
+        logger.info("All changes rolled back")
+    else:
+        db.commit()
+        logger.info("All changes committed")
 # end main
 
 
