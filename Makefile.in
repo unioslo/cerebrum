@@ -16,14 +16,14 @@ top_builddir = .
 all: Makefile
 
 .PHONY: install
-install: Makefile java/jbofh/dist/lib/JBofh.jar
+install: Makefile clients/jbofh/dist/lib/JBofh.jar
 	#./setup.py install install_data --install-dir=$(prefix)
 	./setup.py install --prefix=$(prefix)
 
 .PHONY: dist
 dist: dist/Cerebrum-$(PACKAGE_VERSION).tar.gz
 
-dist/Cerebrum-$(PACKAGE_VERSION).tar.gz: Makefile java/jbofh/dist/lib/JBofh.jar
+dist/Cerebrum-$(PACKAGE_VERSION).tar.gz: Makefile clients/jbofh/dist/lib/JBofh.jar
 	./setup.py sdist
 
 distcheck: dist/Cerebrum-$(PACKAGE_VERSION).tar.gz
@@ -54,8 +54,8 @@ fullcheck: bootstrap check testrun
 clean:
 	$(RM) -r build
 
-java/jbofh/dist/lib/JBofh.jar:
-	$(if $(filter yes, $(bofh)), cd java/jbofh && ant dist, )
+clients/jbofh/dist/lib/JBofh.jar:
+	$(if $(filter yes, $(bofh)), cd clients/jbofh && ant dist, )
 
 distclean: clean
 	-$(RM) config.log config.status Makefile
