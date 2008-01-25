@@ -23,6 +23,10 @@ from Cerebrum.Constants import _CerebrumCodeWithEntityType, Constants
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
+try:
+    set()
+except:
+    from Cerebrum.extlib.sets import Set as set
 
 
 class _EntityTraitCode(_CerebrumCodeWithEntityType):
@@ -175,29 +179,106 @@ class EntityTrait(Entity):
     def list_traits(self, code=NotSet, target_id=NotSet, date=NotSet,
                     numval=NotSet, strval=NotSet, strval_like=NotSet,
                     return_name=False, fetchall=False):
-        """Returns all the occurences of a specified trait, optionally
-        filtered on values. To match SQL NULL, use None.  date should
-        be an mx.DateTime object.  strval_like will apply DWIM case
-        sensitivity (see Utils.prepare_sql_pattern).  If return_name is
-        True, include the name of the entity (if available).
+        """Returns all the occurences of specified trait(s), optionally
+        filtered on values.
 
+        Multiple filters work akin to set intersection; i.e. specifying both
+        code and target_id would constrait the result to those rows that match
+        *both* code and trait_id. If a specified filter is a sequence, then
+        any row matching any one of the values in that sequence will be
+        returned. E.g. specifying code=(trait1, trait2) will result in rows
+        that have either trait1 or trait2 in their code attribute.
+
+        To match SQL NULL, use None.
+        
+        To ignore a column, use NotSet (by default all columns are ignored;
+        i.e. *all* traits will be returned).
+
+        code, target_id, strval may be sequences as well as scalars. date and
+        strval_like, if specified, MUST be scalars. An empty sequence is
+        equivalent to specifying None.
+
+        @type code:
+          1) NotSet OR 2) int/long/EntityTrait instance or a sequence thereof.
+        @param code:
+          Filter the result by specific trait(s). 
+
+        @type target_id:
+          1) NotSet OR 2) int/long or a sequence thereof.
+        @param target_id:
+          Filter the result by specific target_id(s) with which traits are
+          associated.
+
+        @type date:
+          1) NotSet OR 2) an mx.DateTime object.
+        @param date:
+          Filter the result by a specific date.
+
+        @type numval:
+          1) NotSet OR 2) int/long or a sequence thereof.
+        @param numval:
+          Filter the result by specific numval(s) associated with the trait.
+
+        @type strval:
+          1) NotSet OR 2) basestring or a sequence thereof.
+        @param strval:
+          Filter the result by specific strval(s) associated with the trait.
+
+        @type strval_like:
+          1) NotSet OR 2) basestring.
+        @param strval_like:
+          Filter the result by specific strval associated with the
+          trait. strval_like will apply DWIM case sensitivity (see
+          Utils.prepare_sql_pattern). 
+
+        @type return_name: bool
+        @param return_name:
+          Controls whether to return the entity name, if available, for
+          entities that have traits.
+
+        @type fetchall: bool
+        @param fetchall:
+          Controls whether to fetch all rows into memory at once.
         """
         # TBD: we may want additional filtering parameters, ie.
         # date_before, date_after, numval_lt and numval_gt.
+        #
+        # TBD: sequences for date may be desireable. For strval_like they
+        # would be quite difficult to implement (SQL has no LIKE IN ()).
 
+        # If value is a sequence, then normalise *MUST* be a callable.
         def add_cond(col, value, normalise=False):
+            # if the value is a scalar and None -> NULL in SQL
             if value is None:
                 conditions.append("%s IS NULL" % col)
+            # else if the value is a sequence ...
+            elif isinstance(value, (list, set, tuple)):
+                # ... and the sequence is empty -> NULL in SQL
+                if not value:
+                    conditions.append("%s IS NULL" % col)
+                # ... and the sequence has elements -> column IN (...) in SQL
+                else:
+                    # type(value) is to preserve the exact type of the
+                    # sequence passed. TBD: As of python 2.4, we will not need
+                    # the temporary list (the generator would do just fine)
+                    value = type(value)([normalise(x) for x in value])
+                    conditions.append("%s IN (%s)" %
+                                      (col, ", ".join(map(str, value))))
+            # else if the value is set to a scalar -> equality in SQL
             elif value is not NotSet:
                 conditions.append("%s = :%s" % (col, col))
                 if normalise:
                     value = normalise(value)
+
+            # otherwise (i.e. NotSet) disregard the column.
+
             return value
+        # end add_cond
 
         conditions = []
         code = add_cond("code", code, normalise=int)
 
-        add_cond("target_id", target_id)
+        add_cond("target_id", target_id, normalise=int)
         add_cond("date", date)
         numval = add_cond("numval", numval, normalise=int)
         if strval_like is not NotSet:
@@ -218,9 +299,8 @@ class EntityTrait(Entity):
 
         # Return everything but entity_type, which is implied by code
         return self.query("""
-        SELECT t.entity_id, t.code, t.target_id, t.date, t.numval, t.strval %s
+        SELECT t.entity_id, t.entity_type, t.code, t.target_id,
+               t.date, t.numval, t.strval %s
         FROM [:table schema=cerebrum name=entity_trait] t
         %s
         %s""" % (attrs, join, where), locals(), fetchall=fetchall)
-
-# arch-tag: a834dc20-402d-11da-9b87-c30b16468bb4
