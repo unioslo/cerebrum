@@ -112,10 +112,15 @@ class SessionHandler(threading.Thread):
                 timeo-now)
 
     def run(self):
+	interval=getattr(cereconf, 'SPINE_SESSION_CHECK_INTERVAL', 10)
+        debug_sessions=getattr(cereconf, 'SPINE_DEBUG_SESSIONS', False)
+        
         self.running = True
         while self.running:
             self._check_times()
-            time.sleep(getattr(cereconf, 'SPINE_SESSION_CHECK_INTERVAL', 10))
+            time.sleep(interval)
+            if debug_sessions:
+                self.printlist()
 
     def stop(self):
         self.running = False
