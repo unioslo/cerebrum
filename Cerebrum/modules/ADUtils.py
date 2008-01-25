@@ -101,12 +101,12 @@ class SocketCom(object):
                  logger.debug('>> %s' % elem)
 
         while rec[0][0:21] == "300 Failed 0x800706bb" and RPCloop != 0:
-                #Hack to handle RPC server is busy errors. Probably ntbackup 
-                #running on the domaincontroller, so database is locked.
-                logger.debug("sleeping 15 sec, then trying again...")         
-                time.sleep(15)
-                self.send(self.lastcmd)
-                rec = self.read(out, 0)
+            #Hack to handle RPC server is busy errors. Probably ntbackup 
+            #running on the domaincontroller, so database is locked.
+            logger.debug("sleeping 15 sec, then trying again...")         
+            time.sleep(15)
+            self.send(self.lastcmd)
+            rec = self.read(out, 0)
 
         return rec    
 
