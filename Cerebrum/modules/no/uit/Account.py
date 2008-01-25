@@ -560,4 +560,151 @@ class AccountUiTMixin(Account.Account):
         return False
 
 
-# arch-tag: 8379aa52-b4f2-11da-9493-e299b169bb25
+    def write_legacy_user(self,user_name,ssn=None,source=None, 
+                    type=None,comment=None,name=None):
+        """
+        Insert or update legacy user info in our legacy_users table
+        
+        @param user_name: Legacy username. Required.
+        @type user_name: String. 
+        
+        @param ssn: A norwegian ssn. No validation is done on this.
+        @type ssn: String. 
+        
+        @param source: Describes legacy system user_name comes from 
+        @type ssn: String. 
+        
+        @param type: What type is this legacy name. Examples. P for personal, 
+            SYS for system account.
+        @type ssn: String. 
+        
+        @param comment: A description of this entry
+        @type ssn: String. 
+        
+        @param name: Name of owner.
+        @type ssn: String. 
+        """
+
+        if not user_name:
+            raise Errors.ProgrammingError,"user_name parameter cannot be empty"
+
+        params=dict()
+        values=list()
+        if ssn:
+            values.append('ssn')
+            params['ssn']=ssn
+        if source:
+            values.append('source')
+            params['source']=source
+        if type:
+            values.append('type')
+            params['type']=type
+        if comment:
+            values.append('comment')
+            params['comment']=comment
+        if name:
+            values.append('name')
+            params['name']=name
+        
+        legacy=self.search_legacy(user_name=user_name)
+        if legacy:
+            valuelist=list()
+            for attr in values:
+                valuelist.append("%s=:%s"%(attr,attr))
+            qry = """
+            UPDATE [:table schema=cerebrum name=legacy_users]
+            SET %s
+            WHERE user_name=:user_name
+            """ % (','.join(valuelist))
+        else:
+            values.append('user_name')
+            valuelist=','.join(values)
+            paramlist=list()
+            for attr in values:
+                paramlist.append(":%s"%attr)
+            qry = """
+            INSERT INTO [:table schema=cerebrum name=legacy_users]
+            (%s) 
+            VALUES (%s)
+            """ % (','.join(values),','.join(paramlist))
+            
+        params['user_name']=user_name
+        self.execute(qry,params)
+
+    def delete_legacy_user(self,user_name):
+        """
+        Delete a user from our legacy user table
+        
+        @param user_name: Name of legacy account to delete. 
+        @type user_name: String.
+        """
+        if not user_name:
+            raise Errors.ProgrammingError,"user_name parameter cannot be empty"
+
+        self.execute("""DELETE FROM [:table schema=cerebrum name=legacy_users]
+        WHERE user_name=:user_name""",{'user_name':user_name})        
+
+        
+    def search_legacy(self,user_name=None,ssn=None,source=None,
+                           type=None,comment=None,name=None):  
+        """
+        Search for infomations from our legacy table
+        Comment and Name may contain wild-cards. Other parameters
+        are tested for equality.
+        
+        @param user_name: Legacy username
+        @type user_name: String. 
+        
+        @param ssn: A norwegian ssn.
+        @type ssn: String. 
+        
+        @param source: Describe where it comes from 
+        @type ssn: String. 
+        
+        @param type: What type is it
+        @type ssn: String. 
+        
+        @param comment:A description of this entry
+        @type ssn: String. 
+        
+        @param name: Name of owner 
+        @type ssn: String. 
+        
+        """
+        filter=[]
+        params=dict()
+    
+        if user_name:
+            filter.append('user_name=:user_name')
+            params['user_name']=user_name        
+        if ssn:
+            filter.append('ssn=:ssn')
+            params['ssn']=ssn
+        if source:
+            filter.append('source=:source')
+            params['source']=source
+        if type:
+            filter.append('type=:type')
+            params['type']=type
+        if comment:
+            comment = comment.replace("*", "%")
+            comment = comment.replace("?", "_")
+            filter.append('comment like :comment')
+            params['comment']=comment
+        if name:
+            name = name.replace("*", "%")
+            name = name.replace("?", "_")
+            filter.append('name like :name')
+            params['name']=name
+    
+        where=""
+        if filter:
+            where="WHERE %s" % (" AND ".join(filter))
+            
+        qry="""
+        SELECT user_name,ssn,source,type,comment,name 
+        FROM [:table schema=cerebrum name=legacy_users]
+        %s
+        """ % where
+        return(self.query(qry,params))
+        
