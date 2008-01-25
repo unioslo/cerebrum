@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -174,7 +174,8 @@ class Job(object):
                 except Job.CalcError, v:
                     logger.warn(v)
                 except ADMappingRules.MappingError, v:
-                    logger.warn(v)
+                    logger.warn("Couldn't calculate home for user %d. %s" % (
+                        entity_id, v))
 
         # Sett ou, home og profile_path traits.
         for e_id, spread_maps in user_maps.items():
@@ -212,7 +213,6 @@ class Job(object):
         affs = ac.get_account_types()
         if not affs:
             raise Job.CalcError("No affs for entity: %i" % entity_id)
-        # TODO, _get_ou_sko is not defined
         sko = self._get_ou_sko(affs[0]['ou_id'])
         logger.debug("sko: %s", sko)
         if spread == co.spread_ad_account_fag:
