@@ -44,7 +44,7 @@ targets = {
     }
 
 # Global variables
-makedb_path = design_path = db = co = str2const = num2const = None
+makedb_path = design_path = db = co = None
 
 def makedb(release, stage, insert_codes=True):
     print "Running Makedb(%s, %s)..." % (release, stage)
@@ -97,6 +97,14 @@ def migrate_to_rel_0_9_2():
     database schema."""
 
     assert_db_version("pre-0.9.2")
+
+    str2const = {}
+    num2const = {}
+    for c in dir(co):
+        tmp = getattr(co, c)
+        if isinstance(tmp, _SpreadCode):
+            str2const[str(tmp)] = tmp
+            num2const[int(tmp)] = tmp
     
     # TODO: Assert that the new classes has been installed
     makedb('0_9_2', 'pre')
@@ -503,20 +511,13 @@ def migrate_to_ephorte_1_1():
 
 
 def init():
-    global db, co, str2const, num2const
+    global db, co
 
     Factory = Utils.Factory
     db = Factory.get('Database')()
     db.cl_init(change_program="migrate")
     co = Factory.get('Constants')(db)
 
-    str2const = {}
-    num2const = {}
-    for c in dir(co):
-        tmp = getattr(co, c)
-        if isinstance(tmp, _SpreadCode):
-            str2const[str(tmp)] = tmp
-            num2const[int(tmp)] = tmp
 
 def show_migration_info():
     init()
