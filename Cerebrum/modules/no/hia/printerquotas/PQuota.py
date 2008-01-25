@@ -91,6 +91,11 @@ class PQuota(DatabaseAccessor):
             """UPDATE [:table schema=cerebrum name=pquota_status]
                SET %s
                WHERE person_id=:person_id""" % set, binds)
+
+    def delete_quota(self, person_id):
+        return self.execute(
+            """DELETE FROM [:table schema=cerebrum name=pquota_status]
+            WHERE person_id=:person_id""", {'person_id':person_id})
     
     def _get_term(self):
         term = 'H'
