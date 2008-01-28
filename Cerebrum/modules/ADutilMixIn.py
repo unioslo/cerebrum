@@ -261,7 +261,8 @@ class ADgroupUtil(ADutil):
         # TODO: Builtin can be listed in AD_DO_NOT_TOUCH as well, so
         #       one line can be removed below
         #The remaining groups is surplus in AD.        
-        for adg in adgrp:            
+        for adg in adgrp:
+            self.logger.debug("would delete %s", adg)
             # Assume that cereconf.AD_DO_NOT_TOUCH is a list
             # Check if at least one of the list elements is a substring of adg
             # If delete_groups is False, then don't delete the group
@@ -269,8 +270,10 @@ class ADgroupUtil(ADutil):
                    [s for s in cereconf.AD_DO_NOT_TOUCH if adg.find(s) >= 0]:
                 continue
             if not delete_groups:
-                self.logger.debug("delete is False. Don't delete group: %s" % adg)
+                self.logger.debug("delete is False. Don't delete group: %s", adg)
             else:
+                self.logger.debug("delete_groups = %s, deleting group %s",
+                                  delete_groups, adg)
                 changelist.append({'type' : 'delete_object', 
                                    'distinguishedName' : adg}) 
 
