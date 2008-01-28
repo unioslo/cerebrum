@@ -528,7 +528,7 @@ class AccountUiTMixin(Account.Account):
             server_name = 'student_placeholder'
         es.find_by_name(server_name)
         try:
-            et.find_by_email_target_attrs(entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
         except Errors.NotFoundError:
             et.populate(self.const.email_target_account,
                         self.entity_id,
