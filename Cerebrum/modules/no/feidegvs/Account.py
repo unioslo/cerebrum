@@ -41,7 +41,7 @@ class AccountFeideGvsMixin(Account.Account):
             # mailbox removal
             self._reg_bofhd_request(req_type='delete')
         try:
-            et.find_by_email_target_attrs(entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
             et.email_target_type = target_type
         except Errors.NotFoundError:
             # We don't want to create e-mail targets for reserved or
@@ -104,8 +104,8 @@ class AccountFeideGvsMixin(Account.Account):
 		# Is the address taken?
  		ea.clear()
 		try:
-		    ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
-		    if ea.email_addr_target_id <> et.email_target_id:
+		    ea.find_by_local_part_and_domain(lp, ed.entity_id)
+		    if ea.email_addr_target_id <> et.entity_id:
 			# Address already exists, and points to a
 			# target not owned by this Account.
                         continue
@@ -114,17 +114,17 @@ class AccountFeideGvsMixin(Account.Account):
 		    ea.email_addr_expire_date = None
 		except Errors.NotFoundError:
 		    # Address doesn't exist; create it.
-		    ea.populate(lp, ed.email_domain_id, et.email_target_id,
+		    ea.populate(lp, ed.entity_id, et.entity_id,
 				expire=None)
 		ea.write_db()
                 if not primary_set:
                     epat.clear()
                     try:
                         epat.find(ea.email_addr_target_id)
-                        epat.populate(ea.email_addr_id)
+                        epat.populate(ea.entity_id)
                     except Errors.NotFoundError:
                         epat.clear()
-                        epat.populate(ea.email_addr_id, parent = et)
+                        epat.populate(ea.entity_id, parent = et)
                     epat.write_db()
                     primary_set = True
 
@@ -136,7 +136,7 @@ class AccountFeideGvsMixin(Account.Account):
         server_name = cereconf.EMAIL_DEFAULT_SERVER
         es.find_by_name(server_name)
         try:
-            et.find_by_email_target_attrs(entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
         except Errors.NotFoundError:
             et.populate(self.const.email_target_account,
                         self.entity_id,
@@ -150,7 +150,7 @@ class AccountFeideGvsMixin(Account.Account):
     def _reg_bofhd_request(self, req_type='create'):
         et = Email.EmailTarget(self._db)
         try:
-            et.find_by_entity(self.entity_id)
+            et.find_by_target_entity(self.entity_id)
             if not et.email_server_id:
                 return
             br = BofhdRequests(self._db, self.const)

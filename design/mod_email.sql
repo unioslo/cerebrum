@@ -36,25 +36,6 @@ GRANT read_mod_email TO read_core_table;
 category:code/Oracle;
 GRANT change_mod_email TO change_core_table;
 
-
-/*
-
-  TBD: Should the email-related stuff become entities?  If yes,
-       should any of the "names" in email addresses (i.e. domain names
-       and local parts) be moved out of email-specific tables, and
-       rather use the generic table entity_name (with appropriate
-       value_domains)?
-
-*/
-
-
-category:code;
-CREATE SEQUENCE email_id_seq;
-category:code/Oracle;
-GRANT SELECT ON email_id_seq TO read_mod_email;
-
-
-
 /*	email_server_type_code
 
   Define the categories of (user retrieval/local delivery) email
@@ -133,29 +114,38 @@ GRANT INSERT, UPDATE, DELETE ON email_target_code TO read_mod_email;
 category:main;
 CREATE TABLE email_target
 (
-  target_id	NUMERIC(12,0)
-		CONSTRAINT email_target_pk PRIMARY KEY,
-  target_type	NUMERIC(6,0)
-		NOT NULL
-		CONSTRAINT email_target_target_type
-		  REFERENCES email_target_code(code),
-  entity_type	NUMERIC(6,0),
-  entity_id	NUMERIC(12,0),
-  alias_value	CHAR VARYING(512),
-  using_uid	NUMERIC(12,0)
-		CONSTRAINT email_target_using_uid
-		  REFERENCES posix_user(account_id),
-  server_id	NUMERIC(12,0)
-		CONSTRAINT email_target_server_server_id
-		  REFERENCES email_server(server_id),
-
-  CONSTRAINT email_target_entity FOREIGN KEY (entity_type, entity_id)
+  /* Dummy column, needed for type check against `entity_id'. */
+  entity_type		NUMERIC(6,0)
+			DEFAULT [:get_constant name=entity_email_target]
+			NOT NULL
+			CONSTRAINT email_target_entity_type_chk
+			  CHECK (entity_type = [:get_constant name=entity_email_target]),
+  target_id		NUMERIC(12,0)
+			CONSTRAINT email_target_pk PRIMARY KEY,
+  target_type		NUMERIC(6,0)
+			NOT NULL
+			CONSTRAINT email_target_target_type
+			  REFERENCES email_target_code(code),
+  target_entity_type	NUMERIC(6,0),
+  target_entity_id	NUMERIC(12,0),
+  alias_value		CHAR VARYING(512),
+  using_uid		NUMERIC(12,0)
+			CONSTRAINT email_target_using_uid
+			  REFERENCES posix_user(account_id),
+  server_id		NUMERIC(12,0)
+			CONSTRAINT email_target_server_server_id
+			  REFERENCES email_server(server_id),
+  CONSTRAINT email_target_entity_id
+    FOREIGN KEY (entity_type, target_id)
     REFERENCES entity_info(entity_type, entity_id),
-  CONSTRAINT email_target_entity_type
-    CHECK (entity_type IS NULL OR
-	   entity_type IN ([:get_constant name=entity_account],
-			   [:get_constant name=entity_group])),
-  CONSTRAINT email_target_entity_server_u UNIQUE (entity_id, server_id),
+  CONSTRAINT email_target_target_entity_id 
+    FOREIGN KEY (target_entity_type, target_entity_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT email_target_target_entity_type
+    CHECK (target_entity_type IS NULL OR
+	   target_entity_type IN ([:get_constant name=entity_account],
+			          [:get_constant name=entity_group])),
+  CONSTRAINT email_target_entity_server_u UNIQUE (target_entity_id, server_id),
   CONSTRAINT email_target_alias_u UNIQUE (using_uid, alias_value)
 );
 category:main/Oracle;
@@ -189,13 +179,22 @@ ALTER TABLE email_target
 category:main;
 CREATE TABLE email_domain
 (
+  /* Dummy column, needed for type check against `entity_id'. */
+  entity_type	NUMERIC(6,0)
+		DEFAULT [:get_constant name=entity_email_domain]
+		NOT NULL
+		CONSTRAINT email_domain_entity_type_chk
+		  CHECK (entity_type = [:get_constant name=entity_email_domain]),
   domain_id	NUMERIC(12,0)
 		CONSTRAINT email_domain_pk PRIMARY KEY,
   domain	CHAR VARYING(128)
 		NOT NULL
 		CONSTRAINT email_domain_domain_u UNIQUE,
   description	CHAR VARYING(512)
-		NOT NULL
+		NOT NULL,
+  CONSTRAINT email_domain_entity_id
+    FOREIGN KEY (entity_type, domain_id)
+    REFERENCES entity_info(entity_type, entity_id)
 );
 category:main/Oracle;
 GRANT SELECT ON email_domain TO read_mod_email;
@@ -267,6 +266,12 @@ GRANT INSERT, UPDATE, DELETE ON email_domain_category TO read_mod_email;
 category:main;
 CREATE TABLE email_address
 (
+  /* Dummy column, needed for type check against `entity_id'. */
+  entity_type	NUMERIC(6,0)
+		DEFAULT [:get_constant name=entity_email_address]
+		NOT NULL
+		CONSTRAINT email_address_entity_type_chk
+		  CHECK (entity_type = [:get_constant name=entity_email_address]),
   address_id	NUMERIC(12,0)
 		CONSTRAINT email_address_pk PRIMARY KEY,
   local_part	CHAR VARYING(128)
@@ -285,7 +290,11 @@ CREATE TABLE email_address
 		NOT NULL,
   change_date	DATE,
   expire_date	DATE,
-  CONSTRAINT email_address_unique UNIQUE (local_part, domain_id)
+  CONSTRAINT email_address_entity_id
+    FOREIGN KEY (entity_type, address_id)
+    REFERENCES entity_info(entity_type, entity_id),
+  CONSTRAINT email_address_unique UNIQUE (local_part, domain_id),
+  CONSTRAINT email_address_target_unique UNIQUE (address_id, target_id)
 );
 category:main/Oracle;
 GRANT SELECT ON email_address TO read_mod_email;
@@ -705,13 +714,8 @@ category:drop;
 DROP TABLE email_target;
 category:drop;
 DROP TABLE email_target_code;
-category:drop;
-DROP SEQUENCE email_id_seq;
 
 category:drop/Oracle;
 DROP ROLE change_mod_email;
 category:drop/Oracle;
 DROP ROLE read_mod_email;
-
-/* arch-tag: b70813ea-d289-4445-ba2f-2075b0b8c847
-   (do not change this comment) */

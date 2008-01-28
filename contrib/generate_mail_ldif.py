@@ -69,10 +69,10 @@ def write_ldif():
             continue
 
         tt = int(row['target_type'])
-        et = row['entity_type']
+        et = row['target_entity_type']
         if et is not None:
             et = int(et)
-        ei = row['entity_id']
+        ei = row['target_entity_id']
         if ei is not None:
             ei = int(ei)
         alias = row['alias_value']
@@ -95,7 +95,7 @@ def write_ldif():
 
         if tt == co.email_target_account:
             # Target is the local delivery defined for the Account whose
-            # account_id == email_target.entity_id.
+            # account_id == email_target.target_entity_id.
             if verbose > 1:
                 print "Target is co.email_target_account"
             target = ""
@@ -148,11 +148,12 @@ def write_ldif():
                 rest += "forwardDestination: %s\n" % alias
 
         elif tt == co.email_target_forward:
-            # Target is a pure forwarding mechanism; local deliveries will
-            # only occur as indirect deliveries to the addresses forwarded
-            # to.  Both email_target.entity_id and email_target.alias_value
-            # should be NULL, as they are ignored.  The email address(es)
-            # to forward to is taken from table email_forward.
+            # Target is a pure forwarding mechanism; local deliveries
+            # will only occur as indirect deliveries to the addresses
+            # forwarded to.  Both email_target.target_entity_id and
+            # email_target.alias_value should be NULL, as they are
+            # ignored.  The email address(es) to forward to is taken
+            # from table email_forward.
             if verbose > 1:
                 print "Target is co.email_target_forward"
             pass
@@ -163,17 +164,17 @@ def write_ldif():
 
             # Target is a shell pipe. The command (and args) to pipe mail
             # into is gathered from email_target.alias_value.  Iff
-            # email_target.entity_id is set and belongs to an Account,
+            # email_target.target_entity_id is set and belongs to an Account,
             # deliveries to this target will be run as that account.
             #   or
             # Target is a file. The absolute path of the file is gathered
-            # from email_target.alias_value.  Iff email_target.entity_id
+            # from email_target.alias_value.  Iff email_target.target_entity_id
             # is set and belongs to an Account, deliveries to this target
             # will be run as that account.
             #   or
             # Target is a Mailman mailing list. The command (and args) to
             # pipe mail into is gathered from email_target.alias_value.
-            # Iff email_target.entity_id is set and belongs to an
+            # Iff email_target.target_entity_id is set and belongs to an
             # Account, deliveries to this target will be run as that
             # account.
             
@@ -198,7 +199,7 @@ def write_ldif():
         elif tt == co.email_target_multi:
             # Target is the set of `account`-type targets corresponding to
             # the Accounts that are first-level members of the Group that
-            # has group_id == email_target.entity_id.
+            # has group_id == email_target.target_entity_id.
             
             if verbose > 1:
                 print "Target is co.email_target_multi"

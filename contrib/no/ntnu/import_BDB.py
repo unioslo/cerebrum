@@ -237,7 +237,7 @@ class BDBSync:
             # FIXME lookup other accounts
         ac.find(account)
         try:
-            ev.find_by_entity(ac.entity_id)
+            ev.find_by_target_entity(ac.entity_id)
         except Errors.NotFoundError:
             # No EmailTarget for this Entity
             return
@@ -260,7 +260,7 @@ class BDBSync:
         fwd.clear()
         # See if a forward is already set.
         try:
-            fwd.find_by_entity(person.entity_id)
+            fwd.find_by_target_entity(person.entity_id)
             fwd.delete()
         except Errors.NotFoundError:
             pass
@@ -1232,7 +1232,7 @@ class BDBSync:
 
         # Does the account have an EmailTarget?
         try:
-            et.find_by_entity(ac.entity_id)
+            et.find_by_target_entity(ac.entity_id)
         except Errors.TooManyRowsError:
             self.logger.debug("Account (%s): %s has several EmailTargets. Which to choose? FIXME please" % (ac.entity_id,address.get('username')))
             self.db.rollback()
@@ -1261,7 +1261,7 @@ class BDBSync:
             ea.find_by_address(_address)
         except Errors.NotFoundError:
             try:
-                ea.populate(address.get('email_address'), ed.email_domain_id, et.email_target_id)
+                ea.populate(address.get('email_address'), ed.entity_id, et.entity_id)
                 ea.write_db()
             except self.db.IntegrityError,ie:
                 print "Writing alias %s@%s failed for user %s. Reason: %s" % (address.get('email_address'),

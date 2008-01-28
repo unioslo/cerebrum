@@ -427,7 +427,7 @@ def process_mail_address(ac_list):
         ac.clear()
         ac.find(a)
         et.clear()
-        et.find_by_entity(a)
+        et.find_by_target_entity(a)
         if et.email_server_id is None:
             et.email_server_id = mser.entity_id
             et.write_db()
@@ -438,20 +438,20 @@ def process_mail_address(ac_list):
             # Does the foo.bar-address exist:
             ea.clear()
             ea.find_by_local_part_and_domain(ac.get_email_cn_local_part(),
-                                             mdom.email_domain_id)
+                                             mdom.entity_id)
             try:
                 # If it did, we want to make uname an address:
                 ea.clear()
                 ea.find_by_local_part_and_domain(ac.account_name,
-                                                 mdom.email_domain_id)
+                                                 mdom.entity_id)
                 # Iff found:
                 found = False
-                for row in ea.list_target_addresses(et.email_target_id):
+                for row in ea.list_target_addresses(et.entity_id):
                     ea.clear()
                     ea.find(row['address_id'])
                     if (ea.email_addr_local_part == ac.get_email_cn_local_part() \
                         or ea.email_addr_local_part == ac.account_name) \
-                       and ea.email_addr_domain_id == mdom.email_domain_id:
+                       and ea.email_addr_domain_id == mdom.entity_id:
                         # It is the targets own. No update needed.
                         found = True
                 if not found:
@@ -464,32 +464,32 @@ def process_mail_address(ac_list):
                 # uname wasn't taken:
                 ea.clear()
                 ea.populate(ac.account_name,
-                            mdom.email_domain_id,
-                            et.email_target_id)
+                            mdom.entity_id,
+                            et.entity_id)
                 ea.write_db()
-                prim = ea.email_addr_id
+                prim = ea.entity_id
                 
         except Errors.NotFoundError:
             # foo.bar didn't exist:
             ea.clear()
             ea.populate(ac.get_email_cn_local_part(),
-                        mdom.email_domain_id,
-                        et.email_target_id)
+                        mdom.entity_id,
+                        et.entity_id)
             ea.write_db()
-            prim = ea.email_addr_id
+            prim = ea.entity_id
                 
             try:
                 # Make uname here as well:
                 ea.clear()
                 ea.find_by_local_part_and_domain(ac.account_name,
-                                                 mdom.email_domain_id)
+                                                 mdom.entity_id)
                 # Iff found:
                 found = False
-                for row in ea.list_target_addresses(et.email_target_id):
+                for row in ea.list_target_addresses(et.entity_id):
                     ea.clear()
                     ea.find(row['address_id'])
                     if ea.email_addr_local_part == ac.get_email_cn_local_part() \
-                       and ea.email_addr_domain_id == mdom.email_domain_id:
+                       and ea.email_addr_domain_id == mdom.entity_id:
                         # It is the targets own. No update needed.
                         found = True
                 if not found:
@@ -499,13 +499,13 @@ def process_mail_address(ac_list):
             except Errors.NotFoundError:
                 ea.clear()
                 ea.populate(ac.account_name,
-                            mdom.email_domain_id,
-                            et.email_target_id)
+                            mdom.entity_id,
+                            et.entity_id)
                 ea.write_db()
                 
         epat.clear()
         try:
-            epat.find(et.email_target_id)
+            epat.find(et.entity_id)
         except Errors.NotFoundError:
             epat.clear()
             epat.populate(prim, et)

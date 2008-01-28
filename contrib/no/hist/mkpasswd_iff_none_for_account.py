@@ -12,7 +12,6 @@ import pickle
 
 
 from Cerebrum import Entity
-from Cerebrum.modules import Email
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 

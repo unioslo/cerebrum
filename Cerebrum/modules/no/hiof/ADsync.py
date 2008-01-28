@@ -59,7 +59,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         for row in etarget.list_email_target_primary_addresses(
                 target_type = self.co.email_target_account):
-            v = user_dict.get(int(row['entity_id']))
+            v = user_dict.get(int(row['target_entity_id']))
             if not v:
                 continue
             try:

@@ -112,15 +112,15 @@ def itarate_mail_targets():
         uname = user.get_account_name()
         et.clear()
         try:
-            et.find_by_entity(row['account_id'])
+            et.find_by_target_entity(row['account_id'])
         except Errors.NotFoundError:
             print "WARNING! Couldn't find info for %s. Skipping." % uname
             continue
 
         addr = None
         
-        if targ2prim.has_key(et.email_target_id):
-            addr = aid2addr[targ2prim[et.email_target_id]]
+        if targ2prim.has_key(et.entity_id):
+            addr = aid2addr[targ2prim[et.entity_id]]
         else:
             print "WARNING! Couldn't find %s's primary address." % uname
             continue

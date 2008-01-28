@@ -58,7 +58,7 @@ def generate_email_data():
         et = Email.EmailTarget(db)
         et.clear()
         try:
-            et.find_by_entity(account.entity_id)
+            et.find_by_target_entity(account.entity_id)
         except Errors.NotFoundError:
             logger.warn("No e-mail target for %s", account.account_name)
             continue

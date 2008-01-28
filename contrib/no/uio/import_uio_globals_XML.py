@@ -45,7 +45,7 @@ def main():
                         break
                 else:
                     dom.add_category(co.email_domain_category_uio_globals)
-                    print "Added: %d: %s" % (dom.email_domain_id, domain)
+                    print "Added: %d: %s" % (dom.entity_id, domain)
             except Errors.NotFoundError:
                 print "Not found: %s" % domain
         else:

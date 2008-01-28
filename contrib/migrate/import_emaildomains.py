@@ -161,7 +161,7 @@ def process_domain(dom, conn, cat, aff):
         except Errors.NotFoundError:
             logger.error('No such OU %s!', conn)
             sys.exit(1)
-        connect_domain_ou(ou.entity_id, edom.email_domain_id, c_aff)
+        connect_domain_ou(ou.entity_id, edom.entity_id, c_aff)
     if c_cat:
         # Hack to get a hit when doing 'in'
         if (int(c_cat),) in edom.get_categories():

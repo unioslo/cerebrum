@@ -125,12 +125,12 @@ def process_email_srv_data(uname, account_id, email_srv):
     email_server.find_by_name(email_srv)
     email_server_id = email_server.entity_id
     try:
-        email_target.find_by_email_target_attrs(entity_id=int(account_id))
+        email_target.find_by_email_target_attrs(target_entity_id=int(account_id))
     except Errors.NotFoundError:
         logger.error("No email target for %s", uname)
         return None
     try:
-        email_server_target.find(email_target.email_target_id)
+        email_server_target.find(email_target.entity_id)
         logger.debug("Email-server is registered %s for %s", email_srv, uname)
     except Errors.NotFoundError:
         email_server_target.clear()

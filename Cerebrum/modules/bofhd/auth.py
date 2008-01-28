@@ -1281,7 +1281,7 @@ class BofhdAuth(DatabaseAccessor):
             return True
         if self._query_target_permissions(operator, operation,
                                           self.const.auth_target_type_maildomain,
-                                          domain.email_domain_id, victim_id):
+                                          domain.entity_id, victim_id):
             return True
         raise PermissionDenied("No access to '%s' for e-mail domain %s" %
                                (operation.description,

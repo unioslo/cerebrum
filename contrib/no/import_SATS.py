@@ -983,7 +983,7 @@ def bootstrap_maildomains(level):
             d.populate(domain, category, description)
             d.write_db()
             progress.write('D')
-        return d.email_domain_id
+        return d.entity_id
 
     create_domain("fibsko.oslo.no", co.email_domain_category_cnaddr,
                   "Fiberskole-prosjektet UFD/Skoleetaten i Oslo/USIT.")
@@ -998,7 +998,7 @@ def write_email(addr, account_id):
 
     target = Email.EmailTarget(Cerebrum)
     try:
-        target.find_by_entity(account_id)
+        target.find_by_target_entity(account_id)
         progress.write('-')
     except Errors.NotFoundError:
         target.populate(co.email_target_account,
@@ -1010,12 +1010,12 @@ def write_email(addr, account_id):
     try:
         address.find_by_address(addr)
     except Errors.NotFoundError:
-        address.populate(lp, domain.email_domain_id,
-                         target.email_target_id)
+        address.populate(lp, domain.entity_id,
+                         target.entity_id)
         address.write_db()
         progress.write('A')
     else:
-        if address.email_target_id <> target.email_target_id:
+        if address.email_addr_target_id <> target.entity_id:
             progress.write("\nWARNING: <%s>: Wrong target\n" % addr,
                            raw=True)
         else:

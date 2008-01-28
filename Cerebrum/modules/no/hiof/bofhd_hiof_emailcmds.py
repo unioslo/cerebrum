@@ -179,9 +179,9 @@ class BofhdExtension(object):
                 # FIXME: We can't use Account.get_primary_mailaddress
                 # since it rewrites special domains.
                 et = Email.EmailTarget(self.db)
-                et.find_by_entity(acc.entity_id)
+                et.find_by_target_entity(acc.entity_id)
                 epa = Email.EmailPrimaryAddressTarget(self.db)
-                epa.find(et.email_target_id)
+                epa.find(et.entity_id)
                 ea.find(epa.email_primaddr_id)
             except Errors.NotFoundError:
                 raise CerebrumError, ("No such address: '%s'" % address)
@@ -201,7 +201,7 @@ class BofhdExtension(object):
         - EmailAddress
         - EmailTarget (look up primary address and return that, throw
         exception if there is no primary address)
-        - integer (use as email_target_id and look up that target's
+        - integer (use as entity_id and look up that target's
         primary address)
         The return value is a text string containing the e-mail
         address.  Special domain names are not rewritten."""
@@ -213,7 +213,7 @@ class BofhdExtension(object):
             ea.find(epat.email_primaddr_id)
         elif isinstance(etarget, Email.EmailTarget):
             epat = Email.EmailPrimaryAddressTarget(self.db)
-            epat.find(etarget.email_target_id)
+            epat.find(etarget.entity_id)
             ea.find(epat.email_primaddr_id)
         elif isinstance(etarget, Email.EmailPrimaryAddressTarget):
             ea.find(etarget.email_primaddr_id)

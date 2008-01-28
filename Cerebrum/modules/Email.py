@@ -142,6 +142,21 @@ class EmailConstants(Constants.Constants):
     EmailVirusFound = _EmailVirusFoundCode
     EmailVirusRemoved = _EmailVirusRemovedCode
 
+    entity_email_domain = Constants._EntityTypeCode(
+        'email_domain',
+        'Email domain - see table "cerebrum.email_domain" and'
+        'friends.')
+
+    entity_email_address = Constants._EntityTypeCode(
+        'email_address',
+        'Email address - see table "cerebrum.email_address" and'
+        'friends.')
+
+    entity_email_target = Constants._EntityTypeCode(
+        'email_target',
+        'Email target - see table "cerebrum.email_target" and'
+        'friends.')
+
     email_domain_category_noexport = _EmailDomainCategoryCode(
         'noexport',
         'Addresses in these domains can be defined, but are not'
@@ -180,7 +195,7 @@ class EmailConstants(Constants.Constants):
         'forward',
         "Target is a pure forwarding mechanism; local deliveries will"
         " only occur as indirect deliveries to the addresses forwarded"
-        " to.  Both email_target.entity_id, email_target.using_uid and"
+        " to.  Both email_target.target_entity_id, email_target.using_uid and"
         " email_target.alias_value should be NULL, as they are ignored."
         "  The email address(es) to forward to is taken from table"
         " email_forward.")
@@ -210,7 +225,7 @@ class EmailConstants(Constants.Constants):
         'multi',
         "Target is the set of `account`-type targets corresponding to"
         " the Accounts that are first-level members of the Group that"
-        " has group_id == email_target.entity_id.")
+        " has group_id == email_target.target_entity_id.")
 
     email_server_type_nfsmbox = _EmailServerTypeCode(
         'nfsmbox',
@@ -225,48 +240,32 @@ class EmailConstants(Constants.Constants):
         'greylist',
         "Reject messages classified as spam, delay unknown servers")
 
-class EmailEntity(DatabaseAccessor):
-    """Abstract superclass for email 'entities'.
+Entity_class = Utils.Factory.get("Entity")
 
-    Email 'entities' (EmailDomain, EmailTarget and EmailAddress)
-    aren't regular Cerebrum entities, as many of the bells and
-    whistles one can attach to regular entities don't make sense for
-    email data.
-
-    This class simulates (convenient parts of) the regular Cerebrum
-    entity interface for email 'entities'."""
-
-    def clear_class(self, cls):
-        for attr in cls.__read_attr__:
-            if hasattr(self, attr):
-                if attr not in getattr(cls, 'dontclear', ()):
-                    delattr(self, attr)
-        for attr in cls.__write_attr__:
-            if attr not in getattr(cls, 'dontclear', ()):
-                setattr(self, attr, None)
-
-
-    __metaclass__ = Utils.mark_update
-    pass
-
-
-class EmailDomain(EmailEntity):
+class EmailDomain(Entity_class):
     """Interface to the email domains your MTA should consider as 'local'.
 
     Before any email address can be registered in Cerebrum, the domain
     part of the address must be registered.  A registered email domain
     can have any number of 'categories' associated with it."""
 
-    __read_attr__ = ('__in_db',
-                     # Won't be necessary here if we're a subclass of Entity.
-                     'email_domain_id')
+    __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_domain_name', 'email_domain_description')
 
+    # TBD: missing __eq__
+
     def clear(self):
+        # conv
+        super(EmailDomain, self).clear()
         self.clear_class(EmailDomain)
         self.__updated = []
 
-    def populate(self, domain, description):
+    def populate(self, domain, description, parent=None):
+        # conv
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity_class.populate(self, self.const.entity_email_domain)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
@@ -276,16 +275,16 @@ class EmailDomain(EmailEntity):
         self.email_domain_description = description
 
     def write_db(self):
+        self.__super.write_db()
         if not self.__updated:
             return
         is_new = not self.__in_db
         if is_new:
-            self.email_domain_id = int(self.nextval("email_id_seq"))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_domain]
               (domain_id, domain, description)
             VALUES (:d_id, :name, :descr)""",
-                         {'d_id': self.email_domain_id,
+                         {'d_id': self.entity_id,
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
         else:
@@ -293,7 +292,7 @@ class EmailDomain(EmailEntity):
             UPDATE [:table schema=cerebrum name=email_domain]
             SET domain=:name, description=:descr
             WHERE domain_id=:d_id""",
-                         {'d_id': self.email_domain_id,
+                         {'d_id': self.entity_id,
                           'name': self.email_domain_name,
                           'descr': self.email_domain_description})
         del self.__in_db
@@ -302,9 +301,12 @@ class EmailDomain(EmailEntity):
         return is_new
 
     def find(self, domain_id):
-        (self.email_domain_id, self.email_domain_name,
+        # conv
+        self.__super.find(domain_id)
+        
+        (self.email_domain_name,
          self.email_domain_description) = self.query_1("""
-         SELECT domain_id, domain, description
+         SELECT domain, description
          FROM [:table schema=cerebrum name=email_domain]
          WHERE domain_id=:d_id""", {'d_id': domain_id})
         try:
@@ -315,6 +317,7 @@ class EmailDomain(EmailEntity):
         self.__updated = []
 
     def find_by_domain(self, domain):
+        # NA
         domain_id = self.query_1("""
         SELECT domain_id
         FROM [:table schema=cerebrum name=email_domain]
@@ -324,9 +327,11 @@ class EmailDomain(EmailEntity):
     def get_domain_name(self):
         return self.email_domain_name
 
+    # FIXME: wrong name space. LDAP shouldn't affect this module
     _rewrite_domain = cereconf.LDAP['rewrite_email_domain']
 
     def rewrite_special_domains(self, domain):
+        # NA
         """There may exist domains with special meaning which aren't a
         valid part of an e-mail address.  This function makes all
         addresses valid.
@@ -334,24 +339,28 @@ class EmailDomain(EmailEntity):
         return self._rewrite_domain.get(domain, domain)
 
     def get_categories(self):
+        # conv
         return self.query("""
         SELECT category
         FROM [:table schema=cerebrum name=email_domain_category]
-        WHERE domain_id=:d_id""", {'d_id': self.email_domain_id})
+        WHERE domain_id=:d_id""", {'d_id': self.entity_id})
 
     def add_category(self, category):
+        # conv
         return self.execute("""
         INSERT INTO [:table schema=cerebrum name=email_domain_category]
           (domain_id, category)
-        VALUES (:d_id, :cat)""", {'d_id': self.email_domain_id,
+        VALUES (:d_id, :cat)""", {'d_id': self.entity_id,
                                   'cat': int(category)})
 
     def remove_category(self, category):
+        # conv
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_domain_category]
-        WHERE domain_id=:d_id""", {'d_id': self.email_domain_id})
+        WHERE domain_id=:d_id""", {'d_id': self.entity_id})
 
     def list_email_domains_with_category(self, category):
+        # NA
         return self.query("""
         SELECT ed.domain_id, ed.domain
         FROM [:table schema=cerebrum name=email_domain] ed
@@ -360,12 +369,13 @@ class EmailDomain(EmailEntity):
         WHERE edc.category = :cat""", {'cat': int(category)})
 
     def list_email_domains(self):
+        # NA
         return self.query("""
         SELECT domain_id, domain
         FROM [:table schema=cerebrum name=email_domain]""")
 
 
-class EmailTarget(EmailEntity):
+class EmailTarget(Entity_class):
     """Interface for registering valid email delivery targets.
 
     Targets can either be associated with a Cerebrum entity, implying
@@ -380,17 +390,25 @@ class EmailTarget(EmailEntity):
     that should be connected to a target; each EmailAddress must be
     connected to a single EmailTarget."""
 
-    __read_attr__ = ('__in_db', 'email_target_id')
+    __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_target_type', 'email_target_entity_id',
                       'email_target_entity_type', 'email_target_alias',
                       'email_target_using_uid', 'email_server_id')
 
     def clear(self):
+        # conv
+        super(EmailTarget, self).clear()
         self.clear_class(EmailTarget)
         self.__updated = []
 
-    def populate(self, type, entity_id=None, entity_type=None, alias=None,
-                 using_uid=None, server_id=None):
+    def populate(self, type, target_entity_id=None,
+                 target_entity_type=None, alias=None, using_uid=None,
+                 server_id=None, parent=None):
+        # conv
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity_class.populate(self, self.const.entity_email_target)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
@@ -400,46 +418,48 @@ class EmailTarget(EmailEntity):
         self.email_target_alias = alias
         self.email_target_using_uid = using_uid
         self.email_server_id = server_id
-        if entity_id is None and entity_type is None:
+        if target_entity_id is None and target_entity_type is None:
             self.email_target_entity_id = self.email_target_entity_type = None
-        elif entity_id is not None and entity_type is not None:
-            self.email_target_entity_id = entity_id
-            self.email_target_entity_type = entity_type
+        elif target_entity_id is not None and target_entity_type is not None:
+            self.email_target_entity_id = target_entity_id
+            self.email_target_entity_type = target_entity_type
         else:
             raise ValueError, \
-                  "Must set both or none of (entity_id, entity_type)."
+                  "Must set both or none of (target_entity_id, target_entity_type)."
 
     def write_db(self):
+        # conv
+        self.__super.write_db()
         if not self.__updated:
             return
         is_new = not self.__in_db
-        entity_type = self.email_target_entity_type
-        if entity_type is not None:
-            entity_type = int(entity_type)
+        target_entity_type = self.email_target_entity_type
+        if target_entity_type is not None:
+            target_entity_type = int(target_entity_type)
         if is_new:
-            self.email_target_id = int(self.nextval("email_id_seq"))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_target]
-              (target_id, target_type, entity_id, entity_type, alias_value,
-               using_uid, server_id)
+              (target_id, target_type, target_entity_id, target_entity_type,
+               alias_value, using_uid, server_id)
             VALUES (:t_id, :t_type, :e_id, :e_type, :alias, :uid, :server_id)""",
-                         {'t_id': self.email_target_id,
+                         {'t_id': self.entity_id,
                           't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
-                          'e_type': entity_type,
+                          'e_type': target_entity_type,
                           'alias': self.email_target_alias,
                           'uid': self.email_target_using_uid,
                           'server_id': self.email_server_id})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_target]
-            SET target_type=:t_type, entity_id=:e_id, entity_type=:e_type,
-                alias_value=:alias, using_uid=:uid, server_id=:server_id
+            SET target_type=:t_type, target_entity_id=:e_id,
+                target_entity_type=:e_type, alias_value=:alias,
+                using_uid=:uid, server_id=:server_id
             WHERE target_id=:t_id""",
-                         {'t_id': self.email_target_id,
+                         {'t_id': self.entity_id,
                           't_type': int(self.email_target_type),
                           'e_id': self.email_target_entity_id,
-                          'e_type': entity_type,
+                          'e_type': target_entity_type,
                           'alias': self.email_target_alias,
                           'uid': self.email_target_using_uid,
                           'server_id': self.email_server_id})
@@ -449,12 +469,15 @@ class EmailTarget(EmailEntity):
         return is_new
 
     def find(self, target_id):
-        (self.email_target_id, self.email_target_type,
-         self.email_target_entity_id, self.email_target_entity_type,
-         self.email_target_alias, self.email_target_using_uid,
+        # conv
+        self.__super.find(target_id)
+        
+        (self.email_target_type, self.email_target_entity_id,
+         self.email_target_entity_type, self.email_target_alias,
+         self.email_target_using_uid,
          self.email_server_id) = self.query_1("""
-        SELECT target_id, target_type, entity_id, entity_type, alias_value,
-               using_uid, server_id
+        SELECT target_type, target_entity_id, target_entity_type,
+               alias_value, using_uid, server_id
         FROM [:table schema=cerebrum name=email_target]
         WHERE target_id=:t_id""", {'t_id': target_id})
         try:
@@ -465,27 +488,34 @@ class EmailTarget(EmailEntity):
         self.__updated = []
 
     def delete(self):
+        # conv
+        
         # We do not delete the corresponding rows in email_address
         # (and by extension, in email_primary_address) to reduce the
         # chance of catastrophic mistakes.
+        #
+        # TBD: is this really a good idea? medling in other classes.
+        #      makes ChangeLogging harder.
         for table in ('email_forward', 'email_vacation', 'email_quota',
                       'email_spam_filter', 'email_virus_scan',
                       'email_target_filter'):
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=%s]
-            WHERE target_id=:e_id""" % table, {'e_id': self.email_target_id})
+            WHERE target_id=:e_id""" % table, {'e_id': self.entity_id})
 
-        return self.execute("""
+        self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_target]
-        WHERE target_id=:e_id""", {'e_id': self.email_target_id})
+        WHERE target_id=:e_id""", {'e_id': self.entity_id})
+        self.__super.delete()
 
     def find_by_email_target_attrs(self, **kwargs):
+        # NA
         if not kwargs:
             raise ProgrammingError, \
                   "Need at least one column argument to find target"
         where = []
         binds = {}
-        for column in ('target_type', 'entity_id', 'alias_value',
+        for column in ('target_type', 'target_entity_id', 'alias_value',
                        'using_uid', 'server_id'):
             if column in kwargs:
                 where.append("%s = :%s" % (column, column))
@@ -507,16 +537,20 @@ class EmailTarget(EmailEntity):
         WHERE %s""" % where, binds)
         self.find(target_id)
 
-    def find_by_entity(self, entity_id):
+    def find_by_target_entity(self, target_entity_id):
+        # NA
+        
         # This might find no rows.  In those cases, query_1() will
         # raise an exception.
         target_id = self.query_1("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]
-        WHERE entity_id=:e_id""", {'e_id': entity_id})
+        WHERE target_entity_id=:e_id""", {'e_id': target_entity_id})
         self.find(target_id)
 
     def find_by_alias(self, alias):
+        # NA
+        
         # This might find no rows, and it might find more than one
         # row.  In those cases, query_1() will raise an exception.
         target_id = self.query_1("""
@@ -526,9 +560,11 @@ class EmailTarget(EmailEntity):
         self.find(target_id)
 
     def find_by_alias_and_account(self, alias, using_uid):
+        # NA
+        
         # Due to the UNIQUE constraint in table email_target, this can
-        # only find more than one row if both entity_id and alias are
-        # None.
+        # only find more than one row if both target_entity_id and alias
+        # are None.
         target_id = self.query_1("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]
@@ -539,6 +575,7 @@ class EmailTarget(EmailEntity):
         self.find(target_id)
 
     def get_addresses(self, special=True):
+        # conv
         """Return all email_addresses associated with this
         email_target as row objects.  If special is False, rewrite the
         magic domain names into working domain names."""
@@ -547,7 +584,7 @@ class EmailTarget(EmailEntity):
         FROM [:table schema=cerebrum name=email_address] ea
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
-        WHERE ea.target_id = :t_id""", {'t_id': int(self.email_target_id)})
+        WHERE ea.target_id = :t_id""", {'t_id': int(self.entity_id)})
         if not special:
             ed = EmailDomain(self._db)
             for r in ret:
@@ -555,12 +592,14 @@ class EmailTarget(EmailEntity):
         return ret
 
     def list_email_targets(self):
+        # NA
         """Return target_id of all EmailTarget in database"""
         return self.query("""
         SELECT target_id
         FROM [:table schema=cerebrum name=email_target]""", fetchall=False)
 
     def list_email_server_targets(self):
+        # NA
         return self.query("""
         SELECT target_id, server_id
         FROM [:table schema=cerebrum name=email_target]
@@ -568,23 +607,25 @@ class EmailTarget(EmailEntity):
         """, fetchall=False)
 
     def list_email_targets_ext(self):
+        # NA
         """Return an iterator over all email_target rows.
 
         For each row, the following columns are included:
-          target_id, target_type, entity_type, entity_id, alias_value
-          and using_uid.
+          target_id, target_type, target_entity_type, target_entity_id,
+          alias_value and using_uid.
 
         """
         return self.query("""
-        SELECT target_id, target_type, entity_type, entity_id, alias_value,
-               using_uid
+        SELECT target_id, target_type, target_entity_type,
+               target_entity_id, alias_value, using_uid
         FROM [:table schema=cerebrum name=email_target]
         """, fetchall=False)
     
     def list_email_target_primary_addresses(self, target_type=None):
+        # conv
         """Return an iterator over primary email-addresses belonging
         to email_target.
-        Returns target_id, entity_id, local_part and domain.
+        Returns target_id, target_entity_id, local_part and domain.
 
         target_type decides which email_target to filter on.
         """
@@ -594,7 +635,7 @@ class EmailTarget(EmailEntity):
             where = "WHERE et.target_type = %d" % int(target_type)
  
         return self.query("""
-        SELECT et.target_id, et.entity_id, ea.local_part, ed.domain
+        SELECT et.target_id, et.target_entity_id, ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=email_target] et
           JOIN [:table schema=cerebrum name=email_primary_address] epa
             ON et.target_id=epa.target_id
@@ -605,42 +646,56 @@ class EmailTarget(EmailEntity):
         %s""" % where)
         
     def get_target_type(self):
+        # NA
         return self.email_target_type
 
     def get_target_type_name(self):
+        # NA
         name = self._db.pythonify_data(self.email_target_type)
         name = _EmailTargetCode(name)
         return name
 
     def get_alias(self):
+        # NA
         return self.email_target_alias
 
-    def get_entity_id(self):
+    def get_target_entity_id(self):
+        # NA
         return self.email_target_entity_id
 
-    def get_entity_type(self):
+    def get_target_entity_type(self):
+        # NA
         return self.email_target_entity_type
 
     def get_server_id(self):
+        # NA
         return self.email_server_id
 
 
 
-class EmailAddress(EmailEntity):
+class EmailAddress(Entity_class):
     """Interface for registering known local email addresses.
 
     EmailAddresses must have a valid localpart, which must be unique
     within the EmailDomain of the address.  Each EmailAddress must be
     connected to a EmailTarget."""
 
-    __read_attr__ = ('__in_db', 'email_addr_id')
+    __read_attr__ = ('__in_db',)
     __write_attr__ = ('email_addr_local_part', 'email_addr_domain_id',
                       'email_addr_target_id', 'email_addr_expire_date')
     def clear(self):
+        # conv
+        self.__super.clear()
         self.clear_class(EmailAddress)
         self.__updated = []
 
-    def populate(self, local_part, domain_id, target_id, expire=None):
+    def populate(self, local_part, domain_id, target_id, expire=None,
+                 parent=None):
+        # conv
+        if parent is not None:
+            self.__xerox__(parent)
+        else:
+            Entity_class.populate(self, self.const.entity_email_address)
         try:
             if not self.__in_db:
                 raise RuntimeError, "populate() called multiple times."
@@ -652,17 +707,17 @@ class EmailAddress(EmailEntity):
         self.email_addr_expire_date = expire
 
     def write_db(self):
+        self.__super.write_db()
         if not self.__updated:
             return
         is_new = not self.__in_db
         if is_new:
-            self.email_addr_id = int(self.nextval("email_id_seq"))
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=email_address]
               (address_id, local_part, domain_id, target_id,
                create_date, change_date, expire_date)
             VALUES (:a_id, :lp, :d_id, :t_id, [:now], [:now], :expire)""",
-                         {'a_id': self.email_addr_id,
+                         {'a_id': self.entity_id,
                           'lp': self.email_addr_local_part,
                           'd_id': self.email_addr_domain_id,
                           't_id': self.email_addr_target_id,
@@ -673,7 +728,7 @@ class EmailAddress(EmailEntity):
             SET local_part=:lp, domain_id=:d_id, target_id=:t_id,
                 expire_date=:expire, change_date=[:now]
             WHERE address_id=:a_id""",
-                         {'a_id': self.email_addr_id,
+                         {'a_id': self.entity_id,
                           'lp': self.email_addr_local_part,
                           'd_id': self.email_addr_domain_id,
                           't_id': self.email_addr_target_id,
@@ -684,10 +739,13 @@ class EmailAddress(EmailEntity):
         return is_new
 
     def find(self, address_id):
-        (self.email_addr_id, self.email_addr_local_part,
-         self.email_addr_domain_id, self.email_addr_target_id,
+        # conv
+        self.__super.find(address_id)
+        
+        (self.email_addr_local_part, self.email_addr_domain_id,
+         self.email_addr_target_id,
          self.email_addr_expire_date) = self.query_1("""
-        SELECT address_id, local_part, domain_id, target_id, expire_date
+        SELECT local_part, domain_id, target_id, expire_date
         FROM [:table schema=cerebrum name=email_address]
         WHERE address_id=:a_id""", {'a_id': address_id})
         try:
@@ -698,11 +756,14 @@ class EmailAddress(EmailEntity):
         self.__updated = []
         
     def delete(self):
-        return self.execute("""
+        # conv
+        self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_address]
-        WHERE address_id=:e_id""", {'e_id': self.email_addr_id})
+        WHERE address_id=:e_id""", {'e_id': self.entity_id})
+        self.__super.delete(self)
 
     def find_by_local_part_and_domain(self, local_part, domain_id):
+        # NA
         address_id = self._db.query_1("""
         SELECT address_id
         FROM [:table schema=cerebrum name=email_address]
@@ -712,12 +773,14 @@ class EmailAddress(EmailEntity):
         self.find(address_id)
 
     def find_by_address(self, address):
+        # NA
         lp, dp = address.split('@')
         domain = EmailDomain(self._db)
         domain.find_by_domain(dp)
-        self.find_by_local_part_and_domain(lp, domain.email_domain_id)
+        self.find_by_local_part_and_domain(lp, domain.entity_id)
 
     def validate_localpart(self, localpart):
+        # NA
         """Check that localpart is syntactically correct.  This is a
         subset (simplification) of RFC 2821 syntax, so e.g. quotes
         (neither quotation marks nor backslash) or comments (in
@@ -744,6 +807,7 @@ class EmailAddress(EmailEntity):
 
     # FIXME: Can anyone explain what this can be used for?
     def list_email_addresses(self):
+        # NA
         """Return address_id of all EmailAddress in database"""
         return self.query("""
         SELECT address_id
@@ -751,6 +815,7 @@ class EmailAddress(EmailEntity):
 
     # FIXME: Should probably be replaced by search().
     def list_email_addresses_ext(self, domain=None):
+        # NA
         """Return address_id, target_id, local_part and domainof all
         EmailAddress in database"""
         with_domain = ""
@@ -767,6 +832,7 @@ class EmailAddress(EmailEntity):
     def search(self, local_part=None, local_part_pattern=None,
                target_id=None, domain_id=None, filter_expired=True,
                fetchall=False):
+        # NA
         """Return address_id, target_id, local_part, domain_id, and
         domain (name) for matching all EmailAddress."""
         conditions = []
@@ -795,6 +861,7 @@ class EmailAddress(EmailEntity):
 
     # FIXME: should be replaced by search()
     def list_target_addresses(self, target_id):
+        # NA
         """Return address_id, local_part and domain_id for target_id"""
         return self.query("""
         SELECT address_id, local_part, domain_id
@@ -804,18 +871,22 @@ class EmailAddress(EmailEntity):
                           fetchall=False)
 
     def get_target_id(self):
+        # NA
         """Return target_id of this EmailAddress in database"""
         return self.email_addr_target_id
 
     def get_domain_id(self):
+        # NA
         """Return domain_id of this EmailAddress in database"""
         return self.email_addr_domain_id
 
     def get_localpart(self):
+        # NA
         """Return domain_id of this EmailAddress in database"""
         return self.email_addr_local_part
 
     def get_address(self):
+        # NA
         """Return textual representation of address,
         i.e. 'local_part@domain'.
 
@@ -954,7 +1025,7 @@ class EmailQuota(EmailTarget):
             INSERT INTO [:table schema=cerebrum name=email_quota]
               (target_id, quota_soft, quota_hard)
             VALUES (:t_id, :soft, :hard)""",
-                         {'t_id': self.email_target_id,
+                         {'t_id': self.entity_id,
                           'soft': self.email_quota_soft,
                           'hard': self.email_quota_hard})
         else:
@@ -963,7 +1034,7 @@ class EmailQuota(EmailTarget):
             UPDATE [:table schema=cerebrum name=email_quota]
             SET quota_soft=:soft,
                 quota_hard=:hard
-            WHERE target_id=:t_id""", {'t_id': self.email_target_id,
+            WHERE target_id=:t_id""", {'t_id': self.entity_id,
                                        'soft': self.email_quota_soft,
                                        'hard': self.email_quota_hard})
         del self.__in_db
@@ -987,7 +1058,7 @@ class EmailQuota(EmailTarget):
     def delete(self):
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_quota]
-        WHERE target_id=:e_id""", {'e_id': self.email_target_id})
+        WHERE target_id=:e_id""", {'e_id': self.entity_id})
 
     def get_quota_soft(self):
         return self.email_quota_soft
@@ -1052,7 +1123,7 @@ class EmailTargetFilter(EmailTarget):
             INSERT INTO [:table schema=cerebrum name=email_target_filter]
               (target_id, filter)
             VALUES (:t_id, :filter)""",
-                         {'t_id': self.email_target_id,
+                         {'t_id': self.entity_id,
                           'filter': int(self.email_target_filter_filter)})
         else:
             # Binary table. No need to update with the same info
@@ -1067,7 +1138,7 @@ class EmailTargetFilter(EmailTarget):
         self.email_target_filter_filter = self.query_1("""
         SELECT filter
         FROM [:table schema=cerebrum name=email_target_filter]
-        WHERE target_id=:t_id""",{'t_id': self.email_target_id,
+        WHERE target_id=:t_id""",{'t_id': self.enntity_id,
                                   'filter': filter})
         try:
             del self.__in_db
@@ -1086,7 +1157,7 @@ class EmailTargetFilter(EmailTarget):
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_target_filter]
         WHERE target_id=:t_id AND filter=:filter""",
-                            {'t_id': self.email_target_id,
+                            {'t_id': self.entity_id,
                              'filter': filter})
             
     def list_email_target_filter(self, target_id=None, filter=None):
@@ -1137,7 +1208,7 @@ class EmailSpamFilter(EmailTarget):
             INSERT INTO [:table schema=cerebrum name=email_spam_filter]
               (target_id, level, action)
             VALUES (:t_id, :level, :action)""",
-                         {'t_id': self.email_target_id,
+                         {'t_id': self.entity_id,
                           'level': int(self.email_spam_level),
                           'action': int(self.email_spam_action)})
         else:
@@ -1146,7 +1217,7 @@ class EmailSpamFilter(EmailTarget):
             UPDATE [:table schema=cerebrum name=email_spam_filter]
             SET level=:level,
                 action=:action
-            WHERE target_id=:t_id""", {'t_id': self.email_target_id,
+            WHERE target_id=:t_id""", {'t_id': self.entity_id,
                                        'level': int(self.email_spam_level),
                                        'action': int(self.email_spam_action)})
         del self.__in_db
@@ -1159,7 +1230,7 @@ class EmailSpamFilter(EmailTarget):
         self.email_spam_level, self.email_spam_action = self.query_1("""
         SELECT level, action
         FROM [:table schema=cerebrum name=email_spam_filter]
-        WHERE target_id=:t_id""",{'t_id': self.email_target_id})
+        WHERE target_id=:t_id""",{'t_id': self.entity_id})
         try:
             del self.__in_db
         except AttributeError:
@@ -1222,7 +1293,7 @@ class EmailVirusScan(EmailTarget):
             INSERT INTO [:table schema=cerebrum name=email_virus_scan]
               (target_id, found_action, rem_action, enable)
             VALUES (:t_id, :found, :removed, :enable)""",
-                         {'t_id': self.email_target_id,
+                         {'t_id': self.entity_id,
                           'found': self.email_virus_found_act,
                           'removed': self.email_virus_removed_act,
                           'enable': self.email_virus_enable})
@@ -1232,7 +1303,7 @@ class EmailVirusScan(EmailTarget):
             UPDATE [:table schema=cerebrum name=email_virus_scan]
             SET found_action=:found, rem_action=:remove, enable=:enable
             WHERE target_id=:t_id""",
-                         {'t_id': self.email_target_id,
+                         {'t_id': self.entity_id,
                           'found': self.email_virus_found_act,
                           'removed': self.email_virus_removed_act,
                           'enable': self.email_virus_enable})
@@ -1247,7 +1318,7 @@ class EmailVirusScan(EmailTarget):
          self.email_virus_enable) = self.query_1("""
         SELECT found_action, rem_action, enable
         FROM [:table schema=cerebrum name=email_virus_scan]
-        WHERE target_id=:t_id""",{'t_id': self.email_target_id})
+        WHERE target_id=:t_id""",{'t_id': self.entity_id})
         try:
             del self.__in_db
         except AttributeError:
@@ -1291,7 +1362,7 @@ class EmailForward(EmailTarget):
         return self.execute("""
         INSERT INTO [:table schema=cerebrum name=email_forward]
           (target_id, forward_to, enable)
-        VALUES (:t_id, :forward, :enable)""", {'t_id': self.email_target_id,
+        VALUES (:t_id, :forward, :enable)""", {'t_id': self.entity_id,
                                                'forward': forward,
                                                'enable': enable})
 
@@ -1302,7 +1373,7 @@ class EmailForward(EmailTarget):
         WHERE target_id = :t_id AND
               forward_to = :fwd""", {'enable': enable,
                                      'fwd': forward,
-                                     't_id': self.email_target_id})
+                                     't_id': self.entity_id})
 
     def enable_forward(self, forward):
         return self._set_forward_enable(forward, 'T')
@@ -1314,13 +1385,13 @@ class EmailForward(EmailTarget):
         return self.query("""
         SELECT forward_to, enable
         FROM [:table schema=cerebrum name=email_forward]
-        WHERE target_id=:t_id""", {'t_id': self.email_target_id})
+        WHERE target_id=:t_id""", {'t_id': self.entity_id})
 
     def delete_forward(self, forward):
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_forward]
         WHERE target_id=:t_id AND forward_to=:forward""",
-                            {'t_id': self.email_target_id,
+                            {'t_id': self.entity_id,
                              'forward': forward})
 
     def list_email_forwards(self):
@@ -1342,7 +1413,7 @@ class EmailVacation(EmailTarget):
         INSERT INTO [:table schema=cerebrum name=email_vacation]
           (target_id, start_date, vacation_text, end_date, enable)
         VALUES (:t_id, :start, :text, :end, :enable)""",
-                            {'t_id': self.email_target_id,
+                            {'t_id': self.entity_id,
                              'start': start,
                              'text': text,
                              'end': end,
@@ -1357,7 +1428,7 @@ class EmailVacation(EmailTarget):
         UPDATE [:table schema=cerebrum name=email_vacation]
         SET enable=:enable
         WHERE target_id=:t_id AND start_date=:start""",
-                            {'t_id': self.email_target_id,
+                            {'t_id': self.entity_id,
                              'start': start,
                              'enable': enable})
 
@@ -1369,13 +1440,13 @@ class EmailVacation(EmailTarget):
         SELECT vacation_text, start_date, end_date, enable
         FROM [:table schema=cerebrum name=email_vacation]
         WHERE target_id=:t_id
-        ORDER BY start_date""", {'t_id': self.email_target_id})
+        ORDER BY start_date""", {'t_id': self.entity_id})
 
     def delete_vacation(self, start):
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_vacation]
         WHERE target_id=:t_id AND start_date=:start""",
-                            {'t_id': self.email_target_id,
+                            {'t_id': self.entity_id,
                              'start': start})
 
     def list_email_vacations(self):
@@ -1416,14 +1487,14 @@ class EmailPrimaryAddressTarget(EmailTarget):
             INSERT INTO [:table schema=cerebrum name=email_primary_address]
               (target_id, address_id)
             VALUES (:t_id, :addr_id)""",
-                         {'t_id': self.email_target_id,
+                         {'t_id': self.entity_id,
                           'addr_id': self.email_primaddr_id})
         else:
             # TBD: What about DELETEs?
             self.execute("""
             UPDATE [:table schema=cerebrum name=email_primary_address]
             SET address_id=:addr_id
-            WHERE target_id=:t_id""", {'t_id': self.email_target_id,
+            WHERE target_id=:t_id""", {'t_id': self.entity_id,
                                        'addr_id': self.email_primaddr_id})
         del self.__in_db
         self.__in_db = True
@@ -1436,14 +1507,14 @@ class EmailPrimaryAddressTarget(EmailTarget):
         well, you need to do so explicitly."""
         ret = self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_primary_address]
-        WHERE target_id=:e_id""", {'e_id': self.email_target_id})
+        WHERE target_id=:e_id""", {'e_id': self.entity_id})
 
     def find(self, target_id):
         self.__super.find(target_id)
         self.email_primaddr_id = self.query_1("""
         SELECT address_id
         FROM [:table schema=cerebrum name=email_primary_address]
-        WHERE target_id=:t_id""", {'t_id': self.email_target_id})
+        WHERE target_id=:t_id""", {'t_id': self.entity_id})
         try:
             del self.__in_db
         except AttributeError:
@@ -1566,7 +1637,7 @@ class AccountEmailMixin(Account.Account):
             target_type = self.const.email_target_deleted
         changed = False
         try:
-            et.find_by_email_target_attrs(entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
             if et.email_target_type != target_type:
                 changed = True
                 et.email_target_type = target_type
@@ -1639,8 +1710,8 @@ class AccountEmailMixin(Account.Account):
                 # Is the address taken?
                 ea.clear()
                 try:
-                    ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
-                    if ea.email_addr_target_id <> et.email_target_id:
+                    ea.find_by_local_part_and_domain(lp, ed.entity_id)
+                    if ea.email_addr_target_id <> et.entity_id:
                         # Address already exists, and points to a
                         # target not owned by this Account.
                         #
@@ -1651,17 +1722,17 @@ class AccountEmailMixin(Account.Account):
                         continue
                 except Errors.NotFoundError:
                     # Address doesn't exist; create it.
-                    ea.populate(lp, ed.email_domain_id, et.email_target_id,
+                    ea.populate(lp, ed.entity_id, et.entity_id,
                                 expire=None)
                 ea.write_db()
                 if not primary_set:
                     epat.clear()
                     try:
                         epat.find(ea.email_addr_target_id)
-                        epat.populate(ea.email_addr_id)
+                        epat.populate(ea.entity_id)
                     except Errors.NotFoundError:
                         epat.clear()
-                        epat.populate(ea.email_addr_id, parent = et)
+                        epat.populate(ea.entity_id, parent = et)
                     epat.write_db()
                     primary_set = True
 
@@ -1756,7 +1827,7 @@ class AccountEmailMixin(Account.Account):
                 entdom.find(ou, affiliation=aff)
                 # If the default domain is specified, ignore this
                 # affiliation.
-                if entdom.entity_email_domain_id == dom.email_domain_id:
+                if entdom.entity_email_domain_id == dom.entity_id:
                     continue
                 return entdom.entity_email_domain_id
             except Errors.NotFoundError:
@@ -1766,14 +1837,14 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou)
-                if entdom.entity_email_domain_id == dom.email_domain_id:
+                if entdom.entity_email_domain_id == dom.entity_id:
                     continue
                 return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
         # Still no proper maildomain association has been found; fall
         # back to default maildomain.
-        return dom.email_domain_id
+        return dom.entity_id
 
     def get_primary_mailaddress(self):
         """Return account's current primary address."""
@@ -1781,7 +1852,7 @@ class AccountEmailMixin(Account.Account):
         SELECT ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=account_info] ai
         JOIN [:table schema=cerebrum name=email_target] et
-          ON et.entity_id = ai.account_id
+          ON et.target_entity_id = ai.account_id
         JOIN [:table schema=cerebrum name=email_primary_address] epa
           ON epa.target_id = et.target_id
         JOIN [:table schema=cerebrum name=email_address] ea
@@ -1809,7 +1880,7 @@ class AccountEmailMixin(Account.Account):
           ON en.entity_id = ai.account_id
         JOIN [:table schema=cerebrum name=email_target] et
           ON et.target_type = :targ_type AND
-             et.entity_id = ai.account_id
+             et.target_entity_id = ai.account_id
         JOIN [:table schema=cerebrum name=email_primary_address] epa
           ON epa.target_id = et.target_id
         JOIN [:table schema=cerebrum name=email_address] ea
@@ -1886,7 +1957,7 @@ class AccountEmailQuotaMixin(Account.Account):
         quota = self._calculate_account_emailquota()
         eq = EmailQuota(self._db)
         try:
-            eq.find_by_entity(self.entity_id)
+            eq.find_by_target_entity(self.entity_id)
         except Errors.NotFoundError:
             if quota is not None:
                 change = True
@@ -1907,7 +1978,7 @@ class AccountEmailQuotaMixin(Account.Account):
             br = BofhdRequests(self._db, self.const)
             et = EmailTarget(self._db)
             try:
-                et.find_by_entity(self.entity_id)
+                et.find_by_target_entity(self.entity_id)
             except:
                 return
             if not et.email_server_id: return
@@ -2009,7 +2080,7 @@ class PersonEmailMixin(Person.Person):
                             WHERE at2.person_id = %s %s)
         JOIN [:table schema=cerebrum name=email_target] et
           ON et.target_type = :targ_type AND
-             et.entity_id = at.account_id
+             et.target_entity_id = at.account_id
         JOIN [:table schema=cerebrum name=email_primary_address] epa
           ON epa.target_id = et.target_id
         JOIN [:table schema=cerebrum name=email_address] ea

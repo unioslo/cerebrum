@@ -32,8 +32,6 @@ from Cerebrum.modules import Email
 
 Cerebrum = Factory.get('Database')()
 co = Factory.get('Constants')(Cerebrum)
-mail_addr = Email.EmailAddress(Cerebrum)
-mail_dom = Email.EmailDomain(Cerebrum)
 mail_targ = Email.EmailTarget(Cerebrum)
 
 targets = []
@@ -75,8 +73,8 @@ def create_inboxes():
 
         # Target is the local delivery defined for the Account whose
         # account_id == email_target.entity_id.
-        ent_type = mail_targ.get_entity_type()
-        ent_id = mail_targ.get_entity_id()
+        ent_type = mail_targ.get_target_entity_type()
+        ent_id = mail_targ.get_target_entity_id()
         # TODO: Get string "account" out of EmailTarget, not a number.
         if ent_type == co.entity_account:
             try:

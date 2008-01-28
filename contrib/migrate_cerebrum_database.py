@@ -22,6 +22,7 @@
 import getopt
 import sys
 import os
+from time import time as now
 
 import cerebrum_path
 import cereconf
@@ -39,12 +40,25 @@ targets = {
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12'),
     'bofhd': ('bofhd_1_1', ),
     'changelog': ('changelog_1_2', ),
-    'email': ('email_1_0','email_1_1', 'email_1_2'),
+    'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
     'ephorte': ('ephorte_1_1', ),
     }
 
 # Global variables
 makedb_path = design_path = db = co = None
+
+def time_spent(start):
+    spent = now() - start
+    hours = spent // 3600
+    minutes = (spent - hours*3600) // 60
+    seconds = spent % 60
+    txt = ""
+    if hours:
+        txt = "h:%d, " % hours
+    if minutes:
+        txt += "m:%d, " % minutes
+    txt += "s:%d" % seconds
+    return txt
 
 def makedb(release, stage, insert_codes=True):
     print "Running Makedb(%s, %s)..." % (release, stage)
@@ -387,6 +401,7 @@ def migrate_to_rel_0_9_8():
     print "Migration to 0.9.8 completed successfully"
     db.commit()
 
+
 def migrate_to_rel_0_9_9():
     """Migrate from 0.9.8 database to the 0.9.9 database schema."""
     assert_db_version("0.9.8")
@@ -482,6 +497,7 @@ def migrate_to_changelog_1_2():
     print "Migration to changelog 1.2 completed successfully"
     db.commit()
 
+
 def migrate_to_email_1_1():
     print "\ndone."
     assert_db_version("1.0", component='email')
@@ -499,6 +515,231 @@ def migrate_to_email_1_2():
     meta.set_metainfo("sqlmodule_email", "1.2")
     print "Migration to email 1.2 completed successfully"
     db.commit()
+
+def migrate_to_email_1_3():
+    print "\ndone."
+    assert_db_version("1.2", component='email')
+    # Check for new entity_types
+    entity_types = []
+    for e in ('entity_email_domain', 'entity_email_address',
+              'entity_email_target'):
+        entity_types.append(getattr(co, e))
+    try:
+        [int(c) for c in entity_types]
+    except Errors.NotFoundError:
+        print "*** New email entity-types not added to database. Run makedb.py --update-codes first."
+        sys.exit(0)
+    # Remove constraints and add tmp-columns
+    start = now()
+    print "pre"
+    curr = now()
+    makedb('email_1_3', 'pre')
+    print "...done %s" % time_spent(curr)
+    ent = Utils.Factory.get('Entity')(db)
+    # Create new entities for these tables
+    t_id2e_id = {}
+    d_id2e_id = {}
+    a_id2e_id = {}
+    print "making entities"
+    # email_target
+    curr = now()
+    print "  email_target"
+    rows = db.query("""SELECT target_id, target_type, entity_type, entity_id,
+                       alias_value, using_uid, server_id
+                       FROM [:table schema=cerebrum name=email_target]""")
+    for row in rows:
+        ent.clear()
+        ent.populate(co.entity_email_target)
+        ent.write_db()
+        t_id2e_id[int(row['target_id'])] = ent.entity_id
+        db.execute("""INSERT INTO [:table schema=cerebrum name=tmp_email_target]
+                      VALUES (:e_t, :t_id, :t_t, :t_e_t, :t_e_id, :a_v, :u_u,
+                              :s_id)""", {'e_t': int(co.entity_email_target),
+                                          't_id': ent.entity_id,
+                                          't_t': row['target_type'],
+                                          't_e_t': row['entity_type'],
+                                          't_e_id': row['entity_id'],
+                                          'a_v': row['alias_value'],
+                                          'u_u': row['using_uid'],
+                                          's_id': row['server_id']})
+    # email_domain
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_domain"
+    rows = db.query("""SELECT domain_id, domain, description 
+                       FROM [:table schema=cerebrum name=email_domain]""")
+    for row in rows:
+        ent.clear()
+        ent.populate(co.entity_email_domain)
+        ent.write_db()
+        d_id2e_id[int(row['domain_id'])] = ent.entity_id
+        db.execute("""INSERT INTO [:table schema=cerebrum name=tmp_email_domain]
+                      VALUES (:e_t, :d_id, :d,
+                              :desc)""", {'e_t': int(co.entity_email_domain),
+                                          'd_id': ent.entity_id,
+                                          'd': row['domain'],
+                                          'desc': row['description']})
+    # email_address
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_address"
+    rows = db.query("""SELECT address_id, local_part, domain_id,
+                       target_id, create_date, change_date, expire_date
+                       FROM [:table schema=cerebrum name=email_address]""")
+    counter = 0
+    total = len(rows)
+    for row in rows:
+        ent.clear()
+        ent.populate(co.entity_email_address)
+        ent.write_db()
+        counter += 1
+        if counter % 100000 == 0:
+            print "      counter at %d/%d" % (counter, total)
+        a_id2e_id[int(row['address_id'])] = ent.entity_id
+        db.execute("""INSERT INTO [:table schema=cerebrum name=tmp_email_address]
+                      VALUES (:e_t, :a_id, :l_p, :d_id, :t_id, :cr_d, :ch_d,
+                              :e_d)""", {'e_t': int(co.entity_email_address),
+                                         'a_id': ent.entity_id,
+                                         'l_p': row['local_part'],
+                                         'd_id': d_id2e_id[int(row['domain_id'])],
+                                         't_id': t_id2e_id[int(row['target_id'])],
+                                         'cr_d': row['create_date'],
+                                         'ch_d': row['change_date'],
+                                         'e_d': row['expire_date']})
+    print "...done %s" % time_spent(curr)
+    print "filling in misc tables"
+    # email_entity_domain
+    curr = now()
+    print "  email_entity_domain"
+    rows = db.query("""SELECT DISTINCT domain_id
+                       FROM [:table schema=cerebrum name=email_entity_domain]""")
+    for row in rows:
+        d_id = int(row['domain_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_entity_domain]
+                      SET tmp_domain_id=:e_id
+                      WHERE domain_id=:d_id""", {'d_id': d_id,
+                                                 'e_id': d_id2e_id[d_id]})
+    # email_quota
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_quota"
+    rows = db.query("""SELECT DISTINCT target_id
+                       FROM [:table schema=cerebrum name=email_quota]""")
+    for row in rows:
+        t_id = int(row['target_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_quota]
+                      SET tmp_target_id=:e_id
+                      WHERE target_id=:t_id""", {'t_id': t_id,
+                                                 'e_id': t_id2e_id[t_id]})
+    # email_spam_filter
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_filter"
+    rows = db.query("""SELECT DISTINCT target_id
+                       FROM [:table schema=cerebrum name=email_spam_filter]""")
+    for row in rows:
+        t_id = int(row['target_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_spam_filter]
+                      SET tmp_target_id=:e_id
+                      WHERE target_id=:t_id""", {'t_id': t_id,
+                                                 'e_id': t_id2e_id[t_id]})
+    # email_virus_scan
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_virus_scan"
+    rows = db.query("""SELECT DISTINCT target_id
+                       FROM [:table schema=cerebrum name=email_virus_scan]""")
+    for row in rows:
+        t_id = int(row['target_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_virus_scan]
+                      SET tmp_target_id=:e_id
+                      WHERE target_id=:t_id""", {'t_id': t_id,
+                                                 'e_id': t_id2e_id[t_id]})
+    # email_forward
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_forward"
+    rows = db.query("""SELECT DISTINCT target_id
+                       FROM [:table schema=cerebrum name=email_forward]""")
+    for row in rows:
+        t_id = int(row['target_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_forward]
+                      SET tmp_target_id=:e_id
+                      WHERE target_id=:t_id""", {'t_id': t_id,
+                                                 'e_id': t_id2e_id[t_id]})
+    # email_vacation
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_vacation"
+    rows = db.query("""SELECT DISTINCT target_id
+                       FROM [:table schema=cerebrum name=email_vacation]""")
+    for row in rows:
+        t_id = int(row['target_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_vacation]
+                      SET tmp_target_id=:e_id
+                      WHERE target_id=:t_id""", {'t_id': t_id,
+                                                 'e_id': t_id2e_id[t_id]})
+    # email_primary_address
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_primary_address"
+    rows = db.query("""SELECT target_id, address_id
+                       FROM [:table schema=cerebrum name=email_primary_address]""")
+    for row in rows:
+        t_id = int(row['target_id'])
+        a_id = int(row['address_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_primary_address]
+                      SET tmp_target_id=:tt_id, tmp_address_id=:ta_id
+                      WHERE target_id=:t_id AND
+                            address_id=:a_id""", {'t_id': t_id,
+                                                  'tt_id': t_id2e_id[t_id],
+                                                  'a_id': a_id,
+                                                  'ta_id': a_id2e_id[a_id]})
+
+    # email_domain_category
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_domain_category"
+    rows = db.query("""SELECT DISTINCT domain_id
+                       FROM [:table schema=cerebrum name=email_domain_category]""")
+    for row in rows:
+        d_id = int(row['domain_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_domain_category]
+                      SET tmp_domain_id=:e_id
+                      WHERE domain_id=:d_id""", {'d_id': d_id,
+                                                 'e_id': d_id2e_id[d_id]})
+
+    # email_target_filter
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "  email_target_filter"
+    rows = db.query("""SELECT DISTINCT target_id
+                       FROM [:table schema=cerebrum name=email_target_filter]""")
+    for row in rows:
+        t_id = int(row['target_id'])
+        db.execute("""UPDATE [:table schema=cerebrum name=email_target_filter]
+                      SET tmp_target_id=:e_id
+                      WHERE target_id=:t_id""", {'t_id': t_id,
+                                                 'e_id': t_id2e_id[t_id]})
+ 
+
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "pre commit()"
+    db.commit()
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "post"
+    makedb('email_1_3', 'post')
+    print "  ...done %s" % time_spent(curr)
+    curr = now()
+    print "post2"
+    makedb('email_1_3', 'post2')
+    print "  ...done %s" % time_spent(curr)
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_email", "1.3")
+    db.commit()
+    print "Migration to email 1.3 completed successfully %s" % time_spent(start)
 
 def migrate_to_ephorte_1_1():
     print "\ndone."

@@ -451,7 +451,7 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 # TBD: Should we check for multiple values for primary
                 #      addresses?
                 try:
-                    mail[int(row['entity_id'])] = "@".join(
+                    mail[int(row['target_entity_id'])] = "@".join(
                         (row['local_part'], rewrite(row['domain'])))
                 except TypeError:
                     self.logger.warn("email_target %d got no user.",

@@ -52,7 +52,8 @@ def get_account_info():
 
     a_id2email = dict()
     for row in et.list_email_target_primary_addresses():
-        a_id2email[int(row['entity_id'])] = "%s@%s" % (row['local_part'], row['domain'])
+        a_id2email[int(row['target_entity_id'])] = "%s@%s" % (row['local_part'],
+                                                              row['domain'])
 
     p_id2name = p.getdict_persons_names(source_system=co.system_cached,
                                         name_types=(co.name_first,co.name_last))

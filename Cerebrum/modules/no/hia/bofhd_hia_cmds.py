@@ -425,20 +425,20 @@ class BofhdExtension(object):
         ea.clear()
         try:
             ea.find_by_address(address)
-	    if ea.email_addr_target_id <> et.email_target_id:
+	    if ea.email_addr_target_id <> et.entity_id:
 		raise CerebrumError, "Address (%s) is in use by another user" % address
         except Errors.NotFoundError:
             pass
-	ea.populate(lp, ed.email_domain_id, et.email_target_id)
+	ea.populate(lp, ed.entity_id, et.entity_id)
 	ea.write_db()
 	epat = Email.EmailPrimaryAddressTarget(self.db)
 	epat.clear()
 	try:
 	    epat.find(ea.email_addr_target_id)
-	    epat.populate(ea.email_addr_id)
+	    epat.populate(ea.entity_id)
 	except Errors.NotFoundError:
 	    epat.clear()
-	    epat.populate(ea.email_addr_id, parent = et)
+	    epat.populate(ea.entity_id, parent = et)
 	epat.write_db()
 	return "Registered %s as primary address for %s" % (address, uname)
 
@@ -470,7 +470,7 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             pass
         ea.clear()
-        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.populate(lp, ed.entity_id, et.entity_id)
         ea.write_db()
         return "Ok, registered address %s to %s" % (address, uname)
     
@@ -498,7 +498,7 @@ class BofhdExtension(object):
             raise CerebrumError, "No such e-mail address (%s)" % address
         if ((ttype == int(self.const.email_target_Mailman) and
              self._get_mailman_list(uname) <> self._get_mailman_list(address))
-            and ea.get_target_id() <> et.email_target_id):
+            and ea.get_target_id() <> et.entity_id):
             raise CerebrumError, ("Address <%s> is not associated with %s" %
                                   (address, uname))
         ed = Email.EmailDomain(self.db)
@@ -512,7 +512,7 @@ class BofhdExtension(object):
         # clean up and remove the target.  we remove any forward
         # addresses first.
         ef = Email.EmailForward(self.db)
-        ef.find(et.email_target_id)
+        ef.find(et.entity_id)
         for r in ef.get_forward():
             ef.delete_forward(r['forward_to'])
         et.delete()
@@ -530,7 +530,7 @@ class BofhdExtension(object):
         acc = self._get_account(uname)
         self.ba.can_email_forward_toggle(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
-        fw.find_by_entity(acc.entity_id)
+        fw.find_by_target_entity(acc.entity_id)
         matches = []
 	found = False
         prim = acc.get_primary_mailaddress()
@@ -585,7 +585,7 @@ class BofhdExtension(object):
         else:
             self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
-        fw.find(et.email_target_id)
+        fw.find(et.entity_id)
         addr = self._check_email_address(address)
         if addr == 'local':
             if acc:
@@ -616,7 +616,7 @@ class BofhdExtension(object):
         else:
             self.ba.can_email_forward_edit(operator.get_entity_id(), acc)
         fw = Email.EmailForward(self.db)
-        fw.find(et.email_target_id)
+        fw.find(et.entity_id)
         addr = self._check_email_address(address)
         if addr == 'local' and acc:
             locals = self.__get_valid_email_addrs(fw)
@@ -818,7 +818,7 @@ class BofhdExtension(object):
         info = []
         eq = Email.EmailQuota(self.db)
         try:
-            eq.find_by_entity(acc.entity_id)
+            eq.find_by_target_entity(acc.entity_id)
 	    info.append({'dis_quota_hard': eq.email_quota_hard,
 			 'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
@@ -858,7 +858,7 @@ class BofhdExtension(object):
         ed.find_by_domain(dom)
         ea = Email.EmailAddress(self.db)
         try:
-            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+            ea.find_by_local_part_and_domain(lp, ed.entity_id)
         except Errors.NotFoundError:
             raise CerebrumError, ("Address %s exists, but the list it points "
                                   "to, %s, does not") % (addr, listname)
@@ -898,7 +898,7 @@ class BofhdExtension(object):
         # let's handle it just in case.
         epat = Email.EmailPrimaryAddressTarget(self.db)
         try:
-            epat.find(et.email_target_id)
+            epat.find(et.entity_id)
         except Errors.NotFoundError:
             pass
         else:
@@ -964,7 +964,7 @@ class BofhdExtension(object):
         # waste of bytes, really.
         ef = Email.EmailForward(self.db)
         try:
-            ef.find(et.email_target_id)
+            ef.find(et.entity_id)
         except Errors.NotFoundError:
             data.append({'fw_addr_1': '<none>', 'fw_enable': 'off'})
         else:
@@ -1081,7 +1081,7 @@ class BofhdExtension(object):
             ret.append({'category': str(self.num2const[r['category']])})
         eed = Email.EntityEmailDomain(self.db)
         affiliations = {}
-        for r in eed.list_affiliations(ed.email_domain_id):
+        for r in eed.list_affiliations(ed.entity_id):
             ou = self._get_ou(r['entity_id'])
             affname = "<any>"
             if r['affiliation']:
@@ -1116,13 +1116,13 @@ class BofhdExtension(object):
             # We have a partially initialised object, since
             # the super() call finding the OU always succeeds.
             # Therefore we must not call clear()
-            eed.populate_email_domain(ed.email_domain_id, aff_id)
+            eed.populate_email_domain(ed.entity_id, aff_id)
             eed.write_db()
             return "Ok"
         else:
             old_dom = eed.entity_email_domain_id
-            if old_dom <> ed.email_domain_id:
-                eed.entity_email_domain_id = ed.email_domain_id
+            if old_dom <> ed.entity_id:
+                eed.entity_email_domain_id = ed.entity_id
                 eed.write_db()
                 ed.clear()
                 ed.find(old_dom)
@@ -1151,7 +1151,7 @@ class BofhdExtension(object):
             eed.find(ou.entity_id, aff_id)
         except Errors.NotFoundError:
             raise CerebrumError, "No such affiliation for domain"
-        if eed.entity_email_domain_id <> ed.email_domain_id:
+        if eed.entity_email_domain_id <> ed.entity_id:
             raise CerebrumError, "No such affiliation for domain"
         eed.delete()
         return "Ok, removed domain_affiliation"
@@ -1171,7 +1171,7 @@ class BofhdExtension(object):
         self.ba.can_email_forward_create(operator.get_entity_id(), ed)
         ea = Email.EmailAddress(self.db)
         try:
-            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+            ea.find_by_local_part_and_domain(lp, ed.entity_id)
         except Errors.NotFoundError:
             pass
         else:
@@ -1180,10 +1180,10 @@ class BofhdExtension(object):
         et.populate(self.const.email_target_forward)
         et.write_db()
         ea.clear()
-        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.populate(lp, ed.entity_id, et.entity_id)
         ea.write_db()
         ef = Email.EmailForward(self.db)
-        ef.find(et.email_target_id)
+        ef.find(et.entity_id)
         addr = self._check_email_address(remoteaddr)
         try:
             ef.add_forward(addr)
@@ -1208,7 +1208,7 @@ class BofhdExtension(object):
         self.ba.is_superuser(op, ed)
         ea = Email.EmailAddress(self.db)
         try:
-            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+            ea.find_by_local_part_and_domain(lp, ed.entity_id)
         except Errors.NotFoundError:
             pass
         else:
@@ -1239,10 +1239,10 @@ class BofhdExtension(object):
         et = Email.EmailTarget(self.db)
         ea = Email.EmailAddress(self.db)
         try:
-            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+            ea.find_by_local_part_and_domain(lp, ed.entity_id)
         except Errors.NotFoundError:
             raise CerebrumError, "Email list (%s) not found" % listname
-        list_id = ea.email_addr_id
+        list_id = ea.entity_id
         for interface in self._interface2addrs.keys():
             alias = self._mailman_pipe % { 'interface': interface,
                                            'listname': listname }
@@ -1297,7 +1297,7 @@ class BofhdExtension(object):
         et = Email.EmailTarget(self.db)
         ea = Email.EmailAddress(self.db)
         try:
-            ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+            ea.find_by_local_part_and_domain(lp, ed.entity_id)
         except Errors.NotFoundError:
             pass
         else:
@@ -1319,7 +1319,7 @@ class BofhdExtension(object):
                 try:
                     ea.clear()
                     ea.find_by_local_part_and_domain(addr_lp,
-                                                     ed.email_domain_id)
+                                                     ed.entity_id)
                     raise CerebrumError, ("Can't add list %s, as the "
                                           "address %s is already in use"
                                           ) % (listname, addr)
@@ -1335,7 +1335,7 @@ class BofhdExtension(object):
                         et.write_db()
                     found_target = True
                 ea.clear()
-                ea.populate(addr_lp, ed.email_domain_id, et.email_target_id)
+                ea.populate(addr_lp, ed.entity_id, et.entity_id)
                 ea.write_db()
 
     # email migrate
@@ -1363,7 +1363,7 @@ class BofhdExtension(object):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
         et = Email.EmailTarget(self.db)
-        et.find_by_entity(acc.entity_id)
+        et.find_by_target_entity(acc.entity_id)
         old_server = et.email_server_id
         es = Email.EmailServer(self.db)
         es.find_by_name(server)
@@ -1407,13 +1407,13 @@ class BofhdExtension(object):
                                   "30% to 90%")
         et = Email.EmailTarget(self.db)
         try:
-            et.find_by_entity(acc.entity_id)
+            et.find_by_target_entity(acc.entity_id)
         except Errors.NotFoundError:
             raise CerebrumError, ("The account %s has no e-mail data "+
                                   "associated with it") % uname
         eq = Email.EmailQuota(self.db)
         try:
-            eq.find_by_entity(acc.entity_id)
+            eq.find_by_target_entity(acc.entity_id)
             if eq.email_quota_hard <> hquota:
                 eq.email_quota_hard = hquota
                 eq.email_quota_soft = squota
@@ -1428,7 +1428,7 @@ class BofhdExtension(object):
         forw = []
         local_copy = ""
         ef = Email.EmailForward(self.db)
-        ef.find(target.email_target_id)
+        ef.find(target.entity_id)
         for r in ef.get_forward():
             if r['enable'] == 'T':
                 enabled = "on"
@@ -1465,7 +1465,7 @@ class BofhdExtension(object):
         acc = self._get_account(uname)
         self.ba.can_email_tripnote_toggle(operator.get_entity_id(), acc)
         ev = Email.EmailVacation(self.db)
-        ev.find_by_entity(acc.entity_id)
+        ev.find_by_target_entity(acc.entity_id)
         if enable is not None:
             opposite_status = not enable
         date = self._find_tripnote(uname, ev, when, opposite_status)
@@ -1490,7 +1490,7 @@ class BofhdExtension(object):
         except:
             hide = True
         ev = Email.EmailVacation(self.db)
-        ev.find_by_entity(acc.entity_id)
+        ev.find_by_target_entity(acc.entity_id)
         now = self._today()
         act_date = None
         for r in ev.get_vacation():
@@ -1559,7 +1559,7 @@ class BofhdExtension(object):
         if date_end < now:
             raise CerebrumError, "Won't add already obsolete tripnotes"
         ev = Email.EmailVacation(self.db)
-        ev.find_by_entity(acc.entity_id)
+        ev.find_by_target_entity(acc.entity_id)
         for v in ev.get_vacation():
             if v['start_date'] == date_start:
                 raise CerebrumError, ("There's a tripnote starting on %s "+
@@ -1580,7 +1580,7 @@ class BofhdExtension(object):
         self.ba.can_email_tripnote_edit(operator.get_entity_id(), acc)
         start = self._parse_date(when)
         ev = Email.EmailVacation(self.db)
-        ev.find_by_entity(acc.entity_id)
+        ev.find_by_target_entity(acc.entity_id)
         date = self._find_tripnote(uname, ev, when)
         ev.delete_vacation(date)
         ev.write_db()
@@ -1655,7 +1655,7 @@ class BofhdExtension(object):
         else:
             acc = self._get_account(address)
             try:
-                et.find_by_entity(acc.entity_id)
+                et.find_by_target_entity(acc.entity_id)
             except Errors.NotFoundError:
                 raise CerebrumError, ("Account '%s' has no email target" %
                                       address)
@@ -1667,7 +1667,7 @@ class BofhdExtension(object):
         - EmailAddress
         - EmailTarget (look up primary address and return that, throw
         exception if there is no primary address)
-        - integer (use as email_target_id and look up that target's
+        - integer (use as entity_id and look up that target's
         primary address)
         The return value is a text string containing the e-mail
         address.  Special domain names are not rewritten."""
@@ -1679,7 +1679,7 @@ class BofhdExtension(object):
             ea.find(epat.email_primaddr_id)
         elif isinstance(etarget, Email.EmailTarget):
             epat = Email.EmailPrimaryAddressTarget(self.db)
-            epat.find(etarget.email_target_id)
+            epat.find(etarget.entity_id)
             ea.find(epat.email_primaddr_id)
         elif isinstance(etarget, Email.EmailPrimaryAddressTarget):
             ea.find(etarget.email_primaddr_id)

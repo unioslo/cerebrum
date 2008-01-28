@@ -135,7 +135,7 @@ def process_delete_requests():
             elif row['spread'] == const.spread_hia_email:
                 et = Email.EmailTarget(db)
                 try:
-                    et.find_by_entity(account.entity_id)
+                    et.find_by_target_entity(account.entity_id)
                 except Errors.NotFoundError:
                     logger.warn('No email target for %s, removing imap spread only.' % account.account_name)
                 logger.debug("Found e-mail target for %s", account.account_name)

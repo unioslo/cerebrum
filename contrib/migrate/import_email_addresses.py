@@ -137,20 +137,20 @@ def process_mail(account, type, addr, spread=None):
     # yrt
 
     try:
-        et.find_by_entity(int(account_id))
+        et.find_by_target_entity(int(account_id))
     except Errors.NotFoundError:
         et.populate(constants.email_target_account, entity_id=int(account_id),
                     entity_type=constants.entity_account)
         et.write_db()
-        logger.debug("EmailTarget created: %s: %d", account_id, et.email_target_id)
+        logger.debug("EmailTarget created: %s: %d", account_id, et.entity_id)
     # yrt
 
     try:
         ea.find_by_address(addr)
     except Errors.NotFoundError:
-        ea.populate(lp, edom.email_domain_id, et.email_target_id)
+        ea.populate(lp, edom.entity_id, et.entity_id)
         ea.write_db()
-        logger.debug("EmailAddress created: %s: %d", addr, ea.email_addr_id)
+        logger.debug("EmailAddress created: %s: %d", addr, ea.entity_id)
         # if specified, add an email spread for users with email address
         if spread and not account.has_spread(spread):
             account.add_spread(spread)
@@ -159,19 +159,19 @@ def process_mail(account, type, addr, spread=None):
 
     if type == "defaultmail":
         try:
-            epat.find(et.email_target_id)
+            epat.find(et.entity_id)
             logger.debug("EmailPrimary found: %s: %d",
-                         addr, epat.email_target_id)
+                         addr, epat.entity_id)
         except Errors.NotFoundError:
-            if ea.email_addr_target_id == et.email_target_id:
+            if ea.email_addr_target_id == et.entity_id:
                 epat.clear()
-                epat.populate(ea.email_addr_id, parent=et)
+                epat.populate(ea.entity_id, parent=et)
                 epat.write_db()
                 logger.debug("EmailPrimary created: %s: %d",
-                             addr, epat.email_target_id)
+                             addr, epat.entity_id)
             else:
                 logger.error("EmailTarget mismatch: ea: %d, et: %d", 
-                             ea.email_addr_target_id, et.email_target_id)
+                             ea.email_addr_target_id, et.entity_id)
             # fi
         # yrt
     # fi

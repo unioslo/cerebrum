@@ -25,7 +25,7 @@ See http://www.uninett.no/trofast/Integrasjon/brukerdadm.html for details
 Note: The spec states that 'initial' attribute can't be equal to uid part of
       Feide id. This script does not (currently) follow that rule, and
       Uninett has stated that it's not required.
-""
+"""
 
 
 import sys
@@ -41,7 +41,6 @@ from Cerebrum import Errors
 from Cerebrum import OU
 from Cerebrum import Person
 from Cerebrum import Group
-from Cerebrum.modules import Email
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler

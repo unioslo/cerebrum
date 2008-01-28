@@ -64,7 +64,7 @@ class AccountUiOMixin(Account.Account):
             # EmailTarget?
             et = Email.EmailTarget(self._db)
             try:
-                et.find_by_entity(self.entity_id)
+                et.find_by_target_entity(self.entity_id)
                 if et.email_server_id:
                     state['email_server_id'] = et.email_server_id
             except Errors.NotFoundError:
@@ -110,7 +110,7 @@ class AccountUiOMixin(Account.Account):
             self.__super.set_home(self.const.spread_ifi_nis_user, homedir_id)
 
     def _UiO_default_filter_settings(self, email_target):
-        t_id = email_target.email_target_id
+        t_id = email_target.entity_id
         tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
         # Set default filters if none found on this target
         etf = Email.EmailTargetFilter(self._db)
@@ -125,7 +125,7 @@ class AccountUiOMixin(Account.Account):
                     etf.write_db()
         
     def _UiO_default_spam_settings(self, email_target):
-        t_id = email_target.email_target_id
+        t_id = email_target.entity_id
         tt_str = str(Email._EmailTargetCode(email_target.email_target_type))
         # Set default spam settings if none found on this target
         esf = Email.EmailSpamFilter(self._db)
@@ -191,7 +191,7 @@ class AccountUiOMixin(Account.Account):
         is_on_cyrus = False
         email_server_in_use = None
         try:
-            et.find_by_entity(self.entity_id)
+            et.find_by_target_entity(self.entity_id)
             try:
                 old_server = et.email_server_id
                 es.find(old_server)
@@ -324,7 +324,7 @@ class AccountUiOMixin(Account.Account):
         if (spread == self.const.spread_uio_imap and
             int(self.const.spread_uio_imap) in spreads):
             et = Email.EmailTarget(self._db)
-            et.find_by_entity(self.entity_id)
+            et.find_by_target_entity(self.entity_id)
             self._UiO_order_cyrus_action(self.const.bofh_email_delete,
                                          et.email_server_id)
             # TBD: should we also perform a "cascade delete" from EmailTarget?

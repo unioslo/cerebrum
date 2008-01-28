@@ -331,7 +331,7 @@ def get_domain_id(domain):
     if not maildomain2eid.has_key(domain):
         mdom = Email.EmailDomain(db)
         mdom.find_by_domain(domain)     # May throw NotFoundError
-        maildomain2eid[domain] = int(mdom.email_domain_id)
+        maildomain2eid[domain] = int(mdom.entity_id)
     return maildomain2eid[domain]
 
 def create_email_alias(otype, data):
@@ -400,7 +400,7 @@ def create_email_alias(otype, data):
             # is only there to make it possible to find the target
             # with .find_by_entity_and_alias().
             mailforward.clear()
-            mailforward.find(int(mailtarg.email_target_id))
+            mailforward.find(int(mailtarg.entity_id))
             for fw in mailforward.get_forward():
                 if fw['forward_to'] == dest:
                     break
@@ -451,9 +451,9 @@ def create_email_alias(otype, data):
     expire = None
     if data.has_key('exp_date'):
         expire = parse_date(data['exp_date'])
-    if not hasattr(mailtarg, 'email_target_id'):
+    if not hasattr(mailtarg, 'entity_id'):
         raise ValueError, "No target for address %s" % data['addr']
-    mailaddr.populate(lp, get_domain_id(dom), mailtarg.email_target_id,
+    mailaddr.populate(lp, get_domain_id(dom), mailtarg.entity_id,
                       expire)
     mailaddr.write_db()
     progress.write('A')
@@ -461,7 +461,7 @@ def create_email_alias(otype, data):
     # Is this the primary address for this target?
     if data.get('primary', 'no') == 'yes':
         mailprimaddr.clear()
-        mailprimaddr.populate(mailaddr.email_addr_id, parent=mailtarg)
+        mailprimaddr.populate(mailaddr.entity_id, parent=mailtarg)
         mailprimaddr.write_db()
 
 
@@ -1117,7 +1117,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
                           accountObj.entity_id, co.entity_account,
                           alias=u['useremail'].get('alias', None))
         mailtarg.write_db()
-        mt_id = mailtarg.email_target_id
+        mt_id = mailtarg.entity_id
 
         for tmp in u.get("emailaddress", []):
             lp, dom = tmp['addr'].split("@")
@@ -1128,7 +1128,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
                 expire_date = parse_date(tmp['expire_date'])
             mailaddr.populate(lp, dom_id, mt_id, expire_date)
             mailaddr.write_db()
-            ma_id = mailaddr.email_addr_id
+            ma_id = mailaddr.entity_id
 
             if tmp.get("primary", "no") == "yes":
                 mailprimaddr.clear()

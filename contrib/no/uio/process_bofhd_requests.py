@@ -150,7 +150,7 @@ def email_delivery_stopped(user):
 def get_email_hardquota(user_id, local_db=db):
     eq = Email.EmailQuota(local_db)
     try:
-        eq.find_by_entity(user_id)
+        eq.find_by_target_entity(user_id)
     except Errors.NotFoundError:
         # unlimited/no quota
         return 0
@@ -160,7 +160,7 @@ def get_email_hardquota(user_id, local_db=db):
 def get_email_server(account_id, local_db=db):
     """Return Host object for account's mail server."""
     et = Email.EmailTarget(local_db)
-    et.find_by_entity(account_id)
+    et.find_by_target_entity(account_id)
     server = Email.EmailServer(local_db)
     server.find(et.email_server_id)
     return server
@@ -177,7 +177,7 @@ def get_home(acc, spread=None):
 
 def add_forward(user_id, addr):
     ef = Email.EmailForward(db)
-    ef.find_by_entity(user_id)
+    ef.find_by_target_entity(user_id)
     # clean up input a little
     if addr.startswith('\\'):
         addr = addr[1:]
@@ -456,7 +456,7 @@ def email_move_child(host, r):
     hq = get_email_hardquota(acc.entity_id, local_db=local_db)
     cyrus_set_quota(acc.entity_id, hq, host=new_server, local_db=local_db)
     et = Email.EmailTarget(local_db)
-    et.find_by_entity(acc.entity_id)
+    et.find_by_target_entity(acc.entity_id)
     et.email_server_id = new_server.entity_id
     et.write_db()
     # We need to delete this request before adding the
@@ -931,7 +931,7 @@ def proc_delete_user(r):
     operator = get_account(r['requestee_id']).account_name
     et = Email.EmailTarget(db)
     try:
-        et.find_by_entity(account.entity_id)
+        et.find_by_target_entity(account.entity_id)
         es = Email.EmailServer(db)
         es.find(et.email_server_id)
         mail_server = es.name

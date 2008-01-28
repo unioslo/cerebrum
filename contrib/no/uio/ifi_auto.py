@@ -75,19 +75,19 @@ def update_email_address(address, group):
     else:
         et = Email.EmailTarget(db)
         try:
-            et.find_by_entity(group.entity_id)
+            et.find_by_target_entity(group.entity_id)
             logger.info("Added address <%s>", address)
         except Errors.NotFoundError:
             et.populate(co.email_target_multi,
-                        entity_type = co.entity_group,
-                        entity_id = group.entity_id)
+                        target_entity_type = co.entity_group,
+                        target_entity_id = group.entity_id)
             et.write_db()
             logger.info("Created <%s>", address)
         ed = Email.EmailDomain(db)
         lp, dom = address.split('@')
         ed.find_by_domain(dom)
         ea = Email.EmailAddress(db)
-        ea.populate(lp, ed.email_domain_id, et.email_target_id)
+        ea.populate(lp, ed.entity_id, et.entity_id)
         ea.write_db()
 
 def find_leaf(group):

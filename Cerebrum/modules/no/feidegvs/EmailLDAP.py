@@ -22,7 +22,6 @@
 import string
 
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
 
 class EmailLDAPFeideGvsMixin(EmailLDAP):

@@ -64,7 +64,7 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
         if self.is_deleted() or self.is_reserved():
             target_type = self.const.email_target_deleted
         try:
-            et.find_by_email_target_attrs(entity_id = self.entity_id)
+            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
             et.email_target_type = target_type
         except Errors.NotFoundError:
             # We don't want to create e-mail targets for reserved or
@@ -141,8 +141,8 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
                 # Is the address taken?
                 ea.clear()
                 try:
-                    ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
-                    if ea.email_addr_target_id <> et.email_target_id:
+                    ea.find_by_local_part_and_domain(lp, ed.entity_id)
+                    if ea.email_addr_target_id <> et.entity_id:
                         # Address already exists, and points to a
                         # target not owned by this Account.
                         continue
@@ -151,17 +151,17 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
                     ea.email_addr_expire_date = None
                 except Errors.NotFoundError:
                     # Address doesn't exist; create it.
-                    ea.populate(lp, ed.email_domain_id, et.email_target_id,
+                    ea.populate(lp, ed.entity_id, et.entity_id,
                                 expire=None)
                 ea.write_db()
                 if not primary_set:
                     epat.clear()
                     try:
                         epat.find(ea.email_addr_target_id)
-                        epat.populate(ea.email_addr_id)
+                        epat.populate(ea.entity_id)
                     except Errors.NotFoundError:
                         epat.clear()
-                        epat.populate(ea.email_addr_id, parent = et)
+                        epat.populate(ea.entity_id, parent = et)
                     epat.write_db()
                     primary_set = True
 #                self.update_email_quota()
@@ -174,7 +174,7 @@ class AccountHiSTMixin(Email.AccountEmailMixin):
         es = Email.EmailServer(self._db) 
         old_server = srv_id = None 
         try:
-            et.find_by_entity(self.entity_id)
+            et.find_by_target_entity(self.entity_id)
 	except Errors.NotFoundError: 
             et.populate(self.const.email_target_account,
                         self.entity_id,

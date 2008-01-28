@@ -40,7 +40,6 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
 
 

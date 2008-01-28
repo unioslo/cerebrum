@@ -86,7 +86,7 @@ def email_delivery_stopped(user):
 def get_email_hardquota(user_id):
     eq = Email.EmailQuota(db)
     try:
-        eq.find_by_entity(user_id)
+        eq.find_by_target_entity(user_id)
     except Errors.NotFoundError:
         return 0	# unlimited/no quota
     return eq.email_quota_hard
@@ -99,7 +99,7 @@ def get_imaphost(user_id):
     system.
     """
     em = Email.EmailTarget(db)
-    em.find_by_entity(user_id)
+    em.find_by_target_entity(user_id)
     server = Email.EmailServer(db)
     server.find(em.get_server_id())
     if server.email_server_type == const.email_server_type_cyrus:
@@ -113,7 +113,7 @@ def get_home(acc, spread=None):
 
 def add_forward(user_id, addr):
     ef = Email.EmailForward(db)
-    ef.find_by_entity(user_id)
+    ef.find_by_target_entity(user_id)
     # clean up input a little
     if addr.startswith('\\'):
         addr = addr[1:]
@@ -246,7 +246,7 @@ def process_email_requests():
                 logger.error("email_move: user %d not found", r['entity_id'])
                 continue
             et = Email.EmailTarget(db)
-            et.find_by_entity(r['entity_id'])
+            et.find_by_target_entity(r['entity_id'])
             old_server = r['destination_id']
             new_server = et.get_server_id()
             if old_server == new_server:
@@ -349,7 +349,7 @@ def process_email_requests():
                         msg = "\n".join([t.split(subsep)
                                          for t in line.split(": ")][1])
                         vac = Email.EmailVacation(db)
-                        vac.find_by_entity(user_id)
+                        vac.find_by_target_entity(user_id)
                         # if there's a message imported from ~/tripnote
                         # already, get rid of it -- this message will
                         # be the same or fresher.
@@ -801,7 +801,7 @@ def process_delete_requests():
         operator = get_account(r['requestee_id'])[0].account_name
         et = Email.EmailTarget(db)
         try:
-            et.find_by_entity(account.entity_id)
+            et.find_by_target_entity(account.entity_id)
             es = Email.EmailServer(db)
             es.find(et.email_server_id)
             mail_server = es.name
