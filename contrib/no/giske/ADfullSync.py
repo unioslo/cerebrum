@@ -258,7 +258,7 @@ def main():
 	
     for opt, val in opts:
         if opt == '--delete_objects':
-            delete_users = True
+            delete_objects = True
         elif opt == '--user_sync':
             user_sync = True
         elif opt == '--group_sync':
