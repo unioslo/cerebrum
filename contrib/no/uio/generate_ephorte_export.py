@@ -78,10 +78,29 @@ def _get_sko(ou_id):
 def generate_export(fname, spread=co.spread_ephorte_person):
     f = SimilarSizeWriter(fname, "w")
     f.set_size_change_limit(10)
-
     logger.info("Started ephorte export to %s" % fname)
 
-    persons = {}
+    ##
+    ## TODO
+    ##
+    ## Her må vi finne alle OU-er som skal eksporteres til ePhorte og
+    ## skrive dette i xml-filen. Lagre dette som en dict på format:
+    ##
+    ## ous = {<sko>: {'sko': <sko>, 'akronym': '', 'short': '', 'long': ''}}
+    ous = {}
+
+    persons = {} 
+    # Format: entity_id -> {'roles': [],
+    #                       'first_name': '',
+    #                       'last_name': '',
+    #                       'full_name': '',
+    #                       'address_text': '',
+    #                       'p_o_box': '',
+    #                       'postal_number': '',
+    #                       'city': '',
+    #                       'initials': '',
+    #                       'feide_id': '',
+    #                       'phone': ''}
     for row in pe.list_all_with_spread(spread):
         persons[int(row['entity_id'])] = {'roles': []}
     logger.info("Found %d persons with ephorte spread" % len(persons))
@@ -216,6 +235,8 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     xml = ExtXMLHelper()
     f.write(xml.xml_hdr)
     f.write("<ephortedata>\n")
+    for ou in ous.values():
+        f.write(xml.xmlify_tree("ou", ou))
     for p in persons.values():
         if not p.has_key('feide_id'):
             continue
