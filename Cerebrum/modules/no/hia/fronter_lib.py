@@ -712,6 +712,62 @@ class FronterXML(object):
             self.xml.endTag('MEMBER')
         self.xml.endTag('MEMBERSHIP')
 
+    def groupmembers_to_XML(self, gid, recstatus, members):
+        """Export a bunch of group members to XML.
+
+        UiA asked Cerebrum around 2007-12-17, if it would be possible to give
+        certain groups special permissions wrt. the student
+        group. '...:studieleder' and '...:foreleser' groups should have the
+        'rapporttilgang i evaluering' permission wrt the '...:student' group.
+
+        The recommended way of doing this was communicated in an e-mail from
+        2007-12-17 by Lars Nesland. Simply put, we introduce an extra
+        <MEMBERSHIP> that expresses these permissions.
+
+        @type gid: basestring
+        @param gid:
+          Group id (a string used to uniquely identify the group).
+
+        @type recstatus: int
+        @param recstatus:
+          Operation status (add, remove or update). We use FRONTER_UPDATE only.
+
+        @type members: sequence of group names (basestrings)
+        @param members:
+          Group names to acquire special permission wrt. L{gid}.
+        """
+
+        if not members:
+            return
+
+        self.xml.startTag('MEMBERSHIP')
+        self.xml.startTag('SOURCEDID')
+        self.xml.dataElement('SOURCE', self.DataSource)
+        self.xml.dataElement('ID', gid)
+        self.xml.endTag('SOURCEDID')
+        for gname in members:
+            self.xml.startTag('MEMBER')
+            self.xml.startTag('SOURCEDID')
+            self.xml.dataElement('SOURCE', self.DataSource)
+            self.xml.dataElement('ID', gname)
+            self.xml.endTag('SOURCEDID')
+            # The following member id is a group.
+            self.xml.dataElement('IDTYPE', '2')	
+            self.xml.startTag('ROLE', {'recstatus': recstatus,
+                                       'roletype': Fronter.ROLE_DELETE})
+            self.xml.dataElement('STATUS', '1')
+            self.xml.startTag('EXTENSION')
+            # Member of group, not room.
+            self.xml.emptyTag('MEMBEROF', {'type': 1})
+            # 'Rapporttilgang til evaluering' permissions
+            self.xml.emptyTag('GROUPACCESS',
+                              {'contactAccess': '150'})
+            self.xml.endTag('EXTENSION')
+            self.xml.endTag('ROLE')
+            self.xml.endTag('MEMBER')
+        self.xml.endTag('MEMBERSHIP')
+    # end groupmembers_to_XML
+    
     def acl_to_XML(self, node, recstatus, groups):
         self.xml.startTag('MEMBERSHIP')
         self.xml.startTag('SOURCEDID')

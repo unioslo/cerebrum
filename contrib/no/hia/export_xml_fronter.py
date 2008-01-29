@@ -303,7 +303,7 @@ def register_spread_groups_evu(row, group, evukurs_info):
                                           const.entity_account,
                                           get_entity_name=True)[0]]
         if user_members:
-            register_members(fronter_gname, user_members)
+            register_members(fronter_gname, user_members, const.entity_account)
         # fi
 
         register_room_acl(evukursrom_id, fronter_gname, permission)
@@ -422,7 +422,16 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                                                   const.entity_account,
                                                   get_entity_name=True)[0]]
                 if user_members:
-                    register_members(fronter_gname, user_members)
+                    register_members(fronter_gname, user_members,
+                                     const.entity_account)
+                # some groups have special permissions wrt "...:student"
+                if kategori == "student":
+                    foreleser_id = ':'.join(subg_name_el[:9] + ["foreleser",])
+                    studieleder_id = ':'.join(subg_name_el[:9] + ["studieleder",])
+                    register_members(fronter_gname,
+                                     (foreleser_id, studieleder_id),
+                                     const.entity_group)
+                    
                 register_room_acl(emne_rom_id, fronter_gname, rettighet)
 
 	elif gname_el[4] == 'studieprogram':
@@ -498,7 +507,8 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                                                   const.entity_account,
                                                   get_entity_name=True)[0]]
                 if user_members:
-                    register_members(fronter_gname, user_members)
+                    register_members(fronter_gname,
+                                     user_members, const.entity_account)
         else:
             raise RuntimeError, \
                   "Ukjent type gruppe eksportert: %r" % (gname,)
@@ -512,8 +522,31 @@ def register_structure_acl(node_id, group_id, contactAccess, roomAccess):
                                                  'racc': roomAccess}
 
 new_groupmembers = {}
-def register_members(gname, members):
-    new_groupmembers[gname] = members
+def register_members(gname, members, member_type):
+    """Register members for a group.
+
+    Register members for group 'gname'. We can register either account members
+    (typically a member of ':foreleser' group) or group members (group members
+    of a group).
+
+    @type gname: basestring
+    @param gname:
+      Group name for which we supply the member list
+
+    @type members: sequence of names (basestrings)
+    @param members:
+      Sequence of group members of a certain type that are all the the members
+      of the said type for group L{gname}.
+
+    @type member_type: instance of EntityTypeCode
+    @param member_type:
+      Specifies the member type for L{members}. Each group may have many
+      members split into different types. entity_account and entity_group are
+      the only two types accepted.
+    """
+    assert member_type in (const.entity_account, const.entity_group)
+    new_groupmembers.setdefault(gname, {})[int(member_type)] = members
+# end register_members
 
 new_rooms = {}
 def register_room(title, id, parentid, profile):
@@ -712,7 +745,7 @@ def main():
         register_group(ans_title, fak_ans_id, brukere_id,
                        allow_contact=True)
         ans_memb = ans_dict[int(faknr)]
-        register_members(fak_ans_id, ans_memb)
+        register_members(fak_ans_id, ans_memb, const.entity_account)
         for id_prefix, parent_id in ((emner_this_sem_id, emnerom_this_sem_id),
                                      (emner_next_sem_id, emnerom_next_sem_id)):
             fak_node_id = id_prefix + \
@@ -742,12 +775,17 @@ def main():
         fxml.acl_to_XML(node, fronter_lib.Fronter.STATUS_UPDATE, data)
 
     for gname, members in new_groupmembers.iteritems():
+        person_members = members.get(int(const.entity_account), ())
+        group_members = members.get(int(const.entity_group), ())
         fxml.personmembers_to_XML(gname, fronter_lib.Fronter.STATUS_UPDATE,
-                                  members)
+                                  person_members)
+        if group_members:
+            # IVR 2008-01-29 Just to be sure...
+            assert gname.split(':')[-1] == "student"
+            fxml.groupmembers_to_XML(gname, fronter_lib.Fronter.STATUS_UPDATE,
+                                     group_members)
     fxml.end()
 
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: a5c3fb25-3d89-493b-8cd7-547414c2a8a0
