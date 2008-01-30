@@ -210,8 +210,7 @@ def ou_has_children(ou_id, perspective):
     ou = Factory.get("OU")(database)
     try:
         ou.find(ou_id)
-        if ou.list_children(perspective, entity_id=ou_id):
-            return True
+        return bool(ou.list_children(perspective, entity_id=ou_id))
     except Errors.NotFoundError:
         # If we can't find the OU, it does not have a parent :)
         return False
@@ -356,9 +355,9 @@ def temporary_employee_hack(row, current_groups, perspective):
     ou_id = row["ou_id"]
     ou_info = ou_id2ou_info(ou_id)
     if not ou_info:
-        logger.warn("Missing ou information for ou_id=%s "
-                    "(OU quarantined or missing); person_id=%s",
-                    ou_id, person_id)
+        logger.debug("Missing ou information for ou_id=%s "
+                     "(OU quarantined or missing); person_id=%s",
+                     ou_id, person_id)
         return list()
 
     affiliation = int(row["affiliation"])
@@ -368,43 +367,51 @@ def temporary_employee_hack(row, current_groups, perspective):
     suffix = "@%s" % ou_info["sko"]
     result = list()
     if status == constants.affiliation_status_ansatt_vitenskapelig:
-        result.append(
-            (person_id,
-             constants.entity_person, 
-             group_name2group_id("ansatt_vitenskapelig" + suffix,
-                                 "Vitenskapelige tilsatte ved "+ou_info["name"],
-                                 current_groups,
-                                 constants.trait_auto_group)))
+        group_name = "ansatt_vitenskapelig" + suffix
+        group_id = group_name2group_id(group_name,
+                               "Vitenskapelige tilsatte ved "+ou_info["name"],
+                               current_groups,
+                               constants.trait_auto_group)
+        result.append((person_id, constants.entity_person, group_id))
+        logger.debug("Adding person id=%s to group id=%s name=%s",
+                     person_id, group_id, group_name)
     elif status == constants.affiliation_status_ansatt_tekadm:
-        result.append(
-            (person_id,
-             constants.entity_person,
-             group_name2group_id("ansatt_tekadm" + suffix,
-                                 "Teknisk-administrativt tilsatte ved " +
-                                 ou_info["name"],
-                                 current_groups,
-                                 constants.trait_auto_group)))
+        group_name = "ansatt_tekadm" + suffix
+        group_id = group_name2group_id(group_name,
+                      "Teknisk-administrativt tilsatte ved " + ou_info["name"],
+                      current_groups,
+                      constants.trait_auto_group)
+        result.append((person_id, constants.entity_person, group_id))
+        logger.debug("Adding person id=%s to group id=%s name=%s",
+                     person_id, group_id, group_name)
     elif status == constants.affiliation_status_ansatt_bil:
-        result.append(
-            (person_id,
-             constants.entity_person,
-             group_name2group_id("ansatt_bilag" + suffix,
-                                 "Bilagslønnede ved " + ou_info["name"],
-                                 current_groups,
-                                 constants.trait_auto_group)))
+        group_name = "ansatt_bilag" + suffix
+        group_id = group_name2group_id(group_name,
+                                       "Bilagslønnede ved " + ou_info["name"],
+                                       current_groups,
+                                       constants.trait_auto_group)
+        result.append((person_id, constants.entity_person, group_id))
+        logger.debug("Adding person id=%s to group id=%s name=%s",
+                     person_id, group_id, group_name)
 
     # Now we create ansatt@<sko> and all the metagroups.
     if affiliation == constants.affiliation_ansatt:
         # First, person_id is a member of ansatt@sko.
-        employee_group_id = group_name2group_id("ansatt" + suffix,
+        employee_group_name = "ansatt" + suffix
+        employee_group_id = group_name2group_id(employee_group_name,
                                                 "Tilsatte ved "+ou_info["name"],
                                                 current_groups,
                                                 constants.trait_auto_group)
         result.append((person_id, constants.entity_person, employee_group_id))
+        logger.debug("Adding person id=%s to group id=%s name=%s",
+                     person_id, employee_group_id, employee_group_name)
 
         # If the OU is at the "bottom" of the hierarchy, we do NOT generate a
         # meta_ansatt group for it. Ask JAZZ for an explanation.
         if not ou_has_children(ou_id, perspective):
+            logger.debug("OU id=%s, name=%s, sko=%s has no children. "
+                         "No meta groups will be created",
+                         ou_id, ou_info["name"], ou_info["sko"])
             return result
 
         # Now, the OU has some OU-children, and is itself a child of another
@@ -418,9 +425,9 @@ def temporary_employee_hack(row, current_groups, perspective):
                 parent_name,
                 ("Tilsatte ved %s og underordnede organisatoriske enheter" %
                  parent_info["name"]),
-                current_gruops,
+                current_groups,
                 constants.trait_auto_meta_group)
-            result.append((person_id, constants.entity_group, meta_parent_id))
+            result.append((person_id, constants.entity_person, meta_parent_id))
             logger.debug("Person id=%s added to meta group id=%s, name=%s",
                          person_id, meta_parent_id, parent_name)
             # Walk up 1 level
@@ -678,7 +685,7 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
             d = new_groups.setdefault(group_id, dict())
             member_type = int(member_type)
 
-            # Add the member to the membership list of the right type.
+            # Add the member to the membership set of the right type.
             # Typically, any given group would have either all members as
             # people or as groups.
             d.setdefault(member_type, set()).add(member_id)
@@ -1076,7 +1083,42 @@ def perform_delete():
     empty_defunct_groups(existing_groups)
 
     # ... and delete the group themselves
-    delete_defunct_groups(existing_groups)
+    # We cannot use delete_defunct_groups, since it cares about the OUs'
+    # quarantine status. In *this* function, we want to delete all groups *no*
+    # matter what.
+    group = Factory.get("Group")(database)
+    logger.debug("Looking for groups to delete")
+
+    for group_name, group_id in existing_groups.iteritems():
+        logger.debug("Considering group id=%s, name=%s for deletion",
+                     group_id, group_name)
+        
+        try:
+            group.clear()
+            group.find(group_id)
+        except Errors.NotFoundError:
+            logger.warn("Group id=%s, name=%s disappeared.",
+                        group_id, group_name)
+            continue
+
+        if '@' not in group_name:
+            logger.warn("Group id=%s, name=%s has trait %s and a "
+                        "non-conformant name. This should be fixed.",
+                        group_id, group_name, constants.trait_auto_group)
+            # IVR 2007-12-23 FIXME: Should we attempt to delete this group?
+            continue
+
+        name, sko = group_name.split("@")
+        if not sko.isdigit() or len(sko) != 6:
+            logger.warn("Group id=%s, name=%s has non-digit sko=%s."
+                        "This should not be an auto group, but it has the "
+                        "proper trait (%s)",
+                        group_id, group_name, sko, constants.trait_auto_group)
+            # IVR 2007-12-23 FIXME: Should we attempt to delete this group?
+            continue
+
+        group.delete()
+        logger.info("Deleted group id=%s, name=%s", group_id, group_name)
 # end perform_delete
     
 
@@ -1100,7 +1142,7 @@ def main():
             wipe_all = True
 
     if wipe_all:
-        perform_deletion()
+        perform_delete()
     else:
         logger.debug("All auto traits: %s", _locate_all_auto_traits())
         perform_sync(perspective)
