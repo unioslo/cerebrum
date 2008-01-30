@@ -157,7 +157,7 @@ public class EphorteGW {
      **/
     public void updateAny(String xml) throws RemoteException {
 	try {
-	    int ret = conn.updateByXML(xml.toString());
+	    int ret = conn.updateByXML(xml);
 	    if (ret > 0) {
 		log.info("Successfull updated ephorte by updateByXML");
 	    } else {
