@@ -43,7 +43,7 @@ public class EphorteGW {
     }
     
     /**
-     * Must be called prior to using the update functions 
+     * Must be called prior to using updatePersonInfo
      */
     public void prepareSync() {
         try {
@@ -63,7 +63,7 @@ public class EphorteGW {
      * manuelt basert på kjennskap til fremmednøkler i datamodellen.
      * 
      */
-private void fetchPersons() throws RemoteException, TooManyRecordsException {
+    private void fetchPersons() throws RemoteException, TooManyRecordsException {
         /*
          * Følgende er eksempler på datastrukturer returnert med ePhortes
          * GetDataSet metode der criteriaCollectionString er angitt f.eks som
@@ -132,7 +132,6 @@ private void fetchPersons() throws RemoteException, TooManyRecordsException {
             if (p == null)
                 continue;
             p.addRolle(ht);
-
         }
         // if (log.isDeqbugEnabled()) {
         //     log.debug("Parsed persons from ePhorte:");
@@ -144,6 +143,30 @@ private void fetchPersons() throws RemoteException, TooManyRecordsException {
         //     }
         // }
         log.info("EphorteGW.fetchPersons() done...");
+    }
+
+    /**
+     * Update any table, given in the xml string. The string must be
+     * the xml format described in ... and is sent directly to the
+     * ephorte web service. It is the callers responsibility that the
+     * format is correct.
+     *
+     * Being able to send raw xml directly to the web service makes
+     * testing much easier.
+     *
+     **/
+    public void updateAny(String xml) throws RemoteException {
+	try {
+	    int ret = conn.updateByXML(xml.toString());
+	    if (ret > 0) {
+		log.info("Successfull updated ephorte by updateByXML");
+	    } else {
+		log.warn("updateByXML failed");
+	    } 
+	} catch (AxisFault e) {
+	    log.warn("Problems updating ephorte. Sent xml: " + xml + 
+		     " -> " + e.toString());
+	}
     }
 
     /**
@@ -173,6 +196,8 @@ private void fetchPersons() throws RemoteException, TooManyRecordsException {
 	    // We can't delete persons in ePhorte. Instead the tilDato is set.
             newPerson.setTilDato(oldPerson.getTilDato());
             if(! newPerson.equals(oldPerson)) {
+		// TODO: Vi kommer ikke hit n�r vi sletter/setter
+		// tildato/setter delete="1" p� en person. Hvorfor?
 		log.debug("Set tilDato for person " + newPerson.getBrukerId() +
 			  " to " + newPerson.getTilDato());
                 newPerson.toXML(xml); 
@@ -300,5 +325,4 @@ private void fetchPersons() throws RemoteException, TooManyRecordsException {
     public EphorteConnection getConn() {
         return conn;
     }
-
 }

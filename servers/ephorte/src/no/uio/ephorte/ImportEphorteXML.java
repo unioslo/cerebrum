@@ -1,5 +1,7 @@
 package no.uio.ephorte;
 
+import java.io.FileReader;
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.rmi.RemoteException;
@@ -31,6 +33,7 @@ public class ImportEphorteXML {
         System.out.println("Usage: import [options]\n"+
                 "This script can be used to import data to ePhorte.\n\n"+
                 "  -i fname : import specified filename\n"+
+		"  -r fname : raw xml filename\n"+
                 "  -p fname : property filename (see example.props)\n"+
                 "  -d table : dump table in a somewhat readable format\n"+
                 "  -t tag   : tag to select from -d option"
@@ -46,7 +49,7 @@ public class ImportEphorteXML {
      */
     public static void main(String[] args) throws SAXException, IOException,
             ParserConfigurationException {
-        String fname = null, table = null, tag = null;
+        String fname = null, rfname = null, table = null, tag = null;
 	boolean testconn = false;
         Properties props = null;
         
@@ -60,6 +63,8 @@ public class ImportEphorteXML {
                 props.load(new FileInputStream(args[++i]));
             } else if (cmd.equals("-i")) {
                 fname = args[++i];
+            } else if (cmd.equals("-r")) {
+                rfname = args[++i];
             } else if (cmd.equals("-d")) {
                 table = args[++i];
             } else if (cmd.equals("-t")) {
@@ -77,6 +82,8 @@ public class ImportEphorteXML {
             System.out.println("Connection established. Look in log file for more details");
         } else if(table != null) {
             imp.dumpTable(table, tag);
+        } else if (rfname != null) {
+            imp.runRawSync(rfname);
         } else if (fname != null) {
             imp.runSync(fname);
         }
@@ -112,11 +119,28 @@ public class ImportEphorteXML {
     }
 
     private void runSync(String fname) throws SAXException, IOException, ParserConfigurationException, RemoteException {
+        log.info("Running sync");
         ephorteGW.prepareSync();
         CustomXMLParser cp = new CustomXMLParser(fname);
         for (Person p : cp.getPersons()) {
             ephorteGW.updatePersonInfo(p);
         }
-        log.info("All done");
+        log.info("Sync done");
+    }
+
+    private void runRawSync(String fname) throws IOException, ParserConfigurationException, RemoteException {
+        log.info("Running RawSync");
+	String xml = "";
+	try {
+	    BufferedReader inputStream = new BufferedReader(new FileReader(fname));
+	    String line = "";
+	    while ((line=inputStream.readLine()) != null) {
+		xml += line;
+	    }
+	} catch (IOException ioe) {
+	    log.error("Couldn't open file " + fname + "\n" + ioe.toString());
+	}
+	ephorteGW.updateAny(xml);
+        log.info("RawSync done");
     }
 }

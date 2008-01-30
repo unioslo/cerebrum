@@ -72,4 +72,9 @@ public class EphorteConnectionTest extends EphorteConnection {
         return 99;
     }
 
+    @Override
+    protected int updateByXML(String xml) throws RemoteException {
+        return 98;
+    }
+
 }

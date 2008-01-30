@@ -57,6 +57,10 @@ public class EphorteConnectionImpl extends EphorteConnection {
         return service.updatePersonByXML(sessionID, xml, "");
     }
 
+    protected int updateByXML(String xml) throws RemoteException {
+        return service.updateByXML(sessionID, xml, "");
+    }
+
     /**
      * Fetches data from the specified ePhorte table, and returns database rows
      * as a Vector of Hashtables

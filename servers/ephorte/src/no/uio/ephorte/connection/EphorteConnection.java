@@ -17,5 +17,6 @@ public abstract class EphorteConnection {
 	throws RemoteException, TooManyRecordsException;
 
     abstract protected int updatePersonByXML(String xml) throws RemoteException;
+    abstract protected int updateByXML(String xml) throws RemoteException;
 
 }
