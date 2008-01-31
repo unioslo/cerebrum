@@ -85,6 +85,9 @@ class EphorteConstants(ConstantsBase):
     spread_ephorte_person = _SpreadCode('ePhorte_person',
                                         Constants.Constants.entity_person,
                                         'Person included in ePhorte export')
+    spread_ephorte_ou = _SpreadCode('ePhorte_ou',
+                                    Constants.Constants.entity_person,
+                                    'Person included in ePhorte export')
 
     EphorteRole = _EphorteRoleTypeCode
     EphorteArkivdel = _EphorteArkivdelCode
