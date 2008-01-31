@@ -36,7 +36,10 @@ from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.xmlutils.xml2object import DataAddress, DataContact
 from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
 from Cerebrum.modules.xmlutils.sapxml2object import SAPPerson
-
+try:
+    set()
+except:
+    from Cerebrum.extlib.sets import Set as set
 
 
 
@@ -514,33 +517,118 @@ class XML2Cerebrum:
 
         # Before we can give a spread, we need an entity_id. Thus, this
         # operation happens after the first write_db().
-        #
-        # If a special dict has been defined in cereconf, try to assign a
-        # spread to this OU.
-        if (hasattr(cereconf, "OU_USAGE_SPREAD") and
-            xmlou.get_name(xmlou.NAME_USAGE_AREA)):
-            usage2spread = cereconf.OU_USAGE_SPREAD
-            ou_usage = xmlou.get_name(xmlou.NAME_USAGE_AREA)
-
-            if ou_usage in usage2spread:
-                try:
-                    spread = int(const.Spread(usage2spread[ou_usage]))
-                    if not ou.has_spread(spread):
-                        ou.add_spread(spread)
-                        op2 = ou.write_db()
-                        op = op or op2
-                except Errors.NotFoundError:
-                    self.logger.warn("Will not add unknown spread %s to ou_id=%s",
-                                     usage2spread[ou_usage], ou.entity_id)
+        op2 = self._sync_auto_ou_spreads(ou, xmlou.iter_usage_codes())
         
-        if op is None:
+        if op is None and not op2:
             status = "EQUAL"
         elif op:
             status = "NEW"
         else:
             status = "UPDATE"
-        # fi
 
         return status, ou.entity_id
     # end store_ou
+
+
+    def _sync_auto_ou_spreads(self, ou, usage_codes):
+        """Synchronise auto-assigned OU spreads for ou.
+
+        @type ou: instance of Factory.get('OU')
+        @param ou:
+          OU we are processing in this call. The object must be associated
+          with an ou in cerebrum.
+
+        @type usage_codes: iterable (over basestrings)
+        @param usage_codes:
+          A iterable over usage codes that determine L{ou}'s spreads in this
+          run. After the method completes, L{ou} has exactly the spreads
+          corresponding to L{usage_codes}.
+
+          Caveat 1: Naturally, it is possible to assign spreads only to those
+          usage codes that are actually defined in cereconf. If a usage code
+          is unknown in cereconf.OU_USAGE_SPREAD, it is simply ignored.
+
+          Caveat 2: If someone removes a mapping from cereconf.OU_USAGE_SPREAD,
+          that spread will no longer be automatically administered.
+
+          Caveat 3: We do a sync, not a simple add.
+        """
+
+        status = None
+        if not hasattr(cereconf, "OU_USAGE_SPREAD"):
+            return status
+
+        tmp = cereconf.OU_USAGE_SPREAD
+        # IVR 2008-01-31 TBD: obvious optimization -- do not calculate this
+        # set every time.
+        all_usage_spreads = self._load_usage_spreads(tmp.itervalues(),
+                                                     self.constants.entity_ou)
+        ou_usage_spreads = self._load_usage_spreads(
+                      # select those usage codes, that are actually 'mappable'
+                      [tmp[x] for x in usage_codes if x in tmp],
+                      self.constants.entity_ou)
+
+        to_remove = all_usage_spreads.difference(ou_usage_spreads)
+        for spread in ou_usage_spreads:
+            if not ou.has_spread(spread):
+                self.logger.debug("adding spread %s to ou id=%s",
+                                  self.constants.Spread(spread), ou.entity_id)
+                ou.add_spread(spread)
+                status = True
+        ou.write_db()
+
+        # and now remove the ones that the OU is NOT supposed to have
+        # (anymore)
+        for spread in to_remove:
+            if ou.has_spread(spread):
+                self.logger.debug("removing spread %s from ou id=%s",
+                                  self.constants.Spread(spread), ou.entity_id)
+                ou.delete_spread(spread)
+                status = True
+        ou.write_db()
+
+        return status
+    # end _sync_ou_spreads
+
+
+    def _load_usage_spreads(self, iterable, desired_entity_type):
+        """Convert a sequence of string codes to spread constants.
+
+        This method is meant for internal usage only. It converts an iterable
+        into a set of spread constants (ints) that exist in cerebrum.
+
+        @type iterable: an iterator or an iterable sequence
+        @param iterable:
+          A sequence of spread code_str that we want to have remapped to the
+          actual spread codes.
+
+        @type desired_entity_type: instance of EntityTypeCode
+        @param desired_entity_type:
+          A constant describing the entity type (OU, Person, Group, etc.) to
+          which the spreads must be 'tied' (all spreads have an associated
+          entity type).
+
+        @rtype: set of ints
+        @return:
+          A set of spread codes (ints) that correspond to the items in
+          L{iterable}. NB! Some elements in iterable may be skipped, if they
+          cannot be remapped to a suitable spread.
+        """
+
+        const = self.constants
+        result = set()
+        for item in iterable:
+            try:
+                spread = int(const.Spread(item))
+                if const.Spread(spread).entity_type != desired_entity_type:
+                    self.logger.warn("Spread %s is associate with %s, not %s",
+                                     spread, const.Spread(spread).entity_type,
+                                     desired_entity_type)
+                    continue
+                result.add(spread)
+            except Errors.NotFoundError:
+                self.logger.warn("Cowardly refusing to use unknown spread %s",
+                                 item)
+        return result
+    # end _load_usage_spreads
 # end XML2Cerebrum

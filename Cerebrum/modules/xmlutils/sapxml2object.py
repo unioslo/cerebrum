@@ -231,12 +231,11 @@ class XMLOU2Object(XMLEntity2Object):
 
         # Katalogmerke (whether the OU can be published in various online
         # directories)
-        mark = False
+        result.publishable = False
         for tmp in element.findall(".//stedbruk/StedType"):
             if tmp.text == "Tillatt Organisasjon":
-                mark = True
-                break
-        result.publishable = mark
+                result.publishable = True
+            result.add_usage_code(tmp.text)
 
         celems = element.findall("stedkomm")
         for sub in celems:

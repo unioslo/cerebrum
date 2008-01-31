@@ -43,7 +43,6 @@ TODO:
   flexible.
 * Fix the documentation and provide a few more examples.
 """
-
 import copy
 import os.path
 import re
@@ -55,6 +54,12 @@ import types
 from cElementTree import parse, iterparse, ElementTree
 # from elementtree.ElementTree import parse, iterparse
 from mx.DateTime import Date
+import cerebrum_path
+import cereconf
+try:
+    set()
+except:
+    from Cerebrum.extlib.sets import Set as set
 
 
 
@@ -384,7 +389,6 @@ class DataOU(DataEntity):
     NAME_ACRONYM = "acronym"
     NAME_SHORT   = "short"
     NAME_LONG    = "long"
-    NAME_USAGE_AREA = "usage area"
 
     def __init__(self):
         super(DataOU, self).__init__()
@@ -393,7 +397,21 @@ class DataOU(DataEntity):
         self.publishable = False
         self.start_date = None
         self.end_date = None
+        # This is just a collection of names. However the name API itself
+        # supports single values of a given type only. 
+        self._usage_codes = set()
     # end __init__
+
+
+    def add_usage_code(self, code):
+        if (hasattr(cereconf, "OU_USAGE_SPREAD") and
+            code in cereconf.OU_USAGE_SPREAD):
+            self._usage_codes.add(code)
+    # end add_usage_code
+
+
+    def iter_usage_codes(self):
+        return iter(self._usage_codes)
 
 
     def validate_id(self, kind, value):
