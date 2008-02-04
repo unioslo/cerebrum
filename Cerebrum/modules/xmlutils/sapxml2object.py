@@ -648,37 +648,6 @@ class XMLPerson2Object(XMLEntity2Object):
                 result.primary_ou = (cereconf.DEFAULT_INSTITUSJONSNR,
                                      fak, inst, gruppe)
 
-
-        # IVR 2007-05-30 FIXME: This is a workaround, beware!
-        # IVR 2007-12-28 Although this block has been removed in r9461, it has
-        # been re-introduced to ease production code rollout at UiO. This code
-        # will be removed eventually, following a suitable announcement.
-        # 
-        # If there is a valid "principal employment" (hovedstilling), AND we
-        # have a 'sted for l<F8>nnslipp' defined, register a fake employment, so
-        # that this person would receive the right affiliations later.
-        #
-        # It would be possible to put some extra logic in import_HR_person
-        # that would take care of this affiliation assignment. However, this
-        # workaround has no counterpart in LT, and as import_HR_person is
-        # source agnostic, we do not want to pollute it with SAP-specific
-        # logic.
-        #
-        # The ugly part is that this employment does not really exist. It's
-        # just there, so that the right affiliations can be assigned
-        # later. Until we get the proper data from SAP, this workaround would
-        # have to stay in place.
-        if main and hasattr(result, "primary_ou"):
-            result.add_employment(
-                DataEmployment(kind = DataEmployment.BISTILLING,
-                               percentage = main.percentage,
-                               code = main.code,
-                               title = main.title,
-                               start = main.start,
-                               end = main.end,
-                               place = (DataOU.NO_SKO, result.primary_ou[1:]),
-                               category = main.category))
-
         # We require people to have first/last name.
         if not (result.get_name(result.NAME_FIRST) and
                 result.get_name(result.NAME_LAST)):
