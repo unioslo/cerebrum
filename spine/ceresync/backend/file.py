@@ -206,18 +206,57 @@ class AliasFile(CLFileBack):
         return "%s: %s %s\n" % ( self.wash(addr.name), mod, to)
 
 class SambaFile(CLFileBack):
-    """An entry in a samba passwordfile lookes like this:
-    <username>:<uid>:<lanman-hash>:<nt-hash>:<Long Name>:<homedir>:<user shell>"""
-    filename="/etc/cerecync/smbpasswd"
-    def format(self,account):
-        if account.uid is None:
+    """an entry in a samba passwordfile lookes like this:
+    <username>:<uid>:<lanman-hash>:<nt-hash>:[<account flags>]:LCT-<hex of unixtime of last change time>:
+    Additional colonseparated options are ignored. man 5 smbpasswd for further info.  """
+
+#    def set_hashes(self, accountname, hashtype, hash):
+#        "set_hashes(hashtype, hash). Terrible hack to avoid breaking the CLFileBack interface. 
+#        Should be redone when Account objects has the ability to have more than one hash at once."
+#        if not self.hashes:
+#            self.hashes = {}
+#        if not self.hashes.has_key(accountname):
+#            self.hashes[accountname] = {}
+#        self.hashes[accountname][hashtype] = hash
+        
+    def format(self, account, hashes=None):
+        import time
+        if account.posix_uid is None:
+            raise errors.notposixerror, account.name
+
+        if hashes:
+            lmhash = hashes[0]
+            nthash = hashes[1]
+        else:
+            lmhash = "*Missing_lmhash*"
+            nthash = "*Missing_nthash*"
+
+        return "%s:%s:%s:%s:%s:%s\n" % (
+                account.name,
+                account.posix_uid,
+                lmhash,
+                nthash,
+                "[UX         ]",
+                "LCT-%s" % hex(int( time.time() ))[2:] )
+
+    def add(self, obj, hashes=None):
+        # duplicated code, needed due to overridden interface. (ish)
+        if self.incr:
+            self.records[obj.name]=self.format(obj, lmhash, nthash)
+        else:
+            self.f.write(self.format(obj, hashes=hashes) )
+
+class PasswdFileCryptHash(CLFileBack):
+    def format(self, account):
+        if account.posix_uid is None:
             raise errors.NotPosixError, account.name
         return "%s:%s:%s:%s:%s:%s:%s\n" % (
             account.name,
-            account.uid,
-            account.passwords.get('lmhash', '*'),
-            account.passwords.get('nthash', '*'),
-            account.gecos, account.homedir, account.shell)
+            account.passwd or "INVALID",
+            account.posix_uid,
+            account.posix_gid, account.gecos,
+            account.homedir, account.shell)
+
 
 def Group():
     return GroupFile(filename=config.conf.get("file", "group"))
