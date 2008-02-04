@@ -86,8 +86,9 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     ## Her må vi finne alle OU-er som skal eksporteres til ePhorte og
     ## skrive dette i xml-filen. Lagre dette som en dict på format:
     ##
-    ## ous = {<sko>: {'sko': <sko>, 'akronym': '', 'short': '', 'long': ''}}
-    ous = {}
+    ## ous = {<sko>: {'sko': <sko>, 'akronym': '', 'short': '', 'long': '',
+    ##                'parent': <parent_sko>, 'journalEnhet': ''}}
+    ## ous = {}
 
     persons = {} 
     # Format: entity_id -> {'roles': [],
@@ -235,8 +236,9 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     xml = ExtXMLHelper()
     f.write(xml.xml_hdr)
     f.write("<ephortedata>\n")
-    for ou in ous.values():
-        f.write(xml.xmlify_tree("ou", ou))
+    # RH 2008-02-01: we don't export ous until ephorte is ready
+    #for ou in ous.values():
+    #    f.write(xml.xmlify_tree("ou", ou))
     for p in persons.values():
         if not p.has_key('feide_id'):
             continue
