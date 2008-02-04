@@ -143,6 +143,12 @@ class ChangeLog(object):
         SELECT change_type_id, category, type, msg_string
         FROM [:table schema=cerebrum name=change_type]""")
 
+    def get_last_changelog_id(self):
+        return self.query_1("""
+        SELECT change_id
+        FROM [:table schema=cerebrum name=change_log]
+        ORDER BY change_id DESC LIMIT 1""")
+
 
 ##     def rollback(self):
 ##         self.rollback_log()
