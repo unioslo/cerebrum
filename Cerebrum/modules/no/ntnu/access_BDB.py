@@ -111,15 +111,16 @@ class BDB:
         cursor = self.db.cursor()
         cursor.execute("SELECT k.id, g.unix_gid, g.navn as gruppenavn, \
                         k.system, b.brukernavn , s.navn as spread_name, \
-                        s.domene, s.skall as require_shell, \
-                        k.sperr_status, k.badpw_status \
-                        FROM person p,konto k, bruker b, gruppe g, bdb.system s \
+                        sk.navn as shell \
+                        FROM person p,konto k, bruker b, gruppe g, \
+                              bdb.system s, skall sk \
                         WHERE p.id = b.person AND \
                               (p.personnr IS NOT NULL) AND \
                               k.bruker = b.id AND \
                               k.gruppe = g.id AND \
                               k.system = s.id AND \
-                              s.user_domain = 1 \
+                              k.skall = sk.id AND \
+                              b.user_domain = 1 \
                        ")
         bdb_spreads = cursor.fetchall()
         spreads = []
@@ -138,13 +139,7 @@ class BDB:
             if sp[5]:
                 s['spread_name'] = sp[5]
             if sp[6]:
-                s['domain'] = sp[6]
-            if sp[7]:
-                s['shell'] = sp[7]
-            if sp[8]:
-                s['sperret'] = sp[8]
-            if sp[9]:
-                s['badpw'] = sp[9]
+                s['shell'] = sp[6]
             spreads.append(s)
         cursor.close()
         return spreads
