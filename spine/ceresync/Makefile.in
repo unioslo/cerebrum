@@ -10,11 +10,13 @@ SBINDIR = @sbindir@
 
 .PHONY: all install install-lib clean distclean
 
-progs = syncfile.py syncldap.py synckerberos.py syncadsi.py syncradius.py
+progs = syncfile.py syncldap.py synckerberos.py syncadsi.py syncradius.py synccyrus.py
 backend = backend/file.py backend/ldap.py backend/__init__.py
 adsibackend = backend/adsi/__init__.py backend/adsi/active_directory.py backend/adsi/ad_types.py backend/adsi/ad_errors.py backend/adsi/wrapper.py
 kerberosbackend = backend/kerberos/__init__.py backend/kerberos/kadm5.py backend/kerberos/heimdal_error.py backend/kerberos/mit_error.py
+cyrusbackend = backend/cyrus/cyruslib.py backend/cyrus/__init__.py
 common = cerelog.py config.py doc_exception.py errors.py sync.py __init__.py
+
 
 all: 
 
@@ -29,9 +31,12 @@ install-lib:
 	$(INSTALL) -d $(pythondir)/ceresync/backend
 	$(INSTALL) -d $(pythondir)/ceresync/backend/kerberos
 	$(INSTALL) -d $(pythondir)/ceresync/backend/adsi
+	$(INSTALL) -d $(pythondir)/ceresync/backend/cyrus
 	$(INSTALL) -m 644 $(backend)  $(pythondir)/ceresync/backend
 	$(INSTALL) -m 644 $(kerberosbackend)  $(pythondir)/ceresync/backend/kerberos
 	$(INSTALL) -m 644 $(adsibackend)  $(pythondir)/ceresync/backend/adsi
+	$(INSTALL) -m 644 $(cyrusbackend)  $(pythondir)/ceresync/backend/cyrus
+
 
 
 clean:
