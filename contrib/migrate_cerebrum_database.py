@@ -744,7 +744,31 @@ def migrate_to_email_1_3():
 def migrate_to_ephorte_1_1():
     print "\ndone."
     assert_db_version("1.0", component='ephorte')
+    # Remove "equal" roles that occur more than once
+    from Cerebrum.modules.no.uio.Ephorte import EphorteRole
+    ephorte_role = EphorteRole(db)
+    for row in db.query("""
+    SELECT * FROM (SELECT person_id, role_type, adm_enhet, arkivdel,
+                   journalenhet, COUNT(*) FROM ephorte_role GROUP BY
+                   person_id, role_type, adm_enhet, arkivdel, journalenhet)
+                   AS blatti WHERE count > 1"""):
+        ephorte_role.remove_role(row['person_id'], row['role_type'],
+                                 row['adm_enhet'], row['arkivdel'],
+                                 row['journalenhet'])
+        print "Removing role (%s, %s, %s, %s) for person %s" % (
+            row['role_type'], row['adm_enhet'], row['arkivdel'],
+            row['journalenhet'], row['person_id'])
+    db.commit()
     makedb('ephorte_1_1', 'pre')
+    # update manually given roles
+    db.query("""
+    UPDATE ephorte_role SET auto_role = 'F' where role_type !=
+    (SELECT code from ephorte_role_type_code where code_str = 'SB')""")
+    # update SB roles
+    db.query("""
+    UPDATE ephorte_role SET auto_role = 'F' where role_type =
+    (SELECT code from ephorte_role_type_code where code_str = 'SB')""")
+    db.commit()
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_ephorte", "1.1")
     print "Migration to ephorte 1.1 completed successfully"

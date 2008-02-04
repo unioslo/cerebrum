@@ -119,7 +119,7 @@ class EphorteRole(DatabaseAccessor):
         self.pe = Factory.get('Person')(database)
 
     def add_role(self, person_id, role, sko, arkivdel, journalenhet,
-                 rolletittel='', stilling=''):
+                 rolletittel='', stilling='', standard_role='F', auto_role='T'):
         # TODO: Skrive noe om start_date/end_date
         # TODO: Bruke account_id for brukerens primærbruker
         binds = {
@@ -127,7 +127,8 @@ class EphorteRole(DatabaseAccessor):
             'role_type': role,
             # TODO: Hva skal standard_role være? Bør i hvert fall ikke
             # hardkodes på denne måten.
-            'standard_role': 'F',  
+            'standard_role': standard_role,  
+            'auto_role': auto_role,  
             'adm_enhet': sko,
             'arkivdel': arkivdel,
             'journalenhet': journalenhet,
@@ -185,7 +186,7 @@ class EphorteRole(DatabaseAccessor):
         return self.query("""
         SELECT person_id, role_type, standard_role, adm_enhet,
                arkivdel, journalenhet, rolletittel, stilling,
-               start_date, end_date
+               start_date, end_date, auto_role
         FROM [:table schema=cerebrum name=ephorte_role] %s""" % where, {
             'person_id': person_id})
 

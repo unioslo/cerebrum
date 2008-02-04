@@ -20,10 +20,17 @@
 
 /* SQL script for migrating a mod_ephorte 1.0 to 1.1 */
 
+
+/* Add a column auto_role to differ automatic roles from roles given
+ * manually in bofh.
+ */
+category:pre;
+ALTER TABLE ephorte_role ADD COLUMN auto_role CHAR(1)
+      CONSTRAINT auto_rolle_bool_chk CHECK(auto_role IN ('T', 'F'));
+
 /* Make constraint to person_info(person_id) so that persons cannot be
  * deleted without first removing any ephorte roles. 
  */
-
 category:pre;
 ALTER TABLE ephorte_role ADD CONSTRAINT ephorte_role_person_id 
       FOREIGN KEY (person_id) REFERENCES person_info(person_id);
@@ -32,7 +39,6 @@ ALTER TABLE ephorte_role ADD CONSTRAINT ephorte_role_person_id
  * arkivdel, journalenhet in table ephorte_role. It shouldn't be
  * possible to add the same role twice. 
  */
-
 category:pre;
 ALTER TABLE ephorte_role ADD CONSTRAINT ephorte_role_unique
       UNIQUE (person_id, role_type, adm_enhet, arkivdel, journalenhet);

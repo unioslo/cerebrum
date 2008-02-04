@@ -36,11 +36,12 @@ logger = Factory.get_logger("cronjob")
 ou_map_warnings = []
 
 class SimpleRole(object):
-    def __init__(self, role_type, adm_enhet, arkivdel, journalenhet):
+    def __init__(self, role_type, adm_enhet, arkivdel, journalenhet, auto_role=True):
         self.role_type = role_type
         self.adm_enhet = adm_enhet
         self.arkivdel = arkivdel
         self.journalenhet = journalenhet
+        self.auto_role = auto_role
 
     def __eq__(self, b):
         return (self.role_type == b.role_type and self.adm_enhet == b.adm_enhet and
@@ -139,7 +140,8 @@ class PopulateEphorte(object):
         # superuser-rollen skal ha UiOs rotnode som adm_enhet
         self._superuser_role = SimpleRole(
             int(co.ephorte_role_sy), sko2ou_id[cereconf.EPHORTE_UIO_ROOT_SKO],
-            int(co.ephorte_arkivdel_sak_uio), int(co.ephorte_journenhet_uio))
+            int(co.ephorte_arkivdel_sak_uio), int(co.ephorte_journenhet_uio),
+            auto_role=False)
 
     def map_ou2role(self, ou_id):
         arkiv, journal = self.ouid_2roleinfo[ou_id]
@@ -209,7 +211,8 @@ class PopulateEphorte(object):
         for row in ephorte_role.list_roles():
             person2roles.setdefault(int(row['person_id']), []).append(
                 SimpleRole(int(row['role_type']), int(row['adm_enhet']),
-                           row['arkivdel'], row['journalenhet']))
+                           row['arkivdel'], row['journalenhet'],
+                           auto_role=(row['auto_role']=='T'))
 
         has_ephorte_spread = {}
         for row in pe.list_all_with_spread(co.spread_ephorte_person):
@@ -234,7 +237,7 @@ class PopulateEphorte(object):
             # Add saksbehandler role for each ephorte ou where an
             # employee has an affiliation
             for t in ous:
-                auto_roles.append(self.map_ou2role(t))
+                auto_roles.append(self.map_ou2role(t, auto_role='T'))
             if person_id in superusers:
                 auto_roles.append(self._superuser_role)
             # All employees shall have ephorte spread
@@ -252,9 +255,10 @@ class PopulateEphorte(object):
                     ephorte_role.add_role(person_id, ar.role_type, ar.adm_enhet,
                                           ar.arkivdel, ar.journalenhet)
             for er in existing_roles:
-                # Only saksbehandler role can be removed. Any other
-                # roles have been given in bofh and should not be touched.
-                if er.role_type == int(co.ephorte_role_sb):
+                # Only saksbehandler role that has been given
+                # automatically can be removed. Any other roles have
+                # been given in bofh and should not be touched.
+                if er.auto_role and er.role_type == int(co.ephorte_role_sb):
                     logger.debug("Removing role (pid=%i): %s" % (person_id, er))
                     ephorte_role.remove_role(person_id, er.role_type, er.adm_enhet,
                                              er.arkivdel, er.journalenhet)

@@ -82,5 +82,8 @@ CREATE TABLE ephorte_role
   stilling        CHAR VARYING(256),
   start_date      DATE,
   end_date        DATE,
+  auto_role	  CHAR(1)
+		  CONSTRAINT auto_rolle_bool_chk
+                  CHECK(auto_role IN ('T', 'F')),
   UNIQUE (person_id, role_type, adm_enhet, arkivdel, journalenhet)
 );

@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2007 University of Oslo, Norway
+# Copyright 2003-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -163,7 +163,7 @@ class BofhdExtension(object):
         else:
             journalenhet = None
         self.ephorte_role.add_role(person.entity_id, self._get_role(role), ou.entity_id,
-                                   arkivdel, journalenhet)
+                                   arkivdel, journalenhet, auto_role='F')
         return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
 
     all_commands['ephorte_remove_role'] = Command(("ephorte", "remove_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
