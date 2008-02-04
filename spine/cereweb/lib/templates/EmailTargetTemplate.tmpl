@@ -27,7 +27,7 @@
 
 #def view($entity, $transaction)
 #set $searcher = $transaction.get_email_target_searcher()
-$searcher.set_entity($entity)
+$searcher.set_target_entity($entity)
 #set $targets = $searcher.search()
 #if $targets
 <div class="info box">
@@ -127,7 +127,7 @@ $searcher.set_entity($entity)
 
     #set $target = None
     #set $targets = $transaction.get_email_target_searcher()
-    $targets.set_entity($entity)
+    $targets.set_target_entity($entity)
     #for $target in $targets.search():
         <div>
         $object_link($target)
@@ -184,7 +184,7 @@ $searcher.set_entity($entity)
                                 $target_types, $target.get_type())
     </div>
 
-    #set $entity = $target.get_entity()
+    #set $entity = $target.get_target_entity()
     <div>$_("Associated with entity"):
     #if $entity is not None
         $object_link($entity)
@@ -219,7 +219,7 @@ $searcher.set_entity($entity)
         $html_quote($target.get_type().get_description())
     </div>
 
-    #set $entity = $target.get_entity()
+    #set $entity = $target.get_target_entity()
     #if $entity is not None
         <div><em>$_("Associated with") $_($entity.get_type().get_name()):</em>
         $object_link($entity)

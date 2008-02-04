@@ -213,13 +213,13 @@ add_to_category = transaction_decorator(add_to_category)
 add_to_category.exposed = True
 
 def make_target(transaction, entity, targettype, host):
-    account = transaction.get_entity(int(entity))
+    account = transaction.get_target_entity(int(entity))
     target_type = transaction.get_email_target_type(targettype)
     emailhost = transaction.get_host(int(host))
 
     cmds = transaction.get_commands()
     email_target =  cmds.create_email_target(target_type)
-    email_target.set_entity(account)
+    email_target.set_target_entity(account)
     if account.get_type().get_name() == "account" and account.is_posix():
         email_target.set_using_uid(account)
     email_target.set_server(emailhost)
@@ -230,7 +230,7 @@ make_target = transaction_decorator(make_target)
 make_target.exposed = True
 
 def remove_target(transaction, entity, target):
-    entity = transaction.get_entity(int(entity))
+    entity = transaction.get_target_entity(int(entity))
     target = transaction.get_email_target(int(target))
     type = target.get_target_type()
     try:
