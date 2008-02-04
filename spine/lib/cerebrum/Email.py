@@ -44,7 +44,7 @@ Commands.register_extention("email")
 __all__ = ['EmailDomain', 'EmailDomainCategorization', 'EmailTarget', 'EmailAddress']
 
 table = 'email_domain'
-class EmailDomain(DatabaseClass):
+class EmailDomain(Entity):
     """
     This class represents an e-mail domain, i.e. the part after the @ in an e-mail address.
     A domain is a simple object with an ID, a name and a description.
@@ -58,28 +58,18 @@ class EmailDomain(DatabaseClass):
     \\see EmailDomainCategory
     \\see EmailDomainCategorization
     """
-    primary = (
-        DatabaseAttr('id', table, int),
-    )
-    slots = (
+
+    slots = Entity.slots + (
         DatabaseAttr('name', table, str, write=True),
         DatabaseAttr('description', table, str, write=True),
-    )
-    db_attr_aliases = {
-        table : {
-            'id' : 'domain_id',
-            'name' : 'domain',
+        )
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
+        'id' : 'domain_id',
+        'name' : 'domain',
         }
-    }
-
-    def get_typestr(self):
-        return 'emaildomain'
-    get_typestr.signature = str
-        
-    def delete(self):
-        self._delete_from_db()
-    delete.signature = None
-    delete.signature_write = True
+    cerebrum_class = Cerebrum.modules.Email.EmailDomain
+    entity_type = 'email_domain'
 
 registry.register_class(EmailDomain)
 
@@ -92,29 +82,28 @@ def create_email_domain(self, name, description):
 
     \\return A new EmailDomain object
     """
-    obj = Cerebrum.modules.Email.EmailDomain(self.get_database())
-    obj.populate(name, description)
-    try:
-        obj.write_db()
-    except Cerebrum.Database.OperationalError:
-        raise SpineExceptions.AlreadyExistsError('A domain with the specified name already exists.')
-    return EmailDomain(self.get_database(), obj.email_domain_id)
+    import pdb
+    pdb.set_trace()
+    db = self.get_database()
+    new_id = EmailDomain._create(db, name, description)
+    return EmailDomain(db, new_id)
 
 create_email_domain.signature = EmailDomain
 create_email_domain.signature_write = True
 create_email_domain.signature_args = [str, str]
-create_email_domain.signature_exceptions = [SpineExceptions.AlreadyExistsError]
 Commands.create_email_domain = create_email_domain
 
 def get_email_domain_by_name(self, name):
-    s = registry.EmailDomainSearcher(self.get_database())
+    db = self.get_database()
+    s = registry.EmailDomainSearcher(db)
     s.set_name(name)
-    domains=s.search()
+    domains = s.search()
     if len(domains) == 0:
         raise SpineExceptions.NotFoundError('There is no email domain %s' % name)
     elif len(domains) > 1:
         raise SpineExceptions.TooManyMatchesError('There are several email domains with the name %s' % name)
-    return domains[0]
+    return domains[0].get_entity()
+
 get_email_domain_by_name.signature = EmailDomain
 get_email_domain_by_name.signature_args = [str]
 get_email_domain_by_name.signature_exceptions = [SpineExceptions.NotFoundError, SpineExceptions.TooManyMatchesError]
@@ -269,7 +258,7 @@ demote_email_server.signature_write = True
 Host.register_methods([promote_email_server, demote_email_server])
 
 table = 'email_target'
-class EmailTarget(DatabaseClass):
+class EmailTarget(Entity):
     """
     This class represents an e-mail target. The target is a somewhat abstract
     concept, but can be thought of as 'the something that wants to receive the
@@ -290,34 +279,24 @@ class EmailTarget(DatabaseClass):
     \\see EmailAddress
     \\see Entity
     """
-    primary = (
-        DatabaseAttr('id', table, int),
-    )
-
-    slots = (
-        DatabaseAttr('target_type', table, EmailTargetType, write=True),
-        DatabaseAttr('entity', table, Entity, write=True, exceptions=[SpineExceptions.AlreadyExistsError]),
-        DatabaseAttr('alias_value', table, str, write=True),
+    slots = Entity.slots + (
+        CerebrumDbAttr('target_type', table, EmailTargetType, write=True),
+        CerebrumDbAttr('target_entity', table, Entity, write=True, exceptions=[SpineExceptions.AlreadyExistsError]),
+        CerebrumDbAttr('alias_value', table, str, write=True),
         # FIXME: should be PosixUser
-        DatabaseAttr('using_uid', table, Account, write=True),
-        DatabaseAttr('server', table, Host, write=True, optional=True),
+        CerebrumDbAttr('using_uid', table, Account, write=True),
+        CerebrumDbAttr('server', table, Host, write=True, optional=True),
     )
-    db_attr_aliases = {
-        table : {
-            'id' : 'target_id',
-            'entity' : 'entity_id',
-            'server': 'server_id',
-        },
-        'email_target_server': {
-            'id': 'target_id',
-            'server': 'server_id',
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
+        'id' : 'target_id',
+        'target_entity' : 'target_entity_id',
+        'server': 'server_id',
         }
-    }
 
-    def get_typestr(self):
-        return 'emailtarget'
-    get_typestr.signature = str
-
+    cerebrum_class = Cerebrum.modules.Email.EmailTarget
+    entity_type = 'email_target'
+    
     def get_auth_entity(self):
         return self.get_entity()
     get_auth_entity.signature = Entity
@@ -383,10 +362,10 @@ def create_email_target(self, type):
     \\see EmailTarget
     \\see EmailTargetType
     """
-    obj = Cerebrum.modules.Email.EmailTarget(self.get_database())
-    obj.populate(type.get_id())
-    obj.write_db()
-    return EmailTarget(self.get_database(), obj.email_target_id)
+
+    db = self.get_database()
+    new_id = EmailTarget._create(db, type.get_id())
+    return EmailTarget(db, new_id)
 
 create_email_target.signature = EmailTarget
 create_email_target.signature_write = True
@@ -401,7 +380,7 @@ get_email_targets.signature = [EmailTarget]
 Entity.register_methods([get_email_targets])
 
 table = 'email_address'
-class EmailAddress(DatabaseClass):
+class EmailAddress(Entity):
     """
     This class represents an e-mail address. Every e-mail address has a local
     part, a domain, and a target. The local part is essentially the part before
@@ -414,44 +393,29 @@ class EmailAddress(DatabaseClass):
     \\see EmailDomain
     \\see EmailTarget
     """
-    primary = (
-        DatabaseAttr('id', table, int),
-    )
-    slots = (
-        DatabaseAttr('local_part', table, str, write=True),
-        DatabaseAttr('domain', table, EmailDomain, write=True),
-        DatabaseAttr('target', table, EmailTarget, write=True),
-        DatabaseAttr('create_date', table, Date),
+    slots = Entity.slots + (
+        CerebrumDbAttr('local_part', table, str, write=True),
+        CerebrumDbAttr('domain', table, EmailDomain, write=True),
+        CerebrumDbAttr('target', table, EmailTarget, write=True),
+        CerebrumDbAttr('create_date', table, Date),
         # TODO: How do we auto-update change date here?
-        DatabaseAttr('change_date', table, Date),
-        DatabaseAttr('expire_date', table, Date, write=True),
+        CerebrumDbAttr('change_date', table, Date),
+        CerebrumDbAttr('expire_date', table, Date, write=True),
     )
 
-    db_attr_aliases = {
-        table : {
+    db_attr_aliases = Entity.db_attr_aliases.copy()
+    db_attr_aliases[table] = {
             'id' : 'address_id',
             'domain' : 'domain_id',
             'target' : 'target_id',
-        }
     }
+
+    cerebrum_class = Cerebrum.modules.Email.EmailAddress
+    entity_type = 'email_address'
 
     def get_auth_entity(self):
         return self.get_target()
     get_auth_entity.signature = Entity
-
-    def delete(self):
-        """
-        This method deletes this e-mail address.
-        """
-        if self.is_primary(): # Defined below PrimaryEmailAddress
-            self.unset_as_primary()
-        obj = Cerebrum.modules.Email.EmailAddress(self.get_database())
-        obj.find(self.get_id())
-        obj.delete()
-        obj.write_db()
-
-    delete.signature = None
-    delete.signature_write = True
 
 registry.register_class(EmailAddress)
 
@@ -486,10 +450,10 @@ def create_email_address(self, local_part, domain, target):
     \\see EmailDomain
     \\see EmailTarget
     """
-    obj = Cerebrum.modules.Email.EmailAddress(self.get_database())
-    obj.populate(local_part, domain.get_id(), target.get_id())
-    obj.write_db()
-    return EmailAddress(self.get_database(), obj.email_addr_id)
+    db = self.get_database()
+    new_id = EmailAddress._create(db, local_part, domain.get_id(),
+                                  target.get_id())
+    return EmailAddress(db, new_id)
 
 create_email_address.signature = EmailAddress
 create_email_address.signature_write = True
@@ -519,6 +483,7 @@ def get_addresses(self):
     s.set_target(self)
     return s.search()
 
+#Signature inherited from entity...
 get_addresses.signature = [EmailAddress]
 EmailTarget.get_addresses = get_addresses
 

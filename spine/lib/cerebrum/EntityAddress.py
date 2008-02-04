@@ -24,6 +24,8 @@ from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib.SpineExceptions import NotFoundError
 
 from Entity import Entity
+from Person import Person
+from OU import OU
 from Types import SourceSystem, AddressType
 
 from SpineLib import Registry
@@ -64,7 +66,8 @@ def get_addresses(self):
     return s.search()
 
 get_addresses.signature = [EntityAddress]
-Entity.register_methods([get_addresses])
+Person.register_methods([get_addresses])
+OU.register_methods([get_addresses])
 
 def get_address(self, address_type, source_system):
     db = self.get_database()
@@ -79,7 +82,9 @@ def get_address(self, address_type, source_system):
 get_address.signature = EntityAddress
 get_address.signature_args = [AddressType, SourceSystem]
 get_address.signature_exceptions = [NotFoundError]
-Entity.register_methods([get_address])
+Person.register_methods([get_address])
+OU.register_methods([get_address])
+
 
 def create_address(self, address_type, source_system):
     db = self.get_database()
@@ -92,6 +97,7 @@ def create_address(self, address_type, source_system):
 create_address.signature = EntityAddress
 create_address.signature_args = [AddressType, SourceSystem]
 create_address.signature_write = True
-Entity.register_methods([create_address])
+Person.register_methods([create_address])
+OU.register_methods([create_address])
 
 # arch-tag: ff3c2894-d69c-4de5-bf1f-8bd44d0a8e31
