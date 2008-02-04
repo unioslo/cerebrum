@@ -23,8 +23,6 @@ import crypt
 
 from Cerebrum.Utils import Factory 
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
-#from SpineLib import SpineExceptions
-#from SpineLib.SpineExceptions import PasswordGoodEnoughException
 
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 
