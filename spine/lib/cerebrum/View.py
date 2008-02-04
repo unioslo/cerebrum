@@ -578,16 +578,19 @@ class View(DatabaseTransactionClass):
     
     def set_authentication_method(self, method):
         self.query_data["authentication_method"]=method.get_id()
-    set_authentication_method.signature=None
-    set_authentication_method.signature_args=[AuthenticationType]
+    set_authentication_method.signature = None
+    set_authentication_method.signature_args = [AuthenticationType]
+    set_authentication_method.signature_auth_attr = 0
     def set_account_spread(self, spread):
         self.query_data["account_spread"]=spread.get_id()
-    set_account_spread.signature=None
-    set_account_spread.signature_args=[Spread]
+    set_account_spread.signature = None
+    set_account_spread.signature_args = [Spread]
+    set_account_spread.signature_auth_attr = 0
     def set_group_spread(self, spread):
         self.query_data["group_spread"]=spread.get_id()
     set_group_spread.signature=None
     set_group_spread.signature_args=[Spread]
+    set_group_spread.signature_auth_attr = 0
     def set_perspective(self, perspective):
         self.query_data["perspective"]=perspective.get_id()
     set_perspective.signature=None

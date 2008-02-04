@@ -69,6 +69,7 @@ def delete_spread(self, spread):
 delete_spread.signature = None
 delete_spread.signature_args = [Spread]
 delete_spread.signature_write = True
+add_spread.signature_auth_attr = 0
 
 Entity.register_methods([add_spread, get_spreads, delete_spread])
 
