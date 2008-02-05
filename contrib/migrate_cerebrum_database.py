@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002 - 2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -766,7 +766,7 @@ def migrate_to_ephorte_1_1():
     (SELECT code from ephorte_role_type_code where code_str = 'SB')""")
     # update SB roles
     db.query("""
-    UPDATE ephorte_role SET auto_role = 'F' where role_type =
+    UPDATE ephorte_role SET auto_role = 'T' where role_type =
     (SELECT code from ephorte_role_type_code where code_str = 'SB')""")
     db.commit()
     meta = Metainfo.Metainfo(db)
