@@ -78,6 +78,7 @@ class BDB:
             WHERE
                 b.user_domain = 1 AND
                 b.person = p.id AND
+                p.epost_adr IS NOT NULL AND
                 b.status = 1 AND
                 n.person (+) = p.id AND
                 (p.personnr IS NOT NULL
