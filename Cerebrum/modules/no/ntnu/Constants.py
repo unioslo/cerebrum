@@ -263,16 +263,11 @@ class Constants(Constants.Constants):
 
 
 
-    quarantine_generell = _QuarantineCode('generell', 'Generell splatt')
-    quarantine_remote = _QuarantineCode('remote', 'Oppringt og VPN')
-    quarantine_teppe = _QuarantineCode('teppe', 'Kalt inn på teppet til drift')
+    quarantine_remote = _QuarantineCode('remote', 'VPN wireless and radius-related')
+    quarantine_sperret = _QuarantineCode('teppe', 'Kalt inn på teppet til NTNU IT')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
-    quarantine_system = _QuarantineCode('system', 'Systembrukar som ikke skal logge inn')
-    quarantine_permisjon = _QuarantineCode('permisjon', 'Brukeren har permisjon')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
 
-    quarantine_bdb = _QuarantineCode('BDB', 'Gammel BDB-karantene /bin/sperret+/bin/true+/bin/false')
-    #quarantine_badpw = _QuarantineCode('BDB_badpw', 'Gammel BDB karantene /bin/badpw')
 
     email_spam_level_none = _EmailSpamLevelCode(
         'ingen', 9999, "No email will be filtered as spam")

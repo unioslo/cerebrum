@@ -1123,8 +1123,6 @@ class BDBSync:
             if s['shell'] == '/bin/sperret':
                 if s['spread_name'] in ('oppringt', 'ansoppr'):
                     newquarantines.add(ac.const.quarantine_remote)
-                else:
-                    newquarantines.add(ac.const.quarantine_generell)
         
         oldquarantines = Set([q['quarantine_type']
                               for q in ac.get_entity_quarantine()])
