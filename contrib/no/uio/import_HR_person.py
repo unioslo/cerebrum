@@ -481,7 +481,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
         # is requested later). This is similar to affiliation processing,
         # although the same goal is accomplished with a different data
         # structure.
-        if old_affs:
+        if old_traits:
             my_old_traits = old_traits.get(p_id, set())
             # select trait codes
             my_current_traits = set([x[0] for x in traits])
@@ -517,6 +517,8 @@ def clean_old_affiliations(source_system, aff_set):
             person.clear()
             person.entity_id = int(entity_id)
             person.delete_affiliation(ou_id, aff, source_system)
+            logger.info("Person id=%s lost affiliation %s (ou id=%s)",
+                        entity_id, const.PersonAffiliation(aff), ou_id)
 # end clean_old_affiliations
 
 
@@ -646,6 +648,8 @@ def remove_traits(leftover_traits):
         for trait in traits:
             try:
                 person.delete_trait(trait)
+                logger.info("Person id=%s lost trait %s",
+                            person_id, const.EntityTrait(trait))
             except Errors.NotFoundError:
                 logger.warn("Trait %s for person %s has already been deleted.",
                             const.EntityTrait(trait), person_id)

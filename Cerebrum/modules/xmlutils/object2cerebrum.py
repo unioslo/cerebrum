@@ -371,6 +371,12 @@ class XML2Cerebrum:
             ou_id, aff, aff_stat = value
             person.populate_affiliation(source_system, ou_id, 
                                         int(aff), int(aff_stat))
+            self.logger.info("Person id=%s acquires affiliation "
+                             "aff=%s status=%s ou_id=%s",
+                             person.entity_id,
+                             self.constants.PersonAffiliation(aff),
+                             self.constants.PersonAffStatus(aff_stat),
+                             ou_id)
     # end _assign_person_affiliations
         
 
@@ -401,6 +407,10 @@ class XML2Cerebrum:
             # to *automatically* create group descriptions with sensible
             # names. We *could* perhaps 
             person.populate_trait(trait, target_id=ou_id, strval=roleid)
+            self.logger.info("Person id=%s acquires trait %s "
+                             "target_id=%s strval=%s",
+                             person.entity_id, co.EntityTrait(trait),
+                             ou_id, roleid)
     # end _assign_person_traits
 
 
