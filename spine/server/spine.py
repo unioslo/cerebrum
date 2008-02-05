@@ -25,14 +25,23 @@ locale.setlocale(locale.LC_ALL, '')
 
 import cerebrum_path
 import cereconf
+from Cerebrum.Utils import Factory
 
 import sys
 import sets
 import thread
 import traceback
 
+logger = None
+
 def main(daemon=False):
-    print 'Importing all classes...'
+    global logger
+    if daemon:
+        logger = Factory.get_logger("spine")
+    else:
+        logger = Factory.get_logger("console")
+
+    logger.debug('Importing all classes...')
     from Cerebrum.spine.server import Communication
     from Cerebrum.spine.server import LockHandler
     from Cerebrum.spine.server import SessionHandler
@@ -43,40 +52,41 @@ def main(daemon=False):
     lock_handler = LockHandler.get_handler()
 
     # creating server
-    print 'Creating server object...'
+    logger.debug('Creating server object...')
     server = com.servant_to_reference(Spine.SpineImpl())
 
-    print 'Starting session handler...'
+    logger.debug('Starting session handler...')
     session_handler.start()
 
-    print 'Starting lock handler...'
+    logger.debug('Starting lock handler...')
     lock_handler.start()
 
     # Write server object IOR to file
-    print 'IOR written to:', cereconf.SPINE_IOR_FILE
+    logger.debug('IOR written to: ' + cereconf.SPINE_IOR_FILE)
     ior = com.orb.object_to_string(server)
     fd = open(cereconf.SPINE_IOR_FILE, 'w')
     fd.write(ior)
     fd.close()
 
     # Starting communication
-    print 'Running server...'
+    logger.info('Running Spine')
     if daemon: daemonize()
     
     try:
         com.start()
     except KeyboardInterrupt:
-        print 'Interrupt caught! Shutting down...'
+        logger.info('Interrupt caught! Shutting down...')
         pass
     except AssertionError, e:
         raise e # Asserts should make us die
     except:
-        traceback.print_exc()
-    print 'Stopping lock handler...'
+        if not daemon:
+            traceback.print_exc()
+    logger.debug('Stopping lock handler...')
     lock_handler.stop()
-    print 'Stopping session handler...'
+    logger.debug('Stopping session handler...')
     session_handler.stop()
-    print 'Spine is going down.'
+    logger.debug('Spine is going down.')
 
 
 def daemonize():
@@ -108,7 +118,7 @@ def daemonize():
         os.dup2(0,1)
         os.dup2(0,2)
     except OSError, e:
-        print >> sys.stderr, "Demonize failed: %s" % e.strerror
+        logger.error("Demonize failed: %s" % e.strerror)
 
 
 
@@ -128,18 +138,18 @@ def check():
                 continue
             checked.add(table)
             if DatabaseClass._table_exists(db, table):
-                print '+ exists:', table
+                print >>sys.stderr, '+ exists:', table
             else:
-                print '- WARNING table does not exists:', table
+                print >>sys.stderr, '- WARNING table does not exists:', table
 
     for cls in DatabaseClass.get_sequence_classes():
         if cls.exists(db):
-            print '+ exists:', cls.__name__
+            print >>sys.stderr, '+ exists:', cls.__name__
         else:
-            print '- WARNING sequence does not exists:', cls.__name__
+            print >>sys.stderr, '- WARNING sequence does not exists:', cls.__name__
 
 
-if __name__ == '__main__':        
+if __name__ == '__main__':
     help = False
     if len(sys.argv) == 2:
         if sys.argv[1] == 'start' or sys.argv[1] == 'debug':
@@ -154,7 +164,7 @@ if __name__ == '__main__':
         help = True
     
     if help:
-        print """Spine!
+        print >> sys.stderr, """Spine!
 
 Hello. Try one of these:
 

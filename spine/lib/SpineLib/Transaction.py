@@ -30,6 +30,8 @@ from Locking import Locking, serialized_decorator
 from SpineExceptions import TransactionError, NotFoundError
 from DatabaseClass import DatabaseTransactionClass
 
+from Cerebrum.Utils import Factory
+logger = Factory.get_logger()
 
 __all__ = ['Transaction']
 
@@ -141,8 +143,7 @@ class Transaction(Builder.Builder):
             self._db.rollback()
             self._db.close()
         except:
-            print 'DEBUG: Unable to rollback the database object!'
-            traceback.print_exc() # TODO: Log this
+            logger.exception('Unable to rollback the database object!')
 
         while len(self._refs):
             item = self._refs.pop()

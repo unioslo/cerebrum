@@ -37,6 +37,9 @@ from Cerebrum.spine.Person import Person
 from SpineLib import Registry
 registry = Registry.get_registry()
 
+from Cerebrum.Utils import Factory
+logger = Factory.get_logger()
+
 __all__ = ['Account']
 
 table = 'account_info'
@@ -137,7 +140,7 @@ def create_account(self, name, owner, expire_date):
     \\param expire_date Date on which the account will expire.
     \\return Created Account object.
     """
-    print 'WARNING: Commands.create_account is deprecated.'
+    logger.warn('Commands.create_account is deprecated.')
     db = self.get_database()
     return _create_account(db, name, owner, None, expire_date)
 create_account.signature = Account
@@ -163,7 +166,7 @@ def create_np_account(self, name, owner, np_type, expire_date):
     \\param expire_date Date on which the account will expire.
     \\return Created Account object.
     """
-    print 'WARNING: Commands.create_np_account is deprecated.'
+    logger.warn('WARNING: Commands.create_np_account is deprecated.')
     db = self.get_database()
     return _create_account(db, name, owner, np_type, expire_date)
 create_np_account.signature = Account

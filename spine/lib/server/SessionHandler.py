@@ -24,6 +24,9 @@ import threading
 import time
 import traceback
 
+from Cerebrum.Utils import Factory
+logger = Factory.get_logger()
+
 _session_handler = None
 
 class SessionHandler(threading.Thread):
@@ -70,8 +73,7 @@ class SessionHandler(threading.Thread):
         try:
             self._remove(session)
         except:
-            print 'DEBUG: Error while removing session!'
-            traceback.print_exc() # TODO: Log instead
+            logger.exception('Error while removing session!')
         self._session_lock.release()
 
     def _remove(self, session):
@@ -101,15 +103,19 @@ class SessionHandler(threading.Thread):
     def list(self):
         return self._sessions[:]
 
-    def printlist(self):
-        print "%d sessions:" % len(self._sessions)
+    def formatlist(self):
+        ret="%d sessions:" % len(self._sessions)
         now=time.time()
         for s,timeo in self._sessions.items():
-            print "%x: user=%s transactions=%d timeout=%d\n" % (
+            ret+="\n%x: user=%s transactions=%d timeout=%d\n" % (
                 id(s),
                 s.client.get_name(),
                 len(s._transactions),
                 timeo-now)
+        return ret
+
+    def printlist(self):
+        logger.debug(self.formatlist())
 
     def run(self):
 	interval=getattr(cereconf, 'SPINE_SESSION_CHECK_INTERVAL', 10)

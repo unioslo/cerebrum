@@ -30,6 +30,9 @@ from Commands import Commands
 from SpineLib import Registry
 registry = Registry.get_registry()
 
+from Cerebrum.Utils import Factory
+logger = Factory.get_logger()
+
 __all__ = ['ChangeType', 'ChangeLog']
 
 table = 'change_type'
@@ -87,7 +90,8 @@ class ChangeLog(DatabaseClass):
         try:
             msg = msg % args
         except KeyError, e:
-            print "Could not %-ify msg", msg, "with args", args, "error:", e
+            logger.debug("Could not %%-ify msg %s with args %s error: %s" % (
+                msg, args, e))
             pass    
         if type(msg) is unicode:
             msg = repr(msg)

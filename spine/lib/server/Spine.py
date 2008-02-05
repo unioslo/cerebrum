@@ -34,6 +34,9 @@ import SessionHandler
 from Cerebrum.spine.Account import get_account_by_name
 from Cerebrum.spine.SpineLib import Database
 
+from Cerebrum.Utils import Factory
+logger = Factory.get_logger()
+
 # The major version number of the Spine server
 SPINE_MAJOR_VERSION = 0
 
@@ -88,8 +91,7 @@ class SpineImpl(SpineCore__POA.Spine):
         try:
             account = get_account_by_name(self, username)
         except:
-            import traceback
-            traceback.print_exc()
+            logger.exception("Login failed for %s" % username)
             raise exception
 
         # Check password

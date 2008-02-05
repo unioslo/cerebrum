@@ -24,7 +24,6 @@ This module handles everything related to the middleware, CORBA, in Spine.
 
 import sys
 import threading
-import traceback
 import weakref
 
 import cereconf
@@ -44,6 +43,9 @@ from Cerebrum.spine.SpineLib.SpineExceptions import AccessDeniedError, ServerPro
 __all__ = ['convert_to_corba', 'convert_from_corba',
            'create_idl_source', 'register_spine_class','drop_associated_objects']
 
+from Cerebrum.Utils import Factory
+logger = Factory.get_logger()
+
 class_cache = {}
 object_cache = {}
 
@@ -59,8 +61,7 @@ def invalidate_reference(reference):
             com = Communication.get_communication()
             com.remove_reference(reference)
         except:
-            print 'DEBUG: Unable to remove reference when dropping from object cache!'
-            traceback.print_exc() # TODO: Log this
+            logger.exception('Unable to remove reference when dropping from object cache!')
     finally:
         object_cache_lock.release()
 
@@ -129,8 +130,9 @@ def convert_to_corba(obj, transaction, data_type):
         try:
             return [convert_to_corba(i, transaction, data_type[0]) for i in obj]
         except TypeError:
-            traceback.print_exc()
-            raise ServerProgrammingError('Unable to convert object %s to CORBA; object is not a list.' % (obj.__class__.__name__))
+            msg='Unable to convert object %s to CORBA; object is not a list.' % (obj.__class__.__name__)
+            logger.exception(msg)
+            raise ServerProgrammingError(msg)
 
     elif data_type in class_cache:
         # corba casting
@@ -306,8 +308,8 @@ def _create_corba_method(method, method_name, data_type, write, method_args, exc
                 # play nice and tell the user what's going on.
                 
                 # Log a traceback for debugging
-                traceback.print_exc()
-
+                logger.exception("")
+                
                 # And make a nice descriptice error for the user
                 explanation = e.__class__.__name__ + ": " + explanation
                 exception = SpineIDL.Errors.ServerError

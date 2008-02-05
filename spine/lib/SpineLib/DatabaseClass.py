@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sets
+import sys
 
 import Cerebrum.Errors
 
@@ -397,7 +398,7 @@ def _table_exists(db, table):
 def _create_table(db, cls, table, slots, visited):
     if _table_exists(db, table):
         return
-    print 'creating table', table
+    print >>sys.stderr, 'creating table', table
     def genattr(attr):
         txt = ''
         if attr.data_type is int:
