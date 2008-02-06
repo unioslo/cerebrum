@@ -37,6 +37,10 @@ from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.spine.SpineLib.SpineExceptions import NotFoundError, OperationalError
 from Cerebrum.spine.SpineLib.Transaction import Transaction, TransactionError
 
+from Cerebrum.Utils import Factory
+logger = Factory.get_logger()
+
+
 class Session:
     """
     This class implements sessions in Spine.
@@ -91,7 +95,7 @@ class Session:
 
     def debug_transactions(self):
         pass
-    debug_transactions.signature = None
+    debug_transactions.signature = str
 
 # Build corba-classes and IDL
 
@@ -126,11 +130,16 @@ for cls in classes:
     register_spine_class(cls, idl_class, idl_struct)
 
 class SessionImpl(Session, SpineIDL__POA.SpineSession):
-    def __init__(self, client):
+    def __init__(self, client, username, version, host):
         self._encoding = getattr(cereconf, 'SPINE_DEFAULT_CLIENT_ENCODING', 'iso-8859-1')
         self.client = client
+        self.username = username
+        self.version = version
+        self.host = host
         self._transactions = {}
         self.authorization = Authorization(client)
+        logger.info("Login from %s@%s(%s) (%x)" % (
+            username, host, version, id(self)))
 
     def reset_timeout(self):
         """This method resets the timeout of this session in its session handler."""
@@ -169,7 +178,7 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         self.reset_timeout()
         return self._transactions.values() # NOTE: Returns CORBA references
 
-    def destroy(self):
+    def _destroy(self):
         """Rollback all transactions and drop the references to them."""
         # Get all keys since the dict will change size and raise RuntimeError
         # if we iterate over it
@@ -177,7 +186,6 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         for transaction in transactions:
             try: transaction.rollback() # This will make the transaction remove itself
             except: pass
-        self.client = None
 
     def remove_transaction(self, transaction):
         """Remove all objects associated with the transaction, and remove the
@@ -198,12 +206,21 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
 
     def debug_transactions(self):
         handler = SessionHandler.get_handler()
-        handler.printlist()
+        return handler.formatlist()
 
     def logout(self):
         handler = SessionHandler.get_handler()
         handler.remove(self)
-        self.destroy()
+        self._destroy()
+        logger.info("Logout from %s@%s(%s) (%x)" % (
+            self.username, self.host, self.version, id(self)))
+        self.client=None
+
+    def destroy(self):
+        self._destroy()
+        logger.info("Timeout from %s@%s(%s) (%x)" % (
+            self.username, self.host, self.version, id(self)))
+        self.client=None
 
     def ping(self):
         return 'pong'

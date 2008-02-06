@@ -44,6 +44,7 @@ class SessionHandler(threading.Thread):
         self.running = False
         self._sessions = {}
         self._corba_sessions = {}
+        self.sessionid=0
 
     def add(self, session):
         com = Communication.get_communication()
@@ -95,8 +96,8 @@ class SessionHandler(threading.Thread):
         now = time.time()
         for session, stamp in self._sessions.items():
             if stamp <= now:
-                session.destroy()
                 self._remove(session)
+                session.destroy()
 
         self._session_lock.release()
 
@@ -107,9 +108,11 @@ class SessionHandler(threading.Thread):
         ret="%d sessions:" % len(self._sessions)
         now=time.time()
         for s,timeo in self._sessions.items():
-            ret+="\n%x: user=%s transactions=%d timeout=%d\n" % (
+            ret+="\n%x: user=%s version=%s host=%s transactions=%d timeout=%d\n" % (
                 id(s),
-                s.client.get_name(),
+                s.username,
+                s.version,
+                s.host,
                 len(s._transactions),
                 timeo-now)
         return ret

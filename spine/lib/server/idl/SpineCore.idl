@@ -85,7 +85,8 @@ module SpineCore {
         * \param password
         * \return A session object 
         */
-        Object login(in string username, in string password)
+        Object login2(in string username, in string password,
+		      in string version, in string hostname)
             raises(LoginError);
     };
 };

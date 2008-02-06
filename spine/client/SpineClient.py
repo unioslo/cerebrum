@@ -22,8 +22,11 @@
 import os
 import sys
 import urllib
+import socket
 
 from omniORB import CORBA, importIDL, importIDLString
+VERSION="0.2"
+
 
 def fixOmniORB():
     """Workaround for bugs in omniorb
@@ -46,6 +49,25 @@ def fixOmniORB():
 
     omniORB.CORBA.Object.__hash__ = __hash__
     omniORB.CORBA.Object.__eq__ = __eq__
+
+def fixSpine():
+    """Workaround for spine
+
+    Enables automatic logout
+    Provides versioning with login
+    """
+    import SpineIDL, SpineCore
+    old_del = SpineIDL._objref_SpineSession.__del__
+    def __del__(self):
+        self.logout()
+        return old_del(self)
+    SpineIDL._objref_SpineSession.__del__ = __del__
+    
+    def login(self, username, password):
+        host=socket.gethostbyaddr(socket.gethostname())[0]
+        return self.login2(username, password, VERSION, host)
+    SpineCore._objref_Spine.login = login
+
 
 #FIXME: make optional?
 fixOmniORB()
@@ -91,7 +113,7 @@ class SpineClient:
         if not self.check_md5() and automatic:
             self.bootstrap()
 
-        import SpineIDL, SpineCore
+        fixSpine()
 
     def init_ssl(self):
         try:

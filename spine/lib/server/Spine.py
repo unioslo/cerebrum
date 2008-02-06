@@ -74,7 +74,7 @@ class SpineImpl(SpineCore__POA.Spine):
     def get_version(self):
         return SpineCore.Version(SPINE_MAJOR_VERSION, SPINE_MINOR_VERSION)
         
-    def login(self, username, password):
+    def login2(self, username, password, version, host):
         """Return the user-spesific session.
         
         If the username and password is correct and the user is not
@@ -102,9 +102,7 @@ class SpineImpl(SpineCore__POA.Spine):
         if account.is_quarantined():
             raise exception
 
-        # TODO: Log successful login
-
-        session = Session.SessionImpl(account)
+        session = Session.SessionImpl(account, username, version, host)
 
         session_handler = SessionHandler.get_handler()
         return session_handler.add(session)
