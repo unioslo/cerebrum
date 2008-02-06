@@ -59,7 +59,10 @@ def fixSpine():
     import SpineIDL, SpineCore
     old_del = SpineIDL._objref_SpineSession.__del__
     def __del__(self):
-        self.logout()
+        try:
+            self.logout()
+        except:
+            pass
         return old_del(self)
     SpineIDL._objref_SpineSession.__del__ = __del__
     
