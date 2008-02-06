@@ -40,7 +40,13 @@ import user
 import sys, os
 import ConfigParser
 conf = ConfigParser.ConfigParser()
-conf.read(('client.conf.template', '../../../client.conf'))
+
+configfile='../../../client.conf'
+if len(sys.argv) > 1:
+    print sys.argv[1]
+    configfile=sys.argv[1]
+
+conf.read(('client.conf.template', configfile))
 
 try:
     import SpineClient
@@ -81,8 +87,12 @@ class Session(object):
 
     def __del__(self):
         print "Logging out..."
-        for i in self.session.get_transactions():
-            i.rollback()
-        self.session.logout()
+	try:
+            for i in self.session.get_transactions():
+                try: i.rollback()
+                except: pass
+        except: pass
+        try: self.session.logout()
+        except: pass
 
 _login()
