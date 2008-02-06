@@ -75,6 +75,7 @@ account_search = """
 -- SELECT count(account_info), count(posix_user)
 SELECT
 account_info.account_id AS id,
+account_info.owner_id AS owner_id,
 account_name.entity_name AS name,
 account_authentication.auth_data AS passwd,
 -- homedir
@@ -554,7 +555,7 @@ class View(DatabaseTransactionClass):
         return persons
 
 
-    def add_quarantines(self, entities):
+    def add_quarantines(self, entities, owner=False):
         quarantines = {}
         quarantines_has = quarantines.has_key
         eq = EntityQuarantine(self.db)
@@ -568,7 +569,10 @@ class View(DatabaseTransactionClass):
                 quarantines[id] = [qtype]
 
         for e in entities:
+            q = quarantines.get(e["id"], [])
             e["quarantines"] = quarantines.get(e["id"], [])
+            if owner:
+                e["quarantines"] += quarantines.get(e["owner_id"], [])
     
         return entities
 
@@ -610,14 +614,14 @@ class View(DatabaseTransactionClass):
         db = self.get_database()
         rows=db.query(account_search % "", self.query_data)
         return self.add_quarantines([self.extend_account(r.dict())
-                                     for r in rows])
+                                     for r in rows], owner=True)
     get_accounts.signature = [Struct(AccountView)]
     def get_accounts_cl(self):
         db = self.get_database()
         rows=db.query(account_search % account_search_cl + account_search_cl_o,
                       self.query_data)
         return self.add_quarantines([self.extend_account(r.dict())
-                                     for r in rows])
+                                     for r in rows], owner=True)
     get_accounts_cl.signature = [Struct(AccountView)]
     def get_groups(self):
         db = self.get_database()
