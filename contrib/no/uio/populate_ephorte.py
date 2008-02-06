@@ -212,7 +212,7 @@ class PopulateEphorte(object):
             person2roles.setdefault(int(row['person_id']), []).append(
                 SimpleRole(int(row['role_type']), int(row['adm_enhet']),
                            row['arkivdel'], row['journalenhet'],
-                           auto_role=(row['auto_role']=='T'))
+                           auto_role=(row['auto_role']=='T')))
 
         has_ephorte_spread = {}
         for row in pe.list_all_with_spread(co.spread_ephorte_person):
@@ -237,7 +237,7 @@ class PopulateEphorte(object):
             # Add saksbehandler role for each ephorte ou where an
             # employee has an affiliation
             for t in ous:
-                auto_roles.append(self.map_ou2role(t, auto_role='T'))
+                auto_roles.append(self.map_ou2role(t))
             if person_id in superusers:
                 auto_roles.append(self._superuser_role)
             # All employees shall have ephorte spread
