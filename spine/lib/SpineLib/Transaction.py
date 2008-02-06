@@ -48,6 +48,10 @@ class Transaction(Builder.Builder):
         self._session = session
         self._session.reset_timeout()
         self._db = Database.SpineDatabase(session.client.get_id())
+        logger.debug("New transaction %s@%s(%s) (%x)" % (
+            self._session.username, self._session.host,
+            self._session.version, id(self)))
+
 
     def get_encoding(self):
         return self._session.get_encoding()
@@ -125,6 +129,9 @@ class Transaction(Builder.Builder):
         except Exception, e:
             self.rollback()
             raise TransactionError('Failed to commit: %s' % e)
+        logger.debug("End transaction (commit) %s@%s(%s) (%x)" % (
+            self._session.username, self._session.host,
+            self._session.version, id(self)))
         self.__invalidate()
 
     _commit = serialized_decorator(_commit, '_lost_locks_lock')
@@ -153,6 +160,9 @@ class Transaction(Builder.Builder):
                     if item.is_deleted():
                         item._undelete()
                 item.unlock(self)
+        logger.debug("End transaction (rollback) %s@%s(%s) (%x)" % (
+            self._session.username, self._session.host,
+            self._session.version, id(self)))
         self.__invalidate()
 
     _rollback = serialized_decorator(_rollback, '_lost_locks_lock')
