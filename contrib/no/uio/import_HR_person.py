@@ -280,6 +280,9 @@ def determine_affiliations(xmlperson, source_system):
         assert t.place[0] == DataOU.NO_SKO
         place = get_sko(t.place[1], source_system)
         if place is None:
+            logger.info("Person id=%s has unknown sko=%s in employment "
+                        "(stilling)",
+                        list(xmlperson.iterids()), t.place[1])
             continue
 
         if t.percentage > max_so_far:
@@ -304,6 +307,8 @@ def determine_affiliations(xmlperson, source_system):
         assert b.place[0] == DataOU.NO_SKO
         place = get_sko(b.place[1], source_system)
         if place is None:
+            logger.info("Person id=%s has unknown sko=%s in bilag",
+                        list(xmlperson.iterids()), b.place[1])
             continue
             
         k = "%s:%s" % (place["id"], int(const.affiliation_ansatt))
@@ -326,6 +331,8 @@ def determine_affiliations(xmlperson, source_system):
     
         place = get_sko(g.place[1], source_system)
         if place is None:
+            logger.info("Person id=%s has unknown sko=%s in guest ",
+                        list(xmlperson.iterids()), b.place[1])
             continue
     
         aff_stat = None
