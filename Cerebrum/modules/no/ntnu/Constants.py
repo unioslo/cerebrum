@@ -264,7 +264,7 @@ class Constants(Constants.Constants):
 
 
     quarantine_remote = _QuarantineCode('remote', 'VPN wireless and radius-related')
-    quarantine_sperret = _QuarantineCode('teppe', 'Kalt inn på teppet til NTNU IT')
+    quarantine_sperret = _QuarantineCode('sperret', 'Sperret ved formell beslutning')
     quarantine_slutta = _QuarantineCode('slutta', 'Personen har slutta')
     quarantine_svakt_passord = _QuarantineCode('svakt_passord', 'For dårlig passord')
 

@@ -20,6 +20,8 @@ import logging
 import time
 import os
 import traceback
+from sets import Set as set
+
 
 import locale
 locale.setlocale(locale.LC_ALL,'nb_NO')
@@ -416,10 +418,9 @@ class BDBSync:
 
 
     def compare_person_bdbids(self):
-        from sets import Set
 
-        cerebrum=Set()
-        bdb=Set()
+        cerebrum=set()
+        bdb=set()
         person=self.new_person
         for i in person.list_external_ids(source_system=self.const.system_bdb,
                                           id_type=self.const.externalid_bdb_person):
@@ -604,7 +605,6 @@ class BDBSync:
                               person['id'])
             new_person.populate(birth_date, gender)
         new_person.write_db()
-            
 
         # Populate person with names 
 
@@ -632,6 +632,22 @@ class BDBSync:
                                             fnr)
         # Write to database
         new_person.write_db()
+
+        newquarantines = set()
+        if person['sperret']:
+            newquarantines.add(new_person.const.quarantine_sperret)
+        
+        oldquarantines = set([q['quarantine_type']
+                              for q in new_person.get_entity_quarantine()])
+
+        for s in oldquarantines - newquarantines:
+            new_person.delete_entity_quarantine(s)
+
+        for s in newquarantines - oldquarantines:
+            new_person.add_entity_quarantine(s, creator=self.initial_account,
+                                             description="imported from BDB",
+                                             start=mx.DateTime.now())
+
         self.logger.info("Wrote cerebrum person %s", new_person.entity_id)
 
     def _is_posix_group(self,group):
@@ -1071,8 +1087,6 @@ class BDBSync:
         return
 
     def _sync_spread(self, username, spreads):
-        from sets import Set
-
         s_map = self.spread_mapping
         ac = self.ac
         ac.clear()
@@ -1084,8 +1098,8 @@ class BDBSync:
             self.logger.warn("Account with name %s not found. Continuing." % username)
             return
 
-        oldspreads = Set([s['spread'] for s in ac.get_spread()])
-        newspreads = Set()
+        oldspreads = set([s['spread'] for s in ac.get_spread()])
+        newspreads = set()
         for s in spreads:
             i=s_map.get(s['spread_name'])
             if i: newspreads.add(i)
@@ -1099,8 +1113,6 @@ class BDBSync:
         
 
     def _sync_quarantenes(self, username, spreads):
-        from sets import Set
-
         s_map = self.spread_mapping
         ac = self.ac
         ac.clear()
@@ -1112,7 +1124,7 @@ class BDBSync:
             self.logger.warn("Account with name %s not found. Continuing." % username)
             return
 
-        newquarantines = Set()
+        newquarantines = set()
 
         # any /bin/badpw gives quarantine_svakt_passord
         # /bin/sperret on opprint gives quarantine_remote
@@ -1124,7 +1136,7 @@ class BDBSync:
                 if s['spread_name'] in ('oppringt', 'ansoppr'):
                     newquarantines.add(ac.const.quarantine_remote)
         
-        oldquarantines = Set([q['quarantine_type']
+        oldquarantines = set([q['quarantine_type']
                               for q in ac.get_entity_quarantine()])
         
         for s in oldquarantines - newquarantines:
