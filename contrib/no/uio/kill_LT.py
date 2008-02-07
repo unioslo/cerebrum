@@ -22,13 +22,22 @@
 """Remove or copy to source Manual most data registered with source LT.
 
 Note: Name changes schedule a few test-mailboxes to be moved.  Report
-these to postmaster, so they can be canceled before they are executed.
+these to postmaster, so the moves can be canceled before they are executed.
 
-Removes:
-person_affiliation_source except affiliations marked as deleted:
+Usage: kill_LT.py [--dryrun] [removal options; default = all removals]
+
+Removals:
+
+--affiliation
+  Table person_affiliation_source except affiliations marked as deleted.
   Save ANSATT/* -> Manuell/inaktiv_ansatt, unless SAP has same aff/status@ou.
   Save TILKNYTTET/* -> Manuell/gjest,      unless SAP has same aff@ou.
-person_name:
+
+--refresh
+  Remove nothing, but regenerate cached names which --name will regenerate
+
+--name
+  Table person_name.
   Do not save titles.
   Save other names not overridden in SAP, FS or Manual.
   This causes names from LT to override names from Ureg, which is before
@@ -36,16 +45,22 @@ person_name:
   Cached names which should have been regenerated when LT was moved
   after FS in system_lookup_order, get fixed.
   E-mail addresses are also affected by name changes.
-entity_address, entity_contact_info:
+
+--contact
+  Tables entity_address, entity_contact_info.
   Save OU-data to Manual if not overridden by data from SAP or Manual.
   Check that the remaining OUs have quarantine.
-ou_structure[perspective_sap]:
+
+--perspective
+  ou_structure[perspective_sap].
   Not saved.
-entity_external_id[externalid_fodselsnr]:
-  Saved to Manual if not overridden by data from SAP, FS or Manual.
+
+--fnr
+  entity_external_id[externalid_fodselsnr].
+  Saved to Manual if there is no fnr in SAP, FS or Manual.
 
 Remaining LT-data:
-LT person_affiliation_source with non-NULL deleted_date,
+person_affiliation_source: deleted affiliations (non-null deleted_date).
 LT in authoritative_system_code and ou_perspective_code.
 """
 
@@ -68,13 +83,16 @@ entity = CAEntity(db)
 
 Log, Info, Warn = None, logger.info, logger.warning
 if True:
-    Log = file("ltkill.out", "a", 1)
+    # This program produces immense logs, so put Info level in a
+    # separate file and leave Warning level or worse to the logger.
+    Log = file("kill_LT.out", "a", 1)
     def Info(txt): print >>Log, txt
 
 system_sap    = int(const.system_sap)
 system_fs     = int(const.system_fs)
 system_manual = int(const.system_manual)
 system_lt     = int(const.system_lt)
+# Systems whose data override person_name and entity_external_id[fodselsnr]
 better_systems= (system_sap, system_fs, system_manual) # for names and ext.ids
 
 perspective_sap = int(const.perspective_sap)
@@ -85,11 +103,13 @@ type_person = int(const.entity_person)
 
 idtype_fnr  = const.externalid_fodselsnr
 
+# Remove these name variants without saving to Manual.
 drop_names  = (int(const.name_personal_title), int(const.name_work_title))
 
 affiliation_tilknyttet = int(const.affiliation_tilknyttet)
 affiliation_ansatt = int(const.affiliation_ansatt)
 affiliation_manuell = int(const.affiliation_manuell)
+# Translate affiliation <aff>/* to MANUELL/<aff2status[aff]>
 aff2status = {
     affiliation_ansatt: int(const.affiliation_manuell_inaktiv_ansatt),
     affiliation_tilknyttet: int(const.affiliation_manuell_gjest)}
@@ -107,31 +127,33 @@ def nint(x):
 
 def affiliation():
     """Clean up person_affiliation_source"""
-    delrow = dict(deleted_date=True)
     print "affiliation..."
     count_ins = count_del = count_keep = 0
+    # To test for absent/deleted row: rows.get(key, delrow)['deleted_date']
+    delrow = dict(deleted_date=True)
+
     for ltrow in person.list_affiliations(source_system=system_lt,
                                           include_deleted=False,
                                           fetchall=True):
-        if Debug and count_ins >= 100:
+        if Debug and count_ins >= Debug:
             print "Debug done."
             break
         person_id = int(ltrow['person_id'])
         ou_id = int(ltrow['ou_id'])
         affiliation = int(ltrow['affiliation'])
         status = nint(ltrow['status'])
-        m_status = aff2status[affiliation]
+        data = "LT affiliation(pers %d, ou %d, aff %d, status %s)" % \
+               (person_id, ou_id, affiliation, status)
+        m_status = aff2status[affiliation] # Resulting status in Manual
 
         person.clear()
         person.find(person_id)
 
-        sys2row = {}
+        sys2row = {} # mapping {source system: affiliation matching ltrow}
         for row in person.list_affiliations(\
             person_id=person_id, affiliation=affiliation, ou_id=ou_id,
             include_deleted=True):
             sys2row[int(row['source_system'])] = row
-        data = "LT affiliation(pers %d, ou %d, aff %d, status %s)" % \
-               (person_id, ou_id, affiliation, status)
 
         if sys2row.get(system_sap, delrow)['deleted_date'] is None \
            and (affiliation == affiliation_tilknyttet
@@ -144,18 +166,21 @@ def affiliation():
                 ou_id, affiliation_manuell, system_manual, m_status)
         elif m_status != nint(sys2row[system_manual]['status']):
             count_keep += 1
-            Info("keep Manual status %s for %s"
+            Info("existing Manual status %s overrides %s"
                  % (nint(sys2row[system_manual]['status']), data))
+
         Info("delete " + data)
         count_del += 1
         person.delete_affiliation(ou_id, affiliation, system_lt)
         ckpoint(False)
+
     person.clear()
     ckpoint()
     Info("*Affiliations: Inserted %d, removed %d, kept manual %d*"
          % (count_ins, count_del, count_keep))
 
 def refresh():
+    """Refresh person_name[source Cached] where LT names exist"""
     name(True)
 
 def name(refresh_only=False):
@@ -165,20 +190,25 @@ def name(refresh_only=False):
     """
     print "name%s..." % ["", " refresh"][refresh_only]
     count_del = count_ins = 0
+
     name_types = [int(row['code']) for row in person.list_person_name_codes()]
     ltnames = person.getdict_persons_names(
         source_system=system_lt, name_types=name_types)
+
     for person_id, lt_variant2name in ltnames.iteritems():
-        if Debug and count_ins == 300:
+        if Debug and count_ins >= Debug:
             print "Debug done."
             break
         person.clear()
         person.find(person_id)
+
         if not refresh_only:
+            # Find which name variants we need to copy to Manual
             need_variants = set(lt_variant2name).difference(drop_names)
             for row in person.get_all_names():
                 if int(row['source_system']) in better_systems:
                     need_variants.discard(int(row['name_variant']))
+            # Copy them
             if need_variants:
                 person.affect_names(system_manual, *need_variants)
                 for variant in need_variants:
@@ -189,14 +219,17 @@ def name(refresh_only=False):
                 person.write_db()
                 person.clear()
                 person.find(person_id)
+            # Delete LT names
             for variant, name in lt_variant2name.iteritems():
                 count_del += 1
                 Info("delete LT name person_id=%d variant=%d '%s'"
                      % (person_id, variant, name))
                 person.get_name(system_lt, variant)
                 person._delete_name(system_lt, variant)
+
         person._update_cached_names()
         ckpoint(False)
+
     person.clear()
     ckpoint()
     if refresh_only:
@@ -207,24 +240,34 @@ def name(refresh_only=False):
 def contact():
     """Clean up entity_address and entity_contact_info"""
     print "contact..."
-    id2type = {}
+    ins_a_count = del_a_count = ins_c_count = del_c_count = 0
+
+    id2type = {}                      # mapping {entity_id: entity_type}
     for entity_type in type_person, type_ou:
         for row in entity.list_all_with_type(entity_type):
             id2type[int(row['entity_id'])] = entity_type
 
-    ins_a_count = del_a_count = ins_c_count = del_c_count = 0
+    # All OUs in SAP (according to table ou_structure)
     sap_OUs = dict([(int(row['ou_id']), nint(row['parent_id']))
                     for row in ou.get_structure_mappings(perspective_sap)])
     sap_OUs = set(sap_OUs).union(set(sap_OUs.values()))
     sap_OUs.discard(None)
+
+    # All quarantined OUs
     quarantines = set(
         [int(row['entity_id'])
          for row in ou.list_entity_quarantines(entity_types=type_ou,
                                                only_active=False)])
 
+    # Used to call methods via the entity's class instead of
+    # from Entity, in case there is some magic in there.
     etype_map = {type_ou: ("ou", ou), type_person: ("person", person)}
 
     def mklist(listfunc, typename):
+        """Return (
+            map {entity_id: set(existing addr/contact types in LT)},
+            set (entity_ids with addr/contact in Manual))
+        """
         data2type = {}
         for row in listfunc(source_system=system_lt):
             entity_id = int(row['entity_id'])
@@ -235,20 +278,24 @@ def contact():
             entity_id = int(row['entity_id'])
             manual_data.add(int(row['entity_id']))
         return data2type, manual_data
+
     addr2type, manual_addr = mklist(
         entity.list_entity_addresses, 'address_type')
     contact2type, manual_contact = mklist(
         entity.list_contact_info, 'contact_type')
 
+    # For all entity_ids with address or contact in LT:
     for entity_id in set(addr2type).union(set(contact2type)):
         entity_type = id2type[entity_id]
         in_sap = (entity_id in sap_OUs)
+        # OUs should be either in SAP or have quarantine
         if entity_type == type_ou:
             if not in_sap and entity_id not in quarantines:
                 Warn("Addr/contact: Skip ou_id %d: not in SAP, no quarantine"
                      % entity_id)
                 continue
-        typename, e = etype_map[entity_type]
+
+        typename, e = etype_map[entity_type] # ("person", person) or ("ou", ou)
         e.clear()
         e.find(entity_id)
 
@@ -257,8 +304,10 @@ def contact():
                 Warn("Addr: Skip %s_id %d: Already has manual address"
                      % (typename, entity_id))
                 continue
+
             for row in list(e.get_entity_address(
                 source=system_lt, type=address_type)):
+                # Copy OU-addresses to Manual if not in SAP
                 if entity_type == type_ou and not in_sap:
                     Info("add Manual address: ou_id=%d, type=%d, '%s'" %
                          (entity_id, address_type, row['address_text']))
@@ -275,6 +324,7 @@ def contact():
                 del_a_count += 1
                 e.delete_entity_address(system_lt, address_type)
 
+        # Same logic contacts as for addresses
         for contact_type in contact2type.get(entity_id, ()):
             if entity_id in manual_contact:
                 Warn("Contact: Skip %s_id %d: Already has manual contact"
@@ -299,6 +349,7 @@ def contact():
                 e.delete_contact_info(system_lt, contact_type)
 
         ckpoint(False)
+
     e.clear()
     ckpoint()
     Info("*Addrs/contacts: Inserted %d/%d, removed %d/%d*"
@@ -307,7 +358,8 @@ def contact():
 def perspective():
     """Remove ou_structure[perspective_lt]"""
     print "perspective..."
-    ou_list = []
+
+    ou_list = [] # [(ou, parent), ...] with parents before children
     lt_structure = dict([(int(row['ou_id']), nint(row['parent_id']))
                          for row in ou.get_structure_mappings(perspective_lt)])
     while lt_structure:
@@ -315,12 +367,14 @@ def perspective():
             if parent_id not in lt_structure or parent_id == ou_id:
                 ou_list.append((ou_id, parent_id))
                 del lt_structure[ou_id]
+
     for ou_id, parent_id in reversed(ou_list):
         Info("delete LT perspective %d -> %s" % (ou_id, parent_id))
         ou.clear()
         ou.find(ou_id)
         ou.unset_parent(perspective_lt)
         ckpoint(False)
+
     ou.clear()
     ckpoint()
     Info("*Perspective: removed %d*" % len(ou_list))
@@ -329,11 +383,14 @@ def fnr():
     """Clean up entity_external_id[externalid_fodselsnr]"""
     print "fnr..."
     count_del = count_ins = 0
+
+    # All entity_ids with fnr from LT
     ids = [int(row['entity_id'])
            for row in person.list_external_ids(
         source_system=system_lt, id_type=idtype_fnr, entity_type=type_person)]
+
     for entity_id in ids:
-        if Debug and count_ins == 300:
+        if Debug and count_ins >= Debug:
             print "Debug done."
             break
         need, ltrow = True, None
@@ -343,8 +400,9 @@ def fnr():
             if s == system_lt:
                 ltrow = row
             elif s in better_systems:
-                need = False
-        if not ltrow: continue
+                need = False # No need to save if any fnr in SAP, FS or Manual
+        assert ltrow
+
         person.clear()
         person.find(entity_id)
         if need:
@@ -359,24 +417,29 @@ def fnr():
         count_del += 1
         person._delete_external_id(source_system=system_lt, id_type=idtype_fnr)
         ckpoint(False)
+
     person.clear()
     ckpoint()
     Info("*External_id: Inserted %d, removed %d*" % (count_ins, count_del))
 
 def main():
+    global Dryrun
     prog_opts = ["affiliation","refresh","name","contact","perspective","fnr"]
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "", prog_opts)
+        opts, args = getopt.getopt(sys.argv[1:], "", prog_opts + ["dryrun"])
     except getopt.GetoptError, e:
         sys.exit(str(e))
     if args:
         sys.exit("Invalid arguments: " + " ".join(args))
-    if opts:
-        opts = [opt[2:] for opt, val in opts]
-    else:
+    opts = [opt[2:] for opt, val in opts]
+    if "dryrun" in opts:
+        print "dryrun"
+        Dryrun = True
+        opts.remove("dryrun")
+    if not opts:
         prog_opts.remove("refresh")
         opts = prog_opts
-    if "refresh" in opts and "name" in opts:
+    elif "refresh" in opts and "name" in opts:
         sys.exit("Options --refresh and --name incompatible")
 
     for opt in prog_opts:
