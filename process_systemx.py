@@ -446,6 +446,8 @@ class Build(object):
         tmp_spread=[int(co.Spread('ldap@uit'))]
         for s in person_info.get('spreads'):
             tmp_spread.append(int(co.Spread(s)))
+            if s=='SUT@uit':
+                tmp_spread.append(int(co.Spread('fd@uit')))
         sysX_spreads=Set(tmp_spread)
         cb_spreads=Set(acc_obj.get_spreads())
         to_add=sysX_spreads - cb_spreads
