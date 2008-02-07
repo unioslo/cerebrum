@@ -158,13 +158,16 @@ def affiliation():
         if sys2row.get(system_sap, delrow)['deleted_date'] is None \
            and (affiliation == affiliation_tilknyttet
                 or status == nint(sys2row[system_sap]['status'])):
+            # SAP has the same affiliation (ignoring status in TILKNYTTET/*)
             Info("SAP has " + data)
         elif sys2row.get(system_manual, delrow)['deleted_date'] is not None:
+            # Need Manuell affiliation, none exists or a deleted one exists
             Info("add Manuell for " + data)
             count_ins += 1
             person.add_affiliation(
                 ou_id, affiliation_manuell, system_manual, m_status)
         elif m_status != nint(sys2row[system_manual]['status']):
+            # Manuell affiliation exists, though with different status
             count_keep += 1
             Info("existing Manual status %s overrides %s"
                  % (nint(sys2row[system_manual]['status']), data))
@@ -279,6 +282,7 @@ def contact():
             manual_data.add(int(row['entity_id']))
         return data2type, manual_data
 
+    # {entity_id: (LT <addr/contact> types)}; set(entity_id with Manual a./c.)
     addr2type, manual_addr = mklist(
         entity.list_entity_addresses, 'address_type')
     contact2type, manual_contact = mklist(
@@ -393,19 +397,19 @@ def fnr():
         if Debug and count_ins >= Debug:
             print "Debug done."
             break
-        need, ltrow = True, None
+        need_manual_copy, ltrow = True, None
         for row in person.list_external_ids(id_type=idtype_fnr,
                                             entity_id=entity_id):
             s = int(row['source_system'])
             if s == system_lt:
                 ltrow = row
             elif s in better_systems:
-                need = False # No need to save if any fnr in SAP, FS or Manual
+                need_manual_copy = False
         assert ltrow
 
         person.clear()
         person.find(entity_id)
-        if need:
+        if need_manual_copy:
             Info("insert Manual fnr (external_id=%s entity_id=%d"
                  % (ltrow['external_id'], entity_id))
             count_ins += 1
@@ -422,6 +426,7 @@ def fnr():
     ckpoint()
     Info("*External_id: Inserted %d, removed %d*" % (count_ins, count_del))
 
+
 def main():
     global Dryrun
     prog_opts = ["affiliation","refresh","name","contact","perspective","fnr"]
@@ -431,6 +436,7 @@ def main():
         sys.exit(str(e))
     if args:
         sys.exit("Invalid arguments: " + " ".join(args))
+
     opts = [opt[2:] for opt, val in opts]
     if "dryrun" in opts:
         print "dryrun"
@@ -447,6 +453,7 @@ def main():
             globals()[opt]()
 
     if Log: Log.close()
+
 
 if __name__ == '__main__':
     main()
