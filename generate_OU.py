@@ -149,8 +149,14 @@ class ou:
         INSTNAME=3
         GRPNR=4
         GRPNAME=5
-        SHORTNAME=6
-        LEVEL=7
+        PORTAL=6
+        ORGKORT_OK=7
+        NODE_FOR_PERSON=8
+        NODE_FOR_PERSON_KODE=9
+        SHORTNAME=10
+        STED_AKRONYM=11
+        LEVEL=12
+        num_fields=13
         import codecs
         logger.info("Reading authoritative OU file %s" % self.ou_file)
         fileObj = codecs.open( self.ou_file, "r", "utf-8" )
@@ -158,8 +164,9 @@ class ou:
             line = line.encode('iso-8859-1')
             if line and not line.startswith("#"):
                 items=line.rstrip().split(";")
-                if len(items)!=8:
-                    logger.critical("Wrong length: %s" % line.rstrip())
+                if len(items)!=num_fields:
+                    logger.critical("Wrong length: got %d, ekspected %d\nLine=%s" % \
+                                    (len(items),num_fields,line.rstrip()))
                     sys.exit(1)                    
                 faknr=items[FAKNR].strip("\"")
                 fakultet=items[FAKNAME].strip("\"")
@@ -167,6 +174,8 @@ class ou:
                 avdnr=items[GRPNR].strip("\"")
                 avdeling=items[GRPNAME].strip("\"")
                 shortname=items[SHORTNAME].strip("\"")
+                portal=items[PORTAL].strip("\"")
+                akronym=items[STED_AKRONYM].strip("\"")
                 if ((avdnr[4:6] == '00') and(instnr[2:4] == '00')):
                     # we have a fakulty, must reference the uit institution
                     faknr_org_under = '00'
@@ -186,6 +195,13 @@ class ou:
                     faknr_org_under = faknr
                     instituttnr_org_under = '00'
                     gruppenr_org_under = '00'
+
+
+                katalog_merke='F'
+                if portal.find('JA')>=0:
+                    katalog_merke='T'
+                    
+
                 
                 authoritative_ou[avdnr]  = {
                     'fakultetnr' : faknr,
@@ -202,9 +218,11 @@ class ou:
                     'adresselinje2_intern_adr': avdeling,
                     'poststednr_intern_adr': '9037',
                     'poststednavn_intern_adr': 'Tromsø',
-                    'opprettetmerke_for_oppf_i_kat' : 'X', 
+                    'opprettetmerke_for_oppf_i_kat' : katalog_merke,
                     'telefonnr' : "77644000",
                     }
+                if akronym:
+                    authoritative_ou[avdnr]['akronym']=akronym
 
         fileObj.close()
         return authoritative_ou
