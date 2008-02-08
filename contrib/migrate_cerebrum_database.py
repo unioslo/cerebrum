@@ -41,7 +41,7 @@ targets = {
     'bofhd': ('bofhd_1_1', ),
     'changelog': ('changelog_1_2', ),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
-    'ephorte': ('ephorte_1_1', ),
+    'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     }
 
 # Global variables
@@ -774,7 +774,15 @@ def migrate_to_ephorte_1_1():
     print "Migration to ephorte 1.1 completed successfully"
     db.commit()
 
-
+def migrate_to_ephorte_1_2():
+    print '\ndone'
+    assert_db_version("1.1", component='ephorte')
+    makedb('ephorte_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_ephorte", "1.2")
+    print "Migration to ephorte 1.2 completed successfully"
+    db.commit()
+    
 def init():
     global db, co
 
