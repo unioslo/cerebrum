@@ -53,13 +53,13 @@ class worker:
         visibility = self.const.group_visibility_all
         self.account.find_by_name('bootstrap_account')
         creator = self.account.entity_id
-#        print "group.new(db, %s, %s, %s, %s)" %(creator, visibility, newgroup, newgroup_desc)
         group = Factory.get('Group')(self.db)
         group.clear()
         try:
             group.find_by_name(newgroup)            
         except Exception,msg:
-            group.new( creator, visibility, newgroup, description=newgroup_desc)
+            group.populate( creator, visibility, newgroup, description=newgroup_desc)
+            group.write_db()
             print "New group %s (%s) created" % (newgroup,newgroup_desc)
         
         if posix:
