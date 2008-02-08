@@ -146,7 +146,8 @@ def ou_id2ou_info(ou_id):
             return None
         
         return {"sko": format_sko(ou.fakultet, ou.institutt, ou.avdeling),
-                "name": ou.name,}
+                "name": ou.name,
+                "ou_id": ou_id}
     except Errors.NotFoundError:
         return None
 
@@ -285,10 +286,10 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
       In case a group needs creating, this will be the description registered
       in Cerebrum.
 
-    @type current_groups: dict
+    @type current_groups: dict 
     @param current_groups: Return value of L{find_all_auto_groups}.
 
-    @type traits: a constant (int or basestring)
+    @type traits: a constant (int or basestring) or NotSet
     @param traits:
       Additional trait to adorn L{group_name} with. The trait is added *only*
       if the group is created.
@@ -336,13 +337,12 @@ def temporary_employee_hack(row, current_groups, perspective):
       * ansatt_vitenskapelig@B or ansatt_tekadm@B, depending on aff status
       * *IF* B has subordinate OUs, then:
           meta_ansatt@B
-          meta_ansatt@C1
-          meta_ansatt@C_n
+      * meta_ansatt@C1
+        meta_ansatt@C_n
 
         ... where C1 is a parent of B and C_{i+1} is a parent of C_i. The
         'chain' of OUs continues as long as possible in the specified
         perspective.
-      * *IF* B has NO subordinate OUs, we don't do anything.
 
     IVR thinks this is weird, but JAZZ insists that this is what we want. In
     any event, this is supposed to be a temporary replacement of
@@ -408,17 +408,26 @@ def temporary_employee_hack(row, current_groups, perspective):
 
         # If the OU is at the "bottom" of the hierarchy, we do NOT generate a
         # meta_ansatt group for it. Ask JAZZ for an explanation.
-        if not ou_has_children(ou_id, perspective):
+        if ou_has_children(ou_id, perspective):
+            meta_group_name = "meta_ansatt" + suffix
+            meta_group_id = group_name2group_id(
+                  meta_group_name,
+                  "Tilsatte ved %s og underordnede organisatoriske enheter" %
+                   ou_info["name"],
+                  current_groups,
+                  constants.trait_auto_meta_group)
+            result.append((person_id, constants.entity_person, meta_group_id))
+            logger.debug("Person id=%s added to meta group id=%s, name=%s",
+                         person_id, meta_group_id, meta_group_name)
+        else:
             logger.debug("OU id=%s, name=%s, sko=%s has no children. "
-                         "No meta groups will be created",
+                         "No meta group will be created",
                          ou_id, ou_info["name"], ou_info["sko"])
-            return result
 
-        # Now, the OU has some OU-children, and is itself a child of another
-        # OU. Walk up the hierarchy and generate an membership for each
+        # Walk up the OU-hierarchy and generate an membership for each
         # group. NB! meta_ansatt@<root OU> will have A LOT of members.
-        tmp_id = ou_id
-        parent_info = ou_id2parent_info(tmp_id, perspective)
+        tmp_ou_id = ou_id
+        parent_info = ou_id2parent_info(tmp_ou_id, perspective)
         while parent_info:
             parent_name = "meta_ansatt@" + parent_info["sko"]
             meta_parent_id = group_name2group_id(
@@ -431,8 +440,8 @@ def temporary_employee_hack(row, current_groups, perspective):
             logger.debug("Person id=%s added to meta group id=%s, name=%s",
                          person_id, meta_parent_id, parent_name)
             # Walk up 1 level
-            tmp_id = meta_parent_id
-            parent_info = ou_id2parent_info(tmp_id, perspective)
+            tmp_ou_id = parent_info["ou_id"]
+            parent_info = ou_id2parent_info(tmp_ou_id, perspective)
 
     return result
 # end temporary_employee_hack
@@ -446,6 +455,9 @@ def employee2groups(row, current_groups, perspective):
     person should be a member of. Additionally, some of these memberships
     could trigger additional memberships (check the documentation for
     meta_ansatt@<sko>).
+
+    *** FIXME *** The meta-group code here is probably broken! Re-check it
+        before using this function!
 
     @type row: A db_row instance
     @param row:
@@ -1005,13 +1017,17 @@ def _locate_all_auto_traits():
 
 
 
-def perform_sync(perspective):
+def perform_sync(perspective, source_system):
     """Set up the environment for synchronisation and synch all groups.
 
     @type perspective: Cerebrum constant
     @param perspective:
       OU perspective, indicating which OU hierarchy should be searched in for
       parent-child OU relationships.
+
+    @type source_system: Cerebrum constants
+    @param source_system:
+      Source system for filtering some of the Cerebrum data.
     """
 
     assert perspective is not None, "Must have a perspective"
@@ -1031,7 +1047,8 @@ def perform_sync(perspective):
     global_rules = [
         # Employee rule: (ansatt@<ou>, ansatt_vitenskapelig@<ou>, etc.)
         (lambda: person.list_affiliations(
-                   affiliation=(constants.affiliation_ansatt,)),
+                   affiliation=(constants.affiliation_ansatt,),
+                   source_system=source_system),
          # IVR 2008-01-25 The fix is temporary.
          lambda *rest: # employee2groups(perspective=perspective, *rest)),
                        temporary_employee_hack(perspective=perspective, *rest)),
@@ -1125,19 +1142,23 @@ def perform_delete():
 
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:d",
+                                  "p:ds:",
                                   ("perspective=",
                                    "dryrun",
+                                   "source_system=",
                                    "remove-all-auto-groups",))
 
     dryrun = False
     perspective = None
     wipe_all = False
+    source_system = constants.system_sap
     for option, value in options:
         if option in ("-p", "--perspective",):
             perspective = int(constants.OUPerspective(value))
         elif option in ("-d", "--dryrun",):
             dryrun = True
+        elif option in ("-s", "--source_system",):
+            source_system = getattr(constants, value)
         elif option in ("--remove-all-auto-groups",):
             wipe_all = True
 
@@ -1145,7 +1166,7 @@ def main():
         perform_delete()
     else:
         logger.debug("All auto traits: %s", _locate_all_auto_traits())
-        perform_sync(perspective)
+        perform_sync(perspective, source_system)
 
     if dryrun:
         database.rollback()
