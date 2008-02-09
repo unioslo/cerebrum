@@ -251,7 +251,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             logger.warn("Person %s has ephorte permissions, but not ephorte spread" %
                         row['person_id'])
             continue
-        if not tmp.has_key('roles'):
+        if not tmp.has_key('permissions'):
             logger.error("person dict has no key 'permissions'. This shouldn't happen." +
                          "Person: %s " % row['person_id'])
             continue
