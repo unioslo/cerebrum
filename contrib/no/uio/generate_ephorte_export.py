@@ -10,6 +10,7 @@ from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
+from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 
 progname = __file__.split("/")[-1]
 __doc__ = """
@@ -28,6 +29,7 @@ co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 pe = Factory.get('Person')(db)
 ephorte_role = EphorteRole(db)
+ephorte_permission = EphortePermission(db)
 ou = Stedkode(db)
 cl = CLHandler.CLHandler(db)
 
@@ -75,6 +77,14 @@ def _get_sko(ou_id):
             ret = "UIO"
     return ret
 
+def _get_uname(operator):
+    ac.clear()
+    try:
+        ac.find(id)
+    except Errors.NotFoundError:
+        raise CerebrumError, "Could not find account %s" % (operator)
+    return ac.uname
+
 def generate_export(fname, spread=co.spread_ephorte_person):
     f = SimilarSizeWriter(fname, "w")
     f.set_size_change_limit(10)
@@ -92,6 +102,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
 
     persons = {} 
     # Format: entity_id -> {'roles': [],
+    #                       'permisions: []'
     #                       'first_name': '',
     #                       'last_name': '',
     #                       'full_name': '',
@@ -103,7 +114,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     #                       'feide_id': '',
     #                       'phone': ''}
     for row in pe.list_all_with_spread(spread):
-        persons[int(row['entity_id'])] = {'roles': []}
+        persons[int(row['entity_id'])] = {'roles': [], 'permissions': []}
     logger.info("Found %d persons with ephorte spread" % len(persons))
 
     # 1. Check changelog to find persons that have lost
@@ -233,6 +244,30 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             'end_date': row['end_date']
             })
                                   
+    logger.info("fetching permissions...")
+    for row in ephorte_permission.list_permission():
+        tmp = persons.get(int(row['person_id']), None)
+        if tmp is None:
+            logger.warn("Person %s has ephorte permissions, but not ephorte spread" %
+                        row['person_id'])
+            continue
+        if not tmp.has_key('roles'):
+            logger.error("person dict has no key 'permissions'. This shouldn't happen." +
+                         "Person: %s " % row['person_id'])
+            continue
+        perm_type = row['perm_type']
+        if perm_type:
+            perm_type = str(co.EphortePermission(perm_type))
+
+        tmp['permissions'].append({
+            'perm_type': perm_type,
+            'adm_enhet': _get_sko(row['adm_enhet']),
+            'operator': _get_uname(row['operator']),
+            'autopphav': 0, # Always 0 in db
+            'start_date': row['start_date'],
+            'end_date': row['end_date']
+            })
+
     xml = ExtXMLHelper()
     f.write(xml.xml_hdr)
     f.write("<ephortedata>\n")
