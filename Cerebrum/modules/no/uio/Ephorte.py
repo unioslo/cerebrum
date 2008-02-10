@@ -230,11 +230,12 @@ class EphortePermission(DatabaseAccessor):
         self.co = Factory.get('Constants')(database)
         self.pe = Factory.get('Person')(database)
         
-    def add_permission(self, person_id, tilgang, sko, changed_by=None):
+    def add_permission(self, person_id, tilgang, sko, requestee):
         binds = {
             'person_id': person_id,
             'perm_type': tilgang,
             'adm_enhet': sko,
+            'requestee_id': requestee
             }
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=ephorte_permission]
@@ -242,7 +243,7 @@ class EphortePermission(DatabaseAccessor):
                                  ", ".join([":%s" % k for k in binds.keys()])),
                                  binds)
         self._db.log_change(person_id, self.co.ephorte_perm_add,
-                            sko, change_by=changed_by, change_params={
+                            sko, change_params={
             'adm_enhet': sko or '',
             'perm_type': str(tilgang)})
 
@@ -270,7 +271,7 @@ class EphortePermission(DatabaseAccessor):
             where = ""
         return self.query("""
         SELECT person_id, perm_type, adm_enhet,
-               start_date, end_date
+               requestee_id, start_date, end_date
         FROM [:table schema=cerebrum name=ephorte_permission] %s""" % where, {
             'person_id': person_id})
     
