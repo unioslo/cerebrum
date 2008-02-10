@@ -146,22 +146,22 @@ public class EphorteGW {
     }
 
     /**
-     * Update any table, given in the xml string. The string must be
-     * the xml format described in ... and is sent directly to the
-     * ephorte web service. It is the callers responsibility that the
-     * format is correct.
+     * Update any person related table, given in the xml string. The
+     * string must be the xml format described in ... and is sent
+     * directly to the ephorte web service. It is the callers
+     * responsibility that the format is correct.
      *
      * Being able to send raw xml directly to the web service makes
      * testing much easier.
      *
      **/
-    public void updateAny(String xml) throws RemoteException {
+    public void rawSync(String xml) throws RemoteException {
 	try {
-	    int ret = conn.updateByXML(xml);
+	    int ret = conn.updatePersonByXML(xml);
 	    if (ret > 0) {
-		log.info("Successfull updated ephorte by updateByXML");
+		log.info("Successfully updated ephorte by updatePersonByXML");
 	    } else {
-		log.warn("updateByXML failed");
+		log.warn("updatePersonByXML failed");
 	    } 
 	} catch (AxisFault e) {
 	    log.warn("Problems updating ephorte. Sent xml: " + xml + 
