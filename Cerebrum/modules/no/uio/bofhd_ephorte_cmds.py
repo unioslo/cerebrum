@@ -253,12 +253,16 @@ class BofhdExtension(object):
     def ephorte_add_perm(self, operator, person_id, tilgang, sko):
         if not self.ba.can_add_ephorte_perm(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
+        operator_id = operator.get_entity_id()
         try:
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         ou = self._get_ou(stedkode=sko)
-        self.ephorte_perm.add_permission(person.entity_id, self._get_tilgang(tilgang), ou.entity_id)
+        self.ephorte_perm.add_permission(person.entity_id,
+                                         self._get_tilgang(tilgang),
+                                         ou.entity_id,
+                                         operator_id)
         return "OK, added 'tilgang' %s  for %s" % (tilgang, person_id)
     
     all_commands['ephorte_remove_perm'] = Command(("ephorte", "remove_perm"), PersonId(), Tilgang(), OU(), 
@@ -276,8 +280,8 @@ class BofhdExtension(object):
 
     all_commands['ephorte_list_perm'] = Command(("ephorte", "list_perm"), PersonId(), 
         perm_filter='can_list_ephorte_perm', fs=FormatSuggestion(
-        "%-10s %-25s", ('tilgang', 'adm_enhet'),
-        hdr="%-10s %-25s" % ("Tilgang", "Adm.enhet")))
+        "%-10s %-25s %-12s", ('tilgang', 'adm_enhet', 'requestee'),
+        hdr="%-10s %-25s %-12S" % ("Tilgang", "Adm.enhet", "Tildelt av")))
     def ephorte_list_perm(self, operator, person_id):
         if not self.ba.can_list_ephorte_perm(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
@@ -289,9 +293,14 @@ class BofhdExtension(object):
         ret = []
         for row in self.ephorte_perm.list_permission(person_id=person.entity_id):
             ou = self._get_ou(ou_id=row['adm_enhet'])
+            try:
+                account = self.util.get_target(operator.get_entity_id(), restrict_to=['Account'])
+            except Errors.NotFoundError:
+                raise CerebrumError("Could not find requestee.")            
             ret.append({
                 'tilgang': str(self._get_tilgang(row['perm_type'])),
                 'adm_enhet': self._format_ou_name(ou),
+                'requestee': account.account_name
                 }
                 )
         return ret
