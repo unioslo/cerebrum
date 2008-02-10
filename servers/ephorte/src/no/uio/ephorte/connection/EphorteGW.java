@@ -9,6 +9,7 @@ import java.util.Properties;
 import no.uio.ephorte.data.Adresse;
 import no.uio.ephorte.data.Person;
 import no.uio.ephorte.data.PersonRolle;
+import no.uio.ephorte.data.PersonTgKode;
 import no.uio.ephorte.xml.XMLUtil;
 
 import org.apache.axis.AxisFault;
@@ -98,8 +99,8 @@ public class EphorteGW {
          * </AdrPerson>
          */
 
-        Hashtable<Integer, Person> personId2Person = new Hashtable<Integer, Person>();
         log.info("EphorteGW.fetchPersons() started...");
+        Hashtable<Integer, Person> personId2Person = new Hashtable<Integer, Person>();
         for (Hashtable<String, String> ht : conn.getDataSet("object=person", "Person")) {
             Person p = new Person(ht, true);
             personId2Person.put(p.getId(), p);
@@ -126,13 +127,24 @@ public class EphorteGW {
 	// setup is a static method
         PersonRolle.setup(conn.getDataSet("object=admindel", "AdminDel"),
 			  conn.getDataSet("object=rolle", "Rolle"));
-
+	// Find person roles
         for (Hashtable<String, String> ht : conn.getDataSet("object=perrolle", "PerRolle")) {
             Person p = personId2Person.get(Integer.parseInt(ht.get("PR_PEID_PE")));
             if (p == null)
                 continue;
             p.addRolle(ht);
         }
+
+	// setup is a static method
+	PersonTgKode.setup(conn.getDataSet("object=admindel", "AdminDel"));
+	// Find person permissions
+        for (Hashtable<String, String> ht : conn.getDataSet("object=pertgkode", "PerTGKode")) {
+            Person p = personId2Person.get(Integer.parseInt(ht.get("PT_PEID_PE")));
+            if (p == null)
+                continue;
+            p.addTgKode(ht);
+        }
+
         // if (log.isDeqbugEnabled()) {
         //     log.debug("Parsed persons from ePhorte:");
         //     for (Iterator iter = personId2Person.values().iterator(); iter.hasNext();) {
@@ -225,7 +237,10 @@ public class EphorteGW {
         }
 	// Check if roles need to be updated
         isDirty = updateRoles(xml, newPerson) || isDirty;
+	// Check if persmissions (tgKoder) need to be updated
+        isDirty = updateTgKoder(xml, newPerson) || isDirty;	
         xml.endTag("PersonData");
+
         if (isDirty) {
 	    // We need to update ephorte 
             try {
@@ -316,6 +331,37 @@ public class EphorteGW {
                 log.debug("Remove role: " + pr);
                 pr.setTilDato(new Date());
                 pr.toDeleteXML(xml);
+                isDirty = true;
+            }
+        }
+        return isDirty;
+    }
+
+    private boolean updateTgKoder(XMLUtil xml, Person p) {
+        boolean isDirty = false;
+        Person oldPerson = getPerson(p);
+        if (oldPerson == null || (oldPerson.getId() == -1 && !oldPerson.isNew())) {
+            log.warn("updateTgKoder for non-existing person " + p.getBrukerId());
+            return isDirty;
+        }
+        for (PersonTgKode pt : p.getTgKoder()) {
+            if (oldPerson.isNew() || !oldPerson.getTgKoder().contains(pt)) {
+                log.debug("Add tgKode: " + pt);
+		Person operatorPerson = brukerId2Person.get((pt.getOperatorBrukerId()));
+		pt.setOperatorId(operatorPerson.getId());
+                pt.toXML(xml);
+		log.debug(xml.toString());
+                isDirty = true;
+            } else {
+                log.debug("Person already has tgKode: " + pt);
+                oldPerson.getTgKoder().remove(pt);
+            }
+        }
+        if (!oldPerson.isNew()) {
+            for (PersonTgKode pt : oldPerson.getTgKoder()) {
+                log.debug("Remove tgKode: " + pt);
+                pt.setTilDato(new Date());
+                pt.toDeleteXML(xml);
                 isDirty = true;
             }
         }

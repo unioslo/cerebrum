@@ -25,6 +25,7 @@ public class Person {
     private PersonNavn personNavn;
     private Hashtable<String, Adresse> adresse;
     private Vector<PersonRolle> roller;
+    private Vector<PersonTgKode> tgKoder;
     private Vector<String> potentialFeideIds;
     private boolean isNew = false; // Was created during this execution
     private Date fraDato, tilDato;
@@ -37,6 +38,7 @@ public class Person {
         if(brukerId == null)
             throw new IllegalArgumentException("brukerId cannot be NULL");
         roller = new Vector<PersonRolle>();
+	tgKoder = new Vector<PersonTgKode>();
         potentialFeideIds = new Vector<String>();
         adresse = new Hashtable<String, Adresse>();
         this.brukerId = brukerId;
@@ -44,6 +46,7 @@ public class Person {
         this.fromEphorte = fromEphorte;
     }
 
+    // Brukes for å populere personer hentet fra ephorte
     public Person(Hashtable<String, String> ht, boolean fromEphorte) {
         this(ht.get("PE_BRUKERID"), fromEphorte);
 
@@ -183,6 +186,19 @@ public class Person {
 			 String stilling) throws BadDataException {
         roller.add(new PersonRolle(this, rolleType, stdRolle, sko, arkivDel, 
 				   journalEnhet, tittel, stilling));
+    }
+
+    public void addTgKode(Hashtable<String, String> tk) {
+        tgKoder.add(new PersonTgKode(this, tk));
+    }
+
+    public void addTgKode(String tgKodeType, String sko, String feideId)
+	throws BadDataException {
+        tgKoder.add(new PersonTgKode(this, tgKodeType, sko, feideId));
+    }
+
+    public Vector<PersonTgKode> getTgKoder() {
+        return tgKoder;
     }
 
     public PersonNavn getPersonNavn() {
