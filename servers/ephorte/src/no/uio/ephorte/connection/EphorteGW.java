@@ -350,7 +350,6 @@ public class EphorteGW {
 		Person operatorPerson = brukerId2Person.get((pt.getOperatorBrukerId()));
 		pt.setOperatorId(operatorPerson.getId());
                 pt.toXML(xml);
-		log.debug(xml.toString());
                 isDirty = true;
             } else {
                 log.debug("Person already has tgKode: " + pt);
