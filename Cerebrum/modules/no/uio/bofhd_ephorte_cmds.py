@@ -289,18 +289,14 @@ class BofhdExtension(object):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
-
         ret = []
         for row in self.ephorte_perm.list_permission(person_id=person.entity_id):
             ou = self._get_ou(ou_id=row['adm_enhet'])
-            try:
-                account = self.util.get_target(operator.get_entity_id(), restrict_to=['Account'])
-            except Errors.NotFoundError:
-                raise CerebrumError("Could not find requestee.")            
+            requestee = self.util.get_target(int(row['requestee_id']))
             ret.append({
                 'tilgang': str(self._get_tilgang(row['perm_type'])),
                 'adm_enhet': self._format_ou_name(ou),
-                'requestee': account.account_name
+                'requestee': requestee.get_names()[0][0]
                 }
                 )
         return ret
