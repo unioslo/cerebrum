@@ -35,6 +35,7 @@ cl = CLHandler.CLHandler(db)
 
 logger = Factory.get_logger("cronjob")
 sko_cache = {}
+feide_id_cache = {}
 
 class ExtXMLHelper(XMLHelper):
     def xmlify_tree(self, tag, dta):
@@ -75,15 +76,21 @@ def _get_sko(ou_id):
         if ret == "900199":
             # Ephorte root is named UIO 
             ret = "UIO"
+        sko_cache[ou_id] = ret
     return ret
 
-def _get_uname(operator):
-    ac.clear()
-    try:
-        ac.find(id)
-    except Errors.NotFoundError:
-        raise CerebrumError, "Could not find account %s" % (operator)
-    return ac.uname
+def _get_feide_id(operator_id):
+    ret = feide_id_cache.get(operator_id)
+    if ret is None:
+        ac.clear()
+        try:
+            ac.find(operator_id)
+        except Errors.NotFoundError:
+            logger.warn("Could not find account %s" % (operator_id))
+            return ""
+        ret = ac.account_name.upper() + "@UIO.NO"
+        feide_id_cache[operator_id] = ret
+    return ret
 
 def generate_export(fname, spread=co.spread_ephorte_person):
     f = SimilarSizeWriter(fname, "w")
@@ -262,10 +269,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         tmp['permissions'].append({
             'perm_type': perm_type,
             'adm_enhet': _get_sko(row['adm_enhet']),
-            'operator': _get_uname(row['operator']),
-            'autopphav': 0, # Always 0 in db
-            'start_date': row['start_date'],
-            'end_date': row['end_date']
+            'operator': _get_feide_id(row['requestee_id'])
             })
 
     xml = ExtXMLHelper()
