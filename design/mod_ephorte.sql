@@ -118,6 +118,10 @@ CREATE TABLE ephorte_permission
   adm_enhet       NUMERIC(12,0)
 		    CONSTRAINT ephorte_perm_adm_enhet
 		    REFERENCES ou_info(ou_id),
+  requestee_id    NUMERIC(12, 0)
+                  NOT NULL
+                  CONSTRAINT ephorte_perm_requestee_id
+                  REFERENCES account_info(account_id),
   start_date      DATE 
 	 	  DEFAULT [:now]
 		  NOT NULL,		 
