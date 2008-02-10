@@ -15,6 +15,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import no.uio.ephorte.connection.EphorteGW;
 import no.uio.ephorte.connection.TooManyRecordsException;
 import no.uio.ephorte.data.Person;
+//import no.uio.ephorte.data.OrgUnit;
 import no.uio.ephorte.xml.CustomXMLParser;
 
 import org.apache.commons.logging.Log;
@@ -31,13 +32,13 @@ public class ImportEphorteXML {
 
     private static void usage() {
         System.out.println("Usage: import [options]\n"+
-                "This script can be used to import data to ePhorte.\n\n"+
-                "  -i fname : import specified filename\n"+
-		"  -r fname : raw xml filename\n"+
-                "  -p fname : property filename (see example.props)\n"+
-                "  -d table : dump table in a somewhat readable format\n"+
-                "  -t tag   : tag to select from -d option"
-                );
+			   "This script can be used to import data to ePhorte.\n\n"+
+			   "  -i fname : import specified filename\n"+
+			   "  -r fname : raw xml filename\n"+
+			   "  -p fname : property filename (see example.props)\n"+
+			   "  -d table : dump table in a somewhat readable format\n"+
+			   "  -t tag   : tag to select from -d option"
+			   );
         System.exit(1);
     }
 
@@ -122,6 +123,11 @@ public class ImportEphorteXML {
         log.info("Running sync");
         ephorteGW.prepareSync();
         CustomXMLParser cp = new CustomXMLParser(fname);
+	// Update OUs
+        //for (OrgUnit ou : cp.getOrgUnits()) {
+        //    ephorteGW.updateOrgUnit(ou);
+        //}
+	// Update persons
         for (Person p : cp.getPersons()) {
             ephorteGW.updatePersonInfo(p);
         }
@@ -140,7 +146,7 @@ public class ImportEphorteXML {
 	} catch (IOException ioe) {
 	    log.error("Couldn't open file " + fname + "\n" + ioe.toString());
 	}
-	ephorteGW.updateAny(xml);
+	ephorteGW.rawSync(xml);
         log.info("RawSync done");
     }
 }
