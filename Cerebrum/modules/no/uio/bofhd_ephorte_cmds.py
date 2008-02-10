@@ -281,7 +281,7 @@ class BofhdExtension(object):
     all_commands['ephorte_list_perm'] = Command(("ephorte", "list_perm"), PersonId(), 
         perm_filter='can_list_ephorte_perm', fs=FormatSuggestion(
         "%-10s %-25s %-12s", ('tilgang', 'adm_enhet', 'requestee'),
-        hdr="%-10s %-25s %-12S" % ("Tilgang", "Adm.enhet", "Tildelt av")))
+        hdr="%-10s %-25s %-12s" % ("Tilgang", "Adm.enhet", "Tildelt av")))
     def ephorte_list_perm(self, operator, person_id):
         if not self.ba.can_list_ephorte_perm(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
