@@ -103,9 +103,17 @@ public class PersonTgKode {
     }
 
     public void toDeleteXML(XMLUtil xml) {
-	// TODO finn ut hvordan denne xml-en skal se ut
-        //xml.startTag("PERTGKODE");
-        //xml.endTag("PERTGKODE");
+        xml.startTag("PERTGKODE");
+	xml.writeElement("PT_PEID_PE", "" + person.getId());
+	xml.writeElement("PT_TGKODE_TK", tgKodeType);
+	xml.writeElement("PT_ADMID_AI", "" + adminDel);
+        xml.writeElement("SEEKFIELDS", "PT_PEID_PE;PT_TGKODE_TK;PT_ADMID_AI");
+        xml.writeElement("SEEKVALUES", "" + person.getId() + ";" + tgKodeType +
+			 ";" + adminDel);
+	// TBD: skal vi slette raden eller sette tildato? Begge deler
+	// virker. Setter tildato i første omgang
+	xml.writeElement("PT_TILDATO", Person.dayFormat.format(getTilDato()));
+        xml.endTag("PERTGKODE");
     }
 
     @Override
