@@ -247,8 +247,9 @@ class BofhdExtension(object):
     
     ##
     ## Add, remove or list auth. permissions ("tilgangskoder") for ePhorte
+    ## TBD: we should consider supporting permissions starting in the future
     ##
-    all_commands['ephorte_add_perm'] = Command(("ephorte", "add_perm"), PersonId(), Tilgang(), OU(), 
+    all_commands['ephorte_add_perm'] = Command(("ephorte", "add_perm"), PersonId(), Tilgang(), OU(repeat=True),
         perm_filter='can_add_ephorte_perm')
     def ephorte_add_perm(self, operator, person_id, tilgang, sko):
         if not self.ba.can_add_ephorte_perm(operator.get_entity_id()):
@@ -265,7 +266,7 @@ class BofhdExtension(object):
                                          operator_id)
         return "OK, added 'tilgang' %s  for %s" % (tilgang, person_id)
     
-    all_commands['ephorte_remove_perm'] = Command(("ephorte", "remove_perm"), PersonId(), Tilgang(), OU(), 
+    all_commands['ephorte_remove_perm'] = Command(("ephorte", "remove_perm"), PersonId(), Tilgang(), OU(repeat=True), 
         perm_filter='can_remove_ephorte_perm')
     def ephorte_remove_perm(self, operator, person_id, tilgang, sko):
         if not self.ba.can_remove_ephorte_perm(operator.get_entity_id()):
@@ -280,8 +281,8 @@ class BofhdExtension(object):
 
     all_commands['ephorte_list_perm'] = Command(("ephorte", "list_perm"), PersonId(), 
         perm_filter='can_list_ephorte_perm', fs=FormatSuggestion(
-        "%-10s %-25s %-12s", ('tilgang', 'adm_enhet', 'requestee'),
-        hdr="%-10s %-25s %-12s" % ("Tilgang", "Adm.enhet", "Tildelt av")))
+        "%-10s %-35s %-15s", ('tilgang', 'adm_enhet', 'requestee'),
+        hdr="%-10s %-35s %-15s" % ("Tilgang", "Adm.enhet", "Tildelt av")))
     def ephorte_list_perm(self, operator, person_id):
         if not self.ba.can_list_ephorte_perm(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
