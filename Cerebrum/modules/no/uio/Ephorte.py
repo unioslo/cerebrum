@@ -51,6 +51,7 @@ class EphorteConstants(ConstantsBase):
     # Values from the ePhorte table ROLE
     ephorte_role_ar1 = _EphorteRoleTypeCode('AR1', 'Arkivansvarlig')
     ephorte_role_ar2 = _EphorteRoleTypeCode('AR2', 'Arkivar')
+    ephorte_role_ar3 = _EphorteRoleTypeCode('AR3', 'Arkivledelsen')    
     ephorte_role_ld = _EphorteRoleTypeCode('LD', 'Leder/saksfordeler')
     ephorte_role_ld_les = _EphorteRoleTypeCode('LD LES', 'Leserolle - leder')
     ephorte_role_sb = _EphorteRoleTypeCode('SB', 'Saksbehandler')
