@@ -202,13 +202,14 @@ class Cursor(object):
                 else:
                     # Not a row-returning query; clear self._row_class.
                     self._row_class = None
-        except self.DatabaseError:
+        except self.DatabaseError,m:
             # TBD: These errors should probably be logged somewhere,
             # and not merely printed...
             print "ERROR: operation=<%s>" % operation
             print "ERROR: sql=<%s>" % sql
             print "ERROR: parameters=<%s>" % `parameters`
             print "ERROR: binds=<%s>" % `binds`
+            print "ERROR: msg=<%s>" % m
             raise
 ##        return self._cursor.execute(operation, *parameters)
 
