@@ -141,6 +141,8 @@ command_help = {
         "Change the account the pipe target runs as",
     "email_migrate":
         "Migrate users from old to new e-mail service",
+    "email_mod_name":
+        "Override name for person (to be used in e-mail address)",
     "email_move":
         "Move a user's e-mail to another server",
     "email_primary_address":
