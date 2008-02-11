@@ -116,8 +116,9 @@ CREATE TABLE ephorte_permission
                   CONSTRAINT ephorte_perm_type
                   REFERENCES ephorte_perm_type_code(code),
   adm_enhet       NUMERIC(12,0)
-		    CONSTRAINT ephorte_perm_adm_enhet
-		    REFERENCES ou_info(ou_id),
+                  NOT NULL
+		  CONSTRAINT ephorte_perm_adm_enhet
+		  REFERENCES ou_info(ou_id),
   requestee_id    NUMERIC(12, 0)
                   NOT NULL
                   CONSTRAINT ephorte_perm_requestee_id
