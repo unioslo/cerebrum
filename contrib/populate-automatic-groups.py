@@ -63,7 +63,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, NotSet
+from Cerebrum.Utils import Factory, NotSet, simple_memoize
 try:
     set()
 except NameError:
@@ -77,39 +77,6 @@ logger = Factory.get_logger("cronjob")
 database = Factory.get("Database")()
 database.cl_init(change_program="pop-auto-groups")
 constants = Factory.get("Constants")(database)
-
-
-
-def simple_memoize(callobj):
-    """Memoize[1] a callable.
-
-    [1] <http://en.wikipedia.org/wiki/Memoize>.
-    
-    The idea is to memoize a callable object supporting rest/optional
-    arguments without placing a limit on the amount of cached pairs. This is
-    useful for mapping ou_id to names and such (i.e. situations where the
-    number of cached values is small, and the information is requested many
-    times for the same 'key').
-
-    @type callobj: callable
-    @param callobj:
-      An object for which callable(callobj) == True. I.e. something we can
-      call (lambda, function, bound method, etc.)
-
-    @rtype: function
-    @return:
-      A wrapper that caches the results of previous invocations of callobj.
-    """
-    
-    cache = dict()
-    def wrapper(*rest):
-        if rest not in cache:
-            cache[rest] = callobj(*rest)
-        return cache[rest]
-    # end wrapper
-
-    return wrapper
-# end simple_memoize
 
 
 
