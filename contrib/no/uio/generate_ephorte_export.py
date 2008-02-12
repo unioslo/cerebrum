@@ -73,9 +73,6 @@ def _get_sko(ou_id):
         ou.clear()
         ou.find(ou_id)
         ret = "%02i%02i%02i" % (ou.fakultet, ou.institutt, ou.avdeling)
-        if ret == "900199":
-            # Ephorte root is named UIO 
-            ret = "UIO"
         sko_cache[ou_id] = ret
     return ret
 
