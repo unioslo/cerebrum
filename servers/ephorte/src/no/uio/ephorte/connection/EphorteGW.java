@@ -328,10 +328,12 @@ public class EphorteGW {
         }
         if (!oldPerson.isNew()) {
             for (PersonRolle pr : oldPerson.getRoller()) {
-                log.debug("Remove role: " + pr);
-                pr.setTilDato(new Date());
-                pr.toDeleteXML(xml);
-                isDirty = true;
+		if (!oldPerson.getDeletedRoller().contains(pr)) {
+		    log.debug("Remove role: " + pr);
+		    pr.setTilDato(new Date());
+		    pr.toDeleteXML(xml);
+		    isDirty = true;
+		}
             }
         }
         return isDirty;
@@ -358,10 +360,12 @@ public class EphorteGW {
         }
         if (!oldPerson.isNew()) {
             for (PersonTgKode pt : oldPerson.getTgKoder()) {
-                log.debug("Remove tgKode: " + pt);
-                pt.setTilDato(new Date());
-                pt.toDeleteXML(xml);
-                isDirty = true;
+		if (!oldPerson.getDeletedTgKoder().contains(pt)) {
+		    log.debug("Remove tgKode: " + pt);
+		    pt.setTilDato(new Date());
+		    pt.toDeleteXML(xml);
+		    isDirty = true;
+		}
             }
         }
         return isDirty;

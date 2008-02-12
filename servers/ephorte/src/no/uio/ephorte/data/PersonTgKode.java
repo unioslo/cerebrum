@@ -18,7 +18,6 @@ import no.uio.ephorte.xml.XMLUtil;
 
 public class PersonTgKode {
     static Hashtable<String, Integer> stedkode2Id;
-    //static Hashtable<String, Integer> tgKodeType2Id;
     private static Log log = LogFactory.getLog(PersonTgKode.class);
 
     private Person person;
@@ -41,6 +40,11 @@ public class PersonTgKode {
     			 ", AI_ID: " + ht.get("AI_ID"));
     	    }
         }
+	// Dirty hack
+	// If sko == 999990 => ai_id = 0
+	stedkode2Id.put("999990", 0);
+	// If sko == 999999 => ai_id = ?
+	stedkode2Id.put("999999", -999);	
     }
 
     public PersonTgKode(Person person, Hashtable<String, String> ht) {
@@ -54,9 +58,16 @@ public class PersonTgKode {
         if (tmp != null)
             operatorId= Integer.parseInt(tmp);	
         try {
-            tmp = ht.get("PR_FRADATO");
+            tmp = ht.get("PT_FRADATO");
             if (tmp != null)
                 fraDato = Person.dayFormat.parse(tmp);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        try {
+            tmp = ht.get("PT_TILDATO");
+            if (tmp != null)
+                tilDato = Person.dayFormat.parse(tmp);
         } catch (ParseException e) {
             e.printStackTrace();
         }
@@ -102,6 +113,7 @@ public class PersonTgKode {
         xml.endTag("PERTGKODE");
     }
 
+    // Delete by setting tildato 
     public void toDeleteXML(XMLUtil xml) {
         xml.startTag("PERTGKODE");
 	xml.writeElement("PT_PEID_PE", "" + person.getId());
@@ -110,8 +122,6 @@ public class PersonTgKode {
         xml.writeElement("SEEKFIELDS", "PT_PEID_PE;PT_TGKODE_TK;PT_ADMID_AI");
         xml.writeElement("SEEKVALUES", "" + person.getId() + ";" + tgKodeType +
 			 ";" + adminDel);
-	// TBD: skal vi slette raden eller sette tildato? Begge deler
-	// virker. Setter tildato i første omgang
 	xml.writeElement("PT_TILDATO", Person.dayFormat.format(getTilDato()));
         xml.endTag("PERTGKODE");
     }

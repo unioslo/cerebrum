@@ -6,6 +6,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.Vector;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
 import no.uio.ephorte.xml.XMLUtil;
 
@@ -19,13 +21,14 @@ import no.uio.ephorte.xml.XMLUtil;
 
 public class Person {
     public static SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd");
+    private static Log log = LogFactory.getLog(Person.class);
 
     private String brukerId;
     private int id = -1;
     private PersonNavn personNavn;
     private Hashtable<String, Adresse> adresse;
-    private Vector<PersonRolle> roller;
-    private Vector<PersonTgKode> tgKoder;
+    private Vector<PersonRolle> roller, deletedRoller;
+    private Vector<PersonTgKode> tgKoder, deletedTgKoder;
     private Vector<String> potentialFeideIds;
     private boolean isNew = false; // Was created during this execution
     private Date fraDato, tilDato;
@@ -38,7 +41,9 @@ public class Person {
         if(brukerId == null)
             throw new IllegalArgumentException("brukerId cannot be NULL");
         roller = new Vector<PersonRolle>();
+        deletedRoller = new Vector<PersonRolle>();
 	tgKoder = new Vector<PersonTgKode>();
+	deletedTgKoder = new Vector<PersonTgKode>();
         potentialFeideIds = new Vector<String>();
         adresse = new Hashtable<String, Adresse>();
         this.brukerId = brukerId;
@@ -173,32 +178,62 @@ public class Person {
         return "Person: pid=" + id + ", brukerId=" + brukerId;
     }
 
-    public void addRolle(Hashtable<String, String> ht) {
-        roller.add(new PersonRolle(this, ht));
-    }
+
 
     public Vector<PersonRolle> getRoller() {
         return roller;
     }
 
+    public Vector<PersonRolle> getDeletedRoller() {
+        return deletedRoller;
+    }
+
+    public void addRolle(PersonRolle pr) {
+	Date tildato, today = new Date();
+	tildato = pr.getTilDato();
+	if (tildato != null && !tildato.after(today)) {
+	    deletedRoller.add(pr);
+	} else {
+	    roller.add(pr);
+	}	
+    }
+
+    public void addRolle(Hashtable<String, String> ht) {
+	this.addRolle(new PersonRolle(this, ht));
+    }
+
     public void addRolle(String rolleType, boolean stdRolle, String sko, 
 			 String arkivDel, String journalEnhet, String tittel, 
 			 String stilling) throws BadDataException {
-        roller.add(new PersonRolle(this, rolleType, stdRolle, sko, arkivDel, 
-				   journalEnhet, tittel, stilling));
+        this.addRolle(new PersonRolle(this, rolleType, stdRolle, sko, arkivDel, 
+				      journalEnhet, tittel, stilling));
+    }
+
+    public void addTgKode(PersonTgKode ptg) {
+	Date tildato, today = new Date();
+	tildato = ptg.getTilDato();
+	if (tildato != null && !tildato.after(today)) {
+	    deletedTgKoder.add(ptg);
+	} else {
+	    tgKoder.add(ptg);
+	}	
     }
 
     public void addTgKode(Hashtable<String, String> tk) {
-        tgKoder.add(new PersonTgKode(this, tk));
+        this.addTgKode(new PersonTgKode(this, tk));
     }
 
     public void addTgKode(String tgKodeType, String sko, String feideId)
 	throws BadDataException {
-        tgKoder.add(new PersonTgKode(this, tgKodeType, sko, feideId));
+        this.addTgKode(new PersonTgKode(this, tgKodeType, sko, feideId));
     }
 
     public Vector<PersonTgKode> getTgKoder() {
         return tgKoder;
+    }
+
+    public Vector<PersonTgKode> getDeletedTgKoder() {
+        return deletedTgKoder;
     }
 
     public PersonNavn getPersonNavn() {

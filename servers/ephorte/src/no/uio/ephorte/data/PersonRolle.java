@@ -49,6 +49,13 @@ public class PersonRolle {
         } catch (ParseException e) {
             e.printStackTrace();
         }
+        try {
+            tmp = ht.get("PR_TILDATO");
+            if (tmp != null)
+                tilDato = Person.dayFormat.parse(tmp);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
     }
 
     public PersonRolle(Person person, String rolleType, boolean stdRolle, String sko,
@@ -64,9 +71,12 @@ public class PersonRolle {
         if (tmp == null)
             throw new BadDataException("Illegal sko: " + sko);
         adminDel = tmp;
+	// It seems that the web service sets the title automagically
+	//if (tittel == null || tittel.isEmpty()) 
+        //    throw new BadDataException("Rolletittel cannot be empty");
+        this.tittel = tittel;
         this.arkivDel = arkivDel;
         this.journalEnhet = journalEnhet;
-        this.tittel = tittel;
         fraDato = new Date();
     }
 
@@ -110,17 +120,14 @@ public class PersonRolle {
         xml.endTag("PERROLLE");
     }
 
+    // Delete by setting tildato 
     public void toDeleteXML(XMLUtil xml) {
         xml.startTag("PERROLLE");
         xml.writeElement("PR_ID", "" + id);
         xml.writeElement("PR_PEID_PE", "" + person.getId());
-        /*
-         * F.eks: <SEEKFIELDS>PR_PEID_PE;PR_ROLLEID_RO</SEEKFIELDS>
-         * <SEEKVALUES>80;4</SEEKVALUES> <DELETERECORD>1</DELETERECORD>
-         */
         xml.writeElement("SEEKFIELDS", "PR_ID");
         xml.writeElement("SEEKVALUES", "" + id);
-        xml.writeElement("DELETERECORD", "1");
+        xml.writeElement("PR_TILDATO", Person.dayFormat.format(tilDato));
         xml.endTag("PERROLLE");
     }
 
