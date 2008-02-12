@@ -262,13 +262,22 @@ class ADgroupUtil(ADutil):
         #       one line can be removed below
         #The remaining groups is surplus in AD.        
         for adg in adgrp:
-            self.logger.debug("would delete %s", adg)
             # Assume that cereconf.AD_DO_NOT_TOUCH is a list
             # Check if at least one of the list elements is a substring of adg
             # If delete_groups is False, then don't delete the group
-            if adg.find('CN=Builtin,%s' % self.ad_ldap) >= 0 or \
-                   [s for s in cereconf.AD_DO_NOT_TOUCH if adg.find(s) >= 0]:
+
+            if re.search('CN=Builtin,', adg):
                 continue
+
+            match = None
+            for dont in cereconf.AD_DO_NOT_TOUCH:
+                if re.search(dont, adg):
+                    match = True
+                    break
+
+            if match:
+                continue
+
             if not delete_groups:
                 self.logger.debug("delete is False. Don't delete group: %s", adg)
             else:
