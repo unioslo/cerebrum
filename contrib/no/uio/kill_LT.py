@@ -82,11 +82,6 @@ class CAEntity(EntityContactInfo, EntityAddress, Factory.get("Entity")):
 entity = CAEntity(db)
 
 Log, Info, Warn = None, logger.info, logger.warning
-if True:
-    # This program produces immense logs, so put Info level in a
-    # separate file and leave Warning level or worse to the logger.
-    Log = file("kill_LT.out", "a", 1)
-    def Info(txt): print >>Log, txt
 
 system_sap    = int(const.system_sap)
 system_fs     = int(const.system_fs)
@@ -127,7 +122,7 @@ def nint(x):
 
 def affiliation():
     """Clean up person_affiliation_source"""
-    print "affiliation..."
+    logger.debug("affiliation...")
     count_ins = count_del = count_keep = 0
     # To test for absent/deleted row: rows.get(key, delrow)['deleted_date']
     delrow = dict(deleted_date=True)
@@ -136,7 +131,7 @@ def affiliation():
                                           include_deleted=False,
                                           fetchall=True):
         if Debug and count_ins >= Debug:
-            print "Debug done."
+            logger.debug("Debug done.")
             break
         person_id = int(ltrow['person_id'])
         ou_id = int(ltrow['ou_id'])
@@ -191,7 +186,7 @@ def name(refresh_only=False):
     Clean up person_name, also affecting email addresses.
     If refresh_only, only update Cached names.
     """
-    print "name%s..." % ["", " refresh"][refresh_only]
+    logger.debug("name%s...", ["", " refresh"][refresh_only])
     count_del = count_ins = 0
 
     name_types = [int(row['code']) for row in person.list_person_name_codes()]
@@ -200,7 +195,7 @@ def name(refresh_only=False):
 
     for person_id, lt_variant2name in ltnames.iteritems():
         if Debug and count_ins >= Debug:
-            print "Debug done."
+            logger.debug("Debug done.")
             break
         person.clear()
         person.find(person_id)
@@ -242,7 +237,7 @@ def name(refresh_only=False):
 
 def contact():
     """Clean up entity_address and entity_contact_info"""
-    print "contact..."
+    logger.debug("contact...")
     ins_a_count = del_a_count = ins_c_count = del_c_count = 0
 
     id2type = {}                      # mapping {entity_id: entity_type}
@@ -361,7 +356,7 @@ def contact():
 
 def perspective():
     """Remove ou_structure[perspective_lt]"""
-    print "perspective..."
+    logger.debug("perspective...")
 
     ou_list = [] # [(ou, parent), ...] with parents before children
     lt_structure = dict([(int(row['ou_id']), nint(row['parent_id']))
@@ -385,7 +380,7 @@ def perspective():
 
 def fnr():
     """Clean up entity_external_id[externalid_fodselsnr]"""
-    print "fnr..."
+    logger.debug("fnr...")
     count_del = count_ins = 0
 
     # All entity_ids with fnr from LT
@@ -395,7 +390,7 @@ def fnr():
 
     for entity_id in ids:
         if Debug and count_ins >= Debug:
-            print "Debug done."
+            logger.debug("Debug done.")
             break
         need_manual_copy, ltrow = True, None
         for row in person.list_external_ids(id_type=idtype_fnr,
@@ -439,7 +434,7 @@ def main():
 
     opts = [opt[2:] for opt, val in opts]
     if "dryrun" in opts:
-        print "dryrun"
+        logger.debug("dryrun")
         Dryrun = True
         opts.remove("dryrun")
     if not opts:
