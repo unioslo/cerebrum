@@ -115,7 +115,7 @@ Add a rolle::
     </PERROLLE>
   </PersonData>
 
-Remove a rolle::
+Remove a rolle from db::
 
   <?xml version="1.0" standalone="yes"?>
   <PersonData>
@@ -132,6 +132,29 @@ Remove a rolle::
       <DELETERECORD>1</DELETERECORD>
     </PERROLLE>
   </PersonData>
+
+PS! That code acually removes the rolle row from the PERROLLE table.
+This is not the way roles should be deleted. The way to to it is to
+set the PR_TILDATO. This code below do that.
+
+Dele a rolle (the correct way)::
+
+  <?xml version="1.0" standalone="yes"?>
+  <PersonData>
+    <PERSON>
+      <PE_ID>1</PE_ID>
+      <SEEKFIELDS>PE_ID</SEEKFIELDS>
+      <SEEKVALUES>80</SEEKVALUES>
+    </PERSON>
+    <PERROLLE>
+      <PR_ID>1</PR_ID>
+      <PR_PEID_PE>1</PR_PEID_PE>
+      <SEEKFIELDS>PR_PEID_PE;PR_ROLLEID_RO</SEEKFIELDS>
+      <SEEKVALUES>80;4</SEEKVALUES>
+      <PR_TILDATO>2008-02-10</PR_TILDATO>
+    </PERROLLE>
+  </PersonData>
+
 
 Add two roller (note increased PR_ID)::
 
@@ -166,12 +189,52 @@ Add two roller (note increased PR_ID)::
     </PERROLLE>
   </PersonData>
 
+
+Add a pertgkode (permission) in db::
+
+
+<?xml version="1.0" standalone="yes"?>
+<PersonData>
+  <PERSON>
+    <PE_ID>85</PE_ID>
+    <SEEKFIELDS>PE_ID</SEEKFIELDS>
+    <SEEKVALUES>85</SEEKVALUES>
+  </PERSON>
+  <PERTGKODE>
+    <PT_PEID_PE>85</PT_PEID_PE>
+    <PT_TGKODE_TK>P</PT_TGKODE_TK>
+    <PT_ADMID_AI>11</PT_ADMID_AI>
+    <PT_AUTAV_PE>4663</PT_AUTAV_PE>
+    <PT_FRADATO>2008-02-08</PT_FRADATO>
+    <PT_AUTOPPHAV_PE>0</PT_AUTOPPHAV_PE>
+  </PERTGKODE>
+</PersonData>
+
+
+Delete a pertgkode in db::
+
+<?xml version="1.0" standalone="yes"?>
+<PersonData>
+  <PERSON>
+    <PE_ID>85</PE_ID>
+    <SEEKFIELDS>PE_ID</SEEKFIELDS>
+    <SEEKVALUES>85</SEEKVALUES>
+  </PERSON>
+  <PERTGKODE>
+    <PT_PEID_PE>85</PT_PEID_PE>
+    <PT_TGKODE_TK>P</PT_TGKODE_TK>
+    <PT_ADMID_AI>11</PT_ADMID_AI>
+    <SEEKFIELDS>PT_PEID_PE;PT_TGKODE_TK;PT_ADMID_AI</SEEKFIELDS>
+    <SEEKVALUES>85;P;11</SEEKVALUES>
+    <PT_TILDATO>2008-02-10</PT_TILDATO>
+  </PERTGKODE>
+</PersonData>
+
+
+
+
 updateByXML
 ======================
-
-This method can be used to update any table in the database.  It is
-similar to ``updatePersonByXML``, except that the ``PERSON`` tag is
-not used.
 
 An example of usage is shown below (however the Ergo consultant
 couldn't get it to work)::
