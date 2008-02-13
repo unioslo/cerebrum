@@ -187,8 +187,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
             logger.warn("Undervisningsaktivitet %s uten enhet?" % repr(entry))
             continue
         aktivitet_id = {}
-        for persontype, role in (('aktivitetsansvar', 'TeachingAssistant'),
-                                 ('student', 'Learner')):
+        for persontype, role in (('student', 'Learner'), ):
             args = [entry[x] for x in CerebrumGroupInfo.id_key_seq]
             args.extend((entry['aktivitetkode'], persontype))
             args = [x.lower() for x in args]
@@ -197,11 +196,12 @@ def gen_undervisningsaktivitet(cgi, sip, out):
                 logger.warn("Ikke cerebrum-data for %s" % repr(args))
             else:
                 aktivitet_id["%i" % entity_id] = role
-        if len(aktivitet_id) != 2:
-            continue
+#        if len(aktivitet_id) != 2:
+#            continue
         keys = aktivitet_id.keys()
         keys.sort()
         urn = 'urn:mace:uio.no:section:aktivitet-%s' % "_".join(keys)
+#        urn = 'urn:mace:uio.no:section:aktivitet-%s' % aktivitet_id
         out.write(entry_string("cn=ua-%i,%s" % (n, top_dn), {
             'objectClass':               ("top", "uioEduSection"),
             'uioEduCourseCode':          (iso2utf(entry['emnekode']),),
@@ -235,8 +235,7 @@ def gen_undervisningsenhet(cgi, sip, out):
         if not emne:
             continue # warned erlier
         aktivitet_id = {}
-        for persontype, role in (('student', 'Learner'),
-                                 ('enhetsansvar', 'Instructor')):
+        for persontype, role in (('student', 'Learner'), ):
             args = [entry[x] for x in CerebrumGroupInfo.id_key_seq]
             args.append(persontype)
             args = [x.lower() for x in args]
@@ -245,8 +244,8 @@ def gen_undervisningsenhet(cgi, sip, out):
                 logger.warn("Ikke cerebrum-data for %s" % repr(args))
             else:
                 aktivitet_id["%i" % entity_id] = role
-        if len(aktivitet_id) != 2:
-            continue
+#        if len(aktivitet_id) != 2:
+#            continue
         keys = aktivitet_id.keys()
         keys.sort()
         urn = 'urn:mace:uio.no:offering:enhet-%s' % "_".join(keys)
