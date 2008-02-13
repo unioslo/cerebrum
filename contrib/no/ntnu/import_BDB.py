@@ -284,90 +284,101 @@ class BDBSync:
         #  9 alumnus
         # 12 familie
         self.logger.debug("Getting affiliations from BDB...")
-        self.aff_map = {}
-        self.aff_map[1] = self.const.affiliation_status_student_student
-        self.aff_map[2] = self.const.affiliation_status_ansatt_ansatt
-        self.aff_map[3] = self.const.affiliation_status_ansatt_ansatt
-        self.aff_map[4] = self.const.affiliation_status_student_drgrad
-        self.aff_map[5] = self.const.affiliation_status_tilknyttet_annen
-        self.aff_map[7] = self.const.affiliation_status_tilknyttet_gjest
-        self.aff_map[9] = self.const.affiliation_status_alumni_aktiv
-        self.aff_map[12] = self.const.affiliation_status_tilknyttet_annen
-        affiliations = self.bdb.get_affiliations()
-        for affiliation in affiliations:
-            self._sync_affiliation(affiliation)
-        return
+        aff_map = {}
+        aff_map[1] = self.const.affiliation_status_student_student
+        aff_map[2] = self.const.affiliation_status_ansatt_ansatt
+        aff_map[3] = self.const.affiliation_status_ansatt_ansatt
+        aff_map[4] = self.const.affiliation_status_student_drgrad
+        aff_map[5] = self.const.affiliation_status_tilknyttet_annen
+        aff_map[7] = self.const.affiliation_status_tilknyttet_gjest
+        aff_map[9] = self.const.affiliation_status_alumni_aktiv
+        aff_map[12] = self.const.affiliation_status_tilknyttet_annen
 
-    def _sync_affiliation(self,aff):
-        #aff is a dict with keys. aff['person'] is the bdb-external-id which can be found
-        #as an externalid on persons in Cerebrum. We use this to connect affiliations and
-        #persons.
-        # FIXME: rewrite this to sync all affiliations for one person at
-        # the same time.
+        const = self.const
 
-        self.logger.info("Process affiliation for %s" % aff['person'])
+        bdbaffs = self.bdb.get_affiliations()
+        cereaffs = self.new_person.list_affiliations()
+
+        stedkoder=self.ou.get_stedkoder()
+        sted_map = {}
+        for s in stedkoder:
+            kode = "%02d%02d%02d" % (
+                s['fakultet'], s['institutt'], s['avdeling'])
+            sted_map[kode] = s['ou_id']
+
+        bdb_pers_ids = self.new_person.list_external_ids(
+            source_system=const.system_bdb,
+            id_type=const.externalid_bdb_person,
+            entity_type=const.entity_person)
+        pers_id_map={}
+        for eid in bdb_pers_ids:
+            pers_id_map[int(eid['external_id'])] = eid['entity_id']
+
+        oldaffs = set([(a['person_id'], a['ou_id'], a['status'])
+                       for a in cereaffs])
+        newaffs=set()
+        for a in bdbaffs:
+            try:
+                person_id = pers_id_map[a['person']]
+            except KeyError:
+                self.logger.warning("Affiliation: Person (bdb-id %d) does not exist" %
+                                    a['person'])
+                continue
+            try:
+                ou_id = sted_map["%06d" % a['ou_code']]
+            except KeyError:
+                self.logger.warning("Affiliation: OU (stedkode %d) does not exist" %
+                                    a['ou_code'])
+                continue
+            try:
+                status = int(aff_map[a['aff_type']])
+            except KeyError:
+                self.logger.error("Affiliation (bdb-type %d) is not handled" %
+                                  a['aff_type'])
+                continue
+            newaffs.add((person_id, ou_id, status))
+
+        self.logger.debug("affiliations: bdb %d, filtered %d, old %d" % (
+            len(bdbaffs), len(newaffs), len(oldaffs)))
+
+        delaffs={}
+        for person_id, ou_id, status in oldaffs - newaffs:
+            aff=const.PersonAffStatus(status).affiliation
+            if not delaffs.has_key(person_id):
+                delaffs[person_id]=[]
+            delaffs[person_id].append((ou_id, aff))
+
+        addaffs={}
+        for person_id, ou_id, status in newaffs - oldaffs:
+            aff=const.PersonAffStatus(status).affiliation
+            if not addaffs.has_key(person_id):
+                addaffs[person_id]=[]
+            addaffs[person_id].append((ou_id, aff, status))
+
+        chpers = set(delaffs.keys()) | set(addaffs.keys())
+
+        self.logger.debug("affiliations: deleting on %d, adding on %d, total %d persons" % (len(delaffs), len(addaffs), len(chpers)))
+
+        for person_id in chpers:
+            self.check_commit(self.person_change_affiliations,
+                              person_id,
+                              delaffs.get(person_id, []),
+                              addaffs.get(person_id, []))
+
+    def person_change_affiliations(self, person_id, delaffs, addaffs):
         const = self.const
         person = self.new_person
         person.clear()
-        ou = self.ou
-        ou.clear()
-        ac = self.ac
-        ac.clear()
+        person.find(person_id)
+        for ou_id, aff in delaffs:
+            self.logger.info("Removing affiliation %d person %d ou %d" %
+                             (aff, person_id, ou_id))
+            person.delete_affiliation(ou_id, aff, const.system_bdb)
+        for ou_id, aff, status in addaffs:
+            self.logger.info("Adding affiliation %d person %d ou %d status %d" %
+                             (aff, person_id, ou_id, status))
+            person.add_affiliation(ou_id, aff, const.system_bdb, status)
 
-        try: 
-            person.find_by_external_id(const.externalid_bdb_person,aff['person'])
-            self.logger.debug("Got match on bdb-id as entity_externalid using %s" % aff['person'])
-        except Errors.NotFoundError:
-            self.logger.error("Got no match on bdb-id as entity_externalid using %s" % aff['person'])
-            return
-
-        # Convert codes to IDs,type and status
-        _oucode =  str(aff['ou_code'])
-        faknr = _oucode[:2]
-        instituttnr = _oucode[2:4]
-        gruppenr = _oucode[4:6]
-
-        #Search up the entity-id for this OrgUnit
-        try:
-            ou.find_stedkode(faknr,instituttnr,gruppenr,cereconf.DEFAULT_INSTITUSJONSNR)
-            if verbose:
-                print "Got match on stedkode %s bdb-person: %s" % (_oucode,aff['person'])
-        except Errors.NotFoundError:
-            if verbose:
-                print "Got no match on stedkode %s bdb-person: %s" % (_oucode,aff['person'])
-            self.logger.error("Got no match on stedkode %s for bdb-person: %s" % (_oucode,aff['person']))
-            return 
-
-        aff_status = self.aff_map[aff['aff_type']]
-        aff_type = aff_status.affiliation
-
-        person.populate_affiliation(const.system_bdb, ou.entity_id, aff_type, aff_status)
-        person.write_db()
-
-        # FIXME: Make a wrapper-call to auto-prioritize affiliations
-        """
-        # Commented out until we're 100% shure it works the way we want.
-        try:
-            ac.find_by_name(aff.get('username'))
-        except Errors.NotFoundError,nfe:
-            self.logger.warning("Could not weight account for user %s since its not in Cerebrum" \
-                    % aff.get('username'))
-        else:
-            priority = 50
-            affiliation = ???
-            ac.set_account_type(ou.entity_id, affiliation)
-            ac.write_db()
-        """
-
-        if dryrun:
-            self.db.rollback()
-            if verbose:
-                print "Dryrun set. Rolling back changes for entity %s" % person.entity_id
-        else:
-            self.db.commit()
-            if verbose:
-                print "Commiting affiliation to database for entity %s" % person.entity_id
-        return
 
     def delete_bdb_fodselsnr(self, entity_id):
         person=self.new_person
