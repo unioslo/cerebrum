@@ -86,7 +86,6 @@ public class CustomXMLParser {
                 }
             } else if ("permissions".equals(qName)) {
 		try {
-		    // legge til start og sluttdato?
                     tmpPerson.addTgKode(attr.getValue("perm_type"),
 					attr.getValue("adm_enhet"),
 					attr.getValue("operator"));

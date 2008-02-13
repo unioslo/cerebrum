@@ -131,6 +131,10 @@ public class ImportEphorteXML {
         for (Person p : cp.getPersons()) {
             ephorteGW.updatePersonInfo(p);
         }
+	// Update permissions
+        for (Person p : cp.getPersons()) {
+	    ephorteGW.updatePermissions(p);
+        }
         log.info("Sync done");
     }
 

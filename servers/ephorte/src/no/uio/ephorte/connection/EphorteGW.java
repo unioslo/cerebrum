@@ -27,6 +27,7 @@ public class EphorteGW {
     private final static boolean USE_DEBUG_CONNECTION = false;
 
     Hashtable<String, Person> brukerId2Person;
+    Hashtable<Integer, Person> personId2Person;
     EphorteConnection conn;
     private Log log = LogFactory.getLog(EphorteGW.class);
 
@@ -36,6 +37,7 @@ public class EphorteGW {
 
     public EphorteGW(Properties props) {
         brukerId2Person = new Hashtable<String, Person>();
+	personId2Person = new Hashtable<Integer, Person>();
         if (USE_DEBUG_CONNECTION) {
             conn = new EphorteConnectionTest();
         } else {
@@ -100,7 +102,6 @@ public class EphorteGW {
          */
 
         log.info("EphorteGW.fetchPersons() started...");
-        Hashtable<Integer, Person> personId2Person = new Hashtable<Integer, Person>();
         for (Hashtable<String, String> ht : conn.getDataSet("object=person", "Person")) {
             Person p = new Person(ht, true);
             personId2Person.put(p.getId(), p);
@@ -181,6 +182,51 @@ public class EphorteGW {
 	}
     }
 
+
+    /**
+     * This method is always called after persons and roles have been
+     * updated. 
+     *
+     * @param newPerson
+     * @throws RemoteException
+     **/
+    public void updatePermissions(Person newPerson) throws RemoteException {
+        XMLUtil xml = new XMLUtil();
+        Person oldPerson = getPerson(newPerson);
+	boolean isDirty = false;
+	// Dirty hack. Put somewhere else
+	brukerId2Person.put("BOOTSTRAP_ACCOUNT@UIO.NO", personId2Person.get(0));
+
+        xml.startTag("PersonData");
+	newPerson.toSeekXML(xml);
+	newPerson.setId(oldPerson.getId());
+	// We can't delete persons in ePhorte. Instead the tilDato is set.
+	newPerson.setTilDato(oldPerson.getTilDato());
+	isDirty = updateTgKoder(xml, newPerson);
+        xml.endTag("PersonData");
+	if (isDirty) {
+            try {
+		log.debug("Try to update persons tgKoder " + newPerson.getBrukerId());
+                int ret = conn.updatePersonByXML(xml.toString());
+                //if (oldPerson.getId() == -1)
+                //    oldPerson.setId(ret);
+		if (ret > 0) {
+		    log.info("Successfully updated person " + 
+			     newPerson.getBrukerId() + " (" + ret + ")");
+		} else {
+                    log.warn("Problem modifying " + newPerson.getBrukerId() + 
+			     ", ret should be > 0, was: " + ret + 
+			     " problematic request:" + xml.toString());
+                } 
+            } catch (AxisFault e) {
+                log.warn("Problems updating ephorte. Sent xml: " + xml.toString() + 
+			 " -> " + e.toString());
+	    }
+	} else {
+            log.debug("No new tgKoder for " + newPerson.getBrukerId());	    
+	}
+    }
+
     /**
      * Oppdater, eller opprett person i ePhorte med informasjon om navn og
      * adresser. newPerson er fra xml-dumpen fra Cerebrum.
@@ -237,8 +283,6 @@ public class EphorteGW {
         }
 	// Check if roles need to be updated
         isDirty = updateRoles(xml, newPerson) || isDirty;
-	// Check if persmissions (tgKoder) need to be updated
-        isDirty = updateTgKoder(xml, newPerson) || isDirty;	
         xml.endTag("PersonData");
 
         if (isDirty) {
@@ -348,10 +392,21 @@ public class EphorteGW {
         }
         for (PersonTgKode pt : p.getTgKoder()) {
             if (oldPerson.isNew() || !oldPerson.getTgKoder().contains(pt)) {
-                log.debug("Add tgKode: " + pt);
-		Person operatorPerson = brukerId2Person.get((pt.getOperatorBrukerId()));
+		Person operatorPerson = brukerId2Person.get(pt.getOperatorBrukerId());
 		pt.setOperatorId(operatorPerson.getId());
-                pt.toXML(xml);
+		// pertgkode uses pe_id as primary key. Thus we need
+		// to check if a person has an equivalent deleted
+		// pertgkode. In that case the only thing that has to
+		// be done is to update tildato. Unfortunately we
+		// can't set it to null, so we set it to way into the
+		// future.
+		if (oldPerson.getDeletedTgKoder().contains(pt)) {
+		    log.debug("Update tgKode: " + pt);
+		    pt.toUpdateXML(xml);
+		} else {
+		    log.debug("Add tgKode: " + pt);
+		    pt.toXML(xml);
+		}
                 isDirty = true;
             } else {
                 log.debug("Person already has tgKode: " + pt);
