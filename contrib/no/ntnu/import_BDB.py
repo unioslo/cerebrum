@@ -297,7 +297,8 @@ class BDBSync:
         const = self.const
 
         bdbaffs = self.bdb.get_affiliations()
-        cereaffs = self.new_person.list_affiliations()
+        cereaffs = self.new_person.list_affiliations(
+            source_system=const.system_bdb)
 
         stedkoder=self.ou.get_stedkoder()
         sted_map = {}
