@@ -212,7 +212,7 @@ def import_org_units(sources):
                     acronym=k.get('akronym', None),
                     short_name=k['forkstednavn'],
                     display_name=k['display_name'],
-                    sort_name=k['stednavn'])
+                    sort_name=k['sort_key'])
         p_o_box = k.get('stedpostboks', None)
         if p_o_box == '0' or k.get('adrtypekode_intern_adr', '') != 'INT':
             p_o_box = None

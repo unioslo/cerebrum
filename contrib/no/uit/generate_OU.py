@@ -156,7 +156,8 @@ class ou:
         SHORTNAME=10
         STED_AKRONYM=11
         LEVEL=12
-        num_fields=13
+        SORT_KEY=13
+        num_fields=14        
         import codecs
         logger.info("Reading authoritative OU file %s" % self.ou_file)
         fileObj = codecs.open( self.ou_file, "r", "utf-8" )
@@ -176,6 +177,7 @@ class ou:
                 shortname=items[SHORTNAME].strip("\"")
                 portal=items[PORTAL].strip("\"")
                 akronym=items[STED_AKRONYM].strip("\"")
+                sort_key=items[SORT_KEY].strip("\"")
                 if ((avdnr[4:6] == '00') and(instnr[2:4] == '00')):
                     # we have a fakulty, must reference the uit institution
                     faknr_org_under = '00'
@@ -200,9 +202,7 @@ class ou:
                 katalog_merke='F'
                 if portal.find('JA')>=0:
                     katalog_merke='T'
-                    
 
-                
                 authoritative_ou[avdnr]  = {
                     'fakultetnr' : faknr,
                     'instituttnr' : instnr[2:4],
@@ -220,6 +220,7 @@ class ou:
                     'poststednavn_intern_adr': 'Tromsø',
                     'opprettetmerke_for_oppf_i_kat' : katalog_merke,
                     'telefonnr' : "77644000",
+                    'sort_key': sort_key
                     }
                 if akronym:
                     authoritative_ou[avdnr]['akronym']=akronym
