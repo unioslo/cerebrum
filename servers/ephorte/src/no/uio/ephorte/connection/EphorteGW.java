@@ -242,7 +242,7 @@ public class EphorteGW {
 	// Check if Person needs to be updated
         if (oldPerson == null || oldPerson.getId() == -1) {
             // Person doesn't exist in ePhorte. Create new person
-	    log.debug("Person doesn't exist in ePhorte. Create new person " +
+	    log.info("Person doesn't exist in ePhorte. Create new person " +
 		      newPerson.getBrukerId());
             newPerson.toXML(xml);
             brukerId2Person.put(newPerson.getBrukerId(), newPerson);
@@ -256,8 +256,8 @@ public class EphorteGW {
             if(! newPerson.equals(oldPerson)) {
 		// TODO: Vi kommer ikke hit når vi sletter/setter
 		// tildato/setter delete="1" på en person. Hvorfor?
-		log.debug("Set tilDato for person " + newPerson.getBrukerId() +
-			  " to " + newPerson.getTilDato());
+		log.info("Deleting person. Set tilDato for person " + 
+			 newPerson.getBrukerId() + " to " + newPerson.getTilDato());
                 newPerson.toXML(xml); 
                 isDirty = true;
             } else {                
@@ -362,7 +362,7 @@ public class EphorteGW {
         }
         for (PersonRolle pr : p.getRoller()) {
             if (oldPerson.isNew() || !oldPerson.getRoller().contains(pr)) {
-                log.debug("Add role: " + pr);
+                log.info("Add role: " + pr);
                 pr.toXML(xml);
                 isDirty = true;
             } else {
@@ -373,7 +373,7 @@ public class EphorteGW {
         if (!oldPerson.isNew()) {
             for (PersonRolle pr : oldPerson.getRoller()) {
 		if (!oldPerson.getDeletedRoller().contains(pr)) {
-		    log.debug("Remove role: " + pr);
+		    log.info("Remove role: " + pr);
 		    pr.setTilDato(new Date());
 		    pr.toDeleteXML(xml);
 		    isDirty = true;
@@ -392,7 +392,9 @@ public class EphorteGW {
         }
         for (PersonTgKode pt : p.getTgKoder()) {
             if (oldPerson.isNew() || !oldPerson.getTgKoder().contains(pt)) {
-		Person operatorPerson = brukerId2Person.get(pt.getOperatorBrukerId());
+		// Hvis operatorPerson ikke finnes må vi finne på noe
+		// lurt, i det minste ikke dø med nullpointerException
+		Person operatorPerson = brukerId2Person.get(pt.getOperatorBrukerId()); 
 		pt.setOperatorId(operatorPerson.getId());
 		// pertgkode uses pe_id as primary key. Thus we need
 		// to check if a person has an equivalent deleted
@@ -401,10 +403,10 @@ public class EphorteGW {
 		// can't set it to null, so we set it to way into the
 		// future.
 		if (oldPerson.getDeletedTgKoder().contains(pt)) {
-		    log.debug("Update tgKode: " + pt);
+		    log.info("Update tgKode: " + pt);
 		    pt.toUpdateXML(xml);
 		} else {
-		    log.debug("Add tgKode: " + pt);
+		    log.info("Add tgKode: " + pt);
 		    pt.toXML(xml);
 		}
                 isDirty = true;
@@ -416,7 +418,7 @@ public class EphorteGW {
         if (!oldPerson.isNew()) {
             for (PersonTgKode pt : oldPerson.getTgKoder()) {
 		if (!oldPerson.getDeletedTgKoder().contains(pt)) {
-		    log.debug("Remove tgKode: " + pt);
+		    log.info("Remove tgKode: " + pt);
 		    pt.setTilDato(new Date());
 		    pt.toDeleteXML(xml);
 		    isDirty = true;

@@ -37,7 +37,8 @@ public class ImportEphorteXML {
 			   "  -r fname : raw xml filename\n"+
 			   "  -p fname : property filename (see example.props)\n"+
 			   "  -d table : dump table in a somewhat readable format\n"+
-			   "  -t tag   : tag to select from -d option"
+			   "  -t tag   : tag to select from -d option\n"+
+			   "  -c       : test connection to web service"
 			   );
         System.exit(1);
     }
