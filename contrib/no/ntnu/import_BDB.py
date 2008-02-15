@@ -1357,7 +1357,7 @@ def main():
             else:
                 print "No person or too many persons match criteria. Exiting.."
             sys.exit()
-        elif opt in ('--compare-people'):
+        elif opt in ('--compare-people',):
             sync.compare_person_bdbids()
         elif opt in ('-p','--people'):
             sync.sync_persons()
