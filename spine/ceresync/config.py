@@ -36,9 +36,9 @@ def apply_quarantine(obj, typestr):
     nologin: shell="/bin/nologin"
     DEFAULT: passwd="*"
     """
-    for q in obj.get_quarantines:
+    for q in obj.quarantines:
         try:
-            a=sync.get('%s_quarantenes' % typestr, q.name)
+            a=sync.get('%s_quarantenes' % typestr, q)
         except ConfigParser.NoOptionError:
             try:
                 a=sync.get('%s_quarantenes' % typestr, "DEFAULT")
