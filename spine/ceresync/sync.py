@@ -49,7 +49,6 @@ class Sync:
         return res
     
     def get_accounts(self, incr=None):
-        print "gurk"
         return self._do_get("account", incr)
         
     def get_groups(self, incr=None):
