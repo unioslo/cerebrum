@@ -185,8 +185,8 @@ command_help = {
     'group_def': 'Set default filegroup for an account',
     'group_delete': 'Delete a group from Cerebrum',
     'group_demote_posix': 'Make an existing POSIX-group into a Cerebrum group',
-    'group_gadd': 'Let another group join a group',
-    'group_gremove': 'Remove member-groups from a given group',
+    'group_gadd': 'Let src_group(s) join dest_group(s)',
+    'group_gremove': 'Remove src_group(s) from given dest_group(s)',
     'group_info': 'View information about a spesific group',
     'group_list': 'List account members of a group',
     'group_list_expanded': 'List all members of a group, direct og indirect',
@@ -413,11 +413,11 @@ affiliation status codes"""],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':
-        ['gname', 'Enter the destination group'],
+        ['dest_gname', 'Enter the destination group'],
     'group_name_new':
         ['gname', 'Enter the new group name'],
     'group_name_src':
-        ['gname', 'Enter the source group'],
+        ['src_gname', 'Enter the source group'],
     'group_name_moderator':
 	['gname', 'Enter the name of the moderator group'],
     'group_operation':

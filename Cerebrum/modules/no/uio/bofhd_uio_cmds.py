@@ -3490,8 +3490,8 @@ class BofhdExtension(object):
 
     # group gremove
     all_commands['group_gremove'] = Command(
-        ("group", "gremove"), GroupName(repeat=True),
-        GroupName(repeat=True), GroupOperation(optional=True),
+        ("group", "gremove"), GroupName(help_ref="group_name_src", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True), GroupOperation(optional=True),
         perm_filter='can_alter_group')
     def group_gremove(self, operator, src_name, dest_group,
                       group_operator=None):
