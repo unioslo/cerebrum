@@ -144,12 +144,6 @@ def populate_tilsetting(person, ou, fields, const):
     funksjonstittel = int(funksjonstittel)
     percentage = float(percentage)
 
-    # due to a new registration routine at HiA we need to skip records where
-    # percentage > 100
-    if percentage > 100:
-        logger.warn("Skipping |%s|, percentage registration error.", sap_id)
-        return False
-    
     person.populate_tilsetting(ou.entity_id, lonnstittel, funksjonstittel,
                                stillingstype, start_date, end_date,
                                percentage)
