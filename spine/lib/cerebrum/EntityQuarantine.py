@@ -154,7 +154,7 @@ def remove_quarantine(self, type):
 remove_quarantine.signature = None
 remove_quarantine.signature_args=[QuarantineType]
 remove_quarantine.signature_write=True
-add_quarantine.signature_auth_attr = 0
+remove_quarantine.signature_auth_attr = 0
 
 Entity.register_methods([get_quarantine, get_quarantines, get_all_quarantines, get_active_quarantines, is_quarantined, add_quarantine, remove_quarantine])
 
