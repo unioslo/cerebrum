@@ -646,7 +646,7 @@ class BDBSync:
         new_person.write_db()
 
         newquarantines = set()
-        if person['sperret']:
+        if person.get('sperret', False):
             newquarantines.add(new_person.const.quarantine_sperret)
         
         oldquarantines = set([q['quarantine_type']
