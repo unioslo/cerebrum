@@ -1,4 +1,4 @@
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2003, 2004 University of Oslo, Norway
 #
@@ -139,6 +139,25 @@ class PersonSAPMixin(Person.Person):
             return ret or local_updates
         # fi
     # end write_db
+
+
+
+    def delete(self):
+        """Delete this mixin's junk associated with self.entity_id."""
+
+        if self.entity_id is None:
+            raise Errors.NoEntityAssociationError(
+                      "Unable to determine which Person to delete.")
+
+        for schema in (_SAP_ROLLE_SCHEMA, _SAP_TILSETTING_SCHEMA,
+                       _SAP_PERSON_SCHEMA):
+            # drop all rows from schema
+            self.execute("""
+                DELETE FROM %s
+                WHERE person_id = :p_id""" % schema, {"p_id": self.entity_id})
+
+        super(PersonSAPMixin, self).delete()
+    # end delete
 
 
 
@@ -759,6 +778,26 @@ class OUSAPMixin(OU.OU):
         self.__updated = []
         return update_status
     # end write_db
+
+
+
+    def delete(self):
+        """Delete this mixin's junk associated with self.entity_id."""
+
+        if self.entity_id is None:
+            raise Errors.NoEntityAssociationError(
+                      "Unable to determine which OU to delete.")
+
+        # IVR 2008-02-18 TBD: Do we really want to delete employment records
+        # associated with this OU?
+        for schema in (_SAP_OU_SCHEMA, _SAP_TILSETTING_SCHEMA):
+            # drop all rows from schema
+            self.execute("""
+                DELETE FROM %s
+                WHERE ou_id = :o_id""" % schema, {"o_id": self.entity_id})
+
+        super(OUSAPMixin, self).delete()
+    # end delete
 
 
 
