@@ -17,7 +17,7 @@ all:
 install: install-lib
 	$(MAKE) -C css $@
 
-install-lib: install-py install-images install-jscripts
+install-lib: install-py install-images install-jscripts install-yui
 	
 install-py: $(sources)
 	$(INSTALL) -d ${WEBROOT}/htdocs/
