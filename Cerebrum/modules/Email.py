@@ -760,7 +760,7 @@ class EmailAddress(Entity_class):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_address]
         WHERE address_id=:e_id""", {'e_id': self.entity_id})
-        self.__super.delete(self)
+        self.__super.delete()
 
     def find_by_local_part_and_domain(self, local_part, domain_id):
         # NA
