@@ -45,6 +45,19 @@ verbose = False
 dryrun = False
 show_traceback = False
 
+def dictcompare(old, new):
+    oldk = set(old.keys())
+    newk = set(new.keys())
+    
+    addk = newk - oldk
+    delk = oldk - newk
+    
+    modk = set()
+    for i in newk & oldk:
+        if new[i] != old[i]:
+            modk.add(i)
+    
+    return addk, modk, delk
 
 
 def _get_password(_account):
@@ -122,6 +135,7 @@ class BDBSync:
         self.posix_user = PosixUser.PosixUser(self.db)
         self.posix_user2 = PosixUser.PosixUser(self.db)
         self.et = Email.EmailTarget(self.db)
+        self.epat = Email.EmailPrimaryAddressTarget(self.db)
         self.ea = Email.EmailAddress(self.db)
         self.ed = Email.EmailDomain(self.db)
         self.ev = Email.EmailVacation(self.db)
@@ -202,8 +216,10 @@ class BDBSync:
             del kw['msg']
         try:
             fun(*args, **kw)
-        except Exception, e:
-            self.logger.error('Error while %s: %s' % (msg, e))
+        except (self.db.IntegrityError,
+                Errors.DatabaseException,
+                LookupError), e:
+            self.logger.exception('Error while %s: %s' % (msg, e))
             self.db.rollback()
         else:
             if dryrun:
@@ -1198,6 +1214,165 @@ class BDBSync:
         else:
             self.db.commit()
 
+    def sync_email(self):
+        const = self.const
+        
+        self.logger.debug("Start syncing email addresses")
+        
+        self.logger.debug("Fetching data from Cerebrum")
+
+        names = self.ac.list_names(const.account_namespace)
+        account_by_name = {}
+        for n in names:
+            account_by_name[n['entity_name']] = n['entity_id']
+
+        emaildomain_by_name = {}
+        for d in self.ed.list_email_domains():
+            emaildomain_by_name[d['domain']] = d['domain_id']
+        
+        target_by_account ={}
+        account_by_target = {}
+        for t in self.et.list_email_targets_ext():
+            account_by_target[t['target_id']] = t['target_entity_id']
+            target_by_account[t['target_entity_id']] = t['target_id']
+
+        old_addrs = {}
+        old_trgts = {}
+        for a in self.ea.list_email_addresses_ext():
+            if not account_by_target.has_key(a['target_id']):
+                self.logger.error("Email: Target %d does not exist" %
+                                  a['target_id'])
+                continue
+            account_id = account_by_target[a['target_id']]
+            local_part = a['local_part']
+            domain = a['domain']
+            old_addrs[(local_part, domain)] = (account_id, False)
+            old_trgts[(local_part, domain)] = a['target_id']
+
+        for a in self.epat.list_email_target_primary_addresses():
+            account_id = a['target_entity_id']
+            local_part = a['local_part']
+            domain = a['domain']
+            old_addrs[(local_part, domain)] = (account_id, True)
+            old_trgts[(local_part, domain)] = a['target_id']
+
+        self.logger.debug("Fetching email addresses from BDB")
+        addresses = self.bdb.get_email_addresses()
+        
+        aliases = self.bdb.get_email_aliases()
+
+        new_addrs = {}
+        for a in addresses:
+            if not account_by_name.has_key(a['username']):
+                self.logger.warn("Email: Account %s does not exist" %
+                                 a.get('username'))
+                continue
+            account_id = account_by_name[a['username']]
+            local_part = a['email_address']
+            domain = a['email_domain_name']
+            new_addrs[(local_part, domain)] = (account_id, True)
+
+        for a in aliases:
+            if not account_by_name.has_key(a['username']):
+                self.logger.warn("Email: Account %s does not exist" %
+                                 a.get('username'))
+                continue
+            account_id = account_by_name[a['username']]
+            local_part = a['email_address']
+            domain = a['email_domain_name']
+            new_addrs[(local_part, domain)] = (account_id, False)
+            
+        self.logger.debug("Email: from %d to %d adresses" %
+                          (len(old_addrs), len(new_addrs)))
+        addk, modk, delk = dictcompare(old_addrs, new_addrs)
+        self.logger.debug("Email: Adding %d changing %d deleting %d addresses"
+                          % (len(addk), len(modk), len(delk)))
+
+        for addr in addk | modk | delk:
+            local_part, domain = addr
+            if not emaildomain_by_name.has_key(domain):
+                self.logger.error("Email: Emaildomain %s does not exist" %
+                                  domain)
+                continue
+            domain_id = emaildomain_by_name[domain]
+            oaccount_id, oprimary = old_addrs.get(addr, (None, None))
+            otarget_id = old_trgts.get(addr, None)
+            account_id, primary = new_addrs.get(addr, (None, None))
+            msg=[]
+            if oprimary:
+                msg.append("deleting primary")
+            if oaccount_id != account_id:
+                if oaccount_id:
+                    msg.append("deleting from account %s" % oaccount_id)
+                if account_id:
+                    msg.append("adding to account %s" % account_id)
+            if primary:
+                msg.append("adding primary")
+            self.logger.debug("Email: %s@%s: %s" %
+                              (local_part, domain, ", ".join(msg)))
+            self.check_commit(self.email_addr_mod,
+                              local_part, domain_id, domain,
+                              account_id, primary,
+                              oaccount_id, otarget_id, oprimary,
+                              msg="syncing email address")
+
+        self.logger.debug("Finished syncing email adresses")
+        
+
+    def email_addr_mod(self, local_part, domain_id, domain,
+                       account_id, primary,
+                       oaccount_id, otarget_id, oprimary):
+        const = self.const
+        addr = "%s@%s" % (local_part, domain)
+        self.ea.clear()
+
+        if account_id == oaccount_id:
+            target_id = otarget_id
+        elif account_id:
+            self.et.clear()
+            try:
+                self.et.find_by_target_entity(account_id)
+            except Errors.NotFoundError:
+                self.logger.debug("%s: making to new target" % addr)
+                self.et.populate(const.email_target_account,
+                                 target_entity_id=account_id,
+                                 target_entity_type=const.entity_account)
+                self.et.write_db()
+            target_id = self.et.entity_id
+            
+        if otarget_id:
+            self.ea.find_by_local_part_and_domain(local_part, domain_id)
+            if oprimary:
+                self.logger.debug("%s: removing primary" % addr)
+                self.epat.clear()
+                self.epat.find(otarget_id)
+                if self.epat.email_primaddr_id == self.ea.entity_id:
+                    self.epat.delete()
+            if account_id and account_id != oaccount_id:
+                self.logger.debug("%s: assigning to new target" % addr)
+                self.ea.email_addr_target_id = target_id
+                self.ea.write_db()
+            if account_id is None:
+                self.logger.debug("%s: deleting" % addr)
+                self.ea.delete()
+        else:
+            self.logger.debug("%s: creating" % addr)
+            self.ea.populate(local_part, domain_id, target_id)
+            self.ea.write_db()
+        if primary:
+            self.logger.debug("%s: making primary" % addr)
+            self.epat.clear()
+            try:
+                self.epat.find(target_id)
+                self.epat.email_primaddr_id = self.ea.entity_id
+            except Errors.NotFoundError:
+                self.et.clear()
+                self.et.find(target_id)
+                self.epat.clear()
+                self.epat.populate(self.ea.entity_id, parent=self.et)
+            self.epat.write_db()
+        
+
     def sync_email_aliases(self):
         if verbose:
             print "Fetching email aliases from BDB"
@@ -1372,7 +1547,7 @@ def main():
         elif opt in ('--email_domains',):
             sync.sync_email_domains()
         elif opt in ('-e','--email_address'):
-            sync.sync_email_addresses()
+            sync.sync_email()
         elif opt in ('--password-only',):
             accounts = sync.bdb.get_accounts(last=30)
             for account in accounts:
