@@ -187,28 +187,50 @@ def compare(adusers,cerebrumusers):
                 if not k in dta.keys():
                     dta[k] = None
                     
+
+            newchg = False
             for k in ['sn', 'givenName', 'displayName']:
                 if not dta[k] == cerebrumusers[usr][k]:
                     changes[k] = cerebrumusers[usr][k]
-                    changes['type'] = 'UPDATEUSR'
+                    newchg = True
                     logger.debug('Updating account %s with new attr %s (%s)', usr, k, changes[k])
+            if cerebrumusers[usr]['affiliation'] == 'studenter':
+                if changes['homeDrive'] != cereconf.AD_HOME_DRIVE_STUDENT:
+                    changes['homeDrive'] = cereconf.AD_HOME_DRIVE_STUDENT
+                    logger.debug('Updating account %s with new attr %s (%s)', usr, 'homedrive', cereconf.AD_HOME_DRIVE_STUDENT)
+                    newchg = True
+                if changes['homeDirectory'] != "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr):
+                    changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr)
+                    logger.debug('Updating account %s with new attr %s (%s)', usr, 'homeDirectory', cereconf.AD_HOME_DIRECTORY_STUDENT)
+                    newchg = True
+                if changes['profilePath'] != "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr):
+                    changes['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)
+                    logger.debug('Updating account %s with new attr %s (%s)', usr, 'profilePath', cereconf.AD_PROFILE_PATH_STUDENT)	
+                    newchg = True
+            else:
+                if changes['homeDrive'] != cereconf.AD_HOME_DRIVE_ANSATT:
+                    changes['homeDrive'] = cereconf.AD_HOME_DRIVE_ANSATT
+                    logger.debug('Updating account %s with new attr %s (%s)', usr, 'homedrive', cereconf.AD_HOME_DRIVE_ANSATT)
+                    newchg = True
+                if changes['homeDirectory'] != "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr):
+                    changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr)
+                    logger.debug('Updating account %s with new attr %s (%s)', usr, 'homeDirectory', cereconf.AD_HOME_DIRECTORY_ANSATT)
+                    newchg = True
+                # See no reason to touch the profile path, if it for some reason is set	
+                #if changes['profilePath'] != None:
+                #changes['profilePath'] = None
+
+            if newchg:
+                changes['type'] = 'UPDATEUSR'
+                changes['distinguishedName'] = adusers[usr]['distinguishedName']
+                changelist.append(changes)    
+                changes = {}
 
             if not re.match('.*' + cerebrumusers[usr]['affiliation'] + '.*', dta['distinguishedName']):
                 logger.info("Need to move: %s -> %s" % (dta['distinguishedName'], cerebrumusers[usr]['affiliation']))
                 changes['affiliation'] = cerebrumusers[usr]['affiliation']
                 changes['type'] = 'MOVEUSR'
-                if cerebrumusers[usr]['affiliation'] == 'studenter':
-                    changes['homeDrive'] = cereconf.AD_HOME_DRIVE_STUDENT
-                    changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr)
-                    changes['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)
-                    if not changes.has_key('type'):
-                        changes['type'] = 'UPDATEUSR'
-                else:
-                    changes['homeDrive'] = cereconf.AD_HOME_DRIVE_ANSATT
-                    changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr)
-                    changes['profilePath'] = None
-                    if not changes.has_key('type'):
-                        changes['type'] = 'UPDATEUSR'
+
             # remove account from cerebrumusers
             #
             del cerebrumusers[usr]
