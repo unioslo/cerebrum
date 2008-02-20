@@ -194,25 +194,26 @@ def compare(adusers,cerebrumusers):
                     changes[k] = cerebrumusers[usr][k]
                     newchg = True
                     logger.debug('Updating account %s with new attr %s (%s)', usr, k, changes[k])
+                    
             if cerebrumusers[usr]['affiliation'] == 'studenter':
-                if changes['homeDrive'] != cereconf.AD_HOME_DRIVE_STUDENT:
+                if dta['homeDrive'] != cereconf.AD_HOME_DRIVE_STUDENT:
                     changes['homeDrive'] = cereconf.AD_HOME_DRIVE_STUDENT
                     logger.debug('Updating account %s with new attr %s (%s)', usr, 'homedrive', cereconf.AD_HOME_DRIVE_STUDENT)
                     newchg = True
-                if changes['homeDirectory'] != "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr):
+                if dta['homeDirectory'] != "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr):
                     changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_STUDENT, usr)
                     logger.debug('Updating account %s with new attr %s (%s)', usr, 'homeDirectory', cereconf.AD_HOME_DIRECTORY_STUDENT)
                     newchg = True
-                if changes['profilePath'] != "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr):
+                if dta['profilePath'] != "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr):
                     changes['profilePath'] = "%s%s" % (cereconf.AD_PROFILE_PATH_STUDENT, usr)
                     logger.debug('Updating account %s with new attr %s (%s)', usr, 'profilePath', cereconf.AD_PROFILE_PATH_STUDENT)	
                     newchg = True
             else:
-                if changes['homeDrive'] != cereconf.AD_HOME_DRIVE_ANSATT:
+                if dta['homeDrive'] != cereconf.AD_HOME_DRIVE_ANSATT:
                     changes['homeDrive'] = cereconf.AD_HOME_DRIVE_ANSATT
                     logger.debug('Updating account %s with new attr %s (%s)', usr, 'homedrive', cereconf.AD_HOME_DRIVE_ANSATT)
                     newchg = True
-                if changes['homeDirectory'] != "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr):
+                if dta['homeDirectory'] != "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr):
                     changes['homeDirectory'] = "%s%s" % (cereconf.AD_HOME_DIRECTORY_ANSATT,usr)
                     logger.debug('Updating account %s with new attr %s (%s)', usr, 'homeDirectory', cereconf.AD_HOME_DIRECTORY_ANSATT)
                     newchg = True
