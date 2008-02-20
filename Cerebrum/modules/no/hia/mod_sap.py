@@ -210,9 +210,6 @@ class PersonSAPMixin(Person.Person):
         dato_til = dato_til and strptime(dato_til, "%Y%m%d") or dato_til
         if andel:
             andel = float(andel)
-            assert 0 <= andel <= 100, \
-                   "andel must be a percentage (between 0 and 100)"
-        # fi
         
         value = {"person_id"       : int(self.entity_id),
                  "ou_id"           : int(ou_id),
