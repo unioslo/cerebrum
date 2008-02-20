@@ -368,6 +368,7 @@ class BDB:
             WHERE
                 b.user_domain = 1 AND
                 b.person = p.id AND
+                b.status = 1 AND
                 (p.personnr IS NOT NULL OR 
                  (n.person = p.id AND n.utloper IS NULL)
                 ) AND 
