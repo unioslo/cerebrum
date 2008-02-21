@@ -82,7 +82,7 @@ class BDB:
                 b.status = 1 AND
                 n.person (+) = p.id AND
                 (p.personnr IS NOT NULL
-                   OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
+                   OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
                 p.mail_domain = m.id AND
                 m.system IS NOT NULL
         """
@@ -110,19 +110,22 @@ class BDB:
 
     def get_account_spreads(self):
         cursor = self.db.cursor()
-        cursor.execute("SELECT k.id, g.unix_gid, g.navn as gruppenavn, \
-                        k.system, b.brukernavn , s.navn as spread_name, \
-                        sk.navn as shell \
-                        FROM person p,konto k, bruker b, gruppe g, \
-                              bdb.system s, skall sk \
-                        WHERE p.id = b.person AND \
-                              (p.personnr IS NOT NULL) AND \
-                              k.bruker = b.id AND \
-                              k.gruppe = g.id AND \
-                              k.system = s.id AND \
-                              k.skall = sk.id AND \
-                              b.user_domain = 1 \
-                       ")
+        cursor.execute("""
+        SELECT k.id, g.unix_gid, g.navn as gruppenavn,
+          k.system, b.brukernavn , s.navn as spread_name,
+          sk.navn as shell
+        FROM person p,konto k, bruker b, gruppe g,
+          bdb.system s, skall sk, no_nin_persons n
+        WHERE p.id = b.person AND
+          p.id = n.person (+) AND
+          (p.personnr IS NOT NULL
+            OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
+          k.bruker = b.id AND
+          k.gruppe = g.id AND
+          k.system = s.id AND
+          k.skall = sk.id(+) AND
+          b.user_domain = 1
+          """)
         bdb_spreads = cursor.fetchall()
         spreads = []
         for sp in bdb_spreads:
@@ -139,21 +142,24 @@ class BDB:
                 s['username'] = sp[4]
             if sp[5]:
                 s['spread_name'] = sp[5]
-            if sp[6]:
-                s['shell'] = sp[6]
+            s['shell'] = sp[6]
             spreads.append(s)
         cursor.close()
         return spreads
 
     def get_vacations(self):
         cursor = self.db.cursor()
-        cursor.execute("SELECT v.id,v.person,v.subject,v.message,to_char(p.fodselsdato,'YYYY-MM-DD'), \
-                               p.personnr, p.fornavn, p.etternavn \
-                        FROM vacation v, person p, bruker b \
-                        WHERE v.person = p.id AND \
-                              p.id = b.person AND \
-                              p.personnr IS NOT NULL \
-                              b.user_domain = 1 ")
+        cursor.execute("""
+        SELECT v.id,v.person,v.subject,v.message,to_char(p.fodselsdato,'YYYY-MM-DD'),
+          p.personnr, p.fornavn, p.etternavn
+        FROM vacation v, person p, bruker b, no_nin_persons n
+        WHERE v.person = p.id AND
+          p.id = b.person AND
+          p.id = n.person (+) AND
+          (p.personnr IS NOT NULL
+            OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
+          b.user_domain = 1
+        """)
         bdb_vacations = cursor.fetchall()
         vacations = []
         for vac in bdb_vacations:
@@ -179,20 +185,30 @@ class BDB:
     def get_persons(self,fdato=None,pnr=None,bdbid=None):
         cursor = self.db.cursor()
         if not fdato and not pnr and not bdbid:
-            cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), p.personnr, p.personnavn,\
-                        p.fornavn, p.etternavn, p.sperret, p.forward FROM person p,bruker b, no_nin_persons n \
-                        WHERE b.person = p.id AND \
-                        b.user_domain=1 AND \
-                        (p.personnr IS NOT NULL OR (p.id = n.person AND n.utloper IS NULL)) ")
+            cursor.execute("""
+            SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'),
+              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward
+            FROM person p,bruker b, no_nin_persons n
+            WHERE b.person = p.id AND
+              b.user_domain=1 AND
+              p.id = n.person (+) AND
+              (p.personnr IS NOT NULL
+                OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL))
+            """)
         elif bdbid:
-            cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), \
-                        p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward \
-                        FROM person p WHERE p.id = %s " % (bdbid))
+            cursor.execute("""
+            SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'),
+              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward
+            FROM person p
+            WHERE p.id = %s
+            """% (bdbid))
         else:
-            cursor.execute("SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'), \
-                        p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward \
-                        FROM person p WHERE \
-                        p.personnr = %s AND to_char(p.fodselsdato,'DDMMYY') = %s" % (pnr,fdato))
+            cursor.execute("""
+            SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'),
+              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward
+            FROM person p
+            WHERE p.personnr = %s AND to_char(p.fodselsdato,'DDMMYY') = %s
+            """ % (pnr,fdato))
         bdb_persons = cursor.fetchall()
         persons = []
         # Convert to a dict
@@ -223,44 +239,56 @@ class BDB:
     def get_accounts(self,username=None,last=None):
         cursor = self.db.cursor()
         if username:
-            cursor.execute("SELECT b.passord_type, b.gruppe, b.person, \
-                              b.brukernavn, to_char(b.siden,'YYYY-MM-DD'), \
-                              to_char(b.utloper,'YYYY-MM-DD'), \
-                              b.unix_uid, b.skall, b.standard_passord, \
-                              b.id, b.status, g.unix_gid, b.nt_passord \
-                            FROM bruker b,person p, gruppe g, no_nin_persons n \
-                            WHERE b.user_domain=1 AND \
-                              b.person = p.id AND \
-                              b.gruppe =  g.id AND \
-                              b.brukernavn='%s'" % username)
+            cursor.execute("""
+            SELECT b.passord_type, b.gruppe, b.person,
+              b.brukernavn, to_char(b.siden,'YYYY-MM-DD'),
+              to_char(b.utloper,'YYYY-MM-DD'),
+              b.unix_uid, b.skall, b.standard_passord,
+              b.id, b.status, g.unix_gid, b.nt_passord,
+              n.account_type
+            FROM bruker b,person p, gruppe g, no_nin_persons n
+            WHERE b.user_domain=1 AND
+              b.person = p.id AND
+              b.gruppe =  g.id AND
+              p.id = n.person (+) AND
+              b.brukernavn='%s'
+            """ % username)
         elif last:
             cursor.execute("""
-                            select distinct b.passord_type, b.gruppe, b.person,
-                            b.brukernavn, to_char(b.siden,'YYYY-MM-DD'),
-                            to_char(b.utloper,'YYYY-MM-DD'),
-                            b.unix_uid, b.skall, b.standard_passord,
-                            b.id, b.status, g.unix_gid, b.nt_passord
-                            FROM bruker b,person p, gruppe g, har_hatt_pw h,no_nin_persons n
-                            WHERE b.user_domain=1 AND
-                            h.byttet > sysdate - interval '%s' minute AND
-                            h.bruker = b.id AND
-                            h.konto IS NULL AND
-                            b.person = p.id AND
-                            (p.personnr IS NOT NULL OR (p.id=n.person AND n.utloper IS NULL)) AND 
-                            b.gruppe =  g.id 
-                           """ % int(last))
+            SELECT distinct b.passord_type, b.gruppe, b.person,
+              b.brukernavn, to_char(b.siden,'YYYY-MM-DD'),
+              to_char(b.utloper,'YYYY-MM-DD'),
+              b.unix_uid, b.skall, b.standard_passord,
+              b.id, b.status, g.unix_gid, b.nt_passord,
+              n.account_type
+            FROM bruker b,person p, gruppe g, har_hatt_pw h,no_nin_persons n
+            WHERE b.user_domain=1 AND
+              h.byttet > sysdate - interval '%s' minute AND
+              h.bruker = b.id AND
+              h.konto IS NULL AND
+              b.person = p.id AND
+              p.id = n.person (+) AND
+              (p.personnr IS NOT NULL
+                OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
+              b.gruppe =  g.id 
+            """ % int(last))
                               
         else:
-            cursor.execute("SELECT DISTINCT b.passord_type, b.gruppe, b.person, \
-                              b.brukernavn, to_char(b.siden,'YYYY-MM-DD'), \
-                              to_char(b.utloper,'YYYY-MM-DD'),  \
-                              b.unix_uid, b.skall, b.standard_passord, \
-                              b.id, b.status, g.unix_gid, b.nt_passord \
-                            FROM bruker b,person p, gruppe g,no_nin_persons n\
-                            WHERE b.user_domain=1 AND \
-                              b.person = p.id AND \
-                             (p.personnr IS NOT NULL OR (p.id=n.person AND n.utloper IS NULL)) AND \
-                              b.gruppe =  g.id ") 
+            cursor.execute("""
+            SELECT DISTINCT b.passord_type, b.gruppe, b.person,
+              b.brukernavn, to_char(b.siden,'YYYY-MM-DD'),
+              to_char(b.utloper,'YYYY-MM-DD'),
+              b.unix_uid, b.skall, b.standard_passord,
+              b.id, b.status, g.unix_gid, b.nt_passord,
+              n.account_type
+            FROM bruker b,person p, gruppe g,no_nin_persons n
+            WHERE b.user_domain=1 AND
+              b.person = p.id AND
+              p.id = n.person (+) AND
+              (p.personnr IS NOT NULL
+                OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
+              b.gruppe =  g.id
+            """) 
         # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
         accounts = []
@@ -296,7 +324,7 @@ class BDB:
                 a["unix_gid"] = ba[11]
             if ba[12]:
                 a["password2"] = ba[12]
-
+            a["account_type"] = ba[13]
             accounts.append(a)
         cursor.close()
         return accounts
@@ -321,20 +349,23 @@ class BDB:
 
     def get_affiliations(self):
         cursor = self.db.cursor()
-        cursor.execute("""SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'), \
-                            t.org_enhet, t.fakultet, t.institutt, t.tilkn_form, \
-                            t.familie, f.navn, f.alltidsluttdato, k.kode, b.brukernavn \
-                          FROM tilknyttet t, person p, bruker b, tilkn_former f, ksted k\
-                          WHERE t.person = p.id AND \
-                              b.person = p.id AND \
-                              p.personnr IS NOT NULL AND \
-                              b.user_domain = 1 AND \
-                              b.status = 1 AND \
-                              t.tilkn_form = f.id AND \
-                              t.org_enhet = 100 AND \
-                              (t.fakultet = k.fakultet OR (t.fakultet IS NULL AND k.fakultet IS NULL)) AND \
-                              (t.institutt = k.institutt OR (t.institutt IS NULL AND k.institutt IS NULL))
-                      """)
+        cursor.execute("""
+        SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'),
+          t.org_enhet, t.fakultet, t.institutt, t.tilkn_form,
+          t.familie, f.navn, f.alltidsluttdato, k.kode, b.brukernavn
+        FROM tilknyttet t, person p, bruker b, tilkn_former f, ksted k, no_nin_persons n
+        WHERE t.person = p.id AND
+          b.person = p.id AND
+          p.id = n.person (+) AND
+          (p.personnr IS NOT NULL
+            OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
+          b.user_domain = 1 AND
+          b.status = 1 AND
+          t.tilkn_form = f.id AND
+          t.org_enhet = 100 AND
+          (t.fakultet = k.fakultet OR (t.fakultet IS NULL AND k.fakultet IS NULL)) AND
+          (t.institutt = k.institutt OR (t.institutt IS NULL AND k.institutt IS NULL))
+        """)
         bdb_affs = cursor.fetchall()
         affiliations = []
         for af in bdb_affs:
@@ -369,9 +400,9 @@ class BDB:
                 b.user_domain = 1 AND
                 b.person = p.id AND
                 b.status = 1 AND
-                (p.personnr IS NOT NULL OR 
-                 (n.person = p.id AND n.utloper IS NULL)
-                ) AND 
+                p.id = n.person (+) AND
+                (p.personnr IS NOT NULL
+                  OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
                 p.id = e.person AND
                 e.mail_domain = d.id
         """)
