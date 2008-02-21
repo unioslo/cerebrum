@@ -84,6 +84,7 @@ AC_CONFIG_FILES([
     spine/contrib/Makefile
     spine/client/Makefile
     spine/ceresync/Makefile
+    spine/ceresync/config.py
     spine/cereweb/Makefile
     spine/cereweb/htdocs/Makefile
     spine/cereweb/htdocs/css/Makefile

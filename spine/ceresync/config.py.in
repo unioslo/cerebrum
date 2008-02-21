@@ -23,7 +23,8 @@ import ConfigParser
 import os
 
 conf = ConfigParser.SafeConfigParser()
-conf.read(('sync.conf.template', 'sync.conf'))
+confpath= os.environ.get("CERECONF_DIR", "@CONFDIR@")+'/'
+conf.read((confpath+'sync.conf.template', confpath+'sync.conf'))
 sync=conf # compat
 
 def apply_quarantine(obj, typestr):
