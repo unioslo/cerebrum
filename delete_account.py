@@ -5,6 +5,7 @@ import getopt
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
+import cereconf
 
 class delete:
     def delete_account(self, db, account_id, target_id=None, dryrun=False):
@@ -27,7 +28,7 @@ class delete:
             legacy_info['ssn'] = None
         legacy_info['source'] = 'MANUELL'
         legacy_info['type'] = 'P'
-        legacy_info['comment'] = 'Deleted by delete_account.py script.' # Will try to get primary account for SSN later on...
+        legacy_info['comment'] = '%s - Deleted by delete_account.py script.' % (cereconf._TODAY) # Will try to get primary account for SSN later on...
         legacy_info['name'] = pe.get_name(co.system_cached, co.name_full)
 
         try:
@@ -50,6 +51,7 @@ class delete:
         delete_tables.append({'account_info':'account_id'})
         delete_tables.append({'entity_spread':'entity_id'})
         delete_tables.append({'entity_quarantine':'entity_id'})
+        delete_tables.append({'entity_trait':'entity_id'})
         delete_tables.append({'entity_info':'entity_id'})
 
         delete_mail_tables=[]
@@ -87,7 +89,7 @@ class delete:
             pe.find(aux)
             aux = pe.get_accounts(filter_expired=False)[0]['account_id']
             ac.find(aux)
-            legacy_info['comment'] = 'Duplicate of %s' % (ac.account_name)
+            legacy_info['comment'] = '%s - Duplicate of %s' % (cereconf._TODAY, ac.account_name)
             mailto_rt = True
         except:
             print "Could not find primary account"

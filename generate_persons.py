@@ -38,6 +38,8 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
 
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
 db = Factory.get('Database')()
 logger = Factory.get_logger("cronjob")
 
@@ -65,6 +67,9 @@ class create_person_xml:
     # This function reads a SLP4 person file with information about persons 
     # to create person data for import to cerebrum
     def parse_person_file(self,person_file,out_file):
+        ou_obj = Factory.get('OU')(db)
+
+        
         person_info = []
         person_info_no_uname = []
         # first lets create a hash table with faculty, institute and group number currently in cerebrum
@@ -178,6 +183,7 @@ class create_person_xml:
                 if(ansvarssted == ''):
                     logger.error("person %s does not have a stedkode, person not included in person.xml" % (SSN))
                     continue
+
                 for stedkode in stedkode_row:
                     temp_stedkode = "%02d%02d%02d"% (stedkode[0],stedkode[1],stedkode[2])
                     if(ansvarssted.isdigit()):
@@ -191,6 +197,15 @@ class create_person_xml:
                         # None comes from SLP4 on persons that are "kontraktloennet"
                         logger.error("stedkode %s for person %s does not exists in cerebrum." % (ansvarssted,SSN))
                     continue
+
+                ou_obj.clear();
+                try:
+                    ou_obj.find_stedkode(int(fakultetnr), int(instituttnr), int(gruppenr), cereconf.DEFAULT_INSTITUSJONSNR)
+                except EntityExpiredError:
+                    logger.error("Stedkode %s%s%s for person %s is expired. Person not included in person.xml" % (fakultetnr, instituttnr, gruppenr, SSN))
+                    continue
+                
+                
 
                 ###########################
                 # collect ou_address data #

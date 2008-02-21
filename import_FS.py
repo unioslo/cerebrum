@@ -37,6 +37,8 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uit.AutoStud import StudentInfo
 from Cerebrum.modules.no.uit import AutoStud
 
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
 # Define default file locations
 dumpdir = os.path.join(cereconf.DUMPDIR,"FS")
 default_personfile = os.path.join(dumpdir,'merged_persons.xml')
@@ -200,7 +202,12 @@ def _calc_address(person_info):
             if (ret[i] is not None) or not addr_cols:
                 continue
             if len(addr_cols) == 4:
-                ret[i] = _get_sted_address(tmp, *addr_cols)
+                try:
+                    ret[i] = _get_sted_address(tmp, *addr_cols)
+                except EntityExpiredError:
+                    #print "###PERSONINFO###", person_info
+                    logger.error("...og besøksadresse på expired OU %02d%02d%02d" % (int(tmp[addr_cols[1]]),int(tmp[addr_cols[2]]),int(tmp[addr_cols[3]])))
+                    continue
             else:
                 ret[i] = _ext_address_info(tmp, *addr_cols)
     return ret
@@ -298,71 +305,92 @@ def process_person_callback(person_info):
         if p.has_key('studentnr_tildelt'):
             studentnr = p['studentnr_tildelt']
         # Get affiliations
-        if dta_type in ('drgrad' ):
-            _process_affiliation(co.affiliation_student, 
-                                 co.affiliation_status_student_drgrad,
-                                 affiliations, 
-                                 _get_sko(p, 'faknr','instituttnr', 'gruppenr', 'institusjonsnr')) 
-        elif dta_type in ('fagperson',):
-            if p['institusjonsnr'] != cereconf.DEFAULT_INSTITUSJONSNR:
-                logger.debug("Skipping FS/fagperson from another institution!")
-                continue
-            _process_affiliation(co.affiliation_tilknyttet,
-                                 co.affiliation_tilknyttet_fagperson,
-                                 affiliations, _get_sko(p, 'faknr',
-                                 'instituttnr', 'gruppenr', 'institusjonsnr'))
-        elif dta_type in ('opptak','aktiv' ):
-            for row in x:
-                if studieprog2sko.get(row['studieprogramkode'],None) == None:
-                    logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,row['studieprogramkode']))
-                    continue                    
-                if dta_type in ('opptak'):
-                    subtype = co.affiliation_status_student_opptak                
-                if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
-                    subtype = co.affiliation_status_student_aktiv
-                elif row['studierettstatkode'] == 'EVU':
-                    subtype = co.affiliation_status_student_evu
-                elif row['studierettstatkode'] == 'PRIVATIST':
-                    subtype = co.affiliation_status_student_privatist
-                elif row['studierettstatkode'] == 'FULLFØRT':
-                    subtype = co.affiliation_status_student_alumni
-                elif int(row['studienivakode']) >= 980:
-                    subtype = co.affiliation_status_student_drgrad
-                _process_affiliation(co.affiliation_student, 
-                                     subtype,
-                                     affiliations, 
-                                     studieprog2sko[row['studieprogramkode']])
+        try:
+            if dta_type in ('drgrad' ):
+                try:
+                    aux = _get_sko(p, 'faknr','instituttnr', 'gruppenr', 'institusjonsnr')
+                    _process_affiliation(co.affiliation_student, 
+                                         co.affiliation_status_student_drgrad,
+                                         affiliations, 
+                                         aux)
+                except EntityExpiredError:
+                    logger.error("Person %s har affiliation av type %s på expired OU %02d%02d%02d" %
+                                 (fnr, dta_type, int(p['faknr']), int(p['instituttnr']), int(p['gruppenr'])))
+                    continue
+            elif dta_type in ('fagperson',):
+                if p['institusjonsnr'] != cereconf.DEFAULT_INSTITUSJONSNR:
+                    logger.debug("Skipping FS/fagperson from another institution!")
+                    continue
+                try:
+                    aux = _get_sko(p, 'faknr', 'instituttnr', 'gruppenr', 'institusjonsnr')
+                    _process_affiliation(co.affiliation_tilknyttet,
+                                         co.affiliation_tilknyttet_fagperson,
+                                         affiliations, aux)
+                except EntityExpiredError:
+                    logger.error("Person %s har affiliation av type %s på expired OU %02d%02d%02d" %
+                                 (fnr, dta_type, int(p['faknr']), int(p['instituttnr']), int(p['gruppenr'])))
+                    continue
+            elif dta_type in ('opptak','aktiv' ):
+                
+                for row in x:
+                    if studieprog2sko.get(row['studieprogramkode'],None) == None:
+                        logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,row['studieprogramkode']))
+                        continue                    
+                    if dta_type in ('opptak'):
+                        subtype = co.affiliation_status_student_opptak                
+                    if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
+                        subtype = co.affiliation_status_student_aktiv
+                    elif row['studierettstatkode'] == 'EVU':
+                        subtype = co.affiliation_status_student_evu
+                    elif row['studierettstatkode'] == 'PRIVATIST':
+                        subtype = co.affiliation_status_student_privatist
+                    elif row['studierettstatkode'] == 'FULLFØRT':
+                        subtype = co.affiliation_status_student_alumni
+                    elif int(row['studienivakode']) >= 980:
+                        subtype = co.affiliation_status_student_drgrad
+                    _process_affiliation(co.affiliation_student, 
+                                         subtype,
+                                         affiliations, 
+                                         studieprog2sko[row['studieprogramkode']])
                     
-        elif dta_type in ('privatist_studieprogram',):
-            if studieprog2sko.get(p['studieprogramkode'],None) == None:
-                logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,p['studieprogramkode']))
-                continue                    
-            _process_affiliation(co.affiliation_student,
-                                 co.affiliation_status_student_privatist,
-                                 affiliations, 
-                                 studieprog2sko[p['studieprogramkode']])
-        elif dta_type in ('perm',):
-            if studieprog2sko.get(p['studieprogramkode'],None) == None:
-                logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,p['studieprogramkode']))
-                continue                    
-            _process_affiliation(co.affiliation_student,
-                                 co.affiliation_status_student_aktiv,
-                                 affiliations, 
-                                 studieprog2sko[p['studieprogramkode']])
-        elif dta_type in ('tilbud',):
-            for row in x:
-                if studieprog2sko.get(row['studieprogramkode'],None) == None:
-                    logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,row['studieprogramkode']))
+            elif dta_type in ('privatist_studieprogram',):
+                if studieprog2sko.get(p['studieprogramkode'],None) == None:
+                    logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,p['studieprogramkode']))
                     continue                    
                 _process_affiliation(co.affiliation_student,
-                                     co.affiliation_status_student_tilbud,
+                                     co.affiliation_status_student_privatist,
                                      affiliations, 
-                                     studieprog2sko[row['studieprogramkode']])
-        elif dta_type in ('evu', ):
-            _process_affiliation(co.affiliation_student,
-                                 co.affiliation_status_student_evu,
-                                 affiliations, _get_sko(p, 'faknr_adm_ansvar',
-                                 'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar'))
+                                     studieprog2sko[p['studieprogramkode']])
+            elif dta_type in ('perm',):
+                if studieprog2sko.get(p['studieprogramkode'],None) == None:
+                    logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,p['studieprogramkode']))
+                    continue                    
+                _process_affiliation(co.affiliation_student,
+                                     co.affiliation_status_student_aktiv,
+                                     affiliations, 
+                                     studieprog2sko[p['studieprogramkode']])
+            elif dta_type in ('tilbud',):
+                for row in x:
+                    if studieprog2sko.get(row['studieprogramkode'],None) == None:
+                        logger.error("Student %s har %s i ukjent sted i studieprog2sko for %s" % (fnr,dta_type,row['studieprogramkode']))
+                        continue                    
+                    _process_affiliation(co.affiliation_student,
+                                         co.affiliation_status_student_tilbud,
+                                         affiliations, 
+                                         studieprog2sko[row['studieprogramkode']])
+            elif dta_type in ('evu', ):
+                try:
+                    aux = _get_sko(p, 'faknr_adm_ansvar', 'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar')
+                    _process_affiliation(co.affiliation_student,
+                                         co.affiliation_status_student_evu,
+                                         affiliations, aux)
+                except EntityExpiredError:
+                    logger.error("Person %s har affiliation av type %s på expired OU %02d%02d%02d" %
+                                 (fnr, dta_type, int(p['faknr_adm_ansvar']), int(p['instituttnr_adm_ansvar']), int(p['gruppenr_adm_ansvar'])))
+                    continue
+        except EntityExpiredError:
+            logger.error("Person %s har affiliation av type %s på Expired OU" % (fnr, dta_type))
+            continue
 
             
     if etternavn is None:
@@ -399,6 +427,7 @@ def process_person_callback(person_info):
     new_person.populate_external_id(co.system_fs, co.externalid_fodselsnr, fnr)
 
     ad_post, ad_post_private, ad_street = _calc_address(person_info)
+        
     for address_info, ad_const in ((ad_post, co.address_post),
                                    (ad_post_private, co.address_post_private),
                                    (ad_street, co.address_street)):

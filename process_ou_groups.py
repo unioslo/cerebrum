@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: iso8859-1 -*-
-"""This script created and syncs OU Groups for all OUs existing in Cerebrum"""
+"""This script created and syncs OU PosixGroups for all OUs existing in Cerebrum"""
 
 
 
@@ -19,7 +19,7 @@
       # else remove member from members_delete_dict
 
    # for each affiliated person on loaded ou
-      # if person and its affiliation does not exist on group corresponding to loaded ou, add membership
+      # if person (account) and its affiliation do not exist on group corresponding to loaded ou, add membership
       # else remove member from members_delete_dict
 
    # for each child of loaded ou
@@ -39,6 +39,7 @@ import getopt
 import mx
 
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import PosixGroup
 from Cerebrum.Constants import Constants
 from Cerebrum import Entity
 from Cerebrum.modules.no.Stedkode import Stedkode
@@ -61,12 +62,16 @@ group_type_id = None
 group_namespace = None
 account_type_id = None
 
+
 # Used to create container groups for account members
-possible_member_types = ['VITENSKAPELIG','TEKNISK','STUDENT']
+possible_member_types = ['VITENSKAPELIG','TEKNISK','STUDENT','DRGRAD']
 # Used to determine which aff_code_statuses correspond to which container group
 member_type_mappings = {'VITENSKAPELIG': [222,197,211],
                         'TEKNISK':[210,],
-                        'STUDENT':[215,212]}
+                        'STUDENT':[212,],
+                        'DRGRAD': [501,]}
+
+
 
 
 db = Factory.get('Database')()
@@ -81,24 +86,26 @@ def process_ou_groups(ou, perspective):
 
     logger.info("Now processing OU %s (%s)" % (ou.ou_id, ou.name))
 
-    gr = Factory.get('Group')(db)
-    aux_gr = Factory.get('Group')(db)
+    gr = PosixGroup.PosixGroup(db)
+    aux_gr = PosixGroup.PosixGroup(db)
 
     if not group_dict.has_key(ou.ou_id):
-        logger.info("Create group and give spread")
+        logger.info("Create PosixGroup and give spread")
         # create group and give spread
         gr_name = ou.name + ' (' + stedkode_dict[ou.ou_id] + ')'
-        gr.new(creator=default_creator, visibility=default_group_visibility, \
-               name = gr_name, \
-               description='ou_group:'+stedkode_dict[ou.ou_id])
-        gr.add_spread(default_spread)
+        gr.populate(creator_id = default_creator,
+               visibility = default_group_visibility,
+               name = gr_name,
+               description = 'ou_group:'+stedkode_dict[ou.ou_id])
+        gr.write_db()
+        #gr.add_spread(default_spread) #SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
         current_group = gr.entity_id
         group_dict[ou.ou_id] = current_group
         group_description_dict[current_group] = gr.description
         description_group_dict[gr.description] = current_group
     else:
         # remove from delete dict
-        logger.info("Group already exists")
+        logger.info("PosixGroup already exists")
         current_group = group_dict[ou.ou_id]
         group_delete_list.remove(current_group)
    
@@ -151,10 +158,12 @@ def process_ou_groups(ou, perspective):
                 if not container_exists:
                     gr.clear()
                     gr_name = ou.name + ' (' + stedkode_dict[ou.ou_id] + ')' + ' - ' + affiliate[1]
-                    gr.new(creator=default_creator, visibility=default_group_visibility, \
-                           name=gr_name, \
-                           description='ou_group:'+stedkode_dict[ou.ou_id]+':'+affiliate[1])
-                    gr.add_spread(default_spread)
+                    gr.populate(creator_id = default_creator,
+                           visibility = default_group_visibility,
+                           name = gr_name,
+                           description = 'ou_group:'+stedkode_dict[ou.ou_id]+':'+affiliate[1])
+                    gr.write_db()
+                    #gr.add_spread(default_spread) # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
                     aux_gr.clear()
                     aux_gr.find(current_group)
                     aux_gr.add_member(gr.entity_id, group_type_id, default_memberop)
@@ -188,7 +197,7 @@ def clean_up_ou_groups():
     global group_delete_list, members_delete_dict, group_description_dict, description_group_dict, \
            db, default_spread, group_namespace
 
-    gr = Factory.get('Group')(db)
+    gr = PosixGroup.PosixGroup(db)
 
     # Remove all members remaining in members_delete_dict
     for group_id in members_delete_dict.keys():
@@ -207,7 +216,7 @@ def clean_up_ou_groups():
             logger.info("Removing old member %s from group %s" % (member_id, working_group))
             gr.remove_member(member_id, default_memberop)
     
-    # Remove all empty ou-groups:*:TEKNISK/VITENSKAPELIG/STUDENT/EVT
+    # Remove all empty ou-groups:*:TEKNISK/VITENSKPELIG/STUDENT/EVT
     for member_type in possible_member_types:
         logger.info("Searching empty container groups for " + member_type)
         groups = gr.search(description = 'ou_group:%:'+member_type)
@@ -221,6 +230,9 @@ def clean_up_ou_groups():
                 logger.info("Expiring empty container group %s (%s)" %
                             (obsolete_group, obsolete_group_name))
                 gr.expire_date = mx.DateTime.now()
+                logger.info("Removing spread for empty container group %s (%s)" %
+                            (obsolete_group, obsolete_group_name))
+                #gr.delete_spread(default_spread) # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
                 gr.write_db()
                 logger.info("Prefixing its group_name with its group_id")
                 gr.update_entity_name(group_namespace, '#' + str(obsolete_group) + '# ' + obsolete_group_name)
@@ -239,6 +251,8 @@ def clean_up_ou_groups():
         gr.find(group_id)
         logger.info("Expiring unused OU group %s (%s)" % (group_id, gr.description))
         gr.expire_date = mx.DateTime.now()
+        logger.info("Removing spread for unused OU group %s (%s)" % (group_id, gr.description))
+        #gr.delete_spread(default_spread) # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
         gr.write_db()
         logger.info("Prefixing its group_name with its group_id")        
         gr.update_entity_name(group_namespace, '#' + str(group_id) + '# ' + gr.get_name(group_namespace))
@@ -270,7 +284,7 @@ def main():
             dryrun = 1
 
     ou = Factory.get('OU')(db)
-    gr = Factory.get('Group')(db)
+    gr = PosixGroup.PosixGroup(db)
 
     # Load default constant values
     co = Factory.get('Constants')(db)
@@ -288,7 +302,7 @@ def main():
     group_dict = {}
     group_description_dict = {}
     group_delete_list = []
-    stedkoder = ou.get_stedkoder()
+    stedkoder = ou.get_stedkoder(expired_before = '19680328') # No OU can be expired before UiT's birthday!
     groups = gr.search(description = 'ou_group:*')
 
     for stedkode in stedkoder:
@@ -329,8 +343,10 @@ def main():
     logger.info("Loading dict: group_id > members")
     members_dict = {}
     members_delete_dict = {}
-    aux_group = Factory.get('Group')(db)
-    working_group = Factory.get('Group')(db)
+    aux_group = PosixGroup.PosixGroup(db)
+    working_group = PosixGroup.PosixGroup(db)
+
+    
     # NO NEED TO EXECUTE QUERY AGAIN: groups = gr.search(description = 'ou_group:*')
     for group in groups:
 
@@ -422,22 +438,10 @@ def main():
     ou.clear()
     ou.find(default_start_ou)
 
-##     print "============="
-##     print group_delete_list
-##     print "============="
-##     print members_delete_dict
-##     print "============="
-
     # Enter recursive function to process groups
     logger.info("Starting to process groups, first out is: %s" % ou.name)
     process_ou_groups(ou = ou, perspective = perspective)
     logger.info("Finished processing groups")
-
-##     print "============="
-##     print group_delete_list
-##     print "============="
-##     print members_delete_dict
-##     print "============="
 
     # Delete groups belonging to no longer imported OUs and removing old members
     logger.info("Starting to clean up the mess left behind (Please read: expiring and deleting obsolete elements)")

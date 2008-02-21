@@ -44,6 +44,9 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
 from Cerebrum.modules.no.uit import Email
 
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
+
 accounts=persons=logger=None
 sysx=None
 skipped=added=updated=unchanged=deletedaff=0
@@ -56,6 +59,8 @@ logger=Factory.get_logger("cronjob")
 
 
 def get_existing_accounts():
+
+    ou = Factory.get('OU')(db)
         
     #get persons that comes from sysX and their accounts
     pers=Factory.get("Person")(db)
@@ -75,8 +80,14 @@ def get_existing_accounts():
         fetchall=False):
         tmp=pid2sysxid.get(row['person_id'],None)
         if tmp is not None:
-            tmp_persons[tmp].append_affiliation(
-                int(row['affiliation']), int(row['ou_id']), int(row['status']))
+            ou.clear()
+            try:
+                ou.find(int(row['ou_id']))            
+                tmp_persons[tmp].append_affiliation(
+                    int(row['affiliation']), int(row['ou_id']), int(row['status']))
+            except EntityExpiredError, msg:
+                logger.error("Skipping affiliation to ou_id %s (expired) for person with sysx_id %s." % (row['ou_id'], tmp))
+                continue
 
     tmp_ac={}
     account_obj=Factory.get('Account')(db)
@@ -145,7 +156,14 @@ def get_existing_accounts():
     for row in account_obj.list_accounts_by_type(filter_expired=False):
         tmp=tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
-            tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
+            ou.clear()
+            try:
+                ou.find(int(row['ou_id']))            
+                tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
+            except EntityExpiredError, msg:
+                logger.warn("Skipping affiliation to ou_id %s (OU expired) for person with account_id %s. (Is person affiliation on OU not deleted because of grace?)" % (row['ou_id'], row['account_id']))
+                continue
+
 
     # traits
     for row in account_obj.list_traits(co.trait_sysx_registrar_notified):
@@ -188,7 +206,7 @@ def send_mail(type, person_info, account_id):
     cc=None    
     if type=='ansvarlig':
         t_code=co.trait_sysx_registrar_notified
-        template='/cerebrum/var/source/templates/sysx/ansvarlig.tpl'
+        template= cereconf.CB_SOURCEDATA_PATH + '/templates/sysx/ansvarlig.tpl'
         recipient=person_info.get('ansvarlig_epost')
         person_info['AD_MSG']=""
         if 'AD_account' in person_info.get('spreads'):
@@ -199,9 +217,9 @@ def send_mail(type, person_info, account_id):
             logger.info('No recipient when sending bruker_epost, message not sent')
             return
         t_code=co.trait_sysx_user_notified
-        template='/cerebrum/var/source/templates/sysx/bruker.tpl'
+        template= cereconf.CB_SOURCEDATA_PATH + '/templates/sysx/bruker.tpl'
         if 'AD_account' in person_info.get('spreads'):
-            template='/cerebrum/var/source/templates/sysx/ad_bruker.tpl'
+            template= cereconf.CB_SOURCEDATA_PATH + '/templates/sysx/ad_bruker.tpl'
     else:
         logger.error("Unknown type '%s' in send_mail()" % type)
         return

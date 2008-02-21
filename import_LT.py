@@ -34,6 +34,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
 
 # Define default file locations
@@ -137,8 +138,12 @@ def get_sted(fakultet, institutt, gruppe):
                                   'addr_post': addr_post}
             ou_cache[int(ou.ou_id)] = ou_cache[stedkode]
         except Errors.NotFoundError:
-            logger.info("bad stedkode: %s" % str(stedkode))
+            logger.error("Bad stedkode: %s" % str(stedkode))
             ou_cache[stedkode] = None
+        except EntityExpiredError:
+            ou_cache[stedkode] = None
+            logger.error("Expired stedkode: %s" % str(stedkode))
+            
     return ou_cache[stedkode]
 
 def determine_affiliations(person):

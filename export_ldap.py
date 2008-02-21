@@ -29,7 +29,7 @@ def ldap_export():
 
     # 1. create the posix_user_ldif
     script = os.path.join(script_dir,'generate_posix_ldif.py')
-    script_arg = "-U ldap@uit -u /cerebrum/var/dumps/ldap/users_ldif"
+    script_arg = "-U ldap@uit -u "+cereconf.DUMPDIR+"/ldap/users_ldif"
     script_cmd = "%s %s %s" % ('python', script, script_arg)
     logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
@@ -38,7 +38,7 @@ def ldap_export():
 
     # 2 create the ou_ldif
     script = os.path.join(script_dir,'generate_org_ldif.py')
-    script_arg = "-o /cerebrum/var/dumps/ldap/ou_ldif"
+    script_arg = "-o "+cereconf.DUMPDIR+"/ldap/ou_ldif"
     script_cmd = "%s %s %s" % ('python', script, script_arg)
     #logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
@@ -48,7 +48,7 @@ def ldap_export():
     # 3 concatenate the two files into a third called temp_uit_ldif
     my_dump = os.path.join(cereconf.DUMPDIR , "ldap")
     
-    script_cmd = "/bin/cat %s/ou_ldif %s/users_ldif /cerebrum/var/source/ldap/fake_ldap_users.ldif> %s/temp_uit_ldif" %(my_dump,my_dump,my_dump)
+    script_cmd = "/bin/cat %s/ou_ldif %s/users_ldif %s/var/source/ldap/fake_ldap_users.ldif> %s/temp_uit_ldif" %(my_dump,my_dump,cereconf.CB_PREFIX,my_dump)
     #logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd)
     global_ret +=ret
@@ -57,11 +57,11 @@ def ldap_export():
     # 4.create a new ldif file based on the difference between the old and new data from cerebrum
     # 
     script = os.path.join(script_dir,'no','uit','ldif-diff.pl')
-    script_arg = "/cerebrum/var/dumps/ldap/uit_ldif /cerebrum/var/dumps/ldap/temp_uit_ldif > /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d" % (year,month,day)
+    script_arg = "%s/ldap/uit_ldif %s/ldap/temp_uit_ldif > %s/ldap/uit_diff_%02d%02d%02d" % (cereconf.DUMPDIR, cereconf.DUMPDIR, cereconf.DUMPDIR, year,month,day)
     script_cmd = "%s %s %s" % ('perl', script, script_arg)
     logger.debug("Running %s" % script_cmd)
     ret = os.system(script_cmd) 
-    aret = os.system("cp  /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d /cerebrum/var/dumps/ldap/uit_diff_%02d%02d%02d_%02d%02d " % (year,month,day,year,month,day,hour,min))
+    aret = os.system("cp  %s/ldap/uit_diff_%02d%02d%02d %s/ldap/uit_diff_%02d%02d%02d_%02d%02d " % (cereconf.DUMPDIR,year,month,day,cereconf.DUMPDIR,year,month,day,hour,min))
     global_ret +=ret
     logger.info("   ldif-diff.pl %s" % ret)
 

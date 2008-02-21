@@ -82,7 +82,7 @@ be added and removed (if omitted) by the script later.
 
 *** expire_date *** MANDATORY (element)
 'Never' (without quotes) or a date on ISO format (YYYYMMDD or YYYY-MM-DD will work for sure)
-The expore date will be set at account creation, and can be changed later.
+The expire date will be set at account creation, and can be changed later.
 The expire date is never set furhter in the future than the default_stay_alive_time.
 If Never, the expire date will be set to now() + default_stay_alive_time in weeks.
 If expire_date is < now() + default_stay_alive_time in weeks, expire_date is used directly
@@ -112,8 +112,8 @@ from Cerebrum import Errors
 system_accounts_cache = []
 
 logger = None
-default_logger = 'console'
-default_source_dir = ''
+default_logger = 'cronjob'
+default_source_dir = '%s/var/source' %  (cereconf.CB_PREFIX)
 default_system_accounts_file = 'system_accounts.xml'
 default_stay_alive_time = 4 #Weeks
 
@@ -364,7 +364,7 @@ def main():
     dryrun = False
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'f:p:d',['filename=', 'path=' 'dryrun'])
+        opts,args = getopt.getopt(sys.argv[1:],'f:p:d',['filename=', 'path=', 'dryrun'])
     except getopt.GetoptError:
         usage()
 
