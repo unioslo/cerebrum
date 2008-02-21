@@ -9,9 +9,11 @@ class nsd:
         query = "select new_ou_id from ou_history where old_ou_id=%s" % my_old_ou_id
         db_row = db.query(query)
         if len(db_row) != 0:
-            fakultet=db_row[0][0:1]
-            institutt=db_row[0][2:3]
-            avdeling=db_row[0][4:5]
+            aux, = db_row[0]
+            aux = str(aux)
+            fakultet  = aux[0:1]
+            institutt = aux[2:3]
+            avdeling  = aux[4:5]
             #print "STEDKODE after conversion from ou_history = %s%s%s" % (fakultet,institutt,avdeling)
         query = "select nsd from nsd_koder where fakultet=%s and institutt=%s and avdeling=%s" % (fakultet,institutt,avdeling)
         #print "query = '%s'" % query

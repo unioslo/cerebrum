@@ -46,7 +46,7 @@ class Stillingskode:
 
 
     def load_mappingtable(self):
-        mapping_file = '/cerebrum/var/source/stillingskode_sorted.txt'
+        mapping_file = cereconf.CB_PREFIX + '/var/source/stillingskode_sorted.txt'
         fh = open(mapping_file,'r')
         lines = fh.readlines()
         fh.close()
@@ -65,7 +65,7 @@ class Stillingskode:
         if (self._kode2type_mapping.has_key(sko)):
             return self._kode2type_mapping[sko]
         else:
-            return 'Ã˜VRIG'
+            return 'ØVRIG'
         
         
 
