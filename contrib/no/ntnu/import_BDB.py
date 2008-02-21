@@ -935,8 +935,11 @@ class BDBSync:
         bdb_source_type = const.system_bdb
         np_type = None
 
-        if account_info['person'] in cereconf.BDB_NP_PERSONS:
-            np_type = const.Account(cereconf.BDB_NP_PERSONS[account_info['person']])
+        if account_info.get('account_type') == 'programvare':
+            np_type = const.Account('programvare')
+            owner = self.np_owner
+        elif account_info.get("posix_uid") == "0":
+            np_type = const.Account('programvare')
             owner = self.np_owner
         else:
             person.clear()
