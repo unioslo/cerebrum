@@ -34,6 +34,9 @@ import xml.sax
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
+
 # Default file locations
 t = time.localtime()
 dumpdir = os.path.join(cereconf.DUMPDIR,"ou")
@@ -149,20 +152,24 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
     else:
         org_stedkode_ou = stedkode2ou[org_stedkode]
 
-    if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
-        if existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou:
-            # TODO: Update ou_structure
-            logger.info("Mapping for %s changed (%s != %s)" % (
-                stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
-                org_stedkode_ou))
-            # uitø extension follows.
-            # Ou's registred with parent_id as None, or wrong parent_id
-            # will have to update their parent_id if a new one is submitted
-            # in the stedkode.xml file. This is initially not done
-            # this extension fixes this
-            query = "update ou_structure set parent_id=%s where ou_id=%s" % (org_stedkode_ou,stedkode2ou[stedkode])
-            db.query(query)
+    try:
+        if existing_ou_mappings.has_key(stedkode2ou[stedkode]):
+            if existing_ou_mappings[stedkode2ou[stedkode]] != org_stedkode_ou:
+                # TODO: Update ou_structure
+                logger.info("Mapping for %s changed (%s != %s)" % (
+                    stedkode, existing_ou_mappings[stedkode2ou[stedkode]],
+                    org_stedkode_ou))
+                # uitø extension follows.
+                # Ou's registred with parent_id as None, or wrong parent_id
+                # will have to update their parent_id if a new one is submitted
+                # in the stedkode.xml file. This is initially not done
+                # this extension fixes this
+                query = "update ou_structure set parent_id=%s where ou_id=%s" % (org_stedkode_ou,stedkode2ou[stedkode])
+                db.query(query)
             
+            return
+    except KeyError:
+        logger.error("Stedkode %s not found in mapping (may be expired)" % (stedkode))
         return
 
     if (org_stedkode_ou is not None
@@ -182,8 +189,17 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
     existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
 
 def import_org_units(sources):
-    org_units = {}
     ou = OU_class(db)
+
+    expire_ou = []
+    all = ou.list_all()
+    for a in all:
+        expire_ou.append(a['ou_id'])
+    #print "############################### BEFORE: "
+    #print expire_ou
+
+    org_units = {}
+
     i = 1
     stedkode2ou = {}
 
@@ -201,6 +217,10 @@ def import_org_units(sources):
                                                cereconf.DEFAULT_INSTITUSJONSNR))
         except Errors.NotFoundError:
             pass
+        except EntityExpiredError:
+            logger.error('OU expired %s%s%s - not imported/updated' % (k['fakultetnr'], k['instituttnr'], k['gruppenr']))
+            continue
+        
         kat_merke = 'F'
         if k.get('opprettetmerke_for_oppf_i_kat'):
             kat_merke = 'T'
@@ -280,6 +300,12 @@ def import_org_units(sources):
             ou.populate_contact_info(source_system, co.contact_phone,
 					k['telefonnr'], contact_pref=n)
         op = ou.write_db()
+
+        try:
+            expire_ou.remove(ou.ou_id)
+        except Exception:
+            pass
+        
         if verbose:
             if op is None:
                 logger.info("**** EQUAL ****")
@@ -292,6 +318,19 @@ def import_org_units(sources):
         # Not sure why this casting to int is required for PostgreSQL
         stedkode2ou[stedkode] = int(ou.entity_id)
         db.commit()
+
+
+    # Expire all OUs in expire_ou list
+    t = time.localtime()
+    for e in expire_ou:
+        ou.clear()
+        ou.find(e)
+        ou.populate_expire_date("%02d%02d%02d" % (t[0], t[1], t[2]))
+        ou.write_db()
+
+    #print "############################### AFTER: "
+    #print expire_ou
+    #print len(expire_ou)
 
     existing_ou_mappings = {}
     for node in ou.get_structure_mappings(perspective):
@@ -360,7 +399,7 @@ def main():
     # Default source system and input file
     if not sources and source_file is None and source_system is None:
         sources.append(default_source_system+':'+default_input_file)
-     
+
     if sources:
         if source_file is None and source_system is None:
             logger.debug(sources)

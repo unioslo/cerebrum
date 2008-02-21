@@ -646,9 +646,6 @@ def main():
                                'fak': faknr, 'emnenavnfork' : emnenavnfork} # UIT: added emnenavnfork
         fak_emner.setdefault(faknr, []).append(emnekode)
     
-    #access_FS.underv_enhet_xml_parser("/cerebrum/var/dumps/FS/imports/underv_enhet.xml",
-    #                                  finn_emne_info)
-
     
     access_FS.underv_enhet_xml_parser(default_underv_enhet_file,
                                       finn_emne_info)

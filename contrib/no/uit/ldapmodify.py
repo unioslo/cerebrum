@@ -36,7 +36,7 @@ def main():
     ldap_server = cereconf.LDAP['server']
     user = cereconf.LDAP['user'] 
     password = cereconf.LDAP['password']
-    ldap_dump_dir ="/cerebrum/var/dumps/ldap/"
+    ldap_dump_dir = cereconf.DUMPDIR + "/ldap/"
     ldap_temp_file = "temp_uit_ldif"
     ldap_diff = "uit_ldif"
 

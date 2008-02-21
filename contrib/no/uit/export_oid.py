@@ -38,6 +38,8 @@ from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.extlib.xmlprinter import xmlprinter
 
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
 db=Factory.get('Database')()
 ou = Factory.get('OU')(db)
 p=Factory.get('Person')(db)
@@ -111,7 +113,13 @@ def load_cb_data():
         last_date=aff['last_date'].strftime("%Y-%m-%d")
         if not ou_cache.get(ou_id,None):
             ou.clear()
-            ou.find(ou_id)
+            
+            try:
+                ou.find(ou_id)
+            except EntityExpiredError:
+                logger.warn('Expired ou (%s) for person: %s' % (aff['ou_id'], aff['person_id']))
+                continue
+            
             stedkode.clear()
             stedkode.find(ou_id)
             sko="%02d%02d%02d"  % ( stedkode.fakultet,stedkode.institutt,

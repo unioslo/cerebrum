@@ -10,6 +10,8 @@ import sys
 import re
 import getopt
 import time
+import cerebrum_path
+import cereconf
 
 send_mail_to = "bas-admin@cc.uit.no"
 
@@ -52,7 +54,7 @@ def process_logfile(logfile):
 
 
     look_for = "exit_code=1"
-    job_runner_path = "/cerebrum/var/log/cerebrum/job_runner"
+    job_runner_path = cereconf.CB_PREFIX + "/var/log/cerebrum/job_runner"
     
     lines = logf.readlines()
     logf.close()

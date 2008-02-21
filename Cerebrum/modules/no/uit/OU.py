@@ -136,7 +136,7 @@ class OUEntityExpireMixin(EntityExpire, OU):
             # Doesnt't matter if old entity is expired!
             try:
               old_parent = self.get_parent(perspective, expired_before)
-            except EntityExpire.EntityExpiredError:
+            except EntityExpiredError:
               pass
               
             if old_parent == parent_id:
@@ -361,3 +361,64 @@ class OUEntityExpireMixin(EntityExpire, OU):
              'name': name, 'acronym': acronym, 'short_name': short_name,
              'display_name': display_name, 'sort_name': sort_name, 
              'expire_date': expired_before})
+
+
+    #
+    # Overrides of Stedkode.py functions. Move to Stedkode.py if EntityExpire is ever moved to core.
+    #
+    
+    def get_stedkoder(self, landkode=0,
+                      institusjon=cereconf.DEFAULT_INSTITUSJONSNR,
+                      fakultet=None, institutt=None, avdeling=None, expired_before=None):
+        """
+        Overridden method. See L{Stedkode} for functionality.
+        
+        @param expired_before: See L{EntityExpire.is_expired}.
+       
+        """        
+        sql = """
+        SELECT sk.ou_id, sk.landkode, sk.institusjon, sk.fakultet, sk.institutt, sk.avdeling
+        FROM [:table schema=cerebrum name=stedkode] sk
+        LEFT JOIN [:table schema=cerebrum name=entity_expire] ee
+          ON sk.ou_id = ee.entity_id
+        WHERE
+          sk.landkode = :landkode AND
+          sk.institusjon = :institusjon """
+        if fakultet is not None:
+            sql += "AND sk.fakultet = :fakultet "
+        if institutt is not None:
+            sql += "AND sk.institutt = :institutt "
+        if avdeling is not None:
+            sql += "AND sk.avdeling = :avdeling "
+        if expired_before is None:
+            sql += "AND (ee.expire_date >= [:now] OR \
+                         ee.expire_date IS NULL)"
+        elif expired_before is not None:
+            sql += "AND (ee.expire_date >= :expired_before OR \
+                         ee.expire_date IS NULL)"
+            
+        return self.query(sql, locals())
+
+
+    def get_stedkoder_by_name(self, pattern, expired_before=None):
+        """
+        Overridden method. See L{Stedkode} for functionality.
+        
+        @param expired_before: See L{EntityExpire.is_expired}.
+       
+        """
+        sql = """
+          SELECT oi.ou_id
+          FROM [:table schema=cerebrum name=ou_info] oi
+          LEFT JOIN [:table schema=cerebrum name=entity_expire] ee
+            ON oi.ou_id = ee.entity_id
+          WHERE
+            lower(oi.short_name) LIKE :pattern"""
+        if expired_before is None:
+            sql += "AND (ee.expire_date >= [:now] OR \
+                         ee.expire_date IS NULL)"
+        elif expired_before is not None:
+            sql += "AND (ee.expire_date >= :expired_before OR \
+                         ee.expire_date IS NULL)"
+            
+        return self.query(sql, locals())

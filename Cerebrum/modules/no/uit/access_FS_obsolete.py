@@ -295,20 +295,10 @@ ORDER BY dato_foretatt"""
 SELECT studieprogramkode, studieprognavn, studienivakode,
        status_utdplan, institusjonsnr_studieansv, 
        faknr_studieansv, instituttnr_studieansv, gruppenr_studieansv,
-       status_utgatt
-       FROM fs.studieprogram Where status_eksport_lms='J' """
+       status_utgatt, NVL(status_eksport_lms,'N') as status_eksport_lms
+       FROM fs.studieprogram
+       WHERE status_utgatt = 'N'"""
         return (self._get_cols(qry), self.db.query(qry))
-
-#FROM fs.studieprogram WHERE status_utgatt = 'N' or (status_utgatt ='J' and ((studieprogramkode='PH-LIN')or (studieprogramkode='PRPEDDEL') or(studieprogramkode='DRSCIENT') or (studieprogramkode='PH-FIN') or (studieprogramkode='PH-ALI') or (studieprogramkode='ST-RUSSISK') or (studieprogramkode='ST-KUNST') or (studieprogramkode='ST-FRANSK')or (studieprogramkode='ST-DOKVIT') or (studieprogramkode='ST-TYSK') or (studieprogramkode='ST-FINSK') or (studieprogramkode='B-LITT') or (studieprogramkode='PH-ENG') or (studieprogramkode='BIODGIBG') or (studieprogramkode='PH-SAM') or (studieprogramkode='PH-NOR') or (studieprogramkode='SOSPOLHFB') or (studieprogramkode='PH-TYS') or (studieprogramkode='PH-FRA') or (studieprogramkode='DRART') or (studieprogramkode='B-SPR') or (studieprogramkode='DRPSYCHOL')))"""
-# Det er en del studenter på UiT som har opptak til inaktive studieprogrammer
-# derfor må vi fjerne dette kravet fram til det er ryddet opp i dette
-# Kravet burde settes inn permanent siden man bygger felles-rom for studieprogrammer
-# i CF på grunnlag av disse data (det er litt dumt å bygge flere enn nødvndig
-# Vi henter dog status_utgatt, det burde kunne brukes til å skille ut de programmene
-# man ikke skal ha rom for.
-# studieprogram.status_eksport_lms ('J'/'N')
-
-
 
 
 ##################################################################

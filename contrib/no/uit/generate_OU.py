@@ -44,18 +44,19 @@ logger = Factory.get_logger("cronjob")
 # Default file locations
 t = time.localtime()
 sourcedir = cereconf.CB_SOURCEDATA_PATH
-default_input_file = os.path.join(sourcedir, 'stedtre-gjeldende.csv')
+default_input_files = [os.path.join(sourcedir, 'stedtre-gjeldende.csv'), os.path.join(sourcedir, 'stedtre-eksterne.csv')]
 
 dumpdir = os.path.join(cereconf.DUMPDIR,"ou")
 default_output_file = os.path.join(dumpdir,'uit_ou_%d%02d%02d.xml' % (t[0], t[1], t[2]))
 
 class ou:
 
-    def __init__(self,ou_file):
-        if not(os.path.isfile(ou_file)):
-            logger.error("ou file:%s does not exist\n" % ou_file)
-            sys.exit(1)
-        self.ou_file = ou_file
+    def __init__(self,ou_files):
+        for file in ou_files:
+            if not(os.path.isfile(file)):
+                logger.error("ou file:%s does not exist\n" % file)
+                sys.exit(1)
+        self.ou_files = ou_files
         # BAS
         self.db = Factory.get('Database')()
 
@@ -159,73 +160,92 @@ class ou:
         SORT_KEY=13
         num_fields=14        
         import codecs
-        logger.info("Reading authoritative OU file %s" % self.ou_file)
-        fileObj = codecs.open( self.ou_file, "r", "utf-8" )
-        for line in fileObj:
-            line = line.encode('iso-8859-1')
-            if line and not line.startswith("#"):
-                items=line.rstrip().split(";")
-                if len(items)!=num_fields:
-                    logger.critical("Wrong length: got %d, ekspected %d\nLine=%s" % \
-                                    (len(items),num_fields,line.rstrip()))
-                    sys.exit(1)                    
-                faknr=items[FAKNR].strip("\"")
-                fakultet=items[FAKNAME].strip("\"")
-                instnr=items[INSTNR].strip("\"")
-                avdnr=items[GRPNR].strip("\"")
-                avdeling=items[GRPNAME].strip("\"")
-                shortname=items[SHORTNAME].strip("\"")
-                portal=items[PORTAL].strip("\"")
-                akronym=items[STED_AKRONYM].strip("\"")
-                sort_key=items[SORT_KEY].strip("\"")
-                if ((avdnr[4:6] == '00') and(instnr[2:4] == '00')):
-                    # we have a fakulty, must reference the uit institution
-                    faknr_org_under = '00'
-                    instituttnr_org_under = '00'
-                    gruppenr_org_under= '00'
+
+
+
+        # BEGIN
+        for file in self.ou_files:
+        
+            logger.info("Reading authoritative OU file %s" % file)
+            fileObj = codecs.open(file, "r", "utf-8" )
+            for line in fileObj:
+                line = line.encode('iso-8859-1')
+                if line and not line.startswith("#"):
+                    items=line.rstrip().split(";")
+                    if len(items)!=num_fields:
+                        logger.critical("Wrong length: got %d, ekspected %d\nLine=%s" % \
+                                        (len(items),num_fields,line.rstrip()))
+                        sys.exit(1)
+                        
+                    faknr=items[FAKNR].strip("\"")
+                    faknr=items[FAKNR].strip()
+                    fakultet=items[FAKNAME].strip("\"")
+                    fakultet=items[FAKNAME].strip()
+                    instnr=items[INSTNR].strip("\"")
+                    instnr=items[INSTNR].strip()
+                    avdnr=items[GRPNR].strip("\"")
+                    avdnr=items[GRPNR].strip()
+                    avdeling=items[GRPNAME].strip("\"")
+                    avdeling=items[GRPNAME].strip()
+                    shortname=items[SHORTNAME].strip("\"")
+                    shortname=items[SHORTNAME].strip()
+                    portal=items[PORTAL].strip("\"")
+                    portal=items[PORTAL].strip()
+                    akronym=items[STED_AKRONYM].strip("\"")
+                    akronym=items[STED_AKRONYM].strip()
+                    sort_key=items[SORT_KEY].strip("\"")
+                    sort_key=items[SORT_KEY].strip()
+
+                    if ((avdnr[4:6] == '00') and(instnr[2:4] == '00')):
+                        # we have a fakulty, must reference the uit institution
+                        faknr_org_under = '00'
+                        instituttnr_org_under = '00'
+                        gruppenr_org_under= '00'
                     
-                if((avdnr[4:6] != '00') and (instnr != '00')):
-                    # we have a group, must reference the institute
-                    faknr_org_under= faknr
-                    instituttnr_org_under = instnr[2:4]
-                    gruppenr_org_under='00'
+                    if((avdnr[4:6] != '00') and (instnr != '00')):
+                        # we have a group, must reference the institute
+                        faknr_org_under= faknr
+                        instituttnr_org_under = instnr[2:4]
+                        gruppenr_org_under='00'
 
-                if (((instnr[2:4] == '00')and(avdnr[4:6] != '00')) or
-                    ((instnr[2:4] != '00')and(avdnr[4:6] =='00'))):
-                    # we have either a institute or a group directly under a 
-                    # faculty. in either case it should reference he faculty
-                    faknr_org_under = faknr
-                    instituttnr_org_under = '00'
-                    gruppenr_org_under = '00'
+                    if (((instnr[2:4] == '00')and(avdnr[4:6] != '00')) or
+                        ((instnr[2:4] != '00')and(avdnr[4:6] =='00'))):
+                        # we have either a institute or a group directly under a 
+                        # faculty. in either case it should reference he faculty
+                        faknr_org_under = faknr
+                        instituttnr_org_under = '00'
+                        gruppenr_org_under = '00'
 
 
-                katalog_merke='F'
-                if portal.find('JA')>=0:
-                    katalog_merke='T'
+                    katalog_merke='F'
+                    if portal.find('JA')>=0:
+                        katalog_merke='T'
 
-                authoritative_ou[avdnr]  = {
-                    'fakultetnr' : faknr,
-                    'instituttnr' : instnr[2:4],
-                    'gruppenr' : avdnr[4:6],
-                    'stednavn' : avdeling,
-                    'display_name' : avdeling,
-                    'forkstednavn' : shortname,
-                    'stedlangnavn_bokmal': avdeling,
-                    'fakultetnr_for_org_sted' : faknr_org_under,
-                    'instituttnr_for_org_sted': instituttnr_org_under,
-                    'gruppenr_for_org_sted' : gruppenr_org_under,
-                    'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
-                    'adresselinje2_intern_adr': avdeling,
-                    'poststednr_intern_adr': '9037',
-                    'poststednavn_intern_adr': 'Tromsø',
-                    'opprettetmerke_for_oppf_i_kat' : katalog_merke,
-                    'telefonnr' : "77644000",
-                    'sort_key': sort_key
-                    }
-                if akronym:
-                    authoritative_ou[avdnr]['akronym']=akronym
+                    authoritative_ou[avdnr]  = {
+                        'fakultetnr' : faknr,
+                        'instituttnr' : instnr[2:4],
+                        'gruppenr' : avdnr[4:6],
+                        'stednavn' : avdeling,
+                        'display_name' : avdeling,
+                        'forkstednavn' : shortname,
+                        'stedlangnavn_bokmal': avdeling,
+                        'fakultetnr_for_org_sted' : faknr_org_under,
+                        'instituttnr_for_org_sted': instituttnr_org_under,
+                        'gruppenr_for_org_sted' : gruppenr_org_under,
+                        'adresselinje1_intern_adr' : 'Universitetet i Tromsø',
+                        'adresselinje2_intern_adr': avdeling,
+                        'poststednr_intern_adr': '9037',
+                        'poststednavn_intern_adr': 'Tromsø',
+                        'opprettetmerke_for_oppf_i_kat' : katalog_merke,
+                        'telefonnr' : "77644000",
+                        'sort_key': sort_key
+                        }
+                    if akronym:
+                        authoritative_ou[avdnr]['akronym']=akronym
 
-        fileObj.close()
+            fileObj.close()
+        # END
+        
         return authoritative_ou
 
         
@@ -275,11 +295,11 @@ def main():
     except getopt.GetoptError,m:
         usage(1,m)
         
-    ou_file = default_input_file
+    ou_files = default_input_files
     out_file = default_output_file
     for opt,val in opts:
         if opt in ('-o','--ou_source'):
-            ou_file = val
+            ou_files = val.split(',')
         if opt in ('-O','-Out_file'):
             out_file = val
         if opt in ('-h','--help'):
@@ -287,7 +307,7 @@ def main():
 
             
     # initiate the ou instance
-    my_ou = ou(ou_file)
+    my_ou = ou(ou_files)
     # get ou from FS.
     fs_ou = my_ou.get_fs_ou()
     # get OU from the authoritative file
@@ -304,9 +324,9 @@ def usage(exit_code=0,msg=None):
 
     print """
 
-    Usage: python new_generate_OU.py -o ou_file -O out_file.xml | -l
+    Usage: python new_generate_OU.py -o ou_files -O out_file.xml | -l
     
-    -o | --ou_source - ou data source file
+    -o | --ou_source - ou data source files separated by , (comma)
     -O | --Out_file - indicates file to write result xml"""
     sys.exit(exit_code)
 

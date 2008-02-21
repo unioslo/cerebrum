@@ -30,6 +30,11 @@ Uit specific extension for Cerebrum. Read data from SystemX
 import cerebrum_path
 import cereconf
 
+from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
+db = Factory.get('Database')()
+
 class SYSX:
 
     _default_datafile = os.path.join(cereconf.DUMPDIR,'System_x','guest_data')
@@ -94,6 +99,17 @@ class SYSX:
             self.logger.error("data_list:%s##%s" % (data_list,m))
             sys.exit(1)
         else:
+            
+            ##########################
+            # collect right stedkode #
+            ##########################
+            # lets check if the ou referenced as affiliation exists in cerebrum
+            query = "select new_ou_id from ou_history where old_ou_id='%s'" % (ou)
+            new_ou = db.query(query)
+            if(len(new_ou) != 0):
+                #print ou,"-->",new_ou[0][0]
+                ou = "%s" % new_ou[0][0]
+            
             if spreads:
                 spreads=spreads.split(',')
             else:

@@ -3,6 +3,7 @@
 import time
 import ftplib
 import cerebrum_path
+import cereconf
 import os
 
 from Cerebrum.Utils import Factory
@@ -14,9 +15,9 @@ def main():
     month = date[1]
     day = date[2]
     # lets create the filename
-    file_path = "/cerebrum/var/dumps/Fronter/"
+    file_path = cereconf.DUMPDIR + "/Fronter/"
     filename = "uit_import%02d%02d%02d.xml" % (year,month,day)
-    ret = os.system("mv /cerebrum/var/dumps/Fronter/test.xml /cerebrum/var/dumps/Fronter/%s" % filename)
+    ret = os.system("mv %stest.xml %s%s" % (file_path, file_path, filename))
     if ret != 0:
         logger.error("ERROR: unable to execute system command mv in copy_fronter_xml.py.\n")
 

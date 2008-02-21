@@ -12,10 +12,10 @@ def main():
     month = date[1]
     day = date[2]
     time_stamp= "%02d%02d%02d" % (year,month,day)
-    sbin_dir = '/cerebrum/sbin'
-    log_dir = '/cerebrum/var/log/cerebrum'
-    backup_dir ='/cerebrum/var/backup'
-    contrib_dir = '/cerebrum/share/cerebrum/contrib/no/uit'
+    sbin_dir = cereconf.CB_PREFIX + '/sbin'
+    log_dir = cereconf.CB_PREFIX + '/var/log/cerebrum'
+    backup_dir = cereconf.CB_PREFIX + '/var/backup'
+    contrib_dir = cereconf.CB_PREFIX + '/share/cerebrum/contrib/no/uit'
 
     ret =0
     

@@ -91,7 +91,7 @@ def send_mail(uname, user_info, nr, forward=False):
     # and that cereconf.py has the dict USER_EXPIRE_MAIL
     key = 'mail' + str(nr)
     try:
-        mailfile = '/cerebrum/var/source/templates/' + cereconf.USER_EXPIRE_MAIL[key]
+        mailfile = cereconf.CB_SOURCEDATA_PATH + '/templates/' + cereconf.USER_EXPIRE_MAIL[key]
         f = open(mailfile)
     except (AttributeError, KeyError):
         logger.error("cereconf.py not set up correctly: " +
@@ -174,7 +174,7 @@ def send_mail(uname, user_info, nr, forward=False):
 
     if forward:
         ef.clear()
-        ef.find_by_target_entity(user_info['account_id'])
+        ef.find_by_entity(user_info['account_id'])
         for r in ef.get_forward():            
             logger.debug("Forwarding on" + str(r))
             if r['enable'] == 'T':

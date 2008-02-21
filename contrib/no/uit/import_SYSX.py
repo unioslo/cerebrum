@@ -44,6 +44,8 @@ from Cerebrum.Constants import Constants
 from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.no.uit.access_SYSX import SYSX
 
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
 SPLIT_CHAR=':'
 logger_name=cereconf.DEFAULT_LOGGER_TARGET
 logger=sysx=old_aff=None
@@ -132,7 +134,7 @@ def create_sysx_person(sxp):
         logger.error("Person: %s (id=%s) not approved, Skip." % (fullt_navn,id))
         return
     
-    my_stedkode = Stedkode(db)
+    my_stedkode = Factory.get('OU')(db)
     my_stedkode.clear()
     pers_sysx = Factory.get('Person')(db)
     pers_fnr = Factory.get('Person')(db)
@@ -223,7 +225,28 @@ def create_sysx_person(sxp):
     fak = sxp['ou'][0:2]
     ins = sxp['ou'][2:4]
     avd = sxp['ou'][4:6]
-    my_stedkode.find_stedkode(fak,ins,avd,cereconf.DEFAULT_INSTITUSJONSNR)
+
+
+    ##########################
+    # collect right stedkode #
+    ##########################
+    # lets check if the ou referenced as affiliation exists in cerebrum
+    query = "select new_ou_id from ou_history where old_ou_id='%s%s%s'" % (fak, ins, avd)
+    #print "query = %s" % query
+    new_ou = db.query(query)
+    if(len(new_ou) != 0):
+        logger.warn("New stedkode %s for person with SysX id %s will be used instead of %s%s%s" % (new_ou[0][0], id, fak, ins, avd))
+        stedkode = "%s" % new_ou[0][0]
+        fak = stedkode[0:2]
+        ins = stedkode[2:4]
+        avd = stedkode[4:6]
+
+    try:
+        my_stedkode.find_stedkode(fak,ins,avd,cereconf.DEFAULT_INSTITUSJONSNR)
+    except EntityExpiredError, err:
+        logger.error("Person with SysX id %s on expired stedkode %s%s%s" % (id, fak, ins, avd));
+        return
+    
     ou_id = int(my_stedkode.entity_id)
 
     # if this is a new Person, there is no entity_id assigned to it

@@ -76,6 +76,8 @@ from Cerebrum.modules.no.uit.Email import email_address
 from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
+from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
+
 logger = Factory.get_logger('cronjob')
 
 cerebrum_db = Factory.get("Database")()
@@ -1412,7 +1414,11 @@ def output_OUs_new(writer, sysname, oufile):
     writer.startElement("organisasjon")
     for ou in ou_cache:
         db_ou.clear()
-        db_ou.find_stedkode(ou[0],ou[1],ou[2], 186)
+        try:
+            db_ou.find_stedkode(ou[0],ou[1],ou[2], 186)
+        except EntityExpiredError:
+            logger.error("OU %s%s%s expired - not exported to Frida" % (ou[0],ou[1],ou[2]))
+            continue
         id = db_ou.ou_id
         db_ou.clear()
         output_OU(writer, id, db_ou, stedkode, constants,db)
