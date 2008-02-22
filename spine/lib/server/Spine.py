@@ -53,14 +53,6 @@ class SpineImpl(SpineCore__POA.Spine):
 
     def __init__(self):
         self.sessions = {}
-        self._db = None
-
-    def get_database(self):
-        if self._db:
-            self._db.close()
-            self._db = None
-        self._db = Database.SpineDatabase()
-        return self._db
 
     def get_idl(self):
         return Session.idl_source
@@ -88,24 +80,30 @@ class SpineImpl(SpineCore__POA.Spine):
             if char in username or char in password:
                 raise exception
 
+        sessiondb = Database.SpineDatabase(type="session")
         try:
-            account = get_account_by_name(self, username)
+            account = get_account_by_name(sessiondb, username)
         except:
             logger.exception("Login failed for %s" % username)
+            sessiondb.close()
             raise exception
 
         # Check password
         if not account.authenticate(password):
+            sessiondb.close()
             raise exception
 
         # Check quarantines
         if account.is_quarantined():
+            sessiondb.close()
             raise exception
 
-        session = Session.SessionImpl(account, username, version, host)
-
+        session = Session.SessionImpl(account, sessiondb, username, version, host)
+        
         session_handler = SessionHandler.get_handler()
-        return session_handler.add(session)
+        csession = session_handler.add(session)
+        
+        return csession
 
 
 # arch-tag: 6c78d470-4b73-491a-a448-c54cc8650148

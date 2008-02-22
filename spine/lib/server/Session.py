@@ -130,14 +130,16 @@ for cls in classes:
     register_spine_class(cls, idl_class, idl_struct)
 
 class SessionImpl(Session, SpineIDL__POA.SpineSession):
-    def __init__(self, client, username, version, host):
+    def __init__(self, client, sessiondb, username, version, host):
         self._encoding = getattr(cereconf, 'SPINE_DEFAULT_CLIENT_ENCODING', 'iso-8859-1')
         self.client = client
         self.username = username
         self.version = version
         self.host = host
         self._transactions = {}
-        self.authorization = Authorization(client)
+        self._admin = self._is_admin()
+        self._db = sessiondb
+        self.authorization = Authorization(client, database=sessiondb)
         logger.info("Login from %s@%s(%s) (%x)" % (
             username, host, version, id(self)))
 
@@ -184,8 +186,18 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         # if we iterate over it
         transactions = self._transactions.keys() 
         for transaction in transactions:
-            try: transaction.rollback() # This will make the transaction remove itself
-            except: pass
+            try:
+                transaction.rollback() # This will make the transaction remove itself
+            except:
+                logger.exception("Failed closing transaction")
+                try: drop_associated_objects(transaction)
+                except: pass
+                try: del self._transactions[transaction]
+                except: pass
+        # Then close the db-connection used for login and auth 
+        try: self._db.close()
+        except: pass
+
 
     def remove_transaction(self, transaction):
         """Remove all objects associated with the transaction, and remove the
@@ -195,6 +207,9 @@ class SessionImpl(Session, SpineIDL__POA.SpineSession):
         del self._transactions[transaction]
 
     def is_admin(self):
+        return self._admin
+
+    def _is_admin(self):
         """Return true if the user is a member of the cereweb_basic group."""
         if self.client.is_superuser(): return 1
 

@@ -42,10 +42,10 @@ import unittest
 import sets
 
 class Authorization(object):
-    def __init__(self, user, database=None, credentials=None):
+    def __init__(self, user, database, credentials=None):
         import time
         t = time.time()
-        self.db = database or Database.SpineDatabase()
+        self.db = database
         bofhdauth = BofhdAuth(self.db)
         self.uid = user.get_id()
         self.is_superuser = bofhdauth.is_superuser(self.uid)
@@ -67,9 +67,6 @@ class Authorization(object):
             group.find_by_name('cereweb_public')
             credentials.append(group.entity_id)
             self.update_auths(credentials)
-
-    def __del__(self):
-        self.db.close()
 
     def has_permission(self, operation, target, attr=None):
         """Checks whether the owner of the session has access to run the
