@@ -93,28 +93,37 @@ class SessionHandler(threading.Thread):
         SPINE_SESSION_CHECK_INTERVAL seconds. The method checks for deletable
         sessions, destroys them and removes them from the handler."""
         self._session_lock.acquire()
-        now = time.time()
-        for session, stamp in self._sessions.items():
-            if stamp <= now:
-                self._remove(session)
-                session.destroy()
-
-        self._session_lock.release()
+        try:
+            now = time.time()
+            logger.debug4("%d Sessions", len(self._sessions))
+            for session, stamp in self._sessions.items():
+                logger.debug4("Checking session %d: %d" % (id(session), stamp))
+                if stamp <= now:
+                    logger.debug("Removing session: timed out at %s",
+                                 time.strftime("%T", (time.gmtime(stamp))))
+                    self._remove(session)
+                    session.destroy()
+        finally:
+            self._session_lock.release()
 
     def list(self):
         return self._sessions[:]
 
     def formatlist(self):
-        ret="%d sessions:" % len(self._sessions)
-        now=time.time()
-        for s,timeo in self._sessions.items():
-            ret+="\n%x: user=%s version=%s host=%s transactions=%d timeout=%d\n" % (
-                id(s),
-                s.username,
-                s.version,
-                s.host,
-                len(s._transactions),
-                timeo-now)
+        self._session_lock.acquire()
+        try:
+            ret="%d sessions:" % len(self._sessions)
+            now=time.time()
+            for s,timeo in self._sessions.items():
+                ret+="\n%x: user=%s version=%s host=%s transactions=%d timeout=%d\n" % (
+                    id(s),
+                    s.username,
+                    s.version,
+                    s.host,
+                    len(s._transactions),
+                    timeo-now)
+        finally:
+            self._session_lock.release()
         return ret
 
     def printlist(self):
@@ -126,10 +135,13 @@ class SessionHandler(threading.Thread):
         
         self.running = True
         while self.running:
-            self._check_times()
-            time.sleep(interval)
-            if debug_sessions:
-                self.printlist()
+            try:
+                self._check_times()
+                if debug_sessions:
+                    self.printlist()
+                time.sleep(interval)
+            except:
+                logger.exception("Checking sessions")
 
     def stop(self):
         self.running = False
