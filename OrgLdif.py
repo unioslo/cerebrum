@@ -46,14 +46,15 @@ class OrgLdifUitMixin(OrgLDIF):
 
     def make_ou_entry(self, ou_id, parent_dn):
         # Changes from superclass:
-        # If Stedkode is used, only output OUs with katalog_merke == 'T'.
+        # If Stedkode is used, only output OUs that are publishable.
         # Add object class norEduOrgUnit and its attributes norEduOrgAcronym,
         # cn, norEduOrgUnitUniqueIdentifier, norEduOrgUniqueIdentifier.
         # If a DN is not unique, prepend the norEduOrgUnitUniqueIdentifier.
         self.ou.clear()
         self.ou.find(ou_id)
-        if getattr(self.ou, 'katalog_merke', 'T') != 'T':
+        if not self.ou.has_spread(self.const.spread_ou_publishable):
             return parent_dn, None
+        
         ou_names = [iso2utf((n or '').strip()) for n in (self.ou.acronym,
                                                          self.ou.short_name,
                                                          self.ou.display_name)]
