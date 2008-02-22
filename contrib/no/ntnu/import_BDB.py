@@ -1179,6 +1179,92 @@ class BDBSync:
                                      start=mx.DateTime.now())
         
 
+        
+
+    def sync_spreads_quarantines(self):
+        const=self.const
+        s_map=self.spread_mapping
+        
+        self.logger.debug("Fetching data from Cerebrum")
+
+        oldquarantines={}
+        for q in self.ac.list_entity_quarantines():
+            oldquarantines.setdefault(q['entity_id'], set()).add(int(q['quarantine_type']))
+
+        oldspreads={}
+        for s in self.ac.list_entity_spreads(entity_types=const.entity_account):
+            oldspreads.setdefault(s['entity_id'], set()).add(int(s['spread']))
+        
+        account_by_name = {}
+        for n in self.ac.list_names(const.account_namespace):
+            account_by_name[n['entity_name']] = n['entity_id']
+        
+        self.logger.debug("Fetching accounts with spreads from BDB")
+
+        newspreads = {}
+        newquarantines = {}
+        for s in self.bdb.get_account_spreads():
+            if not account_by_name.has_key(s['username']):
+                self.logger.warn("Spread: Account %s does not exist" % s['username'])
+                continue
+            account_id=account_by_name[s['username']]
+            if not s_map.has_key(s['spread_name']):
+                self.logger.warn("Spread: Uhandeled BDB system spread %s" % s['spread_name'])
+                continue
+            spread=s_map[s['spread_name']]
+            newspreads.setdefault(account_id, set()).add(int(spread))
+            if s['shell'] == '/bin/badpw':
+                newquarantines.setdefault(account_id, set()).add(int(const.quarantine_svakt_passord))
+            if s['shell'] == '/bin/sperret':
+                if s['spread_name'] in ('oppringt', 'ansoppr'):
+                    newquarantines.setdefault(account_id, set()).add(int(const.quarantine_remote))
+
+        self.logger.debug("Spread: from %d to %d accounts with spreads" %
+                          (len(oldspreads), len(newspreads)))
+
+        self.logger.debug("Spread: from %d to %d accounts with quarantines" %
+                          (len(oldquarantines), len(newquarantines)))
+
+        addsk, modsk, delsk = dictcompare(oldspreads, newspreads)
+        addqk, modqk, delqk = dictcompare(oldquarantines, newquarantines)
+        modaccounts = addsk | modsk | delsk | addqk | modqk | delqk
+        
+        self.logger.debug("Spread: changing %d accounts" % len(modaccounts))
+
+        for account in modaccounts:
+            self.check_commit(self.spreads_quarantines_account,
+                              account,
+                              oldspreads.get(account, set()),
+                              newspreads.get(account, set()),
+                              oldquarantines.get(account, set()),
+                              newquarantines.get(account, set()),
+                              msg=("changing quarantines and spreads on %d" % account))
+
+    def spreads_quarantines_account(self, account_id,
+                                    oldspreads, newspreads,
+                                    oldquarantines, newquarantines):
+        self.ac.clear()
+        self.ac.find(account_id)
+
+        for q in oldquarantines - newquarantines:
+            self.logger.info("Deleting quarantine %d from account %d", q, account_id)
+            self.ac.delete_entity_quarantine(q)
+
+        for q in newquarantines - oldquarantines:
+            self.logger.info("Adding quarantine %d to account %d", q, account_id)
+            self.ac.add_entity_quarantine(q, creator=self.initial_account,
+                                          description="imported from BDB",
+                                          start=mx.DateTime.now())
+
+        for s in oldspreads - newspreads:
+            self.logger.info("Deleting spread %d from account %d", s, account_id)
+            self.ac.delete_spread(s)
+
+        for s in newspreads - oldspreads:
+            self.logger.info("Adding spread %d to account %d", s, account_id)
+            self.ac.add_spread(s)
+
+        
     def sync_spreads(self):
         if verbose:
             print "Fetching accounts with spreads from BDB"
@@ -1544,7 +1630,7 @@ def main():
         elif opt in ('-a','--account'):
             sync.sync_accounts(password_only=_password_only,add_missing=True)
         elif opt in ('-s','--spread'):
-            sync.sync_spreads()
+            sync.sync_spreads_quarantines()
         elif opt in ('-t','--affiliations'):
             sync.sync_affiliations()
         elif opt in ('--email_domains',):
