@@ -204,7 +204,8 @@ def system_account_callback(account):
 # ********* <ACCOUNT CREATION AND UPDATING>
 
 def process_account(account_data):
-    global db, default_creator_id, default_owner_id, default_source_system, valid_contact_types, default_stay_alive_time
+    global db, default_creator_id, default_owner_id,default_owner_type, \
+           default_source_system, valid_contact_types, default_stay_alive_time
     
     gr = Factory.get('Group')(db)
     ac = Factory.get('Account')(db)
@@ -254,6 +255,30 @@ def process_account(account_data):
         ac.write_db()
         new_account = True
 
+    # Check if owner change is needed
+    if ac.owner_id != default_owner_id:
+        logger.info("Owner must be changed from %s to %s" % (ac.owner_id, default_owner_id))
+        # Delete account spreads (types)
+        for acc_aff in ac.get_account_types():
+            ac.del_account_type(acc_aff['ou_id'], acc_aff['affiliation'])
+
+        # Change owner and owner type of account
+        ac.owner_id =  default_owner_id
+        ac.owner_type = default_owner_type
+        ac.np_type = account_type_id
+        ac.write_db()
+        logger.info("Changed owner, owner type and np_type to %s, %s and %s" %
+                                    (default_owner_id, default_owner_type, account_type_id))
+
+    # Check for np_type changes
+    if (ac.np_type != account_type_id):
+        ac.np_type = account_type_id
+        ac.write_db()
+        logger.info("Changed np_type to %s" % (account_type_id))
+
+    # If account has quarantines - remove them and reset password for security reasons (?)
+    # Don't do it for now... .maybe later. (20080222)
+
     # Assure posix user is ok
     try:
         logger.info("Resolving posix user")
@@ -302,6 +327,9 @@ def process_account(account_data):
         
     # Adding spreads
     for spread in spreads:
+        if spread == '':
+            continue
+        
         try:
             spread_id = int(co.Spread(spread.encode("iso-8859-1")))
         except Exception, msg:
@@ -321,9 +349,7 @@ def process_account(account_data):
             logger.info("Deleting obsolete spread %s" % str(co.Spread(spread)))
             ac.clear_home(spread)
             ac.delete_spread(spread)
-    
-
-            
+           
 
     # Adding / Updating contact information
     for contact in contact_info:
@@ -355,7 +381,7 @@ def process_account(account_data):
 def main():
 
     global logger, default_logger, default_source_dir, default_system_accounts_file, system_accounts_cache, \
-           db, default_creator_id, default_owner_id, default_source_system, valid_contact_types
+           db, default_creator_id, default_owner_id, default_owner_type, default_source_system, valid_contact_types
     
     logger = Factory.get_logger(default_logger)
 
@@ -396,19 +422,18 @@ def main():
     ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = ac.entity_id
     default_owner_id = ac.owner_id
-
+    default_owner_type = ac.owner_type
+    
     default_source_system = co.system_sysacc
     valid_contact_types = {}
     valid_contact_types[co.contact_email.str] = co.contact_email
     valid_contact_types[co.contact_url.str] = co.contact_url
     logger.info("Finished caching default values.")
-
     
     logger.info('Starting to process accounts')
     for account in system_accounts_cache:
         process_account(account)
     logger.info('Finished processing accounts')
-
 
     if dryrun:
         logger.info("Rolling back changes!")
