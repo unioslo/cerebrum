@@ -21,6 +21,7 @@
 from Cerebrum.Utils import Factory
 import Cerebrum.Database
 Database = Factory.get('Database')
+logger = Factory.get_logger()
 
 class SpineDatabase(Database):
     """
@@ -28,9 +29,11 @@ class SpineDatabase(Database):
     for a spine transaction.
     """
     
-    def __init__(self, entity_id=None):
+    def __init__(self, entity_id=None, type="unknown"):
         Database.__init__(self)
-
+        self.type = type
+        self.entity_id = entity_id
+        
         # start changelog
         if entity_id is None:
             self.cl_init(change_program='Spine')
@@ -43,5 +46,17 @@ class SpineDatabase(Database):
 
         # Pull in constants for convenience
 	self.const = Factory.get('Constants')(self)
+        logger.debug3("New db-connection %s %d" % (self.type, id(self)))
+
+    def close(self):
+        Database.close(self)
+        logger.debug3("End db-connection %s %d" % (self.type, id(self)))
+
+    def __del__(self):
+        try: self.close()
+        except: pass
+
+    def get_database(self):
+        return self
 
 # arch-tag: 3a36a882-0fd8-4a9c-9889-9540095f93e3
