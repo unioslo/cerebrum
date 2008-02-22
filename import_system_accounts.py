@@ -258,7 +258,7 @@ def process_account(account_data):
     # Check if owner change is needed
     if ac.owner_id != default_owner_id:
         logger.info("Owner must be changed from %s to %s" % (ac.owner_id, default_owner_id))
-        # Delete account spreads (types)
+        # Delete account types (affiliations)
         for acc_aff in ac.get_account_types():
             ac.del_account_type(acc_aff['ou_id'], acc_aff['affiliation'])
 
