@@ -218,17 +218,14 @@ def import_org_units(sources):
         except Errors.NotFoundError:
             pass
         except EntityExpiredError:
-            logger.error('OU expired %s%s%s - not imported/updated' % (k['fakultetnr'], k['instituttnr'], k['gruppenr']))
+            logger.error('OU expired %s%s%s - not imported/updated' %
+                         (k['fakultetnr'], k['instituttnr'], k['gruppenr']))
             continue
         
-        kat_merke = 'F'
-        if k.get('opprettetmerke_for_oppf_i_kat'):
-            kat_merke = 'T'
         ou.populate(k['stednavn'], k['fakultetnr'],
                     k['instituttnr'], k['gruppenr'],
                     institusjon=k.get('institusjonsnr',
                                       cereconf.DEFAULT_INSTITUSJONSNR),
-                    katalog_merke=kat_merke,
                     acronym=k.get('akronym', None),
                     short_name=k['forkstednavn'],
                     display_name=k['display_name'],
@@ -300,14 +297,18 @@ def import_org_units(sources):
             ou.populate_contact_info(source_system, co.contact_phone,
 					k['telefonnr'], contact_pref=n)
         op = ou.write_db()
-
+        if (k.get('opprettetmerke_for_oppf_i_kat') and
+            not ou.has_spread(co.spread_ou_publishable)):
+            ou.add_spread(co.spread_ou_publishable)
+        op2 = ou.write_db()
+        
         try:
             expire_ou.remove(ou.ou_id)
         except Exception:
             pass
         
         if verbose:
-            if op is None:
+            if op is None and op2 is None:
                 logger.info("**** EQUAL ****")
             elif op:
                 logger.info("**** NEW ****")

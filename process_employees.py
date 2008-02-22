@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2004 University of Oslo, Norway
 #
@@ -43,7 +43,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.xmlutils import GeneralXMLParser
 
