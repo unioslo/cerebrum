@@ -1243,15 +1243,14 @@ def get_sted(stedkode=None, entity_id=None):
                            cereconf.DEFAULT_INSTITUSJONSNR)
     else:
         sted.find(entity_id)
-    # Only OUs where katalog_merke is set should be returned; if no
-    # such OU can be found by moving towards the root of the OU tree,
-    # return None.
-    if sted.katalog_merke == 'T':
+
+    # Only publishable OUs should be returned; if no such OU can be found by
+    # moving towards the root of the OU tree, return None.
+    if sted.has_spread(const.spread_ou_publishable):
         return sted
     elif (sted.fakultet, sted.institutt, sted.avdeling) == (15, 0, 30):
-        # Special treatment of UNIK; even though katalog_merke isn't
-        # set for this OU, return it, so that they get their own
-        # corridor.
+        # Special treatment of UNIK; even though 15-0-30 is not publishable,
+        # return it anyway, so that they get their own corridor.
         return sted
     parent_id = sted.get_parent(const.perspective_sap)
     if parent_id is not None and parent_id != sted.entity_id:

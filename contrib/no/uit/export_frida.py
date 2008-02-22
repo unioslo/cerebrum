@@ -691,7 +691,7 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     db_ou.find(id)
     
     # This entry is not supposed to be published
-    if stedkode.katalog_merke != 'T':
+    if not stedkode.has_spread(constants.spread_ou_publishable):
         logger.debug("Skipping ou_id == %s", id)
         return
 
@@ -803,7 +803,7 @@ def output_OUs(writer, db):
 
     An OU is interesting to FRIDA, if it is active in LT *now*
     (i.e. most recent LT dump) and is explicitely set up for
-    publishing in a catalogue service (katalog_merke = 'T').
+    publishing in a catalogue service (has the right spread)
     """
     db = Factory.get('Database')()
     db_ou = Factory.get("OU")(db)

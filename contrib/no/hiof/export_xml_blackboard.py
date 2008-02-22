@@ -45,7 +45,6 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import access_FS
-from Cerebrum.modules.no import Stedkode
 from Cerebrum.extlib import xmlprinter
 
 

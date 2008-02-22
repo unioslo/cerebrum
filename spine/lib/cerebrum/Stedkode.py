@@ -28,20 +28,6 @@ from SpineLib.SpineExceptions import AlreadyExistsError
 
 from OU import OU
 
-# Convert katalog_merke to be inserted into db.
-def ct(value):
-    if value:
-        return 'T'
-    else:
-        return 'F'
-
-# Convert katalog_merke into boolean from a string.
-def cf(db, value):
-    if value == 'T':
-        return True
-    else:
-        return False
-
 # Register additional attributes in the OU class if this module is used
 table = 'stedkode'
 OU.register_attribute(CerebrumDbAttr('landkode', table, int, write=True))
@@ -49,8 +35,6 @@ OU.register_attribute(CerebrumDbAttr('institusjon', table, int, write=True))
 OU.register_attribute(CerebrumDbAttr('fakultet', table, int, write=True))
 OU.register_attribute(CerebrumDbAttr('institutt', table, int, write=True))
 OU.register_attribute(CerebrumDbAttr('avdeling', table, int, write=True))
-OU.register_attribute(CerebrumDbAttr('katalog_merke', table, bool,
-                                convert_from=cf, convert_to=ct, write=True))
 
 OU.db_attr_aliases[table] = { 'id' : 'ou_id' }
 OU.build_methods()

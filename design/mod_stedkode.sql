@@ -26,7 +26,7 @@
 category:metainfo;
 name=stedkode;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 
 /***
@@ -68,10 +68,6 @@ CREATE TABLE stedkode
 		NOT NULL,
   avdeling	NUMERIC(2,0)
 		NOT NULL,
-  katalog_merke	CHAR(1)
-		NOT NULL
-		CONSTRAINT stedkode_katalog_merke_bool
-		  CHECK (katalog_merke IN ('T', 'F')),
   CONSTRAINT stedkode_kode UNIQUE (institusjon, fakultet, institutt, avdeling)
 );
 category:main/Oracle;

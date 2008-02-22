@@ -499,7 +499,6 @@ op_sets = {
         ('OU.get_id', None),
         ('OU.get_institusjon', None),
         ('OU.get_institutt', None),
-        ('OU.get_katalog_merke', None),
         ('OU.get_landkode', None),
         ('OU.get_name', None),
         ('OU.get_names', None),

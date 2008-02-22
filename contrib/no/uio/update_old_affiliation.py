@@ -26,7 +26,6 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.Stedkode import Stedkode
 
 """Lister alle personer som har en affiliation av typen
 MANUEL/inaktiv_ansatt eller MANUELL/inaktiv_student.
@@ -66,7 +65,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program="upd_old_affs")
 co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
-sko = Stedkode(db)
+sko = Factory.get("OU")(db)
 
 person = Factory.get('Person')(db)
 logger = Factory.get_logger("cronjob")

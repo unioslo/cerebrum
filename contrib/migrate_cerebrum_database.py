@@ -42,6 +42,7 @@ targets = {
     'changelog': ('changelog_1_2', ),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
+    'stedkode': ('stedkode_1_1', ),
     }
 
 # Global variables
@@ -782,7 +783,20 @@ def migrate_to_ephorte_1_2():
     meta.set_metainfo("sqlmodule_ephorte", "1.2")
     print "Migration to ephorte 1.2 completed successfully"
     db.commit()
-    
+
+def migrate_to_stedkode_1_1():
+    """Migrate from initial stedkode to the 1.1 stedkode schema."""
+    assert_db_version("1.0", component="stedkode")
+    makedb('stedkode_1_1', 'pre')
+    db.commit()
+    # This database change doesn't require any smarts.
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_stedkode", "1.1")
+    print "Migration to stedkode 1.1 completed successfully"
+    db.commit()
+# end migrate_to_stedkode_1_1
+
 def init():
     global db, co
 

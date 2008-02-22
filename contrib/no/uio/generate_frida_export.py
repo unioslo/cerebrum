@@ -65,8 +65,10 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
 from Cerebrum.extlib import xmlprinter
-from Cerebrum.extlib.sets import Set as set
-from Cerebrum.modules.no.Stedkode import Stedkode
+try:
+    set()
+except:
+    from Cerebrum.extlib.sets import Set as set
 
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 from Cerebrum.modules.xmlutils.xml2object import DataAddress
@@ -79,7 +81,7 @@ from Cerebrum.modules.xmlutils.xml2object import DataContact
 logger = Factory.get_logger("cronjob")
 cerebrum_db = Factory.get("Database")()
 constants = Factory.get("Constants")(cerebrum_db)
-ou_db = Stedkode(cerebrum_db)
+ou_db = Factory.get("OU")(cerebrum_db)
 person_db = Factory.get("Person")(cerebrum_db)
 source_system = None
 
@@ -559,7 +561,7 @@ def cache_phd_students():
 
     result = dict()
     person = Factory.get("Person")(cerebrum_db)
-    ou_db = Stedkode(cerebrum_db)
+    ou_db = Factory.get("OU")(cerebrum_db)
     
     for row in person.list_affiliations(
         status=constants.affiliation_status_student_drgrad):

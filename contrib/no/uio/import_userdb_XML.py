@@ -49,7 +49,6 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uio import PrinterQuotas
 from Cerebrum.modules.bofhd.auth \
      import BofhdAuthOpSet, BofhdAuthRole, BofhdAuthOpTarget
@@ -753,7 +752,7 @@ def import_person_users(personfile):
     for r in en.list_names(int(co.account_namespace)):
         uname_exists[r['entity_name']] = r['entity_id']
 
-    ou = Stedkode.Stedkode(db)
+    ou = Factory.get("OU")(db)
     stedkode2ou_id = {}
     if not quick_test:
         for row in ou.list_all():

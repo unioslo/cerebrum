@@ -43,6 +43,10 @@ class ConstantsCommon(Constants.Constants):
     system_override = _AuthoritativeSystemCode('Override',
                                                'Override information fetched from proper authoritative systems')
 
+    spread_ou_publishable = _SpreadCode('publishable_ou',
+                       Constants.Constants.entity_ou,
+                       'Spread marking OUs publishable in online directories')
+
 class ConstantsHigherEdu(Constants.Constants):
 
     # authoritative source systems (FS = student registry, SAP = common HR-system)

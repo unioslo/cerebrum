@@ -229,12 +229,14 @@ class XMLOU2Object(XMLEntity2Object):
                 else:
                     result.end_date = date
 
-        # Katalogmerke (whether the OU can be published in various online
-        # directories)
+        # Whether the OU can be published in various online directories
         result.publishable = False
         for tmp in element.findall(".//stedbruk/StedType"):
             if tmp.text == "Tillatt Organisasjon":
                 result.publishable = True
+            # <StedType> tell us how an OU can be used. This information is
+            # represented in Cerebrum with the help of spreads and can be
+            # accessed via the EntitySpread interface.
             result.add_usage_code(tmp.text)
 
         celems = element.findall("stedkomm")

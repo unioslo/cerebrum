@@ -109,9 +109,8 @@ class norEduLDIFMixin(OrgLDIF):
                 entry['objectClass'].append('labeledURIObject')
 
     def test_omit_ou(self):
-        # Omit the OU if katalog_merke != 'T' in the 'stedkode' table.
-        # Requires 'Cerebrum.modules.no.Stedkode/Stedkode' in CLASS_OU.
-        return getattr(self.ou, 'katalog_merke', 'T') != 'T'
+        """'Available' OUs have the proper spread."""
+        return not self.ou.has_spread(self.const.spread_ou_publishable)
 
     def get_orgUnitUniqueID(self):
         # Make norEduOrgUnitUniqueIdentifier attribute from the current OU.

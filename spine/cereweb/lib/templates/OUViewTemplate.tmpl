@@ -44,6 +44,8 @@
     $viewFamily($transaction, $ou)
     $viewContactInfos($ou)
     $viewAddresses($ou)
+    $addSpread($ou, $transaction)
+    $viewSpreads($ou)
     $setExternalId($ou, $transaction)
     $viewExternalIds($ou)
     $viewHistoryLog($ou)
@@ -59,7 +61,6 @@
     $info.append(($_('Display name'), $html_quote($ou.get_display_name())))
     $info.append(($_('Sort name'), $html_quote($ou.get_sort_name())))
     $info.append(($_('Stedkode'), $html_quote($ou.get_stedkode())))
-    $info.append(($_('Catalogue mark'), $_($ou.get_katalog_merke() and True or False)))
     $widgets.viewInfo($info)
 #end def
 

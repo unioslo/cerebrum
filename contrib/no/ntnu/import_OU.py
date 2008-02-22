@@ -34,7 +34,6 @@ import xml.sax
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no import Stedkode
 
 OU_class = Factory.get('OU')
 db = Factory.get('Database')()
@@ -193,16 +192,11 @@ def import_org_units(sources):
                     if (r['quarantine_type'] == co.quarantine_ou_notvalid or
                         r['quarantine_type'] == co.quarantine_ou_remove):
                         ou.delete_entity_quarantine(r['quarantine_type'])
-        kat_merke = 'F'
-        if k.get('opprettetmerke_for_oppf_i_kat'):
-            kat_merke = 'T'
-	if def_kat_merke:
-	    kat_merke = 'T'
+
         ou.populate(k['stednavn'], k['fakultetnr'],
                     k['instituttnr'], k['gruppenr'],
                     institusjon=k.get('institusjonsnr',
                                       cereconf.DEFAULT_INSTITUSJONSNR),
-                    katalog_merke=kat_merke,
                     acronym=k.get('akronym', None),
                     short_name=k['forkstednavn'],
                     display_name=k['stednavn'],
@@ -274,8 +268,13 @@ def import_org_units(sources):
             ou.populate_contact_info(source_system, co.contact_phone,
 					k['telefonnr'], contact_pref=n)
         op = ou.write_db()
+        if ((k.get('opprettetmerke_for_oppf_i_kat') or def_kat_merke) and
+            not ou.has_spread(co.spread_ou_publishable)):
+            ou.add_spread(co.spread_ou_publishable)
+        op2 = ou.write_db()
+
         if verbose:
-            if op is None:
+            if op is None and op2 is None:
                 logger.debug("**** EQUAL ****")
             elif op:
                 logger.debug("**** NEW ****")

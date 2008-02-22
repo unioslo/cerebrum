@@ -21,7 +21,8 @@ from Cerebrum.modules.no.OrgLDIF import *
 
 class nmhOrgLDIFMixin(OrgLDIF):
     def test_omit_ou(self):
-        # Not using Stedkode, thus no katalog_merke to examine.
+        # Not using Stedkode, so all OUs are available (there is no need to
+        # look for special spreads).
         return False
 
     # Fetch mail addresses from entity_contact_info of accounts, not persons.

@@ -193,10 +193,6 @@ def save(transaction, id, name, submit=None, **vargs):
     ou.set_display_name(vargs.get("display_name", ""))
     ou.set_sort_name(vargs.get("sort_name", ""))
 
-    if "catalogue_mark" in vargs.keys():
-        mark = vargs.get("catalogue_mark")
-        ou.set_katalog_merke(mark and True or False)
-   
     stedkode_map = {
         'countrycode': ou.set_landkode,
         'institution': ou.set_institusjon,

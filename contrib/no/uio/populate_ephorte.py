@@ -9,7 +9,6 @@ from sets import Set
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
-from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 
 progname = __file__.split("/")[-1]
@@ -30,7 +29,7 @@ ac = Factory.get('Account')(db)
 pe = Factory.get('Person')(db)
 group = Factory.get('Group')(db)
 ephorte_role = EphorteRole(db)
-ou = Stedkode(db)
+ou = Factory.get("OU")(db)
 cl = CLHandler.CLHandler(db)
 logger = Factory.get_logger("cronjob")
 ou_map_warnings = []

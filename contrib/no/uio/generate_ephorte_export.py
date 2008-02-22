@@ -8,7 +8,6 @@ import cerebrum_path
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
-from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
 from Cerebrum.modules.no.uio.Ephorte import EphortePermission
 
@@ -30,7 +29,7 @@ ac = Factory.get('Account')(db)
 pe = Factory.get('Person')(db)
 ephorte_role = EphorteRole(db)
 ephorte_permission = EphortePermission(db)
-ou = Stedkode(db)
+ou = Factory.get('OU')(db)
 cl = CLHandler.CLHandler(db)
 
 logger = Factory.get_logger("cronjob")

@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 """This script created and syncs OU PosixGroups for all OUs existing in Cerebrum"""
 
 
@@ -42,7 +42,6 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixGroup
 from Cerebrum.Constants import Constants
 from Cerebrum import Entity
-from Cerebrum.modules.no.Stedkode import Stedkode
 
 logger = db = None
 group_dict = members_dict = ou_affiliates_dict = group_description_dict = stedkode_dict = description_group_dict = {}
@@ -53,7 +52,7 @@ default_perspective = 1
 default_logger = 'cronjob'
 default_prefix = 'ou_groups'
 default_separator = ':'
-default_start_ou = 3 # Universitetet i TromsÃ¸
+default_start_ou = 3 # Universitetet i Tromsø
 default_group_visibility = None
 default_spread = None
 default_creator = None

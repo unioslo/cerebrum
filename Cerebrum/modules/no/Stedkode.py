@@ -27,7 +27,6 @@ following additional properties are defined:
   - institutt
   - avdeling
   - institusjon
-  - katalog_merke
 """
 
 from Cerebrum import Utils
@@ -38,7 +37,7 @@ class Stedkode(OU):
 
     __read_attr__ = ('__in_db',)
     __write_attr__ = ('landkode', 'institusjon', 'fakultet', 'institutt',
-                      'avdeling', 'katalog_merke')
+                      'avdeling',)
 
     def __init__(self, database):
         """
@@ -54,7 +53,7 @@ class Stedkode(OU):
         self.__updated = []
 
     def populate(self, name, fakultet, institutt, avdeling,
-                 institusjon=None, landkode=0, katalog_merke='F', acronym=None,
+                 institusjon=None, landkode=0, acronym=None,
                  short_name=None, display_name=None, sort_name=None,
                  parent=None):
         """Set instance's attributes without referring to the Cerebrum DB."""
@@ -78,7 +77,6 @@ class Stedkode(OU):
         self.institutt = int(institutt)
         self.avdeling = int(avdeling)
         self.institusjon = int(institusjon)
-        self.katalog_merke = katalog_merke
 
     def __eq__(self, other):
         assert isinstance(other, Stedkode), `other`
@@ -89,14 +87,13 @@ class Stedkode(OU):
                      (other.institutt == self.institutt) and
                      (other.avdeling == self.avdeling) and
                      (other.institusjon == self.institusjon) and
-                     (other.landkode == self.landkode) and
-                     (other.katalog_merke == self.katalog_merke))
+                     (other.landkode == self.landkode))
         return identical
 
     def __str__(self):
-        return "landkode=%s, institusjon=%s, stedkode=%s-%s-%s, km=%s" % (
+        return "landkode=%s, institusjon=%s, stedkode=%s-%s-%s" % (
             self.landkode, self.institusjon, self.fakultet, self.institutt,
-            self.avdeling, self.katalog_merke)
+            self.avdeling)
 
     def write_db(self):
         """Sync instance with Cerebrum database.
@@ -118,32 +115,27 @@ class Stedkode(OU):
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=stedkode]
-              (ou_id, landkode, institusjon, fakultet, institutt, avdeling,
-               katalog_merke)
+              (ou_id, landkode, institusjon, fakultet, institutt, avdeling)
             VALUES
               (:ou_id, :landkode, :institusjon, :fakultet, :institutt,
-               :avdeling, :katalog_merke)""",
-                         {'ou_id': self.entity_id,
-                          'landkode': self.landkode,
-                          'institusjon': self.institusjon,
-                          'fakultet': self.fakultet,
-                          'institutt': self.institutt,
-                          'avdeling': self.avdeling,
-                          'katalog_merke': self.katalog_merke})
+               :avdeling)""", {'ou_id': self.entity_id,
+                               'landkode': self.landkode,
+                               'institusjon': self.institusjon,
+                               'fakultet': self.fakultet,
+                               'institutt': self.institutt,
+                               'avdeling': self.avdeling,})
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=stedkode]
             SET landkode=:landkode, institusjon=:institusjon,
                 fakultet=:fakultet, institutt=:institutt,
-                avdeling=:avdeling, katalog_merke=:katalog_merke
-            WHERE ou_id=:ou_id""",
-                         {'ou_id': self.entity_id,
-                          'landkode': int(self.landkode),
-                          'institusjon': int(self.institusjon),
-                          'fakultet': int(self.fakultet),
-                          'institutt': int(self.institutt),
-                          'avdeling': int(self.avdeling),
-                          'katalog_merke': self.katalog_merke})
+                avdeling=:avdeling
+            WHERE ou_id=:ou_id""", {'ou_id': self.entity_id,
+                                    'landkode': int(self.landkode),
+                                    'institusjon': int(self.institusjon),
+                                    'fakultet': int(self.fakultet),
+                                    'institutt': int(self.institutt),
+                                    'avdeling': int(self.avdeling),})
         del self.__in_db
         self.__in_db = True
         self.__updated = []
@@ -159,8 +151,8 @@ class Stedkode(OU):
     def find(self, ou_id):
         self.__super.find(ou_id)
         (self.landkode, self.institusjon, self.fakultet, self.institutt,
-         self.avdeling, self.katalog_merke) = self.query_1("""
-        SELECT landkode, institusjon, fakultet, institutt, avdeling, katalog_merke
+         self.avdeling,) = self.query_1("""
+        SELECT landkode, institusjon, fakultet, institutt, avdeling
         FROM [:table schema=cerebrum name=stedkode]
         WHERE ou_id = :ou_id""", locals())
         try:

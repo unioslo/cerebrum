@@ -31,7 +31,6 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.Stedkode import Stedkode
 
 from Cerebrum.modules.xmlutils.xml2object import DataAddress, DataContact
 from Cerebrum.modules.xmlutils.xml2object import HRDataPerson
@@ -54,7 +53,7 @@ class XML2Cerebrum:
         self.source_system = source_system
         self.ou_ldap_visible = ou_ldap_visible
         
-        self.stedkode = Stedkode(db)
+        self.stedkode = Factory.get("OU")(db)
         self.person = Factory.get("Person")(db)
         self.constants = Factory.get("Constants")(db)
         self.lang_priority = ("no", "en")
@@ -460,8 +459,7 @@ class XML2Cerebrum:
         ou.clear()
         const = self.constants
 
-        # We need sko, katalog_merke, acronym, short_name,
-        # display_name, sort_name. Also parent.
+        # We need sko, acronym, short_name, display_name, sort_name and parent.
         sko = xmlou.get_id(xmlou.NO_SKO)
         acronym = self.__extract_name_lang(xmlou, xmlou.NAME_ACRONYM, 15)
         short = self.__extract_name_lang(xmlou, xmlou.NAME_SHORT, 30)
@@ -486,21 +484,9 @@ class XML2Cerebrum:
                     if (r['quarantine_type'] == const.quarantine_ou_notvalid or
                         r['quarantine_type'] == const.quarantine_ou_remove):
                         ou.delete_entity_quarantine(r['quarantine_type'])
-                    # fi
-                # od
-            # fi
-        # yrt
-
-        # TBD: Do we need a more generic interface to 'visibility'
-        # information?
-        katalog_merke = 'F'
-        if getattr(xmlou, "publishable", False) or self.ou_ldap_visible:
-            katalog_merke = 'T'
-        # fi
 
         ou.populate(name, sko[0], sko[1], sko[2],
                     institusjon = cereconf.DEFAULT_INSTITUSJONSNR,
-                    katalog_merke = katalog_merke,
                     acronym = acronym, short_name = short,
                     display_name = display_name, sort_name = sort_name)
 
@@ -513,7 +499,6 @@ class XML2Cerebrum:
                                 city = addr.city,
                                 # TBD: country code table i Cerebrum is empty
                                 country = None)
-        # od
 
         # Hammer in contact information
         xmlcontact2db = self.xmlcontact2db
@@ -522,9 +507,14 @@ class XML2Cerebrum:
                                      xmlcontact2db[contact.kind],
                                      contact.value,
                                      contact_pref = contact.priority)
-        # od
         op = ou.write_db()
 
+        # We cannot ask about spread, until ou actually has an entity_id. For
+        # a fresh ou that happens *after* the very first write_db().
+        if ((getattr(xmlou, "publishable", False) or self.ou_ldap_visible) and
+            not ou.has_spread(const.spread_ou_publishable)):
+            ou.add_spread(const.spread_ou_publishable)
+            
         # Before we can give a spread, we need an entity_id. Thus, this
         # operation happens after the first write_db().
         op2 = self._sync_auto_ou_spreads(ou, xmlou.iter_usage_codes())
