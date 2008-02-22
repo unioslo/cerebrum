@@ -47,7 +47,7 @@ class Transaction(Builder.Builder):
         self._refs = Set()
         self._session = session
         self._session.reset_timeout()
-        self._db = Database.SpineDatabase(session.client.get_id())
+        self._db = Database.SpineDatabase(session.client.get_id(), type="transaction")
         logger.debug("New transaction %s@%s(%s) (%x)" % (
             self._session.username, self._session.host,
             self._session.version, id(self)))
@@ -149,6 +149,7 @@ class Transaction(Builder.Builder):
         try:
             self._db.rollback()
             self._db.close()
+            self._db = None
         except:
             logger.exception('Unable to rollback the database object!')
 
