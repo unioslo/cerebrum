@@ -54,6 +54,7 @@ from Cerebrum.modules.no.uio.fronter_lib \
 
 
 root_sko = '900199'
+root_ou_id = 'will be set later'
 root_struct_id = 'UiO root node'
 group_struct_id = "UREG2000@uio.no imported groups"
 group_struct_title = 'Automatisk importerte grupper'
@@ -1146,6 +1147,9 @@ def init_globals():
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
 
+    global root_ou_id
+    root_ou_id = _get_ou(root_sko).entity_id
+
     fs_db = Factory.get("FS")()
     
     global fronter
@@ -1234,16 +1238,37 @@ def get_group(id):
     return group
 
 
-def get_sted(stedkode=None, entity_id=None):
-    sted = Factory.get('OU')(db)
-    if stedkode is not None:
-        sted.find_stedkode(int(stedkode[0:2]),
-                           int(stedkode[2:4]),
-                           int(stedkode[4:6]),
-                           cereconf.DEFAULT_INSTITUSJONSNR)
-    else:
-        sted.find(entity_id)
+def _get_ou(identification):
+    """Return a Factory.get('OU') instance corresponding to an id.
 
+    @type identification: basestring or int
+    @param identification:
+      Id for the OU to locate. It can either be a sko or an internal ou_id.
+
+    @rtype: instance of Factory.get('OU') or None
+    @return:
+      An object associated with the given id, or None, if no such object
+      exists.
+    """
+
+    ou = Factory.get("OU")(db)
+    try:
+        if isinstance(identification, basestring):
+            ou.find_stedkode(int(identification[0:2]),
+                             int(identification[2:4]),
+                             int(identification[4:6]),
+                             cereconf.DEFAULT_INSTITUSJONSNR)
+        else:
+            ou.find(int(identification))
+
+        return ou
+    except Errors.NotFoundError:
+        return None
+# end _get_ou
+
+
+def get_sted(stedkode=None, entity_id=None):
+    sted = _get_ou(stedkode is None and entity_id or stedkode)
     # Only publishable OUs should be returned; if no such OU can be found by
     # moving towards the root of the OU tree, return None.
     if sted.has_spread(const.spread_ou_publishable):
@@ -1369,8 +1394,9 @@ def build_structure(sko, allow_room=False, allow_contact=False):
             parent_sted = get_sted(
                 entity_id=sted.get_parent(const.perspective_sap))
             if parent_sted is None:
-                logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
-                            (sko, root_sko))
+                if sted.get_parent(const.perspective_sap) != root_ou_id:
+                    logger.warn("Stedkode <%s> er uten foreldre; bruker %s" %
+                                (sko, root_sko))
                 parent = build_structure(root_sko)
             else:
                 parent = build_structure("%02d%02d%02d" % (
