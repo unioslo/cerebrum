@@ -51,8 +51,10 @@ class SessionHandler(threading.Thread):
         corba_obj = com.servant_to_reference(session)
 
         self._session_lock.acquire()
-        self._corba_sessions[session] = corba_obj
-        self._session_lock.release()
+        try:
+            self._corba_sessions[session] = corba_obj
+        finally:
+            self._session_lock.release()
         
         self.update(session)
         return corba_obj
@@ -65,8 +67,10 @@ class SessionHandler(threading.Thread):
         last call to this method with that session as the argument.
         """
         self._session_lock.acquire()
-        self._sessions[session] = time.time() + session.get_timeout()
-        self._session_lock.release()
+        try:
+            self._sessions[session] = time.time() + session.get_timeout()
+        finally:
+            self._session_lock.release()
 
     def remove(self, session):
         """Release ownership of the given session."""
@@ -84,22 +88,30 @@ class SessionHandler(threading.Thread):
         try:
             com.remove_reference(self._corba_sessions[session])
         except:
-            pass
-        del self._corba_sessions[session]
-        del self._sessions[session]
+            logger.warn("Corba reference removal failed for session %d" % id(session))
+        try:
+            del self._corba_sessions[session]
+        except:
+            logger.warn("Corba removal failed for session %d" % id(session))
+        try:
+            del self._sessions[session]
+        except: 
+            logger.warn("Removal failed for session %d" % id(session))
 
     def _check_times(self):
         """Internal method called by the thread of control every
         SPINE_SESSION_CHECK_INTERVAL seconds. The method checks for deletable
         sessions, destroys them and removes them from the handler."""
         self._session_lock.acquire()
-        now = time.time()
-        for session, stamp in self._sessions.items():
-            if stamp <= now:
-                self._remove(session)
-                session.destroy()
-
-        self._session_lock.release()
+        try:
+            now = time.time()
+            for session, stamp in self._sessions.items():
+                if stamp <= now:
+                    logger.info("Timeout for session")
+                    self._remove(session)
+                    session.destroy()
+        finally:
+            self._session_lock.release()
 
     def list(self):
         return self._sessions[:]
