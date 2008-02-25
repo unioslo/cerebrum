@@ -102,7 +102,7 @@ class Account:
                 # remove users that were not added in this bulk
                 m= regex.match(princ)
                 if m and princ not in self.added_princs:
-                    self.delete(User(name=m.group(1), passwd=''))
+                    self.delete(User(m.group(1)))
         self.k = None
 
     def abort(self):
@@ -117,7 +117,7 @@ class Account:
         """
         try:
             princ = account.name + '@' + self.k.realm # or from config
-            password = self.pgp.decrypt(account.passwd)
+            password=account.passwd
             options = None # or some defaults from config in dict-format
             if not password:
                 if allow_add:
@@ -127,7 +127,7 @@ class Account:
                 return
             if allow_add:
                 if not self.dryrun: 
-                    self.k.CreatePrincipal(princ,password,options)
+                    self.k.CreatePrincipal(princ,self.pgp.decrypt(password),options)
                 info("'%s' added\n"%princ)
             if (not self.incr):
                 self.added_princs.add(princ)
@@ -163,9 +163,10 @@ class Account:
         info("'%s' removed.\n"%princ)
 
 class User:
-   def __init__(self, name='test_user', passwd='testpw'):
-       self.name = name
-       self.passwd= Pgp().encrypt(passwd)
+    def __init__(self, name='test_user', passwd=''):
+        self.name = name
+        self.passwd= passwd and Pgp().encrypt(passwd) or ''
+
 
 class HeimdalTestCase(unittest.TestCase):
     """TestCase that tests adding, changing and removing users from a 
