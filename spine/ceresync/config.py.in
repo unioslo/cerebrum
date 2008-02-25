@@ -21,11 +21,23 @@
 
 import ConfigParser
 import os
+import logging, logging.config
 
 conf = ConfigParser.SafeConfigParser()
 confpath= os.environ.get("CERECONF_DIR", "@CONFDIR@")+'/'
 conf.read((confpath+'sync.conf.template', confpath+'sync.conf'))
 sync=conf # compat
+
+logging_ini= "@CONFDIR@"+"/logging.ini"   
+if conf.has_option('logging','ini_path'):
+    logging_ini= conf.get('logging','ini_path')
+logging.config.fileConfig(logging_ini)
+loggername= 'ceresync'       
+if conf.has_option('logging','logger'):
+    loggername= conf.get('logging','logger')
+                         
+logger= logging.getLogger(loggername)
+
 
 def apply_quarantine(obj, typestr):
     """

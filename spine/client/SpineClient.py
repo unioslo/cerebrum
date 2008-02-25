@@ -86,7 +86,8 @@ class SpineClient:
                        ssl_password=None,
                        idl_path=None,
                        automatic=True,
-                       config=None):
+                       config=None,
+                       logger=None):
         if not os.path.exists(self.spine_core):
             raise IOError, '%s not found' % spine_core
 
@@ -99,6 +100,12 @@ class SpineClient:
             ssl_password = ssl_password or config.get('SpineClient', 'key_password')
             if use_ssl is None:
                 use_ssl = config.getboolean('SpineClient', 'use_ssl')
+        
+        if logger:    
+            self.log= logger
+        else:
+            import logging
+            self.log= logging.getLogger()
 
         if idl_path not in sys.path:
             sys.path.append(idl_path)
@@ -113,6 +120,7 @@ class SpineClient:
         self.md5_file = os.path.join(self.idl_path, 'SpineIDL.md5')
         self.idl_file = os.path.join(self.idl_path, 'SpineIDL.idl')
 
+
         if not self.check_md5() and automatic:
             self.bootstrap()
 
@@ -122,7 +130,7 @@ class SpineClient:
         try:
             from omniORB import sslTP
         except ImportError:
-            print "Could not import omniORB.sslTP"
+            self.log.error("Could not import omniORB.sslTP")
             sys.exit(1)
         sslTP.certificate_authority_file(self.ssl_ca_file)
         sslTP.key_file(self.ssl_key_file)
@@ -151,14 +159,13 @@ class SpineClient:
         else:
             orb = self.init()
 
-        print "Using IOR %s" % self.ior_url
+        self.log.debug("Using IOR %s",self.ior_url)
         ior = urllib.urlopen(self.ior_url).read()
         try:
             obj = orb.string_to_object(ior)
         except CORBA.BAD_PARAM, e:
-            print >> sys.stderr, "ERROR:", \
-                    "The ior file read from '%s' has invalid contents: \n%s" % (
-                    self.ior_url, ior)
+            self.log.error("The ior file read from '%s' has invalid contents: %s",
+                         self.ior_url, ior)
             sys.exit(1)
 
         spine = obj._narrow(SpineCore.Spine)
@@ -176,24 +183,22 @@ class SpineClient:
 
     def bootstrap(self):
         spine = self.connect()
-        print>>sys.stderr, '- connected to:', spine
-        print>>sys.stderr, '- downloading source'
+        self.log.debug('- connected to: %s', spine)
+        self.log.debug('- downloading source')
         source = spine.get_idl_commented()
-        print>>sys.stderr, '- (%s bytes)' % len(source)
+        self.log.debug('- (%s bytes)', len(source))
         if not os.path.exists(self.idl_path):
-            print '- Making idl_path: ', self.idl_path
-            print>>sys.stderr, '- Making idl_path: ', self.idl_path
+            self.log.debug('- Making idl_path: %s', self.idl_path)
             os.makedirs(self.idl_path)
         fd = open(self.idl_file, 'w')
         fd.write(source)
         fd.close()
-        print '- Compiling to: ', self.idl_path
-        print>>sys.stderr, '- Compiling to: ', self.idl_path
+        self.log.debug('- Compiling to: %s', self.idl_path)
 
-        os.system('omniidl -bpython -C %s %s %s' % (self.idl_path, self.spine_core, self.idl_file))
+        os.system('omniidl -bpython -C %s %s %s 2>/dev/null' % (self.idl_path, self.spine_core, self.idl_file))
 
         import SpineIDL, SpineCore
-        print>>sys.stderr, '- All done:', SpineIDL, SpineCore
+        self.log.debug('- All done: %s %s', SpineIDL, SpineCore) 
         fd = open(self.md5_file, 'w')
         fd.write(spine.get_idl_md5())
         fd.close()

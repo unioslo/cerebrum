@@ -35,12 +35,7 @@ from ceresync.sync import Pgp
 from sets import Set as set
 import sys
 
-verbose= False
-
-def info(msg):
-    if verbose:
-        sys.stdout.write(msg)
-        sys.stdout.flush()
+log= config.logger
 
 class Account:
     def __init__(self, principal=None, keytab=None, flavor=None):
@@ -54,7 +49,8 @@ class Account:
         self.dryrun= config.conf.has_option('kerberos','dryrun') and \
                 config.conf.getboolean('kerberos','dryrun') or \
                 False
-        if self.dryrun: info("Dry run. No changes will be made to kerberos.\n")
+        if self.dryrun:
+            log.info("Dry run. No changes will be made to kerberos.")
 
         # Use a non-default cache-file so a rogue kinit won't affect the script.
         os.putenv('KRB5CCNAME', 'FILE:/tmp/krb5cc_%d_synckerberos' % os.geteuid())
@@ -95,11 +91,13 @@ class Account:
         if not self.incr and allow_delete:
             # Could possibly just check for a '/' instead ...
             regex= re.compile('^([a-z0-9]+)@%s$' % self.k.realm)
+            log.debug('Retreiving list of principals from kdc')
             for princ in self.k.ListPrincipals():
                 # The default principal should be left alone
                 if princ.startswith('default@'): continue                  
 
                 # remove users that were not added in this bulk
+                log.debug('Checking principal \'%s\'',princ)
                 m= regex.match(princ)
                 if m and princ not in self.added_princs:
                     self.delete(User(m.group(1)))
@@ -121,24 +119,23 @@ class Account:
             options = None # or some defaults from config in dict-format
             if not password:
                 if allow_add:
-                    info("'%s' has blank password. Not adding.\n"%princ)
+                    log.warning("'%s' has blank password. Not adding", princ)
                 else:
-                    info("'%s' has blank password. Ignoring.\n"%princ)
+                    log.warning("'%s' has blank password. Ignoring",princ)
                 return
             if allow_add:
                 if not self.dryrun: 
                     self.k.CreatePrincipal(princ,self.pgp.decrypt(password),options)
-                info("'%s' added\n"%princ)
+                log.info("'%s' added",princ)
             if (not self.incr):
                 self.added_princs.add(princ)
         except heimdal_error.KADM5_DUP,kdup:
             # FIXME! Fetch override from config. If we set new password
             # the user will get a new kvno and things might break.
-            info("'%s' allready exists... "%princ)
             if allow_update:
                 self.update(account)
             else:
-                info("ignoring\n")
+                log.info("'%s' allready exists, ignoring", princ)
                 self.added_princs.add(princ)
 
     def update(self,account):
@@ -149,7 +146,7 @@ class Account:
         password = self.pgp.decrypt(account.passwd)
         try:
             if not self.dryrun: self.k.SetPassword(princ,password)
-            info("password updated for '%s'\n"%princ)
+            log.info("password updated for '%s'",princ)
             if (not self.incr):
                 self.added_princs.add(princ)
         except Exception,err:
@@ -159,8 +156,9 @@ class Account:
         """Delete account from kerberos database
         """
         princ = account.name + '@' + self.k.realm # or from config
-        if not self.dryrun: self.k.DeletePrincipal(princ)
-        info("'%s' removed.\n"%princ)
+        if not self.dryrun: 
+            self.k.DeletePrincipal(princ)
+        log.info("'%s' removed.",princ)
 
 class User:
     def __init__(self, name='test_user', passwd=''):

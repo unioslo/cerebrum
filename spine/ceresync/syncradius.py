@@ -21,52 +21,16 @@
 # Author: Lasse Karstensen <lasse.karstensen_aaaat_ntnu.no>
 #
 import sys, os, getopt
-import errors
-import sync
+from ceresync import errors
+from ceresync import sync
 from backend.file import SambaFile,PasswdFileCryptHash
 
-import config
+from ceresync import config
 import traceback
 import omniORB # for the exception
 import cPickle
 
-
-starttime = None
-def log(msg):
-    global starttime
-    import time
-    now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    if not starttime:
-        delta = 0.00
-        starttime = time.time()
-    else:
-        delta = float(time.time() - starttime)
-    try: 
-        logmethod = config.sync.get("log","logmethod")
-    except Exception:
-        logmethod = 'stderr'
-        logdest = sys.stderr
-
-    if logmethod == "file":
-        try:
-            logdest   = config.sync.get("log","logdest")
-            logdest = open(logdest, 'a')
-        except:
-            logmethod = 'stderr'
-            logdest = sys.stderr
-
-
-    logmsg = "(%.2fs): %s" % (delta, msg)
-    if logmethod == "syslog":
-        import syslog
-        syslog.openlog("%s[%s]" % (os.path.basename(sys.argv[0]), os.getpid()))
-        syslog.syslog(logmsg)
-        return
-
-
-    # either stderr or file.
-    print >>logdest, "%s %s" % (now, logmsg)
-    return
+log= config.logger
 
 def usage():
     print "Usage: %s -c <config file>"  % os.path.basename(sys.argv[0])
@@ -92,9 +56,8 @@ def main():
             verbose = True
         if o == "-c":
             config.sync.read(a)
-            if verbose:
-                log("reading config file %s" % a )
-                log("spread is: %s" % config.sync.get("sync","account_spread"))
+            log.debug("reading config file %s" , a )
+            log.debug("spread is: %s" , config.sync.get("sync","account_spread"))
 
     incr = False
     id = -1
@@ -107,30 +70,27 @@ def main():
                 "MD4-NT",
                 "LANMAN-DES"
                 ]
-    if verbose: 
-        log("Creating sync object")
+    log.info("Creating sync object")
 
     try:
         s = sync.Sync(incr, id, hashtypes[0])
     except omniORB.CORBA.TRANSIENT, e:
-        log("Server seems down. Error: %s" % e)
+        log.error("Server seems down. Error: %s",e)
         sys.exit(255)
     except IOError, e:
-        log("IOError, shutting down. Error: %s" % e)
+        log.error("IOError, shutting down. Error: %s", e)
         sys.exit(255)
 
-    if verbose: 
-        log("Done creating sync object")
+    log.debug("Done creating sync object")
 
-    if verbose: 
-        log("Fetching hashes for all accounts")
+    log.info("Fetching hashes for all accounts")
 
     for hashtype in hashtypes:
         s.set_authtype(hashtype)
         for acc in s.get_accounts():
             if acc.passwd == None or acc.passwd == '':
-                if verbose:
-                    log("account %s mangler passordtype %s" % (acc.name, hashtype))
+                log.warning("account %s mangler passordtype %s", 
+                               acc.name, hashtype)
                 continue
             # Try save time doing it all in a loop-de-loop
             if not pwdict.has_key(acc.name):
@@ -139,8 +99,7 @@ def main():
             pwdict[acc.name][hashtype] = acc.passwd
     s.close()
 
-    if verbose: 
-        log("Parsing and creating files")
+    log.info("Parsing and creating files")
 
     smbfile = SambaFile( config.conf.get("file","smbpasswd" ) )
     smbfile.begin(incr)
@@ -150,9 +109,8 @@ def main():
 
     for account in acclist:
         if len(account.quarantines) > 0:
-            if verbose:
-                #print account.quarantines
-                log("Skipping account %s with quarantines: %s" % (account.name, account.quarantines))
+            log.info("Skipping account %s with quarantines: %s", 
+                        account.name, account.quarantines)
             continue
 
         ntlmhash = pwdict[account.name].get('MD4-NT')
@@ -167,8 +125,7 @@ def main():
     smbfile.close()
     accounts.close()
 
-    if verbose: 
-        log( "Done" )
+    log.info("Syncronization done")
 
 if __name__ == "__main__":
     main()

@@ -27,6 +27,8 @@ import traceback
 import re
 import sys
 
+log= config.logger
+
 name_regex=re.compile("^[A-Za-z0-9_]+$")
 def check_account(account):
     if not name_regex.match(account.name):
@@ -58,22 +60,24 @@ def main():
     groups = filebackend.Group()
     primary_group = {}
 
-    print "Syncronizing accounts"
+    log.info("Syncronizing accounts")
     accounts.begin(incr)
     try:
         for account in s.get_accounts():
+            log.debug("Processing account '%s'",account.name)
             primary_group[account.name]=account.primary_group
             fail = check_account(account)
             if not fail: 
                 accounts.add(account)
             else:
-                print >>sys.stderr, "Skipping account", account.name, fail
+                log.warning("Skipping account '%s', reason: %s",
+                            account.name,fail) 
     except IOError,e:
-        print "Exception %s occured, aborting" % e
+        log.error("Exception %s occured, aborting",e)
     else:
         accounts.close()
 
-    print "Syncronizing groups"
+    log.info("Syncronizing groups")
     groups.begin(incr)
     try:
         for group in s.get_groups():
@@ -84,9 +88,9 @@ def main():
             if not fail:
                 groups.add(group)
             else:
-                print >>sys.stderr, "Skipping group", group.name, fail
+                log.warning("Skipping group '%s', reason: %s",group.name, fail)
     except IOError,e:
-        print "Exception %s occured, aborting" % e
+        log.error("Exception %s occured, aborting",e)
     else:
         groups.close()
 

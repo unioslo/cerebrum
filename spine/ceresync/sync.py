@@ -7,7 +7,8 @@ class Sync:
     def __init__(self, incr=False, id=-1, auth_type=None):
         self.incr=incr
         self.auth_type= auth_type or config.conf.get('sync','auth_type')
-        connection = SpineClient.SpineClient(config=config.conf).connect()
+        connection = SpineClient.SpineClient(config=config.conf,
+                                             logger=config.logger).connect()
         self.session = connection.login(config.conf.get('spine', 'login'),
                                         config.conf.get('spine', 'password'))
         self.tr = self.session.new_transaction()

@@ -28,7 +28,9 @@ from getopt import getopt
 from sys import argv, exit
 from sets import Set as set
 import os
+import omniORB
 
+log= config.logger
 
 spine_cache= config.conf.get('spine','last_change') or \
              "/var/lib/cerebrum/sync.last_change"
@@ -110,13 +112,19 @@ def main():
     local_id= 0
     if os.path.isfile(spine_cache):
         local_id= long( file(spine_cache).read() )
-    print "Local changelog-id:",local_id
-    s= sync.Sync(incr,local_id)
+    try: 
+        s= sync.Sync(incr,local_id)
+    except omniORB.CORBA.TRANSIENT,e:
+        log.error('Unable to connect to spine-server')
+        exit(1)
+    except:
+        log.exception('unable to connect')
+        exit(1)
     server_id= s.cmd.get_last_changelog_id()
-    print "Server changelog-id:",server_id
+    log.info("Local changelog-id: %ld, server changelog-id: %s",local_id,server_id)
 
     if incr and local_id == server_id:
-        print "Nothing to be done."
+        log.info("Nothing to be done.")
         s.close()
         return
 
@@ -125,13 +133,13 @@ def main():
     try:
         all_accounts= s.get_accounts()
         s.close()
-    except Exception,e:
-        print "Exception '%s' occured, aborting" % e
+    except:
+        log.exception("Exception occured, aborting")
         s.close()
         exit(1)
 
     if incr:
-        print "Synchronizing users (incr) to changelog",server_id
+        log.info("Synchronizing users (incr) to changelog_id %ld",server_id)
         try:
             processed= set([])
             for account in all_accounts:
@@ -143,8 +151,8 @@ def main():
                     else: 
                         user.add(account)
                     processed.add(account.name)
-        except Exception,e:
-            print "Exception '%s' occured, aborting" % e
+        except:
+            log.exception("Exception occured, aborting")
             user.close()
             exit(1)
         else:
@@ -153,21 +161,20 @@ def main():
         if not user.dryrun:
             file(spine_cache, 'w').write( str(server_id) )
     else:
-        print "Synchronizing users (bulk) to changelog",server_id
-        print "Options:",add and "add" or "", update and "update" or "",
-        print delete and "delete" or ""
+        log.info("Synchronizing users (bulk) to changelog_id %ld", server_id)
+        log.info("Options add: %d, update: %d, delete: %d",add,update,delete)
         try:
             for account in all_accounts:
                 if account.posix_uid == None:
+                    log.debug('no posix_uid on account: %s',account.name)
                     continue
                 if hasattr(account,'deleted') and account.deleted:
+                    log.debug('deleted attribute set on account: %s',account.name)
                     user.delete(account, delete)
                 else:
                     user.add(account, add, update)
-            user.close()
-            exit(1)
-        except Exception,e:
-            print "Exception '%s' occured, aborting" % e
+        except:
+            log.exception("Exception occured, aborting")
             user.close()
             exit(1)
         else:
@@ -176,7 +183,7 @@ def main():
         if add and update and delete and not user.dryrun:
             file(spine_cache, 'w').write( str(server_id) )
     
-    print "Synchronization completed successfully"
+    log.info("Synchronization completed successfully")
         
 
 if __name__ == "__main__":
