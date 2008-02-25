@@ -22,9 +22,11 @@ class Sync:
         self.view.set_changelog(id)
 
     def __del__(self):
-        for i in self.session.get_transactions():
-            try: i.rollback()
-            except: pass
+        try:
+            for i in self.session.get_transactions():
+                try: i.rollback()
+                except: pass
+        except: pass
         try: self.session.logout()
         except: pass
 
