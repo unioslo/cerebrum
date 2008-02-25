@@ -29,7 +29,9 @@ from sys import argv, exit
 from sets import Set as set
 import os
 
-spine_cache= "/var/cache/cerebrum/spine_lastupdate"
+
+spine_cache= config.conf.get('spine','last_change') or \
+             "/var/lib/cerebrum/sync.last_change"
 
 def usage():
     print 'USAGE: %s -i|-b [OPTIONS]' % argv[0]
@@ -115,14 +117,14 @@ def main():
 
     if incr and local_id == server_id:
         print "Nothing to be done."
-	s.close()
+        s.close()
         return
 
     user= kerberosbackend.Account()
     user.begin(incr)
     try:
-	all_accounts= list(s.get_accounts())
-	s.close()
+        all_accounts= s.get_accounts()
+        s.close()
     except Exception,e:
         print "Exception '%s' occured, aborting" % e
         s.close()
@@ -136,7 +138,10 @@ def main():
                 if account.posix_uid == None:
                     continue
                 if account.name not in processed:
-                    user.add(account)
+                    if hasattr(account,'deleted') and account.deleted:
+                        user.delete(account)
+                    else: 
+                        user.add(account)
                     processed.add(account.name)
         except Exception,e:
             print "Exception '%s' occured, aborting" % e
@@ -155,9 +160,14 @@ def main():
             for account in all_accounts:
                 if account.posix_uid == None:
                     continue
-                user.add(account, add, update)
-        except Exception, e:
-            print "Exception %s occured, aborting" % e
+                if hasattr(account,'deleted') and account.deleted:
+                    user.delete(account, delete)
+                else:
+                    user.add(account, add, update)
+            user.close()
+            exit(1)
+        except Exception,e:
+            print "Exception '%s' occured, aborting" % e
             user.close()
             exit(1)
         else:
