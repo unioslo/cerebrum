@@ -115,10 +115,16 @@ def main():
     try: 
         s= sync.Sync(incr,local_id)
     except omniORB.CORBA.TRANSIENT,e:
-        log.error('Unable to connect to spine-server')
+        log.error('Unable to connect to spine-server: %s',e)
+        exit(1)
+    except omniORB.CORBA.COMM_FAILURE,e:
+        log.error('Unable to connect to spine-server: %s',e)
+        exit(1)
+    except errors.LoginError, e:
+        log.error('%s',e)
         exit(1)
     except:
-        log.exception('unable to connect')
+        log.exception('Unable to connect')
         exit(1)
     server_id= s.cmd.get_last_changelog_id()
     log.info("Local changelog-id: %ld, server changelog-id: %s",local_id,server_id)

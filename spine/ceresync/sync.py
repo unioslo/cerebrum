@@ -1,4 +1,5 @@
 from ceresync import config
+from ceresync import errors
 import SpineClient
 from popen2 import Popen3
 import unittest
@@ -9,8 +10,13 @@ class Sync:
         self.auth_type= auth_type or config.conf.get('sync','auth_type')
         connection = SpineClient.SpineClient(config=config.conf,
                                              logger=config.logger).connect()
-        self.session = connection.login(config.conf.get('spine', 'login'),
-                                        config.conf.get('spine', 'password'))
+        import SpineCore
+        try:
+            self.session = connection.login(config.conf.get('spine', 'login'),
+                                            config.conf.get('spine', 'password'))
+        except SpineCore.Spine.LoginError, e:
+            raise errors.LoginError(e)
+
         self.tr = self.session.new_transaction()
         self.cmd = self.tr.get_commands()
         self.view = self.tr.get_view()
