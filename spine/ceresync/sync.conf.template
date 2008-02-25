@@ -1,0 +1,79 @@
+# Spine connection details
+[SpineClient]
+url: https://ceretest.itea.ntnu.no/spine.ior
+idl_path: tmp_idl
+use_ssl: true
+ca_file: /etc/cerebrum/ssl/itea-ca.crt
+key_file: /etc/cerebrum/ssl/ceresync_client_crt_and_key.pem
+key_password: <secret>
+
+[spine]
+last_change: /var/lib/cerebrum/sync.last_change
+login: <cerebrum-username>
+password: <secret>
+
+[sync]
+account_spread: user@stud   # user@ansatt, user@stud, user@ntnu_ad, 
+                            # user@kerberos
+group_spread: group@ntnu    # group@ntnu
+auth_type: PGP-kerberos     # MD5-crypt, crypt3-DES, SSHA, MD4-NT, LANMAN-DES,
+                            # PGP-offline, PGP-win_ntnu_no, PGP-kerberos
+
+[logging]
+# default path is /etc/cerebrum/logging.ini
+ini_path: /etc/cerebrum/logging.ini
+# default logger is 'ceresync'
+logger: synckerberos
+
+[kerberos]
+#flavor should be either heimdal or mit
+flavor: heimdal
+#full principal, with realm
+principal: cerebrum/admin@TEST.NTNU.NO
+keytab: /etc/cerebrum/krb5.keytab
+dryrun: False
+
+[account_quarantenes]
+#sperret: shell=/bin/sperret
+#remote: no_op=True
+#slutta: deleted=True
+#svakt_passord: shell=/bin/sperret
+#DEFAULT: deleted=True
+
+[account_override]
+#disk_path: /foo
+
+[account_default]
+shell: /bin/noshell
+homedir: /home/local/%(name)s
+
+[group_quarantenes]
+
+[group_override]
+
+[group_default]
+
+[person_quarantenes]
+
+[person_override]
+
+[person_default]
+
+[ou_quarantenes]
+
+[ou_override]
+
+[ou_default]
+
+[backends]
+account: file:passwd,file:shadow,ldap:posixuser
+group: file:group,ldap:posixgroup
+
+[ldap:posixuser]
+
+[pgp]
+prog: gpg
+keyid: 0x27A77B9F3F2CECBF
+# --recipient keyid --default-key keyid is appended to encrypt_opts
+encrypt_opts: --encrypt --armor --batch --quiet --no-secmem-warning
+decrypt_opts: --decrypt --batch --quiet --no-secmem-warning
