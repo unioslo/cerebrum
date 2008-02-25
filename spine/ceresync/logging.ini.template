@@ -27,9 +27,9 @@
 # the logger will assume the level of its parent.
 
 [loggers]
-keys=root,cronjob,console,ceresync,synckerberos
+keys=root,cronjob,console,ceresync,synckerberos,syncfile,syncradius
 [handlers]
-keys=hand_root,hand_cronjob,hand_console,hand_syslog,hand_stdout
+keys=hand_root,hand_cronjob,hand_console,hand_syslog,hand_stderr
 [formatters]
 keys=form_root,form_cronjob,form_console,form_syslog
 
@@ -61,7 +61,19 @@ handlers=hand_syslog
 level=DEBUG
 propagate=0
 qualname=synckerberos
-handlers=hand_syslog,hand_stdout
+handlers=hand_syslog,hand_stderr
+
+[logger_syncfile]
+level=DEBUG
+propagate=0
+qualname=syncfile
+handlers=hand_syslog,hand_stderr
+
+[logger_syncradius]
+level=DEBUG
+propagate=0
+qualname=syncradius
+handlers=hand_syslog,hand_stderr
 
 
 [handler_hand_root]
@@ -88,11 +100,11 @@ level=NOTSET
 formatter=form_syslog
 args=(('localhost', handlers.SYSLOG_UDP_PORT), handlers.SysLogHandler.LOG_USER)
 
-[handler_hand_stdout]
+[handler_hand_stderr]
 class=StreamHandler
 level=WARNING
 formatter=form_cronjob
-args=(sys.stdout,)
+args=(sys.stderr,)
 
 
 [formatter_form_root]
