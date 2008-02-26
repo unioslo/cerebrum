@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -66,15 +66,15 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
             pwUnicode = unicode(pw, 'iso-8859-1')
             ret = self.run_cmd('setPassword', dry_run, pwUnicode)
             if ret[0]:
-                self.logger.info('Changed password: %s',
-                                 self.ac.account_name)
+                self.logger.info('Changed password for %s in domain %s' %
+                                 (self.ac.account_name, self.ad_ldap))
                 return True
             else:
                 #Account without ADspread, do nothing and return.
                 return True
         #Something went wrong.
-        self.logger.warn('Failed change password: %s',
-                         self.ac.account_name)
+        self.logger.warn('Failed change password for %s in domain %s.' % (
+            self.ac.account_name, self.ad_ldap))
         return False
 
 def usage():
@@ -88,7 +88,7 @@ def usage():
             Example:
             ADquickSync.py --url https://158.39.170.197:8000 \\
                            --user_spread 'account@ad_adm' \\
-                           -- ad-ldap 'DC=adm,DC=hiof2,DC=no'
+                           --ad-ldap 'DC=adm,DC=hiof2,DC=no'
                            --commit-changes
             """
     sys.exit(1)
