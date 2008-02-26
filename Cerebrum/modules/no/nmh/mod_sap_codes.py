@@ -182,6 +182,13 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    # NMH er blitt informert om at 9999 er veldig spesiell.
+    sap_9999_dummy_stillingskode = SAPLonnsTittelKode(
+        "20009999",
+        "9999 Dummy stillingskode",
+        "ØVR"
+    )
+
     # FIXME: Er dette riktig da?
     sap_0000_ekstern_stillingskode = SAPLonnsTittelKode(
         "00000000",
