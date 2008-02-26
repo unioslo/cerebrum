@@ -132,7 +132,7 @@ def sap_ou_number2ou_id(fo_kode, sap_ou_number):
         cerebrum_ou.find_by_SAP_id(sap_ou_number, fo_kode_numeric)
     except Errors.NotFoundError:
         logger.warn("Cannot locate OU with SAP-id <%s-%s>",
-                    fo_kode, sap_ou_number)
+                    sap_ou_number, fo_kode)
         return None
 
     return int(cerebrum_ou.entity_id)
