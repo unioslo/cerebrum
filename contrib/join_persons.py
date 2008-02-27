@@ -29,7 +29,6 @@ import cereconf
 from Cerebrum import Constants
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.extlib import logging
 
 
 def get_constants_by_type(co, class_type):
@@ -216,21 +215,36 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq, with_uio_ephor
         join_ephorte_roles(old_id, new_id)
         
 def join_ephorte_roles(old_id, new_id):
-    # Ephorte roles
-    # All ephorte roels old_person may have should be deleted.
-    # TBD: If old_person have any non-automatic roles, i.e. roles of
-    # type other than SY and SB, should they be transferred to new
-    # person?
-    #
-    # Jazz (2008-01-25): absolutely, any existing non-standard roles should
-    # be transferred to the new_person_id!
+    # All ephorte roles belonging to old_person must be deleted.
+    # Any roles that are manual (auto=F) should be given to new person
     from Cerebrum.modules.no.uio.Ephorte import EphorteRole
     ephorte_role = EphorteRole(db)
 
     for row in ephorte_role.list_roles(person_id=old_id):
+        role_str = "ephorte role (%s, %s, %s, %s) from %s" % (
+            row['role_type'], row['adm_enhet'], row['arkivdel'],
+            row['journalenhet'], old_id)
+        if row['auto_role'] == 'F':
+            ## TODO: we should check if a person has a role before
+            ## adding, so that we don't need the try: ... except:...
+            ## but that is a bit swinish the way Ephorte.py is
+            ## designed at the moment and will be more dirty than this
+            ## hack. Ephorte.py will be redesigned pretty soon.
+            try:
+                ephorte_role.add_role(new_id,
+                                      int(row['role_type']),
+                                      int(row['adm_enhet']),
+                                      row['arkivdel'],
+                                      row['journalenhet'],
+                                      auto_role='F')
+                logger.debug("Transferring %s to %s" % (role_str, new_id))
+            except Exception, e:
+                logger.warn("Couldn't transfer %s to %s\n%s" % (role_str, new_id, e))
+        else:
+            logger.debug("Removing %s" % role_str)
+        # Remove role from old_person
         ephorte_role.remove_role(old_id, int(row['role_type']), int(row['adm_enhet']),
                                  row['arkivdel'], row['journalenhet'])
-        logger.debug("removing ephorte role: %s" % row['role_type'])
 
 
 def join_uia_printerquotas(old_id, new_id):
