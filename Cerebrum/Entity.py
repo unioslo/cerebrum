@@ -274,6 +274,21 @@ class EntitySpread(Entity):
         FROM [:table schema=cerebrum name=entity_spread]
         WHERE spread=:spread""", {'spread': spread})
 
+    def list_entity_spreads(self, entity_types=None):
+        sel = ""
+        if entity_types:
+            sel = """
+            JOIN [:table schema=cerebrum name=entity_info] ei
+              ON ei.entity_id = es.entity_id AND ei.entity_type """
+            if isinstance(entity_types, (list, tuple)):
+                sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
+            else:
+                sel += "= %d" % entity_types
+
+        return self.query("""
+        SELECT es.entity_id, es.spread
+          FROM [:table schema=cerebrum name=entity_spread] es""" + sel)
+
     def has_spread(self, spread):
         """Return true if entity has spread.""" 
         ent_spread = self.get_spread()
