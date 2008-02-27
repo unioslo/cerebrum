@@ -24,10 +24,7 @@ import getopt, sys, pickle
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum import Entity
-from Cerebrum.modules import MountHost
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum.modules import CLHandler
 
@@ -70,12 +67,14 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
                                  (self.ac.account_name, self.ad_ldap))
                 return True
             else:
-                #Account without ADspread, do nothing and return.
-                return True
-        #Something went wrong.
-        self.logger.warn('Failed change password for %s in domain %s.' % (
-            self.ac.account_name, self.ad_ldap))
-        return False
+                #Something went wrong.
+                self.logger.warn('Failed change password for %s in domain %s.' % (
+                    self.ac.account_name, self.ad_ldap))
+                return False
+        else:
+            #Account without ADspread, do nothing and return.
+            return True
+
 
 def usage():
     print """Usage: ADquickSync.py [options]
