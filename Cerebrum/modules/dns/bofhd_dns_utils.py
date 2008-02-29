@@ -224,6 +224,7 @@ class DnsBofhdUtils(object):
         if warn_other and not force:
             warn = True
         zone = self.get_zone_from_name(name, warn)
+        self._dns_owner.clear()
         self._dns_owner.populate(zone, name, mx_set_id=mx_set)
         self._dns_owner.write_db()
         return self._dns_owner.entity_id
