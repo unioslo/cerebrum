@@ -390,7 +390,7 @@ class DnsBofhdUtils(object):
             ip_ref = self._find.find_ip(ip)
             if ip_ref and not force:
                 raise CerebrumError, "IP already in use, must force (y)"
-            if subnet and ip not in self._find.find_free_ip(subnet) and not force:
+            if ip not in self._find.find_free_ip(subnet) and not force:
                 raise CerebrumError, "IP appears to be reserved, must force (y)"                
 
         # Register dns_owner and/or ip_number
