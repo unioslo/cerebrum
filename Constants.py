@@ -289,6 +289,9 @@ class Constants(Constants.Constants):
     auth_type_md5_b64= _AuthenticationCode(
             'MD5-crypt_base64',
             "MD5-derived 32 bit password base 64 encoded")
+    auth_type_pgp_activedir= _AuthenticationCode(
+            'PGP-ad_uit_no',
+            "PGP encrypted password for use in Active Directory")
 
 
     # Trait codes
