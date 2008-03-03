@@ -77,89 +77,42 @@ class AccountUiTMixin(Account.Account):
     # Do it the UiT way!
     #
     def suggest_unames(self, ssn, fname, lname):
-     
-        #print "UIT version of suggest_unames(...) called"
-    
         full_name = "%s %s" % (fname, lname)
         username = self.get_uit_uname(ssn,full_name)
-
-        #print "UIT version of suggest_uames returns '%s'" % username
         return username
 
 
-
     def encrypt_password(self, method, plaintext, salt=None):
-        """Returns the plaintext encrypted according to the specified
-        method.  A mixin for a new method should not call super for
-        the method it handles.
-        UIT: mixin. added our own encryption methods, otherwise equal super()
         """
-        
-        if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_crypt3_des,
-                      self.const.auth_type_ssha):
-            if salt is None:
-                saltchars = string.ascii_letters + string.digits + "./"
-                if method == self.const.auth_type_md5_crypt:
-                    salt = "$1$" + Utils.random_string(8, saltchars)
-                else:
-                    salt = Utils.random_string(2, saltchars)
-            if method == self.const.auth_type_ssha:
-                # encodestring annoyingly adds a '\n' at the end of
-                # the string, and OpenLDAP won't accept that.
-                # b64encode does not, but it requires Python 2.4
-                return base64.encodestring(sha.new(plaintext + salt).digest() +
-                                           salt).strip()
-            return crypt.crypt(plaintext, salt)
-        elif method == self.const.auth_type_md4_nt:
-            # Do the import locally to avoid adding a dependency for
-            # those who don't want to support this method.
-            import smbpasswd
-            return smbpasswd.nthash(plaintext)
-        elif method == self.const.auth_type_plaintext:
-            return plaintext
-        # UIT: added our encryption methods....
-        elif method == self.const.auth_type_md5_crypt_hex:
+        Support UiT added encryption methods, for other methods call super()
+        """
+
+        if method == self.const.auth_type_md5_crypt_hex:
             return self.enc_auth_type_md5_crypt_hex(plaintext)
         elif method == self.const.auth_type_md5_b64:
             return self.enc_auth_type_md5_b64(plaintext)
-        raise ValueError, "Unknown method " + repr(method)
+        return self.__super.encrypt_password(method, plaintext, salt=salt)
+
 
     def decrypt_password(self, method, cryptstring):
-        """Returns the decrypted plaintext according to the specified
-        method.  If decryption is impossible, NotImplementedError is
-        raised.  A mixin for a new method should not call super for
-        the method it handles.
-        UIT: Added our enc methods.
         """
-        if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_crypt3_des,
-                      self.const.auth_type_md4_nt,
-                      self.const.auth_type_md5_crypt_hex,
+        Support UiT added encryption methods, for other methods call super()
+        """
+        if method in (self.const.auth_type_md5_crypt_hex,
                       self.const.auth_type_md5_b64):
             raise NotImplementedError, "Cant decrypt %s" % method
-        elif method == self.const.auth_type_plaintext:
-            return cryptstring
-        raise ValueError, "Unknown method " + repr(method)
+        return self.__super.decrypt_password(method, cryptstring)
+
 
     def verify_password(self, method, plaintext, cryptstring):
-        """Returns True if the plaintext matches the cryptstring,
-        False if it doesnt.  If the method doesnt support
-        verification, NotImplemented is returned.
         """
-        if method in (self.const.auth_type_md5_crypt,
-                      self.const.auth_type_crypt3_des,
-                      self.const.auth_type_md4_nt,
-                      self.const.auth_type_ssha,
-                      self.const.auth_type_plaintext):
-            salt = cryptstring
-            if method == self.const.auth_type_ssha:
-                salt = base64.decodestring(cryptstring)[20:]
-            return (self.encrypt_password(method, plaintext, salt=salt) ==
-                    cryptstring)
-        raise ValueError, "Unknown method " + repr(method)
+        Support UiT added encryption methods, for other methods call super()
+        """
+        if method in ( self.const.auth_type_md5_crypt_hex,
+                       self.const.auth_type_md5_b64):
+            raise NotImplementedError, "Verification for %s not implemened yet" % method
+        return self.__super.verify_password(method, plaintext, cryptstring)
 
-    
     
     #UIT: added encryption method
     # Added by: kennethj 20050803
