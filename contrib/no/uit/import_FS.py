@@ -258,6 +258,7 @@ def process_person_callback(person_info):
     #print "************************** PROCESS START **********************"
     
     global no_name
+
     try:
         fnr = fodselsnr.personnr_ok("%06d%05d" % (int(person_info['fodselsdato']),
                                                   int(person_info['personnr'])))
@@ -268,9 +269,11 @@ def process_person_callback(person_info):
             and getattr(cereconf, "ENABLE_MKTIME_WORKAROUND", 0) == 1):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
+
     except fodselsnr.InvalidFnrError:
         logger.error("Ugyldig fødselsnr: %d-%d" % (int(person_info['fodselsdato']), int(person_info['personnr'])))
         return
+
 
     gender = co.gender_male
     if(fodselsnr.er_kvinne(fnr)):
@@ -291,9 +294,16 @@ def process_person_callback(person_info):
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
+       
         p = x[0]
+
         if isinstance(p, str):
             continue
+
+        if 'status_dod' in p and p['status_dod'] == 'J':
+            logger.error("Død person (blir ikke prosessert): %s" % fnr)
+            return
+
         # Get name
         # UIT: La til 'aktiv' i lista under for å fange opp personer som går til 
         # aktiv uten først å få tilbud

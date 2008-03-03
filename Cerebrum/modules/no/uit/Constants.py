@@ -69,6 +69,7 @@ class Constants(Constants.Constants):
     # Contact codes
     contact_workphone2 = _ContactInfoCode('PHONE_WORK_2', 'Secondary Work Phone')
     contact_room = _ContactInfoCode('ROOM@UIT', 'Location and room number')
+    contact_building = _ContactInfoCode('BYGG@UIT', 'Building name')
 
 
     # Ansatt affiliation and status

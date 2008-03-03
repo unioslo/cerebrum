@@ -55,6 +55,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import sendmail
 from Cerebrum import Errors
+from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 
 
@@ -68,6 +69,7 @@ PHONE_2=35
 MAIL=36
 USERID=37
 ROOM=38
+BUILDING=39
 RESERVATION=40
 
 db=Factory.get('Database')()
@@ -179,13 +181,15 @@ def process_contact(userid,data,checknames,checkmail):
         room=item['room']
         tlf_fname=item['firstname']
         tlf_lname=item['lastname']
+        building=item['building']
         
-        #check contact info fields        
+        #check contact info fields
         for value,type in ( (phone,int(co.contact_phone)),
                             (mobile,int(co.contact_mobile_phone)),
                             (fax,int(co.contact_fax)),
                             (phone_2,int(co.contact_workphone2)),
-                            (room,int(co.contact_room))):
+                            (room,int(co.contact_room)),
+                            (building,int(co.contact_building))):
             idx="%s:%s" % (type,contact_pref)
             idxlist.append(idx)
             if value:
@@ -234,10 +238,11 @@ def process_telefoni(filename,checknames,checkmail):
                 row[PHONE_2]='776'+row[PHONE_2]
             data = {'phone': row[PHONE],'mobile': row[MOB], 'room': row[ROOM],
                     'mail':row[MAIL], 'fax':row[FAX],'phone_2':row[PHONE_2],
-                    'firstname': row[FNAME], 'lastname': row[LNAME]}
+                    'firstname': row[FNAME], 'lastname': row[LNAME],
+                    'building': row[BUILDING]}
             phonedata.setdefault(row[USERID],list()).append(data)
 
-    for userid,pdata in phonedata.items():         
+    for userid,pdata in phonedata.items():
         process_contact(userid, pdata,checknames,checkmail)
 
     unprocessed = Set(person2contact.keys()) - Set(processed)
@@ -265,7 +270,7 @@ def process_telefoni(filename,checknames,checkmail):
         for k in keys:
             mailmsg+=k+'\n'
             for i in msg[k]:
-                mailmsg+=i        
+                mailmsg+=i
 
         notify_phoneadmin(mailmsg)
 
@@ -295,7 +300,7 @@ def main():
                                                    cereconf._TODAY)
     phonefile=dryrun=checknames=checkmail=False
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'h?f:',
+        opts, args = getopt.getopt(sys.argv[1:], 'dh?f:',
                                    ['help','dryrun','file','checknames','checkmail'])
     except getopt.GetoptError,m:
         usage(1,m)
@@ -303,14 +308,14 @@ def main():
     for opt, val in opts:
         if opt in ['-h', '-?','--help']:
             usage(0)
-        elif opt in ['--dryrun']:
+        elif opt in ['--dryrun','-d']:
             dryrun=True
         elif opt in ['--checknames']:
             checknames=True
         elif opt in ['--checkmail']:
             checkmail=True
         elif opt in ['-f', '--file']:
-            phonefile=val
+            phonefile=val 
     
     init_cache(checknames,checkmail)
     logger.info("Using sourcefile '%s'" % (phonefile or default_phonefile))

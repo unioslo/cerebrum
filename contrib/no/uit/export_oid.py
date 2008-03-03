@@ -51,7 +51,7 @@ logger=Factory.get_logger("console")
 
 def load_cache():
     global account2name,owner2account,persons,uname2mail
-    global num2const, name_cache, auth_list, person2contact
+    global num2const, name_cache_cached, name_cache_ad, auth_list, person2contact
 
     logger.info("Retreiving persons and their birth_dates")
     persons =dict()
@@ -59,7 +59,9 @@ def load_cache():
         persons[pers['person_id']]=pers['birth_date']
 
     logger.info("Retreiving person names")
-    name_cache = p.getdict_persons_names( name_types=(co.name_first, \
+    name_cache_cached = p.getdict_persons_names(source_system=co.system_cached, name_types=(co.name_first, \
+        co.name_last,co.name_work_title))
+    name_cache_ad = p.getdict_persons_names(source_system=co.system_lt, name_types=(co.name_first, \
         co.name_last,co.name_work_title))
 
     logger.info("Retreiving account names")
@@ -137,7 +139,10 @@ def load_cb_data():
             logger.error("Skipping personID=%s, no account found" % p_id)
             continue
 
-        namelist = name_cache.get(p_id,None)
+        namelist = name_cache_ad.get(p_id,None)
+        if not namelist:
+            namelist = name_cache_cached.get(p_id,None)
+        
         first_name=last_name=worktitle=""
         if namelist:
             first_name = namelist.get(int(co.name_first),"")
