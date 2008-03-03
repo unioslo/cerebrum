@@ -140,7 +140,7 @@ class execute:
         empl_aff = self.constants.affiliation_ansatt
         p_list=[]
         if(pers_id !=0):
-            print "her: ->%s<-" % (pers_id)
+            #print "her: ->%s<-" % (pers_id)
             p_entry=self.person.find(pers_id)
             t=({'person_id':int(pers_id),'birth_date' :self.person.birth_date})
             p_list.append(t)
@@ -214,7 +214,6 @@ class execute:
             logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
             try:
                 em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
-                print 'Yay - passed! ', ad_email
             except Exception:
                 logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
                 sys.exit(2)
