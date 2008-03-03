@@ -184,6 +184,7 @@ class execute:
     def update_email(self,account_obj):
         em = Email.email_address(self.db)
         ad_email = em.get_employee_email(account_obj.entity_id,self.db)
+
         if (len(ad_email)>0):
             ad_email = ad_email[account_obj.account_name]
         else:
@@ -213,6 +214,7 @@ class execute:
             logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
             try:
                 em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
+                print 'Yay - passed! ', ad_email
             except Exception:
                 logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
                 sys.exit(2)

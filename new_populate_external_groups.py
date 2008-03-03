@@ -187,7 +187,7 @@ def destroy_group(group_id, max_recurse):
     et = Email.EmailTarget(db)
     try:
         et.find_by_email_target_attrs(target_type = const.email_target_multi,
-                                      entity_id = gr.entity_id)
+                                      target_entity_id = gr.entity_id)
     except Errors.NotFoundError:
         pass
     else:
