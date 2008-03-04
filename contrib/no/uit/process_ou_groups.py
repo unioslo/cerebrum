@@ -62,19 +62,21 @@ group_namespace = None
 account_type_id = None
 
 
+db = Factory.get('Database')()
+db.cl_init(change_program='process_ou_groups.py')
+
+co = Factory.get('Constants')(db)
+
 # Used to create container groups for account members
 possible_member_types = ['VITENSKAPELIG','TEKNISK','STUDENT','DRGRAD']
 # Used to determine which aff_code_statuses correspond to which container group
-member_type_mappings = {'VITENSKAPELIG': [222,197,211],
-                        'TEKNISK':[210,],
-                        'STUDENT':[212,],
-                        'DRGRAD': [501,]}
+member_type_mappings = {'VITENSKAPELIG': [int(co.affiliation_tilknyttet_fagperson),
+                                          int(co.affiliation_manuell_gjesteforsker),
+                                          int(co.affiliation_status_ansatt_vitenskapelig)],
+                        'TEKNISK':[int(co.affiliation_status_ansatt_tekadm),],
+                        'STUDENT':[int(co.affiliation_status_student_aktiv),],
+                        'DRGRAD': [int(co.affiliation_status_student_drgrad),]}
 
-
-
-
-db = Factory.get('Database')()
-db.cl_init(change_program='process_ou_groups.py')
 
 def process_ou_groups(ou, perspective):
     """Recursive function that will create groups and add spreads and members to them."""
