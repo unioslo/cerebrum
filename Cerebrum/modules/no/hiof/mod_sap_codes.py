@@ -318,6 +318,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1423_undervp = SAPLonnsTittelKode(
+        "20001423",
+        "1423 Underv.p u/godkj utd",
+        "ØVR"
+    )
+
     sap_1434_radgiver = SAPLonnsTittelKode(
         "20001434",
         "1434 Rådgiver",
