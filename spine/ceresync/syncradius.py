@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# copyright 2004, 2005, 2006 university of oslo, norway
+# Copyright 2004 - 2008 university of oslo, norway
 #
 # this file is a part of cerebrum.
 #
@@ -28,7 +28,6 @@ from backend.file import SambaFile,PasswdFileCryptHash
 from ceresync import config
 import traceback
 import omniORB # for the exception
-import cPickle
 
 log= config.logger
 
@@ -40,7 +39,6 @@ def usage():
 
 def main():
     verbose = False
-    readcached = False
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], "vhc:")
