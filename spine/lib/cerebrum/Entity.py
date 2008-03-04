@@ -32,7 +32,16 @@ registry = Registry.get_registry()
 
 type_cache = {}
 
-class ValueDomainHack(dict):
+from Cerebrum.Utils import Factory
+const = Factory.get("Constants")()
+
+import sys
+def ValueDomainHack(entity_type):
+    return {'value_domain':
+            int(const.ValueDomain(cereconf.ENTITY_TYPE_NAMESPACE[entity_type]))}
+
+
+class ValueDomainHack2(dict):
     def __init__(self, entity_type):
         self.var = cereconf.ENTITY_TYPE_NAMESPACE[entity_type]
         self['value_domain'] = None
@@ -40,14 +49,7 @@ class ValueDomainHack(dict):
     def fix(self):
         var = self.var
         self.var = None
-        import Cerebrum.Utils
-        db = registry.db or Cerebrum.Utils.Factory.get('Database')()
         self['value_domain'] = ValueDomain(db, name=var).get_id()
-
-        ## Err. This is never used. (And it's slow as hell.)
-        #if not type_cache:
-        #    for key, value in db.query('SELECT entity_id, entity_type FROM entity_info'):
-        #        type_cache[int(key)] = int(value)
 
     def __getitem__(self, key):
         if self.var:
