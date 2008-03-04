@@ -79,14 +79,6 @@ class Authorization(object):
 
         operation_full_name = "%s.%s" % (target.__class__.__name__, operation)
 
-        # For debugging pursposes only.
-        try:
-            if '%s\n' % operation_full_name in open('/tmp/alfborge/spine_breakfile'):
-                import pdb
-                pdb.set_trace()
-        except IOError:
-            pass
-
         if self._is_unrestricted(target, operation, attr):
             return True
 
