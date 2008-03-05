@@ -492,32 +492,6 @@ class OU(LdapBack):
         #s['norEduOrgAcronym'] = obj.acronyms
         return s
 
-class CalendarPerson(Person):
-    """LDIF-representation of an Oracle Calendar Account.
-    When using Oracle Calendar with Oracle Internet Directory we can configure
-    OC to auto-provision Calendar Accounts with notify-events sent from OID.
-    """
-    def __init__(self,base=config.sync.get("ldap","calendar_base")):
-        self.base = base
-        self.filter = config.sync.get("ldap","calendarfilter")
-        self.obj_class = ['inetOrgPerson','shadowAccount','ctCalUser']
-
-    def get_attributes(self,obj):
-        # Do not care about password - we use Kerberos for Calendar
-        s = {}
-        s['o']           = ["%s" % config.sync.get("calendar","acronym")] 
-        s['uid']         = ["%s" % obj.name]
-        s['cn']          = ["%s" %  self.iso2utf(obj.full_name)]
-        # Presume last name in full_name is surname
-        s['sn']          = ["%s" %  self.iso2utf(obj.full_name.split()[len(obj.full_name)-1])] 
-        s['objectClass'] = self.obj_class
-        s['description'] = ["%s" % obj.description]
-        # Need to provide these attributes in the struct first
-        # s['mail'] = obj.mail
-        # s['ou'] = obj.orgunits
-        # s['title'] = obj.title
-        return s
-
 ###
 ### UnitTesting is good for you
 ###
