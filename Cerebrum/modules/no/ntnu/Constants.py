@@ -261,6 +261,9 @@ class Constants(Constants.Constants):
     spread_ntnu_netgroup = _SpreadCode('netgroup@ntnu', Constants.Constants.entity_group,
                                     'Netgroup at NTNU')
 
+    spread_ou_publishable = _SpreadCode('publishable_ou',
+                                        Constants.Constants.entity_ou,
+                                        'Spread marking OUs publishable in online directories')
 
 
     quarantine_remote = _QuarantineCode('remote', 'VPN wireless and radius-related')
