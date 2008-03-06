@@ -19,8 +19,9 @@ op_sets = {
     
     'modify_user': [
         ('Account.add_note', None),
-        ('Account.add_quarantine', None),
-        ('Account.create_address', None),
+        ('Account.add_quarantine', "sluttet"),
+        ('Account.add_quarantine', "remote"),
+        ('Account.add_quarantine', "svakt_passord"),
         ('Account.delete', None),
         ('Account.demote_posix', None),
         ('Account.promote_posix', None),
@@ -41,7 +42,6 @@ op_sets = {
         ('Group.add_member', None),
         ('Group.add_note', None),
         ('Group.add_quarantine', None),
-        ('Group.create_address', None),
         ('Group.delete', None),
         ('Group.demote_posix', None),
         ('Group.promote_posix', None),
@@ -116,8 +116,6 @@ op_sets = {
         ('AccountAuthentication.get_method', None),
         ('Account.get_accounts', None),
         ('Account.get_active_quarantines', None),
-        ('Account.get_addresses', None),
-        ('Account.get_address', None),
         ('Account.get_affiliations', None),
         ('Account.get_all_quarantines', None),
         ('Account.get_authentications', None),
@@ -211,6 +209,8 @@ op_sets = {
         ('Commands.create_cereweb_option', None),
         ('Commands.find_email_address', None),
         ('Commands.get_account_by_name', None),
+        ('Commands.get_group_by_name', None),
+        ('Commands.get_host_by_name', None),
         ('Commands.get_date', None),
         ('Commands.get_date_now', None),
         ('Commands.get_datetime', None),
@@ -228,8 +228,6 @@ op_sets = {
         ('ContactInfoType.get_name', None),
         ('Disk.get_accounts', None),
         ('Disk.get_active_quarantines', None),
-        ('Disk.get_addresses', None),
-        ('Disk.get_address', None),
         ('Disk.get_all_quarantines', None),
         ('Disk.get_description', None),
         ('Disk.get_direct_groups', None),
@@ -297,7 +295,7 @@ op_sets = {
         ('EmailSpamLevel.get_name', None),
         ('EmailTarget.get_addresses', None),
         ('EmailTarget.get_alias_value', None),
-        ('EmailTarget.get_entity', None),
+        ('EmailTarget.get_target_entity', None),
         ('EmailTarget.get_id', None),
         ('EmailTarget.get_primary_address', None),
         ('EmailTarget.get_server', None),
@@ -305,7 +303,7 @@ op_sets = {
         ('EmailTarget.get_typestr', None),
         ('EmailTarget.get_using_uid', None),
         ('EmailTargetSearcher.search', None),
-        ('EmailTargetSearcher.set_entity', None),
+        ('EmailTargetSearcher.set_target_entity', None),
         ('EmailTargetType.get_description', None),
         ('EmailTargetType.get_id', None),
         ('EmailTargetType.get_name', None),
@@ -343,8 +341,6 @@ op_sets = {
         ('EntityExternalIdTypeSearcher.search', None),
         ('Entity.get_accounts', None),
         ('Entity.get_active_quarantines', None),
-        ('Entity.get_addresses', None),
-        ('Entity.get_address', None),
         ('Entity.get_all_quarantines', None),
         ('Entity.get_direct_groups', None),
         ('Entity.get_entity_name', None),
@@ -385,8 +381,6 @@ op_sets = {
         ('GenderTypeSearcher.search', None),
         ('Group.get_accounts', None),
         ('Group.get_active_quarantines', None),
-        ('Group.get_addresses', None),
-        ('Group.get_address', None),
         ('Group.get_all_quarantines', None),
         ('Group.get_create_date', None),
         ('Group.get_creator', None),
@@ -439,8 +433,6 @@ op_sets = {
         ('HomeStatus.get_name', None),
         ('Host.get_accounts', None),
         ('Host.get_active_quarantines', None),
-        ('Host.get_addresses', None),
-        ('Host.get_address', None),
         ('Host.get_all_quarantines', None),
         ('Host.get_description', None),
         ('Host.get_direct_groups', None),
@@ -674,8 +666,6 @@ op_sets = {
     ],
     'my_self': [
         ('Account.get_accounts', None),
-        ('Account.get_addresses', None),
-        ('Account.get_address', None),
         ('Account.get_authentications', None),
         ('Account.get_create_date', None),
         ('Account.get_creator', None),
@@ -709,7 +699,7 @@ op_sets = {
         ('EmailForward.set_enable', None),
         ('EmailTarget.get_addresses', None),
         ('EmailTarget.get_alias_value', None),
-        ('EmailTarget.get_entity', None),
+        ('EmailTarget.get_target_entity', None),
         ('EmailTarget.get_id', None),
         ('EmailTarget.get_primary_address', None),
         ('EmailTarget.get_target_type', None),
@@ -760,6 +750,11 @@ op_sets = {
         ('PersonAffiliation.get_status', None),
     ],
 
+    'abuse': [
+        ('Account.add_quarantine', "sperret"),
+    ],
+
+
 
     'sync_stud': [
         ('View.get_accounts', None),
@@ -771,6 +766,23 @@ op_sets = {
         ('View.set_group_spread', 'group@ntnu'),
         ('View.set_authentication_method', 'MD5-crypt'),
         ('View.set_authentication_method', 'crypt3-DES'),
+        ('Commands.get_last_changelog_id', None),
+
+        ('Transaction.get_home_status', None),
+        ('Commands.get_host_by_name', None),
+        ('HomeDirectorySearcher.add_join', None),
+        ('HomeDirectorySearcher.set_status', None),
+        ('HomeDirectorySearcher.search', None),
+        ('DiskSearcher.set_host', None),
+        ('HomeDirectory.get_disk', None),
+        ('HomeDirectory.get_home', None),
+        ('HomeDirectory.get_account', None),
+        ('Disk.get_path', None),
+        ('Account.get_name', None),
+        ('Account.get_posix_uid', None),
+        ('Account.get_primary_group', None),
+        ('Group.get_posix_gid', None),
+        ('HomeDirectory.set_status', None),
         ],
 
     'sync_kerberos': [
@@ -782,6 +794,7 @@ op_sets = {
         ('View.set_account_spread', 'user@kerberos'),
         ('View.set_group_spread', 'group@ntnu'),
         ('View.set_authentication_method', 'PGP-kerberos'),
+        ('Commands.get_last_changelog_id', None),
         ],
 }
 
@@ -795,8 +808,8 @@ op_sets = {
 
 op_roles = [
     # entity_type, entity_name,   op_set,          op_target
-    ('group', 'cereweb_orakel', 'modify_user', ('entity', 15850, None)),
-    ('group', 'cereweb_orakel', 'create_user', ('entity', 15850, None)),
+    ('group', 'cereweb_orakel', 'modify_user', ('entity', None, None)),
+    ('group', 'cereweb_orakel', 'create_user', ('entity', None, None)),
     ('group', 'cereweb_orakel', 'modify_itea', ('global', None, None)),
     ('group', 'cereweb_orakel', 'admin_client', ('global', None, None)),
 
