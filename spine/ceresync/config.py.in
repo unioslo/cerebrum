@@ -21,6 +21,7 @@
 
 import ConfigParser
 import os
+import sys
 import logging, logging.config
 
 conf = ConfigParser.SafeConfigParser()
@@ -37,6 +38,7 @@ if conf.has_option('logging','logger'):
     loggername= conf.get('logging','logger')
                          
 logger= logging.getLogger(loggername)
+logger.name= os.path.basename(sys.argv[0])
 
 
 def apply_quarantine(obj, typestr):
@@ -61,7 +63,9 @@ def apply_quarantine(obj, typestr):
             (var, val) = a.split('=')
             val=eval(val)  # ouch! but needed for strings/ints/etc
         except ValueError:
-            logging.error("Bad quarantene action \"%s\"" % a)
+            logger.error("Bad quarantene action \"%s\"" % a)
+        logger.debug("%s has quarantine %s. Setting %s= %s", obj.name, 
+                     q, var, val)
         setattr(obj, var, val)
 
 def apply_override(obj, typestr):

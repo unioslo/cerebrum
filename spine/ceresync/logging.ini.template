@@ -27,9 +27,9 @@
 # the logger will assume the level of its parent.
 
 [loggers]
-keys=root,cronjob,console,ceresync,synckerberos,syncfile,syncradius
+keys=root,cronjob,console,ceresync,spine
 [handlers]
-keys=hand_root,hand_cronjob,hand_console,hand_syslog,hand_stderr
+keys=hand_root,hand_cronjob,hand_console,hand_syslog,hand_stderr,hand_spine
 [formatters]
 keys=form_root,form_cronjob,form_console,form_syslog
 
@@ -55,25 +55,13 @@ handlers=hand_console
 level=DEBUG
 propagate=0
 qualname=ceresync
-handlers=hand_syslog
-
-[logger_synckerberos]
-level=DEBUG
-propagate=0
-qualname=synckerberos
 handlers=hand_syslog,hand_stderr
 
-[logger_syncfile]
+[logger_spine]
 level=DEBUG
 propagate=0
-qualname=syncfile
-handlers=hand_syslog,hand_stderr
-
-[logger_syncradius]
-level=DEBUG
-propagate=0
-qualname=syncradius
-handlers=hand_syslog,hand_stderr
+qualname=spine
+handlers=hand_spine
 
 
 [handler_hand_root]
@@ -105,6 +93,12 @@ class=StreamHandler
 level=WARNING
 formatter=form_cronjob
 args=(sys.stderr,)
+
+[handler_hand_spine]
+class=FileHandler
+level=DEBUG
+formatter=form_cronjob
+args=('spine.log', 'a+')
 
 
 [formatter_form_root]
