@@ -191,7 +191,7 @@ def recalc_quota_callback(person_info):
     # Gi alle som skal ha fritak fritak nå. Det kan være for sent ift. senere
     # (når set_quota er kalt, er det ingen vei tilbake)
     if betaling_fritak.has_key(person_id):
-        logger.debug("is exempt from quota (via betaling_fritak)", person_id)
+        logger.debug("%s is exempt from quota (via betaling_fritak)", person_id)
         set_quota(person_id, has_quota=False)
         logger.set_indent(0)
         return
