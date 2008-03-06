@@ -187,14 +187,6 @@ def recalc_quota_callback(person_info):
         # assert that person does _not_ have quota
         set_quota(person_id, has_quota=False)
         return
-
-    # Gi alle som skal ha fritak fritak nå. Det kan være for sent ift. senere
-    # (når set_quota er kalt, er det ingen vei tilbake)
-    if betaling_fritak.has_key(person_id):
-        logger.debug("%s is exempt from quota (via betaling_fritak)", person_id)
-        set_quota(person_id, has_quota=False)
-        logger.set_indent(0)
-        return
     
     # Sjekk matching mot studconfig.xml
     quota=None
@@ -222,8 +214,9 @@ def recalc_quota_callback(person_info):
         return
 
     # Har fritak fra kvote
-    if profile and profile.get_printer_betaling_fritak():
-        logger.debug("profile says that %d has no quota", person_id)
+    if (betaling_fritak.has_key(person_id) or 
+        profile and profile.get_printer_betaling_fritak()):
+        logger.debug("%s is exempt from quota", person_id)
         set_quota(person_id, has_quota=False)
         logger.set_indent(0)
         return
