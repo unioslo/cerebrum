@@ -217,6 +217,7 @@ class BDBSync:
         try:
             fun(*args, **kw)
         except (self.db.IntegrityError,
+                Errors.CerebrumError,
                 Errors.DatabaseException,
                 LookupError), e:
             self.logger.exception('Error while %s: %s' % (msg, e))
