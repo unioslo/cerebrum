@@ -978,6 +978,7 @@ class BDBSync:
                 self._sync_account_password(account_info, ac)
             else:
                 self._copy_account_data(account_info, ac, owner, np_type)
+                self._sync_account_password(account_info, ac)
 
     def _update_password(self, _account, ac):
         bdb_blowfish = None
