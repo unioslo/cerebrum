@@ -157,14 +157,14 @@ def main():
                     else: 
                         user.add(account)
                     processed.add(account.name)
+            user.close()
         except:
             log.exception("Exception occured, aborting")
             user.close()
             exit(1)
-        else:
-            user.close()
         
         if not user.dryrun:
+            log.debug("Storing changelog-id")
             file(spine_cache, 'w').write( str(server_id) )
     else:
         log.info("Synchronizing users (bulk) to changelog_id %ld", server_id)
@@ -176,7 +176,8 @@ def main():
                     continue
                 if hasattr(account,'deleted') and account.deleted:
                     log.debug('deleted attribute set on account: %s',account.name)
-                    user.delete(account, delete)
+                    if delete:
+                        user.delete(account)
                 else:
                     user.add(account, add, update)
         except:
