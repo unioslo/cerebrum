@@ -57,6 +57,7 @@ class BofhdExtension(object):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
+    external_id_mappings = {}
     all_commands = {}
 
     copy_commands = (
@@ -177,7 +178,7 @@ class BofhdExtension(object):
         self.db = server.db
         self.const = Factory.get('Constants')(self.db)
         self.ba = BofhdAuth(self.db)
-
+        self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # From uio
         self.num2const = {}
         self.str2const = {}
