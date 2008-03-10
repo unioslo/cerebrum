@@ -63,8 +63,10 @@ ChangeLog ting
   - add spread
   - gruppe innmeldinger uten påfølgende utmelding
   - siste passord endring
-  - ephorte role_add: skal ikke slettes 
-  - ephorte role_rem: skal ikke slettes 
+  - ephorte role_add: skal ikke slettes (foreløbig)
+  - ephorte role_rem: skal ikke slettes (foreløbig)
+  - ephorte perm_add: skal ikke slettes (foreløbig)
+  - ephorte perm_rem: skal ikke slettes (foreløbig)
 
 * Skal slettede entities ha kortere levetid?
 
@@ -149,6 +151,8 @@ class CleanChangeLog(object):
         int(co.posix_group_promote): AGE_FOREVER,
         int(co.ephorte_role_add): AGE_FOREVER,
         int(co.ephorte_role_rem): AGE_FOREVER,
+        int(co.ephorte_perm_add): AGE_FOREVER,
+        int(co.ephorte_perm_rem): AGE_FOREVER,
 
         # TODO: Once account_type changes are better logged, we don't need
         # this special case
@@ -325,11 +329,17 @@ class CleanChangeLog(object):
              {'columns': ('subject_entity', ),
               'triggers': (co.general_dns_record_add, co.general_dns_record_update)}])
 
+    # Ephorte changes
     if hasattr(co, 'ephorte_role_add'):
-        # Ephorte changes
         keep_togglers.extend([
              {'columns': ('subject_entity', ),
+              'toggleable': False,
               'triggers': (co.ephorte_role_add, co.ephorte_role_rem)}])
+    if hasattr(co, 'ephorte_perm_add'):
+        keep_togglers.extend([
+             {'columns': ('subject_entity', ),
+              'toggleable': False,
+              'triggers': (co.ephorte_perm_add, co.ephorte_perm_rem)}])
 
 
     def process_log(self):
