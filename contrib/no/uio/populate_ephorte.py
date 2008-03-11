@@ -57,6 +57,7 @@ class PopulateEphorte(object):
         "Pre-fetch information about OUs in ePhorte and Cerebrum."
 
         logger.info("Fetching OU info from Cerebrum")
+        ephorte_sko_ignore = ['null', '[Ufordelt]'] # Special sko, ignore
         sko2ou_id = {}           # stedkode -> ouid 
         self.ouid_2roleinfo = {} # ouid -> (arkivdel, journalenhet) 
         self.ouid2sko = {}       # ouid -> stedkode 
@@ -107,13 +108,10 @@ class PopulateEphorte(object):
         for line in lines:
             ephorte_sko = line.split(";")[posname2num['AI_FORKDN']]
             ephorte_name = line.split(";")[posname2num['AI_ADMBET']]
-            # TODO: skal vi gjøre noe med root-noden UIO?
-            #       Foreløbig skipper vi den
-            if ephorte_sko == 'UIO':
-                continue  
             ou_id = sko2ou_id.get(ephorte_sko)
             if ou_id is None:
-                logger.warn("Unknown ePhorte sko: '%s'" % ephorte_sko)
+                if ephorte_sko not in ephorte_sko_ignore:
+                    logger.warn("Unknown ePhorte sko: '%s'" % ephorte_sko)
                 continue
             self.app_ephorte_ouid2name[ou_id] = ephorte_name
         logger.info("Found %d ephorte sko from app." %
@@ -167,7 +165,7 @@ class PopulateEphorte(object):
             ac.find(a_id[0]['account_id'])
             ret['uname'] = ac.account_name
         except (Errors.NotFoundError, IndexError):
-            logger.warn("Couldn't find primary account for person %s" % person_id)
+            logger.info("Couldn't find primary account for person %s" % person_id)
             ret['uname'] = ""
             
 
