@@ -125,7 +125,7 @@ def get_cerebrum_ou_path(ou_id):
     try:
         ou.clear()
         ou.find(ou_id)
-        path = ou.structure_path(co.perspective_lt)
+        path = ou.structure_path(co.perspective_sap)
         # Notes can only take 4 OU levels, if there are more, we chop
         # off the more specific levels.  We also don't include the
         # root OU name since it is implicit.
