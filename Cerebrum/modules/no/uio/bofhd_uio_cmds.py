@@ -5427,21 +5427,27 @@ class BofhdExtension(object):
     all_commands['person_list_user_priorities'] = Command(
         ("person", "list_user_priorities"), PersonId(),
         fs=FormatSuggestion(
-        "%8s %8i %s", ('uname', 'priority', 'affiliation'),
-        hdr="%8s %8s %s" % ("Uname", "Priority", "Affiliation")))
+        "%8s %8i %30s %15s", ('uname', 'priority', 'affiliation', 'status'),
+        hdr="%8s %8s %30s %15s" % ("Uname", "Priority", "Affiliation", "Status")))
     def person_list_user_priorities(self, operator, person_id):
         ac = Utils.Factory.get('Account')(self.db)
         person = self._get_person(*self._map_person_id(person_id))
         ret = []
         for row in ac.get_account_types(all_persons_types=True,
-                                        owner_id=person.entity_id):
+                                        owner_id=person.entity_id,
+                                        filter_expired=False):
             ac2 = self._get_account(row['account_id'], idtype='id')
+            if ac2.is_expired() or ac2.is_deleted():
+                status = "Expired"
+            else:
+                status = "Active"
             ou = self._get_ou(ou_id=row['ou_id'])
             ret.append({'uname': ac2.account_name,
                         'priority': row['priority'],
                         'affiliation':
                         '%s@%s' % (self.const.PersonAffiliation(row['affiliation']),
-                                   self._format_ou_name(ou))})
+                                   self._format_ou_name(ou)),
+                        'status': status})
         return ret
 
     #
