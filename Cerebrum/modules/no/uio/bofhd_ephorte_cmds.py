@@ -259,6 +259,8 @@ class BofhdExtension(object):
             person = self.util.get_target(person_id, restrict_to=['Person'])
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
+        if not person.has_spread(self.const.spread_ephorte_person):
+            raise CerebrumError("Person has no ephorte roles")
         ou = self._get_ou(stedkode=sko)
         self.ephorte_perm.add_permission(person.entity_id,
                                          self._get_tilgang(tilgang),
