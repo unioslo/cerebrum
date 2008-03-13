@@ -51,6 +51,10 @@ class Account:
                 False
         if self.dryrun:
             log.info("Dry run. No changes will be made to kerberos.")
+        
+        self.reserved= ['default']
+        if config.conf.has_option('kerberos','reserved'):
+            self.reserved.extend(config.conf.get('kerberos','reserved').split())
 
         # Use a non-default cache-file so a rogue kinit won't affect the script.
         os.putenv('KRB5CCNAME', 'FILE:/tmp/krb5cc_%d_synckerberos' % os.geteuid())
@@ -88,19 +92,21 @@ class Account:
         """
         Close connection to local or remote kadmin. 
         """
+        log.debug("Closing backend")
         if not self.incr and allow_delete:
             # Could possibly just check for a '/' instead ...
             regex= re.compile('^([a-z0-9]+)@%s$' % self.k.realm)
             log.debug('Retreiving list of principals from kdc')
             for princ in self.k.ListPrincipals():
-                # The default principal should be left alone
-                if princ.startswith('default@'): continue                  
-
+                # skip processing the reserved principals
+                if princ.split('@')[0] in self.reserved: 
+                    continue
                 # remove users that were not added in this bulk
-                log.debug('Checking principal \'%s\'',princ)
                 m= regex.match(princ)
-                if m and princ not in self.added_princs:
-                    self.delete(User(m.group(1)))
+                if m:
+                    log.debug('Checking principal \'%s\'',princ)
+                    if princ not in self.added_princs:
+                        self.delete(User(m.group(1)))
         self.k = None
 
     def abort(self):
