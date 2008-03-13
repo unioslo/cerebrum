@@ -166,9 +166,13 @@ class Account:
         """Delete account from kerberos database
         """
         princ = account.name + '@' + self.k.realm # or from config
-        if not self.dryrun: 
-            self.k.DeletePrincipal(princ)
-        log.info("'%s' removed.",princ)
+        try:
+            if not self.dryrun: 
+                self.k.DeletePrincipal(princ)
+            log.info("'%s' removed.",princ)
+        except heimdal_error.KADM5_UNK_PRINC, e:
+            log.debug("attempted to remove '%s', but principal did not exist."+
+                      " Ignoring", princ)
 
 class User:
     def __init__(self, name='test_user', passwd=''):
