@@ -113,6 +113,7 @@ def main():
     if os.path.isfile(spine_cache):
         local_id= long( file(spine_cache).read() )
     try: 
+        log.info("Connecting to spine-server")
         s= sync.Sync(incr,local_id)
     except omniORB.CORBA.TRANSIENT,e:
         log.error('Unable to connect to spine-server: %s',e)
@@ -127,7 +128,9 @@ def main():
         log.exception('Unable to connect')
         exit(1)
     server_id= s.cmd.get_last_changelog_id()
-    log.info("Local changelog-id: %ld, server changelog-id: %s",local_id,server_id)
+    log.info("Local id: %ld, server id: %s",local_id,server_id)
+    if long(local_id) > long(server_id):
+        log.warning("local changelogid is larger than the server's!")
 
     if incr and local_id == server_id:
         log.info("Nothing to be done.")
