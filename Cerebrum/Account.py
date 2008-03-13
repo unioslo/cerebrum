@@ -461,7 +461,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # Remove name of account from the account namespace.
             self.delete_entity_name(self.const.account_namespace)
             self._db.log_change(self.entity_id, self.const.account_destroy, None)
-        self.__super.delete(self)
+        self.__super.delete()
 
     def clear(self):
         super(Account, self).clear()
