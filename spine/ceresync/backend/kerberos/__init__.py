@@ -119,42 +119,46 @@ class Account:
            Create a new principal, optionally specifying a password and options
            If no password is found, a random password is generated
         """
-        try:
-            princ = account.name + '@' + self.k.realm # or from config
-            password=account.passwd
-            options = None # or some defaults from config in dict-format
-            if not password:
-                if allow_add:
-                    log.warning("'%s' has blank password. Not adding", princ)
+        princ= account.name + '@' + self.k.realm # or from config
+        password= account.passwd
+        options= None # or some defaults from config in dict-format
+        if not password:
+            log.warning("'%s' has blank password.", princ)
+            return
+        if allow_add:
+            try: 
+                princinfo= self.k.GetPrincipal(princ)
+                if allow_update:
+                    self.update(account)
                 else:
-                    log.warning("'%s' has blank password. Ignoring",princ)
-                return
-            if allow_add:
-                if not self.dryrun: 
-                    self.k.CreatePrincipal(princ,self.pgp.decrypt(password),options)
+                    log.debug("'%s' allready exists, ignoring", princ)
+            except heimdal_error.KADM5_UNK_PRINC, kdunk:
+                if not self.dryrun:
+                    try:
+                        self.k.CreatePrincipal(princ,
+                                               self.pgp.decrypt(password),
+                                               options)
+                    except IOError,ioe:
+                        log.error("%s. Exiting",ioe)
+                        sys.exit(512)
                 log.info("'%s' added",princ)
-            if (not self.incr):
-                self.added_princs.add(princ)
-        except heimdal_error.KADM5_DUP,kdup:
-            # FIXME! Fetch override from config. If we set new password
-            # the user will get a new kvno and things might break.
-            if allow_update:
-                self.update(account)
-            else:
-                log.info("'%s' allready exists, ignoring", princ)
-                self.added_princs.add(princ)
+        if (not self.incr):
+            self.added_princs.add(princ)
 
     def update(self,account):
         """Update account in kerberos database
         """
         # Update password? guess so
         princ = account.name + '@' + self.k.realm # or from config
-        password = self.pgp.decrypt(account.passwd)
         try:
-            if not self.dryrun: self.k.SetPassword(princ,password)
+            if not self.dryrun: 
+                self.k.SetPassword(princ, self.pgp.decrypt(account.passwd))
             log.info("password updated for '%s'",princ)
-            if (not self.incr):
+            if not self.incr:
                 self.added_princs.add(princ)
+        except IOError,ioe:
+            log.error("%s. Exiting",ioe)
+            sys.exit(512)
         except Exception,err:
             print err
 
