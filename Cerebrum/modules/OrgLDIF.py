@@ -401,12 +401,13 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         # Set self.acc_name        = dict {account_id: user name}.
         # Set self.acc_passwd      = dict {account_id: password hash}.
         # Set self.acc_quarantines = dict {account_id: [quarantine list]}.
+        # Set acc_locked_quarantines = acc_quarantines or separate dict
         timer = self.make_timer("Fetching account information...")
         timer2 = self.make_timer()
         self.account = Factory.get('Account')(self.db)
         self.acc_name = acc_name = {}
         self.acc_passwd = {}
-        self.acc_quarantines = acc_quarantines = {}
+        self.acc_locked_quarantines= self.acc_quarantines= acc_quarantines = {}
         fill_passwd = {
             int(self.const.auth_type_md5_crypt):  self.acc_passwd.__setitem__,
             int(self.const.auth_type_crypt3_des): self.acc_passwd.setdefault }
@@ -417,7 +418,12 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
             method               = row['method']
             if method:
                 fill_passwd[int(method)](account_id, row['auth_data'])
+
         timer2("...account quarantines...")
+        nonlock_quarantines = [int(self.const.Quarantine(code))
+                               for code in cereconf.QUARANTINE_FEIDE_NONLOCK]
+        if nonlock_quarantines:
+            self.acc_locked_quarantines = acc_locked_quarantines = {}
         now = mx.DateTime.now()
         for row in self.account.list_entity_quarantines(
                 entity_types = self.const.entity_account):
@@ -426,8 +432,11 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 and (row['disable_until'] is None
                      or row['disable_until'] < now)):
                 # The quarantine in this row is currently active.
-                acc_quarantines.setdefault(int(row['entity_id']), []).append(
-                    int(row['quarantine_type']))
+                qt = int(row['quarantine_type'])
+                entity_id = int(row['entity_id'])
+                acc_quarantines.setdefault(entity_id, []).append(qt)
+                if nonlock_quarantines and qt not in nonlock_quarantines:
+                    acc_locked_quarantines.setdefault(entity_id, []).append(qt)
         timer("...account information done.")
 
     # If fetching addresses from entity_contact_info, this is True
@@ -575,7 +584,11 @@ from None and LDAP_PERSON['dn'].""")
             qh = QuarantineHandler(self.db, qt)
             if qh.should_skip():
                 return None, None, None
-            if qh.is_locked():
+            if self.acc_locked_quarantines is not self.acc_quarantines:
+                qt = self.acc_locked_quarantines.get(account_id)
+                if qt:
+                    qh = QuarantineHandler(self.db, qt)
+            if qt and qh.is_locked():
                 passwd = 0
         if passwd:
             entry['userPassword'] = ("{crypt}" + passwd,)

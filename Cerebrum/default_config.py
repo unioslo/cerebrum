@@ -259,6 +259,9 @@ QUARANTINE_RULES = {}
 #   'system': {'lock': 1, 'shell': '/local/etc/shells/nologin.system'}
 # }
 
+# List of quarantine-rule names where LDAP Person/FEIDE should ignore 'lock'
+QUARANTINE_FEIDE_NONLOCK = ()
+
 CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
 BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
 BOFHD_STUDADM_GROUP=BOFHD_SUPERUSER_GROUP
