@@ -23,7 +23,7 @@
 import sys, os, getopt
 from ceresync import errors
 from ceresync import sync
-from backend.file import SambaFile,PasswdFileCryptHash
+from ceresync.backend.file import SambaFile,PasswdFileCryptHash
 
 from ceresync import config
 import traceback
