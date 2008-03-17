@@ -7301,6 +7301,8 @@ class BofhdExtension(object):
             if not value:
                 raise CerebrumError, "Unable to parse person id %r" % arg
             if idtype == 'exp':
+                if not value.isdigit():
+                    raise CerebrumError, "Export id must be a number"
                 person.clear()
                 try:
                     person.find_by_export_id(value)
@@ -7308,6 +7310,8 @@ class BofhdExtension(object):
                 except Errors.NotFoundError:
                     raise CerebrumError, "Unkown person id %r" % arg
             elif idtype == 'entity_id':
+                if not value.isdigit():
+                    raise CerebrumError, "Entity id must be a number"                
                 person.clear()
                 try:
                     person.find(value)
