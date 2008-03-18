@@ -54,12 +54,15 @@ import types
 from cElementTree import parse, iterparse, ElementTree
 # from elementtree.ElementTree import parse, iterparse
 from mx.DateTime import Date
+
 import cerebrum_path
 import cereconf
 try:
     set()
 except:
     from Cerebrum.extlib.sets import Set as set
+
+from Cerebrum import Utils
 
 
 
@@ -685,12 +688,52 @@ class XMLEntity2Object(object):
                 # with the parsing. We cannot afford one defective entry to
                 # break down the entire data import run.
                 if self.logger:
-                    self.logger.warn("%s occurred while processing "
-                                     "XML element %s. Skipping it.",
-                                     self._format_exc_context(sys.exc_info()),
-                                     element.tag)
+                    self.logger.warn(
+                        "%s occurred while processing XML element %s. "
+                        "Skipping it.",
+                        Utils.format_exception_context(*sys.exc_info()),
+                        element.tag)
                 element.clear()
     # end next
+
+
+    def exception_wrapper(functor, exc_list=None, return_on_exc=None):
+        """This is a convenience method for Utils.exception_wrapper.
+
+        IVR 2008-03-12 Sorry, some magic ahead to make code elsewhere simpler
+        to use.
+
+        The goal of this method is to make it easier to bind loggers to
+        wrapped methods. Although this method is static *and* it refers to
+        self.logger (which does not really make any sense), the code WILL work
+        on any instance of this class (or its subclasses), since all of these
+        instances do in fact have a 'logger' attribute and the wrapped method
+        (i.e. L{functor}) will be called on an instance (it is a bound
+        method). IOW, this class and its subclasses are the sole target
+        audience for this method.
+
+        Check sapxml2object.py for some use cases.
+
+        Caveat: for static methods this wrapper WILL FAIL! I.e. functor *must*
+        be a non-static method of a subclass of this class.
+
+        The parameters have the same meaning as L{Utils.exception_wrapper}.
+
+        The return value is the same as with L{Utils.exception_wrapper}.
+        """
+
+        def wrapper(self, *rest, **kw_args):
+            # This gives us a wrapped method that ignores the suitable
+            # exceptions ...
+            func = Utils.exception_wrapper(functor, exc_list, return_on_exc,
+                                           self.logger)
+            # ... and here we call the wrapped method.
+            return func(self, *rest, **kw_args)
+        # end wrapper
+
+        return wrapper
+    # end exception_wrapper
+    exception_wrapper = staticmethod(exception_wrapper)
 
 
     def __iter__(self):
@@ -719,75 +762,6 @@ class XMLEntity2Object(object):
         year, month, day = time.strptime(text, format)[:3]
         return Date(year, month, day)
     # end _make_mxdate
-
-
-    def exception_wrapper(functor, exc_list=(), return_on_error=None):
-        """Helper method for discarding exceptions easier.
-
-        We can wrap around a call to a method, so that a certain exception (or
-        a sequence thereof) would result in in returning a specific
-        value. A typical use case would be:
-
-            >>> class A(XMLEntity2Object):
-            ...    def foo(self, ...):
-            ...        # do something
-            ...    # end foo
-            ...    foo = A.exception_wrapper(foo, (AttributeError, ValueError),
-            ...                              (None, None))
-
-        ... which would result in a warn message in the logs, if foo() raises
-        AttributeError or ValueError. foo() above can take rest and keyword
-        arguments.
-
-        @param functor:
-          A callable object which we want to wrap around.
-        @type functor:
-          A function, a method (bound or unbound) or an object implementing
-          the __call__ special method.
-
-        @param exc_list
-          A sequence of exception classes to intercept. An empty list would
-          mean all exceptions are let through. 'object' would mean that
-          everything is intercepted.
-        @type exc_list: a tuple, a list, a set or another class implementing
-          the __iter__ special method.
-
-        @return: A function invoking functor when called. rest and keyword
-        arguments are supported.
-        @rtype: function.
-
-        IVR 2007-11-22 TBD: Maybe this belongs in Utils.py somewhere?
-        """
-
-        def wrapper(*rest, **kw_args):
-            try:
-                return functor(*rest, **kw_args)
-            except tuple(exc_list):
-                if self.logger:
-                    self.logger.warn(
-                        XMLEntity2Object._format_exc_context(sys.exc_info()))
-                return return_on_error
-            # end wrapper
-
-        return wrapper
-    # end exception_wrapper
-    exception_wrapper = staticmethod(exception_wrapper)
-
-
-    def _format_exc_context((etype, evalue, etraceback)):
-        """Small helper for printing exception context.
-
-        This static method helps format an exception traceback.
-        """
-        tmp = traceback.extract_tb(etraceback)
-        filename, line, funcname, text = tmp[-1]
-        filename = os.path.basename(filename)
-        return ("Exception %s while parsing XML (in context %s): %s" %
-                (etype,
-                 "%s/%s() @line %s" % (filename, funcname, line),
-                 evalue))
-    # end _format_exc_context
-    _format_exc_context = staticmethod(_format_exc_context)
 
 
     def format_xml_element(self, element):

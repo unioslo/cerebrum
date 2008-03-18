@@ -433,11 +433,8 @@ class XMLPerson2Object(XMLEntity2Object):
                              place = ou_id, category = category)
         return tmp
     # end _make_employment
-    _make_employment = XMLEntity2Object.exception_wrapper(_make_employment,
-                                                          exc_list=(object,
-                                                                    Exception),
-                                                          return_on_error=None)
-
+    _make_employment = XMLEntity2Object.exception_wrapper(_make_employment)
+    
 
     def _make_role(self, elem):
         """Make an employment out of a <Roller>...</Roller>.
@@ -485,10 +482,7 @@ class XMLPerson2Object(XMLEntity2Object):
                               start = start_date, end = end_date,
                               place = ou_id, category = None)
     # end _make_role
-    _make_role = XMLEntity2Object.exception_wrapper(_make_role,
-                                                    exc_list=(object,
-                                                              Exception),
-                                                    return_on_error=None)
+    _make_role = XMLEntity2Object.exception_wrapper(_make_role)
 
 
     def _make_contact(self, elem, priority):
@@ -514,10 +508,7 @@ class XMLPerson2Object(XMLEntity2Object):
 
         return DataContact(ctype, cvalue, priority)
     # end _make_contact
-    _make_contact = XMLEntity2Object.exception_wrapper(_make_contact,
-                                                       exc_list=(object,
-                                                                 Exception),
-                                                       return_on_error=None)
+    _make_contact = XMLEntity2Object.exception_wrapper(_make_contact)
 
 
     def next_object(self, element):

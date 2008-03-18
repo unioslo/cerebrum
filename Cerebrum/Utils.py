@@ -21,16 +21,17 @@
 
 """
 
-import sys
-import re
 import cereconf
-import time
-import os
 import filecmp
+import new
+import os
+import popen2
+import re
 import smtplib
 import string
-import new
-import popen2
+import sys
+import time
+import traceback
 
 
 class _NotSet(object):
@@ -1194,3 +1195,110 @@ def simple_memoize(callobj):
 
     return wrapper
 # end simple_memoize
+
+
+
+def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
+    """Helper function for discarding exceptions easier.
+
+    Occasionally we do not care about about the specific exception being
+    raised in a function call, since we are interested in the return value
+    from that function. There are cases where a sensible dummy value can be
+    either substituted or used, instead of having to deal with exceptions and
+    what not. This is especially handy for small functions that may still
+    (under realistic situations) raise exceptions. An reasonable example is
+    Person.get_name, where '' can very often be used instead of exceptions.
+
+    We can wrap around a call, so that a certain exception (or a sequence
+    thereof) would result in in returning a specific (dummy) value. A typical
+    use case would be:
+
+        >>> def foo(...):
+        ...     # do something that may raise
+        ... # end foo
+        ... foo = Utils.exception_wrapper(foo, (AttributeError, ValueError),
+        ...                               (None, None), logger)
+
+    ... which would result in a warn message in the logs, if foo() raises
+    AttributeError or ValueError. No restrictions are placed on the arguments
+    of foo, obviously.
+
+    @param functor:
+      A callable object which we want to wrap around.
+    @type functor:
+      A function, a method (bound or unbound) or an object implementing
+      the __call__ special method.
+
+    @param exc_list
+      A sequence of exception classes to intercept. None means that all
+      exceptions are intercepted (this is the default).
+    @type exc_list: a tuple, a list, a set or another class implementing
+      the __iter__ special method.
+
+    @param return_on_exc:
+      Value that is returned in case we intercept an exception. This is what
+      play the role of a dummy value for the caller.
+    @type return_on_exc: any object.
+
+    @return:
+      A function invoking functor when called. rest and keyword arguments are
+      supported.
+    @rtype: function.
+    """
+
+    # if it's a single exception type, convert it to a tuple now
+    if not isinstance(exc_list, (list, tuple, set)) and exc_list is not None:
+        exc_list = (exc_list,)
+
+    # IVR 2008-03-11 FIXME: We cannot use this assert until all of Cerebrum
+    # exceptions actually *are* derived from BaseException. But it is a good
+    # sanity check.
+    # assert all(issubclass(x, BaseException) for x in exc_list)
+    
+    def wrapper(*rest, **kw_args):
+        # None means trap all exceptions. Use with care!
+        if exc_list is None:
+            try:
+                return functor(*rest, **kw_args)
+            except:
+                if logger:
+                    logger.warn(format_exception_context(*sys.exc_info()))
+        else:
+            try:
+                return functor(*rest, **kw_args)
+            except tuple(exc_list):
+                if logger:
+                    logger.warn(format_exception_context(*sys.exc_info()))
+        return return_on_exc
+    # end wrapper
+ 
+    return wrapper
+# end exception_wrapper
+
+
+
+def format_exception_context(etype, evalue, etraceback):
+    """Small helper function for printing exception context.
+
+    This exception method helps format an exception traceback.
+
+    The arguments are the same as the return value of sys.exc_info() call.
+
+    @rtype: basestring
+    @return:
+      A string holding the context description for the specified exception. If
+      no exception is specified (i.e. (None, None, None) is given), return an
+      empty string.
+    """
+    
+    tmp = traceback.extract_tb(etraceback)
+    if not tmp:
+        return ""
+    
+    filename, line, funcname, text = tmp[-1]
+    filename = os.path.basename(filename)
+
+    return ("Exception %s occured (in context %s): %s" %
+            (etype, "%s/%s() @line %s" % (filename, funcname, line),
+             evalue))
+# end _format_exc_context
