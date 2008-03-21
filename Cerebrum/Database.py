@@ -48,24 +48,24 @@ from Cerebrum.extlib import db_row
 
 
 # Exceptions defined in DB-API 2.0; the exception classes below are
-# automatically added to the __bases__ attribute of exception classes
-# in dynamically imported driver modules.
-# IVR 2007-10-15 FIXME: StandardError here is a big no-no
+# automatically added to the __bases__ attribute of exception classes in
+# dynamically imported driver modules.
+# IVR 2007-10-15 FIXME: StandardError here is a big no-no. Do NOT change this,
+# unless you've tested it with python 2.4 and python 2.5
 class Warning(object):
     """Driver-independent base class of DB-API Warning exceptions.
 
-    Exception raised for important warnings like data truncations
-    while inserting, etc."""
+    Exception raised for important warnings like data truncations while
+    inserting, etc."""
     pass
 
 # IVR 2007-10-15 FIXME: StandardError here is a big no-no
 class Error(object):
     """Driver-independent base class of DB-API Error exceptions.
 
-    Exception that is the base class of all other error
-    exceptions. You can use this to catch all errors with one single
-    'except' statement. Warnings are not considered errors and thus
-    should not use this class as base."""
+    Exception that is the base class of all other error exceptions. You can
+    use this to catch all errors with one single 'except' statement. Warnings
+    are not considered errors and thus should not use this class as base."""
     pass
 
 class InterfaceError(Error):
@@ -571,25 +571,24 @@ class Database(object):
     def _kickstart(self, module_name):
         """Perform necessary magic after importing a new driver module."""
         self_class = self.__class__
-        #
-        # We're in the process of instantiating this subclass for the
-        # first time; we need to import the DB-API 2.0 compliant
-        # module.
+        # 
+        # We're in the process of instantiating this subclass for the first
+        # time; we need to import the DB-API 2.0 compliant module.
         self_class._db_mod = Utils.dyn_import(module_name)
+
         #
-        # At the time of importing the driver module, that module's
-        # DB-API compliant exceptions are made to inherit from the
-        # general-purpose exceptions defined in this module.  This
-        # allows us to catch database exceptions in a
-        # driver-independent manner.
+        # At the time of importing the driver module, that module's DB-API
+        # compliant exceptions are made to inherit from the general-purpose
+        # exceptions defined in this module.  This allows us to catch database
+        # exceptions in a driver-independent manner.
         for name in API_EXCEPTION_NAMES:
             base = getattr(Utils.this_module(), name)
             exc = getattr(self._db_mod, name)
-            if base not in exc.__bases__:
-                exc.__bases__ += (base,)
+            if not issubclass(exc, base):
+                # monkey patch "our" classes in. Be careful here wrt old-style
+                # and new-style classes.
+                exc = type(name, (exc, base, object), {})
             if hasattr(self_class, name):
-##                 print "Skipping copy of exception %s to class %s." % \
-##                       (name, self_class.__name__)
                 continue
             setattr(self_class, name, exc)
         #
