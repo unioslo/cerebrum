@@ -1154,15 +1154,15 @@ class DCOracle2(OracleBase):
         return data
 
 
-class Sqlite(Database):
-    """This class defines an abstraction for the sqlite backend.
+class SQLite(Database):
+    """This class defines an abstraction for the SQLite backend.
 
-    The class is a hairy monstrosity of an enormous hack. sqlite does NOT
+    The class is a hairy monstrosity of an enormous hack. SQLite does NOT
     support a number of elementary sql92 constructs and datatypes. Thus, some
     of the essentials in Cerebrum have to be remapped into different
     datatypes.
 
-    Furthermore, sqlite by itself does NOT support value typing in the
+    Furthermore, SQLite by itself does NOT support value typing in the
     database (although it parses column types from sql), so any piece of code
     relying on this will probably not fail when it should have.
 
@@ -1173,7 +1173,7 @@ class Sqlite(Database):
 
     _db_mod = 'pysqlite2.dbapi2'
     rdbms_id = 'sqlite'
-    # sqlite does not support datetime, thus we store dates as
+    # SQLite does not support datetime, thus we store dates as
     # ISO8601-formatted strings.
     _mx_format = "%Y-%m-%dT%H:%M:%S"
 
@@ -1192,7 +1192,8 @@ class Sqlite(Database):
             mod.BINARY = mod.Binary
             mod.NUMBER = float
             mod.DATETIME = DateTime.DateTime
-            super(Sqlite, self).__init__(*rest, **kwargs)
+
+        super(SQLite, self).__init__(*rest, **kwargs)
 
         # provide seamless operation with mx.DateTime.
         self._db_mod.register_converter("timestamp", self._sqlite2mx)
@@ -1204,14 +1205,14 @@ class Sqlite(Database):
         if service is None:
             service = cereconf.CEREBRUM_DATABASE_NAME
 
-        super(Sqlite, self).connect(database=service)
+        super(SQLite, self).connect(database=service)
 
         if client_encoding is not None:
             self.encoding = client_encoding
     # end connect
 
     def cursor(self):
-        return SqliteCursor(self)
+        return SQLiteCursor(self)
     # end cursor
 
     def _sql_port_now(self):
@@ -1258,17 +1259,17 @@ class Sqlite(Database):
         exception if the database communication channel represented by
         this object for some reason isn't working properly.
         """
-        # it's sqlite -- we are always on!
+        # it's SQLite -- we are always on!
         pass
 
     # end ping
     
-# end Sqlite
+# end SQLite
 
-class SqliteCursor(Cursor):
-    """sqlite-specific cursor hacks.
+class SQLiteCursor(Cursor):
+    """SQLite-specific cursor hacks.
     
-    This class tries to hide some of the shortcomings of the sqlite backend. 
+    This class tries to hide some of the shortcomings of the SQLite backend. 
     """
     identifier_start = '[a-zA-Z]'
     identifier_body = '[a-zA-Z0-9_]'
@@ -1277,7 +1278,7 @@ class SqliteCursor(Cursor):
     regular_identifier = '%s%s*' % (identifier_start, identifier_body)
 
     def _translate(self, statement, params):
-        retval = super(SqliteCursor, self)._translate(statement, params)
+        retval = super(SQLiteCursor, self)._translate(statement, params)
         # IVR 2007-10-30 FIXME: For the love of Britney's underwear, FIX THIS!
         # (sequence references cannot be cached.)
         if statement in self._sql_cache:
@@ -1300,7 +1301,7 @@ class SqliteCursor(Cursor):
 
 
     def _sequence_initial_fixup(self, operation):
-        """Deep magic to compensate for sqlite's lack of sequences.
+        """Deep magic to compensate for SQLite's lack of sequences.
 
         This method converts CREATE SEQUENCE in Cerebrum-syntax to CREATE
         TABLE in SQL92 and records the initial value.
@@ -1352,7 +1353,7 @@ class SqliteCursor(Cursor):
     def _sequence_final_fixup(self, sequence_name, start_value):
         """Insert the initial value into specified sequence."""
         # ... and here we make sure that a 'start value' exists
-        super(SqliteCursor, self).execute("INSERT INTO %s VALUES (%d)" %
+        super(SQLiteCursor, self).execute("INSERT INTO %s VALUES (%d)" %
                                           (sequence_name, start_value))
     # end _sequence_final_fixup
         
@@ -1360,11 +1361,10 @@ class SqliteCursor(Cursor):
     def _date_fixup(self, operation):
         """Remap DATE in table creation to TEXT.
 
-        sqlite does not support the date datatype.
+        SQLite does not support the date datatype. Thus we remap all
+        occurrences of DATE to TEXT. 
         """
 
-        # But wait, there is more, DATE is not supported either. We have to
-        # map it to text :(
         if re.search("create table", operation,
                      re.IGNORECASE|re.MULTILINE|re.DOTALL):
             # Swap all DATE uncritically to TEXT. This is hairy, this is
@@ -1378,7 +1378,8 @@ class SqliteCursor(Cursor):
     def _char_fixup(self, operation):
         """Remap CHAR VARYING in table creation to TEXT.
 
-        sqlite does not support the CHAR VARYING syntax.
+        SQLite does not support the CHAR VARYING syntax. Thus we remap all
+        occurences of CHAR/CHAR VARYING to TEXT.
         """
         
         if re.search("create table", operation,
@@ -1394,7 +1395,7 @@ class SqliteCursor(Cursor):
     def _constraint_fixup(self, operation):
         """Remap some ADD CONSTRAINT statements.
 
-        Actually, since sqlite supports only two, we'll simply ignore all add
+        Actually, since SQLite supports only two, we'll simply ignore all add
         constraints. This may fail, if this code is used to migrate a database
         (which occasionally adds columns via add constraint), but for this
         backend it probably would not matter anyway.
@@ -1415,7 +1416,7 @@ class SqliteCursor(Cursor):
         """Execute the specified operation.
 
         Hmm... a fix of a patch of an extension of a hack. This is badly
-        broken by design, but it will not be better until sqlite starts
+        broken by design, but it will not be better until SQLite starts
         supporting the much needed datatypes and syntax.
         """
 
@@ -1429,14 +1430,14 @@ class SqliteCursor(Cursor):
         
         operation = self._constraint_fixup(operation)
 
-        retval = super(SqliteCursor, self).execute(operation, parameters)
+        retval = super(SQLiteCursor, self).execute(operation, parameters)
 
         if seq_name is not None:
             self._sequence_final_fixup(seq_name, seq_start)
 
         return retval
     # end execute
-# end SqliteCursor
+# end SQLiteCursor
 
 
 # Define some aliases for driver class names that are already in use.
