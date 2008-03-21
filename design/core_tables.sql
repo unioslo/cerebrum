@@ -1138,7 +1138,7 @@ CREATE TABLE person_info
 		NOT NULL
 		CONSTRAINT person_info_gender
 		  REFERENCES gender_code(code),
-  deceased_date DATE,
+  deceased_date DATE
                 CONSTRAINT deceased_date_chk
                   CHECK (deceased_date <= [:now]),
   description	CHAR VARYING(512),

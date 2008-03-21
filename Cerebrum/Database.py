@@ -31,10 +31,12 @@
 #      Currently, the function can be told what Database subclass to
 #      use in the DB_driver keyword argument.
 
+import re
 import sys
 import os
 from types import DictType, StringType
 from cStringIO import StringIO
+from mx import DateTime
 
 import cereconf
 from Cerebrum import Errors
@@ -48,13 +50,16 @@ from Cerebrum.extlib import db_row
 # Exceptions defined in DB-API 2.0; the exception classes below are
 # automatically added to the __bases__ attribute of exception classes
 # in dynamically imported driver modules.
-class Warning(StandardError):
+# IVR 2007-10-15 FIXME: StandardError here is a big no-no
+class Warning(object):
     """Driver-independent base class of DB-API Warning exceptions.
 
     Exception raised for important warnings like data truncations
     while inserting, etc."""
     pass
-class Error(StandardError):
+
+# IVR 2007-10-15 FIXME: StandardError here is a big no-no
+class Error(object):
     """Driver-independent base class of DB-API Error exceptions.
 
     Exception that is the base class of all other error
@@ -62,6 +67,7 @@ class Error(StandardError):
     'except' statement. Warnings are not considered errors and thus
     should not use this class as base."""
     pass
+
 class InterfaceError(Error):
     """Driver-independent base class of DB-API InterfaceError exceptions.
 
@@ -198,11 +204,14 @@ class Cursor(object):
                     fields = [ d[0].lower() for d in self.description ]
                     # Make a db_row class that corresponds to this set of
                     # column names.
+                    print "execute: operation=<%s>" % (operation,)
+                    print "execute: sql=<%s>" % (sql,)
+                    print "execute: fields=<%s>" % (fields,)
                     self._row_class = db_row.make_row_class(fields)
                 else:
                     # Not a row-returning query; clear self._row_class.
                     self._row_class = None
-        except self.DatabaseError,m:
+        except self.DatabaseError, m:
             # TBD: These errors should probably be logged somewhere,
             # and not merely printed...
             print "ERROR: operation=<%s>" % operation
@@ -1018,7 +1027,6 @@ class PsycoPG(PostgreSQLBase):
 
 class PsycoPGCursor(Cursor):
     def execute(self, operation, parameters=()):
-        from mx import DateTime
         for k in parameters:
             if type(parameters[k]) is DateTime.DateTimeType:
                 parameters[k] = self._db._db_mod.TimestampFromMx(parameters[k])
@@ -1146,21 +1154,291 @@ class DCOracle2(OracleBase):
         # Short circuit; no conversion is necessary for DCOracle2.
         return data
 
+
 class Sqlite(Database):
+    """This class defines an abstraction for the sqlite backend.
+
+    The class is a hairy monstrosity of an enormous hack. sqlite does NOT
+    support a number of elementary sql92 constructs and datatypes. Thus, some
+    of the essentials in Cerebrum have to be remapped into different
+    datatypes.
+
+    Furthermore, sqlite by itself does NOT support value typing in the
+    database (although it parses column types from sql), so any piece of code
+    relying on this will probably not fail when it should have.
+
+    This backend is for testing purposes only, so that people could run
+    elementary tests without a network connection or without a true database
+    to talk to.
+    """
+
     _db_mod = 'pysqlite2.dbapi2'
     rdbms_id = 'sqlite'
+    # sqlite does not support datetime, thus we store dates as
+    # ISO8601-formatted strings.
+    _mx_format = "%Y-%m-%dT%H:%M:%S"
 
-    def connect(self, database=':memory:'):
-        return super(Sqlite, self).connect('/tmp/erikdb')
+    def _sqlite2mx(self, string):
+        return DateTime.strptime(s, self._mx_format)
 
-    def create_seq(self, name):
-        self.execute('CREATE TABLE %s (value INTEGER)' % name)
-        self.execute('INSERT INTO %s values (1)' % name)
+    def _mx2sqlite(self, dt):
+        return "'%s'" % dt.strftime(self._mx_format)
 
-    def next_val(self, name):
-        value = 1 + self.query_1('SELECT value FROM %s' % name)
-        self.execute('UPDATE %s SET value=%s' % (name, value))
-        return value
+    def __init__(self, *rest, **kwargs):
+        # Python DB-API 2.0 requires certain type ctors to be present in the
+        # module. For some reason these are absent from pysqlite2.
+        if isinstance(self._db_mod, basestring):
+            mod = Utils.dyn_import(self._db_mod)
+            mod.STRING = str
+            mod.BINARY = mod.Binary
+            mod.NUMBER = float
+            mod.DATETIME = DateTime.DateTime
+            super(Sqlite, self).__init__(*rest, **kwargs)
+
+        # provide seamless operation with mx.DateTime.
+        self._db_mod.register_converter("timestamp", self._sqlite2mx)
+        self._db_mod.register_adapter(DateTime.DateTimeType, self._mx2sqlite)
+    # end __init__
+
+    def connect(self, user=None, password=None, service=None,
+                client_encoding=None):
+        if service is None:
+            service = cereconf.CEREBRUM_DATABASE_NAME
+
+        super(Sqlite, self).connect(database=service)
+
+        if client_encoding is not None:
+            self.encoding = client_encoding
+    # end connect
+
+    def cursor(self):
+        return SqliteCursor(self)
+    # end cursor
+
+    def _sql_port_now(self):
+        return ["CURRENT_TIMESTAMP"] # self._mx2sqlite(DateTime.now())]
+
+    def _sql_port_table(self, schema, name):
+        return [name]
+
+    # IVR 2007-10-30 FIXME: This craches if sql statements are cached.
+    def _sql_port_sequence(self, schema, name, op):
+        if op == 'next':
+            value = self._nextval_sequence(name)
+            return ["%d" % value]
+        elif op == 'current':
+            value = self._currval_sequence(name)
+            return ["%d" % value]
+        else:
+            raise ValueError, 'Invalid sequnce operation: %s' % op
+    # end _sql_port_sequence
+
+    def _nextval_sequence(self, name):
+        self.execute("INSERT INTO %s VALUES (1+(SELECT max(value) FROM %s))" %
+                     (name, name))
+        return self._currval_sequence(name)
+    # end _nextval_sequence
+
+    def _currval_sequence(self, name):
+        return self.query_1("SELECT MAX(value) AS value FROM %s" % name)
+    # end _currval_sequence
+
+    def nextval(self, seq_name):
+        """Return a new value from sequence SEQ_NAME.
+
+        The sequence syntax varies a bit between RDBMSes, hence there
+        is no default implementation of this method."""
+
+        return self._nextval_sequence(seq_name)
+    # end nextval
+
+    def ping(self):
+        """Check that communication with the database works.
+
+        Force the underlying database driver module to raise an
+        exception if the database communication channel represented by
+        this object for some reason isn't working properly.
+        """
+        # it's sqlite -- we are always on!
+        pass
+
+    # end ping
+    
+# end Sqlite
+
+class SqliteCursor(Cursor):
+    """sqlite-specific cursor hacks.
+    
+    This class tries to hide some of the shortcomings of the sqlite backend. 
+    """
+    identifier_start = '[a-zA-Z]'
+    identifier_body = '[a-zA-Z0-9_]'
+    sql_special = ' "%&\'()*'
+    delimited_identifier = '"[a-zA-Z0-9%s]+"' % re.escape(sql_special)
+    regular_identifier = '%s%s*' % (identifier_start, identifier_body)
+
+    def _translate(self, statement, params):
+        retval = super(SqliteCursor, self)._translate(statement, params)
+        # IVR 2007-10-30 FIXME: For the love of Britney's underwear, FIX THIS!
+        # (sequence references cannot be cached.)
+        if statement in self._sql_cache:
+            del self._sql_cache[statement]
+        return retval
+    # end _translate
+
+
+    def _parameter_fixup(self, parameters):
+        """We want to force utf-8 for our parameters."""
+
+        for param in parameters:
+            if type(parameters[param]) is str:
+                # IVR 2008-03-19 FIXME: This is sooooo broken. How do I know
+                # here if the parameter is in latin-1?
+                parameters[param] = parameters[param].decode("latin-1")
+
+        return parameters
+    # end _parameter_fixup
+
+
+    def _sequence_initial_fixup(self, operation):
+        """Deep magic to compensate for sqlite's lack of sequences.
+
+        This method converts CREATE SEQUENCE in Cerebrum-syntax to CREATE
+        TABLE in SQL92 and records the initial value.
+
+        @rtype: tuple (of 3 basestring)
+        @return:
+          Returns the modified sql, name of the sequence and its starting
+          value, if any. If L{operation} is not a CREATE SEQUENCE, it is
+          returned unmodified and sequence name/start value are None/None.
+
+          If L{operation} *is* in fact a CREATE SEQUENCE statement, remap it
+          into CREATE TABLE, register the sequence name and the initial value
+          (if any). If no initial value is specified, 1 is assumed.
+        """
+
+        # rex for create sequence statements
+        sequence_rex = re.compile("CREATE SEQUENCE (%s|%s)" %
+                                  (self.delimited_identifier,
+                                   self.regular_identifier),
+                                  re.IGNORECASE)
+        # rex for initial value in create sequence statements
+        sequence_initial = re.compile("\[:sequence_start\s+value\s*=\s*(\d+)\]",
+                                      re.IGNORECASE)
+
+        # Since sequences are not supported, we have to hack around them
+        create_sequence = sequence_rex.search(operation)
+        sequence_start_value = None
+        sequence_name = None
+        if create_sequence:
+            sequence_start_value = 1
+            sequence_name = create_sequence.group(1)
+            # here we substitute create table for create sequence...
+            operation = sequence_rex.sub("""
+                           CREATE TABLE \\1
+                           (value INTEGER NOT NULL PRIMARY KEY)
+                           """, operation)
+            # check if the start value has been specified
+            mobj = sequence_initial.search(operation)
+            if mobj:
+                # grab the start value ... 
+                sequence_start_value = int(mobj.group(1))
+                # ... and remove the []-junk from the sql statement
+                operation = sequence_initial.sub("", operation)
+
+        return operation, sequence_name, sequence_start_value
+    # end _sequence_initial_fixup
+        
+
+    def _sequence_final_fixup(self, sequence_name, start_value):
+        """Insert the initial value into specified sequence."""
+        # ... and here we make sure that a 'start value' exists
+        super(SqliteCursor, self).execute("INSERT INTO %s VALUES (%d)" %
+                                          (sequence_name, start_value))
+    # end _sequence_final_fixup
+        
+
+    def _date_fixup(self, operation):
+        """Remap DATE in table creation to TEXT.
+
+        sqlite does not support the date datatype.
+        """
+
+        # But wait, there is more, DATE is not supported either. We have to
+        # map it to text :(
+        if re.search("create table", operation,
+                     re.IGNORECASE|re.MULTILINE|re.DOTALL):
+            # Swap all DATE uncritically to TEXT. This is hairy, this is
+            # scary, but I don't see any other way out :( 
+            operation = re.sub("\s+DATE(\s+|,)", " TEXT\\1", operation)
+
+        return operation
+    # end _date_fixup
+
+
+    def _char_fixup(self, operation):
+        """Remap CHAR VARYING in table creation to TEXT.
+
+        sqlite does not support the CHAR VARYING syntax.
+        """
+        
+        if re.search("create table", operation,
+                     re.IGNORECASE|re.MULTILINE|re.DOTALL):
+            # char (varying) \(\d+\) is not supported either
+            operation = re.sub("\s+CHAR(\s+VARYING)?\s*\(\d+\)",
+                               " TEXT", operation)
+            
+        return operation
+    # end _char_fixup
+        
+
+    def _constraint_fixup(self, operation):
+        """Remap some ADD CONSTRAINT statements.
+
+        Actually, since sqlite supports only two, we'll simply ignore all add
+        constraints. This may fail, if this code is used to migrate a database
+        (which occasionally adds columns via add constraint), but for this
+        backend it probably would not matter anyway.
+        """
+
+        constraint_rex = re.compile("ALTER TABLE (%s|%s) ADD CONSTRAINT" %
+                                    (self.delimited_identifier,
+                                     self.regular_identifier),
+                                    re.IGNORECASE)
+        if constraint_rex.search(operation):
+            return ""
+
+        return operation
+    # end _constraint_fixup
+
+
+    def execute(self, operation, parameters=()):
+        """Execute the specified operation.
+
+        Hmm... a fix of a patch of an extension of a hack. This is badly
+        broken by design, but it will not be better until sqlite starts
+        supporting the much needed datatypes and syntax.
+        """
+
+        parameters = self._parameter_fixup(parameters)
+
+        operation, seq_name, seq_start = self._sequence_initial_fixup(operation)
+        
+        operation = self._date_fixup(operation)
+
+        operation = self._char_fixup(operation)
+        
+        operation = self._constraint_fixup(operation)
+
+        retval = super(SqliteCursor, self).execute(operation, parameters)
+
+        if seq_name is not None:
+            self._sequence_final_fixup(seq_name, seq_start)
+
+        return retval
+    # end execute
+# end SqliteCursor
+
 
 # Define some aliases for driver class names that are already in use.
 PostgreSQL = PgSQL
@@ -1188,5 +1466,3 @@ if __name__ == '__main__':
     for i in range(len(rows)):
         print i, rows[i]
     print "EOF"
-
-# arch-tag: 69650cb9-563b-4242-8885-e7bfd1b035a3
