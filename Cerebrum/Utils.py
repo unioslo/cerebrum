@@ -17,12 +17,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-
+"""This module contains a number of core utilities used everywhere in the
+tree.
 """
 
 import cereconf
 import filecmp
+import inspect
 import new
 import os
 import popen2
@@ -40,10 +41,10 @@ class _NotSet(object):
     value of keyword arguments which need to distinguish between the
     caller specifying None and not specifying it at all."""
 
-    def __new__(type):
-        if not '_the_instance' in type.__dict__:
-            type._the_instance = object.__new__(type)
-        return type._the_instance
+    def __new__(cls):
+        if not '_the_instance' in cls.__dict__:
+            cls._the_instance = object.__new__(cls)
+        return cls._the_instance
 
     def __nonzero__(self):
         return False
@@ -66,15 +67,15 @@ def dyn_import(name):
 
 def this_module():
     """Return module object of the caller."""
-    caller_frame = sys._getframe(1)
-    globals = caller_frame.f_globals
+    caller_frame = inspect.currentframe().f_back
+    global_vars = caller_frame.f_globals
     #
     # If anyone knows a better way (e.g. one that isn't based on
     # iteration over sys.modules) to get at the module object
     # corresponding to a frame/code object, please do tell!
     correct_mod = None
     for mod in filter(None, sys.modules.values()):
-        if globals is mod.__dict__:
+        if global_vars is mod.__dict__:
             assert correct_mod is None
             correct_mod = mod
     assert correct_mod is not None
@@ -220,7 +221,7 @@ def mangle_name(classname, attr):
         #
         # Strip leading underscores from classname.
         for i in range(len(classname)):
-            if classname[i] <> "_":
+            if classname[i] != "_":
                 classname = classname[i:]
                 break
         if classname and classname[0] == "_":
@@ -326,7 +327,7 @@ def read_password(user, system, host=None):
 
     """
     fmt = ['passwd-%s@%s']
-    var = [user.lower(),system.lower()]
+    var = [user.lower(), system.lower()]
     # "hosts" starting with a '/' are local sockets, and should use
     # this host's password files, i.e. don't qualify password filename
     # with hostname.
@@ -616,7 +617,7 @@ class mark_update(auto_super):
                 if hasattr(self, attr) and val == getattr(self, attr):
                     # No change, don't set __updated.
                     return
-            elif attr <> mupdated:
+            elif attr != mupdated:
                 # This attribute doesn't belong in this class; try the
                 # base classes.
                 return getattr(self, msuper).__setattr__(attr, val)
@@ -706,8 +707,9 @@ class XMLHelper(object):
             close_tag = ""
         assert(len(row) == len(cols))
         if extra_attr is not None:
-            extra_attr = " " + " ".join(["%s=%s" % (k, self.escape_xml_attr(extra_attr[k]))
-                                         for k in extra_attr.keys()])
+            extra_attr = " " + " ".join(
+                ["%s=%s" % (k, self.escape_xml_attr(extra_attr[k]))
+                 for k in extra_attr.keys()])
         else:
             extra_attr = ''
         return "<%s " % tag + (
@@ -1020,13 +1022,13 @@ class SimilarSizeWriter(AtomicFileWriter):
         """
         self.__percentage = percentage * cereconf.SIMILARSIZE_LIMIT_MULTIPLIER
         if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:            
-            self._logger.warning(("SIMILARSIZE_LIMIT_MULTIPLIER is set to " +
-                                 "a value other than 1.0; change limit " +
-                                 "will be %s%% rather than client's explicit " +
-                                 "setting of %s%%.")
-                                 % (self.__percentage, percentage))
-        self._logger.debug("SimilarSize size change limit set to '%d'"
-                           % self.__percentage)
+            self._logger.warning("SIMILARSIZE_LIMIT_MULTIPLIER is set to "
+                                 "a value other than 1.0; change limit "
+                                 "will be %s%% rather than client's explicit "
+                                 "setting of %s%%.",
+                                 self.__percentage, percentage)
+        self._logger.debug("SimilarSize size change limit set to '%d'",
+                           self.__percentage)
 
 
     def set_line_count_change_limit(self, num):
@@ -1040,7 +1042,8 @@ class SimilarSizeWriter(AtomicFileWriter):
         if cereconf.SIMILARSIZE_LIMIT_MULTIPLIER != 1.0:            
             self._logger.warning(("SIMILARSIZE_LIMIT_MULTIPLIER is set to " +
                                  "a value other than 1.0; change limit " +
-                                 "will be %s lines rather than client's explicit " +
+                                 "will be %s lines rather than client's "
+                                 "explicit " +
                                  "setting of %s lines.")
                                  % (self.__line_count, num))
         self._logger.debug("SimilarSize line count change limit set to '%d'"
@@ -1071,15 +1074,15 @@ class SimilarSizeWriter(AtomicFileWriter):
         if cereconf.SIMILARSIZE_CHECK_DISABLED:
             # Having the check globally disabled is not A Good Thing(tm),
             # so we warn about it, in all cases.
-            self._logger.warning("SIMILARSIZE_CHECK_DISABLED is 'True'; no " +
+            self._logger.warning("SIMILARSIZE_CHECK_DISABLED is 'True'; no "
                                  "'similar filesize' comparisons will be done.")
             return
         if not SimilarSizeWriter.__checks_enabled:
             # Checks have been specifically disabled by a client, but
             # we'll still inform them about it, in case they don't
             # realize it
-            self._logger.info("Client has disabled similarsize checks for now; no " +
-                              "'similar filesize' comparisons will be done.")
+            self._logger.info("Client has disabled similarsize checks for now;"
+                              "no 'similar filesize' comparisons will be done.")
             return            
         if not os.path.exists(self._name):
             return
@@ -1094,16 +1097,18 @@ class SimilarSizeWriter(AtomicFileWriter):
         if self.__percentage:
             change_percentage = 100 * (float(new)/old) - 100
             if abs(change_percentage) > self.__percentage:
-                raise FileChangeTooBigError, \
-                      "%s: File size changed more than %d%%: %d -> %d (%+.1f)" % \
-                      (self._name, self.__percentage, old, new, change_percentage)
+                raise FileChangeTooBigError(
+                      "%s: File size changed more than %d%%: "
+                      "%d -> %d (%+.1f)" % (self._name, self.__percentage,
+                                            old, new, change_percentage))
         if self.__line_count:
             old = self.__count_lines(self._name)
             new = self.__count_lines(self._tmpname)
             if abs(old - new) > self.__line_count:
-                raise FileChangeTooBigError, \
-                      "%s: File changed more than %d lines: %d -> %d (%i)" % \
-                      (self._name, self.__line_count, old, new, abs(old-new))
+                raise FileChangeTooBigError(
+                      "%s: File changed more than %d lines: "
+                      "%d -> %d (%i)" % (self._name, self.__line_count,
+                                         old, new, abs(old-new)))
 
 
 
@@ -1157,10 +1162,10 @@ class RecursiveDict(dict):
                 self[key] = value
 
     def __setitem__(self, key, value):
-            if isinstance(value, dict):
-                # Wrap it, make sure it follows our rules
-                value = RecursiveDict(value)
-            dict.__setitem__(self, key, value)    
+        if isinstance(value, dict):
+            # Wrap it, make sure it follows our rules
+            value = RecursiveDict(value)
+        dict.__setitem__(self, key, value)
 
 
 def simple_memoize(callobj):
@@ -1256,6 +1261,8 @@ def exception_wrapper(functor, exc_list=None, return_on_exc=None, logger=None):
     # assert all(issubclass(x, BaseException) for x in exc_list)
     
     def wrapper(*rest, **kw_args):
+        "Small wrapper that calls L{functor} while ignoring exceptions."
+        
         # None means trap all exceptions. Use with care!
         if exc_list is None:
             try:
