@@ -204,9 +204,9 @@ class Cursor(object):
                     fields = [ d[0].lower() for d in self.description ]
                     # Make a db_row class that corresponds to this set of
                     # column names.
-                    print "execute: operation=<%s>" % (operation,)
-                    print "execute: sql=<%s>" % (sql,)
-                    print "execute: fields=<%s>" % (fields,)
+                    # print "execute: operation=<%s>" % (operation,)
+                    # print "execute: sql=<%s>" % (sql,)
+                    # print "execute: fields=<%s>" % (fields,)
                     self._row_class = db_row.make_row_class(fields)
                 else:
                     # Not a row-returning query; clear self._row_class.
