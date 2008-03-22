@@ -1375,23 +1375,6 @@ class SQLiteCursor(Cursor):
     # end _date_fixup
 
 
-    def _char_fixup(self, operation):
-        """Remap CHAR VARYING in table creation to TEXT.
-
-        SQLite does not support the CHAR VARYING syntax. Thus we remap all
-        occurences of CHAR/CHAR VARYING to TEXT.
-        """
-        
-        if re.search("create table", operation,
-                     re.IGNORECASE|re.MULTILINE|re.DOTALL):
-            # char (varying) \(\d+\) is not supported either
-            operation = re.sub("\s+CHAR(\s+VARYING)?\s*\(\d+\)",
-                               " TEXT", operation)
-            
-        return operation
-    # end _char_fixup
-        
-
     def _constraint_fixup(self, operation):
         """Remap some ADD CONSTRAINT statements.
 
@@ -1426,8 +1409,6 @@ class SQLiteCursor(Cursor):
         
         operation = self._date_fixup(operation)
 
-        operation = self._char_fixup(operation)
-        
         operation = self._constraint_fixup(operation)
 
         retval = super(SQLiteCursor, self).execute(operation, parameters)
