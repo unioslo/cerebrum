@@ -86,7 +86,7 @@ class Disk(EntitySpread, Entity_class):
         else:
             self.execute("""
             UPDATE [:table schema=cerebrum name=disk_info]
-            SET path=:path, description=:description host_id=:host_id
+            SET path=:path, description=:description, host_id=:host_id
             WHERE disk_id=:disk_id""",
                          {'path': self.path,
                           'host_id': self.host_id,
