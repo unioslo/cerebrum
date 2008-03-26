@@ -24,16 +24,21 @@
 from ceresync import config 
 import SpineClient
 import os
-
+log=config.logger
+dryrun=True
 
 def setup_home(path, uid, gid):
     if not os.path.isdir(path):
         os.mkdir(path, 0700)
         os.chown(path, uid, gid)
+	return True
+    else:
+        return False
 
 class sync(object):
     def __init__(self):
-        self.connection = SpineClient.SpineClient(config=config.conf).connect()
+        self.connection = SpineClient.SpineClient(config=config.conf,
+						  logger=config.logger).connect()
         self.session = self.connection.login(config.conf.get('spine', 'login'),
                                    config.conf.get('spine', 'password'))
         self.tr = self.session.new_transaction()
@@ -84,8 +89,6 @@ def get_path(hd):
             return path + "/" + hd.get_account().get_name()
     else:
         return home
-    
-
 
 
 
@@ -94,22 +97,29 @@ def make_homedir(hd):
     path = get_path(hd)
     account = hd.get_account()
     username = account.get_name()
-    uid = account.get_posix_uid()
-    gid = account.get_primary_group().get_posix_gid()
     
-    setup_home(path, uid, gid)
-    r = os.system("%s %d %d %s %s" % (setup_script,
-                                      uid, gid, path, username))
-    if r<0:
-        raise Exception("Create failed")
+    try:
+        uid = account.get_posix_uid()
+        gid = account.get_primary_group().get_posix_gid()
+        if not dryrun:
+            if setup_home(path, uid, gid):
+                r = os.system("%s %d %d %s %s" % (setup_script,
+                                              uid, gid, path, username))
+                if r<0:
+                    raise Exception("\"%s\" failed" % setup_script)
+    except Exception, e:
+        log.warn("Failed creating homedir for %s: %s" % (
+            username, e))
+        hd.set_status(status_create_failed)
+    else:
+        log.debug("Created homedir for %s" % username)
+        hd.set_status(status_on_disk)
 
 for hd in hds.search():
-    try:
-        make_homedir(hd)
-        hd.set_status(status_on_disk)
-    except:
-        # XXX log
-        hd.set_status(status_create_failed)
+    make_homedir(hd)
 
-tr.commit()
+if not dryrun:
+   tr.commit()
+else:
+   tr.rollback()
 s.session.logout()
