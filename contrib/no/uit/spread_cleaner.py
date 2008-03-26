@@ -35,7 +35,7 @@ options is
    -s | --spread <name,[name, .. ,name] : Commaseparated list of spreads to process. Default is ALL spreads.
    -d | --dryrun         : Dryrun, do not change db.
    --logger-name <name>  : Which logger to use
-   --logger-level <name  : Whicl loglevel to use
+   --logger-level <name  : Which loglevel to use
 
 """ % (__filename__)
 
@@ -72,7 +72,12 @@ def process_spread(spread):
                            expire_stop=CUTOFF_DATE):
             ac.clear()
             ac.find(i['account_id'])
-            ac.clear_home(spread)
+            try:
+                ac.clear_home(spread)
+            except Errors.NotFoundError:
+                # homedir not found, thats ok.
+                logger.warn("%s had no homedir on spread %s" % \
+                            (ac.account_name,spread_txt))
             ac.delete_spread(spread)
             ac.write_db()
             count+=1
