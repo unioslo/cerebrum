@@ -620,12 +620,19 @@ class FronterXML(object):
             recstatus == Fronter.STATUS_UPDATE):
             self.xml.startTag('GROUPTYPE')
             self.xml.dataElement('SCHEME', 'FronterStructure1.0')
+            # Unfortunately (?) allow_room/contact can have 'False' as value
+            # associated with them. However, the DTD allows numbers only for
+            # this attribute. 
             allow_room = data.get('allow_room', 0)
             if allow_room:
                 allow_room = 1
+            else:
+                allow_room = 0
             allow_contact = data.get('allow_contact', 0)
             if allow_contact:
                 allow_contact = 2
+            else:
+                allow_contact = 0
             self.xml.emptyTag('TYPEVALUE',
                               {'level': allow_room | allow_contact})
             self.xml.endTag('GROUPTYPE')
