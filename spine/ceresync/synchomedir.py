@@ -23,6 +23,8 @@
 
 from ceresync import config 
 import SpineClient
+import getopt
+import sys
 import os
 log=config.logger
 dryrun=False
@@ -48,6 +50,28 @@ class sync(object):
         try: self.session.logout()
         except: pass
 
+def usage():
+    print "Usage: %s -c <config file>"  % os.path.basename(sys.argv[0])
+    print "-v be verbose"
+    print "-c <config file>"
+    return
+        
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "vhc:")
+except getopt.GetoptError:
+    usage()
+    sys.exit(2)
+
+for o, a in opts:
+    if o == "-h":
+        usage()
+        sys.exit(2)
+    if o == "-v":
+        verbose = True
+    if o == "-c":
+        config.sync.read(a)
+        log.debug("reading config file %s" , a )
+
 s = sync()
 tr = s.tr
 cmd = s.cmd    
@@ -57,11 +81,15 @@ try:
 except:
     hostname = os.uname()[1]
 
+log.debug("hostname is: %s" , hostname)
+
+
 try:
     setup_script = config.conf.get('homedir', 'setup_script')
 except:
     setup_script="/local/skel/bdb-setup"
 
+log.debug("setupscript is: %s" , setup_script)
 
 
 
