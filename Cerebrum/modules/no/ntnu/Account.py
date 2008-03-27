@@ -36,13 +36,13 @@ posix_spreads=(
     )
 
 spread_homedirs = {
-    "user@ansatt":
-    [  ("/home/ahomea", 1, 1),
-       ("/home/ahomeb", 1, 1),
-       ("/home/ahomec", 1, 1),
-       ("/home/ahomed", 1, 1),
-       ("/home/ahomee", 1, 1),
-       ("/home/ahomef", 1, 1) ],
+    #"user@ansatt":
+    #[  ("/home/ahomea", 1, 1),
+    #   ("/home/ahomeb", 1, 1),
+    #   ("/home/ahomec", 1, 1),
+    #   ("/home/ahomed", 1, 1),
+    #   ("/home/ahomee", 1, 1),
+    #   ("/home/ahomef", 1, 1) ],
     "user@stud":
     [  ("/home/homeo", 2, 1),
        ("/home/homep", 2, 1),
@@ -93,8 +93,7 @@ class AccountNTNUMixin(Account.Account):
 
         if spread_homedirs.has_key(str(self.const.Spread(spread))):
             if not self.has_homedir(spread):
-                #self.make_homedir(spread)
-                raise self._db.IntegrityError("Need homedir to set spread")
+                self.make_homedir(spread)
 
     def has_homedir(self, spread):
         try:
