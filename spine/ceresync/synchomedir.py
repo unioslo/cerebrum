@@ -25,7 +25,7 @@ from ceresync import config
 import SpineClient
 import os
 log=config.logger
-dryrun=True
+dryrun=False
 
 def setup_home(path, uid, gid):
     if not os.path.isdir(path):
@@ -107,12 +107,15 @@ def make_homedir(hd):
                                               uid, gid, path, username))
                 if r<0:
                     raise Exception("\"%s\" failed" % setup_script)
+
+                log.debug("Created homedir %s for %s" % (path, username))
+            else:
+                log.debug("Homedir %s for %s is ok" % (path, username))
     except Exception, e:
         log.warn("Failed creating homedir for %s: %s" % (
             username, e))
         hd.set_status(status_create_failed)
     else:
-        log.debug("Created homedir for %s" % username)
         hd.set_status(status_on_disk)
 
 for hd in hds.search():
