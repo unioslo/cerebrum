@@ -493,9 +493,11 @@ class FronterXML(object):
             self.xml.startTag('grouptype')
             self.xml.dataElement('scheme', 'FronterStructure1.0')
             allow_room = data.get('allow_room', 0)
+            allow_room = allow_room and 1 or 0
             if allow_room:
                 allow_room = 1
             allow_contact = data.get('allow_contact', 0)
+            allow_contact = allow_contact and 2 or 0
             if allow_contact:
                 allow_contact = 2
             self.xml.emptyTag('typevalue',
