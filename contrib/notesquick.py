@@ -19,8 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys
-import re
 import pickle
 import string
 
@@ -104,9 +102,20 @@ def quick_sync():
                              "(type %s)",
                              ans["subject_entity"], entity.entity_type)
             except Errors.NotFoundError:
-                logger.warn("Could not find any *entity* with id=%s "
-                            "although there is a change_log entry for it",
-                            ans['subject_entity'])
+                # This is a bit hackish, but we don't want warnings
+                # about deleted fronter groups
+                # TBD: should we have a coloumn subject_entity_type in
+                # change_log so that we can know what type a deleted
+                # entity had?
+                if (chg_type == clco.spread_del and 
+                    ans['change_program'] == 'CF_gen_groups'):
+                    logger.debug("Could not find any *entity* with id=%s ",
+                                 "because it was a group that was deleted",
+                                 ans['subject_entity'])
+                else:
+                    logger.warn("Could not find any *entity* with id=%s "
+                                "although there is a change_log entry for it",
+                                ans['subject_entity'])
 
     cl.commit_confirmations()
 # end quick_sync
