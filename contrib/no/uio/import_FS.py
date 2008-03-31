@@ -165,8 +165,7 @@ def _calc_address(person_info):
         ('aktiv', ('_semadr', '_hjemsted', None)),
         ('evu', ('_job', '_hjem', None)),
         ('drgrad', ('_semadr', '_hjemsted', None)),
-        ('privatist_studieprogram', ('_semadr', '_hjemsted', None)),
-        ('privatist_emne', ('_semadr', '_hjemsted', None)),        
+        ('privatist', ('_semadr', '_hjemsted', None)),
         ('opptak', (None, '_hjemsted', None)),
         ]
     adr_map = {
