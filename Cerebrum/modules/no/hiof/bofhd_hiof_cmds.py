@@ -56,7 +56,7 @@ class BofhdExtension(object):
         #
         '_find_persons', '_get_person', '_get_account', '_get_ou',
         '_format_ou_name', '_user_create_set_account_type','_get_group',
-        '_get_constant',
+        '_get_constant', '_parse_date',
         )
         
     def __new__(cls, *arg, **karg):
