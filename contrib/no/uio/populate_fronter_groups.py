@@ -701,6 +701,28 @@ def get_evukurs_aktiviteter():
 # end get_evukurs_aktiviteter
 
 
+def account_id2uname(account_id):
+    """Remap account_id to an uname, if possible.
+
+    This is an internal help function used in error messages.
+
+    @type account_id: int
+    @param account_id:
+      account_id to remap
+
+    @rtype: basestring
+    @return:
+      Uname, if found, None otherwise.
+    """
+
+    acc = Factory.get("Account")(db)
+    try:
+        acc.find(account_id)
+        return acc.account_name
+    except Errors.NotFoundError:
+        return None
+# end account_id2uname
+
 
 # IVR 2007-11-08 FIXME: OMG! split this monstrosity into something manageable.
 def populate_enhet_groups(enhet_id, role_mapping):
@@ -959,10 +981,12 @@ def populate_enhet_groups(enhet_id, role_mapping):
             akt_stud = {}
             for account_id in aktivitet['students']:
                 if not alle_stud.has_key(account_id):
+                    account_name = account_id2uname(account_id)
                     logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i"
                                 " undaktivitet <%s>, men ikke i"
                                 " undervisningsenhet <%s>.\n" % (
-                        account_id, account_id2fnr[account_id],
+                        account_name and account_name or account_id,
+                        account_id2fnr[account_id],
                         "%s:%s" % (enhet_id, aktkode), enhet_id))
                 akt_stud[account_id] = 1
             
@@ -1151,9 +1175,11 @@ def populate_enhet_groups(enhet_id, role_mapping):
             evu_akt_stud = {}
             for account_id in aktivitet['students']:
                 if not evustud.has_key(account_id):
+                    account_name = account_id2uname(account_id)
                     logger.warn("OBS: Bruker <%s> (fnr <%s>) er med i "
                                 "aktivitet <%s>, men ikke i kurset <%s>." %
-                                (account_id, account_id2fnr[account_id],
+                                (account_name and account_name or account_id,
+                                 account_id2fnr[account_id],
                         "%s:%s" % (enhet_id, aktkode), enhet_id))
                 evu_akt_stud[account_id] = 1
             sync_group(kurs_id,
