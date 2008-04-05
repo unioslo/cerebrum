@@ -1138,7 +1138,7 @@ class EmailTargetFilter(EmailTarget):
         self.email_target_filter_filter = self.query_1("""
         SELECT filter
         FROM [:table schema=cerebrum name=email_target_filter]
-        WHERE target_id=:t_id""",{'t_id': self.enntity_id,
+        WHERE target_id=:t_id""",{'t_id': self.entity_id,
                                   'filter': filter})
         try:
             del self.__in_db
