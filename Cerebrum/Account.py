@@ -530,7 +530,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         Note: affect_auth_types is automatically extended to contain
         these methods.
         """
-        notimpelmented=[]
+        notimplemented=[]
         for method_name in cereconf.AUTH_CRYPT_METHODS:
             method = self.const.Authentication(method_name)
             if not method in self._acc_affect_auth_types:
@@ -552,12 +552,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             try:
                 enc = self.encrypt_password(method, plaintext)
             except Errors.NotImplementedAuthTypeError, e:
-                notimpelmented.append(str(e))
+                notimplemented.append(str(e))
             else:
                 self.populate_authentication_type(method, enc)
         self.__plaintext_password = plaintext
-        if notimpelmented:
-            raise Errors.NotImplementedAuthTypeError, "\n".join(notimpelmented)
+        if notimplemented:
+            raise Errors.NotImplementedAuthTypeError, "\n".join(notimplemented)
 
     def encrypt_password(self, method, plaintext, salt=None):
         """Returns the plaintext encrypted according to the specified
