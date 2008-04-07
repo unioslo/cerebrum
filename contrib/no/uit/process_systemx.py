@@ -84,15 +84,16 @@ def get_existing_accounts():
             try:
                 ou.find(int(row['ou_id']))            
                 tmp_persons[tmp].append_affiliation(
-                    int(row['affiliation']), int(row['ou_id']), int(row['status']))
+                    int(row['affiliation']), int(row['ou_id']), 
+                    int(row['status']))
             except EntityExpiredError, msg:
-                logger.error("Skipping affiliation to ou_id %s (expired) for person with sysx_id %s." % (row['ou_id'], tmp))
+                logger.error("Skipping affiliation to ou_id %s (expired) for " \
+                             "person with sysx_id %s." % (row['ou_id'], tmp))
                 continue
 
     tmp_ac={}
     account_obj=Factory.get('Account')(db)
     logger.info("Loading accounts...")
-
     
     for row in account_obj.list(filter_expired=False,fetchall=False):
         sysx_id=pid2sysxid.get(int(row['owner_id']),None)
@@ -109,11 +110,12 @@ def get_existing_accounts():
         
         tmp_ac[row['account_id']]=ExistingAccount(sysx_id,row['expire_date'])
         
-##    # PosixGid
-##    for row in posix_user_obj.list_posix_users():
-##        tmp=tmp_ac.get(int(row['account_id']), None)
-##        if tmp is not None:
-##            tmp.set_gid(int(row['gid']))
+    # Posixusers
+    posix_user_obj=PosixUser.PosixUser(db)
+    for row in posix_user_obj.list_posix_users():
+        tmp=tmp_ac.get(int(row['account_id']), None)
+        if tmp is not None:
+            tmp.set_posix(int(row['posix_uid']))
 
     # quarantines
     for row in account_obj.list_entity_quarantines(
@@ -258,16 +260,40 @@ def _populate_account_affiliations(account_id, sysx_id):
     changes=[]
     account_affs=accounts[account_id].get_affiliations()
 
-    logger.debug("-->Person SysXID=%s has affs=%s" % (sysx_id,persons[sysx_id].get_affiliations()))
-    logger.debug("-->Account_id=%s,SysXID=%s has account affs=%s" % (account_id,sysx_id,account_affs))
+    logger.debug("-->Person SysXID=%s has affs=%s" %  (sysx_id,
+        persons[sysx_id].get_affiliations()))
+    logger.debug("-->Account_id=%s,SysXID=%s has account affs=%s" % (account_id,
+        sysx_id,account_affs))
     for aff, ou, status in persons[sysx_id].get_affiliations():
         if not (aff,ou) in account_affs:
             changes.append(('set_ac_type', (ou, aff)))
 ##  TODO: Fix removal of account affs
     return changes
 
+def _promote_posix(acc_obj):
+
+        group = Factory.get('Group')(db)
+        pu = PosixUser.PosixUser(db)
+        uid = pu.get_free_uid()
+        shell = co.posix_shell_bash
+        grp_name = "posixgroup"
+        group.clear()
+        group.find_by_name(grp_name,domain=co.group_namespace)
+        try:
+            pu.populate(uid, group.entity_id, None, shell, parent=acc_obj)
+            pu.write_db()
+        except Exception,msg:
+            logger.error("Error during promote_posix. Error was: %s" % msg)
+            return False
+        # only gets here if posix user created successfully
+        logger.info("%s promoted to posixaccount (uidnumber=%s)" %  \
+            (acc_obj.account_name, uid))
+        return True
+
+
 def _handle_changes(a_id,changes):
         
+    do_promote_posix=False
     ac=Factory.get('Account')(db)
     ac.find(a_id)
     for chg in changes:
@@ -286,12 +312,17 @@ def _handle_changes(a_id,changes):
             ac.gecos=cdata
         elif ccode=='expire_date':
             ac.expire_date=cdata
+        elif ccode=='promote_posix':
+            do_promote_posix=True
         else:
-            logger.error("Change account: %s(id=%d): Unknown changecode: %s, changedata=%s" % (ac.account_name,a_id,ccode,cdata))
+            logger.error("Change account: %s(id=%d): Unknown changecode: %s, " \
+            "changedata=%s" % (ac.account_name,a_id,ccode,cdata))
             continue
     ac.write_db()
-    logger.info("Change Account %s(id=%d): All changes written" % (ac.account_name,a_id))
-
+    if do_promote_posix:
+        _promote_posix(ac)
+    logger.info("Change Account %s(id=%d): All changes written" % \
+        (ac.account_name,a_id))
 
 
 def _update_email(acc_id,bruker_epost):
@@ -445,7 +476,11 @@ class Build(object):
             acc_id=p_obj.get_account()
     
         acc_obj=accounts[acc_id]
-        
+
+        # check if account is a posix account
+        if not acc_obj.get_posix():
+            changes.append(('promote_posix',True))
+
         # Update expire if needed
         current_expire= acc_obj.get_expire_date()
         new_expire=mx.DateTime.DateFrom(person_info['expire_date'])
@@ -516,7 +551,7 @@ class ExistingAccount(object):
         self._expire_date= expire_date
         self._sysx_id=sysx_id        
         self._owner_id=None
-        self._gid=None
+        self._uid=None
         self._home={}
         self._quarantines=[]
         self._spreads=[]
@@ -540,8 +575,8 @@ class ExistingAccount(object):
     def get_expire_date(self):
         return self._expire_date
     
-    def get_gid(self):
-        return self._gid
+    def get_posix(self):
+        return self._uid
 
     def get_home(self, spread):
         return self._home.get(spread, (None, None))
@@ -567,8 +602,8 @@ class ExistingAccount(object):
     def has_homes(self):
         return len(self._home) > 0
     
-    def set_gid(self, gid):
-        self._gid=gid
+    def set_posix(self, uid):
+        self._uid=uid
 
     def set_home(self, spread, disk_id, homedir_id):
         self._home[spread]=(disk_id, homedir_id)
@@ -632,11 +667,10 @@ def main():
     sysx.list()
     logger.info("Got %d persons from file" % len(sysx.sysxids))
     persons,accounts=get_existing_accounts()
-    
+
     build=Build()
     build.process_all()  
     
-##    dryrun=True
     if dryrun:
         logger.info("Dryrun: Rollback all changes")
         db.rollback()
@@ -644,7 +678,7 @@ def main():
         logger.info("Committing all changes to database")
         db.commit()
         
-                               
+
 def usage():
     print __doc__
     sys.exit(1)
