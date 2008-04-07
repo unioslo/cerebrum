@@ -188,7 +188,6 @@ class Cursor(object):
 
     def execute(self, operation, parameters=()):
         """Do DB-API 2.0 .execute()."""
-        print "DEBUG: %s, %s" % (operation, parameters)
         sql, binds = self._translate(operation, parameters)
         #
         # The Python DB-API 2.0 says that the return value of
@@ -197,7 +196,7 @@ class Cursor(object):
         # this 'unspecified' value anyway.
         try:
             try:
-                print "DEBUG: sql=<%s>\nDEBUG: binds=<%s>" % (sql, binds)
+#                print "DEBUG: sql=<%s>\nDEBUG: binds=<%s>" % (sql, binds)
                 return self._cursor.execute(sql, binds)
             finally:
                 if self.description:
