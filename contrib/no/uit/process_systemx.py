@@ -450,7 +450,10 @@ class Build(object):
         tmp=account.write_db()
         logger.debug("new Account=%s, write_db=%s" % (account.account_name,tmp))
 
-        accounts[account.entity_id]=ExistingAccount(sysx_id,today)
+        acc_obj= ExistingAccount(sysx_id,today)
+        #register new account as posix
+        acc_obj.set_posix(int(account.posix_uid))
+        accounts[account.entity_id]=acc_obj
         return account.entity_id
         
 
