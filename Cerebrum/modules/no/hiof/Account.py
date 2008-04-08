@@ -64,7 +64,10 @@ class AccountHiOfMixin(Account.Account):
         if self.is_deleted() or self.is_reserved():
             target_type = self.const.email_target_deleted
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            # uncomment next line aftere email_entity upgrade
+            # et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(entity_id = self.entity_id)
+            # remove previous line after email_entity upgrade
             et.email_target_type = target_type
         except Errors.NotFoundError:
             # We don't want to create e-mail targets for reserved or
@@ -155,9 +158,13 @@ class AccountHiOfMixin(Account.Account):
 		# Is the address taken?
  		ea.clear()
 		try:
-		    ea.find_by_local_part_and_domain(lp, ed.entity_id)
-		    if ea.email_addr_target_id <> et.entity_id:
-			# Address already exists, and points to a
+                   # uncomment next two lines after email_entity upgrade 
+		   # ea.find_by_local_part_and_domain(lp, ed.entity_id)
+		   # if ea.email_addr_target_id <> et.entity_id:
+                   ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
+                   if ea.email_addr_target_id <> et.email_target_id:
+                   # remove the two previous lines after email_entity upgrade
+                       # Address already exists, and points to a
 			# target not owned by this Account.
                         continue
 		    # Address belongs to this account; make sure
@@ -165,17 +172,26 @@ class AccountHiOfMixin(Account.Account):
 		    ea.email_addr_expire_date = None
 		except Errors.NotFoundError:
 		    # Address doesn't exist; create it.
-		    ea.populate(lp, ed.entity_id, et.entity_id,
-				expire=None)
+                    #
+                    # uncomment this line after email_entity upgrade
+		    #ea.populate(lp, ed.entity_id, et.entity_id, expire=None)
+                    ea.populate(lp, ed.email_domain_id, et.email_target_id, expire=None)
+                    # remove previous line after email_entity upgrade
 		ea.write_db()
                 if not primary_set:
                     epat.clear()
                     try:
                         epat.find(ea.email_addr_target_id)
-                        epat.populate(ea.entity_id)
+                        # uncomment this line after email_entity upgrade
+                        # epat.populate(ea.entity_id)
+                        epat.populate(ea.email_addr_id, parent = et)
+                        # remove previous line after email_entity upgrade
                     except Errors.NotFoundError:
                         epat.clear()
+                        # uncomment this line after email_entity upgrade
+                        # epat.populate(ea.entity_id, parent = et)
                         epat.populate(ea.entity_id, parent = et)
+                        # remove previous line after email_entity upgrade
                     epat.write_db()
                     primary_set = True
 
@@ -184,7 +200,10 @@ class AccountHiOfMixin(Account.Account):
         et = Email.EmailTarget(self._db)
         es.find_by_name(server_name)
         try:
-            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            # uncomment this line after email_entity upgrade
+            # et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            et.find_by_email_target_attrs(entity_id = self.entity_id)
+            # remove previous line after email_entity upgrade
         except Errors.NotFoundError:
             # Not really sure about this. it is done at UiO, but maybe it is not
             # right to make en email_target if one is not found??
