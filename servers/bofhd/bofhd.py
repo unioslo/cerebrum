@@ -388,16 +388,22 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         # Check quarantines
         quarantines = []      # TBD: Should the quarantine-check have a utility-API function?
         now = mx.DateTime.now()
-        for qrow in account.get_entity_quarantine():
-            if (qrow['start_date'] <= now
-                and (qrow['end_date'] is None or qrow['end_date'] >= now)
-                and (qrow['disable_until'] is None
-                     or qrow['disable_until'] < now)):
+        for qrow in account.get_entity_quarantine(only_active=True):
                 # The quarantine found in this row is currently
-                # active.
-                quarantines.append(qrow['quarantine_type'])            
-        qh = QuarantineHandler.QuarantineHandler(
-            self.server.db, quarantines)
+                # active. Some quarantine types may not restrict
+                # access to bofhd even if they otherwise result in
+                # lock. Check therefore whether a found quarantine
+                # should be appended
+                #
+                # FIXME, Jazz 2008-04-08:
+                # This should probably be based on spreads or some
+                # such mechanism, but quarantinehandler and the import
+                # routines don't support a more appopriate solution yet
+                if not str(self.server.const.Quarantine(qrow['quarantine_type'])) \
+                       in cereconf.BOFHD_NONLOCK_QUARANTINES:
+                    quarantines.append(qrow['quarantine_type'])            
+        qh = QuarantineHandler.QuarantineHandler(self.server.db,
+                                                 quarantines)
         if qh.should_skip() or qh.is_locked():
             raise CerebrumError, "User has active lock/skip quarantines, login denied"
 
