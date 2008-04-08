@@ -163,10 +163,10 @@ class AccountHiOfMixin(Account.Account):
 		   # if ea.email_addr_target_id <> et.entity_id:
                    ea.find_by_local_part_and_domain(lp, ed.email_domain_id)
                    if ea.email_addr_target_id <> et.email_target_id:
-                   # remove the two previous lines after email_entity upgrade
+                       # remove the two previous lines after email_entity upgrade
                        # Address already exists, and points to a
-			# target not owned by this Account.
-                        continue
+                       # target not owned by this Account.
+                       continue
 		    # Address belongs to this account; make sure
 		    # there's no expire_date set on it.
 		    ea.email_addr_expire_date = None
@@ -174,7 +174,7 @@ class AccountHiOfMixin(Account.Account):
 		    # Address doesn't exist; create it.
                     #
                     # uncomment this line after email_entity upgrade
-		    #ea.populate(lp, ed.entity_id, et.entity_id, expire=None)
+		    # ea.populate(lp, ed.entity_id, et.entity_id, expire=None)
                     ea.populate(lp, ed.email_domain_id, et.email_target_id, expire=None)
                     # remove previous line after email_entity upgrade
 		ea.write_db()
