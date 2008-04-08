@@ -6603,8 +6603,8 @@ class BofhdExtension(object):
             if int(r['quarantine_type']) == self.const.quarantine_autopassord:
                 account.delete_entity_quarantine(self.const.quarantine_autopassord)
 
-        if account.get_entity_quarantine():
-            return "OK.  Warning: user has quarantine"
+        if account.get_entity_quarantine(only_active=True):
+            return "OK.  Warning: user has an active quarantine"
         return "Password altered. Please use misc list_password to print or view the new password."
     
     # user promote_posix
