@@ -180,6 +180,7 @@ class BDBSync:
         s['ime'] =  int(co.Spread("user@%s" % 'ime'))
         s['iptansatt'] =  int(co.Spread("user@%s" % 'iptansatt'))
         s['ivt'] = int(co.Spread("user@%s" % 'ivt'))
+        s['ivtsan'] = int(co.Spread("user@%s" % 'ivtsan'))
         s['kybernetikk'] =  int(co.Spread("user@%s" % 'kybernetikk'))
         s['math'] = int(co.Spread("user@%s" % 'math'))
         s['norgrid'] =  int(co.Spread("user@%s" % 'norgrid'))
@@ -510,7 +511,7 @@ class BDBSync:
         except:
             self.logger.warn("Person with bdb-external-id %s has bad birthdate" % person['id'])
             return False
-        if not person['id'] in cereconf.BDB_NO_NIN_PERSONS:
+        if person['no_nin'] is None:
             if not person.get("person_number"):
                 self.logger.warn("Person with bdb-external-id %s has no person-number" % person['id'])
                 return False
