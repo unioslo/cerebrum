@@ -285,6 +285,8 @@ BOFHD_AUTH_SYSTEMS = ("system_manual",)
 TEMPLATE_DIR=None
 # Location of locks used by bofhd-request processing system
 BOFHD_REQUEST_LOCK_DIR='/cerebrum/var/log/cerebrum/.lock-%d'
+# Quarantines that do not lead to denial of access to bofhd
+BOFHD_NONLOCK_QUARANTINES = ()
 
 # List of valid values for toplevel mountpoints for disks. Checked
 # when disks are added. None = no check performed
