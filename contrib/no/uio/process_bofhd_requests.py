@@ -252,15 +252,7 @@ def process_requests(types):
         'mailman':
         [(const.bofh_mailman_create, proc_mailman_create, 2*60),
          (const.bofh_mailman_add_admin, proc_mailman_add_admin, 1*60),
-         (const.bofh_mailman_remove, proc_mailman_remove, 2*60)],
-##
-## FIXME: netapp stuff is not in use, and the constants mentioned 
-##        here are non-existing in UiOs db. 
-##        'netapp':
-##        [(const.bofh_netapp_create_quotatree, proc_netapp_create_qtree, 1*60),
-##        (const.bofh_netapp_resize_quotatree, proc_netapp_resize_qtree, 1*60),
-##        (const.bofh_netapp_add_export, proc_netapp_add_export, 1*60),
-##        (const.bofh_netapp_remove_export, proc_netapp_remove_export, 1*60)]
+         (const.bofh_mailman_remove, proc_mailman_remove, 2*60)]
         }
     """Each type (or category) of requests consists of a list of which
     requests to process.  The tuples are operation, processing function,
@@ -1076,29 +1068,6 @@ def get_group(id, grtype="Group"):
     return group
 
 
-## def proc_netapp_create_qtree(request):
-##    """Create NetApp quota-tree, based on given request."""
-##    logger.debug("Processing request for netapp_create_qtree: '%s'" % request)
-
-
-## def proc_netapp_resize_qtree(request):
-##    """Resize NetApp quota-tree, based on given request."""
-##    logger.debug("Processing request for netapp_resize_qtree: '%s'" % request)
-
-
-## def proc_netapp_add_export(request):
-##    """Export NetApp quotatree to NFS, based on given request.."""
-##    logger.debug("Processing request for netapp_add_export: '%s'" % request)
-
-
-## def proc_netapp_remove_export(request):
-##    """No longer export NetApp quotatree to NFS, based on given
-##    requests.
-
-##    """
-##    logger.debug("Processing request for netapp_remove_export: '%s'" % request)
-
-
 def is_valid_request(req_id, local_db=db, local_co=const):
     # The request may have been canceled very recently
     br = BofhdRequests(local_db, local_co)
@@ -1135,7 +1104,6 @@ def main():
             if not types:
                 types = ['quarantine', 'delete', 'move',
                          'email', 'mailman']
-                         ## , 'netapp']
             process_requests(types)
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
@@ -1164,7 +1132,6 @@ def usage(exitcode=0):
       move
       quarantine
       delete
-      netapp (not at this point)
 
     Needed for move_student requests:
     --ou-perspective code_str: set ou_perspective (default: perspective_fs)
