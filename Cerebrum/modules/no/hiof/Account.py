@@ -167,9 +167,9 @@ class AccountHiOfMixin(Account.Account):
                        # Address already exists, and points to a
                        # target not owned by this Account.
                        continue
-		    # Address belongs to this account; make sure
-		    # there's no expire_date set on it.
-		    ea.email_addr_expire_date = None
+                   # Address belongs to this account; make sure
+                   # there's no expire_date set on it.
+                   ea.email_addr_expire_date = None
 		except Errors.NotFoundError:
 		    # Address doesn't exist; create it.
                     #
