@@ -91,21 +91,29 @@ class AccountHiOfMixin(Account.Account):
         # the appropriate server
         old_server = et.email_server_id
         acc_types = self.get_account_types()
+        entity = Factory.get("Entity")(self._db)
+        try:
+            entity.clear()
+            entity.find(self.owner_id)
+        except Errors.NotFoundError:
+            pass
+        
         if not old_server:
             # we should update servers for employees as well, but we
             # cannot do that for now as there are no clear criteria
             # for when we should consider someone av fag-employee or
-            # adm-employee. we will therefor update servers for students
+            # adm-employee. we will therefore update servers for students
             # only
             # if self.is_fag_employee():
             #    self._update_email_server('mail.fag.hiof.no')
             # elif self.is_adm_employee():
             #    self._update_email_server('mail.adm.hiof.no')
-            if self.is_student():
-                self._update_email_server('mail.stud.hiof.no')
-            else:
-                # do not set email_server_target until account_type is registered
-                return
+            if entity.entity_type != self.const.entity_group:
+                if self.is_student():
+                    self._update_email_server('mail.stud.hiof.no')
+                else:
+                    # do not set email_server_target until account_type is registered
+                    return
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
