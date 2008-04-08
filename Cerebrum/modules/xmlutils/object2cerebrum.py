@@ -221,14 +221,16 @@ class XML2Cerebrum:
           A mapping of affiliations to be assigned to this person. The
           affiliations are calculated elsewhere on the basis of employment
           information available in L{xmlperson}. The dict itself is a mapping
-          from <FIXME> keys to 3-tuples of values (ou_id, affiliation,
+          from basestring keys to 3-tuples of values (ou_id, affiliation,
           status) for the specified source system (self.source_system).
         
-        @type traits: sequence
+        @type traits: sequence (of triples)
         @param traits:
           A sequence of traits to be assigned to this person. The traits are
           calculated elsewhere on the basis of employment and role information
-          available in L{xmlperson}.
+          available in L{xmlperson}. Each element of the sequence is a triple
+          (trait, ou_id, roleid), with the trait, ou and a textual role
+          description for that trait.
 
         @rtype: tuple (basestring, int)
         @return:
@@ -394,9 +396,7 @@ class XML2Cerebrum:
 
         @type traits: sequence
         @param traits:
-          A sequence of traits to assign to person. Each one is an object that
-          can be passed directly to the EntityTrait-API (i.e. either an int or
-          a suitable instance of _EntityTraitCode).
+          Cf. L{store_person}
         """
 
         # 2008-01-15 IVR: Potentially, we may have to do much more than this.
@@ -404,11 +404,12 @@ class XML2Cerebrum:
             # strval is mainly to make it easier to deduce the role that gave
             # a certain trait. This is needed later (in populate-auto-groups)
             # to *automatically* create group descriptions with sensible
-            # names. We *could* perhaps 
+            # names.
             person.populate_trait(trait, target_id=ou_id, strval=roleid)
             self.logger.info("Person id=%s acquires trait %s "
                              "target_id=%s strval=%s",
-                             person.entity_id, co.EntityTrait(trait),
+                             person.entity_id,
+                             self.constants.EntityTrait(trait),
                              ou_id, roleid)
     # end _assign_person_traits
 
