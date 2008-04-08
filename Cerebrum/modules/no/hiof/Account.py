@@ -184,13 +184,13 @@ class AccountHiOfMixin(Account.Account):
                         epat.find(ea.email_addr_target_id)
                         # uncomment this line after email_entity upgrade
                         # epat.populate(ea.entity_id)
-                        epat.populate(ea.email_addr_id, parent = et)
+                        epat.populate(ea.email_addr_id)
                         # remove previous line after email_entity upgrade
                     except Errors.NotFoundError:
                         epat.clear()
                         # uncomment this line after email_entity upgrade
                         # epat.populate(ea.entity_id, parent = et)
-                        epat.populate(ea.entity_id, parent = et)
+                        epat.populate(ea.email_addr_id, parent = et)
                         # remove previous line after email_entity upgrade
                     epat.write_db()
                     primary_set = True
