@@ -231,6 +231,9 @@ class BofhdExtension(object):
         max_date = start_date + DateTime.RelativeDateTime(days=cereconf.GUESTS_MAX_PERIOD)
         if end_date > max_date:
             raise CerebrumError("End date can't be later than %s" % max_date.date)
+        if not nr.isdigit():
+            raise CerebrumError("'Number of accounts' requested must be a number;"
+                                " '%s' isn't." % nr)
 
         try:
             self.ba.can_request_guests(operator.get_entity_id(), groupname)
