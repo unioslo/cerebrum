@@ -94,7 +94,8 @@ def main():
     # TDB: could _CerebrumCode have a classmethod to do this, and
     # also empty all cached constants?
     from Cerebrum.Constants import _CerebrumCode
-    _CerebrumCode.sql = db
+    if _CerebrumCode.sql.fget(None) == None:
+        _CerebrumCode.sql.fset(None, db)
 
     meta = Metainfo.Metainfo(db)
     for opt, val in opts:

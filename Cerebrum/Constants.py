@@ -23,6 +23,8 @@ The Constants class defines a set of methods that should be used to
 get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
+import threading
+
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum import Errors
@@ -36,10 +38,37 @@ class CodeValuePresentError(RuntimeError):
 
 class _CerebrumCode(DatabaseAccessor):
     """Abstract base class for accessing code tables in Cerebrum.
-       Note that the database connection must be prepared first by
-       setting _CerebrumCode.sql = db"""
 
-    sql = None
+    FIXME: Explain why this needs a private db connection.
+    """
+
+    # multiple threads may share a constant object. All db_proxy manipulations
+    # need to be protected.
+    _db_proxy_lock = threading.Lock()
+    _private_db_proxy = None
+    def get_sql(self):
+        try:
+            _CerebrumCode._db_proxy_lock.acquire()
+            try:
+                _CerebrumCode._private_db_proxy.ping()
+            except:
+                _CerebrumCode._private_db_proxy = Factory.get("Database")()
+            return _CerebrumCode._private_db_proxy
+        finally:
+            _CerebrumCode._db_proxy_lock.release()
+
+    def set_sql(self, db):
+        try:
+            _CerebrumCode._db_proxy_lock.acquire()
+            try:
+                db.ping()
+                _CerebrumCode._private_db_proxy = db
+            except:
+                _CerebrumCode._private_db_proxy = Factory.get("Database")()
+        finally:
+            _CerebrumCode._db_proxy_lock.release()
+    sql = property(get_sql, set_sql, doc="private db connection")
+    
     _lookup_table = None                # Abstract class.
     _lookup_code_column = 'code'
     _lookup_str_column = 'code_str'
@@ -525,7 +554,7 @@ class ConstantsBase(DatabaseAccessor):
 
     def map_const(self, num):
         """Returns the Constant object as a reverse lookup on integer num"""
-        skip = list(dir(_CerebrumCode.sql))
+        skip = list(dir(_CerebrumCode.sql.fget(None)))
         skip.extend(("map_const", "initialize"))
         for x in filter(lambda x: x[0] != '_' and not x in skip, dir(self)):
             v = getattr(self, x)
@@ -605,17 +634,18 @@ class ConstantsBase(DatabaseAccessor):
         # The database parameter is deprecated.
         # SH 2007-07-18 TDB: warn whenever this parameter is set.
 
-        # All CerebrumCodes use a common private db connection,
-        # stored in _CerebrumCode.sql.
-        # This connection must never be closed or invalidated.
+        # All CerebrumCodes use a common private db connection, stored in
+        # _CerebrumCode.  This connection must never be closed or
+        # invalidated. However, if it *is* closed, we try to transparently
+        # re-open it.
 
-        if _CerebrumCode.sql == None:
-            _CerebrumCode.sql = Factory.get('Database')()
+        if _CerebrumCode.sql.fget(None) == None:
+            _CerebrumCode.sql.fset(None, Factory.get("Database")())
 
         # initialize myself with the CerebrumCode db.connection
         # This makes Constants.commit() and such possible.
         
-        super(ConstantsBase, self).__init__(_CerebrumCode.sql)
+        super(ConstantsBase, self).__init__(_CerebrumCode.sql.fget(None))
 
     def fetch_constants(self, wanted_class, prefix_match=""):
         """Return all constant instances of wanted_class.  The list is
