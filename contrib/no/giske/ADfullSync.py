@@ -2,13 +2,12 @@
 # -*- coding: iso-8859-1 -*-
 
 import getopt, sys
+import xmlrpclib
 import cerebrum_path
 import cereconf
 
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Entity
-#from Cerebrum.modules import MountHost
 from Cerebrum.modules import ADutilMixIn
 
 db = Factory.get('Database')()
@@ -276,13 +275,21 @@ def main():
 
     if user_sync:
         ADfullUser = ADfuSync(db, co, logger)	
-        ADfullUser.full_sync('user', delete_objects,
-                             user_spread, dry_run)
+        try:
+            ADfullUser.full_sync('user', delete_objects,
+                                 user_spread, dry_run)
+        except xmlrpclib.ProtocolError, xpe:
+            logger.critical("Error connecting to AD service. Giving up: %s %s" %
+                            (xpe.errcode, xpe.errmsg))
 
     if group_sync:
         ADfullGroup = ADfgSync(db, co, logger)
-        ADfullGroup.full_sync('group', delete_objects,
-                              group_spread, dry_run, user_spread)
+        try:
+            ADfullGroup.full_sync('group', delete_objects,
+                                  group_spread, dry_run, user_spread)
+        except xmlrpclib.ProtocolError, xpe:
+            logger.critical("Error connecting to AD service. Giving up: %s %s" %
+                            (xpe.errcode, xpe.errmsg))
 
 if __name__ == '__main__':
     main()
