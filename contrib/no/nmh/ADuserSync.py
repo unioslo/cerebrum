@@ -27,7 +27,6 @@ import xmlrpclib
 import sre
 import re
 
-from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum.Utils import Factory
 
@@ -439,8 +438,14 @@ def main():
 
     c_data = get_cerebrum_data()
 
-    ad_data = get_ad_data()
-
+    # Fetch AD-data. Catch ProtocolError and don't write xpe.url to log
+    # since it may contain a password.
+    try:
+        ad_data = get_ad_data()
+    except xmlrpclib.ProtocolError, xpe:
+        logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                        (xpe.errcode, xpe.errmsg))
+        return
 
     changes = compare(ad_data,c_data)
     logger.info("Will perform %d changes", len(changes))

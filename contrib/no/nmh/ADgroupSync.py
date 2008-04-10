@@ -24,9 +24,7 @@ import sys
 import cerebrum_path
 import cereconf
 import xmlrpclib
-import operator
 
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 
@@ -217,8 +215,14 @@ def main():
             dry_run = True
 
     logger.info("Syncronizing all groups")
-    full_sync(delete_groups, dry_run)
-    logger.info("All done")
+    # Catch protocolError to avoid that url containing password is
+    # written to log
+    try:
+        full_sync(delete_groups, dry_run)
+        logger.info("All done")
+    except xmlrpclib.ProtocolError, xpe:
+        logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                        (xpe.errcode, xpe.errmsg))
 
     
 def usage(exitcode=0):

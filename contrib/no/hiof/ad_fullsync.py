@@ -43,6 +43,7 @@ Example:
 
 import getopt
 import sys
+import xmlrpclib
 import cerebrum_path
 import cereconf
 from Cerebrum.Constants import _SpreadCode
@@ -68,9 +69,16 @@ def fullsync(user_class_ref, url, user_spread=None, group_spread=None,
     # Different logger for different adsyncs
     logger_name = "ad_" + sync_type + "sync_" + str(spread).split('@ad_')[1]
     logger = Utils.Factory.get_logger(logger_name)
-    # instantiate sync_class and call full_sync
-    sync_class(db, co, logger, url=url, ad_ldap=ad_ldap).full_sync(
-        sync_type, delete_objects, spread, dryrun, user_spread)
+    # Catch protocolError to avoid that url containing password is
+    # written to log
+    try:
+        # instantiate sync_class and call full_sync
+        sync_class(db, co, logger, url=url, ad_ldap=ad_ldap).full_sync(
+            sync_type, delete_objects, spread, dryrun, user_spread)
+    except xmlrpclib.ProtocolError, xpe:
+        logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                        (xpe.errcode, xpe.errmsg))
+
 
 def main():
     try:
