@@ -103,15 +103,15 @@ def quick_sync():
                              ans["subject_entity"], entity.entity_type)
             except Errors.NotFoundError:
                 # This is a bit hackish, but we don't want warnings
-                # about deleted fronter groups
+                # about deleted groups
                 # TBD: should we have a coloumn subject_entity_type in
                 # change_log so that we can know what type a deleted
                 # entity had?
+                change_params = pickle.loads(ans['change_params'])
                 if (chg_type == clco.spread_del and 
-                    ans['change_program'] == 'CF_gen_groups'):
-                    logger.debug("Could not find any *entity* with id=%s ",
-                                 "because it was a group that was deleted",
-                                 ans['subject_entity'])
+                    change_params['spread'] != co.spread_uio_notes_account):
+                        logger.debug("%s is a deleted non-account entity. Ignoring.",
+                                     ans['subject_entity'])
                 else:
                     logger.warn("Could not find any *entity* with id=%s "
                                 "although there is a change_log entry for it",
