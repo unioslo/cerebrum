@@ -39,7 +39,18 @@ class CodeValuePresentError(RuntimeError):
 class _CerebrumCode(DatabaseAccessor):
     """Abstract base class for accessing code tables in Cerebrum.
 
-    FIXME: Explain why this needs a private db connection.
+    The class needs a connection to the database (to enable constant
+    insertion, deletion and such). However, such a connection should better be
+    private, to avoid situations when it is inadvertently closed from
+    outside. Hence the attribute _privata_db_proxy.
+
+    Unfortunately, there may still be possibilities when such a private
+    connection is exposed and closed. It does not happen often, but it is a
+    possibility. To avoid subtle bugs, it has been decided to re-establish
+    connection to the db, when it suddenly disappears. This is what the
+    property sql is for. A new connection is created transparently. Client
+    code (using constants) may simply assume that the connection always
+    exists.
     """
 
     # multiple threads may share a constant object. All db_proxy manipulations
