@@ -50,7 +50,7 @@ def main():
     db = Factory.get('Database')()
     constants = Factory.get('Constants')(db)
     account = Factory.get("Account")(db)
-    logger = Factory.get_logger('console')
+    logger = Factory.get_logger('cronjob')
     edir_object_class = 'objectClass=inetOrgPerson'
 
     all_accounts_cerebrum = account.list()
