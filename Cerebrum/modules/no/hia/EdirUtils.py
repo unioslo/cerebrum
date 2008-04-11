@@ -81,7 +81,7 @@ class EdirUtils:
                 attr_g['equivalentToMe'] = [ldap_member_dn]
                 self.logger.debug("Making target group attributes member and equivalentToMe")
                 if mod_type == 'add':
-                    if 'groupMembership' in ldap_attr.keys():
+                    if 'groupMembership' in ldap_attr:
                         for g in self.serv_groups_stud:
                             dn_stud_grp = "cn=%s,ou=grp,ou=Stud,o=HiA" % g
                             if dn_stud_grp in ldap_attr['groupMembership']:
@@ -94,7 +94,7 @@ class EdirUtils:
                                 return False
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g)
                     self.logger.debug("Added target group attributes %s to %s", attr_g, ldap_group_dn)
-                    if 'groupMembership' in ldap_attr.keys():
+                    if 'groupMembership' in ldap_attr:
                         for m in ldap_attr['groupMembership']:
                             membership_list.append(m)
                         self.logger.debug("Found other group memberships for %s, %s",
@@ -109,7 +109,7 @@ class EdirUtils:
                     if member_type == 'account':
                         if not ldap_group_dn in sec_eq_list:
                             sec_eq_list.append(ldap_group_dn)
-                        if 'securityEquals' in ldap_attr.keys():
+                        if 'securityEquals' in ldap_attr:
                             for s in ldap_attr['securityEquals']:
                                 sec_eq_list.append(s)
                             self.logger.debug("Found other security equals attrs for %s, %s",
@@ -123,14 +123,14 @@ class EdirUtils:
                     self.logger.debug("Replaced attributes %s for %s", ldap_member_dn, attr_m)
                 elif mod_type == 'delete':
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g)
-                    if 'group_Membership' in ldap_attr.keys():
+                    if 'group_Membership' in ldap_attr:
                         membership_list = ldap_attr['groupMembership']
                         if ldap_group_dn in ldap_attr['groupMembership']:
                             membership_list.remove(ldap_group_dn)
                     if membership_list:
                         attr_m['groupMembership'] = membership_list
                     if member_type == 'account':
-                        if 'securityEquals' in ldap_attr.keys():
+                        if 'securityEquals' in ldap_attr:
                             sec_eq_list = ldap_attr['securityEquals']
                             if ldap_group_dn in ldap_attr['securityEquals']:
                                 sec_eq_list.remove(ldap_group_dn)
@@ -158,7 +158,7 @@ class EdirUtils:
 
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
-            if l_disabled in ldap_attr.keys():
+            if l_disabled in ldap_attr:
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
             else:
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'add', attr)
@@ -176,7 +176,7 @@ class EdirUtils:
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             attr[l_disabled] = ['False']
-            if l_disabled in ldap_attr.keys():
+            if l_disabled in ldap_attr:
                 self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
                 desc = 'Cerebrum: rem quarantine %s' % self.date 
                 self.object_set_description(account_name, self.c_person, desc)
@@ -189,7 +189,7 @@ class EdirUtils:
         ldap_object = self._find_object(account_name, self.c_person)
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
-            if l_disabled in ldap_attr.keys():
+            if l_disabled in ldap_attr:
                 if ldap_attr['loginDisabled'] == ['TRUE']:
                     return True
         return False
@@ -227,7 +227,7 @@ class EdirUtils:
                                         self.pq_attrlist)
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
-            if 'accountBalance' in ldap_attr.keys():
+            if 'accountBalance' in ldap_attr:
                 tmp = int(ldap_attr['accountBalance'][0])
                 action = 'replace'
             pquota = tmp + pquota
@@ -345,7 +345,7 @@ class EdirUtils:
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
-            if 'password' in ldap_attr.keys():
+            if 'password' in ldap_attr:
                 logger.info("Updated password for %s", account_name)
             desc = "Cerebrum: password %s" % self.now
             self.object_set_description(account_name, self.c_person, desc)
@@ -365,7 +365,7 @@ class EdirUtils:
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             self.__ldap_handle.ldap_modify_object(ldap_object_dn, 'replace', attr)
-            if home in ldap_attr.keys():
+            if home in ldap_attr:
                 if path <> ldap_attr[home]:
                     desc = "Cerebrum: user moved %s" % self.date
                     self.object_set_description(account_name, self.c_person, desc)
