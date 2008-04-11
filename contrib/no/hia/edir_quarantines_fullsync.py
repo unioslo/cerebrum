@@ -83,7 +83,7 @@ def main():
                 logger.debug("Skipping %s, quarantined in both cerebrum and edir.", uname)
             else:
                 logger.info("%s quarantined in cerebrum but not in eDir, updating eDir", uname)
-                edir_utils.account_set_quarantine(uname)
+                edir_util.account_set_quarantine(uname)
         else:
             if quarantine_edir:
                 logger.error("%s quarantined in eDir but not in Cerebrum", uname)
