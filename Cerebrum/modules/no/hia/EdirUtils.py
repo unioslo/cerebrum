@@ -190,7 +190,7 @@ class EdirUtils:
         if ldap_object:
             (ldap_object_dn, ldap_attr) = ldap_object[0]
             if l_disabled in ldap_attr.keys():
-                if account_edir_attr['loginDisabled'] == ['TRUE']:
+                if ldap_attr['loginDisabled'] == ['TRUE']:
                     return True
         return False
 
