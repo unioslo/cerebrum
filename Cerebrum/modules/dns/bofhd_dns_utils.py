@@ -189,7 +189,7 @@ class DnsBofhdUtils(object):
     #
     # dns-owners, general_dns_records and mx-sets, srv_records
     #
-    def get_zone_from_name(self, name, warn_other=False):
+    def get_zone_from_name(self, name):
         """Try to guess a zone from a name. Returns a DnsZone Constant
         object."""
         def _get_reverse_order(lst):
@@ -210,8 +210,6 @@ class DnsBofhdUtils(object):
                 zone = z
                 break
         if not zone:
-            if warn_other and not force:
-                raise CerebrumError, "'%s' would end up in the 'other' zone, must force (y)" % name
             zone = self.const.other_zone
         return zone
 
@@ -220,10 +218,9 @@ class DnsBofhdUtils(object):
         name in the other zone.  This is meant to catch attempts to
         for instance register CNAMEs in zones that we don't populate.
         """
-        warn = False
-        if warn_other and not force:
-            warn = True
-        zone = self.get_zone_from_name(name, warn)
+        zone = self.get_zone_from_name(name)
+        if zone == self.const.other_zone and warn_other and not force:
+            raise CerebrumError, "'%s' would end up in the 'other' zone, must force (y)" % name
         self._dns_owner.clear()
         self._dns_owner.populate(zone, name, mx_set_id=mx_set)
         self._dns_owner.write_db()
