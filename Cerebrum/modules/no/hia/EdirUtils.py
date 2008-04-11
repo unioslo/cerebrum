@@ -181,6 +181,19 @@ class EdirUtils:
                 desc = 'Cerebrum: rem quarantine %s' % self.date 
                 self.object_set_description(account_name, self.c_person, desc)
 
+    def account_get_quarantine_status(self, account_name):
+        """Get current value of attribute 'loginDisabled'. Used by the
+           quarantine fullsync. Return True if loginDisabled, otherwise
+           return False."""
+        l_disabled = 'loginDisabled'
+        ldap_object = self._find_object(account_name, self.c_person)
+        if ldap_object:
+            (ldap_object_dn, ldap_attr) = ldap_object[0]
+            if l_disabled in ldap_attr.keys():
+                if account_edir_attr['loginDisabled'] == ['TRUE']:
+                    return True
+        return False
+
 ## PRINTER QUOTA: get quota info, set accountBalance, get all available quota info
     def get_pq_balance(self, account_name):
         """Get current value of attribute 'accountBalance' for
