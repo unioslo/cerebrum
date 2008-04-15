@@ -152,6 +152,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1352_post_doktor = SAPLonnsTittelKode(
+        "20001352",
+        "1352 Post doktor",
+        "VIT"
+    )
+
     sap_1364_seniorradgiver = SAPLonnsTittelKode(
         "20001364",
         "1364 Seniorrådgiver",
