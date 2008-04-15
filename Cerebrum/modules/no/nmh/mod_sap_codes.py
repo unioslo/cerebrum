@@ -36,7 +36,7 @@ class SAPConstants(Constants.Constants):
 
     # ----[ SAPForretningsOmradeKode ]----------------------------------
     sap_nmh = SAPForretningsOmradeKode(
-        "2490",
+        "0300",
         "NMH"
     )
 
