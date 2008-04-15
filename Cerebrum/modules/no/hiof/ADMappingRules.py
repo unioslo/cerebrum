@@ -54,9 +54,13 @@ class Fag(object):
         ('98', '10', '*'): 'Halden'
         }
     avdeling_mapping = {
+        # New: very special employees at Fellestjeneste :-)
+        ('00', '*', '00'): {'All': 'LU'},
         ('00', '*', '10'): {'All': 'LU'},
         ('00', '*', '20'): {'All': 'IR'},
         ('00', '*', '30'): {'All': 'HS'},
+        # New: very special employees at Fellestjeneste :-)
+        ('20', '*', '00'): {'All': 'FT'},
         ('20', '*', '10'): {'All': 'LU'},
         ('20', '*', '20'): {'All': 'IR'},
         ('20', '*', '30'): {'All': 'HS'},
