@@ -123,7 +123,13 @@ class create_person_xml:
                 gruppenr = ansvarssted[4:6]
 
                 last_name_length=1
-                if personnavn.startswith("VAN ") or personnavn.startswith("VON ") or personnavn.startswith("DES ") or personnavn.startswith("DE ")  or personnavn.startswith("DO ")  or personnavn.startswith("DA "):
+                if personnavn.startswith("VAN ") or \
+                   personnavn.startswith("VON ") or \
+                   personnavn.startswith("DES ") or \
+                   personnavn.startswith("DE ")  or \
+                   personnavn.startswith("DO ")  or \
+                   personnavn.startswith("DA ") or \
+                   personnavn.startswith("ESKONSIPO NYSTAD "):
                     last_name_length=2
                 if personnavn.startswith("VAN DER "):
                     last_name_length=3
