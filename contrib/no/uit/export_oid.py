@@ -74,8 +74,8 @@ def load_cache():
 
     logger.info("Retreiving account owners")
     owner2account=dict()
-    for a in ac.list(filter_expired=False):
-        owner2account[a['owner_id']]=a['account_id']
+    for a in ac.list_accounts_by_type(filter_expired=False, primary_only=True):
+        owner2account[a['person_id']]=a['account_id']
 
     logger.info("Retreiving auth strings")
     auth_list=dict()
