@@ -5560,6 +5560,9 @@ class BofhdExtension(object):
         spread = self._get_constant(self.const.Spread, spread, "spread")
         self.ba.can_add_spread(operator.get_entity_id(), entity, spread)
         try:
+            if entity.has_spread(spread):
+                raise CerebrumError("entity id=%s already has spread=%s" %
+                                    (id, spread))
             entity.add_spread(spread)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
