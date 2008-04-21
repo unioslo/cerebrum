@@ -21,7 +21,7 @@
 
 """This module provides a logging framework for Cerebrum.
 
-The idea is based on python2.3's logging module and a few nits of our own.
+The idea is based on python's logging module and a few nits of our own.
 
 The logging framework behaviour is controlled by a suitable configuration
 file, described here [1]. Although we use the very same format/options as the
@@ -30,10 +30,11 @@ file, for the behaviour sought is quite different from that of
 logging.fileConfig. Most noteably:
 
 * Only one logger is initialized. If no name is specified, the root logger
-  is used.
+  is used. This is a design choice.
 
 * Only the logger explicitely requested is initialized. We do *not* open
-  *all* handers, only those attached to the requested logger.
+  *all* handers, only those attached to the requested logger. This is
+  different from the logging behaviour.
 
 * The root logger (if it is initialized at all) is an instance of
   CerebrumLogger, not logging.RootLogger.
@@ -49,9 +50,10 @@ logging framework:
 * a CerebrumLogger class, with several additional message levels (five new
   debug levels)
 
-* a CerebrumRotatingHandler class, which is a specialization of
-  logging.RotatingFileHandler capable of arranging the logfiles based on
-  sys.argv[0]
+* Additional handlers and formatters.
+
+* Indentation support. Although this option is contrary to the abstraction
+  spirit of the logging framework, it has nevertheless been found useful.
 
 The behaviour of this module can be partially controlled from the command
 line, through the following arguments:
@@ -64,40 +66,49 @@ References:
   [2] <URL: http://www.red-dove.com/python_logging.html>
 """
 
-from logging import handlers
 import ConfigParser
 import codecs
-import getopt
 import inspect
 import logging
 import os
 import os.path
 import re
-import string
 import sys
-import thread
 import threading
 import time
-import types
 
 # IVR 2007-02-08: This is to help logging.findCaller(). The problem is that
 # logging.findCaller looks for the first function up the stack that does not
 # belong to logging. This is of course some wrapper from cerelog. So, we need
 # to modify findCaller to ignore both logging and cerelog.
-if string.lower(__file__[-4:]) in ['.pyc', '.pyo']:
+if __file__[-4:].lower() in ['.pyc', '.pyo']:
     _srcfile = __file__[:-4] + '.py'
 else:
     _srcfile = __file__
 _srcfile = os.path.normcase(_srcfile)
+
+#
+# Additional debug levels. They will be added to the logging framework
+DEBUG1 = logging.DEBUG - 1
+DEBUG2 = DEBUG1-1
+DEBUG3 = DEBUG2-1
+DEBUG4 = DEBUG3-1
+DEBUG5 = DEBUG4-1
 
 
 
 
 
 def debug(*rest):
+    """A shorthand for dumping messages to stderr.
+    
+    If the logging framework fails, we may need some way of reporting the
+    failures to the client environment. This is the simplest way (Cerebrum's
+    dispatcher job_runner captures standard output/error)
+    """
+    
     for item in rest:
         sys.stderr.write(str(item))
-    # od
 
     sys.stderr.write('\n')
 # end debug
@@ -117,7 +128,6 @@ def show_hierarchy(logger):
         debug("Handlers: ", [ "%s (%s)" % (x, x.level) for x in l.handlers ]) 
         debug("Propagate: ", l.propagate)
         l = l.parent
-    # od
 # end show_hierarchy
     
 
@@ -130,17 +140,13 @@ def init_cerebrum_extensions():
     """
 
     # Certain things are evaluated in logging package's context
-    setattr(logging, "CerebrumRotatingHandler", CerebrumRotatingHandler)
-    setattr(logging, "CerebrumLogger", CerebrumLogger)
+    # setattr(logging, "CerebrumRotatingHandler", CerebrumRotatingHandler)
+    # setattr(logging, "CerebrumLogger", CerebrumLogger)
         
     # A couple of constants for our debugging levels
-    for i in range(1,6):
-        name = "DEBUG%d" % i
-        value = logging.DEBUG - i
-        
-        setattr(logging, name, value)
-        logging.addLevelName(value, name)
-    # od
+    for level_name in ("DEBUG1", "DEBUG2", "DEBUG3", "DEBUG4", "DEBUG5"):
+        level = globals()[level_name]
+        logging.addLevelName(level, level_name)
 
     logging.setLoggerClass(CerebrumLogger)
 # end init_cerebrum_extensions
@@ -151,18 +157,32 @@ def fetch_logger_arguments(keys):
     """Extract command line arguments for the cerelog module.
     
     Unfortunately getopt reacts adversely to unknown arguments. Thus we'd have
-    to process command-line arguments ourselves.
+    to process command-line arguments ourselves. Additionally, since most of
+    the code relies on passing sys.argv to the logging framework, this
+    function modifies sys.argv and removes all cerelog specific parameters.
 
-    KEYS is a set of keys that correspond to cerelog-specific command-line
-    arguments. Everything else is ignored by this function.
+    @type keys: sequence (of basestrings)
+    @param keys:
+      A list of arguments to look for in sys.argv. The lookup process is
+      DESTRUCTIVE. This function can be run only once, unless sys.argv is
+      saved before the call and restored after it.
 
+    @rtype: dict (of basestring to basestring)
+    @return:
+      A dictionary mapping entries from L{keys} to the values belonging to
+      those arguments on the command line. If no arguments are located, an
+      empty dictionary is returned.
+      
     IVR 2007-02-08 TBD: Ideally, we need to whip out our own argument parser
     on top of getopt/optparse that is cerelog-aware and that can ignore
     arguments it does not understand. 
     """
 
+    # key to command line parameter value
     result = dict()
+    # the copy of the original sys.argv
     args = sys.argv[:]
+    # positions that we'll have to remove from the original sys.argv
     filter_list = list()
 
     i = 0
@@ -174,28 +194,27 @@ def fetch_logger_arguments(keys):
             # We have an option. Two cases:
             # Case 1: key=value
             if args[i].find("=") != -1:
-                result[key] = string.split(args[i], "=")[1]
+                result[key] = args[i].split("=")[1]
                 filter_list.append(i)
             # Case 2: key value. In this case we peek into the next argument
             elif i < len(args)-1:
                 result[key] = args[i+1]
-                filter_list.append(i); filter_list.append(i+1)
+                filter_list.append(i)
+                filter_list.append(i+1)
                 # since we peeked one argument ahead, skip it
                 i += 1
 
         # next argument
         i += 1
 
-    # We must make sure that every references to sys.argv already made
-    # remains intact.
+    # We must make sure that every references to sys.argv already made remains
+    # intact.
     #
     # IVR 2007-01-30 FIXME: This is not thread-safe
     sys.argv[:] = list()
-    for i in range(0,len(args)):
+    for i in range(0, len(args)):
         if i not in filter_list:
             sys.argv.append(args[i])
-        # fi
-    # od
 
     return result
 # end fetch_logger_arguments
@@ -217,6 +236,11 @@ def process_arguments():
                          no value is specified, the default for the logging
                          module is used (FIXME: This default is different
                          between python 2.2 and 2.3)
+
+    @rtype: typle (of basestrings)
+    @return:
+      A tuple containing name of the logger to use and logger's level. Either
+      one can be 'missing', in which case None is returned.
     """
 
     result = fetch_logger_arguments(["--logger-name",
@@ -233,6 +257,28 @@ def process_config(fname, logger_name, logger_level):
     arguments.
 
     We try to mimic logging.fileConfig's behaviour as close as possible.
+
+    @type fname: basestring
+    @param fname:
+      File name for the configuration file. This file must exist and must be
+      readable.
+
+    @type logger_name: basestring
+    @param logger_name:
+      Logger name to initialize from the config file (there may be many
+      loggers specified in that file. We initialize only the one
+      specified). If no such logger could be found in the config file, an
+      exception is raised.
+ 
+    @type logger_level: int or basestring
+    @param logger_level:
+      See L{get_level}.
+
+    @rtype: a logging.getLoggerClass() instance
+    @return:
+      A logger object (ready for logging). All the dependencies of that logger
+      (and only they) are initialized (dependencies in this case means
+      formatters, handlers, parents (and the transitive closure thereof)).
     """
 
     parser = ConfigParser.ConfigParser()
@@ -242,7 +288,7 @@ def process_config(fname, logger_name, logger_level):
         parser.read(fname)
 
     # From here on we initialize a single logger (and all its ancestors),
-    # identified by LOGGER_NAME
+    # identified by L{logger_name}.
     logger = initialize_logger(logger_name, logger_level, parser)
 
     # Now we *must* create all parents on the way up toward the root
@@ -253,7 +299,7 @@ def process_config(fname, logger_name, logger_level):
     else:
         name = logger.name
         current = logger
-        pos = string.rfind(name, ".")
+        pos = name.rfind(".")
         while (pos > 0) and current.propagate:
             parent_name = name[:pos]
             # logger_name is a command-line argument. It should not affect
@@ -264,7 +310,7 @@ def process_config(fname, logger_name, logger_level):
             current.parent = parent
             # Move one level higher up the hierarchy
             current = parent
-            pos = string.rfind(name, ".", 0, pos-1)
+            pos = name.rfind(".", 0, pos-1)
 
         # Make sure that the topmost parent of the logger hierarchy points
         # to a root logger initialized by us (logging modules forces a
@@ -283,10 +329,18 @@ def process_config(fname, logger_name, logger_level):
 
 
 def get_level(level):
-    "Return a number corresponding to the given severity level name/number."
+    """Return a number corresponding to the given severity level name/number.
+
+    @param level: int or basestring
+    @param level:
+      Level specification to check. It could be either an int or a string. If
+      it is a string it may be either all digits (for the numerical
+      representation of the level) or all letters (for the actual name of the
+      level).
+    """
 
     try:
-        if (isinstance(level, long) or
+        if (isinstance(level, int) or
             isinstance(level, basestring) and level.isdigit()):
             # check that is has been defined
             level = int(level)
@@ -306,15 +360,31 @@ def get_level(level):
 
 
 def initialize_logger(name, level, config):
-    """This function creates and initializes a new logger NAME with config
-    information specified in CONFIG.
+    """This function creates and initializes a new logger L{name} with config
+    information specified in L{config}.
 
-    LEVEL overrides whatever level CONFIG specifies.
+    Once the logger object is created, it's registered with the logging
+    framework (this is needed to keep track of parent-child relationships
+    between loggers).
 
-    Furthermore, this function registers the new logger inside the logging
-    framework (we need this to keep track of parent-child relationships).
+    @type name: basestring
+    @param name:
+      Logger name to use. This also indicated where to look for settings in
+      the configuration file.
 
-    This function returns the new logger.
+    @type level: int or basestring
+    @param level:
+      See L{get_level}.
+
+    @type config: ConfigParser.ConfigParser instance
+    @param config:
+      A ConfigParser instance associated with the configuration file. The
+      content of the config file has already been read and is available via
+      the ConfigParser API.
+
+    @rtype: logging.getLoggerClass() instance
+    @return:
+      A logger object (ready for usage).
     """
 
     section_name = "logger_" + name
@@ -348,7 +418,7 @@ def initialize_logger(name, level, config):
     logger.disabled = 0
     handler_names = config.get(section_name, "handlers")
     if handler_names:
-        for handler_name in string.split(handler_names, ","):
+        for handler_name in handler_names.split(","):
             # allow people to be sloppy with whitespace
             handler_name = handler_name.strip()
             logger.addHandler(initialize_handler(handler_name, config))
@@ -367,17 +437,30 @@ def initialize_logger(name, level, config):
 
 _handlers = dict()
 def initialize_handler(name, config):
-    """
-    This function creates and initializes a handler NAME from an ini-file
-    represented by CONFIG.
+    """This function creates and initializes a handler L{name} from an
+    ini-file represented by L{config}.
 
-    If a handler NAME already exists, it is returned without any
-    re-initialization.
+    If a handler L{name} already exists, it is returned without any
+    re-initialization. (Imagine for a second that several FileHandlers were
+    opened simultaneously for the same file)
+
+    IVR 2008-04-09 NB! The code is NOT thread-safe.
+
+    @type name: basestring
+    @param name:
+      Handler's name (also used to look up the proper config in the config
+      file).
+
+    @type config: See L{initialize_logger}
+    @param config: See L{initialize_logger}
+
+    @rtype: an instance of logging.Handler (or its subclasses)
+    @return:
+      A handler object ready to use.
     """
 
     if _handlers.has_key(name):
         return _handlers[name]
-    # fi
 
     section_name = "handler_" + name
     klass = config.get(section_name, "class")
@@ -388,19 +471,21 @@ def initialize_handler(name, config):
         formatter = ""
     # fi
 
-    # Look up KLASS in the logging module + this file.
+    # Look up KLASS in the logging module + this file. The handler could be in
+    # either one.
     namespace = logging.__dict__.copy()
     namespace.update(globals())
     klass = namespace[klass]
 
     #
-    # We want all of our handlers to understand indentation directives
+    # We want *all* of our handlers to understand indentation directives. So,
+    # we monkey patch the indentation capabilities.
     klass = type("_dynamic_" + name, (klass, IndentingHandler), {})
 
     arguments = config.get(section_name, "args")
     arguments = eval(arguments, namespace)
 
-    handler = apply(klass, arguments)
+    handler = klass(*arguments)
 
     # If there is a level specification in the ini-file, use it. 
     if "level" in options:
@@ -411,24 +496,6 @@ def initialize_handler(name, config):
     if formatter:
         handler.setFormatter(initialize_formatter(formatter, config))
 
-    # The ctor does not accept maxsize/backcount, so we have to do a bit of
-    # postprocessing.
-    if klass == logging.FileHandler:
-        maxsize = 0
-        if "maxsize" in options:
-            maxsize = config.getint(section_name, "maxsize")
-
-        if maxsize:
-            backcount = 0
-            if "backcount" in options:
-                backcount = config.getint(section_name, "backcount")
-
-            handler.setRollover(maxsize, backcount)
-
-    # IVR 2007-02-13 TBD: Why am I doing this?
-    elif klass == handlers.MemoryHandler:
-        raise ValueError, "Aiee! MemoryHandlers not supported yet"
-
     _handlers[name] = handler
     return handler
 # end initialize_handler
@@ -437,7 +504,17 @@ def initialize_handler(name, config):
 
 _formatters = dict()
 def initialize_formatter(formatter_name, config):
-    """Initializes if necessary and returns a specific formatter."""
+    """Initializes if necessary and returns a specific formatter.
+
+    @type formatter_name: basestring
+    @param formatter_name:
+      Formatter's name (also used to look up the proper config in the config
+      file).
+    
+    @rtype: an instance of logging.Formatter (or its subclasses)
+    @return:
+      A formatter object ready to use.
+    """
 
     # we have seen this one before...
     if formatter_name in _formatters:
@@ -473,16 +550,38 @@ def get_logger(config_file, logger_name = None):
     """
     Initialize (if necessary) and return the logger
     
-    NB! get_logger will actually initialize anything only once. All
-    subsequent calls from the same process (thread?) will return a reference
-    to the same logger *regardless* of the LOGGER_NAME specified (this
-    behavior is intentional).
+    NB! get_logger will actually initialize anything only once. All subsequent
+    calls from the same process (thread?) will return a reference to the same
+    logger *regardless* of the L{logger_name} specified (this behavior is
+    intentional).
+
+    This is the only external interface to this entire module. Client code is
+    expected to do something like this::
+
+        >>> from Cerebrum.Utils import Factory
+        >>> l = Factory.get_logger('some name')
+        >>> l.debug('furrfu')
+
+    The Factory framework is optional, and the logger can be fetched directly.
+
+    @type config_file: basestring
+    @param config_file:
+      Name of the config file containing the logger's configuration info.
+
+    @type logger_name: basestring or None
+    @param logger_name:
+      Name of the logger to create. If None is specified, the name is taken
+      from the command line. If none was given, 'root' is assumed.
+
+    @rtype: a logging.getLoggerClass() instance.
+    @return:
+      An initialized logger object ready for usage.
+
     """
     global _logger_instance
 
     if _logger_instance is None:
         _logger_instance = cerelog_init(config_file, logger_name)
-    # fi
 
     return _logger_instance
 # end get_logger
@@ -490,7 +589,20 @@ def get_logger(config_file, logger_name = None):
 
 
 def cerelog_init(config_file, name):
-    "Run-once method for initializing everything in cerelog."
+    """Run-once method for initializing everything in cerelog.
+
+    @type config_file: basestring
+    @param config_file:
+      Name of the config file containing the logger's configuration info.
+
+    @type name: basestring or None
+    @param name:
+      Name of the logger to create. If None is specified, the name is taken
+      from the command line. If none was given, 'root' is assumed.
+
+    @rtype: See L{process_config}
+    @return: See L{process_config}
+    """
 
     # Load our constants
     init_cerebrum_extensions()
@@ -501,12 +613,10 @@ def cerelog_init(config_file, name):
     # If no command-line name was specified, use the one supplied
     if logger_name is None:
         logger_name = name
-    # fi
 
     # Fall back to root as last resort
     if logger_name is None:
         logger_name = "root"
-    # fi
 
     # Parse the config file. Do *NOT* ever call this more than once.
     return process_config(config_file, logger_name, level)
@@ -534,7 +644,7 @@ class CerelogStreamWriter(codecs.StreamWriter):
         # We force strings to unicode. Strings are assumed to be in latin1,
         # although this should be parametrised. 
         if self.encoding and isinstance(obj, str):
-            obj = obj.decode("latin1")
+            obj = obj.decode(self.encoding)
 
         data, consumed = self.encode(obj, self.errors)
         self.stream.write(data)
@@ -549,9 +659,7 @@ class CerelogStreamWriter(codecs.StreamWriter):
 
 
 class CerebrumLogger(logging.Logger, object):
-    """
-    This is the logger class used by the Cerebrum framework.
-    """
+    """This is the logger class used by the Cerebrum framework."""
 
     def __init__(self, name, level=logging.NOTSET):
         logging.Logger.__init__(self, name, level)
@@ -594,12 +702,11 @@ class CerebrumLogger(logging.Logger, object):
     def __cerebrum_debug(self, level, msg, *args, **kwargs):
         if self.manager.disable >= level:
             return
-        # fi
 
         if self.isEnabledFor(level):
             apply(self._log, (level, msg, args), kwargs)
-        # fi
     # end __cerebrum_debug
+
 
     def callHandlers(self, record):
         super(CerebrumLogger, self).callHandlers(record)
@@ -607,23 +714,23 @@ class CerebrumLogger(logging.Logger, object):
 
 
     def debug1(self, msg, *args, **kwargs):
-        self.__cerebrum_debug(logging.DEBUG1, msg, *args, **kwargs)
+        self.__cerebrum_debug(DEBUG1, msg, *args, **kwargs)
     # end debug1
 
     def debug2(self, msg, *args, **kwargs):
-        self.__cerebrum_debug(logging.DEBUG2, msg, *args, **kwargs)
+        self.__cerebrum_debug(DEBUG2, msg, *args, **kwargs)
     # end debug1
 
     def debug3(self, msg, *args, **kwargs):
-        self.__cerebrum_debug(logging.DEBUG3, msg, *args, **kwargs)
+        self.__cerebrum_debug(DEBUG3, msg, *args, **kwargs)
     # end debug1
 
     def debug4(self, msg, *args, **kwargs):
-        self.__cerebrum_debug(logging.DEBUG4, msg, *args, **kwargs)
+        self.__cerebrum_debug(DEBUG4, msg, *args, **kwargs)
     # end debug1
 
     def debug5(self, msg, *args, **kwargs):
-        self.__cerebrum_debug(logging.DEBUG5, msg, *args, **kwargs)
+        self.__cerebrum_debug(DEBUG5, msg, *args, **kwargs)
     # end debug1
 
     def set_indent(self, indent=0):
@@ -663,7 +770,7 @@ class IndentingFormatter(logging.Formatter, object):
     def format(self, record):
         # IVR 2007-02-08 FIXME: This is a bit of hack, actually. formatTime is
         # similar, though.
-        if string.find(self._fmt, "%(indent)") >= 0:
+        if self._fmt.find("%(indent)") >= 0:
             record.indent = self.formatIndent(record)
 
         return super(IndentingFormatter, self).format(record)
@@ -749,8 +856,8 @@ class DelayedFileHandler(logging.FileHandler, object):
         # The problem with the object returned from codecs.open(), is that it
         # assumes that whatever is given to write() is *already* in the
         # encoding specified as the parameter. This works most of the time,
-        # but breaks down when we pass a string with רזו to a stream that
-        # assumes the input is in UTF-8.
+        # but breaks down when we pass a string (byte seq) with רזו in latin-1
+        # to a stream that assumes the input is in UTF-8.
         #
         # This is a slight variation of what codecs.open() does (and python's
         # logging module uses codecs.open() to enable various encodings for
@@ -788,41 +895,43 @@ class OneRunHandler(DelayedFileHandler):
 
 
 class CerebrumRotatingHandler(DelayedFileHandler, object):
-    "Cerebrum's own rotating handler."
+    """Cerebrum's own rotating handler.
+
+    This handler rotates the logs much like handlers.RotatingFileHandler,
+    except that the file opening is delayed.
+
+    By default, the file grows indefinitely. You can specify particular values
+    of L{maxBytes} and L{backupCount} to allow the file to rollover at a
+    predetermined size.
+
+    Rollover occurs whenever the current log file is nearly maxBytes in
+    length. If BACKUPCOUNT is >= 1, the system will successively create new
+    files with the same pathname as the base file, but with extensions '.1',
+    '.2' etc. appended to it. For example, with a BACKUPCOUNT of 5 and a base
+    file name of 'app.log', you would get 'app.log', 'app.log.1', 'app.log.2',
+    ... through to 'app.log.5'. The file being written to is always 'app.log'.
+    When it gets filled up, it is closed and renamed to 'app.log.1', and if
+    files 'app.log.1', 'app.log.2' etc. exist, then they are renamed to
+    'app.log.2', 'app.log.3' etc.  respectively.
+
+    If L{maxBytes} is zero, rollover never occurs.
+    """
 
     def __init__(self, logdir, mode="a", maxBytes=0, backupCount=0,
                  encoding=None, directory=None, basename=None):
         """
-        Open a file somewhere[*] in LOGDIR and use it as the stream for
+        Open a file somewhere[*] in L{logdir} and use it as the stream for
         logging.
-        
-        By default, the file grows indefinitely. You can specify particular
-        values of MAXBYTES and BACKUPCOUNT to allow the file to rollover at
-        a predetermined size.
 
-        Rollover occurs whenever the current log file is nearly MAXBYTES in
-        length. If BACKUPCOUNT is >= 1, the system will successively create
-        new files with the same pathname as the base file, but with
-        extensions ".1", ".2" etc. appended to it. For example, with a
-        BACKUPCOUNT of 5 and a base file name of "app.log", you would get
-        "app.log", "app.log.1", "app.log.2", ... through to "app.log.5". The
-        file being written to is always "app.log" - when it gets filled up,
-        it is closed and renamed to "app.log.1", and if files "app.log.1",
-        "app.log.2" etc.  exist, then they are renamed to "app.log.2",
-        "app.log.3" etc.  respectively.
-
-        If MAXBYTES is zero, rollover never occurs.
-
-        [*] The file naming scheme is a bit different from standard
-        logging practice. LOGDIR indicates the base directory where
-        *all* Cerebrum logs live. Each application gets its own
-        directory, based on the given parameter. If directory is not
-        given it is calculated dynamically from sys.argv[0]. Within
-        such a directory, this handler would create a log file named
-        as given by basename or 'log' if not given. This log file's
-        rotation is controlled by MAXBYTES/BACKUPCOUNT.
+        [*] The file naming scheme is a bit different from standard logging
+        practice. L{logdir} indicates the base directory where *all* Cerebrum
+        logs live. Each application gets its own directory, based on the given
+        parameter. If L{directory} is None, its name is calculated dynamically
+        from sys.argv[0]. Within such a directory, this handler would create a
+        log file named as given by L{basename} or 'log' if None
+        specified. This log file's rotation is controlled by
+        L{maxBytes}/L{backupCount}. 
         """
-
 
         self.logdir = logdir
         self.directory = directory or os.path.basename(sys.argv[0])
@@ -839,17 +948,14 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
         # fi
 
         self.filename = os.path.join(dirpath, self.basename)
+        # 'w' would truncate, and it makes no sense for this handler.
+        if maxBytes > 0:
+            mode = "a+" 
         super(CerebrumRotatingHandler, self).__init__(self.filename,
                                                       mode,
                                                       encoding)
         self.maxBytes = maxBytes
         self.backupCount = backupCount
-
-        # FIXME: This can't be right -- changing mode *after* it has been set?
-        self.mode = mode
-        if maxBytes > 0:
-            self.mode = "a+"
-        # fi
     # end __init__
 
     
@@ -916,32 +1022,43 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
             if not self.shouldRollover(record):
                 return
 
-            # IVR 2007-11-27 TBD: Are the tests really necessary?
             if self.stream and not self.stream.closed:
                 self.stream.close()
 
-            # Do NOT move the files, unless self.baseFilename actually
-            # exists. This is just a precaution (it should not be necessary,
-            # though
-            if (os.path.exists(self.baseFilename) and self.backupCount > 0):
-                for i in range(self.backupCount - 1, 0, -1):
-                    sfn = "%s.%d" % (self.baseFilename, i)
-                    dfn = "%s.%d" % (self.baseFilename, i + 1)
-                    if os.path.exists(sfn):
-                        if os.path.exists(dfn):
-                            os.remove(dfn)
+            try:
+                # Do NOT move the files, unless self.baseFilename actually
+                # exists. This is just a precaution (it should not be
+                # necessary, though).
+                if (os.path.exists(self.baseFilename) and self.backupCount > 0):
+                    for i in range(self.backupCount - 1, 0, -1):
+                        sfn = "%s.%d" % (self.baseFilename, i)
+                        dfn = "%s.%d" % (self.baseFilename, i + 1)
+                        if os.path.exists(sfn):
+                            if os.path.exists(dfn):
+                                os.remove(dfn)
 
-                        os.rename(sfn, dfn)
+                            os.rename(sfn, dfn)
 
-                dfn = self.baseFilename + ".1"
-                if os.path.exists(dfn):
-                    os.remove(dfn)
+                    dfn = self.baseFilename + ".1"
+                    if os.path.exists(dfn):
+                        os.remove(dfn)
 
-                os.rename(self.baseFilename, dfn)
+                    os.rename(self.baseFilename, dfn)
 
-            # delayed opening. The superclass will take care of everything
-            self.stream = None
-
+                # delayed opening. The superclass will take care of everything
+                self.stream = None
+            except:
+                # Something went wrong before we managed to complete
+                # rotations. Let's re-open the stream and hope for the best. In
+                # case of failure, it is preferrable to write to the same file,
+                # rather than barf with some sort of error message. If the
+                # error is transient, all will be well and the file will be
+                # rotated next time around. If not, at least we'd be able to
+                # scribble some messages to the file.
+                if self.stream and self.stream.closed:
+                    self.open()
+                    # Make sure the caller knows that something broke down.
+                    raise
         finally:
             self.release_lock()
     # end doRollover
@@ -949,16 +1066,18 @@ class CerebrumRotatingHandler(DelayedFileHandler, object):
 
 
 
+# IVR 2008-04-09: FIXME: This inheritance tree is completely
+# wrong. Substitution should be able to happen without log rotation. This
+# class probably ought to be a simple mixin.
 class CerebrumSubstituteHandler(CerebrumRotatingHandler):
     """
     This handler behaves just like CerebrumRotatingHandler, except it
     performs certain preprosessing of each message.
 
-    Specifically, a substitution is performed on each message before the it
-    is output. Substution is regexp-based (as defined by the module re). If
+    Specifically, a substitution is performed on each message before the it is
+    output. Substution is regexp-based (as defined by the module re). If
     either one is missing (i.e. is an empty string), no substitution will be
-    performed (and the logger would behave exactly like its immediate
-    parent).
+    performed (and the logger would behave exactly like its immediate parent).
 
     Additionally, since this kind of filtering is likely to be used in
     conjuction with confidential data (such as passwords), an additional
@@ -968,18 +1087,25 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
 
 
     def __init__(self, logdir, maxBytes, backupCount,
-                 permissions, substitute, replacement, encoding=None,
+                 permissions, patterns, encoding=None,
                  directory=None, basename=None):
         """
-        LOGDIR       -- which directory the log goes to
-        MAXBYTES     -- maximum file size before it is rotated (0 means no
-                        rotation)
-        BACKUPCOUNTS -- number of rotated files
-        PERMISSIONS  -- UNIX-style permission number for the log file
-        SUBSTITUTE   -- regular expression to perform substitution on
-        REPLACEMENT  -- ... what to replace SUBSTITUTE with.
-        DIRECTORY    -- log file actually ends up in LOGDIR/DIRECTORY/
-        BASENAME     -- basename of log file
+        @param logdir: See L{CerebrumRotatingHandler}
+        @param maxBytes: See L{CerebrumRotatingHandler}
+        @param backupCount: See L{CerebrumRotatingHandler}
+        @param encoding: See L{CerebrumRotatingHandler}
+        @param directory: See L{CerebrumRotatingHandler}
+        @param basename: See L{CerebrumRotatingHandler}
+
+        @type permissions: int
+        @param permissions:
+          Numerical permission mode passed to os.chmod() 
+        
+        @type patterns: sequence of pairs (of basestrings)
+        @param patterns:
+          A sequence containing pairs (x, y) where x is the regular
+          expression, and y is the pattern that used to substitute whatever x
+          matches. Whatever re permits is allowed inside x and y.
         """
 
         super(CerebrumSubstituteHandler, self).__init__(logdir, "a",
@@ -987,8 +1113,7 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
                                                         backupCount, encoding,
                                                         directory, basename)
 
-        self.substitution = re.compile(substitute)
-        self.replacement = replacement
+        self.patterns = [(re.compile(x), y) for x, y in patterns]
         self.permissions = permissions
     # end __init__
 
@@ -1004,8 +1129,11 @@ class CerebrumSubstituteHandler(CerebrumRotatingHandler):
 
     def format(self, record):
         msg = super(CerebrumSubstituteHandler, self).format(record)
-        return self.substitution.sub(self.replacement, msg)
+        # Note that the regexes are applied in order. Multiple entries may
+        # match. Make sure your pattenrs are not overlapping!
+        for rex, replacement in self.patterns:
+            msg = rex.sub(replacement, msg)
+        
+        return msg
     # end format
 # end CerebrumSubstituteHandler
-
-# arch-tag: 9a057867-6fab-4b01-acdb-e515b600d225
