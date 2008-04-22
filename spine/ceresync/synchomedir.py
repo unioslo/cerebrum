@@ -71,6 +71,9 @@ for o, a in opts:
     if o == "-c":
         config.sync.read(a)
         log.debug("reading config file %s" , a )
+    if o == "-d":
+        dryrun=True
+        
 
 s = sync()
 tr = s.tr
@@ -136,7 +139,7 @@ def make_homedir(hd):
                 if r<0:
                     raise Exception("\"%s\" failed" % setup_script)
 
-                log.debug("Created homedir %s for %s" % (path, username))
+                log.info("Created homedir %s for %s" % (path, username))
             else:
                 log.debug("Homedir %s for %s is ok" % (path, username))
     except Exception, e:
