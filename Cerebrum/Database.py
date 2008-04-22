@@ -1154,6 +1154,48 @@ class DCOracle2(OracleBase):
         return data
 
 
+class cx_Oracle(OracleBase):
+
+    _db_mod = "cx_Oracle"
+
+    def connect(self, user=None, password=None, service=None,
+                client_encoding=None):
+        cdata = self._connect_data
+        cdata.clear()
+        cdata['arg_user'] = user
+        cdata['arg_password'] = password
+        cdata['arg_service'] = service
+        if service is None:
+            service = cereconf.CEREBRUM_DATABASE_NAME
+        if user is None:
+            user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA.get('user')
+        if password is None:
+            password = read_password(user, service)
+        conn_str = '%s/%s@%s' % (user, password, service)
+        cdata['conn_str'] = conn_str
+        if client_encoding is None:
+            client_encoding = self.encoding
+        else:
+            self.encoding = client_encoding
+        
+        # The encoding names in Oracle don't look like PostgreSQL's,
+        # so we translate them into a single standard.
+        encoding_names = { 'ISO_8859_1': "american_america.we8iso8859p1",
+                           'UTF-8': "american_america.utf8" }
+        os.environ['NLS_LANG'] = encoding_names.get(client_encoding,
+                                                    client_encoding)
+
+        # Call superclass .connect with appropriate CONNECTIONSTRING;
+        # this will in turn invoke the connect() function in the
+        # cx_Oracle module.
+        super(cx_Oracle, self).connect(conn_str)
+
+    def pythonify_data(self, data):
+        """Convert type of values in row to native Python types."""
+        # Short circuit; no conversion is necessary for DCOracle2.
+        return data
+
+
 class SQLite(Database):
     """This class defines an abstraction for the SQLite backend.
 
