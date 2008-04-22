@@ -48,25 +48,27 @@ from Cerebrum.extlib import db_row
 
 
 # Exceptions defined in DB-API 2.0; the exception classes below are
-# automatically added to the __bases__ attribute of exception classes in
-# dynamically imported driver modules.
-# IVR 2007-10-15 FIXME: StandardError here is a big no-no. Do NOT change this,
-# unless you've tested it with python 2.4 and python 2.5
-class Warning(object):
+# automatically added to the inheritance hierarchy of exception classes in
+# dynamically imported driver modules. This way we can catch any kind of
+# db-specific error exceptions by catching Cerebrum.Database.Error
+# (db-independent)
+class Warning(StandardError):
     """Driver-independent base class of DB-API Warning exceptions.
 
     Exception raised for important warnings like data truncations while
     inserting, etc."""
     pass
 
-# IVR 2007-10-15 FIXME: StandardError here is a big no-no
-class Error(object):
+class Error(StandardError):
     """Driver-independent base class of DB-API Error exceptions.
-
-    Exception that is the base class of all other error exceptions. You can
-    use this to catch all errors with one single 'except' statement. Warnings
-    are not considered errors and thus should not use this class as base."""
+    
+    Exception that is the base class of all other error exceptions. You
+    can use this to catch all errors with one single 'except'
+    statement. Warnings are not considered errors and thus should not use
+    this class as base."""
     pass
+
+    
 
 class InterfaceError(Error):
     """Driver-independent base class of DB-API InterfaceError exceptions.
@@ -587,7 +589,10 @@ class Database(object):
             if not issubclass(exc, base):
                 # monkey patch "our" classes in. Be careful here wrt old-style
                 # and new-style classes.
-                exc = type(name, (exc, base, object), {})
+                if sys.version_info[:2] >= (2, 5):
+                    exc = type(name, (exc, base, object), {})
+                else:
+                    exc.__bases__ += (base,)
             if hasattr(self_class, name):
                 continue
             setattr(self_class, name, exc)
