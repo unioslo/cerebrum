@@ -19,6 +19,7 @@
 
 import pickle
 from Cerebrum.modules.no.OrgLDIF import *
+from Cerebrum.modules import LDIFutils
 
 # Replace these characters with spaces in OU RDNs.
 ou_rdn2space_re = re.compile('[#\"+,;<>\\\\=\0\\s]+')
@@ -88,15 +89,6 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
                            ('labeledURI', None, self.const.contact_url))]
         self.id2labeledURI    = c[-1][1]
         self.attr2id2contacts = [v for v in c if v[1]]
-
-    def update_person_entry(self, entry, row):
-        # Temporary hack for backwards compatibility with data from LT:
-        # Append attribute value 'mobile' to 'telephoneNumber'.
-        self.__super.update_person_entry(entry, row)
-        if 'mobile' in entry:
-            entry['telephoneNumber'] = self.attr_unique(
-                entry.get('telephoneNumber', []) + entry['mobile'],
-                normalize=normalize_phone)
 
     def make_address(self, sep,
                      p_o_box, address_text, postal_number, city, country):
