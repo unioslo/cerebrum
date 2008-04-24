@@ -2025,7 +2025,7 @@ class PersonEmailMixin(Person.Person):
     def list_primary_email_address(self, entity_type):
         """Returns a list of (entity_id, address) pairs for entities
         of type 'entity_type'"""
-        return self._id2mailaddr(entity_type=entity_type).items()
+        return self._id2mailaddr(entity_type=entity_type).iteritems()
 
     def _update_cached_names(self):
         self.__super._update_cached_names()
