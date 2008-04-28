@@ -1295,7 +1295,7 @@ class BofhdExtension(object):
                                 self.logger.warning("No IMAP quota set for '%s'" % acc.account_name)
                                 used = "N/A"
                                 limit = None
-                except (TimeoutException, socket.timeout):
+                except (TimeoutException, socket.timeout, socket.gaierror):
                     used = 'DOWN'
                 except ConnectException, e:
                     used = str(e)
