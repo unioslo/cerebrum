@@ -139,7 +139,7 @@ class Person(FSObject):
         WHERE fodselsdato=:fnr AND personnr=:pnr""", {'fnr': fnr, 'pnr': pnr})
 
     def add_fagperson(self, fnr, pnr, adr1, adr2, postnr, adr3,
-                      arbsted, institusjonsnr, fakultetnr, instiuttnr,
+                      arbsted, institusjonsnr, fakultetnr, instituttnr,
                       gruppenr, tlf, tittel, fax, status):
         return self.db.execute("""
         INSERT INTO fs.fagperson
@@ -150,13 +150,13 @@ class Person(FSObject):
            status_aktiv)
         VALUES
           (:fnr, :pnr, :adr1, :adr2, :postnr, :adr3, :tlf, :arbsted,
-           :institusjonsnr, :fakultetnr, :instiuttnr, :gruppenr, :tittel, :fax,
+           :institusjonsnr, :fakultetnr, :instituttnr, :gruppenr, :tittel, :fax,
            :status)""", {
             'fnr': fnr, 'pnr': pnr,
             'adr1': adr1, 'adr2': adr2, 'postnr': postnr, 'adr3': adr3,
             'tlf': tlf, 'arbsted': arbsted,
             'institusjonsnr': institusjonsnr , 'fakultetnr': fakultetnr,
-            'instiuttnr': instiuttnr, 'gruppenr':gruppenr,
+            'instituttnr': instituttnr, 'gruppenr':gruppenr,
             'tittel': tittel, 'fax': fax, 'status': status})
 
     def update_fagperson(self, fnr, pnr, adr1=NOT_SET, adr2=NOT_SET,
@@ -1075,6 +1075,25 @@ class StudieInfo(FSObject):
         WHERE institusjonsnr=%s
         """ % self.institusjonsnr
         return self.db.query(qry)
+
+    def get_ou(self, fakultetnr, instituttnr, gruppenr, institusjonsnr):
+        return self.db.query("""
+        SELECT DISTINCT
+          institusjonsnr, faknr, instituttnr, gruppenr, stedakronym,
+          stednavn_bokmal, faknr_org_under, instituttnr_org_under,
+          gruppenr_org_under, adrlin1, adrlin2, postnr, adrlin3,
+          stedkortnavn, telefonnr, faxnr, adrlin1_besok, emailadresse,
+          adrlin2_besok, postnr_besok, url, bibsysbeststedkode,
+          stedkode_konv
+        FROM fs.sted
+        WHERE institusjonsnr=:institusjonsnr AND
+              faknr=:fakultetnr AND
+              instituttnr=:instituttnr AND
+              gruppenr=:gruppenr
+        """, {"institusjonsnr": institusjonsnr,
+              "fakultetnr": fakultetnr,
+              "instituttnr": instituttnr,
+              "gruppenr": gruppenr})
 
     def list_kull(self):
         """Henter informasjon om aktive studiekull."""
