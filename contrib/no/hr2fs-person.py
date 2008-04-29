@@ -707,10 +707,10 @@ def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
     logger.debug("Scanning data from source=%s (perspective=%s)",
                  authoritative_system, ou_perspective)
 
-    # people = select_FS_candidates(person_affiliations, authoritative_system)
-    # for person_id, info_chunk in people.iteritems():
-    #     export_person(person_id, info_chunk, fs)
-    # fs.db.commit()
+    people = select_FS_candidates(person_affiliations, authoritative_system)
+    for person_id, info_chunk in people.iteritems():
+        export_person(person_id, info_chunk, fs)
+    fs.db.commit()
 
     people = select_FS_candidates(fagperson_affiliations, authoritative_system)
     for person_id, info_chunk in people.iteritems():
@@ -810,9 +810,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import hotshot, hotshot.stats
-    proffile  = 'hotshot.prof'
-    prof = hotshot.Profile(proffile)
-    prof.runcall(main)                # profiler hovedprogrammet
-    prof.close()
-    # main()
+    main()
