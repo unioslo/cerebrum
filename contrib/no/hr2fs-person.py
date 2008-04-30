@@ -680,10 +680,10 @@ def export_person(person_id, info_chunk, fs):
     """
 
     data = info_chunk
-    logger.debug("Pushing data about id=%s (fnr=%s) to FS",
-                 person_id, data["fnr11"])
     if not fs.person.get_person(data.fnr6, data.pnr):
         try:
+            logger.debug("Adding new entry to fs.person id=%s (fnr=%s)",
+                         person_id, data["fnr11"])
             fs.person.add_person(data.fnr6, data.pnr,
                                  data.name_first, data.name_last, data.email,
                                  data.gender, data.birth_date)
