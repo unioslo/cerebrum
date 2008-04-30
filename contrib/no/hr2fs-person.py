@@ -436,6 +436,98 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
 
 
 
+def _populate_caches(selection_criteria, authoritative_system):
+    """This is a performance enhacing hack.
+
+    Looking things up too much time (about a fivefold increase in the running
+    time). The idea is to create a bunch of caches that all of the
+    find_-methods in this module can use. Naturally, we do not want to hack
+    find_-methods so this function creates closures that consult the caches
+    and re-binds global find_* names to such closures. Everyone wins :)
+
+    @param selection_criteria: Cf. L{make_fs_updates}
+
+    @param authoritative_system: Cf. L{make_fs_updates}.
+    """
+
+    # Pre-load fnrs for everyone
+    logger.debug("Preloading fnrs...")
+    person = Factory.get("Person")(database)
+    _person_id2fnr = dict()
+    for row in person.list_external_ids(source_system=authoritative_system,
+                                        id_type=constants.externalid_fodselsnr):
+        _person_id2fnr[int(row["entity_id"])] = row["external_id"]
+    for row in person.list_external_ids(source_system=constants.system_fs,
+                                        id_type=constants.externalid_fodselsnr):
+        p_id = int(row["entity_id"])
+        fnr = row["external_id"]
+        if p_id in _person_id2fnr and _person_id2fnr[p_id] != fnr:
+            logger.warn("Mismatching fnrs for person_id=%s: %s=%s, %s=%s",
+                        p_id, authoritative_system, _person_id2fnr[p_id],
+                        constants.system_fs, fnr)
+            # cannot allow the mapping to be there
+            del _person_id2fnr[p_id]
+    global find_fnr
+    find_fnr = lambda p, auth: _person_id2fnr.get(p.entity_id)
+    logger.debug("Done preloading fnrs (%d entries)", len(_person_id2fnr))
+
+
+    # Preload primary e-mail addresses...
+    logger.debug("Preloading primary e-mail addresses")
+    _person_id2email = dict()
+    for entry in person.list_primary_email_address(constants.entity_person):
+        p_id, email = entry
+        if p_id in _person_id2fnr:
+            _person_id2email[p_id] = email
+    global find_primary_mail_address
+    find_primary_mail_address = lambda p: _person_id2email.get(p.entity_id)
+    logger.debug("Done preloading e-mail addresses (%d entries)",
+                 len(_person_id2email))
+
+    logger.debug("Preloading contact info")
+    _person_id2contact = dict()
+    for contact_type in (constants.contact_phone, constants.contact_fax):
+        for row in person.list_contact_info(source_system=authoritative_system,
+                                            contact_type=contact_type):
+            p_id = int(row["entity_id"])
+            value = row["contact_value"]
+            if p_id not in _person_id2fnr:
+                continue
+
+            # Trap FS silliness
+            if len(value) > 8:
+                logger.info("Ignoring long contact value for %s: %s",
+                            _person_id2fnr[p_id], value)
+                continue
+            
+            _person_id2contact.setdefault(p_id, {})[int(contact_type)] = value
+    global find_contact_info
+    find_contact_info = lambda p, c, a: _person_id2contact.get(p.entity_id,
+                                                               {}).get(int(c))
+    logger.debug("Done preloading contact info (%d entries)",
+                 len(_person_id2contact))
+
+    logger.debug("Preloading name information")
+    _person_id2name = dict()
+    for name_type in (constants.name_first,
+                      constants.name_last,
+                      constants.name_work_title):
+        for row in person.list_persons_name(source_system=authoritative_system,
+                                            name_type=name_type):
+            p_id = row["person_id"]
+            if p_id not in _person_id2fnr:
+                continue
+
+            _person_id2name.setdefault(p_id, {})[int(name_type)] = row["name"]
+    global find_name
+    find_name = lambda p, n, a: _person_id2name.get(p.entity_id,
+                                                    {}).get(int(n))
+    logger.debug("Done preloading name information (%d entries)",
+                 len(_person_id2name))
+# end _populate_caches
+
+
+
 def person2fs_info(row, person, authoritative_system):
     """Convert a db-row with person id to a chunk of data to be exported to FS
     for that particular person.
@@ -802,6 +894,9 @@ def main():
     fs = Factory.get("FS")()
     if dryrun:
         fs.db.commit = fs.db.rollback
+
+    _populate_caches(person_affiliations + fagperson_affiliations,
+                     authoritative_system)
 
     make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective)
