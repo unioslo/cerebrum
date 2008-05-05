@@ -312,6 +312,8 @@ class Find(object):
     def find_free_ip(self, subnet, first=None):
         """Returns the first free IP on the subnet"""
         subnet_def = self._find_subnet(subnet)
+        if not subnet_def:
+            return None
         a_ip = self._find_available_ip(subnet_def)
         if not a_ip:
             raise CerebrumError, "No available ip on that subnet"
@@ -322,7 +324,9 @@ class Find(object):
     def _find_subnet(self, subnet):
         """Translate the user-entered subnet to the key in
         self.subnets"""
-        if len(subnet.split(".")) == 3:
+        if not subnet:
+            return None
+        elif len(subnet.split(".")) == 3:
             subnet += ".0"
         numeric_ip = IPCalc.ip_to_long(subnet)
         for net, subnet_def in self.subnets.items():
