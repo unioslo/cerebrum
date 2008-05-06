@@ -77,7 +77,11 @@ def change_pw(account_id,pw_params):
     if (account.has_spread(int(co.spread_uit_fd)) or
         account.has_spread(int(co.spread_uit_ad_admin)) or
         account.has_spread(int(co.spread_uit_ad_lit_admin))):
-        pw=pw_params['password']
+        try:
+            pw=pw_params['password']
+        except KeyError:
+            logger.error("Account password not found for account %s. Already wiped?" % account_id)
+            return True
         pw=pw.replace('%','%25')
         pw=pw.replace('&','%26')
         user = id_to_name(account_id,'user')
