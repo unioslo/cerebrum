@@ -100,6 +100,7 @@ def search_account(transaction, query):
 
     accounts = transaction.get_account_searcher()
     accounts.set_search_limit(20, 0)
+    accounts.order_by(accounts, 'name')
     accounts.set_name_like("%s*" % query)
     accounts = accounts.search()
     for account in accounts:
