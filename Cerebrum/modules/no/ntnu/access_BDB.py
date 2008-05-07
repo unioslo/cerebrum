@@ -54,7 +54,7 @@ class BDB:
 
     def get_email_domains(self):
         cursor = self.db.cursor()
-        cursor.execute("SELECT id,navn,system FROM mail_domain WHERE system IS NOT NULL")
+        cursor.execute("SELECT id,navn,system FROM mail_domain")
         domains = []
         bdb_domains = cursor.fetchall()
         for dom in bdb_domains:
@@ -84,7 +84,6 @@ class BDB:
                 (p.personnr IS NOT NULL
                    OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
                 p.mail_domain = m.id AND
-                m.system IS NOT NULL
         """
         cursor.execute(sql)
         addresses = []
