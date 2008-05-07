@@ -182,7 +182,7 @@ def main():
                 #print "foo=%s" % foo
                 account_id = foo[0]
                 print "ac=%s" % account_id
-                query ="select target_id from email_target where entity_id=%s" % account_id
+                query ="select target_id from email_target where target_entity_id=%s" % account_id
                 print "query =%s " % query
                 try:
                     db_row=db.query_1(query)
