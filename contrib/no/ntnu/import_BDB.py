@@ -1191,7 +1191,7 @@ class BDBSync:
         self.logger.debug("Fetching data from Cerebrum")
 
         oldquarantines={}
-        for q in self.ac.list_entity_quarantines():
+        for q in self.ac.list_entity_quarantines(entity_types=const.entity_account):
             oldquarantines.setdefault(q['entity_id'], set()).add(int(q['quarantine_type']))
 
         oldspreads={}
