@@ -4373,7 +4373,7 @@ class BofhdExtension(object):
                                      (self.const.system_fs, self.const.address_post),
                                      (self.const.system_fs, self.const.address_post_private)):
                     address = person.get_entity_address(source = source, type = kind)
-                    if address and address[0]['address_text'] and len(address[0]['address_text']) > 5:
+                    if address:
                         break
                     address = None
                 if not address:
@@ -4382,12 +4382,15 @@ class BofhdExtension(object):
                 address = address[0]
                 alines = address['address_text'].split("\n")+[""]
                 mapping['address_line1'] = fullname
-                mapping['address_line2'] = alines[0]
-                mapping['address_line3'] = alines[1]
+                if alines:
+                    mapping['address_line2'] = alines[0]
+                    mapping['address_line3'] = alines[1]
+                else:
+                    mapping['address_line2'] = ""
+                    mapping['address_line3'] = ""                    
                 mapping['zip'] = address['postal_number']
                 mapping['city'] = address['city']
                 mapping['country'] = address['country']
-
                 mapping['birthdate'] = person.birth_date.strftime('%Y-%m-%d')
                 mapping['emailadr'] =  "TODO"  # We probably don't need to support this...
             num_ok += 1
