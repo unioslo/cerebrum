@@ -137,7 +137,7 @@ PS! That code acually removes the rolle row from the PERROLLE table.
 This is not the way roles should be deleted. The way to to it is to
 set the PR_TILDATO. This code below do that.
 
-Dele a rolle (the correct way)::
+Delete a rolle (the correct way)::
 
   <?xml version="1.0" standalone="yes"?>
   <PersonData>
