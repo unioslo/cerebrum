@@ -139,6 +139,10 @@ public class ImportEphorteXML {
         log.info("Sync done");
     }
 
+    /**
+     * This method is for testing purposes only. A xml file is read
+     * and sent directly to the web service without any checking.
+     **/
     private void runRawSync(String fname) throws IOException, ParserConfigurationException, RemoteException {
         log.info("Running RawSync");
 	String xml = "";
