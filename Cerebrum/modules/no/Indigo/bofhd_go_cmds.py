@@ -226,7 +226,11 @@ class BofhdExtension(object):
     all_commands['get_default_email'] = None
     def get_default_email(self, operator, entity_id):
         account = self._get_account(entity_id)
-        return account.get_primary_mailaddress()
+        try:
+            primary_email_address = account.get_primary_mailaddress()
+        except Errors.NotFoundError:
+            primary_email_address = "No e-email addresse available for %s" % account.account_name
+        return primary_email_address
 
     all_commands['user_get_pwd'] = None
     def user_get_pwd(self, operator, id):
