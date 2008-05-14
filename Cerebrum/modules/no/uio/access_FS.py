@@ -903,8 +903,9 @@ class UiOStudieInfo(access_FS.StudieInfo):
           k.status_aktiv = 'J' AND
           s.studieprogramkode = k.studieprogramkode AND
           /* IVR 2007-11-12: According to baardj, it makes no sense to
-             register 'kull' for earlier timeframes. */
-          k.arstall >= 2005
+             register 'kull' for earlier timeframes.
+             IVR 2008-05-14: A minor adjustment... */
+          k.arstall >= 2002
         """
         return self.db.query(qry)
     # end list_kull
