@@ -751,7 +751,8 @@ def populate_enhet_groups(enhet_id, role_mapping):
             emnekode, termk, aar, enhet_suffix))
 
         # TODO: generaliser ifi-hack seinare
-        if (re.match(r"(dig|inf|med-inf|tool|humit)", emnekode.lower())
+        # IVR 2008-05-14: itslp added at ifi-drift's request
+        if (re.match(r"(dig|inf|med-inf|tool|humit|itslp)", emnekode.lower())
             and termk == fs.info.semester.lower()
             and aar == str(fs.info.year)):
             logger.debug(" (ta med Ifi-spesifikke grupper)")
