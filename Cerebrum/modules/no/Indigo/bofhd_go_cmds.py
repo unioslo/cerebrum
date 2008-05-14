@@ -229,7 +229,7 @@ class BofhdExtension(object):
         try:
             primary_email_address = account.get_primary_mailaddress()
         except Errors.NotFoundError:
-            primary_email_address = "No e-email addresse available for %s" % account.account_name
+            primary_email_address = "No e-mail addresse available for %s" % account.account_name
         return primary_email_address
 
     all_commands['user_get_pwd'] = None
