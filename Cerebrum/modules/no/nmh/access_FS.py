@@ -61,13 +61,14 @@ class NMHUndervisning(access_FS.Undervisning):
 	"""Metoden som henter data om undervisningsenheter
 	i nåverende (current) eller neste (next) semester. Default
 	vil være nåværende semester. For hver undervisningsenhet 
-	henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall 
-	og terminnr."""
+	henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall, 
+	terminnr samt hvorvidt enheten skal eksporteres til LMS."""
 	qry = """
         SELECT DISTINCT
           r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
           e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
-          e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall
+          e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall,
+          r.status_eksport_lms
           FROM fs.emne e, fs.undervisningsenhet r
           WHERE r.emnekode = e.emnekode AND
           r.versjonskode = e.versjonskode AND """ 
@@ -76,6 +77,41 @@ class NMHUndervisning(access_FS.Undervisning):
         else: 
 	    qry +="""%s""" % self._get_next_termin_aar()
 	return self.db.query(qry)
+
+
+    def list_aktiviteter(self, start_aar=time.localtime()[0],
+                         start_semester=None):
+        """Henter info om undervisningsaktiviteter for inneværende
+	semester. For hver undervisningsaktivitet henter vi
+	institusjonsnr, emnekode, versjonskode, terminkode + årstall,
+	terminnr, aktivitetskode, underpartiløpenummer, disiplinkode,
+	kode for undervisningsform, aktivitetsnavn samt hvorvidt
+	enheten skal eksporteres til LMS."""
+        if start_semester is None:
+            start_semester = self.semester
+        return self.db.query("""
+        SELECT  
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode,
+          ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
+          ua.undpartilopenr, ua.disiplinkode, ua.undformkode,
+          ua.aktivitetsnavn, ua.status_eksport_lms
+        FROM
+          fs.undaktivitet ua,
+          fs.arstermin t
+        WHERE
+          ua.undpartilopenr IS NOT NULL AND
+          ua.disiplinkode IS NOT NULL AND
+          ua.undformkode IS NOT NULL AND
+          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode = t.terminkode AND
+          ((ua.arstall = :aar AND
+            EXISTS (SELECT 'x' FROM fs.arstermin tt
+                    WHERE tt.terminkode = :semester AND
+                          t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
+           ua.arstall > :aar)""",
+                             {'aar': start_aar,
+                              'semester': start_semester})
+
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
@@ -101,6 +137,7 @@ class NMHUndervisning(access_FS.Undervisning):
                                    'arstall': arstall}
                              )
 
+
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
 
@@ -121,6 +158,23 @@ class NMHUndervisning(access_FS.Undervisning):
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
 
+
+
+class NMHStudieInfo(access_FS.StudieInfo):
+    def list_emner(self):
+        """Henter informasjon om emner."""
+        qry = """
+        SELECT e.emnekode, e.versjonskode, e.institusjonsnr,
+               e.faknr_reglement, e.instituttnr_reglement,
+               e.gruppenr_reglement, e.studienivakode,
+               e.emnenavn_bokmal
+        FROM fs.emne e
+        WHERE e.institusjonsnr = %s AND
+              NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr, self.year, self.year)
+        return self.db.query(qry)
+
+
+
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):
@@ -134,3 +188,4 @@ class FS(access_FS.FS):
         # Override with nmh-spesific classes
         self.student = NMHStudent(self.db)
         self.undervisning = NMHUndervisning(self.db)
+        self.info = NMHStudieInfo(self.db)
