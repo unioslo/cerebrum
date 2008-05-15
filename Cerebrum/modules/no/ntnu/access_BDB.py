@@ -83,7 +83,7 @@ class BDB:
                 n.person (+) = p.id AND
                 (p.personnr IS NOT NULL
                    OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
-                p.mail_domain = m.id AND
+                p.mail_domain = m.id
         """
         cursor.execute(sql)
         addresses = []
