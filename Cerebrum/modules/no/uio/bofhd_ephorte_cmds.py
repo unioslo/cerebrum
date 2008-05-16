@@ -176,6 +176,8 @@ class BofhdExtension(object):
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         ou = self._get_ou(stedkode=sko)
+        if not ou.has_spread(self.const.spread_ephorte_ou):
+            raise CerebrumError("Cannot assign role to a non-ephorte OU")
         extra_msg = ""
         if not person.has_spread(self.const.spread_ephorte_person):
             person.add_spread(self.const.spread_ephorte_person)
