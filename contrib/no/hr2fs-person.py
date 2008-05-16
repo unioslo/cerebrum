@@ -63,7 +63,9 @@ class SimplePerson(IterableUserDict, object):
     """FS-relevant info storage.
 
     Give access to attributes by 'dotting in' and via a dict interface. Trap
-    attempts to stuff unknown keys.
+    attempts to stuff unknown keys. This is mainly a convenience class to make
+    it easier to represent a 'bag' of information about the same individual in
+    a flexible and simple way.
     """
 
     allowed_keys = ("fnr11",      # 11-siffret norsk fnr
@@ -186,6 +188,7 @@ def find_fnr(person, authoritative_system):
     # It makes no sense to look at other systems than source
     # (i.e. authoritative_system) and target (i.e. system_fs)
     numbers = set(r["external_id"] for r in fnrs
+                  # IVR 2008-05-13 FIXME: API should take care of this
                   if int(r["source_system"]) in permissible_sources)
 
     if len(numbers) == 0:
@@ -439,11 +442,12 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
 def _populate_caches(selection_criteria, authoritative_system):
     """This is a performance enhacing hack.
 
-    Looking things up too much time (about a fivefold increase in the running
-    time). The idea is to create a bunch of caches that all of the
-    find_-methods in this module can use. Naturally, we do not want to hack
-    find_-methods so this function creates closures that consult the caches
-    and re-binds global find_* names to such closures. Everyone wins :)
+    Looking things up on per-person basis takes too much time (about a
+    fivefold increase in the running time). The idea is to create a bunch of
+    caches that all of the find_-methods in this module can use. Naturally, we
+    do not want to hack find_-methods so this function creates closures that
+    consult the caches and re-binds global find_* names to such
+    closures. Everyone wins :)
 
     @param selection_criteria: Cf. L{make_fs_updates}
 
@@ -470,7 +474,6 @@ def _populate_caches(selection_criteria, authoritative_system):
     global find_fnr
     find_fnr = lambda p, auth: _person_id2fnr.get(p.entity_id)
     logger.debug("Done preloading fnrs (%d entries)", len(_person_id2fnr))
-
 
     # Preload primary e-mail addresses...
     logger.debug("Preloading primary e-mail addresses")
@@ -542,6 +545,12 @@ def person2fs_info(row, person, authoritative_system):
       DB person proxy.
 
     @param authoritative_system: Cf. L{make_fs_updates}.
+
+    @rtype: SimplePerson instance or None.
+    @return:
+      A SimplePerson object with all the allowed_keys filled in with
+      appropriate data. If names or fnr are missing, None is returned (we
+      cannot proceed without a certain minimum of information about a person).
     """
 
     person_id = int(row["person_id"])
@@ -895,6 +904,8 @@ def main():
     if dryrun:
         fs.db.commit = fs.db.rollback
 
+    # This is a performance improvement hack. It can be removed, if memory is
+    # at a premium. The trade-off is 5x difference in execution speed.
     _populate_caches(person_affiliations + fagperson_affiliations,
                      authoritative_system)
 
