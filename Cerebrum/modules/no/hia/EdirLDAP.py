@@ -21,6 +21,7 @@
 import cerebrum_path
 import cereconf
 
+import re
 import ldap
 import ldap.modlist
 
@@ -168,6 +169,8 @@ class LDAPConnection:
             self.__logger.debug("Successfully modified object %s (%s)." % (dn,
                                                                           attrs))
         except ldap.LDAPError, e:
+            if re.search('userPassword', e):
+                e = "Password change failed"
             self.__logger.warn("Could not modify object %s (%s)." % (dn,
                                                                      str(e)))
 
