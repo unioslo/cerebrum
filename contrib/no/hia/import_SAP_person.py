@@ -26,7 +26,7 @@ This file is a HiA-specific extension of Cerebrum. It contains code which
 imports person SAP-specific information into Cerebrum.
 
 Import file format.  The files are semicolon (;) separated, counting
-from 0 to 36.
+from 0 to 38.
 
  Field  Description
     0   SAP person ID
@@ -61,14 +61,14 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
+from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 from Cerebrum.modules.no import fodselsnr
 
 import sys
 import getopt
-import string
 
-FIELDS_IN_ROW = 37
+FIELDS_IN_ROW = 39
 
 
 
@@ -292,11 +292,11 @@ def populate_names(person, fields, const):
     #      and middle name and update name_first name variant with
     #      the result
     #    old code:
-    mname = string.strip(fields[7])
+    mname = fields[7].strip()
     if mname:
-        fname = string.strip(fields[6]) + ' ' + mname
+        fname = fields[6].strip() + ' ' + mname
     else:
-        fname = string.strip(fields[6])
+        fname = fields[6].strip()
 
     name_types = ((const.name_first, 6),
                   (const.name_middle, 7),
@@ -308,11 +308,11 @@ def populate_names(person, fields, const):
                         *[x[0] for x in name_types]) 
 
     for name_type, index in name_types:
-        if name_type <> const.name_first and name_type <> const.name_middle:
-            value = string.strip(fields[index])
+        if name_type not in (const.name_first, const.name_middle):
+            value = fields[index].strip()
             if not value:
                 continue
-            # fi
+
             person.populate_name(name_type, value)
             logger.debug("Populated name type %s with «%s»", name_type, value)
         # od
@@ -338,7 +338,7 @@ def populate_communication(person, fields, const):
                   #    FAX
                   (const.contact_fax, 29))
     for comm_type, index in comm_types:
-        value = string.strip(fields[index])
+        value = fields[index].strip()
         if not value:
             continue
         # fi
@@ -368,8 +368,7 @@ def populate_address(person, fields, const):
                      ("Bostedsadr. postnr.", 23),
                      ("Bostedsadr. Land", 24)) 
 
-    address_text = string.join(filter(None, fields[18:22]), 
-                               ", ").strip() or None
+    address_text = ", ".join(filter(None, fields[18:22])).strip() or None
     city = fields[22].strip() or None
     country = None
     if fields[24].strip():
@@ -476,7 +475,7 @@ def process_people(filename):
         
         fields = sap_row_to_tuple(entry)
         if len(fields) != FIELDS_IN_ROW:
-            logger.debug("Strange line: «%s»", entry)
+            logger.warn("Strange line: «%s»", entry)
             continue
         # fi
 
@@ -537,6 +536,9 @@ def main():
     global database
     database = Factory.get("Database")()
     database.cl_init(change_program='import_SAP')
+
+    # We insist on all fields having the same length.
+    assert check_field_consistency(input_name, FIELDS_IN_ROW)
 
     process_people(input_name)
 

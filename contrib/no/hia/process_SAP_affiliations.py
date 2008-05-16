@@ -56,6 +56,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
+from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 
@@ -71,6 +72,10 @@ cerebrum_db.cl_init(change_program="import_SAP")
 cerebrum_ou = Factory.get("OU")(cerebrum_db)
 constants = Factory.get("Constants")(cerebrum_db)
 logger = Factory.get_logger("cronjob")
+
+FIELDS_IN_ROW = 9
+
+
 
 
 
@@ -214,8 +219,6 @@ def process_affiliations(employment_file):
        with the file, the cache contains those entries that were in Cerebrum 
     """
 
-    FIELDS_PER_ROW = 9
-
     person = Factory.get("Person")(cerebrum_db)
 
     # first we cache all existing affiliations. It's a mapping person-id =>
@@ -225,7 +228,7 @@ def process_affiliations(employment_file):
     # for each line in file decide what to do with affiliations
     for row in file(employment_file, "r"):
         tmp = sap_row_to_tuple(row)
-        assert len(tmp) == FIELDS_PER_ROW, "Error in input: %s" % row
+        assert len(tmp) == FIELDS_IN_ROW, "Error in input: %s" % row
 
         fo_kode = tmp[4]
         sap_ansattnr = tmp[0]
@@ -341,6 +344,8 @@ def main():
             dryrun = True
 
     if employment_file:
+        # We insist on all fields having the same length.
+        assert check_field_consistency(employment_file, FIELDS_IN_ROW)
         process_affiliations(employment_file)
 
     if dryrun:

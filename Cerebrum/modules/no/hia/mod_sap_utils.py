@@ -1,4 +1,4 @@
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2003 University of Oslo, Norway
 #
@@ -18,11 +18,8 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
-
-This module contains a collection of utilities for dealing with SAP-specific
-data.
-
+"""This module contains a collection of utilities for dealing with
+SAP-specific data.
 """
 
 import re
@@ -66,4 +63,31 @@ def tuple_to_sap_row(tuple):
     return ";".join(tmp)
 # end tuple_to_sap_row
 
-# arch-tag: 681c9a14-b395-4fd4-820e-3b9b0e7dd3e3
+
+def check_field_consistency(filename, field_count):
+    """Check whether all lines in a file have the same number of fields.
+
+    We want to make sure that *all* entries in a SSØ SAP data file have
+    exactly the same number of fields. We do NOT want to trust a file where
+    some of the entries have a non-sanctioned field count.
+
+    @type filename: basestring
+    @param filename:
+      File to check for consistency
+
+    @type field_count: int
+    @param field_count:
+      specifies the required number of fields per line in L{filename}.
+
+    @rtype: bool
+    @return:
+      True if all lines in filename have the same number of fields; False
+      otherwise.
+    """
+
+    return reduce(lambda acc, x: acc and
+		                 (not x.strip() or 
+				  len(sap_row_to_tuple(x)) == field_count),
+		  file(filename, "r"),
+		  True)
+# end check_field_consistency

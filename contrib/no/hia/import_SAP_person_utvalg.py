@@ -37,6 +37,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
+from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
 from Cerebrum.modules.no.Constants import SAPUtvalgsKode
 
 import sys
@@ -134,7 +135,7 @@ def process_utvalg(filename, db):
         total += 1
 
         if len(fields) != FIELDS_IN_ROW:
-            logger.debug("Strange line: |%s|", entry)
+            logger.warn("Strange line: |%s|", entry)
             continue
         # fi
 
@@ -176,6 +177,9 @@ def main():
 
     db = Factory.get("Database")()
     db.cl_init(change_program='import_SAP')
+
+    # We insist on all fields having the same length.
+    assert check_field_consistency(input_name, FIELDS_IN_ROW)
 
     process_utvalg(input_name, db)
 

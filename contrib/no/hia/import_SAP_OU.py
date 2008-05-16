@@ -35,6 +35,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
+from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 
 import sys
@@ -111,9 +112,10 @@ def main():
     for option, value in options:
         if option in ("-s", "--sap-file"):
             input_name = value
-        # fi
-    # od
     
+    # We insist on all fields having the same length.
+    assert check_field_consistency(input_name, FIELDS_IN_ROW)
+
     process_OUs(input_name)
 # end main
 
