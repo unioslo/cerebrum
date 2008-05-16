@@ -75,7 +75,7 @@ public class Adresse {
         }
     }
     
-    public String toXML(XMLUtil xml) {
+    public void toXML(XMLUtil xml) {
         xml.startTag("ADRESSEKP");
         if (id != -1) {
             xml.writeElement("SEEKFIELDS", "AK_ADRID");
@@ -104,7 +104,6 @@ public class Adresse {
         xml.writeElement("AK_EPOST", ePost);
         xml.writeElement("AK_TLF", tlf);
         xml.endTag("ADRESSEKP");
-        return "";
     }
 
     @Override

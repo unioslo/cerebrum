@@ -73,7 +73,7 @@ public class PersonNavn {
         }
     }
 
-    public String toXML(XMLUtil xml) {
+    public void toXML(XMLUtil xml) {
         xml.startTag("PERNAVN");
         if (id != -1) {
             // Når en person har skiftet navn, skal det gamle navnet få en til-dato
@@ -100,7 +100,6 @@ public class PersonNavn {
         xml.writeElement("PN_ETTERNAVN", etternavn);
         xml.writeElement("PN_FRADATO", Person.dayFormat.format(fraDato));
         xml.endTag("PERNAVN");
-        return "";
     }
 
     @Override
