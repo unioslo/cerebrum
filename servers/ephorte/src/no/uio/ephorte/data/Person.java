@@ -27,12 +27,15 @@ public class Person {
     private int id = -1;
     private PersonNavn personNavn;
     private Hashtable<String, Adresse> adresse;
-    private Vector<PersonRolle> roller, deletedRoller;
+    private Vector<PersonRolle> roller;
+    private Hashtable<Integer, PersonRolle> deletedRoller;
     private Vector<PersonTgKode> tgKoder, deletedTgKoder;
     private Vector<String> potentialFeideIds;
     private boolean isNew = false; // Was created during this execution
     private Date fraDato, tilDato;
-    private boolean isDeletable = false, fromEphorte;
+    private boolean tilDatoNeedsUpdate = false;
+    private boolean isDeletable = false;
+    private boolean fromEphorte;
     
     private final static String passwordCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890,.-;:_'*!#%/()=?+";
     private SecureRandom secRand = new SecureRandom();
@@ -41,7 +44,7 @@ public class Person {
         if(brukerId == null)
             throw new IllegalArgumentException("brukerId cannot be NULL");
         roller = new Vector<PersonRolle>();
-        deletedRoller = new Vector<PersonRolle>();
+        deletedRoller = new Hashtable<Integer, PersonRolle>();
 	tgKoder = new Vector<PersonTgKode>();
 	deletedTgKoder = new Vector<PersonTgKode>();
         potentialFeideIds = new Vector<String>();
@@ -65,40 +68,12 @@ public class Person {
             e.printStackTrace();
         }
     }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof Person) {
-            boolean tilDatoNeedsUpdate = false;
-            Person pEphorte, pXML;
-            if(fromEphorte) {
-                pEphorte = this;
-                pXML = (Person) obj;
-            } else {
-                pXML = this;
-                pEphorte = (Person) obj;
-            }
-            if(pXML.isDeletable && (pEphorte.tilDato == null || 
-				    pEphorte.tilDato.after(new Date()))) {
-                tilDatoNeedsUpdate = true;
-            } else if(! pXML.isDeletable && pEphorte.tilDato != null && 
-		      pEphorte.tilDato.before(new Date())) {
-                tilDatoNeedsUpdate = true;
-            }            
-            // return (! tilDatoNeedsUpdate) && 
-            //     XMLUtil.equals(fraDato, p.fraDato) && 
-            //     XMLUtil.equals(tilDato, p.tilDato) && 
-            //     XMLUtil.equals(pEphorte.brukerId, pXML.brukerId);
-            return (! tilDatoNeedsUpdate) && 
-		XMLUtil.equals(pEphorte.brukerId, pXML.brukerId);
-        }
-        return super.equals(obj);
-    }
     
-    public String toXML(XMLUtil xml) {
+    public void toXML(XMLUtil xml) {
         xml.startTag("PERSON");
         xml.writeElement("PE_ID", "" + id);
         xml.writeElement("PE_BRUKERID", brukerId);
+	// New user?
         if (id == -1) {
             // Since we use FEIDE login, we assign a random password
             // in case it is possible to log in with the normal
@@ -113,23 +88,15 @@ public class Person {
             xml.writeElement("PE_REDALLEROLLER_G", "0");
             xml.writeElement("PE_FRADATO", dayFormat.format(fraDato));
         } else {
+	    // Old user. Seek in ephorte
             xml.writeElement("SEEKFIELDS", "PE_ID");
             xml.writeElement("SEEKVALUES", "" + id);
-            if(isDeletable) {
-                xml.writeElement("PE_TILDATO", dayFormat.format(new Date()));
-            } else {
-                if(tilDato != null && tilDato.before(new Date())) {
-                    // XML-file said user is not deletable, but user is expired
-                    // in ePhorte. Set tilDato into the future
-                    xml.writeElement("PE_TILDATO", dayFormat.format(new Date(System.currentTimeMillis()+1000L*3600*24*365)));
-                }
-            }
+	    // If person is deleted or reactivated tilDato must be changed
+            if(tilDatoNeedsUpdate) {
+                xml.writeElement("PE_TILDATO", dayFormat.format(tilDato));
+	    }
         }
-	// if(isDeletable) {
-        //     xml.writeElement("PE_FRADATO", dayFormat.format(new Date()));
-        // } 
         xml.endTag("PERSON");
-        return "";
     }
 
     public void toSeekXML(XMLUtil xml) {
@@ -178,21 +145,19 @@ public class Person {
         return "Person: pid=" + id + ", brukerId=" + brukerId;
     }
 
-
-
     public Vector<PersonRolle> getRoller() {
         return roller;
     }
 
-    public Vector<PersonRolle> getDeletedRoller() {
-        return deletedRoller;
+    public PersonRolle getDeletedRolle(int pr_id) {
+	return deletedRoller.get(pr_id);
     }
 
     public void addRolle(PersonRolle pr) {
 	Date tildato, today = new Date();
 	tildato = pr.getTilDato();
 	if (tildato != null && !tildato.after(today)) {
-	    deletedRoller.add(pr);
+	    deletedRoller.put(pr.getId(), pr);
 	} else {
 	    roller.add(pr);
 	}	
@@ -267,11 +232,11 @@ public class Person {
     public boolean isNew() {
         return isNew;
     }
-/*
-	public boolean isDeletable() {
-		return isDeletable;
-	}
-*/
+
+    public boolean isDeletable() {
+	return isDeletable;
+    }
+
     public void setDeletable(boolean isDeletable) {
 	this.isDeletable = isDeletable;
     }
@@ -282,6 +247,10 @@ public class Person {
     
     public Vector<String> getPotentialFeideIds() {
 	return potentialFeideIds;
+    }
+
+    public void setTilDatoNeedsUpdate(boolean tilDatoNeedsUpdate) {
+	this.tilDatoNeedsUpdate = tilDatoNeedsUpdate;
     }
 
     public void setTilDato(Date tilDato) {

@@ -120,6 +120,17 @@ public class PersonRolle {
         xml.endTag("PERROLLE");
     }
 
+    // Update an earlier deleted rolle by setting tildato to null
+    public void toUpdateXML(XMLUtil xml) {
+        xml.startTag("PERROLLE");
+        xml.writeElement("PR_ID", "" + id);
+        xml.writeElement("PR_PEID_PE", "" + person.getId());
+        xml.writeElement("SEEKFIELDS", "PR_ID");
+        xml.writeElement("SEEKVALUES", "" + id);
+        xml.writeElement("PR_TILDATO", Person.dayFormat.format(new Date(System.currentTimeMillis()+1000L*3600*24*365*20)));
+        xml.endTag("PERROLLE");
+    }
+
     // Delete by setting tildato 
     public void toDeleteXML(XMLUtil xml) {
         xml.startTag("PERROLLE");
@@ -165,11 +176,11 @@ public class PersonRolle {
         return tilDato;
     }
 
-    int getId() {
+    public int getId() {
         return id;
     }
 
-    int getRolleId() {
+    public int getRolleId() {
         return rolleId;
     }
 

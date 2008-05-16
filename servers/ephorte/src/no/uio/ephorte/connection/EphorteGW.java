@@ -158,74 +158,6 @@ public class EphorteGW {
         log.info("EphorteGW.fetchPersons() done...");
     }
 
-    /**
-     * Update any person related table, given in the xml string. The
-     * string must be the xml format described in ... and is sent
-     * directly to the ephorte web service. It is the callers
-     * responsibility that the format is correct.
-     *
-     * Being able to send raw xml directly to the web service makes
-     * testing much easier.
-     *
-     **/
-    public void rawSync(String xml) throws RemoteException {
-	try {
-	    int ret = conn.updatePersonByXML(xml);
-	    if (ret > 0) {
-		log.info("Successfully updated ephorte by updatePersonByXML");
-	    } else {
-		log.warn("updatePersonByXML failed");
-	    } 
-	} catch (AxisFault e) {
-	    log.warn("Problems updating ephorte. Sent xml: " + xml + 
-		     " -> " + e.toString());
-	}
-    }
-
-
-    /**
-     * This method is always called after persons and roles have been
-     * updated. 
-     *
-     * @param newPerson
-     * @throws RemoteException
-     **/
-    public void updatePermissions(Person newPerson) throws RemoteException {
-        XMLUtil xml = new XMLUtil();
-        Person oldPerson = getPerson(newPerson);
-	boolean isDirty = false;
-	// Dirty hack. Put somewhere else
-	brukerId2Person.put("BOOTSTRAP_ACCOUNT@UIO.NO", personId2Person.get(0));
-
-        xml.startTag("PersonData");
-	newPerson.toSeekXML(xml);
-	newPerson.setId(oldPerson.getId());
-	// We can't delete persons in ePhorte. Instead the tilDato is set.
-	newPerson.setTilDato(oldPerson.getTilDato());
-	isDirty = updateTgKoder(xml, newPerson);
-        xml.endTag("PersonData");
-	if (isDirty) {
-            try {
-		log.debug("Try to update persons tgKoder " + newPerson.getBrukerId());
-                int ret = conn.updatePersonByXML(xml.toString());
-                //if (oldPerson.getId() == -1)
-                //    oldPerson.setId(ret);
-		if (ret > 0) {
-		    log.info("Successfully updated person " + 
-			     newPerson.getBrukerId() + " (" + ret + ")");
-		} else {
-                    log.warn("Problem modifying " + newPerson.getBrukerId() + 
-			     ", ret should be > 0, was: " + ret + 
-			     " problematic request:" + xml.toString());
-                } 
-            } catch (AxisFault e) {
-                log.warn("Problems updating ephorte. Sent xml: " + xml.toString() + 
-			 " -> " + e.toString());
-	    }
-	} else {
-            log.debug("No new tgKoder for " + newPerson.getBrukerId());	    
-	}
-    }
 
     /**
      * Oppdater, eller opprett person i ePhorte med informasjon om navn og
@@ -236,34 +168,35 @@ public class EphorteGW {
      */
     public void updatePersonInfo(Person newPerson) throws RemoteException {
         XMLUtil xml = new XMLUtil();
+        boolean isDirty = false; 
+	// getPerson checks if newPerson exists in ePhorte. If so the
+	// person object is returned, null otherwise
         Person oldPerson = getPerson(newPerson);
-        boolean isDirty = false;
         xml.startTag("PersonData");
-	// Check if Person needs to be updated
+	// Compare person from ePhorte (oldPerson) with person from
+	// xml file (newPerson). 
         if (oldPerson == null || oldPerson.getId() == -1) {
             // Person doesn't exist in ePhorte. Create new person
-	    log.info("Person doesn't exist in ePhorte. Create new person " +
-		      newPerson.getBrukerId());
-            newPerson.toXML(xml);
-            brukerId2Person.put(newPerson.getBrukerId(), newPerson);
-            newPerson.setNew(true);
+	    createUser(xml, newPerson);
             isDirty = true;
-        } else {
-            // old person. There are no data that we want to update
+        } else if (!newPerson.isDeletable() && oldPerson.getTilDato() != null && 
+		   oldPerson.getTilDato().before(new Date())) {
+	    // Person is deleted and should now be reactivated
+	    reactivateUser(xml, newPerson, oldPerson.getId(), 
+			   oldPerson.getBrukerId());
+	    isDirty = true;
+	} else if (newPerson.isDeletable() && 
+		   (oldPerson.getTilDato() == null ||
+		    oldPerson.getTilDato().after(new Date()))) {
+	    // Person should be deleted
+	    deleteUser(xml, newPerson, oldPerson.getId());
+	    isDirty = true;
+	} else {
+	    // Modify person, write xml to find person in ephorte
             newPerson.setId(oldPerson.getId());
-	    // We can't delete persons in ePhorte. Instead the tilDato is set.
-            newPerson.setTilDato(oldPerson.getTilDato());
-            if(! newPerson.equals(oldPerson)) {
-		// TODO: Vi kommer ikke hit når vi sletter/setter
-		// tildato/setter delete="1" på en person. Hvorfor?
-		log.info("Deleting person. Set tilDato for person " + 
-			 newPerson.getBrukerId() + " to " + newPerson.getTilDato());
-                newPerson.toXML(xml); 
-                isDirty = true;
-            } else {                
-		newPerson.toSeekXML(xml);
-	    }
-        }
+	    newPerson.toSeekXML(xml);
+	}
+
 	// Check if PersonName needs to be updated
         if (oldPerson == null || !(newPerson.getPersonNavn().equals(oldPerson.getPersonNavn()))) {
             if (oldPerson != null && oldPerson.getPersonNavn() != null) {
@@ -344,13 +277,52 @@ public class EphorteGW {
 	// another PersonObject has the same initialer (aka user name)
         for(Person p: brukerId2Person.values()){
             String oldInit = null;
-            if(p.getPersonNavn() != null) oldInit = p.getPersonNavn().getInitialer(); 
+            if(p.getPersonNavn() != null) {
+		oldInit = p.getPersonNavn().getInitialer();
+	    }
             if(newPerson.getPersonNavn().getInitialer().equals(oldInit)){
                 log.warn("Used brukerid match to return "+p+" when looking for "+newPerson);
                 return p;
             }
         }
     	return null;
+    }
+
+    /**
+     * Do the neccessary steps to create user in ePhorte
+     */
+    private void createUser(XMLUtil xml, Person p) {
+	log.info("Person doesn't exist in ePhorte. Create new person " +
+		 p.getBrukerId());
+	p.toXML(xml);
+	brukerId2Person.put(p.getBrukerId(), p);
+	p.setNew(true);
+    }
+
+    /**
+     * Do the neccessary steps to reactivate a user in ePhorte
+     */
+    private void reactivateUser(XMLUtil xml, Person p, int pid, String brukerId) {
+	log.info("Person " + brukerId + 
+		 " was deleted in ePhorte, but is now recreated.");
+	p.setId(pid);
+	// Set tilDato into the future
+	p.setTilDato(new Date(System.currentTimeMillis()+1000L*3600*24*365));
+	p.setTilDatoNeedsUpdate(true);
+	p.toXML(xml); 
+    }
+
+    /**
+     * Do the neccessary steps to delete a user in ePhorte
+     */    
+    private void deleteUser(XMLUtil xml, Person p, int pid) {
+	log.info("Deleting person. Set tilDato for person " + 
+		 p.getBrukerId() + " to " + p.getTilDato());
+	// TBD: hva med pn_aktiv? Hva med roller?
+	p.setId(pid);
+	p.setTilDato(new Date());
+	p.setTilDatoNeedsUpdate(true);
+	p.toXML(xml); 
     }
 
     private boolean updateRoles(XMLUtil xml, Person p) {
@@ -362,8 +334,19 @@ public class EphorteGW {
         }
         for (PersonRolle pr : p.getRoller()) {
             if (oldPerson.isNew() || !oldPerson.getRoller().contains(pr)) {
-                log.info("Add role: " + pr);
-                pr.toXML(xml);
+		// Before adding a role we need to check if a person
+		// has an equivalent deleted role. In that case the
+		// only thing that has to be done is to update
+		// tildato. Unfortunately we can't set it to null, so
+		// we set it to way into the future.
+		PersonRolle tmp = oldPerson.getDeletedRolle(pr.getId());
+		if (tmp != null) {
+		    log.info("Update role: " + pr);
+		    pr.toUpdateXML(xml);
+		} else {
+		    log.info("Add role: " + pr);
+		    pr.toXML(xml);
+		}
                 isDirty = true;
             } else {
                 log.debug("Person already has role: " + pr);
@@ -372,7 +355,7 @@ public class EphorteGW {
         }
         if (!oldPerson.isNew()) {
             for (PersonRolle pr : oldPerson.getRoller()) {
-		if (!oldPerson.getDeletedRoller().contains(pr)) {
+		if (oldPerson.getDeletedRolle(pr.getId()) == null) {
 		    log.info("Remove role: " + pr);
 		    pr.setTilDato(new Date());
 		    pr.toDeleteXML(xml);
@@ -381,6 +364,50 @@ public class EphorteGW {
             }
         }
         return isDirty;
+    }
+
+    /**
+     * This method is always called after persons and roles have been
+     * updated. 
+     *
+     * @param newPerson
+     * @throws RemoteException
+     **/
+    public void updatePermissions(Person newPerson) throws RemoteException {
+        XMLUtil xml = new XMLUtil();
+        Person oldPerson = getPerson(newPerson);
+	boolean isDirty = false;
+	// Dirty hack. Put somewhere else
+	brukerId2Person.put("BOOTSTRAP_ACCOUNT@UIO.NO", personId2Person.get(0));
+
+        xml.startTag("PersonData");
+	newPerson.toSeekXML(xml);
+	newPerson.setId(oldPerson.getId());
+	// We can't delete persons in ePhorte. Instead the tilDato is set.
+	newPerson.setTilDato(oldPerson.getTilDato());
+	isDirty = updateTgKoder(xml, newPerson);
+        xml.endTag("PersonData");
+	if (isDirty) {
+            try {
+		log.debug("Try to update persons tgKoder " + newPerson.getBrukerId());
+                int ret = conn.updatePersonByXML(xml.toString());
+                //if (oldPerson.getId() == -1)
+                //    oldPerson.setId(ret);
+		if (ret > 0) {
+		    log.info("Successfully updated person " + 
+			     newPerson.getBrukerId() + " (" + ret + ")");
+		} else {
+                    log.warn("Problem modifying " + newPerson.getBrukerId() + 
+			     ", ret should be > 0, was: " + ret + 
+			     " problematic request:" + xml.toString());
+                } 
+            } catch (AxisFault e) {
+                log.warn("Problems updating ephorte. Sent xml: " + xml.toString() + 
+			 " -> " + e.toString());
+	    }
+	} else {
+            log.debug("No new tgKoder for " + newPerson.getBrukerId());	    
+	}
     }
 
     private boolean updateTgKoder(XMLUtil xml, Person p) {
@@ -430,5 +457,30 @@ public class EphorteGW {
 
     public EphorteConnection getConn() {
         return conn;
+    }
+
+
+    /**
+     * Update any person related table, given in the xml string. The
+     * string must be the xml format described in ... and is sent
+     * directly to the ephorte web service. It is the callers
+     * responsibility that the format is correct.
+     *
+     * Being able to send raw xml directly to the web service makes
+     * testing much easier.
+     *
+     **/
+    public void rawSync(String xml) throws RemoteException {
+	try {
+	    int ret = conn.updatePersonByXML(xml);
+	    if (ret > 0) {
+		log.info("Successfully updated ephorte by updatePersonByXML");
+	    } else {
+		log.warn("updatePersonByXML failed");
+	    } 
+	} catch (AxisFault e) {
+	    log.warn("Problems updating ephorte. Sent xml: " + xml + 
+		     " -> " + e.toString());
+	}
     }
 }
