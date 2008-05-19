@@ -30,6 +30,7 @@ paalde:xySfdaS3aS2:500:500:Paal D. Ekran:/its/home/p/pa/paalde:/bin/bash:true,ST
 """
 
 import sys
+import time
 import re
 import os
 import mx
@@ -122,7 +123,11 @@ def main():
     except getopt.GetoptError:
         usage()
 
-    sut_file = None
+    date = time.localtime()
+    date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
+    
+    sut_file = os.path.join(cereconf.DUMPDIR,'sut','uit_persons_%s' % date_today) 
+    
     help = 0
     for opt,val in opts:
         if opt in ('-s','--sut-file'):
@@ -131,8 +136,6 @@ def main():
             logger_name = val
         if opt in('-h','--help'):
             usage()
-    if not sut_file:
-        usage()
 
     logger = Factory.get_logger(logger_name)
   

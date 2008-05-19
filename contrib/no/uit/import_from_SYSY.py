@@ -21,6 +21,7 @@
 
 
 import os
+import time
 import sys
 import getopt
 import xml
@@ -35,7 +36,7 @@ from Cerebrum.Utils import XMLHelper, MinimumSizeWriter, AtomicFileWriter
 from Cerebrum.modules.no.uit.access_SYSY import SystemY 
 
 default_role_file = os.path.join(cereconf.DUMPDIR,
-                                 'sysY','sysY_%s.xml' % (cereconf._TODAY))
+                                 'sysY','sysY_%s.xml' % (time.strftime("%Y%m%d")))
 
 xml = XMLHelper()
 

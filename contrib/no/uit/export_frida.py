@@ -1529,9 +1529,13 @@ def main():
 
 
     # Default values
-    output_file = os.path.join(cereconf.DUMPDIR,'Frida','frida_%s.xml' % cereconf._TODAY)
-    person_file = os.path.join(cereconf.DUMPDIR,'employees','uit_persons_%s.xml' % cereconf._TODAY)
-    sted_file = os.path.join(cereconf.DUMPDIR,'ou','uit_ou_%s.xml' % cereconf._TODAY)
+
+    date = time.localtime()
+    date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
+    
+    output_file = os.path.join(cereconf.DUMPDIR,'Frida','uit-frida-%s.xml' % date_today)
+    person_file = os.path.join(cereconf.DUMPDIR,'employees','uit_persons_%s.xml' % date_today)
+    sted_file = os.path.join(cereconf.DUMPDIR,'ou','uit_ou_%s.xml' % date_today)
     verbose = False
     # FIXME: Maybe snatch these from cereconf?
     data_source = "UITO"

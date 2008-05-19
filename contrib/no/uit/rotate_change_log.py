@@ -21,6 +21,7 @@
 
 import getopt
 import sys
+import time
 import cerebrum_path
 import cereconf
 import os
@@ -146,12 +147,26 @@ def main():
     except getopt.GetoptError:
         usage()
         sys.exit(1)
+        
     change_type=None
-    dump_file=None
-    date=None
+
+    date_tmp = time.localtime()
+    date_today = "%02d%02d%02d" % (date_tmp[0], date_tmp[1], date_tmp[2])
+    dump_file = os.path.join(cereconf.CB_PREFIX, 'var', 'log', 'cerebrum', 'change_log_%s.bz2' % (date_today))
+
+    #threshold_date is used by rotate_change_log
+    time_float = time.mktime(date_tmp)-(60*60*24*30) # (60*60*24*30) => 1 month
+    new_time = time.gmtime(time_float)
+    nt_year = new_time[0]
+    nt_month = new_time[1]
+    nt_day = new_time[2]
+    threshold_date ="%02d%02d%02d" % (nt_year, nt_month, nt_day)
+    date = threshold_date
+    
     change_program=None
     change_type_list=None
     change_program_list=None
+    
     for opt,val in opts:
         if opt in('-d','--dump_file'):
             dump_file= val
@@ -162,9 +177,6 @@ def main():
         if opt in ('-C','--change_type'):
             change_type=val
 
-    if (date==None):
-        usage()
-        sys.exit(1)
     if((change_program==None)and(change_type==None)):
         usage()
         sys.exit(1)

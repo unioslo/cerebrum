@@ -189,6 +189,10 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
     existing_ou_mappings[stedkode2ou[stedkode]] = org_stedkode_ou
 
 def import_org_units(sources):
+
+    print sources
+    print 'hei'
+    
     ou = OU_class(db)
 
     expire_ou = []
@@ -351,34 +355,27 @@ Imports OU data from systems that use 'stedkoder', primarily used to
 import from UoOs LT system.
 
     -v | --verbose              increase verbosity
-    -o | --ou-file FILE         file to read stedinfo from
     -p | --perspective NAME     name of perspective to use
     -s | --source-spec SPEC     colon-separated (source-system, filename) pair
-
-For backward compatibility, there still is some support for the
-following (deprecated) option; note, however, that the new option
---source-spec is the preferred way to specify input data:
-    --source-system name: name of source-system to use
 
     """
     sys.exit(exitcode)
 
 def main():
     global verbose, perspective
+    print 'her1'
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'vp:s:o:',
+        opts, args = getopt.getopt(sys.argv[1:], 'vp:s:',
                                    ['verbose',
                                     'perspective=',
-                                    'source-spec=',
-                                    # Deprecated:
-                                    'ou-file=', 'source-system='])
+                                    'source-spec='])
     except getopt.GetoptError:
         usage(1)
+
+    print 'her2'
     verbose = 0
     perspective = getattr(co, default_perspective)
     sources = []
-    source_file = None
-    source_system = None
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
@@ -387,30 +384,13 @@ def main():
         elif opt in ('-s', '--source-spec'):
             sources.append(val)
             logger.debug("VAL=%s" % val)
-        elif opt in ('-o', '--ou-file'):
-            # This option is deprecated; use --source-spec instead.
-            source_file = val
-        elif opt in ('--source-system',):
-            # This option is deprecated; use --source-spec instead.
-            source_system = val
     
-    if perspective is None:
-        usage(2)
-        
-    # Default source system and input file
-    if not sources and source_file is None and source_system is None:
+    if len(sources) == 0:
         sources.append(default_source_system+':'+default_input_file)
 
-    if sources:
-        if source_file is None and source_system is None:
-            logger.debug(sources)
-            import_org_units(sources)
-        else:
-            usage(3)
-    elif source_file is not None and source_system is not None:
-        import_org_units([':'.join((source_system, source_file))])
-    else:
-        usage(4)
+    logger.debug(sources)
+    import_org_units(sources)
+
 
 if __name__ == '__main__':
     main()

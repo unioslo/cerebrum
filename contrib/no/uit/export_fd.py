@@ -46,7 +46,7 @@
 
 ## assuming TS_homepath = homepath and TS_homedrive = homedrive
 
-
+import os
 import sys
 import time
 import re
@@ -73,8 +73,8 @@ max_nmbr_users = 20000
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
 logger = Factory.get_logger('console')
 
-default_user_file = cereconf.OMNI_DEFAULT_USER_FILE
-default_group_file = cereconf.OMNI_DEFAULT_GROUP_FILE
+default_user_file = os.path.join(cereconf.DUMPDIR,'FD','fd_export_user_%s.txt' % (time.strftime("%Y%m%d")))
+default_group_file = os.path.join(cereconf.DUMPDIR,'FD','fd_export_group_%s.txt' % (time.strftime("%Y%m%d")))
 
 
 class ad_export:

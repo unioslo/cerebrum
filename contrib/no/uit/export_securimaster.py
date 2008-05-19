@@ -24,6 +24,7 @@
 
 import getopt
 import sys
+import time
 import os
 import csv
 
@@ -184,7 +185,7 @@ def usage(exitcode=0):
 def main():
 
     default_outfile=os.path.join(cereconf.DUMPDIR, \
-        "securimaster","securimaster_dump_%s.csv" % cereconf._TODAY)
+        "securimaster","securimaster_dump_%s.csv" % time.strftime("%Y%m%d"))
     user_outfile=None
 
     try:
