@@ -42,6 +42,7 @@
 ITEMLIST = ('userid','name_first','name_last', 'title','sko','skoname',
             'company','expire','acc_disabled')
 
+import os
 import sys
 import time
 import re
@@ -62,9 +63,9 @@ from Cerebrum.modules.no.uit import Email
 max_nmbr_users = 10000
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
 logger = Factory.get_logger(logger_name)
-        
-default_user_file = cereconf.AD['DEFAULT_USER_FILE']
-default_group_file = cereconf.AD['DEFAULT_GROUP_FILE']
+
+default_user_file = os.path.join(cereconf.DUMPDIR,'AD','ad_export_user_%s.txt' % (time.strftime("%Y%m%d")))
+default_group_file = os.path.join(cereconf.DUMPDIR,'AD','ad_export_group_%s.txt' % (time.strftime("%Y%m%d")))
 
 
 class ad_export:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 import sys
+import time
 import getopt
 import cerebrum_path
 from Cerebrum import Utils
@@ -28,7 +29,7 @@ class delete:
             legacy_info['ssn'] = None
         legacy_info['source'] = 'MANUELL'
         legacy_info['type'] = 'P'
-        legacy_info['comment'] = '%s - Deleted by delete_account.py script.' % (cereconf._TODAY) # Will try to get primary account for SSN later on...
+        legacy_info['comment'] = '%s - Deleted by delete_account.py script.' % (time.strftime('%Y%m%d')) # Will try to get primary account for SSN later on...
         legacy_info['name'] = pe.get_name(co.system_cached, co.name_full)
 
         try:
@@ -89,7 +90,7 @@ class delete:
             pe.find(aux)
             aux = pe.get_accounts(filter_expired=False)[0]['account_id']
             ac.find(aux)
-            legacy_info['comment'] = '%s - Duplicate of %s' % (cereconf._TODAY, ac.account_name)
+            legacy_info['comment'] = '%s - Duplicate of %s' % (time.strftime('%Y%m%d'), ac.account_name)
             mailto_rt = True
         except:
             print "Could not find primary account"

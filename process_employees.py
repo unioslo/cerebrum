@@ -31,6 +31,7 @@ defined in cereconf assigned to the account.
 
 import getopt
 import sys
+import time
 import os
 import mx
 import xml.sax
@@ -480,7 +481,11 @@ def main():
 
     ret = 0
     person_id = 0
-    person_file = os.path.join(cereconf.DUMPDIR,'employees','uit_persons_%s.xml' % cereconf._TODAY) 
+    
+    date = time.localtime()
+    date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
+    
+    person_file = os.path.join(cereconf.DUMPDIR,'employees','uit_persons_%s.xml' % date_today) 
     dryrun = False
     for opt,val in opts:
         if opt in('-p','--person_id'):

@@ -28,6 +28,7 @@
 import getopt
 import sys
 import os
+import time
 import mx.DateTime
 
 import cerebrum_path
@@ -271,7 +272,11 @@ def usage(exit_code=0,msg=""):
 
 
 def main():
-    default_outfile=os.path.join(cereconf.DUMPDIR,"oid","oid_export_%s.xml" % cereconf._TODAY)
+
+    date = time.localtime()
+    date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
+    
+    default_outfile=os.path.join(cereconf.DUMPDIR,"oid","oid_export_%s.xml" % date_today)
     user_outfile=None
     exportCSV=False
 

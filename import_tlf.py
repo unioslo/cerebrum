@@ -44,6 +44,7 @@ __doc__ = """
 """ % progname 
 
 import sys
+import time
 import csv
 import getopt
 import csv
@@ -278,7 +279,7 @@ def process_telefoni(filename,checknames,checkmail):
 def notify_phoneadmin(msg):    
     recipient=cereconf.TELEFONIERRORS_RECEIVER
     sender=cereconf.SYSX_EMAIL_NOTFICATION_SENDER
-    subject="Import telefoni errors from Cerebrum %s" % cereconf._TODAY
+    subject="Import telefoni errors from Cerebrum %s" % time.strftime("%Y%m%d")
     body=msg
     debug=dryrun    
     # finally, send the message    
@@ -297,7 +298,7 @@ def usage(exitcode=0,msg=None):
 def main():
     global dryrun
     default_phonefile='%s/telefoni/user_%s.txt' % (cereconf.DUMPDIR,
-                                                   cereconf._TODAY)
+                                                   time.strftime("%Y%m%d"))
     phonefile=dryrun=checknames=checkmail=False
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'dh?f:',
