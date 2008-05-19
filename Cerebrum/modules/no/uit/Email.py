@@ -100,8 +100,6 @@ class email_address:
             self.logger.debug("Domain created: %s: %d", dom, self.edom.entity_id)
         # yrt
 
-        print 'HEIHEIHEI'
-
         try:
             self.et.find_by_target_entity(int(account_id))
             self.logger.debug("EmailTarget found(account): %s: %d",
