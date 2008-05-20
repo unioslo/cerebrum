@@ -27,6 +27,10 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum import Errors
 import xmlrpclib
 from mx import DateTime
+try:
+    set()
+except NameError:
+    from Cerebrum.extlib.sets import Set as set
 
 class _BofhdRequestOpCode(Constants._CerebrumCode):
     "Mappings stored in the auth_role_op_code table"
@@ -413,7 +417,8 @@ class BofhdUtils(object):
                                 "host": ("Host",),
                                 "disk": ("Disk",),
                                 "entity_id": None,
-                                "id": None }
+                                "id": None,
+                                "external_id": None,}
 
         def get_target_find_lookup(name, default_lookup):
             if isinstance(name, int):
@@ -442,8 +447,25 @@ class BofhdUtils(object):
                 return get_target_host(name)
             elif ltype == 'disk':
                 return get_target_disk(name)
+            elif ltype == 'external_id':
+                return get_target_by_external_id(name)
             else:
                 raise CerebrumError, "Lookup type %s not implemented yet" % ltype
+
+        def get_target_by_external_id(ext_id):
+            # This does not have to be person, but cereconf.CLASS_ENTITY is
+            # insufficient. We need EntityExternalId here.
+            en = Factory.get("Person")(self.db)
+            # first, locate the entity_id
+            candidates = en.list_external_ids(external_id=ext_id)
+            if not candidates:
+                raise CerebrumError("No entity with external id=%s", ext_id)
+            only_ids = set([int(x["entity_id"]) for x in candidates])
+            if len(only_ids) > 1:
+                raise CerebrumError("Too many targets with external id=%s"
+                                    "[entity_ids=%s]", only_ids)
+            return get_target_entity(only_ids.pop())
+        # end get_target_by_external_id
          
         def get_target_entity(ety_id):
             try:
