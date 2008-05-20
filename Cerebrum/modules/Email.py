@@ -70,6 +70,8 @@ from Cerebrum import Errors
 
 import cereconf
 
+__version__ = "1.3"
+
 class _EmailTargetCode(Constants._CerebrumCode):
     _lookup_table = '[:table schema=cerebrum name=email_target_code]'
 
@@ -617,7 +619,8 @@ class EmailTarget(Entity_class):
         """
         return self.query("""
         SELECT target_id, target_type, target_entity_type,
-               target_entity_id, alias_value, using_uid
+               target_entity_id, alias_value, using_uid,
+               server_id
         FROM [:table schema=cerebrum name=email_target]
         """, fetchall=False)
     
@@ -635,7 +638,8 @@ class EmailTarget(Entity_class):
             where = "WHERE et.target_type = %d" % int(target_type)
  
         return self.query("""
-        SELECT et.target_id, et.target_entity_id, ea.local_part, ed.domain
+        SELECT et.target_id, et.target_entity_id, ea.local_part, ed.domain,
+        et.server_id
         FROM [:table schema=cerebrum name=email_target] et
           JOIN [:table schema=cerebrum name=email_primary_address] epa
             ON et.target_id=epa.target_id
