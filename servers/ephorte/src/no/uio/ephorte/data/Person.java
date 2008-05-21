@@ -27,8 +27,7 @@ public class Person {
     private int id = -1;
     private PersonNavn personNavn;
     private Hashtable<String, Adresse> adresse;
-    private Vector<PersonRolle> roller;
-    private Hashtable<Integer, PersonRolle> deletedRoller;
+    private Vector<PersonRolle> roller, deletedRoller;
     private Vector<PersonTgKode> tgKoder, deletedTgKoder;
     private Vector<String> potentialFeideIds;
     private boolean isNew = false; // Was created during this execution
@@ -44,7 +43,7 @@ public class Person {
         if(brukerId == null)
             throw new IllegalArgumentException("brukerId cannot be NULL");
         roller = new Vector<PersonRolle>();
-        deletedRoller = new Hashtable<Integer, PersonRolle>();
+        deletedRoller = new Vector<PersonRolle>();
 	tgKoder = new Vector<PersonTgKode>();
 	deletedTgKoder = new Vector<PersonTgKode>();
         potentialFeideIds = new Vector<String>();
@@ -149,15 +148,15 @@ public class Person {
         return roller;
     }
 
-    public PersonRolle getDeletedRolle(int pr_id) {
-	return deletedRoller.get(pr_id);
+    public Vector<PersonRolle> getDeletedRoller() {
+	return deletedRoller;
     }
 
     public void addRolle(PersonRolle pr) {
 	Date tildato, today = new Date();
 	tildato = pr.getTilDato();
 	if (tildato != null && !tildato.after(today)) {
-	    deletedRoller.put(pr.getId(), pr);
+	    deletedRoller.add(pr);
 	} else {
 	    roller.add(pr);
 	}	

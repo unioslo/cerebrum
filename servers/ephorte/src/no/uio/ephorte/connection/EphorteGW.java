@@ -3,6 +3,7 @@ package no.uio.ephorte.connection;
 import java.rmi.RemoteException;
 import java.util.Date;
 import java.util.Hashtable;
+import java.util.Vector;
 //import java.util.Iterator;
 import java.util.Properties;
 
@@ -326,6 +327,7 @@ public class EphorteGW {
     }
 
     private boolean updateRoles(XMLUtil xml, Person p) {
+	Vector<PersonRolle> tmpDeletedRoller;
         boolean isDirty = false;
         Person oldPerson = getPerson(p);
         if (oldPerson == null || (oldPerson.getId() == -1 && !oldPerson.isNew())) {
@@ -333,15 +335,20 @@ public class EphorteGW {
             return isDirty;
         }
         for (PersonRolle pr : p.getRoller()) {
+	    // Sjekk at denne testen faktisk gjør som den skal 
+	    // sjekk at contains gjør som den skal.
             if (oldPerson.isNew() || !oldPerson.getRoller().contains(pr)) {
-		// Before adding a role we need to check if a person
+		// Before adding a role we need to check if the person
 		// has an equivalent deleted role. In that case the
 		// only thing that has to be done is to update
 		// tildato. Unfortunately we can't set it to null, so
 		// we set it to way into the future.
-		PersonRolle tmp = oldPerson.getDeletedRolle(pr.getId());
-		if (tmp != null) {
-		    log.info("Update role: " + pr);
+		tmpDeletedRoller = oldPerson.getDeletedRoller();
+		if (tmpDeletedRoller.contains(pr)) {
+		    int i = tmpDeletedRoller.indexOf(pr);
+		    PersonRolle tmp = tmpDeletedRoller.get(i);
+		    pr.setId(tmp.getId());
+		    log.info("Update role: " + tmp);
 		    pr.toUpdateXML(xml);
 		} else {
 		    log.info("Add role: " + pr);
@@ -355,7 +362,7 @@ public class EphorteGW {
         }
         if (!oldPerson.isNew()) {
             for (PersonRolle pr : oldPerson.getRoller()) {
-		if (oldPerson.getDeletedRolle(pr.getId()) == null) {
+		if (!oldPerson.getDeletedRoller().contains(pr)) {
 		    log.info("Remove role: " + pr);
 		    pr.setTilDato(new Date());
 		    pr.toDeleteXML(xml);
