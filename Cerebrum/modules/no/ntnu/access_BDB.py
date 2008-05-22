@@ -73,8 +73,8 @@ class BDB:
         cursor = self.db.cursor()
         sql = """
             SELECT p.id,p.epost_adr,p.forward,p.mail,m.id as mail_domain_id,
-                   m.navn as domain_name, b.brukernavn
-            FROM person p, mail_domain m, bruker b, no_nin_persons n
+                   m.navn as domain_name, b.brukernavn, s.navn
+            FROM person p, mail_domain m, bruker b, no_nin_persons n, system s
             WHERE
                 b.user_domain = 1 AND
                 b.person = p.id AND
@@ -83,7 +83,8 @@ class BDB:
                 n.person (+) = p.id AND
                 (p.personnr IS NOT NULL
                    OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
-                p.mail_domain = m.id
+                p.mail_domain = m.id AND
+                s.id(+) = m.system
         """
         cursor.execute(sql)
         addresses = []
@@ -104,6 +105,7 @@ class BDB:
                 a['email_domain_name'] = adr[5]
             if adr[6]:
                 a['username'] = adr[6]
+            a['system'] = adr[7]
             addresses.append(a)
         return addresses
 
@@ -394,8 +396,10 @@ class BDB:
                             b.brukernavn,
                             e.alias,
                             e.mail_domain,
-                            d.navn
-            FROM aliases e,person p,bruker b,no_nin_persons n,mail_domain d
+                            d.navn,
+                            s.navn
+            FROM aliases e,person p,bruker b,no_nin_persons n,mail_domain d,
+                 system s
             WHERE
                 b.user_domain = 1 AND
                 b.person = p.id AND
@@ -404,7 +408,8 @@ class BDB:
                 (p.personnr IS NOT NULL
                   OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
                 p.id = e.person AND
-                e.mail_domain = d.id
+                e.mail_domain = d.id AND
+                s.id (+) = d.system
         """)
         aliases = []
         bdb_aliases = cursor.fetchall()
@@ -415,6 +420,7 @@ class BDB:
             al['email_address'] = a[2]
             al['domain'] = a[3]
             al['email_domain_name'] = a[4]
+            al['system'] = a[5]
             aliases.append(al)
         cursor.close()
         return aliases
