@@ -60,6 +60,14 @@ def dictcompare(old, new):
     return addk, modk, delk
 
 
+def dictinverse(d):
+    r={}
+    for k,v in d.iteritems():
+        if r.has_key(v): raise KeyError("Duplicate key", v)
+        r[v]=k
+    return r
+
+
 def _get_password(_account):
     return _account.get('password2')
 
@@ -140,6 +148,7 @@ class BDBSync:
         self.ed = Email.EmailDomain(self.db)
         self.ev = Email.EmailVacation(self.db)
         self.ef = Email.EmailForward(self.db)
+        self.es = Email.EmailServer(self.db)
         self.logger = Factory.get_logger("console")
         self.logger = Factory.get_logger("syslog")
         self.logger.info("Starting import_BDB")
@@ -1321,12 +1330,19 @@ class BDBSync:
         emaildomain_by_name = {}
         for d in self.ed.list_email_domains():
             emaildomain_by_name[d['domain']] = d['domain_id']
+
+        emailserver_by_name = {}
+        for s in self.es.list_email_server_ext():
+            emailserver_by_name[s['name']] = s['server_id']
+
+        emailserver_by_bdbsystem = {}
+        for bdbsys,esrv in cereconf.BDB_EMAIL_SERVER.items():
+            emailserver_by_bdbsystem[bdbsys] = emailserver_by_name[esrv]
         
-        target_by_account ={}
         account_by_target = {}
         for t in self.et.list_email_targets_ext():
-            account_by_target[t['target_id']] = t['target_entity_id']
-            target_by_account[t['target_entity_id']] = t['target_id']
+            account_by_target[t['target_id']] = (t['target_entity_id'],
+                                                 t['server_id'])
 
         old_addrs = {}
         old_trgts = {}
@@ -1335,7 +1351,7 @@ class BDBSync:
                 self.logger.error("Email: Target %d does not exist" %
                                   a['target_id'])
                 continue
-            account_id = account_by_target[a['target_id']]
+            account_id, server_id = account_by_target[a['target_id']]
             local_part = a['local_part']
             domain = a['domain']
             old_addrs[(local_part, domain)] = (account_id, False)
@@ -1345,7 +1361,8 @@ class BDBSync:
             account_id = a['target_entity_id']
             local_part = a['local_part']
             domain = a['domain']
-            old_addrs[(local_part, domain)] = (account_id, True)
+            server_id = a['server_id']
+            old_addrs[(local_part, domain)] = (account_id, server_id)
             old_trgts[(local_part, domain)] = a['target_id']
 
         self.logger.debug("Fetching email addresses from BDB")
@@ -1362,7 +1379,8 @@ class BDBSync:
             account_id = account_by_name[a['username']]
             local_part = a['email_address']
             domain = a['email_domain_name']
-            new_addrs[(local_part, domain)] = (account_id, True)
+            server_id = emailserver_by_bdbsystem.get(a['system'])
+            new_addrs[(local_part, domain)] = (account_id, server_id)
 
         for a in aliases:
             if not account_by_name.has_key(a['username']):
@@ -1372,6 +1390,7 @@ class BDBSync:
             account_id = account_by_name[a['username']]
             local_part = a['email_address']
             domain = a['email_domain_name']
+            server_id = emailserver_by_bdbsystem.get(a['system'])
             new_addrs[(local_part, domain)] = (account_id, False)
             
         self.logger.debug("Email: from %d to %d adresses" %
@@ -1457,6 +1476,7 @@ class BDBSync:
             try:
                 self.epat.find(target_id)
                 self.epat.email_primaddr_id = self.ea.entity_id
+                self.epat.email_server_id = primary
             except Errors.NotFoundError:
                 self.et.clear()
                 self.et.find(target_id)
@@ -1464,105 +1484,6 @@ class BDBSync:
                 self.epat.populate(self.ea.entity_id, parent=self.et)
             self.epat.write_db()
         
-
-    def sync_email_aliases(self):
-        if verbose:
-            print "Fetching email aliases from BDB"
-        aliases = self.bdb.get_email_aliases()
-        for alias in aliases:
-            self._sync_email_address(alias,is_alias=True)
-        if dryrun:
-            if verbose:
-                print "Rolling back changes on email addresses"
-            self.db.rollback()
-        else:
-            if verbose:
-                print "Commiting changes on email addresses"
-            self.db.commit()
-        return
-
-    def sync_email_addresses(self):
-        if verbose:
-            print "Fetching email addresses from BDB"
-        addresses = self.bdb.get_email_addresses()
-        for address in addresses:
-            self._sync_email_address(address)
-        if dryrun:
-            if verbose:
-                print "Rolling back changes on email addresses"
-            self.db.rollback()
-        else:
-            if verbose:
-                print "Commiting changes on email addresses"
-            self.db.commit()
-        return
-
-    def _sync_email_address(self,address,is_alias=False):
-        self.logger.info( "Processing %s@%s" % (address.get('email_address'),address.get('email_domain_name')))
-
-        person = self.new_person
-        ac = self.ac
-        et = self.et
-        ea = self.ea
-        ed = self.ed
-        co = self.const
-
-        person.clear()
-        ac.clear()
-        et.clear()
-        ed.clear()
-        ea.clear()
-
-        try:
-            ac.find_by_name(address.get('username'))
-        except Errors.NotFoundError:
-            self.logger.error("Got no match on username %s" % address.get('username'))
-            return
-
-        # Does the account have an EmailTarget?
-        try:
-            et.find_by_target_entity(ac.entity_id)
-        except Errors.TooManyRowsError:
-            self.logger.debug("Account (%s): %s has several EmailTargets. Which to choose? FIXME please" % (ac.entity_id,address.get('username')))
-            self.db.rollback()
-            return
-        except Errors.NotFoundError:
-            # Shouldn't need this try-clause.. wtf
-            try:
-                # Populate a new EmailTarget for this Account
-                # Need to specify difference from email-account and email-alias?
-                et.populate(co.email_target_account, ac.entity_id, ac.entity_type)
-                # Need to write it to the db before we can use it.
-                op = et.write_db()
-            except self.db.IntegrityError,ie:
-                self.logger.error("WTF! Grrrr EmailTarget already exists for account %s" % ac.entity_id)
-
-        # Does this domain exist in Cerebrum?
-        try:
-            ed.find_by_domain(address.get('email_domain_name'))
-        except Errors.NotFoundError:
-            self.logger.error("Cannot add %s. Domain %s not found in Cerebrum." % (address.get('email_address'),address.get('email_domain_name')))
-            return
-
-        # If address is not already set, populate it
-        _address = address.get('email_address') + '@' + address.get('email_domain_name')
-        try:
-            ea.find_by_address(_address)
-        except Errors.NotFoundError:
-            try:
-                ea.populate(address.get('email_address'), ed.entity_id, et.entity_id)
-                ea.write_db()
-            except self.db.IntegrityError,ie:
-                print "Writing alias %s@%s failed for user %s. Reason: %s" % (address.get('email_address'),
-                                                                              address.get('email_domain'),
-                                                                              address.get('username'),
-                                                                              str(ie))
-                self.db.rollback()
-        if dryrun:
-            self.db.rollback()
-        else:
-            self.db.commit()
-        return
 
 def usage():
     print """
@@ -1648,8 +1569,6 @@ def main():
         elif opt in ('--accountname',):
             print "Syncronizing account: %s" % val
             sync.sync_accounts(username=val,password_only=_password_only,add_missing=True)
-        elif opt in ('--email_alias',):
-            sync.sync_email_aliases()
         else:
             usage()
 
