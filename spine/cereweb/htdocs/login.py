@@ -64,8 +64,8 @@ def login(**vargs):
     redirect = utils.clean_url(vargs.get('redirect'))
 
     # Make sure the user has chosen a valid client.
-    if not client in ['/user_client', '/index']:
-        client = '/user_client'
+    # if not client in ['/user_client', '/index']:
+    #     client = '/user_client'
 
     # IF the user is already logged in, send him to his client.
     if utils.has_valid_session():
