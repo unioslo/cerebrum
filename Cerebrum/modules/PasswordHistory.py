@@ -28,6 +28,8 @@ import md5
 import base64
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 
+__version__ = "1.0"
+
 class PasswordHistory(DatabaseAccessor):
     """PasswordHistory does not enfoce that Entity is an Account as
     other things also may have passwords"""

@@ -24,6 +24,8 @@ Module for attaching notes to entities.
 import cereconf
 from Cerebrum.Entity import Entity
 
+__version__ = "1.0"
+
 class EntityNote(Entity):
     "Mixin class, attach notes to any entity"
     def add_note(self, creator, subject, description=None):

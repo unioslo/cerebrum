@@ -19,6 +19,8 @@
 
 import pickle
 
+__version__ = "1.2"
+
 class ChangeLog(object):
     # Don't want to override the Database constructor
     def cl_init(self, change_by=None, change_program=None):

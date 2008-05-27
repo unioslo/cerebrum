@@ -51,6 +51,7 @@ from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.modules import PosixGroup
 
+__version__ = "1.0"
 
 ## Module spesific constant.  Belongs somewhere else
 class _PosixShellCode(Constants._CerebrumCode):

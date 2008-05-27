@@ -33,6 +33,8 @@ from Cerebrum import Utils
 from Cerebrum.OU import OU
 import cereconf
 
+__version__ = "1.1"
+
 class Stedkode(OU):
 
     __read_attr__ = ('__in_db',)

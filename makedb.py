@@ -27,7 +27,7 @@ import os
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, dyn_import
 from Cerebrum import Metainfo
 from Cerebrum import Errors
 import Cerebrum
@@ -109,9 +109,11 @@ def main():
             do_drop = True
         elif opt == '--only-insert-codes':
             insert_code_values(db)
+            check_schema_versions(db)
             sys.exit()
         elif opt == '--update-codes':
             insert_code_values(db, delete_extra_codes=True)
+            check_schema_versions(db)
             sys.exit()
         elif opt == '--stage':
             stage = val
@@ -157,9 +159,12 @@ def main():
             for f in files:
                 runfile(f, db, debug, phase)
     if do_bootstrap:
+        # When bootstrapping, make sure the versions match
+        check_schema_versions(db, strict=True)
         makeInitialUsers(db)
-        meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, Cerebrum._version)
         db.commit()
+    else:
+        check_schema_versions(db)
     if not all_ok:
         sys.exit(1)
 
@@ -240,6 +245,48 @@ def makeInitialUsers(db):
     g.write_db()
     g.add_member(a.entity_id, co.entity_account, co.group_memberop_union)
     db.commit()
+
+def check_schema_versions(db, strict=False):
+    modules = {
+        'ad': 'Cerebrum.modules.ADObject',
+        'changelog': 'Cerebrum.modules.ChangeLog',
+        'dns': 'Cerebrum.modules.dns',
+        'email': 'Cerebrum.modules.Email',
+        'entity_trait': 'Cerebrum.modules.EntityTrait',
+        'note': 'Cerebrum.modules.Note',
+        'password_history': 'Cerebrum.modules.PasswordHistory',
+        'posixuser': 'Cerebrum.modules.PosixUser',
+        'stedkode': 'Cerebrum.modules.no.Stedkode',
+        }
+    meta = Metainfo.Metainfo(db)
+    for name, value in meta.list():
+        if name == Metainfo.SCHEMA_VERSION_KEY:
+            if not Cerebrum._version == value:
+                print "WARNING: cerebrum version %s does not match schema version %s" % (
+                    "%d.%d.%d" % Cerebrum._version,
+                    "%d.%d.%d" % value)
+                if strict: exit(1)
+        elif name[:10] == 'sqlmodule_':
+            name=name[10:]
+            if not modules.has_key(name):
+                #print "WARNING: unknown module %s" % name
+                #if strict: exit(1)
+                continue
+            try:
+                module = dyn_import(modules[name])
+                version = module.__version__
+            except Exception, e:
+                print "ERROR: can't find version of module %s: %s" % (
+                    name, e)
+                continue
+            if not module.__version__ == value:
+                print "WARNING: module %s version %s does not match schema version %s" % (
+                    name, module.__version__, value)
+                if strict: exit(1)
+        else:
+            print "ERROR: unknown metainfo %s: %s" % (
+                name, value)
+            if strict: exit(1)
 
 def get_filelist(db, extra_files=[]):
     core_files = ['core_tables.sql']
@@ -335,9 +382,14 @@ def runfile(fname, db, debug, phase):
                     output_col = 0
                 sys.stdout.flush()
                 db.commit()
-    if (phase == 'main' or phase == 'metainfo') and metainfo:
-        meta.set_metainfo('sqlmodule_%s' % metainfo['name'],
-                          metainfo['version'])
+    if (phase == 'main' or phase == 'metainfo'):
+        if metainfo['name'] == 'core':
+            name = Metainfo.SCHEMA_VERSION_KEY
+            version = tuple([int(i) for i in metainfo['version'].split('.')])
+        else:
+            name = 'sqlmodule_%s' % metainfo['name']
+            version = metainfo['version']
+        meta.set_metainfo(name, version)
         db.commit()
     if state <> NO_CATEGORY:
         raise ValueError, \

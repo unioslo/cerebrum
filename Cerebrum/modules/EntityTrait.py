@@ -28,6 +28,7 @@ try:
 except:
     from Cerebrum.extlib.sets import Set as set
 
+__version__ = "1.0"
 
 class _EntityTraitCode(_CerebrumCodeWithEntityType):
     """Code values for entity traits, used in table entity_trait."""
