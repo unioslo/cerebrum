@@ -959,7 +959,8 @@ class BDBSync:
                                            account_info['person'],bdb_source_type)
                 logger.debug('Found person for account %s' % account_info['name'])
             except Errors.NotFoundError,e:
-                print "blapp"
+                logger.warn('Found no person for account %s (BDB-id %s)' %
+                            (account_info['name'], account_info['person']))
                 if not add_missing:
                     raise BDBImportError('No person for account %s (BDB-id %s)' %
                                       (account_info['name'], account_info['person']))
