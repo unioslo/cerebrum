@@ -9,6 +9,7 @@ import cereconf
 import sys
 import getopt
 import mx
+import time
 
 from Cerebrum import Entity
 from Cerebrum import Utils
@@ -64,13 +65,14 @@ def main():
     
     try:
         opts,args = getopt.getopt(sys.argv[1:], \
-                                  'g:G:a:A:E:s:d',\
-                                  ['group=', 'group_file=', 'account=', 'account_file=', 'email_file=', 'sender=', 'dryrun'])
+                                  'g:G:a:A:E:s:c:w:d',\
+                                  ['group=', 'group_file=', 'account=', 'account_file=', 'email_file=', 'sender=', 'cc=', 'wait=', 'dryrun'])
     except getopt.GetoptError:
         usage()
 
-    group = group_file = account = account_file = email_file = sender = None
+    group = group_file = account = account_file = email_file = sender = cc = None
     dryrun = False
+    wait = 500
 
     for opt,val in opts:
         if opt in('-g','--group'):
@@ -85,6 +87,10 @@ def main():
             email_file = val
         elif opt in('-s','--sender'):
             sender = val
+        elif opt in('-c','--cc'):
+            cc = val
+        elif opt in('-w','--wait'):
+            wait = val
         elif opt in('-d','--dryrun'):
             dryrun = True
 
@@ -98,6 +104,10 @@ def main():
         logger.error("A sender email must be specified")
         usage()
 
+    if cc is None:
+        cc = sender
+
+    wait = float(wait)
 
     # Processing e-mail file
     try:
@@ -165,7 +175,7 @@ def main():
             logger.error("File %s not found" % account_file)
 
 
-    to_list = ''
+    to_list = []
     logger.info("Building list of recipients....")
 
     # Skip repeated accounts and map accounts to mail addresses...
@@ -185,20 +195,21 @@ def main():
             
         try:
             email = ac.get_primary_mailaddress()
-            if to_list != '':
-                to_list = to_list + ','
-            to_list = to_list + email
+            to_list.append(email)
         except Errors.NotFoundError:
             logger.warn("Primary email address not found for %s!" % member)
 
-    if to_list == '':
+    if len(to_list) == 1:
         logger.warn("No recipients on the list. Email will not be sent.")
     else:
-        logger.info("List of recipients:\n   *************\n%s\n   *************" % to_list)
+        logger.info("List of recipients:\n   *************\n%s\n   *************" % str(to_list))
     
         if not dryrun:
             logger.info("Sending email...")
-            Utils.sendmail(to_list, sender, subject, body, cc=sender, charset='iso-8859-1', debug=False)
+            for email in to_list:
+                Utils.sendmail(email, sender, subject, body, cc=cc, charset='iso-8859-1', debug=False)
+                logger.info(email)
+                time.sleep(wait / 1000.0)
         else:
             logger.info("Dryrun. Not sending email.")
 
@@ -216,6 +227,8 @@ def usage():
     -A | --account_file: file with one account on each line
     -E | --email_file  : file with email contents. Subject in first line, body in the rest of the file
     -s | --sender: sender's email
+    -c | --cc: email to send cc to. Defaults to sender
+    -w | --wait: time to wait, in milliseconds, between each email that is sent (default is 500ms)
     -d | --dryrun: will not send out email, only show to whom emails would be sent, and email content
     """
     sys.exit(1)
