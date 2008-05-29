@@ -200,8 +200,9 @@ class BDB:
             cursor.execute("""
             SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'),
               p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward, n.person AS no_nin
-            FROM person p
-            WHERE p.id = %s
+            FROM person p, no_nin_persons n
+            WHERE p.id = %s AND
+            p.id = n.person (+)
             """% (bdbid))
         else:
             cursor.execute("""
