@@ -19,6 +19,10 @@
  *
  */
 
+category:metainfo;
+name=cerebrum_database_schema_version;
+category:metainfo;
+version=0.9.12;
 
 /* Define role hierarchy used for granting access to various database
    objects.
