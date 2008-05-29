@@ -1407,18 +1407,18 @@ class BDBSync:
                                   domain)
                 continue
             domain_id = emaildomain_by_name[domain]
-            oaccount_id, oprimary = old_addrs.get(addr, (None, None))
+            oaccount_id, oprimary = old_addrs.get(addr, (None, False))
             otarget_id = old_trgts.get(addr, None)
-            account_id, primary = new_addrs.get(addr, (None, None))
+            account_id, primary = new_addrs.get(addr, (None, False))
             msg=[]
-            if oprimary:
+            if oprimary != False:
                 msg.append("deleting primary")
             if oaccount_id != account_id:
                 if oaccount_id:
                     msg.append("deleting from account %s" % oaccount_id)
                 if account_id:
                     msg.append("adding to account %s" % account_id)
-            if primary:
+            if primary != False:
                 msg.append("adding primary")
             self.logger.debug("Email: %s@%s: %s" %
                               (local_part, domain, ", ".join(msg)))
@@ -1438,6 +1438,10 @@ class BDBSync:
         addr = "%s@%s" % (local_part, domain)
         self.ea.clear()
 
+        print "%s@%s: %s(%s) -> %s(%s)" % (
+            local_part, domain,
+            oaccount_id, oprimary,
+            account_id, primary)
         if account_id == oaccount_id:
             target_id = otarget_id
         elif account_id:
@@ -1454,7 +1458,7 @@ class BDBSync:
             
         if otarget_id:
             self.ea.find_by_local_part_and_domain(local_part, domain_id)
-            if oprimary:
+            if oprimary != False:
                 self.logger.debug("%s: removing primary" % addr)
                 self.epat.clear()
                 self.epat.find(otarget_id)
@@ -1471,7 +1475,7 @@ class BDBSync:
             self.logger.debug("%s: creating" % addr)
             self.ea.populate(local_part, domain_id, target_id)
             self.ea.write_db()
-        if primary:
+        if primary != False:
             self.logger.debug("%s: making primary" % addr)
             self.epat.clear()
             try:
@@ -1483,6 +1487,7 @@ class BDBSync:
                 self.et.find(target_id)
                 self.epat.clear()
                 self.epat.populate(self.ea.entity_id, parent=self.et)
+                self.epat.email_server_id = primary
             self.epat.write_db()
         
 
