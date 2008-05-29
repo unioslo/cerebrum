@@ -472,6 +472,57 @@ person_search_cl_o = """
 ORDER BY change_log.change_id
 """
 
+class AliasesView(Builder):
+    slots = (
+        Attribute('local_part', str),
+        Attribute('domain', str),
+        Attribute('primary_address_local_part', str),
+        Attribute('primary_address_domain', str),
+        Attribute('target_id', int),
+        Attribute('target_type', int),
+        Attribute('address_id', int),
+        Attribute('primary_address_id', int),
+        Attribute('server_name', str),
+        Attribute('account_id', int),
+        Attribute('account_name', str),
+        )
+
+aliases_search = """
+SELECT
+email_address.local_part AS local_part,
+email_domain.domain AS domain,
+email_target.target_id AS target_id,
+email_target.target_type AS target_type,
+email_address.address_id AS address_id,
+email_primary_address.address_id AS primary_address_id,
+primary_address.local_part AS primary_address_local_part,
+primary_address_domain.domain AS primary_address_domain,
+host_name.entity_name AS server_name,
+account_info.account_id AS account_id,
+account_name.entity_name AS account_name
+FROM email_address
+JOIN email_domain
+  ON (email_domain.domain_id = email_address.domain_id)
+JOIN email_target
+  ON (email_address.target_id = email_target.target_id)
+LEFT JOIN email_primary_address
+  ON (email_primary_address.target_id = email_target.target_id)
+LEFT JOIN entity_name host_name
+  ON (host_name.entity_id = email_target.server_id
+      AND host_name.value_domain = :host_namespace)
+LEFT JOIN account_info
+  ON (account_info.account_id = email_target.target_entity_id)
+LEFT JOIN entity_name account_name
+  ON (account_name.entity_id = account_info.account_id
+      AND account_name.value_domain = :account_namespace)
+LEFT JOIN email_address primary_address
+  ON (primary_address.address_id = email_primary_address.address_id)
+LEFT JOIN email_domain primary_address_domain
+  ON (primary_address_domain.domain_id = primary_address.domain_id)
+-- WHERE email_primary_address.address_id != email_address.address_id
+"""
+
+
 
 class View(DatabaseTransactionClass):
     def __init__(self, *args, **vargs):
@@ -638,6 +689,11 @@ class View(DatabaseTransactionClass):
         return self.add_quarantines([members.addto_group(r.dict())
                                      for r in rows])
     get_groups_cl.signature = [Struct(GroupView)]
+    def get_aliases(self):
+        db = self.get_database()
+        rows=db.query(aliases_search, self.query_data)
+        return [r.dict() for r in rows]
+    get_aliases.signature = [Struct(AliasesView)]
     def get_ous(self):
         db = self.get_database()
         rows=db.query(ou_search % "", self.query_data)
