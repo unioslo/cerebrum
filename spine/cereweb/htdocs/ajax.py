@@ -33,7 +33,7 @@ from lib.utils import *
 ##
 ## 2007-09-28 tk.
 ##
-def from_spine_enc(str):
+def from_spine_decode(str):
     spine_enc = cherrypy.session['encoding']
     if spine_enc:
         return str.decode(spine_enc)
@@ -58,7 +58,7 @@ def get_owner(owner):
 def get_account_info(account, owner=None):
     data = {
             "id": "%s" % account.get_id(),
-            "name": "%s" % from_spine_enc(account.get_name()),
+            "name": "%s" % from_spine_decode(account.get_name()),
             "type": "account",
     }
 
@@ -75,7 +75,7 @@ def get_account_info(account, owner=None):
 def get_person_name(person):
     for n in person.get_names():
         if n.get_name_variant().get_name() == "FULL":
-            return from_spine_enc(n.get_name())
+            return from_spine_decode(n.get_name())
     return None
 
 def get_person_info(person):
@@ -90,7 +90,7 @@ def get_group_info(group):
     spine_enc = cherrypy.session['encoding']
     data = {
         'id': group.get_id(),
-        'name': from_spine_enc(group.get_name()),
+        'name': from_spine_decode(group.get_name()),
         'type': 'group',
     }
     return data
@@ -141,9 +141,13 @@ def search_group(transaction, query):
 def search(transaction, query=None, type=None, output=None):
     if not query: return
 
+    print '==============================> ',query
+
     # JavaScript input, so it's utf-8.
     spine_enc = cherrypy.session['encoding']
     query = query.decode('utf-8').encode(spine_enc)
+
+    print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@> ',query
     
     if not type:
         # We assume that people have names with upper case letters.
@@ -185,11 +189,21 @@ def search(transaction, query=None, type=None, output=None):
 search = transaction_decorator(search)
 search.exposed = True
 
+def from_web_decode(str):
+    encoding = 'utf-8'
+    ct = cherrypy.request.headers.elements("Content-Type")
+    if ct:
+        ct = ct[0]
+        encoding = ct.params.get("charset", None)
+    return str.decode(encoding)
+
 def get_motd(transaction, id):
     message, subject = "",""
     try:
         motd = transaction.get_cereweb_motd(int(id))
         message, subject = motd.get_message(), motd.get_subject()
+        message = from_spine_decode(message)
+        subject = from_spine_decode(subject)
     except NotFoundError, e:
         pass
     return cjson.encode({'message': message, 'subject': subject})
