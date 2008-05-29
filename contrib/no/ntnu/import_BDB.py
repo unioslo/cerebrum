@@ -1222,7 +1222,7 @@ class BDBSync:
                 continue
             account_id=account_by_name[s['username']]
             if not s_map.has_key(s['spread_name']):
-                self.logger.warn("Spread: Uhandeled BDB system spread %s" % s['spread_name'])
+                self.logger.warn("Spread: Unhandled BDB system spread %s" % s['spread_name'])
                 continue
             spread=s_map[s['spread_name']]
             newspreads.setdefault(account_id, set()).add(int(spread))
