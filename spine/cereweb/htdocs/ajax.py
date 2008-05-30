@@ -33,12 +33,6 @@ from lib.utils import *
 ##
 ## 2007-09-28 tk.
 ##
-def from_spine_decode(str):
-    spine_enc = cherrypy.session['encoding']
-    if spine_enc:
-        return str.decode(spine_enc)
-    else:
-        return str
 
 def get_owner(owner):
     owner_type = owner.get_type().get_name() 
@@ -87,7 +81,7 @@ def get_person_info(person):
     return data
 
 def get_group_info(group):
-    spine_enc = cherrypy.session['encoding']
+    #spine_enc = cherrypy.session['encoding']
     data = {
         'id': group.get_id(),
         'name': from_spine_decode(group.get_name()),
@@ -141,13 +135,8 @@ def search_group(transaction, query):
 def search(transaction, query=None, type=None, output=None):
     if not query: return
 
-    print '==============================> ',query
-
-    # JavaScript input, so it's utf-8.
-    spine_enc = cherrypy.session['encoding']
-    query = query.decode('utf-8').encode(spine_enc)
-
-    print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@> ',query
+    # convert to from web to spine encoding
+    query = to_spine_encode(from_web_decode(query))
     
     if not type:
         # We assume that people have names with upper case letters.
@@ -189,19 +178,13 @@ def search(transaction, query=None, type=None, output=None):
 search = transaction_decorator(search)
 search.exposed = True
 
-def from_web_decode(str):
-    encoding = 'utf-8'
-    ct = cherrypy.request.headers.elements("Content-Type")
-    if ct:
-        ct = ct[0]
-        encoding = ct.params.get("charset", None)
-    return str.decode(encoding)
 
 def get_motd(transaction, id):
     message, subject = "",""
     try:
         motd = transaction.get_cereweb_motd(int(id))
         message, subject = motd.get_message(), motd.get_subject()
+        ## just decode from spine cjson vil do the rest
         message = from_spine_decode(message)
         subject = from_spine_decode(subject)
     except NotFoundError, e:
