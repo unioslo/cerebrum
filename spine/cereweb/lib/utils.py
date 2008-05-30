@@ -492,3 +492,41 @@ def randpasswd(length=8):
     for i in range(length):
         result += getsalt(chars,1)
     return result
+
+##
+## cherrypy.session['encoding'] is set
+## to the same as spine-encoding in login.py
+##
+def get_web_encoding():
+    web_enc = cherrypy.session['encoding']
+    if web_enc:
+        return web_enc
+    return 'utf-8'
+
+def get_spine_encoding():
+    return get_web_encoding()
+
+def from_spine_decode(str):
+    return str.decode(get_spine_encoding())
+
+def to_spine_encode(str):
+    return str.encode(get_spine_encoding())
+
+def get_content_charset(headers):
+    encoding = None
+    if headers:
+        ct = headers.elements("Content-Type")
+        if ct:
+            ct = ct[0]
+            encoding = ct.params.get('charset', None)
+    if encoding:
+        return encoding
+    return 'utf-8'
+
+def from_web_decode(str):
+    encoding = get_content_charset(cherrypy.request.headers)
+    return str.decode(encoding)
+
+def to_web_encode(str):
+    return str.encode(get_web_encoding())
+
