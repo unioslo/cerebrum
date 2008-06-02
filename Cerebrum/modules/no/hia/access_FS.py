@@ -248,25 +248,6 @@ class HiAEVU(access_FS.EVU):
         return self.db.query(qry)
     
 
-class HiAStudieInfo(access_FS.StudieInfo):
-    def list_studieprogrammer(self): # GetStudieproginf
-        """For hvert definerte studieprogram henter vi 
-        informasjon om utd_plan og eier samt studieprogkode.
-        """
-        qry = """
-        SELECT studieprogramkode, status_utdplan,
-               institusjonsnr_studieansv, faknr_studieansv,
-               instituttnr_studieansv, gruppenr_studieansv,
-               studienivakode, status_utgatt, studieprognavn
-        FROM fs.studieprogram
-        WHERE status_utgatt = 'N'
-        """
-
-        return self.db.query(qry)
-    # end list_studieprogrammer
-# end HiAStudieInfo
-
-
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):
@@ -282,6 +263,4 @@ class FS(access_FS.FS):
         self.undervisning = HiAUndervisning(self.db)
 
         self.evu = HiAEVU(self.db)
-        self.info = HiAStudieInfo(self.db)
-        
-# arch-tag: 57960926-bfc8-429c-858e-b76f8b0ca6c4
+# end class FS
