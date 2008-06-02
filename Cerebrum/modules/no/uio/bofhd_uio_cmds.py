@@ -6339,10 +6339,7 @@ class BofhdExtension(object):
                             hdr="%6s   %-10s   %-12s" % \
                             ('Id', 'Username', 'Expire date')))
     def user_find(self, operator, search_type, value,
-                  include_expired="no", aff_filter=None,
-                  perm_filter='is_superuser'):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+                  include_expired="no", aff_filter=None):
         acc = self.Account_class(self.db)
         if aff_filter is not None:
             try:
@@ -7004,7 +7001,7 @@ class BofhdExtension(object):
     all_commands['user_set_disk_status'] = Command(
         ('user', 'set_disk_status'), AccountName(),
         SimpleString(help_ref='string_disk_status'),
-        perm_filter='is_superuser')
+        perm_filter='can_create_disk')
     def user_set_disk_status(self, operator, accountname, status):
         try:
             status = self.const.AccountHomeStatus(status)
@@ -7012,8 +7009,11 @@ class BofhdExtension(object):
         except Errors.NotFoundError:
             raise CerebrumError, "Unknown status"
         account = self._get_account(accountname)
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
+        # this is not exactly right, we should probably
+        # implement a can_set_disk_status-function, but no
+        # appropriate criteria is readily available for this
+        # right now
+        self.ba.can_create_disk(operator.get_entity_id(),query_run_any=True)
         ah = account.get_home(self.const.spread_uio_nis_user)
         account.set_homedir(current_id=ah['homedir_id'], status=status)
         return "OK, set home-status for %s to %s" % (accountname, status)
