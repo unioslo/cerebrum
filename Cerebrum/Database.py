@@ -51,15 +51,45 @@ from Cerebrum.extlib import db_row
 # automatically added to the inheritance hierarchy of exception classes in
 # dynamically imported driver modules. This way we can catch any kind of
 # db-specific error exceptions by catching Cerebrum.Database.Error
-# (db-independent)
-class Warning(StandardError):
+# (db-independent).
+#
+# So, why this deep version magic? The thing is that the MRO rules have been
+# tightened from 2.4 to 2.5. The hierarchies as we used to build them (in r135)
+# are no longer *consistent*. This is an error in 2.5. Furthermore, as of 2.5
+# in order to catch an exception, the type mentioned in the "except:"-clause
+# has to be derived from BaseException. If it is not, *no* exception will
+# match the said exception clause AND THIS WILL HAPPEN SILENTLY. Python 2.6
+# (or was it 2.7?) has a plan to warn about such constructs (and there is a
+# bug report submitted on the issue). Please not that as of 2.5,
+# own_exception_base cannot be of type object (type(object) -> <type 'type'>),
+# precisely because object does NOT inherit from BaseException.
+if sys.version_info[:2] >= (2, 5):
+    own_exception_base = BaseException
+else:
+    own_exception_base = StandardError
+
+class CommonExceptionBase(own_exception_base):
+    def __str__(self):
+
+        # Occasionally, we need to know what the offending sql is. This is
+        # particularily practical in that case.
+        body = []
+        for attr in ("operation", "sql", "parameters", "binds",):
+            if hasattr(self, attr):
+                body.append("%s=%s" % (attr, getattr(self, attr)))
+
+        return "\n".join(body)
+    # end __str__
+# end CommonExceptionBase
+    
+class Warning(CommonExceptionBase):
     """Driver-independent base class of DB-API Warning exceptions.
 
     Exception raised for important warnings like data truncations while
     inserting, etc."""
     pass
 
-class Error(StandardError):
+class Error(CommonExceptionBase):
     """Driver-independent base class of DB-API Error exceptions.
     
     Exception that is the base class of all other error exceptions. You
@@ -68,19 +98,19 @@ class Error(StandardError):
     this class as base."""
     pass
 
-    
-
 class InterfaceError(Error):
     """Driver-independent base class of DB-API InterfaceError exceptions.
 
     Exception raised for errors that are related to the database
     interface rather than the database itself."""
     pass
+
 class DatabaseError(Error):
     """Driver-independent base class of DB-API DatabaseError exceptions.
 
     Exception raised for errors that are related to the database."""
-    pass
+# end class DatabaseError
+
 class DataError(DatabaseError):
     """Driver-independent base class of DB-API DataError exceptions.
 
@@ -198,7 +228,6 @@ class Cursor(object):
         # this 'unspecified' value anyway.
         try:
             try:
-#                print "DEBUG: sql=<%s>\nDEBUG: binds=<%s>" % (sql, binds)
                 return self._cursor.execute(sql, binds)
             finally:
                 if self.description:
@@ -214,15 +243,15 @@ class Cursor(object):
                     # Not a row-returning query; clear self._row_class.
                     self._row_class = None
         except self.DatabaseError, m:
-            # TBD: These errors should probably be logged somewhere,
-            # and not merely printed...
-            print "ERROR: operation=<%s>" % operation
-            print "ERROR: sql=<%s>" % sql
-            print "ERROR: parameters=<%s>" % `parameters`
-            print "ERROR: binds=<%s>" % `binds`
-            print "ERROR: msg=<%s>" % m
-            raise
-##        return self._cursor.execute(operation, *parameters)
+            # stuff extra information into the exception object, in case we
+            # want to print this baby later.
+            exc = sys.exc_info()[1]
+            exc.operation = operation
+            exc.sql = sql
+            exc.parameters = repr(parameters)
+            exc.binds = repr(binds)
+            raise exc
+    # end execute
 
     def _translate(self, statement, params):
         """Translate SQL and bind params to the driver's dialect."""
@@ -588,11 +617,9 @@ class Database(object):
             exc = getattr(self._db_mod, name)
             if not issubclass(exc, base):
                 # monkey patch "our" classes in. Be careful here wrt old-style
-                # and new-style classes.
-                if sys.version_info[:2] >= (2, 5):
-                    exc = type(name, (exc, base, object), {})
-                else:
-                    exc.__bases__ += (base,)
+                # and new-style classes. Be mindful of the MRO, since we may
+                # want our hooks to take precedence.
+                exc.__bases__ += (base,)
             if hasattr(self_class, name):
                 continue
             setattr(self_class, name, exc)
