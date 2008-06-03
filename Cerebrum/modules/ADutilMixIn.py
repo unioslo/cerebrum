@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+q#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
 # Copyright 2006, 2007 University of Oslo, Norway
@@ -227,7 +227,9 @@ class ADgroupUtil(ADutil):
                     self.logger.warn("syncMembers %s failed for:%r" %
                                       (dn, res[1:]))
                 # Sync description
-                self.server.setObjectProperties({'Description':grp_desc})
+                if grp_desc == None:
+                    grp_desc = "Not available"
+                self.server.setObjectProperties({'Description': unicode(grp_desc, 'ISO-8859-1')})
                 self.server.setObject()
 
 
