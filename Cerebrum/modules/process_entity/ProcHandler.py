@@ -275,7 +275,8 @@ class ProcHandler(object):
                 shdw_grp.clear()
                 shdw_grp.populate(self.default_creator_id,
                                   self._co.group_visibility_all,
-                                  shadow)
+                                  shadow,
+                                  self._group.description)
                 shdw_grp.write_db()
                 shdw_grp.populate_trait(self._co.trait_group_derived,
                                         date=DateTime.now())
