@@ -90,7 +90,7 @@ def process_line(infile):
             account.find_by_name(uname)
             logger.debug3("User %s exists in Cerebrum", uname)
         except Errors.NotFoundError:
-            logger.warn("User %s does not exists in Cerebrum", uname)
+            logger.warn("User %s does not exist in Cerebrum", uname)
             continue
 
         odisk_id = ohome = ohomedir_id = None
