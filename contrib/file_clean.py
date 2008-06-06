@@ -73,7 +73,7 @@ import cereconf
 from Cerebrum.Utils import Factory
 
 tar_cmd = '/bin/tar --files-from %s --remove-files -czf %s'
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 
 
 def find_files(name_pattern, min_age, file_type):
@@ -98,8 +98,8 @@ def find_files(name_pattern, min_age, file_type):
                 # If the files last modification time is less than min_age it's a match
                 if mtime < time_threshold:
                     matches.append(file_path)
-            logger.debug("Found %d files with pattern %s older than %s days in dir %s" % (
-                len(matches), name_pattern[pos+1:], min_age, dirname))
+        logger.debug("Found %d files with pattern %s older than %s days in dir %s" % (
+            len(matches), name_pattern[pos+1:], min_age, dirname))
     except OSError, e:
         logger.error("Error finding files with pattern %s: %s" % (name_pattern, e))
     return matches
@@ -141,7 +141,6 @@ def archive_files(name_pattern='', archive_name='', file_type='file',
     files_to_archive = find_files(name_pattern, archive_age, file_type)
     if not files_to_archive:
         return
-
     # Create filename of archive file, first postfix
     time_threshold = time.time() - archive_age*3600*24
     postfix = '-' + time.strftime('%Y-%m-%d', time.localtime(time_threshold))
