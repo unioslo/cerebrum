@@ -704,4 +704,8 @@ STATISTICS_EXPLANATION_TEMPLATE = ""
 # the tests in cerebrum/spine/lib/server/test
 CACHE_CONSTANTS = True
 
+# Needed by contrib/file_clean.py
+DELETE_FILES = []
+ARCHIVE_FILES = []
+
 # arch-tag: 58fc16b3-e7ef-4304-b561-477ced8d6b96
