@@ -64,6 +64,7 @@ class BofhdExtension(object):
         '_email_info_detail', '_email_info_forwarding',
         '_email_info_mailman', '_email_info_multi',
         '_email_info_file', '_email_info_pipe',
+        '_email_info_filters',
         '_email_info_forward', '_set_email_primary_address',
         '_get_boolean', '_onoff', '_has_category',
         '_sync_category', '_update_email_for_ou',
