@@ -18,6 +18,11 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+category:metainfo;
+name=sap;
+category:metainfo;
+version=1.0;
+
 /*
  * This file is a HiA specific Cerebrum extension. 
  * 

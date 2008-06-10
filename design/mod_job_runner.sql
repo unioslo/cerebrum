@@ -18,6 +18,11 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
+category:metainfo;
+name=job_runner;
+category:metainfo;
+version=1.0;
+
 category:main;
 CREATE TABLE job_ran
 (

@@ -18,8 +18,12 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/*	notur_user
+category:metainfo;
+name=notur_user;
+category:metainfo;
+version=1.0;
 
+/*	notur_user
 
 
 */

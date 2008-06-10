@@ -19,6 +19,10 @@
  *
  */
 
+category:metainfo;
+name=feidegvs;
+category:metainfo;
+version=1.0;
 
 /*
   Define the categories of relations between guardian and pupil.

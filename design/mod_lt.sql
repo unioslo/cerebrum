@@ -25,6 +25,10 @@
  * The data structure is described in mod_lt.dia.
  */
 
+category:metainfo;
+name=lt;
+category:metainfo;
+version=1.0;
 
 category:drop;
 drop TABLE lt_permisjon;

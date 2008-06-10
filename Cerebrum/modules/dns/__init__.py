@@ -1,6 +1,9 @@
 # -*- coding: iso-8859-1 -*-
 import cereconf
 
+
+__version__ = "1.0"
+
 from Cerebrum.modules.dns.IPUtils import IPCalc
 
 class SubNetDef(object):
