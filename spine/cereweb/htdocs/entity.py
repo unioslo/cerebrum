@@ -24,7 +24,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import transaction_decorator, commit
 from lib.utils import redirect_object, object_link, queue_message
-from lib.HistoryLog import view_history
+from lib.HistoryLog import view_history, view_history_all
 
 def view(transaction, id):
     entity = transaction.get_entity(int(id))
@@ -130,5 +130,17 @@ def full_historylog(transaction, id):
     return page
 full_historylog = transaction_decorator(full_historylog)
 full_historylog.exposed = True
+
+def global_historylog(transaction, n=50, offset=0):
+    """Creates a page from the global historylog."""
+
+    page = Main()
+    page.links = ()
+    page.title = "History"
+    content = view_history_all(transaction, n=int(n), offset=int(offset))
+    page.content = lambda: content
+    return page
+global_historylog = transaction_decorator(global_historylog)
+global_historylog.exposed = True
 
 # arch-tag: 4ae37776-e730-11d9-95c2-2a4ca292867e

@@ -56,6 +56,7 @@ def _get_links():
     return (
         ('/index', _('Index')),
         ('/all_motds', _('View all messages')),
+        ('/entity/global_historylog', _('View recent changes')),
     )
 
 def index(transaction):

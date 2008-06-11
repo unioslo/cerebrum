@@ -22,6 +22,7 @@ from TableView import TableView
 from utils import object_link
 from gettext import gettext as _
 from templates.HistoryLogTemplate import HistoryLogTemplate
+import SpineIDL.Errors
 
 def view_history_short(entity):
     # Could use some other template for 'short' view 
@@ -36,6 +37,17 @@ def view_history(entity):
     table = _history_tableview(events)
     return template.viewCompleteHistoryLog(table)
 
+
+def view_history_all(transaction, n=50, offset=0):
+    template = HistoryLogTemplate()
+    cls = transaction.get_change_log_searcher()
+    cls.order_by_desc(cls, 'id')
+    cls.set_search_limit(n, offset)
+    events = cls.search()
+    table = _history_tableview(events, show_subject=True,
+                               transaction=transaction)
+    return template.viewCompleteHistoryLog(table)
+
 def object_wrapper(object):
     """Wraps an object into a nice stringified link, if possible"""
     try:
@@ -46,28 +58,43 @@ def object_wrapper(object):
         except:
             return repr(object)    
 
-def _history_tableview(events):    
-    columns = ['timestamp', 'icon', 'who', 'category', 'message']
-    headers = [_('Timestamp'), _('Icon'), _('Who'), _('Category'), _('Message')]
+
+def _history_tableview(events, show_subject=False, transaction=None):
+    columns = ['timestamp']
+    headers = [_('Timestamp')]
+    if show_subject:
+        columns += ['subject_entity']
+        headers += [_('Object')]
+    columns += ['icon', 'who', 'category', 'message']
+    headers += [_('Icon'), _('Changed by'), _('Category'), _('Message')]
+
     table = TableView(columns, headers)
     for change in events:
+        row={}
         change_by = change.get_change_by()
         if change_by:
-            who = object_link(change_by)
+            row['who'] = object_link(change_by)
         else:
-            who = change.get_change_program() or 'unknown'
+            row['who'] = change.get_change_program() or 'unknown'
 
+        if show_subject:
+            subject_entity_id = change.get_subject_entity()
+            try:
+                subject_entity = transaction.get_entity(subject_entity_id)
+                row['subject_entity'] = object_link(subject_entity)
+            except SpineIDL.Errors.NotFoundError:
+                row['subject_entity'] = _('Deleted (%s)') % subject_entity_id
         type = change.get_type()
 
-        icon = get_icon_by_change_type(type.get_type())
-        table.add(timestamp=change.get_timestamp().strftime("%Y-%m-%d %H:%M:%S"),
-                  who=who,
-                  category=type.get_category(),
-                  # TODO: Should use hyperlinks on references 
-#                  message=change.message(object_wrapper), 
-                  message=change.get_message(),
-                  icon='<img src=\"/img/%s\" alt=\"%s\" />' % (icon, type.get_type())) 
-    return table        
+        row['timestamp'] = change.get_timestamp().strftime("%Y-%m-%d %H:%M:%S")
+        row['category'] = type.get_category()
+        row['icon'] = '<img src=\"/img/%s\" alt=\"%s\" />' % (
+            get_icon_by_change_type(type.get_type()),
+            type.get_type())
+        row['message'] = change.get_message()
+        table.add(**row)
+    return table  
+
         
 def get_icon_by_change_type(changetype):
     type = changetype.split("_")[-1]
