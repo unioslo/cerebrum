@@ -63,6 +63,33 @@ class HiOfStudent(access_FS.Student):
           """ % (self._is_alive(), extra)
         return self.db.query(qry, locals())
 
+    def list_eksamensmeldinger(self):  # GetAlleEksamener
+        """Hent ut alle eksamensmeldinger i nåværende sem."""
+
+        qry = """
+        SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
+        FROM fs.person p, fs.vurdkombmelding vm,
+        fs.vurderingskombinasjon vk, fs.vurdkombtype vkt
+        WHERE p.fodselsdato=vm.fodselsdato AND
+              p.personnr=vm.personnr AND
+              vm.arstall=%s AND
+              vm.institusjonsnr = vk.institusjonsnr AND
+              vm.emnekode = vk.emnekode AND
+              vm.versjonskode = vk.versjonskode AND
+              vm.vurdkombkode = vk.vurdkombkode AND
+              vk.vurdordningkode IS NOT NULL AND
+              vk.vurdkombtypekode = vkt.vurdkombtypekode AND
+              (vkt.STATUS_EKSAMENSAVVIKLING = 'J' OR
+               vkt.STATUS_HJEMMEEKSAMEN = 'J' OR
+               vkt.STATUS_MAPPE = 'J' OR
+               vkt.STATUS_NETTEKSAMEN = 'J' OR
+               vkt.STATUS_OPPGAVE='J' OR
+               vkt.STATUS_PRAKSIS='J') 
+              AND %s
+        ORDER BY fodselsdato, personnr
+        """ % (self.year, self._is_alive())                            
+        return self.db.query(qry)
+
 class HiOfUndervisning(access_FS.Undervisning):
     ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     ##      og list_studenter_underv_enhet.
