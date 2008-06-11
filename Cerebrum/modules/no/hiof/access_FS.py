@@ -69,7 +69,7 @@ class HiOfStudent(access_FS.Student):
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
         FROM fs.person p, fs.vurdkombmelding vm,
-        fs.vurderingskombinasjon vk, fs.vurdkombtype vkt
+        fs.vurderingskombinasjon vk
         WHERE p.fodselsdato=vm.fodselsdato AND
               p.personnr=vm.personnr AND
               vm.arstall=%s AND
