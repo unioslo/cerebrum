@@ -77,14 +77,7 @@ class HiOfStudent(access_FS.Student):
               vm.emnekode = vk.emnekode AND
               vm.versjonskode = vk.versjonskode AND
               vm.vurdkombkode = vk.vurdkombkode AND
-              vk.vurdordningkode IS NOT NULL AND
-              vk.vurdkombtypekode = vkt.vurdkombtypekode AND
-              (vkt.STATUS_EKSAMENSAVVIKLING = 'J' OR
-               vkt.STATUS_HJEMMEEKSAMEN = 'J' OR
-               vkt.STATUS_MAPPE = 'J' OR
-               vkt.STATUS_NETTEKSAMEN = 'J' OR
-               vkt.STATUS_OPPGAVE='J' OR
-               vkt.STATUS_PRAKSIS='J') 
+              vk.vurdordningkode IS NOT NULL
               AND %s
         ORDER BY fodselsdato, personnr
         """ % (self.year, self._is_alive())                            
