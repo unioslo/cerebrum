@@ -56,6 +56,7 @@ class Constants(Constants.Constants):
     system_x = _AuthoritativeSystemCode('SYS_X', 'Manuelt personal system')
     system_tlf = _AuthoritativeSystemCode('TLF', 'Telefoni system')
     system_sysacc = _AuthoritativeSystemCode('SYSACC', 'System Accounts')
+    system_paga = _AuthoritativeSystemCode('PAGA', 'PAGA')
 
     # Account codes
     account_test = _AccountCode('T', 'Testkonto')
