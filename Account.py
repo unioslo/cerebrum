@@ -455,7 +455,7 @@ class AccountUiTMixin(Account.Account):
           ON en.entity_id = ai.account_id
         JOIN [:table schema=cerebrum name=email_target] et
           ON et.target_type = :targ_type AND
-             et.entity_id = ai.account_id
+             et.target_entity_id = ai.account_id
         JOIN [:table schema=cerebrum name=email_primary_address] epa
           ON epa.target_id = et.target_id
         JOIN [:table schema=cerebrum name=email_address] ea
