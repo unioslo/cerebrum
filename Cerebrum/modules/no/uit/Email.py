@@ -105,8 +105,9 @@ class email_address:
             self.logger.debug("EmailTarget found(account): %s: %d",
                          account_id, self.et.entity_id)
         except Errors.NotFoundError:
-            self.et.populate(self.constants.email_target_account, entity_id=int(account_id),
-                        entity_type=self.constants.entity_account)
+            self.et.populate(self.constants.email_target_account, 
+                             target_entity_id=int(account_id),
+                             target_entity_type=self.constants.entity_account)
             self.et.write_db()
             self.logger.debug("EmailTarget created: %s: %d",
                          account_id, self.et.entity_id)
