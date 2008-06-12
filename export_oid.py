@@ -28,7 +28,6 @@
 import getopt
 import sys
 import os
-import time
 import mx.DateTime
 
 import cerebrum_path
@@ -49,10 +48,12 @@ ac=Factory.get('Account')(db)
 stedkode = Stedkode(db)
 logger=Factory.get_logger("console")
 
+TODAY=mx.DateTime.today().strftime("%Y%m%d")   
+
 
 def load_cache():
     global account2name,owner2account,persons,uname2mail
-    global num2const, name_cache_cached, name_cache_ad, auth_list, person2contact
+    global num2const,name_cache_cached,name_cache_ad,auth_list,person2contact
 
     logger.info("Retreiving persons and their birth_dates")
     persons =dict()
@@ -60,10 +61,14 @@ def load_cache():
         persons[pers['person_id']]=pers['birth_date']
 
     logger.info("Retreiving person names")
-    name_cache_cached = p.getdict_persons_names(source_system=co.system_cached, name_types=(co.name_first, \
-        co.name_last,co.name_work_title))
-    name_cache_ad = p.getdict_persons_names(source_system=co.system_lt, name_types=(co.name_first, \
-        co.name_last,co.name_work_title))
+    name_cache_cached = p.getdict_persons_names(source_system=co.system_cached,\
+                                                name_types=(co.name_first, \
+                                                            co.name_last,
+                                                            co.name_work_title))
+    name_cache_ad = p.getdict_persons_names(source_system=co.system_paga,
+                                            name_types=(co.name_first, \
+                                                        co.name_last,
+                                                        co.name_work_title))   
 
     logger.info("Retreiving account names")
     account2name=dict()
@@ -273,10 +278,7 @@ def usage(exit_code=0,msg=""):
 
 def main():
 
-    date = time.localtime()
-    date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
-    
-    default_outfile=os.path.join(cereconf.DUMPDIR,"oid","oid_export_%s.xml" % date_today)
+    default_outfile=os.path.join(cereconf.DUMPDIR,"oid","oid_export_%s.xml" % TODAY)
     user_outfile=None
     exportCSV=False
 

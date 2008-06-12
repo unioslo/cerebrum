@@ -54,12 +54,6 @@ db = const = logger = None
 fxml = None
 romprofil_id = {}
 
-#logging.fileConfig(cereconf.LOGGING_CONFIGFILE_NEW)
-#logger = logging.getLogger("console")
-
-#logger = Factory.get_logger("console")
-#logger = Factory.get_logger("cronjob")
-
 
 def init_globals():
     global db, const, logger, use_emailclient
@@ -216,7 +210,7 @@ def get_ans_fak(fak_list, ent2uname):
         # Get all stedkoder in one faculty
         for ou in stdk.get_stedkoder(fakultet=int(fak)):
             # get persons in the stedkode
-            for pers in person.list_affiliations(source_system=const.system_lt,
+            for pers in person.list_affiliations(source_system=const.system_paga,
                                         affiliation=const.affiliation_ansatt,
                                         ou_id=int(ou['ou_id'])):
                 person.clear()

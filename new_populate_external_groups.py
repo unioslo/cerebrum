@@ -937,9 +937,9 @@ def prefetch_primaryusers():
                          fnr, fnr_source[fnr][0], p_id)
             # Determine which person's fnr registration to use.
             source_weight = {int(const.system_fs): 4,
-                             int(const.system_manual): 3,
-                             int(const.system_lt): 2} # UIT: orginal -> system_sap
-                             #int(const.system_migrate): 1} # UIT: removed migrate
+                             int(const.system_paga): 3,
+                             int(const.system_manual): 2
+                             }                             
             old_weight = source_weight.get(fnr_source[fnr][1], 0)
             if source_weight.get(src_sys, 0) <= old_weight:
                 continue
