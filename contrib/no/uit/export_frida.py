@@ -85,7 +85,7 @@ constants = Factory.get("Constants")(cerebrum_db)
 person_db = Factory.get("Person")(cerebrum_db)
 account_db = Factory.get("Account")(cerebrum_db)
 ou_db = Stedkode(cerebrum_db)
-source_system=constants.system_lt
+source_system=constants.system_paga
 
 #UIT:
 # Added by kenneth
@@ -764,12 +764,12 @@ def output_OU(writer, id, db_ou, stedkode, constants,db):
     output_OU_address(writer, db_ou, constants)
 
     # Telephone
-    for row in db_ou.get_contact_info(source=constants.system_lt,
+    for row in db_ou.get_contact_info(source=constants.system_paga,
                                       type=constants.contact_phone):
         output_element(writer,row.contact_value,"Fax")
 
     # Fax
-    for row in db_ou.get_contact_info(source=constants.system_lt,
+    for row in db_ou.get_contact_info(source=constants.system_paga,
                                       type=constants.contact_fax):
         output_element(writer,row.contact_value,"Fax")
         
@@ -830,7 +830,7 @@ def construct_person_attributes(writer, pobj, db_person, constants):
     # This *cannot* fail or return more than one entry
     # NB! Although pobj.fnr is the same as row.extenal_id below, looking it
     #     up is an extra check for data validity
-    row = db_person.get_external_id(constants.system_lt,
+    row = db_person.get_external_id(constants.system_paga,
                                     constants.externalid_fodselsnr)[0]
     attributes["fnr"] = str(row['external_id'])
 
@@ -1257,7 +1257,7 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
 
     # A few helper mappings first
     # source system name => group with individuals hidden in catalogues
-    sys2group = {"system_lt": "LT-elektroniske-reservasjoner",
+    sys2group = {"system_paga": "PAGA-elektroniske-reservasjoner",
                  "system_sap": "SAP-lektroniske-reservasjoner",}
     # name constant -> xml element for that name constant
     name_kinds = dict(((int(constants.name_last), "etternavn"),
@@ -1365,7 +1365,7 @@ def output_people(writer, db, person_file):
     #
     # Sanity-checking
     # 
-    for c in ["system_lt", "affiliation_ansatt",
+    for c in ["system_paga", "affiliation_ansatt",
               "affiliation_status_ansatt_tekadm",
               "affiliation_status_ansatt_vitenskapelig", "externalid_fodselsnr",
               "name_last", "name_first", "contact_phone"]:
@@ -1373,14 +1373,14 @@ def output_people(writer, db, person_file):
                      c, getattr(constants,c), getattr(constants,c))
     writer.startElement("personer")
     parser = LTPersonParser(person_file,
-                            lambda p: output_person(writer = writer,
-                                                    pobj = p,
-                                                    phd_cache= phd_students,
-                                                    system_source = constants.system_lt))
+                            lambda p: output_person(writer=writer,
+                                                    pobj=p,
+                                                    phd_cache=phd_students,
+                                                    system_source=constants.system_paga))
     parser.parse()
 
     logger.info("still has cached PhD students (%d people)", len(phd_students))
-    output_phd_students(writer,'system_lt',phd_students,{})
+    output_phd_students(writer,'system_paga',phd_students,{})
 
     system_x_parser = system_xRepresentation()
     system_x_parser.execute(person_file,writer = writer,system_source = constants.system_x)
@@ -1463,7 +1463,6 @@ def output_xml(output_file,
     writer.endElement("kilde")
     writer.startElement("dato")
     # ISO8601 style -- the *only* right way :)
-    #writer.data(time.strftime("%Y-%m-%dT%H:%M:%S"))
     writer.data(time.strftime("%Y-%m-%d"))
     writer.endElement("dato")
     writer.startElement("mottager")
@@ -1472,17 +1471,12 @@ def output_xml(output_file,
 
     writer.endElement("beskrivelse")
 
-    #writer.startElement("NorOrgUnits")
     # Organization "header"
     # FIXME: It's all hardwired
     output_organization(writer, db)
-
     # Dump all OUs
-    ##output_OUs(writer, db)
-    #output_OUs_new(writer,'system_lt','/cerebrum/var/dumps/ou/uit_ou_20071102.xml')
-
     ## RMI000 20071218
-    output_OUs_new(writer,'system_lt',sted_file)
+    output_OUs_new(writer,'system_paga',sted_file)
     ##output_OUs(writer, db)
     ## /RMI000
 
@@ -1529,7 +1523,6 @@ def main():
 
 
     # Default values
-
     date = time.localtime()
     date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
     
