@@ -70,8 +70,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 
-logger = Factory.get_logger("console")
-#logger = Factory.get_logger("cronjob")
+logger = Factory.get_logger("cronjob")
 
 
 def find_files(name_pattern, dirname, min_age=0, file_type='file'):
