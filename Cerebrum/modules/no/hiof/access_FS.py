@@ -78,16 +78,16 @@ class HiOfStudent(access_FS.Student):
               vm.versjonskode = vk.versjonskode AND
               vm.vurdkombkode = vk.vurdkombkode AND
               vk.vurdordningkode IS NOT NULL and
-              vm.arstall = vt.arstall and
-              vm.vurdtidkode = vt.vurdtidkode and
-              ve.emnekode = vm.emnekode and
-              ve.versjonskode = vm.versjonskode and
-              ve.vurdkombkode = vm.vurdkombkode and 
-              ve.vurdtidkode = vm.vurdtidkode and
-              ve.institusjonsnr = vm.institusjonsnr and
-              ve.arstall = vt. arstall and
-              ve.vurdtidkode = vt.vurdtidkode and
-              ve.arstall_reell = %s and
+              vm.arstall = vt.arstall AND
+              vm.vurdtidkode = vt.vurdtidkode AND
+              ve.emnekode = vm.emnekode AND
+              ve.versjonskode = vm.versjonskode AND
+              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdtidkode = vm.vurdtidkode AND
+              ve.institusjonsnr = vm.institusjonsnr AND
+              ve.arstall = vt. arstall AND
+              ve.vurdtidkode = vt.vurdtidkode AND
+              ve.arstall_reell = %s
               AND %s
         ORDER BY fodselsdato, personnr
         """ % (self.year, self._is_alive())                            
