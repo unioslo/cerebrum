@@ -69,15 +69,25 @@ class HiOfStudent(access_FS.Student):
         qry = """
         SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
         FROM fs.person p, fs.vurdkombmelding vm,
-        fs.vurderingskombinasjon vk
+        fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+        fs.vurdkombenhet ve
         WHERE p.fodselsdato=vm.fodselsdato AND
               p.personnr=vm.personnr AND
-              vm.arstall=%s AND
               vm.institusjonsnr = vk.institusjonsnr AND
               vm.emnekode = vk.emnekode AND
               vm.versjonskode = vk.versjonskode AND
               vm.vurdkombkode = vk.vurdkombkode AND
-              vk.vurdordningkode IS NOT NULL
+              vk.vurdordningkode IS NOT NULL and
+              vm.arstall = vt.arstall and
+              vm.vurdtidkode = vt.vurdtidkode and
+              ve.emnekode = vm.emnekode and
+              ve.versjonskode = vm.versjonskode and
+              ve.vurdkombkode = vm.vurdkombkode and 
+              ve.vurdtidkode = vm.vurdtidkode and
+              ve.institusjonsnr = vm.institusjonsnr and
+              ve.arstall = vt. arstall and
+              ve.vurdtidkode = vt.vurdtidkode and
+              ve.arstall_reell = %s and
               AND %s
         ORDER BY fodselsdato, personnr
         """ % (self.year, self._is_alive())                            
