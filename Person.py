@@ -61,7 +61,7 @@ class UiTPersonMixin(Person.Person):
         try:
             myname = self._name_info[type]
         except:
-            raise MissingSelfException
+            raise Person.MissingSelfException
 #        if isinstance(myname, unicode):
 #            return unicode(tmp, 'iso8859-1') == myname
         return tmp == myname
