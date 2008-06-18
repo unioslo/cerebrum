@@ -24,8 +24,12 @@ class IndigoLDIFMixin(OrgLDIF):
         self.__super.__init__(db, logger)
 
     def get_orgUnitUniqueID(self):
-        # For now, we don't have an identifier to populate the
-        # objects with. We take the entity_id for now.
+        rows = self.ou.get_external_id(id_type=self.const.externalid_orgnr)
+        if len(rows) == 1:
+            # FEIDE wants "NO" + org.number from <http://www.wis.no/nsr/>
+            return "NO" + rows[0]['external_id']
+        # If we have no unambiguous identifier to use for the org.unit ID,
+        # take the entity_id for now.
         return "%d" % self.ou.entity_id
 
 # arch-tag: c1d0e5d8-d5d4-11da-911a-1b5d3a183ac6
