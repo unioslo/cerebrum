@@ -422,8 +422,9 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
                 fill_passwd[int(method)](account_id, row['auth_data'])
 
         timer2("...account quarantines...")
-        nonlock_quarantines = [int(self.const.Quarantine(code))
-                               for code in cereconf.QUARANTINE_FEIDE_NONLOCK]
+        nonlock_quarantines = [
+            int(self.const.Quarantine(code))
+            for code in getattr(cereconf, 'QUARANTINE_FEIDE_NONLOCK', ())]
         if nonlock_quarantines:
             self.acc_locked_quarantines = acc_locked_quarantines = {}
         now = mx.DateTime.now()
