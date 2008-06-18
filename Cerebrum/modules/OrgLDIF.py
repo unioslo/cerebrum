@@ -253,7 +253,9 @@ Set cereconf.LDAP_ORG['ou_id'] = the organization's root ou_id or None."""
         entry = {
             'objectClass': ['top', 'organizationalUnit'],
             'ou': filter(None, [iso2utf((n or '').strip())
-                                for n in (self.ou.acronym, self.ou.short_name,
+                                for n in (self.ou.acronym,
+                                          self.ou.short_name,
+                                          self.ou.name,
                                           self.ou.display_name)])}
         dn = self.make_ou_dn(entry, parent_dn or self.ou_dn)
         if not dn:

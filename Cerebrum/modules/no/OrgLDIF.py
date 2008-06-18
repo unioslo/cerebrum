@@ -171,6 +171,7 @@ class norEduLDIFMixin(OrgLDIF):
             return parent_dn, None
         ou_names = [iso2utf((n or '').strip()) for n in (self.ou.acronym,
                                                          self.ou.short_name,
+                                                         self.ou.name,
                                                          self.ou.display_name)]
         acronym  = ou_names[0]
         ou_names = filter(None, ou_names)
