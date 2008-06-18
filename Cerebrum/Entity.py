@@ -645,7 +645,8 @@ class EntityAddress(Entity):
         else:
             e_type = """
             JOIN [:table schema=cerebrum name=entity_info] e
-              ON e.entity_id """
+              ON e.entity_id = ea.entity_id AND
+              e.entity_type """
             if isinstance(entity_type, list):
                 e_type += "IN (%s)" % ", ".join(map(str,
                                                     map(int,entity_type)))
