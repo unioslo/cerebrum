@@ -169,11 +169,16 @@ def main():
             quarantine=quarantines[acc_id]
         except KeyError:
             quarantine=False
+
+        if acc_auth == None:
+            acc_auth = '*****'
+            logger.error('Account %s has no password set.' % (acc_name))
         
         entry = [acc_name,acc_auth,
                 str(pos_uid),str(pos_gid),
                 person_name,acc_home,shell,
                 str(quarantine),aff_str,'\n']
+        #logger.info(entry)
         export.append(":".join(entry))
     fh=open(sut_file,'w')
     fh.writelines(export)
