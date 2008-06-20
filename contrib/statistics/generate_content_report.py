@@ -195,7 +195,8 @@ def generate_person_statistics(output_stream):
                          FROM [:table schema=cerebrum name=person_info]
                          EXCEPT
                          SELECT person_id
-                         FROM [:table schema=cerebrum name=person_affiliation]
+                         FROM [:table schema=cerebrum name=person_affiliation_source]
+                         WHERE deleted_date is NULL OR deleted_date > NOW()
                          """)
                       
     present_entity_results(output_stream, result, "Number of people with no affiliations")
