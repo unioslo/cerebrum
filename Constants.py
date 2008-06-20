@@ -52,6 +52,7 @@ class Constants(Constants.Constants):
         'Internal sys_x identifier')
 
     # Authoritative systems
+    system_hitos = _AuthoritativeSystemCode('HITOS', 'Høgskolen i Tromsø')
     system_lt = _AuthoritativeSystemCode('SLP4', 'SLP4')
     system_x = _AuthoritativeSystemCode('SYS_X', 'Manuelt personal system')
     system_tlf = _AuthoritativeSystemCode('TLF', 'Telefoni system')
