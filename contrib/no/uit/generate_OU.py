@@ -151,23 +151,21 @@ class ou:
         GRPNR=4
         GRPNAME=5
         PORTAL=6
-        ORGKORT_OK=7
-        NODE_FOR_PERSON=8
-        NODE_FOR_PERSON_KODE=9
-        SHORTNAME=10
-        STED_AKRONYM=11
-        LEVEL=12
+        NODE_FOR_PERSON=7
+        SHORTNAME=8        
+        STED_ORGCARD_NAME=9
+        STED_AKRONYM=10
+        LEVEL=11
+        LEVEL_SPES=12
         SORT_KEY=13
         num_fields=14        
         import codecs
-
-
 
         # BEGIN
         for file in self.ou_files:
         
             logger.info("Reading authoritative OU file %s" % file)
-            fileObj = codecs.open(file, "r", "utf-8" )
+            fileObj = codecs.open(file, "r", "iso-8859-1" )
             for line in fileObj:
                 line = line.encode('iso-8859-1')
                 if line and not line.startswith("#"):
@@ -177,24 +175,24 @@ class ou:
                                         (len(items),num_fields,line.rstrip()))
                         sys.exit(1)
                         
-                    faknr=items[FAKNR].strip("\"")
-                    faknr=items[FAKNR].strip()
-                    fakultet=items[FAKNAME].strip("\"")
-                    fakultet=items[FAKNAME].strip()
-                    instnr=items[INSTNR].strip("\"")
-                    instnr=items[INSTNR].strip()
-                    avdnr=items[GRPNR].strip("\"")
-                    avdnr=items[GRPNR].strip()
-                    avdeling=items[GRPNAME].strip("\"")
-                    avdeling=items[GRPNAME].strip()
-                    shortname=items[SHORTNAME].strip("\"")
-                    shortname=items[SHORTNAME].strip()
-                    portal=items[PORTAL].strip("\"")
-                    portal=items[PORTAL].strip()
-                    akronym=items[STED_AKRONYM].strip("\"")
-                    akronym=items[STED_AKRONYM].strip()
-                    sort_key=items[SORT_KEY].strip("\"")
-                    sort_key=items[SORT_KEY].strip()
+                    faknr=items[FAKNR].strip("\"").strip()
+#                    faknr=items[FAKNR].strip()
+                    fakultet=items[FAKNAME].strip("\"").strip()
+#                    fakultet=items[FAKNAME].strip()
+                    instnr=items[INSTNR].strip("\"").strip()
+#                    instnr=items[INSTNR].strip()
+                    avdnr=items[GRPNR].strip("\"").strip()
+#                    avdnr=items[GRPNR].strip()
+                    avdeling=items[GRPNAME].strip("\"").strip()
+#                    avdeling=items[GRPNAME].strip()
+                    shortname=items[SHORTNAME].strip("\"").strip()
+#                    shortname=items[SHORTNAME].strip()
+                    portal=items[PORTAL].strip("\"").strip()
+#                    portal=items[PORTAL].strip()
+                    akronym=items[STED_AKRONYM].strip("\"").strip()
+#                    akronym=items[STED_AKRONYM].strip()
+                    sort_key=items[SORT_KEY].strip("\"").strip()
+#                    sort_key=items[SORT_KEY].strip()
 
                     if ((avdnr[4:6] == '00') and(instnr[2:4] == '00')):
                         # we have a fakulty, must reference the uit institution
