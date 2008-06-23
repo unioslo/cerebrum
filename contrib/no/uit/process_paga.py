@@ -601,8 +601,8 @@ class Build:
             changes.append(('promote_posix',True))
 
         # Update expire if needed
-        current_expire= acc_obj.get_expire_date()
-        new_expire = get_expire_date()
+        current_expire= str(acc_obj.get_expire_date())
+        new_expire = str(get_expire_date())
         logger.debug("Current expire %s, new expire %s" % (current_expire,new_expire))
         if (new_expire > current_expire):
             changes.append(('expire_date',"%s" % new_expire))
