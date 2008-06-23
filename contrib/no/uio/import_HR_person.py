@@ -301,6 +301,7 @@ def determine_affiliations(xmlperson, source_system):
     #
     # #2 -- Bilagslønnede
     bilag = filter(lambda x: x.kind == DataEmployment.BILAG and
+                             x.is_active() and
                              x.place,
                    xmlperson.iteremployment())
     for b in bilag:
