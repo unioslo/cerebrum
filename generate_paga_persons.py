@@ -72,6 +72,7 @@ KEY_AKSJONDATO='A.dato'
 KEY_ANSATTNR='Ansattnr'
 KEY_AV='Av'
 KEY_BRUKERNAVN= 'Brukernavn'
+KEY_DBHKAT='DBH stillingskategori'
 KEY_DATOFRA='F.lønnsdag'
 KEY_DATOTIL='S.lønnsdag'
 KEY_EPOST='E-postadresse'
@@ -126,6 +127,7 @@ def parse_paga_csv(pagafile):
             'forhold': detail[KEY_TJFORH],            
             'dato_fra':detail[KEY_DATOFRA],
             'dato_til':detail[KEY_DATOTIL],
+            'dbh_kat':detail[KEY_DBHKAT],
         }
         stedkode=detail[KEY_ORGSTED]
         # check if stedkode should be mapped to something else
@@ -218,11 +220,6 @@ class person_xml:
                 st_andel=aff.get('stillingsandel','').replace(',','.')
                 if st_andel=='':
                     logger.error("ST.andel for fnr %s er tom",fnr)
-                    
-                ## stupid date format from Paga...
-                ## so until we get them to send iso dates, convert...
-                dato_fra=aff.get('dato_fra','')
-                dato_til=aff.get('dato_til','')
                 tils_dict = {'hovedkategori' : aff['hovedkategori'],
                           'stillingskode' : aff['stillingskode'],
                           'tittel' : aff['tittel'],
@@ -230,15 +227,15 @@ class person_xml:
                           'fakultetnr_utgift' : sted[0:2],
                           'instituttnr_utgift' : sted[2:4],
                           'gruppenr_utgift' : sted[4:6],
-                          'dato_fra' : dato_fra,
-                          'dato_til' : dato_til,
+                          'dato_fra' : aff['dato_fra'],
+                          'dato_til' : aff['dato_til'],
+                          'dbh_kat' : aff['dbh_kat'],
                           }
-                #stedkode_value = {'stedkode' : person_dict['stedkode']}
                 temp_tils.append(tils_dict)
             writer.startElement("person",person_data)
             for tils in temp_tils:
-                writer.emptyElement("tils",tils)            
-            writer.endElement("person")            
+                writer.emptyElement("tils",tils)
+            writer.endElement("person")
         writer.endElement("data")
         writer.endDocument()
         stream.close()
