@@ -46,7 +46,7 @@ from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
 
 # some globals
-TODAY=mx.DateTime.today().strftime("%Y%m%d")
+TODAY=mx.DateTime.today().strftime("%Y-%m-%d")
 
 db = Factory.get('Database')()
 db.cl_init(change_program=progname)
@@ -199,8 +199,7 @@ def determine_affiliations(person):
     return ret
 
 def determine_contact(person):
-    # TODO: we have no documentation on how data are registered in
-    # these LT tables, so this is guesswork...
+    # TODO: Check if this is being used or may be used
     ret = []
     for t in person.get('arbtlf', ()):
         if int(t['telefonnr']):
@@ -268,8 +267,8 @@ def type_is_active(entry_type):
 def process_person(person):
     fnr=person['fnr']
     fnr = fodselsnr.personnr_ok(fnr)
-
-    logger.info("Process %s", fnr) 
+    paga_nr=int(person['ansattnr'])    
+    logger.info("Process %s/%d" % (fnr,paga_nr))
     new_person.clear()
     gender = const.gender_male
     if(fodselsnr.er_kvinne(fnr)):
