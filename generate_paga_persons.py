@@ -38,7 +38,7 @@ from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
 progname = __file__.split("/")[-1]
-"""Usage: %s [options]
+__doc__="""Usage: %s [options]
     Parse datafile from PAGA. 
 
     options:
@@ -54,7 +54,7 @@ progname = __file__.split("/")[-1]
 
 
 #Define defaults
-TODAY=mx.DateTime.today().strftime("%Y%m%d")
+TODAY=mx.DateTime.today().strftime("%Y-%m-%d")
 CHARSEP=';'
 dumpdir_employees = os.path.join(cereconf.DUMPDIR, "employees")
 dumpdir_paga = os.path.join(cereconf.DUMPDIR, "paga")
@@ -205,10 +205,6 @@ class person_xml:
                 ## so until we get them to send iso dates, convert...
                 dato_fra=aff.get('dato_fra','')
                 dato_til=aff.get('dato_til','')
-                if dato_fra:
-                    dato_fra="%s%s%s" % (dato_fra[4:8],dato_fra[2:4],dato_fra[0:2])
-                if dato_til:
-                    dato_til="%s%s%s" % (dato_til[4:8],dato_til[2:4],dato_til[0:2])
                 tils_dict = {'hovedkategori' : aff['hovedkategori'],
                           'stillingskode' : aff['stillingskode'],
                           'tittel' : aff['tittel'],
@@ -244,7 +240,7 @@ def main():
         if opt in ('-o','--out-file'):
             out_file = val
         if opt in ('-p','--paga-file'):
-            type = val
+            paga_file = val
         if opt in ('-h','--help'):
             usage()
     
