@@ -73,8 +73,8 @@ group = Factory.get('Group')(db)
 ou = Factory.get('OU')(db)
 
 person_list = []
-TODAY=mx.DateTime.today().strftime("%Y%m%d")
-default_filename='paga_persons_%s.xml' % TODAY
+TODAY=mx.DateTime.today().strftime("%Y-%m-%d")
+default_filename='paga_persons_%s.xml' % (TODAY,)
 default_person_file=os.path.join(cereconf.DUMPDIR,'employees',default_filename)
 
 
@@ -680,8 +680,6 @@ def main():
     if ssn:
         build.process_person(ssn)
     else:
-        logger.info("ALL: %s"% ssn)
-        sys.exit()
         build.process_all()
     
     if (dryrun):
