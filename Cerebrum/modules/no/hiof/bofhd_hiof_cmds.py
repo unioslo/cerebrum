@@ -125,6 +125,22 @@ class BofhdExtension(object):
         ('user', 'delete_ad_traits'), AccountName(), Spread(),
         perm_filter='is_superuser')
     def user_delete_ad_traits(self, operator, uname, spread):
+        """
+        Bofh command user delete_ad_traits
+
+        Delete AD values home, profile_path and ou for user. AD values
+        are stored as a spread -> value mapping in an entity trait in
+        Cerebrum.
+
+        @param operator: operator in bofh session
+        @type  uname: string
+        @param uname: user name of account which AD values should be
+                      deleted
+        @type  spread: string
+        @param spread: code_str of spread
+        @rtype: string
+        @return: OK message if success
+        """
         account = self._get_account(uname, idtype='name')
         spread = self._get_constant(self.const.Spread, spread)
         traits = account.get_traits()
@@ -134,7 +150,7 @@ class BofhdExtension(object):
                            self.const.trait_ad_account_ou]
         for k, v in traits.iteritems():
             if k in relevant_traits:
-                unpickle_val = pickle.loads(v['strval'])
+                unpickle_val = pickle.loads(str(v['strval']))
                 for u in unpickle_val.keys():
                     if self._get_constant(self.const.Spread, u, 'spread') == spread:
                         trait = self._get_constant(self.const.EntityTrait,
@@ -143,6 +159,125 @@ class BofhdExtension(object):
         for t in del_traits:
             account.delete_trait(t)
         return "Removed all AD-traits for %s" % uname
+
+    def _user_set_ad_trait(self, uname, spread, trait_const, ad_val):
+        """
+        Utility function for methods user_set_ad_*
+
+        Set new spread -> AD value mapping as an entity trait for
+        user. Try to log relevant info and raise CerebrumError if
+        something goes wrong.
+
+        @type  uname: string
+        @param uname: user name of account which AD value should be
+                      set
+        @type  spread: string
+        @param spread: code_str of spread
+        @type  trait_const: trait constant (_EntityTraitCode)
+        @param trait_const: trait constant which type indicates which
+                            type of AD value that should be set
+        @return: None
+        """
+        account = self._get_account(uname, idtype='name')
+        spread = self._get_constant(self.const.Spread, spread)
+        try:
+            trait = account.get_trait(trait_const)
+            if trait:
+                # user already has a ad_trait of that type. The trait
+                # is stored as a pickled dict (spread -> ad value
+                # mapping). Just change for the specified spread.
+                ad_trait = pickle.loads(str(trait['strval']))
+            else:
+                # No trait of type trait_const for this user. Set new dict
+                ad_trait = {}
+            ad_trait[int(spread)] = ad_val
+            account.populate_trait(trait_const, strval=pickle.dumps(ad_trait))
+            account.write_db()
+        except:
+            self.logger.exception("Error setting trait of type %s for %s" % (
+                trait_const, uname))
+            raise CerebrumError, "Couldn't set ad_trait for user %s" % uname
+
+    # user set_ad_home
+    all_commands['user_set_ad_home'] = Command(
+        ('user', 'set_ad_home'), AccountName(), Spread(), SimpleString(),
+        perm_filter='is_superuser')
+    def user_set_ad_home(self, operator, uname, spread, ad_home):
+        """
+        Bofh command user set_ad_home
+
+        Set new value for ad_home in Cerebrum. The value represent the
+        AD variable homedir in AD domain indicated by spread.
+        
+        @param operator: operator in bofh session
+        @type  uname: string
+        @param uname: user name of account which AD values should be
+                      deleted. Given by operator
+        @type  spread: string
+        @param spread: code_str of spread. Given by operator
+        @type  ad_home: string
+        @param ad_home: New value for ad_home. Given by operator
+        @rtype: string
+        @return: OK message if success
+        """
+        self._user_set_ad_trait(uname, spread,
+                                self.const.trait_ad_homedir, ad_home)
+        return "Set new ad_home %s in domain %s for user %s" % (
+            ad_home, spread, uname)
+
+    # user set_ad_ou
+    all_commands['user_set_ad_ou'] = Command(
+        ('user', 'set_ad_ou'), AccountName(), Spread(), SimpleString(),
+        perm_filter='is_superuser')
+    def user_set_ad_ou(self, operator, uname, spread, ad_ou):
+        """
+        Bofh command user set_ad_ou
+
+        Set new value for ad_ou in Cerebrum. The value represent the
+        AD variable OU in AD domain indicated by spread.
+        
+        @param operator: operator in bofh session
+        @type  uname: string
+        @param uname: user name of account which AD values should be
+                      deleted. Given by operator
+        @type  spread: string
+        @param spread: code_str of spread. Given by operator
+        @type  ad_ou: string
+        @param ad_ou: New value for ad_ou. Given by operator
+        @rtype: string
+        @return: OK message if success
+        """
+        self._user_set_ad_trait(uname, spread,
+                                self.const.trait_ad_account_ou, ad_ou)
+        return "Set new ad_ou %s in domain %s for user %s" % (
+            ad_ou, spread, uname)
+
+    # user set_ad_profile
+    all_commands['user_set_ad_profile'] = Command(
+        ('user', 'set_ad_profile'), AccountName(), Spread(), SimpleString(),
+        perm_filter='is_superuser')
+    def user_set_ad_profile(self, operator, uname, spread, ad_profile):
+        """
+        Bofh command user set_ad_profile
+
+        Set new value for ad_profile in Cerebrum. The value represent
+        the AD variable Profile Path in AD domain indicated by spread.
+        
+        @param operator: operator in bofh session
+        @type  uname: string
+        @param uname: user name of account which AD values should be
+                      deleted. Given by operator
+        @type  spread: string
+        @param spread: code_str of spread. Given by operator
+        @type  ad_profile: string
+        @param ad_profile: New value for ad_profile. Given by operator
+        @rtype: string
+        @return: OK message if success
+        """
+        self._user_set_ad_trait(uname, spread,
+                                self.const.trait_ad_profile_path, ad_profile)
+        return "Set new ad_profile %s in domain %s for user %s" % (
+            ad_profile, spread, uname)
     
     # user create prompt
     #
