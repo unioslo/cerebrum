@@ -51,13 +51,16 @@ class sync(object):
         except: pass
 
 def usage():
-    print "Usage: %s -c <config file>"  % os.path.basename(sys.argv[0])
-    print "-v be verbose"
-    print "-c <config file>"
+    print "Usage: %s [-c FILE] [-d]"  % os.path.basename(sys.argv[0])
+    print ""
+    print "-c FILE      use FILE as config file instead of the default"
+    print "-d           dryrun. Don't create directories, and don't report",
+    print              "back to cerebrum."
+    print "-h           display this help and exit."
     return
         
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "vhc:")
+    opts, args = getopt.getopt(sys.argv[1:], "hc:d")
 except getopt.GetoptError:
     usage()
     sys.exit(2)
@@ -65,14 +68,16 @@ except getopt.GetoptError:
 for o, a in opts:
     if o == "-h":
         usage()
-        sys.exit(2)
-    if o == "-v":
-        verbose = True
-    if o == "-c":
+        sys.exit(0)
+    elif o == "-c":
         config.sync.read(a)
         log.debug("reading config file %s" , a )
-    if o == "-d":
+    elif o == "-d":
         dryrun=True
+    else:
+        print >>sys.stderr, "Unrecognized option '%s'" % o
+        usage()
+        sys.exit(2)
         
 
 s = sync()
@@ -136,7 +141,7 @@ def make_homedir(hd):
             if setup_home(path, uid, gid):
                 r = os.system("%s %d %d %s %s" % (setup_script,
                                               uid, gid, path, username))
-                if r<0:
+                if not r == 0:
                     raise Exception("\"%s\" failed" % setup_script)
 
                 log.info("Created homedir %s for %s" % (path, username))
