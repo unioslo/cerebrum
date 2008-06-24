@@ -141,9 +141,14 @@ def populate_tilsetting(person, ou, fields, const):
         return False
     # yrt
 
-    # No further checking is possible :(
-    funksjonstittel = int(funksjonstittel)
-    percentage = float(percentage)
+    try:
+        # No further checking is possible :(
+        funksjonstittel = int(funksjonstittel)
+        percentage = float(percentage)
+    except ValueError:
+        logger.info("Cannot convert string to number for SAP id %s",
+                    sap_id)
+        return False
 
     person.populate_tilsetting(ou.entity_id, lonnstittel, funksjonstittel,
                                stillingstype, start_date, end_date,
