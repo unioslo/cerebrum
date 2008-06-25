@@ -15,17 +15,26 @@
 ## You should have received a copy of the GNU General Public License
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-##from lib.Main import Main
+##
+
+#from lib.Main import Main
+#from lib.utils import randpasswd
+
 ##from FormWidgets import FormWidgets
 ##from Widgets import Widgets
+
+#extends Main
 
 #implements respond
 #encoding utf8
 
-##attr $jscripts = ['base.js', 'timeout.js']
+#attr $title = 'Activate account'
+
+#attr $jscripts = ['base.js', 'search.js', 'error.js', 'motd.js']
 ##attr $widgets = Widgets()
 ##attr $form_widgets = FormWidgets()
 
+#import cherrypy
 #from gettext import gettext as _
 
 ## This tells us not to load the worklist.js 
@@ -34,20 +43,17 @@
 #def page_bottom:
 ## The following hack removes the tabview
 #def tabview:
-#import lib.activation_no as no
-#import lib.activation_en as en
 #from lib.Languages import Languages
-
-#set $texts = None
 
 #def header()
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xml:lang="en">
 <head>
-        <title>Activate account</title>
+        <title>$title</title>
         <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
         <meta http-equiv="Pragma" content="no-cache" />
-        <meta http-equiv="Cache-Control" content="max-age=0" />
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+        <meta http-equiv="content-language" content="nb-NO, en-US" />
         <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
         <!-- Include yui styles -->
 
@@ -76,30 +82,35 @@
 
         <link rel="stylesheet" type="text/css" charset="UTF-8" href="/css/default.css"/>
 
-    <!-- 
         <link rel="stylesheet" type="text/css" charset="UTF-8" href="/css/style.css"/>
-	-->
 	<link rel="stylesheet" type="text/css" charset="UTF-8" href="/css/activation.css" />
-
         <!-- Include our javascript application -->
         <!-- 6 -->
-
-            <script type="text/javascript" charset="UTF-8" src="/jscript/base.js"></script>
-            <script type="text/javascript" charset="UTF-8" src="/jscript/search.js"></script>
-            <script type="text/javascript" charset="UTF-8" src="/jscript/timeout.js"></script>
-
-            <script type="text/javascript" charset="UTF-8" src="/jscript/worklist.js"></script>
-            <script type="text/javascript" charset="UTF-8" src="/jscript/error.js"></script>
-            <script type="text/javascript" charset="UTF-8" src="/jscript/motd.js"></script>
-
+        #for $script in $jscripts
+            <script type="text/javascript" charset="UTF-8" src="/jscript/$script"></script>
+        #end for
+            
 
 </head>
 <body>
   <div class="logo_img">
 <img src="/img/logo_eksternweb_norsk.gif" alt="NTNU, det skapende universitet" />
   </div>
+    <!-- container -->
   <div id="container">
+    #if $messages
+        <div id="messages">
+            #for $message in $messages
+                $message
+            #end for
+        </div>
+    #end if
+    <div id="title">
+        <h1>$title</h1>
+    </div>
+    <!-- content -->
   <div id="content">
+    <!-- view_content -->
   <div class="view_content">
 
 #end def
@@ -107,12 +118,16 @@
 #def footer()
 
     <div id="bottom">
-    <a href="http://www.totalvalidator.com/validator/Revalidate?revalidate=true">
-    <img src="http://www.totalvalidator.com/images/valid_n_xhtml_11.gif"
-        alt="Totally Valid XHTML 1.1" /> </a>
+        <a href="http://www.totalvalidator.com/validator/Revalidate?revalidate=true">
+        <img src="http://www.totalvalidator.com/images/valid_n_xhtml_11.gif"
+            alt="Totally Valid XHTML 1.1" /> </a>
     </div>
+
+    <!-- view_content -->
     </div>
+    <!-- content -->
     </div>
+    <!-- container -->
     </div>
 </body>
 </html>
@@ -129,7 +144,7 @@ $header()
 
 <div class="list box">
     <h3>$theLang.get_congratulations_header_text()</h3>
-    <div>
+    <div class="content_text">
     $theLang.get_congratulations_body_text()
     </div>
 </div>
@@ -144,6 +159,7 @@ $footer()
     #set $pin = $vargs.get('pin', '')
     #set $fnr = $vargs.get('fnr', '')
     #set $studentnr= $vargs.get('studentnr', '')
+    #set $username = $vargs.get('username', '')
 #end if
 
 #set $theLang = Languages($lang)
@@ -159,15 +175,30 @@ $header()
     <input type="hidden" id="fodselsnr" name="fnr" value="$fnr" />
     <input type="hidden" id="studnr" name="studentnr" value="$studentnr" />
     <input type="hidden" id="theLang" name="lang" value="$lang" />
+    <input type="hidden" id="theUsername" name="username" value="$username" />
     </div>
     <div>
       <table border="0">
         <tr>
-          <td class="info">
+            <td>
+                <div id="username">
+                    $theLang.get_setpassword_username_text() $vargs.get('username')
+                </div>
+            </td>
+            <td>
+                &nbsp;
+            </td>
+        </tr>
+        <tr>
+          <td>
+                <div class="content_text">
                 $theLang.get_setpassword_choose_self_text()
+                </div>
           </td>
-          <td class="info">
+          <td>
+                <div class="content_text">
                 $theLang.get_setpassword_choose_generated_text()
+                </div>
             </td>
         </tr>
         <tr>
@@ -185,16 +216,15 @@ $header()
 
           </td>
           <td>
-            H3mmel16 <br>
-            H3mmel16 <br>
-            H3mmel16 <br>
-            H3mmel16 <br>
-            H3mmel16 <br>
+            <div class="content_text">
+            #for $i in $range(0,6)
+                $randpasswd()<br />
+            #end for
           </td>
         </tr>
         <tr>
           <td cellspan="2">
-           <div>
+           <div class="content_text">
                 $theLang.get_setpassword_warning_text()
            </div>
            <div class="buttons">
@@ -204,7 +234,7 @@ $header()
         </tr>
       </table>
     </div>
-    <div>
+    <div class="content_text">
         $theLang.get_setpassword_legal_passwords_text()
     </div>
   </form>
@@ -216,7 +246,7 @@ $footer()
 
 #if $vargs
     #set $lang = $vargs.get('lang', '')
-    #set $pin = $vargs.get('pim', '')
+    #set $pin = $vargs.get('pin', '')
     #set $fnr = $vargs.get('fnr', '')
     #set $studentnr = $vargs.get('studentnr', '')
 #end if
@@ -237,12 +267,12 @@ $header()
       <input type="hidden" id="theLang" name="lang" value="$lang" />
       </div>
 
-      <div>
+      <div class="content_text">
         <a href="$theLang.get_eula_bokmaal_link()" target="itreg">$theLang.get_eula_bokmaal_link_text()</a>
         <a href="$theLang.get_eula_english_link()" target="itreg">$theLang.get_eula_english_link_text()</a>
       </div>
     
-      <div>
+      <div class="content_text">
         $theLang.get_eula_legal_notes_text()
       </div>
 
@@ -274,7 +304,7 @@ $header()
   <form method="post" action="/activation/">
       <h3>$theLang.get_sid_header_text()</h3>
 
-        <div>
+        <div class="content_text">
             $theLang.get_sid_body_text()
         </div>
 
@@ -311,7 +341,7 @@ $header()
   <form method="post" action="/activation/">
       <h3>$theLang.get_pin_header_text()</h3>
 
-        <div>
+        <div class="content_text">
             $theLang.get_pin_body_text()
         </div>
         <div>
@@ -330,7 +360,7 @@ $header()
             <input type="submit" id="pinkodeok" name="blapp" value="$theLang.get_pin_submit_button_text()" />
 	</div>
 
-        <div>
+        <div class="content_text">
             $theLang.get_pin_help_text()
         </div>
 
@@ -353,7 +383,7 @@ $header()
   <form method="post" action="/activation/">
       <h3>$theLang.get_nin_header_text()</h3>
 
-      <div>
+      <div class="content_text">
         $theLang.get_nin_body_text()
       </div>
 
@@ -378,13 +408,61 @@ $header()
 $footer()
 #end def
 
+#def eulaNotApproved($lang='no')
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
+#set $theLang = Languages($lang)
+
+$header()
+<div class=" list box">
+<h3>$theLang.get_eula_not_approved_header_text()</h3>
+    <div class="content_text">
+        $theLang.get_eula_not_approved_body_text()
+    </div>
+</div>
+$footer()
+#end def
+
+#def errorInInput($lang='no')
+#if $vargs
+    $lang = $vargs['lang']
+#end if
+#set $theLang = Languages($lang)
+
+$header()
+<div class="list box">
+<h3>$theLang.get_error_in_input_header_text()</h3>
+    <div class="content_text">
+        $theLang.get_error_in_input_body_text()
+    </div>
+</div>
+$footer()
+#end def
+
+#def noUsernameFound($lang='no')
+#if $vargs
+    #set $lang = $vargs['lang']
+#end if
+#set $theLang = Languages($lang)
+
+$header()
+<div class="list box">
+<h3>$theLang.get_username_not_found_header_text()</h3>
+    <div class="content_text">
+        $theLang.get_username_not_found_body_text()
+    </div>
+</div>
+$footer()
+#end def
+
+
 #def language
 
 #set $theLang = Languages('no')
 $header()
 <div class="list box">
 <h3>$theLang.get_choose_language_header_text()</h3>
-
 
   <form method="post" action="/activation/">
 
@@ -420,12 +498,12 @@ $header()
 <div class="view_content">
     ## Content
     <div class="info box">
-      <div>
+      <div class="content_text">
         Du har n&aring; kommet til siden for &aring; aktivere brukerkonto
         ved NTNUs IT-systemer.
       </div>
 
-      <div>
+      <div class="content_text">
         You have now reached the page used to activate your user-account
         at NTNUs Computer-systems.
       </div>

@@ -32,10 +32,13 @@ class Languages(object):
         return self.lang.nin_body_text
 
     def get_nin_submit_label_text(self):
-        return self.lang.pin_submit_label_text
+        return self.lang.nin_submit_label_text
 
     def get_nin_submit_button_text(self):
         return self.lang.nin_submit_button_text
+
+    def get_nin_not_legal_error_message(self):
+        return self.lang.nin_not_legal_error_message
 
     #
     # Student identifaction number(SID) page
@@ -51,6 +54,9 @@ class Languages(object):
 
     def get_sid_submit_button_text(self):
         return self.lang.sid_submit_button_text
+
+    def get_sid_not_legal_error_mesage(self):
+        return self.lang.sid_not_legal_error_mesage
 
     #
     # PIN-code page
@@ -69,6 +75,9 @@ class Languages(object):
 
     def get_pin_help_text(self):
         return self.lang.pin_help_text
+
+    def get_pin_not_legal_error_message(self):
+        return self.lang.pin_not_legal_error_message
 
     #
     # end user license agreement (eula)
@@ -103,6 +112,9 @@ class Languages(object):
     def get_setpassword_header_text(self):
         return self.lang.setpassword_header_text
 
+    def get_setpassword_username_text(self):
+        return self.lang.setpassword_username_text
+
     def get_setpassword_choose_self_text(self):
         return self.lang.setpassword_choose_self_text
 
@@ -124,6 +136,12 @@ class Languages(object):
     def get_setpassword_legal_passwords_text(self):
         return self.lang.setpassword_legal_passwords_text
 
+    def get_setpassword_too_short_error_message(self):
+        return self.lang.setpassword_too_short_error_message
+
+    def get_setpassword_no_match_error_message(self):
+        return self.lang.setpassword_no_match_error_message
+
     #
     # end page
     #
@@ -132,4 +150,30 @@ class Languages(object):
 
     def get_congratulations_body_text(self):
         return self.lang.congratulations_body_text
+    #
+    # eula not approved page
+    #
+    def get_eula_not_approved_header_text(self):
+        return self.lang.eula_not_approved_header_text
+
+    def get_eula_not_approved_body_text(self):
+        return self.lang.eula_not_approved_body_text
+
+    #
+    # username not found page.
+    #
+    def get_username_not_found_header_text(self):
+        return self.lang.username_not_found_header_text
+
+    def get_username_not_found_body_text(self):
+        return self.lang.username_not_found_body_text
+
+    #
+    # error in input data page.
+    #
+    def get_error_in_input_header_text(self):
+        return self.lang.error_in_input_header_text
+
+    def get_error_in_input_body_text(self):
+        return self.lang.error_in_input_body_text
 

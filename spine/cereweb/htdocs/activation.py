@@ -27,6 +27,9 @@ from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.utils import get_messages, rollback_url
 from lib.templates.ActivationTemplate import ActivationTemplate
+from lib import CallWSIdm
+from lib.Languages import Languages
+
 import config
 import SpineIDL
 import SpineClient
@@ -46,21 +49,92 @@ def _get_session():
     ss.set_encoding("utf-8")
     return ss
 
+def checkParam(pname, plen, **vargs):
+    param = vargs.get(pname, '')
+    if not param or len(param) != plen:
+        return False
+    return True
+
 def index(**vargs):
     session = _get_session()
     tr = session.new_transaction()
+    lang = Languages(vargs.get('lang', ''))
+    page = None
     print 'post-args: %s' % vargs
     print 'session-args: %s' % cherrypy.session
     currentPage = vargs.get('page', '')
-    
-    try:
-        page = _get_next_page(tr, **vargs)
-        cherrypy.session.update(vargs)
-    except Exception, e:
-        v = dict(cherrypy.session)
-        page = _retry_page(tr, **v)
-        queue_message(str(e))
+    if currentPage == 'fodselsnr':
+        if not checkParam('fnr', 11, **vargs):
+            queue_message(lang.get_nin_not_legal_error_message(), error=True)
+            page = _get_page(tr, 'fodselsnr', **vargs)
+    elif currentPage == 'studentnr':
+        studentnr = vargs.get('studentnr', '')
+        if not checkParam('studentnr', 6, **vargs):
+            queue_message(lang.get_sid_not_legal_error_mesage(), error=True)
+            page = _get_page(tr, 'studentnr', **vargs)
+    elif currentPage == 'initpassword':
+        pw1 = vargs.get('pw1', '')
+        pw2 = vargs.get('pw2', '')
+        username = vargs.get('username', '')
+        if username and pw1 and pw2 and pw1 == pw2 and ln(pw1) > 7:
+            pass           
+        elif not username:
+            pass
+        elif pw1 and pw2 and pw1 == pw2 and len(pw1) < 8 or:
+            queue_message(lang.get_setpassword_too_short_error_message(), error=True)
+            page = _get_page(tr, 'initpassword', **vargs)
+        elif pw1 != pw2:
+            queue_message(lang.get_setpassword_no_match_error_message(), error=True)
+            page = _get_page(tr, 'initpassword', **vargs)
+        elif not pw1:
+            queue_message(lang.get_setpassword_no_match_error_message(), error=True)
+            page = _get_page(tr, 'initpassword', **vargs)
+        elif not pw2:
+            queue_message(lang.get_setpassword_no_match_error_message(), error=True)
+            page = _get_page(tr, 'initpassword', **vargs)
+        else:
+             pass
+    elif currentPage == 'pinkode':
+        pin = vargs.get('pin', '')
+        if not checkParam('pin', 4, **vargs):
+            queue_message(lang.get_pin_not_legal_error_message(), error=True)
+            page = _get_page(tr, 'pinkode', **vargs)
+    elif currentPage == 'eula':
+        godkjent_logger = vargs.get('godkjent_logger', '')
+        if not godkjent_logger or godkjent_logger != 'on':
+            page = _get_page(tr, 'eulaNotApproved', **vargs)
+        else:
+            fnr = vargs.get('fnr', '')
+            studnr = vargs.get('studentnr', '')
+            pin = vargs.get('pin', '');
+            godkjent_logger = vargs.get('godkjent_logger', '')
+            bdate = fnr[0:6]
+            ssn = fnr[6:]
+            print '++++++++++++++++++++++++++++++++++'
+            print 'bdate = ', bdate
+            print 'ssn = ', ssn
+            print 'studnr = ', studnr
+            print 'pin = ', pin
+            print 'godkjent_logger = ', godkjent_logger
+            bdate = '281086'
+            ssn = '33745'
+            studnr = '702750'
+            pin = '4599'
+            ret = CallWSIdm.checkIdentity(bdate, ssn, studnr, pin)
+            if ret:
+                vargs['username'] = ret
+            else:
+                page = _get_page(tr, 'noUsernameFound', **vargs)
+    if not page:
+        try:
+            page = _get_next_page(tr, **vargs)
+            ## cherrypy.session.update(vargs)
+        except Exception, e:
+            v = dict(cherrypy.session)
+            page = _retry_page(tr, **v)
+            queue_message(str(e))
 
+    cherrypy.session.update(vargs)
     tr.rollback()
     return page.respond()
 index.exposed = True
@@ -87,6 +161,4 @@ def _get_page(tr, name, **vargs):
 
 def _retry_page(tr, **vargs):
     return _get_page(tr, vargs.get('page', path[0]), **vargs)
-
-
 
