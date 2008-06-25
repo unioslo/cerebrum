@@ -18,95 +18,192 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-"""
+progname = __file__.split("/")[-1]
+__doc__="""
+    
+    This program reads a csv file containing 3 fields:
+    Stillingskode,Stillingsbetegnelse;stillingskategori
+    Content of this file is synced with table person_stillingskoder in Cerebrum
+    
+    Usage:    
+    %s [options]
+    options:
+    -h|--help                : Show this message
+    -k|--kodefile filename   : Use this file as input file instead of default
+    -d|--dryrun              : dryrun
+    --logger-name name       : Use specified logger name
+    --logger-level name      : Use specified log level
 
-"""
-
+    """ % (progname,)
 
 import sys
 import getopt
 import time
 import os
+import csv
+from sets import Set
 
 import cerebrum_path
 import cereconf
 
-
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.uit.access_SLP4 import SLP4, Stillingskode
 
-logger=None
-
-def update_stillingskoder(kode_list):
-
-    skode = Stillingskode(logger)
-    kodes = kode_list.keys()
-    for sko in kodes:
-        tittel = kode_list[sko]
-        type = skode.sko2type(sko)
-        skode.add_sko(sko,tittel,type)        
-    skode.commit()
+logger = Factory.get_logger('console')
+db=Factory.get('Database')()
+CHARSEP=';'
+default_file=os.path.join(cereconf.CB_SOURCEDATA_PATH,'stillingskoder.csv')
 
 
-def usage(exit_code=0):
+def parse_source_file(filename):
+    result=dict()
+    for detail in csv.DictReader(open(filename,'r'),delimiter=CHARSEP):
+        result[int(detail['Stillingskode'])]=(detail['Stillingsbetegnelse'],
+                                        detail['UiT Stillingskategori'])
+    logger.info("Loaded sourcefile %s, found %d kodes" % (filename,len(result)))
+    return result
 
-    extra = ""
-    prog_inf = "\nThis program reads a slp4 dump file and inserts/updates Cerebrums stillingskoder found in that file\n"
-    if (exit_code):
-        extra = "Invalid paramater usage!\n"
-        prog_inf =""
 
-    print """%s%s    
-    Usage:
-    import_stillingskoder [-h | [-s file | [-l logger]]]
-    options:
-    -h               | --help                     : Show this message
-    -s filename      | --slp4_file=filename        : Use this file as input file
-    -l logger_target | --logger_name logger_target : Use this logger_target
-
-    Without -s, todays SLP4 file from %s is used
-    """ % (extra,prog_inf,cereconf.DUMPDIR)
+class stillingskoder(object):
     
-    if (exit_code):
-        sys.exit()
+    def __init__(self,db):
+        self.db=db
+    
+    def insert(self,skode,sbeneving,skategori):
+        qry="""
+        INSERT INTO
+            [:table schema=cerebrum name=person_stillingskoder]
+            (stillingskode,stillingstittel,stillingstype)
+        VALUES
+            (:skode, :sbeneving, :skategori)
+        """
+        params={'skode':skode, 'skategori':skategori, 'sbeneving':sbeneving}
+        self.db.execute(qry,params)
+
+    def delete(self,skode):        
+        qry="""
+        DELETE 
+        FROM 
+            [:table schema=cerebrum name=person_stillingskoder]
+        WHERE 
+            stillingskode=:skode
+        """
+        self.db.execute(qry,{'skode':skode})
+
+    def update(self,skode,sbeneving,skategori):
+        qry="""
+        UPDATE 
+            [:table schema=cerebrum name=person_stillingskoder]
+        SET 
+            stillingstype=:skat, stillingstittel=:sbeneving
+        WHERE 
+            stillingskode=:skode
+        """
+        params={'skode':skode, 'skat':skategori, 'sbeneving':sbeneving}
+        self.db.execute(qry,params)
+    
+    def list_stillingskoder(self,skode=None,skat=None):
+        filter=[]
+        params=dict()
+        
+        if skode:
+            filter.append('skode=:skode')
+            params['skode']=skode      
+
+        if skat:
+            filter.append('stillingstype=:skat')
+            params['skat']=skat
+
+        where=""
+        if filter:
+            where="WHERE %s" % (" AND ".join(filter))
+
+        qry="""
+        SELECT 
+            stillingskode,stillingstittel,stillingstype 
+        FROM 
+            [:table schema=cerebrum name=person_stillingskoder]
+        %s
+        """ % where        
+        return self.db.query(qry,{'skode':skode})    
+    
+        
+def sync_skoder(current,new):
+    
+    current_set=Set(current.keys())
+    new_set=Set(new.keys())
+    
+    to_add=new_set.difference(current_set)
+    to_delete=current_set.difference(new_set)
+    to_update=new_set.intersection(current_set)
+        
+    #add new
+    for skode in to_add:
+        sben,skat=new.get(skode)
+        logger.info("Insert new stillingskode=%04d, tittel=%s, type=%s" % \
+            (skode,sben,skat))
+        skode_obj.insert(skode,sben,skat)
+        
+    # remove old 
+    for skode in to_delete:
+        logger.info("Delete stillingskode=%04d" % (skode,))
+        skode_obj.delete(skode)
+
+    # update remaining
+    updated=False
+    for skode in to_update:
+        new_sben,new_skat=new.get(skode)
+        old_sben,old_skat=current.get(skode)
+        if new_sben!=old_sben or new_skat!=old_skat:
+            updated+=1
+            logger.info("Update stillingskode=%04d, new:%s, old=%s" % \
+                (skode,(new_sben,new_skat),(old_sben,old_skat)))
+            skode_obj.update(skode,new_sben,new_skat)
+    if to_add or to_delete or updated:
+        logger.info("Added %d kodes, removed %d kodes and updated %d kodes" % \
+            (len(to_add),len(to_delete),updated))
+    
+
+def usage(exit_code=0,msg=None):
+
+    if msg: print msg
+    print __doc__
+    sys.exit(exit_code)
 
 
 def main():
-    global logger
-
-    date = time.localtime()
-    year = date[0]
-    month = date[1]
-    day = date[2]
-
-    # lets set default file
-    logger_name = cereconf.DEFAULT_LOGGER_TARGET
-    slp4_file = os.path.join(cereconf.DUMPDIR,'slp4','slp4_personer_%02d%02d%02d.txt' % (year,month,day))
-    help = False
+    global skode_obj
     
+    # lets set default file
+    kode_file=default_file 
+    dryrun=False
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'s:l:h',['slp4_file=','logger_name=','help'])
-    except getopt.GetoptError:
-        usage(1)
+        opts,args = getopt.getopt(sys.argv[1:],'k:hd',
+            ['kodefile=','help','dryrun'])
+    except getopt.GetoptError,m:
+        usage(1,m)
 
     for opt,val in opts:
-        if opt in ('-l','--logger_name'):
-            logger_name = val            
-        if opt in ('-s','--slp4_file'):
-            slp4_file = val
-        if opt in ('-h','--help'):
-            help = True
+        if opt in ('-k','--kodefile'):
+            kode_file = val
+        elif opt in ('-h','--help'):
+            usage()
+        elif opt in ('-d','--dryrun'):
+            dryrun=True
 
-    if (help):
-        usage()
-        sys.exit(0)
-
-    logger = Factory.get_logger(logger_name)
-    slp = SLP4(slp4_file)
-
-    update_stillingskoder(slp.get_stillingskoder())
-
+    skode_obj=stillingskoder(db)
+    new_skode=parse_source_file(kode_file)
+    current_skode=dict()
+    for skode,sbeneving,skat in skode_obj.list_stillingskoder():
+        current_skode[int(skode)]=(sbeneving,skat)
+        
+    sync_skoder(current_skode,new_skode)
+    
+    if (dryrun):
+        db.rollback()
+        logger.info("Dryrun, rollback changes")
+    else:
+        db.commit()
+        logger.info("Committing all changes to DB")
 
 if __name__ == '__main__':
     main()
-
