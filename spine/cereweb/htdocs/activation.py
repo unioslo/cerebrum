@@ -87,7 +87,7 @@ def index(**vargs):
             try:
                 account.set_password(pw1)
             except SpineIDL.Errors.PasswordGoodEnoughException, ex:
-                queue_message(lang.get_setpassword_pwd_to weak_error_mesage(), error=True)
+                queue_message(lang.get_setpassword_pwd_too_weak_error_message(), error=True)
                 page = _get_page(tr, 'initpassword', **vargs)
             tr.commit()
             tr = session.new_transaction()
