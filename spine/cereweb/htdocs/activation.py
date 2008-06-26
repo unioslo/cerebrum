@@ -29,10 +29,10 @@ from lib.utils import get_messages, rollback_url
 from lib.templates.ActivationTemplate import ActivationTemplate
 from lib import CallWSIdm
 from lib.Languages import Languages
-
 import config
 import SpineIDL
 import SpineClient
+import re
 
 def _login():
     Spine = SpineClient.SpineClient(config=config.conf)
@@ -52,6 +52,10 @@ def _get_session():
 def checkParam(pname, plen, **vargs):
     param = vargs.get(pname, '')
     if not param or len(param) != plen:
+        return False
+    toMatch = '^\d{' + str(plen) + '}$'
+    patt = re.compile(toMatch)
+    if not patt.match(param):
         return False
     return True
 
@@ -76,11 +80,20 @@ def index(**vargs):
         pw1 = vargs.get('pw1', '')
         pw2 = vargs.get('pw2', '')
         username = vargs.get('username', '')
-        if username and pw1 and pw2 and pw1 == pw2 and ln(pw1) > 7:
-            pass           
+        if username and pw1 and pw2 and pw1 == pw2 and len(pw1) > 7:
+            acc_searcher = tr.get_account_searcher()
+            acc_searcher.set_name(username)
+            account = acc_searcher.search()[0]
+            try:
+                account.set_password(pw1)
+            except SpineIDL.Errors.PasswordGoodEnoughException, ex:
+                queue_message(lang.get_setpassword_pwd_to weak_error_mesage(), error=True)
+                page = _get_page(tr, 'initpassword', **vargs)
+            tr.commit()
+            tr = session.new_transaction()
         elif not username:
             pass
-        elif pw1 and pw2 and pw1 == pw2 and len(pw1) < 8 or:
+        elif pw1 and pw2 and pw1 == pw2 and len(pw1) < 8:
             queue_message(lang.get_setpassword_too_short_error_message(), error=True)
             page = _get_page(tr, 'initpassword', **vargs)
         elif pw1 != pw2:
@@ -107,19 +120,19 @@ def index(**vargs):
             fnr = vargs.get('fnr', '')
             studnr = vargs.get('studentnr', '')
             pin = vargs.get('pin', '');
-            godkjent_logger = vargs.get('godkjent_logger', '')
             bdate = fnr[0:6]
             ssn = fnr[6:]
-            print '++++++++++++++++++++++++++++++++++'
-            print 'bdate = ', bdate
-            print 'ssn = ', ssn
-            print 'studnr = ', studnr
-            print 'pin = ', pin
-            print 'godkjent_logger = ', godkjent_logger
+            #print '+++++++++++++++++++++++++++++++++++'
+            #print 'bdate = ', bdate
+            #print 'ssn = ', ssn
+            #print 'studnr = ', studnr
+            #print 'pin = ', pin
+            #print 'godkjent_logger = ', godkjent_logger
             bdate = '281086'
             ssn = '33745'
             studnr = '702750'
             pin = '4599'
+            # webservice that get username from kjernen
             ret = CallWSIdm.checkIdentity(bdate, ssn, studnr, pin)
             if ret:
                 vargs['username'] = ret

@@ -142,6 +142,9 @@ class Languages(object):
     def get_setpassword_no_match_error_message(self):
         return self.lang.setpassword_no_match_error_message
 
+    def get_setpassword_pwd_to weak_error_mesage(self):
+        return self.lang.setpassword_pwd_to weak_error_mesage
+
     #
     # end page
     #
