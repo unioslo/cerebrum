@@ -108,6 +108,9 @@ class SpineClient:
             self.log= logging.getLogger()
 
         if idl_path not in sys.path:
+            # Directory must exist before it's appended to sys.path
+            if not os.path.exists(idl_path):
+                os.mkdir(idl_path)
             sys.path.append(idl_path)
 
         self.ior_url = ior_url
@@ -194,9 +197,11 @@ class SpineClient:
         fd.write(source)
         fd.close()
         self.log.debug('- Compiling to: %s', self.idl_path)
-
-        os.system('omniidl -bpython -C %s %s %s 2>/dev/null' % (self.idl_path, self.spine_core, self.idl_file))
-
+        
+        retval= os.system('omniidl -bpython -C %s %s %s 2>%s' % (self.idl_path, self.spine_core, self.idl_file, os.devnull))
+        if retval != 0:
+            raise Exception, "omniidl command failed"
+        
         import SpineIDL, SpineCore
         self.log.debug('- All done: %s %s', SpineIDL, SpineCore) 
         fd = open(self.md5_file, 'w')
