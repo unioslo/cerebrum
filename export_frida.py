@@ -67,6 +67,7 @@ from xml.sax import make_parser
 from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.modules import Email
 from Cerebrum.modules.no import fodselsnr
@@ -1442,7 +1443,8 @@ def output_xml(output_file,
     """
 
     # Nuke the old copy
-    output_stream = open(output_file, "w")
+    output_stream = SimilarSizeWriter(output_file, "w")
+    output_stream.set_size_change_limit(10)
     writer = xmlprinter.xmlprinter(output_stream,
                                    indent_level = 2,
                                    # Output is for humans too
@@ -1476,7 +1478,7 @@ def output_xml(output_file,
     output_organization(writer, db)
     # Dump all OUs
     ## RMI000 20071218
-    output_OUs_new(writer,'system_paga',sted_file)
+    output_OUs_new(writer,'system_lt',sted_file)
     ##output_OUs(writer, db)
     ## /RMI000
 
@@ -1526,7 +1528,7 @@ def main():
     date = time.localtime()
     date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
     
-    output_file = os.path.join(cereconf.DUMPDIR,'Frida','uit-frida-%s.xml' % date_today)
+    output_file = os.path.join(cereconf.DUMPDIR,'Frida','frida.xml')
     person_file = os.path.join(cereconf.DUMPDIR,'employees','uit_persons_%s.xml' % date_today)
     sted_file = os.path.join(cereconf.DUMPDIR,'ou','uit_ou_%s.xml' % date_today)
     verbose = False

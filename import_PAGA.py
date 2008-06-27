@@ -35,8 +35,10 @@ import os
 import sys
 import getopt
 import mx.DateTime
+import datetime
 import xml.sax
 
+from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
@@ -61,33 +63,6 @@ logger = Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 # Define default file locations
 dumpdir_employees = os.path.join(cereconf.DUMPDIR, "employees")
 default_employee_file = 'paga_persons_%s.xml' % (TODAY)
-
-class PagaDataParser(xml.sax.ContentHandler):
-    """This class is used to iterate over all users in LT. """
-
-    def __init__(self, filename, call_back_function):
-        self.call_back_function = call_back_function        
-        xml.sax.parse(filename, self)
-
-    def startElement(self, name, attrs):
-        if name == 'data':
-            pass
-        elif name in ("tils", "gjest", "permisjon"):
-            tmp = {}
-            for k in attrs.keys():
-                tmp[k] = attrs[k].encode('iso8859-1')
-            self.p_data[name] = self.p_data.get(name, []) + [tmp]
-        elif name == "person":
-            self.p_data = {}
-            for k in attrs.keys():
-                self.p_data[k] = attrs[k].encode('iso8859-1')
-        else:
-            logger.warn("WARNING: unknown element: %s" % name)
-
-    def endElement(self, name):
-        if name == "person":
-            self.call_back_function(self.p_data)
-
 
 def conv_name(fullname):
     fullname = fullname.strip()
@@ -425,7 +400,7 @@ def main():
         cere_list = load_all_affi_entry()
 
     if personfile is not None:
-        PagaDataParser(personfile, process_person)
+        PagaDataParserClass(personfile, process_person)
 
     if include_del:
         clean_affi_s_list()
