@@ -57,8 +57,9 @@ default_file=os.path.join(cereconf.CB_SOURCEDATA_PATH,'stillingskoder.csv')
 def parse_source_file(filename):
     result=dict()
     for detail in csv.DictReader(open(filename,'r'),delimiter=CHARSEP):
-        result[int(detail['Stillingskode'])]=(detail['Stillingsbetegnelse'],
-                                        detail['UiT Stillingskategori'])
+        stbnv = detail['Stillingsbetegnelse']
+        stkat = detail['UiT Stillingskategori']
+        result[int(detail['Stillingskode'])]=(stbnv,stkat)
     logger.info("Loaded sourcefile %s, found %d kodes" % (filename,len(result)))
     return result
 
@@ -94,11 +95,11 @@ class stillingskoder(object):
         UPDATE 
             [:table schema=cerebrum name=person_stillingskoder]
         SET 
-            stillingstype=:skat, stillingstittel=:sbeneving
+            stillingstype=:skategori, stillingstittel=:sbeneving
         WHERE 
             stillingskode=:skode
         """
-        params={'skode':skode, 'skat':skategori, 'sbeneving':sbeneving}
+        params={'skode':skode, 'skategori':skategori, 'sbeneving':sbeneving}
         self.db.execute(qry,params)
     
     def list_stillingskoder(self,skode=None,skat=None):
@@ -157,6 +158,8 @@ def sync_skoder(current,new):
             updated+=1
             logger.info("Update stillingskode=%04d, new:%s, old=%s" % \
                 (skode,(new_sben,new_skat),(old_sben,old_skat)))
+            new_sben=unicode(new_sben,'utf-8').encode('iso-8859-1')
+            new_skat=unicode(new_skat,'utf-8').encode('iso-8859-1')
             skode_obj.update(skode,new_sben,new_skat)
     if to_add or to_delete or updated:
         logger.info("Added %d kodes, removed %d kodes and updated %d kodes" % \
@@ -194,7 +197,9 @@ def main():
     new_skode=parse_source_file(kode_file)
     current_skode=dict()
     for skode,sbeneving,skat in skode_obj.list_stillingskoder():
-        current_skode[int(skode)]=(sbeneving,skat)
+        def _utf_name(name, encoding = 'iso-8859-1'):
+            return unicode(name, encoding).encode('utf-8')
+        current_skode[int(skode)]=(_utf_name(sbeneving),_utf_name(skat))
         
     sync_skoder(current_skode,new_skode)
     
