@@ -69,6 +69,8 @@ def login(**vargs):
 
     # IF the user is already logged in, send him to his client.
     if utils.has_valid_session():
+        session = cherrypy.session['session']
+        # i am not sure if this especially smart... tk.
         utils.redirect(client)
 
     if vargs.get('msg'):
@@ -90,8 +92,8 @@ def login(**vargs):
             spine = Spine.connect()
             session = spine.login(username, password)
             session.set_encoding("utf-8")
-            if not session.is_admin():
-                client = '/user_client'
+            #if not session.is_admin():
+            #    client = '/user_client'
         except CORBA.TRANSIENT, e:
             Messages.queue_message(
                 title="Connection Failed",
