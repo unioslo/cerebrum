@@ -29,6 +29,7 @@ import getopt
 import sys
 import os
 import mx.DateTime
+import csv
 
 import cerebrum_path
 import cereconf
@@ -38,6 +39,7 @@ from Cerebrum.modules.no.Stedkode import Stedkode
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.extlib.xmlprinter import xmlprinter
 
+from Cerebrum.modules.no.uit.PagaDataParser import PagaDataParserClass
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
 
 db=Factory.get('Database')()
@@ -50,17 +52,127 @@ logger=Factory.get_logger("console")
 
 TODAY=mx.DateTime.today().strftime("%Y%m%d")   
 
+# Stedkode CSV Defaults
+default_mapping_file = os.path.join(cereconf.CB_PREFIX, "var", "source", "bas_portal_mapping.csv")
+STEDKODE_FROM = 0
+STEDKODE_TO = 1
+
+# Person file
+default_employees_file = os.path.join(cereconf.CB_PREFIX, "var", "dumps","employees", "paga_persons_%s.xml" % (mx.DateTime.today().strftime("%Y-%m-%d")))
+aff_to_stilling_map = {}
+
+
+
+def scan_person_affs(person):
+    global aff_to_stilling_map
+
+    earliest = mx.DateTime.today() - mx.DateTime.DateTimeDelta(cereconf.PAGA_EARLYDAYS)
+
+    fnr = person['fnr']
+    
+    for t in person.get('tils', ()):
+
+        dato_fra = mx.DateTime.DateFrom(t.get("dato_fra"))
+        dato_til = mx.DateTime.DateFrom(t.get("dato_til"))
+
+        if (dato_fra > earliest) and (dato_til and (mx.DateTime.today() > dato_til)):
+            logger.warn("Not active, earliest: %s, dato_fra: %s, dato_til:%s" % (earliest, dato_fra,dato_til))
+            continue
+
+        stedkode = "%s%s%s" % (t['fakultetnr_utgift'].zfill(2),
+                               t['instituttnr_utgift'].zfill(2),
+                               t['gruppenr_utgift'].zfill(2))
+
+        if t['hovedkategori'] == 'TEKN':
+            tilknytning = co.affiliation_status_ansatt_tekadm
+        elif t['hovedkategori'] == 'ADM':
+            tilknytning = co.affiliation_status_ansatt_tekadm
+        elif t['hovedkategori'] == 'VIT':
+            tilknytning = co.affiliation_status_ansatt_vitenskapelig
+        else:
+            logger.error("Unknown hovedkat: %s" % t['hovedkategori'])
+            continue
+
+        pros = "%2.2f" % float(t['stillingsandel'])
+
+
+        # Looking up stillingstittel and dbh_kat from DB
+        stillingskode = t['stillingskode']
+
+        sql = "SELECT stillingstittel || ':::'  || stillingstype as db_info FROM [:table schema=cerebrum name=person_stillingskoder] WHERE stillingskode=:stillingskode"
+        try:
+            db_info = db.query_1(sql,{'stillingskode':stillingskode})
+        except Errors.TooManyRowsError:
+            logger.error("stillingskode %s repeated in person_stedkoder" % stillingskode)
+        except Errors.NotFoundError:
+            # Default to file info
+            logger.error("Stillingskode not found in person_stillingskoder. Defaulting to person file info: %s" % (stillingskode))
+            stillingstittel = t['tittel']
+            dbh_kat = t['dbh_kat']
+        else:
+            # Use DB info
+            stillingstittel, dbh_kat = db_info.split(':::')
+
+        hovedarbeidsforhold = ''
+        if t.has_key('hovedarbeidsforhold'):
+            hovedarbeidsforhold = t['hovedarbeidsforhold']
+        
+        aux_key = (fnr, stedkode, str(tilknytning))
+        aux_val = {'stillingskode': stillingskode, 'stillingstittel': stillingstittel, 'prosent': pros, 'dbh_kat': dbh_kat, 'hovedarbeidsforhold':hovedarbeidsforhold}
+
+        aff_to_stilling_map[aux_key] = aux_val
+
+
+
 
 def load_cache():
     global account2name,owner2account,persons,uname2mail
     global num2const,name_cache_cached,name_cache_ad,auth_list,person2contact
+    global bas_portal_mapping, ou_stedkode_mapping, pid_fnr_dict, aff_to_stilling_map
 
-    logger.info("Retreiving persons and their birth_dates")
+
+    logger.info("Generating mapping dict for ou_id based on stedkode mappings for the portal")
+
+    # Caching stedkode -> ou
+    stedkoder = ou.get_stedkoder()
+    stedkode_ou_mapping = {}
+    ou_stedkode_mapping = {}
+    for stedkode in stedkoder:
+        ou_stedkode_mapping[stedkode['ou_id']] = str(stedkode['fakultet']).zfill(2) + str(stedkode['institutt']).zfill(2) + str(stedkode['avdeling']).zfill(2)
+        stedkode_ou_mapping[str(stedkode['fakultet']).zfill(2) + str(stedkode['institutt']).zfill(2) + str(stedkode['avdeling']).zfill(2)] = stedkode['ou_id']
+
+    # Creating ou map
+    mappings = csv.reader(open(default_mapping_file,'r'), delimiter=';')
+    bas_portal_mapping = {}
+    for mapping in mappings:
+        stedkode_from = mapping[STEDKODE_FROM].strip()
+        stedkode_to = mapping[STEDKODE_TO].strip()
+        try:
+            ou_from = stedkode_ou_mapping[stedkode_from]
+
+            if stedkode_to == 'SKIP':
+                ou_to = stedkode_to
+            else:
+                ou_to = stedkode_ou_mapping[stedkode_to]
+            
+            bas_portal_mapping[ou_from] = ou_to
+            logger.info('Mapping OK: %s to %s' % (stedkode_from, stedkode_to))
+        except KeyError:
+            logger.error('Mapping FAILED: %s to %s' % (stedkode_from, stedkode_to))
+
+
+    logger.info('Generating dict of PAGA persons affiliations and their stillingskoder, dbh_kat, etc')
+    PagaDataParserClass(default_employees_file, scan_person_affs)
+
+    logger.info('Getting pid -> fnr dict')
+    pid_fnr_dict = p.getdict_fodselsnr()
+
+    logger.info("Retrieving persons and their birth_dates")
     persons =dict()
     for pers in p.list_persons():
         persons[pers['person_id']]=pers['birth_date']
 
-    logger.info("Retreiving person names")
+    logger.info("Retrieving person names")
     name_cache_cached = p.getdict_persons_names(source_system=co.system_cached,\
                                                 name_types=(co.name_first, \
                                                             co.name_last,
@@ -70,26 +182,26 @@ def load_cache():
                                                         co.name_last,
                                                         co.name_work_title))   
 
-    logger.info("Retreiving account names")
+    logger.info("Retrieving account names")
     account2name=dict()
     for a in ac.list_names(co.account_namespace):
         account2name[a['entity_id']]=a['entity_name']
 
-    logger.info("Retreiving account emailaddrs")
+    logger.info("Retrieving account emailaddrs")
     uname2mail=ac.getdict_uname2mailaddr()
 
-    logger.info("Retreiving account owners")
+    logger.info("Retrieving account owners")
     owner2account=dict()
     for a in ac.list_accounts_by_type(filter_expired=False, primary_only=True):
         owner2account[a['person_id']]=a['account_id']
 
-    logger.info("Retreiving auth strings")
+    logger.info("Retrieving auth strings")
     auth_list=dict()
     auth_type=co.auth_type_md5_b64
     for auth in ac.list_account_authentication(auth_type=auth_type):
         auth_list[auth['account_id']]=auth['auth_data']
 
-    logger.info("Retreiving contact info (phonenrs and such)")
+    logger.info("Retrieving contact info (phonenrs and such)")
     person2contact=dict()
     for c in p.list_contact_info(entity_type=co.entity_person):
         person2contact.setdefault(c['entity_id'], list()).append(c)
@@ -110,15 +222,40 @@ def load_cb_data():
     export_attrs=dict()
     person_affs=dict()
     ou_cache=dict()
+
+    skip_source = []
+    skip_source.append(co.system_lt)
+    
     for aff in p.list_affiliations():
 
         # simple filtering
         aff_status_filter=(co.affiliation_status_student_tilbud,) 
         if aff['status'] in aff_status_filter:
             continue
+
+        if aff['source_system'] in skip_source:
+            logger.warn('Skipped affiliation because it originated from unwanted source system %s' % aff)
+            continue
+
+        # Needs to keep original ou id in order to be able to look up persons BAS specific affiliation/stillingskode
+        original_ou_id = ou_id = aff['ou_id']
+
+        # Do mapping to "PORTAL specific" ou
+        try:
+            ou_id_ = bas_portal_mapping[ou_id]
+
+            if ou_id_ == 'SKIP':
+                logger.info('Skipped affiliation to ou=%s due to bas to portal mapping rule saying to do so' % (ou_id))
+                continue
+            
+            logger.info('Mapped %s to %s' % (ou_id, ou_id_))
+            ou_id = ou_id_
+        except KeyError:
+            pass
+
         
-        ou_id = aff['ou_id']
         last_date=aff['last_date'].strftime("%Y-%m-%d")
+        
         if not ou_cache.get(ou_id,None):
             ou.clear()
             
@@ -132,7 +269,9 @@ def load_cb_data():
             stedkode.find(ou_id)
             sko="%02d%02d%02d"  % ( stedkode.fakultet,stedkode.institutt,
                 stedkode.avdeling)
+
             ou_cache[ou_id]=(ou.name,sko)
+            
         sko_name,sko=ou_cache[ou_id]
 
         p_id = aff['person_id']
@@ -153,13 +292,22 @@ def load_cb_data():
         if namelist:
             first_name = namelist.get(int(co.name_first),"")
             last_name = namelist.get(int(co.name_last),"")
-            worktitle = namelist.get(int(co.name_work_title),"")
+            #worktitle = namelist.get(int(co.name_work_title),"")
         if not acc_name:
             logger.warn("No account for %s %s (fnr=%s)(pid=%s)" % \
                 (first_name, last_name,pnr,p_id))
             acc_name=""
 
-        affstr = "%s::%s::%s::%s" % (str(aff_stat),sko,sko_name,last_date)
+
+        try:
+            original_stedkode = ou_stedkode_mapping[original_ou_id]
+            aux_key = (pid_fnr_dict[p_id], original_stedkode, str(aff_stat))
+            tils_info = aff_to_stilling_map[aux_key]
+            affstr = "%s::%s::%s::%s::%s::%s::%s::%s::" % (str(aff_stat), sko, sko_name, last_date, tils_info['stillingskode'], tils_info['stillingstittel'], tils_info['prosent'], tils_info['dbh_kat'], tils_info['hovedarbeidsforhold'])
+        except:
+            affstr = "%s::%s::%s::%s::::::::::" % (str(aff_stat),sko,sko_name,last_date)
+        
+        
         person_affs.setdefault(p_id, list()).append(affstr)
         #auth
         auth_str=auth_list.get(acc_id,"")
@@ -175,7 +323,7 @@ def load_cb_data():
                         ('given',first_name),
                         ('sn',last_name),
                         ('birth',birth_date),
-                        ('worktitle',worktitle),
+                        #('worktitle',worktitle),
                         ('contacts',contacts),
                         ('auth_str',auth_str),
                         ('email',email)
@@ -226,21 +374,29 @@ def build_xml(outfile):
                   'sn': attrs['sn'],
                   'birth': attrs['birth'],
                   }
-        if attrs['worktitle']: xml_attr['worktitle'] = attrs['worktitle']
+        #if attrs['worktitle']: xml_attr['worktitle'] = attrs['worktitle']
         xml.startElement('person',xml_attr)
+
+        #print "%s - %s - %s - %s" % (attrs['uname'], attrs['auth_str'], attrs['email'],attrs.get('auth_str') or '*')
+        
         xml.emptyElement('account', {'username': attrs['uname'], 
-                                     'userpassword': attrs['auth_str'],
+                                     'userpassword': attrs.get('auth_str') or '*',
                                      'email': attrs['email']})
         affs = person_affs.get(person_id)
         if affs:
             xml.startElement('affiliations')
             for aff in affs:
-                affname,sko,sko_name,last_date = aff.split('::')
+                affname, sko, sko_name, last_date, tils_stillingskode, tils_stillingstittel, tils_prosent, tils_dbh_kat, hovedarbeidsforhold = aff.split('::')
                 affkode,affstatus=affname.split('/')
                 xml.emptyElement('aff',{'affiliation': affkode,
                                     'status':affstatus,
                                     'stedkode': sko,
-                                    'last_date':last_date
+                                    'last_date': last_date,
+                                    'stillingskode': tils_stillingskode,
+                                    'stillingstittel': tils_stillingstittel,
+                                    'prosent': tils_prosent,
+                                    'dbh_kategori': tils_dbh_kat,
+                                    'hovedarbeidsforhold': hovedarbeidsforhold
                                     })
             xml.endElement('affiliations')
         contactinfo=attrs['contacts']
