@@ -485,6 +485,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/modules/no/uit',
                    'Cerebrum/modules/no/uit/AutoStud',
                    'Cerebrum/client',
+                   'Cerebrum/modules/LMS',
                    ],
 
        # options override --prefix
