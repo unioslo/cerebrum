@@ -765,7 +765,9 @@ class Factory(object):
                       'Project': 'CLASS_PROJECT',
                       'Allocation': 'CLASS_ALLOCATION',
                       'AllocationPeriod': 'CLASS_ALLOCATION_PERIOD',
-                      'FS': 'CLASS_FS',}
+                      'FS': 'CLASS_FS',
+                      'LMSImport': 'CLASS_LMS_IMPORT',
+                      'LMSExport': 'CLASS_LMS_EXPORT',}
         if Factory.class_cache.has_key(comp):
             return Factory.class_cache[comp]
         try:
