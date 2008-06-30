@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1226,6 +1226,58 @@ class cx_Oracle(OracleBase):
         """Convert type of values in row to native Python types."""
         # Short circuit; no conversion is necessary for DCOracle2.
         return data
+
+    def cursor(self):
+        return cx_OracleCursor(self)
+    # end cursor
+# end cx_Oracle
+
+
+
+class cx_OracleCursor(Cursor):
+    """A special cursor subclass to handle cx_Oracle's quirks.
+
+    This class is a workaround for cx_Oracle's feature where it refuses to
+    accept unused names in bind dictionary in the the execute() method. We
+    redefine a dictionary with 'used-only' bind names, and send that
+    dictionary to the backend's execute(). This hack implies a performance
+    hit, since we parse each statement (at least) twice.
+    """
+
+    def execute(self, operation, parameters=()):
+        # Translate Cerebrum-specific hacks ([:]-syntax we love, e.g.). We
+        # must do this, before feeding operation to the backend, since we've
+        # effectively extended sql syntax.
+        sql, binds = self._translate(operation, parameters)
+        # Now that we have raw sql, we need to check if binds contains some
+        # superfluous identifiers. If it does, we have to purge them.
+
+        # 1. Prepare the statement (so that the backend can report some useful
+        #    information about this.) This costs extra time, but it is
+        #    inevitable, since bindnames() requires a prepared statement.
+        self._cursor.prepare(sql)
+        # 2. Extract the bind names. This is the list we compare to binds. The
+        #    problem is of course that this bastard upcases the names.
+        actual_binds = self._cursor.bindnames()
+
+        mybinds = dict()
+        for next_bind in actual_binds:
+            if next_bind in binds:
+                mybinds[next_bind] = binds[next_bind]
+            elif next_bind.lower() in binds:
+                mybinds[next_bind.lower()] = binds[next_bind.lower()]
+            else:
+                # what to do?
+                raise ValueError("Cannot remap bind name %s to "
+                                 "actual parameter" % next_bind)
+
+        # super().execute will redo a considerable part of the work here. It
+        # is a performance hit (FIXME: how much of a performance hit?), but
+        # right now (2008-06-30) we do not care.
+        return super(cx_OracleCursor, self).execute(sql, mybinds)
+    # end execute
+# end cx_OracleCursor
+
 
 
 class SQLite(Database):
