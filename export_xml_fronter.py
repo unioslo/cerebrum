@@ -156,7 +156,7 @@ def load_acc2name():
             passw = 'FRONTERLOGIN'
         else:
             imap = cereconf.IMAPEXCHANGE
-            passw = ' '
+            passw = 'askuser:'
         
         
         ret[pers['account_id']] = {

@@ -190,8 +190,7 @@ def rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
 
 def import_org_units(sources):
 
-    print sources
-    print 'hei'
+    #print sources
     
     ou = OU_class(db)
 
@@ -363,7 +362,7 @@ import from UoOs LT system.
 
 def main():
     global verbose, perspective
-    print 'her1'
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'vp:s:',
                                    ['verbose',
@@ -372,7 +371,7 @@ def main():
     except getopt.GetoptError:
         usage(1)
 
-    print 'her2'
+
     verbose = 0
     perspective = getattr(co, default_perspective)
     sources = []
