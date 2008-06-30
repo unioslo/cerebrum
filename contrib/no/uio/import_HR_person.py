@@ -257,6 +257,7 @@ def determine_affiliations(xmlperson, source_system):
                      'ST-POL-UTV': const.affiliation_tilknyttet_studpol,
                      'ST-ORG FRI': const.affiliation_tilknyttet_studorg,
                      'ST-ORG UTV': const.affiliation_tilknyttet_studorg,
+                     'INNKJØPER': const.affiliation_tilknyttet_innkjoper,
 
                      # IVR 2007-07-11 These should be ignored
                      # eventually, according to baardj

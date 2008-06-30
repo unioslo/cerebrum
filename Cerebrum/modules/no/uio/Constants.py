@@ -143,6 +143,9 @@ class Constants(Constants.Constants):
     affiliation_tilknyttet_studorg = _PersonAffStatusCode(
         affiliation_tilknyttet, 'studorg',
         'Personer registrert i LT med gjestetypekode=ST-ORG FRI eller ST-ORG UTV')
+    affiliation_tilknyttet_innkjoper = _PersonAffStatusCode(
+        affiliation_tilknyttet, 'innkjoper',
+        'Personer registrert i SAP med INNKJØPER-rolle')
 
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 'Tilknyttet enheter/instutusjoner som USIT har avtale med')
