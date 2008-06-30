@@ -1526,10 +1526,12 @@ def main():
 
     # Default values
     date = time.localtime()
+    date_today_paga = "%02d-%02d-%02d" % (date[0], date[1], date[2])
     date_today = "%02d%02d%02d" % (date[0], date[1], date[2])
     
     output_file = os.path.join(cereconf.DUMPDIR,'Frida','frida.xml')
-    person_file = os.path.join(cereconf.DUMPDIR,'employees','uit_persons_%s.xml' % date_today)
+
+    person_file = os.path.join(cereconf.DUMPDIR,'employees','paga_persons_%s.xml' % date_today_paga)
     sted_file = os.path.join(cereconf.DUMPDIR,'ou','uit_ou_%s.xml' % date_today)
     verbose = False
     # FIXME: Maybe snatch these from cereconf?
