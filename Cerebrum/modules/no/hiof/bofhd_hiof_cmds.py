@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -165,8 +165,8 @@ class BofhdExtension(object):
         Utility function for methods user_set_ad_*
 
         Set new spread -> AD value mapping as an entity trait for
-        user. Try to log relevant info and raise CerebrumError if
-        something goes wrong.
+        user. Do some sanity checks, log relevant info and raise
+        CerebrumError if something goes wrong.
 
         @type  uname: string
         @param uname: user name of account which AD value should be
@@ -180,6 +180,8 @@ class BofhdExtension(object):
         """
         account = self._get_account(uname, idtype='name')
         spread = self._get_constant(self.const.Spread, spread)
+        if not account.has_spread(spread):
+            raise CerebrumError, "User hasn't spread %s. Can't set ad_trait" % spread
         try:
             trait = account.get_trait(trait_const)
             if trait:
@@ -222,8 +224,7 @@ class BofhdExtension(object):
         """
         self._user_set_ad_trait(uname, spread,
                                 self.const.trait_ad_homedir, ad_home)
-        return "Set new ad_home %s in domain %s for user %s" % (
-            ad_home, spread, uname)
+        return "OK, new ad_home set for user %s" % uname
 
     # user set_ad_ou
     all_commands['user_set_ad_ou'] = Command(
@@ -249,8 +250,7 @@ class BofhdExtension(object):
         """
         self._user_set_ad_trait(uname, spread,
                                 self.const.trait_ad_account_ou, ad_ou)
-        return "Set new ad_ou %s in domain %s for user %s" % (
-            ad_ou, spread, uname)
+        return "OK, new ad_ou set for user %s" % uname
 
     # user set_ad_profile
     all_commands['user_set_ad_profile'] = Command(
@@ -276,8 +276,7 @@ class BofhdExtension(object):
         """
         self._user_set_ad_trait(uname, spread,
                                 self.const.trait_ad_profile_path, ad_profile)
-        return "Set new ad_profile %s in domain %s for user %s" % (
-            ad_profile, spread, uname)
+        return "OK, new ad_profile set for user %s" % uname
     
     # user create prompt
     #
