@@ -221,18 +221,15 @@ def type_is_active(entry_type):
     representing either a 'tils' record or a 'gjest' record.
     """
 
-    earliest = mx.DateTime.today() - \
+    earliest = mx.DateTime.DateFrom(entry_type.get("dato_fra")) - \
                mx.DateTime.DateTimeDelta(cereconf.PAGA_EARLYDAYS)
-    #print str(earliest)
 
     dato_fra = mx.DateTime.DateFrom(entry_type.get("dato_fra"))
     dato_til = mx.DateTime.DateFrom(entry_type.get("dato_til"))
 
-    # dato_til can be empty
-    #
-    if (dato_fra <= earliest) and ((not dato_til) or 
-        (mx.DateTime.today() <= dato_til)):
-            return True
+    if (mx.DateTime.today() >= earliest) and \
+       ((not dato_til) or (mx.DateTime.today() <= dato_til)):
+        return True
 
     logger.warn("Not active, earliest: %s, dato_fra: %s, dato_til:%s" % \
                 (earliest, dato_fra,dato_til))
