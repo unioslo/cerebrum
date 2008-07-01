@@ -66,16 +66,15 @@ aff_to_stilling_map = {}
 def scan_person_affs(person):
     global aff_to_stilling_map
 
-    earliest = mx.DateTime.today() - mx.DateTime.DateTimeDelta(cereconf.PAGA_EARLYDAYS)
 
     fnr = person['fnr']
     
     for t in person.get('tils', ()):
-
+        earliest = mx.DateTime.DateFrom(t.get("dato_fra")) - mx.DateTime.DateTimeDelta(cereconf.PAGA_EARLYDAYS)
         dato_fra = mx.DateTime.DateFrom(t.get("dato_fra"))
         dato_til = mx.DateTime.DateFrom(t.get("dato_til"))
 
-        if (dato_fra > earliest) and (dato_til and (mx.DateTime.today() > dato_til)):
+        if (mx.DateTime.today() < earliest) or (dato_til and (mx.DateTime.today() > dato_til)):
             logger.warn("Not active, earliest: %s, dato_fra: %s, dato_til:%s" % (earliest, dato_fra,dato_til))
             continue
 
