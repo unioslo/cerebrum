@@ -79,6 +79,7 @@ KEY_EPOST='E-postadresse'
 KEY_ETTERNAVN='Etternavn'
 KEY_FNR='Fødselsnummer'
 KEY_FORNAVN= 'Fornavn'
+KEY_HOVEDARBFORH='HovedAF'
 KEY_KOSTNADSTED='K.sted'
 KEY_NR='Nr'
 KEY_ORGSTED='Org.nr.'
@@ -128,6 +129,7 @@ def parse_paga_csv(pagafile):
             'dato_fra':detail[KEY_DATOFRA],
             'dato_til':detail[KEY_DATOTIL],
             'dbh_kat':detail[KEY_DBHKAT],
+            'hovedarbeidsforhold':detail[KEY_HOVEDARBFORH],
         }
         stedkode=detail[KEY_ORGSTED]
         # check if stedkode should be mapped to something else
@@ -221,15 +223,16 @@ class person_xml:
                 if st_andel=='':
                     logger.error("ST.andel for fnr %s er tom",fnr)
                 tils_dict = {'hovedkategori' : aff['hovedkategori'],
-                          'stillingskode' : aff['stillingskode'],
-                          'tittel' : aff['tittel'],
-                          'stillingsandel' : st_andel,
-                          'fakultetnr_utgift' : sted[0:2],
-                          'instituttnr_utgift' : sted[2:4],
-                          'gruppenr_utgift' : sted[4:6],
-                          'dato_fra' : aff['dato_fra'],
-                          'dato_til' : aff['dato_til'],
-                          'dbh_kat' : aff['dbh_kat'],
+                             'stillingskode' : aff['stillingskode'],
+                             'tittel' : aff['tittel'],
+                             'stillingsandel' : st_andel,
+                             'fakultetnr_utgift' : sted[0:2],
+                             'instituttnr_utgift' : sted[2:4],
+                             'gruppenr_utgift' : sted[4:6],
+                             'dato_fra' : aff['dato_fra'],
+                             'dato_til' : aff['dato_til'],
+                             'dbh_kat' : aff['dbh_kat'],
+                             'hovedarbeidsforhold': aff['hovedarbeidsforhold'],
                           }
                 temp_tils.append(tils_dict)
             writer.startElement("person",person_data)
