@@ -227,7 +227,7 @@ def load_cb_data():
     skip_source = []
     skip_source.append(co.system_lt)
 
-    print aff_to_stilling_map
+    #print aff_to_stilling_map
     
     for aff in p.list_affiliations():
 
