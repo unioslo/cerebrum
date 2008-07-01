@@ -125,6 +125,7 @@ def scan_person_affs(person):
 
 
 
+
 def load_cache():
     global account2name,owner2account,persons,uname2mail
     global num2const,name_cache_cached,name_cache_ad,auth_list,person2contact
@@ -225,6 +226,8 @@ def load_cb_data():
 
     skip_source = []
     skip_source.append(co.system_lt)
+
+    print aff_to_stilling_map
     
     for aff in p.list_affiliations():
 
@@ -303,9 +306,12 @@ def load_cb_data():
             original_stedkode = ou_stedkode_mapping[original_ou_id]
             aux_key = (pid_fnr_dict[p_id], original_stedkode, str(aff_stat))
             tils_info = aff_to_stilling_map[aux_key]
-            affstr = "%s::%s::%s::%s::%s::%s::%s::%s::" % (str(aff_stat), sko, sko_name, last_date, tils_info['stillingskode'], tils_info['stillingstittel'], tils_info['prosent'], tils_info['dbh_kat'], tils_info['hovedarbeidsforhold'])
-        except:
+        except KeyError:
             affstr = "%s::%s::%s::%s::::::::::" % (str(aff_stat),sko,sko_name,last_date)
+        else:
+            affstr = "%s::%s::%s::%s::%s::%s::%s::%s::%s" % (str(aff_stat), sko, sko_name, last_date, tils_info['stillingskode'], tils_info['stillingstittel'], tils_info['prosent'], tils_info['dbh_kat'], tils_info['hovedarbeidsforhold'])
+
+
         
         
         person_affs.setdefault(p_id, list()).append(affstr)
