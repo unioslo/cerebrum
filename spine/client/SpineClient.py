@@ -198,7 +198,10 @@ class SpineClient:
         fd.close()
         self.log.debug('- Compiling to: %s', self.idl_path)
         
-        retval= os.system('omniidl -bpython -C %s %s %s 2>%s' % (self.idl_path, self.spine_core, self.idl_file, os.devnull))
+        devnull='/dev/null'
+        if sys.platform.startswith('win'):
+            devnull= 'NUL'
+        retval= os.system('omniidl -bpython -C %s %s %s 2>%s' % (self.idl_path, self.spine_core, self.idl_file, devnull))
         if retval != 0:
             raise Exception, "omniidl command failed"
         
