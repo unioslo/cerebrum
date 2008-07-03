@@ -193,6 +193,15 @@ class Constants(Constants.Constants):
         ('Group representing a course that should be exported to'
          ' the ClassFronter.  Should only be given to groups that'
          ' have been automatically generated from FS.'))
+    spread_radius_user = _SpreadCode(
+        'account@radius', Constants.Constants.entity_account,
+        'User in Radius domain "stud"')
+    spread_ans_radius_user = _SpreadCode(
+        'account@radiusans', Constants.Constants.entity_account,
+        'User in Radius domain "ans"')
+    spread_it_radius_user = _SpreadCode(
+        'account@radiusans', Constants.Constants.entity_account,
+        'User in Radius domain "it"')
 
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
 
