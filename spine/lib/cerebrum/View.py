@@ -65,9 +65,10 @@ class AccountView(DumpClass):
         Attribute('posix_gid', int),
         Attribute('primary_group', str),
 
+        Attribute('owner_id', int),
         Attribute('owner_group_name', str),
         Attribute('full_name', str),
-        
+                
         Attribute('quarantines', [str]),
         )
 
@@ -364,6 +365,7 @@ class PersonView(Builder):
         Attribute('full_name', str),
         Attribute('first_name', str),
         Attribute('last_name', str),
+        Attribute('display_name', str),
         Attribute('work_title', str),
         
         Attribute('email', str),
@@ -397,9 +399,6 @@ contact_email.contact_value AS email,
 contact_url.contact_value AS url,
 contact_phone.contact_value AS phone,
 
-account_type.account_id AS primary_account,
-account_name.entity_name AS primary_account_name,
-
 person_info.birth_date AS birth_date,
 person_nin.external_id AS nin,
 entity_address.address_text AS address_text,
@@ -425,6 +424,10 @@ LEFT JOIN person_name person_full_name
 ON ((person_full_name.person_id = person_info.person_id)
   AND (person_full_name.source_system = :system_cached)
   AND (person_full_name.name_variant = :name_full))
+LEFT JOIN person_name person_display_name
+ON ((person_display_name.person_id = person_info.person_id)
+  AND (person_display_name.source_system = :system_cached)
+  AND (person_display_name.name_variant = :name_display))
 LEFT JOIN person_name person_personal_title
 ON ((person_personal_title.person_id = person_info.person_id)
   AND (person_personal_title.source_system = :system_cached)
@@ -451,18 +454,10 @@ LEFT JOIN entity_address entity_address
 ON (entity_address.entity_id = person_info.person_id
   AND entity_address.source_system = :address_source
   AND entity_address.address_type = :contact_post_address)
--- primary_account
-LEFT JOIN account_type account_type
-ON (account_type.person_id = person_info.person_id
-  AND account_type.priority IN
-    (SELECT min(priority) FROM account_type
-      WHERE person_id = account_type.person_id))
-LEFT JOIN entity_name account_name
-ON (account_name.entity_id = account_type.account_id
-  AND account_name.value_domain = :account_namespace)
 -- Only need living people
 WHERE (person_info.deceased_date IS NULL)
 """
+
 person_search_cl = """
 JOIN change_log
 ON (change_log.subject_entity = person_info.person_id AND change_log.change_id > :changelog_id)
@@ -470,6 +465,27 @@ ON (change_log.subject_entity = person_info.person_id AND change_log.change_id >
 
 person_search_cl_o = """
 ORDER BY change_log.change_id
+"""
+
+primary_account = """
+-- primary_account
+SELECT
+primary_account.person_id AS person_id,
+primary_account.account_id AS account_id,
+account_name.entity_name AS account_name
+FROM
+ (SELECT account_type.person_id AS person_id,
+         account_type.account_id AS account_id,
+         account_type.ou_id AS ou_id,
+         account_type.affiliation AS affiliation
+  FROM account_type account_type,
+   (SELECT min(priority) AS min_prio, person_id
+    FROM account_type GROUP BY person_id) min_prio
+  WHERE account_type.priority=min_prio.min_prio
+    AND account_type.person_id = min_prio.person_id) primary_account
+LEFT JOIN entity_name account_name
+ON (account_name.entity_id = primary_account.account_id
+  AND account_name.value_domain = :account_namespace)
 """
 
 class AliasesView(Builder):
@@ -569,7 +585,7 @@ class View(DatabaseTransactionClass):
                 d["gecos"] = "%s user" % d["name"]
         return d
 
-    def extend_persons(self, rows):
+    def extend_persons(self, db, rows):
         persons = []
 
         traits = {}
@@ -594,6 +610,11 @@ class View(DatabaseTransactionClass):
             else:
                 affiliations[pid] = [aid]
 
+        primary_accounts={}
+        for a in db.query(primary_account,
+                            {"account_namespace": co.account_namespace}):
+            primary_accounts[a.person_id]=(a.account_id, a.account_name)
+
         for row in rows:
             row = row.dict()
             pid = row['id']
@@ -601,6 +622,8 @@ class View(DatabaseTransactionClass):
                 row['traits'] = traits[pid]
             if affiliations_has(pid):
                 row['affiliations'] = affiliations[pid]
+            if pid in primary_accounts:
+                row['primary_account'], row['primary_account_name'] = primary_accounts[pid]
 
             persons.append(row)
         return persons
@@ -708,7 +731,7 @@ class View(DatabaseTransactionClass):
     def get_persons(self):
         db = self.get_database()
         rows=db.query(person_search % "", self.query_data)
-        return self.add_quarantines(self.extend_persons(rows))
+        return self.add_quarantines(self.extend_persons(db, rows))
     get_persons.signature = [Struct(PersonView)]
     def get_persons_cl(self):
         db = self.get_database()
