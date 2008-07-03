@@ -609,8 +609,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                           affiliation=None, status=None, ou_id=None,
                           include_deleted=False, fetchall = True):
         where = []
-        for t in ('person_id', 'affiliation', 'source_system', 'status', \
-                                                                'ou_id'):
+        for t in ('person_id', 'affiliation', 'source_system', 'status',
+                  'ou_id'):
             val = locals()[t]
             if val is not None:
                 if isinstance(val, (list, tuple)):
