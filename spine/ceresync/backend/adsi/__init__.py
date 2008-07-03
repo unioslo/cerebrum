@@ -35,6 +35,7 @@ import win32pipe
 import time
 import logging
 import StringIO
+from ceresync.sync import Pgp
 
 class WrongClassError(errors.AlreadyExistsError):
     """Already exists in OU, but is wrong objectClass"""    
@@ -289,9 +290,9 @@ class ADUser(_ADAccount):
         ad_obj.com_object.accountDisabled = False
         # FIXME: should fetch names from owner, and not require Posix
         ad_obj.fullName = obj.gecos or ""
-        password = obj.passwords.get("cleartext")
+        password = obj.passwd
         if password is not None:
-            ad_obj.setPassword(password)
+            ad_obj.setPassword(Pgp().decrypt(password))
         ad_obj.setInfo()
         return ad_obj
 
