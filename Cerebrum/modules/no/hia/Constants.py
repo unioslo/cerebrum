@@ -197,10 +197,10 @@ class Constants(Constants.Constants):
         'account@radius', Constants.Constants.entity_account,
         'User in Radius domain "stud"')
     spread_ans_radius_user = _SpreadCode(
-        'account@radiusans', Constants.Constants.entity_account,
+        'account@radiusan', Constants.Constants.entity_account,
         'User in Radius domain "ans"')
     spread_it_radius_user = _SpreadCode(
-        'account@radiusans', Constants.Constants.entity_account,
+        'account@radiusit', Constants.Constants.entity_account,
         'User in Radius domain "it"')
 
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
