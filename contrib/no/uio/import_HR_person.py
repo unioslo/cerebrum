@@ -212,20 +212,22 @@ def determine_traits(xmlperson, source_system):
 def determine_affiliations(xmlperson, source_system):
     """Determine affiliations for person p_id/xmlperson in order of significance.
 
-    :Parameters:
-      xmlperson : instance of xmlutils.HRDataPerson
-        Representation of XML-data for a person
-      source_system : instance of AuthoritativeSystem (or a number)
-        Source system for OU lookup.
+    @type xmlperson: instance of xmlutils.HRDataPerson
+    @param xmlperson:
+      An object representing an XML-subtree with personal information. 
 
-    :Returns:
-      The affiliations are collected in ret, where keys are:
-    
-      'ou_id:affiliation'
+    @type source_system: AuthoritativeSystem instance
+    @param source_system:
+      Source system where L{xmlperson} originated.
 
-      ... and values are
+    @rtype: set (of triples)
+    @return:
+      All affiliations for L{xmlperson} collected in a set. Each item is a
+      triple structured thus::
 
-      (ou_id, affiliation, affiliation_status)
+        (ou_id, affiliation, affiliation_status).
+
+      All individual entries are of type int.
     """
 
     def str_pid():
@@ -233,7 +235,11 @@ def determine_affiliations(xmlperson, source_system):
         return str(list(xmlperson.iterids()))
     # str_id
 
-    ret = {}
+    ret = set()
+    def adjoin_affiliation(ou_id, affiliation, status):
+        value = (int(ou_id), int(affiliation), int(status))
+        ret.add(value)
+    # end adjoin_affiliation
 
     kind2affstat = { DataEmployment.KATEGORI_OEVRIG :
                          const.affiliation_status_ansatt_tekadm,
@@ -271,10 +277,10 @@ def determine_affiliations(xmlperson, source_system):
     # #1 -- Tilsettinger
     tils_types = (DataEmployment.HOVEDSTILLING, DataEmployment.BISTILLING)
     # we look at active employments with OUs only
-    tilsettinger = filter(lambda x: x.kind in tils_types and
-                                    x.is_active() and
-                                    x.place,
-                          xmlperson.iteremployment())
+    tilsettinger = [x for x in xmlperson.iteremployment()
+                    if x.kind in tils_types and
+                    x.is_active() and
+                    x.place]
     title = None
     max_so_far = -1
     for t in tilsettinger:
@@ -294,17 +300,15 @@ def determine_affiliations(xmlperson, source_system):
             logger.warn("Unknown category %s for %s", t.category, str_pid())
             continue
 
-        aff_stat = kind2affstat[t.category]
-        k = "%s:%s" % (place["id"], int(const.affiliation_ansatt))
-        if not ret.has_key(k):
-            ret[k] = (place["id"], const.affiliation_ansatt, aff_stat)
+        adjoin_affiliation(place["id"], const.affiliation_ansatt,
+                           kind2affstat[t.category])
     
     #
     # #2 -- Bilagslønnede
-    bilag = filter(lambda x: x.kind == DataEmployment.BILAG and
-                             x.is_active() and
-                             x.place,
-                   xmlperson.iteremployment())
+    bilag = [x for x in xmlperson.iteremployment()
+             if x.kind == DataEmployment.BILAG and
+             x.is_active() and
+             x.place]
     for b in bilag:
         assert b.place[0] == DataOU.NO_SKO
         place = get_sko(b.place[1], source_system)
@@ -312,18 +316,16 @@ def determine_affiliations(xmlperson, source_system):
             logger.info("Person id=%s has unknown sko=%s in bilag",
                         list(xmlperson.iterids()), b.place[1])
             continue
-            
-        k = "%s:%s" % (place["id"], int(const.affiliation_ansatt))
-        if not ret.has_key(k):
-            ret[k] = (place["id"], const.affiliation_ansatt, 
-                      const.affiliation_status_ansatt_bil)
+
+        adjoin_affiliation(place["id"], const.affiliation_ansatt,
+                           const.affiliation_status_ansatt_bil)
 
     #
     # #3 -- Gjester
-    gjest = filter(lambda x: x.kind == DataEmployment.GJEST and
-                             x.is_active() and
-                             x.place,
-                   xmlperson.iteremployment())
+    gjest = [x for x in xmlperson.iteremployment()
+             if x.kind == DataEmployment.GJEST and
+                x.is_active() and
+                x.place]
     for g in gjest:
         assert g.place[0] == DataOU.NO_SKO
         if g.place[1] is None:
@@ -334,22 +336,20 @@ def determine_affiliations(xmlperson, source_system):
         place = get_sko(g.place[1], source_system)
         if place is None:
             logger.info("Person id=%s has unknown sko=%s in guest ",
-                        list(xmlperson.iterids()), b.place[1])
+                        list(xmlperson.iterids()), g.place[1])
             continue
-    
-        aff_stat = None
+
+        # starthack
         # Temporary fix until SAP-HR goes live@UiO (employees at UiO are
         # registered as guests, but have to be recognized as employees
         # in LDAP etc). We should be able to remove this in august 2006
         if g.code == 'POLS-ANSAT':
-            aff_stat = const.affiliation_status_ansatt_ltreg
-            k = "%s:%s" % (place["id"], int(const.affiliation_ansatt))
-            if not ret.has_key(k):
-                ret[k] = place["id"], const.affiliation_ansatt, aff_stat
-            continue
+            adjoin_affiliation(place["id"], const.affiliation_ansatt,
+                               const.affiliation_status_ansatt_ltreg)
         # endhack
         elif g.code in gjest2affstat:
-            aff_stat = gjest2affstat[g.code]
+            adjoin_affiliation(place["id"], const.affiliation_tilknyttet,
+                               gjest2affstat[g.code])
         # Some known gjestetypekode can't be maped to any known affiliations
         # at the moment. Group defined above in head.  
         elif g.code == 'IKKE ANGIT':
@@ -359,10 +359,6 @@ def determine_affiliations(xmlperson, source_system):
             logger.info("Unknown gjestetypekode %s for person %s",
                         g.code, str_pid())
             continue
-    
-        k = "%s:%s" % (place["id"], int(const.affiliation_tilknyttet))
-        if not ret.has_key(k):
-            ret[k] = place["id"], const.affiliation_tilknyttet, aff_stat
     
     return ret, title
 # end determine_affiliations
@@ -479,12 +475,12 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
             make_reservation(xmlperson.reserved, p_id, group)
 
         # Now we mark current affiliations as valid (in case deletion is
-        # requested later)
+        # requested later). Whatever remains in old_affs when we are done is
+        # to be deleted.
         if old_affs:
-            for key in affiliations:
-                tmp = "%s:%s" % (p_id, key)
-                if tmp in old_affs:
-                    old_affs[tmp] = False
+            for my_ou, my_affiliation, my_status in affiliations:
+                tmp = (int(p_id), int(my_ou), int(my_affiliation))
+                old_affs.discard(tmp)
 
         # Now we update the cache with traits (in case trait synchronisation
         # is requested later). This is similar to affiliation processing,
@@ -510,24 +506,31 @@ def clean_old_affiliations(source_system, aff_set):
     """Remove affiliations which have no basis in the data set imported in
     this run.
 
-    While importing people information, we mark valid affiliations. All affs
-    that have not been marked are no longer valid.
+    While importing people information, we mark valid affiliations. All
+    affiliations remaining in the aff_set have no data basis in the file that
+    has been processed.
 
-    :Parameters:
-      source_system : an instance of AuthoritativeSystem (or an int)
-        Source system for the data set we are importing
-      aff_set : a dictionary
-        see parse_data
+    @type source_system: AuthoritativeSystem instance.
+    @param source_system:
+      The authoritative system for the affiliations to delete (in the db).
+
+    @type aff_set: set (of triplets)
+    @param aff_set:
+      A set of 'remaining' affiliations registered in Cerebrum. These are the
+      affiliations that existed before this job started, but that no longer
+      should exist, since they are not backed up by data (anymore).
+
+      Cf. L{load_old_affiliations} for the description of aff_set.
     """
 
-    for key, status in aff_set.items():
-        if status:
-            entity_id, ou_id, aff = key.split(":")
-            person.clear()
-            person.entity_id = int(entity_id)
-            person.delete_affiliation(ou_id, aff, source_system)
-            logger.info("Person id=%s lost affiliation %s (ou id=%s)",
-                        entity_id, const.PersonAffiliation(aff), ou_id)
+    for person_id, ou_id, affiliation in aff_set:
+        person.clear()
+        # FIXME: This is a speed hack, to avoid find()'s overhead. This is API
+        # abuse and should be fixed.
+        person.entity_id = person_id
+        person.delete_affiliation(ou_id, affiliation, source_system)
+        logger.info("Person id=%s lost affiliation %s (ou id=%s)",
+                    person_id, const.PersonAffiliation(affiliation), ou_id)
 # end clean_old_affiliations
 
 
@@ -535,21 +538,29 @@ def clean_old_affiliations(source_system, aff_set):
 def load_old_affiliations(source_system):
     """Load all affiliations from Cerebrum registered to source_system.
 
-    :Parameters:
-      source_system : an instance of AuthoritativeSystem (or an int)
-        Source system for the data set we are importing
-    :Returns:
-      A dictionary, mapping keys to bool, where keys look like s1:s2:s3, and
-      s1 is person_id, s2 is ou_id and s3 is the affiliation (int).
+    @type source_system: AuthoritativeSystem instance.
+    @param source_system:
+      The authoritative system to extract affiliations from (in the
+      database).
+
+    @rtype: set (of triplets)
+    @return:
+      A set of current affiliations registered in Cerebrum. Each entry in the
+      set is a triple::
+
+        (person_id, ou_id, affiliation)
+
+      where each item in the triple is an int.
     """
 
-    affi_set = dict()
+    all_affiliations = set()
     for row in person.list_affiliations(source_system=source_system):
-        key = "%s:%s:%s" % (row["person_id"], row["ou_id"], row["affiliation"])
-        affi_set[key] = True
-
-    return affi_set
+        key = tuple(int(x) for x in
+                    (row["person_id"], row["ou_id"], row["affiliation"]))
+        all_affiliations.add(key)
+    return all_affiliations
 # end load_old_affiliations
+
 
 
 def load_old_traits():

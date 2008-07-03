@@ -216,14 +216,15 @@ class XML2Cerebrum:
           Work title (it is derived from HR data, and therefore not registered
           directly)
 
-        @type affiliations: dict
+        @type affiliations: set (of triples)
         @param affiliations:
-          A mapping of affiliations to be assigned to this person. The
+          A set of affiliations to be assigned to this person. The
           affiliations are calculated elsewhere on the basis of employment
-          information available in L{xmlperson}. The dict itself is a mapping
-          from basestring keys to 3-tuples of values (ou_id, affiliation,
-          status) for the specified source system (self.source_system).
-        
+          information available in L{xmlperson}.
+
+          The structure of the set is described in
+          L{import_HR_person.py:determine_affiliations}. 
+
         @type traits: sequence (of triples)
         @param traits:
           A sequence of traits to be assigned to this person. The traits are
@@ -358,18 +359,16 @@ class XML2Cerebrum:
           Source_system for which the affiliation assignment is to be
           performed.
 
-        @type affiliations: dict
+        @type affiliations: set (of triples)
         @param affiliations:
-          A mapping from basestring keys to triples (ou_id, affiliation,
-          status). The keys themselves are irrelevant in this method, but they
-          are formatted as 'ou_id:affiliation'.
+          See L{import_HR_person.py:determine_affiliations} for the
+          description. 
 
         @return: Nothing
         """
 
         person.populate_affiliation(source_system)
-        for value in affiliations.itervalues():
-            ou_id, aff, aff_stat = value
+        for ou_id, aff, aff_stat in affiliations:
             person.populate_affiliation(source_system, ou_id, 
                                         int(aff), int(aff_stat))
             self.logger.info("Person id=%s acquires affiliation "
