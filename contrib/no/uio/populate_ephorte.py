@@ -6,6 +6,7 @@ import sys
 import cerebrum_path
 import cereconf
 from sets import Set
+from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
@@ -33,6 +34,7 @@ ou = Factory.get("OU")(db)
 cl = CLHandler.CLHandler(db)
 logger = Factory.get_logger("cronjob")
 ou_map_warnings = []
+ou_mismatch_warnings = {'pols': [], 'ephorte': []}
 
 class SimpleRole(object):
     def __init__(self, role_type, adm_enhet, arkivdel, journalenhet, auto_role=True):
@@ -118,11 +120,17 @@ class PopulateEphorte(object):
                      len(self.app_ephorte_ouid2name.keys()))
         for ou_id in Set(self.app_ephorte_ouid2name.keys()) - \
                 Set(self.pols_ephorte_ouid2name.keys()):
-            logger.warn("OU (%6s: %s) in ephorte app, but has not ephorte spread" % (
+            # Add ou to list that is sent in warn mail
+            ou_mismatch_warnings['ephorte'].append((self.ouid2sko[ou_id],
+                                                    self.app_ephorte_ouid2name[ou_id]))
+            logger.info("OU (%6s: %s) in ephorte app, but has not ephorte spread" % (
                 self.ouid2sko[ou_id], self.app_ephorte_ouid2name[ou_id]))
         for ou_id in Set(self.pols_ephorte_ouid2name.keys()) - \
                 Set(self.app_ephorte_ouid2name.keys()):
-            logger.warn("OU (%6s, %s) has ephorte spread, but is not in ephorte" % (
+            # Add ou to list that is sent in warn mail
+            ou_mismatch_warnings['pols'].append((self.ouid2sko[ou_id],
+                                                 self.app_ephorte_ouid2name[ou_id]))
+            logger.info("OU (%6s, %s) has ephorte spread, but is not in ephorte" % (
                 self.ouid2sko[ou_id], self.pols_ephorte_ouid2name[ou_id]))
         ##
         ## GRUSOMT HACK SLUTT
@@ -264,21 +272,47 @@ class PopulateEphorte(object):
         db.commit()
 
 def mail_warnings(mailto, debug=False):
-    from Cerebrum import Utils
-    if not ou_map_warnings:
-        return
-    warnings = '\n'.join(["%11s   %-10s   %s %s" %(x['sap_ansattnr'], x['uname'],
-                                                   x['first_name'], x['last_name'])
-                          for x in ou_map_warnings])
-    ret = Utils.mail_template(mailto,
-                              cereconf.EPHORTE_MAIL_WARNINGS,
-                              substitute={'WARNINGS': warnings},
+    """
+    If warnings of certain types occur, send those as mail to address
+    specified in mailto. If cereconf.EPHORTE_MAIL_TIME is specified,
+    just send if time when script is run matches with specified time.
+    """
+
+    from mx import DateTime
+
+    # Check if we should send mail today
+    mail_today = False
+    today = DateTime.today()
+    for day in getattr(cereconf, 'EPHORTE_MAIL_TIME', []):
+        if getattr(DateTime, day, None) == today.day_of_week:
+            mail_today = True
+    
+    if mail_today and ou_map_warnings:
+        mail_txt = '\n'.join(["%11s   %-10s   %s %s" %(
+            x['sap_ansattnr'], x['uname'], x['first_name'], x['last_name'])
+                              for x in ou_map_warnings])
+        substitute = {'WARNINGS': mail_txt}
+        send_mail(mailto, cereconf.EPHORTE_MAIL_WARNINGS, substitute,
+                  debug=debug)
+
+    if mail_today and (ou_mismatch_warnings['ephorte'] or
+                       ou_mismatch_warnings['pols']):
+        pols_warnings = '\n'.join(["%6s  %s" % x for x in
+                                   ou_mismatch_warnings['pols']])
+        ephorte_warnings = '\n'.join(["%6s  %s" % x for x in
+                                      ou_mismatch_warnings['ephorte']])
+        substitute = {'POLS_WARNINGS': pols_warnings,
+                      'EPHORTE_WARNINGS': ephorte_warnings}
+        send_mail(mailto, cereconf.EPHORTE_MAIL_WARNINGS2, substitute,
+                  debug=debug)
+
+def send_mail(mailto, mail_template, substitute, debug=False):
+    ret = Utils.mail_template(mailto, mail_template, substitute=substitute,
                               debug=debug)
     if ret:
         logger.debug("Not sending mail:\n%s" % ret)
     else:
         logger.debug("Sending mail to: %s" % mailto)
-
 
 def main():
     try:
@@ -296,7 +330,7 @@ def main():
             pop = PopulateEphorte(val)
             pop.run()
         elif opt in ('--mail-warnings-to',):
-            mail_warnings_to = val        
+            mail_warnings_to = val
         elif opt in ('--mail-dryrun',):
             mail_dryrun = True
     if not opts:
