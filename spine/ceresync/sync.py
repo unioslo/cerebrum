@@ -1,7 +1,7 @@
 from ceresync import config
 from ceresync import errors
 import SpineClient
-from popen2 import Popen3
+from popen2 import popen3
 import unittest
 
 class Sync:
@@ -90,23 +90,21 @@ class Pgp:
     def decrypt(self, cryptstring):
         message= cryptstring
         if cryptstring:
-            child= Popen3(self.pgp_dec_cmd)
-            child.tochild.write(cryptstring)
-            child.tochild.close()
-            message= child.fromchild.read()
-            exit_code= child.wait()
-            if exit_code:
-                raise IOError, "%r exited with %i" % (self.pgp_dec_cmd,exit_code)
+            fin,fout,ferr= popen3(' '.join(self.pgp_dec_cmd))
+            fout.write(cryptstring)
+            fout.close()
+            message= fin.read()
+            fin.close()
+            ferr.close()
         return message
 
     def encrypt(self, message):
-        child= Popen3(self.pgp_enc_cmd)
-        child.tochild.write(message)
-        child.tochild.close()
-        cryptstring= child.fromchild.read()
-        exit_code= child.wait()
-        if exit_code:
-            raise IOError, "%r exited with %i" % (self.pgp_enc_cmd,exit_code)
+        fin,fout,ferr= popen3(' '.join(self.pgp_enc_cmd))
+        fout.write(message)
+        fout.close()
+        cryptstring= fin.read()
+        fin.close()
+        ferr.close()
         return cryptstring
 
 class PgpTestCase(unittest.TestCase):
