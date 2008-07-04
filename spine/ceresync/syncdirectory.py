@@ -21,7 +21,7 @@
 
 from ceresync import errors
 from ceresync import sync
-import ceresync.backend.ldap as ldapbackend
+import ceresync.backend.directory as ldapbackend
 from ceresync import config
 import traceback
 
@@ -40,10 +40,9 @@ def main():
     user.begin(incr)
     try:
         for account in s.get_accounts():
-            if account.posix_uid == None:
-                continue
-            else:
-                user.add(account)
+            if account.posix_uid == -1: continue # Possible at all?
+            if account.full_name == "": continue # Do not add system users to ou=users
+            user.add(account)
     except IOError,e:
         print "Exception %s occured, aborting" % e
     else:
@@ -54,10 +53,8 @@ def main():
     groups.begin(incr)
     try:
         for group in s.get_groups():
-            if not group.posix_gid_exists:
-                continue
-            else:
-                groups.add(group)
+            if not group.posix_gid_exists: continue
+            groups.add(group)
     except IOError,e:
         print "Exception %s occured, aborting" % e
     else:
