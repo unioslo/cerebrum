@@ -32,10 +32,11 @@ from ldap import modlist
 from ldif import LDIFParser,LDIFWriter
 from dsml import DSMLParser,DSMLWriter 
 
+from ceresync import config
+log = config.logger
+
 import unittest
 from errors import ServerError
-
-from ceresync import config
 
 
 def ldapDict(s):
@@ -155,8 +156,8 @@ class LdapBack:
             self.l.simple_bind_s(self.binddn,self.bindpw)
             self.insync = []
         except ldap.LDAPError,e:
-            raise LdapConnectionError
             print "Error connecting to server: %s" % (e)
+            raise LdapConnectionError
 
     def close(self):
         """
@@ -192,7 +193,7 @@ class LdapBack:
                 try:
                     self.indirectory.remove(entry)
                 except:
-                    info("Info: Didn't find entry: %s." % entry)
+                    log.info("Info: Didn't find entry: %s." % entry)
             # Sorts the list so children are deleted before parents.
             self.indirectory.sort(self._cmp)
             for entry in self.indirectory:
@@ -200,7 +201,7 @@ class LdapBack:
                 if entry.lower() == 'ou=organization,dc=ntnu,dc=no':
                     continue
                 else:
-                    info("Found %s in database.. should not be here.. removing" % entry)
+                    log.info("Found %s in database.. should not be here.. removing" % entry)
                     self.delete(dn=entry)
             print "Done syncronizing"
 
@@ -222,8 +223,8 @@ class LdapBack:
         try:
             mod_attrs = modlist.addModlist(attrs,self.ignore_attr_types)
         except AttributeError,ae:
-            exception("AttributeError caught from modlist.addModlist: %s" % ae.__str__)
-            exception("attrs: %s, ignore_attr_types: %s" % (attrs, self.ignore_attr_types))
+            log.exception("AttributeError caught from modlist.addModlist: %s" % ae.__str__)
+            log.exception("attrs: %s, ignore_attr_types: %s" % (attrs, self.ignore_attr_types))
             sys.exit(1)
         try:
             self.l.add_s(dn,mod_attrs)
@@ -231,12 +232,12 @@ class LdapBack:
         except ldap.ALREADY_EXISTS,e:
             if update_if_exists: self.update(obj)
         except ldap.LDAPError,e:
-            exception("An error occured while adding %s: %s. mod_attrs: %s" % (dn,e.args, mod_attrs))
+            log.exception("An error occured while adding %s: %s. mod_attrs: %s" % (dn,e.args, mod_attrs))
             sys.exit()
         except TypeError,te:
-            exception("Expected a string in the list in function add.")
-            debug("Attr_dict: %s" % attrs)
-            debug("Modifylist: %s" % mod_attrs)
+            log.exception("Expected a string in the list in function add.")
+            log.debug("Attr_dict: %s" % attrs)
+            log.debug("Modifylist: %s" % mod_attrs)
             sys.exit()
 
     def update(self,obj,old=None, ignore_oldexistent=True):
@@ -279,7 +280,7 @@ class LdapBack:
             if (mod_attrs != []): self.l.modify_s(dn,mod_attrs)
             self.insync.append(dn)
         except ldap.LDAPError,e:
-            exception("An error occured while modifying %s" % (dn))
+            log.exception("An error occured while modifying %s" % (dn))
 
     def delete(self,obj=None,dn=None):
         """
