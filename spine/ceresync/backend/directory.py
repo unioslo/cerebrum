@@ -126,6 +126,7 @@ class LdapBack:
     def __init__(self):
         self.l = None # Holds the authenticated ldapConnection object
         self.ignore_attr_types = [] # To be overridden by subclasses
+        self.populated = False
 
     def iso2utf(self, str):
         """ Return utf8-encoded string """
@@ -183,27 +184,29 @@ class LdapBack:
         """ Deletes objects not to be found in given base.
         Only for use when incr is set to False.
         """
-        if not self.incr:
-            print "Syncronizing LDAP database"
-            self.indirectory = []
-            res = self.search(filterstr=self.filter,attrslist=["dn"]) # Only interested in attribute dn to be received
-            for (dn,attrs) in res:
-                self.indirectory.append(dn)
-            for entry in self.insync:
-                try:
-                    self.indirectory.remove(entry)
-                except:
-                    log.info("Info: Didn't find entry: %s." % entry)
-            # Sorts the list so children are deleted before parents.
-            self.indirectory.sort(self._cmp)
-            for entry in self.indirectory:
-                # FIXME - Fetch list of DNs not to be touched
-                if entry.lower() == 'ou=organization,dc=ntnu,dc=no':
-                    continue
-                else:
-                    log.info("Found %s in database.. should not be here.. removing" % entry)
-                    self.delete(dn=entry)
-            print "Done syncronizing"
+        if self.incr:
+            return
+
+        print "Syncronizing LDAP database"
+        self.indirectory = []
+        res = self.search(filterstr=self.filter,attrslist=["dn"]) # Only interested in attribute dn to be received
+        for (dn,attrs) in res:
+            self.indirectory.append(dn)
+        for entry in self.insync:
+            try:
+                self.indirectory.remove(entry)
+            except:
+                log.info("Info: Didn't find entry: %s." % entry)
+        # Sorts the list so children are deleted before parents.
+        self.indirectory.sort(self._cmp)
+        for entry in self.indirectory:
+            # FIXME - Fetch list of DNs not to be touched
+            if entry.lower() == 'ou=organization,dc=ntnu,dc=no':
+                continue
+            else:
+                log.info("Found %s in database.. should not be here.. removing" % entry)
+                self.delete(dn=entry)
+        print "Done syncronizing"
 
     def abort(self):
         """
@@ -315,6 +318,7 @@ class LdapBack:
 class PosixUser(LdapBack):
     """Stub object for representation of an account."""
     def __init__(self,conn=None,base=None):
+        LdapBack.__init__(self)
         if base == None:
             self.base = config.sync.get("ldap","user_base")
         else:
@@ -359,6 +363,7 @@ class PosixUser(LdapBack):
 class PosixGroup(LdapBack):
     '''Abstraction of a group of accounts'''
     def __init__(self,base=None):
+        LdapBack.__init__(self)
         if base == None:
             self.base = config.sync.get("ldap","group_base")
         else:
@@ -385,6 +390,7 @@ class PosixGroup(LdapBack):
 class NetGroup(LdapBack):
     ''' '''
     def __init__(self,base=None):
+        LdapBack.__init__(self)
         if base == None:
             self.base = config.sync.get("ldap","netgroup_base")
         else:
@@ -407,6 +413,7 @@ class NetGroup(LdapBack):
 
 class Person(LdapBack):
     def __init__(self,base="ou=People,dc=ntnu,dc=no"):
+        LdapBack.__init__(self)
         self.base = base
         self.filter = config.sync.get("ldap","peoplefilter")
         self.obj_class = ['top','person','organizationalPerson','inetorgperson','eduperson','noreduperson']
@@ -462,6 +469,7 @@ class OU(LdapBack):
     """
 
     def __init__(self,base=None):
+        LdapBack.__init__(self)
         self.ou_dict = {}
         if base == None:
             self.base = config.sync.get("ldap","ou_base")
