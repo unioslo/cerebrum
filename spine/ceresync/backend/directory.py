@@ -310,6 +310,34 @@ class LdapBack:
             return [] # Consider raise exception later
         return result
 
+    def has_object(self, obj):
+        if not obj:
+            return False
+
+        if not self.populated:
+            self.populate()
+
+        return self.indirectory.has_key(self.get_dn(obj))
+
+    def get_object(self, obj):
+        if not self.has_object(obj):
+            return None
+
+        return self.indirectory[self.get_dn(obj)]
+
+    def populate(self, repopulate=False):
+        """ Fetch all users stored in ldap under the given tree
+        """
+        if self.populated and not repopulate:
+            return
+
+        self.indirectory = {}
+        res = self.search(filterstr=self.filter) # Only interested in attribute dn to be received
+        for (dn,attrs) in res:
+            self.indirectory[dn] = attrs
+
+        self.populated = True
+
 ###
 ###
 ###
@@ -348,7 +376,10 @@ class PosixUser(LdapBack):
         # Maybe use latin1_to_iso646_60 from Cerebrum.utils?
         """  Convert special chars to 7bit ascii for gecos-attribute. """
         if default == 1:
-            translate = {'Æ' : 'Ae', 'æ' : 'ae', 'Å' : 'Aa', 'å' : 'aa','Ø' : 'Oe','ø' : 'oe' }
+            #translate = {'Æ' : 'Ae', 'æ' : 'ae', 'Å' : 'Aa', 'å' : 'aa','Ø' : 'Oe','ø' : 'oe' }
+            translate = dict(zip(
+                'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ{[}]|¦\\¨­¯´',
+                'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyyaAaAooO"--\''))
         elif default == 2:
             translate = {'Æ' : 'A', 'æ' : 'a', 'Å' : 'A', 'å' : 'a','Ø' : 'O','ø' : 'o' }
         elif default == 3:

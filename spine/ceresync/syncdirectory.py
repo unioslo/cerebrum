@@ -30,6 +30,30 @@ def main():
     id = -1
     s = sync.Sync(incr,id)
 
+    systems = [
+        ["ou=ansatt,ou=system,dc=ntnu,dc=no", "user@ansatt"],
+        ["ou=stud,ou=system,dc=ntnu,dc=no", "user@stud"],
+        ["ou=nav,ou=system,dc=ntnu,dc=no", "user@nav"]
+    ]
+
+    for base, spread in systems:
+        print "Syncronizing %s, %s" % (base, spread)
+        system = ldapbackend.PosixUser(base=base)
+        system.begin(incr)
+        system.populate()
+
+        try:
+            s.view.set_account_spread(s.tr.get_spread(spread))
+            for account in s.get_accounts():
+                if system.has_object(account):
+                    system.update(account, system.get_object(account))
+                else:
+                    system.add(account)
+        except IOError,e:
+            print "Exception %s occured, aborting" % e
+        else:
+            system.close()
+
     # Defaults to fetch configuration from sync.conf
     user = ldapbackend.PosixUser(base=config.sync.get("ldap","user_base"))
     groups = ldapbackend.PosixGroup(base=config.sync.get("ldap","group_base"))
