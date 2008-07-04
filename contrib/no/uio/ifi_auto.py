@@ -194,7 +194,10 @@ def add_members(gname, new_members):
             del new_members[memb[1]]
     for memb in new_members.keys():
         logger.debug("Adding %s to %s", get_group(memb).group_name, gname)
-        group.add_member(memb, co.entity_group, co.group_memberop_union)
+        if not group.has_member(memb,
+                                member_type=co.entity_group,
+                                operation=co.group_memberop_union):
+            group.add_member(memb, co.entity_group, co.group_memberop_union)
     group.write_db()
 
 def sync_filegroup(fgname, group, course, act):
@@ -234,8 +237,11 @@ def sync_filegroup(fgname, group, course, act):
             uptodate = True
     if not uptodate:
         logger.info("Adding %s to %s", group.group_name, fgname)
-        posix_group.add_member(group.entity_id, co.entity_group,
-                               co.group_memberop_union)
+        if not posix_group.has_member(group.entity_id,
+                                      member_type=co.entity_group,
+                                      operation=co.group_memberop_union):
+            posix_group.add_member(group.entity_id, co.entity_group,
+                                   co.group_memberop_union)
     # finally check the spread.  we leave any additionally added spreads
     # alone.
     uptodate = False
@@ -320,8 +326,11 @@ def process_groups(super, fg_super):
         else:
             logger.info("New automatic filegroup %s for %s-%s",
                         fgname, course, act)
-            fg_super_gr.add_member(fgroup.entity_id, co.entity_group,
-                                   co.group_memberop_union)
+            if not fg_super_gr.has_member(fgroup.entity_id,
+                                          member_type=co.entity_group,
+                                          operation=co.group_memberop_union):
+                fg_super_gr.add_member(fgroup.entity_id, co.entity_group,
+                                       co.group_memberop_union)
 
     add_members("ifivtx", vortex_access)
 
