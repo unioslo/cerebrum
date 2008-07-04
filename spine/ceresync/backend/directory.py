@@ -160,6 +160,9 @@ class LdapBack:
             print "Error connecting to server: %s" % (e)
             raise LdapConnectionError
 
+        if not self.incr:
+            self.populate()
+
     def close(self):
         """
         Syncronize current base if incr=False, then
@@ -221,6 +224,11 @@ class LdapBack:
         """
         Add object into LDAP. If the object exist, we update all attributes given.
         """
+        # Use previous knowledge if available
+        if self.has_object(obj) and update_if_exists:
+            system.update(obj, self.get_object(obj))
+            return
+
         dn=self.get_dn(obj)
         attrs=self.get_attributes(obj)
         try:

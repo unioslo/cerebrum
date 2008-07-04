@@ -40,15 +40,11 @@ def main():
         print "Syncronizing %s, %s" % (base, spread)
         system = ldapbackend.PosixUser(base=base)
         system.begin(incr)
-        system.populate()
 
         try:
             s.view.set_account_spread(s.tr.get_spread(spread))
             for account in s.get_accounts():
-                if system.has_object(account):
-                    system.update(account, system.get_object(account))
-                else:
-                    system.add(account)
+                system.add(account)
         except IOError,e:
             print "Exception %s occured, aborting" % e
         else:
