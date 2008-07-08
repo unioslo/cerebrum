@@ -252,7 +252,7 @@ class BDB:
             FROM bruker b,person p, gruppe g, no_nin_persons n
             WHERE b.user_domain=1 AND
               b.person = p.id AND
-              b.gruppe =  g.id AND
+              b.gruppe = g.id (+) AND
               p.id = n.person (+) AND
               b.brukernavn='%s'
             """ % username)
@@ -273,7 +273,7 @@ class BDB:
               p.id = n.person (+) AND
               (p.personnr IS NOT NULL
                 OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
-              b.gruppe =  g.id 
+              b.gruppe = g.id (+)
             """ % int(last))
                               
         else:
@@ -290,7 +290,7 @@ class BDB:
               p.id = n.person (+) AND
               (p.personnr IS NOT NULL
                 OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
-              b.gruppe =  g.id
+              b.gruppe =  g.id (+)
             """) 
         # user_domain=1 is NTNU
         bdb_accounts = cursor.fetchall()
