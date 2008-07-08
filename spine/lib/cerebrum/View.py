@@ -612,9 +612,9 @@ class View(DatabaseTransactionClass):
 
         primary_accounts={}
         for a in db.query(primary_account,
-                            {"account_namespace": co.account_namespace}):
-            primary_accounts[a.person_id]=(a.account_id, a.account_name)
-
+                          {"account_namespace": co.account_namespace}):
+            primary_accounts[row['person_id']]=(a['account_id'], a['account_name'])
+            
         for row in rows:
             row = row.dict()
             pid = row['id']
