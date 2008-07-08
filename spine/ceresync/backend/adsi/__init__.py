@@ -311,7 +311,7 @@ class ADGroup(_ADAccount):
             # FIXME: Should supports groups as members of groups
             ad_members = Set(ad_obj.members())
             old = Set([m.saMAccountName for m in ad_members])
-            spline = Set(obj.membernames)
+            spline = Set(obj.members)
             add = spline - old
             remove = old - spline
             if not (add or remove):
@@ -984,7 +984,7 @@ class TestADGroup(TestOUFramework):
     def testGroupInfo(self):
         class Group:
             name = "temp1337"
-            membernames = []
+            members = []
         group = Group()    
         self.adgroup.add(group)    
         self.hasAccount()
@@ -994,10 +994,10 @@ class TestADGroup(TestOUFramework):
         self.createUser("user1337")
         class Group:
             name = "temp1337"
-            membernames = ["user1337"]
+            members = ["user1337"]
         group = Group()    
         self.adgroup.add(group)    
-        self.assertEqual(self.groupMembers(), group.membernames)
+        self.assertEqual(self.groupMembers(), group.members)
         
     def testGroupAddMember(self):
         self.createUser("user1337")
@@ -1007,11 +1007,11 @@ class TestADGroup(TestOUFramework):
         old_gid = self.accountGID()
         class Group:
             name = "temp1337"
-            membernames = ["user1337", "user31337"]
+            members = ["user1337", "user31337"]
         group = Group()
         self.adgroup.update(group)    
         new_gid = self.accountGID()
-        self.assertEqual(self.groupMembers(), group.membernames)
+        self.assertEqual(self.groupMembers(), group.members)
         self.assertEqual(old_gid, new_gid)
  
     def testGroupRemoveMember(self):
@@ -1023,11 +1023,11 @@ class TestADGroup(TestOUFramework):
         old_gid = self.accountGID()
         class Group:
             name = "temp1337"
-            membernames = ["user31337"]
+            members = ["user31337"]
         group = Group()
         self.adgroup.update(group)
         new_gid = self.accountGID()
-        self.assertEqual(self.groupMembers(), group.membernames)
+        self.assertEqual(self.groupMembers(), group.members)
         self.assertEqual(old_gid, new_gid)
  
     def testGroupAddUnknownAccount(self):
@@ -1035,7 +1035,7 @@ class TestADGroup(TestOUFramework):
         self.createUser("user31337") # but not user1337
         class Group:
             name = "temp1337"
-            membernames = ["user1337", "user31337"]
+            members = ["user1337", "user31337"]
         group = Group()
         self.adgroup.add(group)
         # did not fail, and did not include user1337 
@@ -1051,10 +1051,10 @@ class TestADGroup(TestOUFramework):
         self.createGroup() 
         class Group:
             name = "temp1337"
-            membernames = ["user1337", "user31337"]
+            members = ["user1337", "user31337"]
         group = Group()
         self.adgroup.update(group)
-        self.assertEqual(self.groupMembers(), group.membernames)
+        self.assertEqual(self.groupMembers(), group.members)
     
     def testAddGroupAsMember(self):
         self.createGroup()    
@@ -1062,9 +1062,9 @@ class TestADGroup(TestOUFramework):
         self.createUser("user1337")
         class Group:
             name = "temp1337"
-            membernames = ["user1337", "other31337"]
+            members = ["user1337", "other31337"]
         group = Group()
-        # should skip other31337 as group.membernames
+        # should skip other31337 as group.members
         # is the EXPANDED list of members
         self.adgroup.update(group)
         # Actually supporting groups-in-groups requires 
@@ -1078,10 +1078,10 @@ class TestADGroup(TestOUFramework):
         self.addGroupMember("other1337")
         class Group:
             name = "temp1337"
-            membernames = ["user1337"]
+            members = ["user1337"]
         group = Group()
         self.adgroup.update(group)
-        self.assertEqual(self.groupMembers(), group.membernames)
+        self.assertEqual(self.groupMembers(), group.members)
 
     def tearDown(self):
         super(TestADGroup, self).tearDown()
