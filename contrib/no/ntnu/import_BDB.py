@@ -399,11 +399,11 @@ class BDBSync:
         person.clear()
         person.find(person_id)
         for ou_id, aff in delaffs:
-            self.logger.info("Removing affiliation %d person %d ou %d" %
+            self.logger.info("Removing affiliation %d person cerebrum-%d ou %d" %
                              (aff, person_id, ou_id))
             person.delete_affiliation(ou_id, aff, const.system_bdb)
         for ou_id, aff, status in addaffs:
-            self.logger.info("Adding affiliation %d person %d ou %d status %d" %
+            self.logger.info("Adding affiliation %d person cerebrum-%d ou %d status %d" %
                              (aff, person_id, ou_id, status))
             person.add_affiliation(ou_id, aff, const.system_bdb, status)
 
@@ -423,9 +423,9 @@ class BDBSync:
         bdbid={}
         rbdbid={}
         person=self.new_person
-        self.logger.debug("Looking for invalid bdb fdselsnrs")
+        self.logger.debug("Looking for invalid bdb NINs")
 
-        self.logger.debug("Fetching bdb fnrs")
+        self.logger.debug("Fetching bdb NINs")
         for p in persons:
             if p.get("birth_date") and p.get("person_number"):
                 bdbfnr[p['id']] = self.__get_fodselsnr(p)
@@ -436,11 +436,11 @@ class BDBSync:
             #bdbid[i['external_id']] = i['entity_id']
             bdbid[int(i['entity_id'])] = int(i['external_id'])
 
-        self.logger.debug("Fetching bdb fnrs in cerebrum")
+        self.logger.debug("Fetching bdb NINs in cerebrum")
         for i in person.list_external_ids(source_system=self.const.system_bdb,
                                           id_type=self.const.externalid_fodselsnr):
             if not i['entity_id'] in bdbid:
-                self.logger.warning(("cerebrum person-%s " +
+                self.logger.warning(("cerebrum person %s " +
                                      "has BDB fnr but not BDB-id")
                                     % i['entity_id'])
                 continue
@@ -449,7 +449,7 @@ class BDBSync:
             if bdbfnr.has_key(bid) and bdbfnr[bid] == fnr:
                 pass
             else:
-                self.logger.debug("Deleting invalid bdb fodselsnr on %s"
+                self.logger.debug("Deleting invalid bdb fodselsnr on cerebrum-%s"
                                   % i['entity_id'])
                 self.check_commit(self.delete_bdb_fodselsnr, i['entity_id'],
                                   msg='deleting invalid bdb fodselsnr')
@@ -476,8 +476,6 @@ class BDBSync:
     def sync_persons(self):
         self.logger.debug("Getting persons from BDB...")
         global ant_persons, num_persons
-        if verbose:
-            print "Getting persons from BDB"
         persons = self.bdb.get_persons()
         #self.clean_persons_extids(persons)
         ant_persons = len(persons)
@@ -499,11 +497,10 @@ class BDBSync:
                 else:
                     num_persons+=1
                     self.db.commit()
-                    self.logger.debug('Changes on %s commited to Cerebrum' % person['id'])
-        if verbose:
-            print "%s persons had missing personnumber" % missing_personnr
-            print "%s persons had bad checksum on personnumber" % wrong_nss_checksum
-            print "%s persons where added or updated" % num_persons
+                    self.logger.debug('Changes on BDB-%s commited to Cerebrum' % person['id'])
+        self.logger.debug("%s persons had missing personnumber" % missing_personnr)
+        self.logger.debug("%s persons had bad checksum on personnumber" % wrong_nss_checksum)
+        self.logger.debug("%s persons where added or updated" % num_persons)
 
 
     def __validate_person(self, person):
@@ -582,7 +579,7 @@ class BDBSync:
 
     def _sync_person(self, person):
         global num_persons,ant_persons
-        self.logger.debug("Process person %s" % person['id'])
+        self.logger.debug("Process person BDB-%s" % person['id'])
         const = self.const
         new_person = self.new_person
 
@@ -698,7 +695,7 @@ class BDBSync:
     def _validate_group(self,group):
         res = True
         if not 'name' in group:
-            self.logger.error("Group %s is invalid, has no name." % grp['id'])
+            self.logger.error("Group BDB-%s is invalid, has no name." % grp['id'])
             res = False
         return res
         
@@ -750,8 +747,7 @@ class BDBSync:
             if self._is_posix_group(grp):
                 try:
                     posix_group.find_by_name(grp['name'])
-                    if verbose:
-                        print "Updating group %s" % grp['name']
+                    self.logger.debug("Updating group %s" % grp['name'])
                     _has_changed = False
                     _gid = posix_group.posix_gid
                     if posix_group.posix_gid != grp['gid']:
@@ -767,47 +763,40 @@ class BDBSync:
                         self.db.commit()
                     continue
                 except Errors.NotFoundError:
-                    posix_group.populate(creator_id, visibility=self.const.group_visibility_all,\
-                                         name=grp['name'], description=grp['description'], \
+                    posix_group.populate(creator_id,
+                                         visibility=self.const.group_visibility_all,
+                                         name=grp['name'],
+                                         description=grp['description'],
                                          gid=grp['gid'])
                     try:
                         posix_group.write_db()
                     except self.db.IntegrityError,ie: 
-                        self.logger.error("Integrity error catched on bdb group %s. Reason: %s" % \
-                                         (grp['name'],str(ie)))
-                        if verbose:
-                            print "Integrity error catched on bdb group %s. Reason: %s" % \
-                                    (grp['name'],str(ie))
+                        self.logger.error("Integrity error catched on bdb group %s. Reason: %s" % (grp['name'],str(ie)))
                         continue
                     if not posix_group.has_spread(const.spread_ntnu_group):
                         posix_group.add_spread(const.spread_ntnu_group)
                     posix_group.write_db()
-                    if verbose:
-                        print "PosixGroup %s written to db" % grp['name']
+                    self.logger.debug("PosixGroup %s written to db" % grp['name'])
             else:
                 try:
                     group.find_by_name(grp['name'])
-                    if verbose:
-                        print "Group %s already exists." % grp['name']
+                    self.logger.debug("Group %s already exists." % grp['name'])
                     continue
                 except Errors.NotFoundError:
                     group.populate(creator_id,visibility=const.group_visibility_all,\
                                    name=grp['name'], description=grp['description'])
                     group.write_db()
-                    if verbose:
-                        print "Group %s written to db" % grp['name']
+                    self.logger.debug("Group %s written to db" % grp['name'])
                 except Errors.IntegrityError,ie:
                     self.logger.error("Integrity error catched on bdb group %s. Reason: %s" % \
                                        (grp['name'],str(ie)))
                     continue
             if dryrun:
                 self.db.rollback()
-                if verbose:
-                    print "Dryrun. Adding group rolled back" 
+                self.logger.debug("Dryrun. Adding group rolled back")
             else:
                 self.db.commit()
-                if verbose:
-                    print "Adding group commited"
+                self.logger.debug("Adding group commited")
 
     def _promote_posix(self, account_info, ac):
         # TBD: rewrite and consolidate this method and the method of same name
@@ -904,7 +893,7 @@ class BDBSync:
     def _validate_account(self, account_info):
         res = True
         if not 'name' in account_info:
-            self.logger.error("Account %s has no name." % account_info)
+            self.logger.error("Account BDB-%s has no name." % account_info['id'])
             res = False
         return res
 
@@ -912,11 +901,11 @@ class BDBSync:
         """Callback-function. To be used from sync_accounts-method."""
         global num_accounts
         logger = self.logger
-        logger.debug("Callback for %s@%s" % (account_info['id'],account_info['name']))
+        logger.debug("Callback for BDB-%s (%s)" % (account_info['id'],account_info['name']))
         
         # TODO: IMPLEMENT SYNC OF ACCOUNTS WITHOUT A PERSON
         if not 'person' in account_info:
-            logger.error('Account %s has no person, skipping.' % account_info)
+            logger.error('Account BDB-%s has no person, skipping.' % account_info)
             return
 
         if not self._validate_account(account_info):
@@ -974,7 +963,7 @@ class BDBSync:
                     raise BDBImportError('Failed syncronizing person for account %s (BDB-id %s)' %
                                       (account_info['name'], account_info['person']))
             else:
-                logger.info("Wrote bdb-person with id %s" %
+                logger.info("Wrote bdb-person with bdb-id %s" %
                             account_info['person'])
             owner=person
 
@@ -1023,8 +1012,6 @@ class BDBSync:
             return
 
         self._update_password(account_info, ac)
-        logger.debug('Updating password for %s' % account_info.get('name'))
-
 
 
     # copy data from account_info to ac.
@@ -1043,7 +1030,7 @@ class BDBSync:
             ac.write_db()
 
         # ... we'll update expire-date 
-        logger.info('Updating account %s on person %s' % (username,person_entity))
+        logger.info('Updating account %s on person cerebrum-%s' % (username,person_entity))
         
         expire_date = account_info.get('expire_date',None)
         if expire_date:
@@ -1082,7 +1069,7 @@ class BDBSync:
             np_type = self.co.account_program
             # These users should have a group as owner, not person. FIXME
 
-        self.logger.info('Adding new account %s on owner %s' % (uname,owner.entity_id))
+        self.logger.info('Adding new account %s on owner cerebrum-%s' % (uname,owner.entity_id))
         ac.populate(name=uname,
                     owner_type = owner.entity_type,
                     owner_id = owner.entity_id,
@@ -1104,8 +1091,7 @@ class BDBSync:
         This method synchronizes all BDB accounts into Cerebrum.
         """
         global num_accounts
-        if verbose:
-            print "Fetching accounts from BDB"
+        self.logger.debug("Fetching accounts from BDB")
 
         accounts = self.bdb.get_accounts(username)
 
@@ -1127,7 +1113,7 @@ class BDBSync:
                 else:
                     self.db.commit()
                     self.logger.debug('Changes on %s commited to Cerebrum' % account['name'])
-        print "%s accounts added or updated in sync_accounts." % str(num_accounts)
+        self.logger.debug("%s accounts added or updated in sync_accounts." % str(num_accounts))
         return
 
     def _sync_spread(self, username, spreads):
@@ -1137,8 +1123,6 @@ class BDBSync:
         try:
             ac.find_by_name(username)
         except Errors.NotFoundError,e:
-            if verbose:
-                print "Account with name %s not found. Continuing." % username
             self.logger.warn("Account with name %s not found. Continuing." % username)
             return
 
@@ -1163,8 +1147,6 @@ class BDBSync:
         try:
             ac.find_by_name(username)
         except Errors.NotFoundError,e:
-            if verbose:
-                print "Account with name %s not found. Continuing." % username
             self.logger.warn("Account with name %s not found. Continuing." % username)
             return
 
@@ -1260,27 +1242,26 @@ class BDBSync:
         self.ac.find(account_id)
 
         for q in oldquarantines - newquarantines:
-            self.logger.info("Deleting quarantine %d from account %d", q, account_id)
+            self.logger.info("Deleting quarantine %d from account cerebrum-%d", q, account_id)
             self.ac.delete_entity_quarantine(q)
 
         for q in newquarantines - oldquarantines:
-            self.logger.info("Adding quarantine %d to account %d", q, account_id)
+            self.logger.info("Adding quarantine %d to account cerebrum-%d", q, account_id)
             self.ac.add_entity_quarantine(q, creator=self.initial_account,
                                           description="imported from BDB",
                                           start=mx.DateTime.now())
 
         for s in oldspreads - newspreads:
-            self.logger.info("Deleting spread %d from account %d", s, account_id)
+            self.logger.info("Deleting spread %d from account cerebrum-%d", s, account_id)
             self.ac.delete_spread(s)
 
         for s in newspreads - oldspreads:
-            self.logger.info("Adding spread %d to account %d", s, account_id)
+            self.logger.info("Adding spread %d to account cerebrum-%d", s, account_id)
             self.ac.add_spread(s)
 
         
     def sync_spreads(self):
-        if verbose:
-            print "Fetching accounts with spreads from BDB"
+        self.logger.debug("Fetching accounts with spreads from BDB")
         spreads = self.bdb.get_account_spreads()
         userspreads={}
         for s in spreads:
@@ -1292,7 +1273,7 @@ class BDBSync:
             self.check_commit(self._sync_quarantenes, u, userspreads[u])
 
     def sync_email_domains(self):
-        print "Fetching email-domains"
+        self.logger.debug("Fetching email-domains")
         domains = self.bdb.get_email_domains()
         for domain in domains:
             self._sync_email_domain(domain)
@@ -1428,7 +1409,7 @@ class BDBSync:
                               oaccount_id, otarget_id, oprimary,
                               msg="syncing email address")
 
-        self.logger.debug("Finished syncing email adresses")
+        self.logger.debug("Finished syncing email addresses")
         
 
     def email_addr_mod(self, local_part, domain_id, domain,
@@ -1438,10 +1419,6 @@ class BDBSync:
         addr = "%s@%s" % (local_part, domain)
         self.ea.clear()
 
-        print "%s@%s: %s(%s) -> %s(%s)" % (
-            local_part, domain,
-            oaccount_id, oprimary,
-            account_id, primary)
         if account_id == oaccount_id:
             target_id = otarget_id
         elif account_id:
@@ -1492,7 +1469,7 @@ class BDBSync:
         
 
 def usage():
-    print """
+    print >>sys.stderr, """
     Usage: %s <options>
 
     Available options:
