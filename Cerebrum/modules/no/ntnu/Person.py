@@ -73,7 +73,7 @@ class PersonNTNUMixin(Person.Person):
     # XXX: allow charlist explicitly instead of \w?
 
     # Use after this from python 2.4:
-    person_name_regex=re.compile("^\w([\w '.-]*[\w.])?$", re.UNICODE)
+    person_name_regex=re.compile("^\w([\w '.-]*[\w'.])?$", re.UNICODE)
     #person_name_regex=re.compile("^[0-9a-zA-Z\192-\255 '.-]+$")
     #person_name_not_regex=re.compile("[\000-\031!\"#$%&()*+,/:;<=>?@\[\\\]{|}~\127-\159]")
 
