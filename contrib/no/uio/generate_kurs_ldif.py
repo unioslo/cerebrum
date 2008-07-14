@@ -34,6 +34,25 @@ group = Factory.get('Group')(db)
 
 locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))  # norsk "Ø".lower()
 
+#
+# IVR 2008-07-14 Vortex group wanted more detailed information about FS roles
+# assigned to people. Specifically, they wanted to know about roles previously
+# captured by 'enhetsansvarlig'. Nowadays, that concept is more fine-grained,
+# and people get an extra entitlement per role per undenh/undakt in
+# LDAP. Vortex can lookup these roles in LDAP.
+interesting_fs_roles = (('student', 'Learner'),
+                        ('admin', 'Administrator'),
+                        ('dlo', 'DLO'),
+                        ('fagansvar', 'Fagansvarlig'),
+                        ('foreleser', 'Foreleser'),
+                        ('gjestefore', 'Gjesteforeleser'),
+                        ('gruppelære', 'Gruppelærer'),
+                        ('hovedlære', 'Hovedlærer'),
+                        ('it-ansvarl', 'IT-ansvarlig'),
+                        ('lærer', 'Lærer'),
+                        ('sensor', 'Sensor'),
+                        ('studiekons', 'Studiekonsulent'),)
+
 class CerebrumGroupInfo(object):
     ## Fra generate_fronter_full.py:214
     ##             id_seq = (self.EMNE_PREFIX, enhet['institusjonsnr'],
@@ -187,7 +206,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
             logger.warn("Undervisningsaktivitet %s uten enhet?" % repr(entry))
             continue
         aktivitet_id = {}
-        for persontype, role in (('student', 'Learner'), ):
+        for persontype, role in interesting_fs_roles:
             args = [entry[x] for x in CerebrumGroupInfo.id_key_seq]
             args.extend((entry['aktivitetkode'], persontype))
             args = [x.lower() for x in args]
@@ -235,7 +254,7 @@ def gen_undervisningsenhet(cgi, sip, out):
         if not emne:
             continue # warned erlier
         aktivitet_id = {}
-        for persontype, role in (('student', 'Learner'), ):
+        for persontype, role in interesting_fs_roles:
             args = [entry[x] for x in CerebrumGroupInfo.id_key_seq]
             args.append(persontype)
             args = [x.lower() for x in args]
