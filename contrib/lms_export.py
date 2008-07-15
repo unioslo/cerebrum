@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007 University of Oslo, Norway
+# Copyright 2007-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -244,7 +244,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
 
     # Syhnchronize registered activities for the enhet
     for act_code in importer.UndervEnhet[enhet_id].get('aktivitet', {}).keys():
-        print "Looking at act_code: '%s'" % act_code
+        logger.debug("Looking at act_code: '%s'" % act_code)
 
         # Aktivitetsansvar
         act_resp = {}
