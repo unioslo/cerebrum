@@ -152,8 +152,7 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
             return dn, entry, alias_info
         if self.ownerid2urnlist.has_key(p_id):
             # Some of the chars in the entitlements are outside ascii
-            entry['eduPersonEntitlement'] = [iso2utf(s) for s in
-                                             self.ownerid2urnlist[p_id]]
+            entry['eduPersonEntitlement'] = self.ownerid2urnlist[p_id]
         if self.person2group.has_key(p_id):
             entry['member'] = self.person2group[p_id]
             entry['objectClass'].append('uioPersonObject')

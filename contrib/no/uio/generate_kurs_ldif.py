@@ -46,10 +46,10 @@ interesting_fs_roles = (('student', 'Learner'),
                         ('fagansvar', 'Fagansvarlig'),
                         ('foreleser', 'Foreleser'),
                         ('gjestefore', 'Gjesteforeleser'),
-                        ('gruppelære', 'Gruppelærer'),
-                        ('hovedlære', 'Hovedlærer'),
+                        ('gruppelære', 'Gruppelaerer'),
+                        ('hovedlære', 'Hovedlaerer'),
                         ('it-ansvarl', 'IT-ansvarlig'),
-                        ('lærer', 'Lærer'),
+                        ('lærer', 'Laerer'),
                         ('sensor', 'Sensor'),
                         ('studiekons', 'Studiekonsulent'),)
 
