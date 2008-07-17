@@ -238,7 +238,14 @@ def type_is_active(entry_type):
 
 def process_person(person):
     fnr=person['fnr']
-    fnr = fodselsnr.personnr_ok(fnr)
+    paga_nr=int(person['ansattnr'])
+
+    try:
+        fnr = fodselsnr.personnr_ok(fnr)
+    except:
+        logger.error("FNR invalid (%s) for PAGA person %s" % (fnr, paga_nr))
+        return
+
     paga_nr=int(person['ansattnr'])    
     logger.info("Process %s/%d" % (fnr,paga_nr))
     new_person.clear()
