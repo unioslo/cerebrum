@@ -103,6 +103,7 @@ class BofhdExtension(object):
             'ephorte_add_role': 'Add an ePhorte role for a person',
             'ephorte_remove_role': 'Remove an ePhorte role from a person',
             'ephorte_list_roles': 'List a persons ePhorte roles',
+            'ephorte_set_standard_role': 'Set given role as standard role',
             'ephorte_add_perm': 'Add an ePhorte permission for a person',
             'ephorte_remove_perm': 'Remove an ePhorte permission from a person',
             'ephorte_list_perm': 'List a persons ePhorte permissions'            
@@ -216,10 +217,11 @@ class BofhdExtension(object):
                                    arkivdel, journalenhet)
         return "OK, removed %s role for %s" % (role, person_id)
 
-    all_commands['ephorte_list_roles'] = Command(("ephorte", "list_roles"), PersonId(), 
+    all_commands['ephorte_list_roles'] = Command(("ephorte", "list_roles"), PersonId(),
         perm_filter='can_list_ephorte_roles', fs=FormatSuggestion(
-        "%-5s %-25s %-15s %s", ('role', 'adm_enhet', 'arkivdel', 'journalenhet'),
-        hdr="%-5s %-25s %-15s %s" % ("Rolle", "Adm enhet", "Arkivdel", "Journalenhet")))
+        "%-5s %-30s %-15s %-13s %s", ('role', 'adm_enhet', 'arkivdel', 'journalenhet', 'std_role'),
+        hdr="%-5s %-30s %-15s %-13s %s" % (
+        "Rolle", "Adm enhet", "Arkivdel", "Journalenhet", "Standardrolle")))
     def ephorte_list_roles(self, operator, person_id):
         if not self.ba.can_list_ephorte_roles(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
@@ -242,11 +244,67 @@ class BofhdExtension(object):
                 'role': str(self._get_role(row['role_type'])),
                 'adm_enhet': self._format_ou_name(ou),
                 'arkivdel': arkivdel,
-                'journalenhet': journalenhet
+                'journalenhet': journalenhet,
+                'std_role': row['standard_role'] or ''
                 }
                 )
         return ret
-    
+
+    all_commands['ephorte_set_standard_role'] = Command(
+        ("ephorte", "set_standard_role"), PersonId(), Rolle(), OU(), Arkivdel(),
+        Journalenhet(), perm_filter='can_add_ephorte_role')
+    def ephorte_set_standard_role(self, operator, person_id, role, sko,
+                                  arkivdel, journalenhet):
+        """
+        Set given role as standard role.
+
+        There can be only one standard role, thus if another role is
+        marked as standard role, it will no longer be the persons
+        standard role.
+        """
+        # Check operators permissions
+        if not self.ba.can_add_ephorte_role(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to ephorte admins")
+        try:
+            person = self.util.get_target(person_id, restrict_to=['Person'])
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+        ou = self._get_ou(stedkode=sko)
+        # Check that the person has the given role. 
+        tmp = self.ephorte_role.get_role(person.entity_id,
+                                         self._get_role(role),
+                                         ou.entity_id,
+                                         self._get_arkivdel(arkivdel),
+                                         self._get_journalenhet(journalenhet))
+        # Some sanity checks
+        if not tmp:
+            raise CerebrumError("Person has no such role")
+        elif len(tmp) > 1:
+            raise Errors.TooManyRowsError("Unexpectedly found more than one role")
+        new_std_role = tmp[0]
+        if new_std_role['standard_role'] == 'T':
+            return "Role is already standard role"
+        # There can be only one standard role
+        for row in self.ephorte_role.list_roles(person_id=person.entity_id):
+            if row['standard_role'] == 'T':
+                self.logger.debug("Unset role %s at %s as standard_role" % (
+                    row['role_type'], row['adm_enhet']))
+                self.ephorte_role.set_standard_role_val(person.entity_id, 
+                                                        row['role_type'],
+                                                        row['adm_enhet'],
+                                                        row['arkivdel'],
+                                                        row['journalenhet'],
+                                                        'F')
+        # Finally set the new standard role
+        self.ephorte_role.set_standard_role_val(person.entity_id,
+                                                self._get_role(role),
+                                                ou.entity_id,
+                                                self._get_arkivdel(arkivdel),
+                                                self._get_journalenhet(journalenhet),
+                                                'T')
+        
+        return "OK, set new standard role"
+
     ##
     ## Add, remove or list auth. permissions ("tilgangskoder") for ePhorte
     ## TBD: we should consider supporting permissions starting in the future

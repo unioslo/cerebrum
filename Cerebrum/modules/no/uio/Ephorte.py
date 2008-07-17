@@ -19,13 +19,10 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum import Constants
-from Cerebrum import Errors
-from Cerebrum import Person
 from Cerebrum.Constants import ConstantsBase, _CerebrumCode, _SpreadCode
 from Cerebrum.modules.CLConstants import _ChangeTypeCode
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError
 
 class _EphorteRoleTypeCode(_CerebrumCode):
     "Mappings stored in the contact_info_code table"
@@ -119,6 +116,9 @@ class EphorteConstants(ConstantsBase):
     ephorte_role_add = _ChangeTypeCode(
         'ephorte', 'role_add', 'add ephorte role @ %(dest)s')
 
+    ephorte_role_upd = _ChangeTypeCode(
+        'ephorte', 'role_upd', 'update ephorte role @ %(dest)s')
+
     ephorte_role_rem = _ChangeTypeCode(
         'ephorte', 'role_rem', 'remove ephorte role @ %(dest)s')
 
@@ -148,8 +148,7 @@ class EphorteRole(DatabaseAccessor):
 
     def add_role(self, person_id, role, sko, arkivdel, journalenhet,
                  rolletittel='', stilling='', standard_role='F', auto_role='T'):
-        # TODO: Skrive noe om start_date/end_date
-        # TODO: Bruke account_id for brukerens primærbruker
+        # TBD: når en rolle addes bør vi sette start_date til dd?
         binds = {
             'person_id': person_id,
             'role_type': role,
@@ -174,6 +173,25 @@ class EphorteRole(DatabaseAccessor):
 #            'adm_enhet': adm_enhet and str(adm_enhet) or '',
             'rolle_type': str(role)})
     
+    def set_standard_role_val(self, person_id, role, sko, arkivdel,
+                              journalenhet, standard_role):
+        binds = {
+            'person_id': person_id,
+            'role_type': role,
+            'adm_enhet': sko,
+            'arkivdel': arkivdel,
+            'journalenhet': journalenhet,
+            }
+        query = """
+        UPDATE [:table schema=cerebrum name=ephorte_role]
+        SET standard_role='%s'
+        WHERE %s""" % (standard_role, " AND ".join(
+            ["%s=:%s" % (x, x) for x in binds.keys() if binds[x]]))
+        self.execute(query, binds)
+        self._db.log_change(person_id, self.co.ephorte_role_upd,
+                            sko, change_params={
+            'standard_role': standard_role})
+
     def _remove_role(self, person_id, role, sko, arkivdel, journalenhet):
         binds = {
             'person_id': person_id,
@@ -183,6 +201,7 @@ class EphorteRole(DatabaseAccessor):
             'journalenhet': journalenhet
             }
             
+        # TBD: Burde vi heller sette end_date i stedet for å slette en rolle
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=ephorte_role]
         WHERE %s""" % " AND ".join(
@@ -205,6 +224,27 @@ class EphorteRole(DatabaseAccessor):
             self.pe.clear()
             self.pe.find(person_id)
             self.pe.delete_spread(self.co.spread_ephorte_person)
+
+    def get_role(self, person_id, role, sko, arkivdel, journalenhet,
+                 standard_role=False):
+        binds = {
+            'person_id': person_id,
+            'role_type': role,
+            'adm_enhet': sko,
+            'arkivdel': arkivdel,
+            'journalenhet': journalenhet
+            }
+        if standard_role:
+            binds['standard_role'] = standard_role
+        return self.query("""
+        SELECT person_id, role_type, standard_role, adm_enhet,
+               arkivdel, journalenhet, rolletittel, stilling,
+               start_date, end_date, auto_role
+        FROM [:table schema=cerebrum name=ephorte_role]
+        WHERE %s""" % " AND ".join(
+            ["%s=:%s" % (x, x) for x in binds.keys() if binds[x] is not None] +
+            ["%s IS NULL" % x for x in binds.keys() if binds[x] is None]),
+                     binds)
             
     def list_roles(self, person_id=None):
         if person_id:
