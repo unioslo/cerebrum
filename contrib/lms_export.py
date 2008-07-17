@@ -393,7 +393,7 @@ def import_data():
 
     logger.info("Parsing role file %s", options["rolefile"])
     role_mapping = parse_xml_roles(options["rolefile"])
-    print role_mapping
+    # print role_mapping
     logger.info("Parsing roles complete")
     process_kursdata(role_mapping)
     process_classdata()
