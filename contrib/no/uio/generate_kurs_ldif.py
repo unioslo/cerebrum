@@ -211,9 +211,7 @@ def gen_undervisningsaktivitet(cgi, sip, out):
             args.extend((entry['aktivitetkode'], persontype))
             args = [x.lower() for x in args]
             entity_id = cgi.find_group_by_undervisningsaktivitet(*args)
-            if entity_id is None:
-                logger.warn("Ikke cerebrum-data for %s" % repr(args))
-            else:
+            if entity_id is not None:
                 aktivitet_id["%i" % entity_id] = role
 #        if len(aktivitet_id) != 2:
 #            continue
@@ -259,9 +257,7 @@ def gen_undervisningsenhet(cgi, sip, out):
             args.append(persontype)
             args = [x.lower() for x in args]
             entity_id = cgi.find_group_by_undervisningsenhet(*args)
-            if entity_id is None:
-                logger.warn("Ikke cerebrum-data for %s" % repr(args))
-            else:
+            if entity_id is not None:
                 aktivitet_id["%i" % entity_id] = role
 #        if len(aktivitet_id) != 2:
 #            continue
