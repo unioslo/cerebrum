@@ -981,6 +981,13 @@ class BDBSync:
                 self._copy_account_data(account_info, ac, owner, np_type)
                 self._sync_account_password(account_info, ac)
 
+        if _is_primary(account_info):
+            person.clear()
+            person.find(ac.owner_id)
+            person.populate_trait(const.trait_primary_account, target_id=ac.entity_id)
+            person.write_db()
+
+
     def _update_password(self, _account, ac):
         bdb_blowfish = None
         const=self.const
