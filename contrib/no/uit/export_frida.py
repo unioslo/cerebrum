@@ -29,7 +29,7 @@ http://www.usit.uio.no/prosjekter/frida/pg/>). The output format is
 specified by FRIDA.dtd, available in the "uiocerebrum" project, at
 cvs.uio.no.
 
-The general workflow is rather simple:
+The general workflow is rather simple: 
 
 person.xml    --+
                 |
@@ -196,7 +196,7 @@ class system_xRepresentation(object):
                 account.find(acc_id)
             else:
                 logger.warn("SysX person ID=(%s) Fnr=(%s) has no active account" % (entity['entity_id'],entity['external_id']))
-                continue           
+                continue 
 
             person_attrs = {"fnr":external_id,"reservert":"N"}
             account_name = account.account_name            
@@ -204,7 +204,8 @@ class system_xRepresentation(object):
             # Got info, output!
             found=False
             for i in person_list:
-                existing_person_ssn="%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
+                #print i
+                existing_person_ssn= i['fnr']  #"%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
                 if external_id==existing_person_ssn:
                     found=True
             if (found==False):
@@ -334,6 +335,8 @@ class LTPersonRepresentation(object):
 
         self.elements = {}
 
+        # print attributes
+
         # Interesting elements have repetitions. Thus a hash of lists
         for element in self.INTERESTING_ELEMENTS:
             self.elements[element] = []
@@ -341,17 +344,12 @@ class LTPersonRepresentation(object):
         # We need an ID to tie a person to the database identification Let's
         # use fnr, although it's a bad identification in general, but we do
         # NOT have any other identifier in person.xml
-        if not (attributes.has_key("fodtdag") and
-                attributes.has_key("fodtmnd") and
-                attributes.has_key("fodtar") and
-                attributes.has_key("personnr")):
+        if not (attributes.has_key("fnr")):
+            # print 'here things just stop'
             raise (ValueError,
                   "Missing critical data for person: " + str(attributes))
 
-        self.fnr = "%02d%02d%02d%5s" % (int(attributes["fodtdag"]),
-                                        int(attributes["fodtmnd"]),
-                                        int(attributes["fodtar"]),
-                                        attributes["personnr"])
+        self.fnr = attributes["fnr"]
 
 
         # NB! This code might raise fodselsnr.InvalidFnrError
@@ -364,7 +362,8 @@ class LTPersonRepresentation(object):
         # we do not really need a name (it is in cerebrum), but it might
         # come in handy during debugging stages
 
-        self.name = attributes["navn"].encode("latin1")
+        self.name = "%s %s" % (attributes["fornavn"].encode("latin1"), attributes["etternavn"].encode("latin1"))
+        # print 'HERE!!!!!!!!  ------> ' + self.name
         logger.debug("extracted new person element from LT (%s, %s)",
                      self.fnr, self.name)
 
@@ -925,12 +924,8 @@ def output_employment_information(writer, pobj):
         #writer.startElement("Tilsetting", attributes)
         writer.startElement("ansettelse")
 
-        # FRIDA wants date at the format YYYYMMDD while the format already
-        # stored is DD.MM.YYY. thus the next tree lines are needed to convert to the right format
-        start = element["dato_fra"]
-#        print "HER:-> dato_fra='%s'" % start
-        my_month,my_day,my_year = start.split("/")
-        element["dato_fra"] = '%s-%s-%s' % (my_year,my_month,my_day)
+        # FRIDA wants date at the format YYYYMMDD
+        element["dato_fra"] = element["dato_fra"]
         writer.startElement("institusjonsnr")
         writer.data(cereconf.DEFAULT_INSTITUSJONSNR)
         writer.endElement("institusjonsnr")
@@ -938,11 +933,11 @@ def output_employment_information(writer, pobj):
         for output, input in [("avdnr", "fakultetnr_utgift"),
                               ("undavdnr", "instituttnr_utgift"),
                               ("gruppenr", "gruppenr_utgift"),
-                              ("stillingskode", "stillingkodenr_beregnet_sist"),
+                              ("stillingskode", "stillingskode"),
                               ("datoFra", "dato_fra"),
                               #("datoTil", "dato_til"),
                               ("stillingsbetegnelse", "tittel"),
-                              ("stillingsandel", "prosent_tilsetting"),
+                              ("stillingsandel", "stillingsandel"),
                               ]:
          
 
@@ -1185,9 +1180,14 @@ def output_person(writer, pobj, phd_cache, system_source):
 
     # NB! There can be *only one* FNR per person in LT (PK in
     # the person_external_id table)
-    person_db.find_by_external_id(constants.externalid_fodselsnr,
-                                  pobj.fnr,
-                                  system_source)
+    try:
+        person_db.find_by_external_id(constants.externalid_fodselsnr,
+                                      pobj.fnr,
+                                      system_source)
+    except Errors.NotFoundError:
+        logger.error("Person with FNR %s not found in BAS - skipping. Check for inconsistent FNR" % (pobj.fnr))
+        return
+        
 
     writer.startElement("person",
                         construct_person_attributes(writer,
@@ -1211,13 +1211,21 @@ def output_person(writer, pobj, phd_cache, system_source):
 
     # <Telephone>?
     # We need the one with lowest contact_pref, if there are many
-    contact = person_db.get_contact_info(source=system_source,
+    contact = person_db.get_contact_info(source=constants.system_tlf,
                                          type=constants.contact_phone)
     contact.sort(lambda x, y: cmp(x.contact_pref, y.contact_pref))
 ##    if contact:
 ##        writer.startElement("telefonnr")
 ##        writer.data(contact[0].contact_value)
 ##        writer.endElement("telefonnr")
+    #print "Contact:",
+
+    if len(contact) > 0:
+       contact = contact[0]['contact_value']
+    else:
+       contact = ''
+
+    #print contact
     output_element(writer,contact,"telefonnr")
 
     output_employment_information(writer, pobj)
@@ -1274,7 +1282,7 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
         group.find_by_name(sys2group[sysname])
         reserved = group.get_members()
     except Errors.NotFoundError:
-        reserved = set()
+        reserved = [] # was set()
 
     for person_id, phd_records in phd_students.iteritems():
         try:
@@ -1399,7 +1407,7 @@ def output_OUs_new(writer, sysname, oufile):
 
     # First we build an ID cache.
     ou_cache = dict()
-    parser = system2parser(sysname)(oufile, logger, False)
+    parser = system2parser('system_lt')(oufile, logger, False)
     for ou in parser.iter_ou():
         sko = ou.get_id(ou.NO_SKO, None)
         if sko:
@@ -1478,7 +1486,7 @@ def output_xml(output_file,
     output_organization(writer, db)
     # Dump all OUs
     ## RMI000 20071218
-    output_OUs_new(writer,'system_lt',sted_file)
+    output_OUs_new(writer,'system_paga',sted_file)
     ##output_OUs(writer, db)
     ## /RMI000
 
