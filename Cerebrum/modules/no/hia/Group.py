@@ -23,12 +23,36 @@ import re
 import cereconf
 
 from Cerebrum import Group
+from Cerebrum.Utils import Factory
 from Cerebrum.Database import Errors
 
 class GroupHiAMixin(Group.Group):
     """Group mixin class providing functionality specific to HiA.
     """
+    def add_member(self, member_id, type, op):
+        '''Override default add_member with checks that avoids
+        membership in more than one eDir server-group'''
+
+        server_groups = ['server-ulv', 'server-laks'
+                         'server-uer', 'server-abbor',
+                         'server-rev', 'server-orrhane',
+                         'server-rype']
+        group = Factory.get("Group")(self._db)
+        account = Factory.get("Account")(self._db)
+        if type == int(self.const.entity_account):
+            account.clear()
+            account.find(member_id)
+            for g in server_groups:
+                group.clear()
+                group.find_by_name(g)
+                if group.has_member(member_id, member_type=type):
+                    raise self._db.IntegrityError(
+                        "Member of a eDir server group already (%s)" % g)
+        super(GroupUiOMixin, self).add_member(member_id, type, op)
+        
     def add_spread(self, spread):
+        # FIXME, jazz 2008-07-28: we should move this check into PosixGroup
+        # and establish a cereconf.POSIX_GROUP_SPREAD or something
         # Avoid circular import dependency
         from Cerebrum.modules import PosixGroup
 
