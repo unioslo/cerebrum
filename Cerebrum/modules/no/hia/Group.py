@@ -51,7 +51,7 @@ class GroupHiAMixin(Group.Group):
                 if group.has_member(member_id, member_type=type):
                     raise self._db.IntegrityError(
                         "Member of a eDir server group already (%s)" % g)
-        super(GroupUiOMixin, self).add_member(member_id, type, op)
+        super(GroupHiAMixin, self).add_member(member_id, type, op)
         
     def add_spread(self, spread):
         # FIXME, jazz 2008-07-28: we should move this check into PosixGroup
