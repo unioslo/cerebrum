@@ -46,11 +46,6 @@ class EdirUtils:
         self.now = tstamp
         self.c_person = 'objectClass=inetOrgPerson'
         self.c_group = 'objectClass=group'
-        self.serv_groups_stud = ['bas-server-rype',
-                                 'bas-server-rev',
-                                 'bas-server-abbor']
-        self.serv_groups_ans = ['bas-server-orrhane',
-                                'bas-server-uer']
 
 ## CREATE OBJECT:
     def object_edir_create(self, dn, attrdict):
@@ -81,17 +76,6 @@ class EdirUtils:
                 attr_g['equivalentToMe'] = [ldap_member_dn]
                 self.logger.debug("Making target group attributes member and equivalentToMe")
                 if mod_type == 'add':
-                    if 'groupMembership' in ldap_attr:
-                        for g in self.serv_groups_stud:
-                            dn_stud_grp = "cn=%s,ou=grp,ou=Stud,o=HiA" % g
-                            if dn_stud_grp in ldap_attr['groupMembership']:
-                                self.logger.info("User %s already member in a server group", member_name)
-                                return False
-                        for g in self.serv_groups_ans:
-                            dn_ans_grp = "cn=%s,ou=grp,ou=Ans,o=HiA" % g
-                            if dn_ans_grp in ldap_attr['groupMembership']:
-                                self.logger.info("User %s already member in a server group", member_name)
-                                return False
                     self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g)
                     self.logger.debug("Added target group attributes %s to %s", attr_g, ldap_group_dn)
                     if 'groupMembership' in ldap_attr:
@@ -181,6 +165,15 @@ class EdirUtils:
                 desc = 'Cerebrum: rem quarantine %s' % self.date 
                 self.object_set_description(account_name, self.c_person, desc)
 
+    def account_get_quarantine(self, account_name):
+        attr = {}
+        ldap_object = self._find_object(account_name,self.c_person)
+        if ldap_object:
+            (ldap_object_dn, ldap_attr) = ldap_object[0]
+            if 'loginDisabled' in ldap_attr.keys():
+                return ldap_attr['loginDisabled']
+        return ['False']
+            
     def account_get_quarantine_status(self, account_name):
         """Get current value of attribute 'loginDisabled'. Used by the
            quarantine fullsync. Return True if loginDisabled, otherwise
@@ -370,6 +363,4 @@ class EdirUtils:
                     desc = "Cerebrum: user moved %s" % self.date
                     self.object_set_description(account_name, self.c_person, desc)
                     logger.info("Account ndsHomeDirectory changed for %s" % account_name)
-
-# arch-tag: 5e6865d4-5cb2-11da-97b8-ad2f2be70968
 
