@@ -33,9 +33,12 @@ class GroupHiAMixin(Group.Group):
         '''Override default add_member with checks that avoids
         membership in more than one eDir server-group'''
 
-        server_groups = ['server-ulv', 'server-laks'
-                         'server-uer', 'server-abbor',
-                         'server-rev', 'server-orrhane',
+        server_groups = ['server-ulv',
+                         'server-laks',
+                         'server-uer',
+                         'server-abbor',
+                         'server-rev',
+                         'server-orrhane',
                          'server-rype']
         group = Factory.get("Group")(self._db)
         account = Factory.get("Account")(self._db)
