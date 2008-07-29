@@ -249,9 +249,6 @@ def group_mod(mod_type, group_id, member_id):
     except Errors.NotFoundError:
         logger.warn('No such entity %s.', member_id)
         return
-    if not (subj_ent.entity_type == constants.entity_account or subj_ent.entity_type == constants.entity_group):
-        logger.warn("Only groups or accounts may be members!")
-        return        
     if subj_ent.entity_type == constants.entity_group:
         grp.find(member_id)
         for row in group.get_spread():
@@ -262,6 +259,13 @@ def group_mod(mod_type, group_id, member_id):
         if known_group:        
             member_type = "group"
             member_name = cereconf.NW_GROUP_PREFIX + '-' + grp.group_name
+    elif subj_ent.entity_type == constants.entity_account:
+        acc.clear()
+        acc.find(member_id)
+        member_name = acc.account_name
+    else:
+        logger.warn("Only groups or accounts may be members!")
+        return 
     if mod_type == constants.group_add:
         ret = edir_util.group_modify('add', group_name, member_name, member_type)
         if ret:
