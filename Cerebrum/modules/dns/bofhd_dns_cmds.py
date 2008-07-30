@@ -446,7 +446,7 @@ class BofhdExtension(object):
 
     # host cname_remove
     all_commands['host_cname_remove'] = Command(
-        ("host", "cname_remove"), HostName(help_ref="host_name_alias"),
+        ("host", "cname_remove"), HostName(help_ref="host_name"),
         perm_filter='is_dns_superuser')
     def host_cname_remove(self, operator, cname_name):
         self.ba.assert_dns_superuser(operator.get_entity_id())
