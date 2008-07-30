@@ -209,35 +209,35 @@ class BofhdExtension(object):
         self.ou.find(ou_id)
         return "%d%02d%02d" % (self.ou.fakultet, self.ou.institutt, self.ou.avdeling)
 
-    # user verify_ad_attrs
-    all_commands['user_verify_ad_attrs'] = Command(
-        ('user', 'verify_ad_attrs'), AccountName(), Spread(),
-        perm_filter='is_superuser')
-    def user_verify_ad_attrs(self, operator, uname, spread):
-        """
-        Check what AD attributes a user should have in a domain
-        according to affiliation and spread.
-        """
-        account = self._get_account(uname, idtype='name')
-        spread = self._get_constant(self.const.Spread, spread)
-        # We can't calculate AD attributes for students without first
-        # parsing /cerebrum/dumps/FS/studieprog.xml
-        if spread == self.const.spread_ad_account_stud:
-            return "Not yet implemented for spread stud"
-        # Get affiliations
-        affs = account.get_account_types()
-        if not affs:
-            raise CerebrumError(
-                "Cannot calculate ad attrs for user without affiliation")
-        # TBD: what to do if more than one aff? For now, use aff with
-        # highest priority
-        sko = self._get_ou_sko(affs[0]['ou_id'])
-        rules = self._get_ad_rules(spread)
-        dn = rules.getDN(sko, uname)
-        return '\n'.join(
-            ["%12s: %s" % ("OU", dn[dn.find(',')+1:]), # OU part of DN
-             "%12s: %s" % ("Profile Path", rules.getProfilePath(sko, uname)),
-             "%12s: %s" % ("Homedir", rules.getHome(sko, uname))])
+    # # user verify_ad_attrs
+    # all_commands['user_verify_ad_attrs'] = Command(
+    #     ('user', 'verify_ad_attrs'), AccountName(), Spread(),
+    #     perm_filter='is_superuser')
+    # def user_verify_ad_attrs(self, operator, uname, spread):
+    #     """
+    #     Check what AD attributes a user should have in a domain
+    #     according to affiliation and spread.
+    #     """
+    #     account = self._get_account(uname, idtype='name')
+    #     spread = self._get_constant(self.const.Spread, spread)
+    #     # We can't calculate AD attributes for students without first
+    #     # parsing /cerebrum/dumps/FS/studieprog.xml
+    #     if spread == self.const.spread_ad_account_stud:
+    #         return "Not yet implemented for spread stud"
+    #     # Get affiliations
+    #     affs = account.get_account_types()
+    #     if not affs:
+    #         raise CerebrumError(
+    #             "Cannot calculate ad attrs for user without affiliation")
+    #     # TBD: what to do if more than one aff? For now, use aff with
+    #     # highest priority
+    #     sko = self._get_ou_sko(affs[0]['ou_id'])
+    #     rules = self._get_ad_rules(spread)
+    #     dn = rules.getDN(sko, uname)
+    #     return '\n'.join(
+    #         ["%12s: %s" % ("OU", dn[dn.find(',')+1:]), # OU part of DN
+    #          "%12s: %s" % ("Profile Path", rules.getProfilePath(sko, uname)),
+    #          "%12s: %s" % ("Homedir", rules.getHome(sko, uname))])
 
     # def _user_set_ad_trait(self, uname, spread, trait_const, ad_val):
     #     """
