@@ -144,7 +144,10 @@ class DnsBofhdUtils(object):
         self._dns_owner.clear()
         self._dns_owner.find(owner_id)
         if not dta:
-            self._dns_owner.delete_trait(trait)
+            try:
+                self._dns_owner.delete_trait(trait)
+            except Errors.NotFoundError: # Already deleted, noop
+                pass
             return "removed"
         if self._dns_owner.populate_trait(trait, strval=dta) == 'INSERT':
             action = "added"
