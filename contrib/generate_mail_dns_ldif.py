@@ -34,18 +34,18 @@ from Cerebrum.modules.LDIFutils import \
      ldapconf, ldif_outfile, end_ldif_outfile, container_entry_string
 
 # Expect /local/bin/dig output like this:
-#   ; <<>> DiG 9.2.1 <<>> uio.no. @nissen.uio.no. axfr
+#   ; <<>> DiG 9.3.5-P1 <<>> uio.no. @nissen.uio.no. axfr
 #   ;; global options:  printcmd
-#   bb.uio.no.              86400   IN      CNAME   beeblebrox.uio.no.
-#   beeblebrox.uio.no.      86400   IN      MX      10 smtp.uio.no.
-#   beeblebrox.uio.no.      86400   IN      A       129.240.10.17
-#   ;; Query time: 318 msec
+#   cerebrum.uio.no.	43200	IN	CNAME	cerebellum.uio.no.
+#   cerebellum.uio.no.	43200	IN	A	129.240.2.117
+#   cerebellum.uio.no.	43200	IN	MX	10 smtp.uio.no.
+#   ;; Query time: 2021 msec
 #   ;; SERVER: ...
 #   ;; WHEN: ...
-#   ;; XFR size: 6412 records
+#   ;; XFR size: 141769 records (messages 92)
 match_dig_line=re.compile(r"(\S+)\.\s+\d+\s+IN\s+(\w+)\s+(.*[^.\n])\.?$").match
-# Dig does not return a non-zero exit status on failure,
-# so check if the output matches the above and fail otherwise.
+# Dig (as of version 9.2.1) may not return a non-zero exit status on
+# failure, so check if the output matches the above and fail otherwise.
 check_dig_line = re.compile(r"(?:;;? |$)").match
 match_checked_lines = re.compile(r"""
 *; <<>> DiG (\d+)\..+
@@ -53,7 +53,7 @@ match_checked_lines = re.compile(r"""
 )*;; Query time: \d+ msec
 ;; SERVER: .+
 ;; WHEN: .+
-;; XFR size: \d+ records
+;; XFR size: \d+ records.*
 +$""").match
 # The output format from dig has changed between versions, so
 # this program may have to be changed when dig is upgraded again.
