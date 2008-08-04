@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2007 University of Oslo, Norway
+# Copyright 2002-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -65,6 +65,7 @@ ChangeLog ting
   - siste passord endring
   - ephorte role_add: skal ikke slettes (foreløbig)
   - ephorte role_rem: skal ikke slettes (foreløbig)
+  - ephorte role_upd: skal ikke slettes (foreløbig)
   - ephorte perm_add: skal ikke slettes (foreløbig)
   - ephorte perm_rem: skal ikke slettes (foreløbig)
 
@@ -151,6 +152,7 @@ class CleanChangeLog(object):
         int(co.posix_group_promote): AGE_FOREVER,
         int(co.ephorte_role_add): AGE_FOREVER,
         int(co.ephorte_role_rem): AGE_FOREVER,
+        int(co.ephorte_role_upd): AGE_FOREVER,
         int(co.ephorte_perm_add): AGE_FOREVER,
         int(co.ephorte_perm_rem): AGE_FOREVER,
 
@@ -334,7 +336,8 @@ class CleanChangeLog(object):
         keep_togglers.extend([
              {'columns': ('subject_entity', ),
               'toggleable': False,
-              'triggers': (co.ephorte_role_add, co.ephorte_role_rem)}])
+              'triggers': (co.ephorte_role_add, co.ephorte_role_upd,
+                           co.ephorte_role_rem)}])
     if hasattr(co, 'ephorte_perm_add'):
         keep_togglers.extend([
              {'columns': ('subject_entity', ),
