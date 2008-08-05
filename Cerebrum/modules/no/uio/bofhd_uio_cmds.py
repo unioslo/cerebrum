@@ -3974,7 +3974,6 @@ class BofhdExtension(object):
 	else:
 	    host = self._get_host(hostname)
 	    m_host = self._get_host(mountname)
-	    print "host:%s m_host:%s" % (host,m_host)
 	    try:
             	mount_host.find(host.entity_id)
             	mount_host.mount_name = m_host.name 	
