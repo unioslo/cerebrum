@@ -20,14 +20,24 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-"""Dette scriptet går gjennom alle personer som har spread til et av
-HIOFs tre AD-domener.  Scriptet har noen oppgaver:
+"""
+Dette scriptet går gjennom alle brukere som har spread til et av
+HIOFs tre AD-domener. For hver bruker i hvert domene skal det:
 
-* Beregne home/profile-path/OU-plassering dersom slik verdi ikke er
-  beregnet tidligere
-* Oppdatere eksisterende verdi dersom tilknyttingsforhold e.l. er
-  endret (dette er ikke implemetert enda, da en spec må skrives
-  først).
+* beregnes homedir/profile-path/OU-plassering iht til reglene som er
+  definert i ADMappingRules.
+
+* hvis disse attributtene er lagret for brukeren fra før skal de nye
+  og gamle verdiene sammenlignes. Dersom verdiene er forskjellige skal
+  det automatisk sendes en e-post til liste(r) definert i cereconf.
+  (Dette gjøres av et eget script) Om endringene er fornuftig skal
+  IT-personell ved hiof slette gamle verdier, med bofh-kommandoen user
+  delete_ad_attr. Ved neste kjøring vil dette skriptet sette de nye
+  verdiene.
+
+* Dersom det ikke er lagret verdier for ad-attributtene fra før
+  (gjelder for nye brukere og for brukere der gamle verdier er
+  slettet) skal de nye beregnede verdiene settes.
 
 Usage: process_AD.py [options]
 -p fname : xml-fil med person informasjon
@@ -36,11 +46,13 @@ Usage: process_AD.py [options]
 
 import getopt
 import sys
+import os.path
 import cPickle
 import cerebrum_path
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hiof import ADMappingRules
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
+from mx import DateTime
 
 db = Factory.get('Database')()
 db.cl_init(change_program="process_ad")
@@ -48,11 +60,15 @@ co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 ou = Factory.get('OU')(db)
 person = Factory.get('Person')(db)
-
 logger = Factory.get_logger("cronjob")
 
+spread2domain = {}
+entity_id2uname = {}
+user_diff_attrs = {} # Users which new and old AD attrs differ
+
+
 class StudieInfo(object):
-    """Parse student-info."""
+    """Parse student-info from FS files."""
 
     def __init__(self, person_fname, stprog_fname):
         self._person_fname = person_fname
@@ -99,109 +115,176 @@ class StudieInfo(object):
         return stprog2sko
 
 class Job(object):
-    """Oppdater profile_path, ou og homedir-path for kontoen dersom
-    verdiene ikke allerede er satt """
+    """
+    Class for processing user's AD attributes
+    """
 
     class CalcError(Exception):
         pass
 
-    def __init__(self, student_info):
+    def __init__(self, student_info, out_file):
+        """
+        Init ad_attr info by reading old values from Cerebrum. Start
+        processing of ad attrs for each domain in ad, given by spread.
+        """
         self._student_info = student_info
+        self.out_file = out_file
         self.entity_id2profile_path = {}
         for row in ac.list_traits(co.trait_ad_profile_path):
-            self.entity_id2profile_path[int(row['entity_id'])] = row['strval']
+            unpickle_val = cPickle.loads(str(row['strval']))
+            self.entity_id2profile_path[int(row['entity_id'])] = unpickle_val
         logger.debug("Found %i profile-path traits" % len(self.entity_id2profile_path))
 
-        self.entity_id2account_home = {}
+        self.entity_id2homedir = {}
         for row in ac.list_traits(co.trait_ad_homedir):
-            self.entity_id2account_home[int(row['entity_id'])] = row['strval']
-        logger.debug("Found %i home traits" % len(self.entity_id2account_home))
+            unpickle_val = cPickle.loads(str(row['strval']))
+            self.entity_id2homedir[int(row['entity_id'])] = unpickle_val
+        logger.debug("Found %i homedir traits" % len(self.entity_id2homedir))
 
         self.entity_id2account_ou = {}
         for row in ac.list_traits(co.trait_ad_account_ou):
-            self.entity_id2account_ou[int(row['entity_id'])] = row['strval']
+            unpickle_val = cPickle.loads(str(row['strval']))
+            self.entity_id2account_ou[int(row['entity_id'])] = unpickle_val
         logger.debug("Found %i ou traits" % len(self.entity_id2account_ou))
 
         self._adm_rules = ADMappingRules.Adm()
         self._fag_rules = ADMappingRules.Fag()
         self._stud_rules = ADMappingRules.Student()
+        spread2domain[int(co.spread_ad_account_fag)] = self._fag_rules.DOMAIN_NAME
+        spread2domain[int(co.spread_ad_account_adm)] = self._adm_rules.DOMAIN_NAME
+        spread2domain[int(co.spread_ad_account_stud)] = self._stud_rules.DOMAIN_NAME
 
-        self.process_spreads(co.spread_ad_account_fag,
-                             co.spread_ad_account_adm,
-                             co.spread_ad_account_stud)
-            
-    def process_spreads(self, *spreads):
-        """Sjekk om ou, profile_path og home er satt for en bruker.
-        Hvis ikke, beregn verdiene og populer som traits."""
-
-        # Sjekk først om ou, profile_path og home er satt. Hvis ikke
-        # skal de beregnes. Lag datastruktur slik at traits enkelt kan
-        # settes.
-        user_maps = {}
-        for spread in spreads:
-            logger.debug("Process accounts with spread=%s" % spread)
-            for row in ac.list_account_home(home_spread=spread,
-                                            account_spread=spread,
-                                            filter_expired=True,
-                                            include_nohome=True):
-                entity_id = int(row['account_id'])
-                # Ikke gjør noe hvis OU og profile_path allerede er satt
-                #
-                # TBD: Hva skal gjøres her hvis brukere blir flyttet
-                # til annet domene? Det var først bestemt at brukere
-                # ikke skulle flyttes, men så ble man enige om at det
-                # skulle kunne skje likevel. Derfor må noe gjøres her.
-                # Antagelig bør gammel verdi bare overskrives.
-                if (self.entity_id2profile_path.has_key(entity_id) and
-                    self.entity_id2account_ou.has_key(entity_id) and
-                    self.entity_id2account_home.has_key(entity_id)):
-                    continue
-                # Trenger spread<->ou, spread<->profile_path og
-                # spread<->home mappinger for hver bruker.
-                # (Litt tung datastruktur, men det forenkler koden i neste for-løkke)
-                if not entity_id in user_maps:
-                    user_maps[entity_id] = {'ou':{}, 'profile_path':{}, 'home':{}}
-                ac.clear()
-                ac.find(entity_id)
-                try:
-                    canonical_name, profile_path, home = self.calc_home(entity_id, spread)
-                    canonical_name = canonical_name[canonical_name.find(",")+1:]
-                    logger.debug("Calculated values for %i: cn=%s,%s pp=%s, home=%s" % (
-                        entity_id, ac.account_name, canonical_name, profile_path, home))
-                    user_maps[entity_id]['ou'][int(spread)] = canonical_name
-                    user_maps[entity_id]['profile_path'][int(spread)] = profile_path
-                    user_maps[entity_id]['home'][int(spread)] = home
-                except Job.CalcError, v:
-                    logger.warn(v)
-                except ADMappingRules.MappingError, v:
-                    logger.warn("Couldn't calculate home for user %d. %s" % (
-                        entity_id, v))
-
-        # Sett ou, home og profile_path traits.
-        for e_id, spread_maps in user_maps.items():
-            ac.clear()
-            ac.find(e_id)
-            # store pickled spread<->profile_path mapping 
-            ac.populate_trait(co.trait_ad_profile_path,
-                              strval=cPickle.dumps(spread_maps['profile_path']))
-            # store pickled spread<->ou mapping 
-            ac.populate_trait(co.trait_ad_account_ou,
-                              strval=cPickle.dumps(spread_maps['ou']))
-            # store pickled spread<->home mapping 
-            ac.populate_trait(co.trait_ad_homedir,
-                              strval=cPickle.dumps(spread_maps['home']))
-            logger.debug("OU, profile_path and home trait populated for account %d",
-                         entity_id)
-            ac.write_db()
-
-        if dryrun:
-            logger.info("Rolling back all changes")
-            db.rollback()
+        for spread in (co.spread_ad_account_fag,
+                       co.spread_ad_account_adm,
+                       co.spread_ad_account_stud):
+            self.process_ad_attrs(spread)
+        # Write to file where ad_attrs differ
+        self.write_diff_output()
+    
+    def write_diff_output(self):
+        now = DateTime.now()
+        #file_name = '/cerebrum/dumps/AD/ad_attr_diffs-%s' % now.date
+        file_name = '%s-%s' % (self.out_file, now.date)
+        # To avoid writing this file every time the script runs (every
+        # 15 mins) we write it once per day after important FS and SAP
+        # jobs have run, that is after 0400.
+        if os.path.exists(file_name) or now.hour < 5:
+            return 
+        try:
+            f = file(file_name, 'w')
+            for e_id, attr_map in user_diff_attrs.items():
+                for spread, attrs in attr_map.items():
+                    for old_val, new_val in attrs:
+                        f.write("%s;%s;%s;%s\n" % (entity_id2uname[e_id],
+                                                   spread2domain[int(spread)],
+                                                   old_val, new_val))
+        except IOError:
+            logger.warning("Couldn't open file %s" % file_name)
         else:
-            logger.info("Committing all changes")
-            db.commit()
+            f.close()        
+    
+    def process_ad_attrs(self, spread):
+        """
+        In each AD domain, given by spread, check attributes homedir,
+        profile_path og ou for all users. Perform the following tasks
 
-    def calc_home(self, entity_id, spread):
+        1. Calculate new attribute values based on rules defined in
+           ADMappingRules.
+        2. If a user has old values, compare these with the new ones.
+           If there are differences send a report email.
+        3. If not old values exists, populate the new ones.
+        """
+        logger.debug("Process accounts with spread=%s" % spread)
+        for row in ac.list_account_home(home_spread=spread,
+                                        account_spread=spread,
+                                        filter_expired=True,
+                                        include_nohome=True):
+            entity_id = int(row['account_id'])
+            # Calculate new ad attr values
+            try:
+                cn, profile_path, homedir = self.calc_ad_attrs(entity_id, spread)
+                ou_val = cn[cn.find(",")+1:]
+                entity_id2uname[entity_id] = ac.account_name
+                logger.debug("Calculated values for %i: cn=%s,%s pp=%s, homedir=%s" % (
+                    entity_id, ac.account_name, ou_val, profile_path, homedir))
+            except Job.CalcError, v:
+                logger.warn(v)
+                continue
+            except ADMappingRules.MappingError, v:
+                logger.warn("Couldn't calculate homedir for user %d. %s" % (
+                    entity_id, v))
+                continue
+            # Check if user already have ad_attrs for this domain in
+            # cerebrum and compare
+            if not self.check_ad_attrs_and_cmp(spread, entity_id, ou_val,
+                                               profile_path, homedir):
+                # set new ad attrs
+                self.populate_ad_attrs(spread, entity_id, ou_val,
+                                       profile_path, homedir)
+
+    def check_ad_attrs_and_cmp(self, spread, entity_id, ou_val, profile_path, homedir):
+        """
+        Check ad attrs ou, homedir and profile_path in Cerebrum for given
+        user and spread. If attrs doesn't exist in Cerebrum, return
+        False. If attrs exist, compare with the new values, given as
+        parameters. 
+        """
+        def attr_eq(new, old):
+            if new and old:
+                if new.strip().lower() == old.strip().lower():
+                    return True
+            return False
+
+        ret = False         # If no old attrs is found return False
+        spread = int(spread)
+        for mapping, attr in ((self.entity_id2account_ou, ou_val),
+                              (self.entity_id2profile_path, profile_path),
+                              (self.entity_id2homedir, homedir)):
+            # get old values
+            ad_trait = mapping.get(entity_id, None)
+            if ad_trait and ad_trait.has_key(spread):
+                # ad attrs for this user in the given domain exists. Compare with new values
+                if not attr_eq(attr, ad_trait[spread]):
+                    # New AD attrs are not equal the old ones
+                    logger.debug("New and old ad attrs not equal for user %s."
+                                 % entity_id)
+                    # Where attr differs, store as a 2d mapping:
+                    # user <-> {spread <-> [(old attr, new attr)]}
+                    if not entity_id in user_diff_attrs:
+                        user_diff_attrs[entity_id] = {}
+                    if not spread in user_diff_attrs[entity_id]:
+                        user_diff_attrs[entity_id][spread] = []
+                    user_diff_attrs[entity_id][spread].append((attr, ad_trait[spread]))
+                ret = True            
+        return ret
+
+    def populate_ad_attrs(self, spread, entity_id, ou_val, profile_path, homedir):
+        """
+        populate spread<->ad_attr mapping as an entity_trait in
+        Cerebrum. No
+        """
+        ac.clear()
+        ac.find(entity_id)
+        # get and set spread<->profile_path mapping for this user
+        pp_mapping = self.entity_id2profile_path.get(entity_id, {})
+        pp_mapping[spread] = profile_path
+        ac.populate_trait(co.trait_ad_profile_path,
+                          strval=cPickle.dumps(pp_mapping))
+        # get and set spread<->homedir mapping for this user
+        homedir_mapping = self.entity_id2homedir.get(entity_id, {})
+        homedir_mapping[spread] = homedir
+        ac.populate_trait(co.trait_ad_homedir,
+                          strval=cPickle.dumps(homedir_mapping))
+        # get and set spread<->ou mapping for this user
+        ou_mapping = self.entity_id2account_ou.get(entity_id, {})
+        ou_mapping[spread] = ou_val
+        ac.populate_trait(co.trait_ad_account_ou,
+                          strval=cPickle.dumps(ou_mapping))
+        ac.write_db()
+        logger.debug("OU, profile_path and homedir trait populated for account %d",
+                     entity_id)
+
+    def calc_ad_attrs(self, entity_id, spread):
         ac.clear()
         ac.find(entity_id)
 
@@ -214,7 +297,6 @@ class Job(object):
         if not affs:
             raise Job.CalcError("No affs for entity: %i" % entity_id)
         sko = self._get_ou_sko(affs[0]['ou_id'])
-        logger.debug("sko: %s", sko)
         if spread == co.spread_ad_account_fag:
             rules = self._fag_rules
         if spread == co.spread_ad_account_adm:
@@ -235,21 +317,25 @@ class Job(object):
                                    entity_type=co.entity_person)
         stdnr = person.get_external_id(source_system=co.system_fs,
                                        id_type=co.externalid_studentnr)
+        if not stdnr:
+            raise Job.CalcError("No FS-stdnr for entity with fnr: %s" % fnr)
         return stdnr[0]['external_id']
     
     def calc_stud_home(self, ac):
         if int(ac.owner_type) != int(co.entity_person):
-            raise Job.CalcError("Cannot update account for non-person owner of entity: %i" % ac.entity_id)
+            raise Job.CalcError("Cannot update non-personal account: %i" %
+                                ac.entity_id)
         person.clear()
         person.find(ac.owner_id)
-        rows = person.get_external_id(id_type=co.externalid_fodselsnr, source_system=co.system_fs)
+        rows = person.get_external_id(id_type=co.externalid_fodselsnr,
+                                      source_system=co.system_fs)
         if not rows:
             raise Job.CalcError("No FS-fnr for entity: %i" % ac.entity_id)
         fnr = rows[0]['external_id']
         stdnr = self._get_stdnr(fnr)
         stprogs = self._student_info.get_persons_studieprogrammer(stdnr)
         if not stprogs:
-            raise Job.CalcError("Ikke noe studieprogram for %s" % fnr)
+            raise Job.CalcError("No studieprogram for %s" % fnr)
         # Velger foreløbig det første studieprogrammet i listen...
         sko = self._student_info.get_studprog_sko(stprogs[0]['studieprogramkode'])
         if not sko:
@@ -261,21 +347,19 @@ class Job(object):
         studinfo = "".join((stprogs[0]['arstall_kull'][-2:],
                             stprogs[0]['terminkode_kull'][0],
                             stprogs[0]['studieprogramkode'],
-                            kkode)).lower()
-                           
+                            kkode)).lower()                           
         return (self._stud_rules.getDN(sko, studinfo, ac.account_name),
                 self._stud_rules.getProfilePath(sko, ac.account_name),
                 self._stud_rules.getHome(sko, ac.account_name))
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ds:p:', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'ds:p:o:', ['help'])
     except getopt.GetoptError:
         usage(1)
 
-    global dryrun
-
     dryrun = False
+    sendmail = False
     person_file = None
     stprog_file = None
     for opt, val in opts:
@@ -287,9 +371,18 @@ def main():
             person_file = val
         elif opt in ('-d',):
             dryrun = True
+        elif opt in ('-o',):
+            out_file = val
 
     si = StudieInfo(person_file, stprog_file)
-    Job(si)
+    Job(si, out_file)
+    # Committ changes?
+    if dryrun:
+        logger.info("Rolling back all changes")
+        db.rollback()
+    else:
+        logger.info("Committing all changes")
+        db.commit()
 
 def usage(exitcode=0):
     print __doc__
