@@ -137,20 +137,18 @@ class BofhdExtension(object):
                 ret.append((trait_const_class, entity_trait))
         return ret
 
-    # TBD: Delete all ad traits or just spread specific? For now,
-    #      delete all. process_ad_spread will set new ones
     # user delete_ad_attrs
     all_commands['user_delete_ad_attrs'] = Command(
-        #('user', 'delete_ad_attrs'), AccountName(), Spread(),
-        ('user', 'delete_ad_attrs'), AccountName(),
+        ('user', 'delete_ad_attrs'), AccountName(), Spread(),
         perm_filter='is_superuser')
-    def user_delete_ad_attrs(self, operator, uname):
+    def user_delete_ad_attrs(self, operator, uname, spread):
         """
         Bofh command user delete_ad_attrs
 
-        Delete AD values home, profile_path and ou for user. AD values
-        are stored as a spread -> value mapping in an entity trait in
-        Cerebrum.
+        Delete AD values home, profile_path and ou for user in the AD
+        domain given by spread.
+        AD values are stored as a spread -> value mapping in an entity
+        trait in Cerebrum.
 
         @param operator: operator in bofh session
         @type  uname: string
@@ -162,18 +160,13 @@ class BofhdExtension(object):
         @return: OK message if success
         """
         account = self._get_account(uname, idtype='name')
-        #spread = self._get_constant(self.const.Spread, spread)
+        spread = self._get_constant(self.const.Spread, spread)
         for trait_const_class, entity_trait in self._user_get_ad_traits(account):
             unpickle_val = pickle.loads(str(entity_trait['strval']))
             for u in unpickle_val.keys():
-                # if self._get_constant(self.const.Spread, u, 'spread') == spread:
-                #     trait = self._get_constant(self.const.EntityTrait,
-                #                                k, "trait")
-                #     account.delete_trait(trait)
-                trait = self._get_constant(self.const.EntityTrait,
-                                           trait_const_class, "trait")
-                account.delete_trait(trait)
-        return "Removed all AD-traits for %s" % uname
+                if self._get_constant(self.const.Spread, u, 'spread') == spread:
+                    account.delete_trait(entity_trait['code'])
+        return "OK, removed AD-traits for %s" % uname
 
     # user list_ad_attrs
     all_commands['user_list_ad_attrs'] = Command(
@@ -183,7 +176,16 @@ class BofhdExtension(object):
             hdr="%-16s %-16s %s" % ("Spread", "AD attribute", "Value")))
     def user_list_ad_attrs(self, operator, uname):
         """
+        Bofh command user list_ad_attrs
+
         List all ad_traits for user
+
+        @param operator: operator in bofh session
+        @type  uname: string
+        @param uname: user name of account which AD values should be
+                      deleted
+        @rtype: string
+        @return: OK message if success
         """
         account = self._get_account(uname, idtype='name')
         ret = []
@@ -195,19 +197,19 @@ class BofhdExtension(object):
                             'ad_val': ad_val})
         return ret
 
-    def _get_ad_rules(self, spread):
-        if spread == self.const.spread_ad_account_fag:
-            rules = ADMappingRules.Fag()
-        elif spread == self.const.spread_ad_account_adm:
-            rules = ADMappingRules.Adm()
-        elif spread == self.const.spread_ad_account_stud:
-            rules = ADMappingRules.Student()    
-        return rules
+    # def _get_ad_rules(self, spread):
+    #     if spread == self.const.spread_ad_account_fag:
+    #         rules = ADMappingRules.Fag()
+    #     elif spread == self.const.spread_ad_account_adm:
+    #         rules = ADMappingRules.Adm()
+    #     elif spread == self.const.spread_ad_account_stud:
+    #         rules = ADMappingRules.Student()    
+    #     return rules
 
-    def _get_ou_sko(self, ou_id):
-        self.ou.clear()
-        self.ou.find(ou_id)
-        return "%d%02d%02d" % (self.ou.fakultet, self.ou.institutt, self.ou.avdeling)
+    # def _get_ou_sko(self, ou_id):
+    #     self.ou.clear()
+    #     self.ou.find(ou_id)
+    #     return "%d%02d%02d" % (self.ou.fakultet, self.ou.institutt, self.ou.avdeling)
 
     # # user verify_ad_attrs
     # all_commands['user_verify_ad_attrs'] = Command(
