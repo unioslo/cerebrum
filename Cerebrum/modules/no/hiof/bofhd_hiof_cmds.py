@@ -174,7 +174,7 @@ class BofhdExtension(object):
             if len(new_attrs) < len(unpickle_val):
                 deleted_attrs.append(str(trait_const_class))
                 # Only delete trait if int(spread) is the only key
-                if len(unpickle_val) == 0:
+                if len(new_attrs) == 0:
                     account.delete_trait(entity_trait['code'])
                 else:
                     account.populate_trait(trait_const_class,
