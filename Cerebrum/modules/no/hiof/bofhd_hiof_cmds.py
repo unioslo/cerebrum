@@ -145,10 +145,9 @@ class BofhdExtension(object):
         """
         Bofh command user delete_ad_attrs
 
-        Delete AD values home, profile_path and ou for user in the AD
-        domain given by spread.
-        AD values are stored as a spread -> value mapping in an entity
-        trait in Cerebrum.
+        Delete AD attributes home, profile_path and ou for user. AD
+        attributes are stored as a spread -> value mapping in an
+        entity trait in Cerebrum, where spread represents a AD domain.
 
         @param operator: operator in bofh session
         @type  uname: string
@@ -161,12 +160,31 @@ class BofhdExtension(object):
         """
         account = self._get_account(uname, idtype='name')
         spread = self._get_constant(self.const.Spread, spread)
+        deleted_attrs = []
         for trait_const_class, entity_trait in self._user_get_ad_traits(account):
+            # unpickle_val is a spread -> ad_attr_val dict
             unpickle_val = pickle.loads(str(entity_trait['strval']))
+            new_attrs = unpickle_val.copy()
             for u in unpickle_val.keys():
                 if self._get_constant(self.const.Spread, u, 'spread') == spread:
+                    # Check that there is a value for the given spread
+                    if int(spread) in new_attrs:
+                        del new_attrs[int(spread)]
+            # Only delete or update trait if a change has actually occured
+            if len(new_attrs) < len(unpickle_val):
+                deleted_attrs.append(str(trait_const_class))
+                # Only delete trait if int(spread) is the only key
+                if len(unpickle_val) == 0:
                     account.delete_trait(entity_trait['code'])
-        return "OK, removed AD-traits for %s" % uname
+                else:
+                    account.populate_trait(trait_const_class,
+                                           strval=pickle.dumps(new_attrs))
+                account.write_db()
+        if deleted_attrs:
+            return "OK, removed AD-traits %s for %s" % (
+                ', '.join(deleted_attrs), uname)
+        else:
+            return "No AD-traits removed for user %s" % uname
 
     # user list_ad_attrs
     all_commands['user_list_ad_attrs'] = Command(
