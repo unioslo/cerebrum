@@ -469,7 +469,8 @@ def employee2groups(row, current_groups, perspective):
     # The employees are members of certain groups.
     if affiliation == constants.affiliation_ansatt:
         # First, person_id is a member of ansatt@sko.
-        employee_group_id = group_name2group_id("ansatt" + suffix,
+        group_name = "ansatt" + suffix
+        employee_group_id = group_name2group_id(group_name,
                                                 "Tilsatte ved "+ou_info["name"],
                                                 current_groups,
                                                 constants.trait_auto_group)
@@ -500,9 +501,9 @@ def employee2groups(row, current_groups, perspective):
                            meta_parent_id))
         else:
             logger.warn("Missing parent info for OU id=%s, sko=%s, name=%s. "
-                        "%s will not be a member of any parent group",
+                        "%s id=%s will not be a member of any parent group",
                         ou_id, ou_info["sko"], ou_info["name"],
-                        scoped_name)
+                        group_name, employee_group_id)
         
     if status == constants.affiliation_status_ansatt_vitenskapelig:
         result.append(
