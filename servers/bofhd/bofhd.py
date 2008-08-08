@@ -72,6 +72,11 @@ from Cerebrum.modules.bofhd.utils import BofhdUtils
 
 Account_class = Utils.Factory.get('Account')
 
+# An installation *may* have many instances of bofhd running in parallel. If
+# this is the case, make sure that all of the instances get their own
+# logger. Otherwise, depending on the logger used, the physical entity
+# representing the log (typically a file) may not cope with multiple processes
+# writing to it simultaneously.
 logger = Utils.Factory.get_logger("bofhd")  # The import modules use the "import" logger
 
 # TBD: Is a BofhdSession class a good idea?  It could (optionally)
