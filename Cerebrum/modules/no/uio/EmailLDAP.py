@@ -26,6 +26,7 @@ import string
 import time
 import mx
 
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.EmailLDAP import EmailLDAP
@@ -47,19 +48,82 @@ class EmailLDAPUiOMixin(EmailLDAP):
     def get_targettype(self, targettype):
         return self.db_tt2ldif_tt.get(str(targettype), str(targettype))
 
-    def get_server_info(self, target, entity, home):
-        # Find mail-server settings:
-        uname = self.acc2name[entity][0]
-        sinfo = ""
-        if self.targ2server_id.has_key(target):
-            type, name = self.serv_id2server[int(self.targ2server_id[target])]
-            if type == self.const.email_server_type_nfsmbox:
-                # FIXME: we really want to log this
-                # self.logger.warn("%s is not on Cyrus, but %s" % (uname, name))
-                False # Python needs a statement here.
-            elif type == self.const.email_server_type_cyrus:
-                sinfo += "IMAPserver: %s\n" % name
-        return sinfo
+    def get_server_info(self, row):
+        """Return additional mail server info for EmailLDAP-entry derived
+        from row.
+
+        Return additional mail server information for certain
+        EmailTargets. Specifically, server info is gathered for
+        email_target_account only (the rest we don't care about).
+
+        @param row: cf. L{get_target_info}
+
+        @rtype: dict (basestring to basestring)
+        @return:
+          A dictionary with additional attributes for the EmailLDAP-entry
+          based on L{row}. 
+        """
+
+        result = dict()
+        target_id = int(row["target_id"])
+        ei = row['target_entity_id']
+        if ei is not None:
+            ei = int(ei)
+        # Unless we have information on that account, we are done.
+        if ei not in self.acc2name:
+            return result
+
+        if target_id not in self.targ2server_id:
+            return result
+
+        server_type, server_name = self.serv_id2server[
+                                       int(self.targ2server_id[target_id])]
+        if server_type == self.const.email_server_type_cyrus:
+            result["IMAPserver"] = server_name
+        return result
+    # end get_server_info
+
+    def get_target_info(self, row):
+        """Return additional EmailLDAP-entry derived from L{row}.
+
+        Return site-specific mail-ldap-information pertaining to the
+        EmailTarget info in L{row}.
+
+        @type row: db-row instance
+        @param row:
+          A db-row holding one result of L{list_email_targets_ext}.
+
+        @rtype: dict
+        @return:
+          A dictinary mapping attributes to values for the specified
+          EmailTarget in L{row}. 
+        """
+
+        sdict = super(EmailLDAPUiOMixin, self).get_target_info(row)
+        target_type = self.const.EmailTarget(int(row['target_type']))
+        if target_type in (self.const.email_target_Sympa,):
+            # host info
+            # IVR 2008-07-24 FIXME: This is really ugly. For now there is no
+            # connection between email server and its name in the DNS
+            # module. We have to hack our way around it. For UiO, simply
+            # appending ".uio.no" should work, but this is a highly
+            # unnecessary assumption. When the DNS module is revamped, we
+            # should be able to replace this ugliness.
+            server_id = row["server_id"]
+            if server_id is None:
+                return sdict
+
+            # Let's try locating the bugger:
+            host = Factory.get("Host")(self._db)
+            try:
+                host.find(server_id)
+                sdict["commandHost"] = host.name + "uio.no"
+            except Errors.NotFoundError:
+                # IVR 2008-07-24 TBD: What to do? Can we have an LDIF-entry
+                # for sympa without the host part?
+                pass
+        return sdict
+    # end get_target_info
 
     def _build_addr(self, local_part, domain):
         domain = self.mail_dom.rewrite_special_domains(domain)

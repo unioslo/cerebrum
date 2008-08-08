@@ -47,6 +47,8 @@ commands = {
     'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
     # mode, listname, admin
     'mailman': [cereconf.MAILMAN_SCRIPT, 3],
+    # host, mode, listname, admin, profile, description
+    'sympa': [cereconf.SYMPA_SCRIPT, 6],
     # operation
     'clean_rmuser': [cereconf.CLEAN_RMUSER_SCRIPT, 1],
     # dist Notes ID files
@@ -100,5 +102,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: 9718aaa9-2054-4c41-a89e-bd44cd7086df

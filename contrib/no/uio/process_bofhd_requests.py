@@ -19,16 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import getopt
-import sys
-import time
-import os
-import re
-import mx
-import imaplib
 import errno
 import fcntl
+import getopt
+import imaplib
+import mx
+import os
+import pickle
 import popen2
+import re
+import sys
+import time
 from select import select
 
 import cerebrum_path
@@ -252,7 +253,10 @@ def process_requests(types):
         'mailman':
         [(const.bofh_mailman_create, proc_mailman_create, 2*60),
          (const.bofh_mailman_add_admin, proc_mailman_add_admin, 1*60),
-         (const.bofh_mailman_remove, proc_mailman_remove, 2*60)]
+         (const.bofh_mailman_remove, proc_mailman_remove, 2*60)],
+        'sympa':
+        [(const.bofh_sympa_create, proc_sympa_create, 2*60),
+         (const.bofh_sympa_remove, proc_sympa_remove, 2*60)],
         }
     """Each type (or category) of requests consists of a list of which
     requests to process.  The tuples are operation, processing function,
@@ -651,9 +655,49 @@ def proc_mailman_create(r):
                      "to create list manually.", listname)
         return True
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-           'mailman', 'newlist', listname, admin ];
+           'mailman', 'newlist', listname, admin]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 
+
+def proc_sympa_create(request):
+    """Execute the request for creating a sympa mailing list.
+
+    @type request: ??
+    @param request:
+      An object describing the sympa list creation request.
+    """
+
+    try:
+        listname = get_address(request["entity_id"])
+    except Errors.NotFoundError:
+        logger.warn("Sympa list address %s is deleted! No need to create",
+                    listname)
+        return True
+
+    try:
+        state = pickle.loads(request["state_data"])
+    except:
+        logger.exception("Corrupt request state for sympa list=%s: %s",
+                         listname, request["state_data"])
+        return True
+    
+    try:    
+        host = state["runhost"]
+        profile = state["profile"]
+        description = state["description"]
+        admins = state["admins"]
+        admins = ",".join(admins)
+    except KeyError:
+        logger.error("No host/profile/description specified for sympa list %s",
+                     listname)
+        return True
+
+    # 2008-08-01 IVR FIXME: Safe quote everything fished out from state.
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'sympa', host, 'newlist',
+           listname, admins, profile, description]
+    return spawn_and_log_output(cmd) == EXIT_SUCCESS
+# end proc_sympa_create
+        
 
 def proc_mailman_add_admin(r):
     if dependency_pending(r['state_data']):
@@ -661,15 +705,47 @@ def proc_mailman_add_admin(r):
     listname = get_address(r['entity_id'])
     admin = get_address(r['destination_id'])
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-           'mailman', 'add_admin', listname, admin ];
+           'mailman', 'add_admin', listname, admin ]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
 def proc_mailman_remove(r):
     listname = r['state_data']
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-           'mailman', 'rmlist', listname, "dummy" ];
+           'mailman', 'rmlist', listname, ]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
+
+
+def proc_sympa_remove(request):
+    """Execute the request for removing a sympa mailing list.
+
+    @type request: ??
+    @param request:
+      A dict-like object containing all the parameters for sympa list
+      removal.
+    """
+
+    try:
+        state = pickle.loads(request["state_data"])
+    except:
+        logger.exception("Corrupt request state for sympa request %s: %s",
+                         request["request_id"], request["state_data"])
+        return True
+
+    try:
+        listname = state["listname"]
+        host = state["run_host"]
+    except KeyError:
+        logger.error("No listname/runhost specified for request %s",
+                     request["request_id"])
+        return True
+
+    # dummy params are specified, since we have a fixed number of
+    # arguments per command type (all sympa commands must pass 6 args)
+    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
+           'sympa', host, 'rmlist', listname, "dummy", "dummy", "dummy"]
+    return spawn_and_log_output(cmd) == EXIT_SUCCESS
+# end proc_sympa_remove
 
 
 def get_address(address_id):
@@ -1103,7 +1179,7 @@ def main():
         elif opt in ('-p', '--process'):
             if not types:
                 types = ['quarantine', 'delete', 'move',
-                         'email', 'mailman']
+                         'email', 'mailman', 'sympa',]
             process_requests(types)
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
@@ -1129,6 +1205,7 @@ def usage(exitcode=0):
     Legal values for --type:
       email
       mailman
+      sympa
       move
       quarantine
       delete

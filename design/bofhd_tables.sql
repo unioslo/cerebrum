@@ -33,7 +33,7 @@
 category:metainfo;
 name=bofhd;
 category:metainfo;
-version=1.1;
+version=1.2;
 
 category:main;
 CREATE TABLE bofhd_session
@@ -119,8 +119,7 @@ CREATE TABLE bofhd_request
                   REFERENCES bofhd_request_code(code),
   entity_id     NUMERIC(12,0),
   destination_id NUMERIC(12,0),
-  state_data   CHAR VARYING(80)
-               NULL
+  state_data   CHAR VARYING(4096) NULL
 );
 
 category:drop;
@@ -133,6 +132,3 @@ category:drop;
 DROP TABLE bofhd_session;
 category:drop;
 DROP SEQUENCE request_id_seq;
-
-/* arch-tag: 36c03c76-7ffe-4f84-b080-7e92073fd119
-   (do not change this comment) */

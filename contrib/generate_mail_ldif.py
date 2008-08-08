@@ -43,10 +43,45 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
 from Cerebrum.modules.LDIFutils import \
      ldapconf,map_spreads,ldif_outfile,end_ldif_outfile,container_entry_string
+from Cerebrum import Errors
 
+logger = Factory.get_logger("cronjob")
 default_spam_level = 9999
 default_spam_action = 0
 mail_dn = ldapconf('MAIL', 'dn')
+
+
+def dict_to_ldif_string(d):
+    """Stringify a dict LDIF-style.
+
+    FIXME: Should this be moved to LDIFutils.py?
+
+    Convert a dict with LDIF-attributes to a string that can be written
+    directly to an LDIF file.
+
+    @type d: dict (basestring to basestring/sequence of basestring)
+    @param d:
+      A dictionary with key,value pairs containing the attributes for some
+      LDAP object. value-part can be either a scalar (a basestring) OR a
+      sequence (list, tuple or set) thereof
+
+    @rtype: basestring
+    @return:
+      A data 'chunk' (\n-separated bunch of lines) that can be written to an
+      LDIF file directly. The resulting string is '\n'-terminated.
+    """
+
+    format = "%s: %s\n"
+    result = list()
+    for key, value in d.iteritems():
+        if isinstance(value, (list, tuple, set)):
+            result.extend(format % (key, tmp) for tmp in value)
+        else:
+            result.append(format % (key, value))
+
+    return "".join(result)
+# end dict_to_ldif_string
+    
 
 
 def write_ldif():
@@ -60,12 +95,12 @@ def write_ldif():
     for row in mail_targ.list_email_targets_ext():
         t = int(row['target_id'])
         if verbose > 1:
-            print "Target_id: %d" % t
+            logger.debug("Processing target id=%d", t)
         if not ldap.targ2addr.has_key(t):
             # There are no addresses for this target; hence, no mail
             # can reach it.  Move on.
             if verbose > 1:
-                print "No addresses for target. Moving on."
+                logger.debug("No addresses for target id=%s. Moving on.", t)
             continue
 
         tt = int(row['target_type'])
@@ -82,8 +117,8 @@ def write_ldif():
 
         counter += 1
         if verbose and (counter % 5000) == 0:
-            print "  done %d list_email_targets(): %d sec." % (
-                counter, now() - curr)
+            logger.debug("done %d list_email_targets(): %d sec.",
+                         counter, now() - curr)
             
         target = ""
         uid = ""
@@ -91,25 +126,25 @@ def write_ldif():
 
         # The structure is decided by what target-type the
         # target is (class EmailConstants in Email.py):
-        tt = Email._EmailTargetCode(int(tt))
+        tt = co.EmailTarget(int(tt))
+        if verbose > 1:
+            logger.debug("Target id=%s is of type %s", t, tt)
 
         if tt == co.email_target_account:
             # Target is the local delivery defined for the Account whose
             # account_id == email_target.target_entity_id.
-            if verbose > 1:
-                print "Target is co.email_target_account"
             target = ""
             home = ""
             if et == co.entity_account:
                 if ldap.acc2name.has_key(ei):
-                    target,home = ldap.acc2name[ei]
+                    target, home = ldap.acc2name[ei]
                 else:
-                    txt = "Target: %s(account) no user found: %s\n"% (t,ei)
-                    sys.stderr.write(txt)
+                    logger.warn("Target id=%s (type %s): no user id=%s found",
+                                t, tt, ei)
                     continue
             else:
-                txt = "Target: %s(account) wrong entity type: %s\n"% (t,ei)
-                sys.stderr.write(txt)
+                logger.warn("Target id=%s (type %s): wrong entity type: %s "
+                            "(entity_id=%s)", t, tt, et, ei)
                 continue
             
             # Find quota-settings:
@@ -131,16 +166,14 @@ def write_ldif():
             if ei in ldap.pending:
                 rest += "mailPause: TRUE\n"
 
-            # Get server-attributes if any.
-            rest += ldap.get_server_info(t, ei, home)
+            # Any server info?
+            rest += dict_to_ldif_string(ldap.get_server_info(row))
 
         elif tt == co.email_target_deleted:
             # Target type for addresses that are no longer working, but
             # for which it is useful to include of a short custom text in
             # the error message returned to the sender.  The text
             # is taken from email_target.alias_value
-            if verbose > 1:
-                print "Target is co.email_target_deleted"
             if et == co.entity_account:
                 if ldap.acc2name.has_key(ei):
                     target = ldap.acc2name[ei][0]
@@ -154,13 +187,10 @@ def write_ldif():
             # email_target.alias_value should be NULL, as they are
             # ignored.  The email address(es) to forward to is taken
             # from table email_forward.
-            if verbose > 1:
-                print "Target is co.email_target_forward"
             pass
         
-        elif tt == co.email_target_pipe or \
-             tt == co.email_target_file or \
-             tt == co.email_target_Mailman:
+        elif tt in (co.email_target_pipe, co.email_target_file, 
+                    co.email_target_Mailman, co.email_target_Sympa):
 
             # Target is a shell pipe. The command (and args) to pipe mail
             # into is gathered from email_target.alias_value.  Iff
@@ -177,23 +207,17 @@ def write_ldif():
             # Iff email_target.target_entity_id is set and belongs to an
             # Account, deliveries to this target will be run as that
             # account.
-            
-            if verbose > 1:
-                print "Target is co.email_target_(pipe,file,Mailman)"
-                
             if alias == None:
-                txt = "Target: %s(%s) needs a value in alias_value\n" % (t, tt)
-                sys.stderr.write(txt)
+                logger.warn("Target id=%s (type %s) needs an alias_value",
+                            t, tt)
                 continue
-
-            rest += "target: %s\n" % alias
 
             if run_as_id is not None:
                 if ldap.acc2name.has_key(run_as_id):
                     uid = ldap.acc2name[run_as_id][0]
                 else:
-                    txt = "Target: %s(%s) no user found: %s\n" % (t, tt, ei)
-                    sys.stderr.write(txt)
+                    logger.warn("Target id=%s (type %s) no user id=%s found",
+                                t, tt, ei)
                     continue
 
         elif tt == co.email_target_multi:
@@ -201,37 +225,28 @@ def write_ldif():
             # the Accounts that are first-level members of the Group that
             # has group_id == email_target.target_entity_id.
             
-            if verbose > 1:
-                print "Target is co.email_target_multi"
-                
             if et == co.entity_group:
                 try:
                     addrs = ldap.read_multi_target(ei)
-                except ValueError, exc:
-                    txt = "Target: %s (%s) %s\n" % (t, tt, exc)
-                    sys.stderr.write(txt)
+                except ValueError:
+                    logger.exception("Target id=%s (type %s)", t, tt)
                     continue
                 for addr in addrs:
                     rest += "forwardDestination: %s\n" % addr
             else:
                 # A 'multi' target with no forwarding; seems odd.
-                txt = "Target: %s (%s) no forwarding found.\n" % (t, tt)
-                sys.stderr.write(txt)
+                logger.warn("Target id=%s (type %s) no forwarding found", t, tt)
                 continue 
 
         else:
             # The target-type isn't known to this script.
-            sys.stderr.write("Wrong target-type in target: %s: %s\n" % ( t, tt ))
+            logger.error("Wrong target-type in target id=%s: %s", t, tt)
             continue
 
         f.write("dn: cn=d%s,%s\n" % (t, mail_dn))
         f.write("objectClass: mailAddr\n")
         f.write("cn: d%s\n" % t)
-        f.write("targetType: %s\n" % ldap.get_targettype(tt))
-        if target:
-            # You may want to change the way targets appear.
-            # Hence the call to ldap.get_target()
-            f.write("target: %s\n" % ldap.get_target(ei,t))
+        f.write(dict_to_ldif_string(ldap.get_target_info(row)))
         if uid:
             f.write("uid: %s\n" % uid)
         if rest:
@@ -242,8 +257,8 @@ def write_ldif():
             if ldap.aid2addr.has_key(ldap.targ2prim[t]):
                 f.write("defaultMailAddress: %s\n" % ldap.aid2addr[ldap.targ2prim[t]])
             else:
-                print "Strange: t: %d, targ2prim[t]: %d, but no aid2addr" % (
-                    t, ldap.targ2prim[t])
+                logger.debug("Strange: target id=%d, targ2prim[t]: %d, but no aid2addr",
+                             t, ldap.targ2prim[t])
             
         # Find addresses for target:
         for a in ldap.targ2addr[t]:
@@ -255,7 +270,9 @@ def write_ldif():
                 if enable == 'T':
                     f.write("forwardDestination: %s\n" % addr)
 
-        if tt in (co.email_target_account, co.email_target_Mailman):
+        if tt in (co.email_target_account,
+                  co.email_target_Mailman,
+                  co.email_target_Sympa):
             # Find spam-settings:
             if ldap.targ2spam.has_key(t):
                 level, action = ldap.targ2spam[t]
@@ -296,7 +313,7 @@ def write_ldif():
                 txt = "No auth-data for user: %s\n" % (target or ei)
                 sys.stderr.write(txt)
 
-        misc = ldap.get_misc(ei, t, tt)
+        misc = ldap.get_misc(row)
         if misc:
             f.write("%s\n" % misc)
         f.write("\n")
@@ -306,82 +323,80 @@ def get_data(spread):
     start = now()
 
     if verbose:
-        print "Starting read_prim()..."
+        logger.debug("Starting read_prim()...")
         curr = now()
     ldap.read_prim()
     if verbose:
-        print "  done in %d sec." % (now() - curr)       
-        print "Starting read_virus()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_virus()...")
         curr = now()
     ldap.read_virus()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting read_spam()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_spam()...")
         curr = now()
     ldap.read_spam()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting read_target_filter()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_target_filter()...")
         curr = now()
     ldap.read_target_filter()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting read_quota()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_quota()...")
         curr = now()
     ldap.read_quota()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting read_addr()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_addr()...")
         curr = now()
     ldap.read_addr()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting read_server()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_server()...")
         curr = now()    
     ldap.read_server(spread)
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting read_vacation()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_vacation()...")
         curr = now()    
     ldap.read_vacation()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting read_forward()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_forward()...")
         curr = now()    
     ldap.read_forward()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting read_account()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting read_account()...")
         curr = now()    
     ldap.read_accounts(spread)
     if verbose:
-        print "  done in %d sec." % (now() - curr)
+        logger.debug("  done in %d sec." % (now() - curr))
     if auth:
         if verbose:
-            print "Starting read_target_auth_data()..."
+            logger.debug("Starting read_target_auth_data()...")
             curr = now()
         ldap.read_target_auth_data()
         if verbose:
-            print "  done in %d sec." % (now() - curr)
+            logger.debug("  done in %d sec." % (now() - curr))
     if verbose:
-        print "Starting read_misc()..."
+        logger.debug("Starting read_misc()...")
         curr = now()
     # ldap.read_misc_target() is by default empty. See EmailLDAP for details.
     ldap.read_misc_target()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Starting write_ldif()..."
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Starting write_ldif()...")
         curr = now()
     write_ldif()
     if verbose:
-        print "  done in %d sec." % (now() - curr)
-        print "Total time: %d" % (now() - start)
+        logger.debug("  done in %d sec." % (now() - curr))
+        logger.debug("Total time: %d" % (now() - start))
 
-    
+
 def main():
     global verbose, f, db, co, ldap, auth
-    
-    Factory.get_logger("cronjob")
     try:
         opts, args = getopt.getopt(sys.argv[1:], "vm:s:iha",
                                    ("verbose", "mail-file=", "spread=",
@@ -419,16 +434,17 @@ def main():
     f = ldif_outfile('MAIL', mail_file, max_change=max_change)
     get_data(spread)
     end_ldif_outfile('MAIL', f)
+# end main
 
 
 def usage(err=0):
     if err:
-        print >>sys.stderr, err
-    print >>sys.stderr, __doc__
+        logger.error("%s", err)
+
+    logger.error(__doc__)
     sys.exit(bool(err))
+# end usage
 
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: 86f71049-3a59-4b33-a5c6-f5267a12900b

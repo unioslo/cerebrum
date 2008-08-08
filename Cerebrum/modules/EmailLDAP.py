@@ -71,24 +71,85 @@ class EmailLDAP(DatabaseAccessor):
     def get_targettype(self, targettype):
         return str(targettype)
 
-    def get_target(self, entity_id, target_id):
-        return self.acc2name[entity_id][0]
+    def get_target_info(self, row):
+        """Return additional EmailLDAP-entry derived from L{row}.
 
-    def get_server_info(self, target, entity, home):
-        # Find mail-server settings:
-        uname = self.acc2name[entity][0]
-        sinfo = ""
-        if self.targ2server_id.has_key(target):
-            type, name = self.serv_id2server[int(self.targ2server_id[target])]
-            if type == self.const.email_server_type_nfsmbox:
-                if not home:
-                    home = "/home/%s" % uname
-                maildrop = "/var/spool/mail"
-                sinfo += "spoolInfo: home=%s maildrop=%s/%s\n" % (
-                    home, maildrop, uname)
-            elif type == self.const.email_server_type_cyrus:
-                sinfo += "IMAPserver: %s\n" % name
-        return sinfo
+        Return site-specific mail-ldap-information pertaining to the
+        EmailTarget info in L{row}.
+
+        @type row: db-row instance
+        @param row:
+          A db-row holding one result of L{list_email_targets_ext}.
+
+        @rtype: dict
+        @return:
+          A dictinary mapping attributes to values for the specified
+          EmailTarget in L{row}. 
+        """
+
+        co = self.const
+        target_type = co.EmailTarget(int(row["target_type"]))
+        alias = row['alias_value']
+        ei = row['target_entity_id']
+        if ei is not None:
+            ei = int(ei)
+        et = row['target_entity_type']
+        if et is not None:
+            et = int(et)
+
+        result = {"targetType": self.get_targettype(target_type),}
+        if target_type in (co.email_target_Mailman, co.email_target_Sympa,
+                           co.email_target_pipe, co.email_target_file):
+            result["target"] = alias
+        elif target_type in (co.email_target_account, co.email_target_deleted):
+            if et == co.entity_account and ei in self.acc2name:
+                target, junk = self.acc2name[ei]
+                result["target"] = target
+
+        return result
+    # end get_target_info
+
+        
+    def get_server_info(self, row):
+        """Return additional mail server info for EmailLDAP-entry derived
+        from row.
+
+        Return additional mail server information for certain
+        EmailTargets. Specifically, server info is gathered for
+        email_target_account only (the rest we don't care about).
+
+        @param row: cf. L{get_target_info}
+
+        @rtype: dict (basestring to basestring)
+        @return:
+          A dictionary with additional attributes for the EmailLDAP-entry
+          based on L{row}.
+        """
+
+        target = int(row["target_id"])
+        ei = row['target_entity_id']
+        if ei is not None:
+            ei = int(ei)
+        uname, home = self.acc2name.get(ei, (None, None))
+        result = dict()
+
+        if target not in self.targ2server_id:
+            return result
+
+        server_type, server_name = self.serv_id2server[
+                                       int(self.targ2server_id[target])]
+        if server_type == self.const.email_server_type_nfsmbox:
+            if not home:
+                home = "/home/%s" % uname
+            maildrop = "/var/spool/mail"
+            result["spoolInfo"] = "home=%s maildrop=%s/%s" % (home,
+                                                              maildrop,
+                                                              uname)
+        elif server_type == self.const.email_server_type_cyrus:
+            result["IMAPserver"] = server_name
+
+        return result
+    # end get_server_info
     
     
     def read_addr(self):
@@ -300,8 +361,9 @@ class EmailLDAP(DatabaseAccessor):
         # between them.
         pass
 
-    def get_misc(self, entity_id, target_id, email_target_type):
-        # Return optional strings to the script.
-        pass
-    
-# arch-tag: ec5fc24f-7ccb-415c-a0f9-c87c7230a2cb
+    def get_misc(self, row):
+        """Return optional strings to the script."""
+        return dict()
+    # end get_misc
+
+# end class EmailLDAP

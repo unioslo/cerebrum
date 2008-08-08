@@ -120,9 +120,22 @@ command_help = {
         "Add address feeding an archive of a list",
     "email_create_list":
         "Add addresses needed for a Mailman list",
+    "email_create_sympa_list":
+        "Add addresses needed for a Sympa list",
+    "email_create_sympa_cerebrum_list":
+        "Add addresses needed for a Sympa list (Cerebrum only)",
     "email_create_list_alias":
        "Add an alias for a Mailman list.  This also adds additional "\
        "-owner and -request addresses.",
+    "email_create_sympa_list_alias":
+       "Add an alias for a Sympa list.  This also adds additional addresses "
+       "(e.g. -owner, -request, etc.)",
+    "email_remove_list_alias":
+       "Remove an alias for a Mailman list. This also removes additional "
+       "administrative addresses (-owner, -request, etc.)",
+    "email_remove_sympa_list_alias":
+       "Remove an alias for a Sympa list. This also removes additional "
+       "administrative addresses (-owner, -request, etc.)",
     "email_create_multi":
         "Make an e-mail target which expands to the members of a group",
     "email_create_pipe":
@@ -133,6 +146,8 @@ command_help = {
         "Remove address for a Mailman archive",
     "email_delete_list":
         "Remove a Mailman list's addresses",
+    "email_delete_sympa_list":
+        "Remove a Sympa list's addresses",
     "email_delete_multi":
         "Remove a multi target and all its addresses",
     "email_edit_pipe_command":
@@ -466,15 +481,19 @@ abbreviated.  (Some of the types may not make sense for this command.)
         ['number', 'Number of results for query',
          "Gives upper limit for how many entries to include, counting " +
          "backwards from the most recent. Default (when left empty) is 100"],
-    'mailman_admins':
+    'mailing_admins':
         ['addresses', 'Enter comma separated list of administrators for '+
-         'the Mailman list'],
-    'mailman_list':
-        ['address', 'Enter address for Mailman list'],
-    'mailman_list_alias':
-        ['address', 'Enter alias for a Mailman list'],
-    'mailman_list_exist':
-        ['address', 'Enter address of existing Mailman list'],
+         'a mailing list'],
+    'mailing_list':
+        ['address', 'Enter address for a mailing list'],
+    'mailing_list_alias':
+        ['address', 'Enter alias for a mailing list'],
+    'mailing_list_exist':
+        ['address', 'Enter address of an existing mailing list'],
+    'mailing_list_profile':
+        ['list_profile', 'Enter mailing list profile'],
+    'mailing_list_description':
+        ['list_description', 'Enter mailing list description'],
     'move_type':
         ['move_type', 'Enter move type',
          """Legal move types:
@@ -592,6 +611,10 @@ printer."""],
 	['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: cyrus02'],
+    'string_exec_host':
+        ['run_host', 'Enter host (fqdn) for command execution'],
+    'string_email_delivery_host':
+        ['delivery_host', 'Enter hostname for mail delivery. Example: sympa'],
     'string_email_move_type':
         ['email_move_type', 'Enter e-mail move type',
          """Legal move types:

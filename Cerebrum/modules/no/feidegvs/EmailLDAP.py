@@ -31,12 +31,21 @@ class EmailLDAPFeideGvsMixin(EmailLDAP):
         self.__super.__init__(db)
         self.a_id2name = {}
   
-    def get_target(self, entity_id, target_id):
+    def get_target_info(self, row):
+        result = super(EmailLDAPFeideGvsMixin, self).get_target_info(row)
+        target_id = int(row["target_id"])
+        entity_id = row['target_entity_id']
+        if entity_id is not None:
+            entity_id = int(entity_id)
+
         tmp_addr = self.aid2addr[self.targ2prim[target_id]]
         lp, dom = string.split(tmp_addr, '@')
         target = self.acc2name[entity_id][0]
-        return "%s@%s" % (target, dom)
-
+        # EmailLDAP.get_target_info also makes a "target" key, which we
+        # overwrite here.
+        result["target"] = "%s@%s" % (target, dom)
+        return result
+    # end get_target_info
 
     def read_misc_target(self):
         p = Factory.get('Person')(self._db)
@@ -50,9 +59,15 @@ class EmailLDAPFeideGvsMixin(EmailLDAP):
             if p_id2name.has_key(o_id):
                 self.a_id2name[a_id] = p_id2name[o_id]
 
-    def get_misc(self, entity_id, target_id, email_target_type):
-        txt = ""
+    def get_misc(self, row):
+        entity_id = row['target_entity_id']
+        if entity_id is not None:
+            entity_id = int(entity_id)
+        
+        result = dict()
         if self.a_id2name.has_key(entity_id):
-            txt = "name: %s\n" % self.a_id2name[entity_id]
-        return txt
-# arch-tag: 26ce1aea-d940-4e0d-83b5-78b4e0e7b822
+            result["name"] = self.a_id2name[entity_id]
+        return result
+    # end get_misc
+
+# end class EmailLDAPFeideGvsMixin

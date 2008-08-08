@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2005 University of Oslo, Norway
+# Copyright 2002-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -184,6 +184,15 @@ class Constants(Constants.Constants):
     bofh_mailman_remove = _BofhdRequestOpCode('br_mm_remove',
                                               'Remove mailman list')
 
+    # Sympa lists are much like Mailman lists...
+    bofh_sympa_create = _BofhdRequestOpCode("br_sym_create",
+                                            "Create a sympa list")
+
+    bofh_sympa_remove = _BofhdRequestOpCode("br_sym_remove",
+                                            "Remove a sympa list")
+    
+    
+
 class BofhdRequests(object):
     def __init__(self, db, const, id=None):
         self._db = db
@@ -240,6 +249,8 @@ class BofhdRequests(object):
             int(const.bofh_mailman_add_admin): None,
             int(const.bofh_mailman_remove): [const.bofh_mailman_create,
                                              const.bofh_mailman_add_admin],
+            int(const.bofh_sympa_create): [const.bofh_sympa_remove],
+            int(const.bofh_sympa_remove): [const.bofh_sympa_create,],
             int(const.bofh_quarantine_refresh): None,
             int(const.bofh_email_restore): [const.bofh_email_create,
                                             const.bofh_email_hquota],

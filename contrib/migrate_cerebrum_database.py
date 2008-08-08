@@ -38,7 +38,7 @@ targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12'),
-    'bofhd': ('bofhd_1_1', ),
+    'bofhd': ('bofhd_1_1', 'bofhd_1_2',),
     'changelog': ('changelog_1_2', ),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
@@ -488,6 +488,15 @@ def migrate_to_bofhd_1_1():
     print "Migration to bofhd 1.1 completed successfully"
     db.commit()
 
+def migrate_to_bofhd_1_2():
+    print "\ndone."
+    assert_db_version("1.1", component='bofhd')
+    makedb('bofhd_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_bofhd", "1.2")
+    print "Migration to bofhd 1.2 completed successfully"
+    db.commit()
+# end migrate_to_bofhd_1_2
 
 def migrate_to_changelog_1_2():
     print "\ndone."

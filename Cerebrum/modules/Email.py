@@ -223,6 +223,13 @@ class EmailConstants(Constants.Constants):
         "  Iff email_target.using_uid is set, deliveries to this target"
         " will be run as that PosixUser.")
 
+    email_target_Sympa = _EmailTargetCode(
+        'Sympa',
+        "Target is a Sympa mailing list.  The command (and args) to"
+        " pipe mail into is gathered from email_target.alias_value."
+        "  Iff email_target.using_uid is set, deliveries to this target"
+        " will be run as that PosixUser.")
+
     email_target_multi = _EmailTargetCode(
         'multi',
         "Target is the set of `account`-type targets corresponding to"
@@ -614,7 +621,7 @@ class EmailTarget(Entity_class):
 
         For each row, the following columns are included:
           target_id, target_type, target_entity_type, target_entity_id,
-          alias_value and using_uid.
+          alias_value, using_uid and server_id.
 
         """
         return self.query("""
