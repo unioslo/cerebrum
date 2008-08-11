@@ -133,19 +133,19 @@ class Job(object):
         for row in ac.list_traits(co.trait_ad_profile_path):
             unpickle_val = cPickle.loads(str(row['strval']))
             self.entity_id2profile_path[int(row['entity_id'])] = unpickle_val
-        logger.debug("Found %i profile-path traits" % len(self.entity_id2profile_path))
+        logger.info("Found %i profile-path traits" % len(self.entity_id2profile_path))
 
         self.entity_id2homedir = {}
         for row in ac.list_traits(co.trait_ad_homedir):
             unpickle_val = cPickle.loads(str(row['strval']))
             self.entity_id2homedir[int(row['entity_id'])] = unpickle_val
-        logger.debug("Found %i homedir traits" % len(self.entity_id2homedir))
+        logger.info("Found %i homedir traits" % len(self.entity_id2homedir))
 
         self.entity_id2account_ou = {}
         for row in ac.list_traits(co.trait_ad_account_ou):
             unpickle_val = cPickle.loads(str(row['strval']))
             self.entity_id2account_ou[int(row['entity_id'])] = unpickle_val
-        logger.debug("Found %i ou traits" % len(self.entity_id2account_ou))
+        logger.info("Found %i ou traits" % len(self.entity_id2account_ou))
 
         self._adm_rules = ADMappingRules.Adm()
         self._fag_rules = ADMappingRules.Fag()
@@ -180,7 +180,7 @@ class Job(object):
                         f.write("%s;%s;%s;%s\n" % (entity_id2uname[e_id],
                                                    spread2domain[int(spread)],
                                                    old_val, new_val))
-            logger.debug("Wrote user_diff_ad_attrs to file %s" % file_name)
+            logger.info("Wrote user_diff_ad_attrs to file %s" % file_name)
         except IOError:
             logger.warning("Couldn't open file %s" % file_name)
         else:
@@ -208,8 +208,8 @@ class Job(object):
                 cn, profile_path, homedir = self.calc_ad_attrs(entity_id, spread)
                 ou_val = cn[cn.find(",")+1:]
                 entity_id2uname[entity_id] = ac.account_name
-                logger.debug("Calculated values for %i: cn=%s,%s pp=%s, homedir=%s" % (
-                    entity_id, ac.account_name, ou_val, profile_path, homedir))
+                #logger.debug("Calculated values for %i: cn=%s,%s pp=%s, homedir=%s" % (
+                #    entity_id, ac.account_name, ou_val, profile_path, homedir))
             except Job.CalcError, v:
                 logger.warn(v)
                 continue
@@ -267,23 +267,32 @@ class Job(object):
         ac.clear()
         ac.find(entity_id)
         # get and set spread<->profile_path mapping for this user
-        pp_mapping = self.entity_id2profile_path.get(entity_id, {})
-        pp_mapping[int(spread)] = str(profile_path)
+        pp_mapping = self._get_trait(ac, co.trait_ad_profile_path)
         ac.populate_trait(co.trait_ad_profile_path,
                           strval=cPickle.dumps(pp_mapping))
         # get and set spread<->homedir mapping for this user
-        homedir_mapping = self.entity_id2homedir.get(entity_id, {})
+        homedir_mapping = self._get_trait(ac, co.trait_ad_profile_path)
         homedir_mapping[int(spread)] = str(homedir)
         ac.populate_trait(co.trait_ad_homedir,
                           strval=cPickle.dumps(homedir_mapping))
         # get and set spread<->ou mapping for this user
-        ou_mapping = self.entity_id2account_ou.get(entity_id, {})
+        ou_mapping = self._get_trait(ac, co.trait_ad_profile_path)
         ou_mapping[int(spread)] = str(ou_val)
         ac.populate_trait(co.trait_ad_account_ou,
                           strval=cPickle.dumps(ou_mapping))
         ac.write_db()
-        logger.debug("OU, profile_path and homedir trait populated for account %d",
+        logger.info("OU, profile_path and homedir trait populated for account %d",
                      entity_id)
+
+    def _get_trait(self, account, trait_const):
+        """
+        Return trait of given type for this user
+        """
+        tmp = account.get_trait(co.trait_const)
+        if not tmp:
+            return {}
+        else:
+            return cPickle.loads(str(tmp['strval']))
 
     def calc_ad_attrs(self, entity_id, spread):
         ac.clear()
