@@ -249,8 +249,6 @@ class Job(object):
                 # ad attrs for this user in the given domain exists. Compare with new values
                 if not attr_eq(attr, ad_trait[spread]):
                     # New AD attrs are not equal the old ones
-                    logger.debug("New and old ad attrs not equal for user %s."
-                                 % entity_id)
                     # Where attr differs, store as a 2d mapping:
                     # user <-> {spread <-> [(old attr, new attr)]}
                     if not entity_id in user_diff_attrs:
@@ -270,17 +268,17 @@ class Job(object):
         ac.find(entity_id)
         # get and set spread<->profile_path mapping for this user
         pp_mapping = self.entity_id2profile_path.get(entity_id, {})
-        pp_mapping[spread] = profile_path
+        pp_mapping[int(spread)] = str(profile_path)
         ac.populate_trait(co.trait_ad_profile_path,
                           strval=cPickle.dumps(pp_mapping))
         # get and set spread<->homedir mapping for this user
         homedir_mapping = self.entity_id2homedir.get(entity_id, {})
-        homedir_mapping[spread] = homedir
+        homedir_mapping[int(spread)] = str(homedir)
         ac.populate_trait(co.trait_ad_homedir,
                           strval=cPickle.dumps(homedir_mapping))
         # get and set spread<->ou mapping for this user
         ou_mapping = self.entity_id2account_ou.get(entity_id, {})
-        ou_mapping[spread] = ou_val
+        ou_mapping[int(spread)] = str(ou_val)
         ac.populate_trait(co.trait_ad_account_ou,
                           strval=cPickle.dumps(ou_mapping))
         ac.write_db()
