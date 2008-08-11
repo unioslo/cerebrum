@@ -268,6 +268,7 @@ class Job(object):
         ac.find(entity_id)
         # get and set spread<->profile_path mapping for this user
         pp_mapping = self._get_trait(ac, co.trait_ad_profile_path)
+        pp_mapping[int(spread)] = str(profile_path)
         ac.populate_trait(co.trait_ad_profile_path,
                           strval=cPickle.dumps(pp_mapping))
         # get and set spread<->homedir mapping for this user
