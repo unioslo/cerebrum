@@ -272,12 +272,12 @@ class Job(object):
         ac.populate_trait(co.trait_ad_profile_path,
                           strval=cPickle.dumps(pp_mapping))
         # get and set spread<->homedir mapping for this user
-        homedir_mapping = self._get_trait(ac, co.trait_ad_profile_path)
+        homedir_mapping = self._get_trait(ac, co.trait_ad_homedir)
         homedir_mapping[int(spread)] = str(homedir)
         ac.populate_trait(co.trait_ad_homedir,
                           strval=cPickle.dumps(homedir_mapping))
         # get and set spread<->ou mapping for this user
-        ou_mapping = self._get_trait(ac, co.trait_ad_profile_path)
+        ou_mapping = self._get_trait(ac, co.trait_ad_account_ou)
         ou_mapping[int(spread)] = str(ou_val)
         ac.populate_trait(co.trait_ad_account_ou,
                           strval=cPickle.dumps(ou_mapping))
@@ -289,7 +289,7 @@ class Job(object):
         """
         Return trait of given type for this user
         """
-        tmp = account.get_trait(co.trait_const)
+        tmp = account.get_trait(trait_const)
         if not tmp:
             return {}
         else:
