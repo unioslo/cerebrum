@@ -223,7 +223,8 @@ def populate_enhet_groups(enhet_id, role_mapping):
             all_resp[account_id] = 1
         logger.debug("all_resp: '%s'" % all_resp)
     except KeyError:
-        logger.warning("Unable to find any responsibles for '%s'" % kurs_id)                    
+        # TODO: This might warrant a warning, but we need to discuss it with NMH
+        logger.info("Unable to find any responsibles for '%s'" % kurs_id)                    
     sync_group(kurs_id, mk_gname("%s:ansvar" % enhet_id),
                "Ansvarlige %s %s %s%s" % (emnekode, termk, aar, enhet_suffix),
                constants.entity_account, all_resp);
