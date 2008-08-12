@@ -41,8 +41,16 @@ class GroupHiAMixin(Group.Group):
                          'server-orrhane',
                          'server-rype']
         group = Factory.get("Group")(self._db)
+        dest_group = Factory.get("Group")(self._db)
+        try:
+            dest_group.clear()
+            dest_group.find(self.entity_id)
+        except Errors.NotFoundError:
+            raise self._db.IntegrityError, \
+                  'Cannot add members to a non-existing group!'
+        dest_group_name = dest_group.group_name
         account = Factory.get("Account")(self._db)
-        if type == int(self.const.entity_account):
+        if type == int(self.const.entity_account) and dest_group_name in server_groups:
             account.clear()
             account.find(member_id)
             for g in server_groups:
