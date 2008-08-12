@@ -130,7 +130,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 pass
         elif target_type == self.const.email_target_account:
             if target_id in self.targ2ulrik_addr:
-                sdict["listaddress"] = self.targ2ulrik_addr[target_id]
+                sdict["stableMailAddress"] = self.targ2ulrik_addr[target_id]
             
         return sdict
     # end get_target_info
