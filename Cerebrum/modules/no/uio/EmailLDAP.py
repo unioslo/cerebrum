@@ -38,6 +38,11 @@ class EmailLDAPUiOMixin(EmailLDAP):
         self.__super.__init__(db)
         self.mail_dom = Email.EmailDomain(self._db)
 
+        # mapping between a target id and its ulrik.uio.no-address. This is
+        # required for account email_targets at postmasters' request.
+        self.targ2ulrik_addr = {}
+    # end __init__
+
     spam_act2dig = {'noaction':   '0',
                     'spamfolder': '1',
                     'dropspam':   '2',
@@ -101,6 +106,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
 
         sdict = super(EmailLDAPUiOMixin, self).get_target_info(row)
         target_type = self.const.EmailTarget(int(row['target_type']))
+        target_id = int(row["target_id"])
         if target_type in (self.const.email_target_Sympa,):
             # host info
             # IVR 2008-07-24 FIXME: This is really ugly. For now there is no
@@ -122,6 +128,10 @@ class EmailLDAPUiOMixin(EmailLDAP):
                 # IVR 2008-07-24 TBD: What to do? Can we have an LDIF-entry
                 # for sympa without the host part?
                 pass
+        elif target_type == self.const.email_target_account:
+            if target_id in self.targ2ulrik_addr:
+                sdict["listaddress"] = self.targ2ulrik_addr[target_id]
+            
         return sdict
     # end get_target_info
 
@@ -168,6 +178,9 @@ class EmailLDAPUiOMixin(EmailLDAP):
                     # addresses.
         for row in mail_addr.list_email_addresses_ext():
             lp, dom = row['local_part'], row['domain']
+            if (dom == "ulrik.uio.no"):
+                self.targ2ulrik_addr[int(row["target_id"])] = lp + "@" + dom
+                
             # If this address is in a domain that is subject to overrides
             # from "magic" domains, and the local_part was overridden, skip
             # this row from being added to targ2addr.
