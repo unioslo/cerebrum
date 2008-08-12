@@ -322,6 +322,12 @@ class EdirUtils:
 
         if len(desc) <= 4:
             desc.append(description)
+        elif len(desc) > 5:
+            i = 1
+            max_length = len(desc) - 4
+            while i < max_length:
+                desc.pop(1)
+            desc.append(description)
         else:
             desc.pop(1)
             desc.append(description)
