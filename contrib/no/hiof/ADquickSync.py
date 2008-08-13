@@ -43,7 +43,11 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
         for ans in answer:
             if ans['change_type_id'] == self.co.account_password:
                 pw = pickle.loads(ans['change_params'])['password']
-                self.change_pw(ans['subject_entity'],spread, pw, dry_run)
+                try:
+                    self.change_pw(ans['subject_entity'],spread, pw, dry_run)
+                except xmlrpclib.ProtocolError, xpe:
+                    logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                                    (xpe.errcode, xpe.errmsg))
             else:
                 self.logger.debug("unknown change_type_id %i",
                                   ans['change_type_id'])
