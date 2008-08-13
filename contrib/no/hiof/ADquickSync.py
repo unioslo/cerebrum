@@ -21,6 +21,7 @@
 
 
 import getopt, sys, pickle
+import xmlrpclib
 import cerebrum_path
 import cereconf
 
@@ -46,8 +47,8 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
                 try:
                     self.change_pw(ans['subject_entity'],spread, pw, dry_run)
                 except xmlrpclib.ProtocolError, xpe:
-                    logger.critical("Error connecting to AD service. Giving up!: %s %s" %
-                                    (xpe.errcode, xpe.errmsg))
+                    self.logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                                         (xpe.errcode, xpe.errmsg))
             else:
                 self.logger.debug("unknown change_type_id %i",
                                   ans['change_type_id'])
