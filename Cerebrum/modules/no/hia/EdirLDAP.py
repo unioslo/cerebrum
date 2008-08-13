@@ -169,8 +169,10 @@ class LDAPConnection:
             self.__logger.debug("Successfully modified object %s (%s)." % (dn,
                                                                           attrs))
         except ldap.LDAPError, e:
-            if re.search('userPassword', e):
+            if re.search('userPassword', str(e)):
                 e = "Password change failed"
+            elif re.search('.*duplicate value.*', str(e)):
+                e = "NDS error: duplicate value (-614)"
             self.__logger.warn("Could not modify object %s (%s)." % (dn,
                                                                      str(e)))
 
@@ -190,5 +192,3 @@ class LDAPConnection:
             except ldap.LDAPError, e:
                 self.__logger.warn("Could not rename object %s (%s)." % (dn,
                                                                           str(e)))
-
-# arch-tag: 5da697b0-5cb2-11da-8d27-542eaf022ad8
