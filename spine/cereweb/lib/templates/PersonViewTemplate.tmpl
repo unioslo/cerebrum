@@ -88,15 +88,22 @@
         <input type="hidden" value="$html_quote($person_id)" name="owner" />
         #for $account in $allaccounts
         #set $account_id = $html_quote($account.get_id())
-        #set $account_name = $html_quote($account.get_name())
+
+        ## need a copy for comparing against the primary
+        ##  which is not quoted.
+        #set $acc_name_cmp = $account.get_name()
+        #set $account_name = $html_quote($acc_name_cmp)
         <div>
             <input type="checkbox" name="account_$account_id" />
             <em>$_('Account'):</em>$account_name
             $object_link($account, "view", _class="action")
             $object_link($account, "edit", "edit", _class="action")
             $remember_link($account, _class="action")
-            #if $account_name == $primary
-                <span class="extra">(primary)</span>
+            ## no point in checking unless we have a primary
+            #if $primary
+                #if $acc_name_cmp == $primary
+                    <span class="extra">(primary)</span>
+                #end if
             #end if
             #if $account.is_posix()
                 <span class="extra">(posix)</span>
