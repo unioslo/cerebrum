@@ -675,7 +675,7 @@ def proc_sympa_create(request):
         return True
 
     try:
-        state = pickle.loads(request["state_data"])
+        state = pickle.loads(str(request["state_data"]))
     except:
         logger.exception("Corrupt request state for sympa list=%s: %s",
                          listname, request["state_data"])
@@ -726,7 +726,7 @@ def proc_sympa_remove(request):
     """
 
     try:
-        state = pickle.loads(request["state_data"])
+        state = pickle.loads(str(request["state_data"]))
     except:
         logger.exception("Corrupt request state for sympa request %s: %s",
                          request["request_id"], request["state_data"])
