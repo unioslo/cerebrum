@@ -361,7 +361,8 @@ def clean_affi_s_list():
             [ent_id,ou,affi] = [int(x) for x in k.split(':')]
             new_person.clear()
             new_person.entity_id = int(ent_id)
-            affs=new_person.list_affiliations(ent_id,affiliation=affi,ou_id=ou)
+            affs=new_person.list_affiliations(ent_id,affiliation=affi,ou_id=ou,
+                source_system=const.system_paga)
             for aff in affs:
                 last_date = datetime.datetime.fromtimestamp(aff['last_date'])
                 end_grace_period = last_date +\
