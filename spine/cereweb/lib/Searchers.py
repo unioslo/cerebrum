@@ -430,6 +430,7 @@ class PersonSearcher(Searcher):
 
         name = form.get('name', '').strip()
         if name:
+            name = '*' + name + '*'
             name = name.replace(" ", "*")
             variant = self.transaction.get_name_type('FULL')
             source = self.transaction.get_source_system('Cached')
