@@ -281,9 +281,13 @@ class AccountUtil(object):
             if not already_member.has_key(g):
                 group_obj.clear()
                 group_obj.find(g)
-                group_obj.add_member(account_id, const.entity_account,
-                                 const.group_memberop_union)
-                changes.append(("g_add", group_obj.group_name))
+                try:
+                    group_obj.add_member(account_id, const.entity_account,
+                                         const.group_memberop_union)
+                    changes.append(("g_add", group_obj.group_name))
+                except db.IntegrityError, m:
+                    logger.info("Did not give membership because: %s", m)
+                    continue
             else:
                 del already_member[g]
         if remove_groupmembers:
