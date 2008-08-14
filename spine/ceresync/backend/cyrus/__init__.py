@@ -216,8 +216,11 @@ class Account:
                     return result
 
                 for folderinfo in mailboxes:
-                    folder = get_folder(folderinfo)
-                    co.sam(self.group,folder,co.admin,co.admin_acl)
+                    try:
+                        folder = get_folder(folderinfo)
+                        co.sam(self.group,folder,co.admin,co.admin_acl)
+                    except Exception, e:
+                        log.warning("Failed to change permission on mailbox '%s' for user '%s': %s", str(folderinfo), str(obj.name), str(e)) 
             
             if really_delete:
                 try:
