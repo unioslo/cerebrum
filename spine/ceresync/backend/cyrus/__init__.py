@@ -86,12 +86,16 @@ class Account:
         conn.login(cyrusconf.binduser,cyrusconf.bindpw)
         return conn
 
-    def close(self):
+    def close(self, allow_delete=True):
         """
         Close all connections to all Cyrus-backends
         """
         if not self.incr :
-            self.syncronize()
+            if allow_delete:
+                log.info('Removing users not in cerebrum')
+                self.syncronize()
+            else:
+                log.info('Closing without removing users')
         for conn in self._conns.keys():
             co = self._conns[conn].get("auth")
             co.auth = False # Hehehe.. it actually works
