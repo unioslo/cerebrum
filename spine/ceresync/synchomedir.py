@@ -31,16 +31,19 @@ dryrun=False
 
 def setup_home(path, uid, gid):
     if not os.path.isdir(path):
+        parent= os.path.dirname(path)
+        if not os.path.isdir(parent):
+            os.mkdir(parent, 0755)
         os.mkdir(path, 0700)
         os.chown(path, uid, gid)
-	return True
+        return True
     else:
         return False
 
 class sync(object):
     def __init__(self):
         self.connection = SpineClient.SpineClient(config=config.conf,
-						  logger=config.logger).connect()
+                          logger=config.logger).connect()
         self.session = self.connection.login(config.conf.get('spine', 'login'),
                                    config.conf.get('spine', 'password'))
         self.tr = self.session.new_transaction()
