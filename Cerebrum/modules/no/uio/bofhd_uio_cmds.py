@@ -2193,10 +2193,15 @@ class BofhdExtension(object):
         request for the actual list creation.
         """
 
-        # Check that the profile is legal:
+        # Check that the profile is legal
         if list_profile not in cereconf.SYMPA_PROFILES:
             raise CerebrumError("Profile %s for sympa list %s is not valid" %
                                 (list_profile, listname))
+
+        # Check that the command exec host is sane
+        if run_host not in cereconf.SYMPA_RUN_HOSTS:
+            raise CerebrumError("run-host %s for sympa list %s is not valid" %
+                                (run_host, listname))
 
         metachars = "'\"$&()*;<>?[\\]`{|}~\n"
         def has_meta(s1, s2=metachars):
@@ -2500,9 +2505,14 @@ class BofhdExtension(object):
                 ea.clear()
                 ea.find_by_address(addr)
             except Errors.NotFoundError:
-                raise CerebrumError("While removing alias '%s', could not "
-                                    "locate secondary address '%s'" %
-                                    (alias, addr))
+                # Even if one of the addresses is missing, it does not matter
+                # -- we are removing the alias anyway. The right thing to do
+                # here is to continue, as if deletion worked fine. Note that
+                # the ET belongs to the original address, not the alias, so if
+                # we don't delete it when the *alias* is removed, we should
+                # still be fine.
+                continue
+
             try:
                 et.clear()
                 et.find(ea.email_addr_target_id)
@@ -2574,9 +2584,26 @@ class BofhdExtension(object):
         ("email", "delete_sympa_list"),
         SimpleString(help_ref='string_exec_host'),
         EmailAddress(help_ref="mailing_list_exist"),
+        YesNo(help_ref="yes_no_with_request"),
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_list_delete")
-    def email_delete_sympa_list(self, operator, run_host, listname):
+    def email_delete_sympa_list(self, operator, run_host, listname,
+                                force_request):
+        """Remove a sympa list from cerebrum.
+
+        @type force_request: boo
+        @param force_request:
+          Controls whether a bofhd request should be issued. This may come in
+          handy, if we want to delete a sympa list from Cerebrum only and not
+          issue any requests. misc cancel_request would have worked too, but
+          it's better to merge this into one command.
+        """
+
+        # Check that the command exec host is sane
+        if run_host not in cereconf.SYMPA_RUN_HOSTS:
+            raise CerebrumError("run-host %s for sympa list %s is not valid" %
+                                (run_host, listname))
+        
         et, ea = self.__get_email_target_and_address(listname)
         self.ba.can_email_list_delete(operator.get_entity_id(), ea)
 
@@ -2593,7 +2620,7 @@ class BofhdExtension(object):
         if not self._get_sympa_list(listname):
             raise CerebrumError("Illegal sympa list name: '%s'", listname)
 
-        # needed for pattern interpolation below
+        # needed for pattern interpolation below (these are actually used)
         local_part, domain = self._split_email_address(listname)
         for pattern, pipe_destination in self._sympa_addr2alias:
             address = pattern % locals()
@@ -2622,6 +2649,9 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 pass
 
+        if not force_request:
+            return "OK, sympa list '%s' deleted (no bofhd request)" % listname
+
         br = BofhdRequests(self.db, self.const)
         state = {'run_host': run_host,
                  'listname': listname}
@@ -2632,7 +2662,7 @@ class BofhdExtension(object):
                        DateTime.now() + DateTime.DateTimeDelta(0, 1),
                        self.const.bofh_sympa_remove,
                        list_id, None, state_data=pickle.dumps(state))
-        return "OK, sympa list '%s' deleted" % listname
+        return "OK, sympa list '%s' deleted (bofhd request issued)" % listname
     # end email_delete_sympa_list
                 
         

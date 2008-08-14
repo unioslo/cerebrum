@@ -719,7 +719,9 @@ number.  If the person is not registered, you must create an instance with
     'yes_no_all_op':
         ['all', 'All operations?'],
     'yes_no_include_expired':
-        ['include_expired', 'Include expired? (y/n)']
+        ['include_expired', 'Include expired? (y/n)'],
+    'yes_no_with_request':
+        ['yes_no_with_request', 'Issue bofhd request? (y/n)']
     }
 
 # arch-tag: 9a914c2f-f0bd-472e-9f1b-bfb3aa757dc7
