@@ -165,7 +165,7 @@ class Account:
             # Add user to the list of user on this partition
             self._conns[host].get("users").append(obj.name)
             if not self.incr:
-                self._in_sync.union_update(obj.name)
+                self._in_sync.add(obj.name)
             return True
 
     def update(self,obj):
@@ -182,7 +182,7 @@ class Account:
                 # Update ACL
                 co.sam(self.group,obj.name,'cyrproxy',cyrusconf.default_acl)
                 if not self.incr:
-                    self._in_sync.union_update(obj.name)
+                    self._in_sync.add(obj.name)
                 return True
             except Exception,e:
                 print "Error occured while update quota and ACL for %s. Reason: %s" % (obj.name,str(e))
