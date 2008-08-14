@@ -15,6 +15,10 @@ from ceresync import config
 
 log= config.logger
 
+class _Dummy(object):
+    def __init__(self,name):
+        self.name= name
+
 class CyrusConnectError(Exception):
     pass
 
