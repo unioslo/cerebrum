@@ -73,13 +73,11 @@ class Account:
         backends = self._conns.keys()
         if len(backends) < 1:
             raise CyrusConnectError
-        else:
-            for backend in self._conns.keys():
-                users = self._conns[backend].get("users")
-                if username in users: 
-                    return (True,backend)
-                else:
-                    return (False,'')
+        for backend in backends:
+            users = self._conns[backend].get("users")
+            if username in users: 
+                return (True,backend)
+        return (False,'')
 
     def connect(self,hostname=None,username=None,as_admin=True):
         conn = cyruslib.CYRUS(host=hostname)
