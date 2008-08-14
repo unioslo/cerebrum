@@ -11,6 +11,9 @@ import random
 
 import cyruslib
 import cyrusconf
+from ceresync import config
+
+log= config.logger
 
 class CyrusConnectError(Exception):
     pass
