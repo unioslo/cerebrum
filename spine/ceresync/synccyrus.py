@@ -143,8 +143,7 @@ def main():
         else:
             cyrus.close()
         
-        if not cyrus.dryrun:
-            file(spine_cache, 'w').write( str(server_id) )
+        file(spine_cache, 'w').write( str(server_id) )
     else:
         print "Synchronizing users (bulk) to changelog",server_id
         print "Options:",add and "add" or "", update and "update" or "",
@@ -159,7 +158,7 @@ def main():
         else:
             cyrus.close(delete)
         # If we did a full bulk sync, we should update the changelog-id
-        if add and update and delete and not cyrus.dryrun:
+        if add and update and delete:
             file(spine_cache, 'w').write( str(server_id) )
     
     print "Synchronization completed successfully"
