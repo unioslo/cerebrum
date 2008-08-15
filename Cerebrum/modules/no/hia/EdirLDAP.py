@@ -95,10 +95,10 @@ class LDAPConnection:
             self.__logger.info("Trying to establish unencrypted connection to %s" % host)
         try:
             handle.simple_bind_s(binddn,password)
-            self.__logger.debug("Successfully binded %s to %s" % (binddn, host))
         except ldap.LDAPError:
             self.__logger.error("Could not bind %s to %s." % (binddn, host))
             return False
+        self.__logger.debug("Successfully binded %s to %s" % (binddn, host))
         return handle
 
     def __unbind(self):
@@ -150,24 +150,24 @@ class LDAPConnection:
         attrs = ldap.modlist.addModlist(attrdict)
         try:
             self.__create(dn, attrs)
-            self.__logger.debug("Added new object %s." % dn)
         except ldap.LDAPError, e:
             self.__logger.warn("Could not add object %s (%s)." % (dn, str(e)))
+            return
+        self.__logger.debug("Added new object %s." % dn)
 
     def ldap_delete_object(self, dn):
         try:
             self.__delete(dn)
-            self.__logger.debug("Deleted object %s." % dn)
         except ldap.LDAPError, e:
             self.__logger.warn("Could not delete object %s (%s)." % (dn,
                                                                      str(e)))
+            return
+        self.__logger.debug("Deleted object %s." % dn)
 
     def ldap_modify_object(self, dn, modtype, attrdict):
         attrs = self._make_modlist(modtype, attrdict)
         try:
             self.__modify(dn, attrs)
-            self.__logger.debug("Successfully modified object %s (%s)." % (dn,
-                                                                          attrs))
         except ldap.LDAPError, e:
             if re.search('userPassword', str(e)):
                 e = "Password change failed"
@@ -175,6 +175,9 @@ class LDAPConnection:
                 e = "NDS error: duplicate value (-614)"
             self.__logger.warn("Could not modify object %s (%s)." % (dn,
                                                                      str(e)))
+            return
+        self.__logger.debug("Successfully modified object %s (%s)." % (dn,
+                                                                       attrs))
 
 
     # This method is currently not in use, but it might be usefull at some
