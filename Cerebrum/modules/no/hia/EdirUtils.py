@@ -123,9 +123,11 @@ class EdirUtils:
                         ## we always replace attributtes related to account-objects...
                         self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'replace', attr_m)
                 else:
-                    self.logger.warn("Unknown modification type: |%s|" % mod_type)
+                    self.logger.error("Unknown modification type: |%s|" % mod_type)
+                    return False
             else:
                 self.logger.error("No such account |%s|" % member_name)
+                return False
         else:
             self.logger.error("No such group, |%s|." % group_name)
         return True
