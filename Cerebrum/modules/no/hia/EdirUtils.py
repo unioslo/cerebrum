@@ -4,7 +4,7 @@
 #
 # This file is part of Cerebrum.
 #
-# Cerebrum is free software; you can redistribute it and/or modify it
+# Cerebrum is free software; you can redistribute it and/or modif it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
@@ -69,9 +69,14 @@ class EdirUtils:
         if ldap_group:
             (ldap_group_dn, group_attr) = ldap_group[0]
             self.logger.debug("Found target group %s", ldap_group_dn)
+            ldap_member_dn = None
             if ldap_member:
                 (ldap_member_dn, ldap_attr) = ldap_member[0]
-                self.logger.debug("Found member %s", ldap_member_dn)
+                if ldap_member_dn:
+                    self.logger.debug("Found member %s", ldap_member_dn)
+                else:
+                    self.logger.error("Could not find member object dn: %s", %member_name)
+                    return
                 attr_g['member'] = [ldap_member_dn]
                 attr_g['equivalentToMe'] = [ldap_member_dn]
                 self.logger.debug("Making target group attributes member and equivalentToMe")
