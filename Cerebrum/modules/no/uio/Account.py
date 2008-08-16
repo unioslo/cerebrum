@@ -78,9 +78,20 @@ class AccountUiOMixin(Account.Account):
         if spread == self.const.spread_uio_imap:
             # Unless this account already has been associated with an
             # Cyrus EmailTarget, we need to do so.
+            old_server = None
+            if et.email_server_id:
+                old_server = et.email_server_id
             et = self._UiO_update_email_server(self.const.email_server_type_cyrus)
-            self._UiO_order_cyrus_action(self.const.bofh_email_create,
-                                         et.email_server_id)
+            if et.email_server_id != old_server:
+                self._UiO_order_cyrus_action(self.const.bofh_email_create,
+                                             et.email_server_id)
+                # Make sure that Cyrus is told about the quota, the
+                # previous call probably didn't change the database value
+                # and therefore didn't add a request.
+                # this is not very good, we should do something about
+                # update_email_quota not using order_cyrus_action and
+                # order_cyrus_action in general.
+                self.update_email_quota(force=True)
             # register default spam and filter settings
             self._UiO_default_spam_settings(et)
             self._UiO_default_filter_settings(et)
@@ -88,10 +99,6 @@ class AccountUiOMixin(Account.Account):
             # server; try generating email addresses connected to the
             # target.
             self.update_email_addresses()
-            # Make sure that Cyrus is told about the quota, the
-            # previous call probably didn't change the database value
-            # and therefore didn't add a request.
-            self.update_email_quota(force=True)
         elif spread == self.const.spread_ifi_nis_user:
             # Add an account_home entry pointing to the same disk as
             # the uio spread
@@ -190,8 +197,11 @@ class AccountUiOMixin(Account.Account):
         # is a cyrus-type server
         is_on_cyrus = False
         email_server_in_use = None
+        deleted_target = False
         try:
             et.find_by_target_entity(self.entity_id)
+            if et.email_target_type == self.const.email_target_deleted:
+                deleted_target = True
             try:
                 old_server = et.email_server_id
                 es.find(old_server)
@@ -217,7 +227,7 @@ class AccountUiOMixin(Account.Account):
                     # we don't have to move mailbox if the target is deleted
                     # as the target wil be assigned an active server and create-
                     # request registered automatically
-                    if not et.email_target_type == self.const.email_target_deleted:
+                    if not deleted_target:
                         self._UiO_order_cyrus_action(self.const.bofh_email_move, new_server)
                         self.logger.info("Moving %s to %s", self.entity_id, new_server)
                     return et
