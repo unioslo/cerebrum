@@ -172,5 +172,8 @@ class Constants(Constants.Constants):
     trait_guardian_of = _EntityTraitCode(
         'guardian_of', Constants.Constanst.entity_person,
         'Register guardees for this person')
+    trait_guardian_urls = _EntityTraitCode(
+        'guardian_urls', Constants.Constanst.entity_person,
+        'Register urls for this person')    
 
 
