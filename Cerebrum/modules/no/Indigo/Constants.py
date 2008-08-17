@@ -167,5 +167,10 @@ class Constants(Constants.Constants):
     trait_group_affiliation = _EntityTraitCode(
         'aff_group', Constants.Constants.entity_group,
         'Tag groups created to become affiliation groups.')
-    
-# arch-tag: 82109000-67f8-11da-8454-871df49a59c9
+
+## Guardianship-related traits
+    trait_guardian_of = _EntityTraitCode(
+        'guardian_of', Constants.Constanst.entity_person,
+        'Register guardees for this person')
+
+
