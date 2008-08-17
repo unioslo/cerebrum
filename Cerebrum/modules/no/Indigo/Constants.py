@@ -170,10 +170,10 @@ class Constants(Constants.Constants):
 
 ## Guardianship-related traits
     trait_guardian_of = _EntityTraitCode(
-        'guardian_of', Constants.Constanst.entity_person,
+        'guardian_of', Constants.Constants.entity_person,
         'Register guardees for this person')
     trait_guardian_urls = _EntityTraitCode(
-        'guardian_urls', Constants.Constanst.entity_person,
+        'guardian_urls', Constants.Constants.entity_person,
         'Register urls for this person')    
 
 
