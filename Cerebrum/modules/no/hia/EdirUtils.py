@@ -81,8 +81,10 @@ class EdirUtils:
                 attr_g['equivalentToMe'] = [ldap_member_dn]
                 self.logger.debug("Making target group attributes member and equivalentToMe")
                 if mod_type == 'add':
-                    self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g)
-                    self.logger.debug("Added target group attributes %s to %s", attr_g, ldap_group_dn)
+                    if self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'add', attr_g):
+                        self.logger.debug("Added target group attributes %s to %s", attr_g, ldap_group_dn)
+                    else:
+                        self.logger.error("Could not add %s to target group %s", ldap_member_dn, ldap_group_dn)
                     if 'groupMembership' in ldap_attr:
                         for m in ldap_attr['groupMembership']:
                             membership_list.append(m)
@@ -107,11 +109,15 @@ class EdirUtils:
                         attr_m['securityEquals'] = sec_eq_list
                     ## account-objects in eDir automatically aquire an empty groupMembership list
                     ## tthis means that we always have to run "replace" regardless of the actual
-                    ## group memberships an account may og may not have
-                    self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'replace', attr_m)
-                    self.logger.debug("Replaced attributes %s for %s", ldap_member_dn, attr_m)
+                    ## group memberships an account may or may not have
+                    if self.__ldap_handle.ldap_modify_object(ldap_member_dn, 'replace', attr_m):
+                        self.logger.debug("Replaced attributes %s for %s", ldap_member_dn, attr_m)
+                    else:
+                        self.logger.error("Could not add attributes grpmem and secequ to %s for %s",
+                                          ldap_member_dn, attr_m)
                 elif mod_type == 'delete':
-                    self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g)
+                    if self.__ldap_handle.ldap_modify_object(ldap_group_dn, 'delete', attr_g):
+                        self.logger.debug("Deleted attributes %s for %s", attr_g, ldap_group_dn)
                     if 'group_Membership' in ldap_attr:
                         membership_list = ldap_attr['groupMembership']
                         if ldap_group_dn in ldap_attr['groupMembership']:
