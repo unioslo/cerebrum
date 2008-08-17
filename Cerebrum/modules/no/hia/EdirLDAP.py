@@ -173,11 +173,12 @@ class LDAPConnection:
                 e = "Password change failed"
             elif re.search('.*duplicate value.*', str(e)):
                 e = "NDS error: duplicate value (-614)"
-            self.__logger.warn("Could not modify object %s (%s)." % (dn,
+            self.__logger.info("Could not modify object %s (%s)." % (dn,
                                                                      str(e)))
-            return
-        self.__logger.debug("Successfully modified object %s (%s)." % (dn,
+            return False
+        self.__logger.info("Successfully modified object %s (%s)." % (dn,
                                                                        attrs))
+        return True
 
 
     # This method is currently not in use, but it might be usefull at some
