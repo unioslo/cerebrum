@@ -163,15 +163,13 @@ class Job(object):
     
     def write_diff_output(self):
         now = DateTime.now()
-        #file_name = '/cerebrum/dumps/AD/ad_attr_diffs-%s' % now.date
-        file_name = '%s-%s' % (self.out_file, now.date)
         # To avoid writing this file every time the script runs (every
         # 15 mins) we write it once per day after important FS and SAP
         # jobs have run, that is after 0400.
         if not user_diff_attrs or os.path.exists(file_name) or now.hour < 5:
             return 
         try:
-            f = file(file_name, 'w')
+            f = file(self.out_file, 'w')
             f.write("brukernavn;domene;gammel verdi;ny verdi\n")
             f.write("---------------------------------------\n")
             for e_id, attr_map in user_diff_attrs.items():
