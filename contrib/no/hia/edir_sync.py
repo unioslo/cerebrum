@@ -149,12 +149,21 @@ def _person_find_names(owner_id):
     lname = names[len(names)-1]
 
     fname = names[0]
-    i = 1
-    while i < len(names) - 1:
-        fname = fname + ' ' + names[i]
-        i = i + 1
-    fname = fname.strip()
-
+    if len(names) == 1:
+        if len(fname) > 32:
+            logger.info("Given name too long, removing the first name",
+                        owner_id)
+            fname = "no_name"
+    elif len(names) > 1:
+        i = 1
+        while i < len(names) - 1:
+            fname = fname + ' ' + names[i]
+            i = i + 1
+        fname = fname.strip()
+    if len(fname) > 32 and len(names[0]) < 32:
+        fname = names[0]
+    else:
+        fname = "no_name"
     ret = {'name_full': unicode(name_full, 'iso-8859-1').encode('utf-8'),
            'name_first': unicode(fname, 'iso-8859-1').encode('utf-8'),
            'name_last': unicode(lname, 'iso-8859-1').encode('utf-8')}
@@ -312,7 +321,9 @@ def main():
                 s = pickle.loads(event['change_params'])['spread']
                 if s == int(constants.spread_hia_novell_user):
                     dn =  _person_account_make_dn(event['subject_entity'])
-                    edir_util.object_edir_create(dn, account_make_attrs(event['subject_entity']))
+                    tmp_attrs = account_make_attrs(event['subject_entity'])
+                    if tmp_attrs:
+                        edir_util.object_edir_create(dn, tmp_attrs)
                     cl_handler.confirm_event(event)
             elif event['change_type_id'] in [constants.person_name_add, constants.person_name_mod]:
                 person_mod_names(event['subject_entity'])
