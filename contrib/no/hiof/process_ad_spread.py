@@ -166,7 +166,7 @@ class Job(object):
         # To avoid writing this file every time the script runs (every
         # 15 mins) we write it once per day after important FS and SAP
         # jobs have run, that is after 0400.
-        if not user_diff_attrs or os.path.exists(file_name) or now.hour < 5:
+        if not user_diff_attrs or os.path.exists(self.out_file) or now.hour < 5:
             return 
         try:
             f = file(self.out_file, 'w')
@@ -178,9 +178,9 @@ class Job(object):
                         f.write("%s;%s;%s;%s\n" % (entity_id2uname[e_id],
                                                    spread2domain[int(spread)],
                                                    old_val, new_val))
-            logger.info("Wrote user_diff_ad_attrs to file %s" % file_name)
+            logger.info("Wrote user_diff_ad_attrs to file %s" % self.out_file)
         except IOError:
-            logger.warning("Couldn't open file %s" % file_name)
+            logger.warning("Couldn't open file %s" % self.out_file)
         else:
             f.close()
     
