@@ -312,10 +312,8 @@ def main():
                                                         constants.person_name_add,
                                                         constants.person_name_mod))
         if cl_events == []:
-            logger.info("Nothing to do.")
-            ldap_handle.close_connection()
-            sys.exit(0)
-            
+            logger.info("Nothing to do (account creation).")
+
         for event in cl_events:
             if event['change_type_id'] == constants.spread_add:
                 s = pickle.loads(event['change_params'])['spread']
@@ -337,10 +335,9 @@ def main():
                                                          constants.group_rem,
                                                          constants.spread_add))
         if cl_events == []:
-            logger.info("Nothing to do.")
+            logger.info("Nothing to do (group memberships).")
             ldap_handle.close_connection()
             sys.exit(0)
-            
         for event in cl_events:
             if event['change_type_id'] in [constants.group_add, constants.group_rem,]:
                 group_mod(event['change_type_id'],
