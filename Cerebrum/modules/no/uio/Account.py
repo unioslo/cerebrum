@@ -188,77 +188,84 @@ class AccountUiOMixin(Account.Account):
         return ret
 
     def _UiO_update_email_server(self, server_type):
+
+        """Due to diverse legacy stuff and changes in server types as
+           well as requirements for assigning e-mail accounts this
+           process is getting rather complicated. The email servers are
+           now assigned as follows:
+
+            - create on new server, update target_type = CNS
+            - create on old server, update target_type = COS
+            - move to new server   = MNS
+
+       t_type/srv_type| none| cyrus, active| cyrus,non-active| non-cyrus 
+       ------------------------------------------------------------------
+       target_deleted | CNS | COS          | CNS             | CNS
+       ------------------------------------------------------------------
+       target_account | MNS | PASS         | MNS             | MNS
+       ------------------------------------------------------------------
+        """
+
         et = Email.EmailTarget(self._db)
-        es = Email.EmailServer(self._db)        
+        es = Email.EmailServer(self._db)
+        new_server = None
         old_server = None
-        # this variable should now be called "is_on_active_cyrus" as
-        # we actually check whether the registered server is
-        # in use in addition to checking that the registered server
-        # is a cyrus-type server
-        is_on_cyrus = False
-        email_server_in_use = None
-        deleted_target = False
+        srv_is_cyrus = False
+        email_server_in_use = False
+        target_type = self.const.email_target_account
+        # Find the account's EmailTarget
         try:
             et.find_by_target_entity(self.entity_id)
             if et.email_target_type == self.const.email_target_deleted:
-                deleted_target = True
-            try:
-                old_server = et.email_server_id
-                es.find(old_server)
-                email_server_in_use = es.get_trait(self.const.trait_email_server_weight)
-                # not alle registered e-mail servers are in use. in addition to
-                # checking whether registered server is of correct type, we need
-                # to make sure that the server is in use and the only way to do
-                # this is to check whether the server has trait_email_server_weight
-                # if no such trait is registered we can assume that the server is
-                # not in use and the target should be assigned a new server
-                if es.email_server_type == server_type and email_server_in_use:
-                    # All is well
-                    return et
-                if es.email_server_type == self.const.email_server_type_cyrus \
-                       and email_server_in_use:
-                    is_on_cyrus = True
-                else:
-                    # if old_server is an unused cyrus or is not cyrus at all
-                    # move the target to a new server through proc_bofhd_req
-                    new_server = self._pick_email_server()
-                    et.email_server_id = new_server
-                    et.write_db()
-                    # we don't have to move mailbox if the target is deleted
-                    # as the target wil be assigned an active server and create-
-                    # request registered automatically
-                    if not deleted_target:
-                        self._UiO_order_cyrus_action(self.const.bofh_email_move, new_server)
-                        self.logger.info("Moving %s to %s", self.entity_id, new_server)
-                    return et
-            except Errors.NotFoundError:
-                pass
+                target_type = self.const.email_target_deleted
         except Errors.NotFoundError:
+            # No EmailTarget found for account, creating one
             et.populate(self.const.email_target_account,
                         self.entity_id,
                         self.const.entity_account)
             et.write_db()
-        if old_server is None:
-            server = self._pick_email_server()
-            et.email_server_id = server
-            self.logger.debug("Assigning server %s to %s", self.entity_id, server)
-            et.write_db()
-            return et
-        elif is_on_cyrus:
-            # Even though this Account's email target already resides
-            # on one of the Cyrus servers, something has called this
-            # method with a non-Cyrus-servertype arg.
-            #
-            # The most likely cause for this is the Account not having
-            # spread_uio_imap.  Check if this is indeed the case, and
-            # report error accordingly.
-            spreads = [int(r['spread']) for r in self.get_spread()]
-            if int(self.const.spread_uio_imap) not in spreads:
-                raise self._db.IntegrityError, \
-                      "Database inconsistency; need to add spread IMAP@uio."
+        # Find old server id and type
+        try:
+            old_server = et.email_server_id
+            es.find(old_server)
+            if es.email_server_type == self.const.email_server_type_cyrus:
+                srv_is_cyrus = True
+            email_server_in_use = es.get_trait(self.const.trait_email_server_weight)
+        except Errors.NotFoundError:
+            pass
+        # Different actions for target_type deleted and account
+        if target_type == self.const.email_target_account:
+            if srv_is_cyrus and email_server_in_use:
+                # both target and server type er ok, do nothing
+                pass
+            elif old_server == None:
+                # EmailTarget with no registered server
+                new_server = self._pick_email_server()
+                et.email_server_id = new_server
+                et.write_db()
+                self._UiO_order_cyrus_action(self.const.bofh_email_create,
+                                             new_server)
             else:
-                raise self._db.IntegrityError, \
-                      "Can't move email target away from IMAP."
+                # cyrus_nonactive or non_cyrus
+                new_server = self._pick_email_server()
+                et.email_server_id = new_server
+                et.write_db()
+                self._UiO_order_cyrus_action(self.const.bofh_email_move,
+                                             new_server)
+        elif target_type == self.const.email_target_deleted:
+            if srv_is_cyrus and email_server_in_use:
+                # Create cyrus account on active server
+                self._UiO_order_cyrus_action(self.const.bofh_email_create,
+                                             old_server)
+            else:
+                # Pick new server and create cyrus account
+                new_server = self._pick_email_server()
+                et.email_server_id = new_server
+                et.write_db()
+                self._UiO_order_cyrus_action(self.const.bofh_email_create,
+                                             new_server)
+        return et
+
 
     def _pick_email_server(self):
             # We try to spread the usage across servers, but want a
