@@ -425,14 +425,3 @@ automatically generated from FS.''')
         'auto_meta_group',
         Constants.Constants.entity_group,
         "Trait marking automatically administrated groups with group members.")
-
-    # bofhd constants
-    auth_rt_create = _AuthRoleOpCode(
-        'rt_create', 'Create e-mail target for Request Tracker')
-    auth_rt_replace = _AuthRoleOpCode(
-        'rt_replace', 'Replace existing mailing list with Request Tracker')
-    auth_rt_addr_add = _AuthRoleOpCode(
-        'rt_addr_add', 'Add e-mail address to Request Tracker target')
-
-
-# arch-tag: 2b7d46eb-fc77-4ce2-a691-0d49cbf3e597
