@@ -12,11 +12,14 @@ class SubNetDef(object):
         either automatically from netmask, or by using the reserve
         argument which should be a list"""
 
+        ic = IPCalc()
+        netint = ic.ip_to_long(net)
+        assert ((netint & ic.netmask_to_intrep(mask)) == netint), \
+               ("netmask overlaps address bits in %s/%d" % (net, mask))
         self.net = net
         self.mask = mask
         self.__reserve = reserve
         self.reserved = self._calc_reserved(reserve)
-        ic = IPCalc()
         self.start, self.stop = ic.ip_range_by_netmask(self.net, self.mask)
 
     def _calc_reserved(self, reserve):
