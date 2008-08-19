@@ -33,6 +33,8 @@ from Cerebrum.Constants import _EntityExternalIdCode, \
                                _SpreadCode,\
                                _PersonAffiliationCode,\
                                _PersonAffStatusCode
+from Cerebrum.modules.bofhd.utils import \
+          _AuthRoleOpCode
 
 class ConstantsCommon(Constants.Constants):
 
