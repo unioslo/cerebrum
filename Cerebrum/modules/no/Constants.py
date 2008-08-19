@@ -87,7 +87,17 @@ class ConstantsHigherEdu(Constants.Constants):
     spread_ldap_group = _SpreadCode(
         'group@ldap', Constants.Constants.entity_group,
         'Gruppen eksporteres til gruppetreet i LDAP')
-    
+
+    # this should not really be her and it will be removed when the
+    # bofhd-restructuring is done. for now it solves our problems
+    # with bofhd_uio_cmds-copies in use.
+    # bofhd constants
+    auth_rt_create = _AuthRoleOpCode(
+        'rt_create', 'Create e-mail target for Request Tracker')
+    auth_rt_replace = _AuthRoleOpCode(
+        'rt_replace', 'Replace existing mailing list with Request Tracker')
+    auth_rt_addr_add = _AuthRoleOpCode(
+        'rt_addr_add', 'Add e-mail address to Request Tracker target')
 
 class ConstantsUniversityColleges(Constants.Constants):
 
