@@ -8062,7 +8062,7 @@ class BofhdExtension(object):
             return "account_name", id
 
         id_type, id = id.split(":", 1)
-        if id_type != 'entity_id':
+        if id_type not in ('entity_id', 'id'):
             id_type = self.external_id_mappings.get(id_type, None)
         if id_type is not None:
             if len(id) == 0:
