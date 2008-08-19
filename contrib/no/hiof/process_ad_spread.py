@@ -317,7 +317,7 @@ class Job(object):
     def _get_ou_sko(self, ou_id):
         ou.clear()
         ou.find(ou_id)
-        return "%d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
+        return "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
 
     def _get_stdnr(self, fnr):
         person.clear()
