@@ -94,7 +94,11 @@ def change_pw(account_id,pw_params):
     scope = ldap.SCOPE_SUBTREE
     filter = "(cn=" + "*" + account.account_name + "*)"
 
-    pw = pw_params['password']
+    try:
+        pw = pw_params['password']
+    except KeyError:
+        logger.error('Password not found. Probably wiped! User must set new password!')
+        return True
     #pw = pw.replace('%', '%25')
     #pw = pw.replace('&', '%26')
     
@@ -166,6 +170,8 @@ def main():
         elif opt in ('-m','--max_changes'):
             max_changes = int(val)
 
+    if ldap_active == 'OID_TEST':
+        return
 
     if ldap_active == '' or ldap_active is None:
         logger.error("Empty change handler id! This would go through the entire change-log. No way! Quitting!")
