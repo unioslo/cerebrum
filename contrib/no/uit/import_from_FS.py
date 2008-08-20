@@ -105,6 +105,11 @@ def write_uit_person_info(outfile):
     cols, uitevu = uitfs.GetDeltaker()
     for e in uitevu:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
+
+    # Inject HITOS person file
+    hitos = open(outfile + ".HITOS")
+    f.write("\n" + hitos.read() + "\n")
+    hitos.close()
     
     f.write("</data>\n")
     f.close()
@@ -224,6 +229,12 @@ def write_undenh_student(outfile):
                 f.write(xml.xmlify_dbrow({}, (), 'student',
                                          extra_attr=s_attr)
                         + "\n")
+
+    # Inject HITOS person file
+    hitos = open(outfile + ".HITOS")
+    f.write("\n" + hitos.read() + "\n")
+    hitos.close()
+                
     f.write("</data>\n")
     f.close()
     
