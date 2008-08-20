@@ -90,6 +90,8 @@ KEY_TITTEL='St.bet'
 KEY_TJFORH='Tj.forh.'
 KEY_UNIKAT='Univkat'
 KEY_UITKAT='UITkat'
+KEY_KJONN='Kjønn'
+KEY_FODSELSDATO='Fødselsdato'
 
 def parse_paga_csv(pagafile):
     import csv
@@ -117,6 +119,8 @@ def parse_paga_csv(pagafile):
             'brukernavn': detail[KEY_BRUKERNAVN],
             'epost': detail[KEY_EPOST],
             'brukernavn': detail[KEY_BRUKERNAVN], 
+            'kjonn': detail[KEY_KJONN], 
+            'fodselsdato': detail[KEY_FODSELSDATO], 
         }
         tilskey="%s:%s"  % (detail[KEY_NR], detail[KEY_AV])
         tils_data={

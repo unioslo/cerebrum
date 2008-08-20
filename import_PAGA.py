@@ -237,48 +237,79 @@ def type_is_active(entry_type):
 
 
 def process_person(person):
-    fnr=person['fnr']
-    paga_nr=int(person['ansattnr'])
+    fnr = person['fnr']
 
-    try:
-        fnr = fodselsnr.personnr_ok(fnr)
-    except:
-        logger.error("FNR invalid (%s) for PAGA person %s" % (fnr, paga_nr))
-        return
+    paga_nr = int(person['ansattnr'])
+    gender = person['kjonn']
+    fodselsdato = person['fodselsdato']
+    year = int(fodselsdato[0:4])
+    mon = int(fodselsdato[5:7])
+    day = int(fodselsdato[8:10])
+    
 
-    paga_nr=int(person['ansattnr'])    
-    logger.info("Process %s/%d" % (fnr,paga_nr))
-    new_person.clear()
-    gender = const.gender_male
-    if(fodselsnr.er_kvinne(fnr)):
+    logger.info("Process %d" % (paga_nr))
+
+    if gender == 'M':
+        gender = const.gender_male
+    else:
         gender = const.gender_female
 
-    (year, mon, day) = fodselsnr.fodt_dato(fnr)
-    try:
-        new_person.find_by_external_id(const.externalid_fodselsnr, fnr)
-    except Errors.NotFoundError:
-        pass
-    except Errors.TooManyRowsError:
+    # If a FNR is given, do a check of the values presented
+    if person.get('fnr',''):
         try:
-            new_person.find_by_external_id(
-                const.externalid_fodselsnr, fnr, const.system_paga)
-        except Errors.NotFoundError:
-            pass
-    if (person.get('fornavn', ' ').isspace() or
-        person.get('etternavn', ' ').isspace()):
-        logger.warn("Ikke noe navn for %s" % fnr)
+            fodselsnr.personnr_ok(fnr)
+        except:
+            logger.error("FNR invalid (%s) for PAGA person %s" % (fnr, paga_nr))
+            return
+    
+        gender_chk = const.gender_male
+        if(fodselsnr.er_kvinne(fnr)):
+            gender_chk = const.gender_female
+
+        if gender_chk != gender:
+            logger.error("Gender inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (gender, gender_chk, paga_nr))
+            return
+    
+        (year_chk, mon_chk, day_chk) = fodselsnr.fodt_dato(fnr)
+
+        if year_chk != year:
+            logger.error("Year inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (year, year_chk, paga_nr))
+            return
+        if mon_chk != mon:
+            logger.error("Month inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (mon, mon_chk, paga_nr))
+            return
+        if day_chk != day:
+            logger.error("Day inconsistent between XML (%s) and FNR (%s) for PAGA person %s" % (day, day_chk, paga_nr))
+            return
+
+
+    new_person.clear()
+
+    try:
+        new_person.find_by_external_id(const.externalid_paga_ansattnr, paga_nr)
+    except Errors.NotFoundError:
+        if person.get('fnr',''):
+            try:
+                new_person.find_by_external_id(const.externalid_fodselsnr, fnr)
+            except Errors.NotFoundError:
+                pass
+    if (person.get('fornavn', ' ').isspace() or person.get('etternavn', ' ').isspace()):
+        logger.warn("Ikke noe navn for paga_nr %s" % paga_nr)
         return
+
     new_person.populate(mx.DateTime.Date(year, mon, day), gender)
-    new_person.affect_names(const.system_paga, const.name_first, const.name_last,
-                    const.name_personal_title)
-    new_person.affect_external_id(const.system_paga, const.externalid_fodselsnr)
+    new_person.affect_names(const.system_paga, const.name_first, const.name_last, const.name_personal_title)
+    new_person.affect_external_id(const.system_paga, const.externalid_fodselsnr, const.externalid_paga_ansattnr)
     new_person.populate_name(const.name_first, person['fornavn'])
     new_person.populate_name(const.name_last, person['etternavn'])
     if person.get('tittel_personlig',''):
-        new_person.populate_name(const.name_personal_title,\
-                            person['tittel_personlig'])
-    new_person.populate_external_id(
-        const.system_paga, const.externalid_fodselsnr, fnr)
+        new_person.populate_name(const.name_personal_title, person['tittel_personlig'])
+
+    if fnr != '':
+       print fnr
+
+       new_person.populate_external_id(const.system_paga, const.externalid_fodselsnr, fnr)
+    new_person.populate_external_id(const.system_paga, const.externalid_paga_ansattnr, paga_nr)
 
     # If it's a new person, we need to call write_db() to have an entity_id
     # assigned to it.
@@ -361,8 +392,7 @@ def clean_affi_s_list():
             [ent_id,ou,affi] = [int(x) for x in k.split(':')]
             new_person.clear()
             new_person.entity_id = int(ent_id)
-            affs=new_person.list_affiliations(ent_id,affiliation=affi,ou_id=ou,
-                source_system=const.system_paga)
+            affs=new_person.list_affiliations(ent_id,affiliation=affi,ou_id=ou,source_system=const.system_paga)
             for aff in affs:
                 last_date = datetime.datetime.fromtimestamp(aff['last_date'])
                 end_grace_period = last_date +\
