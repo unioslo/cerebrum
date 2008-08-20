@@ -75,42 +75,46 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                         urls.append('https://portal.skule.giske.no/skule/' + tils_skole + '/tilsette')
                     elif r['affiliation'] == co.affiliation_foresatt:
                         for_skole = id2ou[r['ou_id']]['acronym']
-                        urls.append('https://portal.skule.giske.no/skule/' + tils_skole + '/foresatte')                        
+                        urls.append('https://portal.skule.giske.no/skule/' + for_skole + '/foresatte')
                 accinfo[row['account_id']] = {'OU' : 'OU=TILSETTE,%s' % cereconf.AD_LDAP,
                                               'title' : 'Tilsett',
                                               'url' : urls,
                                               #Constraint i AD, homeMDB must be valid LDAP path.  
                                               'homeMDB' : 'CN=Tilsette (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'}
                 # all this will be tested tommorow, uncomment after testing
-##             elif row['affiliation'] == co.affiliation_foresatt:
-##                 # experimental
-##                 urls =[]
-##                 title = 'Foresatt'                
-##                 # find all person affs in order to build appropriate urls                                                            
-##                 self.person.clear()
-##                 try:
-##                     self.person.find(row['person_id'])
-##                 except Errors.NotFoundError:
-##                     self.logger.warn('No owner found for %s, non-personal account', row['account_id'])
-##                     continue
-##                 for r in self.person.get_affiliations():
-##                     if r['affiliation'] == co.affiliation_ansatt or \
-##                            r['affiliation'] == co.affiliation_teacher:
-##                         title = 'Tilsett'
-##                         tils_skole = id2ou[r['ou_id']]['acronym']
-##                         urls.append('https://portal.skule.giske.no/skule/' + tils_skole + '/tilsette')
-##                     elif r['affiliation'] == co.affiliation_foresatt:
-##                         for_skole = id2ou[r['ou_id']]['acronym']
-##                         urls.append('https://portal.skule.giske.no/skule/' + tils_skole + '/foresatte')
-##                 # need to check this properly!
-##                 guardianship = person.get_trait(co.trait_guardian_of)
-##                 guardianship_list = guardianship.split(' ')
-##                 accinfo[row['account_id']] = {'OU' : 'OU=FORESATTE,%s' % cereconf.AD_LDAP,
-##                                               'title' : title,
-##                                               'url' : urls,
-##                                               #Constraint i AD, homeMDB must be valid LDAP path.  
-##                                               'homeMDB' : 'CN=Foresatte (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no',
-##                                               'otherIpPhone': guardianship_list}
+            elif row['affiliation'] == co.affiliation_foresatt:
+                # experimental
+                urls =[]
+                title = 'Foresatt'
+                ad_ou = 'OU=FORESATTE,%s' % cereconf.AD_LDAP
+                home_mdb = 'CN=Foresatte (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'
+                # find all person affs in order to build appropriate urls
+                self.person.clear()
+                try:
+                    self.person.find(row['person_id'])
+                except Errors.NotFoundError:
+                    self.logger.warn('No owner found for %s, non-personal account', row['account_id'])
+                    continue
+                for r in self.person.get_affiliations():
+                    if r['affiliation'] == co.affiliation_ansatt or \
+                           r['affiliation'] == co.affiliation_teacher:
+                        title = 'Tilsett'
+                        ad_ou = 'OU=TILSETTE,%s' % cereconf.AD_LDAP
+                        home_mdb = 'CN=Tilsette (LOMVI),CN=Storage Group,CN=InformationStore,CN=LOMVI,CN=Servers,CN=First Administrative Group,CN=Administrative Groups,CN=Giske grunnskule,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=skule,DC=giske,DC=no'
+                        tils_skole = id2ou[r['ou_id']]['acronym']
+                        urls.append('https://portal.skule.giske.no/skule/' + tils_skole + '/tilsette')
+                    elif r['affiliation'] == co.affiliation_foresatt:
+                        for_skole = id2ou[r['ou_id']]['acronym']
+                        urls.append('https://portal.skule.giske.no/skule/' + for_skole + '/foresatte')
+                # need to check this properly!
+                guardianship = self.person.get_trait(co.trait_guardian_of)
+                guardianship_list = guardianship['strval'].split(' ')
+                accinfo[row['account_id']] = {'OU' : ad_ou,
+                                              'title' : title,
+                                              'url' : urls,
+                                              #Constraint i AD, homeMDB must be valid LDAP path.  
+                                              'homeMDB' : home_mdb,
+                                              'otherIpPhone': guardianship_list}
             else:
                 if id2ou.has_key(row['ou_id']):
                     accinfo[row['account_id']] = {'OU' : 'OU=ELEVER,OU=%s,%s' %
@@ -170,8 +174,8 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                     retur[e_name]['homeDirectory'] = '\\\\vipe\\elever\\%s' % e_name
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                  # uncomment after testing    
-#                elif retur[e_name]['title'] == 'Foresatt':
-#                    pass
+                elif retur[e_name]['title'] == 'Foresatt':
+                    retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 elif retur[e_name]['title'] == 'Tilsett':
                     retur[e_name]['homeDrive'] = cereconf.AD_HOME_DRIVE                    
                     retur[e_name]['profilePath'] = '\\\\spurv\\profiler\\%s' % e_name
