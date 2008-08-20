@@ -185,7 +185,7 @@ def find_aff_ous(oul):
     ou_acronyms = []
     tmp = []
     tmp1 = []
-    tmp = oul.split(' ')
+    tmp = oul.split('$')
     for i in tmp:
         tmp1 = i.split('/')
         ou_acronyms.append(tmp1[4])
@@ -194,14 +194,16 @@ def find_aff_ous(oul):
 def register_traits(person_id, guardian_of, urls):
     person.clear()
     person.find(person_id)
-    person.populate_trait(constants.trait_guardian_of, strval=guardian_of)
-    logger.debug("Populated guardianship trait with %s", guardian_of)
+    ret1 = person.populate_trait(constants.trait_guardian_of, strval=guardian_of)
+    if ret1:
+        logger.debug("Populated guardianship trait with %s", guardian_of)
     strval_url = ""
     tmp = urls.split('$')
     for u in tmp:
         strval_url = strval_url + ' ' + u
-    person.populate_trait(constants.trait_guardian_urls, strval=strval_url)
-    logger.debug("Populated guardianship urls trait with %s", urls)
+    ret = person.populate_trait(constants.trait_guardian_urls, strval=strval_url)
+    if ret:
+        logger.debug("Populated guardianship urls trait with %s", urls)
 
 def a_create(fname, lname, owner_id):
     owner_type = constants.entity_person
@@ -248,20 +250,20 @@ def process_line(l, p_type='people'):
         person_id = None
         values = l.split(';')
         fnr = values[0]
+        lname = values[1]
+        fname = values[2]
+        ous = find_aff_ous(values[5])        
         try:
             person.clear()
             person.find_by_external_id(constants.externalid_fodselsnr, fnr)
             logger.info("Found person %s (person creation)", fnr)
             person_id = person.entity_id
         except Errors.NotFoundError:
-            logger.debug('Could not find person %s, trying to create', fnr)
-            lname = values[1]
-            fname = values[2]
-            ous = find_aff_ous(values[5])
+            logger.debug('Could not find person %s, will try to create', fnr)
             person_id = p_create(fnr, lname, fname)
-            if person_id:
-                register_traits(person_id, values[3], values[5])
-                register_person_affs(person_id, ous)
+        if person_id:
+            register_traits(person_id, values[3], values[5])
+            register_person_affs(person_id, ous)
     elif p_type == 'accounts':
         primary_acc_id = None
         accs = []
@@ -301,9 +303,9 @@ def process_line(l, p_type='people'):
             if foresatt_aff:
                 account.clear()
                 account.find(primary_acc_id)
-                print foresatt_aff[0]
-                account.set_account_type(foresatt_aff[0][1],
-                                         foresatt_aff[0][2])
+                for r in foresatt_aff:
+                    account.set_account_type(foresatt_aff[0][1],
+                                             foresatt_aff[0][2])
                 account.write_db()
             register_group_memberships(primary_acc_id, grpl)
 
