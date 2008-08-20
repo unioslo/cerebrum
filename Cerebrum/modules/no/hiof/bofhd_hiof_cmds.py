@@ -528,7 +528,10 @@ class BofhdExtension(object):
         for s in cereconf.BOFHD_NEW_USER_SPREADS:
             account.add_spread(self.const.Spread(s))
         if spread:
-            account.add_spread(self.const.Spread(spread))
+            try:
+                account.add_spread(self.const.Spread(spread))
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such spread %s" % spread                    
         account.write_db()
         account._update_email_server(email_server)
         passwd = account.make_passwd(uname)
