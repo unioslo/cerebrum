@@ -151,7 +151,25 @@ class BofhdExtension(object):
     """All CallableFuncs take user as first arg, and are responsible
     for checking necessary permissions"""
 
+    # dict carrying all commands that are officially advertised to the
+    # client. Each value is a Command() instance (see for examples below),
+    # each key is a basestring that names the command (that name is used by
+    # client to make the call).
     all_commands = {}
+    #
+    # IVR 2008-08-20 Some commands, albeit callable, should not be advertised
+    # to some of the clients. These commands are available, but the client
+    # must know that they exist in order to call them; it won't be able to
+    # fetch the description/help like with all_commands. Commands placed here
+    # are meant to return information that is of no immediate use to the
+    # operator making the call, but rather serve to carry administrative
+    # information that can be used by the client software for some purpose.
+    #
+    # NB! This is *NOT* a security measure, just a convenience. These commands
+    # *must* validate all the parameters just like the commands in
+    # all_commands.
+    hidden_commands = {}
+    
     OU_class = Utils.Factory.get('OU')
     Account_class = Utils.Factory.get('Account')
     Group_class = Utils.Factory.get('Group')
@@ -616,7 +634,7 @@ class BofhdExtension(object):
 
 
     # access list_opsets
-    all_commands['access_list_alterable'] = Command(
+    hidden_commands['access_list_alterable'] = Command(
         ('access', 'list_alterable'),
         SimpleString(optional=True),
         fs=FormatSuggestion("%10d %15s     %s",
@@ -8181,7 +8199,7 @@ class BofhdExtension(object):
         return c
 
 
-    all_commands['get_constant_description'] = Command(
+    hidden_commands['get_constant_description'] = Command(
         ("misc", "get_constant_description"),
         SimpleString(),   # constant class
         SimpleString(optional=True),

@@ -684,6 +684,9 @@ class BofhdServerImplementation(object):
             self.cmd_instances.append(instance)
             for k in instance.all_commands.keys():
                 self.cmd2instance[k] = instance
+            if hasattr(instance, "hidden_commands"):
+                for k in instance.hidden_commands.keys():
+                    self.cmd2instance[k] = instance
         t = self.cmd2instance.keys()
         t.sort()
         for k in t:
