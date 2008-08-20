@@ -78,20 +78,24 @@ class AccountUiOMixin(Account.Account):
         if spread == self.const.spread_uio_imap:
             # Unless this account already has been associated with an
             # Cyrus EmailTarget, we need to do so.
-            old_server = None
             if et.email_server_id:
                 old_server = et.email_server_id
             et = self._UiO_update_email_server(self.const.email_server_type_cyrus)
-            if et.email_server_id != old_server:
-                self._UiO_order_cyrus_action(self.const.bofh_email_create,
-                                             et.email_server_id)
-                # Make sure that Cyrus is told about the quota, the
-                # previous call probably didn't change the database value
-                # and therefore didn't add a request.
-                # this is not very good, we should do something about
-                # update_email_quota not using order_cyrus_action and
-                # order_cyrus_action in general.
-                self.update_email_quota(force=True)
+            # this is no longer necessary because we have changed
+            # _UiO_update_email_server.
+            # TODO: rewrite this, jazz 2008-08-20
+            # 
+            # if et.email_server_id != old_server:
+            # self._UiO_order_cyrus_action(self.const.bofh_email_create,
+            #                            et.email_server_id)
+            
+            # Make sure that Cyrus is told about the quota, the
+            # previous call probably didn't change the database value
+            # and therefore didn't add a request.
+            # this is not very good, we should do something about
+            # update_email_quota not using order_cyrus_action and
+            # order_cyrus_action in general.
+            self.update_email_quota(force=True)
             # register default spam and filter settings
             self._UiO_default_spam_settings(et)
             self._UiO_default_filter_settings(et)
