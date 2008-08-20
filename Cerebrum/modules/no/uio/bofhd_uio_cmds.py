@@ -8156,6 +8156,52 @@ class BofhdExtension(object):
             raise CerebrumError("Unknown %s: %s" % (code_type, code_str))
         return c
 
+
+    all_commands['get_constant_description'] = Command(
+        ("misc", "get_constant_description"),
+        SimpleString(),   # constant class
+        SimpleString(optional=True),
+        fs=FormatSuggestion("%-8d %s",
+                            ("code", "description")))
+    def get_constant_description(self, operator, code_cls, code_str=None):
+        """Fetch constant descriptions.
+
+        There are no permissions checks for this method -- it can be called by
+        anyone without any restrictions.
+
+        @type code_cls: basestring
+        @param code_cls:
+          Class (name) for the constants to fetch.
+
+        @type code_str: basestring or None
+        @param code_str:
+          code_str for the specific constant to fetch. If None is specified,
+          *all* constants of the given type are retrieved.
+
+        @rtype: dict or a sequence of dicts
+        @return:
+          Description of the specified constants. Each dict has 'code' and
+          'description' keys.
+        """
+
+        if not hasattr(self.const, code_cls):
+            raise CerebrumError("%s is not a constant type" % code_cls)
+
+        kls = getattr(self.const, code_cls)
+        if not issubclass(kls, self.const.CerebrumCode):
+            raise CerebrumError("%s is not a valid constant class" % code_cls)
+
+        if code_str is not None:
+            c = self._get_constant(kls, code_str)
+            return {"code": int(c),
+                    "description": c.description}
+
+        # Fetch all of the constants of the specified type
+        return [{"code": int(x), "description": x.description}
+                for x in self.const.fetch_constants(kls)]
+    # end get_constant_description
+    
+
     def _parse_date_from_to(self, date):
         date_start = self._today()
         date_end = None
