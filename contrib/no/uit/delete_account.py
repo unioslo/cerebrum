@@ -124,6 +124,25 @@ class delete:
                            charset='iso-8859-1',
                            debug=False)
             print "mail sent to sut@rt.uit.no\n"
+
+
+        # Sending email to Portal queue in RT if necessary
+        if mailto_rt and not dryrun:
+            account_expired = '';
+            if ac.is_expired():
+                account_expired = ' Imidlertid vil ikke den korrekte kontoen bli reaktivert før i morgen.'
+
+
+            Utils.sendmail('vevportal@rt.uit.no', #TO
+                           'bas-admin@cc.uit.no', #SENDER
+                           'Brukernavn slettet', #TITLE
+                           'Brukernavnet %s skal erstattes av %s.' %
+                              (legacy_info['user_name'], ac.account_name), #BODY
+                           cc=None,
+                           charset='iso-8859-1',
+                           debug=False)
+            print "mail sent to vevportal@rt.uit.no\n"
+
                  
         # Sending email to AD nybrukere if necessary
         if mailto_ad and not dryrun:
