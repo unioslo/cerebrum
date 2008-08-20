@@ -614,6 +614,30 @@ class BofhdExtension(object):
         ret.sort(lambda x, y: cmp(x['opset'].lower(), y['opset'].lower()))
         return ret
 
+
+    # access list_opsets
+    all_commands['access_list_alterable'] = Command(
+        ('access', 'list_alterable'),
+        SimpleString(optional=True),
+        fs=FormatSuggestion("%10d %15s     %s",
+                            ("entity_id", "entity_type", "entity_name")))
+    def access_list_alterable(self, operator, target_type='group'):
+        """List entities that operator can moderate."""
+
+        result = list()
+        operator_id = operator.get_entity_id()
+        for row in self.ba.list_alterable_entities(operator_id, target_type):
+            entity = self._get_entity(id=row["entity_id"])
+            result.append({"entity_id": entity.entity_id,
+                           "entity_type":
+                               str(self.const.EntityType(entity.entity_type)),
+                           "entity_name":
+                               self._get_entity_name(entity.entity_type,
+                                                     entity.entity_id)})
+        return result
+    # end access_list_alterable
+
+
     # access show_opset <opset name>
     all_commands['access_show_opset'] = Command(
         ('access', 'show_opset'),

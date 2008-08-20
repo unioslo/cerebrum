@@ -653,6 +653,52 @@ class BofhdAuth(DatabaseAccessor):
             return True
         raise PermissionDenied("No access to group")
 
+
+    def list_alterable_entities(self, operator, target_type):
+        """Find all entities of L{target_type} that can be
+        moderated/administered by L{operator}.
+
+        'Moderated' in this context is equivalent with auth_operation_set
+        'Group-owner'. This is hardwired.
+
+        @param operator:
+          The account on behalf of which the query is to be executed.
+
+        @type target_type: basestring (yes, a basestring).
+        @param target_type:
+          The kind of entities for which permissions are checked. The only
+          permissible values are 'group', 'disk', 'host' and 'maildom'.
+        """
+
+        legal_target_types = ('group', 'disk', 'host', 'maildom')
+
+        if target_type not in legal_target_types:
+            raise ValueError("Illegal target_type <%s>" % target_type)
+
+        operator_id = int(operator)
+        opset = BofhdAuthOpSet(self._db)
+        opset.find_by_name("Group-owner")
+
+        sql = """
+        SELECT aot.entity_id
+        FROM [:table schema=cerebrum name=auth_op_target] aot,
+             [:table schema=cerebrum name=auth_role] ar
+        WHERE (ar.entity_id = :operator_id OR
+               -- do NOT replace with EXISTS, it's much more expensive
+               ar.entity_id IN (SELECT gm.group_id
+                                FROM [:table schema=cerebrum name=group_member] gm
+                                WHERE gm.member_id = :operator_id)) AND
+              ar.op_target_id = aot.op_target_id AND
+              aot.target_type = :target_type AND
+              ar.op_set_id = :op_set_id
+        """
+
+        return self.query(sql, {"operator_id": operator_id,
+                                "target_type": target_type,
+                                "op_set_id": opset.op_set_id})
+    # end list_alterable_entities
+    
+
     def can_create_group(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
