@@ -8161,8 +8161,8 @@ class BofhdExtension(object):
         ("misc", "get_constant_description"),
         SimpleString(),   # constant class
         SimpleString(optional=True),
-        fs=FormatSuggestion("%-8d %s",
-                            ("code", "description")))
+        fs=FormatSuggestion("%-15s %s",
+                            ("code_str", "description")))
     def get_constant_description(self, operator, code_cls, code_str=None):
         """Fetch constant descriptions.
 
@@ -8193,11 +8193,11 @@ class BofhdExtension(object):
 
         if code_str is not None:
             c = self._get_constant(kls, code_str)
-            return {"code": int(c),
+            return {"code_str": str(c),
                     "description": c.description}
 
         # Fetch all of the constants of the specified type
-        return [{"code": int(x), "description": x.description}
+        return [{"code_str": str(x), "description": x.description}
                 for x in self.const.fetch_constants(kls)]
     # end get_constant_description
     
