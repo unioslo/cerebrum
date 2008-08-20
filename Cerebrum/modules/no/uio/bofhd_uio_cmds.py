@@ -8193,11 +8193,14 @@ class BofhdExtension(object):
 
         if code_str is not None:
             c = self._get_constant(kls, code_str)
-            return {"code_str": str(c),
+            return {"code": int(c),
+                    "code_str": str(c),
                     "description": c.description}
 
         # Fetch all of the constants of the specified type
-        return [{"code_str": str(x), "description": x.description}
+        return [{"code": int(x),
+                 "code_str": str(x),
+                 "description": x.description}
                 for x in self.const.fetch_constants(kls)]
     # end get_constant_description
     
