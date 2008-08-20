@@ -107,7 +107,6 @@ class pers_handler(xml.sax.ContentHandler):
             self.person_attrs={}
             for k in attrs.keys():
                 self.person_attrs[k] = attrs.get(k)
-            #print self.person_attrs
         return 
 
     def characters(self, ch):
@@ -180,7 +179,6 @@ class system_xRepresentation(object):
 
             # Get the affiliation status code string
             aff = person.list_affiliations(person_id=person.entity_id,source_system=current_source_system)
-            #print "AFFS for person %s, %s" % (person.entity_id,aff)
             if not aff:
                 logger.debug("No systemX aff for person %s.. skip" % external_id)
                 continue
@@ -204,7 +202,6 @@ class system_xRepresentation(object):
             # Got info, output!
             found=False
             for i in person_list:
-                #print i
                 existing_person_ssn= i['fnr']  #"%s%s%s%s"% (i['fodtdag'],i['fodtmnd'],i['fodtar'],i['personnr'])
                 if external_id==existing_person_ssn:
                     found=True
@@ -265,7 +262,6 @@ class system_xRepresentation(object):
                 writer.endElement("gjest")
                 writer.endElement("gjester")
                 writer.endElement("person")
-        #print "end processing guests"
         #generate XML data
 
 
@@ -335,7 +331,6 @@ class LTPersonRepresentation(object):
 
         self.elements = {}
 
-        # print attributes
 
         # Interesting elements have repetitions. Thus a hash of lists
         for element in self.INTERESTING_ELEMENTS:
@@ -345,7 +340,6 @@ class LTPersonRepresentation(object):
         # use fnr, although it's a bad identification in general, but we do
         # NOT have any other identifier in person.xml
         if not (attributes.has_key("fnr")):
-            # print 'here things just stop'
             raise (ValueError,
                   "Missing critical data for person: " + str(attributes))
 
@@ -363,7 +357,6 @@ class LTPersonRepresentation(object):
         # come in handy during debugging stages
 
         self.name = "%s %s" % (attributes["fornavn"].encode("latin1"), attributes["etternavn"].encode("latin1"))
-        # print 'HERE!!!!!!!!  ------> ' + self.name
         logger.debug("extracted new person element from LT (%s, %s)",
                      self.fnr, self.name)
 
@@ -1214,18 +1207,12 @@ def output_person(writer, pobj, phd_cache, system_source):
     contact = person_db.get_contact_info(source=constants.system_tlf,
                                          type=constants.contact_phone)
     contact.sort(lambda x, y: cmp(x.contact_pref, y.contact_pref))
-##    if contact:
-##        writer.startElement("telefonnr")
-##        writer.data(contact[0].contact_value)
-##        writer.endElement("telefonnr")
-    #print "Contact:",
 
     if len(contact) > 0:
        contact = contact[0]['contact_value']
     else:
        contact = ''
 
-    #print contact
     output_element(writer,contact,"telefonnr")
 
     output_employment_information(writer, pobj)
