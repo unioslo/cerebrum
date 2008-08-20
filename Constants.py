@@ -50,6 +50,10 @@ class Constants(Constants.Constants):
         'SYS_X_ID',
         Constants.Constants.entity_person,
         'Internal sys_x identifier')
+    externalid_paga_ansattnr = _EntityExternalIdCode(
+        'PAGA_ANSATTNR',
+        Constants.Constants.entity_person,
+        'Internal PAGA identifier')
 
     # Authoritative systems
     system_hitos = _AuthoritativeSystemCode('HITOS', 'Høgskolen i Tromsø')
