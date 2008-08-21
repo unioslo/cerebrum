@@ -196,6 +196,9 @@ class GroupCommands(VirtualCommands):
         # partially overlapping. In such a case, it is more user-friendly to
         # guard against 'duplicate insert' error.
         new_spreads = self.state.get_form_value('spreads', [])
+        # Force a list out of a single element.
+        if isinstance(new_spreads, (str, unicode)):
+            new_spreads = [new_spreads,]
         group_object = self.cerebrum.group_info(name=name)
         existing_spreads = [x['spread'] for x in
                     self.cerebrum.get_entity_spreads(group_object["entity_id"])]

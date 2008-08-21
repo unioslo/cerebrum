@@ -209,6 +209,7 @@ class StateClass(object):
 
     def get_form_value(self, k, v=None):
         if self.form.has_key(k):
+            # IVR 2008-08-21 FIXME: Why don't we use FieldStorage.getlist here?
             if isinstance(self.form[k], list):
                 return [i.value for i in self.form[k]]
             return self.form[k].value

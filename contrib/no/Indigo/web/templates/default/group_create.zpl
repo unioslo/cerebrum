@@ -13,8 +13,8 @@
   <tr><td colspan=2><strong>Bruk i:</strong></td></tr>   
   <tr><td colspan=2></td></tr>
     <span tal:repeat="s spreads" tal:omit-tag="">
-    <tr><td><input type="CHECKBOX" name="spreads" tal:attributes="value string:${s/code_str}"><a tal:content="s/desc" tal:omit-tag="">sprea\
-d-desc</a></td></tr>
+    <tr><td><input type="CHECKBOX" name="spreads" tal:attributes="value string:${s/code_str}">
+            <a tal:content="s/desc" tal:omit-tag="">spread-desc</a></td></tr>
     </span>
     <tr><td colspan=2><input type="SUBMIT" value="Opprett gruppe"></td></tr>
 </table>
