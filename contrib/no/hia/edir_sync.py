@@ -147,23 +147,18 @@ def _person_find_names(owner_id):
     name_full = person.get_name(constants.system_cached, constants.name_full)
     names = name_full.split(' ')
     lname = names[len(names)-1]
-
-    fname = names[0]
-    if len(names) == 1:
-        if len(fname) > 32:
-            logger.info("Given name too long, removing the first name",
-                        owner_id)
-            fname = "no_name"
-    elif len(names) > 1:
-        i = 1
-        while i < len(names) - 1:
+    names.pop(len(names)-1)
+    if len(names) >= 1:
+        i = 0
+        while i < len(names):
             fname = fname + ' ' + names[i]
+            if len(fname) > 32:
+                if len(names) > 1:
+                    logger.info("Given name too long for %s, partially removing", owner_id)
+                    fname = names[i]
+                else:
+                    fname = 'no_name'
             i = i + 1
-        fname = fname.strip()
-    if len(fname) > 32 and len(names[0]) < 32:
-        fname = names[0]
-    else:
-        fname = "no_name"
     ret = {'name_full': unicode(name_full, 'iso-8859-1').encode('utf-8'),
            'name_first': unicode(fname, 'iso-8859-1').encode('utf-8'),
            'name_last': unicode(lname, 'iso-8859-1').encode('utf-8')}
