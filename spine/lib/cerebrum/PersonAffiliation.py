@@ -44,7 +44,6 @@ class PersonAffiliation(DatabaseClass):
     )
     slots = (
         DatabaseAttr('status', table, PersonAffiliationStatus, write=True),
-        DatabaseAttr('description', table, str, write=True),
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('last_date', table, Date),
         DatabaseAttr('deleted_date', table, Date),
