@@ -137,7 +137,6 @@
     #set $affil_type = $affil.get_affiliation()
     #set $status = $affil.get_status()
     #set $marked = $affil.marked_for_deletion()
-    #set $description = $affil.get_description()
     #set $source = $affil.get_source_system()
 
     #if not $marked
@@ -145,7 +144,6 @@
     <td>$html_quote($affil_type.get_name())</td>
     <td>$html_quote($status.get_name())</td>
     <td>$object_link($ou)</td>
-    <td>$html_quote($description)</td>
     <td>$html_quote($source.get_name())</td>
 
     <td class="actions">
@@ -182,9 +180,6 @@
         </div>
         <div class="required">
             $form_widgets.generate_loption("ou", "Organization Unit", $ous)
-        </div>
-        <div class="required">
-            $form_widgets.input("description", "Description")
         </div>
         <div class="buttons">
             <input type="submit" value="$_('Add')" />
