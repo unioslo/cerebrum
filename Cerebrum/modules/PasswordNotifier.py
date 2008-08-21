@@ -126,9 +126,9 @@ class PasswordNotifier(object):
         """
         from Cerebrum.modules import PasswordHistory
         ph = PasswordHistory.PasswordHistory(self.db)
-        old_ids = set((int(x['account_id']) for x in ph.find_old_password_accounts((dt.now()
-            - self.config.max_password_age).strftime("%Y-%m-%d"))))
-        old_ids.update(set((int(x['account_id']) for x in ph.find_no_history_accounts())))
+        old_ids = set([int(x['account_id']) for x in ph.find_old_password_accounts((dt.now()
+            - self.config.max_password_age).strftime("%Y-%m-%d"))])
+        old_ids.update(set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
         return old_ids
     # end get_old_account_ids
 
@@ -137,7 +137,7 @@ class PasswordNotifier(object):
         Returns a set of account_id's which have a password trait
         """
         account = Utils.Factory.get("Account")(self.db)
-        return set((x['entity_id'] for x in account.list_traits(code=self.config.trait)))
+        return set([x['entity_id'] for x in account.list_traits(code=self.config.trait)])
     # end get_notified_ids
 
     def remove_trait(self, account):
@@ -171,7 +171,7 @@ class PasswordNotifier(object):
         """
         traits = account.get_trait(self.config.trait)
         if traits is not None:
-            traits = dict(((x, traits[x]) for x in ('code', 'target_id', 'date', 'numval', 'strval')))
+            traits = dict([(x, traits[x]) for x in ('code', 'target_id', 'date', 'numval', 'strval')])
             traits['numval'] = int(traits['numval']) + 1
             self.logger.info("Increasing trait for %s: %d", account.account_name,
                     traits['numval'])
@@ -371,7 +371,6 @@ Users with new passwords: %d
             return mail_user(account, self.get_num_notifications(account), deadline=deadline,
                     first_time=self.get_notification_time(account).strftime(format))
 
-    @staticmethod
     def get_notifier(config=None):
         """
         Factories a notifier class object. Secondary calls to get_notifier will always return
@@ -414,6 +413,7 @@ Users with new passwords: %d
         comp_class.config = config
         PasswordNotifier._notifier = comp_class
         return comp_class
+    get_notifier = staticmethod(get_notifier)
 
 def _send_mail(mail_to, mail_from, subject, body, logger, mail_cc=None, debug_enabled=False):
     if debug_enabled:
