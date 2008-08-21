@@ -170,14 +170,14 @@ class Job(object):
             return 
         try:
             f = file(self.out_file, 'w')
-            f.write("brukernavn;domene;gammel verdi;ny verdi\n")
+            f.write("brukernavn;domene;ny verdi;gammel verdi\n")
             f.write("---------------------------------------\n")
             for e_id, attr_map in user_diff_attrs.items():
                 for spread, attrs in attr_map.items():
-                    for old_val, new_val in attrs:
+                    for new_val, old_val in attrs:
                         f.write("%s;%s;%s;%s\n" % (entity_id2uname[e_id],
                                                    spread2domain[int(spread)],
-                                                   old_val, new_val))
+                                                   new_val, old_val))
             logger.info("Wrote user_diff_ad_attrs to file %s" % self.out_file)
         except IOError:
             logger.warning("Couldn't open file %s" % self.out_file)
@@ -238,22 +238,24 @@ class Job(object):
 
         ret = False         # If no old attrs is found return False
         spread = int(spread)
-        for mapping, attr in ((self.entity_id2account_ou, ou_val),
+        for mapping, new_attr in ((self.entity_id2account_ou, ou_val),
                               (self.entity_id2profile_path, profile_path),
                               (self.entity_id2homedir, homedir)):
             # get old values
             ad_trait = mapping.get(entity_id, None)
             if ad_trait and ad_trait.has_key(spread):
-                # ad attrs for this user in the given domain exists. Compare with new values
-                if not attr_eq(attr, ad_trait[spread]):
+                # ad attrs for this user in the given domain exists.
+                # Compare with new values
+                if not attr_eq(new_attr, ad_trait[spread]):
                     # New AD attrs are not equal the old ones
                     # Where attr differs, store as a 2d mapping:
-                    # user <-> {spread <-> [(old attr, new attr)]}
+                    # user <-> {spread <-> [(new attr, old attr)]}
                     if not entity_id in user_diff_attrs:
                         user_diff_attrs[entity_id] = {}
                     if not spread in user_diff_attrs[entity_id]:
                         user_diff_attrs[entity_id][spread] = []
-                    user_diff_attrs[entity_id][spread].append((attr, ad_trait[spread]))
+                    user_diff_attrs[entity_id][spread].append(
+                        (new_attr, ad_trait[spread]))
                 ret = True            
         return ret
 
