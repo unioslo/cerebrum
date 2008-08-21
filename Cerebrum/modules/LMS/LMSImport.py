@@ -139,7 +139,8 @@ class LMSImport(object):
             primary_account_id = person.get_primary_account()
             fnr = person.get_external_id(id_type=constants.externalid_fodselsnr)[0]["external_id"]
             if primary_account_id is None:
-                logger.warning("Primary account is None for person: '%s'" % fnr)
+                logger.warning("Primary account is None for person: '%s';'%s'" %
+                               (individual["person_id"], fnr))
             else:
                 self.persons[fnr] = primary_account_id
         logger.debug("assemble_person_to_account_id_mappings done")

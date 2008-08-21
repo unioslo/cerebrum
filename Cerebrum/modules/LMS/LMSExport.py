@@ -80,11 +80,17 @@ class LMSExport(object):
         person = Factory.get("Person")(db)
         account = Factory.get("Account")(db)
         data = {}
+
+        person.clear()
         
         if entity_id is not None:
             person.find(entity_id)
         elif fnr is not None:
-            person.find_by_external_id(constants.externalid_fodselsnr, fnr)
+            try:
+                person.find_by_external_id(constants.externalid_fodselsnr, fnr)#, source_system=constants.system_fs)
+            except Errors.NotFoundError:
+                logger.warning("Unable to find person with FNR '%s'" % fnr)
+                return None
         else:
             raise ValueError("No valid identifier to identify person by")
         
@@ -98,7 +104,8 @@ class LMSExport(object):
         
         primary_account_id = person.get_primary_account()
         if primary_account_id is None:
-            logger.warning("Primary account is None for person: '%s'. Ignoring person" % data["fnr"])
+            logger.warning("Primary account is None for person: fnr:'%s', ent_id:'%s'. Ignoring person" %
+                           (data["fnr"], entity_id))
             return None
 
         account.find(primary_account_id)
