@@ -28,6 +28,7 @@ import sys
 import os
 log=config.logger
 dryrun=False
+retry_failed=False
 
 def setup_home(path, uid, gid):
     if not os.path.isdir(path):
@@ -54,16 +55,17 @@ class sync(object):
         except: pass
 
 def usage():
-    print "Usage: %s [-c FILE] [-d]"  % os.path.basename(sys.argv[0])
+    print "Usage: %s [-c FILE] [-d] [-r] [-h]"  % os.path.basename(sys.argv[0])
     print ""
     print "-c FILE      use FILE as config file instead of the default"
+    print "-r           retry homedirs with creation failed status"
     print "-d           dryrun. Don't create directories, and don't report",
-    print              "back to cerebrum."
-    print "-h           display this help and exit."
+    print              "back to cerebrum"
+    print "-h           display this help and exit"
     return
         
 try:
-    opts, args = getopt.getopt(sys.argv[1:], "hc:d")
+    opts, args = getopt.getopt(sys.argv[1:], "hc:dr")
 except getopt.GetoptError:
     usage()
     sys.exit(2)
@@ -77,6 +79,8 @@ for o, a in opts:
         log.debug("reading config file %s" , a )
     elif o == "-d":
         dryrun=True
+    elif o == "-r":
+	retry_failed=True
     else:
         print >>sys.stderr, "Unrecognized option '%s'" % o
         usage()
@@ -114,7 +118,10 @@ hds = tr.get_home_directory_searcher()
 ds = tr.get_disk_searcher()
 ds.set_host(me)
 hds.add_join("disk", ds, "")
-hds.set_status(status_not_created)
+if retry_failed:
+    hds.set_status(status_create_failed)
+else:
+    hds.set_status(status_not_created)
 
 
 def get_path(hd):
