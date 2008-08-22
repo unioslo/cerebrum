@@ -33,7 +33,7 @@ from Cerebrum import Errors
 from Cerebrum import Database
 
 from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.no.nmh import bofhd_nmh_help
+from Cerebrum.modules.no.hiof import bofhd_hiof_help
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
@@ -98,9 +98,9 @@ class BofhdExtension(object):
                                                    timeout=60*60)
 
     def get_help_strings(self):
-        return (bofhd_nmh_help.group_help,
-                bofhd_nmh_help.command_help,
-                bofhd_nmh_help.arg_help)
+        return (bofhd_hiof_help.group_help,
+                bofhd_hiof_help.command_help,
+                bofhd_hiof_help.arg_help)
     
     def get_commands(self, account_id):
         try:
