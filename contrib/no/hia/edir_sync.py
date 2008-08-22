@@ -159,6 +159,7 @@ def _person_find_names(owner_id):
                 else:
                     fname = 'no_name'
             i = i + 1
+    fname = fname.strip()
     ret = {'name_full': unicode(name_full, 'iso-8859-1').encode('utf-8'),
            'name_first': unicode(fname, 'iso-8859-1').encode('utf-8'),
            'name_last': unicode(lname, 'iso-8859-1').encode('utf-8')}
