@@ -291,15 +291,75 @@ class UiTUndervisning(access_FS.Undervisning):
     
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
-        '''This function merely translates between no.access_FS argument names and
-        database column and no.uit.access_FS argument names and then calls the .no function.'''
-        
-        return super(UiTUndervisning, self).list_studenter_underv_enhet(Instnr=institusjonsnr,
-                                                                        emnekode=emnekode,
-                                                                        versjon=versjonskode,
-                                                                        termk=terminkode,
-                                                                        aar=arstall,
-                                                                        termnr=terminnr)
+        '''This method is temporarily not calling the norwegian level access_FS due to
+           uit having upgraded to FS 6.2 and the no code not being compatible'''
+
+        #'''This function merely translates between no.access_FS argument names and
+        #database column and no.uit.access_FS argument names and then calls the .no function.'''
+        #return super(UiTUndervisning, self).list_studenter_underv_enhet(Instnr=institusjonsnr,
+        #                                                                emnekode=emnekode,
+        #                                                                versjon=versjonskode,
+        #                                                                termk=terminkode,
+        #                                                                aar=arstall,
+        #                                                                termnr=terminnr)
+
+        # Mapping arguments
+        Instnr = institusjonsnr
+        emnekode = emnekode
+        versjon = versjonskode
+        termk = terminkode
+        aar = arstall
+        termnr = terminnr
+
+        qry = """
+        SELECT
+          fodselsdato, personnr
+        FROM
+          FS.UNDERVISNINGSMELDING
+        WHERE
+          institusjonsnr = :und_instnr AND
+          emnekode       = :und_emnekode AND
+          versjonskode   = :und_versjon AND
+          terminkode     = :und_terminkode AND
+          arstall        = :und_arstall AND
+          terminnr       = :und_terminnr
+        UNION
+        SELECT
+          fodselsdato, personnr
+        FROM
+          fs.vurdkombmelding vm, fs.vurderingstid vt,
+          fs.vurdkombtype vkt, fs.vurderingskombinasjon vkm
+        WHERE
+          vm.institusjonsnr    = :instnr AND
+          vm.emnekode          = :emnekode AND
+          vm.versjonskode      = :versjon AND
+          vt.arstall_gjelder_i = :arstall AND
+          vm.arstall = vt.arstall AND
+          vm.vurdtidkode = vt.vurdtidkode AND
+          vkm.institusjonsnr = vm.institusjonsnr AND
+          vkm.emnekode = vm.emnekode AND
+          vkm.versjonskode = vm.versjonskode AND
+          vkm.vurdkombkode = vm.vurdkombkode AND
+          vkm.vurdkombtypekode = vkt.vurdkombtypekode AND
+          (vkt.STATUS_EKSAMENSAVVIKLING = 'J' OR
+           vkt.STATUS_HJEMMEEKSAMEN = 'J' OR
+           vkt.STATUS_MAPPE = 'J' OR
+           vkt.STATUS_NETTEKSAMEN = 'J' OR
+           vkt.STATUS_OPPGAVE='J' OR
+           vkt.STATUS_PRAKSIS='J') AND
+          vt.terminkode_gjelder_i = :termk
+        """
+        return self.db.query(qry, {'und_instnr': Instnr,
+                                   'und_emnekode': emnekode,
+                                   'und_versjon': versjon,
+                                   'und_terminkode': termk,
+                                   'und_arstall': aar,
+                                   'und_terminnr': termnr,
+                                   'instnr': Instnr,
+                                   'emnekode': emnekode,
+                                   'versjon': versjon,
+                                   'arstall': aar,
+                                   'termk': termk})
         
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
