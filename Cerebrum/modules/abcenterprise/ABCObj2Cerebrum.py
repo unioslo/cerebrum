@@ -254,10 +254,10 @@ class ABCObj2Cerebrum(object):
     def close(self):
         """Close whatever you need to close and finish your business."""
         if self.sett.variables['dryrun']:
-            self.logger.debug("rollback()")
             self._o2c.rollback()
+            self.logger.debug("rollback()")
         else:
-            self.logger.debug("commit()")
             self._o2c.commit()
+            self.logger.debug("commit()")
 
 # arch-tag: fc250d64-6995-11da-8e2e-62c416f986a0
