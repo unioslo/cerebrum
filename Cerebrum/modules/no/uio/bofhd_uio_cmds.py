@@ -633,25 +633,45 @@ class BofhdExtension(object):
         return ret
 
 
-    # access list_opsets
+    # access list_alterable [group/maildom/host/disk] [username]
     hidden_commands['access_list_alterable'] = Command(
         ('access', 'list_alterable'),
         SimpleString(optional=True),
+        AccountName(optional=True),
         fs=FormatSuggestion("%10d %15s     %s",
                             ("entity_id", "entity_type", "entity_name")))
-    def access_list_alterable(self, operator, target_type='group'):
-        """List entities that operator can moderate."""
+    def access_list_alterable(self, operator, target_type='group',
+                              access_holder=None):
+        """List entities that access_holder can moderate."""
+
+        if access_holder is None:
+            account_id = operator.get_entity_id()
+        else:
+            account = self._get_account(access_holder, actype="PosixUser")
+            account_id = account.entity_id
+
+        if not (account_id == operator.get_entity_id() or 
+                self.ba.is_superuser(operator.get_entity_id())):
+            raise PermissionDenied("You do not have permission for this operation")
 
         result = list()
-        operator_id = operator.get_entity_id()
-        for row in self.ba.list_alterable_entities(operator_id, target_type):
+        matches = self.ba.list_alterable_entities(account_id, target_type)
+        if len(matches) > cereconf.BOFHD_MAX_MATCHES:
+            raise CerebrumError("More than %d (%d) matches. Cowardly refusing "
+                                "to return result" %
+                                (cereconf.BOFHD_MAX_MATCHES, len(matches)))
+        for row in matches:
             entity = self._get_entity(id=row["entity_id"])
-            result.append({"entity_id": entity.entity_id,
-                           "entity_type":
-                               str(self.const.EntityType(entity.entity_type)),
-                           "entity_name":
-                               self._get_entity_name(entity.entity_type,
-                                                     entity.entity_id)})
+            etype = str(self.const.EntityType(entity.entity_type))
+            ename = self._get_entity_name(entity.entity_type,
+                                          entity.entity_id)
+            tmp = {"entity_id": row["entity_id"],
+                   "entity_type": etype,
+                   "entity_name": ename,}
+            if entity.entity_type == self.const.entity_group:
+                tmp["description"] = entity.description
+
+            result.append(tmp)
         return result
     # end access_list_alterable
 
@@ -1251,7 +1271,7 @@ class BofhdExtension(object):
         if ttype == self.const.email_target_Mailman:
             ret += self._email_info_mailman(uname, et)
         elif ttype == self.const.email_target_Sympa:
-            ret += self._email_info_sympa(uname, et)
+            ret += self._email_info_sympa(operator, uname, et)
         elif ttype == self.const.email_target_multi:
             ret += self._email_info_multi(uname, et)
         elif ttype == self.const.email_target_file:
@@ -1482,7 +1502,7 @@ class BofhdExtension(object):
     # end _email_info_mailman
 
 
-    def _email_info_sympa(self, addr, et):
+    def _email_info_sympa(self, operator, addr, et):
         """Collect Sympa-specific information for a ML L{addr}."""
 
         def fish_information(suffix, local_part, domain, listname):
@@ -1530,7 +1550,10 @@ class BofhdExtension(object):
                 result.append({'sympa_' + suffix: pattern % addrs[idx]})
             return result
         # end fish_information
-                
+
+        # listname may be one of the secondary addresses.
+        # email info sympatest@domain MUST be equivalent to
+        # email info sympatest-admin@domain.
         listname = self._get_sympa_list(addr)
         ret = [{"sympa_list": listname}]
         if listname.count('@') == 0:
@@ -1550,15 +1573,17 @@ class BofhdExtension(object):
         et.clear()
         et.find(ea.email_addr_target_id)
         addrs = self.__get_valid_email_addrs(et, sort=True)
-        ret += self._email_info_spam(et)
+        # IVR 2008-08-21 According to postmasters, only superusers should see
+        # spam, forwarding and delivery host information
+        if self.ba.is_postmaster(operator.get_entity_id()):
+            ret += self._email_info_spam(et)
+            ret += self._email_info_filters(et)
+            if et.email_server_id is None:
+                delivery_host = "N/A (this is an error)"
+            else:
+                delivery_host = self._get_email_server(et.email_server_id).name
+            ret.append({"sympa_delivery_host": delivery_host})
         ret += self._email_info_forwarding(et, addrs)
-        ret += self._email_info_filters(et)
-        if et.email_server_id is None:
-            delivery_host = "N/A (this is an error)"
-        else:
-            delivery_host = self._get_email_server(et.email_server_id).name
-        ret.append({"sympa_delivery_host": delivery_host})
-
         aliases = []
         for row in et.get_addresses():
             a = "%(local_part)s@%(domain)s" % row
@@ -2417,7 +2442,7 @@ class BofhdExtension(object):
         # host. Postmasters do NOT want to allow people to specify a different
         # delivery host for alias than for the list that is being aliased. So,
         # find the ml's ET and fish out the server_id.
-        self._get_sympa_list(listname)
+        self._validate_sympa_list(listname)
         local_part, domain = self._split_email_address(listname)
         ed = self._get_email_domain(domain)
         email_address = Email.EmailAddress(self.db)
@@ -2474,7 +2499,7 @@ class BofhdExtension(object):
         if list_type == self.const.email_target_Mailman:
             self._check_mailman_official_name(listname)
         else:
-            self._get_sympa_list(listname)
+            self._validate_sympa_list(listname)
         try:
             self._get_account(lp)
         except CerebrumError:
@@ -2633,7 +2658,7 @@ class BofhdExtension(object):
                                 force_request):
         """Remove a sympa list from cerebrum.
 
-        @type force_request: boo
+        @type force_request: bool
         @param force_request:
           Controls whether a bofhd request should be issued. This may come in
           handy, if we want to delete a sympa list from Cerebrum only and not
@@ -2650,7 +2675,7 @@ class BofhdExtension(object):
         self.ba.can_email_list_delete(operator.get_entity_id(), ea)
 
         if et.email_target_type != self.const.email_target_Sympa:
-            raise CerebrumError("email sympa_delete works on sympa lists only. "
+            raise CerebrumError("email delete_sympa works on sympa lists only. "
                                 "'%s' is not a sympa list (%s)" %
                                 (listname,
                                  self.const.EmailTarget(et.email_target_type)))
@@ -2659,7 +2684,7 @@ class BofhdExtension(object):
         list_id = ea.entity_id
         # Now, there are *many* ETs/EAs associated with one sympa list. We
         # have to wipe them all out.
-        if not self._get_sympa_list(listname):
+        if not self._validate_sympa_list(listname):
             raise CerebrumError("Illegal sympa list name: '%s'", listname)
 
         # needed for pattern interpolation below (these are actually used)
@@ -2691,7 +2716,7 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 pass
 
-        if not force_request:
+        if not self._is_yes(force_request):
             return "OK, sympa list '%s' deleted (no bofhd request)" % listname
 
         br = BofhdRequests(self.db, self.const)
@@ -2740,7 +2765,7 @@ class BofhdExtension(object):
                                   et.email_target_alias)
         return m.group(2)
 
-    def _get_sympa_list(self, listname):
+    def _validate_sympa_list(self, listname):
         """Returns the 'official' name for the list, or raise an error if
         listname isn't a Sympa list."""
 
@@ -2757,13 +2782,115 @@ class BofhdExtension(object):
             raise CerebrumError("'%s' is not a Sympa list" % listname)
 
         local_part, domain = self._split_email_address(listname)
-        if (local_part.startswith("owner-") or
+        if (True in [local_part.startswith(x)
+                     for x in self._sympa_address_prefixes] or
             True in [local_part.endswith(x)
-                     for x in ("-owner", "-admin", "-request",
-                               "-editor", "-subscribe", "-unsubscribe")]):
+                     for x in self._sympa_address_suffixes]):
             raise CerebrumError("'%s' is not the official Sympa list name" %
                                 listname)
         return listname
+    # end _validate_sympa_list
+
+
+    def _get_sympa_list(self, listname):
+        """Try to return the 'official' sympa mailing list name, if it can at
+        all be derived from listname.
+
+        The problem here is that some lists are actually called
+        foo-admin@domain (and their admin address is foo-admin-admin@domain).
+
+        The strategy is thus like this:
+
+        1) Check if listname points to a sympa ET.
+        2) Check if listname ends with certain suffixes/starts with certain
+           prefixes. If not, we have a sympa list.
+        3) If it *does* in fact end/start with certain suffix/prefix, chop it
+           off and if the chopped address points to a sympa ET.
+        """
+
+        def has_prefix(address):
+            local_part, domain = self._split_email_address(address)
+            return True in [local_part.startswith(x)
+                            for x in self._sympa_address_prefixes]
+
+        def has_suffix(address):
+            local_part, domain = self._split_email_address(address)
+            return True in [local_part.endswith(x)
+                            for x in self._sympa_address_suffixes]
+
+        ea = Email.EmailAddress(self.db)
+        et = Email.EmailTarget(self.db)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        def I_am_sympa(address, check_suffix_prefix=True):
+            try:
+                ea.clear()
+                ea.find_by_address(address)
+            except Errors.NotFoundError:
+                # If it does not exist, it cannot be sympa
+                return False
+
+            et.clear()
+            et.find(ea.get_target_id())
+            if (not et.email_target_alias or
+                et.email_target_type != self.const.email_target_Sympa):
+                # if it's not a Sympa ET, address cannot be sympa
+                return False
+
+            return True
+        # end I_am_sympa
+
+        not_sympa_error = CerebrumError("%s is not a Sympa list" % listname)
+        # Simplest case -- listname is actually without these stupid admin
+        # prefixes/suffixes.
+        if not (has_prefix(listname) or has_suffix(listname)):
+            if I_am_sympa(listname):
+                return listname
+            raise not_sympa_error
+
+        # There is a funky suffix/prefix. Is listname actually such a
+        # secondary address? Try to chop off the funky part and test.
+        local_part, domain = self._split_email_address(listname)
+        for prefix in self._sympa_address_prefixes:
+            if not local_part.startswith(prefix):
+                continue
+
+            lp_tmp = local_part[len(prefix):]
+            addr_to_test = lp_tmp + "@" + domain
+            try:
+                self._get_sympa_list(addr_to_test)
+                return addr_to_test
+            except CerebrumError:
+                pass
+
+        for suffix in self._sympa_address_suffixes:
+            if not local_part.endswith(suffix):
+                continue
+
+            lp_tmp = local_part[:-len(suffix)]
+            addr_to_test = lp_tmp + "@" + domain
+            try:
+                self._get_sympa_list(addr_to_test)
+                return addr_to_test
+            except CerebrumError:
+                pass
+
+        # Ah, we have a prefix or a suffix, like foo-admin@domain, and it is
+        # not a secondary address for foo@domain. So, it must be one of these
+        # really weird ML addresses that are actually called something like
+        # owner-owner@domain (to make our life miserable)
+        try:
+            if not I_am_sympa(listname):
+                raise not_sympa_error
+            
+            ea.clear(); et.clear(); epat.clear()
+            ea.find_by_address(listname)
+            epat.find(ea.get_target_id())
+            return listname
+        except Errors.NotFoundError:
+            pass
+
+        # NOTREACHED
+        raise not_sympa_error
     # end _get_sympa_list
 
 
@@ -2780,7 +2907,7 @@ class BofhdExtension(object):
         """
 
         try:
-            self._get_sympa_list(listname)
+            self._validate_sympa_list(listname)
             return True
         except CerebrumError:
             pass
@@ -2894,6 +3021,9 @@ class BofhdExtension(object):
         ('%(local_part)s-unsubscribe@%(domain)s',
             "|SYMPA_QUEUE %(local_part)s-unsubscribe@%(domain)s"),
     )
+    _sympa_address_suffixes = ("-owner", "-admin", "-request", "-editor",
+                               "-subscribe", "-unsubscribe",)
+    _sympa_address_prefixes = ("owner-")
 
     def _register_sympa_list_addresses(self, listname, local_part, domain,
                                        delivery_host):
