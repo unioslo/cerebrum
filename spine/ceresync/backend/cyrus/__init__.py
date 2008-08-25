@@ -59,7 +59,7 @@ class Account:
             # Fetch an authenticated imap-object
             my_auth = self.connect(hostname=auth)
             # Fetch list of users from each backend
-            users = my_auth.lm().get(cyrusconf.default_group)
+            users = my_auth.lm().get(cyrusconf.default_group) or []
             # Store auth-object and userlist
             self._conns[auth] = {'auth': my_auth, 'users': users} 
 
