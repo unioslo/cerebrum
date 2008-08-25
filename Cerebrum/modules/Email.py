@@ -244,6 +244,10 @@ class EmailConstants(Constants.Constants):
         'cyrus_IMAP',
         "Server is a Cyrus IMAP server, which keeps mailboxes in a"
         " Cyrus-specific format.")
+
+    email_server_type_sympa = _EmailServerTypeCode(
+        'sympa',
+        "Server is a Sympa mailing list server.")
     
     email_target_filter_greylist = _EmailTargetFilterCode(
         'greylist',
