@@ -58,11 +58,15 @@ def register_host(hname):
 
 def register_email_server(email_srv_type, email_srv_name, description):
     email_server = Email.EmailServer(db)
-    if email_srv_type == 'nfs':
-        email_srv_type = const.email_server_type_nfsmbox
-    else:
-        # feel free to implement support for other srv_types 
-        logger.error("Unknow email server type")
+
+    try:
+        int(const.EmailServerType(email_srv_type))
+        email_srv_type = const.EmailServerType(email_srv_type)
+    except Errors.NotFoundError:
+        logger.error("Unknown email server type: %s. Entry skipped",
+                     email_srv_type)
+        return
+    
     host = Factory.get('Host')(db)
     try:
         host.find_by_name(email_srv_name)
@@ -96,30 +100,30 @@ def register_disk(host_name, disk_path):
 
 def process_line(infile, emailsvr):
     stream = open(infile, 'r')        
-    host = disk = None
+    disk = None
     if emailsvr:
         for l in stream:
-            type, name, description = string.split(l.strip(),":")
-            register_email_server(type, name, description)
+            if not l.strip():
+                continue
+            logger.debug("Next is <%s>", l.strip())
+            server_type, name, description = l.strip().split(":")
+            register_email_server(server_type, name, description)
         return None
-        stream.close()
     for l in stream:
-	if ':' in l.strip():
-           hostname, disk = string.split(l.strip(), ":")
+        if ':' in l.strip():
+            hostname, disk = l.strip().split(":")
         else:
-           hostname = l.strip()
+            hostname = l.strip()
         if hostname:
             register_host(hostname)
         if disk:
             register_disk(hostname, disk)
-    stream.close()
 
 def main():
     global db, logger, const, emailsrv
     
     logger = Factory.get_logger("console")    
     db = Factory.get("Database")()
-    account = Factory.get("Account")(db)
     const = Factory.get("Constants")(db)
     db.cl_init(change_program="email_dom")
     creator = Factory.get("Account")(db)
@@ -135,10 +139,12 @@ def main():
                                    ['file=',
                                     'disk=',
                                     'host=',
-                                    'email-server'])
+                                    'email-server',
+                                    'dryrun'])
     except getopt.GetoptError:
         usage()
 
+    dryrun = False
     for opt, val in opts:
         if opt in ('-h', '--host'):
             host_in = True
@@ -153,6 +159,8 @@ def main():
             infile = val
         elif opt in ('-e', '--email-server'):
             emailsrv = True
+        elif opt in ('--dryrun',):
+            dryrun = True
             
     if not (host_in or disk_in) and infile == None:
         usage()
@@ -174,8 +182,12 @@ def main():
     if disk_in:	
         register_disk(host_name, disk_path)
 
-    db.commit()
-    logger.info("Commiting all...")
+    if dryrun:
+        db.rollback()
+        logger.info("Rolled back all changes")
+    else:
+        db.commit()
+        logger.info("Commiting all...")
 
 if __name__ == '__main__':
     main()
