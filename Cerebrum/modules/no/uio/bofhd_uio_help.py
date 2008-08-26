@@ -614,7 +614,7 @@ printer."""],
     'string_exec_host':
         ['run_host', 'Enter host (fqdn) for command execution'],
     'string_email_delivery_host':
-        ['delivery_host', 'Enter hostname for mail delivery. Example: sympa'],
+        ['delivery_host', 'Enter hostname for mail delivery. Example: lister-test'],
     'string_email_move_type':
         ['email_move_type', 'Enter e-mail move type',
          """Legal move types:
