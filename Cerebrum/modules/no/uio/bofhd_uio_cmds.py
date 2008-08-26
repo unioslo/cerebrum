@@ -18,7 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# Denne fila implementerer er en bofhd extension som i størst mulig
+# Denne fila implementerer en bofhd extension som i størst mulig
 # grad forsøker å etterligne kommandoene i ureg2000 sin bofh klient.
 #
 # Vesentlige forskjeller:
@@ -2404,7 +2404,6 @@ class BofhdExtension(object):
         if target_type == self.const.email_target_Mailman:
             self._register_mailman_list_addresses(listname, local_part, domain)
         elif target_type == self.const.email_target_Sympa:
-            delivery_host = self._get_email_server(delivery_host)
             self._register_sympa_list_addresses(listname, local_part, domain,
                                                 delivery_host)
         else:
@@ -3051,6 +3050,15 @@ class BofhdExtension(object):
           Host name (non-fqdn!) that list delivery happens to. The host must
           be registered in Cerebrum (in email_server).
         """
+
+        delivery_host = self._get_email_server(delivery_host)
+        if (delivery_host.email_server_type !=
+            self.const.email_server_type_sympa):
+            raise CerebrumError("Delivery host %s has wrong type %s for "
+                                "sympa ML %s" %
+                  (delivery_host.get_name(self.const.host_namespace),
+                   self.const.EmailServerType(delivery_host.email_server_type),
+                   listname))
 
         ed = Email.EmailDomain(self.db)
         ed.find_by_domain(domain)
