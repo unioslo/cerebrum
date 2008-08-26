@@ -27,7 +27,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Constants as _c
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
-import pickle
+import pickle, smtplib
 
 class Constants(_c.Constants):
     """
@@ -55,7 +55,7 @@ class PasswordNotifier(object):
         template = []
         max_password_age = dt.DateTimeDelta(365)
         grace_period = dt.DateTimeDelta(5*7)
-        reminder_delay = []
+        reminder_delay = [dt.DateTimeDelta(2*7)]
         class_notifier = ['Cerebrum.modules.PasswordNotifier/PasswordNotifier']
         trait = Constants.trait_passwordnotifier_notifications
         except_trait = Constants.trait_passwordnotifier_excepted
@@ -92,6 +92,7 @@ class PasswordNotifier(object):
         # fi db
 
         self.now = self.db.Date(*(time.localtime()[:3]))
+        self.today = dt.Date(*(time.localtime()[:3]))
         
         if dryrun:
             self.dryrun = True
@@ -126,7 +127,7 @@ class PasswordNotifier(object):
         """
         from Cerebrum.modules import PasswordHistory
         ph = PasswordHistory.PasswordHistory(self.db)
-        old_ids = set([int(x['account_id']) for x in ph.find_old_password_accounts((dt.now()
+        old_ids = set([int(x['account_id']) for x in ph.find_old_password_accounts((self.today
             - self.config.max_password_age).strftime("%Y-%m-%d"))])
         old_ids.update(set([int(x['account_id']) for x in ph.find_no_history_accounts()]))
         return old_ids
@@ -214,7 +215,7 @@ class PasswordNotifier(object):
         """
         d = self.get_notification_time(account)
         if d is None:
-            d = dt.now()
+            d = self.today
         return d + self.config.grace_period
     # end get_deadline
 
@@ -223,7 +224,7 @@ class PasswordNotifier(object):
         n = self.get_num_notifications(account)
         if 0 < n <= len(self.config.reminder_delay):
             delay = self.config.reminder_delay[n-1]
-            if self.get_notification_time(account) < dt.now() - delay:
+            if self.get_notification_time(account) < self.today - delay:
                 return True
         return False
     # end remind_ok
@@ -283,7 +284,7 @@ class PasswordNotifier(object):
                     else:
                         self.logger.info("First notify %s", account.account_name)
                 num_mailed += 1
-            elif self.get_deadline(account) < dt.now():
+            elif self.get_deadline(account) < self.today:
                 # Deadline given in notification is passed, splat.
                 if not self.dryrun:
                     self.splat_user(account)
@@ -318,7 +319,6 @@ Users warned earlier: %d
 Users with new passwords: %d
 """ % (len(old_ids), skipped, num_splatted, num_mailed, 
         num_reminded, num_previously_warned, lifted)
-            print body
             _send_mail(self.config.summary_to, self.config.summary_from,
                     "Statistics from password notifier", body, self.logger,
                     self.config.summary_cc)
