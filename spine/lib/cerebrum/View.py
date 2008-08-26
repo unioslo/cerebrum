@@ -68,7 +68,10 @@ class AccountView(DumpClass):
         Attribute('owner_id', int),
         Attribute('owner_group_name', str),
         Attribute('full_name', str),
-                
+
+        Attribute('primary_affiliation', str),
+        Attribute('primary_ou_id', int),
+               
         Attribute('quarantines', [str]),
         )
 
@@ -488,6 +491,22 @@ ON (account_name.entity_id = primary_account.account_id
   AND account_name.value_domain = :account_namespace)
 """
 
+primary_affiliation = """
+-- primary_affiliation
+SELECT
+account_type.person_id AS person_id,
+account_type.account_id AS account_id,
+account_type.ou_id AS ou_id,
+account_type.affiliation AS affiliation
+FROM account_type account_type,
+  (SELECT min(priority) AS min_prio, account_id
+    FROM account_type GROUP BY account_id) min_prio
+WHERE account_type.priority=min_prio.min_prio
+  AND account_type.account_id = min_prio.account_id
+"""
+
+
+
 class AliasesView(Builder):
     slots = (
         Attribute('local_part', str),
@@ -571,19 +590,37 @@ class View(DatabaseTransactionClass):
             "perspective": co.perspective_kjernen,
         }
         
-    def extend_account(self, d):
-        d["homedir"] = self.acc.resolve_homedir(account_name=d['name'],
-                                                disk_path=d['disk_path'],
-                                                home=d['home'])
-        # TDB: extend get_gecos() to do this job.
-        if not d["gecos"]:
-            if d["full_name"]:
-                d["gecos"] = d["full_name"]
-            elif d["owner_group_name"]:
-                d["gecos"] = "%s user (%s)" %(d["name"], d["owner_group_name"])
-            else:
-                d["gecos"] = "%s user" % d["name"]
-        return d
+    def extend_accounts(self, db, rows):
+        include_affiliation=1
+
+        if include_affiliation:
+            primary_affiliations={}
+            for a in db.query(primary_affiliation):
+                primary_affiliations[a['account_id']]=(a['affiliation'], a['ou_id'])
+        #import pdb
+        #pdb.set_trace()
+        accounts = []
+        for row in rows:
+            row=row.dict()
+            aid=row['id']
+            
+            row["homedir"] = self.acc.resolve_homedir(account_name=row['name'],
+                                                      disk_path=row['disk_path'],
+                                                      home=row['home'])
+            # TDB: extend get_gecos() to do this job.
+            if not row["gecos"]:
+                if row["full_name"]:
+                    row["gecos"] = row["full_name"]
+                elif row["owner_group_name"]:
+                    row["gecos"] = "%s user (%s)" % (
+                        row["name"], row["owner_group_name"])
+                else:
+                    row["gecos"] = "%s user" % row["name"]
+            if include_affiliation and aid in primary_affiliations:
+                row['primary_affiliation'] = str(co.PersonAffiliation(primary_affiliations[aid][0]))
+                row['primary_ou_id'] = primary_affiliations[aid][1]
+            accounts.append(row)
+        return accounts
 
     def extend_persons(self, db, rows):
         persons = []
@@ -613,7 +650,7 @@ class View(DatabaseTransactionClass):
         primary_accounts={}
         for a in db.query(primary_account,
                           {"account_namespace": co.account_namespace}):
-            primary_accounts[row['person_id']]=(a['account_id'], a['account_name'])
+            primary_accounts[a['person_id']]=(a['account_id'], a['account_name'])
             
         for row in rows:
             row = row.dict()
@@ -687,15 +724,13 @@ class View(DatabaseTransactionClass):
     def get_accounts(self):
         db = self.get_database()
         rows=db.query(account_search % "", self.query_data)
-        return self.add_quarantines([self.extend_account(r.dict())
-                                     for r in rows], owner=True)
+        return self.add_quarantines(self.extend_accounts(db, rows), owner=True)
     get_accounts.signature = [Struct(AccountView)]
     def get_accounts_cl(self):
         db = self.get_database()
         rows=db.query(account_search % account_search_cl + account_search_cl_o,
                       self.query_data)
-        return self.add_quarantines([self.extend_account(r.dict())
-                                     for r in rows], owner=True)
+        return self.add_quarantines(self.extend_accounts(db, rows), owner=True)
     get_accounts_cl.signature = [Struct(AccountView)]
     def get_groups(self):
         db = self.get_database()
