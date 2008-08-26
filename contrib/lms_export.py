@@ -163,12 +163,6 @@ def parse_xml_roles(fname):
             if kind == "undakt":
                 key = key + (data["aktivitetkode"],)
 
-        elif kind in ("kursakt", "evu"):
-            key = (data["etterutdkurskode"],
-                   data["kurstidsangivelsekode"])
-            if kind == "kursakt":
-                key = key + (data["aktivitetskode"],)
-
         else:
             logger.warn("%s%s: Wrong role entry kind: %s",
                         data["fodselsdato"], data["personnr"], kind)
@@ -180,6 +174,7 @@ def parse_xml_roles(fname):
               "personnr"    : int(data["personnr"]), })
 
     roles_xml_parser(fname, gimme_lambda)
+    logger.debug(result)
     return result
 
 
@@ -217,8 +212,10 @@ def populate_enhet_groups(enhet_id, role_mapping):
     # Enhetsansvar? Fagpersoner?
     all_resp = {}
     try:
-        resp = role_mapping[(Instnr, emnekode, versjon, termk, aar, termnr)]
-        logger.debug("Responsibles for '%s' ===> '%s'" % (kurs_id, resp))
+        group_identificators = (Instnr, emnekode, versjon, termk, aar, termnr)
+        resp = role_mapping[group_identificators]
+        logger.debug("Retrieved responsibles for group '%s' (AKA '%s'): %s" %
+                     (group_identificators, kurs_id, resp))
         for account_id in fnrs2account_ids(resp):
             all_resp[account_id] = 1
         logger.debug("all_resp: '%s'" % all_resp)
@@ -250,9 +247,10 @@ def populate_enhet_groups(enhet_id, role_mapping):
         # Aktivitetsansvar
         act_resp = {}
         try:
-            resp = role_mapping[(Instnr, emnekode, versjon, termk, aar, termnr)]
-            logger.debug("Responsibles for activity '%s-%s' ===> '%s'" %
-                         (kurs_id, act_code, resp))
+            group_identificators = (Instnr, emnekode, versjon, termk, aar, termnr, act_code)
+            resp = role_mapping[group_identificators]
+            logger.debug("Retrieved responsibles for group '%s' (AKA '%s-%s'): %s" %
+                         (group_identificators, kurs_id, act_code, resp))
             for account_id in fnrs2account_ids(resp):
                 act_resp[account_id] = 1
                 logger.debug("act_resp: '%s'" % act_resp)
