@@ -2287,6 +2287,7 @@ class BofhdExtension(object):
             raise CerebrumError("Illegal metacharacter in list parameter. None "
                                 "of the %s are allowed." % metachars)
 
+        delivery_host = self._get_email_server(delivery_host)
         self._create_mailing_list_in_cerebrum(operator,
                                               self.const.email_target_Sympa,
                                               delivery_host,
@@ -2333,7 +2334,8 @@ class BofhdExtension(object):
         perm_filter="can_email_list_create")
     def email_create_sympa_cerebrum_list(self, operator, delivery_host, listname):
         """Create a sympa mailing list in cerebrum only"""
-        
+
+        delivery_host = self._get_email_server(delivery_host)
         self._create_mailing_list_in_cerebrum(operator,
                                               self.const.email_target_Sympa,
                                               delivery_host,
@@ -2765,27 +2767,13 @@ class BofhdExtension(object):
         return m.group(2)
 
     def _validate_sympa_list(self, listname):
-        """Returns the 'official' name for the list, or raise an error if
-        listname isn't a Sympa list."""
+        """Check whether L{listname} is the 'official' name for a sympa ML.
 
-        try:
-            ea = Email.EmailAddress(self.db)
-            ea.find_by_address(listname)
-        except Errors.NotFoundError:
-            raise CerebrumError, "No such sympa list %s" % listname
+        Raise an error, if it is not.
+        """
 
-        et = Email.EmailTarget(self.db)
-        et.find(ea.get_target_id())
-        if (not et.email_target_alias or
-            et.email_target_type != self.const.email_target_Sympa): 
-            raise CerebrumError("'%s' is not a Sympa list" % listname)
-
-        local_part, domain = self._split_email_address(listname)
-        if (True in [local_part.startswith(x)
-                     for x in self._sympa_address_prefixes] or
-            True in [local_part.endswith(x)
-                     for x in self._sympa_address_suffixes]):
-            raise CerebrumError("'%s' is not the official Sympa list name" %
+        if self._get_sympa_list(listname) != listname:
+            raise CerebrumError("%s is NOT the official Sympa list name" %
                                 listname)
         return listname
     # end _validate_sympa_list
@@ -2798,15 +2786,20 @@ class BofhdExtension(object):
         The problem here is that some lists are actually called
         foo-admin@domain (and their admin address is foo-admin-admin@domain).
 
-        The strategy is thus like this:
+        Since the 'official' names are not tagged in any way, we try to
+        guess. The guesswork proceeds as follows:
 
-        1) Check if listname points to a sympa ET.
-        2) Check if listname ends with certain suffixes/starts with certain
-           prefixes. If not, we have a sympa list.
-        3) If it *does* in fact end/start with certain suffix/prefix, chop it
-           off and if the chopped address points to a sympa ET.
+        1) if listname points to a sympa ET that has a primary address, we are
+           done, listname *IS* the official list name
+        2) if not, then there must be a prefix/suffix (like -request) and if
+           we chop it off, we can checked the chopped off part for being an
+           official sympa list. The chopping off continues until we run out of
+           special prefixes/suffixes.
         """
 
+        ea = Email.EmailAddress(self.db)
+        et = Email.EmailTarget(self.db)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
         def has_prefix(address):
             local_part, domain = self._split_email_address(address)
             return True in [local_part.startswith(x)
@@ -2817,9 +2810,16 @@ class BofhdExtension(object):
             return True in [local_part.endswith(x)
                             for x in self._sympa_address_suffixes]
 
-        ea = Email.EmailAddress(self.db)
-        et = Email.EmailTarget(self.db)
-        epat = Email.EmailPrimaryAddressTarget(self.db)
+        def has_primary_to_me(address):
+            try:
+                ea.clear()
+                ea.find_by_address(address)
+                epat.clear()
+                epat.find(ea.get_target_id())
+                return True
+            except Errors.NotFoundError:
+                return False
+
         def I_am_sympa(address, check_suffix_prefix=True):
             try:
                 ea.clear()
@@ -2839,11 +2839,15 @@ class BofhdExtension(object):
         # end I_am_sympa
 
         not_sympa_error = CerebrumError("%s is not a Sympa list" % listname)
-        # Simplest case -- listname is actually without these stupid admin
-        # prefixes/suffixes.
+        # Simplest case -- listname is actually a sympa ML directly. It does
+        # not matter whether it has a funky prefix/suffix.
+        if I_am_sympa(listname) and has_primary_to_me(listname):
+            return listname
+
+        # However, if listname does not have a prefix/suffix AND it is not a
+        # sympa address with a primary address, them it CANNOT be a sympa
+        # address.
         if not (has_prefix(listname) or has_suffix(listname)):
-            if I_am_sympa(listname):
-                return listname
             raise not_sympa_error
 
         # There is a funky suffix/prefix. Is listname actually such a
@@ -2873,22 +2877,6 @@ class BofhdExtension(object):
             except CerebrumError:
                 pass
 
-        # Ah, we have a prefix or a suffix, like foo-admin@domain, and it is
-        # not a secondary address for foo@domain. So, it must be one of these
-        # really weird ML addresses that are actually called something like
-        # owner-owner@domain (to make our life miserable)
-        try:
-            if not I_am_sympa(listname):
-                raise not_sympa_error
-            
-            ea.clear(); et.clear(); epat.clear()
-            ea.find_by_address(listname)
-            epat.find(ea.get_target_id())
-            return listname
-        except Errors.NotFoundError:
-            pass
-
-        # NOTREACHED
         raise not_sympa_error
     # end _get_sympa_list
 
@@ -3045,13 +3033,11 @@ class BofhdExtension(object):
           L{local_part} and domain together represent a new list address that
           we want to create.
 
-        @type delivery_host: basestring
+        @type delivery_host: EmailServer instance.
         @param delivery_host:
-          Host name (non-fqdn!) that list delivery happens to. The host must
-          be registered in Cerebrum (in email_server).
+          EmailServer where e-mail to L{listname} is to be delivered through.
         """
 
-        delivery_host = self._get_email_server(delivery_host)
         if (delivery_host.email_server_type !=
             self.const.email_server_type_sympa):
             raise CerebrumError("Delivery host %s has wrong type %s for "
