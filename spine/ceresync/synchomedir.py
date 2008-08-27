@@ -80,7 +80,7 @@ for o, a in opts:
     elif o == "-d":
         dryrun=True
     elif o == "-r":
-	retry_failed=True
+        retry_failed=True
     else:
         print >>sys.stderr, "Unrecognized option '%s'" % o
         usage()
