@@ -2591,7 +2591,7 @@ class BofhdExtension(object):
             # nuke the address, and, if it's the last one, nuke the target as
             # well.
             self._remove_email_address(et, addr)
-        return "OK, remove alias %s and all auto registered aliases" % alias
+        return "OK, removed alias %s and all auto registered aliases" % alias
     # end email_remove_sympa_list_alias
     
                 
