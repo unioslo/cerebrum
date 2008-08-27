@@ -23,6 +23,7 @@
 
 Write IP subnet information from /cerebrum/etc/cerebrum/cereconf_dns.py
 to an LDIF file, which can then be loaded into LDAP.
+See Cerebrum/default_config.py:LDAP_SUBNETS for configuration.
 """
 
 import cerebrum_path
@@ -38,37 +39,35 @@ netmask_to_ip = IPCalc().netmask_to_ip
 def read_subnet_notes():
     import re
     input_file = re.sub(r'\.py\w$', '.py', cereconf_dns.__file__)
-    subnet_match = re.compile(
-        r'''^\s*SubNetDef\(\s*'([\d.]+)',\s*(\d+)\),?\s*\#\s*(\S.*)''').match
-    unspace = re.compile(r'(?:\t| \s)\s*').sub
+    subnet_re = re.compile(
+        r"^\s*SubNetDef\s*\(\s*'([\d.]+)'[\s,]*(\d+)\s*\)[,\s\)\]]*(?:#(.*))?")
+    subst_longspace = re.compile(r"\t\s*| \s+").sub
     notes = {}
-    for subnet in filter(None, map(subnet_match, file(input_file))):
+    for subnet in filter(None, map(subnet_re.match, file(input_file))):
         network, mask, note = subnet.groups()
         cn = "%s/%s" % (network, mask)
-        assert cn not in notes, ("Duplicate:", cn)
-        notes[cn] = unspace('  ', note.strip())
+        assert cn not in notes, "Duplicate: " + cn
+        notes[cn] = note and subst_longspace("  ", note.strip())
     return notes
 
 def write_subnet_ldif():
     notes = read_subnet_notes()
-    baseDN = ldapconf('SUBNETS', 'dn')
+    DN = ldapconf('SUBNETS', 'dn')
+    startAttr, endAttr, objectClasses = ldapconf('SUBNETS', 'rangeSchema')
+    objectClasses = ('top', 'ipNetwork') + tuple(objectClasses)
     f = ldif_outfile('SUBNETS')
-    rangeTypes = ldapconf('SUBNETS', 'rangeTypes', None)
     f.write(container_entry_string('SUBNETS'))
     for subnet in cereconf_dns.all_nets:
         cn = "%s/%d" % (subnet.net, subnet.mask)
-        entry = {
-            'objectClass': ('top', 'ipNetwork', 'uioIpNetwork'),
+        note = notes.pop(cn, None)
+        f.write(entry_string("cn=%s,%s" % (cn, DN), {
+            'objectClass':     objectClasses,
+            'description':     (note and (iso2utf(note),) or ()),
             'ipNetworkNumber': (subnet.net,),
-            'ipNetmaskNumber': (netmask_to_ip(subnet.mask),)}
-        if rangeTypes:
-            # Configurable since there are no attrs for these in RFC 2307.
-            entry[rangeTypes[0]] = (str(subnet.start),)
-            entry[rangeTypes[1]] = (str(subnet.stop),)
-        if cn in notes:
-            entry['description'] = (iso2utf(notes.pop(cn)),)
-        f.write(entry_string("cn=%s,%s" % (cn, baseDN), entry))
-    assert not notes, ("Suspicious parse for:", sorted(notes.keys()))
+            'ipNetmaskNumber': (netmask_to_ip(subnet.mask),),
+            startAttr:         (str(subnet.start),),
+            endAttr:           (str(subnet.stop ),)}))
+    assert not notes, "Suspicious parse for: " + ", ".join(notes.keys())
     end_ldif_outfile('SUBNETS', f)
 
 if __name__ == '__main__':
