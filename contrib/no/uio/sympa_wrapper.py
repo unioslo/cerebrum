@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-
+# -*- coding: iso-8859-1 -*-
 # Copyright 2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -75,9 +74,6 @@ def main():
     to_exec = " ".join(args)
     args = ["/local/bin/ssh", host, "su", "-", "sympa", "-c",
             "'" + to_exec + ">/dev/null" + "'"]
-    junk = file("/tmp/sympa_wrapper.log", "w")
-    junk.write("sympa_wrapper: prepared to exec «%s»" % repr(args))
-    junk.close()
     os.execv(args[0], args)
 # end main
 
