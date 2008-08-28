@@ -1211,7 +1211,7 @@ def output_person(writer, pobj, phd_cache, system_source):
     if len(contact) > 0:
        contact = contact[0]['contact_value']
        if len(contact) == 5:
-           contact = '776' + contact
+           contact = cereconf.INTERNAL_PHONE_PREFIX + contact
     else:
        contact = ''
 
