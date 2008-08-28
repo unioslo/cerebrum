@@ -156,6 +156,11 @@ class LMSExport(object):
         logger.debug("gather_people_information start")
         self.gather_student_information()
         self.gather_faculty_information()
+        # People who are faculty, should not be students
+        for student_fnr in self.students.keys():
+            if student_fnr in self.faculty:
+                logger.debug("Student '%s' also designated as faculty. Deleting from students" % student_fnr)
+                del self.students[student_fnr]
         logger.debug("gather_people_information done")
 
 

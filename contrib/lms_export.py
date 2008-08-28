@@ -174,7 +174,8 @@ def parse_xml_roles(fname):
               "personnr"    : int(data["personnr"]), })
 
     roles_xml_parser(fname, gimme_lambda)
-    logger.debug(result)
+    for entry in result.keys():
+        logger.debug("Role-mapping: '%s' => '%s'" % (entry, result[entry]))
     return result
 
 
