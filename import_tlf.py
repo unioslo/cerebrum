@@ -233,10 +233,6 @@ def process_telefoni(filename,checknames,checkmail):
     phonedata=dict()
     for row in reader:
         if row[RESERVATION].lower()=='kat' and row[USERID]:
-            if len(row[PHONE])==5:
-                row[PHONE]='776'+row[PHONE]
-            if len(row[PHONE_2])==5:
-                row[PHONE_2]='776'+row[PHONE_2]
             data = {'phone': row[PHONE],'mobile': row[MOB], 'room': row[ROOM],
                     'mail':row[MAIL], 'fax':row[FAX],'phone_2':row[PHONE_2],
                     'firstname': row[FNAME], 'lastname': row[LNAME],
