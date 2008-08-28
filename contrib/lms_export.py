@@ -487,8 +487,9 @@ def export_data(output_stream):
         for activity in activities.keys():
             # .. and this is where they get special treatment
             if activities[activity] == "all":
-                activity_id = enhet_id + ":alle"
-                act_name = enhet_name + " - alle"
+                activity_id = enhet_id
+                # No need to create this group, since we'll use the
+                # main "enhet"-group for it.
 
             else:
                 activity_id = activity
@@ -497,10 +498,10 @@ def export_data(output_stream):
                 name_elements = group.description.split(" ")
                 act_name = " ".join(name_elements[1:])                
 
-            logger.debug("Exporting activity: '%s' - '%s'" % (activity_id, act_name))
-            exporter.group_to_xml(id=activity_id, grouptype="Undaktivitet", parentcode=enhet_id,
-                                  grouptype_level=3, nameshort=act_name, namelong=act_name,
-                                  namefull=act_name)
+                logger.debug("Exporting activity: '%s' - '%s'" % (activity_id, act_name))
+                exporter.group_to_xml(id=activity_id, grouptype="Undaktivitet", parentcode=enhet_id,
+                                      grouptype_level=3, nameshort=act_name, namelong=act_name,
+                                      namefull=act_name)
 
             resp_group_id = subgroups[activity + ":ansvar"]
             stud_group_id = subgroups[activity + ":student"]
