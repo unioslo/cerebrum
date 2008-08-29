@@ -711,8 +711,10 @@ def proc_mailman_add_admin(r):
 
 def proc_mailman_remove(r):
     listname = r['state_data']
+    #
+    # Mailman wrapper always takes 3 arguments. Thus the 'dummy' arg.
     cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-           'mailman', 'rmlist', listname, ]
+           'mailman', 'rmlist', listname, "dummy"]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 
 
