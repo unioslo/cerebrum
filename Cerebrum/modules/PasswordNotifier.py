@@ -283,7 +283,9 @@ class PasswordNotifier(object):
                         self.inc_num_notifications(account)
                     else:
                         self.logger.info("First notify %s", account.account_name)
-                num_mailed += 1
+                    num_mailed += 1
+                else:
+                    self.logger.error("User %s not modified", account.account_name)
             elif self.get_deadline(account) < self.today:
                 # Deadline given in notification is passed, splat.
                 if not self.dryrun:
@@ -301,7 +303,9 @@ class PasswordNotifier(object):
                             self.logger.info("Remind %d for %s", 
                                     self.get_num_notifications(account),
                                     account.account_name)
-                    num_reminded += 1
+                        num_reminded += 1
+                    else:
+                        self.logger.error("User %s not modified", account.account_name)
         # end for
         if self.dryrun:
             print ("Users with old password: %i\nWould splat: %i\n"
@@ -424,11 +428,11 @@ def _send_mail(mail_to, mail_from, subject, body, logger, mail_cc=None, debug_en
                              cc=mail_cc, debug=debug_enabled)
     except smtplib.SMTPRecipientsRefused, e:
         failed_recipients = e.recipients
-        logger.info("Failed to notify <%d> users", len(failed_recipients))
         for email, condition in failed_recipients.iteritems():
-            logger.info("Failed to notify: %s", condition)
+            logger.exception("Failed when notifying %s (%s): %s", mail_to, email, condition)
+        return False
     except smtplib.SMTPException, msg:
-        logger.warn("Error sending to %s: %s" % (mail_to, msg))
+        logger.error("Error when notifying %s: %s" % (mail_to, msg))
         return False
     return True
 
