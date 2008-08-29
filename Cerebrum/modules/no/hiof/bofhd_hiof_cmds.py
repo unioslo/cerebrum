@@ -137,54 +137,57 @@ class BofhdExtension(object):
                 ret.append((trait_const_class, entity_trait))
         return ret
 
-    # user delete_ad_attrs
-    all_commands['user_delete_ad_attrs'] = Command(
-        ('user', 'delete_ad_attrs'), AccountName(), Spread(),
-        perm_filter='is_superuser')
-    def user_delete_ad_attrs(self, operator, uname, spread):
-        """
-        Bofh command user delete_ad_attrs
-
-        Delete AD attributes home, profile_path and ou for user. AD
-        attributes are stored as a spread -> value mapping in an
-        entity trait in Cerebrum, where spread represents a AD domain.
-
-        @param operator: operator in bofh session
-        @type  uname: string
-        @param uname: user name of account which AD values should be
-                      deleted
-        @type  spread: string
-        @param spread: code_str of spread
-        @rtype: string
-        @return: OK message if success
-        """
-        account = self._get_account(uname, idtype='name')
-        spread = self._get_constant(self.const.Spread, spread)
-        deleted_attrs = []
-        for trait_const_class, entity_trait in self._user_get_ad_traits(account):
-            # unpickle_val is a spread -> ad_attr_val dict
-            unpickle_val = pickle.loads(str(entity_trait['strval']))
-            new_attrs = unpickle_val.copy()
-            for u in unpickle_val.keys():
-                if self._get_constant(self.const.Spread, u, 'spread') == spread:
-                    # Check that there is a value for the given spread
-                    if int(spread) in new_attrs:
-                        del new_attrs[int(spread)]
-            # Only delete or update trait if a change has actually occured
-            if len(new_attrs) < len(unpickle_val):
-                deleted_attrs.append(str(trait_const_class))
-                # Only delete trait if int(spread) is the only key
-                if len(new_attrs) == 0:
-                    account.delete_trait(entity_trait['code'])
-                else:
-                    account.populate_trait(trait_const_class,
-                                           strval=pickle.dumps(new_attrs))
-                account.write_db()
-        if deleted_attrs:
-            return "OK, removed AD-traits %s for %s" % (
-                ', '.join(deleted_attrs), uname)
-        else:
-            return "No AD-traits removed for user %s" % uname
+    ## This method cannot be used until race condition with ad_sync is
+    ## solved.
+    ##
+    # # user delete_ad_attrs
+    # all_commands['user_delete_ad_attrs'] = Command(
+    #     ('user', 'delete_ad_attrs'), AccountName(), Spread(),
+    #     perm_filter='is_superuser')
+    # def user_delete_ad_attrs(self, operator, uname, spread):
+    #     """
+    #     Bofh command user delete_ad_attrs
+    # 
+    #     Delete AD attributes home, profile_path and ou for user. AD
+    #     attributes are stored as a spread -> value mapping in an
+    #     entity trait in Cerebrum, where spread represents a AD domain.
+    # 
+    #     @param operator: operator in bofh session
+    #     @type  uname: string
+    #     @param uname: user name of account which AD values should be
+    #                   deleted
+    #     @type  spread: string
+    #     @param spread: code_str of spread
+    #     @rtype: string
+    #     @return: OK message if success
+    #     """
+    #     account = self._get_account(uname, idtype='name')
+    #     spread = self._get_constant(self.const.Spread, spread)
+    #     deleted_attrs = []
+    #     for trait_const_class, entity_trait in self._user_get_ad_traits(account):
+    #         # unpickle_val is a spread -> ad_attr_val dict
+    #         unpickle_val = pickle.loads(str(entity_trait['strval']))
+    #         new_attrs = unpickle_val.copy()
+    #         for u in unpickle_val.keys():
+    #             if self._get_constant(self.const.Spread, u, 'spread') == spread:
+    #                 # Check that there is a value for the given spread
+    #                 if int(spread) in new_attrs:
+    #                     del new_attrs[int(spread)]
+    #         # Only delete or update trait if a change has actually occured
+    #         if len(new_attrs) < len(unpickle_val):
+    #             deleted_attrs.append(str(trait_const_class))
+    #             # Only delete trait if int(spread) is the only key
+    #             if len(new_attrs) == 0:
+    #                 account.delete_trait(entity_trait['code'])
+    #             else:
+    #                 account.populate_trait(trait_const_class,
+    #                                        strval=pickle.dumps(new_attrs))
+    #             account.write_db()
+    #     if deleted_attrs:
+    #         return "OK, removed AD-traits %s for %s" % (
+    #             ', '.join(deleted_attrs), uname)
+    #     else:
+    #         return "No AD-traits removed for user %s" % uname
 
     # user list_ad_attrs
     all_commands['user_list_ad_attrs'] = Command(
