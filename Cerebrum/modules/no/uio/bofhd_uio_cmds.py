@@ -7268,6 +7268,12 @@ class BofhdExtension(object):
             raise CerebrumError, "Account %s has expired" % account.account_name
         br = BofhdRequests(self.db, self.const)
         spread = int(self.const.spread_uio_nis_user)
+        if move_type in ("immediate", "batch", "student", "student_immediate",
+                         "request", "give"):
+            try:
+                ah = account.get_home(spread)
+            except Errors.NotFoundError:
+                raise CerebrumError, "Cannot move %s, account has no home" % (account.account_name)
         if move_type in ("immediate", "batch", "nofile"):
             message = ""
             disk, disk_id = self._get_disk(args[0])[:2]
