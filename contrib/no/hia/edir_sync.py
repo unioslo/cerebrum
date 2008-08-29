@@ -318,6 +318,7 @@ def main():
                     tmp_attrs = account_make_attrs(event['subject_entity'])
                     if tmp_attrs:
                         edir_util.object_edir_create(dn, tmp_attrs)
+                        time.sleep(1)
                     cl_handler.confirm_event(event)
             elif event['change_type_id'] in [constants.person_name_add, constants.person_name_mod]:
                 person_mod_names(event['subject_entity'])
@@ -326,6 +327,8 @@ def main():
         logger.warn("No such event, %s" % e)
     cl_handler.commit_confirmations()
 
+    time.sleep(2)
+    
     try:
         cl_events = cl_handler.get_events('edirgroups', (constants.group_add,
                                                          constants.group_rem,
@@ -354,8 +357,9 @@ def main():
                     logger.warn("Ignoring event, since group_id=%s has no name",
                                 event['subject_entity'])
                 else:
-                    edir_util.object_edir_create(
-                        dn, group_make_attrs(event['subject_entity']))
+                    edir_util.object_edir_create(dn,
+                                                 group_make_attrs(event['subject_entity']))
+                    time.sleep(1)
                 cl_handler.confirm_event(event)             
     except TypeError, e:
         logger.warn("No such event, %s" % e)
