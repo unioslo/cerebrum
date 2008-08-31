@@ -52,6 +52,36 @@ class NMHStudent(access_FS.Student):
           """ % (self._is_alive())
         return self.db.query(qry)
 
+    def list_eksamensmeldinger(self):  # GetAlleEksamener
+        """Hent ut alle eksamensmeldinger i nåværende sem."""
+
+        qry = """
+        SELECT p.fodselsdato, p.personnr, vm.emnekode, vm.studieprogramkode
+        FROM fs.person p, fs.vurdkombmelding vm,
+        fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+        fs.vurdkombenhet ve
+        WHERE p.fodselsdato=vm.fodselsdato AND
+              p.personnr=vm.personnr AND
+              vm.institusjonsnr = vk.institusjonsnr AND
+              vm.emnekode = vk.emnekode AND
+              vm.versjonskode = vk.versjonskode AND
+              vm.vurdkombkode = vk.vurdkombkode AND
+              vk.vurdordningkode IS NOT NULL and
+              vm.arstall = vt.arstall AND
+              vm.vurdtidkode = vt.vurdtidkode AND
+              ve.emnekode = vm.emnekode AND
+              ve.versjonskode = vm.versjonskode AND
+              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdtidkode = vm.vurdtidkode AND
+              ve.institusjonsnr = vm.institusjonsnr AND
+              ve.arstall = vt. arstall AND
+              ve.vurdtidkode = vt.vurdtidkode AND
+              ve.arstall_reell = %s
+              AND %s
+        ORDER BY fodselsdato, personnr
+        """ % (self.year, self._is_alive())                            
+        return self.db.query(qry)
+
 class NMHUndervisning(access_FS.Undervisning):
     ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
     ##      og list_studenter_underv_enhet.
