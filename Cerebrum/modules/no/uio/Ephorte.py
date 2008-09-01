@@ -54,6 +54,7 @@ class EphorteConstants(ConstantsBase):
     ephorte_role_sb = _EphorteRoleTypeCode('SB', 'Saksbehandler')
     ephorte_role_sy = _EphorteRoleTypeCode('SY', 'Systemansvarlig')
     ephorte_role_mal = _EphorteRoleTypeCode('MAL', 'Mal-ansvarlige')
+    ephorte_role_sub = _EphorteRoleTypeCode('SUB', 'Superbruker')
 
     #Values from the ePhorte table tilgang_type_code
     ephorte_perm_us = _EphortePermTypeCode('US', 'Unntatt etter offentlighetsloven ved SO')
