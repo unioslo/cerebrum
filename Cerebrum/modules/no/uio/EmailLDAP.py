@@ -123,7 +123,7 @@ class EmailLDAPUiOMixin(EmailLDAP):
             host = Factory.get("Host")(self._db)
             try:
                 host.find(server_id)
-                sdict["commandHost"] = host.name + "uio.no"
+                sdict["commandHost"] = host.name + ".uio.no"
             except Errors.NotFoundError:
                 # IVR 2008-07-24 TBD: What to do? Can we have an LDIF-entry
                 # for sympa without the host part?
