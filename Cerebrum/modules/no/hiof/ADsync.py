@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006, 2007 University of Oslo, Norway
+# Copyright 2006-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -139,10 +139,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v = tmp_ret.get(int(row['entity_id']))
                 if v:
                     try:
-                        tmp = pickle.loads(row['strval'])[int(spread)]
-                        v[key] = unicode(tmp, 'ISO-8859-1')
-                        if key == 'OU':                            
-                            v[key] += "," + self.ad_ldap                        
+                        tmp = pickle.loads(row['strval'])
+                        if int(spread) in tmp:
+                            v[key] = unicode(tmp[int(spread)], 'ISO-8859-1')
+                            if key == 'OU':                            
+                                v[key] += "," + self.ad_ldap                        
                     except KeyError:
                         self.logger.warn("No %s -> %s mapping for user %i" % (
                             spread, key, row['entity_id']))
@@ -198,7 +199,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         ret = self.run_cmd('createObject', dry_run,
                            'User', ou, chg['sAMAccountName'])
         if not ret[0]:
-            self.logger.warning("create user %s failed: %r", chg['sAMAccountName'], ret)
+            self.logger.error("create user %s failed: %r", chg['sAMAccountName'], ret)
         else:
             if not dry_run:
                 self.logger.info("created user %s", ret)
@@ -232,10 +233,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if ret[0]:
                     ret2 = self.run_cmd('createDir', dry_run, 'homeDirectory')
                     if not ret2[0]:
-                        self.logger.warning('createDir on %s failed: %r', uname, ret)
+                        self.logger.error('createDir on %s failed: %r', uname, ret)
                     ret2 = self.run_cmd('createDir', dry_run, 'profilePath')
                     if not ret2[0]:
-                        self.logger.warning("createDir on %s failed: %r",uname, ret)
+                        self.logger.error("createDir on %s failed: %r",uname, ret)
                      
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     #Groupsync Mixin
