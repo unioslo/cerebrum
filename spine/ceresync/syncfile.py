@@ -51,7 +51,32 @@ def check_group(group):
             group.members.remove(n)
     return None
 
+
+def usage():
+    print "Usage: %s -c <config file>"  % os.path.basename(sys.argv[0])
+    print "-v be verbose"
+    print "-c <config file>"
+    return
+
 def main():
+    verbose = False
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "vhc:")
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+
+    for o, a in opts:
+        if o == "-h":
+            usage()
+            sys.exit(2)
+        if o == "-v":
+            verbose = True
+        if o == "-c":
+            config.sync.read(a)
+            log.debug("reading config file %s" , a )
+            log.debug("spread is: %s" , config.sync.get("sync","account_spread")
     incr = False
     id = -1
     s = sync.Sync(incr,id)
