@@ -57,7 +57,7 @@ setpassword_submit_button_text='Continue'
 setpassword_legal_passwords_text='<ol> <li>The password must be at least 8 characters.</li> <li>The password must be different from your last password.</li> <li>The password must contain at least one character from three of the four groups:</li> <li> <ol> <li>Uppercase letters(A-Z)</li> <li>Lowercase letters (a-z)</li> <li>Digits (0-9)</li> <li>Special characters (!#()*+,.=?@[]_{}~-) </ol> </li> </ol>'
 setpassword_too_short_error_message='The passwords are too short (minimum 8 characters).'
 setpassword_no_match_error_message='The passwords does not match.'
-setpassword_pwd_too_weak_error_mesage='The password is not strong enough.  Please, examine the password-rules.'
+setpassword_pwd_too_weak_error_mesage='The pasword must be precise 8 characters long and hard to guess.  Please, try again and also check the password-rules.'
 #
 # activation ended
 #

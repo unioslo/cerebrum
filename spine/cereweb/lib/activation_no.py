@@ -56,7 +56,7 @@ setpassword_submit_button_text='Fortsett'
 setpassword_legal_passwords_text='<ol> <li>Passordet m&aring; v&aelig;re 8 tegn langt</li> <li>Passordet m&aring; v&aelig;re forskjellig fra ditt siste passord</li> <li>Passordet m&aring; inneholodet minst ett tegn fra tre av de fire gruppene:</li> <li> <ol> <li>Store bokstaver (A-Z)</li> <li>Sm&aring; bokstaver (a-z)</li> <li>Siffer (0-9)</li> <li>Spesialtegn (!#()*+,.=?@[]_{}~-) </ol> </li> </ol>'
 setpassword_too_short_error_message='Passordet er for kort (minimum 8 tegn).'
 setpassword_no_match_error_message='Passordene er ikke like.'
-setpassword_pwd_too_weak_error_mesage='Passordet er ikke sterkt nok.  Vennligst, sjekk reglene for passord.'
+setpassword_pwd_too_weak_error_mesage='Passord skal v&aelig;re n&oslash;yaktig 8 tegn langt og vanskelig å gjette. Vennligst, pr&oslash;v p&aring; nytt og sjekk reglene for passord.'
 #
 # activation ended
 #
