@@ -24,39 +24,41 @@ from ceresync import sync
 from ceresync import config
 import ceresync.backend.adsi as adsibackend
 
+log=config.logger
+
 def main():
     incr = False
     id = -1
     s = sync.Sync(incr,id)
 
     # FIXME: URLs from config
-    userAD = adsibackend.ADUser("LDAP://OU=Brukere,DC=twin,DC=itea,DC=ntnu,DC=no")
-    groupAD = adsibackend.ADGroup("LDAP://OU=Grupper,DC=twin,DC=itea,DC=ntnu,DC=no")
+    userAD = adsibackend.ADUser("LDAP://OU=Brukere,DC=tymse,DC=itea,DC=ntnu,DC=no")
+    groupAD = adsibackend.ADGroup("LDAP://OU=Grupper,DC=tymse,DC=itea,DC=ntnu,DC=no")
 
+    log.debug("Retrieving accounts and groups from spine")
     accounts, groups= s.get_accounts(), s.get_groups()
+    log.debug("Closing connection to spine")
     s.close()
 
-    print "Syncronizing users"
+    log.info("Synchronizing accounts")
     userAD.begin(incr)
     for account in accounts:
+        log.debug("Processing account '%s'", account.name)
         userAD.add(account)
     userAD.close()
+    log.info("Done synchronizing accounts")
 
-    # Syncronize groups
-    print "Syncronizing groups"
+    log.info("Synchronizing groups")
     groupAD.begin(incr)
     try:
         for group in groups:
+            log.debug("Processing group '%s'", group.name)
             groupAD.add(group)
     except IOError,e:
-        print "Exception %s occured, aborting" % e
+        log.exception("Exception %s occured, aborting", e)
     else:
         groupAD.close()
-
-    print "Done"
-
+    log.info("Done synchronizing groups")
 
 if __name__ == "__main__":
     main()
-
-# arch-tag: b661ca61-802f-42b2-9a49-ce3d4c183754
