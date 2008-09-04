@@ -26,10 +26,12 @@ from ceresync import config
 import traceback
 import re
 import sys
+import getopt
+import os
 
 log= config.logger
 
-name_regex=re.compile("^[A-Za-z0-9_]+$")
+name_regex=re.compile("^[A-Za-z0-9_-]+$")
 def check_account(account):
     if not name_regex.match(account.name):
         return "Bad accountname"
@@ -76,7 +78,7 @@ def main():
         if o == "-c":
             config.sync.read(a)
             log.debug("reading config file %s" , a )
-            log.debug("spread is: %s" , config.sync.get("sync","account_spread")
+            log.debug("spread is: %s" , config.sync.get("sync","account_spread"))
     incr = False
     id = -1
     s = sync.Sync(incr,id)
