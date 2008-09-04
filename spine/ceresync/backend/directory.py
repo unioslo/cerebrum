@@ -160,6 +160,15 @@ class LdapBack:
             print "Error connecting to server: %s" % (e)
             raise LdapConnectionError
 
+        # Check that the base exists. If not, produce a warning and create it.
+        try:
+            self.l.search_s(self.base, ldap.SCOPE_BASE)
+        except ldap.NO_SUCH_OBJECT, e:
+            log.warning("Creating non-existing base '%s'.")
+            entry= { 'objectClass': ['top','organizationalUnit'],
+                     'ou': self.base.split(',',1)[0].split('=',1)[1], }
+            self.l.add_s(self.base, modlist.addModlist(entry))
+
         if not self.incr:
             self.populate()
 
@@ -224,11 +233,6 @@ class LdapBack:
         """
         Add object into LDAP. If the object exist, we update all attributes given.
         """
-        # Use previous knowledge if available
-        if self.has_object(obj) and update_if_exists:
-            system.update(obj, self.get_object(obj))
-            return
-
         dn=self.get_dn(obj)
         attrs=self.get_attributes(obj)
         try:
