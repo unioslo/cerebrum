@@ -33,10 +33,12 @@ def main():
     userAD = adsibackend.ADUser("LDAP://OU=Brukere,DC=twin,DC=itea,DC=ntnu,DC=no")
     groupAD = adsibackend.ADGroup("LDAP://OU=Grupper,DC=twin,DC=itea,DC=ntnu,DC=no")
 
-    # Syncronize users
+    accounts, groups= s.get_accounts(), s.get_groups()
+    s.close()
+
     print "Syncronizing users"
     userAD.begin(incr)
-    for account in s.get_accounts():
+    for account in accounts:
         userAD.add(account)
     userAD.close()
 
@@ -44,15 +46,13 @@ def main():
     print "Syncronizing groups"
     groupAD.begin(incr)
     try:
-        for group in s.get_groups():
+        for group in groups:
             groupAD.add(group)
     except IOError,e:
         print "Exception %s occured, aborting" % e
     else:
         groupAD.close()
 
-    print "Final closing"
-    s.close()
     print "Done"
 
 
