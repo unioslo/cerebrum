@@ -24,6 +24,7 @@
 #attr $widgets = Widgets()
 #attr $listGroups = GroupViewTemplate.listGroups
 #attr $names_width = 5
+#attr $viewBirthNo = False
 
 #def viewActions($transaction, $person)
     #set $id = $html_quote($person.get_id())
@@ -52,7 +53,7 @@
     $viewContactInfos($entity)
     $viewAddresses($entity)
     $setExternalId($entity, $tr)
-    $viewExternalIds($entity)
+    $viewExternalIds($entity, $viewBirthNo)
     $viewHistoryLog($entity)
 #end def
 

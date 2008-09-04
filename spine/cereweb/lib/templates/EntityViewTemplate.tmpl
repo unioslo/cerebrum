@@ -113,7 +113,7 @@
 #end def
 
 #from lib.utils import extidlist
-#def viewExternalIds($entity)
+#def viewExternalIds($entity, $viewBirthNo)
 #set $ids = extidlist($entity)
 #if $ids
 <div class="info box">
@@ -127,9 +127,18 @@
     #for $id in $ids
     #set sources = ",".join([$s.get_name() for $s in $id.sources])
     <tr>
-       <td>$html_quote($id.variant.get_name())</td>
-       <td>$html_quote($id.value)</td>
-       <td>$html_quote($sources)</td>
+            <td>$html_quote($id.variant.get_name())</td>
+            #if 'NO_BIRTHNO' == $id.variant.get_name 
+                #if $viewBirthNo
+                     <td>$html_quote($id.value)&nbsp;<a href="/person/view?id=$html_quote($entity.get_id())">[Hide value]</a></td>
+                        #set $viewBirthNo=False
+                #else
+                    <td><a href="/person/view?id=$html_quote($entity.get_id())&birthno=True">[Show value]</a>
+                #end if   
+            #else
+               <td>$html_quote($id.value)</td>
+            #end if
+           <td>$html_quote($sources)</td>
     </tr>
     #end for
     </table>
