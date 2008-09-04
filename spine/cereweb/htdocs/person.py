@@ -93,6 +93,9 @@ def view(transaction, id, **vargs):
     page.tr = transaction
     page.entity_id = int(id)
     page.entity = person
+    showBirthNo = vargs.get('birthno', '')
+    if showBirthNo:
+        page.viewBirthNo = True
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
