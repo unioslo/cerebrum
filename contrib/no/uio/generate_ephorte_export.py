@@ -1,11 +1,30 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
+#
+# Copyright 2007-2008 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import getopt
 import pickle
 import sys
 import cerebrum_path
 from Cerebrum import Errors
+from Cerebrum import Utils
 from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
@@ -173,7 +192,9 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         tmp = persons.get(entity_id, None)
         if tmp is None:
             continue
-        tmp['first_name'] = dta[int(co.name_first)]
+        # first name can't be longer then 30 chars in ephorte...
+        tmp['first_name'] = Utils.shorten_name(dta[int(co.name_first)],
+                                               max_length=30, method='initials')
         tmp['last_name'] = dta[int(co.name_last)]
         tmp['full_name'] = dta[int(co.name_full)]
 
