@@ -1,5 +1,4 @@
-# -*- coding: iso-8859-1 -*-
-
+# -*- coding: windows-1252 -*-
 # Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -34,6 +33,7 @@ import tempfile
 import win32pipe
 import time
 import StringIO
+import win32com.client
 from ceresync.sync import Pgp
 from ceresync import config
 
@@ -196,6 +196,15 @@ class _AdsiBack(object):
             if obj.name in self._remains:
                 del self._remains[obj.name]
 
+    def _move_here(self, dn, accountname):
+        """move object referred to with distinguishedName, dn, to currently 
+        bound ou"""
+        ad_obj= win32com.client.GetObject('LDAP://'+self.ou.distinguishedName)
+        # If an account has been added manually, the CN may be the full name
+        # instead of username, and the full name may contain non-ascii chars.
+        # FIXME: There's probably a better way to handle this
+        ad_obj.moveHere(dn.__str__().encode('cp1252'), 'CN='+accountname)
+        
 
 class _ADAccount(_AdsiBack):                
     """Common abstract class for ADUser and ADGroup. 
@@ -257,7 +266,13 @@ class _ADAccount(_AdsiBack):
     def add(self, obj):
         """Adds an object to AD. If it already exist, the existing
            AD object will be updated instead."""
-        already_exists = self._find(obj.name)
+        try:
+            already_exists = self._find(obj.name)
+        except OutsideOUError, e:
+            dn, accountname= e
+            log.info("moving %s from %s", accountname, dn.__str__().encode('cp1252'))
+            self._move_here(dn, accountname)
+            already_exists = True
         if already_exists:
             # FIXME: Proper logging, and maybe hint caller that he
             # should do a full sync instead
