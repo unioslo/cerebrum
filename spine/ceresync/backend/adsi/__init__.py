@@ -33,9 +33,11 @@ import unittest
 import tempfile
 import win32pipe
 import time
-import logging
 import StringIO
 from ceresync.sync import Pgp
+from ceresync import config
+
+log=config.logger
 
 class WrongClassError(errors.AlreadyExistsError):
     """Already exists in OU, but is wrong objectClass"""    
@@ -171,6 +173,7 @@ class _AdsiBack(object):
 
     def nuke(self, obj):
         ad_obj = self._find(obj.name)
+        log.info("deleting '%s'.",obj.name)
         self._nuke(ad_obj)
         if not self.incr:
             if obj.name in self._remains:
@@ -255,7 +258,7 @@ class _ADAccount(_AdsiBack):
             if self.incr:
                 # in non-incr (full-sync) mode, everything will be
                 # add(), so we won't report those
-                logging.warn("Already exists %s, updating instead", obj.name)
+                log.warn("Already exists %s, updating instead", obj.name)
             return self.update(obj)
         
         ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)
@@ -275,7 +278,7 @@ class _ADAccount(_AdsiBack):
         if not ad_obj:
             # FIXME: Proper logging, and maybe hint caller that he
             # should do a full sync instead
-            logging.warn("Did not exist %s, adding instead", obj.name)
+            log.warn("Did not exist %s, adding instead", obj.name)
             return self.add(obj)
         if not self.incr:
             if obj.name in self._remains:
