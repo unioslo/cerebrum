@@ -39,6 +39,14 @@ from ceresync import config
 
 log=config.logger
 
+def str2int(s):
+    s= s.strip()
+    if s.startswith('0x'):
+        return int(s, base=16)
+    if s.startswith('0') and s.isdigit():
+        return int(s, base=8)
+    return int(s)
+
 class _Dummy(object):
     """A dummy object to simulate an account object"""
     def __init__(self,name):
@@ -283,7 +291,7 @@ class _ADAccount(_AdsiBack):
             return self.update(obj)
         
         ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)
-        ad_obj.saMAccountName = obj.name
+        ad_obj.sAMAccountName = obj.name
         ad_obj.setInfo()
         # update should fetch object again for auto-generated values 
         ad_obj = self.update(obj)
@@ -305,7 +313,6 @@ class _ADAccount(_AdsiBack):
             if obj.name in self._remains:
                 del self._remains[obj.name]
         return ad_obj    
-
 class ADUser(_ADAccount):
     objectClass = "user"
     """Backend for Users in Active Directory.
@@ -318,17 +325,31 @@ class ADUser(_ADAccount):
 
     def update(self, obj):
         ad_obj = super(ADUser, self).update(obj)
-        # FIXME: Should check with quarantines       
-        # NOTE: Bug in our AD wrapper forces us to use
-        # the com_object directly as AccountDisabled is NOT a 
-        # property to be set with put("AccountDisabled", False) but
-        # should be set directly. I don't know why.
-        ad_obj.com_object.accountDisabled = False
-        # FIXME: should fetch names from owner, and not require Posix
-        ad_obj.fullName = obj.gecos or ""
-        password = obj.passwd
-        if password is not None:
-            ad_obj.setPassword(Pgp().decrypt(password))
+        ad_obj.userAccountControl= str2int(obj.control_flags)
+        # Setting FirstName and LastName based on the last space in the full
+        # name. The bdb client does this, though I have no idea why :)
+        full_name= obj.full_name or obj.gecos or ' '
+        try: 
+            first_name, last_name= full_name.rsplit(None,1)
+        except ValueError:
+            first_name, last_name= ' ', full_name
+
+        ad_obj.firstName= first_name
+        ad_obj.lastName= last_name
+        ad_obj.fullName= full_name
+        ad_obj.homeDirectory= obj.homedir
+        ad_obj.userPrincipalName= '%s@%s' % (obj.name,obj.domain)
+        ad_obj.profilePath= obj.profilepath
+
+        if obj.passwd:
+            dec= Pgp().decrypt(obj.passwd)
+            try: 
+                ad_obj.setPassword(dec)
+            except Exception,e:
+                log.warning("Failed to set password on '%s': %s", obj.name, e) 
+                pass
+        else:
+            log.warning("No password on %s.", obj.name)
         ad_obj.setInfo()
         return ad_obj
 
@@ -366,7 +387,7 @@ class ADGroup(_ADAccount):
                 ad_obj.remove(user)
             for user in add:
                 ad_obj.add(user)    
-            ad_obj.setInfo()    
+            ad_obj.setInfo()
         check_members()           
         return ad_obj
 
