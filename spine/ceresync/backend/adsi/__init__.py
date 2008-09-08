@@ -154,7 +154,7 @@ class _AdsiBack(object):
         """Close the connection to AD"""
         if not self.incr:
             for obj in self._remains.values():
-                self._nuke(obj)
+                self.delete(obj)
         self._remains = None
         self.ou = None
 
