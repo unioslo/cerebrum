@@ -39,6 +39,11 @@ from ceresync import config
 
 log=config.logger
 
+class _Dummy(object):
+    """A dummy object to simulate an account object"""
+    def __init__(self,name):
+        self.name= name
+
 class WrongClassError(errors.AlreadyExistsError):
     """Already exists in OU, but is wrong objectClass"""    
 
@@ -155,8 +160,9 @@ class _AdsiBack(object):
     def close(self):
         """Close the connection to AD"""
         if not self.incr:
-            for obj in self._remains.values():
-                self.delete(obj)
+            for obj in self._remains.keys():
+                log.info("Disabling %s",obj)
+                self.delete(_Dummy(obj))
         self._remains = None
         self.ou = None
 
