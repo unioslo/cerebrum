@@ -33,7 +33,7 @@
 category:metainfo;
 name=bofhd;
 category:metainfo;
-version=1.2;
+version=1.3;
 
 category:main;
 CREATE TABLE bofhd_session
@@ -42,10 +42,14 @@ CREATE TABLE bofhd_session
                CONSTRAINT bofhd_session_pk PRIMARY KEY
                NOT NULL,
   account_id   NUMERIC(12,0)
+               CONSTRAINT bofhd_session_owner_fk
+                 REFERENCES account_info(account_id)
                NOT NULL,
   auth_time    TIMESTAMP
                NOT NULL,
-  last_seen    TIMESTAMP
+  last_seen    TIMESTAMP,
+  /* IPv4 address is stored as a 32-bit integer */ 
+  ip_address   NUMERIC(10,0) NOT NULL
 );
 
 /* bofhd_session_state

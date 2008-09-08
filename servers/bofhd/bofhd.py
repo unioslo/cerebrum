@@ -31,7 +31,10 @@ import sys
 import crypt
 import md5
 import mx
+import re
 import socket
+import struct
+
 import cerebrum_path
 import cereconf
 if sys.version_info < (2, 3):
@@ -79,23 +82,132 @@ Account_class = Utils.Factory.get('Account')
 # writing to it simultaneously.
 logger = Utils.Factory.get_logger("bofhd")  # The import modules use the "import" logger
 
-# TBD: Is a BofhdSession class a good idea?  It could (optionally)
-# take a session_id argument when instantiated, and should have
-# methods for setting and retrieving state info for that particular
-# session.
+
+# This regex is too permissive for IP-addresses, but that does not matter,
+# since we use a library function that traps non-sensical values.
+_subnet_rex = re.compile(r"((\d+)\.(\d+)\.(\d+)\.(\d+))\/(\d+)")
+def ip_subnet_slash_to_range(subnet):
+    """Convert a subnet '/'-notation to a (start, stop) pair.
+
+    IVR 2008-09-01 FIXME: Duplication of IPUtils.py. This code should be in
+    its own module dealing with IP addresses.
+
+    @type subnet: basestring
+    @param subnet:
+      Subnet in '/' string format (i.e. A.B.C.D/X, where 0 <= A, B, C, D <=
+      255, 1 < X <= 32).
+
+    @rtype: tuple (of 32 bit longs)
+    @return:
+      A tuple (start, stop) with the lowest and highest IP address on the
+      specified subnet. 
+    """
+
+    def netmask_to_intrep(netmask):
+        return pow(2L, 32) - pow(2L, 32-int(netmask))
+
+    match = _subnet_rex.search(subnet)
+    if not match:
+        raise ValueError("subnet <%s> is not in valid '/'-notation" % subnet)
+
+    subnet = match.group(1)
+    netmask = int(match.group(6))
+    if not (1 <= netmask <= 31):
+        raise ValueError("netmask %d in subnet <%s> is invalid" %
+                         (netmask, subnet))
+
+    tmp = ip_to_long(subnet)
+    start = tmp & netmask_to_intrep(netmask)
+    stop = tmp | (pow(2L, 32) - 1 - netmask_to_intrep(netmask))
+    return start, stop
+# end ip_subnet_slash_to_range
+
+def ip_to_long(ip_address):
+    """Convert IP address in string notation to a 4 byte long.
+
+    @type ip_address: basestring
+    @param ip_address:
+      IP address to convert in A.B.C.D notation
+    """
+
+    return struct.unpack("!L", socket.inet_aton(ip_address))[0]
+# end ip_to_long
+
+
 class BofhdSession(object):
-    def __init__(self, db, id=None):
-        self._db = db
-        self._id = id
+
+    # IVR 2008-09-02 yes, a plain function
+    def _get_short_timeout():
+        """L{_get_short_timeout_hosts}'s complement."""
+        if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT"):
+            timeout = int(cereconf.BOFHD_SHORT_TIMEOUT)
+            if not (60 <= timeout <= 3600*24):
+                raise ValueError("Bogus BOFHD_SHORT_TIMEOUT timeout: %ss"
+                                 % cereconf.BOFHD_SHORT_TIMEOUT)
+            logger.debug("Short-lived sessions expire after %ds",
+                         timeout)
+            return timeout
+        return None
+    # end _build_short_timeout
+
+    def _get_short_timeout_hosts():
+        """Build a list of hosts, where shorter session expiry is in place.
+
+        This static method populates with _short_timeout_hosts with a list of IP
+        address pairs. Each pair represents an IP range. All bofhd *clients*
+        connecting from addresses within this range will be timed out much
+        faster than the standard L{_auth_timeout}. The specific timeout value is
+        assigned here as well.
+
+        This method has been made static for performance reasons.
+
+        Caveat: It is probably a very bad idea to put a lot of IP addresses
+        into BOFHD_SHORT_TIMEOUT_HOSTS. L{_short_timeout_hosts} is traversed
+        to generate SQL once for every command received by bofhd.
+        """
+
+        # Contains a list of pairs (first address, last address). Note that a
+        # single IP X will be mapped to a pair (X, X) (a single IP is a range
+        # with 1 element). Ranges are *inclusive* (as opposed to python's
+        # range())
+        hosts = list()
+        if hasattr(cereconf, "BOFHD_SHORT_TIMEOUT_HOSTS"):
+            for ip in cereconf.BOFHD_SHORT_TIMEOUT_HOSTS:
+                # It's a subnet (A.B.C.D/N)
+                if '/' in ip:
+                    low, high = ip_subnet_slash_to_range(ip)
+                    hosts.append((low, high))
+                    logger.debug("Sessions from subnet %s [%s, %s] "
+                                 "will be short-lived", ip, low, high)
+                # It's a simple IP-address
+                else:
+                    addr_long = ip_to_long(ip)
+                    hosts.append((addr_long, addr_long))
+                    logger.debug("Sessions from IP %s [%s, %s] "
+                                 "will be short-lived", ip, addr_long, addr_long)
+        return hosts
+    # end _get_short_timeout_hosts
+
+    _auth_timeout = 3600*24*7
+    _seen_timeout = 3600*24
+    _short_timeout_hosts = _get_short_timeout_hosts()
+    _short_timeout = _get_short_timeout()
+
+
+    def __init__(self, database, session_id=None):
+        self._db = database
+        self._id = session_id
         self._entity_id = None
         self._owner_id = None
+    # end __init__
+
 
     def _remove_old_sessions(self):
         """We remove any authenticated session-ids that was
         authenticated more than 1 week ago, or hasn't been used
         frequently enough to have last_seen < 1 day"""
-        auth_threshold = time.time() - 3600*24*7
-        seen_threshold = time.time() - 3600*24
+        auth_threshold = time.time() - self._auth_timeout
+        seen_threshold = time.time() - self._seen_timeout
         auth_threshold = self._db.TimestampFromTicks(auth_threshold)
         seen_threshold = self._db.TimestampFromTicks(seen_threshold)
         self._db.execute("""
@@ -112,16 +224,68 @@ class BofhdSession(object):
         WHERE auth_time < :auth OR last_seen < :last""",
                          {'auth': auth_threshold,
                           'last': seen_threshold})
+        self.remove_short_timeout_sessions()
+    # end _remove_old_sessions
+
+
+    def remove_short_timeout_sessions(self):
+        """Remove bofhd sessions with a very short timeout value.
+
+        For some clients, it is desireable to remove sessions much faster than
+        the standard self._auth_timeout value.
+        """
+        if not self._short_timeout_hosts:
+            return 
+
+        sql = []
+        params = {}
+        # 'index' is needed to number free variables in the SQL query.
+        for index, (ip_start, ip_stop) in enumerate(self._short_timeout_hosts):
+            sql.append("(:start%d <= bs.ip_address AND "
+                       " bs.ip_address <= :stop%d)" % (index, index))
+            params["start%d"%index] = ip_start
+            params["stop%d"%index] = ip_stop
+
+        # first nuke all the associated session states
+        stmt = """
+        DELETE FROM [:table schema=cerebrum name=bofhd_session_state] bss
+        WHERE EXISTS (SELECT 1
+                      FROM [:table schema=cerebrum name=bofhd_session] bs
+                      WHERE bss.session_id = bs.session_id AND
+                            (%s) AND
+                            bs.last_seen < :last_seen
+                      )
+        """ % ' OR '.join(sql)
+        params["last_seen"] = self._db.TimestampFromTicks(time.time() -
+                                                          self._short_timeout)
+        self._db.execute(stmt, params)
+
+        # then nuke all the sessions
+        stmt = """
+        DELETE FROM [:table schema=cerebrum name=bofhd_session] bs
+        WHERE bs.last_seen < :last_seen AND (%s)
+        """ % ' AND '.join(sql)
+        self._db.execute(stmt, params)
+    # end remove_short_timeout_sessions
+    
 
     # TODO: we should remove all state information older than N
     # seconds
-    def set_authenticated_entity(self, entity_id):
+    def set_authenticated_entity(self, entity_id, ip_address):
         """Create persistent entity/session mapping; return new session_id.
 
         This method assumes that entity_id is already sufficiently
         authenticated, so the actual authentication of entity_id
         authentication must be done before calling this method.
 
+        @param entity_id:
+          Account id for the account associated with this session. The
+          privileges of this account will be used throughout the session.
+
+        @type ip_address: basestring
+        @param ip_address:
+          IP address of the client that made the connection in A.B.C.D
+          notation 
         """
         try:
             # /dev/random doesn't provide enough bytes
@@ -129,19 +293,15 @@ class BofhdSession(object):
             r = f.read(48)
         except IOError:
             r = Random().random()
-        # TBD: We might want to assert that `entity_id` does in fact
-        # exist (if that isn't taken care of by constraints on table
-        # 'bofhd_session').
         m = md5.new("%s-ok%s" % (entity_id, r))
         session_id = m.hexdigest()
-        # TBD: Is it OK for table 'bofhd_session' to have multiple
-        # rows for the same `entity_id`?
         self._db.execute("""
         INSERT INTO [:table schema=cerebrum name=bofhd_session]
-          (session_id, account_id, auth_time, last_seen)
-        VALUES (:session_id, :account_id, [:now], [:now])""", {
+          (session_id, account_id, auth_time, last_seen, ip_address)
+        VALUES (:session_id, :account_id, [:now], [:now], :ip_address)""", {
             'session_id': session_id,
-            'account_id': entity_id
+            'account_id': entity_id,
+            'ip_address': ip_to_long(ip_address),
             })
         self._entity_id = entity_id
         self._id = session_id
@@ -155,17 +315,19 @@ class BofhdSession(object):
         if self._entity_id is not None:
             return self._entity_id
         try:
-            self._entity_id, self.auth_time = self._db.query_1("""
-            SELECT account_id, auth_time
+            self._entity_id = self._db.query_1("""
+            SELECT account_id
             FROM [:table schema=cerebrum name=bofhd_session]
             WHERE session_id=:session_id""", {'session_id': self._id})
-            if int(Random().random()*10) == 0:   # about 10% propability of update
-                self._db.execute("""
-                UPDATE [:table schema=cerebrum name=bofhd_session]
-                SET last_seen=[:now]
-                WHERE session_id=:session_id""", {'session_id': self._id})
+
+            # Log that there was an activity from the client.
+            self._db.execute("""
+            UPDATE [:table schema=cerebrum name=bofhd_session]
+            SET last_seen=[:now]
+            WHERE session_id=:session_id""", {'session_id': self._id})
         except Errors.NotFoundError:
-            raise SessionExpiredError, "Authentication failure: session expired. You must login again"
+            raise SessionExpiredError("Authentication failure: session expired."
+                                      " You must login again")
         return self._entity_id
 
     def get_owner_id(self):
@@ -216,7 +378,7 @@ class BofhdSession(object):
             DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
             WHERE session_id=:session_id
             """
-            if state <> '*':
+            if state != '*':
                 sql += " AND state_type=:state"
             self._db.execute(sql, {'session_id': self._id,
                                    'state': state})
@@ -454,7 +616,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             logger.info("Succesful login for %s from %s" % (
                 uname, ":".join([str(x) for x in self.client_address])))
             session = BofhdSession(self.server.db)
-            session_id = session.set_authenticated_entity(account.entity_id)
+            session_id = session.set_authenticated_entity(account.entity_id,
+                                                          self.client_address[0])
             self.server.db.commit()
             self.server.known_sessions[session_id] = 1
             return session_id
@@ -558,6 +721,12 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
     def bofhd_run_command(self, session_id, cmd, *args):
         """Execute the callable function (in the correct module) with
         the given name after mapping session_id to username"""
+
+        # First, drop the short-lived sessions FIXME: if this is too
+        # CPU-intensive, introduce a timestamp in this class, and drop the
+        # short-lived sessions ONLY if more than BofhdSession._short_timeout
+        session = BofhdSession(self.server.db)
+        session.remove_short_timeout_sessions()
 
         session = BofhdSession(self.server.db, session_id)
         entity_id = session.get_entity_id()
