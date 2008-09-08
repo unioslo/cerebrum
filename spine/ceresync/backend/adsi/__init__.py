@@ -154,7 +154,7 @@ class _AdsiBack(object):
         """Close the connection to AD"""
         if not self.incr:
             for obj in self._remains.values():
-                self._delete(obj)
+                self._nuke(obj)
         self._remains = None
         self.ou = None
 
@@ -163,18 +163,30 @@ class _AdsiBack(object):
         self._remains = None
         self.ou = None
 
-    def _delete(self, ad_obj):
+    def _nuke(self, ad_obj):
         """Delete object from AD"""
         parent = ad_obj.parent()
         # for instance ou.remove("user", "cn=stain")
-        parent.delete(ad_obj.Class, ad_obj.name)
+        parent.nuke(ad_obj.Class, ad_obj.name)
 
-    def delete(self, obj):
+    def nuke(self, obj):
         ad_obj = self._find(obj.name)
-        self._delete(ad_obj)
+        self._nuke(ad_obj)
         if not self.incr:
             if obj.name in self._remains:
                 del self._remains[obj.name]
+
+    def delete(self, obj):
+        ad_obj = self._find(obj.name)
+        if not ad_obj:
+            return None
+        ad_obj.getInfo()
+        if not ad_obj.userAccountControl & 0x00002:
+            ad_obj.userAccountControl |= 0x00002
+        if not self.incr:
+            if obj.name in self._remains:
+                del self._remains[obj.name]
+
 
 class _ADAccount(_AdsiBack):                
     """Common abstract class for ADUser and ADGroup. 
@@ -798,7 +810,7 @@ class TestADAccount(TestOUFramework):
         self.createUser()
         self.adaccount.begin() 
         # reload _remains to mimic containsUser
-        self.adaccount.delete(account)
+        self.adaccount.nuke(account)
         #  Should not find anything
         self.hasNotAccount()
 
@@ -815,7 +827,7 @@ class TestADAccount(TestOUFramework):
         self.createUser()
         self.adaccount.begin() 
         # reload _remains to mimic containsUser
-        self.adaccount.delete(account)
+        self.adaccount.nuke(account)
         #  Should not find anything
         self.hasNotAccount()
         # Should no longer be in _remains
