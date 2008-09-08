@@ -107,6 +107,9 @@ import socket
 from win32com.client import Dispatch, GetObject
 from win32com.client.gencache import EnsureDispatch
 
+from ceresync import config
+log=config.logger
+
 def i32(x): 
     """Converts a long (for instance 0x80005000L) to a signed 32-bit-int.
 
@@ -294,7 +297,9 @@ class AD_object(object):
         #    fields.
         #
         if name in self.properties:
+            log.debug('AD_Object: self.com_object.Put('+repr(name)+', '+repr(value)+')')
             self.com_object.Put(name, value)
+            log.debug('AD_Object: self.com_object.SetInfo()')
             self.com_object.SetInfo()
         else:
             _set(self, name, value)
