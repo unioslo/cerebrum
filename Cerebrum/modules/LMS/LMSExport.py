@@ -87,7 +87,7 @@ class LMSExport(object):
             person.find(entity_id)
         elif fnr is not None:
             try:
-                person.find_by_external_id(constants.externalid_fodselsnr, fnr)#, source_system=constants.system_fs)
+                person.find_by_external_id(constants.externalid_fodselsnr, fnr)
             except Errors.NotFoundError:
                 logger.warning("Unable to find person with FNR '%s'" % fnr)
                 return None
@@ -104,8 +104,12 @@ class LMSExport(object):
         
         primary_account_id = person.get_primary_account()
         if primary_account_id is None:
-            logger.warning("Primary account is None for person: fnr:'%s', ent_id:'%s'. Ignoring person" %
-                           (data["fnr"], entity_id))
+            # Only identify people by FNR if no entity_id available
+            if entity_id is None:
+                identifier = "fnr:'%s'" % fnr
+            else:
+                identifier = "ent_id:'%s'" % entity_id
+            logger.warning("Primary account is None for person: %s. Ignoring person" % identifier)
             return None
 
         account.find(primary_account_id)

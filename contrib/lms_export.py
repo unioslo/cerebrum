@@ -164,8 +164,8 @@ def parse_xml_roles(fname):
                 key = key + (data["aktivitetkode"],)
 
         else:
-            logger.warn("%s%s: Wrong role entry kind: %s",
-                        data["fodselsdato"], data["personnr"], kind)
+            logger.warn("%s%s: Wrong role entry kind: %s; '%s'",
+                        data["fodselsdato"], data["personnr"], kind, data)
             return
 
         
@@ -309,8 +309,15 @@ def process_kursdata(role_mapping):
 
     # Now the only remaining group is the root supergroup
     logger.info("Updating course supergroup")
-    sync_group(None, subject_supergroup, "Root of the course-tree containing all course-based groups",
-               constants.entity_group, AffiliatedGroups[subject_supergroup])
+    try:
+        sync_group(None, subject_supergroup, "Root of the course-tree containing all course-based groups",
+                   constants.entity_group, AffiliatedGroups[subject_supergroup])
+    except KeyError, ke:
+        # This really shouldn't happen during normal operations...
+        logger.error("Unable to find course supergroup among groups to be synced. "
+                     "This can only happen if no courses are to be sync'ed, "
+                     "which sounds very very wrong.")
+        raise Errors.CerebrumError("No courses are set to being sync'ed")
     logger.info(" ... done")
 
 
