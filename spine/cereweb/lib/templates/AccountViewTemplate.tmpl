@@ -170,9 +170,8 @@ $widgets.viewInfo($info, $notice)
 
 #def addAffiliation($account, $tr)
 #set $owner = $account.get_owner()
-#if 0
-##if $owner and $owner.get_type() == $tr.get_entity_type("person")
-#set $searcher = $tr.get_person_affiliation_status_searcher()
+#if $owner and $owner.get_type() == $tr.get_entity_type("person")
+#set $searcher = $tr.get_person_affiliation_searcher()
 #set $foo = $searcher.set_person($owner)
 #set $affs = $searcher.search()
 #set $aff_list = [ ("%s:%d" % ($i.get_affiliation().get_name(), $i.get_ou().get_id()),

@@ -366,7 +366,7 @@ def add_affil(transaction, id, aff_ou, priority):
     account = transaction.get_account(int(id))
     aff, ou = aff_ou.split(":", 2)
     ou = transaction.get_ou(int(ou))
-    aff = transaction.get_affiliation(aff)
+    aff = transaction.get_person_affiliation_type(aff)
     priority = int(priority)
 
     account.set_affiliation(ou, aff, priority)
@@ -376,5 +376,16 @@ add_affil = transaction_decorator(add_affil)
 add_affil.exposed = True
 
 
+def remove_affil(transaction, id, ou, affil):
+    account = transaction.get_account(int(id))
+    ou = transaction.get_ou(int(ou))
+    affil = transaction.get_person_affiliation_type(affil)
+
+    account.remove_affiliation(ou, affil)
+
+    commit(transaction, account, msg=_("Affiliation successfully removed."))
+remove_affil = transaction_decorator(remove_affil)
+remove_affil.exposed = True
+    
 
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df
