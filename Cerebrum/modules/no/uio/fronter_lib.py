@@ -73,7 +73,7 @@ host_config = {
                           'admins':
                           get_member_names('classfronter-kladdebok-drift'),
                           'export': ['FS'],
-                          'plain_users': ['mgrude', 'gunnarfk'],
+                          'plain_users': get_member_names('classfronter-kladdebok-plain'),
                           'spread': 'spread_fronter_kladdebok',
                           },
     'petra.uio.no': { 'DBinst': 'DLODEMO.uio.no',
