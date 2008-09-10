@@ -124,7 +124,7 @@ def process_ou_groups(ou, perspective):
 
             gr.clear()
             gr.find(parent_group)
-            gr.add_member(current_group, group_type_id, default_memberop)
+            gr.add_member(current_group)
             
             members_dict[parent_group].append((current_group, None))
         else:
@@ -167,13 +167,13 @@ def process_ou_groups(ou, perspective):
                     #gr.add_spread(default_spread) # SPREAD DISABLED UNTIL AD IS READY. RMI000 - 20080207
                     aux_gr.clear()
                     aux_gr.find(current_group)
-                    aux_gr.add_member(gr.entity_id, group_type_id, default_memberop)
+                    aux_gr.add_member(gr.entity_id)
                     members_dict[current_group].append((gr.entity_id, None))
                 else:
                     gr.clear()
                     gr.find(description_group_dict['ou_group:'+stedkode_dict[ou.ou_id]+':'+affiliate[1]])
                 
-                gr.add_member(affiliate[0], account_type_id, default_memberop)
+                gr.add_member(affiliate[0])
                 
                 members_dict[current_group].append(affiliate)
                 group_description_dict[gr.entity_id] = gr.description
@@ -215,7 +215,7 @@ def clean_up_ou_groups():
             gr.clear()
             gr.find(working_group)
             logger.info("Removing old member %s from group %s" % (member_id, working_group))
-            gr.remove_member(member_id, default_memberop)
+            gr.remove_member(member_id)
     
     # Remove all empty ou-groups:*:TEKNISK/VITENSKPELIG/STUDENT/EVT
     for member_type in possible_member_types:
@@ -224,8 +224,7 @@ def clean_up_ou_groups():
         for group in groups:
             gr.clear()
             gr.find(group[0])
-            tmp = gr.list_members()[0]
-            if len(tmp) == 0:
+            if not list(gr.search_members(group_id=gr.entity_id)):
                 obsolete_group = gr.entity_id
                 obsolete_group_name = gr.get_name(group_namespace)
                 logger.info("Expiring empty container group %s (%s)" %
@@ -237,14 +236,16 @@ def clean_up_ou_groups():
                 gr.write_db()
                 logger.info("Prefixing its group_name with its group_id")
                 gr.update_entity_name(group_namespace, '#' + str(obsolete_group) + '# ' + obsolete_group_name)
-                old_parents = gr.list_groups_with_entity(obsolete_group)
-                for old_parent in old_parents:
+                for old_parent in gr.search(member_id=obsolete_group,
+                                            indirect_members=False):
                     gr.clear()
-                    gr.find(old_parent[0])
+                    gr.find(old_parent["group_id"])
                     logger.info("Removing its membership from parent group %s (%s)" %
                                  (gr.entity_id, gr.get_name(group_namespace)))
-                    gr.remove_member(obsolete_group, default_memberop)
+                    gr.remove_member(obsolete_group)
                     gr.write_db()
+
+
              
     # Remove all groups remaining in group_delete_list
     for group_id in group_delete_list:
@@ -362,29 +363,31 @@ def main():
         
         working_group.clear()
         working_group.find(group['group_id'])
-        members = working_group.list_members()[0]
-            
-        for member in members:
+        for member in working_group.search_members(group_id=
+                                                   working_group.entity_id):
             # For each account member container, fill inn members for OU group
             member_is_ou = True
-            ix_member_type = 0 # member tuple index for member type
-            ix_member_id = 1 # member tuple index for member id
+            member_type = int(member["member_type"])
+            member_id = int(member["member_id"])
 
             for possible_type in possible_member_types:
-                if member[ix_member_type] == group_type_id and \
-                       group_description_dict[member[ix_member_id]] == \
-                       group_description_dict[group['group_id']] + ':' + possible_type:
+                if (member_type == group_type_id and 
+                    group_description_dict[member_id] == 
+                    group_description_dict[group['group_id']] + ':' + possible_type):
 
                     aux_group.clear()
-                    aux_group.find(member[ix_member_id])
-                    aux_members = aux_group.list_members()[0]
-                    for aux_member in aux_members:
-                        if aux_member[ix_member_type] == account_type_id:
+                    aux_group.find(member_id)
+                    for aux_member in aux_group.search_members(
+                                          group_id=aux_group.entity_id):
+                        aux_member_id = int(aux_member["member_id"])
+                        aux_member_type = int(aux_member["member_type"])
+                        
+                        if aux_member_type == account_type_id:
                             if not members_dict.has_key(group['group_id']):
                                 members_dict[group['group_id']] = []
                                 members_delete_dict[group['group_id']] = []
-                            members_dict[group['group_id']].append((aux_member[ix_member_id], possible_type))
-                            members_delete_dict[group['group_id']].append((aux_member[ix_member_id], possible_type))
+                            members_dict[group['group_id']].append((aux_member_id, possible_type))
+                            members_delete_dict[group['group_id']].append((aux_member_id, possible_type))
                     member_is_ou = False
                     break
                 
@@ -392,8 +395,8 @@ def main():
                 if not members_dict.has_key(group['group_id']):
                     members_dict[group['group_id']] = []
                     members_delete_dict[group['group_id']] = []
-                members_dict[group['group_id']].append((member[ix_member_id], None))
-                members_delete_dict[group['group_id']].append((member[ix_member_id], None))
+                members_dict[group['group_id']].append((member_id, None))
+                members_delete_dict[group['group_id']].append((member_id, None))
 
 
     #159419L: [(159933L, None), (159938L, None)]

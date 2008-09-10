@@ -152,11 +152,11 @@ def destroy_group(group_id, max_recurse):
         
     # If this group is a member of other groups, remove those
     # memberships.
-    for r in gr.list_groups_with_entity(gr.entity_id):
+    for r in gr.search(member_id=gr.entity_id, indirect_members=False):
         parent = get_group(r['group_id'])
         logger.debug("removing %s from group %s" % (gr.group_name,
                                                     parent.group_name))
-        parent.remove_member(gr.entity_id, r['operation'])
+        parent.remove_member(gr.entity_id)
 
     # If a e-mail target is of type multi and has this group as its
     # destination, delete the e-mail target and any associated
@@ -177,9 +177,13 @@ def destroy_group(group_id, max_recurse):
     #                     (r['local_part'], r['domain']))
     #        ea.delete()
     #    et.delete()
+
     # Fetch group's members
-    u, i, d = gr.list_members(member_type=const.entity_group)
-    logger.debug("destroy_group() subgroups: %r" % (u,))
+    group_members = [int(x["member_id"]) for x in
+                     gr.search_members(group_id=gr.entity_id,
+                                       member_type=const.entity_group)]
+    logger.debug("destroy_group() subgroups: %r" % (group_members,))
+
     # Remove any spreads the group has
     for row in gr.get_spread():
         gr.delete_spread(row['spread'])
@@ -189,8 +193,8 @@ def destroy_group(group_id, max_recurse):
     # Destroy any subgroups (down to level max_recurse).  This needs
     # to be done after the parent group has been deleted, in order for
     # the subgroups not to be members of the parent anymore.
-    for subg in u:
-        destroy_group(subg[1], max_recurse - 1)
+    for subg in group_members:
+        destroy_group(subg, max_recurse - 1)
 
 
 class group_tree(object):
@@ -274,22 +278,17 @@ class group_tree(object):
         # I 'sub_ids' har vi nå en oversikt over hvilke entity_id'er
         # som skal bli gruppens medlemmer.  Foreta nødvendige inn- og
         # utmeldinger.
-        membership_ops = (const.group_memberop_union,
-                          const.group_memberop_intersection,
-                          const.group_memberop_difference)
-        for members_with_op, op in zip(db_group.list_members(),
-                                       membership_ops):
-            for member_type, member_id in members_with_op:
-                member_id = int(member_id)
-                if member_id in sub_ids:
-                    del sub_ids[member_id]
-                else:
-                    db_group.remove_member(member_id, op)
-                    if member_type == const.entity_group:
-                        destroy_group(member_id, self.max_recurse)
+        for member_row in db_group.search_members(group_id=db_group.entity_id):
+            member_id = int(member_row["member_id"])
+            member_type = int(member_row["member_type"])
+            if member_id in sub_ids:
+                del sub_ids[member_id]
+            else:
+                db_group.remove_member(member_id)
+                if member_type == const.entity_group:
+                    destroy_group(member_id, self.max_recurse)
         for member_id in sub_ids.iterkeys():
-            db_group.add_member(member_id, sub_ids[member_id],
-                                const.group_memberop_union)
+            db_group.add_member(member_id)
         # Synkroniser gruppens spreads med lista angitt i
         # self.spreads.
         want_spreads = {}

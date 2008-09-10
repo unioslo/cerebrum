@@ -1269,7 +1269,11 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     group = Factory.get("Group")(cerebrum_db)
     try:
         group.find_by_name(sys2group[sysname])
-        reserved = group.get_members()
+        reserved = set(int(x["member_id"]) for x in
+                       group.search_members(group_id=group.entity_id,
+                                        indirect_member=True,
+                                        member_type=constants.entity_account))
+
     except Errors.NotFoundError:
         reserved = [] # was set()
 

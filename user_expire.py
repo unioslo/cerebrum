@@ -57,6 +57,11 @@ prs = Factory.get('Person')(db)
 grp = Factory.get('Group')(db)    
 ou = Factory.get('OU')(db)
 ef = Email.EmailForward(db)
+entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                   grp.list_names(co.account_namespace))
+entity2name.update((x["entity_id"], x["entity_name"]) for x in
+                   grp.list_names(co.group_namespace))
+
 logger = None
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
 today = mx.DateTime.today()
@@ -148,20 +153,19 @@ def send_mail(uname, user_info, nr, forward=False):
         # that owns account.
         grp.clear()
         grp.find(ac.owner_id)
-        u, i, d = grp.list_members(member_type=co.entity_account,
-                                   get_entity_name=True)        
         members = []
-        for t, rows in ((str(co.group_memberop_union), u),
-                        (str(co.group_memberop_intersection), i),
-                        (str(co.group_memberop_difference), d)):
-            unsorted = []
-            for r in rows:
-                unsorted.append({'op': t,
-                                 'id': r[1],
-                                 'type': str(r[0]),
-                                 'name': r[2]})
-            unsorted.sort(compare)
-            members.extend(unsorted)
+        for row in grp.search_members(group_id=grp.entity_id,
+                                      member_type=co.entity_account):
+            member_id = int(row["member_id"])
+            if member_id not in entity2name:
+                logger.warn("No name for member id=%s in group %s %s",
+                            member_id, grp.group_name, grp.entity_id)
+                continue
+            
+            members.append({'id': member_id,
+                            'type': str(row["member_type"]),
+                            'name': entity2name[member_id]})
+        members.sort(compare)
         # get email_addrs for members
         for m in members:
             ac.clear()

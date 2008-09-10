@@ -369,17 +369,16 @@ class execute:
     def group_join(self,acc_id):
         """Add account_id to db_group."""
 
-        if (not self.group.has_member(acc_id)):        
+        if not self.group.has_member(acc_id):
             try:
                 logger.info("Trying to add group member")
-                self.group.add_member(acc_id,
-                                      self.constants.entity_account,
-                                      self.constants.group_memberop_union)
+                self.group.add_member(acc_id)
             except:
                 logger.error("adding account %s to %s failed",
-                                  acc_id, list(self.group.get_names()))
+                             acc_id, list(self.group.get_names()))
         else:
-            logger.debug("Account %s already member of %s" % (acc_id,self.group.group_name))
+            logger.debug("Account %s already member of %s",
+                         acc_id, self.group.group_name)
         return
 
 
