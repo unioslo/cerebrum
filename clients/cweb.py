@@ -1,9 +1,10 @@
 #!/local/bin/python
-# IVR 2007-03-16 FIXME: httpd runs as nobody, and nobody has the wrong 
-# python in the PATH.
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2005-2007 University of Oslo, Norway
+# IVR 2007-03-16 FIXME: httpd runs as nobody, and nobody has the wrong 
+# python in the PATH.
+#
+# Copyright 2005-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
