@@ -214,6 +214,8 @@ class ad_export:
         logger.info("Retreiving %s info..." % (type))
         count = 0
         dellist = []
+        account2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                            self.group.list_names(self.co.account_namespace))
         for gname in self.userlist[type]:
             if gname in self.dont_touch_filter:
                 logger.error("Reserved AD group name '%s', skip" % (gname))
@@ -236,10 +238,15 @@ class ad_export:
                 logger.info("Processed %d %s" % (count,type))
             ou = entry['ou']
             logger.info("Get %s info: %s -> %s:: %s" % (type,gid,ou,gr.group_name))
-            member_tuple_list = gr.get_members(get_entity_name=True)
             members=[]
-            for item in member_tuple_list:
-                members.append(item[1])
+            for item in gr.search_members(group_id=gr.entity_id,
+                                          indirect_members=True,
+                                          member_type=self.co.entity_account):
+                member_id = int(item["member_id"])
+                if member_id not in account2name:
+                    continue
+                name = account2name[member_id]
+                members.append(name)
             memberstr = ','.join(members)
             entry['description']= gr.description
             entry['members']=memberstr

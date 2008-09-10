@@ -228,7 +228,10 @@ class PopulateEphorte(object):
         # instead
         superusers = []
         group.find_by_name(cereconf.EPHORTE_ADMINS)
-        for account_id in group.get_members():
+        for account_row in group.search_members(group_id=group.entity_id,
+                                                indirect_members=True,
+                                                member_type=co.entity_account):
+            account_id = int(account_row["member_id"])
             ac.clear()
             ac.find(account_id)
             superusers.append(int(ac.owner_id))

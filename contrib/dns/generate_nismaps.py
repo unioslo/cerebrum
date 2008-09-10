@@ -110,9 +110,9 @@ def generate_passwd(filename, shadow_file, spread=None):
             if not passwd[0] == '*':
                 passwd = "!!"
 
-        line = join((uname, passwd, str(row['posix_uid']),
-                     str(posix_group.posix_gid), gecos,
-                     str(home), shell))
+        line = ':'.join((uname, passwd, str(row['posix_uid']),
+                         str(posix_group.posix_gid), gecos,
+                         str(home), shell))
         if debug:
             logger.debug(line)
         f.write(line+"\n")
@@ -157,7 +157,7 @@ class NISGroupUtil(object):
         self._exported_groups = {}
         self._tmp_group_prefix = tmp_group_prefix
         self._group = Factory.get('Group')(db)
-        for row in self._group.search(spread=group_spread):
+        for row in self._group.search(spread=int(group_spread)):
             self._exported_groups[int(row['group_id'])] = row['name']
         self._num = 0
 
@@ -180,26 +180,26 @@ class NISGroupUtil(object):
         self._group.find(gid)
 
         # Direct members
-        u, i, d = self._group.list_members(spread=self._member_spread,
-                                           member_type=self._member_type)
-        for row in u:
-            name = self._entity2name.get(int(row[1]), None)
+        for row in self._group.search_members(group_id=self._group.entity_id,
+                                              spread=self._member_spread,
+                                              member_type=self._member_type):
+            member_id = int(row["member_id"])
+            name = self._entity2name.get(member_id)
             if not name:
-                logger.warn("Was %i very recently created?" % int(row[1]))
+                logger.warn("Was %i very recently created?", member_id)
                 continue
             ret_non_groups.append(name)
 
         # Subgroups
-        u, i, d = self._group.list_members(member_type=co.entity_group)
-        for row in u:
-            gid = int(row[1])
+        for row in  self._group.search_members(group_id=self._group.entity_id,
+                                               member_type=co.entity_group):
+            gid = int(row["member_id"])
             if self._exported_groups.has_key(gid):
-                ret_groups.append( self._exported_groups[gid])
+                ret_groups.append(self._exported_groups[gid])
             else:
                 t_g, t_ng = self._expand_group(gid)
                 ret_groups.extend(t_g)
                 ret_non_groups.extend(t_ng)
-        # TODO: Also process intersection and difference members.
         return ret_groups, ret_non_groups
 
     def _make_tmp_name(self, notused):
@@ -247,7 +247,7 @@ class NISGroupUtil(object):
             f.write('E_O_F\n')
         f.close()
 
-    def _filter_illegal_usernames(self, unames):
+    def _filter_illegal_usernames(self, unames, group_name):
         tmp_users = []
         for uname in unames:
             tmp = posix_user.illegal_name(uname)
@@ -294,8 +294,13 @@ class FileGroup(NISGroupUtil):
         ret = []
         self._group.clear()
         self._group.find(gid)
-        for account_id in self._group.get_members(spread=self._member_spread):
-            if self._account2def_group.get(account_id, None) == self._group.posix_gid:
+        for row in self._group.search_members(group_id=self._group.entity_id,
+                                              indirect_members=True,
+                                              member_type=co.entity_account,
+                                              spread=self._member_spread):
+            account_id = int(row["member_id"])
+            if (self._account2def_group.get(account_id, None) ==
+                self._group.posix_gid):
                 continue  # Don't include the users primary group
             name = self._entity2name.get(account_id, None)
             if not name:
@@ -320,10 +325,9 @@ class FileGroup(NISGroupUtil):
             try:
                 group_members, user_members = self._expand_group(group_id)
             except Errors.NotFoundError:
-                logger.warn("Group %s, spread %s has no GID"%(
-                    row.group_id,group_spread))
+                logger.warn("Group %s has no GID", group_id)
                 continue
-            tmp_users = self._filter_illegal_usernames(user_members)
+            tmp_users = self._filter_illegal_usernames(user_members, group_name)
 
             logger.debug("%s -> g=%s, u=%s" % (
                 group_id, group_members, tmp_users))
@@ -340,7 +344,7 @@ class UserNetGroup(NISGroupUtil):
             group_spread, member_spread)
 
     def _format_members(self, group_members, user_members, group_name):
-        tmp_users = self._filter_illegal_usernames(user_members)
+        tmp_users = self._filter_illegal_usernames(user_members, group_name)
 
         return " ".join((" ".join(group_members),
                          " ".join(["(,%s,)" % m for m in tmp_users])))
@@ -478,5 +482,3 @@ def usage(exitcode=0):
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: 5c17b956-2586-4146-84f0-c1c327739506

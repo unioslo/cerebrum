@@ -107,10 +107,11 @@ class Fronter(object):
         self.akt2room_profile = {}
         if 'FS' in [x[0:2] for x in self.export]:
             self.read_kurs_data()
+    # end __init__
 
 
     def expand_kull_group(self, g_id):
-        """Recursively fetch all union group members of group with g_id.
+        """Recursively fetch all group members of group with g_id.
 
         @param group: Factory.get('Group')(<db>)
 
@@ -126,12 +127,14 @@ class Fronter(object):
         result = dict()
         group = Factory.get("Group")(db)
         group.find(g_id)
-        # IVR 2007-10-11 FIXME: Bad API ([0]-index)?
-        for row in group.list_members(member_type=const.entity_group,
-                                      get_entity_name=True)[0]:
-            # IVR 2007-10-11 FIXME: Holy crap this is ugly and broken!
-            e_id = row[1]
-            name = row[2]
+        for row in group.search_members(group_id=group.entity_id,
+                                        member_type=const.entity_group):
+            e_id = int(row["member_id"])
+            if e_id not in entity2name:
+                logger.warn("No name for member id=%s of group name=%s id=%s",
+                            e_id, group.group_name, group.entity_id)
+                continue
+            name = entity2name[e_id]
             if name in result:
                 continue
 
@@ -1151,6 +1154,14 @@ def init_globals():
     root_ou_id = _get_ou(root_sko).entity_id
 
     fs_db = Factory.get("FS")()
+
+    global entity2name
+    group = Factory.get("Group")(db)
+    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                       group.list_names(const.account_namespace))
+    entity2name.update((x["entity_id"], x["entity_name"]) for x in
+                       group.list_names(const.group_namespace))
+
     
     global fronter
     # TODO: Use the data files from FS instead of fetching data directly from
@@ -1313,9 +1324,8 @@ def register_supergroups():
                          "fant ingen i Cerebrum", group_name)
             continue
 
-        # IVR 2007-11-08 TODO: Broken API? [0] = union-members
-        members = group.list_members(member_type=const.entity_account,
-                                     get_entity_name=True)[0]
+        members = list(group.search_members(group_id=group.entity_id,
+                                            member_type=const.entity_account))
         if not members:
             # On one hand, we should allow some leeway wrt erroneous spreads
             # in Cerebrum (and we have a lot of historic data with fronter
@@ -1336,7 +1346,12 @@ def register_supergroups():
         new_acl.setdefault(group.group_name,
                            {})[group.group_name] = view_contacts
         for row in members:
-            uname = row[2] # <- TODO: API misfeature?
+            member_id = int(row["member_id"])
+            uname = entity2name.get(member_id)
+            if uname is None:
+                logger.warn("Member id=%s of group name=%s id=%s has no name",
+                            member_id, group.group_name, group.entity_id)
+                continue
             if new_users.has_key(uname):
                 if new_users[uname]['USERACCESS'] != 'administrator':
                     new_users[uname]['USERACCESS'] = 'allowlogin'

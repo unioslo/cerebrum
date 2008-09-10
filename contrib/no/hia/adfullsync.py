@@ -194,7 +194,10 @@ def full_group_sync():
             group.clear()
             group.find(cbgrpid[0])
             memblist = []
-            for membid in group.get_members():
+            for row in group.search_members(group_id=group.entity_id,
+                                            indirect_members=True,
+                                            member_type=co.entity_account):
+                membid = int(row["member_id"])
                 try:
                     ent_name.clear()
                     ent_name.find(membid)                   
@@ -248,25 +251,28 @@ def full_group_sync():
         # The remaining is new groups and should be created.
         sock.send('NEWGR&LDAP://%s&%s&%s\n' % (cbgroups[grp][1], grp, grp))
         res = sock.read()
-	if res == ['210 OK']:
+        if res == ['210 OK']:
             group.clear()
             group.find(cbgroups[grp][0])
-            for grpmemb in group.get_members():
+            for row in group.search_members(group_id=group.entity_id,
+                                            indirect_members=True,
+                                            member_type=co.entity_account):
+                grpmemb = int(row["member_id"])
                 try:
                     ent_name.clear()
                     ent_name.find(grpmemb)
                     name = ent_name.get_name(int(co.account_namespace))
-                    sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, \
-		    name, cereconf.AD_DOMAIN, grp))
-		    res = sock.read()
+                    sock.send('ADDUSRGR&%s/%s&%s/%s\n' %
+                              (cereconf.AD_DOMAIN, name,
+                               cereconf.AD_DOMAIN, grp))
+                    res = sock.read()
                     if res != ['210 OK']:
-                    	logger.warn("Failed add %s to %s:%s" % \
-			(name, grp, res))
+                        logger.warn("Failed add %s to %s:%s", name, grp, res)
                 except Errors.NotFoundError:
                     logger.warn("Could not resolve entity name %s" % name)
         else:
-            logger.warn("Create group %s in %s failed:%s" % \
-	    (grp, cbgroups[grp][1], res))    
+            logger.warn("Create group %s in %s failed:%s", 
+                        grp, cbgroups[grp][1], res)
     sock.close()
 
 

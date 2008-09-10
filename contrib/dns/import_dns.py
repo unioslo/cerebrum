@@ -145,9 +145,7 @@ class Netgroups(object):
                 print "Warning, no members for %s" % k
                 continue
             for n in netgroups[k]['netgroups']:
-                group.add_member(groupname2id[n],
-                                 co.entity_group,
-                                 co.group_memberop_union)
+                group.add_member(groupname2id[n])
             # Add machine memebers
             machines = {}
             for n in netgroups[k]['machines']:
@@ -157,9 +155,7 @@ class Netgroups(object):
                 if not dns_owner2id.has_key(n):
                     print "Warning, unknown member: %s" % n
                     continue
-                group.add_member(dns_owner2id[n],
-                                 co.entity_dns_owner,
-                                 co.group_memberop_union)
+                group.add_member(dns_owner2id[n])
         db.commit()
 
 class ForwardMap(object):

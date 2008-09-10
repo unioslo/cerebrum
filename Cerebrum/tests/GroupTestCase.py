@@ -90,23 +90,6 @@ class GroupTestCase(Group_createTestCase):
         self.failIf(not g1._Group__updated, "Error: g1.__updated still false.")
         self.failIf(g1 == g2, "Error: Groups should differ.")
 
-    def testAddRemoveMember(self):
-        "Test simple member add and remove on groups."
-        u, i, d = self.group.list_members()
-        self.failIf((self.co.entity_account, self.account_id) in u,
-                    "About to add account member; already in group.")
-        self.failIf(u or i or d, "Fresh group should have no members.")
-        self.group.add_member(self.account.entity_id, self.account.entity_type,
-                              self.co.group_memberop_union)
-        u, i, d = self.group.list_members()
-        self.failUnless((self.co.entity_account, self.account_id) in u,
-                        "Added account member; not in group.")
-        self.group.remove_member(self.account.entity_id,
-                                 self.co.group_memberop_union)
-        u, i, d = self.group.list_members()
-        self.failIf((self.co.entity_account, self.account_id) in u,
-                    "Removed account member; still in group.")
-
     def testListMembers(self):
         "Test (recursively) listing members of groups."
         account = Account.Account(self.Cerebrum)
@@ -140,11 +123,10 @@ class GroupTestCase(Group_createTestCase):
             account.account_name += "_%s" % i
             account.write_db()
             self.members += (account.entity_id, )
-            self.group.add_member(account.entity_id, account.entity_type,
-                                  Group_createTestCase.co.group_memberop_union)
+            self.group.add_member(account.entity_id)
 
         pp = pprint.PrettyPrinter(indent=4)
-        pp.pprint(self.group.list_members())
+        pp.pprint(self.group.search_members(group_id=self.group.entity_id))
 
 
 def suite():

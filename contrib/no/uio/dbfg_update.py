@@ -102,49 +102,21 @@ from Cerebrum.modules.no.uio.access_OEP import OEP
 
 
 def sanitize_group(cerebrum_group, constants):
-    """
-    This helper function removes 'unwanted' members of CEREBRUM_GROUP.
+    """This helper function removes 'unwanted' members of CEREBRUM_GROUP.
 
-    The groups handled by this script are flat and should contain only union
-    members. That is:
-
-    * all group members (of CEREBRUM_GROUP) are deleted (union or not)
-    * all intersection members are deleted.
-    * all difference members are deleted.
+    The groups handled by this script are flat and should contain only
+    non-group members. I.e. all group members (of CEREBRUM_GROUP) are deleted.
     """
 
-    union, intersection, difference = cerebrum_group.list_members()
     removed_count = 0
-
-    # First, let's get rid of group union members
-    for entity_type, entity_id in union:
-        if int(entity_type) == int(constants.entity_group):
-            logger.error("Aiee! Group id %s is a member of group %s",
-                         entity_id, cerebrum_group.group_name)
-            cerebrum_group.remove_member(int(entity_id),
-                                         constants.group_memberop_union)
-            removed_count += 1
-        # fi
-    # od
-
-    # ... then all intersection members
-    for entity_type, entity_id in intersection:
-        logger.error("Aiee! %s is an intersection member of %s",
-                     entity_id, cerebrum_group.group_name)
-        cerebrum_group.remove_member(int(entity_id),
-                                     constants.group_memberop_intersection)
+    for row in cerebrum_group.search_members(member_type=
+                                             constants.entity_group):
+        member_id = int(row["member_id"])
+        logger.error("Aiee! Group id=%s is a member of group %s",
+                     member_id, cerebrum_group.group_name)
+        cerebrum_group.remove_member(member_id)
         removed_count += 1
-    # od
-    
-    # ... and at last all difference members
-    for entity_type, entity_id in difference:
-        logger.error("Aiee! %s is a difference member of %s",
-                     entity_id, cerebrum_group.group_name)
-        cerebrum_group.remove_member(int(entity_id),
-                                     constants.group_memberop_difference)
-        removed_count += 1
-    # od
-
+        
     logger.info("%d entity(ies) was(were) sanitized from %s",
                 removed_count, cerebrum_group.group_name)
 # end sanitize_group
@@ -294,13 +266,7 @@ def remove_from_cerebrum_group(account, group, constants):
     """
 
     try:
-        # Since GROUP is 'sanitized' prior to calling this method, is there
-        # any point in remove the intersection members? (there are none)
-        for operation in [ constants.group_memberop_union,
-                           constants.group_memberop_intersection ]:
-            group.remove_member(int(account.entity_id),
-                                int(operation))
-        # od
+        group.remove_member(int(account.entity_id))
     except:
         # FIXME: How safe is it to do any updates if this happens?
         type, value, tb = sys.exc_info()
@@ -327,18 +293,8 @@ def add_to_cerebrum_group(account, group, constants):
                  group.entity_id, group.group_name)
 
     try:
-        # Add a new union member
-
-        # NB! Removal has to be done before addition in this case.
-        # Otherwise the changelog displays the changes as a removal of
-        # ACCOUNT from GROUP (changelog is not aware of the various group
-        # operations))
-        group.remove_member(int(account.entity_id),
-                            int(constants.group_memberop_difference))
-        
-        group.add_member(int(account.entity_id),
-                         int(constants.entity_account),
-                         int(constants.group_memberop_union))
+        if not group.has_member(account.entity_id):
+            group.add_member(account.entity_id)
     except:
         # FIXME: How safe is it to do any updates if this happens?
         type, value, tb = sys.exc_info()
@@ -353,7 +309,7 @@ def add_to_cerebrum_group(account, group, constants):
 
 
 
-def construct_group(cerebrum_group):
+def construct_group(group):
     """
     This is a helper function that produces a suitable data structure for
     group synchronization.
@@ -363,20 +319,20 @@ def construct_group(cerebrum_group):
     """
 
     result = {}
-
-    # Although get_members() performes a recursive lookup, this gives the
-    # right answer nonetheless, since the groups touched by this script are
-    # "flat". Also, we call this function _after_ CEREBRUM_GROUP has been
-    # "sanitized", and thus get_members() and list_members()[0] produce
-    # similar answers. get_members() is just a little bit more convenient to
-    # use.
-    for row in cerebrum_group.get_members(get_entity_name=True):
-        # <username -> account_id>
-        result[row[1]] = int(row[0])
-    # od
+    const = Factory.get("Constants")()
+    # IVR 2008-06-25 TBD: Should this be indirect_members=True?
+    for row in group.search_members(group_id=group.entity_id,
+                                    indirect_members=True,
+                                    member_type=const.entity_account):
+        account_id = int(row["member_id"])
+        # If an account has no name, we are screwed anyway.
+        if account_id not in account2name:
+            continue
+        uname = account2name[account_id]
+        result[uname] = account_id
 
     logger.info("Fetched %d entries for group %s",
-                len(result), cerebrum_group.group_name)
+                len(result), group.group_name)
     
     return result
 # end
@@ -706,7 +662,6 @@ def main():
         sys.exit(1)
     # yrt
 
-    expired_filename = None
     services = []
     global dryrun
     dryrun = False
@@ -722,8 +677,14 @@ def main():
         elif option in [ "--" + x for x in external_dbs.keys() ]:
             key = option[2:]
             services.append( external_dbs[key] )
-        # fi
-    # od
+
+    # preload the account id -> uname mappings used later.
+    db = Factory.get("Database")()
+    const = Factory.get("Constants")()
+    group = Factory.get("Group")(db)
+    global account2name
+    account2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                        group.list_names(const.account_namespace))
 
     perform_synchronization(services)
 # end main
@@ -734,6 +695,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# fi
-
-# arch-tag: c824d744-4ffb-47f8-bd81-69f4754b9966

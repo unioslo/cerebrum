@@ -381,14 +381,12 @@ def make_reservation(to_be_reserved, p_id, group):
         Special group for reservations.
     """
     
-    op = const.group_memberop_union
-
-    if to_be_reserved and not group.has_member(p_id, const.entity_person, op):
-        group.add_member(p_id, const.entity_person, op)
+    if to_be_reserved and not group.has_member(p_id):
+        group.add_member(p_id)
         group.write_db()
         logger.info("Reservation registered for %s", p_id)
-    elif not to_be_reserved and group.has_member(p_id, const.entity_person, op):
-        group.remove_member(p_id, op)
+    elif not to_be_reserved and group.has_member(p_id):
+        group.remove_member(p_id)
         group.write_db()
         logger.info("Reservation removed for %s", p_id)
 # end make_reservation

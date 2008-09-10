@@ -29,14 +29,17 @@ class GroupUiOMixin(Group.Group):
     """Group mixin class providing functionality specific to UiO.
     """
 
-    def add_member(self, member_id, type, op):
+    def add_member(self, member_id):
         '''Override default add_member with checks that avoids
         membership in too many PosixGroups of the same spread as this
-        gives problems with NFS'''
+        gives problems with NFS
+
+        @param member_id: Cf. L{Group.Group.add_member}
+        '''
 
         from Cerebrum.modules import PosixGroup
 
-        # TODO: we should look at op, and include_indirect_members
+        # TODO: we should include_indirect_members
 
         group_spreads = [int(s['spread']) for s in self.get_spread()]
         relevant_spreads = []
@@ -49,7 +52,9 @@ class GroupUiOMixin(Group.Group):
             counts[s] = 0
 
         pg = PosixGroup.PosixGroup(self._db)
-        for g in self.list_groups_with_entity(member_id):
+        for g in self.search(member_id=member_id,
+                             indirect_members=False,
+                             filter_expired=False):
             try:
                 pg.clear()
                 pg.find(g['group_id'])
@@ -62,7 +67,7 @@ class GroupUiOMixin(Group.Group):
             if counts[k] > 16:
                 raise self._db.IntegrityError(
                     "Member of too many groups (%i)" % counts[k])
-        super(GroupUiOMixin, self).add_member(member_id, type, op)
+        super(GroupUiOMixin, self).add_member(member_id)
 
     def add_spread(self, spread):
         # Avoid circular import dependency

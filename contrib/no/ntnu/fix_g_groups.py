@@ -73,38 +73,42 @@ def move_posix(pg, g2):
             pg2.populate(gid=gid, parent=g2.entity_id)
             pg2.write_db()
 
+
 def move_members(g, g2):
-    # move members ...
-    gmemb = g.list_members(filter_expired=False)
-    gmemb2 = g2.list_members(filter_expired=False)
-    for i,op in ((0, co.group_memberop_union),
-                 (1, co.group_memberop_intersection),
-                 (2, co.group_memberop_difference)):
-        for m in gmemb[i]:
-            # Add to new group
-            entity_type=m[0]
-            entity_id=m[1]
-            if not m in gmemb2[i]:
-                g2.add_member(entity_id, entity_type, op)
-                g2.write_db()
-            # change primary
-            if entity_type == co.entity_account:
-                pu.clear()
-                try:
-                    pu.find(entity_id)
-                except Errors.NotFoundError:
-                    pass
-                else:
-                    if pu.gid_id == g.entity_id:
-                        pu.gid_id = g2.entity_id
-                        pu.write_db()
-            # Remove from old group
-            g.remove_member(entity_id, op)
+    """Move members from g to g2."""
 
+    gmemb2 = set(x["member_id"] for x in
+                 g2.search_members(group_id=g2.entity_id,
+                                   filter_expired=False))
+    for member in g.search_members(group_id=g.entity_id, filter_expired=False):
+        entity_type = int(member["member_type"])
+        entity_id = int(member["member_id"])
 
-for i in g.list_all_grp():
+        # Add to new group
+        if not entity_id in gmemb2:
+            g2.add_member(entity_id)
+            g2.write_db()
+
+        # Change primary
+        if entity_type == co.entity_account:
+            pu.clear()
+            try:
+                pu.find(entity_id)
+            except Errors.NotFoundError:
+                pass
+            else:
+                if pu.gid_id == g.entity_id:
+                    pu.gid_id = g2.entity_id
+                    pu.write_db()
+
+        # Remove from old group
+        g.remove_member(entity_id)
+# end move_members
+    
+
+for i in g.search(filter_expired=False):
     try:
-        fixgrp(i[0])
+        fixgrp(i["group_id"])
     except db.IntegrityError:
         db.rollback()
     else:

@@ -45,22 +45,9 @@ fronter = fxml = None
 new_users = None
 
 
-def get_members(group_name):
-    db = Factory.get("Database")()
-    group = Factory.get("Group")(db)
-    usernames = ()
-    try:
-        group.find_by_name(group_name)
-    except Errors.NotFoundError:
-        pass
-    else:
-        members = group.get_members(get_entity_name=True)
-        usernames = tuple([x[1] for x in members])
-    return usernames
-
 host_config = {
     'ovgs.no': {'DBinst': 'ofkfronter',
-                'admins': 'test', #get_members('classfronter-tavle-drift'),
+                'admins': 'test',
                 'export': ['All_users'],
                 'spread': 'spread_lms_acc',
                 },
@@ -560,6 +547,12 @@ def main():
     for k in fronter.std_f_e_nodes:
         register_school_nodes(k['title'], k['group_id'], k['parent_id'])
 
+    logger.debug("preloading entity names...")
+    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                       group.list_names(const.account_namespace))
+    entity2name.update((x["entity_id"], x["entity_name"]) for x in
+                       group.list_names(const.group_namespace))
+    logger.debug("done")
     for g in fronter.groups:
         fnr = None
         register_group(g['g_type'], g['g_name'])
@@ -569,17 +562,23 @@ def main():
         except Errors.NotFoundError:
             logger.warn("Could not find group %s in Cerebrum", g['g_name'])
             continue
-        for row in \
-                group.list_members(member_type = const.entity_account,
-                                   get_entity_name = True)[0]:
-            if fronter.uname2extid.has_key(row[2]):
-                fnr = fronter.uname2extid[row[2]]
+        for row in group.search_members(group_id=group.entity_id,
+                                        member_type=const.entity_account):
+            member_id = int(row["member_id"])
+            if member_id not in entity2name:
+                logger.warn("No name for member id=%s of group %s %s",
+                            member_id, group.group_name, group.entity_id)
+                continue
+            member_name = entity2name[member_id]
+            
+            if fronter.uname2extid.has_key(member_name):
+                fnr = fronter.uname2extid[member_name]
                 tmp1, tmp2 = group.group_name.split(':')
                 grp_name = tmp1 + tmp2
                 new_groupmembers.setdefault(grp_name,
                                             {})[fnr] = 1
             else:
-                logger.warn("Could not find fnr for %s", row[2])
+                logger.warn("Could not find fnr for %s", member_name)
 
     all_users_dat = {'title': 'All_users',
                      'parent': 'root'}

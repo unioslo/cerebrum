@@ -222,28 +222,30 @@ class NISGroupUtil(object):
         self._group.clear()
         self._group.find(gid)
 
-        # Direct members
-        u, i, d = self._group.list_members(spread=self._member_spread,
-                                           member_type=self._member_type)
-        for row in u:
-            name = self._entity2name.get(int(row[1]), None)
+        # direct members
+        for row in self._group.search_members(group_id=gid,
+                                              spread=self._member_spread,
+                                              member_type=self._member_type):
+            member_id = int(row["member_id"])
+            name = self._entity2name.get(member_id)
             if not name:
-                logger.warn("Was %i very recently created?" % int(row[1]))
+                logger.warn("Was %i very recently created?", member_id)
                 continue
             ret_non_groups.append(name)
-
-        # Subgroups
-        u, i, d = self._group.list_members(member_type=co.entity_group)
-        for row in u:
-            gid = int(row[1])
-            if self._exported_groups.has_key(gid):
-                ret_groups.append( self._exported_groups[gid])
+        
+        # subgroups
+        for row in self._group.search_members(group_id=gid,
+                                              member_type=co.entity_group):
+            gid = int(row["member_id"])
+            if gid in self._exported_groups:
+                ret_groups.append(self._exported_groups[gid])
             else:
                 t_g, t_ng = self._expand_group(gid)
                 ret_groups.extend(t_g)
                 ret_non_groups.extend(t_ng)
-        # TODO: Also process intersection and difference members.
+
         return ret_groups, ret_non_groups
+    # end _expand_groups
 
     def _make_tmp_name(self, notused):
         while True:
@@ -348,7 +350,11 @@ class FileGroup(NISGroupUtil):
         ret = []
         self._group.clear()
         self._group.find(gid)
-        for account_id in self._group.get_members(spread=self._member_spread):
+        for row in self._group.search_member(group_id=self._group.entity_id,
+                                             indirect_members=True,
+                                             member_type=co.entity_account,
+                                             member_spread=self._member_spread):
+            account_id = int(row["member_id"])
             if self._account2def_group.get(account_id, None) == self._group.posix_gid:
                 continue  # Don't include the users primary group
             name = self._entity2name.get(account_id, None)

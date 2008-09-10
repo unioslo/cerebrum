@@ -322,7 +322,7 @@ class Group(Entity):
         """
         pass
         
-    def add_member(self, member, operation):
+    def add_member(self, member):
         """ Adds ``member`` to group with ``operation``.
         """
         pass
@@ -331,11 +331,6 @@ class Group(Entity):
         """ Removes ``member`` from group.
         """
         pass
-
-    def change_member_operation(self, member, operation):
-        """Changes ``member``'s ``operation`` in group."""
-        self.remove_member(member)
-        self.add_member(member, operation)
 
     def delete_group(self):
         """Deletes the group."""

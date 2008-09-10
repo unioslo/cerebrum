@@ -237,8 +237,7 @@ def register_group_memberships(acc_id, grpl):
             group.add_spread(constants.spread_ad_grp)
             logger.info("Created new group %s", i)
         if not group.has_member(acc_id):
-            group.add_member(acc_id, constants.entity_account,
-                             constants.group_memberop_union)
+            group.add_member(acc_id)
             logger.debug("Added %s to group %s", acc_id, group.group_name)
     group.write_db()
         

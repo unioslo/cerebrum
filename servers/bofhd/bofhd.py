@@ -1057,7 +1057,11 @@ if __name__ == '__main__':
             db = Utils.Factory.get('Database')()
             group = Utils.Factory.get('Group')(db)
             group.find_by_name(cereconf.BOFHD_SUPERUSER_GROUP)
-            some_superuser = [int(i) for i in group.get_members()][0]
+            const = Utils.Factory.get("Constants")()
+            some_superuser = [int(x["member_id"]) for x in
+                              group.search_members(group_id=group.entity_id,
+                                       indirect_member=True,
+                                       member_type=const.entity_account)][0]
             for inst in server.cmd_instances:
                 newcmd = inst.get_commands(some_superuser)
                 for k in newcmd.keys():

@@ -1,4 +1,23 @@
 # -*- coding: iso-8859-1 -*-
+# Copyright 2005-2008 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
@@ -8,7 +27,7 @@ from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
 #from Cerebrum.modules import Host
-from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName,GroupOperation
+from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import DnsOwner
@@ -326,17 +345,14 @@ class BofhdExtension(object):
     all_commands['group_hadd'] = Command(
         ("group", "hadd"), HostName(),
         GroupName(help_ref="group_name_dest"),
-        GroupOperation(optional=True), perm_filter='can_alter_group')
-    def group_hadd(self, operator, src_name, dest_group,
-                  group_operator=None):
+        perm_filter='can_alter_group')
+    def group_hadd(self, operator, src_name, dest_group):
         dest_group = self._get_group(dest_group)
         owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
         self.ba.can_alter_group(operator.get_entity_id(), dest_group)
         # Check if member is in the group or not.
-        if not dest_group.has_member(owner_id, self.const.entity_dns_owner,
-                                     self._get_group_opcode(group_operator)):
-            dest_group.add_member(owner_id, self.const.entity_dns_owner,
-                                  self._get_group_opcode(group_operator))
+        if not dest_group.has_member(owner_id):
+            dest_group.add_member(owner_id)
         else:
             raise CerebrumError("Member '%s' already in group '%s'" % (src_name,
                                                                        dest_group))
@@ -353,9 +369,11 @@ class BofhdExtension(object):
         group = self.Group_class(self.db)
         co = self.const
         ret = []
-        for row in group.list_groups_with_entity(owner_id):
+        for row in group.search(member_id=owner_id, indirect_members=False):
             grp = self._get_group(row['group_id'], idtype="id")
-            ret.append({'memberop': str(co.GroupMembershipOp(row['operation'])),
+            # IVR 2008-06-13 TBD: Does it make sense to report union, when it
+            # is the ONLY possibility?
+            ret.append({'memberop': str(co.group_memberop_union),
                         'entity_id': grp.entity_id,
                         'group': grp.group_name,
                         'spreads': ",".join([str(co.Spread(a['spread']))
@@ -368,13 +386,12 @@ class BofhdExtension(object):
     all_commands['group_hrem'] = Command(
         ("group", "hrem"), HostName(),
         GroupName(help_ref="group_name_dest"),
-        GroupOperation(optional=True), perm_filter='can_alter_group')
-    def group_hrem(self, operator, src_name, dest_group, group_operator=None):
+        perm_filter='can_alter_group')
+    def group_hrem(self, operator, src_name, dest_group):
         dest_group = self._get_group(dest_group)
         owner_id = self._find.find_target_by_parsing(src_name, dns.DNS_OWNER)
         self.ba.can_alter_group(operator.get_entity_id(), dest_group)
-        dest_group.remove_member(owner_id,
-                                 self._get_group_opcode(group_operator))
+        dest_group.remove_member(owner_id)
         return "OK, removed %s from %s" % (src_name, dest_group.group_name)
 
     # host a_add

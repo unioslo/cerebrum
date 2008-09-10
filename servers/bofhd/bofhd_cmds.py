@@ -207,36 +207,29 @@ class BofhdExtension(object):
     ## bofh> group add <accountname+> <groupname+> [<op>]
     all_commands['group_add'] = Command(("group", "add"),
                                         AccountName(ptype="source", repeat=True),
-                                        GroupName(ptype="destination", repeat=True),
-                                        GroupOperation(optional=True))
-    def group_add(self, operator, src_name, dest_group,
-                  group_operator=None):
+                                        GroupName(ptype="destination", repeat=True))
+    def group_add(self, operator, src_name, dest_group):
         return self._group_add(operator, src_name, dest_group,
-                               group_operator, type="account")
+                               member_type="account")
 
     ## bofh> group gadd <groupname+> <groupname+> [<op>]
     all_commands['group_gadd'] = Command(("group", "gadd"),
                                         GroupName(ptype="source", repeat=True),
-                                        GroupName(ptype="destination", repeat=True),
-                                        GroupOperation(optional=True))
-    def group_gadd(self, operator, src_name, dest_group,
-                  group_operator=None):
-        return self._group_add(operator, src_name, dest_group,
-                               group_operator, type="group")
+                                        GroupName(ptype="destination", repeat=True))
+    def group_gadd(self, operator, src_name, dest_group):
+        return self._group_add(operator, src_name, dest_group, member_type="group")
 
-    def _group_add(self, operator, src_name, dest_group,
-                  group_operator=None, type=None):
+    def _group_add(self, operator, src_name, dest_group, member_type=None):
         """Add entity named src to group named dest using specified
         operator"""
-        group_operator = self._get_group_opcode(group_operator)
         group_s = account_s = None
-        if type == "group":
+        if member_type == "group":
             src_entity = self._get_group(src_name)
-        elif type == "account":
+        elif member_type == "account":
             src_entity = self._get_account(src_name)
         group_d = self._get_group(dest_group)
         try: 
-            group_d.add_member(src_entity, group_operator)
+            group_d.add_member(src_entity)
         except self.Cerebrum.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK"
@@ -312,7 +305,10 @@ class BofhdExtension(object):
         categories coresponding to the three membership ops.  """
         
         group = self._get_group(groupname)
-        return [{'member_id': a} for a in group.get_members()]
+        return [{'member_id': a} for a in
+                group.search_members(group_id=group.entity_id,
+                                     indirect_members=True,
+                                     member_type=self.const.entity_account)]
 
     ## bofh> group person <person_id>
     all_commands['group_person'] = Command(("group", "person"),
@@ -326,30 +322,24 @@ class BofhdExtension(object):
     ## bofh> group remove <accountname+> <groupname+> [<op>]
     all_commands['group_remove'] = Command(("group", "remove"),
                                            AccountName(ptype="member", repeat=True),
-                                           GroupName(ptype="remove from", repeat=True),
-                                           GroupOperation(optional=True))
-    def group_remove(self, operator, src_name, dest_group,
-                     group_operator=None):
+                                           GroupName(ptype="remove from", repeat=True))
+    def group_remove(self, operator, src_name, dest_group):
         """Remove 'acountname' from 'groupname' using specified
         operator"""
         return self._group_remove(operator, src_name, dest_group,
-                               group_operator, type="account")
+                                  member_type="account")
 
     ## bofh> group gremove <accountname+> <groupname+> [<op>]
     all_commands['group_gremove'] = Command(("group", "gremove"),
                                             GroupName(ptype="member", repeat=True),
-                                            GroupName(ptype="remove from", repeat=True),
-                                            GroupOperation(optional=True))
-    def group_gremove(self, operator, src_name, dest_group,
-                      group_operator=None):
+                                            GroupName(ptype="remove from", repeat=True))
+    def group_gremove(self, operator, src_name, dest_group):
         """Remove 'groupname' from 'groupname' using specified
         operator"""
         return self._group_remove(operator, src_name, dest_group,
-                               group_operator, type="group")
+                                  member_type="group")
 
-    def _group_remove(self, operator, src_name, dest_group,
-                      group_operator=None, type=None):
-        group_operator = self._get_group_opcode(group_operator)
+    def _group_remove(self, operator, src_name, dest_group, member_type=None):
         group_s = account_s = None
         if type == "group":
             src_entity = self._get_group(src_name)
@@ -357,7 +347,7 @@ class BofhdExtension(object):
             src_entity = self._get_account(src_name)
         group_d = self._get_group(dest_group)
         try: 
-            group_d.remove_member(src_entity, group_operator)
+            group_d.remove_member(src_entity)
         except self.Cerebrum.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK"   # TBD: returns OK if user is not member of group.  correct?

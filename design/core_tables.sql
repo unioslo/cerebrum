@@ -1,5 +1,5 @@
 /*
- * Copyright 2002, 2003 University of Oslo, Norway
+ * Copyright 2002-2008 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -1584,16 +1584,6 @@ GRANT INSERT, UPDATE, DELETE ON group_membership_op_code
   group_id
 	Reference to the (super-)group this membership pertains to.
 
-  operation
-
-	Indicate whether this membership is a (set) 'U'nion,
-	'I'ntersection or 'D'ifference.  When determining the members
-	of a group, the member types are processed in this order:
-
-	  Add all members from Union type members
-	  Limit the member set using all Intersection type members
-	  Reduce the member set by removing all Difference type members
-
  */
 category:main;
 CREATE TABLE group_member
@@ -1601,15 +1591,12 @@ CREATE TABLE group_member
   group_id	NUMERIC(12,0)
 		CONSTRAINT group_member_group_id
 		  REFERENCES group_info(group_id),
-  operation	NUMERIC(6,0)
-		CONSTRAINT group_member_operation
-		  REFERENCES group_membership_op_code(code),
   member_type	NUMERIC(6,0)
 		NOT NULL,
   member_id	NUMERIC(12,0)
 		NOT NULL,
   CONSTRAINT group_member_pk
-    PRIMARY KEY (group_id, operation, member_id),
+    PRIMARY KEY (group_id, member_id),
   CONSTRAINT group_member_exists
     FOREIGN KEY (member_type, member_id)
     REFERENCES entity_info(entity_type, entity_id),

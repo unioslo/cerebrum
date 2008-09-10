@@ -59,8 +59,9 @@ def dump_ldif(file_handle):
         group.clear()
         group.find(int(row['group_id']))
         dn = "cn=%s,%s" % (row['name'], top_dn)
-        for mbr_type, mbr_id in group.list_members(member_type=co.entity_person)[0]:          
-            mbr2grp.setdefault(mbr_id, []).append(dn)
+        for mbr in group.search_members(group_id=group.entity_id,
+                                        member_type=co.entity_person):
+            mbr2grp.setdefault(int(mbr["member_id"]), []).append(dn)
         file_handle.write(entry_string(dn, {
             'objectClass': ("top", "uioGroup"),
             'description': (iso2utf(row['description']),)}))

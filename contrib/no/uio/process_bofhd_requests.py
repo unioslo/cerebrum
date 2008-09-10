@@ -889,9 +889,9 @@ def move_student_callback(person_info):
     for account_id, request_id, requestee_id in fnr2move_student.get(fnr, []):
         account.clear()
         account.find(account_id)
-        groups = []
-        for r in group.list_groups_with_entity(account_id):
-            groups.append(int(r['group_id']))
+        groups = list(int(x["group_id"]) for x in
+                      group.search(member_id=account_id,
+                                   indirect_members=False))
         try:
             profile = autostud.get_profile(person_info, member_groups=groups)
             logger.debug(profile.matcher.debug_dump())
@@ -1031,7 +1031,8 @@ def proc_delete_user(r):
         account.delete_spread(s['spread'])
     group = Factory.get('Group')(db)
     default_group = _get_default_group(account.entity_id)
-    for g in group.list_groups_with_entity(account.entity_id):
+    for g in group.search(member_id=account.entity_id,
+                          indirect_members=False):
         group.clear()
         group.find(g['group_id'])
         #
@@ -1042,7 +1043,7 @@ def proc_delete_user(r):
             logger.debug("Skipping default group %s for user %s",
                          group.group_name, account.account_name)
             continue        
-        group.remove_member(account.entity_id, g['operation'])
+        group.remove_member(account.entity_id)
     return True
 
 

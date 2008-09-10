@@ -91,14 +91,15 @@ def update_email_address(address, group):
         ea.write_db()
 
 def find_leaf(group):
-    u, i, d = group.list_members()
     target_group = None
-    for type, group_id in u:
-        if type == co.entity_account:
+    for member in group.search_members(group_id=group.entity_id):
+        member_type = int(member["member_type"])
+        member_id = int(member["member_id"])
+
+        if member_type == co.entity_account:
             return group
-        elif type == co.entity_group:
-            g = get_group(group_id)
-            # we ignore the secondary account groups
+        elif member_type == co.entity_group:
+            g = get_group(member_id)
             if re.search(r'-sek(:\d|$)', g.group_name):
                 continue
             # if there was another group member, we shouldn't recurse.
@@ -111,6 +112,8 @@ def find_leaf(group):
         return target_group
     else:
         return find_leaf(target_group)
+# end find_leaf
+
 
 def sync_email_address(address, group):
     if group is None:
@@ -182,23 +185,24 @@ def make_filegroup_name(course, act, names):
 
 
 def add_members(gname, new_members):
-    """Add the new members as union members to existing group gname.
-    This is not a sync, so other members are left alone.  The
-    new_members is a dict with group_id as key.  The value for each
-    key is arbitrary."""
+    """Add the new members to existing group gname.
+
+    This is not a sync, so other members are left alone. The new_members is a
+    dict with group_id as key. The value for each key is arbitrary."""
 
     group = get_group(gname)
-    u, i, d = group.list_members(member_type=co.entity_group)
-    for memb in u:
-        if memb[1] in new_members:
-            del new_members[memb[1]]
+    for memb in group.search_members(group_id=group.entity_id,
+                                     member_type=co.entity_group):
+        member_id = int(memb["member_id"])
+        if member_id in new_members:
+            del new_members[member_id]
     for memb in new_members.keys():
         logger.debug("Adding %s to %s", get_group(memb).group_name, gname)
-        if not group.has_member(memb,
-                                member_type=co.entity_group,
-                                operation=co.group_memberop_union):
-            group.add_member(memb, co.entity_group, co.group_memberop_union)
+        if not group.has_member(memb):
+            group.add_member(memb)
     group.write_db()
+# end add_members
+    
 
 def sync_filegroup(fgname, group, course, act):
     posix_group = PosixGroup.PosixGroup(db)
@@ -224,24 +228,24 @@ def sync_filegroup(fgname, group, course, act):
                         posix_group.expire_date, refreshdate)
             posix_group.expire_date = expdate
             posix_group.write_db()
-    u, i, d = posix_group.list_members(filter_expired=False)
     uptodate = False
-    for type, id in u:
-        if type <> co.entity_group:
-            logger.info("Removing member %d from %s", id, fgname)
-            posix_group.remove_member(id, co.group_memberop_union)
-        elif id <> group.entity_id:
-            logger.info("Removing group member %d from %s", id, fgname)
-            posix_group.remove_member(id, co.group_memberop_union)
+    for row in posix_group.search_members(group_id=posix_group.entity_id,
+                                          filter_expired=False):
+        member_type = int(row["member_type"])
+        member_id = int(row["member_id"])
+        if member_type != co.entity_group:
+            logger.info("Removing member %d from %s", member_id, fgname)
+            posix_group.remove_member(member_id)
+        elif member_id != group.entity_id:
+            logger.info("Removing group member %d from %s", member_id, fgname)
+            posix_group.remove_member(member_id)
         else:
             uptodate = True
     if not uptodate:
         logger.info("Adding %s to %s", group.group_name, fgname)
-        if not posix_group.has_member(group.entity_id,
-                                      member_type=co.entity_group,
-                                      operation=co.group_memberop_union):
-            posix_group.add_member(group.entity_id, co.entity_group,
-                                   co.group_memberop_union)
+        if not posix_group.has_member(group.entity_id):
+            posix_group.add_member(group.entity_id)
+
     # finally check the spread.  we leave any additionally added spreads
     # alone.
     uptodate = False
@@ -268,20 +272,23 @@ def process_groups(super, fg_super):
                              "følge av Ifi-automatikk")
         fg_super_gr.write_db()
     else:
-        u, i, d = fg_super_gr.list_members(member_type=co.entity_group,
-                                           filter_expired=False)
-        for type, group_id in u:
-            auto_fg[group_id] = True
+        for row in fg_super_gr.search_members(group_id=fg_super.entity_id,
+                                              member_type=co.entity_group,
+                                              filter_expired=False):
+            auto_fg[int(row["member_id"])] = True
 
     # fetch super group's members and update accordingly
     todo = {}
     vortex_access = {}
     # short_name contains the shortened name for every known course
     short_name = {}
-    u, i, d = get_group(super).list_members(member_type=co.entity_group,
-                                            filter_expired=False)
-    for type, group_id in u:
-        group = get_group(group_id)
+    start_group = get_group(super)
+    for row in start_group.search_members(group_id=start_group.entity_id,
+                                          member_type=co.entity_group,
+                                          filter_expired=False):
+        member_id = int(row["member_id"])
+    
+        group = get_group(member_id)
         if group.group_name.startswith('sinf'):
             continue
         course = act = None
@@ -291,7 +298,7 @@ def process_groups(super, fg_super):
             act = int(m.group(2))
             # activity 0 is the course itself
             if act == 0:
-                vortex_access[group_id] = True
+                vortex_access[member_id] = True
             # this group often has a single member which is a
             # different group, so get rid of needless indirection.
             leaf = find_leaf(group)
@@ -326,11 +333,9 @@ def process_groups(super, fg_super):
         else:
             logger.info("New automatic filegroup %s for %s-%s",
                         fgname, course, act)
-            if not fg_super_gr.has_member(fgroup.entity_id,
-                                          member_type=co.entity_group,
-                                          operation=co.group_memberop_union):
-                fg_super_gr.add_member(fgroup.entity_id, co.entity_group,
-                                       co.group_memberop_union)
+
+            if not fg_super_gr.has_member(fgroup.entity_id):
+                fg_super_gr.add_member(fgroup.entity_id)
 
     add_members("ifivtx", vortex_access)
 
@@ -341,12 +346,16 @@ def process_groups(super, fg_super):
     # Autumn, so half the year they are invalid).
     for fgname in auto_fg:
         fgroup = get_group(fgname)
-        u, i, d = fgroup.list_members(filter_expired=False)
-        for type, id in u:
+        for row in fgroup.search_members(group_id=fgroup.entity_id,
+                                         filter_expired=False):
             logger.info("Remove %s %d from obsolete filegroup %s",
-                        co.EntityType(type), id, fgroup.group_name)
-            fgroup.remove_member(id, co.group_memberop_union)
+                        co.EntityType(row["member_type"]),
+                        row["member_id"], fgroup.group_name)
+            fgroup.remove_member(row["member_id"])
+        
         fgroup.write_db()
+# end process_groups
+
 
 def get_group(id):
     gr = Factory.get('Group')(db)

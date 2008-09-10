@@ -970,8 +970,8 @@ class BofhdExtension(object):
         grp = Utils.Factory.get("Group")(self.db)
         grp.clear()
         grp.find_by_name(grp_name)
-        grp.add_member(acc.entity_id, self.const.entity_account, self.const.group_memberop_union)
-
+        grp.add_member(acc.entity_id)
+        
     # user move
     #
     all_commands['user_move_nofile'] = Command(

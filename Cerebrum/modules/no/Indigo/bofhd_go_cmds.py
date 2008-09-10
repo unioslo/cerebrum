@@ -29,7 +29,7 @@ from Cerebrum import Constants
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
-from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName,GroupOperation
+from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
                                         BofhdAuthOpSet, BofhdAuthOpTarget
@@ -144,16 +144,14 @@ class BofhdExtension(object):
     # PosixUsers in Indigo by default). Ideally, UiO's bofhd should be split
     # into manageable units that can be plugged in on demand
     all_commands['_group_remove_entity'] = None
-    def _group_remove_entity(self, operator, member, group, group_operation):
-        group_operation = self._get_group_opcode(group_operation)
+    def _group_remove_entity(self, operator, member, group):
         self.ba.can_alter_group(operator.get_entity_id(), group)
         member_name = self._get_name_from_object(member)
-        if not group.has_member(member.entity_id, member.entity_type,
-                                group_operation):
+        if not group.has_member(member.entity_id):
             return ("%s isn't a member of %s" %
                     (member_name, group.group_name))
         try:
-            group.remove_member(member.entity_id, group_operation)
+            group.remove_member(member.entity_id)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
@@ -186,17 +184,14 @@ class BofhdExtension(object):
                         'opset': aos.name})
 
         # Count group members of different types
-        u, i, d = grp.list_members()
-
-        for members, op in ((u, 'u'), (i, 'i'), (d, 'd')):
-            tmp = {}
-            for ret_pfix, entity_type in (
-                ('c_group_', int(co.entity_group)),
-                ('c_account_', int(co.entity_account))):
-                tmp[ret_pfix+op] = len(
-                    [x for x in members if int(x[0]) == entity_type])
-                if [x for x in tmp.values() if x > 0]:
-                    ret.append(tmp)
+        members = list(grp.search_members(group_id=grp.entity_id))
+        tmp = {}
+        for ret_pfix, entity_type in (
+            ('c_group', int(self.const.entity_group)),
+            ('c_account', int(self.const.entity_account))):
+            tmp[ret_pfix] = len([x for x in members
+                                 if int(x["member_type"]) == entity_type])
+        ret.append(tmp)
         return ret
     
     all_commands['get_auth_level'] = None
@@ -522,8 +517,8 @@ class BofhdExtension(object):
         group = self.Group_class(self.db)
         # fetch all groups where operator is a member
         op_groups = [x['group_id'] for x in
-                     group.list_groups_with_entity(operator.get_entity_id())
-                     if x['operation'] == self.const.group_memberop_union]
+                     group.search(member_id=operator.get_entity_id(),
+                                  indirect_members=False)]
         # fetch all permissions that these groups have
         op_targets = [x['op_target_id'] for x in
                       BofhdAuthRole(self.db).list(entity_ids=op_groups)]

@@ -631,11 +631,10 @@ def import_groups(groupfile, fill=False):
     for g in tmpg.search():
         tmpg2.clear()
         tmpg2.find(g['group_id'])
-        u, i, d = tmpg2.list_members(filter_expired=False)
         group_has_member[int(g['group_id'])] = {}
-        for t, rows in ('union', u), ('inters.', i), ('diff', d):
-            for r in rows:
-                group_has_member[int(g['group_id'])][int(r[1])] = True
+        for r in tmpg2.search_members(group_id=tmpg2.entity_id,
+                                      filter_expired=False):
+            group_has_member[int(g["group_id"])][int(r["member_id"])] = True
 
     # Note: File and netgroups are merged
     for group in GroupData(groupfile):
@@ -695,8 +694,7 @@ def import_groups(groupfile, fill=False):
 
                     if not group_has_member.get(int(destination.entity_id), {}
                                                 ).has_key(account_id):
-                        destination.add_member(account_id, co.entity_account,
-                                               co.group_memberop_union);
+                        destination.add_member(account_id)
                         group_has_member.setdefault(
                             int(destination.entity_id), {})[account_id] = True
                     progress.write("A")
@@ -717,7 +715,7 @@ def import_groups(groupfile, fill=False):
             if int(group) == tmp:
                 print "WARNING: Group memember of itself, skipping %s" % m
                 continue
-            groupObj.add_member(tmp, co.entity_group, co.group_memberop_union)
+            groupObj.add_member(tmp)
     db.commit()
 
 mailserver2eid = {}

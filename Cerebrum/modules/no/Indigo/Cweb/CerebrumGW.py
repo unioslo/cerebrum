@@ -159,16 +159,16 @@ class CerebrumProxy(object):
         ret = {}
         for r in self.run_command('group_info', search):
             ret.update(r)
-        for k in ('c_account_u', 'c_group_u'):
+        for k in ('c_account', 'c_group'):
             if not ret.has_key(k):
                 ret[k] = 0
         return ret
 
-    def group_add_entity(self, member_id, group_id, member_op='union'):
-        return self.run_command('group_add_entity', member_id, group_id, member_op)
+    def group_add_entity(self, member_id, group_id):
+        return self.run_command('group_add_entity', member_id, group_id)
 
-    def group_remove_entity(self, member_id, group_id, member_op='union'):
-        return self.run_command('group_remove_entity', member_id, group_id, member_op)
+    def group_remove_entity(self, member_id, group_id):
+        return self.run_command('group_remove_entity', member_id, group_id)
 
     def _get_search_str(self, etype=None, entity_id=None, name=None):
         if entity_id:

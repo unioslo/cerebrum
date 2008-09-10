@@ -1298,14 +1298,15 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
             group.expire_date = now() + DateTimeDelta(6*30)
             group.write_db()
 
-        u, i, d = group.list_members(member_type=mtype, filter_expired=False)
-        for member in u:
-            member = int(member[1]) # member_id has index=1 (poor API design?)
+        for row in group.search_members(group_id=group.entity_id,
+                                        member_type=mtype,
+                                        filter_expired=False):
+            member = int(row["member_id"])
             if members.has_key(member):
                 del members[member]
             else:
                 logger.debug("sync_group(): Deleting member %d" % member)
-                group.remove_member(member, co.group_memberop_union)
+                group.remove_member(member)
                 #
                 # Supergroups will only contain groups that have been
                 # automatically created by this script, hence it is
@@ -1317,7 +1318,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
                     destroy_group(member, recurse=recurse)
 
     for member in members.keys():
-        group.add_member(member, mtype, co.group_memberop_union)
+        group.add_member(member)
 
     # Finally fixup fronter spreads, if we have to.
     if auto_spread is not NotSet:
@@ -1352,11 +1353,11 @@ def destroy_group(gname, max_recurse=2, recurse=True):
         
     # If this group is a member of other groups, remove those
     # memberships.
-    for r in gr.list_groups_with_entity(gr.entity_id):
+    for r in gr.search(member_id=gr.entity_id, indirect_members=False):
         parent = get_group(r['group_id'])
         logger.info("removing %s from group %s" % (gr.group_name,
                                                    parent.group_name))
-        parent.remove_member(gr.entity_id, r['operation'])
+        parent.remove_member(gr.entity_id)
 
     # If a e-mail target is of type multi and has this group as its
     # destination, delete the e-mail target and any associated
@@ -1378,8 +1379,10 @@ def destroy_group(gname, max_recurse=2, recurse=True):
             ea.delete()
         et.delete()
     # Fetch group's members
-    u, i, d = gr.list_members(member_type=co.entity_group, filter_expired=False)
-    logger.debug("destroy_group() subgroups: %r" % (u,))
+    gr_members = gr.search_members(group_id=gr.entity_id,
+                                   member_type=co.entity_group,
+                                   filter_expired=False)
+    logger.debug("destroy_group() subgroups: %r" % (gr_members,))
     # Remove any spreads the group has
     for row in gr.get_spread():
         gr.delete_spread(row['spread'])
@@ -1413,8 +1416,8 @@ def destroy_group(gname, max_recurse=2, recurse=True):
     # to be done after the parent group has been deleted, in order for
     # the subgroups not to be members of the parent anymore.
     if recurse:
-        for subg in u:
-            destroy_group(subg[1], max_recurse - 1)
+        for subg in gr_members:
+            destroy_group(int(subg["member_id"]), max_recurse - 1)
 # end destroy_group
 
 

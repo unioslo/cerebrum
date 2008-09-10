@@ -440,13 +440,12 @@ def add_person_to_group(group, person, fields, const):
         logger.warn("Could not find group with name %s" % group_name)
         return
         
-    group_operator = const.group_memberop_union
-    if group.has_member(person.entity_id, person.entity_type, group_operator):
+    if group.has_member(person.entity_id):
         logger.info("Person %s is already member of group %s" % (
             person.get_name(const.system_cached, const.name_full) , group_name))
         return
     try:
-        group.add_member(person.entity_id, person.entity_type, group_operator)
+        group.add_member(person.entity_id)
     except:
         logger.warn("Could not add person %s to group %s" % (
             person.get_name(const.system_cached, const.name_full), group_name))

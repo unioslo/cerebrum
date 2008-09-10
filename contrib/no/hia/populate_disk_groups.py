@@ -124,27 +124,26 @@ def get_host_disks():
             disk_d[int(disks["host_id"])] = [int(disks["disk_id"]),]
     return(disk_d)
 
-def remove_memb_parent(group_id, op, member):
+def remove_memb_parent(group_id, member):
     """ Remove membership in parent group"""
     parent = get_group(group_id)
-    parent.remove_member(member, op)
+    parent.remove_member(member)
 
 
 def destroy_group(group_id):
     del_grp = get_group(group_id)
-    u, i, d = del_grp.list_members(member_type=const.entity_group)
-    for subg in u:
-        destroy_group(subg[1])
-    logger.debug("destroy_group(%s) [After get_group]" \
-                 % del_grp.group_name)
-    #print "destroy_group(%s) [After get_group]" % del_grp.group_name
-    for r in del_grp.list_groups_with_entity(del_grp.entity_id):
-	logger.debug("Parent id: %s    group-id:%s"\
-				 % (r['group_id'],del_grp.entity_id))
-	remove_memb_parent(r['group_id'], r['operation'],del_grp.entity_id)
-    logger.debug("Removed group: %s   group-id: %s"\
-				% (del_grp.group_name,del_grp.entity_id))
-    #print "Removed group:",del_grp.group_name, "group-id:",del_grp.entity_id
+    for subg in del_grp.search_members(group_id=del_grp.entity_id,
+                                       member_type=const.entity_group):
+        destroy_group(subg["member_id"])
+        
+    logger.debug("destroy_group(%s) [After get_group]", del_grp.group_name)
+    for r in del_grp.search(member_id=del_grp.entity_id,
+                            indirect_members=False):
+        logger.debug("Parent id: %s    group-id:%s",
+                     r['group_id'], del_grp.entity_id)
+        remove_memb_parent(r['group_id'], del_grp.entity_id)
+    logger.debug("Removed group: %s   group-id: %s",
+                 del_grp.group_name, del_grp.entity_id)
     del_grp.delete()
 
 
@@ -159,81 +158,77 @@ class group_tree(object):
     #spreads = ()
 
     def __init__(self):
-	self.subnodes = {}
-	self.users = {}
+        self.subnodes = {}
+        self.users = {}
 
     def name_prefix(self):
-	prefix = ()
-	parent = getattr(self, 'parent', None)
-	if parent is not None:
-	    prefix += parent.name_prefix()
-	prefix += getattr(self, '_prefix', ())
-	return prefix
+        prefix = ()
+        parent = getattr(self, 'parent', None)
+        if parent is not None:
+            prefix += parent.name_prefix()
+        prefix += getattr(self, '_prefix', ())
+        return prefix
 
     def name(self):
-	name_elements = self.name_prefix()
-	name_elements += getattr(self, '_name', ())
-	return safe_join(name_elements, ':').lower()
+        name_elements = self.name_prefix()
+        name_elements += getattr(self, '_name', ())
+        return safe_join(name_elements, ':').lower()
 
     def description(self):
-	pass
+        pass
 
     def list_matches(self, gtype, data, category):
-	if self.users:
-	    raise RuntimeError, \
-		"list_matches() not overriden for user-containing group."
-	for subg in self.subnodes.itervalues():
-	    for match in subg.list_matches(gtype, data, category):
-		yield match
+        if self.users:
+            raise RuntimeError, \
+                "list_matches() not overriden for user-containing group."
+        for subg in self.subnodes.itervalues():
+            for match in subg.list_matches(gtype, data, category):
+                yield match
 
     def list_matches_1(self, *args, **kws):
-	ret = [x for x in self.list_matches(*args, **kws)]
-	if len(ret) == 1:
-	    return ret
-	logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
-						self, args, kws, ret)
-	#print "Matchet for mange: self=%r, args=%r, kws=%r, ret=%r", self, args, kws, ret
-	return ()
+        ret = [x for x in self.list_matches(*args, **kws)]
+        if len(ret) == 1:
+            return ret
+        logger.error("Matchet for mange: self=%r, args=%r, kws=%r, ret=%r",
+                                                self, args, kws, ret)
+        #print "Matchet for mange: self=%r, args=%r, kws=%r, ret=%r", self, args, kws, ret
+        return ()
 
     def sync(self):
-	logger.debug("Start: group_tree.sync(), name = %s", self.name())
-	#print "Start: group_tree.sync(), name = %s", self.name()
-	db_group = self.maybe_create()
-	sub_ids = {}
-	if self.users:
-	    for acc in self.users.iterkeys():
-		sub_ids[int(acc)] = const.entity_account
-	else:
+        logger.debug("Start: group_tree.sync(), name = %s", self.name())
+        #print "Start: group_tree.sync(), name = %s", self.name()
+        db_group = self.maybe_create()
+        sub_ids = {}
+        if self.users:
+            for acc in self.users.iterkeys():
+                sub_ids[int(acc)] = const.entity_account
+        else:
             # Gruppa har ikke noen medlemmer, og skal dermed
             # populeres med *kun* evt. subgruppemedlemmer.  Vi sørger
             # for at alle subgrupper synkroniseres først (rekursivt),
             # og samler samtidig inn entity_id'ene deres i 'sub_ids'.
-	    for subg in self.subnodes:
-		sub_ids[int(subg.sync())] = const.entity_group
+            for subg in self.subnodes:
+                sub_ids[int(subg.sync())] = const.entity_group
         # I 'sub_ids' har vi nå en oversikt over hvilke entity_id'er
         # som skal bli gruppens medlemmer.  Foreta nødvendige inn- og
         # utmeldinger.
-	db_group = self.maybe_create()
-	membership_ops = (const.group_memberop_union,
-				const.group_memberop_intersection,
-				const.group_memberop_difference)
-	for members_with_op, op in zip(db_group.list_members(),membership_ops):
-	    for member_type, member_id in members_with_op:
-		member_id = int(member_id)
-		if member_id in sub_ids:
-		    del sub_ids[member_id]
-		else:
-		    if member_type == const.entity_account:
-			db_group.remove_member(member_id, op)
-                    elif member_type == const.entity_group:
-                        destroy_group(member_id)
+        db_group = self.maybe_create()
+        for row in db_group.search_members(group_id=db_group.entity_id):
+            member_id = int(row["member_id"])
+            member_type = int(row["member_type"])
+            if member_id in sub_ids:
+                del sub_ids[member_id]
+            else:
+                if member_type == const.entity_account:
+                    db_group.remove_member(member_id)
+                elif member_type == const.entity_group:
+                    destroy_group(member_id)
         for member_id in sub_ids.iterkeys():
-	    if db_group.entity_id <> member_id:
-	    	db_group.add_member(member_id, sub_ids[member_id],
-                                const.group_memberop_union)
+            if db_group.entity_id != member_id:
+                db_group.add_member(member_id)
         #print "Finished: group_tree.sync(), name = %s", self.name()
-	logger.debug("Finished: group_tree.sync(), name = %s", self.name()) 
-	return db_group.entity_id
+        logger.debug("Finished: group_tree.sync(), name = %s", self.name()) 
+        return db_group.entity_id
 
     def maybe_create(self):
         try:
@@ -346,13 +341,13 @@ class disk_grp(srv_grp):
                 cereconf.INSTITUTION_DOMAIN_NAME)
 
     def add(self, ue):
-	self.users = {}
-	for acc in [int(x.account_id) for x in account.list_account_home(\
-						account_spread=u_spread,
-						disk_id=ue.entity_id)\
-						if x.status in (\
-						const.home_status_on_disk,\
-						const.home_status_not_created)]:
+        self.users = {}
+        for acc in [int(x.account_id) for x in account.list_account_home(\
+                                                account_spread=u_spread,
+                                                disk_id=ue.entity_id)\
+                                                if x.status in (\
+                                                const.home_status_on_disk,\
+                                                const.home_status_not_created)]:
             self.users[acc] = const.entity_account
 
           
@@ -365,11 +360,11 @@ def usage(err=0):
 
 def add_disk(s_grp):
     for host_id, disk_list in get_host_disks().items():
-	host = get_host(host_id)
-	for disk_id in disk_list:
-	    disk = get_disk(disk_id)
-	    disk.name = host.name
-	    s_grp.add(disk)
+        host = get_host(host_id)
+        for disk_id in disk_list:
+            disk = get_disk(disk_id)
+            disk.name = host.name
+            s_grp.add(disk)
 
 
 def main():
@@ -382,37 +377,37 @@ def main():
     if args:
         usage("Invalid arguments: " + " ".join(args))
     for opt, val in opts:
-	if opt in ("-s", "--spread"):
+        if opt in ("-s", "--spread"):
             opt_s = val
-	elif opt in ("-d","--delete_all"):
-	    del_all = True
-	elif opt in ("-h","--help"):
-	    usage(1)
+        elif opt in ("-d","--delete_all"):
+            del_all = True
+        elif opt in ("-h","--help"):
+            usage(1)
     global u_spread
     u_spread = None
     init_module()
     if opt_s:
-	try:
-	    u_spread = Constants._SpreadCode(int(opt_s))
-	except ValueError:
-	    try:
-		u_spread = getattr(const,opt_s)
-	    except AttributeError:
-		u_spread = Constants._SpreadCode(opt_s)
-	    except:
-		usage(1)
+        try:
+            u_spread = Constants._SpreadCode(int(opt_s))
+        except ValueError:
+            try:
+                u_spread = getattr(const,opt_s)
+            except AttributeError:
+                u_spread = Constants._SpreadCode(opt_s)
+            except:
+                usage(1)
     s_grp = create_superservgrp()
     if del_all:
-	try:
-	    grp_name = safe_join((s_grp._prefix + s_grp._name), ':').lower()
-	    del_tree = get_group(grp_name)
-	except Errors.NotFoundError:
-	    logger.warn("Supergroup %s could not be found" % grp_name)	    
-	    #print "Supergroup %s could not be found" % grp_name
-	destroy_group(del_tree.entity_id)
-    else:	
-	add_disk(s_grp)
-	s_grp.sync()
+        try:
+            grp_name = safe_join((s_grp._prefix + s_grp._name), ':').lower()
+            del_tree = get_group(grp_name)
+        except Errors.NotFoundError:
+            logger.warn("Supergroup %s could not be found" % grp_name)      
+            #print "Supergroup %s could not be found" % grp_name
+        destroy_group(del_tree.entity_id)
+    else:       
+        add_disk(s_grp)
+        s_grp.sync()
     logger.debug("Start commit to database")
     db.commit()
     db.close()
@@ -421,6 +416,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-# arch-tag: 52d78168-b120-4533-959f-6573e8597f76

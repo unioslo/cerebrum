@@ -29,7 +29,7 @@ from Cerebrum.Database import Errors
 class GroupHiAMixin(Group.Group):
     """Group mixin class providing functionality specific to HiA.
     """
-    def add_member(self, member_id, type, op):
+    def add_member(self, member_id):
         '''Override default add_member with checks that avoids
         membership in more than one eDir server-group'''
 
@@ -50,16 +50,21 @@ class GroupHiAMixin(Group.Group):
                   'Cannot add members to a non-existing group!'
         dest_group_name = dest_group.group_name
         account = Factory.get("Account")(self._db)
-        if type == int(self.const.entity_account) and dest_group_name in server_groups:
+        member_type = self.query_1("""
+            SELECT entity_type
+            FROM [:table schema=cerebrum name=entity_info]
+            WHERE entity_id = :member_id""", {"member_id": member_id})
+        if (member_type == int(self.const.entity_account) and
+            dest_group_name in server_groups):
             account.clear()
             account.find(member_id)
             for g in server_groups:
                 group.clear()
                 group.find_by_name(g)
-                if group.has_member(member_id, member_type=type):
+                if group.has_member(member_id):
                     raise self._db.IntegrityError(
                         "Member of a eDir server group already (%s)" % g)
-        super(GroupHiAMixin, self).add_member(member_id, type, op)
+        super(GroupHiAMixin, self).add_member(member_id)
         
     def add_spread(self, spread):
         # FIXME, jazz 2008-07-28: we should move this check into PosixGroup

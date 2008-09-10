@@ -35,10 +35,10 @@ class Metainfo(object):
         SELECT value
         FROM [:table schema=cerebrum name=cerebrum_metainfo]
         WHERE name=:name""", {'name': name})
-        return pickle.loads(value)
+        return pickle.loads(str(value))
 
     def list(self):
-        return [(row['name'], pickle.loads(row['value']))
+        return [(row['name'], pickle.loads(str(row['value'])))
                 for row in self.db.query("""
         SELECT name, value
         FROM [:table schema=cerebrum name=cerebrum_metainfo]""")]
@@ -56,5 +56,4 @@ class Metainfo(object):
             INSERT INTO [:table schema=cerebrum name=cerebrum_metainfo]
               (name, value)
             VALUES (:name, :value)""", {'name': name, 'value': value}) 
-
-# arch-tag: 4ed9f901-881e-444d-9983-e09d74f76870
+# end class Metainfo

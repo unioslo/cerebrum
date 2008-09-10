@@ -319,10 +319,10 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
             self.delete_srv_record(
                 r['service_owner_id'], r['pri'], r['weight'], r['port'])
         g = Group.Group(self._db)
-        for row in g.list_groups_with_entity(self.entity_id):
+        for row in g.search(member_id=self.entity_id, indirect_members=False):
             g.clear()
             g.find(row['group_id'])
-            g.remove_member(self.entity_id, row['operation'])
+            g.remove_member(self.entity_id)
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_owner]
         WHERE dns_owner_id=:dns_owner_id""", {'dns_owner_id': self.entity_id})

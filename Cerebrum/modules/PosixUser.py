@@ -51,7 +51,7 @@ from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.modules import PosixGroup
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 ## Module spesific constant.  Belongs somewhere else
 class _PosixShellCode(Constants._CerebrumCode):
@@ -140,15 +140,9 @@ class PosixUser(Account_class):
         # if it's not a member already?  There are many occurences of
         # code like this, and but none of them implement all the
         # robustness below.
-        member = primary_group.has_member(self.entity_id)
-        if member and member['operation'] != self.const.group_memberop_union:
-            primary_group.remove_member(self.entity_id,
-                                        member['operation'])
-            member = False
-        if not member:
-            primary_group.add_member(self.entity_id,
-                                     self.entity_type,
-                                     self.const.group_memberop_union)
+        if not primary_group.has_member(self.entity_id):
+            primary_group.add_member(self.entity_id)
+
         if is_new:
             self.execute("""
             INSERT INTO [:table schema=cerebrum name=posix_user]

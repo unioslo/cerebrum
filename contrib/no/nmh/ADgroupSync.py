@@ -29,7 +29,7 @@ from Cerebrum.Utils import Factory
 
 
 def fetch_cerebrum_data(spread):
-    return group.search(spread)
+    return list(group.search(spread))
 
 
 def fetch_ad_data():
@@ -57,7 +57,7 @@ def full_sync(delete_groups, dry_run):
 
     # fetch group info from cerebrum
     #
-    cerebrumgroups = fetch_cerebrum_data(int(co.spread_ad_group))
+    cerebrumgroups = fetch_cerebrum_data(co.spread_ad_group)
     logger.info("Fetched %i groups from Cerebrum" % len(cerebrumgroups))
         
     # compare group data in cerebrum and AD
@@ -103,28 +103,34 @@ def sync_groups(cerebrumgroups, dry_run):
     # To reduce traffic send current list of groupmembers to AD
     # The server ensures that each group has correct members.   
 
+    # preload all the names
+    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                       group.list_names(co.account_namespace))
+    entity2name.update((x["entity_id"], x["entity_name"]) for x in
+                       group.list_names(co.group_namespace))
     for g in cerebrumgroups:
-        # Only interested in union members(this is only type in use)
-        #
-        # logger.debug("Getting group: %s", grp_name)
         group.clear()
-        group.find(g['group_id'])				 
-        user_memb = group.list_members(spread=co.spread_ad_account, get_entity_name=True)
-        group_memb = group.list_members(spread=co.spread_ad_group, get_entity_name=True)
+        group.find(g['group_id'])
         members = []
-        for usr in user_memb[0]:
-            # TODO: How to treat quarantined users???, some exist in AD, 
+        for user in group.search_members(group_id=group.entity_id,
+                                         spread=co.spread_ad_account):
+            # TODO: How to treat quarantined users???, some exist in AD,
             # others do not. They generate errors when not in AD. We still
             # want to update group membership if in AD.
-            # FIXME: it is rather ugly to assume that user name i in usr[2], this
-            # should be changed (user_memb restructured)
-            #
-            members.append(usr[2])
-            # logger.debug("Registered all member accounts")
-
-        for grp in group_memb[0]:
-            members.append('%s%s' % (grp[2], cereconf.AD_GROUP_POSTFIX))
-            #logger.debug("Registered all member groups")
+            user_id = int(user["member_id"])
+            # skip the ones with unknown names
+            if user_id not in entity2name:
+                continue
+            members.append(entity2name[user_id])
+        
+        for grp in group.search_members(group_id=group.entity_id,
+                                        spread=co.spread_ad_group):
+            grp_id = int(grp["member_id"])
+            if grp_id not in entity2name:
+                continue
+            members.append('%s%s' % (entity2name[grp_id],
+                                     cereconf.AD_GROUP_POSTFIX))
+        
         # Try to locate group object in AD
         #
         dn = None

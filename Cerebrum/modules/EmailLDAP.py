@@ -306,9 +306,11 @@ class EmailLDAP(DatabaseAccessor):
         except Errors.NotFoundError:
             raise ValueError, "no group found: %d" % group_id
         member_addrs = []
-        for member_id in grp.get_members():
+        for member in grp.search_members(group_id=grp.entity_id,
+                                         indirect_members=True,
+                                         member_type=self.const.entity_account):
             acc.clear()
-            acc.find(member_id)
+            acc.find(member["member_id"])
             if acc.is_reserved():
                 continue
             # The address selected for the target will become the
@@ -367,3 +369,4 @@ class EmailLDAP(DatabaseAccessor):
     # end get_misc
 
 # end class EmailLDAP
+

@@ -52,18 +52,18 @@ ent_name = Entity.EntityName(db)
 class LDAPConnection:
     __port = 0
     def __init__( self, host=None, port=None, binddn=None, 
-				password=None, scope= 'SUB'):
-	self.db = db
-	self.co = co
+                                password=None, scope= 'SUB'):
+        self.db = db
+        self.co = co
         self.__host = host or cereconf.NW_LDAPHOST
         self.__port = port or cereconf.NW_LDAPPORT or 389
         self.__binddn = binddn or cereconf.NW_ADMINUSER
-	if not password:
-	    user = cereconf.NW_ADMINUSER.split(',')[:1][0]
-	    self.__password = self.db._read_password(cereconf.NW_LDAPHOST,
-								user)
-	else:
-	    self.__password = password
+        if not password:
+            user = cereconf.NW_ADMINUSER.split(',')[:1][0]
+            self.__password = self.db._read_password(cereconf.NW_LDAPHOST,
+                                                                user)
+        else:
+            self.__password = password
         if scope.upper() == "SUB":
             self.__scope = ldap.SCOPE_SUBTREE
         elif scope.upper() == "ONE":
@@ -77,9 +77,9 @@ class LDAPConnection:
         handle = ldap.open( host )
         handle.protocol_version = ldap.VERSION3
         if handle:
-	    if crypted:  
-		try:
-		    if cereconf.TLS_CACERT_FILE is not None:
+            if crypted:  
+                try:
+                    if cereconf.TLS_CACERT_FILE is not None:
                         handle.OPT_X_TLS_CACERTFILE = cereconf.TLS_CACERT_FILE
                 except:  pass
                 try:
@@ -93,23 +93,23 @@ class LDAPConnection:
                     logger.debug("TLS connection established to %s" % host)
                 except:
                     logger.info( "Could not open TLS-connection to %s" % host)
-		    return False
+                    return False
             else:
                 try:
                     handle.simple_bind_s( binddn, password )
                     logger.info("Unencrypted connection to %s" % host)
                 except:
                     logger.info("Could not open unencrypted connection to %s" % host)
-       		    return False
+                    return False
             return handle
         return False
     
     def __unbind(self):
-	self.__ldap_connection_handle.unbind()
-	self.__ldap_connection_handle = None
+        self.__ldap_connection_handle.unbind()
+        self.__ldap_connection_handle = None
 
     def __search( self, handle, basedn, filter, scope=ldap.SCOPE_SUBTREE,
-						attr_l = None):
+                                                attr_l = None):
         if not handle:
             return False
         return handle.search_s( basedn, scope, filter, attrlist=attr_l)
@@ -199,7 +199,7 @@ class LDAPConnection:
         for type, value in changedattrs:
             attrs.append( (ldap.MOD_REPLACE,type,value) )
         self.__modify( self.__ldap_connection_handle, dn, attrs )
-	#self.__unbind()
+        #self.__unbind()
 
 
     def RawModifyAttributes( self, dn, changedattrs ):
@@ -239,32 +239,32 @@ class LDAPConnection:
                                         'allowUnlimitedCredit'])
             if not res:
                 return(False,False)
-	    res_val = res[0][1]
-	    if res_val.has_key('accountBalance'):
-		pq_quota = int(res_val.get('accountBalance')[0])
-	    else: 
-		pq_quota = 0
-	    unlimit = res_val.get('allowUnlimitedCredit')
+            res_val = res[0][1]
+            if res_val.has_key('accountBalance'):
+                pq_quota = int(res_val.get('accountBalance')[0])
+            else: 
+                pq_quota = 0
+            unlimit = res_val.get('allowUnlimitedCredit')
             if res_val.has_key('allowUnlimitedCredit'):
-		if 'TRUE' in res_val.get('allowUnlimitedCredit'):
+                if 'TRUE' in res_val.get('allowUnlimitedCredit'):
                     pq_valid = False
         return(pq_valid, pq_quota)
 
 
     def set_pq(self, quota, uname):
-	search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % uname
-	res = self.GetObjects(cereconf.NW_LDAP_ROOT,
-					search_str,
-					attrlist = ['accountBalance',])
-	if not res:
-	    return(False)
-	(ldap_user, ldap_res) = res[0]
-	if ldap_res.has_key('accountBalance'):
-	    self.ModifyAttributes(ldap_user,[('accountBalance',str(quota))])
-	else:
-	    self.AddAttributes(ldap_user,[('accountBalance',str(quota))])
-	return(True)
-	    
+        search_str = "(&(cn=%s)(objectClass=inetOrgPerson))" % uname
+        res = self.GetObjects(cereconf.NW_LDAP_ROOT,
+                                        search_str,
+                                        attrlist = ['accountBalance',])
+        if not res:
+            return(False)
+        (ldap_user, ldap_res) = res[0]
+        if ldap_res.has_key('accountBalance'):
+            self.ModifyAttributes(ldap_user,[('accountBalance',str(quota))])
+        else:
+            self.AddAttributes(ldap_user,[('accountBalance',str(quota))])
+        return(True)
+            
 
 def op_check(attrs, value_name, new_value):
     op = None
@@ -284,17 +284,17 @@ def now():
 
 #def write_elog(ldap_user, log_txt, desc_list=[]):
 #    if not desc_list:
-#	try:
-#	    ldap_list = ldap_user.split(',')
-#	    (foo,ldap_attrs) = ldap_handle.GetObjects((','.join(ldap_user[1:])),
-#							ldap_user[0])[0]
-#	    desc_list = ldap_attrs.get('description')
-#	except:
-#	    logger.warn("Write_elog could not resolve %s" % ldap_user) 
-#	    return
+#       try:
+#           ldap_list = ldap_user.split(',')
+#           (foo,ldap_attrs) = ldap_handle.GetObjects((','.join(ldap_user[1:])),
+#                                                       ldap_user[0])[0]
+#           desc_list = ldap_attrs.get('description')
+#       except:
+#           logger.warn("Write_elog could not resolve %s" % ldap_user) 
+#           return
 #    if len(desc_list) >= 4:
-#	for x in desc_list[1:][:len(desc_list)-3]:
-#	    attr_del_ldap(ldap_user, [('description',[x,])])
+#       for x in desc_list[1:][:len(desc_list)-3]:
+#           attr_del_ldap(ldap_user, [('description',[x,])])
 #    log_str = str(nwutils.now()) + log_txt
 #    attr_add_ldap(ldap_user,[('description',[log_str,])])
 
@@ -326,39 +326,39 @@ def get_account_info(account_id, spread, site_callback):
         logger.warn("Aiee! %s %s" % (str(type), str(value)))
         pwd = ''
     if pers:
-	try:
-	    pri_ou = get_primary_ou(account_id)
-	except Errors.NotFoundError:
-	    logger.info("Unexpected error me thinks")
-	if not pri_ou:
-	    logger.warn("WARNING: no primary OU found for",name,"in namespace", 
-							co.account_namespace)
-	    pri_ou = cereconf.NW_DEFAULT_OU_ID
-	crbrm_ou = id_to_ou_path(pri_ou , cereconf.NW_LDAP_ROOT)
-	ldap_ou = get_ldap_usr_ou(crbrm_ou, affiliation)
-	ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
+        try:
+            pri_ou = get_primary_ou(account_id)
+        except Errors.NotFoundError:
+            logger.info("Unexpected error me thinks")
+        if not pri_ou:
+            logger.warn("WARNING: no primary OU found for",name,"in namespace", 
+                                                        co.account_namespace)
+            pri_ou = cereconf.NW_DEFAULT_OU_ID
+        crbrm_ou = id_to_ou_path(pri_ou , cereconf.NW_LDAP_ROOT)
+        ldap_ou = get_ldap_usr_ou(crbrm_ou, affiliation)
+        ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
     else:
-	ldap_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
+        ldap_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
                         unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
-	ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
+        ldap_dn = unicode('cn=%s,' % name, 'iso-8859-1').encode('utf-8') + ldap_ou
 #    try:
-#	if cereconf.NW_PRINTER_QUOTAS.lower() == 'enable': 
-#	    from Cerebrum.modules.no import PrinterQuotas 
-#	    pq = PrinterQuotas.PrinterQuotas(db)
+#       if cereconf.NW_PRINTER_QUOTAS.lower() == 'enable': 
+#           from Cerebrum.modules.no import PrinterQuotas 
+#           pq = PrinterQuotas.PrinterQuotas(db)
 #            pq.clear();
-#    	    pq.find(account_id)
-#	    print_quota = pq.printer_quota
+#           pq.find(account_id)
+#           print_quota = pq.printer_quota
 #    except Errors.NotFoundError:
-#	print_quota = None  # User has no quota
+#       print_quota = None  # User has no quota
 #    except:
     if affiliation == co.affiliation_student:
-	try:
-	    print_quota = int(cereconf.NW_PR_QUOTA)
+        try:
+            print_quota = int(cereconf.NW_PR_QUOTA)
         except AttributeError, e:
-	    logger.debug(str(e))
-	except ValueError, e:
-	    raise Errors.PoliteException((str(e) + '\n' +\
-			"cereconf's NW_PR_QUOTA is not number"))
+            logger.debug(str(e))
+        except ValueError, e:
+            raise Errors.PoliteException((str(e) + '\n' +\
+                        "cereconf's NW_PR_QUOTA is not number"))
     time_now = time.strftime("%H:%M:%S %d/%m/%Y",time.localtime()) 
     attrs = []
     attrs.append( ("ObjectClass", "user" ) )
@@ -374,10 +374,10 @@ def get_account_info(account_id, spread, site_callback):
     attrs.append( ("passwordAllowChange", cereconf.NW_CAN_CHANGE_PW) )
     attrs.append( ("loginDisabled", account_disable) )
     if print_quota is not None:
-    	attrs.append( ("accountBalance", print_quota) )
-	attrs.append( ("allowUnlimitedCredit", "FALSE"))
+        attrs.append( ("accountBalance", print_quota) )
+        attrs.append( ("allowUnlimitedCredit", "FALSE"))
     if email:
-	attrs.append( ("mail", email))
+        attrs.append( ("mail", email))
     passwd = unicode(pwd, 'iso-8859-1').encode('utf-8')
     attrs.append( ("userPassword", passwd) )
     attrs.append( ("uid", name) )
@@ -406,52 +406,52 @@ def get_user_info(account_id, spread):
     home_dir = find_home_dir(account_id, account.account_name, spread)
     names = {'name_last':None,'name_first':None,'name_full':None}
     if ent_name.entity_type == int(co.entity_person):
-	pers = True
+        pers = True
     else:
-	pers = False
+        pers = False
     if pers:
-	try:
-	    person_id = account.owner_id
-	    person.clear()
-	    person.find(person_id)
-	    for name_var in names:
-		try:
-		    names[name_var] = person.get_name(int(co.system_cached), int(getattr(co,name_var)))
-		except Errors.NotFoundError:
-		    name[name_var] = None
-	    if not names['name_last'] or not names['name_first']:
-		if names['name_full']:
-		    name_l = names['name_full'].split(' ')
-		    if len(name_l) > 1:
-			names['name_last'] = name_l[len(name_l)-1]
-			names['name_first'] = ' '.join(name_l[:len(name_l)-1])
-		    else: 
-			names['name_last'] = names['name_full']
-			names['name_first'] = names['name_full']
-		else:
-		    for name_var in names:
-			names[name_var] = account.account_name	
-    	except Errors.NotFoundError:
-	    logger.debug("find on person or account failed, user_id:", account_id)
-	    for name_var in names:
-		names[name_var] = account.account_name
-	try:
-	    affiliation = get_primary_affiliation(account_id)
-	    if affiliation == co.affiliation_student:
-		ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
-	    else: 
-		ext_id = int(person.get_external_id(source_system=None,id_type=co.externalid_sap_ansattnr)[0]['external_id'])
-	except:
-	    pass
-	try:
-	    email = account.get_primary_mailaddress()
-	except:
-	    email = None
+        try:
+            person_id = account.owner_id
+            person.clear()
+            person.find(person_id)
+            for name_var in names:
+                try:
+                    names[name_var] = person.get_name(int(co.system_cached), int(getattr(co,name_var)))
+                except Errors.NotFoundError:
+                    name[name_var] = None
+            if not names['name_last'] or not names['name_first']:
+                if names['name_full']:
+                    name_l = names['name_full'].split(' ')
+                    if len(name_l) > 1:
+                        names['name_last'] = name_l[len(name_l)-1]
+                        names['name_first'] = ' '.join(name_l[:len(name_l)-1])
+                    else: 
+                        names['name_last'] = names['name_full']
+                        names['name_first'] = names['name_full']
+                else:
+                    for name_var in names:
+                        names[name_var] = account.account_name  
+        except Errors.NotFoundError:
+            logger.debug("find on person or account failed, user_id:", account_id)
+            for name_var in names:
+                names[name_var] = account.account_name
+        try:
+            affiliation = get_primary_affiliation(account_id)
+            if affiliation == co.affiliation_student:
+                ext_id = int(person.get_external_id(co.system_fs, co.externalid_studentnr)[0]['external_id'])
+            else: 
+                ext_id = int(person.get_external_id(source_system=None,id_type=co.externalid_sap_ansattnr)[0]['external_id'])
+        except:
+            pass
+        try:
+            email = account.get_primary_mailaddress()
+        except:
+            email = None
     else:
-    	email = None
-	affiliation = None
-	names = {'name_last':account.account_name, 
-		'name_first':account.account_name}
+        email = None
+        affiliation = None
+        names = {'name_last':account.account_name, 
+                'name_first':account.account_name}
     account_disable = 'FALSE'
     # Check against quarantine.
     quarantine.clear()
@@ -471,7 +471,7 @@ def get_user_info(account_id, spread):
     if (account.is_expired()):
         account_disable = 'TRUE'
     return (names['name_first'], names['name_last'], account_disable, 
-		home_dir, affiliation, ext_id, email, pers)
+                home_dir, affiliation, ext_id, email, pers)
 
 
 def get_primary_ou(account_id):
@@ -502,23 +502,23 @@ def get_ldap_group_ou(grp_name):
     if grp_name.find('stud') != -1:
         if cereconf.NW_LDAP_STUDGRPOU != None:
             utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDGRPOU, 'iso-8859-1').encode('utf-8'),
-			unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
+                        unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     elif grp_name.find('ans') != -1:
         if cereconf.NW_LDAP_ANSGRPOU != None:
-	    utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_ANSGRPOU, 'iso-8859-1').encode('utf-8'),
-			unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
+            utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_ANSGRPOU, 'iso-8859-1').encode('utf-8'),
+                        unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     return utf8_ou
 
 
 def get_ldap_usr_ou(crbm_ou, aff):
 
     if cereconf.NW_LDAP_STUDOU != None and (aff == co.affiliation_student or \
-				ent_name.has_spread(co.spread_hia_novell_labuser)):
-	utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
-			unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
+                                ent_name.has_spread(co.spread_hia_novell_labuser)):
+        utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_STUDOU, 'iso-8859-1').encode('utf-8'),
+                        unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     elif cereconf.NW_LDAP_ANSOU != None and aff == co.affiliation_ansatt:
-	utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_ANSOU, 'iso-8859-1').encode('utf-8'),
-		unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
+        utf8_ou = "%s,%s" % (unicode(cereconf.NW_LDAP_ANSOU, 'iso-8859-1').encode('utf-8'),
+                unicode(cereconf.NW_LDAP_ROOT, 'iso-8859-1').encode('utf-8'))
     elif crbm_ou != None:
         utf8_ou = unicode(crbm_ou, 'iso-8859-1').encode('utf-8')
     else:
@@ -548,7 +548,7 @@ def id_to_ou_path(ou_id,ourootname):
         else:
             crbrm_ou = get_crbrm_ou(cereconf.NW_DEFAULT_OU_ID)
     if (cereconf.NW_LDAP_ROOT != ""):
-    	crbrm_ou = crbrm_ou.replace(ourootname,cereconf.NW_LDAP_ROOT)
+        crbrm_ou = crbrm_ou.replace(ourootname,cereconf.NW_LDAP_ROOT)
     return crbrm_ou
 
 
@@ -584,5 +584,3 @@ def touchable(attrs):
 
 if __name__ == '__main__':
     pass
-
-# arch-tag: 01ab4c39-ae52-4e60-80fe-ce71bd5087ce

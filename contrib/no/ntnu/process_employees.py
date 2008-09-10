@@ -350,12 +350,10 @@ class execute:
     def group_join(self,acc_id):
         """Add account_id to db_group."""
 
-        if (not self.group.has_member(acc_id)):        
+        if not self.group.has_member(acc_id):
             try:
                 self.logger.info("Trying to add group member")
-                self.group.add_member(acc_id,
-                                      self.constants.entity_account,
-                                      self.constants.group_memberop_union)
+                self.group.add_member(acc_id)
             except:
                 self.logger.error("adding account %s to %s failed",
                                   acc_id, list(self.group.get_names()))
@@ -451,7 +449,6 @@ class execute:
                 #posix_user.set_home_dir(int(self.constants.Spread(spread)))
                 
                     
-            #group.add_member(posix_user.entity_id,int(self.constants.entity_account),int(self.constants.group_memberop_union))
             password = posix_user.make_passwd(username)
             posix_user.set_password(password)
             posix_user.write_db()

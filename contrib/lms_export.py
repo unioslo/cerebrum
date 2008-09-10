@@ -363,7 +363,8 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True):
     except Errors.NotFoundError:
         group = Factory.get('Group')(db)
         group.clear()
-        group.populate(group_creator, constants.group_visibility_all, gname, description=descr)
+        group.populate(group_creator, constants.group_visibility_all, gname,
+                       description=descr)
         group.write_db()
     else:
         # Update description if it has changed
@@ -381,17 +382,18 @@ def sync_group(affil, gname, descr, mtype, memb, recurse=True):
         if not group.has_spread(constants.spread_lms_group):
             group.add_spread(constants.spread_lms_group)
 
-        u, i, d = group.list_members(member_type=mtype, filter_expired=False)
-        for member in u:
-            member = int(member[1]) # member_id has index=1 (poor API design?)
+        for member in group.search_members(group_id=group.entity_id,
+                                           member_type=mtype,
+                                           member_filter_expired=False):
+            member = int(member["member_id"])
             if members.has_key(member):
                 del members[member]
             else:
                 logger.debug("sync_group(): Deleting member %d" % member)
-                group.remove_member(member, constants.group_memberop_union)
+                group.remove_member(member)
 
     for member in members.keys():
-        group.add_member(member, mtype, constants.group_memberop_union)
+        group.add_member(member)
 
 
 def import_data():
@@ -417,15 +419,15 @@ def get_group_members(group_id):
     group = Factory.get("Group")(db)
     group.clear()
     group.find(group_id)
-    members = group.list_members()[0]  # Spread?
     group_members = []
-    for member in members:
-        user_entity_id = int(member[1])
+    for member in group.search_members(group_id=group.entity_id): # Spread?
+        user_entity_id = int(member["member_id"])
         try:
             account = exporter.user_entity_id2account[user_entity_id]
             group_members.append(account)
         except KeyError:
-            logger.error("Couldn't find account for user_entity_id '%s'" % user_entity_id)
+            logger.error("Couldn't find account for user_entity_id '%s'",
+                         user_entity_id)
     return group_members
 
 
@@ -444,34 +446,34 @@ def export_data(output_stream):
 
     fag_id = "nmh.no:fs:kurs"
     fag_name = "NMH: Fag"
-    logger.debug("Exporting root-node for 'fag': '%s' - '%s'" % (fag_id, fag_name))
-    exporter.group_to_xml(id=fag_id, grouptype="Toppnode", parentcode=exporter.IDstcode,
-                          grouptype_level=1, nameshort=fag_name, namelong=fag_name, namefull=fag_name)
+    logger.debug("Exporting root-node for 'fag': '%s' - '%s'",
+                 fag_id, fag_name)
+    exporter.group_to_xml(id=fag_id, grouptype="Toppnode",
+                          parentcode=exporter.IDstcode, grouptype_level=1,
+                          nameshort=fag_name, namelong=fag_name,
+                          namefull=fag_name)
 
     root_groupname = subject_supergroup
     group.find_by_name(root_groupname)
-    enheter = group.list_members()[0]  # Spread?
 
-    for enhet in enheter:
-        #continue
-        
-        enhet_group_id = int(enhet[1])
+    for enhet in group.search_members(group_id=group.entity_id): # Spread?
+        enhet_group_id = int(enhet["member_id"])
         group.clear()
         group.find(enhet_group_id)
         enhet_id = group.group_name
         enhet_name = group.description 
         logger.debug("Exporting enhet: '%s' - '%s'" % (enhet_id, enhet_name))
-        exporter.group_to_xml(id=enhet_id, grouptype="Undenhet", parentcode=fag_id,
-                              grouptype_level=2, nameshort=enhet_name, namelong=enhet_name,
+        exporter.group_to_xml(id=enhet_id, grouptype="Undenhet",
+                              parentcode=fag_id, grouptype_level=2,
+                              nameshort=enhet_name, namelong=enhet_name,
                               namefull=enhet_name)
 
         subgroups = {}
         activities = {}
 
         # Need to assemble proper groups by activity
-        enhet_subgroups = group.list_members()[0]  # Spread?
-        for subgroup in enhet_subgroups:
-            subgroup_groupid = int(subgroup[1])
+        for subgroup in group.search_members(group_id=group.entity_id):
+            subgroup_groupid = int(subgroup["member_id"])
             group.clear()
             group.find(subgroup_groupid)
             
@@ -480,13 +482,13 @@ def export_data(output_stream):
             act_id = ":".join(id_elements[:-1])
             # Need to treat the main/enhet membership groups a bit specially...
             if len(id_elements) == 10:
-                activities[act_id] = "all" # Flag for activity representing main group
+                # Flag for activity representing main group
+                activities[act_id] = "all"
                 logger.debug("Found 'all'-activity: '%s'" % act_id)
             else:
                 activities[act_id] = "act"
                 logger.debug("Found normal activity: '%s'" % act_id)
             
-            subgroup_name = group.description
             subgroups[subgroup_id] = subgroup_groupid
 
         logger.debug("Subgroups: '%s'" % subgroups)
@@ -506,7 +508,8 @@ def export_data(output_stream):
                 act_name = " ".join(name_elements[1:])                
 
                 logger.debug("Exporting activity: '%s' - '%s'" % (activity_id, act_name))
-                exporter.group_to_xml(id=activity_id, grouptype="Undaktivitet", parentcode=enhet_id,
+                exporter.group_to_xml(id=activity_id,
+                                      grouptype="Undaktivitet", parentcode=enhet_id,
                                       grouptype_level=3, nameshort=act_name, namelong=act_name,
                                       namefull=act_name)
 
@@ -515,31 +518,32 @@ def export_data(output_stream):
             responsibles = get_group_members(resp_group_id)
             students = get_group_members(stud_group_id)
 
-            logger.debug("Exporting a total of '%s/%s' members in group '%s'" %
-                         (len(responsibles), len(students), activity_id))
+            logger.debug("Exporting a total of '%s/%s' members in group '%s'",
+                         len(responsibles), len(students), activity_id)
             exporter.membership_to_xml(activity_id, responsibles, students)
 
     # Class export
     root_class_id = "nmh.no:fs:kull"
     root_class_name = "NMH: Kull"
-    logger.debug("Exporting root-node for 'class': '%s' - '%s'" % (root_class_id, root_class_name))
-    exporter.group_to_xml(id=root_class_id, grouptype="Toppnode", parentcode=exporter.IDstcode,
-                          grouptype_level=1, nameshort=root_class_name, namelong=root_class_name,
+    logger.debug("Exporting root-node for 'class': '%s' - '%s'",
+                 root_class_id, root_class_name)
+    exporter.group_to_xml(id=root_class_id, grouptype="Toppnode",
+                          parentcode=exporter.IDstcode, grouptype_level=1,
+                          nameshort=root_class_name, namelong=root_class_name,
                           namefull=root_class_name)
     
     group.clear()
     group.find_by_name(class_supergroup)
-    classes = group.list_members()[0]  # Spread?
-
-    for class_group in classes:
-        class_group_id = int(class_group[1])
+    for class_group in group.search_members(group_id=group.entity_id):
+        class_group_id = int(class_group["member_id"])
         group.clear()
         group.find(class_group_id)
         class_id = group.group_name
         class_name = group.description 
         logger.debug("Exporting class: '%s' - '%s'" % (class_id, class_name))
-        exporter.group_to_xml(id=class_id, grouptype="Class", parentcode=root_class_id,
-                              grouptype_level=2, nameshort=class_name, namelong=class_name,
+        exporter.group_to_xml(id=class_id, grouptype="Class",
+                              parentcode=root_class_id, grouptype_level=2,
+                              nameshort=class_name, namelong=class_name,
                               namefull=class_name)
 
         responsibles = []
@@ -551,19 +555,24 @@ def export_data(output_stream):
     # Faculty export
     root_faculty_id = "nmh.no:fs:faculty"
     root_faculty_name = "NMH: Ansatte"
-    logger.debug("Exporting root-node for 'faculty': '%s' - '%s'" % (root_faculty_id, root_faculty_name))
-    exporter.group_to_xml(id=root_faculty_id, grouptype="Toppnode", parentcode=exporter.IDstcode,
-                          grouptype_level=1, nameshort=root_faculty_name, namelong=root_faculty_name,
+    logger.debug("Exporting root-node for 'faculty': '%s' - '%s'",
+                 root_faculty_id, root_faculty_name)
+    exporter.group_to_xml(id=root_faculty_id, grouptype="Toppnode",
+                          parentcode=exporter.IDstcode, grouptype_level=1,
+                          nameshort=root_faculty_name,
+                          namelong=root_faculty_name,
                           namefull=root_faculty_name)
 
     faculty_members = []
-    faculty_responsibles = [] # TBD: Who should be admin(s) for the faculty group?
+    # TBD: Who should be admin(s) for the faculty group?
+    faculty_responsibles = []
     for faculty_member in exporter.faculty.itervalues():
         # Order doesn't matter here in any way, so we just take all
         # the values for faculty in whatever order we get them
         faculty_members.append(faculty_member["username"])
-    logger.debug("Exporting a total of '%s/%s' members in group '%s'" %
-                 (len(faculty_responsibles), len(faculty_members), root_faculty_id))
+    logger.debug("Exporting a total of '%s/%s' members in group '%s'",
+                 len(faculty_responsibles), len(faculty_members),
+                 root_faculty_id)
     exporter.membership_to_xml(root_faculty_id, [], faculty_members)
     
 

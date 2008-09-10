@@ -291,12 +291,12 @@ def dump_pickle_file(fname, urn_dict1, urn_dict2):
             entity_id = int(entity_id)
             group.clear()
             group.find(entity_id)
-            u, i, d = group.list_members(get_entity_name=True)
-            for row in u:
-                member_id = row[1]
+            for row in group.search_members(group_id=group.entity_id):
+                member_id = int(row["member_id"])
                 owner_id = member_id2owner_id.get(member_id)
                 if owner_id:
-                    owner_id2urn.setdefault(owner_id, []).append("%s@%s" % (role, urn))
+                    owner_id2urn.setdefault(owner_id, []).append("%s@%s" %
+                                                                 (role, urn))
     pickle.dump(owner_id2urn, open(fname, "w"))
 
 def main():
@@ -342,5 +342,3 @@ def usage(exitcode=0):
 
 if __name__ == '__main__':
     main()
-
-# no/uio/import_from_FS.py --db-service FSPROD.uio.no --db-user ureg2000 --misc-func undervisning.list_aktiviteter --misc-tag aktivitet --misc-file undervisningsaktiviteter.xml --misc-func undervisning.list_undervisningenheter --misc-tag enhet --misc-file undervisningenheter.xml

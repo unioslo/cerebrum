@@ -1289,8 +1289,7 @@ class BofhdAuth(DatabaseAccessor):
         owner_group = Factory.get("Group")(self._db)
         owner_group.find(account.owner_id)
         # TODO: check groups recursively (should be done by Group API)
-        return owner_group.has_member(operator, self.const.entity_account,
-                                      self.const.group_memberop_union)
+        return owner_group.has_member(operator)
 
     def _query_disk_permissions(self, operator, operation, disk, victim_id,
                                 operation_attr=None):
@@ -1530,9 +1529,10 @@ class BofhdAuth(DatabaseAccessor):
             pass
         group = Factory.get('Group')(self._db)
         ret = [entity_id]
-        # TODO: Assert that user is a union member
-        for r in group.list_groups_with_entity(entity_id):
-            ret.append(int(r['group_id']))
+        # Grab all groups where entity_id is a direct member
+        ret.extend(int(x["group_id"])
+                   for x in group.search(member_id=entity_id,
+                                         indirect_members=False))
         self._users_auth_entities_cache[entity_id] = ret
         return ret
 
@@ -1543,7 +1543,10 @@ class BofhdAuth(DatabaseAccessor):
             pass
         group = Factory.get('Group')(self._db)
         group.find_by_name(groupname)
-        members = [int(id) for id in group.get_members()]
+        members = [int(row["member_id"]) for row in
+                   group.search_members(group_id=group.entity_id,
+                                        indirect_members=True,
+                                        member_type=self.const.entity_account)]
         self._group_member_cache[groupname] = members
         return members
 
@@ -1561,4 +1564,4 @@ class BofhdAuth(DatabaseAccessor):
         disk.find(disk_id)
         return disk
 
-# arch-tag: d00d6a92-e331-4624-a47a-f979b72db880
+# end class BofhdAuth

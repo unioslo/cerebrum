@@ -22,7 +22,7 @@
 category:metainfo;
 name=posixuser;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:code/Oracle;
 CREATE ROLE read_mod_posix_user NOT IDENTIFIED;
@@ -125,12 +125,6 @@ CREATE TABLE posix_user (
 		NOT NULL
                 CONSTRAINT posix_user_gid
                   REFERENCES posix_group(group_id),
-  pg_member_op	NUMERIC(6,0)
-		DEFAULT [:get_constant name=group_memberop_union]
-		NOT NULL
-		CONSTRAINT posix_user_pg_member_op_chk
-		  CHECK (pg_member_op =
-			 [:get_constant name=group_memberop_union]),
   /* Longer GECOS strings are possible, but not very likely... */
   gecos		CHAR VARYING(512),
   shell		NUMERIC(6,0)
@@ -140,8 +134,8 @@ CREATE TABLE posix_user (
      that account 'account_id' is a member of group 'gid', as other
      "intersection" or "difference" member might be "in the way". */
   CONSTRAINT posix_user_in_primary_group
-    FOREIGN KEY (gid, pg_member_op, account_id)
-    REFERENCES group_member(group_id, operation, member_id)
+    FOREIGN KEY (gid, account_id)
+    REFERENCES group_member(group_id, member_id)
 );
 category:main/Oracle;
 GRANT SELECT ON posix_user TO read_mod_posix_user;
@@ -170,6 +164,3 @@ category:drop/Oracle;
 DROP ROLE change_mod_posix_user;
 category:drop/Oracle;
 DROP ROLE read_mod_posix_user;
-
-/* arch-tag: 6c6f3432-c8ff-4f57-b05b-44f56e7c1540
-   (do not change this comment) */

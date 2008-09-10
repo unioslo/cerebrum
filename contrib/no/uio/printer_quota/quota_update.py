@@ -384,7 +384,10 @@ def fetch_data(drgrad_file, fritak_kopiavg_file, betalt_papir_file,
     for g in groups:
         group.clear()
         group.find(g)
-        for m in group.get_members():
+        for m in group.search_members(group_id=group.entity_id,
+                                      indirect_members=True,
+                                      member_type=const.entity_account):
+            m = int(m["member_id"])
             if account_id2pid.has_key(m):
                 person_id_member.setdefault(account_id2pid[m], []).append(g)
                 count[0] += 1

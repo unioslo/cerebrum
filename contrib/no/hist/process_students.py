@@ -223,15 +223,14 @@ def update_account(profile, fnr, account_ids, account_info={}):
 
         # Populate groups
         already_member = {}
-        for r in group.list_groups_with_entity(account_id):
-            if r['operation'] == const.group_memberop_union:
-                already_member[int(r['group_id'])] = True
+        for r in group.search(member_id=account_id, indirect_members=False):
+            already_member[int(r["group_id"])] = True
+                
         for g in profile.get_grupper():
             if not already_member.has_key(g):
                 group.clear()
                 group.find(g)
-                group.add_member(account_id, const.entity_account,
-                                 const.group_memberop_union)
+                group.add_member(account_id)
                 changes.append("g_add: %s" % group.group_name)
             else:
                 del already_member[g]
@@ -240,7 +239,7 @@ def update_account(profile, fnr, account_ids, account_info={}):
                 if autostud.pc.group_defs.get(g, {}).get('auto', None) == 'auto':
                     group.clear()
                     group.find(g)
-                    group.remove_member(account_id, const.group_memberop_union)
+                    group.remove_member(account_id)
 
         # Check quarantines
         if user.get_entity_quarantine(type=const.quarantine_autostud):
@@ -515,8 +514,9 @@ def recalc_quota_callback(person_info):
 
     for account_id in students.get(fnr, {}).keys():
         groups = []
-        for r in group.list_groups_with_entity(account_id):
-            groups.append(int(r['group_id']))
+        groups = list(int(x["group_id"]) for x in
+                      group.search(member_id=account_id,
+                                   indirect_members=False))
         try:
             profile = autostud.get_profile(person_info, member_groups=groups)
             quota = profile.get_pquota()

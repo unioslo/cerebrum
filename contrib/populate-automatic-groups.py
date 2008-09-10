@@ -677,7 +677,7 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
 
 
 
-def remove_members(group, member_sequence, operation):
+def remove_members(group, member_sequence):
     """Remove several members from a group.
 
     This is just a convenience function.
@@ -689,14 +689,10 @@ def remove_members(group, member_sequence, operation):
     @type member_sequence: sequence
     @param member_sequence:
       A sequence with person_ids to remove from group.
-
-    @type operation: A _GroupMembershipOpCode instance.
-    @param operation:
-      Membership type (union, intersection or difference).
     """
 
     for entity_id in member_sequence:
-        group.remove_member(entity_id, operation)
+        group.remove_member(entity_id)
 
     logger.debug("Removed %d members from group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
@@ -704,7 +700,7 @@ def remove_members(group, member_sequence, operation):
 
 
 
-def add_members(group, member_sequence, member_type, operation):
+def add_members(group, member_sequence):
     """Add several members to a group.
 
     This is just a convenience function.
@@ -716,18 +712,10 @@ def add_members(group, member_sequence, member_type, operation):
     @type member_sequence: sequence
     @param member_sequence:
       A sequence with person_ids who are to become members of L{group}.
-
-    @type member_type: _EntityTypeCode instance
-    @param member_type:
-      Type of members we are introducing. Typically a person.
-
-    @type operation: A _GroupMembershipOpCode instance.
-    @param operation:
-      Membership type (union, intersection or difference).
     """
     
     for entity_id in member_sequence:
-        group.add_member(entity_id, member_type, operation)
+        group.add_member(entity_id)
 
     logger.debug("Added %d members to group id=%s, name=%s",
                  len(member_sequence), group.entity_id, group.group_name)
@@ -768,36 +756,25 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data):
             continue
 
         # select just the entity_ids (we don't care about entity_type)
-        union, intersect, diff = [[x[1] for x in seq]
-                                  for seq in group.list_members()]
-        if intersect or diff:
-            logger.warn("Auto group id=%s name=%S has %d intersection and %d "
-                        "difference members. They will be removed",
-                        group_id, gname, len(intersect), len(diff))
-            # auto groups are not supposed to have these.
-            remove_members(group, intersect,
-                           constants.group_memberop_intersection)
-            remove_members(group, diff, constants.group_memberop_difference)
-
+        group_members = set(int(x["member_id"]) for x in
+                            group.search_members(group_id=group.entity_id))
         # now, synch the union members. sync'ing means making sure that the
         # members of group are exactly the ones in memberset.
-        union = set(union)
 
-        # those that are not in 'union', should be added
+        # those that are not in 'group_members', should be added
         add_count = 0
         to_add = list()
         for member_type, members in membership_info.iteritems():
-            to_add = members.difference(union)
+            to_add = members.difference(group_members)
             add_count += len(to_add)
-            add_members(group, to_add, member_type,
-                        constants.group_memberop_union)
+            add_members(group, to_add)
 
-        # those that are in 'union', but not in membership_info, should be
-        # removed.
-        to_remove = union.copy()
+        # those that are in 'group_members', but not in membership_info,
+        # should be removed.
+        to_remove = group_members.copy()
         for member_type, members in membership_info.iteritems():
             to_remove = to_remove.difference(members)
-        remove_members(group, to_remove, constants.group_memberop_union)
+        remove_members(group, to_remove)
 
         if gname not in groups_from_cerebrum:
             logger.debug("New group id=%s, name=%s", group_id, gname)
@@ -853,13 +830,10 @@ def empty_defunct_groups(groups_from_cerebrum):
 
         logger.info("Removing all members from group id=%s, name=%s",
                     group_id, group_name)
-        count = 0
-        for mem_type in group.list_members():
-            # select entity_ids
-            members = [x[1] for x in mem_type]
-            count += len(members)
-            remove_members(group, members, constants.group_memberop_union)
-
+        members = [x["member_id"] for x in
+                   group.search_members(group_id=group.entity_id)]
+        count = len(members)
+        remove_members(group, members)
         logger.info("Removed %d members from defunct group id=%s, name=%s",
                     count, group_id, group_name)
 # end empty_defunct_groups

@@ -1300,14 +1300,15 @@ class SQLite(Database):
     _db_mod = 'pysqlite2.dbapi2'
     rdbms_id = 'sqlite'
     # SQLite does not support datetime, thus we store dates as
-    # ISO8601-formatted strings.
-    _mx_format = "%Y-%m-%dT%H:%M:%S"
+    # ISO8601-formatted strings. One MUST make sure that this format matches
+    # however CURRENT_TIMESTAMP is represented.
+    _mx_format = "%Y-%m-%d %H:%M:%S"
 
     def _sqlite2mx(self, string):
         return DateTime.strptime(s, self._mx_format)
 
     def _mx2sqlite(self, dt):
-        return "'%s'" % dt.strftime(self._mx_format)
+        return "%s" % dt.strftime(self._mx_format)
 
     def __init__(self, *rest, **kwargs):
         # Python DB-API 2.0 requires certain type ctors to be present in the

@@ -180,7 +180,7 @@ class ADgroupUtil(ADutil):
 
     
     def fetch_cerebrum_data(self, spread):
-        return self.group.search(spread)
+        return list(self.group.search(spread=spread))
 
 
     def fetch_ad_data(self):
@@ -191,33 +191,47 @@ class ADgroupUtil(ADutil):
         #To reduce traffic, we send current list of groupmembers to AD, and the
         #server ensures that each group have correct members.   
 
+        const = Factory.get("Constants")(self.db)
+        entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                           self.group.list_names(const.account_namespace))
+        entity2name.update((x["entity_id"], x["entity_name"]) for x in
+                           self.group.list_names(const.group_namespace))
+
         for (grp_id, grp_name, grp_desc) in cerebrumgroups:
             #Only interested in union members(believe this is only type in use)
             grp_name = unicode(grp_name, 'ISO-8859-1')
             self.logger.debug("Sync group %s" % grp_name)
-            self.group.clear()
-            self.group.find(grp_id)              
-            user_memb = self.group.list_members(
-                spread=user_spread, get_entity_name=True)
-            group_memb = self.group.list_members(
-                spread=group_spread, get_entity_name=True)
-            members = []
+
             #TODO: How to treat quarantined users???, some exist in AD, 
             #others do not. They generate errors when not in AD. We still
             #want to update group membership if in AD.
-            for usr in user_memb[0]:
-                members.append(usr[2])
-                self.logger.debug2("Try to sync member account: %s" % usr[2])
+            members = list()
+            for usr in self.group.search_members(group_id=grp_id,
+                                                 spread=user_spread):
+                user_id = usr["member_id"]
+                if user_id not in entity2name:
+                    self.logger.debug("Missing name for account id=%s", user_id)
+                    continue
+                members.append(entity2name[user_id])
+                self.logger.debug2("Try to sync member account id=%s, name=%s",
+                                   user_id, entity2name[user_id])
 
-            for grp in group_memb[0]:
-                members.append('%s%s' % (grp[2],cereconf.AD_GROUP_POSTFIX))
-                self.logger.debug2("Try to sync member group: %s" % grp[2])
-    
-            dn = self.server.findObject('%s%s' % \
-                                   (grp_name, cereconf.AD_GROUP_POSTFIX))
+            for grp in self.group.search_members(group_id=grp_id,
+                                                 spread=group_spread):
+                group_id = grp["member_id"]
+                if group_id not in entity2name:
+                    self.logger.debug("Missing name for group id=%s", group_id)
+                    continue
+                members.append('%s%s' % (entity2name[group_id],
+                                         cereconf.AD_GROUP_POSTFIX))
+                self.logger.debug2("Try to sync member group id=%s, name=%s",
+                                   group_id, entity2name[group_id])
+                
+            dn = self.server.findObject('%s%s' %
+                                        (grp_name, cereconf.AD_GROUP_POSTFIX))
             if not dn:
-                self.logger.debug("unknown group: %s%s" % (grp_name, 
-                                                cereconf.AD_GROUP_POSTFIX))     
+                self.logger.debug("unknown group: %s%s",
+                                  grp_name, cereconf.AD_GROUP_POSTFIX)
             elif dry_run:
                 self.logger.debug("Dryrun: don't sync members")
             else:

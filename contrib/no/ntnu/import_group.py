@@ -110,12 +110,14 @@ class GroupSync:
         except Errors.NotFoundError:
             raise Errors.NotFoundError
         else:
-            c_members = grp.get_members() # Set
+            c_members = set(int(x["member_id"]) for x in
+                            grp.search_members(group_id=grp.entity_id,
+                                           indirect_members=True,
+                                           member_type=const.entity_account))
             g_members = self._get_members(group) 
             for member in g_members:
                 if member not in c_members:
-                    grp.add_member(member,const.entity_account,const.group_memberop_union)
-
+                    grp.add_member(member)
 
     def clean_name(self,name):
         result = name.replace(' ','_')

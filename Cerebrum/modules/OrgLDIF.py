@@ -834,16 +834,16 @@ from None and LDAP_PERSON['dn'].""")
 
     def init_person_group(self, name):
         # Return a dict {person_id: True, ...} for the named group.
-        # Only supports 'union' groups.
         # Known groups are cached in self.person_groups: a dict {name: group}.
         result = self.person_groups.get(name)
         if result is None:
             result = self.person_groups[name] = {}
             group  = Factory.get('Group')(self.db)
             group.find_by_name(name)
-            for e in group.list_members(
-                    member_type = self.const.entity_person)[0]:
-                result[int(e[1])] = True
+            for e in group.search_members(group_id=group.entity_id,
+                                          member_type=self.const.entity_person):
+                result[int(e["member_id"])] = True
+            
         return result
 
     def internal_simple_selector(self, selector_type, ssel):

@@ -1617,13 +1617,12 @@ class BofhdExtension(object):
                             et.email_target_entity_id})
                 return ret
             ret.append({'multi_forward_gr': group.group_name})
-            u, i, d = group.list_members()
-            fwds = []
-            for member_type, member_id in u:
-                if member_type <> self.const.entity_account:
-                    continue
+
+            fwds = list()
+            for row in group.search_members(group_id=group.entity_id,
+                                            member_type=self.const.entity_account):
                 acc.clear()
-                acc.find(member_id)
+                acc.find(row["member_id"])
                 try:
                     addr = acc.get_primary_mailaddress()
                 except Errors.NotFoundError:
@@ -4081,11 +4080,10 @@ class BofhdExtension(object):
     all_commands['group_add'] = Command(
         ("group", "add"), AccountName(help_ref="account_name_src", repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
-        GroupOperation(optional=True), perm_filter='can_alter_group')
-    def group_add(self, operator, src_name, dest_group,
-                  group_operator=None):
+        perm_filter='can_alter_group')
+    def group_add(self, operator, src_name, dest_group):
         return self._group_add(operator, src_name, dest_group,
-                               group_operator, type="account")
+                               member_type="account")
 
     # FIXME - this is sort of stupid. we should make a
     # more generic solution for adding members for groups,
@@ -4096,38 +4094,33 @@ class BofhdExtension(object):
     all_commands['group_padd'] = Command(
         ("group", "padd"), PersonId(help_ref="id:target:person", repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
-        GroupOperation(optional=True), perm_filter='can_alter_group')
-    def group_padd(self, operator, src_name, dest_group,
-                   group_operator=None):
+        perm_filter='can_alter_group')
+    def group_padd(self, operator, src_name, dest_group):
         return self._group_add(operator, src_name, dest_group,
-                               group_operator, type="person")
+                               member_type="person")
     # group gadd
     all_commands['group_gadd'] = Command(
         ("group", "gadd"), GroupName(help_ref="group_name_src", repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
-        GroupOperation(optional=True), perm_filter='can_alter_group')
-    def group_gadd(self, operator, src_name, dest_group,
-                  group_operator=None):
+        perm_filter='can_alter_group')
+    def group_gadd(self, operator, src_name, dest_group):
         return self._group_add(operator, src_name, dest_group,
-                               group_operator, type="group")
+                               member_type="group")
 
-    def _group_add(self, operator, src_name, dest_group,
-                  group_operator=None, type=None):
+    def _group_add(self, operator, src_name, dest_group, member_type=None):
         if type == "group":
             src_entity = self._get_group(src_name)
         elif type == "account":
             src_entity = self._get_account(src_name)
         elif type == "person":
             try:
-                src_entity = self.util.get_target(src_name, restrict_to=['Person'])
+                src_entity = self.util.get_target(src_name,
+                                                  restrict_to=['Person'])
             except Errors.TooManyRowsError:
                 raise CerebrumError("Unexpectedly found more than one person")
-        return self._group_add_entity(operator, src_entity, 
-                                      dest_group, group_operator)    
+        return self._group_add_entity(operator, src_entity, dest_group)
 
-    def _group_add_entity(self, operator, src_entity, dest_group,
-                          group_operator=None):
-        group_operator = self._get_group_opcode(group_operator)
+    def _group_add_entity(self, operator, src_entity, dest_group):
         group_d = self._get_group(dest_group)
         if operator:
             self.ba.can_alter_group(operator.get_entity_id(), group_d)
@@ -4135,14 +4128,12 @@ class BofhdExtension(object):
         # Make the error message for the most common operator error
         # more friendly.  Don't treat this as an error, useful if the
         # operator has specified more than one entity.
-        if group_d.has_member(src_entity.entity_id, src_entity.entity_type,
-                              group_operator):
+        if group_d.has_member(src_entity.entity_id):
             return "%s is already a member of %s" % (src_name, dest_group)
         # This can still fail, e.g., if the entity is a member with a
         # different operation.
         try:
-            group_d.add_member(src_entity.entity_id, src_entity.entity_type,
-                               group_operator)
+            group_d.add_member(src_entity.entity_id)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         # Warn the user about NFS filegroup limitations.
@@ -4158,37 +4149,20 @@ class BofhdExtension(object):
         return "OK, added %s to %s" % (src_name, dest_group)
 
     def _group_count_memberships(self, entity_id, spread):
-        """Count how many groups of a given spread entity_id has
-        entity_id as a member, either directly or indirectly."""
-        groups = {}
+        """Count how many groups of a given spread have entity_id as a member,
+        either directly or indirectly."""
+        
         gr = Utils.Factory.get("Group")(self.db)
-        for r in gr.list_groups_with_entity(entity_id):
-            # TODO: list_member_groups recurses upwards and returns a
-            # list with the "root" as the last element.  We should
-            # actually look at just that root and recurse downwards to
-            # generate group lists to process difference and
-            # intersection correctly.  Seems a lot of work to support
-            # something we don't currently use, and it's probably
-            # better to improve the API of list_member_groups anyway.
-            if r['operation'] != self.const.group_memberop_union:
-                continue
-            # It would be nice if list_groups_with_entity included the
-            # spread column, but that would lead to duplicate rows.
-            # So we do the filtering here.
-            gr.clear()
-            gr.find(r['group_id'])
-            for sp_row in gr.get_spread():
-                if (sp_row['spread'] == spread):
-                    groups[int(r['group_id'])] = True
-            for group_id in gr.list_member_groups(r['group_id'],
-                                                  spreads=(spread,)):
-                groups[group_id] = True
-        return len(groups.keys())
+        groups = list(gr.search(member_id=entity_id,
+                                indirect_members=True,
+                                spread=spread))
+        return len(groups)
+    # end _group_count_memberships
+
 
     # group add_entity
     all_commands['group_add_entity'] = None
-    def group_add_entity(self, operator, src_entity_id, dest_group_id,
-                  group_operator=None):
+    def group_add_entity(self, operator, src_entity_id, dest_group_id):
         """Adds a entity to a group. Both the source entity and the group
            should be entity IDs"""          
         # tell _group_find later on that dest_group is a entity id          
@@ -4199,8 +4173,7 @@ class BofhdExtension(object):
             raise CerebrumError, \
               "Entity %s is not a legal type " \
               "to become group member" % src_entity_id
-        return self._group_add_entity(operator, src_entity, dest_group,
-                               group_operator)
+        return self._group_add_entity(operator, src_entity, dest_group)
 
     # group create
     all_commands['group_create'] = Command(
@@ -4229,42 +4202,42 @@ class BofhdExtension(object):
     all_commands['group_request'] = Command(
         ("group", "request"), GroupName(help_ref="group_name_new"),
         SimpleString(help_ref="string_description"), SimpleString(help_ref="string_spread"),
-	GroupName(help_ref="group_name_moderator"))    
+        GroupName(help_ref="group_name_moderator"))    
 
     def group_request(self, operator, groupname, description, spread, moderator):
-	opr = operator.get_entity_id()
+        opr = operator.get_entity_id()
         acc = self.Account_class(self.db)
-	acc.find(opr)
+        acc.find(opr)
         fromaddr = acc.get_primary_mailaddress()
-	toaddr = cereconf.GROUP_REQUESTS_SENDTO
-	spreadstring = "(" + spread + ")"
-	spreads = []
-	spreads = re.split(" ", spread)
-	subject = "Cerebrum group create request %s" % groupname
-	body = []
-	body.append("Please create a new group:")
-	body.append("")
-	body.append("Groupname: %s." % groupname)
-	body.append("Description:  %s" % description)
-	body.append("Requested by: %s" % fromaddr)
-	body.append("Moderator: %s" % moderator)
-	body.append("")
-	body.append("group create %s \"%s\"" % (groupname, description))
-	for spr in spreads:
-	    if (self._get_constant(self.const.Spread, spr) in
-		[self.const.spread_uio_nis_fg, self.const.spread_ifi_nis_fg]):
+        toaddr = cereconf.GROUP_REQUESTS_SENDTO
+        spreadstring = "(" + spread + ")"
+        spreads = []
+        spreads = re.split(" ", spread)
+        subject = "Cerebrum group create request %s" % groupname
+        body = []
+        body.append("Please create a new group:")
+        body.append("")
+        body.append("Groupname: %s." % groupname)
+        body.append("Description:  %s" % description)
+        body.append("Requested by: %s" % fromaddr)
+        body.append("Moderator: %s" % moderator)
+        body.append("")
+        body.append("group create %s \"%s\"" % (groupname, description))
+        for spr in spreads:
+            if (self._get_constant(self.const.Spread, spr) in
+                [self.const.spread_uio_nis_fg, self.const.spread_ifi_nis_fg]):
                 pg = PosixGroup.PosixGroup(self.db)
-		if not pg.illegal_name(groupname):
-		    body.append("group promote_posix %s" % groupname)
-		else:
-		    raise CerebrumError, "Illegal groupname, max 8 characters allowed."
-	body.append("spread add group %s %s" % (groupname, spreadstring))
-	body.append("access grant Group-owner (%s) group %s" % (moderator, groupname))
+                if not pg.illegal_name(groupname):
+                    body.append("group promote_posix %s" % groupname)
+                else:
+                    raise CerebrumError, "Illegal groupname, max 8 characters allowed."
+        body.append("spread add group %s %s" % (groupname, spreadstring))
+        body.append("access grant Group-owner (%s) group %s" % (moderator, groupname))
         body.append("group info %s" % groupname)
-	body.append("")
-	body.append("")
+        body.append("")
+        body.append("")
         Utils.sendmail(toaddr, fromaddr, subject, "\n".join(body))
-	return "Request sent to %s" % toaddr
+        return "Request sent to %s" % toaddr
 
     #  group def
     all_commands['group_def'] = Command(
@@ -4287,12 +4260,6 @@ class BofhdExtension(object):
         grp = self._get_group(groupname)
         self.ba.can_delete_group(operator.get_entity_id(), grp)
         if self._is_yes(force):
-##             u, i, d = grp.list_members()
-##             for op, tmp in ((self.const.group_memberop_union, u),
-##                             (self.const.group_memberop_intersection, i),
-##                             (self.const.group_memberop_difference, d)):
-##                 for m in tmp:
-##                     grp.remove_member(m[1], op)
             try:
                 pg = self._get_group(groupname, grtype="PosixGroup")
                 pg.delete()
@@ -4324,39 +4291,32 @@ class BofhdExtension(object):
     all_commands['group_remove'] = Command(
         ("group", "remove"), AccountName(help_ref="account_name_member", repeat=True),
         GroupName(help_ref="group_name_dest", repeat=True),
-        GroupOperation(optional=True), perm_filter='can_alter_group')
-    def group_remove(self, operator, src_name, dest_group,
-                     group_operator=None):
+        perm_filter='can_alter_group')
+    def group_remove(self, operator, src_name, dest_group):
         return self._group_remove(operator, src_name, dest_group,
-                               group_operator, type="account")
+                                  member_type="account")
 
     # group gremove
     all_commands['group_gremove'] = Command(
         ("group", "gremove"), GroupName(help_ref="group_name_src", repeat=True),
-        GroupName(help_ref="group_name_dest", repeat=True), GroupOperation(optional=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
         perm_filter='can_alter_group')
-    def group_gremove(self, operator, src_name, dest_group,
-                      group_operator=None):
+    def group_gremove(self, operator, src_name, dest_group):
         return self._group_remove(operator, src_name, dest_group,
-                               group_operator, type="group")
+                                  member_type="group")
 
-    def _group_remove(self, operator, src_name, dest_group,
-                      group_operator=None, type=None):
-        if type == "group":
+    def _group_remove(self, operator, src_name, dest_group, member_type=None):
+        if member_type == "group":
             src_entity = self._get_group(src_name)
-        elif type == "account":
+        elif member_type == "account":
             src_entity = self._get_account(src_name)
         group_d = self._get_group(dest_group)
-        return self._group_remove_entity(operator, src_entity, group_d,
-                                         group_operator)
+        return self._group_remove_entity(operator, src_entity, group_d)
 
-    def _group_remove_entity(self, operator, member, group,
-                             group_operation):
-        group_operation = self._get_group_opcode(group_operation)
+    def _group_remove_entity(self, operator, member, group):
         self.ba.can_alter_group(operator.get_entity_id(), group)
         member_name = self._get_name_from_object(member)
-        if not group.has_member(member.entity_id, member.entity_type,
-                                group_operation):
+        if not group.has_member(member.entity_id):
             return ("%s isn't a member of %s" %
                     (member_name, group.group_name))
         if member.entity_type == self.const.entity_account:
@@ -4369,19 +4329,17 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 pass
         try:
-            group.remove_member(member.entity_id, group_operation)
+            group.remove_member(member.entity_id)
         except self.db.DatabaseError, m:
             raise CerebrumError, "Database error: %s" % m
         return "OK, removed '%s' from '%s'" % (member_name, group.group_name)
 
     # group remove_entity
     all_commands['group_remove_entity'] = None
-    def group_remove_entity(self, operator, member_entity, group_entity,
-                            group_operation):
+    def group_remove_entity(self, operator, member_entity, group_entity):
         group = self._get_entity(id=group_entity)
         member = self._get_entity(id=member_entity)
-        return self._group_remove_entity(operator, member, 
-                                         group, group_operation)
+        return self._group_remove_entity(operator, member, group)
                                
     
     # group info
@@ -4400,11 +4358,7 @@ class BofhdExtension(object):
                              ("Gid:          %i",
                               ('gid',)),
                              ("Members:      %i groups, %i accounts, %i persons",
-                              ('c_group_u', 'c_account_u', 'c_person_u')),
-                             ("Members (intersection): %i groups, %i accounts",
-                              ('c_group_i', 'c_account_i')),
-                             ("Members (difference):   %i groups, %i accounts",
-                              ('c_group_d', 'c_account_d'))]))
+                              ('c_group', 'c_account', 'c_person'))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
         # operator for a number of commands
@@ -4435,51 +4389,88 @@ class BofhdExtension(object):
             ret.append({'owner_type': str(co.EntityType(en.entity_type)),
                         'owner': owner,
                         'opset': aos.name})
+
         # Count group members of different types
-        u, i, d = grp.list_members()
-        
-        for members, op in ((u, 'u'), (i, 'i'), (d, 'd')):
-            tmp = {}
-            for ret_pfix, entity_type in (
-                ('c_group_', int(co.entity_group)),
-                ('c_account_', int(co.entity_account)),
-                ('c_person_', int(co.entity_person))):
-                tmp[ret_pfix+op] = len(
-                    [x for x in members if int(x[0]) == entity_type])
-            if [x for x in tmp.values() if x > 0]:
-                ret.append(tmp)
+        members = list(grp.search_members(group_id=grp.entity_id))
+        tmp = {}
+        for ret_pfix, entity_type in (
+            ('c_group', int(self.const.entity_group)),
+            ('c_account', int(self.const.entity_account)),
+            ('c_person', int(self.const.entity_person))):
+            tmp[ret_pfix] = len([x for x in members
+                                 if int(x["member_type"]) == entity_type])
+        ret.append(tmp)
         return ret
+    # end group_info
+    
 
     # group list
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName(),
-        fs=FormatSuggestion("%-9s %-10s %s", ("op", "type", "name"),
-                            hdr="%-9s %-10s %s" % ("MemberOp","Type","Name")))
+        fs=FormatSuggestion("%-10s %s %s", ("type", "name", "expired"),
+                            hdr="%-10s %s %s" % ("Type", "Name", "Expired?")))
     def group_list(self, operator, groupname):
         """List direct members of group"""
         def compare(a, b):
             return cmp(a['type'], b['type']) or cmp(a['name'], b['name'])
         group = self._get_group(groupname)
         ret = []
-        # TBD: the default is to leave out include expired accounts or
-        # groups.  How should we make the information about expired
-        # members available?
-        u, i, d = group.list_members(get_entity_name=True)
-        for t, rows in ((str(self.const.group_memberop_union), u),
-                        (str(self.const.group_memberop_intersection), i),
-                        (str(self.const.group_memberop_difference), d)):
-            unsorted = []
-            for r in rows:
-                # yes, we COULD have used row NAMES instead of
-                # numbers, but somebody decided to return simple 
-                # tuples instead of the usual db_row objects ...
-                unsorted.append({'op': t,
-                                 'id': r[1],
-                                 'type': str(self.const.EntityType(r[0])),
-                                 'name': r[2]})
-            unsorted.sort(compare)
-            ret.extend(unsorted)
+        now = DateTime.now()
+        for x in self._fetch_member_names(
+                       group.search_members(group_id=group.entity_id,
+                                            indirect_members=False,
+                                            member_filter_expired=False)):
+            tmp = {'id': x['member_id'],
+                   'type': str(self.num2const[int(x['member_type'])]),
+                   'name': x['member_name'],
+                   'expired': None}
+            if (x["expire_date"] is not None and x["expired_date"] < now):
+                tmp["expired"] = "expired"
+            ret.append(tmp)
+                   
+        ret.sort(compare)
         return ret
+    # end group_list
+
+
+    def _fetch_member_names(self, iterable):
+        """Locate names for elements in iterable.
+
+        This is a convenience method. It helps us to locate names associated
+        with certain member ids. For group and account members we try to fetch
+        a name (there is at most one). For all other types we assume no such
+        name exists.
+
+        @type iterable: sequence (any iterable sequence) or a generator.
+        @param iterable:
+          A 'iterable' over db_rows that we have to map to names. Each db_row
+          has a number of keys. This method examines 'member_type' and
+          'member_id'. All others are ignored.
+
+        @rtype: generator (over modified elements of L{iterable})
+        @return:
+          A generator over db_rows from L{iterable}. Each db_row gets an
+          additional key, 'member_name' containing the name of the element or
+          None, if no name can be located. The relative order of elements in
+          L{iterable} is preserved. The underlying db_row objects are modified.
+        """
+
+        for item in iterable:
+            member_type = int(item["member_type"])
+            member_id = int(item["member_id"])
+            if member_type == self.const.entity_group:
+                group = self._get_group(member_id, "id")
+                name = group.group_name
+            elif member_type == self.const.entity_account:
+                account = self._get_account(member_id, "id")
+                name = account.account_name
+            else:
+                name = None
+
+            item["member_name"] = name
+            yield item
+    # end _fetch_member_names
+
 
     # group list_expanded
     all_commands['group_list_expanded'] = Command(
@@ -4488,9 +4479,14 @@ class BofhdExtension(object):
     def group_list_expanded(self, operator, groupname):
         """List members of group after expansion"""
         group = self._get_group(groupname)
-        return [{'member_id': a[0],
-                 'name': a[1]
-                 } for a in group.get_members(get_entity_name=True)]
+        members = group.search_members(group_id=group.entity_id,
+                                       indirect_members=True,
+                                       member_type=self.const.entity_account)
+        return [{"member_id": a["member_id"],
+                 "name": a["member_name"]}
+                for a in self._fetch_member_names(members)]
+    # end group_list_expanded
+
 
     # group personal <uname>+
     all_commands['group_personal'] = Command(
@@ -4534,7 +4530,7 @@ class BofhdExtension(object):
         role = BofhdAuthRole(self.db)
         role.grant_auth(acc.entity_id, op_set.op_set_id, op_target.op_target_id)
         # 4. make user a member of his personal group
-        self._group_add(None, uname, uname, type="account")
+        self._group_add(None, uname, uname, member_type="account")
         # 5. make this group the primary group
         acc.gid_id = group.entity_id
         acc.write_db()
@@ -4603,6 +4599,10 @@ class BofhdExtension(object):
             filters[filter_type] = pattern
         if filters['name'] == '*' and len(rules) == 1:
             raise CerebrumError, "Please provide a more specific filter"
+        # remap code_str to the actual constant object (the API requires it)
+        if filters['spread']:
+            filters['spread'] = self._get_constant(self.const.Spread,
+                                                   filters["spread"])
         filter_expired = not self._get_boolean(filters['expired'])
         ret = []
         for r in group.search(spread=filters['spread'],
@@ -4660,11 +4660,10 @@ class BofhdExtension(object):
         group = self.Group_class(self.db)
         co = self.const
         ret = []
-        for row in group.list_groups_with_entity(entity.entity_id):
-            grp = self._get_group(row['group_id'], idtype="id")
-            ret.append({'memberop': str(co.GroupMembershipOp(row['operation'])),
-                        'entity_id': grp.entity_id,
-                        'group': grp.group_name,
+        for row in group.search(member_id=entity.entity_id):
+            ret.append({'memberop': str(co.group_memberop_union),
+                        'entity_id': row["group_id"],
+                        'group': row["name"],
                         'description': grp.description,
                        })
         ret.sort(lambda a,b: cmp(a['group'], b['group']))
@@ -5575,9 +5574,9 @@ class BofhdExtension(object):
             account = self._get_account(entity_id.split(":")[-1])
             group = self.Group_class(self.db)
             entities = [account.entity_id]
-            for row in group.list_groups_with_entity(account.entity_id):
-                if row['operation'] == int(self.const.group_memberop_union):
-                    entities.append(row['group_id'])
+            entities.extend(x["group_id"] for x in
+                            group.search(member_id=account.entity_id,
+                                         indirect_members=False))
         else:
             if not entity_id.isdigit():
                 raise CerebrumError("Expected entity-id")
@@ -7816,8 +7815,7 @@ class BofhdExtension(object):
                 if days_since_deletion > 14 or g not in old_groups:
                     self.ba.can_alter_group(operator.get_entity_id(),
                                             group.entity_id)
-                group.add_member(pu.entity_id, pu.entity_type,
-                                 self.const.group_memberop_union)
+                group.add_member(pu.entity_id)
         br = BofhdRequests(self.db, self.const)
         n_req = 0
         if args.get('old_homedir_bool', 'n').startswith('y'):

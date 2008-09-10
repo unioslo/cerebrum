@@ -212,7 +212,7 @@ def get_ans_fak(fak_list, ent2uname):
     return fak_res
 
 
-def register_spread_groups_evu(row, group, evukurs_info):
+def register_spread_groups_evu(row, group, evukurs_info, entity2name):
     """
     Registrer alle rom/grupper knyttet til en intern gruppe representert av
     row.
@@ -256,9 +256,15 @@ def register_spread_groups_evu(row, group, evukurs_info):
     # Grupper for studenter og forelesere på EVU-kurset
     group.clear()
     group.find(row["group_id"])
-    for op, subg_id, subg_name in \
-            group.list_members(None, int(const.entity_group),
-                               get_entity_name = True)[0]:
+    for member_row in group.search_members(group_id=group.entity_id,
+                                           member_type=const.entity_group):
+        subg_id = int(member_row["member_id"])
+        subg_name = entity2name.get(subg_id)
+        if subg_id not in entity2name:
+            logger.warn("Group member id=%s of group id=%s has no name!",
+                        subg_id, group.entity_id)
+            continue
+
         #
         # Gruppenavn er her på formen:
         #     internal:DOMAIN:fs:INSTITUSJONSNR:evu:EUKK:KTAK:KATEGORI
@@ -298,10 +304,10 @@ def register_spread_groups_evu(row, group, evukurs_info):
         group.clear()
         group.find(subg_id)
         user_members = [
-            row[2] # username
-            for row in group.list_members(None,
-                                          const.entity_account,
-                                          get_entity_name=True)[0]]
+            entity2name.get(int(row["member_id"])) for row in
+            group.search_members(group_id=group.entity_id,
+                                 member_type=const.entity_account)
+            if int(row["member_id"]) in entity2name ]
         if user_members:
             register_members(fronter_gname, user_members, const.entity_account)
         # fi
@@ -311,16 +317,36 @@ def register_spread_groups_evu(row, group, evukurs_info):
 # end 
 
 
+def _load_entity_names():
+    """Cache entity_id -> name mapping for later.
+
+    @rtype: dict (of int to basestring)
+    @return:
+      A dictionary mapping entity ids (of groups and accounts) to the
+      respective names from entity_name. Naturally, if one entity has several
+      names in different name domains, we'll have interesting results. 
+    """
+
+    # any entity with access to names would do nicely
+    en = Factory.get("Group")(db)
+    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                       en.list_names(const.account_namespace))
+    entity2name.update((x["entity_id"], x["entity_name"]) for x in
+                       en.list_names(const.group_namespace))
+    return entity2name
+# end _load_entity_names
+
 
 def register_spread_groups(emne_info, stprog_info, evukurs_info):
     group = Factory.get('Group')(db)
     this_sem, next_sem = get_semester()
+    entity2name = _load_entity_names()
     for r in group.search(spread=const.spread_hia_fronter):
         gname = r['name']
         gname_el = gname.split(':')
 
         if gname_el[4] == 'evu':
-            register_spread_groups_evu(r, group, evukurs_info)
+            register_spread_groups_evu(r, group, evukurs_info, entity2name)
         elif gname_el[4] == 'undenh':
             # Nivå 3: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
             #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
@@ -378,9 +404,15 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
             # undervisningsenheten.
             group.clear()
             group.find(r['group_id'])
-	    for op, subg_id, subg_name in \
-                    group.list_members(None, int(const.entity_group),
-                                       get_entity_name=True)[0]:
+            for member_row in group.search_members(group_id=group.entity_id,
+                                                member_type=const.entity_group):
+                subg_id = int(member_row["member_id"])
+                subg_name = entity2name.get(subg_id)
+                if subg_id not in entity2name:
+                    logger.warn("Group member id=%s of group id=%s has no name!",
+                                subg_id, group.entity_id)
+                    continue
+            
                 # Nivå 4: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
                 #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR:KATEGORI
                 subg_name_el = subg_name.split(':')
@@ -417,10 +449,11 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                 group.clear()
                 group.find(subg_id)
                 user_members = [
-                    row[2]  # username
-                    for row in group.list_members(None,
-                                                  const.entity_account,
-                                                  get_entity_name=True)[0]]
+                    entity2name.get(int(row["member_id"])) for row in
+                    group.search_members(group_id=group.entity_id,
+                                         member_type=const.entity_account)
+                    if int(row["member_id"]) in entity2name ]
+                
                 if user_members:
                     register_members(fronter_gname, user_members,
                                      const.entity_account)
@@ -434,15 +467,21 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                     
                 register_room_acl(emne_rom_id, fronter_gname, rettighet)
 
-	elif gname_el[4] == 'studieprogram':
+        elif gname_el[4] == 'studieprogram':
             # En av studieprogram-grenene på nivå 3.  Vil eksportere
             # gruppene på nivå 4.
             group.clear()
             group.find(r['group_id'])
-	    # Legges inn new group hvis den ikke er opprettet
-            for op, subg_id, subg_name in \
-                    group.list_members(None, int(const.entity_group),
-                                       get_entity_name=True)[0]:
+            # Legges inn new group hvis den ikke er opprettet
+            for member_row in group.search_members(group_id=group.entity_id,
+                                                member_type=const.entity_group):
+                subg_id = int(member_row["member_id"])
+                subg_name = entity2name.get(subg_id)
+                if subg_id not in entity2name:
+                    logger.warn("Group member id=%s of group id=%s has no name!",
+                                subg_id, group.entity_id)
+                    continue
+
                 subg_name_el = subg_name.split(':')
                 # Fjern "internal:"-prefiks.
                 if subg_name_el[0] == 'internal':
@@ -502,10 +541,11 @@ def register_spread_groups(emne_info, stprog_info, evukurs_info):
                 group.clear()
                 group.find(subg_id)
                 user_members = [
-                    row[2]  # username
-                    for row in group.list_members(None,
-                                                  const.entity_account,
-                                                  get_entity_name=True)[0]]
+                    entity2name.get(int(row["member_id"])) for row in
+                    group.search_members(group_id=group.entity_id,
+                                         member_type=const.entity_account)
+                    if int(row["member_id"]) in entity2name ]
+                
                 if user_members:
                     register_members(fronter_gname,
                                      user_members, const.entity_account)

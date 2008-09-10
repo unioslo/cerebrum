@@ -41,9 +41,7 @@ for l in open(file).readlines():
     for c in children:
         memb.clear()
         memb.find_by_name(c)
-        if not gr.has_member(memb.entity_id, memb.entity_type,
-                             gr.const.group_memberop_union):
-            gr.add_member(memb.entity_id, memb.entity_type,
-                          gr.const.group_memberop_union)
+        if not gr.has_member(memb.entity_id):
+            gr.add_member(memb.entity_id)
     gr.write_db()
 db.commit()

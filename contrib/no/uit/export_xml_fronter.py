@@ -104,6 +104,13 @@ def init_globals():
     elif len(args) <> 0:
         usage(2)
 
+    global entity2name
+    group = Factory.get("Group")(db)
+    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                       group.list_names(const.account_namespace))
+    entity2name.update((x["entity_id"], x["entity_name"]) for x in
+                       group.list_names(const.group_namespace))
+
     global fxml
     fxml = uit_fronter_lib.FronterXML(filename,
                                   cf_dir = cf_dir,
@@ -216,19 +223,19 @@ def get_ans_fak(fak_list, ent2uname):
                 person.clear()
                 #person.entity_id = int(pers['person_id'])
                 try:
-		    person.find(int(pers['person_id']))
+                    person.find(int(pers['person_id']))
                     acc_id = person.get_primary_account()
                 except Errors.NotFoundError:
                     logger.error("Person pers_id: %d , no valid account!" % \
                                  person.entity_id)
                     break
-		if acc_id and ent2uname.has_key(acc_id):
-		    uname = ent2uname[acc_id]['NAME']
-		    if uname not in ans_list:
-			ans_list.append(uname)
-		else:
-		    logger.error("Person pers_id: %d have no account!" % \
-							person.entity_id)
+                if acc_id and ent2uname.has_key(acc_id):
+                    uname = ent2uname[acc_id]['NAME']
+                    if uname not in ans_list:
+                        ans_list.append(uname)
+                else:
+                    logger.error("Person pers_id: %d have no account!" % \
+                                                        person.entity_id)
         fak_res[int(fak)] = ans_list
     return fak_res
 
@@ -300,9 +307,16 @@ def register_spread_groups(emne_info, stprog_info):
             # undervisningsenheten.
             group.clear()
             group.find(r['group_id'])
-	    for op, subg_id, subg_name in \
-                    group.list_members(None, int(const.entity_group),
-                                       get_entity_name=True)[0]:
+            for member in group.search_members(group_id=group.entity_id,
+                                               member_type=const.entity_group):
+                subg_id = int(member["member_id"])
+                if subg_id not in entity2name:
+                    logger.warn("No name for member id=%s of name=%s gid=%s",
+                                subg_id, group.group_name, group.entity_id)
+                    continue
+                else:
+                    subg_name = entity2name[subg_id]
+            
                 # Nivå 4: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
                 #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR:KATEGORI
                 subg_name_el = subg_name.split(':')
@@ -347,10 +361,10 @@ def register_spread_groups(emne_info, stprog_info):
                 group.clear()
                 group.find(subg_id)
                 user_members = [
-                    row[2]  # username
-                    for row in group.list_members(None,
-                                                  const.entity_account,
-                                                  get_entity_name=True)[0]]
+                    entity2name.get(int(row["member_id"])) for row in
+                    group.search_members(group_id=group.entity_id,
+                                         member_type=const.entity_account)
+                    if int(row["member_id"]) in entity2name ]
                 ##print "2.group_name = %s"% fronter_gname
                 ##for i in user_members:
                 ##    print"members: %s" % (i)
@@ -365,10 +379,17 @@ def register_spread_groups(emne_info, stprog_info):
             # gruppene på nivå 4.
             group.clear()
             group.find(r['group_id'])
-	    # Legges inn new group hvis den ikke er opprettet            
-            for op, subg_id, subg_name in \
-                    group.list_members(None, int(const.entity_group),
-                                       get_entity_name=True)[0]:
+            for member in group.search_members(group_id=group.entity_id,
+                                               member_type=const.entity_group):
+                subg_id = int(member["member_id"])
+                if subg_id not in entity2name:
+                    logger.warn("No name for member id=%s of name=%s gid=%s",
+                                subg_id, group.group_name, group.entity_id)
+                    continue
+                else:
+                    subg_name = entity2name[subg_id]
+
+            
                 subg_name_el = subg_name.split(':')
                 # Fjern "internal:"-prefiks.
                 if subg_name_el[0] == 'internal':
@@ -446,10 +467,10 @@ def register_spread_groups(emne_info, stprog_info):
                 group.clear()
                 group.find(subg_id)
                 user_members = [
-                    row[2]  # username
-                    for row in group.list_members(None,
-                                                  const.entity_account,
-                                                  get_entity_name=True)[0]]
+                    entity2name.get(int(row["member_id"])) for row in
+                    group.search_members(group_id=group.entity_id,
+                                         member_type=const.entity_account)
+                    if int(row["member_id"]) in entity2name ]
                 #print "1.group_name = %s" % fronter_gname
                 ##for i in user_members:
                     ##print"members: %s" % (i)

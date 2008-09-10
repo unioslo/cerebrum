@@ -280,23 +280,20 @@ class Group(Entity, Abstract.Group):
         return [fetch_object_by_id(self.server, member['member_id']) 
                 for member in members]
         
-    def add_member(self, member, operation=Constants.UNION):
-        """ Adds ``member`` to group with ``operation``.
-            ``operation`` is one of Constants.UNION, 
-            INTESECTION or DIFFERENCE, default is UNION."""
-        self.server.group_add_entity(member.id, self.id, operation)
+    def add_member(self, member):
+        """ Adds ``member`` to group."""
+        self.server.group_add_entity(None, member.id, self.id)
 
-    def remove_member(self, member_id=None, member_entity=None, 
-                      operation=Constants.UNION):
-        """Removes member given by id (member_id) or Entity instance (member_entity).
-           If operation is not given, UNION-members are removed"""              
+    def remove_member(self, member_id=None, member_entity=None): 
+        """Removes member given by id (member_id) or Entity instance
+        (member_entity)."""
         if member_id and member_entity:
             raise TypeError, "member_id or member_entity must be given, not both"    
         if member_entity:
             member_id = member_entity.id
         if not member_id:
             raise TypeError, "member_id or member_entity must be given"
-        self.server.group_remove_entity(member_id, self.id, operation)
+        self.server.group_remove_entity(None, member_id, self.id)
 
     def delete_group(self):
         self.server.group_delete(self.name)

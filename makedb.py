@@ -243,7 +243,7 @@ def makeInitialUsers(db):
     g.populate(a.entity_id, co.group_visibility_all,
                cereconf.INITIAL_GROUPNAME, parent=eg)
     g.write_db()
-    g.add_member(a.entity_id, co.entity_account, co.group_memberop_union)
+    g.add_member(a.entity_id)
     db.commit()
 
 def check_schema_versions(db, strict=False):

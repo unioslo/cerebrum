@@ -245,22 +245,22 @@ def process_groups(spread, file):
     for row in g.search(spread=int(spread)):
         id = row['group_id']
         u_name = iso2utf(row['name'])
-        desc = row['description']
         g.clear()
         g.find(id)
 
-        uniques = []
-        members = g.list_members()[0]
-        for type,a_id in members:
-            if type == int(co.entity_account):
-                if a_id2auth.has_key(a_id):
+        uniques = list()
+        for row in g.search_members(group_id=id):
+            if row["member_type"] == co.entity_account:
+                member_id = int(row["member_id"])
+                if a_id2auth.has_key(member_id):
                     uniques.append("cn=%s,cn=users,dc=ovgs,dc=no"
-                                   % iso2utf(a_id2auth[a_id][0]))
+                                   % iso2utf(a_id2auth[member_id][0]))
                 else:
-                    logger.warning("pg: No username found for: %s" % a_id)
+                    logger.warning("pg: No username found for: %s" % member_id)
                     continue
             else:
-                logger.warning("Member not account: %s" % a_id)
+                logger.warning("Member is not an account: id=%s, type=%s",
+                               member_id, co.EntityType(row["member_type"]))
                 continue
 
         dn = "cn=%s,cn=groups,dc=ovgs,dc=no" % u_name

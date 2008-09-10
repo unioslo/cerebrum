@@ -287,18 +287,14 @@ class BofhdUtils(object):
             gr.find_by_name(gr_name)
             req_groups.append(gr.entity_id)
             member = gr.has_member(account_id)
-            if member and member['operation'] != self.co.group_memberop_union:
-                gr.remove_member(account_id, member['operation'])
-                member = False
             if not member:
-                gr.add_member(account_id, self.co.entity_account,
-                              self.co.group_memberop_union)
+                gr.add_member(account_id)
         # Expel guest from any extra groups
-        for row in gr.list_groups_with_entity(account_id):
+        for row in gr.search(member_id=account_id, indirect_members=False):
             if row['group_id'] not in req_groups:
                 gr.clear()
                 gr.find(row['group_id'])
-                gr.remove_member(account_id, row['operation'])
+                gr.remove_member(account_id)
 
     def _find_guests(self, num_requested):
         ret = []

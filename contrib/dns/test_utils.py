@@ -42,10 +42,10 @@ def clean_netgroup():
     for g in group.search(spread=co.spread_uio_machine_netgroup):
         group.clear()
         group.find(g['group_id'])
-        for g2 in group.list_groups_with_entity(g['group_id']):
+        for g2 in group.search(member_id=g["group_id"], indirect_members=False):
             group2.clear()
             group2.find(g2['group_id'])
-            group2.remove_member(g['group_id'], g2['operation'])
+            group2.remove_member(g['group_id'])
         
         group.delete()
         db.commit()

@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 """This script sends email to users in cerebrum based on groups and accounts."""
 
 
@@ -37,18 +37,20 @@ def get_members_from_group(group_object, account_object, group_name, member_type
     except Exception:
         logger.warn("Group %s not found." % group_name)
         return []
- 
-    raw_list = gr.list_members()[0]
-    for member in raw_list:
-        member_type = 0 # member tuple index for member type
-        member_id = 1 # member tuple index for member id
 
-        if member[member_type] == member_type_accepted:
+
+    for member in gr.search_members(group_id=gr.entity_id):
+        member_type = int(member["member_type"])
+        member_id = int(member["member_id"])
+ 
+        if member_type == member_type_accepted:
             ac.clear()
             try:
-                ac.find(member[member_id])
+                ac.find(member_id)
             except Exception:
-                logger.warn("Member of group %s is not a valid account (%s). Skipping this account!" % group_name, member[member_id])
+                logger.warn("Member of group %s is not a valid account (%s). "
+                            "Skipping this account!",
+                            group_name, member[member_id])
                 continue
             
             tmp_members.append(ac.get_account_name())
@@ -64,9 +66,11 @@ def main():
     logger = Factory.get_logger(default_logger)
     
     try:
-        opts,args = getopt.getopt(sys.argv[1:], \
-                                  'g:G:a:A:E:s:c:w:d',\
-                                  ['group=', 'group_file=', 'account=', 'account_file=', 'email_file=', 'sender=', 'cc=', 'wait=', 'dryrun'])
+        opts, args = getopt.getopt(sys.argv[1:],
+				   'g:G:a:A:E:s:c:w:d',
+				   ['group=', 'group_file=', 'account=',
+				    'account_file=', 'email_file=', 'sender=',
+				    'cc=', 'wait=', 'dryrun'])
     except getopt.GetoptError:
         usage()
 

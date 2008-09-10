@@ -692,11 +692,11 @@ class CleanPersons(object):
         return pid2age, pid2src_sys_age
 
     def __nuke_person(self, pid):
-        for row in group.list_groups_with_entity(pid):
+        for row in group.search(member_id=pid, indirect_members=False):
             group.clear()
             group.find(row['group_id'])
-            self.log_r.remove_member(pid, row['operation'], row['group_id'])
-            group.remove_member(pid, row['operation'])
+            self.log_r.remove_member(pid, row['group_id'])
+            group.remove_member(pid)
         person.clear()
         person.find(pid)
         # TBD: Hvor mye skal vi logge om personen som slettes?
@@ -1109,9 +1109,8 @@ class LogRemoved(object):
             return date.strftime('%Y-%m-%d')
         return None
     
-    def remove_member(self, pid, operation, group_id):
-        logger.debug("remove member (%i, %i) from %i" % (
-            pid, operation, group_id))
+    def remove_member(self, pid, group_id):
+        logger.debug("remove member %i from %i", pid, group_id)
 
     def nuke_person(self, person):
         logger.debug("person_remove pid=%i" % person.entity_id)

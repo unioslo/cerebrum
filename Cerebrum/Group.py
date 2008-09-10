@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2005 University of Oslo, Norway
+# Copyright 2002-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -26,18 +26,27 @@ that fashion.  Hence, this module **requires** the caller to supply a
 name when constructing a Group object."""
 
 import mx
+from mx.DateTime import now
 
 import cereconf
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
      EntityExternalId, EntitySpread
+from Cerebrum.Utils import argument_to_sql
 try:
-    from sets import Set
-except ImportError:
-    # It's the same module taken from python 2.3, it should
-    # work fine in 2.2  
-    from Cerebrum.extlib.sets import Set
+    set()
+except NameError:
+    from Cerebrum.extlib.sets import Set as set
+
+
+def prepare_string(value):
+    value = value.replace("*", "%")
+    value = value.replace("?", "_")
+    value = value.lower()
+    return value
+# end prepare_string
+
 
 Entity_class = Utils.Factory.get("Entity")
 class Group(EntityQuarantine, EntityExternalId, EntityName,
@@ -184,6 +193,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             self.execute("""
             DELETE FROM [:table schema=cerebrum name=group_member]
             WHERE group_id=:g_id""", {'g_id': self.entity_id})
+
+            # Empty this group's memberships.
+            # IVR 2008-06-06 TBD: Is this really wise? I.e. should the caller
+            # of delete() make sure that all memberships have been removed?
+            self.execute("""
+            DELETE FROM [:table schema=cerebrum name=group_member]
+            WHERE member_id=:g_id""", {'g_id': self.entity_id})
+            
             # Remove name of group from the group namespace.
             try:
                 self.delete_entity_name(self.const.group_namespace)
@@ -200,8 +217,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # called, the underlying Entity object is also removed.
         self.__super.delete()
 
-## TBD: Do we really need __eq__ methods once all Entity subclass
-## instances properly keep track of their __updated attributes?
+    ## TBD: Do we really need __eq__ methods once all Entity subclass
+    ## instances properly keep track of their __updated attributes?
     def __eq__(self, other):
         assert isinstance(other, Group)
         if (self.creator_id == other.creator_id
@@ -259,332 +276,516 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             domain = self.const.group_namespace
         EntityName.find_by_name(self, name, domain)
 
-    def validate_member(self, member):
-        """Raise ValueError iff ``member`` not of proper type."""
-        if isinstance(member, Entity_class):
-            return True
-        raise ValueError
 
-    def add_member(self, member_id, type, op):
-        """Add ``member`` to group with operation type ``op``."""
+    def add_member(self, member_id):
+        """Add L{member_id} to this group.
+
+        @type member_id: int
+        @param member_id:
+          Member (id) to add to this group. This must be an entity
+          (i.e. registered in entity_info).
+        """
+
+        # First, locate the member's type (it's silly to require the client
+        # code to supply it, even though it costs one lookup extra in the
+        # database).
+        member_type = self.query_1("""
+            SELECT entity_type
+            FROM [:table schema=cerebrum name=entity_info]
+            WHERE entity_id = :member_id""", {"member_id": member_id})
+
+        # Then insert the data into the table. 
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=group_member]
-          (group_id, operation, member_type, member_id)
-        VALUES (:g_id, :op, :m_type, :m_id)""",
+          (group_id, member_type, member_id)
+        VALUES (:g_id, :m_type, :m_id)""",
                      {'g_id': self.entity_id,
-                      'op': int(op),
-                      'm_type': int(type),
+                      'm_type': int(member_type),
                       'm_id': member_id})
-        self._db.log_change(member_id, self.clconst.group_add, self.entity_id)
+        self._db.log_change(member_id, self.const.group_add, self.entity_id)
+    # end add_member
 
-    def has_member(self, member_id, member_type=None, operation=None):
-        """Check whether member_id is a member, return a db_row with
-        its member type and member operation if it is, or False if
-        not.
 
+    def has_member(self, member_id):
+        """Check whether L{member_id} is a member of this group.
+
+        @type member_id: int
+        @param member_id:
+          Member (id) to check for membership.
+
+        @rtype: L{db_row} instance or False
+        @return:
+          A db_row with the membership in question (from group_member) when a
+          suitable membership exists; False otherwise.
         """
+
+        # IVR 2008-06-27 TBD: Perhaps, express this in terms of search_members?
         where = ["group_id = :g_id", "member_id = :m_id"]
         binds = {'g_id': self.entity_id, 'm_id': member_id}
-        if member_type is not None:
-            where.append("member_type = :m_type")
-            binds['m_type'] = int(member_type)
-        if operation is not None:
-            where.append("operation = :op")
-            binds['op'] = int(operation)
         try:
             return self.query_1("""
-            SELECT member_type, operation
+            SELECT group_id, member_type, member_id
             FROM [:table schema=cerebrum name=group_member]
             WHERE """ + " AND ".join(where), binds)
         except Errors.NotFoundError:
             return False
+    # end has_member
 
-    def remove_member(self, member_id, op):
-        """Remove ``member``'s membership of operation type ``op`` in group."""
+
+    def remove_member(self, member_id):
+        """Remove L{member_id}'s membership from this group.
+
+        @type member_id: int
+        @param member_id:
+          Member (id) to remove from this group.
+        """
+        
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=group_member]
         WHERE
           group_id=:g_id AND
-          operation=:op AND
           member_id=:m_id""", {'g_id': self.entity_id,
-                               'op': int(op),
                                'm_id': member_id})
         self._db.log_change(member_id, self.clconst.group_rem, self.entity_id)
+    # end remove_member
+    
 
-    def list_groups_with_entity(self, entity_id, include_indirect_members=0):
-        """Return a list where entity_id is a direct member"""
-        if include_indirect_members:
-            raise NotImplementedError
-        return self.query("""
-        SELECT group_id, operation, member_type
-        FROM [:table schema=cerebrum name=group_member]
-        WHERE member_id=:member_id""", {'member_id': entity_id})
-
-    def list_members(self, spread=None, member_type=None, get_entity_name=False,
-                     filter_expired=True, not_member_type=None):
-        """Return a list of lists indicating the members of the group.
-
-        The top-level list returned is on the form
-          [union, intersection, difference]
-        where each of the sublists contains
-          (``entity_type``, ``entity_id``)
-        tuples indicating the members with the indicated membership
-        operation.
-
-        """
-        extfrom = extwhere = extcols = ""
-        if member_type is not None:
-            extwhere = "member_type=:member_type AND "
-            member_type = int(member_type)
-        if not_member_type is not None:
-            extwhere += "member_type <> :not_member_type AND "
-            not_member_type = int(not_member_type)
-        if spread is not None:
-            extfrom = """
-            JOIN [:table schema=cerebrum name=entity_spread] es
-              ON gm.member_id = es.entity_id AND
-                 es.spread = :spread"""
-            spread = int(spread)
-        if get_entity_name:
-            # TBD: If we add another member_type, this code needs to
-            # updated.  Generalising the code to look up the right
-            # value_domain is probably impossible.  The check can be
-            # removed if we decide that an entity never can have two
-            # different names in different value domains.  Currently
-            # at UiO, there are no entities with two names.
-            
-            extcols += ", entity_name"
-            tmp = []
-            for enitity_type_code_str, namespace_code_str in \
-                    cereconf.ENTITY_TYPE_NAMESPACE.items():
-                tmp.append("(en.value_domain = %i AND gm.member_type = %i)" % (
-                    self.const.ValueDomain(namespace_code_str),
-                    self.const.EntityType(enitity_type_code_str)))
-            extfrom += """
-            JOIN [:table schema=cerebrum name=entity_name] en
-              ON (gm.member_id = en.entity_id AND
-                  (%s))""" % (" OR ".join(tmp))
-        if filter_expired:
-            extfrom += """
-            LEFT JOIN [:table schema=cerebrum name=account_info] ai
-              ON (gm.member_type = :entity_account AND
-                  ai.account_id = gm.member_id)
-            LEFT JOIN [:table schema=cerebrum name=group_info] gi
-              ON (gm.member_type = :entity_group AND
-                  gi.group_id = gm.member_id)
-            """
-            extwhere += """(ai.expire_date IS NULL OR
-                            ai.expire_date > [:now]) AND
-                           (gi.expire_date IS NULL OR
-                            gi.expire_date > [:now]) AND """
-        members = [[], [], []]
-        op2set = {int(self.const.group_memberop_union): members[0],
-                  int(self.const.group_memberop_intersection): members[1],
-                  int(self.const.group_memberop_difference): members[2]}
-        for row in self.query(
-            """
-            SELECT operation, member_type, member_id %s
-            FROM [:table schema=cerebrum name=group_member] gm %s
-            WHERE %s gm.group_id=:g_id""" % (extcols, extfrom, extwhere),
-            {'g_id': self.entity_id,
-             'spread': spread,
-             'member_type': member_type,
-             'not_member_type': not_member_type,
-             'group_dom': int(self.const.group_namespace),
-             'account_dom': int(self.const.account_namespace),
-             'entity_group': int(self.const.entity_group),
-             'entity_account': int(self.const.entity_account)
-             }):
-            op2set[int(row[0])].append(row[1:])
-        return members
-
-    def get_members(self, _trace=(), spread=None, get_entity_name=False,
-                    filter_expired=True):
-        """Return a flattened list of entity ids of all account
-        members in this group and its subgroups.  If spread is set,
-        only include accounts with that spread.  If get_entity_name is
-        set, return a list [id, name] for each account."""
-
-        if self.entity_id in _trace:
-            # TODO: Circular list definition, log value of _trace.
-            return Set()
-        else:
-            _trace = _trace + (self.entity_id,)
-       
-        # Some small utility functions 
-        def format_accounts(accounts):
-            """Select wanted fields from list of accounts as returned by
-            list_members"""
-            if get_entity_name:
-                filter = lambda account: (account[1], account[2])
-            else:
-                filter = lambda account: account[1]    
-            return Set(map(filter, accounts))
-        
-        # A temporary object for expanding groups, used by expand_groups
-        group = Group(self._db)
-        def expand_groups(groups):
-            """Expands a list of groups as returned by Group.list_members."""
-            accounts = Set()
-            for (t, group_id) in groups:
-                group.clear()
-                group.find(group_id)
-                group_members = group.get_members(
-                    _trace, spread=spread, get_entity_name=get_entity_name,
-                    filter_expired=filter_expired)
-                accounts.update(group_members)
-            return accounts
-            
-        member_accounts = self.list_members(
-            get_entity_name=get_entity_name, spread=spread,
-            not_member_type=self.const.entity_group,
-            filter_expired=filter_expired)
-        # select wanted fields
-        member_accounts = [format_accounts(accounts)
-                           for accounts in member_accounts]
-        member_groups = self.list_members(member_type=self.const.entity_group,
-                                          filter_expired=filter_expired)
-
-        # Expand and get all member-accounts
-        member_groups = map(expand_groups, member_groups)
-
-        # merge group accounts into account sets
-        map(lambda (accounts, groups): accounts.update(groups),  
-            zip(member_accounts, member_groups))
-
-        # And unpack direct members
-        (unions, intersects, differences) = member_accounts
-
-        # we begin with all the union people
-        all_accounts = Set(unions)
-        # and if anything intersects - intersect it
-        if intersects:
-            all_accounts.intersection_update(intersects)
-        # same for difference - only apply it if there's anyone   
-        if differences:
-            all_accounts.difference_update(differences)
-        return all_accounts
-
-    def search(self, spread=None, name=None, description=None,
+    def search(self, group_id=None,
+               member_id=None, indirect_members=False,
+               spread=None, name=None, description=None,
                filter_expired=True):
-        """Retrieves a list of groups filtered by the given criterias.
-        
-        Returns a list of tuples with the info  (group_id, name, description)).
-        If no criteria is given, all groups are returned. ``name`` and
-        ``description`` should be strings if given. ``spread`` can be either
-        string or int. Wildcards * and ? are expanded for "any chars" and
-        "one char"."""
+        """Search for groups satisfying various filters.
 
-        def prepare_string(value):
-            value = value.replace("*", "%")
-            value = value.replace("?", "_")
-            value = value.lower()
-            return value
+        Search **for groups** where the results are filtered by a number of
+        criteria. There are many filters that can be specified; the result
+        returned by this method satisfies all of the filters. Not all of the
+        filters are compatible (check the documentation)
 
-        tables = []
-        where = []
-        tables.append("""[:table schema=cerebrum name=group_info] gi
-                           LEFT OUTER JOIN 
-                             [:table schema=cerebrum name=entity_name] en
-                           ON
-                             en.entity_id=gi.group_id AND
-                             en.value_domain=:vdomain
-                      """)
+        If a filter is None, it means that it will not be applied. Calling
+        this method without any arguments will return all non-expired groups
+        registered in group_info.
+
+        @type group_id: int or sequence thereof or None.
+        @param group_id:
+          Group ids to look for. This is the most specific filter that can be
+          given. With this filter, only the groups matching the specified
+          id(s) will be returned.
+
+          This filter cannot be combined with L{member_id}.
+
+        @type member_id: int or sequence thereof or None.
+        @param member_id:
+          The resulting group list will be filtered by membership - only
+          groups that have members specified by member_id will be returned. If
+          member_id is a sequence, then a group g1 is returned if any of the
+          ids in the sequence are a member of g1.
+
+          This filter cannot be combined with L{group_id}.
+
+        @type indirect_members: bool
+        @param indirect_members:
+          This parameter controls how the L{member_id} filter is applied. When
+          False, only groups where L{member_id} is a/are direct member(s) will
+          be returned. When True, the membership of L{member_id} does not have
+          to be direct; if group g2 is a member of group g1, and member_id m1
+          is a member of g2, specifying indirect_members=True will return g1
+          as well as g2. Be careful, for some situations this can drastically
+          increase the result size.
+
+          This filter makes sense only when L{member_id} is set.
+
+        @type spread: int or SpreadCode or sequence thereof or None.
+        @param spread:
+          Filter the resulting group list by spread. I.e. only groups with
+          specified spread(s) will be returned.
+          
+        @type name: basestring
+        @param name:
+          Filter the resulting group list by name. The name may contain SQL
+          wildcard characters.
+
+        @type description: basestring
+        @param description:
+          Filter the resulting group list by group description. The
+          description may contain SQL wildcard characters.
+
+        @type filter_expired: bool
+        @param filter_expired:
+          Filter the resulting group list by expiration date. If set, do NOT
+          return groups that have expired (i.e. have group_info.expire_date in
+          the past relative to the call time).
+
+        @rtype: generator (yielding db-rows with group information)
+        @return:
+          A generator that yields successive db-rows matching all of the
+          specified filters. Regardless of the filters, any given group_id is
+          guaranteed to occur at most once in the result. The keys available
+          in db_rows are the content of the group_info table and group's name
+          (if it does not exist, None is assigned to the 'name' key).
+        """
+
+        # Sanity check: if indirect members is specified, then at least we
+        # need one id to go on.
+        if indirect_members:
+            assert member_id is not None
+            if isinstance(member_id, (list, tuple, set)):
+                assert member_id
+
+        # Sanity check: it is probably a bad idea to allow specifying both.
+        assert not (member_id and group_id)
         
+        def search_transitive_closure(member_id):
+            """Return all groups where member_id is/are indirect member(s).
+
+            @type member_id: int or sequence thereof.
+            @param member_id:
+              We are looking for groups where L{member_id} is/are indirect
+              member(s).
+
+            @rtype: set (of group_ids (ints))
+            @result:
+              Set of group_ids where member_id is/are indirect members.
+            """
+
+            result = set()
+            if not isinstance(member_id, (tuple, set, list)):
+                member_id = (member_id,)
+
+            # workset contains ids of the entities that are members. in each
+            # iteration we are looking for direct parents of whatever is in
+            # workset.
+            workset = set(int(x) for x in member_id)
+            while workset:
+                tmp = workset
+                workset = set()
+                for row in self.search(member_id=tmp,
+                                       indirect_members=False,
+                                       # We need to be *least* restrictive
+                                       # here. Final filtering will take care
+                                       # of 'expiredness'.
+                                       filter_expired=False):
+                    group_id = int(row["group_id"])
+                    if group_id in result:
+                        continue
+                    result.add(group_id)
+                    if group_id not in workset:
+                        workset.add(group_id)
+
+            return result
+        # end search_transitive_closure
+
+        select = """SELECT DISTINCT gi.group_id AS group_id,
+                                    en.entity_name AS name,
+                                    gi.description AS description,
+                                    gi.visibility AS visibility,
+                                    gi.creator_id AS creator_id,
+                                    gi.create_date AS create_date,
+                                    gi.expire_date AS expire_date
+                 """
+        tables = ["""[:table schema=cerebrum name=group_info] gi
+                     LEFT OUTER JOIN 
+                         [:table schema=cerebrum name=entity_name] en
+                     ON 
+                        en.entity_id = gi.group_id AND
+                        en.value_domain = :vdomain
+                  """,]
+        where = list()
+        binds = {"vdomain": int(self.const.group_namespace)}
+
+        #
+        # group_id filter
+        if group_id is not None:
+            where.append(argument_to_sql(group_id, "gi.group_id", binds, int))
+
+        #
+        # member_id filters (all of them)
+        if member_id is not None:
+            if indirect_members:
+                # NB! This can be a very large group set.
+                group_ids = search_transitive_closure(member_id)
+                where.append(argument_to_sql(group_ids, "gi.group_id", binds, int))
+            else:
+                tables.append("[:table schema=cerebrum name=group_member] gm")
+                where.append("(gi.group_id = gm.group_id)")
+                where.append(argument_to_sql(member_id, "gm.member_id",
+                                             binds, int))
+
+        # 
+        # spread filter 
         if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
-            where.append("gi.group_id=es.entity_id")
-            where.append("es.entity_type=:entity_type")
-            # Support both integers (id-s) and strings. Strings could be
-            # with wildcards
-            try: 
-                spread = int(spread)
-            except (TypeError, ValueError):
-                # match code_str
-                spread = prepare_string(spread)
-                tables.append("[:table schema=cerebrum name=spread_code] sc")
-                where.append("es.spread=sc.code")
-                where.append("LOWER(sc.code_str) LIKE :spread")
-            else:
-                # Go for the simple int version
-                where.append("es.spread=:spread")
+            where.append("(gi.group_id = es.entity_id)")
+            where.append(argument_to_sql(spread, "es.spread", binds, int))
 
+        #
+        # name filter
         if name is not None:
             name = prepare_string(name)
-            where.append("LOWER(en.entity_name) LIKE :name")
+            where.append("(LOWER(en.entity_name) LIKE :name)")
+            binds["name"] = name
 
+        # description filter
         if description is not None:
             description = prepare_string(description)
-            where.append("LOWER(gi.description) LIKE :description")
+            where.append("(LOWER(gi.description) LIKE :description)")
+            binds["description"] = description
 
+        #
+        # expired filter
         if filter_expired:
             where.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
-            
+
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
+
+        query_str = "%s FROM %s %s" % (select, ", ".join(tables), where_str)
+        # IVR 2008-07-09 Originally the idea was to use a generator to avoid
+        # caching all rows in memory. Unfortunately, setting fetchall=False
+        # causes an ungodly amount of sql statement reparsing, which leads to
+        # an abysmal perfomance penalty. 
+        return self.query(query_str, binds, fetchall=True)
+    # end search
+
+
+    def search_members(self, group_id=None,
+                       member_id=None, member_type=None, 
+                       indirect_members=False,
+                       member_spread=None,
+                       member_filter_expired=True):
+        """Search for group *MEMBERS* satisfying certain criteria.
+
+        This method is a complement of L{search}. While L{search} returns
+        *group* information, L{search_members} returns member and membership
+        information. Despite the similarity in filters, the methods have
+        different objectives.
+
+        If a filter is None, it means that it will not be applied. Calling
+        this method without any argument will return all non-expired members
+        of groups (i.e. a huge chunk of the group_member table). Since
+        group_member is one of the largest tables, do not do that, unless you
+        have a good reason.
+
+        All filters except for L{group_id} are applied to members, rather than
+        groups containing members.
+
+        The db-rows eventually returned by this method contain at least these
+        keys: group_id, group_name, member_type, member_id. There may be other
+        keys as well.
+
+        @type group_id: int or a sequence thereof or None.
+        @param group_id:
+          Group ids to look for. Given a group_id, only memberships in the
+          specified groups will be returned. This is useful for answering
+          questions like 'give a list of all members of group <bla>'. See also
+          L{indirect_members}.
+
+        @type member_id: int or a sequence thereof or None.
+        @param member_id:
+          The result membership list will be filtered by member_ids - only the
+          specified member_ids will be listed. This is useful for answering
+          questions like 'give a list of memberships held by <entity_id>'. See
+          also L{indirect_members}.
+
+        @type member_type:
+          int or an EntityType constant or a sequence thereof or None.
+        @param member_type:
+          The resulting membership list be filtered by member type - only the
+          member entities of the specified type will be returned. This is
+          useful for answering questions like 'give me a list of *group*
+          members of group <bla>'.
+          
+        @type indirect_members: bool
+        @param indirect_members:
+          This parameter controls how 'deep' a search is performed. If True,
+          we recursively expand *all* group_ids matching the rest of the
+          filters.
+
+          This filter can and must be combined either with L{group_id} or with
+          L{member_id} (but not both).
+
+          When combined with L{group_id}, the search means 'return all
+          membership entries where members are direct AND indirect members of the
+          specified group_id(s)'.
+
+          When combined with L{member_id}, the search means 'return all
+          membership entries where the specified members are direct AND
+          indirect members'
+
+          When False, only direct memberships are considered for all filters.
+
+        @type member_spread: int or SpreadCode or sequence thereof or None.
+        @param member_spread:
+          Filter the resulting membership list by spread. I.e. only members
+          with specified spread(s) will be returned.
+
+        @type member_filter_expired: bool
+        @param member_filter_expired:
+          Filter the resulting membership list by expiration date. If set, do
+          NOT return any rows where members have expired (i.e. have
+          expire_date in the past relative to the call time).
+
+        @rtype: generator (yielding db-rows with membership information)
+        @return:
+          A generator that yields successive db-rows (from group_member)
+          matching all of the specified filters. These keys are available in
+          each of the db_rows:
+            - group_id
+            - group_name
+            - member_type
+            - member_id
+            - expire_date
             
-        return self.query("""
-        SELECT DISTINCT gi.group_id AS group_id, en.entity_name AS name,  
-               gi.description AS description
-        FROM %s %s""" % (', '.join(tables), where_str), 
-            {'spread': spread, 'entity_type': int(self.const.entity_group),
-             'name': name, 'description': description,
-             'vdomain': int(self.const.group_namespace)})
+          There *may* be other keys, but the caller cannot rely on that; nor
+          can the caller assume that any other key will not be revoked at any
+          time. expire_date may be None, the rest is always set.
+          
+          Note that if L{indirect_members} is specified, the answer may
+          contain group_ or member_ids that were NOT part of the initial
+          filters. The client code invoking search() this way should be
+          prepared for such an eventuality.
+        """
 
+        # first of all, a help function to help us look for recursive
+        # memberships...
+        def search_transitive_closure(start_id_set, searcher, field):
+            """Collect the transitive closure of L{ids} by using the search
+            strategy specified by L{searcher}.
 
-    def list_all_test(self, spread=None):
-        """ Will be removed """
-        return self.list_all_grp(spread=spread)
+            L{searcher} is simply a tailored self.search()-call with
+            indirect_members=False.
 
-    def list_all_grp(self, spread=None):
-        where = ""
-        if spread is not None:
-            spreads = '(' + ' OR '.join(['es.spread=' + str(x) for x in spread]) + ')'
-            where = """gi, [:table schema=cerebrum name=entity_spread] es
-                WHERE gi.group_id=es.entity_id AND es.entity_type=[:get_constant name=entity_group] 
-                AND %s""" % spreads
-        return self.query("""
-            SELECT DISTINCT group_id
-            FROM [:table schema=cerebrum name=group_info]
-            %s""" % where)
+            L{field} is the key to extract from db-rows returned by the
+            L{searcher}. Occasionally we need group_id and other times
+            member_id. These are the two permissible values.
+            """
+            result = set()
+            if isinstance(start_id_set, (tuple, set, list)):
+                workset = start_id_set.copy()
+            else:
+                workset = set((start_id_set,))
 
+            while workset:
+                new_set = set(x[field] for x in searcher(workset))
+                result.update(workset)
+                workset = new_set.difference(result)
 
-    def list_member_groups(self, grp_id, spreads, grp_sup=False, ent_type=False):
-        """ Return a list of groups with spread(s) which is recursivly a member 
-            of the group. It goes recursivly through the group-tree. Support
-            external systems with group-member support and group that has to 
-            expand accounts and users (no support of group as member). 
-            Ex: if account is added to an 'internal'-group, we will do a 
-            netgroup-search with group_support, and without if it is an 
-            file-group, which has to expand all members. Spreads must be a 
-            list or a tupple with at least one entry()"""
-        global cyc_l, list_grp
-        cyc_l = []
-        list_grp = []
-        if not ent_type:
-            ent_type = self.const.entity_group
-        self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
-        return(list_grp)
+            return result
+        # end search_transitive_closure
+
+        # ... then a slight sanity check. We cannot allow a combination of
+        # group and member id filters combined with indirect_members (what
+        # kind of meaning can be attached to specifying all three?)
+        if indirect_members:
+            assert not (group_id and member_id), "Illegal API usage"
+            assert group_id or member_id, "Illegal API usage"
+
+        # ... and finally, let's generate the SQL statements for all the
+        # filters.
+
+        # IVR 2008-06-12 FIXME: Unfortunately, expire_date tests are not
+        # exactly pretty, to put it mildly. There are 2 tables, and we want to
+        # outer join on their union. *That* is hopeless (performancewise), so
+        # we take the outer joins in turn. It is not exactly pretty either,
+        # but at least it is feasible.
+        #
+        # Once the EntityExpire module is merged in and in production, all
+        # this junk can be simplified. Before modifying the expressions, make
+        # sure that the the queries actually work on multiple backends.
+        select = ["tmp1.group_id AS group_id",
+                  "tmp1.entity_name AS group_name",
+                  "tmp1.member_type AS member_type",
+                  "tmp1.member_id AS member_id",
+                  "tmp1.expire1 as expire1",
+                  "gi.expire_date as expire2",
+                  "NULL as expire_date"]
+
+        # We always grab the expiration dates, but we filter on them ONLY if
+        # member_filter_expired is set.
+        tables = [""" ( SELECT gm.*,
+                           en.entity_name as entity_name,
+                           ai.expire_date as expire1
+                       FROM [:table schema=cerebrum name=group_member] gm
+                       LEFT OUTER JOIN 
+                          [:table schema=cerebrum name=entity_name] en
+                       ON 
+                          (en.entity_id = gm.group_id AND
+                           en.value_domain = :vdomain)
+                       LEFT OUTER JOIN 
+                             [:table schema=cerebrum name=account_info] ai
+                       ON ai.account_id = gm.member_id
+                  ) AS tmp1
+                  LEFT OUTER JOIN
+                     [:table schema=cerebrum name=group_info] gi
+                  ON gi.group_id = tmp1.member_id
+                  """,]
+
+        binds = {"vdomain": int(self.const.group_namespace)}
+        where = list()
+
+        if group_id is not None:
+            if indirect_members:
+                # expand group_id to include all direct and indirect *group*
+                # members of the initial set of group ids. This way we get
+                # *all* indirect non-group members
+                group_id = search_transitive_closure(group_id,
+                              lambda ids: self.search_members(group_id=ids,
+                                 indirect_members=False,
+                                 member_type=self.const.entity_group,
+                                 member_filter_expired=False),
+                              "member_id")
+                indirect_members = False
+
+            where.append(argument_to_sql(group_id, "tmp1.group_id", binds, int))
+
+        if member_id is not None:
+            if indirect_members:
+                # expand member_id to include all direct and indirect *parent*
+                # groups of the initial set of member ids. This way, we reach
+                # *all* parent groups starting from a given set of direct
+                # members. 
+                member_id = search_transitive_closure(member_id,
+                               lambda ids: self.search(member_id=ids,
+                                  indirect_members=False,
+                                  filter_expired=False),
+                               "group_id")
+                indirect_members = False
+
+            where.append(argument_to_sql(member_id, "tmp1.member_id", binds, int))
+
+        if member_type is not None:
+            where.append(argument_to_sql(member_type, "tmp1.member_type",
+                                         binds, int))
+
+        if member_spread is not None:
+            tables.append("""JOIN [:table schema=cerebrum name=entity_spread] es
+                               ON tmp1.member_id = es.entity_id
+                                  AND %s""" %
+                          argument_to_sql(member_spread, "es.spread", binds, int))
+            
+        if member_filter_expired:
+            where.append("""(tmp1.expire1 IS NULL OR tmp1.expire1 > [:now]) AND
+                            (gi.expire_date IS NULL OR gi.expire_date > [:now])
+                         """)
+
+        where_str = ""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
+
+        query_str = "SELECT %s FROM %s %s" % (", ".join(select),
+                                              " ".join(tables),
+                                              where_str)
+        for entry in self.query(query_str, binds):
+            # IVR 2008-07-01 FIXME: We do NOT want to expose expire ugliness
+            # to the clients. They can all assume that 'expire_date' exists
+            # and is set appropriately (None or a date)
+            if entry["expire1"] is not None:
+                entry["expire_date"] = entry["expire1"]
+            elif entry["expire2"] is not None:
+                entry["expire_date"] = entry["expire2"]
         
+            yield entry
+    # end search_members
 
-    def _rec_member_groups(self, grp_id, spreads, grp_sup, ent_type):
-        """ Recursive group-tree search. Used by 'list_member_groups'"""
-        for entry in self.list_groups_with_entity(grp_id):
-            if entry['member_type'] == ent_type:
-                # Not very nice programming. WHAT TO DO??
-                self.clear()
-                grp_id = int(entry['group_id'])
-                self.entity_id = grp_id
-                if grp_id in cyc_l: continue
-                else: cyc_l.append(grp_id)
-                if not grp_sup and [x for x in spreads if self.has_spread(x)]:
-                    list_grp.append(grp_id)
-                    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
-                elif grp_sup and [x for x in spreads if self.has_spread(x)]:
-                    list_grp.append(grp_id)
-                else:
-                    self._rec_member_groups(grp_id, spreads, grp_sup, ent_type)
 
-               
-# arch-tag: 880c43c0-16da-4b32-a70d-0fda8ec600db
+# end class Group

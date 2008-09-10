@@ -140,25 +140,17 @@ class OfkObject2Cerebrum(Object2Cerebrum):
                     # Add user to cache
                     self._add_group_cache(group[1], self._ac.account_name)
                     
-                    if self._group.has_member(self._ac.entity_id,
-                                              self.co.entity_account,
-                                              self.co.group_memberop_union):
+                    if self._group.has_member(self._ac.entity_id):
                         continue
-                    self._group.add_member(self._ac.entity_id,
-                                           self.co.entity_account,
-                                           self.co.group_memberop_union)
+                    self._group.add_member(self._ac.entity_id)
                 return self._group.write_db()
                 
             # Add user to cache
             self._add_group_cache(group[1], self._ac.account_name)
             
-            if self._group.has_member(self._ac.entity_id,
-                                   self.co.entity_account,
-                                   self.co.group_memberop_union):
+            if self._group.has_member(self._ac.entity_id):
                 return
-            self._group.add_member(self._ac.entity_id,
-                                   self.co.entity_account,
-                                   self.co.group_memberop_union)
+            self._group.add_member(self._ac.entity_id)
             return self._group.write_db()
 
 
@@ -248,15 +240,18 @@ class OfkObject2Cerebrum(Object2Cerebrum):
         # have a active group "foo", based on "foo:04", "foo:05" and
         # so forth.
 
-        # Get group names
-        group_names = dict()
+        # Get group and account names
+        entity2name = dict()
         for row in self._group.list_names(self.co.group_namespace):
-            group_names[int(row['entity_id'])] = row['entity_name']
+            entity2name[int(row['entity_id'])] = row['entity_name']
+        entity2name.update((int(x["entity_id"]), x["entity_name"])
+                           for x in
+                           self._group.list_names(self.co.account_namespace))
 
         # Set status on autogroups already in the database
         seen_autogroups = dict()
         for row in self._group.list_traits(self.co.trait_group_derived):
-            name = group_names[int(row['entity_id'])]
+            name = entity2name[int(row['entity_id'])]
             seen_autogroups.setdefault(name, False)
 
         # Traverse the groups we've seen during import, create groups
@@ -281,10 +276,10 @@ class OfkObject2Cerebrum(Object2Cerebrum):
                 org_group = Factory.get('Group')(self.db)
                 org_group.find_by_name(grp)
                 # Get union types
-                for member in org_group.list_members(member_type=self.co.entity_account)[0]:
-                    self._group.add_member(member[1],
-                                           self.co.entity_account,
-                                           self.co.group_memberop_union)
+                for member in org_group.search_members(
+                                            group_id=org_group.entity_id,
+                                            member_type=self.co.entity_account):
+                    self._group.add_member(member["member_id"])
                 self._group.write_db()
             else:
                 # Update the autogroup with new date in Trait
@@ -315,9 +310,13 @@ class OfkObject2Cerebrum(Object2Cerebrum):
         for grp in self._groups.keys():
             self._group.clear()
             self._group.find_by_name(grp)
-            for member in self._group.list_members(get_entity_name=True)[0]:
-                if member[2] not in self._groups[grp]:
-                    self._group.remove_member(member[1], self.co.group_memberop_union)
+
+            for member in self._group.search_members(group_id=
+                                                     self._group.entity_id):
+                member_name = entity2name[member["member_id"]]
+                if member_name not in self._groups[grp]:
+                    self._group.remove_member(member["member_id"])
+            
             self._group.write_db()
             agrp = self.__active_group(grp)
             if agrp:
@@ -328,19 +327,19 @@ class OfkObject2Cerebrum(Object2Cerebrum):
             self._group.clear()
             self._group.find_by_name(grp)
             current = dict()
-            for member in self._group.list_members(get_entity_name=True)[0]:
-                current.setdefault(member[2], [member[1], []])
-                current[member[2]][1].append(self.co.group_memberop_union)
+            for member in self._group.search_members(group_id=
+                                                     self._group.entity_id):
+                member_id = int(member["member_id"])
+                member_name = entity2name[member_id]
+                current[member_name] = member_id
+                
             remove, add = self.__diff_groups(autogroup_members[grp], current.keys())
             for mbr in remove:
-                for op in current[mbr][1]:
-                    self._group.remove_member(current[mbr][0], op)
+                self._group.remove_member(current[mbr])
             for mbr in add:
                 self._ac.clear()
                 self._ac.find_by_name(mbr)
-                self._group.add_member(self._ac.entity_id,
-                                       self.co.entity_account,
-                                       self.co.group_memberop_union)
+                self._group.add_member(self._ac.entity_id)
             self._group.write_db()
               
         self.db.commit()
@@ -348,4 +347,4 @@ class OfkObject2Cerebrum(Object2Cerebrum):
     def rollback(self):
         self.db.rollback()
 
-# arch-tag: d11dead8-9fd6-11da-8e4b-0869872fe5ca
+# end class OfkObject2Cerebrum

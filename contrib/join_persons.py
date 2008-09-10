@@ -203,13 +203,14 @@ def person_join(old_person, new_person, with_uio_pq, with_uia_pq, with_uio_ephor
         
     # group_member
     group = Factory.get('Group')(db)
-    for g in group.list_groups_with_entity(old_person.entity_id):
+    for g in group.search(member_id=old_person.entity_id,
+                          indirect_members=False):
         group.clear()
         group.find(g['group_id'])
         logger.debug("group_member: %s" % group.group_name)
-        if not group.has_member(new_person.entity_id, g['member_type'], g['operation']):
-            group.add_member(new_person.entity_id, g['member_type'], g['operation'])
-        group.remove_member(old_person.entity_id, g['operation'])
+        if not group.has_member(new_person.entity_id):
+            group.add_member(new_person.entity_id)
+        group.remove_member(old_person.entity_id)
 
     if with_uio_ephorte:
         join_ephorte_roles(old_id, new_id)

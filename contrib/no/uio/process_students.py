@@ -282,8 +282,7 @@ class AccountUtil(object):
                 group_obj.clear()
                 group_obj.find(g)
                 try:
-                    group_obj.add_member(account_id, const.entity_account,
-                                         const.group_memberop_union)
+                    group_obj.add_member(account_id)
                     changes.append(("g_add", group_obj.group_name))
                 except db.IntegrityError, m:
                     logger.info("Did not give membership because: %s", m)
@@ -299,7 +298,7 @@ class AccountUtil(object):
                         continue
                     group_obj.clear()
                     group_obj.find(g)
-                    group_obj.remove_member(account_id, const.group_memberop_union)
+                    group_obj.remove_member(account_id)
                     changes.append(('g_rem', group_obj.group_name))
         return changes
     _update_group_memberships=staticmethod(_update_group_memberships)
@@ -956,17 +955,19 @@ def get_existing_accounts():
             tmp.set_home(int(row['home_spread']), int(row['disk_id']),
                          int(row['homedir_id']))
             
-    # Group memberships (TODO: currently only handles union members)
+    # Group memberships
     for group_id in autostud.pc.group_defs.keys():
         group_obj.clear()
         group_obj.find(group_id)
-        for row in group_obj.list_members(member_type=const.entity_account,
-                                          filter_expired=False)[0]:
-            tmp = tmp_ac.get(int(row[1]), None)    # Col 1 is member_id
+        for row in group_obj.search_members(group_id=group_obj.entity_id,
+                                            member_type=const.entity_account,
+                                            filter_expired=False):
+            tmp = tmp_ac.get(int(row["member_id"]), None)
             if tmp is not None:
                 tmp.append_group(group_id)
-        for row in group_obj.list_members(member_type=const.entity_person)[0]:
-            tmp = tmp_persons.get(int(row[1]), None)    # Col 1 is member_id
+        for row in group_obj.search_members(group_id=group_obj.entity_id,
+                                            member_type=const.entity_person):
+            tmp = tmp_persons.get(int(row["member_id"]), None)
             if tmp is not None:
                 tmp.append_group(group_id)
     # Affiliations

@@ -100,7 +100,6 @@ def group_mod(mod_type, group_id, member_id):
         return
 
     group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name
-    op = constants.group_memberop_union
     subj_ent = Factory.get('Entity')(db)
     subj_ent.clear()
     try:
@@ -114,9 +113,7 @@ def group_mod(mod_type, group_id, member_id):
         for g in serv_groups:
             gp.clear()
             gp.find_by_name(g)
-            if gp.has_member(member_id,
-                             constants.entity_account,
-                             constants.group_memberop_union):
+            if gp.has_member(member_id):
                 member_in_serv_group = True
                 break
     elif subj_ent.entity_type == constants.entity_group:

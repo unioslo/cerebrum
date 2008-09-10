@@ -94,7 +94,7 @@ def add_member(transaction, id, name, type, operation):
         return
     
     entity = entity_name.get_entity()
-    group.add_member(entity, op)
+    group.add_member(entity)
     
     msg = _("%s added as a member to group.") % object_link(entity)
     commit(transaction, group, msg=msg)
@@ -238,7 +238,7 @@ def join_group(transaction, entity, name, operation=None):
     try:
         # find the group by name.
         group = transaction.get_commands().get_group_by_name(name)
-        group.add_member(entity, operation)
+        group.add_member(entity)
     except NotFoundError, e:
         msg = _("Group '%s' not found") % name
         queue_message(msg, True, object_link(entity))

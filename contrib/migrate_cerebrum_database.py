@@ -37,12 +37,13 @@ from Cerebrum.Constants import _SpreadCode
 targets = {
     'core': ('rel_0_9_2', 'rel_0_9_3', 'rel_0_9_4', 'rel_0_9_5',
              'rel_0_9_6', 'rel_0_9_7', 'rel_0_9_8', 'rel_0_9_9',
-             'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12'),
+             'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
     'changelog': ('changelog_1_2', ),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'stedkode': ('stedkode_1_1', ),
+    'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
     }
 
 # Global variables
@@ -479,6 +480,21 @@ def migrate_to_rel_0_9_12():
     print "Migration to 0.9.12 completed successfully"
     db.commit()
 
+def migrate_to_rel_0_9_13():
+    """Migrate from 0.9.12 database to the 0.9.13 database schema.
+
+    This migration is NOT supposed to be called directly, but rather from
+    migrate_to_posixuser_1_1.
+    """
+    assert_db_version("0.9.12")
+    # drop description column
+    makedb('0_9_13', 'pre')
+    print "\ndone."
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo(Metainfo.SCHEMA_VERSION_KEY, (0,9,13))
+    print "Migration to 0.9.13 completed successfully"
+    db.commit()
+
 def migrate_to_bofhd_1_1():
     print "\ndone."
     assert_db_version("1.0", component='bofhd')
@@ -516,7 +532,6 @@ def migrate_to_changelog_1_2():
     meta.set_metainfo("sqlmodule_changelog", "1.2")
     print "Migration to changelog 1.2 completed successfully"
     db.commit()
-
 
 def migrate_to_email_1_1():
     print "\ndone."
@@ -816,6 +831,24 @@ def migrate_to_stedkode_1_1():
     db.commit()
 # end migrate_to_stedkode_1_1
 
+def migrate_to_posixuser_1_1():
+    assert_db_version("1.0", component='posixuser')
+    # We cannot migrate to posixuser_1_1 without having the core schema
+    # upgraded. The core schema, on the other hand, cannot be upgraded before
+    # we drop the FKs from posixuser to group_member.operation.
+    assert_db_version("0.9.12")
+    makedb('posixuser_1_1', 'pre')
+    db.commit()
+    migrate_to_rel_0_9_13()
+    assert_db_version("0.9.13")
+
+    makedb('posixuser_1_1', 'post')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_posixuser", "1.1")
+    db.commit()
+    print "Migration to posixuser 1.1 completed successfully"
+# end migrate_to_posixuser_1_1
+
 def init():
     global db, co
 
@@ -938,5 +971,3 @@ def usage(exitcode=64):
 
 if __name__ == '__main__':
     main()
-
-# arch-tag: aead5a70-52cf-468b-a9ef-7bb55f6d365c

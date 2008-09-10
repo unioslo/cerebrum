@@ -195,18 +195,21 @@ class ProcBatchRunner(object):
             aff = txt2aff[affiliation]
             # Send a delete call to the Handler if the group has accounts in it
             # without the proper account_type.
-            for mbr in grp.list_members()[0]:
-                found = False
-                m_id = mbr[1]
-                for a in txt2aff[affiliation]:                  
-                    if ac2aff.has_key((int(a),ou.ou_id)) and m_id in ac2aff[(int(a),ou.ou_id)]:
-                        found = True
-                        aff_grp2ac.setdefault((int(a),ou.ou_id), []).append(m_id)
+            for member in grp.search_members(group_id=grp.entity_id):
+                member_id = int(member["member_id"])
+                for a in txt2aff[affiliation]:
+                    if (ac2aff.has_key((int(a), ou.ou_id)) and
+                        member_id in ac2aff[(int(a), ou.ou_id)]):
+                        aff_grp2ac.setdefault((int(a),ou.ou_id), []).append(member_id)
                         break
-                if not found:
-                    self.proc.ac_type_del(m_id, affiliation, ou.ou_id)
+                else:
+                    self.proc.ac_type_del(member_id, affiliation, ou.ou_id)
+
         # Let the handler take take of added account_types.
         for i in ac2aff:
             for account in ac2aff[i]:
                 if not (aff_grp2ac.has_key(i) and account in aff_grp2ac[i]):
                     self.proc.ac_type_add(account, i[0], i[1])
+    # end process_account_types
+
+# end class ProcBatchRunner

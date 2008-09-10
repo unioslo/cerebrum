@@ -203,27 +203,27 @@ class ProcHandler(object):
 
         person = Factory.get('Person')(self.db)
         grp_accounts = list()
-        for member in grp.list_members()[0]:
+        for member in grp.search_members(group_id=grp.entity_id):
             person.clear()
-            person.entity_id = int(member[1])
+            person.entity_id = int(member["member_id"])
             a_id = person.get_primary_account()
             if not a_id:
-                self.logger.info("Person '%d' has no account. Skipping" % person.entity_id)
+                self.logger.info("Person '%d' has no account. Skipping",
+                                 person.entity_id)
                 continue
             grp_accounts.append(person.get_primary_account())
         shdw_grp_accounts = list()
-        for member in shdw_grp.list_members()[0]:
-            shdw_grp_accounts.append(member[1])
+        for member in shdw_grp.search_members(group_id=shdw_grp.entity_id):
+            shdw_grp_accounts.append(int(member["member_id"]))
         # Sync shdw_grp with grp
         change = False
         for a_id in grp_accounts:
             if a_id not in shdw_grp_accounts:
-                shdw_grp.add_member(a_id, self._co.entity_account,
-                                    self._co.group_memberop_union)
+                shdw_grp.add_member(a_id)
                 change = True
         for a_id in shdw_grp_accounts:
             if a_id not in grp_accounts:
-                shdw_grp.remove_member(a_id, self._co.group_memberop_union)
+                shdw_grp.remove_member(a_id)
                 change = True
         if change:
             shdw_grp.write_db()
@@ -376,10 +376,8 @@ class ProcHandler(object):
             self._group.populate_trait(self._co.trait_group_affiliation,
                                        date=DateTime.now())
             self._group.write_db()
-        if not self._group.has_member(account_id, self._co.entity_account,
-                                      self._co.group_memberop_union):
-            self._group.add_member(account_id, self._co.entity_account,
-                                   self._co.group_memberop_union)
+        if not self._group.has_member(account_id):
+            self._group.add_member(account_id)
             self._group.write_db()
             self.logger.info("ac_type_add: Account '%s' added to group '%s'." % (account_id, grp_name))
 
@@ -397,13 +395,15 @@ class ProcHandler(object):
             self._group.clear()
             self._group.find_by_name(grp_name)
             self.logger.debug("ac_type_del: Group '%s' found." % grp_name)
-            if self._group.has_member(account_id, self._co.entity_account,
-                                      self._co.group_memberop_union):
-                self._group.remove_member(account_id, self._co.group_memberop_union)
+            if self._group.has_member(account_id):
+                self._group.remove_member(account_id)
                 self._group.write_db()
                 self.logger.info("ac_type_del: Account '%s' deleted from group '%s'." % (account_id, grp_name))
             # Deal with empty groups as well
-            if len(self._group.get_members()) == 0:
+            if len(list(self._group.search_members(
+                                   group_id=self._group.entity_id,
+                                   indirect_members=True,
+                                   member_type=self._co.entity_account))) == 0:
                 self._group.delete()
                 self._group.write_db()
         except Errors.NotFoundError:

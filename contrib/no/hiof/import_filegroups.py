@@ -58,16 +58,16 @@ def process_line(infile, spread):
     sp = spread
     stream = open(infile, 'r')
     for line in stream:
-	 logger.debug5("Processing line: |%s|", line.strip())
+        logger.debug5("Processing line: |%s|", line.strip())
 
-         fields = line.strip().split(":")
-         if len(fields) < 4:
-             logger.error("Bad line: %s. Skipping", line)
-             continue
+        fields = line.strip().split(":")
+        if len(fields) < 4:
+            logger.error("Bad line: %s. Skipping", line)
+            continue
 
-	 gname, desc, gid, mem = fields
-	 if gname:
-             process_group(sp, gname, gid, desc, mem)
+        gname, desc, gid, mem = fields
+        if gname:
+            process_group(sp, gname, gid, desc, mem)
 
 
 def process_group(sp, name, gid, description = None, members = None):
@@ -76,30 +76,30 @@ def process_group(sp, name, gid, description = None, members = None):
     create (as normal group). If necessary assign spread and membership.
     """ 
     try:
-   	 posixgroup.clear()
-   	 posixgroup.find_by_name(name)
-	 logger.debug4("Group |%s| exists.", name)
-    except Errors.NotFoundError:	
-	 posixgroup.populate(default_creator_id, constants.group_visibility_all,
-			     name, description, time.strftime("%Y-%m-%d", time.localtime()), None, int(gid))
-	 posixgroup.write_db()
-	 if not dryrun:
-	     db.commit()
-	     logger.debug3("Created group |%s|.", name)
+        posixgroup.clear()
+        posixgroup.find_by_name(name)
+        logger.debug4("Group |%s| exists.", name)
+    except Errors.NotFoundError:        
+        posixgroup.populate(default_creator_id, constants.group_visibility_all,
+                            name, description, time.strftime("%Y-%m-%d", time.localtime()), None, int(gid))
+        posixgroup.write_db()
+        if not dryrun:
+            db.commit()
+            logger.debug3("Created group |%s|.", name)
 
-	     try:
-		 group.clear()
-		 group.find_by_name(name)
-		 if not group.has_spread(sp):
-		     group.add_spread(sp)
-		     group.write_db()
-		     if not dryrun:
-			 db.commit()
-			 logger.debug3("Added spread |%s| to group |%s|.", sp, name)
-	     except Errors.NotFoundError:
-		 logger.error("Group |%s| not found!", name)
+            try:
+                group.clear()
+                group.find_by_name(name)
+                if not group.has_spread(sp):
+                    group.add_spread(sp)
+                    group.write_db()
+                    if not dryrun:
+                        db.commit()
+                        logger.debug3("Added spread |%s| to group |%s|.", sp, name)
+            except Errors.NotFoundError:
+                logger.error("Group |%s| not found!", name)
     if members:
-	process_members(name,members)
+        process_members(name,members)
 
 
 def process_members(gname, mem):
@@ -110,35 +110,31 @@ def process_members(gname, mem):
     group.clear()
     group.find_by_name(gname)
     for member in mem_list:
-	try:
-	    account_member.clear()
-	    account_member.find_by_name(member)
-	    if not group.has_member(account_member.entity_id, constants.entity_account,
-				    constants.group_memberop_union):
-		group.add_member(account_member.entity_id, constants.entity_account,
-				 constants.group_memberop_union)
-	    group.write_db()
-	    if not dryrun:
-		db.commit()
-		logger.debug3("Added account |%s| to group |%s|.", member, gname)
-	except Errors.NotFoundError:
-	    logger.warn("User |%s| not found!", member)
-	    if member == gname:
-		logger.error("Bang! Cannot continue adding members because a group cannot be its own member.")
-		continue
-	    try:
-		group_member.clear()
-		group_member.find_by_name(member)
-		if not group.has_member(group_member.entity_id, constants.entity_group,
-					constants.group_memberop_union):
-		    group.add_member(group_member.entity_id, constants.entity_group,
-				     constants.group_memberop_union)
-		    group.write_db()
-		    if not dryrun:
-			db.commit()
-			logger.debug3("Added group |%s| to group |%s|.", member, gname)
-	    except Errors.NotFoundError:
-		logger.warn("Group |%s| not found!", member)
+        try:
+            account_member.clear()
+            account_member.find_by_name(member)
+            if not group.has_member(account_member.entity_id):
+                group.add_member(account_member.entity_id)
+            group.write_db()
+            if not dryrun:
+                db.commit()
+                logger.debug3("Added account |%s| to group |%s|.", member, gname)
+        except Errors.NotFoundError:
+            logger.warn("User |%s| not found!", member)
+            if member == gname:
+                logger.error("Bang! Cannot continue adding members because a group cannot be its own member.")
+                continue
+            try:
+                group_member.clear()
+                group_member.find_by_name(member)
+                if not group.has_member(group_member.entity_id):
+                    group.add_member(group_member.entity_id)
+                    group.write_db()
+                    if not dryrun:
+                        db.commit()
+                        logger.debug3("Added group |%s| to group |%s|.", member, gname)
+            except Errors.NotFoundError:
+                logger.warn("Group |%s| not found!", member)
                 logger.error("Trying to assign membership to a non-existing entity |%s|", member)
 
 

@@ -219,7 +219,6 @@ def _group_make_dn(group_id, org):
 def group_mod(mod_type, group_id, member_id):
     group = Factory.get("Group")(db)
     grp = Factory.get("Group")(db)
-    gp = Factory.get("Group")(db)
     acc = Factory.get("Account")(db)
     member_name = ""
     member_type = "account"
@@ -246,7 +245,6 @@ def group_mod(mod_type, group_id, member_id):
         return
 
     group_name = cereconf.NW_GROUP_PREFIX + '-' + group.group_name
-    op = constants.group_memberop_union
     subj_ent = Factory.get('Entity')(db)
     subj_ent.clear()
     try:

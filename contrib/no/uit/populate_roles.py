@@ -54,6 +54,9 @@ account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 const = Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
+account2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                 Factory.get("Group")(db).list_names(const.account_namespace))
+
 
 TODAY=time.strftime("%Y%m%d")
 sys_y_default_file = os.path.join(cereconf.DUMPDIR,
@@ -251,11 +254,15 @@ class ITRole(object):
 
     def sync_members(self):
         group = self.maybe_create(self.group_name)
-        cur_members_tup = group.get_members(get_entity_name=True,filter_expired=False)
         current_members = []
-        for member in cur_members_tup:
-            (id,name) = member
-            current_members.append(name)
+        for member in group.search_members(group_id=group.entity_id,
+                                           indirect_members=True,
+                                           member_type=const.entity_account,
+                                           member_filter_expired=False):
+            member_id = int(member["member_id"])
+            if member_id not in account2name:
+                continue
+            current_members.append(account2name[member_id])
 
         current = Set(current_members)
         logger.debug("CURRENT MEMBERS: %s" % (current))
@@ -273,13 +280,13 @@ class ITRole(object):
 
         for name in toRemove:
             acc = get_account(name)
-            group.remove_member(acc.entity_id,const.group_memberop_union)
+            group.remove_member(acc.entity_id)
 
         for name in toAdd:
             logger.info("Trying to add %s" % name)
             try:
                 acc = get_account(name)
-                group.add_member(acc.entity_id,const.entity_account,const.group_memberop_union)
+                group.add_member(acc.entity_id)
             except Errors.NotFoundError:
                 logger.error("Could not add %s to %s, account not found" % (name,group.group_name))
                 continue

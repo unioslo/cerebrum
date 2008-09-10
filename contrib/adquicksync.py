@@ -394,12 +394,13 @@ def add_spread(entity_id, spread):
                                                cereconf.AD_CANT_CHANGE_PW))
             if sock.read() == ['210 OK']:
                 #Make sure that the user is in the groups he should be.
-                for row in group.list_groups_with_entity(entity_id):
+                for row in group.search(member_id=entity_id,
+                                        indirect_member=False):
                     group.clear()
                     group.find(row['group_id'])
                     if group.has_spread(constants.spread_uio_ad_group):
                         grp_name = '%s-gruppe' % (group.group_name)
-                        if not group_add(account_name,grp_name):
+                        if not group_add(account_name, grp_name):
                             logger.debug('Add user %s to group %s failed',
                                          account_name, grp_name)
         else:
@@ -431,15 +432,11 @@ def add_spread(entity_id, spread):
             group.clear()
             group.find(entity_id)
 
-            grplist = group.list_members(constants.spread_uio_ad_account,
-                                         None, True, True)
-            for usrmemb in grplist[0]:
-                # We use only the Union part the group-space, as this is the
-                # only supported operation in AD. The spread argument picks
-                # out only account objects. group spread treated separate.
+            # account members
+            for member in group.search_members(group_id=group.entity_id,
+                                        spread=constants.spread_uio_ad_account):
                 account.clear()
-                account.find(usrmemb[1]) #Pick out entity_id.
-
+                account.find(member["member_id"])
                 if not account.is_expired():
                     name = account.get_name(constants.account_namespace)
                     logger.debug('Add %s to %s', name, grp)
@@ -448,31 +445,23 @@ def add_spread(entity_id, spread):
                                grp))
                     if sock.read() != ['210 OK']:
                          logger.debug('Failed add %s to %s', name, grp)
-
                 else:
-                    logger.debug('Add_spread:Groupmember %s is expired', 
+                    logger.debug('Add_spread:Groupmember %s is expired',
                                  entity_id)
 
-            grpgrplist = group.list_members(constants.spread_uio_ad_group,
-                                            None, True, True)
-            for grpmemb in grpgrplist[0]:
-                # We use only the Union part the group-space, as this is the
-                # only supported operation in AD. The spread argument picks
-                # out only account objects.
-
-                member_group = Factory.get('Group')(db) 
+            # group members
+            member_group = Factory.get("Group")(db)
+            for member in group.search_members(group_id=group.entity_id,
+                                          spread=constants.spread_uio_ad_group):
                 member_group.clear()
-                member_group.find(grpmemb[1])
-
+                member_group.find(member["member_id"])
                 if not member_group.is_expired():
                     name = '%s-gruppe' % (member_group.group_name)
-                    
                     if not group_add(name, grp):
                          logger.debug('Failed add %s to %s', name, grp)
                 else:
                     logger.debug('Add_spread:Groupmember %s is expired',
                                  entity_id)
-
         logger.debug('Failed create group %s in OU Users' % grp)
     else:
         if debug:

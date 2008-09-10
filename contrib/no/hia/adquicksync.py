@@ -166,12 +166,13 @@ def add_spread(entity_id,spread):
             sock.send('ALTRUSR&%s/%s&fn&%s&dis&%s&pexp&%s&ccp&%s\n' % ( cereconf.AD_DOMAIN, account_name, full_name, account_disable, cereconf.AD_PASSWORD_EXPIRE, cereconf.AD_CANT_CHANGE_PW ))  
             if sock.read() == ['210 OK']:
                 #Make sure that the user is in the groups he should be.
-                for row in group.list_groups_with_entity(entity_id):
+                for row in group.search(member_id=entity_id,
+                                        indirect_members=False):
                     group.clear()
                     group.find(row['group_id'])
                     if group.has_spread(int(co.spread_hia_ad_group)):
                         grp_name = '%s' % (group.group_name)
-                        if not group_add(account_name,grp_name):
+                        if not group_add(account_name, grp_name):
                             print 'WARNING: add user %s to group %s failed' % (account_name,grp_name)                    
         else:    
             #TBD: This is serious and should write to std.err.
@@ -182,26 +183,29 @@ def add_spread(entity_id,spread):
         grp=id_to_name(entity_id,'group')           
         ad_ou = 'OU=grp,%s' & cereconf.AD_LDAP
 
-	sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, grp))
+        sock.send('TRANS&%s/%s\n' % (cereconf.AD_DOMAIN, grp))
         ou_in_ad = sock.read()[0]
         if ou_in_ad[0:3] == '210':
             #Account already in AD, we move to correct OU.
             sock.send('MOVEOBJ&%s&LDAP://%s\n' % ( ou_in_ad[4:],ad_ou )) 
-	else:
+        else:
             sock.send('NEWGR&LDAP://%s&%s&%s\n' % ( ad_ou, grp, grp))        
         if sock.read() == ['210 OK']:
             group.clear()
             group.find(entity_id)
-            for grpmemb in group.get_members():
+            for row in group.search_members(group_id=group.entity_id,
+                                            indirect_members=True,
+                                            member_type=co.entity_account):
+                grpmemb = int(row["member_id"])
                 account.clear()
                 account.find(grpmemb)
                 if account.has_spread(co.spread_hia_ad_account):
                     name = account.get_name(int(co.account_namespace))
                     print 'INFO:Add', name, 'to', grp                
                     sock.send('ADDUSRGR&%s/%s&%s/%s\n' % (cereconf.AD_DOMAIN, name, cereconf.AD_DOMAIN, grp))
-                    if sock.read() != ['210 OK']:		
+                    if sock.read() != ['210 OK']:               
                         print 'WARNING: Failed add', name, 'to', grp
-	    return True
+            return True
         print 'WARNING: create group failed ', grp,'in Users'
     else:
         if debug:

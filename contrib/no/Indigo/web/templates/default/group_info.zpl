@@ -16,7 +16,7 @@
     </td>
   </tr> 
   <tr><td valign="top"><strong>Beskrivelse:</strong></td><td tal:content="group/description">description</td></tr>
-  <tr><td><strong>Medlemmer:</strong></td><td><div tal_omit-tag="" tal:content="string:${group/c_account_u} brukere, ${group/c_group_u} grupper"/></td></tr>
+  <tr><td><strong>Medlemmer:</strong></td><td><div tal_omit-tag="" tal:content="string:${group/c_account} brukere, ${group/c_group} grupper"/></td></tr>
 </table>
 
 <p>

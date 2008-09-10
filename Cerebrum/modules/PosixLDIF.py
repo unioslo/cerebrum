@@ -69,6 +69,16 @@ class PosixLDIF(object):
             raise ProgrammingError, "Must specify spread-value as 'arg' or in cereconf"
         self.id2uname        = {}
 
+        # preload id->name mapping for later. This is potentially somewhat
+        # memory expensive.
+        # FIXME: do id2uname and entity2name have the same content?
+        if self.get_name:
+            self.entity2name = dict((x["entity_id"], x["entity_name"]) for x in
+                              self.grp.list_names(self.const.account_namespace))
+            self.entity2name.update((x["entity_id"], x["entity_name"]) for x in
+                              self.grp.list_names(self.const.group_namespace))
+    # end __init__
+
 
     def user_ldif(self, filename=None, auth_meth = None):
         """Generate posix-user."""
@@ -264,8 +274,9 @@ class PosixLDIF(object):
             logger.warn("No spread is given for filegroup!")
         else:
             f.write(LDIFutils.container_entry_string('FILEGROUP'))
-            for row in self.posgrp.list_all_grp(self.spread_d['filegroup']):
-                dn,entry = self.filegroup_object(row)
+            for row in self.posgrp.search(spread=self.spread_d['filegroup'],
+                                          filter_expired=False):
+                dn, entry = self.filegroup_object(row)
                 if dn:
                     f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('FILEGROUP', f, self.fd)
@@ -281,10 +292,10 @@ class PosixLDIF(object):
     def filegroup_object(self, row):
         """Create the group-entry attributes"""
         self.posgrp.clear()
-        self.posgrp.find(row.fields.group_id)
+        self.posgrp.find(row["group_id"])
         gname = LDIFutils.iso2utf(self.posgrp.group_name)
-        if not self.id2uname.has_key(int(row.fields.group_id)):
-            self.id2uname[int(row.fields.group_id)] = gname
+        if not self.id2uname.has_key(int(row["group_id"])):
+            self.id2uname[int(row["group_id"])] = gname
         members = []
         entry = {'objectClass': ('top', 'posixGroup'),
                  'cn':          (gname,),
@@ -292,23 +303,21 @@ class PosixLDIF(object):
         if self.posgrp.description:
             # latin1_to_iso646_60 later
             entry['description'] = (LDIFutils.iso2utf(self.posgrp.description),)
-        for id in self.posgrp.get_members(spread=self.spread_d['user'][0], 
-                                          get_entity_name=self.get_name):
-            if self.get_name:
-                uname_id = int(id[0])
-                uname = id[1]
-            else:
-                uname_id = int(id)
-            #if self.get_name and not self.id2uname.has_key(uname_id):
-            #    self.id2uname[uname_id] = id[1]
+
+        for member_row in self.posgrp.search_members(
+                                        group_id=self.posgrp.entity_id,
+                                        indirect_members=True,
+                                        member_type=self.const.entity_account,
+                                        member_spread=self.spread_d["user"][0]):
+            uname_id = int(member_row["member_id"])
             if not self.id2uname.has_key(uname_id) or self.get_name:
                 # Have find a way to resolve this problem later
                 # Change this to .warn when various _list() functions do
                 # not list expired accounts.
-                self.logger.info("Could not resolve name on account-id: %s" % uname_id)
+                self.logger.info("Could not resolve name on account-id: %s",
+                                 uname_id)
                 continue
             members.append(self.id2uname[uname_id])
-            #members.append(uname)                
         entry['memberUid'] = members
         self.update_filegroup_entry(entry, row)
         dn = ','.join((('cn=' + gname), self.fgrp_dn))
@@ -324,11 +333,12 @@ class PosixLDIF(object):
         f = LDIFutils.ldif_outfile('NETGROUP', filename, self.fd)
         self.init_netgroup()
         if not self.spread_d.has_key('netgroup'):
-            logger.warn("No valid netgroup-spread in cereconf or arg!")
+            self.logger.warn("No valid netgroup-spread in cereconf or arg!")
         else:
             f.write(LDIFutils.container_entry_string('NETGROUP'))
-            for row in self.grp.list_all_grp(self.spread_d['netgroup']):
-                dn,entry = self.netgroup_object(row)
+            for row in self.grp.search(spread=self.spread_d['netgroup'],
+                                       filter_expired=False):
+                dn, entry = self.netgroup_object(row)
                 if dn:
                     f.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('NETGROUP', f, self.fd)
@@ -363,33 +373,36 @@ class PosixLDIF(object):
 
     def get_netgrp(self, triples, memgrp):
         """Recursive method to get members and groups in netgroup."""
-        for union in self.grp.list_members(self.spread_d['user'][0],
-                                           int(self.const.entity_account),
-                                           get_entity_name=self.get_name)[0]:
+        for row in self.grp.search_members(group_id=self.grp.entity_id,
+                                         spread=self.spread_d["user"][0],
+                                         member_type=self.const.entity_account):
             if self.get_name:
-                uname_id, uname = int(union[1]), union[2]
+                uname_id, uname = (int(row["member_id"]),
+                                   self.entity2name[int(row["member_id"])])
             else:
-                uname_id = int(union[1])
+                uname_id = int(row["member_id"])
                 try:
                     uname = self.id2uname[uname_id]
                 except:
-                    # Change this to .warn when various _list() functions do
-                    # not list expired accounts.
-                    self.logger.info('Cache enabled but user:%s not found' %
+                    self.logger.warn("Cache enabled but user id=%s not found",
                                      uname_id)
                     continue
+        
             if uname_id in self._gmemb or "_" in uname:
                 continue
             triples.append("(,%s,)" % uname)
             self._gmemb[uname_id] = True
-        for union in self.grp.list_members(None, int(self.const.entity_group),
-                                           get_entity_name=True)[0]:
+
+        for row in self.grp.search_members(group_id=self.grp.entity_id,
+                                           member_type=self.const.entity_group):
             self.grp.clear()
-            self.grp.entity_id = int(union[1])
-            if filter(self.grp.has_spread,self.spread_d['netgroup']):
-                memgrp.append(LDIFutils.iso2utf(union[2]))
+            self.grp.entity_id = int(row["member_id"])
+            if filter(self.grp.has_spread, self.spread_d['netgroup']):
+                name = self.entity2name[int(row["member_id"])]
+                memgrp.append(LDIFutils.iso2utf(name))
             else:
                 self.get_netgrp(triples, memgrp)
+    # end get_netgrp
 
+# end class PosixLDIF
 
-# arch-tag: 036e91f4-cf0f-4337-86fa-9aa316010614

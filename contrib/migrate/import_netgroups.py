@@ -257,8 +257,8 @@ def assign_memberships(groupname, members):
                     unknown_entities[member] = 1 # Add to dict, so we can report all later
                     continue
             
-        if not group.has_member(addee.entity_id, entity_type, constants.group_memberop_union):
-            group.add_member(addee.entity_id, entity_type, constants.group_memberop_union)
+        if not group.has_member(addee.entity_id):
+            group.add_member(addee.entity_id)
 
             group.write_db()
             if not dryrun:

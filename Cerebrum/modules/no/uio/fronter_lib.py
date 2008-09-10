@@ -35,7 +35,7 @@ from Cerebrum.extlib import xmlprinter
 
 
 
-def get_members(group_name):
+def get_member_names(group_name):
     db = Factory.get("Database")()
     group = Factory.get("Group")(db)
     usernames = ()
@@ -44,39 +44,45 @@ def get_members(group_name):
     except Errors.NotFoundError:
         pass
     else:
-        members = group.get_members(get_entity_name=True)
-        # IVR 2007-11-13: TBD: API-misfeature? ([1] == union)
-        usernames = tuple([x[1] for x in members])
+        account = Factory.get("Account")(db)
+        const = Factory.get("Constants")()
+        usernames = list()
+        for row in group.search_members(group_id=group.entity_id,
+                                        indirect_members=True,
+                                        member_type=const.entity_account):
+            account.clear()
+            account.find(row["member_id"])
+            usernames.append(account.account_name)
 
     return usernames
-# end get_members
+# end get_member_names
 
 
 
 host_config = {
     'internkurs.uio.no': { 'DBinst': 'DLOUIO.uio.no',
                            'admins':
-                           get_members('classfronter-internkurs-drift'),
+                           get_member_names('classfronter-internkurs-drift'),
                            'export': ['All_users'],
                            },
     'tavle.uio.no': {'DBinst': 'DLOOPEN.uio.no',
-                     'admins': get_members('classfronter-tavle-drift'),
+                     'admins': get_member_names('classfronter-tavle-drift'),
                      'export': ['All_users'],
                      },
     'kladdebok.uio.no': { 'DBinst': 'DLOUTV.uio.no',
                           'admins':
-                          get_members('classfronter-kladdebok-drift'),
+                          get_member_names('classfronter-kladdebok-drift'),
                           'export': ['FS'],
                           'plain_users': ['mgrude', 'gunnarfk'],
                           'spread': 'spread_fronter_kladdebok',
                           },
     'petra.uio.no': { 'DBinst': 'DLODEMO.uio.no',
-                      'admins': get_members('classfronter-petra-drift'),
+                      'admins': get_member_names('classfronter-petra-drift'),
                       'export': ['FS', 'All_users'],
                       'spread': 'spread_fronter_petra',
                       },
     'blyant.uio.no': { 'DBinst': 'DLOPROD.uio.no',
-                       'admins': get_members('classfronter-blyant-drift'),
+                       'admins': get_member_names('classfronter-blyant-drift'),
                        'export': ['FS', 'All_users'],
                        'spread': 'spread_fronter_blyant',
                        }

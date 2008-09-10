@@ -42,9 +42,9 @@ database.
 
 <employee XML data> -----+
                          |
-                         +--> update_employee_groups.py --+
-                         |                                  |
-<cerebrum db> -----------+ <--------------------------------+
+                         +--> update_employee_groups.py ---+
+                         |                                 |
+<cerebrum db> -----------+ <-------------------------------+
 """
 
 import getopt
@@ -94,11 +94,22 @@ def build_cache(db, groupname):
         # TBD: sys.exit(1) ?
         return None, None
 
+
+    const = Factory.get("Constants")()
+    # FIXME: This is quite expensive
+    account2name = dict((x["entity_id"], x["entity_name"]) for x in 
+                        db_group.list_names(const.account_namespace))
+    
     # account_name->account_id mapping
     result = dict()
-    for account_id, account_name in \
-                    db_group.get_members(get_entity_name=True):
-        result[account_name] = int(account_id)
+    for row in db_group.search_members(group_id=db_group.entity_id,
+                                       indirect_members=True,
+                                       member_type=const.entity_account):
+        account_id = int(row["member_id"])
+        if account_id not in account2name:
+            continue
+        account_name = account2name[account_id]
+        result[account_name] = account_id
 
     logger.debug("Group %s has %d cached entries", groupname, len(result))
     return result, db_group
@@ -251,9 +262,7 @@ def adjoin_member(uname, db_group, db_account, db_const):
     try:
         db_account.clear()
         db_account.find_by_name(uname)
-        db_group.add_member(db_account.entity_id,
-                            db_const.entity_account,
-                            db_const.group_memberop_union)
+        db_group.add_member(db_account.entity_id)
         logger.debug("adding account %s (%s) to group %s (%s)",
                      uname, db_account.entity_id,
                      db_group.group_name, db_group.entity_id)
@@ -283,8 +292,8 @@ def remove_remaining(cache, db_group, db_const):
         # may disappear between has_member and remove_member calls outside of
         # this job.
         if db_group.has_member(account_id):
-            db_group.remove_member(account_id, db_const.group_memberop_union)
-            logger.debug("removing account_id %d (union) from %s",
+            db_group.remove_member(account_id)
+            logger.debug("removing account_id %d from %s",
                          account_id, list(db_group.get_names()))
         else:
             logger.debug("%s not a member in group %s" % (account_id, db_group.entity_id))

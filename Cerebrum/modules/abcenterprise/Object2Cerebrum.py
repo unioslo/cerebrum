@@ -236,12 +236,8 @@ class Object2Cerebrum(object):
             self._person.clear()
             self._person.find_by_external_id(member[0], member[1])
 
-            if not self._group.has_member(self._person.entity_id,
-                                          self.co.entity_person,
-                                          self.co.group_memberop_union):
-                self._group.add_member(self._person.entity_id,
-                                       self.co.entity_person,
-                                       self.co.group_memberop_union)
+            if not self._group.has_member(self._person.entity_id):
+                self._group.add_member(self._person.entity_id)
             self._add_group_cache(group[1], self._person.entity_id)
             return self._group.write_db()
 
@@ -273,10 +269,13 @@ class Object2Cerebrum(object):
         for grp in self._groups.keys():
             self._group.clear()
             self._group.find_by_name(grp)
-            for member in self._group.list_members()[0]:
-                if member[1] not in self._groups[grp]:
-                    self._group.remove_member(member[1], self.co.group_memberop_union)
-                    self.logger.debug("'%s' removed '%s'", grp, member[1])
+
+            for member in self._group.search_members(group_id=
+                                                     self._group.entity_id):
+                member_id = int(member["member_id"])
+                if member_id not in self._groups[grp]:
+                    self._group.remove_member(member_id)
+                    self.logger.debug("'%s' removed '%s'", grp, member_id)
             self._group.write_db()
         # Get group names
         group_names = dict()

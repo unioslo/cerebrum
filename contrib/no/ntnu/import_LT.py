@@ -75,13 +75,13 @@ class LTDataParser(xml.sax.ContentHandler):
             self.call_back_function(self.p_data)
 
 def _add_res(entity_id):
-    if not group.has_member(entity_id, const.entity_person, const.group_memberop_union):
-        group.add_member(entity_id, const.entity_person, const.group_memberop_union)
+    if not group.has_member(entity_id):
+        group.add_member(entity_id)
         group.write_db()
 
 def _rem_res(entity_id):
-    if group.has_member(entity_id, const.entity_person, const.group_memberop_union):
-        group.remove_member(entity_id, const.group_memberop_union)
+    if group.has_member(entity_id):
+        group.remove_member(entity_id)
         group.write_db()
 
 def conv_name(fullname):

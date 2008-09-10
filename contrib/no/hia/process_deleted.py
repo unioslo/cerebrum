@@ -209,10 +209,11 @@ def process_delete_requests():
         if posix_user:
             posix_user.delete_posixuser()
         ## Remove account from all groups (including eDir-server groups)
-        for g in group.list_groups_with_entity(account.entity_id):
+        for g in group.search(member_id=account.entity_id,
+                              indirect_members=False):
             group.clear()
             group.find(g['group_id'])
-            group.remove_member(account.entity_id, g['operation'])
+            group.remove_member(account.entity_id)
         ## All done, remove request, commit results
         account.write_db()
         if posix_user:
