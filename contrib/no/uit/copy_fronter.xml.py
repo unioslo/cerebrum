@@ -1,40 +1,45 @@
-#!/usr/bin/env python
+#! /bin/env python
 
-import time
+import os
+import sys
 import ftplib
 import cerebrum_path
 import cereconf
-import os
 
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, read_password
+logger = Factory.get_logger("cronjob")
+
 def main():
-    db = Factory.get('Database')()
-    logger = Factory.get_logger("cronjob")
-    date = time.localtime()
-    year = date[0]
-    month = date[1]
-    day = date[2]
-    # lets create the filename
-    file_path = cereconf.DUMPDIR + "/Fronter/"
-    filename = "uit_import%02d%02d%02d.xml" % (year,month,day)
-    ret = os.system("mv %stest.xml %s%s" % (file_path, file_path, filename))
+    # filenames
+    path = os.path.join(cereconf.DUMPDIR,"Fronter")
+    filename="uit_import%s.xml" % cereconf._TODAY
+    ftp_file=os.path.join(path,filename)
+    export_file=os.path.join(path,"test.xml")
+    logger.info("Export file %s, ftp file %s" % (export_file, ftp_file))
+    
+    ret = os.system("mv %s %s" % (export_file, ftp_file))
     if ret != 0:
         logger.error("ERROR: unable to execute system command mv in copy_fronter_xml.py.\n")
+        sys.exit(-1)
 
-    file_handle = open("%s%s"% (file_path,filename))
-    # lets ftp the file to ftp.uit.no
     try:
-        ftp = ftplib.FTP("ftp.uit.no","lmseksport","Fr0nt3r")
-        #ftp.set_debuglevel(1)
-        ftp.storlines("STOR %s" % filename,file_handle)
-        
+        ftp_location=cereconf.LMS_FTP_LOCATION
+        ftp_username=cereconf.LMS_FTP_USERNAME
+    except AttributeError,m:
+        logger.critical("Cereconf var not found. Check cereconf. Error: %s" % m)
+        sys.exit(-1)
+    except Exception,m:
+        logger.critical("Unexpected error: %s" % m)
+        sys.exit(-1)
+    ftp_password=read_password(ftp_username, ftp_location)
+    file_handle = open(ftp_file)
+    # upload the file
+    try:
+        ftp = ftplib.FTP(ftp_location,ftp_username,ftp_password)
+        ftp.storlines("STOR %s" % filename,file_handle)        
     except ftplib.all_errors:
-        print "% unable to ftp file: %s" % ftplib.all_errors
-
-
-
+        logger.critical("unable to upload ftp file: %s" % ftplib.all_errors)
+        sys.exit(-1)
 
 if __name__=='__main__':
     main()
-    
-# arch-tag: ad36e3a4-b426-11da-8da2-09f3a3f639fa
