@@ -5580,7 +5580,7 @@ class BofhdExtension(object):
         else:
             if not entity_id.isdigit():
                 raise CerebrumError("Expected entity-id")
-            entities = [entity_id]
+            entities = [int(entity_id)]
         bar = BofhdAuthRole(self.db)
         ret = []
         for r in bar.list(entities):

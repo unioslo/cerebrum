@@ -302,7 +302,7 @@ class BofhdAuthRole(DatabaseAccessor):
             if not isinstance(entity_ids, (list, tuple)):
                 entity_ids = [entity_ids]
             ewhere.append("entity_id IN (%s)" % 
-                          ", ".join(["%i" % i for i in entity_ids]))
+                          ", ".join(["%i" % int(i) for i in entity_ids]))
         if op_set_id is not None:
             ewhere.append("op_set_id=:op_set_id")
         if op_target_id is not None:
