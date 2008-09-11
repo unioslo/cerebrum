@@ -29,7 +29,7 @@ import re
 import cerebrum_path
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, SimilarSizeWriter
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.LMS.LMSImport import LMSImport, course2CerebumID
 from Cerebrum.modules.LMS.LMSExport import LMSExport
@@ -630,7 +630,8 @@ def main(argv=None):
 
     if options["export"]:
         if options["output"] != sys.stdout:
-            output_stream = open(options["output"], "w")
+            output_stream = SimilarSizeWriter(options["output"], "w")
+            output_stream.set_size_change_limit(10)
             
         export_data(output_stream)
         
