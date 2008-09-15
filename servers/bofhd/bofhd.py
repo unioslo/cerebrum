@@ -1021,6 +1021,7 @@ def usage(exitcode=0):
   -c | --config-file <filename>: use as config file
   -t | --test-help <keyword>: check help consistency
   -m : run multithreaded (experimental)
+  -h | --host IP: listen on alternative interface (default: INADDR_ANY [0.0.0.0])
   -p | --port num: run on alternative port (default: 8000)
   --unencrypted: don't use https
 """
@@ -1028,15 +1029,17 @@ def usage(exitcode=0):
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:m',
+        opts, args = getopt.getopt(sys.argv[1:], 'c:t:p:mh:',
                                    ['config-file=', 'test-help=',
                                     'port=', 'unencrypted',
-                                    'multi-threaded'])
+                                    'multi-threaded',
+                                    'host='])
     except getopt.GetoptError:
         usage(1)
         
     use_encryption = CRYPTO_AVAILABLE
     conffile = None
+    host = "0.0.0.0"
     port = 8000
     multi_threaded = False
     for opt, val in opts:
@@ -1044,6 +1047,8 @@ if __name__ == '__main__':
             conffile = val
         elif opt in ('-m', '--multi-threaded'):
             multi_threaded = True
+        elif opt in ('-h', '--host'):
+            host = val
         elif opt in ('-p', '--port'):
             port = int(val)
         elif opt in ('-t', '--test-help'):
@@ -1117,24 +1122,24 @@ if __name__ == '__main__':
             # way to detect this patch is the following look-up:
             if hasattr(SSL.Connection, "set_default_client_timeout"):
                 server = ThreadingSSLBofhdServer(
-                    ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx, SSL.timeout(sec=4))
+                    (host, port), BofhdRequestHandler, db, conffile, ctx, SSL.timeout(sec=4))
             else:
                 server = ThreadingSSLBofhdServer(
-                    ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx)
+                    (host, port), BofhdRequestHandler, db, conffile, ctx)
         else:
             if hasattr(SSL.Connection, "set_default_client_timeout"):
                 server = SSLBofhdServer(
-                    ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx, SSL.timeout(sec=4))
+                    (host, port), BofhdRequestHandler, db, conffile, ctx, SSL.timeout(sec=4))
             else:
                 server = SSLBofhdServer(
-                    ("0.0.0.0", port), BofhdRequestHandler, db, conffile, ctx)
+                    (host, port), BofhdRequestHandler, db, conffile, ctx)
     else:
         if multi_threaded:
             server = ThreadingBofhdServer(
-                ("0.0.0.0", port), BofhdRequestHandler, db, conffile)
+                (host, port), BofhdRequestHandler, db, conffile)
         else:
             server = BofhdServer(
-                ("0.0.0.0", port), BofhdRequestHandler, db, conffile)
+                (host, port), BofhdRequestHandler, db, conffile)
     server.serve_forever()
 
 # arch-tag: 65c53099-96e5-4d49-aa19-18b9800f26d6
