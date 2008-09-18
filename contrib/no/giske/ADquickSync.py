@@ -100,7 +100,8 @@ def main():
 		usage(1)
 
 	delete_objects = False
-	dry_run = False	
+	dry_run = False
+	user_spread = None
 	
 	for opt, val in opts:
 		if opt == '--user_spread':
