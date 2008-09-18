@@ -4664,7 +4664,7 @@ class BofhdExtension(object):
             ret.append({'memberop': str(co.group_memberop_union),
                         'entity_id': row["group_id"],
                         'group': row["name"],
-                        'description': grp.description,
+                        'description': row["description"],
                        })
         ret.sort(lambda a,b: cmp(a['group'], b['group']))
         return ret
