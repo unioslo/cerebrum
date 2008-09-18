@@ -339,16 +339,30 @@ class Student(FSObject):
     def list_eksamensmeldinger(self):  # GetAlleEksamener
         """Hent ut alle eksamensmeldinger i nåværende sem.
         samt fnr for oppmeldte(topics.xml)"""
-        # TODO: Det er mulig denne skal splittes i to søk, ett som
-        # returnerer lovlige, og et som returnerer "ulovlige"
-        # eksamensmeldinger (sistnevnte er vel GetStudinfPrivatist?)
         qry = """
-        SELECT p.fodselsdato, p.personnr, e.emnekode, e.studieprogramkode
-        FROM fs.person p, fs.eksamensmelding e
-        WHERE p.fodselsdato=e.fodselsdato AND
-              p.personnr=e.personnr AND
-              e.arstall=%s 
-              AND %s
+        SELECT p.fodselsdato, p.personnr, vm.emnekode,
+               vm.studieprogramkode
+        FROM fs.person p, fs.vurdkombmelding vm,
+             fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+             fs.vurdkombenhet ve
+        WHERE p.fodselsdato=vm.fodselsdato AND
+              p.personnr=vm.personnr AND
+              vk.institusjonsnr = vm.institusjonsnr AND
+              vk.emnekode = vm.emnekode AND
+              vk.versjonskode = vm.versjonskode AND
+              vk.vurdkombkode = vm.vurdkombkode AND
+              vk.vurdordningkode IS NOT NULL and
+              vt.arstall = vm.arstall AND
+              vt.vurdtidkode = vm.vurdtidkode AND
+              ve.emnekode = vm.emnekode AND
+              ve.versjonskode = vm.versjonskode AND
+              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdtidkode = vm.vurdtidkode AND
+              ve.institusjonsnr = vm.institusjonsnr AND
+              ve.arstall_reell=vt.arstall AND
+              ve.vurdtidkode_reell=vt.vurdtidkode AND
+              ve.arstall_reell = %s AND
+              %s
         ORDER BY fodselsdato, personnr
         """ % (self.year, self._is_alive())                            
         return self.db.query(qry)
@@ -356,15 +370,32 @@ class Student(FSObject):
     def get_eksamensmeldinger(self, fnr, pnr): # GetStudentEksamen
         """Hent alle aktive eksamensmeldinger for en student"""
         qry = """
-        SELECT DISTINCT
-          em.emnekode, em.dato_opprettet, em.status_er_kandidat
-        FROM fs.eksamensmelding em, fs.person p
-        WHERE em.fodselsdato = :fnr AND
-              em.personnr = :pnr AND
-              em.fodselsdato = p.fodselsdato AND
-              em.personnr = p.personnr AND
-              em.arstall >= %s
-              AND %s""" % (self.year, self._is_alive())
+        SELECT DISTINCT vm.emnekode, vm.dato_opprettet,
+               vm.status_er_kandidat
+        FROM fs.person p, fs.vurdkombmelding vm,
+             fs.vurderingskombinasjon vk, fs.vurderingstid vt, 
+             fs.vurdkombenhet ve
+        WHERE p.fodselsdato = :fnr AND
+              p.personnr = :pnr AND
+              p.fodselsdato = vm.fodselsdato AND
+              p.personnr = vm.personnr AND
+              vk.institusjonsnr = vm.institusjonsnr AND
+              vk.emnekode = vm.emnekode AND
+              vk.versjonskode = vm.versjonskode AND
+              vk.vurdkombkode = vm.vurdkombkode AND
+              vk.vurdordningkode IS NOT NULL and
+              vt.arstall = vm.arstall AND
+              vt.vurdtidkode = vm.vurdtidkode AND
+              ve.emnekode = vm.emnekode AND
+              ve.versjonskode = vm.versjonskode AND
+              ve.vurdkombkode = vm.vurdkombkode AND 
+              ve.vurdtidkode = vm.vurdtidkode AND
+              ve.institusjonsnr = vm.institusjonsnr AND
+              ve.arstall = vt.arstall AND
+              ve.vurdtidkode = vt.vurdtidkode AND
+              ve.arstall_reell = %s AND
+              %s             
+              """ % (self.year, self._is_alive())
         return self.db.query(qry, {'fnr': fnr,
                                    'pnr': pnr})
 
@@ -400,25 +431,25 @@ class Student(FSObject):
     def get_emne_eksamensmeldinger(self, emnekode):  # GetEmneinformasjon
         """Hent informasjon om alle som er registrert på EMNEKODE"""
         query = """
-        SELECT p.fodselsdato, p.personnr, p.fornavn, p.etternavn
-        FROM fs.person p, fs.eksamensmelding e
-        WHERE e.emnekode = :emnekode AND
-             e.fodselsdato = p.fodselsdato AND
-             e.personnr = p.personnr"""
-        # NB! Oracle driver does not like :foo repeated multiple times :-(
-        # That is why we interpolate variables into the query directly.
-        if self.mndnr < 6:
-            time_part = """
-                        AND e.arstall >= %(year)d
-                        AND e.manednr >= %(mndnr)d
-                        """ % vars(self)
-        else:
-            time_part = """
-                        AND ((e.arstall = %(year)d AND
-                              e.manednr >= %(mndnr)d) OR
-                             (e.arstall > %(year)d))
-                        """ % vars(self)
-        return self.db.query(query + time_part, {"emnekode" : emnekode})
+        SELECT DISTINCT p.fodselsdato, p.personnr, p.fornavn, p.etternavn
+        FROM fs.person p, fs.vurdkombmelding vm,
+             fs.vurderingskombinasjon vk, 
+             fs.vurdkombenhet ve, fs.vurderingstid vt
+        WHERE vm.emnekode = :emnekode AND
+              p.fodselsdato = vm.fodselsdato AND
+              p.personnr = vm.personnr AND
+              ve.institusjonsnr = vm.institusjonsnr AND
+              ve.emnekode = vm.emnekode AND
+              ve.versjonskode = vm.versjonskode AND
+              ve.vurdkombkode = vm.vurdkombkode AND
+              ve.arstall = vm.arstall AND
+              ve.vurdtidkode = vm.vurdtidkode AND
+              ve.arstall_reell = vt.arstall AND
+              ve.vurdtidkode_reell = vt.vurdtidkode AND
+              vt.arstall_gjelder_i = %s AND
+              vt.terminkode_gjelder_i = %s
+              """ % (self.year, self.semester)
+        return self.db.query(query, {"emnekode" : emnekode})
 
     def get_student_kull(self, fnr, pnr):
         """Hent opplysninger om hvilken klasse studenten er en del av og 
@@ -756,16 +787,8 @@ class Undervisning(FSObject):
     # end list_undform_aktiviteter
 
 
-    def list_studenter_underv_enhet(self,  # GetStudUndervEnhet
-                                Instnr, emnekode, versjon, termk, aar, termnr):
-        if termk == 'VÅR':
-            minmaned, maxmaned = 1, 6
-        elif termk == 'HØST':
-            minmaned, maxmaned = 7, 12
-        else:
-            # Ikke blant de terminkodene vi støtter i dag; sørg for at
-            # eksamensmelding-delen av søket ikke gir noe resultat.
-            minmaned, maxmaned = 13, 0
+    def list_studenter_underv_enhet(self, Instnr, emnekode,
+                                    versjon, termk, aar, termnr):
         # Den ulekre repetisjonen av bind-parametere under synes
         # dessverre å være nødvendig; ut fra foreløpig testing ser det
         # ut til at enten Oracle eller DCOracle2 krever at dersom et
@@ -786,17 +809,32 @@ class Undervisning(FSObject):
           arstall        = :und_arstall AND
           terminnr       = :und_terminnr
         UNION
-        SELECT
+        SELECT DISTINCT
           fodselsdato, personnr
         FROM
-          FS.EKSAMENSMELDING
+          fs.vurdkombmelding vm, fs.vurderingstid vt,
+          fs.vurdkombenhet ve, fs.vurderingskombinasjon vk
         WHERE
-          institusjonsnr = :instnr AND
-          emnekode       = :emnekode AND
-          versjonskode   = :versjon AND
-          arstall        = :arstall AND
-          manednr       >= :minmaned AND
-          manednr       <= :maxmaned"""
+          vm.institusjonsnr    = :instnr AND
+          vm.emnekode          = :emnekode AND
+          vm.versjonskode      = :versjon AND
+          vt.arstall_gjelder_i = :arstall AND
+          ve.arstall_reell = vt.arstall AND
+          ve.vurdtidkode_reell = vt.vurdtidkode AND
+          vm.institusjonsnr=ve.institusjonsnr AND
+          vm.emnekode=ve.emnekode AND
+          vm.versjonskode=ve.versjonskode AND
+          vm.vurdkombkode=ve.vurdkombkode AND
+          vm.vurdtidkode=ve.vurdtidkode AND
+          vm.arstall=ve.arstall AND
+          vm.vurdkombkode=ve.vurdkombkode AND
+          ve.institusjonsnr = vk.institusjonsnr AND
+          ve.emnekode = vk.emnekode AND
+          ve.versjonskode = vk.versjonskode AND
+          ve.vurdkombkode = vk.vurdkombkode AND
+          vk.vurdordningkode IS NOT NULL AND
+          vt.terminkode_gjelder_i = :termk
+        """  
         return self.db.query(qry, {'und_instnr': Instnr,
                                    'und_emnekode': emnekode,
                                    'und_versjon': versjon,
@@ -807,8 +845,7 @@ class Undervisning(FSObject):
                                    'emnekode': emnekode,
                                    'versjon': versjon,
                                    'arstall': aar,
-                                   'minmaned': minmaned,
-                                   'maxmaned': maxmaned})
+                                   'termk': termk})
 
     def list_fagperson_semester(self): # GetFagperson_50
         # (GetKursFagpersonundsemester var duplikat)
