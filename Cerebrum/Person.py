@@ -613,7 +613,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                   'ou_id'):
             val = locals()[t]
             if val is not None:
-                if isinstance(val, (list, tuple)):
+                if isinstance(val, (list, tuple, set)):
                     where.append("%s IN (%s)" %
                                  (t, ", ".join(map(str, map(int, val)))))
                 else:
