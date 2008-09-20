@@ -336,6 +336,8 @@ class Student(FSObject):
         """ %(self.semester, self.year, self._get_termin_aar(only_current=1), self._is_alive())
         return self.db.query(qry, {'fnr': fnr, 'pnr': pnr})
 
+    ## ToDo: Måten vi knytter vurdkombenhet mot vurdtidkode bør
+    ## sjekkes nærmere med Geir.
     def list_eksamensmeldinger(self):  # GetAlleEksamener
         """Hent ut alle eksamensmeldinger i nåværende sem.
         samt fnr for oppmeldte(topics.xml)"""
@@ -352,8 +354,8 @@ class Student(FSObject):
               vk.versjonskode = vm.versjonskode AND
               vk.vurdkombkode = vm.vurdkombkode AND
               vk.vurdordningkode IS NOT NULL and
-              vt.arstall = vm.arstall AND
-              vt.vurdtidkode = vm.vurdtidkode AND
+              ve.arstall = vm.arstall AND
+              ve.vurdtidkode = vm.vurdtidkode AND
               ve.emnekode = vm.emnekode AND
               ve.versjonskode = vm.versjonskode AND
               ve.vurdkombkode = vm.vurdkombkode AND 
@@ -361,7 +363,7 @@ class Student(FSObject):
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall_reell=vt.arstall AND
               ve.vurdtidkode_reell=vt.vurdtidkode AND
-              ve.arstall_reell = %s AND
+              ve.arstall_gjelder_i = %s AND
               %s
         ORDER BY fodselsdato, personnr
         """ % (self.year, self._is_alive())                            
