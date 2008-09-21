@@ -363,12 +363,14 @@ class Student(FSObject):
               ve.institusjonsnr = vm.institusjonsnr AND
               ve.arstall_reell=vt.arstall AND
               ve.vurdtidkode_reell=vt.vurdtidkode AND
-              ve.arstall_gjelder_i = %s AND
+              vt.arstall_gjelder_i = %s AND
               %s
         ORDER BY fodselsdato, personnr
         """ % (self.year, self._is_alive())                            
         return self.db.query(qry)
 
+    ## ToDo: Denne maa oppdateres til aa samsvare med
+    ## list_eksamensmeldinger!
     def get_eksamensmeldinger(self, fnr, pnr): # GetStudentEksamen
         """Hent alle aktive eksamensmeldinger for en student"""
         qry = """
@@ -430,6 +432,8 @@ class Student(FSObject):
         return self.db.query(qry)
     # end list_betalt_semesteravgift
 
+    ## ToDo: Denne maa oppdateres til aa samsvare med
+    ## list_eksamensmeldinger!    
     def get_emne_eksamensmeldinger(self, emnekode):  # GetEmneinformasjon
         """Hent informasjon om alle som er registrert på EMNEKODE"""
         query = """
