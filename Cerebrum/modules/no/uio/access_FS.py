@@ -837,7 +837,6 @@ class UiOUndervisning(access_FS.Undervisning):
           ve.vurdkombkode=vm.vurdkombkode AND
           ve.vurdtidkode=vm.vurdtidkode AND
           ve.arstall=vm.arstall AND
-          ve.vurdtidkode=vt.vurdtidkode AND
           ve.arstall_reell=vt.arstall AND
           ve.vurdtidkode_reell=vt.vurdtidkode AND
           vt.arstall_gjelder_i >= :aar2
