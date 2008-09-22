@@ -71,6 +71,7 @@ class delete:
                     db.query(query)
                 except:
                     print "error deleting email_data for account_id: %s" % account_id
+                    sys.exit()
 
         for entry in delete_tables:
             value = entry.values()
@@ -81,6 +82,7 @@ class delete:
                 db.query(query)
             except:
                 print "error deleting account for account_id: %s" % account_id
+                sys.exit()
 
         # Done deleting, now writing legacy info after trying to find (new) primary account for person
         try:
@@ -96,16 +98,11 @@ class delete:
             print "Could not find primary account"
             
         try:
-            query = "insert into legacy_users values ('%s', '%s', '%s', '%s', '%s', '%s')" % (legacy_info['user_name'],
-                                                                                              legacy_info['ssn'],
-                                                                                              legacy_info['source'],
-                                                                                              legacy_info['type'],
-                                                                                              legacy_info['comment'],
-                                                                                              legacy_info['name'])
-            print "query=%s\n" % query
-            db.query(query)
-        except:
-            print "Could not write to legacy_users. Username is probably already reserved.\n"
+            ac.write_legacy_user(legacy_info['user_name'],ssn=legacy_info['ssn'],source=legacy_info['source'], type=legacy_info['type'],comment=legacy_info['comment'],name=legacy_info['name'])
+            print "Updated legacy table\n"
+        except Exception, m:
+            print "Could not write to legacy_users: %s\n" % (m)
+            sys.exit()
 
 
         # Sending email to SUT queue in RT if necessary
