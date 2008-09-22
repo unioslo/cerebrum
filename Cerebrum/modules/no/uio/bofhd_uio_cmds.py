@@ -4455,6 +4455,9 @@ class BofhdExtension(object):
           L{iterable} is preserved. The underlying db_row objects are modified.
         """
 
+        # TODO: hack to omit bug when inserting new key/value pairs in db_row
+        ret = []
+
         for item in iterable:
             member_type = int(item["member_type"])
             member_id = int(item["member_id"])
@@ -4466,9 +4469,11 @@ class BofhdExtension(object):
                 name = account.account_name
             else:
                 name = None
-
-            item["member_name"] = name
-            yield item
+            tmp = item.dict()
+            tmp["member_name"] = name
+            ret.append(tmp)
+            #yield item
+        return ret
     # end _fetch_member_names
 
 
