@@ -57,14 +57,14 @@ class BofhdExtension(object):
     all_commands = {}
 
     copy_commands = (
-        '_get_account', '_get_ou', '_get_person',
-        '_get_disk', '_get_group', '_map_person_id', '_parse_date',
-        '_get_entity', 'group_user', 'person_list_user_priorities',
-        'group_memberships', 'group_search',
-        '_get_boolean', '_entity_info', 'num2str',
-        'group_list', 'misc_list_passwords', '_get_cached_passwords',
-        '_get_entity_name', 'group_add_entity',
-        'group_remove_entity', 'user_password',
+        '_get_account', '_get_ou', '_get_person', '_get_disk',
+        '_get_group', '_map_person_id', '_parse_date', '_get_entity',
+        'group_user', 'person_list_user_priorities',
+        'group_memberships', 'group_search', '_get_boolean',
+        '_entity_info', 'num2str', 'group_list',
+        '_fetch_member_names', 'misc_list_passwords',
+        '_get_cached_passwords', '_get_entity_name',
+        'group_add_entity', 'group_remove_entity', 'user_password',
         '_get_group_opcode', '_get_name_from_object',
         '_group_add_entity', '_group_count_memberships',
         'group_create', 'spread_add', '_get_constant',
