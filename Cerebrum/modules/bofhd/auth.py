@@ -1530,9 +1530,9 @@ class BofhdAuth(DatabaseAccessor):
         group = Factory.get('Group')(self._db)
         ret = [entity_id]
         # Grab all groups where entity_id is a direct member
-        ret.extend(int(x["group_id"])
-                   for x in group.search(member_id=entity_id,
-                                         indirect_members=False))
+        ret.extend([int(x["group_id"])
+                    for x in group.search(member_id=entity_id,
+                                          indirect_members=False)])
         self._users_auth_entities_cache[entity_id] = ret
         return ret
 

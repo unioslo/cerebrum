@@ -192,10 +192,10 @@ class ADgroupUtil(ADutil):
         #server ensures that each group have correct members.   
 
         const = Factory.get("Constants")(self.db)
-        entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
-                           self.group.list_names(const.account_namespace))
-        entity2name.update((x["entity_id"], x["entity_name"]) for x in
-                           self.group.list_names(const.group_namespace))
+        entity2name = dict([(x["entity_id"], x["entity_name"]) for x in 
+                           self.group.list_names(const.account_namespace)])
+        entity2name.update([(x["entity_id"], x["entity_name"]) for x in
+                           self.group.list_names(const.group_namespace)])
 
         for (grp_id, grp_name, grp_desc) in cerebrumgroups:
             #Only interested in union members(believe this is only type in use)

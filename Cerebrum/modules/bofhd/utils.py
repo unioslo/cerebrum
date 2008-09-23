@@ -366,9 +366,9 @@ class BofhdRequests(object):
         ret = self._db.query(qry + " AND ".join(where), cols)
         if given:
             group = Factory.get('Group')(self._db)
-            tmp = list(str(x["group_id"])
-                       for x in group.search(member_id=operator_id,
-                                             indirect_members=True))
+            tmp = [str(x["group_id"])
+                   for x in group.search(member_id=operator_id,
+                                         indirect_members=True)]
             extra_where = ""
             if len(tmp) > 0:
                 extra_where = "AND destination_id IN (%s)" % ", ".join(tmp)

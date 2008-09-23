@@ -73,10 +73,10 @@ class PosixLDIF(object):
         # memory expensive.
         # FIXME: do id2uname and entity2name have the same content?
         if self.get_name:
-            self.entity2name = dict((x["entity_id"], x["entity_name"]) for x in
-                              self.grp.list_names(self.const.account_namespace))
-            self.entity2name.update((x["entity_id"], x["entity_name"]) for x in
-                              self.grp.list_names(self.const.group_namespace))
+            self.entity2name = dict([(x["entity_id"], x["entity_name"]) for x in
+                              self.grp.list_names(self.const.account_namespace)])
+            self.entity2name.update([(x["entity_id"], x["entity_name"]) for x in
+                              self.grp.list_names(self.const.group_namespace)])
     # end __init__
 
 

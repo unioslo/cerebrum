@@ -244,9 +244,9 @@ class OfkObject2Cerebrum(Object2Cerebrum):
         entity2name = dict()
         for row in self._group.list_names(self.co.group_namespace):
             entity2name[int(row['entity_id'])] = row['entity_name']
-        entity2name.update((int(x["entity_id"]), x["entity_name"])
+        entity2name.update([(int(x["entity_id"]), x["entity_name"])
                            for x in
-                           self._group.list_names(self.co.account_namespace))
+                           self._group.list_names(self.co.account_namespace)])
 
         # Set status on autogroups already in the database
         seen_autogroups = dict()

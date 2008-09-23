@@ -1439,7 +1439,7 @@ def argument_to_sql(argument, sql_attr_name, binds,
 
         binds.update(tmp)
         return ("(%s IN (%s))" % (sql_attr_name,
-                                  ", ".join(":" + x for x in tmp.iterkeys())))
+                                  ", ".join([":" + x for x in tmp.iterkeys()])))
     else:
         assert binds_name not in binds
         binds[binds_name] = transformation(argument)

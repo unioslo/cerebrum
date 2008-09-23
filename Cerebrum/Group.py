@@ -454,7 +454,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             # workset contains ids of the entities that are members. in each
             # iteration we are looking for direct parents of whatever is in
             # workset.
-            workset = set(int(x) for x in member_id)
+            workset = set([int(x) for x in member_id])
             while workset:
                 tmp = workset
                 workset = set()
@@ -666,7 +666,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                 workset = set((start_id_set,))
 
             while workset:
-                new_set = set(x[field] for x in searcher(workset))
+                new_set = set([x[field] for x in searcher(workset)])
                 result.update(workset)
                 workset = new_set.difference(result)
 

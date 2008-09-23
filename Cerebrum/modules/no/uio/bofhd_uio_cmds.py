@@ -5579,9 +5579,9 @@ class BofhdExtension(object):
             account = self._get_account(entity_id.split(":")[-1])
             group = self.Group_class(self.db)
             entities = [account.entity_id]
-            entities.extend(x["group_id"] for x in
+            entities.extend([x["group_id"] for x in
                             group.search(member_id=account.entity_id,
-                                         indirect_members=False))
+                                         indirect_members=False)])
         else:
             if not entity_id.isdigit():
                 raise CerebrumError("Expected entity-id")
