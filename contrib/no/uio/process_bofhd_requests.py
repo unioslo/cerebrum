@@ -30,6 +30,7 @@ import popen2
 import re
 import sys
 import time
+import socket
 from select import select
 
 import cerebrum_path
@@ -218,7 +219,7 @@ def connect_cyrus(host=None, username=None, as_admin=True):
     imapconn = imaplib.IMAP4_SSL(host=host.name)
     try:
         imapconn.authenticate('PLAIN', auth_plain_cb)
-    except imapconn.error, e:
+    except (imapconn.error, socket.error), e:
         raise CyrusConnectError("%s@%s: %s" % (username, host.name, e))
     return imapconn
 
@@ -1224,3 +1225,4 @@ def usage(exitcode=0):
 
 if __name__ == '__main__':
     main()
+
