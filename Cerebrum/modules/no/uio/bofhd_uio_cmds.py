@@ -5214,6 +5214,9 @@ class BofhdExtension(object):
             else:
                 raise CerebrumError("Unsupported owner type. Please use the 'to screen' option")
             if tpl_lang.endswith("letter"):
+                # owner_type is checked above: either person or group
+                if account.owner_type != self.const.entity_person:
+                    raise CerebrumError, "Cannot send letter to group %s" % mapping['group']
                 address = None
                 for source, kind in ((self.const.system_sap, self.const.address_post),
                                      (self.const.system_fs, self.const.address_post),
