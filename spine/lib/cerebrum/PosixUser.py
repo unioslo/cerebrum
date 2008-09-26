@@ -61,7 +61,6 @@ attrs = [
     CerebrumDbAttr('gecos', table, str, write=True, optional=True),
     CerebrumDbAttr('posix_uid', table, int, write=True, optional=True),
     CerebrumDbAttr('primary_group', table, Group, write=True, optional=True),
-    CerebrumDbAttr('pg_member_op', table, GroupMemberOperationType, write=True, optional=True),
     CerebrumDbAttr('shell', table, PosixShell, write=True, optional=True)
 ]
 

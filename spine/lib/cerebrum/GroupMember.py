@@ -21,6 +21,9 @@
 from Cerebrum.extlib import sets
 import Cerebrum.Database
 
+from Cerebrum.Utils import Factory
+co = Factory.get('Constants')()
+
 from SpineLib.DatabaseClass import DatabaseClass, DatabaseAttr
 from SpineLib import SpineExceptions
 
@@ -36,7 +39,6 @@ table = 'group_member'
 class GroupMember(DatabaseClass):
     primary = (
         DatabaseAttr('group', table, Group),
-        DatabaseAttr('operation', table, GroupMemberOperationType),
         DatabaseAttr('member', table, Entity),
         DatabaseAttr('member_type', table, EntityType)
     )
@@ -52,108 +54,74 @@ registry.register_class(GroupMember)
 def get_group_members(self):
     s = registry.GroupMemberSearcher(self.get_database())
     s.set_group(self)
-    return s.search()
-get_group_members.signature = [GroupMember]
-
-UnionType = 'union'
-IntersectionType = 'intersection'
-DifferenceType = 'difference'
-
-def _get_members(group, group_members):
-    unions = sets.Set()
-    intersects = sets.Set()
-    differences = sets.Set()
-
-    for entity, operation in group_members[group]:
-        if entity.get_type().get_name() is Group.entity_type:
-            members = _get_members(entity, group_members)
-        else:
-            members = sets.Set([entity])
-
-        if operation.get_name() == UnionType:
-            unions.update(members)
-        elif operation.get_name() == IntersectionType:
-            intersects.update(members)
-        elif operation.get_name() == DifferenceType:
-            differences.update(members)
-
-    if intersects:
-        unions.intersection_update(intersects)
-    if differences:
-        unions.difference_update(differences)
-
-    return unions
-
-# FIXME: burde kanskje sjekke for sykler?
+    return [i.get_member() for i in s.search()]
+get_group_members.signature = [Entity]
 
 def get_groups(self):
-    group_members = {}
+    """
+    Returns the list of all groups this entity is a member of
+    (directly or indirectly).
+    """
+    groups = []
     def get(entity):
         s = registry.GroupMemberSearcher(self.get_database())
         s.set_member(entity)
         for i in s.search():
             group = i.get_group()
-            if group not in group_members:
-                group_members[group] = []
-            group_members[group].append((entity, i.get_operation()))
-            get(group)
+            if group not in groups:
+                groups.append(group)
+                get(group)
     get(self)
 
-    return [i for i in group_members if self in _get_members(i, group_members)]
+    return groups
 get_groups.signature = [Group]
 
 def get_direct_groups(self):
-    groups = sets.Set(get_groups(self))
+    """Returns the list of groups this entity is a direct member of."""
     searcher = registry.GroupMemberSearcher(self.get_database())
     searcher.set_member(self)
-    union = registry.GroupMemberOperationType(self.get_database(), name="union")
-    searcher.set_operation(union)
-    groups.intersection_update([i.get_group() for i in searcher.search()])
-    return list(groups)
+    return [i.get_group() for i in searcher.search()]
 get_direct_groups.signature = [Group]
 
 def get_members(self):
     """
-    Return a flattened list of all entities in this group and its subgroups.
+    Return a flattened list of all members of this group and its subgroups.
     """
-
-    group_members = {}
-
+    members = []
+    grouptype = EntityType(self.get_database(), int(co.entity_group))
+    
     def get(group):
-        if group not in group_members:
-            group_members[group] = []
-        for i in get_group_members(group):
-            member = i.get_member()
-            group_members[group].append((member, i.get_operation()))
-
-            if member.get_type().get_name() == Group.entity_type:
+        s = registry.GroupMemberSearcher(self.get_database())
+        s.set_group(group)
+        
+        for groupmember in s.search():
+            member=groupmember.get_member()
+            membertype=groupmember.get_member_type()
+            if member not in members:
+                members.append(member)
+                #if membertype == grouptype:
                 get(member)
     get(self)
 
-    members = list(_get_members(self, group_members))
-    members.sort(lambda x,y: cmp(x.get_name(), y.get_name()))
     return members
 get_members.signature = [Entity]
 
-def add_member(self, entity, operation):
+def add_member(self, entity):
     obj = self._get_cerebrum_obj()
 
-    try:
-        obj.add_member(entity.get_id(), entity.get_type().get_id(), operation.get_id())
-    except Cerebrum.Database.IntegrityError, e:
-        raise SpineExceptions.AlreadyExistsError('User is already a member')
+    obj.add_member(entity.get_id())
     obj.write_db()
 add_member.signature = None
-add_member.signature_args=[Entity, GroupMemberOperationType]
+add_member.signature_args=[Entity]
 add_member.signature_write=True
 add_member.signature_exceptions = [SpineExceptions.AlreadyExistsError]
 
-def remove_member(self, group_member):
+def remove_member(self, entity):
     obj = self._get_cerebrum_obj()
-    obj.remove_member(group_member.get_member().get_id(), group_member.get_operation().get_id())
+    obj.remove_member(entity.get_id())
     obj.write_db()
 remove_member.signature = None
-remove_member.signature_args=[GroupMember]
+remove_member.signature_args=[Entity]
 remove_member.signature_write=True
 
 Entity.register_methods([get_groups, get_direct_groups])
