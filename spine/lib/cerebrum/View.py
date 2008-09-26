@@ -198,7 +198,9 @@ class group_members:
         self.types=types
         
         memberships=db.query("""
-        SELECT gm.group_id, gm.operation, gm.member_type, gm.member_id,
+        SELECT gm.group_id AS group_id,
+        gm.member_type AS member_type,
+        gm.member_id AS member_id,
         en.entity_name AS member_name
         FROM group_member gm, entity_name en
         WHERE
@@ -216,54 +218,32 @@ class group_members:
                'host_namespace': int(co.host_namespace),
                })
         
-        class member_group:
-            def __init__(self):
-                self.union=[]
-                self.difference=[]
-                self.intersection=[]
-                
-        opt={
-            int(co.group_memberop_union): "union",
-            int(co.group_memberop_intersection): "intersection",
-            int(co.group_memberop_difference): "difference"
-            }
-        
-        self.groups={}
+        self.group_members={}
         self.member_names={}
         for m in memberships:
-            getattr(self.groups.setdefault(m[0], member_group()),
-                    opt[m[1]]).append((m[2], m[3]))
-            self.member_names[m[3]]=m[4]
+            if not m['group_id'] in self.group_members:
+                self.group_members[m['group_id']]=[]
+            self.group_members[m['group_id']].append((m['member_type'],
+                                                      m['member_id']))
+            self.member_names[m['member_id']]=m['member_name']
+
+    def _get_members(self, id, groups, members, type, types):
+        if type==None or type==co.entity_group:
+            if not id in self.group_members:
+                return 
+            for t, i in self.group_members[id]:
+                if not i in groups:
+                    groups.append(i)
+                    self._get_members(i, groups, members, t, types)
+        elif type in types:
+            members.append(id)
     
     def get_members(self, id, type=None, types=None):
+        members=[]
+        groups=[]
         if types==None: types=self.types
-        #print "get_members(%d, %s, %s)" % (id, type, types)
-        if type==None or type==co.entity_group:
-            members=sets.Set()
-            intersection=sets.Set()
-            difference=sets.Set()
-            if not id in self.groups:
-                return members # no members
-            for t, i in self.groups[id].union:
-                members.union_update(self.get_members(i, t, types))
-                union=members.copy()
-            if self.groups[id].intersection:
-                for t, i in self.groups[id].intersection:
-                    intersection.union_update(self.get_members(i, t, types))
-                members.intersection_update(intersection)
-            if self.groups[id].difference:
-                for t, i in self.groups[id].difference:
-                    difference.union_update(self.get_members(i, t, types))
-                members.difference_update(difference)
-            #print union, intersection, difference
-            #print "get_members(%d) =" % id, members
-            return members
-        elif type in types:
-            #print "get_members(%d) =" % id, [id]
-            return [id]
-        else:
-            #print "get_members(%d) =" % id, []
-            return []
+        self._get_members(id, groups, members, type, types)
+        return members
     
     def get_members_name(self, id):
         return [self.member_names[i] for i in self.get_members(id)]
