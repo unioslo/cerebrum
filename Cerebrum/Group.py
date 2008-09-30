@@ -37,7 +37,10 @@ from Cerebrum.Utils import argument_to_sql
 try:
     set()
 except NameError:
-    from Cerebrum.extlib.sets import Set as set
+    try:
+        from sets import Set as set
+    except ImportError:    
+        from Cerebrum.extlib.sets import Set as set
 
 
 def prepare_string(value):
