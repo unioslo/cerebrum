@@ -34,6 +34,14 @@ import sys
 import time
 import traceback
 
+# 2.2 and 2.3 compatibility cruft
+try:
+    set()
+except NameError:
+    try:
+        from sets import Set as set
+    except ImportError:    
+        from Cerebrum.extlib.sets import Set as set
 
 class _NotSet(object):
     """This class shouldn't be referred to directly, import the
