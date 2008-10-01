@@ -63,6 +63,11 @@ user-person-aff-sync.py -a ANSATT -a STUDENT -a TILKNYTTET
 ... will synchronise ANSATT, STUDENT and TILKNYTTET affiliations, so that
 users' affiliations of these 3 types match their owners'. *All* other
 affiliation types will be left intact and they will NOT be touched.
+
+If you want to combine TILKNYTTET and ANSATT to be considered as 'employee
+affiliations', run this:
+
+user-person-aff-sync.py --is-employee ANSATT --is-employee TILKNYTTET -d
 """
 
 import getopt
@@ -75,16 +80,20 @@ from Cerebrum import Errors
 
 
 
-def has_employee(affiliations):
+def has_employee(affiliations, employee_affs):
     """Check whether some of the affiliations match affiliation_ansatt.
 
     @type affiliations: set of tuples (affiliation_id, ou_id)
     @param affiliations:
       Affiliations to check
+
+    @type affiliations: set of affiliations
+    @param affiliations:
+      Affiliation types that are considered equivalent to affiliation_ansatt.
     """
 
     for ou, affiliation in affiliations:
-        if affiliation == const.affiliation_ansatt:
+        if affiliation in employee_affs:
             return True
     return False
 # end has_employee
@@ -92,7 +101,9 @@ def has_employee(affiliations):
 
 
 def adjust_user_affiliations(account, account_id, owner_id,
-                             owner_affiliations, available_affiliations):
+                             owner_affiliations,
+                             available_affiliations,
+                             employee_affs):
     """Correct affiliations belonging to account_id.
 
     Correction procedure is described in __doc__.
@@ -117,6 +128,11 @@ def adjust_user_affiliations(account, account_id, owner_id,
       of L{available_affiliations}.
 
       Any affiliation NOT in this set will be left alone.
+
+    @type employee_affs: set of affiliations
+    @param employee_affs:
+      This set lists the affiliations that are considered equivalent to
+      affiliation_ansatt in this run.
     """
 
     def aff2str(aff):
@@ -155,7 +171,7 @@ def adjust_user_affiliations(account, account_id, owner_id,
         account.set_account_type(ou_id, affiliation)
         acquired_affiliations.append((ou_id, affiliation))
 
-    # Remove affiliations that the account has, but hte owner does NOT have.
+    # Remove affiliations that the account has, but the owner does NOT have.
     # (we cover everything except STUDENT here, since STUDENT are special)
     lost_affiliations = list()
     for ou_id, affiliation in user_but_not_person:
@@ -170,7 +186,7 @@ def adjust_user_affiliations(account, account_id, owner_id,
     # nuke them all.
     kept_affiliations = list()
     if user_student_affiliations:
-        if not has_employee(owner_affiliations):
+        if not has_employee(owner_affiliations, employee_affs):
             kept_affiliations.append(user_student_affiliations.pop())
 
     # delete what's left of student affiliations
@@ -193,17 +209,24 @@ def adjust_user_affiliations(account, account_id, owner_id,
 
 
 
-def process_affiliations(affiliations, db):
+def process_affiliations(affiliations, employee_affs, db):
     """Perform affiliation sync between people and users.
 
     @type affiliation: sequence of (unique) CerebrumCode instances.
     @param affiliations: sequence of affiliations to consider
+
+    @type employee_affs: sequence of (unique) CerebrumCode instances.
+    @param employee_affs:
+      Sequence of affiliations that are to be treated equivalent to
+      affiliation_ansatt. In some cases it is useful to include more affs into
+      such a set.
 
     @param db: Database proxy.
     """
 
     person = Factory.get("Person")(db)
     logger.info("Will look for these affiliations: %s", affiliations)
+    logger.info("These affiliations count as ANSATT: %s", employee_affs)
 
     # collect person affiliations. This is the set that the users will be
     # sync-ed against.
@@ -227,7 +250,7 @@ def process_affiliations(affiliations, db):
             continue
         adjust_user_affiliations(account, account_id, owner_id,
                                  person2affiliations.get(owner_id, set()),
-                                 affiliations)
+                                 affiliations, employee_affs)
         processed.add(account_id)
 # end process_affiliations
 
@@ -275,10 +298,12 @@ def main():
     opts, junk = getopt.getopt(sys.argv[1:],
                                "a:d",
                                ("affiliation=",
-                                "dryrun",))
+                                "dryrun",
+                                "is-employee="))
 
     affiliations = list()
     dryrun = False
+    employee_affs = []
     for option, value in opts:
         if option in ("-a", "--affiliation",):
             # each affiliation may be an int or a code_str from the
@@ -286,6 +311,8 @@ def main():
             affiliations.append(value)
         elif option  in ("-d", "--dryrun"):
             dryrun = True
+        elif option in ("--is-employee",):
+            employee_affs.append(value)
 
 
     global const
@@ -294,16 +321,20 @@ def main():
     const = Factory.get("Constants")()
     affiliations = affiliations_to_set(const.PersonAffiliation,
                                        affiliations)
+    employee_affs = affiliations_to_set(const.PersonAffiliation,
+                                        employee_affs)
+    if not employee_affs:
+        employee_affs = set([const.affiliation_ansatt,])
 
-    # Since STUDENT may be kept, if the owner does NOT have ANSATT, sync'ing
-    # STUDENT without ANSATT is meaningless.
+    # Since STUDENT may be kept, depending on owner's employment affs,
+    # sync'ing one without the other is meaningless
     if const.affiliation_student in affiliations:
-        assert const.affiliation_ansatt in affiliations, \
+        assert employee_affs.issubset(affiliations), \
                 "It is a *BAD* idea to sync STUDENT without ANSATT"
 
     if dryrun:
         db.commit = db.rollback
-    process_affiliations(affiliations, db)
+    process_affiliations(affiliations, employee_affs, db)
     if dryrun:
         logger.debug("All changed rolled back")
         db.rollback()
