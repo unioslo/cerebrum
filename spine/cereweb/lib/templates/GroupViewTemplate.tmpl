@@ -45,13 +45,12 @@
 
 #def viewContent($transaction, $group)
 #set $searcher = $transaction.get_group_member_operation_type_searcher()
-#set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
 #set $commands=$transaction.get_commands()
     $viewInfo($group)
     $viewQuarantines($group)
     $addNote($group)
     $viewNotes($group)
-    $viewMembers($group, $ops)
+    $viewMembers($group)
     #if $commands.has_extention("email")
         $email_template.set($group, $transaction)
         $email_template.view($group, $transaction)
@@ -59,8 +58,8 @@
     $viewTraits($entity)
     $addSpread($group, $transaction)
     $viewSpreads($group)
-    $joinGroup($group, $ops)
-    $addMember($group, $ops)
+    $joinGroup($group)
+    $addMember($group)
     $derivedMembers($group)
     $viewHistoryLog($group)
 #end def
@@ -82,7 +81,7 @@ $info.append(($_('Description'), $html_quote($group.get_description())))
 $widgets.viewInfo($info, $notice)
 #end def
 
-#def addMember($group, $ops)
+#def addMember($group)
 #set $types = (('account', 'Account'), ('group', 'Group'))
 <div class="edit box" style="display:none;">
     <h3>$_('Add member')</h3>
@@ -96,9 +95,6 @@ $widgets.viewInfo($info, $notice)
         <div class="required">
             $form_widgets.generate_loption('type', 'Member type', $types, 'account')
         </div>
-        <div class="required">
-            $form_widgets.generate_loption('operation', 'Operation', $ops, 'union')
-        </div>
         <div class="buttons">
             <input type="submit" value="$_('Add member')" />&nbsp;
             <input type="button" value="$_('Cancel')" class="cancel" />
@@ -107,12 +103,7 @@ $widgets.viewInfo($info, $notice)
 </div>
 #end def
 
-#def joinGroup($entity, $ops=None, $transaction=None)
-    #assert $ops is not None or $transaction is not None
-    #if $ops is None
-    #set $searcher = $transaction.get_group_member_operation_type_searcher()
-    #set $ops = [(i.get_name(),i.get_description()) for i in $searcher.search()]
-    #end if
+#def joinGroup($entity)
     <div id="joinGroupBox" class="edit box" style="display:none;">
         <h3>$_('Join group')</h3>
         <form action="/group/join_group" method="post">
@@ -130,28 +121,12 @@ $widgets.viewInfo($info, $notice)
     </div>
 #end def
 
-#def viewMembers($group, $ops)
+#def viewMembers($group)
 #set $members = $group.get_group_members()
 #if $members
 <div class="list box">
     <h3>$_('Members')</h3>
 
-    ## Split member by operation
-    #set $memberSets = {}
-    #for $key, $tmp in $ops
-        #set $memberSets[$key] = []
-    #end for
-    #for $member in $members
-        #set $op = $member.get_operation().get_name()
-        #set $type = $member.get_member_type().get_name()
-        $memberSets[$op].append(($type, $member.get_member()))
-    #end for
-
-    ## List members
-    #for $op, $name in $ops
-    #set $op_members = $memberSets[$op]
-    #if $op_members
-    <h4>$name:</h4>
     <table>
         <tr>
             <th>$_('Type')</th>
@@ -159,10 +134,10 @@ $widgets.viewInfo($info, $notice)
             <th>$_('Member owner')</th>
             <th>$_('Actions')</th>
         </tr>
-        #for $type, $member in $op_members
+        #for $member in $members
         <tr>
             <td>
-                $html_quote($type.capitalize())
+                $html_quote($member.get_type().get_name().capitalize())
             </td>
             <td>
                 $object_link($member)
@@ -181,8 +156,6 @@ $widgets.viewInfo($info, $notice)
         </tr>
         #end for
     </table>
-    #end if
-    #end for
 </div>
 #end if
 #end def
