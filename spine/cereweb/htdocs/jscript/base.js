@@ -166,7 +166,7 @@ cereweb.createDiv = cereweb.utils.createDiv; // Backwards compatibility.
 
     var addCloseButton = function (el) {
         var cb = document.createElement('img');
-        cb.src = '/yui/build/container/assets/close12_1.gif';
+        cb.src = '/yui/container/assets/close12_1.gif';
         YD.addClass(cb, 'upperRight');
         el.appendChild(cb);
         return cb;
