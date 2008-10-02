@@ -73,29 +73,29 @@
             #try
                 #set $parent = $ou.get_parent($perspective)
             #except NotFoundError
-            #else
-                <h4>$_('Parent in perspective')
-			$html_quote($perspective.get_name())</h4>
-                #if $parent
-                <div>$object_link($parent)</div>
-                #else
-                <div>$_('(Root of perspective)')</div>
-                #end if
+                #continue
             #end try
+            <h4>$_('Parent in perspective')
+	    	$html_quote($perspective.get_name())</h4>
+            #if $parent
+            <div>$object_link($parent)</div>
+            #else
+            <div>$_('(Root of perspective)')</div>
+            #end if
 
             ## children
             #try
                 #set $children = $ou.get_children($perspective)
             #except NotFoundError
-            #else
-                #if $children
-                    <h4>$_('Children in perspective')
-			$html_quote($perspective.get_name())</h4>
-                    #for $child in $children
-                    <div>$object_link($child)</div>
-                    #end for
-                #end if     
+                #continue
             #end try
+            #if $children
+                <h4>$_('Children in perspective')
+                    $html_quote($perspective.get_name())</h4>
+                #for $child in $children
+                <div>$object_link($child)</div>
+                #end for
+            #end if     
         #end for
     </div>
 #end def
