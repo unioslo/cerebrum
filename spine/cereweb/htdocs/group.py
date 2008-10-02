@@ -72,16 +72,9 @@ def view(transaction, id, **vargs):
 view = transaction_decorator(view)
 view.exposed = True
     
-def add_member(transaction, id, name, type, operation):
+def add_member(transaction, id, name, type):
     group = transaction.get_group(int(id))
     cmd = transaction.get_commands()
-    
-    try:
-        op = transaction.get_group_member_operation_type(operation)
-    except:
-        queue_message(_("Invalid operation '%s'.") % operation, True)
-        redirect_object(group)
-        return
     
     search = transaction.get_entity_name_searcher()
     search.set_name(name)
@@ -94,20 +87,25 @@ def add_member(transaction, id, name, type, operation):
         return
     
     entity = entity_name.get_entity()
-    group.add_member(entity)
-    
+    try:
+        group.add_member(entity)
+    except AlreadyExistsError, e:
+        msg = _("Entity is already a member of group %s") % name
+        queue_message(msg, True, object_link(entity))
+        redirect_object(entity)
+
     msg = _("%s added as a member to group.") % object_link(entity)
     commit(transaction, group, msg=msg)
 add_member = transaction_decorator(add_member)
 add_member.exposed = True
 
-def remove_member(transaction, groupid, memberid, operation='union'):
+def remove_member(transaction, groupid, memberid):
     group = transaction.get_group(int(groupid))
     member = transaction.get_entity(int(memberid))
-    operation = transaction.get_group_member_operation_type(operation)
 
-    group_member = transaction.get_group_member(group, operation, member, member.get_type())
-    group.remove_member(group_member)
+    group_member = transaction.get_group_member(group, member, member.get_type())
+    ##group.remove_member(group_member)
+    group.remove_member(member)
 
     msg = _("%s removed from group.") % object_link(member)
     commit(transaction, group, msg=msg)
@@ -228,13 +226,9 @@ def delete(transaction, id):
 delete = transaction_decorator(delete)
 delete.exposed = True
 
-def join_group(transaction, entity, name, operation=None):
+def join_group(transaction, entity, name):
     """Join entity into group with name 'group'."""
     entity = transaction.get_entity(int(entity))
-    if not operation:
-        operation = 'union'
-    operation = transaction.get_group_member_operation_type(operation)
-
     try:
         # find the group by name.
         group = transaction.get_commands().get_group_by_name(name)
@@ -245,10 +239,6 @@ def join_group(transaction, entity, name, operation=None):
         redirect_object(entity)
     except AlreadyExistsError, e:
         msg = _("Entity is already a member of group %s") % name
-        queue_message(msg, True, object_link(entity))
-        redirect_object(entity)
-    except: 
-        msg = _("Entity %s could not join group %s") % (entity.get_name(), name)
         queue_message(msg, True, object_link(entity))
         redirect_object(entity)
 

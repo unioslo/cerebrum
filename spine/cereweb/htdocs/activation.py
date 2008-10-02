@@ -131,9 +131,10 @@ def index(**vargs):
             bdate = '281086'
             ssn = '33745'
             studnr = '702750'
-            pin = '4599'
+            pin = '6492'
             # webservice that get username from kjernen
             ret = CallWSIdm.checkIdentity(bdate, ssn, studnr, pin)
+            print '******************************** ret = ', ret
             if ret:
                 vargs['username'] = ret
             else:
