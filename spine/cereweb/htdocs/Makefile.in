@@ -2,7 +2,6 @@
 ## Makefile for htdocs/
 ##
 
-CP = cp
 INSTALL = @INSTALL@
 WEBROOT = @webroot@
 
@@ -17,7 +16,7 @@ all:
 install: install-lib
 	$(MAKE) -C css $@
 
-install-lib: install-py install-images install-jscripts install-yui
+install-lib: install-py install-images install-jscripts
 	
 install-py: $(sources)
 	$(INSTALL) -d ${WEBROOT}/htdocs/
@@ -30,10 +29,6 @@ install-images: $(images)
 install-jscripts: $(jscripts)
 	$(INSTALL) -d ${WEBROOT}/htdocs/jscript/
 	$(INSTALL) -m 644 $^ ${WEBROOT}/htdocs/jscript/
-
-install-yui:
-	$(INSTALL) -d ${WEBROOT}/htdocs/yui/
-	$(CP) -r yui/build ${WEBROOT}/htdocs/yui/
 
 clean:
 	$(MAKE) -C css $@
