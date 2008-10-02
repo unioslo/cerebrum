@@ -129,7 +129,7 @@ class PopulateEphorte(object):
                 Set(self.app_ephorte_ouid2name.keys()):
             # Add ou to list that is sent in warn mail
             ou_mismatch_warnings['pols'].append((self.ouid2sko[ou_id],
-                                                 self.app_ephorte_ouid2name[ou_id]))
+                                                 self.pols_ephorte_ouid2name[ou_id]))
             logger.info("OU (%6s, %s) has ephorte spread, but is not in ephorte" % (
                 self.ouid2sko[ou_id], self.pols_ephorte_ouid2name[ou_id]))
         ##
