@@ -29,9 +29,11 @@
 ## This tells us not to load the worklist.js 
 #attr $wl = 0
 ## The following hack removes the bottom div which includes the $wl.
-#def page_bottom:
+#def page_bottom
+#end def
 ## The following hack removes the tabview
-#def tabview:
+#def tabview
+#end def
 ## Show nice businessCard-like info about person/account
 #def viewInfo($account)
     #set $info = []
