@@ -36,8 +36,8 @@ def search_form(remembered):
     page.title = _("Search for allocation Period(s)")
     page.set_focus("allocationperiod/search")
     page.links = _get_links()
-    page.search_fields = [("name", _("Name"),
-                          ("allocationauthority", _("Allocation Authority"),
+    page.search_fields = [("name", _("Name")),
+                          ("allocationauthority", _("Allocation Authority")),
                          ]
     page.search_action = '/allocationperiod/search'
     page.form_values = remembered

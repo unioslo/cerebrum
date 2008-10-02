@@ -30,7 +30,7 @@ tracefile = None
 ssl = 'yes' 
 
 # Her lurer vi ZSI litt for å få bruke ZSI.client._AuthHeader
-kw = {'tracefile': tracefile,'ssl': ssl,'auth':(ZSI.AUTH.zsibasic,user,passwd)}
+kw = {'tracefile': tracefile,'ssl': ssl,'auth':(ZSI.auth.AUTH.zsibasic,user,passwd)}
 
 def main():
     global locator

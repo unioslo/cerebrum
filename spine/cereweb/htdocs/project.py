@@ -20,7 +20,7 @@
 
 import cherrypy
 
-from account import _get_links()
+from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
