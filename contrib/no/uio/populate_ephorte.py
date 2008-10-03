@@ -5,6 +5,7 @@ import getopt
 import sys
 import cerebrum_path
 import cereconf
+from mx import DateTime
 from sets import Set
 from Cerebrum import Utils
 from Cerebrum import Errors
@@ -115,6 +116,18 @@ class PopulateEphorte(object):
                 if ephorte_sko not in ephorte_sko_ignore:
                     logger.warn("Unknown ePhorte sko: '%s'" % ephorte_sko)
                 continue
+            # Check if OU is expired
+            end_date = line.split(";")[posname2num['AI_TILDATO']]
+            if end_date and end_date != 'null':
+                try:
+                    tmp_date = DateTime.strptime(end_date, "%Y-%m-%dT%T+%R")
+                    if tmp_date < DateTime.now():
+                        logger.debug("Ephorte OU %s is expired. Skipping!" %
+                                     ephorte_sko)
+                        continue
+                except DateTime.Error:
+                    logger.warn("Couldn't parse date format for sted %s: %s" %
+                                (ephorte_sko, end_date))
             self.app_ephorte_ouid2name[ou_id] = ephorte_name
         logger.info("Found %d ephorte sko from app." %
                      len(self.app_ephorte_ouid2name.keys()))
@@ -228,10 +241,12 @@ class PopulateEphorte(object):
         # instead
         superusers = []
         group.find_by_name(cereconf.EPHORTE_ADMINS)
-        for account_row in group.search_members(group_id=group.entity_id,
-                                                indirect_members=True,
-                                                member_type=co.entity_account):
-            account_id = int(account_row["member_id"])
+        ## Don't use search_members before new group API is in prod
+        # for account_row in group.search_members(group_id=group.entity_id,
+        #                                         indirect_members=True,
+        #                                         member_type=co.entity_account):
+        #     account_id = int(account_row["member_id"])
+        for account_id in group.get_members():
             ac.clear()
             ac.find(account_id)
             superusers.append(int(ac.owner_id))
@@ -280,8 +295,6 @@ def mail_warnings(mailto, debug=False):
     specified in mailto. If cereconf.EPHORTE_MAIL_TIME is specified,
     just send if time when script is run matches with specified time.
     """
-
-    from mx import DateTime
 
     # Check if we should send mail today
     mail_today = False
