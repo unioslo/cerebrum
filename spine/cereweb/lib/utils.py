@@ -354,13 +354,14 @@ def get_tabs(current=None):
         res.append(html % (selected, link, name))
     return "\n".join(res)
 
-def flatten(list, perspective, res=[]):
-    if not list:
-        return res
-    ou = list.pop(0)
-    res.append(ou)
-    return flatten(ou.get_children(perspective), perspective, res)
-
+# make a long list of the ou-structure
+def flatten(oulist, perspective, res=[]):
+    if not oulist:
+        return
+    for ou in oulist:
+        res.append(ou)
+        flatten(ou.get_children(perspective), perspective, res)
+    return res
 
 #
 # namelist does not really belong here...
