@@ -104,7 +104,7 @@ class Searcher(object):
     defaults = {
         'offset': 0,
         'orderby': '',
-        'orderby_dir': '',
+        'orderby_dir': 'asc',
         'redirect': '',
     }
 
@@ -422,6 +422,10 @@ class PersonSearcher(Searcher):
         person.join_name = ''
         searchers['person'] = person
 
+        description = form.get('description', '').strip()
+        if description:
+            person.set_description_like("*%s*" % description)
+
         birthdate = form.get('birthdate', '').strip()
         if birthdate:
             date = utils.get_date(self.transaction, birthdate)
@@ -462,9 +466,6 @@ class PersonSearcher(Searcher):
             #else:
             #    main.add_join(main.join_name, searcher, searcher.join_name)
 
-        description = form.get('description', '').strip()
-        if description:
-            person.set_description_like("*%s*" % description)
 
         ou = form.get('ou', '').strip()
         if ou:
@@ -531,6 +532,13 @@ class PersonSearcher(Searcher):
         if not main:
             main = person
 
+        ## always use last name for sorting order
+        person_orderby_name = self.transaction.get_person_name_searcher()
+        person_orderby_name.set_name_variant(self.transaction.get_name_type('LAST'))
+        person_orderby_name.set_source_system(self.transaction.get_source_system('Cached'))
+        main.add_join(main.join_name, person_orderby_name, 'person')
+        main.order_by(person_orderby_name, 'name')
+
         searchers['main'] = main
         return searchers
 
@@ -549,8 +557,20 @@ class PersonSearcher(Searcher):
             accs = [str(utils.object_link(i)) for i in pers.get_accounts()[:3]]
             accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
             edit = utils.object_link(pers, text='edit', method='edit', _class='action')
+            firstname = ''
+            lastname = ''
+            pers_names = pers.get_names()
+            for name in pers_names:
+                if name.get_name_variant().get_name() == 'LAST':
+                    lastname = name.get_name()
+                if name.get_name_variant().get_name() == 'FIRST':
+                    firstname = name.get_name()
             remb = utils.remember_link(pers, _class="action")
-            rows.append([utils.object_link(pers), date, accs, affs, str(edit)+str(remb)])
+            if firstname and lastname:
+                rows.append([utils.object_link(pers, lastname + ', ' + firstname), date, accs, affs, str(edit)+str(remb)])
+            else:
+                rows.append([utils.object_link(pers), date, accs, affs, str(edit)+str(remb)])
+                
         return rows
 
 class AllocationPeriodSearcher(Searcher):
