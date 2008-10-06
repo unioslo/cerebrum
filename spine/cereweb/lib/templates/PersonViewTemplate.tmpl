@@ -16,7 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, strftime, html_quote, url_quote, remember_link
+#from lib.utils import object_link, strftime, html_quote, url_quote, remember_link, flatten, sort_ous
+#import operator
 #from GroupViewTemplate import GroupViewTemplate
 #from Widgets import Widgets
 #extends GroupViewTemplate
@@ -167,8 +168,25 @@
 #set $searcher = $tr.get_person_affiliation_status_searcher()
 #set $status = [($i.get_id(), "%s: %s" % ($i.get_affiliation().get_name(), $i.get_name()))
                     for $i in $searcher.search()]
-#set $ous = $tr.get_ou_searcher().search()
+###set $ous = $tr.get_ou_searcher().search()
+#set $perspective_type = $tr.get_ou_perspective_type('Kjernen')
+#set $ou_structure_searcher = $tr.get_ou_structure_searcher()
+$ou_structure_searcher.set_perspective($perspective_type)
+#set $ou_structure = $ou_structure_searcher.search()
+#set $root = None
+#for $structure in $ou_structure:
+    #set $ou = $structure.get_ou()
+    #if not $ou.get_parent($perspective_type) and $ou.get_children($perspective_type)
+        #set $root = $ou
+    #end if
+#end for
+#set $ous = []
+#if $root
+    #set $ous = flatten($root.get_children($perspective_type), $perspective_type)
+#end if
+    
 #set $ous = [($i.get_id(), $i.get_name()) for $i in $ous]
+$ous.sort(lambda x, y:cmp(x[1].lower(),y[1].lower()))
 
 <div class="edit box">
     <h3 id="affil">$_('Add an affiliation')</h3>
