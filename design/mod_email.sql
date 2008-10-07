@@ -636,15 +636,6 @@ GRANT INSERT, UPDATE, DELETE ON email_vacation TO read_mod_email;
 
 
 */
-category:main/Oracle;
-ALTER TABLE email_address ADD (
-  CONSTRAINT email_address_target_unique UNIQUE (address_id, target_id)
-);
-
-category:main/PostgreSQL;
-CREATE UNIQUE INDEX email_address_target_unique
-  ON email_address (address_id, target_id);
-
 
 category:main;
 CREATE TABLE email_primary_address
@@ -671,17 +662,7 @@ DROP TABLE email_target_filter;
 category:drop;
 DROP TABLE email_target_filter_code;
 category:drop;
-DROP TABLE email_target_server;
-category:drop;
-DROP TABLE email_server;
-category:drop;
-DROP TABLE email_server_type_code;
-category:drop;
 DROP TABLE email_primary_address;
-category:drop/PostgreSQL;
-DROP INDEX email_address_target_unique;
-category:drop/Oracle;
-ALTER TABLE email_address DROP CONSTRAINT email_address_target_unique;
 category:drop;
 DROP TABLE email_vacation;
 category:drop;
@@ -714,6 +695,10 @@ category:drop;
 DROP TABLE email_target;
 category:drop;
 DROP TABLE email_target_code;
+category:drop;
+DROP TABLE email_server;
+category:drop;
+DROP TABLE email_server_type_code;
 
 category:drop/Oracle;
 DROP ROLE change_mod_email;
