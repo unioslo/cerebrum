@@ -93,7 +93,8 @@ class UiTFS(FS):
 
 
 # Påvirkes ikke av endringene ved overgang til FS 5.0
-
+# 20081007 - RMI000 - Added cutoff for tilbud older than 30 days
+#                     sa.dato_opprettet > (sysdate - 30)
     def GetTilbud(self, institusjonsnr=0):
 	"""Hent data om studenter med tilbud til opptak på
 	et studieprogram ved uitø som har takket ja
@@ -110,10 +111,11 @@ FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
 WHERE p.fodselsdato=sa.fodselsdato AND
       p.personnr=sa.personnr AND
       sa.institusjonsnr='%s' AND 
+      sa.dato_opprettet > (sysdate - 30) AND
       sa.tilbudstatkode IN ('I', 'S') AND
       sa.svarstatkode_svar_pa_tilbud='J' AND
       sa.studietypenr = osp.studietypenr AND
-      osp.studieprogramkode = sp.studieprogramkode
+      osp.studieprogramkode = sp.studieprogramkode 
       AND %s
       """ % (institusjonsnr, self.is_alive())
         return (self._get_cols(qry),self.db.query(qry))
