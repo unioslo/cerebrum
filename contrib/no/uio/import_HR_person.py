@@ -339,19 +339,11 @@ def determine_affiliations(xmlperson, source_system):
                         list(xmlperson.iterids()), g.place[1])
             continue
 
-        # starthack
-        # Temporary fix until SAP-HR goes live@UiO (employees at UiO are
-        # registered as guests, but have to be recognized as employees
-        # in LDAP etc). We should be able to remove this in august 2006
-        if g.code == 'POLS-ANSAT':
-            adjoin_affiliation(place["id"], const.affiliation_ansatt,
-                               const.affiliation_status_ansatt_ltreg)
-        # endhack
-        elif g.code in gjest2affstat:
+        if g.code in gjest2affstat:
             adjoin_affiliation(place["id"], const.affiliation_tilknyttet,
                                gjest2affstat[g.code])
-        # Some known gjestetypekode can't be maped to any known affiliations
-        # at the moment. Group defined above in head.  
+        # Some known gjestetypekode can't be mapped to any known affiliations
+        # at the moment. Group defined above in head.
         elif g.code == 'IKKE ANGIT':
             logger.info("No registrations of gjestetypekode: %s" % g.code)
             continue
