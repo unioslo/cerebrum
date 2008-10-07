@@ -24,7 +24,7 @@ from sets import Set as set
 
 
 import locale
-locale.setlocale(locale.LC_ALL,'nb_NO')
+locale.setlocale(locale.LC_CTYPE,'nb_NO')
 
 
 class BDBImportError(Exception):
