@@ -60,7 +60,7 @@ def load_cache():
     logger.info("Start pnr->acc")
     pnr2account=p.getdict_external_id2primary_account(co.externalid_fodselsnr)
     logger.info("Start get names")
-    name_cache = p.getdict_persons_names( name_types=(co.name_first, \
+    name_cache = p.getdict_persons_names( source_system=co.system_cached, name_types=(co.name_first, \
         co.name_last,co.name_work_title))
 
     logger.info("Start get account names")
