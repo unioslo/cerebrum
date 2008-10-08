@@ -225,6 +225,7 @@ def load_cb_data():
 
     skip_source = []
     skip_source.append(co.system_lt)
+    skip_source.append(co.system_hitos)
 
     #print aff_to_stilling_map
     
