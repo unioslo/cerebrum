@@ -156,10 +156,14 @@ index.exposed = True
 
 path = ['language', 'fodselsnr', 'studentnr', 'pinkode', 'eula', 'initpassword', 'welcome']
 def _get_next_page(tr, **vargs):
-    pp = vargs.get('page', path[-1])
-    next = (path.index(pp) + 1 % len(path))
-    next = path[next]
-
+    ## i do not like this code,- but it works...
+    next = vargs.get('page','')
+    if not next:
+        next = 'language'
+    else:
+        pp = vargs.get('page', path[-1])
+        next = (path.index(pp) + 1 % len(path))
+        next = path[next]
     return _get_page(tr, next, **vargs)
 
 def _get_page(tr, name, **vargs):
