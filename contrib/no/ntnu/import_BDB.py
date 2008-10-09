@@ -255,7 +255,7 @@ class BDBSync:
         ac = self.ac
         ac.clear()
         try:
-            person.find_by_external_id(const.externalid_bdb_person,vac['person'])
+            person.find_by_external_id(const.externalid_bdb_person,str(vac['person']))
         except Errors.NotFoundError:
             return
 
@@ -596,8 +596,9 @@ class BDBSync:
 
         new_person.clear()
         found_person=False
+        print repr(person['id']), repr(fnr)
         try:
-            new_person.find_by_external_id(const.externalid_bdb_person,person['id'])
+            new_person.find_by_external_id(const.externalid_bdb_person,str(person['id']))
         except Errors.NotFoundError:
             if fnr:
                 self.logger.debug("No match on bdb-id. Filtering by fodselsnr instead")
