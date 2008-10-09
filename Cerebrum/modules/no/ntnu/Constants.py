@@ -54,6 +54,10 @@ class Constants(Constants.Constants):
     trait_host_owner = _EntityTraitCode(
         'host_owner', Constants.Constants.entity_host,
         "Owner of a host")
+
+    trait_primary_account = _EntityTraitCode(
+        'primary_account', Constants.Constants.entity_person,
+        "Primary account for person (BDB compability)")
         
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
