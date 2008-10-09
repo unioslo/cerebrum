@@ -946,7 +946,7 @@ class BDBSync:
             person.clear()
             try:
                 person.find_by_external_id(bdb_person_type,
-                                           account_info['person'],bdb_source_type)
+                                           str(account_info['person']),bdb_source_type)
                 logger.debug('Found person for account %s' % account_info['name'])
             except Errors.NotFoundError,e:
                 logger.warn('Found no person for account %s (BDB-id %s)' %
@@ -959,7 +959,7 @@ class BDBSync:
                 self._sync_person(bdb_person[0])
                 person.clear()
                 try:
-                    person.find_by_external_id(bdb_person_type,account_info['person'],bdb_source_type)
+                    person.find_by_external_id(bdb_person_type,str(account_info['person']),bdb_source_type)
                 except Errors.NotFoundError,e:
                     raise BDBImportError('Failed syncronizing person for account %s (BDB-id %s)' %
                                       (account_info['name'], account_info['person']))
