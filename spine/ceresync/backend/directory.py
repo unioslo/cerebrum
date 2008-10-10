@@ -36,7 +36,7 @@ from ceresync import config
 log = config.logger
 
 import unittest
-from errors import ServerError
+from ceresync.errors import ServerError
 
 
 def ldapDict(s):
