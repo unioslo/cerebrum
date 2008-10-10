@@ -368,13 +368,16 @@ $footer()
 #def fodselsnr($lang='no')
 
 #if $vargs
-    #set $lang = $vargs['lang']
+    #set $lang = $vargs.get('lang','')
 #end if
 
 #set $theLang = Languages($lang)
 
 $header()
 
+<div>
+    $vargs
+</div>
 <div class="list box">
   <form method="post" action="/activation/">
       <h3>$theLang.get_nin_header_text()</h3>
@@ -396,9 +399,6 @@ $header()
       <div class="buttons">
         <input type="submit" id="fodselsnrok" name="submit" value="$theLang.get_nin_submit_button_text()" />
       </div>
-
-
-
   </form>
 </div>
 $footer()
@@ -453,10 +453,9 @@ $footer()
 #end def
 
 
-#def language
+#def choose_language($lang='no')
+#set $theLang = Languages($lang)
 
-#set $theLang = Languages('no')
-$header()
 <div class="list box">
 <h3>$theLang.get_choose_language_header_text()</h3>
 
@@ -481,6 +480,37 @@ $header()
 
   </form>
 </div>
+#end def
+
+#def language
+
+##set $theLang = Languages('no')
+$header()
+##<div class="list box">
+##<h3>$theLang.get_choose_language_header_text()</h3>
+##
+##  <form method="post" action="/activation/">
+##
+##    <div class="required">
+##      <label for="thelang">$theLang.get_choose_language_label_text()</label>
+##
+##      <select id="thelang" name="lang">
+##        <option value="no">Norsk</option>
+##        <option value="en">English</option>
+##      </select>
+##    </div>
+##
+##    <div>
+##    <input type="hidden" id="thepage" name="page" value="language" />
+##    </div>
+##
+##    <div class="buttons">
+##      <input type="submit" id="thelangbutton" name="language" value="$theLang.get_choose_language_button_text()" />
+##    </div>
+##
+##  </form>
+##</div>
+$choose_language()
 $footer()
 #end def
 
