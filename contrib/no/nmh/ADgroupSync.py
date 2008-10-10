@@ -29,7 +29,7 @@ from Cerebrum.Utils import Factory
 
 
 def fetch_cerebrum_data(spread):
-    return list(group.search(spread))
+    return list(group.search(spread=spread))
 
 
 def fetch_ad_data():
@@ -113,7 +113,7 @@ def sync_groups(cerebrumgroups, dry_run):
         group.find(g['group_id'])
         members = []
         for user in group.search_members(group_id=group.entity_id,
-                                         spread=co.spread_ad_account):
+                                         member_spread=co.spread_ad_account):
             # TODO: How to treat quarantined users???, some exist in AD,
             # others do not. They generate errors when not in AD. We still
             # want to update group membership if in AD.
@@ -124,7 +124,7 @@ def sync_groups(cerebrumgroups, dry_run):
             members.append(entity2name[user_id])
         
         for grp in group.search_members(group_id=group.entity_id,
-                                        spread=co.spread_ad_group):
+                                        member_spread=co.spread_ad_group):
             grp_id = int(grp["member_id"])
             if grp_id not in entity2name:
                 continue
