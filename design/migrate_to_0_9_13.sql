@@ -26,8 +26,6 @@
 category:pre;
 ALTER TABLE group_member DROP CONSTRAINT group_member_pk;
 category:pre;
-ALTER TABLE group_member DROP CONSTRAINT group_member_operation;
-category:pre;
 ALTER TABLE group_member DROP COLUMN operation;
 
 category:pre;
