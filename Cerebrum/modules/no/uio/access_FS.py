@@ -331,6 +331,9 @@ class UiOStudent(access_FS.Student):
            es.studieprogramkode=sps.studieprogramkode AND
            NVL(sps.dato_studierett_gyldig_til,SYSDATE) >= sysdate AND
            sps.status_privatist='N' AND
+           r.status_reg_ok = 'J' AND
+           r.status_bet_ok = 'J' AND
+           NVL(r.status_ugyldig, 'N') = 'N' AND
            %s AND
            %s 
         """ % (self.year, extra,
