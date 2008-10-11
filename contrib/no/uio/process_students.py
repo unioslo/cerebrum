@@ -961,7 +961,7 @@ def get_existing_accounts():
         group_obj.find(group_id)
         for row in group_obj.search_members(group_id=group_obj.entity_id,
                                             member_type=const.entity_account,
-                                            filter_expired=False):
+                                            member_filter_expired=False):
             tmp = tmp_ac.get(int(row["member_id"]), None)
             if tmp is not None:
                 tmp.append_group(group_id)
