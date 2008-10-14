@@ -73,7 +73,7 @@ class CommonExceptionBase(own_exception_base):
 
         # Occasionally, we need to know what the offending sql is. This is
         # particularily practical in that case.
-        body = []
+        body = list(self.args)
         for attr in ("operation", "sql", "parameters", "binds",):
             if hasattr(self, attr):
                 body.append("%s=%s" % (attr, getattr(self, attr)))
@@ -242,10 +242,9 @@ class Cursor(object):
                 else:
                     # Not a row-returning query; clear self._row_class.
                     self._row_class = None
-        except self.DatabaseError, m:
+        except self.DatabaseError, exc:
             # stuff extra information into the exception object, in case we
             # want to print this baby later.
-            exc = sys.exc_info()[1]
             exc.operation = operation
             exc.sql = sql
             exc.parameters = repr(parameters)
