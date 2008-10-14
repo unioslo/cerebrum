@@ -408,7 +408,7 @@ affiliation status codes"""],
          " - cnaddr       primary address is firstname.lastname\n"+
          " - uidaddr      primary address is username\n"+
          " - all_uids     all usernames are valid e-mail addresses\n"+
-         " - uio_globals  direct Postmaster etc. to USIT"],
+         " - UIO_GLOBALS  direct Postmaster etc. to USIT"],
     'email_domain':
         ['domain', 'Enter e-mail domain'],
     'email_failure_message':
