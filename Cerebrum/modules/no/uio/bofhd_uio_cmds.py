@@ -4108,11 +4108,11 @@ class BofhdExtension(object):
                                member_type="group")
 
     def _group_add(self, operator, src_name, dest_group, member_type=None):
-        if type == "group":
+        if member_type == "group":
             src_entity = self._get_group(src_name)
-        elif type == "account":
+        elif member_type == "account":
             src_entity = self._get_account(src_name)
-        elif type == "person":
+        elif member_type == "person":
             try:
                 src_entity = self.util.get_target(src_name,
                                                   restrict_to=['Person'])
