@@ -273,6 +273,11 @@ def determine_affiliations(xmlperson, source_system):
                      'EKST-KONS': const.affiliation_tilknyttet_ekst_partner,
                      }
 
+    # These are role codes that we know about, but choose to
+    # ignore. Everything not in gjest2affstat or this sequence is deemed to be
+    # an error.
+    ignored_guest_codes = ("POLS-ANSAT",)
+    
     #
     # #1 -- Tilsettinger
     tils_types = (DataEmployment.HOVEDSTILLING, DataEmployment.BISTILLING)
@@ -343,10 +348,11 @@ def determine_affiliations(xmlperson, source_system):
             adjoin_affiliation(place["id"], const.affiliation_tilknyttet,
                                gjest2affstat[g.code])
         # Some known gjestetypekode can't be mapped to any known affiliations
-        # at the moment. Group defined above in head.
-        elif g.code == 'IKKE ANGIT':
-            logger.info("No registrations of gjestetypekode: %s" % g.code)
+        # at the moment. It's not an error.
+        elif g.code in ignored_guest_codes:
+            logger.info("No registrations of gjestetypekode: %s", g.code)
             continue
+        # ... a completely unknown code. Should this be logged as an error?
         else:
             logger.info("Unknown gjestetypekode %s for person %s",
                         g.code, str_pid())
