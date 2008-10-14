@@ -3137,8 +3137,8 @@ class BofhdExtension(object):
             raise CerebrumError, "Address <%s> is already in use" % addr
         et = Email.EmailTarget(self.db)
         et.populate(self.const.email_target_multi,
-                    entity_type = self.const.entity_group,
-                    entity_id = gr.entity_id)
+                    target_entity_type = self.const.entity_group,
+                    target_entity_id = gr.entity_id)
         et.write_db()
         ea.clear()
         ea.populate(lp, ed.entity_id, et.entity_id)
