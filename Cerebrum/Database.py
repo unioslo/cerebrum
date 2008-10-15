@@ -53,27 +53,28 @@ from Cerebrum.extlib import db_row
 # db-specific error exceptions by catching Cerebrum.Database.Error
 # (db-independent).
 #
-# So, why this deep version magic? The thing is that the MRO rules have been
-# tightened from 2.4 to 2.5. The hierarchies as we used to build them (in r135)
-# are no longer *consistent*. This is an error in 2.5. Furthermore, as of 2.5
-# in order to catch an exception, the type mentioned in the "except:"-clause
-# has to be derived from BaseException. If it is not, *no* exception will
-# match the said exception clause AND THIS WILL HAPPEN SILENTLY. Python 2.6
-# (or was it 2.7?) has a plan to warn about such constructs (and there is a
-# bug report submitted on the issue). Please not that as of 2.5,
-# own_exception_base cannot be of type object (type(object) -> <type 'type'>),
-# precisely because object does NOT inherit from BaseException.
-if sys.version_info[:2] >= (2, 5):
-    own_exception_base = BaseException
-else:
-    own_exception_base = StandardError
-
-class CommonExceptionBase(own_exception_base):
+# The problem here is that the MRO rules have been tightened from 2.4 to
+# 2.5. The hierarchies as we used to build them (in r135) are no longer
+# *consistent*. This is an error in 2.5. Furthermore, as of 2.5 in order to
+# catch an exception, the type mentioned in the "except:"-clause has to be
+# derived from BaseException. If it is not, *no* exception will match the said
+# exception clause AND THIS WILL HAPPEN SILENTLY. Python 2.6 (or was it 2.7?)
+# has a plan to warn about such constructs (and there is a bug report
+# submitted on the issue). Please not that as of 2.5, the base class of
+# CommonExceptionBase cannot be of type object (type(object) -> <type
+# 'type'>), precisely because object does NOT inherit from BaseException.
+#
+# Furthermore with 2.4 and earlier, there may be a different __str__ before
+# ours in the MRO, and we cannot always re-arrange the base classes to
+# compensate (as of 2.5, CommonExceptionBase.__str__ will always be called)
+class CommonExceptionBase(Exception):
     def __str__(self):
-
+        # Call superclass' method to get the error message
+        main_message = super(CommonExceptionBase, self).__str__()
+        
         # Occasionally, we need to know what the offending sql is. This is
         # particularily practical in that case.
-        body = list(self.args)
+        body = [main_message,]
         for attr in ("operation", "sql", "parameters", "binds",):
             if hasattr(self, attr):
                 body.append("%s=%s" % (attr, getattr(self, attr)))
@@ -235,9 +236,6 @@ class Cursor(object):
                     fields = [ d[0].lower() for d in self.description ]
                     # Make a db_row class that corresponds to this set of
                     # column names.
-                    # print "execute: operation=<%s>" % (operation,)
-                    # print "execute: sql=<%s>" % (sql,)
-                    # print "execute: fields=<%s>" % (fields,)
                     self._row_class = db_row.make_row_class(fields)
                 else:
                     # Not a row-returning query; clear self._row_class.
