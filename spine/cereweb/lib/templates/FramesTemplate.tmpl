@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 ##
+#encoding UTF-8
 #import cherrypy
 #from lib.InitTemplate import InitTemplate
 #from lib.utils import strip_html, get_tabs, html_quote
@@ -56,6 +57,10 @@
         <li><a$curr href="$link">$label</a></li>
     #end for
 #end def
+
+## setting this just to be safe that the browser understand...
+
+<% cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset=UTF-8' %>
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
