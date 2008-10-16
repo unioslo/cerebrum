@@ -2553,9 +2553,9 @@ class BofhdExtension(object):
         filter_name = filter.get('name', None)
         filter_desc = filter.get('desc',  None)
         filter_spread = filter.get('spread',  None)
-        for r in group.search(filter_spread=filter_spread,  
-                              filter_name=filter_name,
-                              filter_desc=filter_desc):
+        for r in group.search(spread=filter_spread,  
+                              name=filter_name,
+                              description=filter_desc):
             ret.append({'id': r.group_id,
                         'name': r.name,
                         'desc': r.description,

@@ -374,7 +374,7 @@ class PosixLDIF(object):
     def get_netgrp(self, triples, memgrp):
         """Recursive method to get members and groups in netgroup."""
         for row in self.grp.search_members(group_id=self.grp.entity_id,
-                                         spread=self.spread_d["user"][0],
+                                         member_spread=self.spread_d["user"][0],
                                          member_type=self.const.entity_account):
             if self.get_name:
                 uname_id, uname = (int(row["member_id"]),

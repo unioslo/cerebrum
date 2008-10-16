@@ -207,7 +207,7 @@ class ADgroupUtil(ADutil):
             #want to update group membership if in AD.
             members = list()
             for usr in self.group.search_members(group_id=grp_id,
-                                                 spread=user_spread):
+                                                 member_spread=user_spread):
                 user_id = usr["member_id"]
                 if user_id not in entity2name:
                     self.logger.debug("Missing name for account id=%s", user_id)
@@ -217,7 +217,7 @@ class ADgroupUtil(ADutil):
                                    user_id, entity2name[user_id])
 
             for grp in self.group.search_members(group_id=grp_id,
-                                                 spread=group_spread):
+                                                 member_spread=group_spread):
                 group_id = grp["member_id"]
                 if group_id not in entity2name:
                     self.logger.debug("Missing name for group id=%s", group_id)

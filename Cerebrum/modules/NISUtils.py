@@ -224,7 +224,7 @@ class NISGroupUtil(object):
 
         # direct members
         for row in self._group.search_members(group_id=gid,
-                                              spread=self._member_spread,
+                                              member_spread=self._member_spread,
                                               member_type=self._member_type):
             member_id = int(row["member_id"])
             name = self._entity2name.get(member_id)
