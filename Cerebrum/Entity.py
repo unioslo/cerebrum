@@ -879,13 +879,16 @@ class EntityExternalId(Entity):
         """We trust id_type's entity_type more than a supplemented
         attribute, hence we try that first.
         
-        source_system	-- source system for the external ID (SAP, LT, FS, etc.)
-        id_type		-- specific external ID type (like externalid_fodselsnr)
-        external_id	-- value for the external ID (useful for looking up
-                           the owner of a particular external ID)
-        entity_type	-- looks for a specific entity type (i.e. Person, OU)
-        entity_id	-- looks for a specific entity (useful for looking up
-                           (all) external ids belonging to a specific entity)
+        @param source_system: 
+          Source system for the external ID (SAP, LT, FS, etc.)
+        @param id_type:
+          Specific external ID type (like externalid_fodselsnr)
+        @param external_id:
+          Value for the external ID (useful for looking up the owner of a particular external ID). 
+        @param entity_type:
+          Looks for a specific entity type (i.e. Person, OU).
+        @param entity_id:
+          Looks for a specific entity (useful for looking up (all) external ids belonging to a specific entity)
         """
         cols = {}
         where = ""
