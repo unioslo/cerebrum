@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- encoding: iso-8859-1 -*-
 
 """This file sets up the environment for the psycopg 1.x backend.
 
@@ -55,10 +55,35 @@ class test_PsycoPG(DBTestBase):
         self.db._db.set_isolation_level(3)
     # end setup
 
-
     def teardown(self):
         self.db.rollback()
         self.db.close()
     # end teardown
+
+
+    def test_support_Norwegian_chars(self):
+        """Make sure we can use Norwegian chars"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1	CHAR VARYING (100) NOT NULL
+        )
+        """)
+
+        mark = "Blåbærsyltetøy"
+        self.db.execute("""
+        INSERT INTO  [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (:value1) 
+        """, {"value1": mark})
+        
+        x = self.db.query_1("""
+        SELECT field1
+        FROM [:table schema=cerebrum name=nosetest1]
+        WHERE field1 = :value
+        """, {"value": mark})
+
+        assert x == mark
+    # end test_support_Norwegian_chars
+
 # end test_PsycoPG
     

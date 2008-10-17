@@ -51,6 +51,7 @@ def sneaky_import(name, with_debug=False):
     """Import module L{name}, falling back to 'relative' import from the
     Cerebrum installation where *this* file is located. 
     """
+    import cereconf
     
     components = name.split(".")
     # first, try if it is already in the path:
@@ -67,6 +68,17 @@ def sneaky_import(name, with_debug=False):
 
     for tmp_name in components[1:]:
         mod = getattr(mod, tmp_name)
+
+    # Database.py wants CoreConstants to remap named placeholders to
+    # keys. CoreConstants wants this dictionary. If we fix it here, there'll
+    # be one less thing to think about.
+    if not hasattr(cereconf, "ENTITY_TYPE_NAMESPACE"):
+        cereconf.ENTITY_TYPE_NAMESPACE = {
+             'account': 'account_names',
+             'dns_owner': 'dns_owner_ns',
+             'group': 'group_names',
+             'host': 'host_names'
+        }
 
     if with_debug:
         print "Imported <%s> from %s" % (name, mod.__file__)
@@ -100,6 +112,12 @@ class DBTestBase(object):
         raise NotImplementedError("You must implement teardown() "
                                   "for your db-backend")
 
+    def test_support_Norwegian_chars(self):
+        """Make sure we can use Norwegian chars"""
+
+        raise NotImplemented("Implement øæå-testing")
+    # end test_support_Norwegian_chars
+        
     def test_dbapi2(self):
         """Check that DB-API 2.0 methods are present"""
 
@@ -146,8 +164,7 @@ class DBTestBase(object):
 
         self.db.execute("""
         CREATE TABLE nosetest1 (
-        name	char varying(10),
-        value   int
+        field1	char varying(10)
         )""")
     # end test_table_create1
 
@@ -160,7 +177,8 @@ class DBTestBase(object):
             field1	CHAR VARYING (10),
             field2	CHAR(20),
             field3	NUMERIC(12, 0),
-            field4	DATE
+            field4	DATE,
+            field5      TIMESTAMP
         )
         """)
     # end test_table_all_datatypes
@@ -200,6 +218,67 @@ class DBTestBase(object):
         """)
     # end test_cerebrum_syntax
 
+
+    def test_cerebrum_syntax_now_is_sensible(self):
+        """Check that [:now] returns a value close to now"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1	DATE NOT NULL,
+        field2  INT NULL
+        )
+        """)
+
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES ([:now])
+        """)
+
+        value = self.db.query_1("""
+        SELECT * FROM [:table schema=cerebrum name=nosetest1]
+        """)
+
+        import mx.DateTime as mdt
+        now = mdt.now()
+        # 1 day, since [:now] happens at midnight
+        assert (now - value["field1"]) < mdt.DateTimeDelta(1, # days
+                                                           0, # hours
+                                                           0, # minutes
+                                                           0) # seconds
+    # end test_cerebrum_syntax_now_is_sensible
+
+
+    def test_query_1_from_single_is_not_dbrow(self):
+        """Check that query_1() on a single column returns that value only
+
+        query_1('select field1 from ...') should return field1 only (and not
+        the db_row type with that column). This is how we've defined the
+        semantics of query_1().
+        """
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1	CHAR VARYING (10) NOT NULL
+        )
+        """)
+
+        value = "message"
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1]
+        VALUES (:value)
+        """, {"value": value})
+
+        db_value = self.db.query_1("""
+        SELECT field1 FROM [:table schema=cerebrum name=nosetest1]
+        WHERE field1 = :value""", {"value": value})
+
+        assert db_value == value
+    # end test_query_1_from_single_is_not_dbrow
+
+
+    def test_python_date_to_db(self):
+        """Check that mx.DateTime can be stored """
+        pass
 
     def test_cerebrum_syntax_table(self):
         """Check Cerebrum's [:table] syntax extension"""
@@ -242,7 +321,7 @@ class DBTestBase(object):
         """ % start)
 
         y = self.db.nextval("nosetest1")
-        assert y - start == 1
+        assert y - start == 0
     # end test_cerebrum_syntax_sequence
 
     def test_primary_key1(self):
@@ -371,58 +450,6 @@ class DBTestBase(object):
     # end test_foreign_key2
 
 
-    def test_char_is_unicode(self):
-        """Check that fetching from char returns unicode objects"""
-
-        self.db.execute("""
-        CREATE TABLE nosetest1 (
-        field1	CHAR VARYING (100) NOT NULL
-        )
-        """)
-
-        mark = "Ich bin schnappi"
-        self.db.execute("""
-        INSERT INTO  [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES ('%s') 
-        """ % mark)
-
-        x = self.db.query_1("""
-        SELECT field1
-        FROM [:table schema=cerebrum name=nosetest1]
-        WHERE field1 = '%s'
-        """ % mark)
-
-        assert isinstance(x, unicode)
-    # end test_char_is_unicode
-
-
-    def test_support_Norwegian_chars(self):
-        """Make sure we can use Norwegian chars"""
-
-        # FIXME: Fuck! naming parameters *requires* cereconf, a database and a
-        # bunch of constants. This is silly.
-        self.db.execute("""
-        CREATE TABLE nosetest1 (
-        field1	CHAR VARYING (100) NOT NULL
-        )
-        """)
-
-        mark = "Blåbærsyltetøy"
-        self.db.execute("""
-        INSERT INTO  [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (:value1) 
-        """, {"value1": mark})
-        
-        x = self.db.query_1("""
-        SELECT field1
-        FROM [:table schema=cerebrum name=nosetest1]
-        WHERE field1 = :value
-        """, {"value": mark})
-
-        assert x.encode("latin-1") == mark
-    # end test_support_Norwegian_chars
-        
-        
     def test_datetime(self):
         """Insert/delete datetime values"""
 
@@ -459,5 +486,9 @@ class DBTestBase(object):
         """Check that :name placeholders work"""
 
         # This one is actually *VERY* important
+
+    def test_insert_unicode(self):
+        """Check that we can send unicode to CHAR/VARCHAR/TEXT"""
+        pass
         
 # end DBTestBase
