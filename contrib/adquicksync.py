@@ -434,7 +434,7 @@ def add_spread(entity_id, spread):
 
             # account members
             for member in group.search_members(group_id=group.entity_id,
-                                        spread=constants.spread_uio_ad_account):
+                                member_spread=constants.spread_uio_ad_account):
                 account.clear()
                 account.find(member["member_id"])
                 if not account.is_expired():
@@ -452,7 +452,7 @@ def add_spread(entity_id, spread):
             # group members
             member_group = Factory.get("Group")(db)
             for member in group.search_members(group_id=group.entity_id,
-                                          spread=constants.spread_uio_ad_group):
+                                member_spread=constants.spread_uio_ad_group):
                 member_group.clear()
                 member_group.find(member["member_id"])
                 if not member_group.is_expired():
