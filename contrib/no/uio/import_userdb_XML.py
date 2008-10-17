@@ -633,7 +633,7 @@ def import_groups(groupfile, fill=False):
         tmpg2.find(g['group_id'])
         group_has_member[int(g['group_id'])] = {}
         for r in tmpg2.search_members(group_id=tmpg2.entity_id,
-                                      filter_expired=False):
+                                      member_filter_expired=False):
             group_has_member[int(g["group_id"])][int(r["member_id"])] = True
 
     # Note: File and netgroups are merged

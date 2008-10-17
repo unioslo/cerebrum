@@ -230,7 +230,7 @@ def sync_filegroup(fgname, group, course, act):
             posix_group.write_db()
     uptodate = False
     for row in posix_group.search_members(group_id=posix_group.entity_id,
-                                          filter_expired=False):
+                                          member_filter_expired=False):
         member_type = int(row["member_type"])
         member_id = int(row["member_id"])
         if member_type != co.entity_group:
@@ -274,7 +274,7 @@ def process_groups(super, fg_super):
     else:
         for row in fg_super_gr.search_members(group_id=fg_super.entity_id,
                                               member_type=co.entity_group,
-                                              filter_expired=False):
+                                              member_filter_expired=False):
             auto_fg[int(row["member_id"])] = True
 
     # fetch super group's members and update accordingly
@@ -285,7 +285,7 @@ def process_groups(super, fg_super):
     start_group = get_group(super)
     for row in start_group.search_members(group_id=start_group.entity_id,
                                           member_type=co.entity_group,
-                                          filter_expired=False):
+                                          member_filter_expired=False):
         member_id = int(row["member_id"])
     
         group = get_group(member_id)
@@ -347,7 +347,7 @@ def process_groups(super, fg_super):
     for fgname in auto_fg:
         fgroup = get_group(fgname)
         for row in fgroup.search_members(group_id=fgroup.entity_id,
-                                         filter_expired=False):
+                                         member_filter_expired=False):
             logger.info("Remove %s %d from obsolete filegroup %s",
                         co.EntityType(row["member_type"]),
                         row["member_id"], fgroup.group_name)

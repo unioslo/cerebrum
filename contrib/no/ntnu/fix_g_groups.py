@@ -79,8 +79,9 @@ def move_members(g, g2):
 
     gmemb2 = set(x["member_id"] for x in
                  g2.search_members(group_id=g2.entity_id,
-                                   filter_expired=False))
-    for member in g.search_members(group_id=g.entity_id, filter_expired=False):
+                                   member_filter_expired=False))
+    for member in g.search_members(group_id=g.entity_id,
+                                   member_filter_expired=False):
         entity_type = int(member["member_type"])
         entity_id = int(member["member_id"])
 

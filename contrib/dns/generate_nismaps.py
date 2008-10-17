@@ -181,7 +181,7 @@ class NISGroupUtil(object):
 
         # Direct members
         for row in self._group.search_members(group_id=self._group.entity_id,
-                                              spread=self._member_spread,
+                                              member_spread=self._member_spread,
                                               member_type=self._member_type):
             member_id = int(row["member_id"])
             name = self._entity2name.get(member_id)
@@ -295,9 +295,9 @@ class FileGroup(NISGroupUtil):
         self._group.clear()
         self._group.find(gid)
         for row in self._group.search_members(group_id=self._group.entity_id,
+                                              member_spread=self._member_spread,
                                               indirect_members=True,
-                                              member_type=co.entity_account,
-                                              spread=self._member_spread):
+                                              member_type=co.entity_account):
             account_id = int(row["member_id"])
             if (self._account2def_group.get(account_id, None) ==
                 self._group.posix_gid):

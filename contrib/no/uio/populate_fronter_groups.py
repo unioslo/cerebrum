@@ -1300,7 +1300,7 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
 
         for row in group.search_members(group_id=group.entity_id,
                                         member_type=mtype,
-                                        filter_expired=False):
+                                        member_filter_expired=False):
             member = int(row["member_id"])
             if members.has_key(member):
                 del members[member]
@@ -1381,7 +1381,7 @@ def destroy_group(gname, max_recurse=2, recurse=True):
     # Fetch group's members
     gr_members = gr.search_members(group_id=gr.entity_id,
                                    member_type=co.entity_group,
-                                   filter_expired=False)
+                                   member_filter_expired=False)
     logger.debug("destroy_group() subgroups: %r" % (gr_members,))
     # Remove any spreads the group has
     for row in gr.get_spread():
