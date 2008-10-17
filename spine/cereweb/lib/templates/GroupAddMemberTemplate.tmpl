@@ -26,12 +26,12 @@
 <div class="group_add_member">
     <form action="$action" method="post">
         <h3>$_("Add Member"):</h3>
-    <p>
+    <div>
         <label for="name">$_("Name"):</label>
         <input type="text" name="name" />
         $form_widgets.generate_loption("type", "Type", $member_types)
         <input type="submit" value="$_("Add")"/>
-    </p>
+    </div>
     </form>
 </div>
 #end def

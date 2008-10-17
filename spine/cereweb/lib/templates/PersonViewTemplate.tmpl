@@ -30,11 +30,11 @@
 #def viewActions($transaction, $person)
     #set $id = $html_quote($person.get_id())
     <ul>
-        <li><a href="edit?id=$id">$_("edit info")</a></li>
-        <li><a href="/confirm/person/delete?id=$id">$_("delete person")</a></li>
-        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
-        <li><a href="/account/create?owner=$id">$_('create new account')</a></li>
-        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
+        <li><a href="/person/edit?id=$html_quote($id)">$_("edit info")</a></li>
+        <li><a href="/confirm/person/delete?id=$html_quote($id)">$_("delete person")</a></li>
+        <li><a href="/quarantine/add?entity=$html_quote($id)">$_('add quarantine')</a></li>
+        <li><a href="/account/create?owner=$html_quote($id)">$_('create new account')</a></li>
+        <li><a href="/entity/full_historylog?id=$html_quote($id)">$_('view full history log')</a> </li>
         <li>$remember_link($person)</li>
     </ul>
 #end def
@@ -85,7 +85,7 @@
 #set $person_id = $person.get_id()
 
 <div class="list box">
-    <h3>$_('Accounts & Groups')</h3>
+    <h3>$_('Accounts &amp; Groups')</h3>
     <form action="accounts" method="post">
         <input type="hidden" value="$html_quote($person_id)" name="owner" />
         #for $account in $allaccounts
@@ -118,9 +118,9 @@
         #end for
         
         #if $allaccounts
-        <input type="submit" value="$_('Delete')" name="delete" />&nbsp;
+        <input type="submit" value="$_('Delete')" name="delete" />&#x0020;
         #end if
-        <input type="submit" value="$_('Add new account')" name="add" />&nbsp;
+        <input type="submit" value="$_('Add new account')" name="add" />&#x0020;
     </form>
 </div>
 #end def
@@ -131,35 +131,39 @@
 <div class="info box">
     <h3>$_('Affiliations')</h3>
     <table>
-    <tr class="headers"><th>$_('Affiliation')</th><th>$_('Status')</th>
-    <th>$_('OU')</th><th>$_('Additional Info')</th><th>$_('Source')</th>
-    <th>$_('Actions')</th></tr>
-    #for $affil in $person.get_affiliations()
-    #set $ou = $affil.get_ou()
-    #set $affil_type = $affil.get_affiliation()
-    #set $status = $affil.get_status()
-    #set $marked = $affil.marked_for_deletion()
-    #set $source = $affil.get_source_system()
+        <tr class="headers">
+        <th>$_('Affiliation')</th>
+        <th>$_('Status')</th>
+        <th>$_('OU')</th>
+        <th>$_('Additional Info')</th>
+        <th>$_('Source')</th>
+        <th>$_('Actions')</th>
+        </tr>
+        #for $affil in $person.get_affiliations()
+            #set $ou = $affil.get_ou()
+            #set $affil_type = $affil.get_affiliation()
+            #set $status = $affil.get_status()
+            #set $marked = $affil.marked_for_deletion()
+            #set $source = $affil.get_source_system()
 
-    #if not $marked
-    <tr class="item">
-    <td>$html_quote($affil_type.get_name())</td>
-    <td>$html_quote($status.get_name())</td>
-    <td>$object_link($ou)</td>
-    <td>$html_quote($source.get_name())</td>
-
-    <td class="actions">
-            #set $args = "id=%s&ou=%s&affil=%s&ss=%s" % (
+        #if not $marked
+            <tr class="item">
+            <td>$html_quote($affil_type.get_name())</td>
+            <td>$html_quote($status.get_name())</td>
+            <td>$object_link($ou)</td>
+            <td>&#x0020;</td>
+            <td>$html_quote($source.get_name())</td>
+            <td class="actions">
+            #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
                             $html_quote($person.get_id()),
                             $html_quote($ou.get_id()),
                             $html_quote($affil_type.get_name()),
                             $html_quote($source.get_name()))
-            <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a>
-    </td>
-    </tr>
-    #end if
-    #end for
-</table>
+            <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a></td>
+            </tr>
+        #end if
+        #end for
+    </table>
 </div>
 #end if
 #end def
@@ -201,7 +205,7 @@ $ous.sort(lambda x, y:cmp(x[1].lower(),y[1].lower()))
             $form_widgets.generate_loption("ou", "Organization Unit", $ous)
         </div>
         <div class="buttons">
-            <input type="submit" value="$_('Add')" />
+            <input type="submit" value="$_('Add')" />&#x0020;
             <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
@@ -247,7 +251,7 @@ $ous.sort(lambda x, y:cmp(x[1].lower(),y[1].lower()))
             $form_widgets.generate_loption("name_type", "Name type", $name_types)
         </div>
         <div class="buttons">
-            <input type="submit" value="$_('Set name')" />
+            <input type="submit" value="$_('Set name')" />&#x0020;
             <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>

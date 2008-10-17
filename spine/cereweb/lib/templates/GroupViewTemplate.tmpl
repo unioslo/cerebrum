@@ -18,6 +18,7 @@
 
 #extends EntityViewTemplate
 #from lib.utils import object_link, strftime, html_quote, remember_link
+#from lib.utils import html_quote
 #from FormWidgets import FormWidgets
 #from Widgets import Widgets
 #from EmailTargetTemplate import EmailTargetTemplate
@@ -29,16 +30,16 @@
 #def viewActions($transaction, $group)
     #set $id = $html_quote($group.get_id())
     <ul>
-        <li><a href="/group/edit?id=$id">$_("edit info")</a></li>
-        <li><a href="/group/delete?id=$id">$_("delete group")</a></li>
+        <li><a href="/group/edit?id=$html_quote($id)">$_("edit info")</a></li>
+        <li><a href="/group/delete?id=$html_quote($id)">$_("delete group")</a></li>
         #if $group.is_posix()
-        <li><a href="/group/posix_demote?id=$id">$_("demote from posix")</a></li>
+        <li><a href="/group/posix_demote?id=$html_quote($id)">$_("demote from posix")</a></li>
         #else
-        <li><a href="/group/posix_promote?id=$id">$_("promote to posix")</a></li>
+        <li><a href="/group/posix_promote?id=$html_quote($id)">$_("promote to posix")</a></li>
         #end if
-        <li><a href="/account/create?owner=$id">$_('create group account')</a> </li>
-        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
-        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
+        <li><a href="/account/create?owner=$html_quote($id)">$_('create group account')</a> </li>
+        <li><a href="/quarantine/add?entity=$html_quote($id)">$_('add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$html_quote($id)">$_('view full history log')</a> </li>
         <li>$remember_link($group)</li>
     </ul>
 #end def
@@ -96,7 +97,7 @@ $widgets.viewInfo($info, $notice)
             $form_widgets.generate_loption('type', 'Member type', $types, 'account')
         </div>
         <div class="buttons">
-            <input type="submit" value="$_('Add member')" />&nbsp;
+            <input type="submit" value="$_('Add member')" />&#x0020;
             <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
@@ -114,7 +115,7 @@ $widgets.viewInfo($info, $notice)
                 $form_widgets.input('name', 'Group name', $klass="ac_group")
             </div>
             <div class="buttons">
-                <input type="submit" value="$_('Join group')" />&nbsp;
+                <input type="submit" value="$_('Join group')" />&#x0020;
                 <input type="button" value="$_('Cancel')" class="cancel" />
             </div>
         </form>
@@ -146,12 +147,12 @@ $widgets.viewInfo($info, $notice)
                 #if $type == 'account'
                 $object_link($member.get_owner())
                 #else
-                &nbsp;
+                &#x0020;
                 #end if
             </td>
             <td>
-                #set $url=$html_quote("/group/remove_member?groupid=%s&amp;memberid=%s" % ($group.get_id(), $member.get_id()))
-                <a href=$url>Remove member</a>
+                #set $url="/group/remove_member?groupid=%s&amp;memberid=%s" % ($html_quote($group.get_id()), $html_quote($member.get_id()))
+                <a href="$url">Remove member</a>
             </td>
         </tr>
         #end for
@@ -167,7 +168,7 @@ $widgets.viewInfo($info, $notice)
     <h3>$_('Derived members')</h3>
     #for $account in $members
         $object_link($account) 
-        &nbsp;
+        &#x0020;
     #end for
 </div>
 #end if
@@ -193,11 +194,11 @@ $widgets.viewInfo($info, $notice)
                 #set $disabled = 'disabled="disabled" '
             #end if
             
-            #set $name = $html_quote("member_%s_%s" % ($account.get_id(), $group.get_id()))
+            #set $name = "member_%s_%s" % ($html_quote($account.get_id()), $html_quote($group.get_id()))
             <input type="checkbox" name="$name" $disabled/>
             <em>$_($header):</em> $html_quote($group_name)
-            $object_link($group, "view", _class="action")
-            $object_link($group, "edit", "edit", _class="action")
+            $object_link($group, text="view", _class="action")
+            $object_link($group, text="edit", method="edit", _class="action")
             $remember_link($group, _class="action")
             #if $group_name == $primary_group
                 <span class="extra">(primary)</span>

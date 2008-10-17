@@ -20,6 +20,7 @@
 #from lib.utils import object_link, strftime, strftime, html_quote
 #from lib.utils import remember_link
 #from FormWidgets import FormWidgets
+#from urllib import urlencode
 #import datetime
 #import cherrypy
 
@@ -32,7 +33,7 @@ $strftime($the_date)
 
 #def edit_target($target)
 <div>
-    <p>Vennligst bruk EmailTargetEditTemplate til denne testen.</p>
+    Vennligst bruk EmailTargetEditTemplate til denne testen.
 </div>
 #end def
 
@@ -57,11 +58,11 @@ $strftime($the_date)
     <div class="view view_info">
         <h3>$_('Email addresses:')</h3>
         <div>
-            <strong><em>$_('Type:')</em></strong>&nbsp;
+            <strong><em>$_('Type:')</em></strong>&#x0020;
                     $html_quote($entity['type'].capitalize())
         </div>
         <div>
-            <strong><em>$_('Owner:')</em></strong>&nbsp;
+            <strong><em>$_('Owner:')</em></strong>&#x0020;
                     $entity['entity']
         </div>
         <h4>$_('Primary address:')</h4>
@@ -130,7 +131,7 @@ $strftime($the_date)
                             <td>
                                 <div class="actions">
                                     #set $address = $addr['id']
-                                    <a class="action" href="/emailtarget/delete_addr?id=$html_quote($id)&amp;addr=$html_quote($address)">Delete</a>&nbsp;
+                                    <a class="action" href="/emailtarget/delete_addr?id=$html_quote($id)&amp;addr=$html_quote($address)">Delete</a>&#x0020;
                                     <a class="action" href="/emailtarget/setprimary?id=$html_quote($id)&amp;addr=$html_quote($address)">Primary</a>
                                 </div>
                             </td>
@@ -139,15 +140,15 @@ $strftime($the_date)
                 #end for
             </table>
             #else
-                <p>No additional addresses</p>
+                <div>No additional addresses</div>
             #end if
-        </table>
+        ##</table>
     </div>
 
     <div class="view">
         <h3>$_('Add a new email address:')</h3>
         <form action="/emailtarget/makeaddress" method="post">
-            <input type="hidden" name="id" value="$html_quote($id)">
+            <input type="hidden" name="id" value="$html_quote($id)" />
             <div>
                 $form_widgets.input('local', 'Local',value='')
             </div>
@@ -163,7 +164,7 @@ $strftime($the_date)
                 $form_widgets.showHelp($help)
             </div>
             <div>
-                <input type="submit" value="$_('Create')" />&nbsp;
+                <input type="submit" value="$_('Create')" />&#x0020;
                 <input type="reset" value="$_('Clear')" />
             </div>
         </form>

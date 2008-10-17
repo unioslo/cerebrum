@@ -41,7 +41,7 @@
                 $form_widgets.generate_option("type", $types, $type)
             #else:
                 $type
-                <input type=hidden name="type" value="$type" />
+                <input type="hidden" name="type" value="$type" />
             #end if
             </td>
         </tr>
@@ -79,7 +79,7 @@
             </td>
         </tr>
     </table>
-    <input type=hidden name="entity" value="$entity.get_id()" />
+    <input type="hidden" name="entity" value="$entity.get_id()" />
 </form>
 </div>
 #end def

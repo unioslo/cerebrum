@@ -73,7 +73,7 @@
     <div class="list box">
         <h3>$_('Disks')</h3>
         <form action="disks" method="post">
-        <p>
+        <div>
             <input type="hidden" name="host" value="$html_quote($host.get_id())" />
             #for $disk in $disks
             <div class="item">
@@ -85,10 +85,10 @@
             </div>
             #end for
             #if $disks
-            <input type="submit" name="delete" value="$_('Delete disks')" />&nbsp;
+            <input type="submit" name="delete" value="$_('Delete disks')" />&#x0020;
             #end if
             <input type="submit" name="add" value="$_('Add a disk')" />
-    </p>
+        </div>
         </form>
     </div>
     #end if
@@ -106,7 +106,7 @@
                 $form_widgets.generate_loption("type", 'Server type', $email_server_types)
             </div>
             <div class="buttons">
-                <input type="submit" name="promote" value="$_('Promote')" />&nbsp;
+                <input type="submit" name="promote" value="$_('Promote')" />&#x0020;
                 <input type="button" class="cancel" value="$_('Cancel')" />
             </div>
         </p>

@@ -41,7 +41,7 @@ $searcher.set_target_entity($entity)
             <div class="actions">
                 #set $url = "/emailtarget/view?id=%d" % $target.get_id()
                 <a class="action" href="$url">$_('Add email-address')</a>
-                &nbsp;
+                &#x0020;
                 #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($entity.get_id(), $target.get_id())
                 <a class="action" href="$url">$_('Delete')</a>
             </div>
@@ -99,7 +99,7 @@ $searcher.set_target_entity($entity)
             $form_widgets.generate_loption('host', 'Host', $mailservers)
         </div>
         <div class="buttons">
-            <input type="submit" value="$_('Add')" />&nbsp;
+            <input type="submit" value="$_('Add')" />&#x0020;
             <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
@@ -113,7 +113,7 @@ $searcher.set_target_entity($entity)
         <div>
         <label for="address">$_('Enter an email address:')</label>
         <br />
-        <input name="address" value="TODO" /> &nbsp; <input type="submit" value="$_('Search')" />
+        <input name="address" value="TODO" /> &#x0020; <input type="submit" value="$_('Search')" />
         </div>
     </form>
 </div>
@@ -143,7 +143,7 @@ $searcher.set_target_entity($entity)
 
 #def add_address($transaction, $target, $suggestion="")
 <form action="/emailtarget/add_address" method="post">
-<p>
+<div>
     <input type="hidden" name="target" value="$target.get_id()" />
     <label>$_("Add an email address:")</label><br />
     <input name="local_part" value="$suggestion" /> @
@@ -153,13 +153,13 @@ $searcher.set_target_entity($entity)
     $domains.sort(lambda x,y: cmp(x[1], y[1]))
     $form_widgets.generate_option("domain", $domains)
     <input type="submit" value="$_("Add")" />
-</p>
+</div>
 </form>
 #end def
 
 #def edit_address($transaction, $address)
 <form action="/emailtarget/save_address" method="post">
-<p>
+<div>
     <input type="hidden" name="address" value="$html_quote($address.get_id())" />
     <label>$_("Edit email address:")</label><br />
     <input name="local_part" value="$html_quote($address.get_local_part())" /> @
@@ -170,13 +170,13 @@ $searcher.set_target_entity($entity)
     $form_widgets.generate_option("domain", $domains,
                                   $address.get_domain().get_id())
     <input type="submit" value="$_("Save")" />
-</p>
+</div>
 </form>
 #end def
 
 #def edit_target($transaction, $target)
 <form action="/emailtarget/save" method="post">
-<p>
+<div>
     <input type="hidden" name="id" value="$html_quote($target.get_id())" />
     <div> 
     #set $target_types=$transaction.get_email_target_type_searcher()
@@ -194,7 +194,8 @@ $searcher.set_target_entity($entity)
     </div>
 
     <div><label for="alias">$_("Alias"):</label>
-         <input name="alias" value="$html_quote($target.get_alias_value())" /></div>
+    <input name="alias" value="$html_quote($target.get_alias_value())" />
+    </div>
     
 ##    <div><label for="using">$_("Using account"):</label>
 ##        #set $using = target.get_using() or ''
@@ -202,7 +203,7 @@ $searcher.set_target_entity($entity)
 ##         <input name="using" value="$using" /></div>
     
     <div> <input type="submit" value="$_("Save")" /></div>
-</p>
+</div>
 </form>
 #end def
 

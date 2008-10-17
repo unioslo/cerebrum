@@ -16,7 +16,8 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, strftime, html_quote, url_quote, remember_link
+#from lib.utils import object_link, strftime, html_quote, url_quote
+#from lib.utils import remember_link
 #from GroupViewTemplate import GroupViewTemplate
 #from EmailTargetTemplate import EmailTargetTemplate
 #from FormWidgets import FormWidgets
@@ -32,16 +33,16 @@
 #def viewActions($transaction, $account)
     #set $id = $html_quote($account.get_id())
     <ul>
-        <li><a href="edit?id=$id">$_("edit info")</a></li>
-        <li><a href="/confirm/account/delete?id=$id">$_("delete account")</a></li>
+        <li><a href="/account/edit?id=$html_quote($id)">$_("edit info")</a></li>
+        <li><a href="/confirm/account/delete?id=$html_quote($id)">$_("delete account")</a></li>
         #if $account.is_posix()
-        <li><a href="posix_demote?id=$id">$_("demote from posix")</a></li>
+        <li><a href="posix_demote?id=$html_quote($id)">$_("demote from posix")</a></li>
         #else
-        <li><a href="posix_promote?id=$id">$_("promote to posix")</a></li>
+        <li><a href="posix_promote?id=$html_quote($id)">$_("promote to posix")</a></li>
         #end if
-        ##<li><a href="/email/make_target?entity=$id&amp;targettype=account">$_('add email target')</a></li>
-        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
-        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
+        ##<li><a href="/email/make_target?entity=$html_quote($id)d&amp;targettype=account">$_('add email target')</a></li>
+        <li><a href="/quarantine/add?entity=$html_quote($id)">$_('add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$html_quote($id)">$_('view full history log')</a> </li>
         <li>$remember_link($account)</li>
     </ul>
 #end def
@@ -50,6 +51,7 @@
 #def content()
 #set $commands = $tr.get_commands()
     $viewInfo($entity)
+    $printDialog($entity)
     $viewQuarantines($entity)
     $addNote($entity)
     $viewNotes($entity)
@@ -98,6 +100,18 @@ $info.append(($_('Description'), $html_quote($account.get_description())))
 $widgets.viewInfo($info, $notice)
 #end def
 
+#def printDialog($account)
+#set $langs= [ ('no', 'Norwegian'),('en', 'English')]
+<div class="info box">
+    <h3>$_('Print contract')</h3>
+        <form action="print_contract" method="post">
+            <input type="hidden" name="id" value="$html_quote($account.get_id())" />
+            $form_widgets.generate_loption("lang", "Language", $langs)
+            <input type="submit" name="button" value="$_('Print')" />
+        </form>
+</div>
+#end def
+
 #def viewPasswords($account)
 #set $auths = $account.get_authentications()
 #if $auths
@@ -124,16 +138,16 @@ $widgets.viewInfo($info, $notice)
     <h3>$_('Groups')</h3>
     <form action="groups" method="post">
         $listGroups($account)
-        <p>
+        <div>
         <input type="hidden" name="account_id" value="$html_quote($account.get_id())" />
         #if not $account.get_groups()
         $_('Account is not member of any groups')<br />
         #else
-        <input type="submit" name="leave" value="$_('Leave group(s)')" />&nbsp;
+        <input type="submit" name="leave" value="$_('Leave group(s)')" />&#x0020;
         #end if
         <input type="submit" name="create" value="$_('Create a group')" />
         <a href="#joinGroupBox">Join existing group</a>
-        </p>
+        </div>
     </form>
 </div>
 #end def
@@ -156,7 +170,7 @@ $widgets.viewInfo($info, $notice)
     <td>$object_link($ou)</td>
     <td>$html_quote($priority)</td>
     <td class="actions">
-            #set $args = "id=%s&ou=%s&affil=%s" % (
+            #set $args = "id=%s&amp;ou=%s&amp;affil=%s" % (
                             $url_quote($account.get_id()),
                             $url_quote($ou.get_id()),
                             $url_quote($affil_type.get_name()))
@@ -209,7 +223,7 @@ $widgets.viewInfo($info, $notice)
             <div class="item">
                 #set $spread = $home.get_spread()
                 #set $sname = $spread.get_name()
-                #set $remove = 'remove_home?id=%s&spread=%s' % ($url_quote($id), $url_quote($sname))
+                #set $remove = 'remove_home?id=%s&amp;spread=%s' % ($url_quote($id), $url_quote($sname))
 		#set $homedir = $home.get_homedir()         
                 
                 <div class="actions">
@@ -251,7 +265,7 @@ $widgets.viewInfo($info, $notice)
                 $form_widgets.generate_loption("disk", "Disk", $disks)
             </div>
             <div class="buttons">
-                <input type="submit" value="$_('Set homedir')" />&nbsp;
+                <input type="submit" value="$_('Set homedir')" />&#x0020;
                 <input type="button" value="$_('Cancel')" class="cancel" />
             </div>
         </form>

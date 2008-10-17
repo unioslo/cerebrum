@@ -38,8 +38,8 @@
         <div class="actions">
             <a class="action" href="$delete">$_('delete')</a>
         </div>
-        <span class="name">$html_quote($note.get_subject())</span>&nbsp;
-        <span class="creator">-$_('by')  $object_link($note.get_creator())</span>&nbsp;
+        <span class="name">$html_quote($note.get_subject())</span>&#x0020;
+        <span class="creator">-$_('by')  $object_link($note.get_creator())</span>&#x0020;
         <span class="date">$strftime($note.get_create_date())</span>
         <div class="description">$description</div>
     </div>
@@ -88,8 +88,8 @@
             <a class="action" href="$edit">$_('edit')</a>
             <a class="action" href="$remove">$_('delete')</a>
         </div>
-        <strong>$html_quote($q.get_type().get_description())</strong>&nbsp;
-        <em>-$_('by')</em> $object_link($q.get_creator())&nbsp;
+        <strong>$html_quote($q.get_type().get_description())</strong>&#x0020;
+        <em>-$_('by')</em> $object_link($q.get_creator())&#x0020;
         <span class="date">$strftime($q.get_create_date())</span>
         <div class="description">$description.strip()</div>
         
@@ -128,16 +128,18 @@
     #set sources = ",".join([$s.get_name() for $s in $id.sources])
     <tr>
             <td>$html_quote($id.variant.get_name())</td>
+            <td>
             #if 'NO_BIRTHNO' == $id.variant.get_name 
                 #if $viewBirthNo
-                     <td>$html_quote($id.value)&nbsp;<a href="/person/view?id=$html_quote($entity.get_id())">[Hide value]</a></td>
+                     $html_quote($id.value)&#x0020;<a href="/person/view?id=$html_quote($entity.get_id())">[Hide value]</a>
                         #set $viewBirthNo=False
                 #else
-                    <td><a href="/person/view?id=$html_quote($entity.get_id())&birthno=True">[Show value]</a>
+                    <a href="/person/view?id=$html_quote($entity.get_id())&amp;birthno=1">[Show value]</a>
                 #end if   
             #else
-               <td>$html_quote($id.value)</td>
+               $html_quote($id.value)
             #end if
+            </td>
            <td>$html_quote($sources)</td>
     </tr>
     #end for
@@ -166,7 +168,7 @@
             $form_widgets.generate_loption("id_type", "Type", $id_types)
         </div>
         <div class="buttons">
-            <input type="submit" value="$_('Set')" />&nbsp;
+            <input type="submit" value="$_('Set')" />&#x0020;
             <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
@@ -272,7 +274,7 @@
                 $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread")
             </div>
             <div class="buttons">
-                <input type="submit" value="$_('Add')" />&nbsp;
+                <input type="submit" value="$_('Add')" />&#x0020;
                 <input type="button" value="$_('Cancel')" class="cancel" />
             </div>
         </form>

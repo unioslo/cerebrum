@@ -42,8 +42,9 @@
 #from lib.Languages import Languages
 
 #def header()
+<% cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset=UTF-8' %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xml:lang="en">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
         <title>$title</title>
         <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
@@ -182,7 +183,7 @@ $header()
                 </div>
             </td>
             <td>
-                &nbsp;
+                &#x0020;
             </td>
         </tr>
         <tr>

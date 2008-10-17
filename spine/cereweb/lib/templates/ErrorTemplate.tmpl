@@ -72,7 +72,7 @@
                     <div id="report_div" class="report" style="display:none;">
                         <b>$_('Report the error'):</b><br />
                         <form action="/error/report" method="post">
-                        <p>
+                        <div>
                             #if $user
                             $_('Name'): <em>$user</em><br />
                             #end if
@@ -94,9 +94,9 @@
                             <br />
                             <textarea cols="40" rows="4" name="explanation"></textarea>
                             <br />
-                            <input type="submit" value="$_('Save')" />&nbsp;
+                            <input type="submit" value="$_('Save')" />&#x0020;
                             <input type="reset" value="$_('Clear')" />
-                        </p>
+                        </div>
                         </form>
                     </div>
                     #end if
