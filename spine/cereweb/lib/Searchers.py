@@ -27,6 +27,7 @@ import urllib
 import config
 import cherrypy
 
+import cereconf
 import utils
 import Messages
 from gettext import gettext as _
@@ -318,13 +319,13 @@ class AccountSearcher(Searcher):
                 'create_date': {
                     'label': _('Create date'),
                     'required': False,
-                    'type': 'date',
+                    'type': 'text',
                     'help': "YYYY-MM-DD, exact match.",
                 },
                 'expire_date': {
                     'label': _('Expire date'),
                     'required': False,
-                    'type': 'date',
+                    'type': 'text',
                     'help': "YYYY-MM-DD, exact match.",
                 },
                 'description': {
@@ -431,8 +432,14 @@ class PersonSearcher(Searcher):
             date = utils.get_date(self.transaction, birthdate)
             person.set_birth_date(date)
             main = person
-
-        name = form.get('name', '').strip()
+        name = utils.from_web_decode(form.get('name', '').strip())
+        ## name = form.get('name', '').strip()
+        print '====================> ', name
+        print '--------------------> ', self.transaction.get_encoding()
+        spineenc= utils.to_spine_encode(self.transaction, name)
+        print '::::::::::::::::::::> ', spineenc
+        ## iso = decoded.encode('ISO-8859-1')
+        ## name = name.decode('UTF-8')
         if name:
             name = '*' + name + '*'
             name = name.replace(" ", "*")
@@ -442,7 +449,7 @@ class PersonSearcher(Searcher):
 
             searcher.set_source_system(source)
             searcher.set_name_variant(variant)
-            searcher.set_name_like(name)
+            searcher.set_name_like(spineenc)
             searcher.join_name = 'person'
             searchers['name'] = searcher
 

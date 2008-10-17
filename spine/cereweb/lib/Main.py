@@ -39,6 +39,7 @@ class Main(FramesTemplate):
         self.prepare_page()
         self.prepare_messages()
         self.page, self.link = '', '#'
+        ## cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset='+FramesTemplate.charset
 
     def prepare_page(self):
         """Makes sure parts of the page is created only once.

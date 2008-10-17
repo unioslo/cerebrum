@@ -319,7 +319,7 @@ cereweb.worklist.prototype = {
     },
     addAction: function(html, type) {
         var action = document.createElement('div');
-        action.innerHTML = html.replace('_class_', type);
+        /* action.innerHTML = html.replace('_class_', type); */
         YD.setStyle(action, 'display', 'none');
         this.actions.appendChild(action);
         this.types[type] = action;

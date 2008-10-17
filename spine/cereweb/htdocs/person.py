@@ -140,7 +140,6 @@ def edit(transaction, id, **vargs):
                 vargs.get('deceased'),
                 vargs.get('description'),
                 vargs.get('submit'))
-
 edit = transaction_decorator(edit)
 edit.exposed = True
 

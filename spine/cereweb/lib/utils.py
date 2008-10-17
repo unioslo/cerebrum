@@ -498,36 +498,39 @@ def randpasswd(length=8):
 ## cherrypy.session['encoding'] is set
 ## to the same as spine-encoding in login.py
 ##
-def get_web_encoding():
-    web_enc = cherrypy.session['encoding']
-    if web_enc:
-        return web_enc
-    return 'utf-8'
+##def get_web_encoding():
+##     web_enc = cherrypy.session['encoding']
+##     if web_enc:
+##         return web_enc
+##     return 'utf-8'
 
-def get_spine_encoding():
-    return get_web_encoding()
+## def get_spine_encoding():
+##    return get_web_encoding()
 
-def from_spine_decode(str):
-    return str.decode(get_spine_encoding())
+def from_spine_decode(tr, str):
+    return str.decode(tr.get_encoding())
 
-def to_spine_encode(str):
-    return str.encode(get_spine_encoding())
+def to_spine_encode(tr, str):
+    return str.encode(tr.get_encoding())
 
 def get_content_charset(headers):
     encoding = None
     if headers:
-        ct = headers.elements("Content-Type")
-        if ct:
-            ct = ct[0]
-            encoding = ct.params.get('charset', None)
+        ct = headers.get('Content-Type', '').strip()
+        print '11111111111111111111-> ',headers
+        print '++++++++++++++++++++-> ', ct
+        ## if ct:
+            ## ct = ct[0]
+            ## encoding = ct.params.get('charset', None)
+            ## print '++++++++++++++++++> ', encoding
     if encoding:
         return encoding
     return 'utf-8'
 
 def from_web_decode(str):
-    encoding = get_content_charset(cherrypy.request.headers)
+    encoding = get_content_charset(cherrypy.request.headerMap)
     return str.decode(encoding)
 
 def to_web_encode(str):
-    return str.encode(get_web_encoding())
+    return str.encode('utf-8')
 

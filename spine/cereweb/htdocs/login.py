@@ -91,7 +91,9 @@ def login(**vargs):
 
             spine = Spine.connect()
             session = spine.login(username, password)
-            session.set_encoding("utf-8")
+            #########################################################
+            #  this is supposed to be set by cereconf.py
+            #session.set_encoding('iso-8859-1')
             #if not session.is_admin():
             #    client = '/user_client'
         except CORBA.TRANSIENT, e:
@@ -109,7 +111,8 @@ def login(**vargs):
         else:
             cherrypy.session['session'] = session
             cherrypy.session['timeout'] = session.get_timeout()
-            cherrypy.session['encoding'] = session.get_encoding()
+            #cherrypy.session['encoding'] = session.get_encoding()
+            cherrypy.session['encoding'] = "utf-8"
             cherrypy.session['options'] = Options(session, username)
             
             try:

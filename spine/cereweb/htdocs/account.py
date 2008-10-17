@@ -172,7 +172,6 @@ def edit(transaction, id, **vargs):
         return view_form(form)
     elif not form.is_correct():
         return view_form(form, form.get_error_message())
-        
 edit = transaction_decorator(edit)
 edit.exposed = True
 
@@ -386,6 +385,59 @@ def remove_affil(transaction, id, ou, affil):
     commit(transaction, account, msg=_("Affiliation successfully removed."))
 remove_affil = transaction_decorator(remove_affil)
 remove_affil.exposed = True
+ 
+def print_contract(transaction, id, lang, button):
+    account = transaction.get_account(int(id))
+    owner = account.get_owner()
+    names = owner.get_names()
+    lastname = None
+    firstname = None
+    for name in names:
+        nameVariant = name.get_name_variant()
+        sourceSystem = name.get_source_system()
+        if sourceSystem.get_name() == 'Cached':
+            if nameVariant.get_name() == 'LAST':
+                lastname = name.get_name()
+            if nameVariant.get_name() == 'FIRST':
+                firstname = name.get_name()
+    targetSearcher = transaction.get_email_target_searcher()
+    targetSearcher.set_target_entity(account)
+    emailTargets = targetSearcher.search()
+    emailAddress = None
+    if emailTargets:
+        ## which one to choose?
+        primaryEmail = emailTargets[0].get_primary_address()
+        if primaryEmail:
+            domain  = primaryEmail.get_domain().get_name()
+            emailAddress = primaryEmail.get_local_part() + '@' + domain
+    username = account.get_name()
+    passwd = None
+    birthdate = owner.get_birth_date().strftime('%d-%m-%Y')
+    studyprogram = None
+    year = None
+    affiliation = None
+    affiliations = owner.get_affiliations()
+    if affiliations:
+        for aff in affiliations:
+            if not aff.marked_for_deletion():
+                affiliation = aff
+    perspective  = transaction.get_ou_perspective_type('Kjernen')
+    faculty = affiliation.get_ou().get_parent(perspective).get_name()
+    department = affiliation.get_ou().get_name()
+    print 'lastename = ', lastname
+    print 'firstname = ', firstname
+    print 'email = ', emailAddress
+    print 'username = ', username
+    print 'passwd = ', passwd
+    print 'birthdate = ', birthdate
+    print 'studyprogram = ', studyprogram
+    print 'year = ', year
+    print 'faculty = ', faculty
+    print 'department = ', department
+    print 'lang = ', lang
+    referer = cherrypy.request.headerMap.get('Referer', '')
+    rollback_url(referer, 'Contract is printed.', err=False)
+print_contract = transaction_decorator(print_contract)
+print_contract.exposed = True
     
-
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df

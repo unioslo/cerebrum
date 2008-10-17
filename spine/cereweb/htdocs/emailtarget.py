@@ -83,7 +83,7 @@ def view(transaction, id):
     domains = [(i.get_name(), i.get_name()) for i in domains]
     page = EmailTargetViewTemplate()
     page.title = _("Email addresses")
-    page.set_focus("email/")
+    page.set_focus("emailtarget/view")
     page.entity = target
     page.entity_id = id
     page.domains = domains
