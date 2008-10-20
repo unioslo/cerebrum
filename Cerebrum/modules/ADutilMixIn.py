@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-
-# Copyright 2006, 2007 University of Oslo, Norway
+# Copyright 2006-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -70,6 +69,10 @@ class ADutil(object):
                     ret = cmd(arg1, arg2)
                 else:
                     ret = cmd(arg1, arg2, arg3)
+            except xmlrpclib.ProtocolError, xpe:
+                self.logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                                     (xpe.errcode, xpe.errmsg))
+                return [None]
             except Exception, e:
                 self.logger.warn("Unexpected exception", exc_info=1)
                 self.logger.debug("Command: %s" % repr((command, dry_run, arg1, arg2, arg3)))
