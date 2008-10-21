@@ -29,7 +29,8 @@ from lib.Main import Main
 from lib.utils import strftime, strptime, commit_url, unlegal_name
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
-from lib.utils import legal_date, rollback_url
+from lib.utils import legal_date, rollback_url, html_quote
+from lib.utils import spine_to_web, web_to_spine
 from lib.Searchers import PersonSearcher
 from lib.Forms import PersonCreateForm, PersonEditForm
 from lib.templates.SearchResultTemplate import SearchResultTemplate
@@ -85,9 +86,11 @@ def _get_person(transaction, id):
 
 def view(transaction, id, **vargs):
     """Creates a page with a view of the person given by id."""
+    tr = transaction
     person = transaction.get_person(int(id))
     page = PersonViewTemplate()
-    page.title = _("Person %s" % _primary_name(person))
+    displayname = spine_to_web(tr, _primary_name(person))
+    page.title = _("Person %s" % html_quote(displayname))
     page.set_focus("person/view")
     page.links = _get_links()
     page.tr = transaction
