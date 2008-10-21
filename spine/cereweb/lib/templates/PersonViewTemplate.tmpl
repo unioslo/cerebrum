@@ -17,8 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.utils import object_link, strftime, html_quote, url_quote, ou_selects
-#from lib.utils import remember_link, to_web_encode, from_web_decode
-#from lib.utils import from_spine_decode, to_spine_encode
+#from lib.utils import remember_link, web_to_spine, spine_to_web
 #import operator
 #from GroupViewTemplate import GroupViewTemplate
 #from Widgets import Widgets
@@ -45,7 +44,7 @@
 #def content()
     $viewInfo($entity, $tr)
     $setName($entity, $tr)
-    $viewNames($entity)
+    $viewNames($entity, $tr)
     $viewQuarantines($entity)
     $addNote($entity)
     $viewNotes($entity)
@@ -67,10 +66,12 @@
         $notice.append($_("Deceased"))
         $info.append(($_("Deceased date"), $strftime($person.get_deceased_date())))
     #end if
-    #set cached = $tr.get_source_system("Cached")
-    #set first = $tr.get_name_type("FIRST")
-    #set last = $tr.get_name_type("LAST")
-    $info.append(($_("Name"), $person.get_name(last, cached) + ", " + $person.get_name(first, cached)))
+    #set $cached = $tr.get_source_system("Cached")
+    #set $first = $tr.get_name_type("FIRST")
+    #set $last = $tr.get_name_type("LAST")
+    #set $lastname = $spine_to_web($tr, $person.get_name($last, $cached))
+    #set $firstname = $spine_to_web($tr, $person.get_name($first, $cached))
+    $info.append(($_("Name"), $html_quote($lastname) + ", " + $html_quote($firstname)))
     $info.append(($_("Gender"), $html_quote($person.get_gender().get_description())))
     $info.append(($_("Date of birth"), $strftime($person.get_birth_date())))
     $info.append(($_("Description"), $html_quote($person.get_description())))
@@ -207,7 +208,7 @@ $ou_structure_searcher.set_perspective($perspective_type)
 #end def
 
 #from lib.utils import namelist
-#def viewNames($person)
+#def viewNames($person, $tr)
     <div class="info box">
         #set names = namelist($person)
         <h3>$_('Names')</h3>
@@ -221,7 +222,7 @@ $ou_structure_searcher.set_perspective($perspective_type)
             #set sources = ",".join([$s.get_name() for $s in $name.sources])
             <tr>
                <td>$html_quote($name.variant.get_name())</td>
-               <td>$html_quote($name.value)</td>
+               <td>$html_quote($spine_to_web($tr, $name.value))</td>
                <td>$html_quote($sources)</td>
             </tr>
             #end for
