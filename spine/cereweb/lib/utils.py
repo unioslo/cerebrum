@@ -354,14 +354,15 @@ def get_tabs(current=None):
         res.append(html % (selected, link, name))
     return "\n".join(res)
 
-# make a long list of the ou-structure
-def flatten(oulist, perspective, res=[]):
-    if not oulist:
-        return
-    for ou in oulist:
-        res.append(ou)
-        flatten(ou.get_children(perspective), perspective, res)
-    return res
+def ou_selects(elem, perspective_type, indent=""):
+    output = []
+    id = elem.get_id()
+    name = indent + html_quote(elem.get_name())
+    output += [(id, name)]
+    for ou in elem.get_children(perspective_type):
+       output += ou_selects(ou, perspective_type, "&nbsp;&nbsp;&nbsp;" + indent)
+    return output
+
 
 #
 # namelist does not really belong here...
@@ -507,6 +508,12 @@ def randpasswd(length=8):
 ## def get_spine_encoding():
 ##    return get_web_encoding()
 
+def spine_to_web(tr, str):
+    return to_web_encode(from_spine_decode(tr, str))
+
+def web_to_spine(tr, str):
+    return to_spine_encode(tr, from_web_decode(str))
+
 def from_spine_decode(tr, str):
     return str.decode(tr.get_encoding())
 
@@ -514,23 +521,32 @@ def to_spine_encode(tr, str):
     return str.encode(tr.get_encoding())
 
 def get_content_charset(headers):
-    encoding = None
+    encoding = 'utf-8'
     if headers:
         ct = headers.get('Content-Type', '').strip()
-        print '11111111111111111111-> ',headers
-        print '++++++++++++++++++++-> ', ct
-        ## if ct:
-            ## ct = ct[0]
-            ## encoding = ct.params.get('charset', None)
-            ## print '++++++++++++++++++> ', encoding
-    if encoding:
-        return encoding
-    return 'utf-8'
+        if ct:
+            ## print '111111111111111111111', ct
+            ll = ct.split(';')
+            if len(ll) == 2:
+                dd = ll[1].split('=')
+                if dd[0] == 'charset':
+                    ## print '2222222222222222222', ll[1]
+                    encoding = dd[1]
+    ## print '3333333333333333333333', encoding
+    return encoding
 
 def from_web_decode(str):
     encoding = get_content_charset(cherrypy.request.headerMap)
     return str.decode(encoding)
 
 def to_web_encode(str):
-    return str.encode('utf-8')
+    return str.encode(get_content_charset(cherrypy.request.headerMap))
 
+def encode_args(args):
+    print 'args = ', args
+    args_str = ''
+    for key, value in args.items():
+        if args_str:
+            args_str += '&amp;'
+        args_str += urllib.urlencode(key) + '=' + urllib.urlencode(value)
+    return args_str
