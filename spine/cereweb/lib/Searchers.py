@@ -423,7 +423,7 @@ class PersonSearcher(Searcher):
         person.join_name = ''
         searchers['person'] = person
 
-        description = form.get('description', '').strip()
+        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
         if description:
             person.set_description_like("*%s*" % description)
 
@@ -432,14 +432,8 @@ class PersonSearcher(Searcher):
             date = utils.get_date(self.transaction, birthdate)
             person.set_birth_date(date)
             main = person
-        name = utils.from_web_decode(form.get('name', '').strip())
-        ## name = form.get('name', '').strip()
-        print '====================> ', name
-        print '--------------------> ', self.transaction.get_encoding()
-        spineenc= utils.to_spine_encode(self.transaction, name)
-        print '::::::::::::::::::::> ', spineenc
-        ## iso = decoded.encode('ISO-8859-1')
-        ## name = name.decode('UTF-8')
+
+        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
         if name:
             name = '*' + name + '*'
             name = name.replace(" ", "*")
@@ -449,7 +443,7 @@ class PersonSearcher(Searcher):
 
             searcher.set_source_system(source)
             searcher.set_name_variant(variant)
-            searcher.set_name_like(spineenc)
+            searcher.set_name_like(name)
             searcher.join_name = 'person'
             searchers['name'] = searcher
 
@@ -474,7 +468,7 @@ class PersonSearcher(Searcher):
             #    main.add_join(main.join_name, searcher, searcher.join_name)
 
 
-        ou = form.get('ou', '').strip()
+        ou = utils.web_to_spine(self.transaction, form.get('ou', '').strip())
         if ou:
             s_ou = self.transaction.get_ou_searcher()
             s_ou.set_name_like(ou)
@@ -505,7 +499,7 @@ class PersonSearcher(Searcher):
                 else:
                     main.add_intersection(main.join_name, searcher, searcher.join_name)
 
-        aff = form.get('aff', '').strip()
+        aff = utils.web_to_spine(self.transaction, form.get('aff', '').strip())
         if aff:
             s_aff = self.transaction.get_person_affiliation_type_searcher()
             s_aff.set_name_like(aff)
@@ -569,9 +563,9 @@ class PersonSearcher(Searcher):
             pers_names = pers.get_names()
             for name in pers_names:
                 if name.get_name_variant().get_name() == 'LAST':
-                    lastname = name.get_name()
+                    lastname = utils.spine_to_web(self.transaction, name.get_name())
                 if name.get_name_variant().get_name() == 'FIRST':
-                    firstname = name.get_name()
+                    firstname = utils.spine_to_web(self.transaction, name.get_name())
             remb = utils.remember_link(pers, _class="action")
             if firstname and lastname:
                 rows.append([utils.object_link(pers, lastname + ', ' + firstname), date, accs, affs, str(edit)+str(remb)])
