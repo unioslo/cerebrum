@@ -20,10 +20,10 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from types import StringTypes
-#from lib.utils import html_quote
+#from lib.utils import html_quote, from_spine_decode
 
 ## Creates a drop-down option list where 'selected' is preselected.
-#def generate_option($name, $types, $selected=None, $id=None)
+#def generate_option($name, $types, $selected=None, $id=None, $quote=True)
     #if not $id
         #set $id = $name
     #end if
@@ -34,18 +34,22 @@
         #if $selected==$name
             #set $is_selected = ' selected="selected"'
         #end if
-        <option$is_selected value="$html_quote($name)">$html_quote($desc)</option>
+        #if $quote
+            #set $name = $html_quote($name)
+            #set $desc = $html_quote($desc)
+        #end if
+        <option$is_selected value="$name">$desc</option>
     #end for
     </select>
 #end def
 
 ## Creates a drop-down option list with a label.
-#def generate_loption($name, $label, $types, $selected=None, $id=None)
+#def generate_loption($name, $label, $types, $selected=None, $id=None, $quote=True)
     #if not $id
         #set $id = $name
     #end if
     <label for="$id">$_($label):</label>
-    $generate_option($name, $types, $selected, $id)
+    $generate_option($name, $types, $selected, $id, $quote)
 #end def
 
 #def generate_td2loption($name, $label, $types, $selected=None,$tdattrs={'align': {'left': 'left','right' :'left'}})
