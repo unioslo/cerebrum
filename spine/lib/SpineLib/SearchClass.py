@@ -199,7 +199,6 @@ class SearchClass(DatabaseTransactionClass):
             if key.endswith('_like'):
                 key = key[:-len('_like')]
                 like = True
-                value = value.upper()
                 # FIXME: flere tegn som må escapes?
                 for i in (('_', '\_'), ('%', '\%'), ('*', '%'), ('?', '_')):
                     value = value.replace(*i)
@@ -221,7 +220,7 @@ class SearchClass(DatabaseTransactionClass):
             name = self.cls._get_real_name(attr)
             arg = '%s_%s' % (alias, name)
             if like:
-                where.append('UPPER(%s_%s.%s) LIKE :%s' % (alias, attr.table, name, key_alias))
+                where.append('UPPER(%s_%s.%s) LIKE UPPER(:%s)' % (alias, attr.table, name, key_alias))
             else:
                 where.append('%s_%s.%s %s :%s' % (alias, attr.table, name, operator, key_alias))
             args[key_alias] = attr.convert_to(value)
