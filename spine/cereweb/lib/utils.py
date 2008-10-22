@@ -354,13 +354,13 @@ def get_tabs(current=None):
         res.append(html % (selected, link, name))
     return "\n".join(res)
 
-def ou_selects(elem, perspective_type, indent=""):
+def ou_selects(tr, elem, perspective_type, indent=""):
     output = []
-    id = elem.get_id()
-    name = indent + html_quote(elem.get_name())
+    id = html_quote(elem.get_id())
+    name = indent + html_quote(spine_to_web(tr, elem.get_name()))
     output += [(id, name)]
     for ou in elem.get_children(perspective_type):
-       output += ou_selects(ou, perspective_type, "&nbsp;&nbsp;&nbsp;" + indent)
+       output += ou_selects(tr, ou, perspective_type, "&nbsp;&nbsp;&nbsp;" + indent)
     return output
 
 
@@ -508,39 +508,37 @@ def randpasswd(length=8):
 ## def get_spine_encoding():
 ##    return get_web_encoding()
 
-def spine_to_web(tr, str):
-    return to_web_encode(from_spine_decode(tr, str))
+def spine_to_web(tr, string):
+    return to_web_encode(from_spine_decode(tr, string))
 
-def web_to_spine(tr, str):
-    return to_spine_encode(tr, from_web_decode(str))
+def web_to_spine(tr, string):
+    return to_spine_encode(tr, from_web_decode(string))
 
-def from_spine_decode(tr, str):
-    return str.decode(tr.get_encoding())
+def from_spine_decode(tr, string):
+    return string.decode(tr.get_encoding())
 
-def to_spine_encode(tr, str):
-    return str.encode(tr.get_encoding())
+def to_spine_encode(tr, string):
+    return string.encode(tr.get_encoding())
 
 def get_content_charset(headers):
     encoding = 'utf-8'
     if headers:
         ct = headers.get('Content-Type', '').strip()
         if ct:
-            ## print '111111111111111111111', ct
             ll = ct.split(';')
             if len(ll) == 2:
                 dd = ll[1].split('=')
-                if dd[0] == 'charset':
-                    ## print '2222222222222222222', ll[1]
-                    encoding = dd[1]
-    ## print '3333333333333333333333', encoding
+                if len(dd) == 2:
+                    if dd[0]strip().lower() == 'charset':
+                        encoding = dd[1].strip()
     return encoding
 
-def from_web_decode(str):
+def from_web_decode(string):
     encoding = get_content_charset(cherrypy.request.headerMap)
-    return str.decode(encoding)
+    return string.decode(encoding)
 
-def to_web_encode(str):
-    return str.encode(get_content_charset(cherrypy.request.headerMap))
+def to_web_encode(string):
+    return string.encode(get_content_charset(cherrypy.request.headerMap))
 
 def encode_args(args):
     print 'args = ', args
@@ -550,3 +548,16 @@ def encode_args(args):
             args_str += '&amp;'
         args_str += urllib.urlencode(key) + '=' + urllib.urlencode(value)
     return args_str
+
+def get_ou_structure(tr, perspective):
+    ou_structure_searcher = tr.get_ou_structure_searcher()
+    ou_structure_searcher.set_perspective(perspective)
+    return ou_structure_searcher.search()
+
+def find_ou_root(ou_structure, perspective):
+    root = None
+    for structure in ou_structure:
+        ou = structure.get_ou()
+        if not ou.get_parent(perspective) and ou.get_children(perspective):
+            root = ou
+    return root
