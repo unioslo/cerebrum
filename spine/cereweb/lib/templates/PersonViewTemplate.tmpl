@@ -18,6 +18,7 @@
 
 #from lib.utils import object_link, strftime, html_quote, url_quote, ou_selects
 #from lib.utils import remember_link, web_to_spine, spine_to_web
+#from lib.utils import get_ou_structure, find_ou_root, from_spine_decode
 #import operator
 #from GroupViewTemplate import GroupViewTemplate
 #from Widgets import Widgets
@@ -31,11 +32,11 @@
 #def viewActions($transaction, $person)
     #set $id = $html_quote($person.get_id())
     <ul>
-        <li><a href="/person/edit?id=$html_quote($id)">$_("edit info")</a></li>
-        <li><a href="/confirm/person/delete?id=$html_quote($id)">$_("delete person")</a></li>
-        <li><a href="/quarantine/add?entity=$html_quote($id)">$_('add quarantine')</a></li>
-        <li><a href="/account/create?owner=$html_quote($id)">$_('create new account')</a></li>
-        <li><a href="/entity/full_historylog?id=$html_quote($id)">$_('view full history log')</a> </li>
+        <li><a href="/person/edit?id=$id">$_("edit info")</a></li>
+        <li><a href="/confirm/person/delete?id=$id">$_("delete person")</a></li>
+        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
+        <li><a href="/account/create?owner=$id">$_('create new account')</a></li>
+        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
         <li>$remember_link($person)</li>
     </ul>
 #end def
@@ -48,9 +49,9 @@
     $viewQuarantines($entity)
     $addNote($entity)
     $viewNotes($entity)
-    $viewAccounts($entity)
+    $viewAccounts($entity, $tr)
     $addAffiliation($entity, $tr)
-    $viewAffiliation($entity)
+    $viewAffiliation($entity, $tr)
     $viewTraits($entity)
     $viewContactInfos($entity)
     $viewAddresses($entity)
@@ -72,32 +73,32 @@
     #set $lastname = $spine_to_web($tr, $person.get_name($last, $cached))
     #set $firstname = $spine_to_web($tr, $person.get_name($first, $cached))
     $info.append(($_("Name"), $html_quote($lastname) + ", " + $html_quote($firstname)))
-    $info.append(($_("Gender"), $html_quote($person.get_gender().get_description())))
+    $info.append(($_("Gender"), $html_quote($spine_to_web($tr, $person.get_gender().get_description()))))
     $info.append(($_("Date of birth"), $strftime($person.get_birth_date())))
-    $info.append(($_("Description"), $html_quote($person.get_description())))
+    $info.append(($_("Description"), $html_quote($spine_to_web($tr, $person.get_description()))))
     $widgets.viewInfo($info, $notice)
 #end def
 
 ## List accounts and groups the accounts are member of.
-#def viewAccounts($person)
+#def viewAccounts($person, $tr)
 #set $allaccounts = $person.get_accounts()
 #set $primary = $person.get_primary_account()
 #if $primary
     #set $primary = $primary.get_name()
 #end if
-#set $person_id = $person.get_id()
+#set $person_id = $html_quote($person.get_id())
 
 <div class="list box">
     <h3>$_('Accounts &amp; Groups')</h3>
     <form action="accounts" method="post">
-        <input type="hidden" value="$html_quote($person_id)" name="owner" />
+        <input type="hidden" value="$person_id" name="owner" />
         #for $account in $allaccounts
         #set $account_id = $html_quote($account.get_id())
 
         ## need a copy for comparing against the primary
         ##  which is not quoted.
         #set $acc_name_cmp = $account.get_name()
-        #set $account_name = $html_quote($acc_name_cmp)
+        #set $account_name = $html_quote($spine_to_web($tr, $acc_name_cmp))
         <div>
             <input type="checkbox" name="account_$account_id" />
             <em>$_('Account'):</em>$account_name
@@ -128,7 +129,7 @@
 </div>
 #end def
 
-#def viewAffiliation($person)
+#def viewAffiliation($person, $tr)
 #set $affils = $person.get_affiliations()
 #if $affils
 <div class="info box">
@@ -151,17 +152,23 @@
 
         #if not $marked
             <tr class="item">
-            <td>$html_quote($affil_type.get_name())</td>
-            <td>$html_quote($status.get_name())</td>
+            <td>$html_quote($spine_to_web($tr, $affil_type.get_name()))</td>
+            <td>$html_quote($spine_to_web($tr, $status.get_name()))</td>
             <td>$object_link($ou)</td>
             <td>&#x0020;</td>
-            <td>$html_quote($source.get_name())</td>
+            <td>$html_quote($spine_to_web($tr, $source.get_name()))</td>
             <td class="actions">
+
+            ## urls should always be encoded in utf-8
+            #set $person_id = $person.get_id()
+            #set $ou_id =  ou.get_id()
+            #set $type_aff = $from_spine_decode($tr, $affil_type.get_name()).encode('utf-8')
+            #set $source_name = $from_spine_decode($tr, source.get_name()).encode('utf-8')
             #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
-                            $html_quote($person.get_id()),
-                            $html_quote($ou.get_id()),
-                            $html_quote($affil_type.get_name()),
-                            $html_quote($source.get_name()))
+                            $html_quote($person_id),
+                            $html_quote($ou_id),
+                            $html_quote($type_aff),
+                            $html_quote($source_name))
             <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a></td>
             </tr>
         #end if
@@ -173,19 +180,10 @@
 
 #def addAffiliation($person, $tr)
 #set $searcher = $tr.get_person_affiliation_status_searcher()
-#set $status = [($i.get_id(), "%s: %s" % ($i.get_affiliation().get_name(), $i.get_name())) for $i in $searcher.search()]
+#set $status = [($i.get_id(), "%s: %s" % ($spine_to_web($tr, $i.get_affiliation().get_name()), $spine_to_web($tr, $i.get_name()))) for $i in $searcher.search()]
 
 #set $perspective_type = $tr.get_ou_perspective_type('Kjernen')
-#set $ou_structure_searcher = $tr.get_ou_structure_searcher()
-$ou_structure_searcher.set_perspective($perspective_type)
-#set $ou_structure = $ou_structure_searcher.search()
-#set $root = None
-#for $structure in $ou_structure:
-    #set $ou = $structure.get_ou()
-    #if not $ou.get_parent($perspective_type) and $ou.get_children($perspective_type)
-        #set $root = $ou
-    #end if
-#end for
+#set $root = $find_ou_root($get_ou_structure($tr, $perspective_type), $perspective_type)
 
 <div class="edit box">
     <h3 id="affil">$_('Add an affiliation')</h3>
@@ -197,7 +195,7 @@ $ou_structure_searcher.set_perspective($perspective_type)
             $form_widgets.generate_loption("status", "Affiliation", $status)
         </div>
         <div class="required">
-            $form_widgets.generate_loption("ou", "Organization Unit", $ou_selects($root, $perspective_type), $quote=False)
+            $form_widgets.generate_loption("ou", "Organization Unit", $ou_selects($tr, $root, $perspective_type), $quote=False)
         </div>
         <div class="buttons">
             <input type="submit" value="$_('Add')" />&#x0020;
@@ -210,7 +208,7 @@ $ou_structure_searcher.set_perspective($perspective_type)
 #from lib.utils import namelist
 #def viewNames($person, $tr)
     <div class="info box">
-        #set names = namelist($person)
+        #set $names = $namelist($person)
         <h3>$_('Names')</h3>
         <table>
             <tr>
@@ -218,10 +216,10 @@ $ou_structure_searcher.set_perspective($perspective_type)
               <th>$_('Name')</th>
               <th>$_('Sources')</th>
             </tr>
-            #for name in names
-            #set sources = ",".join([$s.get_name() for $s in $name.sources])
+            #for $name in $names
+            #set $sources = ",".join([$spine_to_web($tr,$s.get_name()) for $s in $name.sources])
             <tr>
-               <td>$html_quote($name.variant.get_name())</td>
+               <td>$html_quote($spine_to_web($tr, $name.variant.get_name()))</td>
                <td>$html_quote($spine_to_web($tr, $name.value))</td>
                <td>$html_quote($sources)</td>
             </tr>
@@ -230,12 +228,12 @@ $ou_structure_searcher.set_perspective($perspective_type)
     </div>
 #end def
 
-#def setName($person, $transaction)
+#def setName($person, $tr)
 <div class="edit box">
     <h3>$_('Set a name')</h3>
     <form action="add_name" method="post">
-        #set $name_types = $transaction.get_name_type_searcher().search()
-        #set $name_types = [(i.get_name(), i.get_description()) for i in $name_types]
+        #set $name_types = $tr.get_name_type_searcher().search()
+        #set $name_types = [($spine_to_web($tr, $i.get_name()), $spine_to_web($tr, $i.get_description())) for $i in $name_types]
         <div class="hidden">
             <input type="hidden" name="id" value="$html_quote($person.get_id())" />
         </div>
