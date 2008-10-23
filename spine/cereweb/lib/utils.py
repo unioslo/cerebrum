@@ -529,7 +529,7 @@ def get_content_charset(headers):
             if len(ll) == 2:
                 dd = ll[1].split('=')
                 if len(dd) == 2:
-                    if dd[0]strip().lower() == 'charset':
+                    if dd[0].strip().lower() == 'charset':
                         encoding = dd[1].strip()
     return encoding
 
@@ -541,13 +541,15 @@ def to_web_encode(string):
     return string.encode(get_content_charset(cherrypy.request.headerMap))
 
 def encode_args(args):
-    print 'args = ', args
-    args_str = ''
-    for key, value in args.items():
-        if args_str:
-            args_str += '&amp;'
-        args_str += urllib.urlencode(key) + '=' + urllib.urlencode(value)
-    return args_str
+    retStr= ''
+    for k in args.keys():
+        value = str(args[k])
+        if retStr:
+            retStr += '&amp;'
+        retStr += k + '='
+        if value:
+            retStr += value
+    return retStr
 
 def get_ou_structure(tr, perspective):
     ou_structure_searcher = tr.get_ou_structure_searcher()
