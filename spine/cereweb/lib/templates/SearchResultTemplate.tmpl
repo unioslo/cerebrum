@@ -19,6 +19,7 @@
 #import config
 #from lib.Main import Main
 #import cgi, urllib
+#from lib.utils import encode_args
 #extends Main
 
 #def viewDict($result)
@@ -64,7 +65,7 @@
     
     #if $result['has_previous']
         #set $args['offset'] = $result['previous_offset']
-        <a href="$result['url']?$urllib.urlencode($args)">$_("Previous")</a>
+        <a href="$result['url']?$encode_args($args)">$_("Previous")</a>
     #end if
     
     #for $page in $range($start, $start + 10, 1)
@@ -81,13 +82,13 @@
             <span>$page</span>
         #else
             #set $args['offset'] = ($first - 1)
-            <a title="Results $first - $last" href="$result['url']?$urllib.urlencode($args)">$page</a>
+            <a title="Results $first - $last" href="$result['url']?$encode_args($args)">$page</a>
         #end if
     #end for
     
     #if $result['has_next']
         #set $args['offset'] = $result['next_offset']
-        <a href="$result['url']?$urllib.urlencode($args)">$_("Next")</a>
+        <a href="$result['url']?$encode_args($args)">$_("Next")</a>
     #end if
 </div>
 #end def
