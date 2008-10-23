@@ -452,7 +452,7 @@ class PersonSearcher(Searcher):
             else:
                 main.add_join(main.join_name, searcher, searcher.join_name)
 
-        account_name = form.get('accountname', '').strip()
+        account_name = utils.web_to_spine(self.transaction, form.get('accountname', '').strip())
         if account_name:
             entity_type = self.transaction.get_entity_type('person')
 
@@ -553,7 +553,12 @@ class PersonSearcher(Searcher):
                 pers = obj
 
             date = utils.strftime(pers.get_birth_date())
-            affs = [str(utils.object_link(i.get_ou())) for i in pers.get_affiliations()[:3]]
+            ## to get norwegian characters displayed
+            affs = []
+            for i in pers.get_affiliations()[:3]:
+                linktext = utils.spine_to_web(self.transaction, i.get_ou().get_name())
+                affs.append(utils.object_link(i.get_ou(), text=linktext))
+            ## affs = [str(utils.object_link(i.get_ou())) for i in pers.get_affiliations()[:3]]
             affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
             accs = [str(utils.object_link(i)) for i in pers.get_accounts()[:3]]
             accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
