@@ -33,16 +33,16 @@
 #def viewActions($transaction, $account)
     #set $id = $html_quote($account.get_id())
     <ul>
-        <li><a href="/account/edit?id=$html_quote($id)">$_("edit info")</a></li>
-        <li><a href="/confirm/account/delete?id=$html_quote($id)">$_("delete account")</a></li>
+        <li><a href="/account/edit?id=$id">$_("edit info")</a></li>
+        <li><a href="/confirm/account/delete?id=$id">$_("delete account")</a></li>
         #if $account.is_posix()
-        <li><a href="posix_demote?id=$html_quote($id)">$_("demote from posix")</a></li>
+        <li><a href="posix_demote?id=$id">$_("demote from posix")</a></li>
         #else
-        <li><a href="posix_promote?id=$html_quote($id)">$_("promote to posix")</a></li>
+        <li><a href="posix_promote?id=$id">$_("promote to posix")</a></li>
         #end if
-        ##<li><a href="/email/make_target?entity=$html_quote($id)d&amp;targettype=account">$_('add email target')</a></li>
-        <li><a href="/quarantine/add?entity=$html_quote($id)">$_('add quarantine')</a></li>
-        <li><a href="/entity/full_historylog?id=$html_quote($id)">$_('view full history log')</a> </li>
+        ##<li><a href="/email/make_target?entity=$id&amp;targettype=account">$_('add email target')</a></li>
+        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
         <li>$remember_link($account)</li>
     </ul>
 #end def
@@ -50,7 +50,7 @@
 ## Main method for creating the view of accounts.
 #def content()
 #set $commands = $tr.get_commands()
-    $viewInfo($entity)
+    $viewInfo($entity, $tr)
     $printDialog($entity)
     $viewQuarantines($entity)
     $addNote($entity)
@@ -74,7 +74,7 @@
     $viewHistoryLog($entity)
 #end def
 
-#def viewInfo($account)
+#def viewInfo($account, $tr)
 #set $info = []
 #set $notice = []
 #if $account.is_quarantined()
