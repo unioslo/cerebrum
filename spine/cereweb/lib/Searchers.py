@@ -560,7 +560,12 @@ class PersonSearcher(Searcher):
                 affs.append(utils.object_link(i.get_ou(), text=linktext))
             ## affs = [str(utils.object_link(i.get_ou())) for i in pers.get_affiliations()[:3]]
             affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
-            accs = [str(utils.object_link(i)) for i in pers.get_accounts()[:3]]
+            ## to get norwegian characters displayed
+            accs = []
+            for i in pers.get_accounts()[:3]:
+                linktext = utils.spine_to_web(self.transaction, i.get_name())
+                accs.append(utils.object_link(i, text=linktext))
+            ## accs = [str(utils.object_link(i)) for i in pers.get_accounts()[:3]]
             accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
             edit = utils.object_link(pers, text='edit', method='edit', _class='action')
             firstname = ''
