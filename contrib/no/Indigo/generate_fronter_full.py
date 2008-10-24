@@ -257,11 +257,12 @@ class FronterXML(object):
         self.xml.emptyTag('typevalue', {'level': type})
         self.xml.endTag('grouptype')
         self.xml.startTag('description')
-        if (len(data['title']) > 60):
+        description = data.get("description", data["title"])
+        if (len(description) > 60):
             self.xml.emptyTag('short')
-            self.xml.dataElement('long', data['title'])
+            self.xml.dataElement('long', description)
         else:
-            self.xml.dataElement('short', data['title'])
+            self.xml.dataElement('short', description)
         self.xml.endTag('description')
         self.xml.startTag('relationship', {'relation': 1})
         self.xml.startTag('sourcedid')
@@ -508,6 +509,8 @@ def register_group(type, title):
     group_id = pid + rest
     new_group[group_id] = {'title': rest,
                            'parent': parent_id,
+                           # IVR 2008-10-24 At Jan Roar Skaar's request
+                           'description': title,
                            }
 
 new_school_nodes = {}
