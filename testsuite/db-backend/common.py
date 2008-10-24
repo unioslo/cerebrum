@@ -28,7 +28,7 @@ In general:
 * Do *NOT* test multiple features in a single method
 * Do *NOT* have a failing test followed by a succeeding one in the same
   function. At different isolation levels, if a failure is detected, the
-  entire transaction will be aborted! (and the succeeding test will test
+  entire transaction will be aborted! (and the succeeding test will fail
   because of the failed transaction from the previous test in the same method
   which was supposed to and actually did fail)
 
@@ -42,6 +42,7 @@ import imp
 import sys
 from os.path import join, normpath, exists
 from os import getcwd
+import mx.DateTime
 
 from nose.tools import assert_raises
 
@@ -49,7 +50,10 @@ from nose.tools import assert_raises
 
 def sneaky_import(name, with_debug=False):
     """Import module L{name}, falling back to 'relative' import from the
-    Cerebrum installation where *this* file is located. 
+    Cerebrum installation where *this* file is located.
+
+    @type
+    
     """
     import cereconf
     
@@ -81,7 +85,9 @@ def sneaky_import(name, with_debug=False):
         }
 
     if with_debug:
-        print "Imported <%s> from %s" % (name, mod.__file__)
+        sys.stdout.flush()
+        print "\nImported <%s> from %s" % (name, mod.__file__)
+        sys.stdout.flush()
 
     return mod
 # end sneaky_import
@@ -238,13 +244,12 @@ class DBTestBase(object):
         SELECT * FROM [:table schema=cerebrum name=nosetest1]
         """)
 
-        import mx.DateTime as mdt
-        now = mdt.now()
+        now = mx.DateTime.now()
         # 1 day, since [:now] happens at midnight
-        assert (now - value["field1"]) < mdt.DateTimeDelta(1, # days
-                                                           0, # hours
-                                                           0, # minutes
-                                                           0) # seconds
+        assert (now - value["field1"]) < mx.DateTime.DateTimeDelta(1, # days
+                                                                   0, # hours
+                                                                   0, # minutes
+                                                                   0) # seconds
     # end test_cerebrum_syntax_now_is_sensible
 
 
@@ -278,7 +283,45 @@ class DBTestBase(object):
 
     def test_python_date_to_db(self):
         """Check that mx.DateTime can be stored """
-        pass
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1 DATE NOT NULL
+        )
+        """)
+
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1]
+        VALUES (:value)
+        """, {"value": mx.DateTime.now()})
+    # end test_python_date_to_db
+
+
+    def test_datetime_delete(self):
+        """Insert/delete datetime values"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1  INT	NOT NULL,
+        field2	DATE	NOT NULL DEFAULT [:now]
+        )
+        """)
+
+        now = mx.DateTime.now()
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1, field2)
+        VALUES (1, :value)
+        """, {"value": now})
+
+        self.db.execute("""
+        DELETE FROM [:table schema=cerebrum name=nosetest1]
+        WHERE field2 = :value
+        """, {"value": now})
+
+        # we cannot have any rows
+        assert not self.db.query("SELECT * from nosetest1")
+    # end test_datetime_delete
+
 
     def test_cerebrum_syntax_table(self):
         """Check Cerebrum's [:table] syntax extension"""
@@ -450,45 +493,238 @@ class DBTestBase(object):
     # end test_foreign_key2
 
 
-    def test_datetime(self):
-        """Insert/delete datetime values"""
+    def test_union_of_numeric(self):
+        """SELECT ... UNION of 2 numeric(x, 0) must return int
+
+        We had issues with DCOracle2 and this test case.
+        """
 
         self.db.execute("""
         CREATE TABLE nosetest1 (
-        field1  INT	NOT NULL,
-        field2	DATE	NOT NULL DEFAULT [:now]
+        field1 NUMERIC(6, 0) NOT NULL
         )
         """)
 
-        # self.db.execute("""
-        # INSERT INTO [:table schema=cerebrum name=nosetest1] (field1, field2)
-        # VALUES ()
-        # 
-        # """)
-    # end test_datetime
-        
+        self.db.execute("""
+        CREATE TABLE nosetest2 (
+        field2 NUMERIC(6, 0) NOT NULL
+        )
+        """)
 
-    def test_boolean(self):
-        """Insert/delete bool values"""
-        pass
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (1)
+        """)
 
-    def test_union_of_numeric(self):
-        """SELECT ... UNION of 2 numeric(x, 0) must return int"""
-        pass
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest2] (field2)
+        VALUES (2)
+        """)
+
+        result = self.db.query("""
+        SELECT field1 as field FROM [:table schema=cerebrum name=nosetest1]
+        UNION
+        SELECT field2 as field FROM [:table schema=cerebrum name=nosetest2]
+        """)
+
+        assert len(result) == 2
+        for x in result:
+            assert isinstance(x["field"], (int, long))
+    # end test_union_of_numeric
+
 
     def test_extraneous_bind_parameters(self):
-        """Check that free variables substitution copes with extraneous names"""
+        """Check that free variables substitution copes with extraneous names
 
-        # Oracle does not like this
-        pass
+        We had issues with DCOracle2 and this test case.
+        """
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NOT NULL
+        )
+        """)
+
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (:value1)
+        """, {"value1": 10,
+              "value2": None,})
+
+        x = self.db.query_1("""
+        SELECT field1
+        FROM [:table schema=cerebrum name=nosetest1]
+        WHERE field1 = :value1
+        """, {"value1": 10,
+              "value2": None,})
+        assert x == 10
+    # end test_extraneous_bind_parameters
+    
+
+    def test_all_args_must_be_named(self):
+        """Make sure that unnamed columns in select are tripped on"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NOT NULL
+        )
+        """)
+        
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (1)""")
+
+        # NB! select count(*) from nosetest1 actually works. Why?
+        assert_raises(Exception,
+                      self.db.query,
+                      """SELECT 1, count(*) FROM nosetest1""")
+    # end test_all_args_must_be_named
+
+
+    def test_unnamed_asterix(self):
+        """Check that SELECT * works"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NOT NULL,
+        field2 NUMERIC(6, 0) NOT NULL
+        )
+        """)
+
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1]
+        VALUES (1, 2)""")
+
+        row = self.db.query_1("""
+        SELECT *
+        FROM [:table schema=cerebrum name=nosetest1]
+        """)
+
+        # they weren't named explicitely, but we can still access them
+        assert row["field1"] == 1
+        assert row["field2"] == 2
+    # end test_unnamed_asterix
+
+
+    def test_named_aggregates_are_accepted(self):
+        """Make sure 'func() as name' is accepted"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NOT NULL
+        )
+        """)
+
+        items = range(5)
+        for item in items:
+            self.db.execute("""
+            INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+            VALUES (%d)""" % item)
+
+
+        x = self.db.query_1("""
+        SELECT SUM(field1) as total
+        FROM [:table schema=cerebrum name=nosetest1]
+        """)
+
+        assert x == sum(items)
+    # end test_named_aggregates_are_accepted
+
+
+    def test_process_none(self):
+        """Check that None <-> NULL works
+
+        None should be stored transparently as NULL. NULL should be
+        transparently converted to None.
+        """
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NULL
+        )
+        """)
+
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (:value)""", {"value": None})
+
+        x = self.db.query_1("""
+        SELECT field1
+        FROM [:table schema=cerebrum name=nosetest1]
+        """)
+
+        assert x is None
+    # end test_process_none
+
+
+    def test_query_1_fails_on_many(self):
+        """query_1() cannot return more than 1 row"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NULL
+        )
+        """)
+
+        items = range(5)
+        for item in items:
+            self.db.execute("""
+            INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+            VALUES (%d)""" % item)
+
+        assert_raises(Exception,
+                      self.db.query_1,
+                      """SELECT *
+                         FROM [:table schema=cerebrum name=nosetest1]""")
+    # end test_query_1_fails_on_many
+
+    def test_query_1_cannot_returns_0(self):
+        """Check that query_1() cannot return 0 rows"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NULL
+        )
+        """)
+
+        assert_raises(Exception,
+                      self.db.query_1,
+                      """SELECT *
+                      FROM [:table schema=cerebrum name=nosetest1]""")
+    # end test_query_1_returns_0
+
 
     def test_free_variables(self):
-        """Check that :name placeholders work"""
+        """Check that :name placeholders work
 
-        # This one is actually *VERY* important
+        This one is *VERY* important.
+        """
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NULL
+        )
+        """)
+
+        x = 1
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (:value)""", {"value": x})
+
+        row = self.db.query_1("""
+        SELECT *
+        FROM [:table schema=cerebrum name=nosetest1]
+        WHERE field1 = :value""", {"value": x})
+
+        assert row
+    # end test_free_variables
+
 
     def test_insert_unicode(self):
         """Check that we can send unicode to CHAR/VARCHAR/TEXT"""
+
+        s = "foobar"
+        t = u"רזו"
         pass
         
 # end DBTestBase

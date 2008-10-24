@@ -68,11 +68,4 @@ class test_SQLite(DBTestBase):
 
         assert isinstance(x, unicode)
     # end test_char_is_unicode
-
-    def test_foreign_key2(self):
-        """Check that foreign keys are enforced"""
-
-        # We know that sqlite does not support them. Don't like test failure
-        pass
-    # end test_foreign_key2
 # end test_SQLite
