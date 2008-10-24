@@ -5996,9 +5996,13 @@ class BofhdExtension(object):
             if row.has_key('name'):
                 pname = row['name']
             else:
-                pname = person.get_name(self.const.system_cached,
-                                        getattr(self.const,
-                                                cereconf.DEFAULT_GECOS_NAME))
+                try:
+                    pname = person.get_name(self.const.system_cached,
+                                            getattr(self.const,
+                                                    cereconf.DEFAULT_GECOS_NAME))
+                except Errors.NotFoundError:
+                    # Oh well, we don't know person's name
+                    pname = '<none>'
 
             # Person.get_primary_account will not return expired
             # users.  Account.get_account_types will return the
