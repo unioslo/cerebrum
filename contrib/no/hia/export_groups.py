@@ -88,6 +88,7 @@ def main():
     grps = []
     flat = False
     groups_and_members = {}
+    spread_val = ""
     outfile = '/cerebrum/dumps/EZPublish/groups.txt'
 
     try:
@@ -100,7 +101,7 @@ def main():
 
     for opt, val in opts:
         if opt in ('-s', '--spread'):
-            spread = val
+            spread_val = val
         elif opt in ('-o', '--outfile'):
             outfile = val
         elif opt in ('-f'):
@@ -114,6 +115,8 @@ def main():
     constants = Factory.get('Constants')(db)
     group = Factory.get("Group")(db)
     logger = Factory.get_logger('cronjob')
+
+    spread = int(constants.Spread(spread_val))
     
     logger.info("Getting groups")
     grps = group.search(spread=spread)
