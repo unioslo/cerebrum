@@ -107,7 +107,7 @@ def main():
         elif opt in ('-f'):
             flat = True
 
-    if not spread:
+    if not spread_val:
         usage()
         sys.exit(2)
 
