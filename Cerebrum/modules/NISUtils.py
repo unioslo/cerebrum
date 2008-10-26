@@ -350,10 +350,10 @@ class FileGroup(NISGroupUtil):
         ret = []
         self._group.clear()
         self._group.find(gid)
-        for row in self._group.search_member(group_id=self._group.entity_id,
-                                             indirect_members=True,
-                                             member_type=co.entity_account,
-                                             member_spread=self._member_spread):
+        for row in self._group.search_members(group_id=self._group.entity_id,
+                                              indirect_members=True,
+                                              member_type=co.entity_account,
+                                              member_spread=self._member_spread):
             account_id = int(row["member_id"])
             if self._account2def_group.get(account_id, None) == self._group.posix_gid:
                 continue  # Don't include the users primary group
