@@ -775,9 +775,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         if where:
             where_str = "WHERE " + " AND ".join(where)
 
-        query_str = "SELECT %s FROM %s %s" % (", ".join(select),
-                                              " ".join(tables),
-                                              where_str)
+        query_str = "SELECT DISTINCT %s FROM %s %s" % (", ".join(select),
+                                                       " ".join(tables),
+                                                       where_str)
         for entry in self.query(query_str, binds):
             # IVR 2008-07-01 FIXME: We do NOT want to expose expire ugliness
             # to the clients. They can all assume that 'expire_date' exists
