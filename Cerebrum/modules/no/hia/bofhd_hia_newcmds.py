@@ -85,6 +85,7 @@ class BofhdExtension(object):
         'group_list', 'group_list_expanded', 'group_search', 'group_set_description',
         'group_memberships', '_get_group', '_get_group_opcode',
         'group_personal', 'group_set_expire', 'group_set_visibility',
+        '_fetch_member_names',
         #
         # copy relevant misc-cmds and util methods
         #
