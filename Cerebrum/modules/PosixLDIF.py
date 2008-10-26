@@ -318,7 +318,8 @@ class PosixLDIF(object):
                                  uname_id)
                 continue
             members.append(self.id2uname[uname_id])
-        entry['memberUid'] = members
+        # There may be duplicates in the resulting sequence
+        entry['memberUid'] = list(set(members))
         self.update_filegroup_entry(entry, row)
         dn = ','.join((('cn=' + gname), self.fgrp_dn))
         return dn,entry
