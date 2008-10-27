@@ -633,8 +633,6 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           A generator that yields successive db-rows (from group_member)
           matching all of the specified filters. These keys are available in
           each of the db_rows:
-            - group_id
-            - group_name
             - member_type
             - member_id
             - expire_date
@@ -644,9 +642,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           time. expire_date may be None, the rest is always set.
           
           Note that if L{indirect_members} is specified, the answer may
-          contain group_ or member_ids that were NOT part of the initial
-          filters. The client code invoking search() this way should be
-          prepared for such an eventuality.
+          contain member_ids that were NOT part of the initial filters. The
+          client code invoking search_members() this way should be prepared
+          for such an eventuality.
         """
 
         # first of all, a help function to help us look for recursive
@@ -695,9 +693,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # Once the EntityExpire module is merged in and in production, all
         # this junk can be simplified. Before modifying the expressions, make
         # sure that the the queries actually work on multiple backends.
-        select = ["tmp1.group_id AS group_id",
-                  "tmp1.entity_name AS group_name",
-                  "tmp1.member_type AS member_type",
+        select = ["tmp1.member_type AS member_type",
                   "tmp1.member_id AS member_id",
                   "tmp1.expire1 as expire1",
                   "gi.expire_date as expire2",
