@@ -163,6 +163,10 @@ def parse_xml_roles(fname):
             if kind == "undakt":
                 key = key + (data["aktivitetkode"],)
 
+        elif kind in ("evu", ):
+            logger.info("Ignoring roles pertaining to EVU-courses for now")
+            return
+        
         else:
             logger.warn("%s%s: Wrong role entry kind: %s; '%s'",
                         data["fodselsdato"], data["personnr"], kind, data)
