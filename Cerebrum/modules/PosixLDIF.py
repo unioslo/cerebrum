@@ -348,7 +348,6 @@ class PosixLDIF(object):
     def init_netgroup(self):
         """Initiate modules and constants."""
         self.ngrp_dn = LDIFutils.ldapconf('NETGROUP', 'dn')
-        from Cerebrum import Group
         self.grp = Factory.get('Group')(self.db)
         
     def netgroup_object(self, row):
