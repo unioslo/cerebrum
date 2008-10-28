@@ -112,7 +112,6 @@ def main():
         print e
         usage(1)
 
-    print opts
     affiliation = None
     newfromperson = False
     
