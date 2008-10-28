@@ -50,7 +50,7 @@ class Sync:
         self.auth_type= auth_type or config.conf.get('sync','auth_type')
 
         try:
-            pid_file = config.get('SpineClient', 'pid_file')
+            pid_file = config.get('sync', 'pid_file')
         except:
             pid_file = "/var/run/cerebrum/ceresync.pid"
 
