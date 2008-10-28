@@ -84,7 +84,7 @@ class AccountNTNUMixin(Account.Account):
         
     def add_spread(self, spread):
         from Cerebrum.modules.PosixUser import PosixUser
-        if (str(self.const.Spread(spread)) in posix_spreads
+        if (1 # str(self.const.Spread(spread)) in posix_spreads
             and not isinstance(self, PosixUser)
             and not self.is_posix()):
             raise Errors.RequiresPosixError
