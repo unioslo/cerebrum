@@ -1033,13 +1033,24 @@ class BDBSync:
         username = account_info["name"]
         logger = self.logger
         posix_user = self.posix_user
-        
+
         person_entity = owner.entity_id
         if ac.owner_id != owner.entity_id or ac.np_type != np_type:
+            old_account_types = list(ac.get_account_types(filter_expired=False))
+            for at in old_account_types:
+                ac.del_account_type(at['ou_id'], at['affiliation'])
             ac.owner_id = owner.entity_id
             ac.owner_type = owner.entity_type
             ac.np_type = np_type
             ac.write_db()
+            if ac.owner_type == ac.const.entity_person:
+                owneraffs=set()
+                for aff in owner.get_affiliations():
+                    owneraffs.add((aff['ou_id'], aff['affiliation']))
+                for at in old_account_types:
+                    if (at['ou_id'], at['affiliation']) in owneraffs:
+                        ac.set_account_type(at['ou_id'], at['affiliation'])
+            
 
         # ... we'll update expire-date 
         logger.info('Updating account %s on person cerebrum-%s' % (username,person_entity))
@@ -1091,6 +1102,10 @@ class BDBSync:
         
         ac.write_db()
         
+        if owner.entity_type == self.const.entity_person:
+            for aff in owner.get_affiliations():
+                account.set_account_type(aff['ou_id'], aff['affiliation'])
+                
         if _is_posix(account_info):
             self._promote_posix(account_info, ac)
 
