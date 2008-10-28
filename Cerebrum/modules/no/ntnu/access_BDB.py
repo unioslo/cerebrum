@@ -365,9 +365,10 @@ class BDB:
           b.user_domain = 1 AND
           b.status = 1 AND
           t.tilkn_form = f.id AND
-          t.org_enhet = 100 AND
-          (t.fakultet = k.fakultet OR (t.fakultet IS NULL AND k.fakultet IS NULL)) AND
-          (t.institutt = k.institutt OR (t.institutt IS NULL AND k.institutt IS NULL))
+          ((t.org_enhet = 100 AND
+            (t.fakultet = k.fakultet OR (t.fakultet IS NULL AND k.fakultet IS NULL)) AND
+            (t.institutt = k.institutt OR (t.institutt IS NULL AND k.institutt IS NULL)))
+          OR (t.org_enhet IN (344, 243, 146, 22) AND to_char(t.org_enhet) = k.navn))
         """)
         bdb_affs = cursor.fetchall()
         affiliations = []
