@@ -278,7 +278,7 @@ class BDB:
                               
         else:
             cursor.execute("""
-            SELECT DISTINCT b.passord_type, b.gruppe, b.person,
+            SELECT DISTINCT b.passord_type, g.navn, b.person,
               b.brukernavn, to_char(b.siden,'YYYY-MM-DD'),
               to_char(b.utloper,'YYYY-MM-DD'),
               b.unix_uid, b.skall, b.standard_passord,
