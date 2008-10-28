@@ -45,7 +45,7 @@ verbose = False
 dryrun = False
 show_traceback = False
 
-def dictcompare(old, new):
+def dictcompare(old, new, union=False):
     oldk = set(old.keys())
     newk = set(new.keys())
     
@@ -56,8 +56,11 @@ def dictcompare(old, new):
     for i in newk & oldk:
         if new[i] != old[i]:
             modk.add(i)
-    
-    return addk, modk, delk
+
+    if union:
+        return addk | modk | delk
+    else:
+        return addk, modk, delk
 
 
 def dictinverse(d):
@@ -1182,7 +1185,116 @@ class BDBSync:
                                      start=mx.DateTime.now())
         
 
+    def sync_group_members(self):
+        const=self.const
+
+        oldmembers={}
+        oldprimary={}
+        self.logger.debug("Fetching data from Cerebrum")
+        account_by_name = {}
+        for n in self.ac.list_names(const.account_namespace):
+            account_by_name[n['entity_name']] = n['entity_id']
+
+        group_by_name = {}
+        for n in self.group.list_names(const.group_namespace):
+            group_by_name[n['entity_name']] = n['entity_id']
         
+        for gm in self.group.search_members():
+            oldmembers.setdefault(gm['group_id'], set()).add(gm['member_id'])
+
+        for pu in self.posix_user.list_posix_users():
+            oldprimary[pu['account_id']]=pu['gid']
+
+        bdbgroups=set()
+        self.logger.debug("Fetching groups from BDB")
+        for g in self.bdb.get_groups():
+            bdbgroups.add(g['name'].lower())
+
+        
+
+        newmembers={}
+        newprimary={}
+        self.logger.debug("Fetching accounts/spread-groupmembers from BDB")
+        for s in self.bdb.get_account_spreads():
+            if not account_by_name.has_key(s['username']):
+                self.logger.warn("Groupmember: Account %s does not exist" % s['username'])
+                continue
+            account_id=account_by_name[s['username']]
+
+            if not group_by_name.has_key(s['groupname']):
+                self.logger.warn("Groupmember: Group %s does not exist" % s['groupname'])
+                continue
+            group_id=group_by_name[s['groupname']]
+            newmembers.setdefault(group_id, set()).add(account_id)
+
+        bdbaccounts=set()
+        self.logger.debug("Fetching account-groupmembers from BDB")
+        for a in self.bdb.get_accounts():
+            if not account_by_name.has_key(a['name']):
+                self.logger.warn("Groupmember: Account %s does not exist" % a['name'])
+                continue
+            account_id=account_by_name[a['name']]
+            if not a.has_key('group'): continue
+            group=a['group'].lower()
+            if not account_by_name.has_key(group):
+                self.logger.warn("Groupmember: Group %s does not exist" % group)
+                continue
+            group_id=group_by_name[group]
+            newmembers.setdefault(group_id, set()).add(account_id)
+            newprimary[account_id]=group_id
+
+        modgroups = dictcompare(oldmembers, newmembers, union=True)
+        modgroups &= bdbgroups # Only change groups acctually in BDB.
+
+        addpm, modpm, delpm = dictcompare(oldprimary, newprimary)
+        modaccounts = addpm | modpm 
+        
+        for group_id in modgroups:
+            addm = newmembers.get(group_id, set()) - oldmembers.get(group_id, set())
+            if addm:
+                self.check_commit(self.group_members_add,
+                                  group_id, addm,
+                                  msg=("adding members to group %d" % group_id))
+
+        for account_id in modaccounts:
+            group_id=newprimary.get(account_id)
+            self.check_commit(self.account_primarygroup,
+                              account_id, group_id,
+                              msg=("setting primary group of %d to %d" %
+                                   (account_id, group_id)))
+                              
+
+        for group_id in modgroups:
+            delm = oldmembers.get(group_id, set()) - newmembers.get(group_id, set())
+            if delm:
+                self.check_commit(self.group_members_delete,
+                                  group_id, delm,
+                                  msg=("deleting members from group %d" % group_id))
+            
+
+    def group_members_add(self, group_id, members):
+        gr=self.group
+        gr.clear()
+        gr.find(group_id)
+        for m in members:
+            gr.add_member(m)
+        gr.write_db()
+        
+    def group_members_delete(self, group_id, members):
+        gr=self.group
+        gr.clear()
+        gr.find(group_id)
+        for m in members:
+            gr.remove_member(m)
+        gr.write_db()
+        
+    def account_primarygroup(self, account_id, group_id):
+        pu=self.posix_user
+        pu.clear()
+        pu.find(account_id)
+        pu.gid_id = group_id
+        pu.write_db()
+
 
     def sync_spreads_quarantines(self):
         const=self.const
@@ -1228,9 +1340,8 @@ class BDBSync:
         self.logger.debug("Spread: from %d to %d accounts with quarantines" %
                           (len(oldquarantines), len(newquarantines)))
 
-        addsk, modsk, delsk = dictcompare(oldspreads, newspreads)
-        addqk, modqk, delqk = dictcompare(oldquarantines, newquarantines)
-        modaccounts = addsk | modsk | delsk | addqk | modqk | delqk
+        modaccounts = dictcompare(oldspreads, newspreads, union=True)
+        modaccounts |= dictcompare(oldquarantines, newquarantines, union=True)
         
         self.logger.debug("Spread: changing %d accounts" % len(modaccounts))
 
@@ -1505,8 +1616,8 @@ def usage():
 def main():
     global verbose,dryrun
     opts,args = getopt.getopt(sys.argv[1:],
-                    'dptgasvhe',
-                    ['email_alias','password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','compare-people', 'verbose','help'])
+                    'dptgmasvhe',
+                    ['email_alias','password-only','traceback','personid=','accountname=','spread','email_domains','email_address','affiliations','dryrun','people','group','account','groupmembers','compare-people', 'verbose','help'])
 
     sync = BDBSync()
     if (('--password-only','')) in opts:
@@ -1542,6 +1653,8 @@ def main():
             sync.sync_persons()
         elif opt in ('-g','--group'):
             sync.sync_groups()
+        elif opt in ('-m', '--groupmembers'):
+            sync.sync_group_members()
         elif opt in ('-a','--account'):
             sync.sync_accounts(password_only=_password_only,add_missing=True)
         elif opt in ('-s','--spread'):
