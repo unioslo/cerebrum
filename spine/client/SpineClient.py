@@ -23,44 +23,10 @@ import os
 import sys
 import urllib
 import socket
-import errno
-import signal
-import atexit
 
 from omniORB import CORBA, importIDL, importIDLString
 VERSION="0.2"
 
-class AlreadyRunning(Exception):
-    def __init__(self, pidfile):
-        self.pidfile = pidfile
-        super(Exception, self).__init__("Already running with pid file %s" % pidfile)
-
-def create_pidfile(pid_file):
-    pid_dir = os.path.dirname(pid_file)
-    if not os.path.isdir(pid_dir):
-        try:
-            os.makedirs(pid_dir, 0755)
-        except:
-            pass # fdopen below will give a better error message
-
-    try:
-        pidfile = os.fdopen(os.open(pid_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL), 'w')
-    except OSError, e:
-        if e.errno == errno.EEXIST:
-            raise AlreadyRunning(e.filename)
-        else:
-            raise
-
-    pidfile.write(str(os.getpid()) + "\n")
-    pidfile.close()
-
-def remove_pidfile(pid_file):
-    try:
-        os.remove(pid_file)
-    except OSError, e:
-        # "No such file or directory" is OK, other errors are not
-        if e.errno != errno.ENOENT:
-            raise
 
 def fixOmniORB():
     """Workaround for bugs in omniorb
@@ -121,8 +87,7 @@ class SpineClient:
                        idl_path=None,
                        automatic=True,
                        config=None,
-                       logger=None,
-                       pid_file=None):
+                       logger=None):
         if not os.path.exists(self.spine_core):
             raise IOError, '%s not found' % spine_core
 
@@ -135,10 +100,6 @@ class SpineClient:
             ssl_password = ssl_password or config.get('SpineClient', 'key_password')
             if use_ssl is None:
                 use_ssl = config.getboolean('SpineClient', 'use_ssl')
-            try:
-                pid_file = pid_file or config.get('SpineClient', 'pid_file')
-            except:
-                pid_file = "/var/run/cerebrum/ceresync.pid"
         
         if logger:    
             self.log= logger
@@ -158,23 +119,10 @@ class SpineClient:
         self.ssl_key_file = key_file
         self.ssl_password = ssl_password
         self.idl_path = idl_path
-        self.pid_file = pid_file
 
         self.md5_file = os.path.join(self.idl_path, 'SpineIDL.md5')
         self.idl_file = os.path.join(self.idl_path, 'SpineIDL.idl')
 
-        # Make sure the pid file is removed when exiting. I don't like setting
-        # sighandlers in such a hidden location, but I didn't know of any better
-        # place to put it. The sighandler is required because atexit doesn't work
-        # when the program is killed by a signal.
-        atexit.register(remove_pidfile, self.pid_file)
-        def termhandler(signum, frame):
-            print >>sys.stderr, "Killed by signal %d" % signum
-            sys.exit(1)
-        signal.signal(signal.SIGTERM, termhandler)
-
-        # Create a pid file
-        create_pidfile(self.pid_file)
 
         if not self.check_md5() and automatic:
             self.bootstrap()

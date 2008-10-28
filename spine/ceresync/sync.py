@@ -3,11 +3,75 @@ from ceresync import errors
 import SpineClient
 from popen2 import popen3
 import unittest
+import os
+import errno
+import signal
+import atexit
+import types
+import sys
+
+class AlreadyRunning(Exception):
+    def __init__(self, pidfile):
+        self.pidfile = pidfile
+        super(Exception, self).__init__("Already running with pid file %s" % pidfile)
+
+def create_pidfile(pid_file):
+    pid_dir = os.path.dirname(pid_file)
+    if not os.path.isdir(pid_dir):
+        try:
+            os.makedirs(pid_dir, 0755)
+        except:
+            pass # fdopen below will give a better error message
+
+    try:
+        pidfile = os.fdopen(os.open(pid_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL), 'w')
+        # Make sure the pid file is removed when exiting.
+        atexit.register(remove_pidfile, pid_file)
+    except OSError, e:
+        if e.errno == errno.EEXIST:
+            raise AlreadyRunning(e.filename)
+        else:
+            raise
+
+    pidfile.write(str(os.getpid()) + "\n")
+    pidfile.close()
+
+def remove_pidfile(pid_file):
+    try:
+        os.remove(pid_file)
+    except OSError, e:
+        # "No such file or directory" is OK, other errors are not
+        if e.errno != errno.ENOENT:
+            raise
 
 class Sync:
     def __init__(self, incr=False, id=-1, auth_type=None):
         self.incr=incr
         self.auth_type= auth_type or config.conf.get('sync','auth_type')
+
+        try:
+            pid_file = config.get('SpineClient', 'pid_file')
+        except:
+            pid_file = "/var/run/cerebrum/ceresync.pid"
+
+        # I don't like setting sighandlers in such a hidden location, but I
+        # didn't know of any better place to put it. The sighandler is required
+        # because atexit doesn't work when the program is killed by a signal.
+        oldhandler = signal.getsignal(signal.SIGTERM)
+        def termhandler(signum, frame):
+            print >>sys.stderr, "Killed by signal %d" % signum
+            remove_pidfile(pid_file)
+            if type(oldhandler) == types.FunctionType:
+                oldhandler()
+            elif oldhandler != signal.SIG_IGN:
+                # Is this correct? sys.exit(1) here caused random segfaults,
+                # but this might skip som cleanup stuff.
+                os._exit(1)
+        signal.signal(signal.SIGTERM, termhandler)
+
+        # Create a pid file
+        create_pidfile(pid_file)
+
         connection = SpineClient.SpineClient(config=config.conf,
                                              logger=config.logger).connect()
         import SpineCore
