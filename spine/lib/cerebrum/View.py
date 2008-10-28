@@ -364,7 +364,7 @@ class PersonView(Builder):
         Attribute('postal_number', int),
         Attribute('city', str),
 
-        Attribute('affiliations', [int]),
+        Attribute('affiliations', [str]),
         Attribute('traits', [int]),
         Attribute('quarantines', [str]),
     )
@@ -619,13 +619,13 @@ class View(DatabaseTransactionClass):
         affiliations = {}
         affiliations_has = affiliations.has_key
         for affiliation in self.person.list_affiliations():
-            pid = affiliation[0]
-            aid = affiliation[1]
+            pid = affiliation['person_id']
+            aff = str(co.PersonAffiliation(affiliation['affiliation']))
 
             if affiliations_has(pid):
                 affiliations[pid].append(aid)
             else:
-                affiliations[pid] = [aid]
+                affiliations[pid] = [aff]
 
         primary_accounts={}
         for a in db.query(primary_account,
