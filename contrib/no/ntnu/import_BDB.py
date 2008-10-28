@@ -1248,14 +1248,32 @@ class BDBSync:
 
         addpm, modpm, delpm = dictcompare(oldprimary, newprimary)
         modaccounts = addpm | modpm 
+        # Only change primary group on cerebrum PosixUser accounts
+        modaccounts &= set(oldprimary.keys())
         
+        addmembers={}
         for group_id in modgroups:
             addm = newmembers.get(group_id, set()) - oldmembers.get(group_id, set())
             if addm:
-                self.check_commit(self.group_members_add,
-                                  group_id, addm,
-                                  msg=("adding members to group %d" % group_id))
+                addmembers[group_id]=addm
+                
+        delmembers={}
+        for group_id in modgroups:
+            delm = oldmembers.get(group_id, set()) - newmembers.get(group_id, set())
+            if delm:
+                delmembers[group_id]=delm
 
+
+        self.logger.info("Groupmember: Adding %d members to %d groups",
+                         sum([len(s) for s in addmembers.values()]),
+                         len(addmembers))
+        for group_id, addm in addmembers.items():
+            self.check_commit(self.group_members_add,
+                              group_id, addm,
+                              msg=("adding members to group %d" % group_id))
+
+        self.logger.info("Groupmember: Changing primary group of %d accounts",
+                         len(modaccounts))
         for account_id in modaccounts:
             group_id=newprimary.get(account_id)
             self.check_commit(self.account_primarygroup,
@@ -1263,10 +1281,10 @@ class BDBSync:
                               msg=("setting primary group of %d to %d" %
                                    (account_id, group_id)))
                               
-
-        for group_id in modgroups:
-            delm = oldmembers.get(group_id, set()) - newmembers.get(group_id, set())
-            if delm:
+        self.logger.info("Groupmember: Deleting %d members from %d groups",
+                         sum([len(s) for s in delmembers.values()]),
+                         len(delmembers))
+        for group_id, delm in delmembers.items():
                 self.check_commit(self.group_members_delete,
                                   group_id, delm,
                                   msg=("deleting members from group %d" % group_id))
