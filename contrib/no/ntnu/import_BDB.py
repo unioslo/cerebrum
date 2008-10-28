@@ -702,6 +702,13 @@ class BDBSync:
             self.logger.error("Group BDB-%s is invalid, has no name." % grp['id'])
             res = False
         return res
+
+    def group_clean_name(self,name):
+        name = name.replace('-','_')
+        name = name.replace(' ','_')
+        name = name.lower()
+        return name
+
         
     def sync_groups(self):
         """
@@ -736,18 +743,12 @@ class BDBSync:
             else:
                 self.db.commit()
 
-        def _clean_name(name):
-            name = name.replace('-','_')
-            name = name.replace(' ','_')
-            name = name.lower()
-            return name
-
         for grp in groups:
             posix_group.clear()
             group.clear()
             if not self._validate_group(grp):
                 continue
-            grp['name'] = _clean_name(grp['name'])
+            grp['name'] = self.group_clean_name(grp['name'])
             if self._is_posix_group(grp):
                 try:
                     posix_group.find_by_name(grp['name'])
@@ -1199,7 +1200,7 @@ class BDBSync:
         for n in self.group.list_names(const.group_namespace):
             group_by_name[n['entity_name']] = n['entity_id']
         
-        for gm in self.group.search_members():
+        for gm in self.group.search_members(member_filter_expired=False):
             oldmembers.setdefault(gm['group_id'], set()).add(gm['member_id'])
 
         for pu in self.posix_user.list_posix_users():
@@ -1208,38 +1209,40 @@ class BDBSync:
         bdbgroups=set()
         self.logger.debug("Fetching groups from BDB")
         for g in self.bdb.get_groups():
-            bdbgroups.add(g['name'].lower())
-
-        
+            groupname=self.group_clean_name(g['name'])
+            if not group_by_name.has_key(groupname): continue
+            bdbgroups.add(group_by_name[groupname])
 
         newmembers={}
         newprimary={}
         self.logger.debug("Fetching accounts/spread-groupmembers from BDB")
         for s in self.bdb.get_account_spreads():
             if not account_by_name.has_key(s['username']):
-                self.logger.warn("Groupmember: Account %s does not exist" % s['username'])
+                #self.logger.warn("Groupmember: Account %s does not exist" % s['username'])
                 continue
             account_id=account_by_name[s['username']]
 
-            if not group_by_name.has_key(s['groupname']):
-                self.logger.warn("Groupmember: Group %s does not exist" % s['groupname'])
+            groupname=self.group_clean_name(s['groupname'])
+            if not group_by_name.has_key(groupname):
+                self.logger.warn("Groupmember: Group %s does not exist" % groupname)
                 continue
-            group_id=group_by_name[s['groupname']]
+            group_id=group_by_name[groupname]
             newmembers.setdefault(group_id, set()).add(account_id)
 
         bdbaccounts=set()
         self.logger.debug("Fetching account-groupmembers from BDB")
         for a in self.bdb.get_accounts():
             if not account_by_name.has_key(a['name']):
-                self.logger.warn("Groupmember: Account %s does not exist" % a['name'])
+                #self.logger.warn("Groupmember: Account %s does not exist" % a['name'])
                 continue
             account_id=account_by_name[a['name']]
+
             if not a.has_key('group'): continue
-            group=a['group'].lower()
-            if not account_by_name.has_key(group):
-                self.logger.warn("Groupmember: Group %s does not exist" % group)
+            groupname=self.group_clean_name(a['group'])
+            if not account_by_name.has_key(groupname):
+                self.logger.warn("Groupmember: Group %s does not exist" % groupname)
                 continue
-            group_id=group_by_name[group]
+            group_id=group_by_name[groupname]
             newmembers.setdefault(group_id, set()).add(account_id)
             newprimary[account_id]=group_id
 
@@ -1252,17 +1255,14 @@ class BDBSync:
         modaccounts &= set(oldprimary.keys())
         
         addmembers={}
-        for group_id in modgroups:
-            addm = newmembers.get(group_id, set()) - oldmembers.get(group_id, set())
-            if addm:
-                addmembers[group_id]=addm
-                
         delmembers={}
         for group_id in modgroups:
+            addm = newmembers.get(group_id, set()) - oldmembers.get(group_id, set())
             delm = oldmembers.get(group_id, set()) - newmembers.get(group_id, set())
+            if addm:
+                addmembers[group_id]=addm
             if delm:
                 delmembers[group_id]=delm
-
 
         self.logger.info("Groupmember: Adding %d members to %d groups",
                          sum([len(s) for s in addmembers.values()]),
@@ -1295,6 +1295,7 @@ class BDBSync:
         gr.clear()
         gr.find(group_id)
         for m in members:
+            self.logger.info("Adding account %d to group %d" % (m, group_id))
             gr.add_member(m)
         gr.write_db()
         
@@ -1303,11 +1304,13 @@ class BDBSync:
         gr.clear()
         gr.find(group_id)
         for m in members:
+            self.logger.info("Removing account %d from group %d" % (m, group_id))
             gr.remove_member(m)
         gr.write_db()
         
     def account_primarygroup(self, account_id, group_id):
         pu=self.posix_user
+        self.logger.info("Setting primary group of %d to %d" % (account_id, group_id))
         pu.clear()
         pu.find(account_id)
         pu.gid_id = group_id
