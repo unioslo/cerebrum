@@ -76,9 +76,9 @@ def main():
         if o == "-v":
             verbose = True
         if o == "-c":
-            config.sync.read(a)
+            config.read(a, strict=True)
             log.debug("reading config file %s" , a )
-            log.debug("spread is: %s" , config.sync.get("sync","account_spread"))
+            log.debug("spread is: %s" , config.get("sync","account_spread"))
     incr = False
     id = -1
     s = sync.Sync(incr,id)

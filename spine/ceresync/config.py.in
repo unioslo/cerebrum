@@ -23,23 +23,50 @@ import ConfigParser
 import os
 import sys
 import logging, logging.config
+import errno
+import types
 
-conf = ConfigParser.SafeConfigParser()
+_conf = ConfigParser.SafeConfigParser()
 confpath= os.environ.get("CERECONF_DIR", "@CONFDIR@")+'/'
-conf.read((confpath+'sync.conf.template', confpath+'sync.conf'))
-sync=conf # compat
+_conf.read((confpath+'sync.conf.template', confpath+'sync.conf'))
+sync=_conf # compat
+conf=_conf # compat
 
 logging_ini= "@CONFDIR@"+"/logging.ini"   
-if conf.has_option('logging','ini_path'):
-    logging_ini= conf.get('logging','ini_path')
+if _conf.has_option('logging','ini_path'):
+    logging_ini= _conf.get('logging','ini_path')
 logging.config.fileConfig(logging_ini)
 loggername= 'ceresync'       
-if conf.has_option('logging','logger'):
-    loggername= conf.get('logging','logger')
+if _conf.has_option('logging','logger'):
+    loggername= _conf.get('logging','logger')
                          
 logger= logging.getLogger(loggername)
 logger.name= os.path.basename(sys.argv[0])
 
+def read(files, strict=False, **kwargs):
+    """Read an array of configuration files
+    """
+    if type(files) == types.StringType:
+        files = [ files ]
+    if strict:
+        for f in files:
+            if not os.path.isfile(f):
+                raise IOError(errno.ENOENT, "No such file or directory: %s" % f)
+            if not os.access(f, os.R_OK):
+                raise IOError(errno.EACCES, "Access denied: %s" % f)
+    return _conf.read(files, **kwargs)
+
+def get(section, option, default=None, **kwargs):
+    """get the option from a section in the config, or use default if set"""
+    if _conf.has_option(section, option) and default is not None:
+        return default
+    return _conf.get(section, option, **kwargs)
+
+def getboolean(section, option, default=None, **kwargs):
+    """get the option from a section in the config, or use default if set"""
+    if _conf.has_option(section, option) and default is not None:
+        return default
+    return _conf.getboolean(section, option, **kwargs)
 
 def apply_quarantine(obj, typestr):
     """
@@ -53,10 +80,10 @@ def apply_quarantine(obj, typestr):
     """
     for q in obj.quarantines:
         try:
-            a=sync.get('%s_quarantenes' % typestr, q)
+            a=_conf.get('%s_quarantenes' % typestr, q)
         except ConfigParser.NoOptionError:
             try:
-                a=sync.get('%s_quarantenes' % typestr, "DEFAULT")
+                a=_conf.get('%s_quarantenes' % typestr, "DEFAULT")
             except ConfigParser.NoOptionError:
                 return
         try:
@@ -79,11 +106,11 @@ def apply_override(obj, typestr):
     section='%s_override' % typestr
     attribs = dict([(x,y) for x, y in obj.__dict__.items()
                     if y not in ('', -1)])
-    if sync.has_section(section):
-        for a in sync.options(section):
+    if _conf.has_section(section):
+        for a in _conf.options(section):
             if attribs.has_key(a): del attribs[a]
-        for a in sync.options(section):
-            setattr(obj, a, sync.get(section, a, vars=attribs))
+        for a in _conf.options(section):
+            setattr(obj, a, _conf.get(section, a, vars=attribs))
 
 def apply_default(obj, typestr):
     """
@@ -96,9 +123,9 @@ def apply_default(obj, typestr):
     section='%s_default' % typestr
     attribs = dict([(x,y) for x, y in obj.__dict__.items()
                     if y not in ('', -1)])
-    if sync.has_section(section):
-        for a in sync.options(section):
+    if _conf.has_section(section):
+        for a in _conf.options(section):
             # "" or -1 for nonexisting values is an spine-ism
             if (not obj.__dict__.has_key(a)) or getattr(obj, a) == "" or getattr(obj, a) == -1:
-                setattr(obj, a, sync.get(section, a, vars=attribs))
+                setattr(obj, a, _conf.get(section, a, vars=attribs))
 
