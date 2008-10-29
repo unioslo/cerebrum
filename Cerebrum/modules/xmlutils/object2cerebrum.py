@@ -24,7 +24,8 @@ This module provides an interface to store objects representing XML
 information in Cerebrum. It is intended to go together with xml2object
 module (and its various incarnations (SAP, LT, etc.).
 """
-import types
+from mx import DateTime
+
 
 import cerebrum_path
 import cereconf
@@ -440,6 +441,13 @@ class XML2Cerebrum:
     # end __extract_name_lang
 
 
+    def __ou_is_expired(self, xmlou):
+        """Check if OU is expired compared to today's date."""
+
+        return xmlou.end_date and xmlou.end_date < DateTime.now()
+    # end __ou_is_expired
+        
+
     def store_ou(self, xmlou, old_ou_cache=None):
         """Store all information we can from xmlou.
 
@@ -466,7 +474,6 @@ class XML2Cerebrum:
         name = self.__extract_name_lang(xmlou, xmlou.NAME_LONG, 512)
         display_name = self.__extract_name_lang(xmlou, xmlou.NAME_LONG, 80)
         sort_name = self.__extract_name_lang(xmlou, xmlou.NAME_LONG, 80)
-               
         try:
             ou.find_stedkode(sko[0], sko[1], sko[2],
                              cereconf.DEFAULT_INSTITUSJONSNR)
@@ -485,10 +492,16 @@ class XML2Cerebrum:
                         r['quarantine_type'] == const.quarantine_ou_remove):
                         ou.delete_entity_quarantine(r['quarantine_type'])
 
-        ou.populate(name, sko[0], sko[1], sko[2],
-                    institusjon = cereconf.DEFAULT_INSTITUSJONSNR,
-                    acronym = acronym, short_name = short,
-                    display_name = display_name, sort_name = sort_name)
+        # Do not touch name information for an OU that has been expired. It
+        # may not conform to all of our requirements.
+        if not self.__ou_is_expired(xmlou):
+            ou.populate(name, sko[0], sko[1], sko[2],
+                        institusjon = cereconf.DEFAULT_INSTITUSJONSNR,
+                        acronym = acronym, short_name = short,
+                        display_name = display_name, sort_name = sort_name)
+        else:
+            self.logger.debug("OU ids=%s is expired. Its names will not be "
+                              "updated", list(xmlou.iterids()))
 
         # Hammer in all addresses
         xmladdr2db = self.xmladdr2db
@@ -509,15 +522,7 @@ class XML2Cerebrum:
                                      contact_pref = contact.priority)
         op = ou.write_db()
 
-        # We cannot ask about spread, until ou actually has an entity_id. For
-        # a fresh ou that happens *after* the very first write_db().
-        if ((getattr(xmlou, "publishable", False) or self.ou_ldap_visible) and
-            not ou.has_spread(const.spread_ou_publishable)):
-            ou.add_spread(const.spread_ou_publishable)
-            
-        # Before we can give a spread, we need an entity_id. Thus, this
-        # operation happens after the first write_db().
-        op2 = self._sync_auto_ou_spreads(ou, xmlou.iter_usage_codes())
+        op2 = self._sync_all_ou_spreads(ou, xmlou)
         
         if op is None and not op2:
             status = "EQUAL"
@@ -528,6 +533,39 @@ class XML2Cerebrum:
 
         return status, ou.entity_id
     # end store_ou
+
+
+    def _sync_all_ou_spreads(self, ou, xmlou):
+        """Synchronise all spreads for a specified OU.
+
+        ou and xmlou are different representations of the logically same OU.
+        """
+        const = self.constants
+
+        # 'publishable' -> spread_ou_publishable
+        if ((getattr(xmlou, "publishable", False) or self.ou_ldap_visible) and
+            not self.__ou_is_expired(xmlou) and
+            not ou.has_spread(const.spread_ou_publishable)):
+            ou.add_spread(const.spread_ou_publishable)
+
+        # Before we can give a spread, we need an entity_id. Thus, this
+        # operation happens after the first write_db().
+        if not self.__ou_is_expired(xmlou):
+            op = self._sync_auto_ou_spreads(ou, xmlou.iter_usage_codes())
+        # For the expired OUs there is no sync -- they loose all spreads.
+        else:
+            ou_spreads = [int(row["spread"]) for row in ou.get_spread()]
+            if ou_spreads:
+                self.logger.debug("OU ids=%s loses all spreads %s, since it "
+                                  "has expired",
+                                  list(xmlou.iterids()),
+                                  [str(const.Spread(x)) for x in ou_spreads])
+            for spread in ou_spreads:
+                ou.delete_spread(spread)
+            op = ou.write_db()
+
+        return op
+    # end _sync_all_ou_spreads
 
 
     def _sync_auto_ou_spreads(self, ou, usage_codes):

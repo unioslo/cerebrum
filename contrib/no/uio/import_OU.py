@@ -30,12 +30,9 @@ from FS, LT and SAP.
 import cerebrum_path
 import cereconf
 
-import re
-import pickle
 import sys
 import getopt
 import time
-import string
 from mx import DateTime
 
 from Cerebrum import Errors
@@ -232,12 +229,12 @@ def import_org_units(sources, target_system, cer_ou_tab):
                                   xmlou.iternames())))
                 continue
 
-            if xmlou.end_date and xmlou.end_date < DateTime.now():
-                logger.info("OU %s has expired and will no longer be imported",
-                            formatted_sko)
-                continue
-            
-            org_units[formatted_sko] = xmlou
+            if (xmlou.end_date and xmlou.end_date < DateTime.now()):
+                logger.info("OU %s is expired and some of its information "
+                            "will no longer be maintained", formatted_sko)
+            else:
+                org_units[formatted_sko] = xmlou
+
             if verbose:
                 logger.debug("Processing %s '%s'" %
                              (formatted_sko,
@@ -261,7 +258,8 @@ def import_org_units(sources, target_system, cer_ou_tab):
         for node in ou.get_structure_mappings(perspective):
             existing_ou_mappings[int(node.fields.ou_id)] = node.fields.parent_id
 
-        # Now populate the entire ou_structure
+        # Now populate the entire ou_structure. Note that expired OUs will not
+        # be processed here.
         logger.info("Populate ou_structure")
         for stedkode in org_units.keys():
             rec_make_ou(stedkode, ou, existing_ou_mappings, org_units,
@@ -347,7 +345,6 @@ def dump_perspective(sources, target_system):
             katalogmerke = 'T'
         else:
             katalogmerke = ' '
-        # fi
 
         # And now we find out if there are people with affiliations to this
         # place
