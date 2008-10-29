@@ -458,8 +458,7 @@ def test_search_members_assert_keys():
     result = list(group.search_members(group_id=groups[0]["entity_id"]))
     assert len(result) == 1
     x = result[0]
-    attributes = ("group_id", "group_name", "member_type", "member_id",
-                  "expire_date")
+    attributes = ("member_type", "member_id", "expire_date")
     for attr in attributes:
         assert x.has_key(attr)
 # end test_search_members_assert_keys
@@ -512,8 +511,6 @@ def test_search_members_member_id_indirect_expired():
     assert len(result) == len(chain)-1
     assert (set(x["member_id"] for x in result) ==
             set(x["entity_id"] for x in chain[1:]))
-    assert (set(x["group_id"] for x in result) ==
-            set(x["entity_id"] for x in chain[:-1]))
 # end test_search_members_member_id_indirect_expired
 
 
@@ -567,7 +564,6 @@ def test_search_members_by_spread():
 
     result = list(group.search_members(member_spread=s))
     assert len(result) == 1
-    assert result[0]["group_id"] == parent["entity_id"]
     assert result[0]["member_id"] == child["entity_id"]
 
     group.delete_spread(s)
