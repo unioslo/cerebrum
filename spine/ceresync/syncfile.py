@@ -50,10 +50,9 @@ def check_group(group):
 
 
 def main():
-    verbose = False
 
+    # Parse command-line arguments
     config.parse_args()
-    verbose = config.getboolean("args", "verbose")
 
     log.debug("spread is: %s" , config.get("sync","account_spread"))
 
