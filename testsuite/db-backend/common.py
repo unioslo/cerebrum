@@ -121,7 +121,7 @@ class DBTestBase(object):
     def test_support_Norwegian_chars(self):
         """Make sure we can use Norwegian chars"""
 
-        raise NotImplemented("Implement רזו-testing")
+        raise NotImplementedError("Implement רזו-testing")
     # end test_support_Norwegian_chars
         
     def test_dbapi2(self):
@@ -297,8 +297,8 @@ class DBTestBase(object):
     # end test_python_date_to_db
 
 
-    def test_datetime_delete(self):
-        """Insert/delete datetime values"""
+    def test_date_delete(self):
+        """Insert/delete into DATE row type"""
 
         self.db.execute("""
         CREATE TABLE nosetest1 (
@@ -320,7 +320,98 @@ class DBTestBase(object):
 
         # we cannot have any rows
         assert not self.db.query("SELECT * from nosetest1")
-    # end test_datetime_delete
+    # end test_date_delete
+
+
+    def test_mxdatetime_to_timestamp(self):
+        """Check that mx.DateTime dates can be stored in the db"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1 TIMESTAMP NOT NULL
+        )
+        """)
+
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1]
+        VALUES (:value)
+        """, {"value": mx.DateTime.now()})
+    # end test_mxdatetime_to_timestamp
+
+
+    def test_timestamp_delete(self):
+        """Insert/delete into TIMESTAMP row type"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1  INT		NOT NULL,
+        field2	TIMESTAMP 	NOT NULL DEFAULT [:now]
+        )
+        """)
+
+        now = mx.DateTime.now()
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1, field2)
+        VALUES (1, :value)
+        """, {"value": now})
+
+        self.db.execute("""
+        DELETE FROM [:table schema=cerebrum name=nosetest1]
+        WHERE field2 = :value
+        """, {"value": now})
+
+        # we cannot have any rows
+        assert not self.db.query("SELECT * from nosetest1")
+    # end test_date_delete
+
+
+    def test_date_maps_to_mxdatetime(self):
+        """SELECT a DATE -> mx.DateTime.DateTimeType"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1	DATE NOT NULL DEFAULT [:now]
+        )
+        """)
+
+        now = mx.DateTime.now()
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (:value)
+        """, {"value": now})
+
+        rows = self.db.query("""SELECT *
+                                FROM [:table schema=cerebrum name=nosetest1]
+                             """)
+        assert len(rows) == 1
+        row = rows[0]
+        assert type(row["field1"]) is mx.DateTime.DateTimeType
+    # end test_date_maps_to_mxdatetime
+
+
+    def test_timestamp_maps_to_mxdatetime(self):
+        """SELECT a TIMESTAMP -> mx.DateTime.DateTimeType"""
+
+        self.db.execute("""
+        CREATE TABLE nosetest1 (
+        field1	TIMESTAMP NOT NULL DEFAULT [:now]
+        )
+        """)
+
+        now = mx.DateTime.now()
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (:value)
+        """, {"value": now})
+
+        rows = self.db.query("""SELECT *
+                                FROM [:table schema=cerebrum name=nosetest1]
+                             """)
+        assert len(rows) == 1
+        row = rows[0]
+        assert type(row["field1"]) is mx.DateTime.DateTimeType
+    # end test_timestamp_maps_to_mxdatetime
+
 
 
     def test_cerebrum_syntax_table(self):
@@ -720,11 +811,34 @@ class DBTestBase(object):
     # end test_free_variables
 
 
+    def test_numeric0_gives_int(self):
+        """Check that NUMERIC(X, 0) operates on int
+
+        Fetching from NUMERIC(X, 0) *must* return us an int.
+        """
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 NUMERIC(6, 0) NOT NULL
+        )
+        """)
+
+        x = 1
+        self.db.execute("""
+        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        VALUES (:value)""", {"value": x})
+
+        rows = self.db.query("""
+                             SELECT *
+                             FROM [:table schema=cerebrum name=nosetest1]""")
+        assert len(rows) == 1
+        row = rows[0]
+        assert isinstance(row["field1"], (int, long))
+    # end test_numeric0_gives_int
+        
+
     def test_insert_unicode(self):
         """Check that we can send unicode to CHAR/VARCHAR/TEXT"""
-
-        s = "foobar"
-        t = u"רזו"
         pass
         
 # end DBTestBase

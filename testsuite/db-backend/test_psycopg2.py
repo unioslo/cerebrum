@@ -1,7 +1,10 @@
 #!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+
+#!/usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
 
-"""This file sets up the environment for the psycopg 1.x backend.
+"""This file sets up the environment for the psycopg 2.x backend.
 
 For this test to work we'll need this environment:
 
@@ -22,7 +25,7 @@ from common import sneaky_import
 
 
 
-class test_PsycoPG1(DBTestBase):
+class test_PsycoPG2(DBTestBase):
     def setup(self):
         """Establish a connection to the database."""
 
@@ -49,40 +52,15 @@ class test_PsycoPG1(DBTestBase):
             assert "host" in cereconf.CEREBRUM_DATABASE_CONNECT_DATA, \
                    "Missing 'host' in CEREBRUM_DATABASE_CONNECT_DATA"
             
-            DBTestBase.db_class = db_mod.PsycoPG1
+            DBTestBase.db_class = db_mod.PsycoPG2
 
         self.db = self.db_class()
-        self.db._db.set_isolation_level(3)
+        # we don't care about performance
+        self.db._db.set_isolation_level(2)
     # end setup
 
     def teardown(self):
         self.db.rollback()
         self.db.close()
     # end teardown
-
-
-    def test_support_Norwegian_chars(self):
-        """Make sure we can use Norwegian chars"""
-
-        self.db.execute("""
-        CREATE TABLE nosetest1 (
-        field1	CHAR VARYING (100) NOT NULL
-        )
-        """)
-
-        mark = "Blåbærsyltetøy"
-        self.db.execute("""
-        INSERT INTO  [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (:value1) 
-        """, {"value1": mark})
-        
-        x = self.db.query_1("""
-        SELECT field1
-        FROM [:table schema=cerebrum name=nosetest1]
-        WHERE field1 = :value
-        """, {"value": mark})
-
-        assert x == mark
-    # end test_support_Norwegian_chars
-# end test_PsycoPG
-    
+# end test_psycopg2
