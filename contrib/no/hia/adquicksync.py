@@ -32,6 +32,11 @@ from Cerebrum.modules import CLHandler
 from Cerebrum import Person
 from Cerebrum.modules.no.hia import ADUtils
 
+try:
+    set()
+except NameError:
+    from sets import Set as set
+
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 clco = Factory.get('CLConstants')(db)
@@ -193,10 +198,10 @@ def add_spread(entity_id,spread):
         if sock.read() == ['210 OK']:
             group.clear()
             group.find(entity_id)
-            for row in group.search_members(group_id=group.entity_id,
-                                            indirect_members=True,
-                                            member_type=co.entity_account):
-                grpmemb = int(row["member_id"])
+            for grpmemb in set([int(row["member_id"]) for row in
+                                group.search_members(group_id=group.entity_id,
+                                                     indirect_members=True,
+                                                     member_type=co.entity_account)]):
                 account.clear()
                 account.find(grpmemb)
                 if account.has_spread(co.spread_hia_ad_account):

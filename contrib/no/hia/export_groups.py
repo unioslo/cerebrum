@@ -30,6 +30,12 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum import Group
 
+try:
+    set()
+except NameError:
+    from sets import Set as set
+
+
 def usage():
     print """python export_groups.py [options]
     -s, --spread: choose all groups with given spread
@@ -67,9 +73,10 @@ def make_groups_list(flat, grps):
             tmp = group.search_members(group_id=group.entity_id,
                                        indirect_members=True,
                                        member_type=constants.entity_account)
-            members[i["name"]] = ','.join(entity2name[int(x["member_id"])]
+            tmp = set([int(x["member_id"]) for x in tmp])
+            members[i["name"]] = ','.join(entity2name[x]
                                           for x in tmp
-                                          if int(x["member_id"]) in entity2name)
+                                          if x in entity2name)
     else:
         for i in grps:
             group.clear()

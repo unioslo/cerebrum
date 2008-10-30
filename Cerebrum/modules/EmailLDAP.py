@@ -32,6 +32,11 @@ from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.LDIFutils import iso2utf
 
+try:
+    set()
+except NameError:
+    from sets import Set as set
+
 class EmailLDAP(DatabaseAccessor):
     """The EmailLDAP class is used to gather methodes used to generate
     an ldif for mail-backends."""
@@ -322,7 +327,7 @@ class EmailLDAP(DatabaseAccessor):
             except Errors.NotFoundError:
                 raise ValueError, ("%s in group %s has no primary address" %
                                    (acc.account_name, grp.group_name))
-        return member_addrs
+        return list(set(member_addrs))
 
 
     def read_target_auth_data(self):

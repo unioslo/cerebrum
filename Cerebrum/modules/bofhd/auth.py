@@ -32,6 +32,11 @@ from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 
+try:
+    set()
+except:
+    from sets import Set as set
+
 
 class AuthConstants(Constants._CerebrumCode):
     # TODO: this looks like a duplicate of utils._AuthRoleOpCode.  Cleanup!
@@ -1533,7 +1538,7 @@ class BofhdAuth(DatabaseAccessor):
         ret.extend([int(x["group_id"])
                     for x in group.search(member_id=entity_id,
                                           indirect_members=False)])
-        self._users_auth_entities_cache[entity_id] = ret
+        self._users_auth_entities_cache[entity_id] = list(set(ret))
         return ret
 
     def _get_group_members(self, groupname):
@@ -1547,7 +1552,7 @@ class BofhdAuth(DatabaseAccessor):
                    group.search_members(group_id=group.entity_id,
                                         indirect_members=True,
                                         member_type=self.const.entity_account)]
-        self._group_member_cache[groupname] = members
+        self._group_member_cache[groupname] = list(set(members))
         return members
 
     def _get_user_disk(self, account_id):

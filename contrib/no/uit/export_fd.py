@@ -64,6 +64,11 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uit import Email
 
+try:
+    set()
+except NameError:
+    from sets import Set as set
+
 #from Cerebrum.modules import ADAccount
 #from Cerebrum.modules import ADObject
 
@@ -247,6 +252,8 @@ class ad_export:
                     continue
                 name = account2name[member_id]
                 members.append(name)
+
+            members = list(set(members))
             memberstr = ','.join(members)
             entry['description']= gr.description
             entry['members']=memberstr

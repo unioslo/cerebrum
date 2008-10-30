@@ -34,6 +34,11 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.hia import nwutils
 
+try:
+    set()
+except NameError:
+    from sets import Set as set
+
 global group_done, logger
 group_done = {}
 int_log = None
@@ -339,12 +344,11 @@ def user_add_del_grp(ch_type,dn_user,dn_dest):
                     attr_add_ldap(users,[('securityEquals', [ldap_group,])])
         elif ch_type == const.group_rem:
             # Support multiple spread. Fetch all unique users.
-            grp_mem = [int(x["member_id"]) for x in
-                       group.search_members(group_id=group.entity_id,
-                                            indirect_members=True,
-                                            member_type=const.entity_account,
-                                            member_spread=spread_ids)
-                       if int(x["member_id"]) not in grp_mem]
+            grp_mem = list(set([int(x["member_id"]) for x in
+                                group.search_members(group_id=group.entity_id,
+                                                     indirect_members=True,
+                                                     member_type=const.entity_account,
+                                                     member_spread=spread_ids)]))
                 
             # Remove users that still are suppose to be in the group
             # This users may be indirect members from internal groups
@@ -550,11 +554,13 @@ def change_group_spread(dn_id,ch_type,gname=None):
                     co.affiliation_student):
                     student_grp = True
                 grp_mem.append(mem)
-                # If any of this members does not exist on eDirectory server,
-                # it will only give you a LDAP-protocl message "NDS error".
-                # While using  method user_add_del_group, it will do a LDAP-search
-                # to verify that user exist on server.
-                # Do: get_entity_name=True and mem -> mem[0]
+
+            grp_mem = list(set(grp_mem))
+            # If any of this members does not exist on eDirectory server,
+            # it will only give you a LDAP-protocl message "NDS error".
+            # While using  method user_add_del_group, it will do a LDAP-search
+            # to verify that user exist on server.
+            # Do: get_entity_name=True and mem -> mem[0]
             if student_grp:
                 grp_dn = utf8_dn + ',ou=grp,ou=stud,' + cereconf.NW_LDAP_ROOT
             else:
@@ -732,12 +738,12 @@ def group_mod(ch_type,dn_id,dest_id,log_id):
     if entity.entity_type == co.entity_group:
         group.clear()
         group.find(entity.entity_id)
-        user_list = [int(x["member_id"]) for x in
-                     group.search_members(group_id=group.entity_id,
-                                          indirect_members=True,
-                                          member_type=co.entity_account,
-                                          member_spread=spread_ids)
-                     if int(x["member_id"]) not in user_list]
+        user_list = list(set([int(x["member_id"]) for x in
+                              group.search_members(group_id=group.entity_id,
+                                                   indirect_members=True,
+                                                   member_type=co.entity_account,
+                                                   member_spread=spread_ids)
+                              if int(x["member_id"]) not in user_list]))
             
     elif entity.entity_type == co.entity_account:
         if [ x for x in spread_ids if entity.has_spread(x)]:

@@ -29,6 +29,12 @@ from Cerebrum.modules import PosixGroup
 from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 
+try:
+    set()
+except:
+    from sets import Set as set
+
+
 Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -362,7 +368,7 @@ class FileGroup(NISGroupUtil):
                 logger.warn("Was %i very recently created?" % int(account_id))
                 continue
             ret.append(name)
-        return None, ret
+        return None, list(set(ret))
 
     def generate_filegroup(self):
         """Generates a list of lists. An enty looks like

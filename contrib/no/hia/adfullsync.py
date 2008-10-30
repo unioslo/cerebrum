@@ -33,6 +33,12 @@ from Cerebrum.Utils import Factory
 from Cerebrum import Person
 from Cerebrum.modules.no.hia import ADUtils
 
+try:
+    set()
+except NameError:
+    from sets import Set as set
+
+
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 ou = Factory.get('OU')(db)
@@ -254,10 +260,10 @@ def full_group_sync():
         if res == ['210 OK']:
             group.clear()
             group.find(cbgroups[grp][0])
-            for row in group.search_members(group_id=group.entity_id,
-                                            indirect_members=True,
-                                            member_type=co.entity_account):
-                grpmemb = int(row["member_id"])
+            for grpmemb in set([int(row["member_id"]) for row in
+                                group.search_members(group_id=group.entity_id,
+                                                     indirect_members=True,
+                                                     member_type=co.entity_account)]):
                 try:
                     ent_name.clear()
                     ent_name.find(grpmemb)

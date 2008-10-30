@@ -16,6 +16,11 @@ from Cerebrum.Entity import EntityName
 from Cerebrum import QuarantineHandler
 from Cerebrum.Constants import _SpreadCode
 
+try:
+    set()
+except NameError:
+    from sets import Set as set
+
 Factory = Utils.Factory
 db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
@@ -307,7 +312,7 @@ class FileGroup(NISGroupUtil):
                 logger.warn("Was %i very recently created?" % int(account_id))
                 continue
             ret.append(name)
-        return None, ret
+        return None, list(set(ret))
 
     def generate_filegroup(self, filename):
         logger.debug("generate_group: %s" % filename)
