@@ -25,6 +25,7 @@ import sys
 import logging, logging.config
 import errno
 import types
+import optparse
 
 _conf = ConfigParser.SafeConfigParser()
 confpath= os.environ.get("CERECONF_DIR", "@CONFDIR@")+'/'
@@ -46,6 +47,8 @@ logger.name= os.path.basename(sys.argv[0])
 def read(files, strict=False, **kwargs):
     """Read an array of configuration files
     """
+
+    logger.debug("reading config file(s) %s", files)
     if type(files) == types.StringType:
         files = [ files ]
     if strict:
@@ -55,6 +58,11 @@ def read(files, strict=False, **kwargs):
             if not os.access(f, os.R_OK):
                 raise IOError(errno.EACCES, "Access denied: %s" % f)
     return _conf.read(files, **kwargs)
+
+# Return list of all optins in a section. Inherits doc from _conf.options()
+def options(section):
+    return _conf.options(section)
+options.__doc__ = _conf.options.__doc__
 
 def get(section, option, default=None, **kwargs):
     """get the option from a section in the config, or use default if set"""
@@ -129,3 +137,45 @@ def apply_default(obj, typestr):
             if (not obj.__dict__.has_key(a)) or getattr(obj, a) == "" or getattr(obj, a) == -1:
                 setattr(obj, a, _conf.get(section, a, vars=attribs))
 
+# Creates an option for parse_args, inherits doc from optparse
+def make_option(*opts, **attrs):
+    return optparse.make_option(*opts, **attrs)
+make_option.__doc__ = optparse.make_option.__doc__
+
+def parse_args(options=[]):
+    """parse command-line arguments.
+    
+    options is a list of option arguments, created with make_option()
+    
+    Default options are:
+     -h, --help                  Show help message and exit
+     -v, --verbose               Be verbose
+     -c CONFIG, --config=CONFIG  Read config from CONFIG
+ 
+    Retrieve your parsed args using get('args', <longoption>), 
+    without the '--' in front of the longoption.
+
+    example: get('args', 'verbose')
+    """
+
+    parser = optparse.OptionParser()
+    parser.add_option("-v", "--verbose", help="be verbose", action="store_true", default=False)
+    parser.add_option("-c", "--config", help="read config from CONFIG", 
+                      action="callback", type="string", 
+                      callback=lambda opt, lopt, file, p: read(file, strict=True))
+    for option in options:
+        parser.add_option(option)
+    (options, args) = parser.parse_args()
+
+    if not _conf.has_section('args'):
+        _conf.add_section('args')
+
+    for k in dir(options):
+        v = getattr(options, k)
+        # Ignore private vars and methods
+        # NB: type(parser.add_option) is <type 'instancemethod'>
+        if k[0] == "_" or type(v) == type(parser.add_option):
+            continue
+        _conf.set('args', k, str(v))
+
+    return args

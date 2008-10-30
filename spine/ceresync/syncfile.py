@@ -19,17 +19,12 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from ceresync import errors
 from ceresync import sync
 import ceresync.backend.file as filebackend
 from ceresync import config
-import traceback
 import re
-import sys
-import getopt
-import os
 
-log= config.logger
+log = config.logger
 
 name_regex=re.compile("^[A-Za-z0-9_-]+$")
 def check_account(account):
@@ -54,31 +49,14 @@ def check_group(group):
     return None
 
 
-def usage():
-    print "Usage: %s -c <config file>"  % os.path.basename(sys.argv[0])
-    print "-v be verbose"
-    print "-c <config file>"
-    return
-
 def main():
     verbose = False
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "vhc:")
-    except getopt.GetoptError:
-        usage()
-        sys.exit(2)
+    config.parse_args()
+    verbose = config.getboolean("args", "verbose")
 
-    for o, a in opts:
-        if o == "-h":
-            usage()
-            sys.exit(2)
-        if o == "-v":
-            verbose = True
-        if o == "-c":
-            config.read(a, strict=True)
-            log.debug("reading config file %s" , a )
-            log.debug("spread is: %s" , config.get("sync","account_spread"))
+    log.debug("spread is: %s" , config.get("sync","account_spread"))
+
     incr = False
     id = -1
     s = sync.Sync(incr,id)
