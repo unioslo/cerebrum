@@ -625,7 +625,7 @@ def cyrus_set_quota(user_id, hq, host=None, local_db=db):
         return False
     try:
         cyradm = connect_cyrus(username=uname, host=host)
-    except CyrusConnectError, e:
+    except (CyrusConnectError, socket.error), e:
         logger.error("cyrus_set_quota(%s, %d): %s" % (uname, hq, e))
         return False
     quotalist = '(STORAGE %d)' % (hq * 1024)
