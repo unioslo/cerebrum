@@ -13,7 +13,7 @@ import sys
 class AlreadyRunning(Exception):
     def __init__(self, pidfile):
         self.pidfile = pidfile
-        super(Exception, self).__init__("Already running with pid file %s" % pidfile)
+        Exception.__init__(self, "Already running with pid file %s" % pidfile)
 
 def create_pidfile(pid_file):
     pid_dir = os.path.dirname(pid_file)
