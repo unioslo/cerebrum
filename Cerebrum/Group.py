@@ -647,6 +647,10 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           contain member_ids that were NOT part of the initial filters. The
           client code invoking search_members() this way should be prepared
           for such an eventuality.
+
+          Note that if L{indirect_members} is specified, the answers may
+          contain duplicate member_id keys. The client code interested in
+          unique member_ids must filter the result set.
         """
 
         # first of all, a help function to help us look for recursive
