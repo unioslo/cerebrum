@@ -1004,11 +1004,14 @@ class PgSQL(PostgreSQLBase):
             return data
         return super(PgSQL, self).pythonify_data(data)
 
-class PsycoPG(PostgreSQLBase):
+
+class PsycoPGBase(PostgreSQLBase):
     """PostgreSQL driver class using psycopg."""
 
-    _db_mod = 'psycopg'
-
+    # This is a base class for psycopg-driver family. Set to the appropriate
+    # value in the subclasses.
+    # _db_mod = None
+    
     def connect(self, user=None, password=None, service=None,
                 client_encoding=None, host=None, port=None):
         dsn = []
@@ -1041,7 +1044,7 @@ class PsycoPG(PostgreSQLBase):
         else:
             self.encoding = client_encoding
 
-        super(PsycoPG, self).connect(dsn_string)
+        super(PsycoPGBase, self).connect(dsn_string)
         self._db.set_isolation_level(1)  # read-committed
         self.execute("SET CLIENT_ENCODING TO '%s'" % client_encoding)
         self.commit()
@@ -1053,11 +1056,20 @@ class PsycoPG(PostgreSQLBase):
     def cursor(self):
         return PsycoPGCursor(self)
 
+class PsycoPG1(PsycoPGBase):
+    _db_mod = "psycopg"
+
+class PsycoPG2(PsycoPGBase):
+    _db_mod = "psycopg2"
+
 class PsycoPGCursor(Cursor):
     def execute(self, operation, parameters=()):
+        # IVR 2008-10-30 FIXME: This is not really how the psycopg framework
+        # is supposed to be used. There is an adapter mechanism, and we should
+        # really register our type conversion hooks there.
         for k in parameters:
             if type(parameters[k]) is DateTime.DateTimeType:
-                parameters[k] = self._db._db_mod.TimestampFromMx(parameters[k])
+                parameters[k] = self.TimestampFromTicks(parameters[k].ticks())
             elif (type(parameters[k]) is unicode and
                   self._db.encoding != 'UTF-8'):
                 # pypgsql1 does not support unicode (only utf-8)
@@ -1078,7 +1090,6 @@ class PsycoPGCursor(Cursor):
             for n in range(len(self.description)):
                 if (self.description[n][1] == self._db.NUMBER and
                     self.description[n][5] <= 0):  # pos 5 = scale in DB-API spec
-
                     self._convert_cols[n] = long
                 elif (self._db.encoding == 'UTF-8' and
                       self.description[n][1] == self._db.STRING):
@@ -1321,6 +1332,7 @@ class SQLite(Database):
 
         # provide seamless operation with mx.DateTime.
         self._db_mod.register_converter("timestamp", self._sqlite2mx)
+        self._db_mod.register_converter("date", self._sqlite2mx)
         self._db_mod.register_adapter(DateTime.DateTimeType, self._mx2sqlite)
     # end __init__
 
@@ -1385,7 +1397,6 @@ class SQLite(Database):
         """
         # it's SQLite -- we are always on!
         pass
-
     # end ping
     
 # end SQLite
@@ -1455,7 +1466,7 @@ class SQLiteCursor(Cursor):
         sequence_start_value = None
         sequence_name = None
         if create_sequence:
-            sequence_start_value = 1
+            sequence_start_value = 0
             sequence_name = create_sequence.group(1)
             # here we substitute create table for create sequence...
             operation = sequence_rex.sub("""
@@ -1465,8 +1476,9 @@ class SQLiteCursor(Cursor):
             # check if the start value has been specified
             mobj = sequence_initial.search(operation)
             if mobj:
-                # grab the start value ... 
-                sequence_start_value = int(mobj.group(1))
+                # grab the start value ...
+                # (-1 to compensate for how nextval() works)
+                sequence_start_value = int(mobj.group(1)) - 1
                 # ... and remove the []-junk from the sql statement
                 operation = sequence_initial.sub("", operation)
 
