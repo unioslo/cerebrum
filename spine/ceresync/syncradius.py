@@ -20,42 +20,19 @@
 #
 # Author: Lasse Karstensen <lasse.karstensen_aaaat_ntnu.no>
 #
-import sys, os, getopt
-from ceresync import errors
+import sys
 from ceresync import sync
 from ceresync.backend.file import SambaFile,PasswdFileCryptHash
 
 from ceresync import config
-import traceback
-import omniORB # for the exception
+import omniORB # for the exceptions
 
-log= config.logger
-
-def usage():
-    print "Usage: %s -c <config file>"  % os.path.basename(sys.argv[0])
-    print "-v be verbose"
-    print "-c <config file>"
-    return
+log = config.logger
 
 def main():
-    verbose = False
+    config.parse_args()
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "vhc:")
-    except getopt.GetoptError:
-        usage()
-        sys.exit(2)
-
-    for o, a in opts:
-        if o == "-h":
-            usage()
-            sys.exit(2)
-        if o == "-v":
-            verbose = True
-        if o == "-c":
-            config.sync.read(a)
-            log.debug("reading config file %s" , a )
-            log.debug("spread is: %s" , config.sync.get("sync","account_spread"))
+    log.debug("spread is: %s" , config.get("sync","account_spread"))
 
     incr = False
     id = -1
@@ -99,10 +76,10 @@ def main():
 
     log.info("Parsing and creating files")
 
-    smbfile = SambaFile( config.conf.get("file","smbpasswd" ) )
+    smbfile = SambaFile( config.get("file","smbpasswd" ) )
     smbfile.begin(incr)
 
-    accounts = PasswdFileCryptHash(filename=config.conf.get("file","passwd") )
+    accounts = PasswdFileCryptHash(filename=config.get("file","passwd") )
     accounts.begin(incr)
 
     for account in acclist:

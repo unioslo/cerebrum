@@ -23,12 +23,8 @@
 
 from ceresync import config 
 import SpineClient
-import getopt
-import sys
 import os
-log=config.logger
-dryrun=False
-retry_failed=False
+log = config.logger
 
 def setup_home(path, uid, gid):
     if not os.path.isdir(path):
@@ -54,38 +50,15 @@ class sync(object):
         try: self.session.logout()
         except: pass
 
-def usage():
-    print "Usage: %s [-c FILE] [-d] [-r] [-h]"  % os.path.basename(sys.argv[0])
-    print ""
-    print "-c FILE      use FILE as config file instead of the default"
-    print "-r           retry homedirs with creation failed status"
-    print "-d           dryrun. Don't create directories, and don't report",
-    print              "back to cerebrum"
-    print "-h           display this help and exit"
-    return
-        
-try:
-    opts, args = getopt.getopt(sys.argv[1:], "hc:dr")
-except getopt.GetoptError:
-    usage()
-    sys.exit(2)
-
-for o, a in opts:
-    if o == "-h":
-        usage()
-        sys.exit(0)
-    elif o == "-c":
-        config.sync.read(a)
-        log.debug("reading config file %s" , a )
-    elif o == "-d":
-        dryrun=True
-    elif o == "-r":
-        retry_failed=True
-    else:
-        print >>sys.stderr, "Unrecognized option '%s'" % o
-        usage()
-        sys.exit(2)
-        
+# Parse command-line arguments. -v, --verbose and -c, --config are handled by default.
+config.parse_args([
+    config.make_option("-d", "--dryrun", action="store_true", default=False,
+                        help="don't create directories, and don't report back to cerebrum"),
+    config.make_option("-r", "--retry-failed", action="store_true", default=False,
+                        help="retry homedirs with creation failed status")
+])
+dryrun          = config.get('args', 'dryrun')
+retry_failed    = config.get('args', 'retry_failed')
 
 s = sync()
 tr = s.tr
