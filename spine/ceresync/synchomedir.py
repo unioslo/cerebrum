@@ -39,9 +39,9 @@ def setup_home(path, uid, gid):
 
 class sync(object):
     def __init__(self):
-        self.connection = SpineClient.SpineClient(config=config.conf,
+        self.connection = SpineClient.SpineClient(config=config._conf,
                           logger=config.logger).connect()
-        self.session = self.connection.login(config.conf.get('spine', 'login'),
+        self.session = self.connection.login(config.get('spine', 'login'),
                                    config.conf.get('spine', 'password'))
         self.tr = self.session.new_transaction()
         self.cmd = self.tr.get_commands()
@@ -65,7 +65,7 @@ tr = s.tr
 cmd = s.cmd    
 
 try:
-    hostname = config.conf.get('homedir', 'hostname')
+    hostname = config.get('homedir', 'hostname')
 except:
     hostname = os.uname()[1]
 
@@ -73,7 +73,7 @@ log.debug("hostname is: %s" , hostname)
 
 
 try:
-    setup_script = config.conf.get('homedir', 'setup_script')
+    setup_script = config.get('homedir', 'setup_script')
 except:
     setup_script="/local/skel/bdb-setup"
 
