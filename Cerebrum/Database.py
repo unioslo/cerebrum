@@ -1056,11 +1056,19 @@ class PsycoPGBase(PostgreSQLBase):
     def cursor(self):
         return PsycoPGCursor(self)
 
+
 class PsycoPG1(PsycoPGBase):
     _db_mod = "psycopg"
+# enc class PsycoPG1
+
 
 class PsycoPG2(PsycoPGBase):
     _db_mod = "psycopg2"
+
+    def cursor(self):
+        return PsycoPG2Cursor(self)
+# end class PsycoPG2            
+
 
 class PsycoPGCursor(Cursor):
     def execute(self, operation, parameters=()):
@@ -1117,6 +1125,29 @@ class PsycoPGCursor(Cursor):
             if ret[n] is not None:
                 ret[n] = conv(ret[n])
         return ret
+
+
+class PsycoPG2Cursor(PsycoPGCursor):
+    def execute(self, operation, parameters=()):
+        ret = super(PsycoPG2Cursor, self).execute(operation, parameters)
+        db_mod = self._db._db_mod
+
+        def date_to_mxdatetime(dt):
+            return DateTime.DateTime(dt.year, dt.month, dt.day)
+        def datetime_to_mxdatetime(dt):
+            return DateTime.DateTime(dt.year, dt.month, dt.day,
+                                     dt.hour, dt.minute, dt.second)
+
+        if self.description is not None:
+            for n, item in enumerate(self.description):
+                if item[1] == db_mod._psycopg.DATE:
+                    self._convert_cols[n] = date_to_mxdatetime
+                elif item[1] == db_mod._psycopg.DATETIME:
+                    self._convert_cols[n] = datetime_to_mxdatetime
+        return ret
+    # end execute
+# end PsycoPG2Cursor
+    
 
 
 class OracleBase(Database):
