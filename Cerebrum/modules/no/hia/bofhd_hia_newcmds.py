@@ -143,7 +143,7 @@ class BofhdExtension(object):
         '_register_list_filter_settings', '_find_tripnote', '_sync_category',
         '_has_category', '_update_email_for_ou', '_is_ok_mailman_name',
         '_register_list_addresses', '_email_delete_list', '_check_mailman_official_name',
-        '_get_mailman_list',
+        '_get_mailman_list', '_create_mailing_list_in_cerebrum',
         #
         # copy relevant helper-functions
         #
