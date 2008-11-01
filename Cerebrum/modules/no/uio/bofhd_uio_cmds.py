@@ -4407,8 +4407,8 @@ class BofhdExtension(object):
     # group list
     all_commands['group_list'] = Command(
         ("group", "list"), GroupName(),
-        fs=FormatSuggestion("%-10s %s %s", ("type", "name", "expired"),
-                            hdr="%-10s %s %s" % ("Type", "Name", "Expired?")))
+        fs=FormatSuggestion("%-10s %-10s %-10s", ("type", "name", "expired"),
+                            hdr="%-10s %-10s %-10s" % ("Type", "Name", "Expired")))
     def group_list(self, operator, groupname):
         """List direct members of group"""
         def compare(a, b):
@@ -4421,10 +4421,10 @@ class BofhdExtension(object):
                                             indirect_members=False,
                                             member_filter_expired=False)):
             tmp = {'id': x['member_id'],
-                   'type': str(self.num2const[int(x['member_type'])]),
+                   'type': str(self.const.EntityType(x['member_type'])),
                    'name': x['member_name'],
                    'expired': None}
-            if (x["expire_date"] is not None and x["expired_date"] < now):
+            if (x["expire_date"] is not None and x["expire_date"] < now):
                 tmp["expired"] = "expired"
             ret.append(tmp)
                    
