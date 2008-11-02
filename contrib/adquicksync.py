@@ -395,7 +395,7 @@ def add_spread(entity_id, spread):
             if sock.read() == ['210 OK']:
                 #Make sure that the user is in the groups he should be.
                 for row in group.search(member_id=entity_id,
-                                        indirect_member=False):
+                                        indirect_members=False):
                     group.clear()
                     group.find(row['group_id'])
                     if group.has_spread(constants.spread_uio_ad_group):
