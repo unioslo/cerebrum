@@ -109,7 +109,8 @@ def sanitize_group(cerebrum_group, constants):
     """
 
     removed_count = 0
-    for row in cerebrum_group.search_members(member_type=
+    for row in cerebrum_group.search_members(group_id=cerebrum_group.entity_id,
+                                             member_type=
                                              constants.entity_group):
         member_id = int(row["member_id"])
         logger.error("Aiee! Group id=%s is a member of group %s",
