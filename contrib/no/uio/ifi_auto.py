@@ -272,7 +272,7 @@ def process_groups(super, fg_super):
                              "følge av Ifi-automatikk")
         fg_super_gr.write_db()
     else:
-        for row in fg_super_gr.search_members(group_id=fg_super.entity_id,
+        for row in fg_super_gr.search_members(group_id=fg_super_gr.entity_id,
                                               member_type=co.entity_group,
                                               member_filter_expired=False):
             auto_fg[int(row["member_id"])] = True
