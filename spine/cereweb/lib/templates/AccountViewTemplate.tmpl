@@ -17,7 +17,8 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.utils import object_link, strftime, html_quote, url_quote
-#from lib.utils import remember_link
+#from lib.utils import remember_link, spine_to_web
+#from lib.utils import get_lastname_firstname
 #from GroupViewTemplate import GroupViewTemplate
 #from EmailTargetTemplate import EmailTargetTemplate
 #from FormWidgets import FormWidgets
@@ -31,7 +32,7 @@
 #attr $joinGroup = GroupViewTemplate.joinGroup
 
 #def viewActions($transaction, $account)
-    #set $id = $html_quote($account.get_id())
+    #set $id = $url_quote($account.get_id())
     <ul>
         <li><a href="/account/edit?id=$id">$_("edit info")</a></li>
         <li><a href="/confirm/account/delete?id=$id">$_("delete account")</a></li>
@@ -51,26 +52,26 @@
 #def content()
 #set $commands = $tr.get_commands()
     $viewInfo($entity, $tr)
-    $printDialog($entity)
-    $viewQuarantines($entity)
+    $printDialog($entity, $tr)
+    $viewQuarantines($entity, $tr)
     $addNote($entity)
-    $viewNotes($entity)
+    $viewNotes($entity, $tr)
     $viewGroups($entity)
     ## $joinGroup($entity, transaction=$tr)
     $joinGroup($entity)
-    $viewAffiliation($entity)
+    $viewAffiliation($entity, $tr)
     $addAffiliation($entity, $tr)
     #if $commands.has_extention("email")
         $email_template.set($entity, $tr)
         $email_template.view($entity, $tr)
     #end if
-    $setPassword($entity)
-    $viewPasswords($entity)
-    $viewTraits($entity)
+##     $setPassword($entity)
+    $viewPasswords($entity, $tr)
+    $viewTraits($entity, $tr)
     $setHomeDirectory($entity, $tr)
-    $viewHomeDirectories($entity)
+    $viewHomeDirectories($entity, $tr)
     $addSpread($entity, $tr)
-    $viewSpreads($entity)
+    $viewSpreads($entity, $tr)
     $viewHistoryLog($entity)
 #end def
 
@@ -84,42 +85,50 @@
     $notice.append($_("This account has expired."))
 #end if
 
-$info.append(($_('Name'), $html_quote($account.get_name())))
-$info.append(($_('Owned by'), $object_link($account.get_owner())))
+$info.append(($_('Name'), $spine_to_web($tr, $account.get_name())))
+#set $linkText = $spine_to_web($tr, $get_lastname_firstname($account.get_owner()))
+$info.append(($_('Owned by'), $object_link($account.get_owner(),text=$linkText)))
 
-$info.append(($_('Expire date'), $strftime($account.get_expire_date())))
-$info.append(($_('Date created'), $strftime($account.get_create_date())))
-$info.append(($_('Created by'), $object_link($account.get_creator())))
+$info.append(($_('Expire date'), $html_quote($strftime($account.get_expire_date()))))
+$info.append(($_('Date created'), $html_quote($strftime($account.get_create_date()))))
+#set $created_by = $spine_to_web($tr, $account.get_creator().get_name())
+$info.append(($_('Created by'), $object_link($account.get_creator(), text=$created_by)))
 #if $account.is_posix()
     $info.append(($_('UID'), $html_quote($account.get_posix_uid())))
-    $info.append(($_('Primary group'), $object_link($account.get_primary_group())))
-    $info.append(($_('Gecos'), $html_quote($account.get_gecos())))
-    $info.append(($_('Shell'), $html_quote($account.get_shell().get_name())))
+    #set $group_name = $spine_to_web($tr, $account.get_primary_group().get_name())
+    $info.append(($_('Primary group'), $object_link($account.get_primary_group(), text=$group_name)))
+    $info.append(($_('Gecos'), $spine_to_web($tr, $account.get_gecos())))
+    $info.append(($_('Shell'), $spine_to_web($tr, account.get_shell().get_name())))
 #end if
-$info.append(($_('Description'), $html_quote($account.get_description())))
+$info.append(($_('Description'), $spine_to_web($tr, $account.get_description())))
 $widgets.viewInfo($info, $notice)
 #end def
 
-#def printDialog($account)
+#def printDialog($account, $tr)
 #set $langs= [ ('no', 'Norwegian'),('en', 'English')]
-<div class="info box">
+<div class="edit box">
     <h3>$_('Print contract')</h3>
         <form action="print_contract" method="post">
             <input type="hidden" name="id" value="$html_quote($account.get_id())" />
-            $form_widgets.generate_loption("lang", "Language", $langs)
-            <input type="submit" name="button" value="$_('Print')" />
+            <div>
+                $form_widgets.generate_loption("lang", "Language", $langs)
+            </div>
+            <div class="buttons">
+            <input type="submit" value="$_('Print')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
         </form>
 </div>
 #end def
 
-#def viewPasswords($account)
+#def viewPasswords($account, $tr)
 #set $auths = $account.get_authentications()
 #if $auths
 <div class="info box">
     <h3>$_('Current authentication types')</h3>
     #for $auth in $auths
     <div class="item">
-        $html_quote($auth.get_method().get_name())
+        $spine_to_web($tr, $auth.get_method().get_name())
     </div>
     #end for
 </div>
@@ -152,33 +161,38 @@ $widgets.viewInfo($info, $notice)
 </div>
 #end def
 
-#def viewAffiliation($account)
+#def viewAffiliation($account, $tr)
 #set $affils = $account.get_affiliations()
 #if $affils
 <div class="info box">
     <h3>$_('Affiliations')</h3>
     <table>
-    <tr class="headers"><th>$_('Affiliation')</th><th>$_('OU')</th>
-    <th>$_('Priority')</th><th>$_('Actions')</th></tr>
-    #for $affil in $account.get_affiliations()
-    #set $ou = $affil.get_ou()
-    #set $affil_type = $affil.get_affiliation()
-    #set $priority = $affil.get_priority()
-
-    <tr class="item">
-    <td>$html_quote($affil_type.get_name())</td>
-    <td>$object_link($ou)</td>
-    <td>$html_quote($priority)</td>
-    <td class="actions">
-            #set $args = "id=%s&amp;ou=%s&amp;affil=%s" % (
-                            $url_quote($account.get_id()),
-                            $url_quote($ou.get_id()),
-                            $url_quote($affil_type.get_name()))
-            <a class="action" href="/confirm/account/remove_affil?$args">$_('delete')</a>
-    </td>
+    <tr class="headers">
+    <th>$_('Affiliation')</th>
+    <th>$_('OU')</th>
+    <th>$_('Priority')</th>
+    <th>$_('Actions')</th>
     </tr>
+    #for $affil in $account.get_affiliations()
+        #set $ou = $affil.get_ou()
+        #set $ou_link_text = $spine_to_web($tr, $ou.get_name())
+        #set $affil_type = $affil.get_affiliation()
+        #set $priority = $affil.get_priority()
+        #set $affil_type_name = $spine_to_web($tr, $affil_type.get_name())
+        <tr class="item">
+        <td>$affil_type_name</td>
+        <td>$object_link($ou, text=$ou_link_text)</td>
+        <td>$spine_to_web($tr, $priority)</td>
+        <td class="actions">
+        #set $args = "id=%s&amp;ou=%s&amp;affil=%s" % (
+            $url_quote($account.get_id()),
+            $url_quote($ou.get_id()),
+            $url_quote($affil_type_name))
+        <a class="action" href="/confirm/account/remove_affil?$args">$_('delete')</a>
+        </td>
+        </tr>
     #end for
-</table>
+    </table>
 </div>
 #end if
 #end def
@@ -189,9 +203,18 @@ $widgets.viewInfo($info, $notice)
 #set $searcher = $tr.get_person_affiliation_searcher()
 #set $foo = $searcher.set_person($owner)
 #set $affs = $searcher.search()
-#set $aff_list = [ ("%s:%d" % ($i.get_affiliation().get_name(), $i.get_ou().get_id()),
-                    "%s: %s" % ($i.get_affiliation().get_name(), $i.get_ou().get_name()))
-                  for $i in $affs ]
+
+#set $aff_list = []
+#for $i in $affs
+   #set $aff_name = $spine_to_web($tr, $i.get_affiliation().get_name())
+   #set $ou_id = $html_quote($i.get_ou().get_id())
+   #set $ou_name = $spine_to_web($tr, $i.get_ou().get_name())
+   $aff_list.append(($aff_name + ":" + $ou_id, $aff_name + ":" + $ou_name))
+#end for
+
+## #set $aff_list = [ ("%s:%d" % ($i.get_affiliation().get_name(), $i.get_ou().get_id()), 
+## "%s: %s" % ($i.get_affiliation().get_name(), $i.get_ou().get_name())) for $i in $affs ]
+
 <div class="edit box" style="display:none;">
     <h3 id="affil">$_('Add an affiliation')</h3>
     <form action="add_affil" method="post">
@@ -213,7 +236,7 @@ $widgets.viewInfo($info, $notice)
 #end if
 #end def
 
-#def viewHomeDirectories($account)
+#def viewHomeDirectories($account, $tr)
     #set $homes = $account.get_homes()
     #if $homes
         #set $id = $account.get_id()
@@ -229,13 +252,13 @@ $widgets.viewInfo($info, $notice)
                 <div class="actions">
                     <a class="action" href="$remove">$_('remove')</a>
                 </div>
-                <span class="name">$_("Spread"):</span> <span class="value">$html_quote($sname)</span><br />
+                <span class="name">$_("Spread"):</span> <span class="value">$spine_to_web($tr, $sname)</span><br />
 		#set $disk = $homedir.get_disk()
 		#if $disk
-                <span class="name">$_("Disk"):</span> <span class="value">$html_quote("%s:%s" % ($disk.get_host().get_name(), $disk.get_path()))</span><br />
+                <span class="name">$_("Disk"):</span> <span class="value">"%s:%s" % ($spine_to_web($tr, $disk.get_host().get_name()), $spine_to_web($tr, $disk.get_path()))</span><br />
 		#end if
-                <span class="name">$_("Home directory"):</span> <span class="value">$html_quote($account.get_homepath($spread))</span><br />
-                <span class="name">$_("Status"):</span> <span class="value">$html_quote($homedir.get_status().get_description())</span>
+                <span class="name">$_("Home directory"):</span> <span class="value">$spine_to_web($tr, $account.get_homepath($spread))</span><br />
+                <span class="name">$_("Status"):</span> <span class="value">$spine_to_web($tr, $homedir.get_status().get_description())</span>
             </div>
             #end for
         </div>
@@ -243,11 +266,9 @@ $widgets.viewInfo($info, $notice)
 #end def
 
 #def setHomeDirectory($entity, $tr)
-    #set $spreads = [($i.get_name(), $i.get_name())
-                     for $i in $entity.get_spreads()]
+    #set $spreads = [($i.get_name(), $i.get_name()) for $i in $entity.get_spreads()]
     #set $disks = $tr.get_disk_searcher().search()
-    #set $disks = [($i.get_id(), "%s:%s" % 
-        ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
+    #set $disks = [($i.get_id(), "%s:%s" % ($i.get_host().get_name(), $i.get_path())) for $i in $disks]
             
     <div class="edit box" style="display:none;">
         <h3>$_('Set home directory')</h3>

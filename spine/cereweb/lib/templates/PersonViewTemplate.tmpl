@@ -18,7 +18,7 @@
 
 #from lib.utils import object_link, strftime, html_quote, url_quote, ou_selects
 #from lib.utils import remember_link, web_to_spine, spine_to_web
-#from lib.utils import get_ou_structure, find_ou_root, from_spine_decode
+#from lib.utils import get_ou_structure, find_ou_root
 #import operator
 #from GroupViewTemplate import GroupViewTemplate
 #from Widgets import Widgets
@@ -46,17 +46,17 @@
     $viewInfo($entity, $tr)
     $setName($entity, $tr)
     $viewNames($entity, $tr)
-    $viewQuarantines($entity)
+    $viewQuarantines($entity, $tr)
     $addNote($entity)
-    $viewNotes($entity)
+    $viewNotes($entity, $tr)
     $viewAccounts($entity, $tr)
     $addAffiliation($entity, $tr)
     $viewAffiliation($entity, $tr)
-    $viewTraits($entity)
-    $viewContactInfos($entity)
-    $viewAddresses($entity)
+    $viewTraits($entity, $tr)
+    $viewContactInfos($entity, $tr)
+    $viewAddresses($entity, $tr)
     $setExternalId($entity, $tr)
-    $viewExternalIds($entity, $viewBirthNo)
+    $viewExternalIds($entity, $viewBirthNo, $tr)
     $viewHistoryLog($entity)
 #end def
 
@@ -162,13 +162,13 @@
             ## urls should always be encoded in utf-8
             #set $person_id = $person.get_id()
             #set $ou_id =  ou.get_id()
-            #set $type_aff = $from_spine_decode($tr, $affil_type.get_name()).encode('utf-8')
-            #set $source_name = $from_spine_decode($tr, source.get_name()).encode('utf-8')
+            #set $type_aff = $spine_to_web($tr, $affil_type.get_name())
+            #set $source_name = $spine_to_web($tr, source.get_name())
             #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
-                            $html_quote($person_id),
-                            $html_quote($ou_id),
-                            $html_quote($type_aff),
-                            $html_quote($source_name))
+                            $url_quote($person_id),
+                            $url_quote($ou_id),
+                            $url_suote($type_aff),
+                            $url_quote($source_name))
             <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a></td>
             </tr>
         #end if
