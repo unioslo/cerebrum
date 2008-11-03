@@ -192,7 +192,7 @@
       <th>$_('Sources')</th>
     </tr>
     #for $contact in $contacts
-    #set sources = ",".join(["%s:%d" % ($spine_to_web($s[0].get_name()), $html_quote($s[1])) for $s in $contact.sources])
+    #set sources = ",".join(["%s:%d" % ($spine_to_web($tr, $s[0].get_name()), $html_quote($s[1])) for $s in $contact.sources])
     <tr>
        <td>$spine_to_web($tr, $contact.variant.get_name())</td>
        <td>$spine_to_web($tr, $contact.value)</td>
