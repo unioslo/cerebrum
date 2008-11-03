@@ -65,6 +65,7 @@ def index(transaction):
     page.add_jscript("motd.js")
     page.set_focus('cereweb/index')
     page.links = _get_links()
+    page.tr = transaction
     
     motd_search = transaction.get_cereweb_motd_searcher()
     motd_search.order_by_desc(motd_search, 'create_date')
@@ -80,6 +81,7 @@ def all_motds(transaction):
     page.add_jscript("motd.js")
     page.set_focus('cereweb/all_motds')
     page.links = _get_links()
+    page.tr = transaction
     
     motd_search = transaction.get_cereweb_motd_searcher()
     motd_search.order_by_desc(motd_search, 'create_date')
@@ -102,7 +104,9 @@ def save_motd(transaction, id=None, subject=None, message=None):
         except ValueError, e:
             pass
     try: # Create the new
-        transaction.get_commands().create_cereweb_motd(subject, message)
+        subj = utils.web_to_spine(transaction, subject)
+        mess = utils.web_to_spine(transaction, message)
+        transaction.get_commands().create_cereweb_motd(subj, mess)
     except AccessDeniedError, e:
         msg = _("You do not have permission to create.");
         utils.rollback_url('/index', msg, err=True)
@@ -123,6 +127,7 @@ def edit_motd(transaction, id=None):
             redirect('/index')
     page = Main()
     page.title = _("Edit Message")
+    page.tr = transaction
     tmpl = MotdTemplate()
     content = tmpl.editMotd('/save_motd', id, subject, message, main=True)
     page.content = lambda: content
@@ -133,7 +138,7 @@ edit_motd.exposed = True
 def delete_motd(transaction, id):
     """Delete the Motd from the server."""
     motd = transaction.get_cereweb_motd(int(id))
-    msg = _("Motd '%s' successfully deleted.") % motd.get_subject()
+    msg = _("Motd '%s' successfully deleted.") % utils.spine_to_web(transaction, motd.get_subject())
     motd.delete()
     commit_url(transaction, 'index', msg=msg)
 delete_motd = transaction_decorator(delete_motd)

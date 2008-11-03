@@ -112,10 +112,10 @@ def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_da
         #assert owner.get_type().get_name() == 'group'
         assert owner.get_typestr() == 'group'
         np_type = transaction.get_account_type(np_type)
-        account = owner.create_account(name, np_type, expire_date)
+        account = owner.create_account(web_to_spine(transaction, name), np_type, expire_date)
     else:
         try:
-            account = owner.create_account(name, expire_date)
+            account = owner.create_account(web_to_spine(transaction, name), expire_date)
         except IntegrityError, e:
             rollback_url(referer, 'Could not create account,- possibly identical usernames.', err=True)
     if join and owner.get_typestr() == "group":
@@ -133,7 +133,7 @@ def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_da
         except NotFoundError, e:
             rollback_url(referer, _("Could not find group %s.  Account is not created." % primary_group), err=True)
     if desc:
-        account.set_description(desc)
+        account.set_description(web_to_spine(transaction, desc))
 
     if not password:
         rollback_url(referer, 'Password is empty. Account is not created.', err=True)
@@ -210,14 +210,14 @@ def save(transaction, **vargs):
             error_msgs.append("Error, no such shell: %s" % shell)
         
     account.set_expire_date(expire_date)
-    account.set_description(description)
+    account.set_description(web_to_spine(transaction, description))
 
     if account.is_posix():
         if uid:
             account.set_posix_uid(int(uid))
 
         if shell:
-            account.set_shell(shell)
+            account.set_shell(web_to_spine(transaction, shell))
 
         if primary_group:
             for group in account.get_groups():
@@ -227,7 +227,7 @@ def save(transaction, **vargs):
             else:
                 error_msgs.append("Error, primary group not found.")
         
-        account.set_gecos(gecos)
+        account.set_gecos(web_to_spine(transaction, gecos))
 
     if error_msgs:
         for msg in error_msgs:
@@ -387,7 +387,7 @@ def remove_affil(transaction, id, ou, affil):
 remove_affil = transaction_decorator(remove_affil)
 remove_affil.exposed = True
  
-def print_contract(transaction, id, lang, button):
+def print_contract(transaction, id, lang):
     tr = transaction
     referer = cherrypy.request.headerMap.get('Referer', '')
     account = tr.get_account(int(id))

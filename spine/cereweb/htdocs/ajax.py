@@ -34,25 +34,25 @@ from lib.utils import *
 ## 2007-09-28 tk.
 ##
 
-def get_owner(owner):
+def get_owner(owner, tr):
     owner_type = owner.get_type().get_name() 
     if owner_type == 'person':
-        data = get_person_info(owner)
+        data = get_person_info(owner, tr)
     elif owner_type == 'group':
-        data = get_group_info(owner)
+        data = get_group_info(owner, tr)
     else:
         data = {
-            'id': owner.get_id(),
+            'id': html_quote(owner.get_id()),
             'name': None,
             'type': owner_type,
         }
 
     return data
 
-def get_account_info(account, owner=None):
+def get_account_info(account, tr, owner=None):
     data = {
-            "id": "%s" % account.get_id(),
-            "name": "%s" % from_spine_decode(account.get_name()),
+            "id": "%s" % html_quote(account.get_id()),
+            "name": "%s" % spine_to_web(tr, account.get_name()),
             "type": "account",
     }
 
@@ -66,25 +66,25 @@ def get_account_info(account, owner=None):
 
     return data
 
-def get_person_name(person):
+def get_person_name(person, tr):
     for n in person.get_names():
         if n.get_name_variant().get_name() == "FULL":
-            return from_spine_decode(n.get_name())
+            return spine_to_web(tr, n.get_name())
     return None
 
-def get_person_info(person):
+def get_person_info(person, tr):
     data = {
-        "id": person.get_id(),
-        "name": get_person_name(person),
+        "id": html_quote(person.get_id()),
+        "name": get_person_name(person, tr),
         "type": 'person',
     }
     return data
 
-def get_group_info(group):
+def get_group_info(group, tr):
     #spine_enc = cherrypy.session['encoding']
     data = {
-        'id': group.get_id(),
-        'name': from_spine_decode(group.get_name()),
+        'id': html_quote(group.get_id()),
+        'name': spine_to_web(tr, group.get_name()),
         'type': 'group',
     }
     return data
@@ -95,10 +95,10 @@ def search_account(transaction, query):
     accounts = transaction.get_account_searcher()
     accounts.set_search_limit(20, 0)
     accounts.order_by(accounts, 'name')
-    accounts.set_name_like("%s*" % query)
+    accounts.set_name_like("%s*" % web_to_spine(transaction, query))
     accounts = accounts.search()
     for account in accounts:
-        account = get_account_info(account)
+        account = get_account_info(account, tr)
         result[account['id']] = account
     return result.values()
 
@@ -108,14 +108,14 @@ def search_person(transaction, query):
     searcher = transaction.get_person_name_searcher()
     searcher.set_search_limit(20, 0)
     searcher.set_name_variant(transaction.get_name_type("FULL"))
-    searcher.set_name_like("*%s*" % query)
+    searcher.set_name_like("*%s*" % web_to_spine(transaction, query))
     people = [x.get_person() for x in searcher.search()]
 
     for person in people:
-        data = get_person_info(person)
+        data = get_person_info(person, tr)
         accounts = {}
         for account in person.get_accounts():
-            account = get_account_info(account, data)
+            account = get_account_info(account, tr, data)
             accounts[account['id']] = account
         data['accounts'] = accounts.values()
         result[data['id']] = data
@@ -126,9 +126,9 @@ def search_group(transaction, query):
 
     searcher = transaction.get_group_searcher()
     searcher.set_search_limit(20, 0)
-    searcher.set_name_like("%s*" % query)
+    searcher.set_name_like("%s*" % web_to_spine(transaction, query))
     for group in searcher.search():
-        group = get_group_info(group)
+        group = get_group_info(group, tr)
         result[group['id']] = group
     return result.values()
 
@@ -136,7 +136,6 @@ def search(transaction, query=None, type=None, output=None):
     if not query: return
 
     # convert to from web to spine encoding
-    query = to_spine_encode(from_web_decode(query))
     
     if not type:
         # We assume that people have names with upper case letters.
@@ -185,8 +184,8 @@ def get_motd(transaction, id):
         motd = transaction.get_cereweb_motd(int(id))
         message, subject = motd.get_message(), motd.get_subject()
         ## just decode from spine cjson vil do the rest
-        message = from_spine_decode(message)
-        subject = from_spine_decode(subject)
+        message = spine_to_web(transaction, transaction, message)
+        subject = spine_to_web(transaction, subject)
     except NotFoundError, e:
         pass
     return cjson.encode({'message': message, 'subject': subject})
