@@ -49,6 +49,12 @@ def main():
 
     try:
         s = sync.Sync(incr, id, hashtypes[0])
+    except sync.AlreadyRunningWarning, e:
+        log.info(str(e))
+        exit(0)
+    except sync.AlreadyRunning, e:
+        log.warn(str(e))
+        exit(1)
     except omniORB.CORBA.TRANSIENT, e:
         log.error("Server seems down. Error: %s",e)
         sys.exit(255)

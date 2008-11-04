@@ -9,11 +9,19 @@ import signal
 import atexit
 import types
 import sys
+import stat
+import time
 
 class AlreadyRunning(Exception):
-    def __init__(self, pidfile):
+    """Thrown when the client is already running and the pid file exists"""
+    def __init__(self, pidfile, pidfile_mtime):
         self.pidfile = pidfile
-        Exception.__init__(self, "Already running with pid file %s" % pidfile)
+        Exception.__init__(self, "Already running for %s secs with pid file %s" % (int(time.time() - pidfile_mtime), pidfile))
+
+class AlreadyRunningWarning(AlreadyRunning):
+    """Thrown when the client is already running and the pid file exists,
+    but has been running for less than an hour."""
+    pass
 
 def create_pidfile(pid_file):
     pid_dir = os.path.dirname(pid_file)
@@ -29,7 +37,19 @@ def create_pidfile(pid_file):
         atexit.register(remove_pidfile, pid_file)
     except OSError, e:
         if e.errno == errno.EEXIST:
-            raise AlreadyRunning(e.filename)
+            try:
+                mtime = os.stat(e.filename)[stat.ST_MTIME]
+            except OSError, e:
+                if e.errno == errno.ENOENT:
+                    # Pidfile has been removed since we tried to create it.
+                    # Warn and ignore.
+                    raise AlreadyRunningWarning(e.filename, None)
+                else:
+                    raise
+            if time.time() - mtime < 3600:
+                # e.filename is less than an hour old. Just warn.
+                raise AlreadyRunningWarning(e.filename, mtime)
+            raise AlreadyRunning(e.filename, mtime)
         else:
             raise
 

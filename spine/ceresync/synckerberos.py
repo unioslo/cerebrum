@@ -54,6 +54,12 @@ def main():
     try: 
         log.info("Connecting to spine-server")
         s= sync.Sync(incr,local_id)
+    except sync.AlreadyRunningWarning, e:
+        log.info(str(e))
+        exit(0)
+    except sync.AlreadyRunning, e:
+        log.warn(str(e))
+        exit(1)
     except omniORB.CORBA.TRANSIENT,e:
         log.error('Unable to connect to spine-server: %s',e)
         exit(1)

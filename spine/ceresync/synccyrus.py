@@ -48,7 +48,14 @@ def main():
     if os.path.isfile(spine_cache):
         local_id= long( file(spine_cache).read() )
     print "Local changelog-id:",local_id
-    s= sync.Sync(incr,local_id)
+    try:
+        s = sync.Sync(incr,local_id)
+    except sync.AlreadyRunningWarning, e:
+        log.info(str(e))
+        exit(0)
+    except sync.AlreadyRunning, e:
+        log.warn(str(e))
+        exit(1)
     server_id= s.cmd.get_last_changelog_id()
     print "Server changelog-id:",server_id
 

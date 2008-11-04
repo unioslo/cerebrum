@@ -58,7 +58,15 @@ def main():
 
     incr = False
     id = -1
-    s = sync.Sync(incr,id)
+
+    try:
+        s = sync.Sync(incr,id)
+    except sync.AlreadyRunningWarning, e:
+        log.info(str(e))
+        exit(0)
+    except sync.AlreadyRunning, e:
+        log.warn(str(e))
+        exit(1)
 
     accounts = filebackend.Account()
     groups = filebackend.Group()
