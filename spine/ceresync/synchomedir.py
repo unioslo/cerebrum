@@ -42,7 +42,7 @@ class sync(object):
         self.connection = SpineClient.SpineClient(config=config._conf,
                           logger=config.logger).connect()
         self.session = self.connection.login(config.get('spine', 'login'),
-                                   config.conf.get('spine', 'password'))
+                                   config.get('spine', 'password'))
         self.tr = self.session.new_transaction()
         self.cmd = self.tr.get_commands()
 

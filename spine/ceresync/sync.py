@@ -67,10 +67,10 @@ def remove_pidfile(pid_file):
 class Sync:
     def __init__(self, incr=False, id=-1, auth_type=None):
         self.incr=incr
-        self.auth_type= auth_type or config.conf.get('sync','auth_type')
+        self.auth_type= auth_type or config.get('sync','auth_type')
 
         try:
-            pid_file = config.conf.get('sync', 'pid_file')
+            pid_file = config.get('sync', 'pid_file')
         except:
             pid_file = "/var/run/cerebrum/ceresync.pid"
 
@@ -92,20 +92,20 @@ class Sync:
         # Create a pid file
         create_pidfile(pid_file)
 
-        connection = SpineClient.SpineClient(config=config.conf,
+        connection = SpineClient.SpineClient(config=config._conf,
                                              logger=config.logger).connect()
         import SpineCore
         try:
-            self.session = connection.login(config.conf.get('spine', 'login'),
-                                            config.conf.get('spine', 'password'))
+            self.session = connection.login(config.get('spine', 'login'),
+                                            config.get('spine', 'password'))
         except SpineCore.Spine.LoginError, e:
             raise errors.LoginError(e)
 
         self.tr = self.session.new_transaction()
         self.cmd = self.tr.get_commands()
         self.view = self.tr.get_view()
-        account_spread=config.conf.get('sync', 'account_spread')
-        group_spread=config.conf.get('sync', 'group_spread')
+        account_spread=config.get('sync', 'account_spread')
+        group_spread=config.get('sync', 'group_spread')
         
         self.view.set_account_spread(self.tr.get_spread(account_spread))
         self.view.set_group_spread(self.tr.get_spread(group_spread))
@@ -160,10 +160,10 @@ class Sync:
 class Pgp:
     def __init__(self, pgp_prog=None, enc_opts='', dec_opts='', keyid=None):
         # Handle NoOptionError?
-        pgp_prog= pgp_prog or config.conf.get('pgp', 'prog')
-        enc_opts= enc_opts or config.conf.get('pgp', 'encrypt_opts')
-        dec_opts= dec_opts or config.conf.get('pgp', 'decrypt_opts')
-        keyid= keyid or config.conf.get('pgp', 'keyid')
+        pgp_prog= pgp_prog or config.get('pgp', 'prog')
+        enc_opts= enc_opts or config.get('pgp', 'encrypt_opts')
+        dec_opts= dec_opts or config.get('pgp', 'decrypt_opts')
+        keyid= keyid or config.get('pgp', 'keyid')
 
         self.pgp_enc_cmd= [ pgp_prog,
             '--recipient', keyid,

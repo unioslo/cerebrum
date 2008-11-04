@@ -33,8 +33,8 @@ except:
 
 log = config.logger
 
-spine_cache= config.conf.get('spine','last_change') or \
-             "/var/lib/cerebrum/sync.last_change"
+spine_cache = config.get('spine','last_change') or \
+              "/var/lib/cerebrum/sync.last_change"
 
 def main():
     config.parse_args(config.make_bulk_options())

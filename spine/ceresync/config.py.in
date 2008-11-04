@@ -30,8 +30,6 @@ import optparse
 _conf = ConfigParser.SafeConfigParser()
 confpath= os.environ.get("CERECONF_DIR", "@CONFDIR@")+'/'
 _conf.read((confpath+'sync.conf.template', confpath+'sync.conf'))
-sync=_conf # compat
-conf=_conf # compat
 
 logging_ini= "@CONFDIR@"+"/logging.ini"   
 if _conf.has_option('logging','ini_path'):
