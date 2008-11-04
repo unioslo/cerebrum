@@ -21,7 +21,7 @@
 
 from ceresync import errors
 from ceresync import sync
-import ceresync.backend.ldap as ldapbackend
+from ceresync.backend import ldapbackend
 from ceresync import config
 import traceback
 
