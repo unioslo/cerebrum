@@ -70,10 +70,14 @@ def get(section, option, default=None, **kwargs):
         return default
     return _conf.get(section, option, **kwargs)
 
-def getboolean(section, option, default=None, **kwargs):
-    """get the option from a section in the config, or use default if set"""
+def getboolean(section, option, default=None, allow_none=False, **kwargs):
+    """get the option from a section in the config, or use default if set.
+    Setting allow_none will make "None" a valid return value"""
+
     if _conf.has_option(section, option) and default is not None:
         return default
+    if allow_none and _conf.get(section, option, **kwargs) == "None":
+        return None
     return _conf.getboolean(section, option, **kwargs)
 
 def apply_quarantine(obj, typestr):
@@ -136,6 +140,57 @@ def apply_default(obj, typestr):
             # "" or -1 for nonexisting values is an spine-ism
             if (not obj.__dict__.has_key(a)) or getattr(obj, a) == "" or getattr(obj, a) == -1:
                 setattr(obj, a, _conf.get(section, a, vars=attribs))
+
+def _toggle_once(parser, dest, value, options):
+    """Toggle the option dest to the boolean value, and fail if it has already been set.
+    Used by make_bulk_options()"""
+
+    old_value = getattr(parser.values, dest)
+    if old_value is not None and old_value is not value:
+        raise optparse.OptionValueError("Only one of %s options should be provided" % options)
+    setattr(parser.values, dest, value)
+
+def make_bulk_options():
+    """Return a list of bulk-related boolean options, for use in make_option()
+
+    Only one option affecting incremental will be allowed, the others may be
+    specified multiple times and the last one specified will count.
+
+      Affected config value | Enabling options  | Disabling options | Default
+      ----------------------+-------------------+-------------------+--------
+      args, incremental     | -i, --incremental | -b, --bulk        | None
+      args, add             | -a, --add         | --no-add          | False
+      args, update          | -u, --update      | --no-update       | False
+      args, delete          | -d, --delete      | --no-delete       | True
+
+    """
+
+    return [
+        make_option("-i", "--incremental", action="callback", dest="incremental", default=None,
+                     callback=lambda o,lo,v,p: _toggle_once(p, "incremental", True, "--bulk or --incremental"),
+                     help="incremental synchronization. " \
+                         +"The --add, --update and --delete arguments are ignored"),
+        make_option("-b", "--bulk", action="callback",
+                     callback=lambda o,lo,v,p: _toggle_once(p, "incremental", False, "--bulk or --incremental"),
+                     help="bulk synchronization"),
+    
+        make_option("-a", "--add", action="store_true", default=False,
+                     help="add accounts"),
+        make_option("-u", "--update", action="store_true", default=False,
+                     help="update accounts"),
+        make_option("-d", "--delete", action="store_true", default=True,
+                            help="delete accounts (default)"),
+    
+        # These "--no"-options modify the same value as their counterparts
+        # above, and use the default value defined there.
+        make_option("--no-add", action="store_false", dest="add",
+                     help="do not add accounts (default)"),
+        make_option("--no-update", action="store_false", dest="update",
+                     help="do not update accounts (default)"),
+        make_option("--no-delete", action="store_false", dest="delete",
+                            help="do not delete accounts"),
+    ]
+
 
 # Creates an option for parse_args, inherits doc from optparse
 def make_option(*opts, **attrs):
