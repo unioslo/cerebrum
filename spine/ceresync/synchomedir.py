@@ -39,7 +39,7 @@ def setup_home(path, uid, gid):
 
 class sync(object):
     def __init__(self):
-        self.connection = SpineClient.SpineClient(config=config._conf,
+        self.connection = SpineClient.SpineClient(config=config
                           logger=config.logger).connect()
         self.session = self.connection.login(config.get('spine', 'login'),
                                    config.get('spine', 'password'))

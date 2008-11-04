@@ -42,24 +42,24 @@ class Account:
         self.k = None # Holds the authenticated kadm object
         self.incr = False
         self.pgp = Pgp()
-        self.principal= principal or config.conf.get('kerberos','principal')
-        self.keytab= keytab or config.conf.get('kerberos', 'keytab')
+        self.principal= principal or config.get('kerberos','principal')
+        self.keytab= keytab or config.get('kerberos', 'keytab')
 
         # If dryrun is True, no changes will be made to kerberos.
-        self.dryrun= config.conf.has_option('kerberos','dryrun') and \
-                config.conf.getboolean('kerberos','dryrun') or \
+        self.dryrun= config.has_option('kerberos','dryrun') and \
+                config.getboolean('kerberos','dryrun') or \
                 False
         if self.dryrun:
             log.info("Dry run. No changes will be made to kerberos.")
         
         self.reserved= ['default']
-        if config.conf.has_option('kerberos','reserved'):
-            self.reserved.extend(config.conf.get('kerberos','reserved').split())
+        if config.has_option('kerberos','reserved'):
+            self.reserved.extend(config.get('kerberos','reserved').split())
 
         # Use a non-default cache-file so a rogue kinit won't affect the script.
         os.putenv('KRB5CCNAME', 'FILE:/tmp/krb5cc_%d_synckerberos' % os.geteuid())
 
-        flavor= flavor or config.conf.get('kerberos','flavor')
+        flavor= flavor or config.get('kerberos','flavor')
         if flavor.lower() == 'heimdal':
             self.flavor= kadm5.KRB_FLAVOR_HEIMDAL
         elif flavor.lower() == 'mit':

@@ -147,11 +147,11 @@ class LdapBack:
         """
         self.incr = incr
         if uri == None:
-            self.uri = config.sync.get("ldap","uri")
+            self.uri = config.get("ldap","uri")
         if binddn == None:
-            self.binddn = config.sync.get("ldap","binddn")
+            self.binddn = config.get("ldap","binddn")
         if bindpw == None:
-            self.bindpw = config.sync.get("ldap","bindpw")
+            self.bindpw = config.get("ldap","bindpw")
         try:
             self.l = ldap.initialize(self.uri)
             self.l.simple_bind_s(self.binddn,self.bindpw)
@@ -360,10 +360,10 @@ class PosixUser(LdapBack):
     def __init__(self,conn=None,base=None):
         LdapBack.__init__(self)
         if base == None:
-            self.base = config.sync.get("ldap","user_base")
+            self.base = config.get("ldap","user_base")
         else:
             self.base = base
-        self.filter = config.sync.get("ldap","userfilter")
+        self.filter = config.get("ldap","userfilter")
         # Need 'person' for structural-objectclass
         self.obj_class = ['top','person','posixAccount','shadowAccount'] 
         self.ignore_attr_types = []
@@ -379,7 +379,7 @@ class PosixUser(LdapBack):
         s['uidNumber']     = ["%s"     %  obj.posix_uid]
         s['gidNumber']     = ["%s"     %  obj.posix_gid]
         s['loginShell']    = ["%s"     %  obj.shell]
-        s['userPassword']  = ["{%s}%s" % (config.sync.get('ldap','hash').upper(), obj.passwd)]
+        s['userPassword']  = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
         s['homeDirectory'] = ["%s"     %  obj.homedir]
         return s
 
@@ -408,10 +408,10 @@ class PosixGroup(LdapBack):
     def __init__(self,base=None):
         LdapBack.__init__(self)
         if base == None:
-            self.base = config.sync.get("ldap","group_base")
+            self.base = config.get("ldap","group_base")
         else:
             self.base = base
-        self.filter = config.sync.get("ldap","groupfilter")
+        self.filter = config.get("ldap","groupfilter")
         self.obj_class = ['top','posixGroup']
         # posixGroup supports attribute memberUid, which is multivalued (i.e. can be a list, or string)
         self.ignore_attr_types = []
@@ -435,10 +435,10 @@ class NetGroup(LdapBack):
     def __init__(self,base=None):
         LdapBack.__init__(self)
         if base == None:
-            self.base = config.sync.get("ldap","netgroup_base")
+            self.base = config.get("ldap","netgroup_base")
         else:
             self.base = base
-        self.filter = config.sync.get("ldap","netgroupfilter")
+        self.filter = config.get("ldap","netgroupfilter")
         self.obj_class = ('top', 'nisNetGroup')
         self.ignore_attr_types = []
 
@@ -458,7 +458,7 @@ class Person(LdapBack):
     def __init__(self,base="ou=People,dc=ntnu,dc=no"):
         LdapBack.__init__(self)
         self.base = base
-        self.filter = config.sync.get("ldap","peoplefilter")
+        self.filter = config.get("ldap","peoplefilter")
         self.obj_class = ['top','person','organizationalPerson','inetorgperson','eduperson','noreduperson']
         self.ignore_attr_types = []
 
@@ -472,10 +472,10 @@ class Person(LdapBack):
         s['sn']                     = ["%s"     %  self.iso2utf(obj.full_name.split()[len(obj.full_name)-1])] # presume last name, is surname
         s['uid']                    = ["%s"     %  obj.name]
         s['description']            = ["%s"     %  obj.description]
-        s['userPassword']           = ["{%s}%s" % (config.sync.get('ldap','hash').upper(), obj.passwd)]
+        s['userPassword']           = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
         s['norEduPersonNIN']        = ["%s"     %  obj.birth_date] # Norwegian "Birth number" / SSN FIXME
         s['norEduPersonBirthDate']  = ["%s"     %  obj.birth_date] # Norwegian "Birth date" FIXME 
-        s['eduPersonPrincipalName'] = ["%s@%s"  %  obj.name, config.sync.get('ldap','eduperson_realm')]
+        s['eduPersonPrincipalName'] = ["%s@%s"  %  obj.name, config.get('ldap','eduperson_realm')]
         # FIXME;
         #s['mail']                   = s['eduPersonPrincipalName']
         return s
@@ -490,10 +490,10 @@ class Alias:
     """
     def __init__(self,base=None):
         if base == None:
-            self.base = config.sync.get("ldap","mail_base")
+            self.base = config.get("ldap","mail_base")
         else:
             self.base = base
-        self.filter = config.sync.get("ldap","mailfilter")
+        self.filter = config.get("ldap","mailfilter")
         self.obj_class = ('top','nisMailAlias')
 
     def get_dn(self,obj):
@@ -515,10 +515,10 @@ class OU(LdapBack):
         LdapBack.__init__(self)
         self.ou_dict = {}
         if base == None:
-            self.base = config.sync.get("ldap","ou_base")
+            self.base = config.get("ldap","ou_base")
         else:
             self.base = base
-        self.filter = config.sync.get("ldap","oufilter")
+        self.filter = config.get("ldap","oufilter")
         self.obj_class = ['top','organizationalUnit']
 
     def get_dn(self,obj):
@@ -539,7 +539,7 @@ class OU(LdapBack):
         s['ou']                        = ["%s" % obj.name]
         s['cn']                        = ["%s" % obj.full_name]
         s['description']               = ["%s" % obj.description]
-        s['norEduOrgUniqueNumber']     = ["%s" % config.sync.get('ldap','norEduOrgUniqueNumber')]
+        s['norEduOrgUniqueNumber']     = ["%s" % config.get('ldap','norEduOrgUniqueNumber')]
         s['norEduOrgUnitUniqueNumber'] = ["%s" % obj.id]
         #s['norEduOrgAcronym'] = obj.acronyms
         return s

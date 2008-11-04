@@ -34,9 +34,9 @@ class CalendarUser(LdapBack):
     When using Oracle Calendar with Oracle Internet Directory we can configure
     OC to auto-provision Calendar Accounts with notify-events sent from OID.
     """
-    def __init__(self,base=config.sync.get("ldap","calendar_base")):
+    def __init__(self,base=config.get("ldap","calendar_base")):
         self.base = base
-        self.filter = config.sync.get("ldap","calendarfilter")
+        self.filter = config.get("ldap","calendarfilter")
         self.obj_class = ['inetOrgPerson','shadowAccount','ctCalUser']
 
     def _caladd(self,dn,node):
@@ -107,7 +107,7 @@ class CalendarUser(LdapBack):
     def get_attributes(self,obj):
         # Do not care about password - we use Kerberos for Calendar
         s = {}
-        s['o']           = ["%s" % config.sync.get("calendar","acronym")]
+        s['o']           = ["%s" % config.get("calendar","acronym")]
         s['uid']         = ["%s" % obj.name]
         s['cn']          = ["%s" %  self.iso2utf(obj.full_name)]
         # Presume last name in full_name is surname

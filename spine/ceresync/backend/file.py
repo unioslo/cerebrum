@@ -259,11 +259,11 @@ class PasswdFileCryptHash(CLFileBack):
 
 
 def Group():
-    return GroupFile(filename=config.conf.get("file", "group"))
+    return GroupFile(filename=config.get("file", "group"))
 
 def Account():
-    return MultiHandler(PasswdFile(filename=config.conf.get("file", "passwd")),
-                        ShadowFile(filename=config.conf.get("file","shadow")))
+    return MultiHandler(PasswdFile(filename=config.get("file", "passwd")),
+                        ShadowFile(filename=config.get("file","shadow")))
 
 
 # When using the file backend the user will want to save the id of the

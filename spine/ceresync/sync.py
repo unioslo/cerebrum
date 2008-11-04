@@ -92,7 +92,7 @@ class Sync:
         # Create a pid file
         create_pidfile(pid_file)
 
-        connection = SpineClient.SpineClient(config=config._conf,
+        connection = SpineClient.SpineClient(config=config,
                                              logger=config.logger).connect()
         import SpineCore
         try:
