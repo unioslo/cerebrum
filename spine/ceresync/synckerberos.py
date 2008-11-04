@@ -23,9 +23,13 @@ from ceresync import errors
 from ceresync import sync
 import ceresync.backend.kerberos as kerberosbackend
 from ceresync import config
-from sets import Set as set
 import os
 import omniORB
+
+try:
+    set()
+except:
+    from sets import Set as set
 
 log = config.logger
 

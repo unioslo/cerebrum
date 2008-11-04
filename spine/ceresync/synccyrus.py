@@ -22,8 +22,13 @@
 import sync
 import backend.cyrus
 import config
-from sets import Set as set
 import os
+
+try:
+    set()
+except:
+    from sets import Set as set
+
 log = config.logger
 
 spine_cache= "/var/cache/cerebrum/spine_cyrus_lastupdate"
