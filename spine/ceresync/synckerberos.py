@@ -60,7 +60,7 @@ def main():
         s= sync.Sync(incr,local_id)
     except sync.AlreadyRunningWarning, e:
         log.info(str(e))
-        exit(0)
+        exit(1)
     except sync.AlreadyRunning, e:
         log.warn(str(e))
         exit(1)

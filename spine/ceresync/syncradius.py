@@ -51,7 +51,7 @@ def main():
         s = sync.Sync(incr, id, hashtypes[0])
     except sync.AlreadyRunningWarning, e:
         log.info(str(e))
-        sys.exit(0)
+        sys.exit(1)
     except sync.AlreadyRunning, e:
         log.warn(str(e))
         sys.exit(255)
