@@ -1204,8 +1204,8 @@ class BDBSync:
     def sync_group_members(self):
         const=self.const
 
-        oldmembers={}
         oldprimary={}
+        oldgroup={}
         self.logger.debug("Fetching data from Cerebrum")
         account_by_name = {}
         for n in self.ac.list_names(const.account_namespace):
@@ -1216,7 +1216,7 @@ class BDBSync:
             group_by_name[n['entity_name']] = n['entity_id']
         
         for gm in self.group.search_members(member_filter_expired=False):
-            oldmembers.setdefault(gm['group_id'], set()).add(gm['member_id'])
+            oldgroup.setdefault(gm['member_id'], set()).add(gm['group_id'])
 
         for pu in self.posix_user.list_posix_users():
             oldprimary[pu['account_id']]=pu['gid']
@@ -1228,8 +1228,8 @@ class BDBSync:
             if not group_by_name.has_key(groupname): continue
             bdbgroups.add(group_by_name[groupname])
 
-        newmembers={}
         newprimary={}
+        newgroup={}
         self.logger.debug("Fetching accounts/spread-groupmembers from BDB")
         for s in self.bdb.get_account_spreads():
             if not account_by_name.has_key(s['username']):
@@ -1242,7 +1242,7 @@ class BDBSync:
                 self.logger.warn("Groupmember: Group %s does not exist" % groupname)
                 continue
             group_id=group_by_name[groupname]
-            newmembers.setdefault(group_id, set()).add(account_id)
+            newgroup.setdefault(account_id, set()).add(group_id)
 
         bdbaccounts=set()
         self.logger.debug("Fetching account-groupmembers from BDB")
@@ -1258,79 +1258,65 @@ class BDBSync:
                 self.logger.warn("Groupmember: Group %s does not exist" % groupname)
                 continue
             group_id=group_by_name[groupname]
-            newmembers.setdefault(group_id, set()).add(account_id)
+            newgroup.setdefault(account_id, set()).add(group_id)
             newprimary[account_id]=group_id
 
-        modgroups = dictcompare(oldmembers, newmembers, union=True)
-        modgroups &= bdbgroups # Only change groups acctually in BDB.
+        # Only change groups acctually in BDB.
+        for account_id in oldgroup.keys():
+            oldgroup[account_id] &= bdbgroups
 
-        addpm, modpm, delpm = dictcompare(oldprimary, newprimary)
-        modaccounts = addpm | modpm 
+        modgroups = dictcompare(oldgroup, newgroup, union=True)
+
+        modprimary = dictcompare(oldprimary, newprimary, union=True)
         # Only change primary group on cerebrum PosixUser accounts
-        modaccounts &= set(oldprimary.keys())
+        modprimary &= set(oldprimary.keys())
+
+        modaccounts = modprimary | modgroups
+
+        self.posix_group.clear()
+        # The installation should have this group. Created by sync_group.
+        self.posix_group.find_by_name('posixgroup')
+        posix_group_id = self.posix_group.entity_id
         
-        addmembers={}
-        delmembers={}
-        for group_id in modgroups:
-            addm = newmembers.get(group_id, set()) - oldmembers.get(group_id, set())
-            delm = oldmembers.get(group_id, set()) - newmembers.get(group_id, set())
-            if addm:
-                addmembers[group_id]=addm
-            if delm:
-                delmembers[group_id]=delm
-
-        self.logger.info("Groupmember: Adding %d members to %d groups",
-                         sum([len(s) for s in addmembers.values()]),
-                         len(addmembers))
-        for group_id, addm in addmembers.items():
-            self.check_commit(self.group_members_add,
-                              group_id, addm,
-                              msg=("adding members to group %d" % group_id))
-
-        self.logger.info("Groupmember: Changing primary group of %d accounts",
+        self.logger.info("Groupmember: Changing %d accounts",
                          len(modaccounts))
         for account_id in modaccounts:
-            group_id=newprimary.get(account_id)
-            self.check_commit(self.account_primarygroup,
-                              account_id, group_id,
-                              msg=("setting primary group of %d to %d" %
-                                   (account_id, group_id)))
-                              
-        self.logger.info("Groupmember: Deleting %d members from %d groups",
-                         sum([len(s) for s in delmembers.values()]),
-                         len(delmembers))
-        for group_id, delm in delmembers.items():
-                self.check_commit(self.group_members_delete,
-                                  group_id, delm,
-                                  msg=("deleting members from group %d" % group_id))
-            
+            oldgr = oldgroup.get(account_id, set())
+            newgr = newgroup.get(account_id, set())
+            oldprigr=oldprimary.get(account_id)
+            newprigr=newprimary.get(account_id, posix_group_id)
+            self.logger.debug("Groupmember: updating account %d, "+
+                              "primary %s->%s, groups (%s)->(%s)",
+                              (account_id, repr(oldprigr), repr(newprigr),
+                               ", ".join([str(g) for g in oldgr]),
+                               ", ".join([str(g) for g in newgr])))
+            self.check_commit(self.group_members_mod_account,
+                              account_id,
+                              oldprigr,
+                              newprigr,
+                              oldgr - newgr,
+                              newgr - oldgr,
+                              msg=("changing memberships of account %d" %
+                                   account_id))
 
-    def group_members_add(self, group_id, members):
-        gr=self.group
-        gr.clear()
-        gr.find(group_id)
-        for m in members:
-            self.logger.info("Adding account %d to group %d" % (m, group_id))
-            gr.add_member(m)
-        gr.write_db()
-        
-    def group_members_delete(self, group_id, members):
-        gr=self.group
-        gr.clear()
-        gr.find(group_id)
-        for m in members:
-            self.logger.info("Removing account %d from group %d" % (m, group_id))
-            gr.remove_member(m)
-        gr.write_db()
-        
-    def account_primarygroup(self, account_id, group_id):
+    def group_members_mod_account(self, account_id, oldprimary, newprimary, delgroups, addgroups):
         pu=self.posix_user
-        self.logger.info("Setting primary group of %d to %d" % (account_id, group_id))
-        pu.clear()
-        pu.find(account_id)
-        pu.gid_id = group_id
-        pu.write_db()
-
+        gr=self.group
+        for group_id in addgroups:
+            gr.clear()
+            gr.find(group_id)
+            gr.add_member(account_id)
+            gr.write_db()
+        if newprimary != oldprimary and oldprimary is not None:
+            pu.clear()
+            pu.find(account_id)
+            pu.gid_id = newprimary
+            pu.write_db()
+        for group_id in delgroups:
+            gr.clear()
+            gr.find(group_id)
+            gr.remove_member(account_id)
+            gr.write_db()
 
     def sync_spreads_quarantines(self):
         const=self.const
