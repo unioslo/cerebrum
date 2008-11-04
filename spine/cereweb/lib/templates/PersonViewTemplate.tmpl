@@ -152,9 +152,10 @@
 
         #if not $marked
             <tr class="item">
-            <td>$html_quote($spine_to_web($tr, $affil_type.get_name()))</td>
-            <td>$html_quote($spine_to_web($tr, $status.get_name()))</td>
-            <td>$object_link($ou)</td>
+            <td>$spine_to_web($tr, $affil_type.get_name())</td>
+            <td>$spine_to_web($tr, $status.get_name())</td>
+            #set $ou_name = $spine_to_web($tr, $ou.get_name())
+            <td>$object_link($ou, text=$ou_name)</td>
             <td>&#x0020;</td>
             <td>$html_quote($spine_to_web($tr, $source.get_name()))</td>
             <td class="actions">
@@ -167,7 +168,7 @@
             #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
                             $url_quote($person_id),
                             $url_quote($ou_id),
-                            $url_suote($type_aff),
+                            $url_quote($type_aff),
                             $url_quote($source_name))
             <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a></td>
             </tr>
