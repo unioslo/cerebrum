@@ -509,7 +509,7 @@ def randpasswd(length=8):
 ##    return get_web_encoding()
 
 def spine_to_web(tr, string):
-    return to_web_encode(from_spine_decode(tr, string))
+    return to_web_encode(from_spine_decode(tr, html_quote(string)))
 
 def web_to_spine(tr, string):
     return to_spine_encode(tr, from_web_decode(string))
@@ -563,3 +563,21 @@ def find_ou_root(ou_structure, perspective):
         if not ou.get_parent(perspective) and ou.get_children(perspective):
             root = ou
     return root
+
+def get_lastname_firstname(pers):
+    lastname = None
+    firstname = None
+    fullname = ''
+    for name in pers.get_names():
+        if name.get_name_variant().get_name() == 'LAST':
+            lastname = name.get_name()
+        if name.get_name_variant().get_name() == 'FIRST':
+            firstname = name.get_name()
+    if lastname:
+        fullname += lastname
+    if firstname and lastname:
+        fullname += ', ' + firstname
+    else:
+        fullname += firstname
+    return fullname
+
