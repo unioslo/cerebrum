@@ -23,91 +23,30 @@ from ceresync import errors
 from ceresync import sync
 import ceresync.backend.kerberos as kerberosbackend
 from ceresync import config
-import traceback
-from getopt import getopt
-from sys import argv, exit
 from sets import Set as set
 import os
 import omniORB
 
-log= config.logger
+log = config.logger
 
 spine_cache= config.conf.get('spine','last_change') or \
              "/var/lib/cerebrum/sync.last_change"
 
-def usage():
-    print 'USAGE: %s -i|-b [OPTIONS]' % argv[0]
-    print 
-    print '        -i|--incremental incremental synchronization'
-    print '        -b|--bulk        bulk synchronization. Default is to only delete'
-    print '                         accounts. Not add or update'
-    print '        -v|--verbose     verbose output'
-    print '        -h|--help        show this help and exit'
-    print
-    print '    The following options only apply on bulk synchronization:'
-    print '        -a|--add         add accounts'
-    print '        -u|--update      update accounts'
-    print '        -d|--delete      delete accounts'
-    print '        --no-add         do not add accounts'
-    print '        --no-update      do not update accounts'
-    print '        --no-delete      do not delete accounts'
-    
-
 def main():
-    #spine_cache= os.path.join(state_dir, 'spine.cache')
-    shortargs= 'abdhiuv'
-    longargs= [
-        'incremental', 'bulk',
-        'help',
-        'verbose',
-        'add', 'no-add',
-        'update', 'no-update',
-        'delete', 'no-delete',
-    ]
-    incr  = False
-    add   = False
-    update= False
-    delete= True
+    config.parse_args(config.make_bulk_options())
 
-    # Parse parameters
-    try:
-        opts, args= getopt(argv[1:], shortargs, longargs)
-    except Exception,e:
-        print e
-        usage()
-        exit(2)
-    # count mandatory args. One (and only one) of -i|-b should be present
-    mand_opts= 0
-    for o,a in opts:
-        if o in ('-h', '--help'):
-            usage()
-            exit(0)
-        elif o in ('-i', '--incremental'):
-            incr= True
-            mand_opts += 1
-        elif o in ('-b', '--bulk'):
-            incr= False
-            mand_opts += 1
-        elif o in ('-a', '--add'):
-            add= True
-        elif o in ('-u', '--update'):
-            update= True
-        elif o in ('-d', '--delete'):
-            delete= True
-        elif o in ('-v', '--verbose'):
-            verbose= True
-            kerberosbackend.verbose=True
-        elif o == '--no-add':
-            add= False
-        elif o == '--no-update':
-            update= False
-        elif o == '--no-delete':
-            delete= False
+    incr   = config.getboolean('args', 'incremental', allow_none=True)
+    add    = config.getboolean('args', 'add')
+    update = config.getboolean('args', 'update')
+    delete = config.getboolean('args', 'delete')
 
-    if mand_opts != 1:
-        print "One and only one of -i and -b must be present"
-        usage()
-        exit(2)
+    if incr is None:
+        log.error("Invalid arguments: You must provide either the --bulk or the --incremental option")
+        exit(1)
+
+    if config.get('args', 'verbose'):
+        verbose = True
+        kerberosbackend.verbose = True
 
     local_id= 0
     if os.path.isfile(spine_cache):
