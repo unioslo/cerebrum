@@ -52,7 +52,7 @@
 #def content()
 #set $commands = $tr.get_commands()
     $viewInfo($entity, $tr)
-    $printDialog($entity, $tr)
+    ## $printDialog($entity, $tr)
     $viewQuarantines($entity, $tr)
     $addNote($entity)
     $viewNotes($entity, $tr)
@@ -104,22 +104,22 @@ $info.append(($_('Description'), $spine_to_web($tr, $account.get_description()))
 $widgets.viewInfo($info, $notice)
 #end def
 
-#def printDialog($account, $tr)
-#set $langs= [ ('no', 'Norwegian'),('en', 'English')]
-<div class="edit box">
-    <h3>$_('Print contract')</h3>
-        <form action="print_contract" method="post">
-            <input type="hidden" name="id" value="$html_quote($account.get_id())" />
-            <div>
-                $form_widgets.generate_loption("lang", "Language", $langs)
-            </div>
-            <div class="buttons">
-            <input type="submit" value="$_('Print')" />
-            <input type="button" value="$_('Cancel')" class="cancel" />
-            </div>
-        </form>
-</div>
-#end def
+## #def printDialog($account, $tr)
+## #set $langs= [ ('no', 'Norwegian'),('en', 'English')]
+## <div class="edit box">
+##     <h3>$_('Print contract')</h3>
+##         <form action="print_contract" method="post">
+##             <input type="hidden" name="id" value="$html_quote($account.get_id())" />
+##             <div>
+##                 $form_widgets.generate_loption("lang", "Language", $langs)
+##             </div>
+##             <div class="buttons">
+##             <input type="submit" value="$_('Print')" />
+##             <input type="button" value="$_('Cancel')" class="cancel" />
+##             </div>
+##         </form>
+## </div>
+## #end def
 
 #def viewPasswords($account, $tr)
 #set $auths = $account.get_authentications()
