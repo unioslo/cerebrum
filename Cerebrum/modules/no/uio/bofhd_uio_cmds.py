@@ -2167,30 +2167,44 @@ class BofhdExtension(object):
             raise CerebrumError, "Forward address added already (%s)" % addr
         return "OK, created forward address '%s'" % localaddr
 
-    # helper-func, register spam settings
+
     def _register_list_spam_settings(self, listname, target_type):
+        """Register spam settings (level/action) associated with a ML."""
+        
         email_target, addr = self.__get_email_target_and_address(listname)
-        esf = Email.EmailSpamFilter(self.db)        
+        esf = Email.EmailSpamFilter(self.db)
         target_type = str(target_type)
+        all_targets = self.__get_all_related_maillist_targets(addr.get_address())
         if cereconf.EMAIL_DEFAULT_SPAM_SETTINGS.has_key(target_type):
             sl, sa = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[target_type]
             spam_level = int(self.const.EmailSpamLevel(sl))
             spam_action = int(self.const.EmailSpamAction(sa))
-            esf.clear()
-            esf.populate(spam_level, spam_action, parent=email_target)
-            esf.write_db()
+            for target_id in all_targets:
+                email_target.clear()
+                email_target.find(target_id)
+                esf.clear()
+                esf.populate(spam_level, spam_action, parent=email_target)
+                esf.write_db()
+    # end _register_list_spam_settings
             
-    # helper-func, register filter settings
+
     def _register_list_filter_settings(self, listname, target_type):
+        """Register spam filter settings associated with a ML."""
         email_target, addr = self.__get_email_target_and_address(listname)
         etf = Email.EmailTargetFilter(self.db)
         target_type = str(target_type)
+        all_targets = self.__get_all_related_maillist_targets(addr.get_address())
         if cereconf.EMAIL_DEFAULT_FILTERS.has_key(target_type):
             for f in cereconf.EMAIL_DEFAULT_FILTERS[target_type]:
                 filter_code = int(self.const.EmailTargetFilter(f))
-                etf.clear()
-                etf.populate(filter_code, parent=email_target)
-                etf.write_db()
+                for target_id in all_targets:
+                    email_target.clear()
+                    email_target.find(target_id)
+                    etf.clear()
+                    etf.populate(filter_code, parent=email_target)
+                    etf.write_db()
+    # end _register_list_filter_settings
+    
                 
     # email create_list <list-address> [admin,admin,admin]
     all_commands['email_create_list'] = Command(
@@ -2907,6 +2921,77 @@ class BofhdExtension(object):
 
         return False
     # end _is_mailing_list
+
+
+    def __get_all_related_maillist_targets(self, address):
+	"""This method locates and returns all ETs associated with the same ML.
+
+	Given any address associated with a ML, this method returns all the
+	ETs associated with that ML. E.g.: 'foo-subscribe@domain' for a Sympa
+	ML will result in returning the ETs for 'foo@domain',
+	'foo-owner@domain', 'foo-request@domain', 'foo-editor@domain',
+	'foo-subscribe@domain' and 'foo-unsubscribe@domain'
+
+	If address (EA) is not associated with a mailing list ET, this method
+	raises an exception. Otherwise a list of ET entity_ids is returned.
+
+        @type address: basestring
+        @param address:
+          One of the mail addresses associated with a mailing list.
+
+        @rtype: sequence (of ints)
+        @return:
+          A sequence with entity_ids of all ETs related to the ML that address
+          is related to.
+	"""
+
+        # step 1, find the ET, check its type.
+        et, ea = self.__get_email_target_and_address(address)
+        # Mapping from ML types to (x, y)-tuples, where x is a callable that
+        # fetches the ML's official/main address, and y is a set of patterns
+        # for EAs that are related to this ML.
+        ml2action = {
+            int(self.const.email_target_Sympa):
+                (self._get_sympa_list, [x[0] for x in self._sympa_addr2alias]),
+            int(self.const.email_target_Mailman):
+                (self._get_mailman_list,
+                 [x[0] for x in self._interface2addrs.values()])
+            }
+
+        if int(et.email_target_type) not in ml2action:
+            raise CerebrumError("'%s' is not associated with a mailing list" %
+                                address)
+            
+        result = []
+        get_official_address, patterns = ml2action[int(et.email_target_type)]
+        # step 1, get official ML address (i.e. foo@domain)
+        official_ml_address = get_official_address(ea.get_address())
+        ea.clear()
+        ea.find_by_address(official_ml_address)
+        et.clear()
+        et.find(ea.get_target_id())
+
+        # step 2, get local_part and domain separated:
+        local_part, domain = self._split_email_address(official_ml_address)
+
+        # step 3, generate all 'derived'/'administrative' addresses, and
+        # locate their ETs.
+        result = set([et.entity_id,])
+        for pattern in patterns:
+            address = pattern % {"local_part": local_part, "domain": domain}
+
+            # some of the addresses may be missing. It is not an error.
+            try:
+                ea.clear()
+                ea.find_by_address(address)
+            except Errors.NotFoundError:
+                continue
+
+            result.add(ea.get_target_id())
+
+        return result
+    # end __get_all_related_maillist_targets
+
     
 
     def _is_ok_mailing_list_name(self, localpart):
@@ -3591,13 +3676,29 @@ class BofhdExtension(object):
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self.__get_email_target_and_address(address)
-        try:
-            etf.find(et.entity_id, filter_code)
-        except Errors.NotFoundError:
-            etf.clear()
-            etf.populate(filter_code, parent=et)
-            etf.write_db()
+        target_ids = [et.entity_id]
+        if int(et.email_target_type) in (self.const.email_target_Mailman,
+                                         self.const.email_target_Sympa):
+            # The only way we can get here is if uname is actually an e-mail
+            # address on its own.
+            target_ids = self.__get_all_related_maillist_targets(address)
+        for target_id in target_ids:
+            try:
+                et.clear()
+                et.find(target_id)
+            except Errors.NotFoundError:
+                continue
+
+            try:
+                etf.clear()
+                etf.find(et.entity_id, filter_code)
+            except Errors.NotFoundError:
+                etf.clear()
+                etf.populate(filter_code, parent=et)
+                etf.write_db()
         return "Ok, registered filter %s for %s" % (filter, address)
+    # end email_add_filter
+    
 
     # email remove_filter filter address
     all_commands['email_remove_filter'] = Command(
@@ -3609,13 +3710,27 @@ class BofhdExtension(object):
         etf = Email.EmailTargetFilter(self.db)
         filter_code = self._get_constant(self.const.EmailTargetFilter, filter)
         et, addr = self.__get_email_target_and_address(address)
-        try:
-            etf.find(et.entity_id, filter_code)
-        except Errors.NotFoundError:
-            raise CerebrumError, ("Could not find filter %s for target %s") % (filter,
-                                                                               address)
-        etf.disable_email_target_filter(filter_code)
-        etf.write_db()
+        target_ids = [et.entity_id]
+        if int(et.email_target_type) in (self.const.email_target_Mailman,
+                                         self.const.email_target_Sympa):
+            # The only way we can get here is if uname is actually an e-mail
+            # address on its own.
+            target_ids = self.__get_all_related_maillist_targets(address)
+        processed = list()
+        for target_id in target_ids:
+            try:
+                etf.clear()
+                etf.find(target_id, filter_code)
+                etf.disable_email_target_filter(filter_code)
+                etf.write_db()
+                processed.append(target_id)
+            except Errors.NotFoundError:
+                pass
+
+        if not processed:
+            raise CerebrumError("Could not find any filters %s for address %s "
+                                "(or any related targets)" % (filter, address))
+
         return "Ok, removed filter %s for %s" % (filter, address)
     
     # email spam_level <level> <uname>+
@@ -3640,15 +3755,35 @@ class BofhdExtension(object):
         et, acc = self.__get_email_target_and_account(uname)
         self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
         esf = Email.EmailSpamFilter(self.db)
-        try:
-            esf.find(et.entity_id)
-            esf.email_spam_level = levelcode
-        except Errors.NotFoundError:
-            esf.clear()
-            esf.populate(levelcode, self.const.email_spam_action_none,
-                         parent=et)
-        esf.write_db()
+        # All this magic with target ids is necessary to accomodate MLs (all
+        # ETs "related" to the same ML should have the
+        # spam settings should be processed )
+        target_ids = [et.entity_id]
+        if int(et.email_target_type) in (self.const.email_target_Mailman,
+                                         self.const.email_target_Sympa):
+            # The only way we can get here is if uname is actually an e-mail
+            # address on its own.
+            target_ids = self.__get_all_related_maillist_targets(uname)
+        for target_id in target_ids:
+            try:
+                et.clear()
+                et.find(target_id)
+            except Errors.NotFoundError:
+                continue
+        
+            try:
+                esf.clear()
+                esf.find(et.entity_id)
+                esf.email_spam_level = levelcode
+            except Errors.NotFoundError:
+                esf.clear()
+                esf.populate(levelcode, self.const.email_spam_action_none,
+                             parent=et)
+            esf.write_db()
+
         return "OK, set spam-level for '%s'" % uname
+    # end email_spam_level
+
 
     # email spam_action <action> <uname>+
     # 
@@ -3676,15 +3811,36 @@ class BofhdExtension(object):
         et, acc = self.__get_email_target_and_account(uname)
         self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
         esf = Email.EmailSpamFilter(self.db)
-        try:
-            esf.find(et.entity_id)
-            esf.email_spam_action = actioncode
-        except Errors.NotFoundError:
-            esf.clear()
-            esf.populate(self.const.email_spam_level_none, actioncode,
-                         parent=et)
-        esf.write_db()
+        # All this magic with target ids is necessary to accomodate MLs (all
+        # ETs "related" to the same ML should have the
+        # spam settings should be processed )
+        target_ids = [et.entity_id]
+        if int(et.email_target_type) in (self.const.email_target_Mailman,
+                                         self.const.email_target_Sympa):
+            # The only way we can get here is if uname is actually an e-mail
+            # address on its own.
+            target_ids = self.__get_all_related_maillist_targets(uname)
+
+        for target_id in target_ids:
+            try:
+                et.clear()
+                et.find(target_id)
+            except Errors.NotFoundError:
+                continue
+
+            try:
+                esf.clear()
+                esf.find(et.entity_id)
+                esf.email_spam_action = actioncode
+            except Errors.NotFoundError:
+                esf.clear()
+                esf.populate(self.const.email_spam_level_none, actioncode,
+                             parent=et)
+            esf.write_db()
+        
         return "OK, set spam-action for '%s'" % uname
+    # end email_spam_action
+    
 
     # email tripnote on|off <uname> [<begin-date>]
     all_commands['email_tripnote'] = Command(
