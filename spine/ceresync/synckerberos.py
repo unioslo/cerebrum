@@ -59,7 +59,7 @@ def main():
         log.info("Connecting to spine-server")
         s= sync.Sync(incr,local_id)
     except sync.AlreadyRunningWarning, e:
-        log.info(str(e))
+        log.warning(str(e))
         exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))

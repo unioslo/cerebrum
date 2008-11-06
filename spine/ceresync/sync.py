@@ -12,6 +12,8 @@ import sys
 import stat
 import time
 
+log = config.logger
+
 class AlreadyRunning(Exception):
     """Thrown when the client is already running and the pid file exists"""
     def __init__(self, pidfile, pidfile_mtime):
@@ -55,6 +57,7 @@ def create_pidfile(pid_file):
 
     pidfile.write(str(os.getpid()) + "\n")
     pidfile.close()
+    log.info("Created pid file " + pid_file)
 
 def remove_pidfile(pid_file):
     try:
@@ -63,6 +66,7 @@ def remove_pidfile(pid_file):
         # "No such file or directory" is OK, other errors are not
         if e.errno != errno.ENOENT:
             raise
+    log.info("Removed pid file " + pid_file)
 
 class Sync:
     def __init__(self, incr=False, id=-1, auth_type=None):

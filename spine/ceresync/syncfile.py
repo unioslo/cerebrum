@@ -62,7 +62,7 @@ def main():
     try:
         s = sync.Sync(incr,id)
     except sync.AlreadyRunningWarning, e:
-        log.info(str(e))
+        log.warning(str(e))
         exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
@@ -72,7 +72,7 @@ def main():
     groups = filebackend.Group()
     primary_group = {}
 
-    log.info("Syncronizing accounts")
+    log.debug("Syncronizing accounts")
     accounts.begin(incr)
     try:
         for account in s.get_accounts():
@@ -89,7 +89,7 @@ def main():
     else:
         accounts.close()
 
-    log.info("Syncronizing groups")
+    log.debug("Syncronizing groups")
     groups.begin(incr)
     try:
         for group in s.get_groups():

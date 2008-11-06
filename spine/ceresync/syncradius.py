@@ -45,12 +45,12 @@ def main():
                 "MD4-NT",
                 "LANMAN-DES"
                 ]
-    log.info("Creating sync object")
+    log.debug("Creating sync object")
 
     try:
         s = sync.Sync(incr, id, hashtypes[0])
     except sync.AlreadyRunningWarning, e:
-        log.info(str(e))
+        log.warning(str(e))
         sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
@@ -80,7 +80,7 @@ def main():
             pwdict[acc.name][hashtype] = acc.passwd
     s.close()
 
-    log.info("Parsing and creating files")
+    log.debug("Parsing and creating files")
 
     smbfile = SambaFile( config.get("file","smbpasswd" ) )
     smbfile.begin(incr)
@@ -106,7 +106,7 @@ def main():
     smbfile.close()
     accounts.close()
 
-    log.info("Syncronization done")
+    log.debug("Syncronization done")
 
 if __name__ == "__main__":
     main()
