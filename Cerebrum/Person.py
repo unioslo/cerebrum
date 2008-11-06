@@ -28,6 +28,14 @@ from Cerebrum.Entity import \
 from Cerebrum import Utils
 from Cerebrum import Errors
 
+try:
+    set()
+except NameError:
+    try:
+        from sets import Set as set
+    except ImportError:    
+        from Cerebrum.extlib.sets import Set as set
+
 class MissingOtherException(Exception): pass
 class MissingSelfException(Exception): pass
 
