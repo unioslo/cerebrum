@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-
+from ceresync import sync
 from ceresync import config 
 import SpineClient
 import os
@@ -75,19 +75,6 @@ def make_homedir(hd):
     else:
         hd.set_status(status_on_disk)
 
-class sync(object):
-    def __init__(self):
-        self.connection = SpineClient.SpineClient(config=config,
-                          logger=config.logger).connect()
-        self.session = self.connection.login(config.get('spine', 'login'),
-                                   config.get('spine', 'password'))
-        self.tr = self.session.new_transaction()
-        self.cmd = self.tr.get_commands()
-
-    def __del__(self):
-        try: self.session.logout()
-        except: pass
-
 def main():
     # Parse command-line arguments. -v, --verbose and -c, --config are handled by default.
     config.parse_args([
@@ -99,7 +86,7 @@ def main():
     dryrun          = config.get('args', 'dryrun')
     retry_failed    = config.get('args', 'retry_failed')
 
-    s = sync()
+    s = sync.Sync()
     tr = s.tr
     cmd = s.cmd    
 
@@ -139,8 +126,6 @@ def main():
        tr.rollback()
     else:
        tr.commit()
-
-    s.session.logout()
 
 if __name__ == "__main__":
     main()
