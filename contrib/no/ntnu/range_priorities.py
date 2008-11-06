@@ -25,6 +25,12 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
+try:
+    set()
+except NameError:
+    from sets import Set as set
+
+
 db = Factory.get("Database")()
 db.cl_init(change_program='range_priorities')
 person = Factory.get("Person")(db)
