@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2005-2007 University of Oslo, Norway
+# Copyright 2005-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -44,15 +44,17 @@ TODO:
 * Fix the documentation and provide a few more examples.
 """
 import copy
-import os.path
-import re
 import sys
 import time
-import traceback
 import types
 
-from cElementTree import parse, iterparse, ElementTree
-# from elementtree.ElementTree import parse, iterparse
+# From version 2.5 (c)ElementTree is in Python's standard library,
+# under xml.etree
+try:
+    from xml.etree.cElementTree import parse, iterparse, ElementTree
+except ImportError:
+    from cElementTree import parse, iterparse, ElementTree
+
 from mx.DateTime import Date
 
 import cerebrum_path

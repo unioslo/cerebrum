@@ -23,9 +23,7 @@ from mx.DateTime import Date
 
 import abcconf
 
-from Cerebrum.extlib.doc_exception import ProgrammingError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypes
-from Cerebrum.modules.abcenterprise.ABCUtils import ABCDataError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypesError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataPerson
@@ -44,10 +42,18 @@ class XMLEntityIterator:
     """
 
     def __init__(self, filename, element):
+        # From version 2.5 (c)ElementTree is in Python's standard
+        # library, under xml.etree
         if abcconf.CLASS_XMLPARSER == 'ElementTree':
-            from elementtree.ElementTree import parse, iterparse
+            try:
+                from xml.etree.ElementTree import parse, iterparse
+            except ImportError:
+                from elementtree.ElementTree import parse, iterparse
         elif abcconf.CLASS_XMLPARSER == 'cElementTree':
-            from cElementTree import parse, iterparse
+            try:
+                from xml.etree.cElementTree import parse, iterparse
+            except ImportError:
+                from cElementTree import parse, iterparse
         else:
             print abcconf.CLASS_XMLPARSER
             print """
