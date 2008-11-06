@@ -49,7 +49,7 @@ def get_path(hd):
     else:
         return home
 
-def make_homedir(hd, setup_script, status_constants):
+def make_homedir(hd, setup_script, status_constants, dryrun):
     #path = hd.get_path() XXX
     path = get_path(hd)
     account = hd.get_account()
@@ -69,8 +69,7 @@ def make_homedir(hd, setup_script, status_constants):
             else:
                 log.debug("Homedir %s for %s is ok" % (path, username))
     except Exception, e:
-        log.warn("Failed creating homedir for %s: %s" % (
-            username, e))
+        log.warn("Failed creating homedir for %s: %s" % (username, e))
         hd.set_status(status_constants.CREATE_FAILED)
     else:
         hd.set_status(status_constants.ON_DISK)
@@ -117,7 +116,7 @@ def main():
         hds.set_status(status.NOT_CREATED)
 
     for hd in hds.search():
-        make_homedir(hd, setup_script, status_constants)
+        make_homedir(hd, setup_script, status_constants, dryrun)
 
     if dryrun:
        tr.rollback()
