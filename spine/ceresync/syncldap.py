@@ -36,7 +36,7 @@ def main():
         log.info(str(e))
         exit(1)
     except sync.AlreadyRunning, e:
-        log.warn(str(e))
+        log.error(str(e))
         exit(1)
 
     systems = [

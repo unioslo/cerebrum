@@ -53,7 +53,7 @@ def main():
         log.info(str(e))
         sys.exit(1)
     except sync.AlreadyRunning, e:
-        log.warn(str(e))
+        log.error(str(e))
         sys.exit(255)
     except omniORB.CORBA.TRANSIENT, e:
         log.error("Server seems down. Error: %s",e)
