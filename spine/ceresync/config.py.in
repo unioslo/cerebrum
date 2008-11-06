@@ -27,6 +27,29 @@ import errno
 import types
 import optparse
 
+def syslog_to_unixsocket(sysloghandler):
+    '''Converts a SysLogHandler('localhost', 514) to SysLogHandler("/dev/log") if supported.
+    Ugly as ***, but works.
+
+    Raises "error: (95, 'Socket operation on non-socket')" if logging to /dev/log is unsupported
+    '''
+    
+    import socket
+    myaddress = "/dev/log"
+
+    # syslog may require either DGRAM or STREAM sockets
+    try:
+        mysocket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        mysocket.connect(myaddress)
+    except socket.error:
+        mysocket.close()
+        mysocket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        mysocket.connect(myaddress)
+
+    sysloghandler.unixsocket = 1
+    sysloghandler.address = myaddress
+    sysloghandler.socket = mysocket
+
 _conf = ConfigParser.SafeConfigParser()
 confpath= os.environ.get("CERECONF_DIR", "@CONFDIR@")+'/'
 _conf.read((confpath+'sync.conf.template', confpath+'sync.conf'))
@@ -41,6 +64,17 @@ if _conf.has_option('logging','logger'):
                          
 logger= logging.getLogger(loggername)
 logger.name= os.path.basename(sys.argv[0])
+
+# Convert any SysLogHandler('localhost', 514) to SysLogHandler("/dev/log") if
+# possible. This increases the chance of successful syslogging on linux.
+try:
+    for h in logger.handlers:
+        # Ugh, there must be a better way than this...
+        if h.__class__.__name__ == 'SysLogHandler':
+            if type(h.address) == types.TupleType and h.address[0] == 'localhost' and h.address[1] == 514:
+                syslog_to_unixsocket(h)
+except Exception, e:
+    pass # This normally fails on solaris, where unix sockets are not supported
 
 def read(files, strict=False, **kwargs):
     """Read an array of configuration files
