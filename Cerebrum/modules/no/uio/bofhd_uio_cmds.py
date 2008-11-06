@@ -4617,16 +4617,8 @@ class BofhdExtension(object):
         for item in iterable:
             member_type = int(item["member_type"])
             member_id = int(item["member_id"])
-            if member_type == self.const.entity_group:
-                group = self._get_group(member_id, "id")
-                name = group.group_name
-            elif member_type == self.const.entity_account:
-                account = self._get_account(member_id, "id")
-                name = account.account_name
-            else:
-                name = None
             tmp = item.dict()
-            tmp["member_name"] = name
+            tmp["member_name"] = self._get_entity_name(member_type, member_id)
             ret.append(tmp)
             #yield item
         return ret
@@ -8419,35 +8411,53 @@ class BofhdExtension(object):
             # TODO: extend as needed for quasi entity classes like Disk
             return self._get_entity_name(entity.entity_type, entity.entity_id)
 
-    def _get_entity_name(self, type, id):
-        if type is None:
+    def _get_entity_name(self, entity_type, id):
+        if entity_type is None:
             ety = Entity.Entity(self.db)
             try:
                 ety.find(id)
-                type = self.const.EntityType(ety.entity_type)
+                entity_type = self.const.EntityType(ety.entity_type)
             except Errors.NotFoundError:
                 return "notfound:%d" % id
-        if type == self.const.entity_account:
+        if entity_type == self.const.entity_account:
             acc = self._get_account(id, idtype='id')
             return acc.account_name
-        elif type == self.const.entity_group:
+        elif entity_type == self.const.entity_group:
             group = self._get_group(id, idtype='id')
             return group.group_name
-        elif type == self.const.entity_disk:
+        elif entity_type == self.const.entity_disk:
             disk = Utils.Factory.get('Disk')(self.db)
             disk.find(id)
             return disk.path
-        elif type == self.const.entity_host:
+        elif entity_type == self.const.entity_host:
             host = Utils.Factory.get('Host')(self.db)
             host.find(id)
             return host.name
-        elif type == self.const.entity_person:
+        elif entity_type == self.const.entity_person:
             person = Utils.Factory.get('Person')(self.db)
             person.find(id)
             return person.get_name(self.const.system_cached,
                                    self.const.name_full)
-        else:
-            return "%s:%s" % (type, id)
+        
+        # Okey, we've run out of good options. Let's try a sensible fallback:
+        # many entities have a generic name in entity_name. Let's use that:
+        try:
+            etname = type("entity_with_name", (Entity.EntityName,
+                                               Entity.Entity), dict())
+            etname = etname(self.db)
+            etname.find(id)
+            if etname.get_names():
+                # just grab any name. We don't really have a lot of choice.
+                return etname.get_names()[0]["name"]
+            else:
+                # ... and if it does not exist -- return the id. We are out of
+                # options at this point.
+                return "%s:%s" % (entity_type, id)    
+        except Errors.NotFoundError:
+            return "notfound:%d" % id
+
+        # NOTREACHED
+    # end _get_entity_name
 
     def _get_disk(self, path, host_id=None, raise_not_found=True):
         disk = Utils.Factory.get('Disk')(self.db)
