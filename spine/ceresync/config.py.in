@@ -229,6 +229,14 @@ def make_option(*opts, **attrs):
     return optparse.make_option(*opts, **attrs)
 make_option.__doc__ = optparse.make_option.__doc__
 
+def _increase_verbosity(opt, lopt, file, parser):
+    parser.values.verbose = True
+    # Search for a loghandler printing to stderr, and increase the verbosity level
+    for h in logger.handlers:
+        # Only change stderr
+        if h.__class__.__name__ == 'StreamHandler' and h.stream.fileno() == 2:
+            h.setLevel(max(0, h.level-10))
+
 def parse_args(options=[]):
     """parse command-line arguments.
     
@@ -246,7 +254,8 @@ def parse_args(options=[]):
     """
 
     parser = optparse.OptionParser()
-    parser.add_option("-v", "--verbose", help="be verbose", action="store_true", default=False)
+    parser.add_option("-v", "--verbose", help="be verbose", dest="verbose", default=False, 
+                      action="callback", callback=_increase_verbosity)
     parser.add_option("-c", "--config", help="read config from CONFIG", 
                       action="callback", type="string", 
                       callback=lambda opt, lopt, file, p: read(file, strict=True))
@@ -254,6 +263,7 @@ def parse_args(options=[]):
         parser.add_option(option)
     (options, args) = parser.parse_args()
 
+    # Add all args to the "args" section in _conf, so get('args', 'option') will work
     if not _conf.has_section('args'):
         _conf.add_section('args')
 
