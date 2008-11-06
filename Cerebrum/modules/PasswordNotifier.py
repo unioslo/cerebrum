@@ -27,7 +27,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum import Constants as _c
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
-import pickle, smtplib
+import smtplib
 
 class Constants(_c.Constants):
     """
@@ -177,14 +177,10 @@ class PasswordNotifier(object):
             self.logger.info("Increasing trait for %s: %d", account.account_name,
                     traits['numval'])
             if traits['strval']:
-                strval = pickle.loads(str(traits['strval']))
-                if not isinstance(strval, dict):
-                    self.logger.error("strval not a dict for %s: %r", account.account_name, strval)
-                    strval = {}
+                strval = str(traits['strval']) + ", " + self.today.strftime("%Y-%m-%d")
             else:
-                strval = {}
-            strval[traits['numval']] = str(self.now)
-            traits['strval'] = pickle.dumps(strval)
+                strval = self.today.strftime("%Y-%m-%d")
+            traits['strval'] = strval
         else:
             self.logger.info("Adding passwd trait for %s", account.account_name)
             traits = {
@@ -192,7 +188,7 @@ class PasswordNotifier(object):
                 'target_id': None,
                 'date': self.now,
                 'numval': 1,
-                'strval': pickle.dumps({1: str(self.now)})
+                'strval': self.today.strftime("%Y-%m-%d")
                 }
         account.populate_trait(**traits)
         account.write_db()

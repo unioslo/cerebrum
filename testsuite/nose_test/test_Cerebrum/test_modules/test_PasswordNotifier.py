@@ -257,11 +257,10 @@ def create_users(db):
                 'target_id': None,
                 'date': val[1],
                 'numval': len(val)-1,
-                'strval': {1: str(val[1])}
+                'strval': val[1].strftime("%Y-%m-%d")
                 }
             if len(val) == 3:
-                trait['strval'][2] = str(val[2])
-            trait['strval'] = pickle.dumps(trait['strval'])
+                trait['strval'] = trait['strval'] + ", " + val[2].strftime("%Y-%m-%d")
             a.populate_trait(**trait)
             a.write_db()
 
@@ -362,10 +361,14 @@ class test_PasswordNotifier(object):
             dat = now
             if len(v) > 1:
                 dat = v[1]
-            assert tr['date']._o == dat, "Wrong date for %s: expected %s, got %s" % (u, dat, tr['date'])
-            all = pickle.loads(str(tr['strval']))
-            for i in range(1, len(v)):
-                assert str(v[i]) == all[i], "Wrong date for %s: expected %s, got %s" % (u, v[i], all[i])
+            assert tr['date'] == dat, "Wrong date for %s: expected %s, got %s" % (u, dat, tr['date'])
+            all = str(tr['strval'])
+            test = ", ".join([ x.strftime("%Y-%m-%d") for x in v[1:]])
+            if test:
+                test = test + ", " + now.strftime("%Y-%m-%d")
+            else:
+                test = now.strftime("%Y-%m-%d")
+            assert all == test, "Wrong date for %s: expected %s, got %s" % (u, test, all)
 
     def test_get_notification_time(self):
         """

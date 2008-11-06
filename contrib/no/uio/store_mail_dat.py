@@ -17,8 +17,7 @@ Resultatet skal være:
     resten skal ha verdien 1.
     Verdien av 'first' skal lagres som dato på denne trait.
     I tillegg lagres begge datoer i strval-feltet, som en
-    picklet dict med hhv 1 og 2 som nøkler. Datoene konverteres
-    til dato-strenger.
+    kommaseparert liste. Datoene konverteres til dato-strenger.
 """
 
 import cerebrum_path
@@ -65,13 +64,13 @@ def main():
         if 'reminder' in info:
             times.append(time.localtime(info['reminder'])[:3])
             logger.info(" rem   = %4d-%2d-%2d", *times[0])
-        strval = dict(zip(range(1, len(times)+1), map(lambda x: dt.DateTime(*x).strftime("%Y-%m-%d"), times)))
+        strval = ", ".join([ dt.DateTime(*x).strftime("%Y-%m-%d") for x in times ])
         logger.info(" str   = %s", strval)
         t = {
             'code': trait,
             'date': db.Date(*times[0]),
             'numval': len(times),
-            'strval': cPickle.dumps(strval)
+            'strval': strval
             }
         account.populate_trait(**t)
         account.write_db()
