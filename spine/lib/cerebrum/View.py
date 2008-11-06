@@ -559,7 +559,7 @@ class View(DatabaseTransactionClass):
             "name_personal_title": co.name_personal_title,
             "name_work_title": co.name_work_title,
             "externalid_nin": co.externalid_fodselsnr,
-            "nin_source": co.system_kjernen,
+            "nin_source": co.system_bdb,
             "group_visibility_all": co.group_visibility_all,
             "contact_url": co.contact_url,
             "contact_email": co.contact_email,
