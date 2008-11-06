@@ -1285,8 +1285,7 @@ class BDBSync:
             newgr = newgroup.get(account_id, set())
             oldprigr=oldprimary.get(account_id)
             newprigr=newprimary.get(account_id, posix_group_id)
-            self.logger.debug("Groupmember: updating account %d, "+
-                              "primary %s->%s, groups (%s)->(%s)",
+            self.logger.debug("Groupmember: updating account %s, primary %s->%s, groups (%s)->(%s)" %
                               (account_id, repr(oldprigr), repr(newprigr),
                                ", ".join([str(g) for g in oldgr]),
                                ", ".join([str(g) for g in newgr])))
