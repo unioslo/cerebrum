@@ -1261,9 +1261,15 @@ class BDBSync:
             newgroup.setdefault(account_id, set()).add(group_id)
             newprimary[account_id]=group_id
 
-        # Only change groups acctually in BDB.
+        # Only change groups actually in BDB.
         for account_id in oldgroup.keys():
             oldgroup[account_id] &= bdbgroups
+            if not oldgroup[account_id]:
+                del oldgroup[account_id]
+
+        for account_id in oldprimary.keys():
+            if not oldprimary[account_id] in bdbgroups:
+                del oldprimary[account_id]
 
         modgroups = dictcompare(oldgroup, newgroup, union=True)
 
