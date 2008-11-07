@@ -73,7 +73,7 @@ def main():
     args.insert(0, "PKG=" + host)
     to_exec = " ".join(args)
     args = ["/local/bin/ssh", host, "su", "-", "sympa", "-c",
-            "'" + to_exec + ">/dev/null" + "'"]
+            "'" + to_exec + ">/dev/null 2>&1" + "'"]
     os.execv(args[0], args)
 # end main
 
