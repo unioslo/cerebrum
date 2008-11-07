@@ -459,12 +459,24 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
                                 zip = addr['postal_number'] or '',
                                 city = addr['city'] or '',
                                 country = addr['country'] or ''))
-        status, p_id = xml2db.store_person(xmlperson, work_title,
-                                           affiliations,
-                                           traits)
+        try:
+            status, p_id = xml2db.store_person(xmlperson, work_title,
+                                               affiliations,
+                                               traits)
+        except:
+            etype, evalue, tb = sys.exc_info()
+            logger.warn("Something went very wrong: etype=%s, value=%s. "
+                        "Person id=%s will not be updated/inserted",
+                        list(xmlperson.iterids()), etype, str(evalue))
+            # Prevent partial person writes
+            db.rollback()
+            continue
+            
         if p_id is None:
             logger.warn("Skipping person %s (invalid information on file)",
                         list(xmlperson.iterids()))
+            # Prevent partial person updates
+            db.rollback()
             continue
 
         if gen_groups == 1:
@@ -494,6 +506,8 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
 
         logger.info("**** %s (%s) %s ****", p_id, dict(xmlperson.iterids()),
                     status)
+        # Commit the changes
+        attempt_commit()
 # end parse_data
 
 
@@ -745,6 +759,11 @@ def main():
                      "Internal group for people from SAP which will not be shown online"), }
 
     logger.debug("sources is %s", sources)
+    global attempt_commit
+    if dryrun:
+        attempt_commit = db.rollback
+    else:
+        attempt_commit = db.commit
 
     # Load current automatic traits (AFFILIATE_TRAITS)
     if include_del:
@@ -779,10 +798,10 @@ def main():
         remove_traits(cerebrum_traits)
 
     if dryrun:
-        db.rollback()
+        attempt_commit()
         logger.info("All changes rolled back")
     else:
-        db.commit()
+        attempt_commit()
         logger.info("All changes committed")
 # end main
 
