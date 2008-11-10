@@ -467,7 +467,7 @@ def parse_data(parser, source_system, group, gen_groups, old_affs, old_traits):
             etype, evalue, tb = sys.exc_info()
             logger.warn("Something went very wrong: etype=%s, value=%s. "
                         "Person id=%s will not be updated/inserted",
-                        list(xmlperson.iterids()), etype, str(evalue))
+                        etype, str(evalue), list(xmlperson.iterids()))
             # Prevent partial person writes
             db.rollback()
             continue
