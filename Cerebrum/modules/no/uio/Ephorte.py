@@ -136,16 +136,17 @@ class EphorteConstants(ConstantsBase):
 ##      lettere å få til følgende businesslogikk som nå er
 ##      implementert litt teit:
 ##      
-##        * hvis en person slettes skal dens ephorte-roller og spreads
-##          automatisk fjernes
-##        * hvis en person mister alle sine roller, skal også spread
-##          fjernes automatisk.
+##        * hvis en person slettes skal dens ephorte-roller,
+##          -tilganger og spreads automatisk fjernes
+##        * hvis en person mister alle sine roller, skal også
+##          tilganger og spread fjernes automatisk.
 ##
 class EphorteRole(DatabaseAccessor):
     def __init__(self, database):
         super(EphorteRole, self).__init__(database)
         self.co = Factory.get('Constants')(database)
         self.pe = Factory.get('Person')(database)
+        self.ephorte_perm = EphortePermission(database)
 
     def add_role(self, person_id, role, sko, arkivdel, journalenhet,
                  rolletittel='', stilling='', standard_role='F', auto_role='T'):
@@ -219,9 +220,16 @@ class EphorteRole(DatabaseAccessor):
     # This is a bit hackish, see the class comment for more info.
     def remove_role(self, person_id, role, sko, arkivdel, journalenhet):
         self._remove_role(person_id, role, sko, arkivdel, journalenhet)
-        # If person doesn't have any roles left the ephorte-spread
-        # should be removed
+        # If person doesn't have any roles left, any ephorte
+        # permissions and the ephorte-spread should be removed
         if not self.list_roles(person_id=person_id):
+            # This is ugly :(
+            # Remove eny permissions before deleting ephorte spread
+            for row in self.ephorte_perm.list_permission(person_id=person_id):
+                self.ephorte_perm.remove_permission(row["person_id"],
+                                                    row["perm_type"],
+                                                    row["adm_enhet"])
+            # Then remove spread
             self.pe.clear()
             self.pe.find(person_id)
             self.pe.delete_spread(self.co.spread_ephorte_person)
