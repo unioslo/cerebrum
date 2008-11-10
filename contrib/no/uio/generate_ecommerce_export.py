@@ -264,7 +264,8 @@ def generate_organization_file(org_units, exported_orgs):
         org_line = ''
         for k in ordered_org_keys:
             org_line = org_line + '%s;' % org_structure[o][k]
-        org_file.write(org_line + '\n')
+        org_line = unicode(org_line, 'iso-8859-1')
+        org_file.write(org_line.encode('utf-8') + '\n')
         addr_line_1 = ''
         addr_line_2 = ''        
         for a in ordered_addr_keys_1:
