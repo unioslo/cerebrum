@@ -3,7 +3,11 @@
 
 from ceresync import sync
 
+import config
+log = config.logger
+
 def main():
+    config.parse_args()
     s= sync.Sync(incr=False)
     print s.cmd.get_last_changelog_id() 
     aa=s.view.get_aliases()
@@ -19,4 +23,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
