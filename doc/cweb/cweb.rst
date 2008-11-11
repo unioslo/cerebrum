@@ -534,6 +534,9 @@ installation requires zope page templates [#zpt]_. Make sure that the prefix
 where the software is installed is available to the user that renders the
 pages (e.g. CGI scripts may be run by user nobody)
 
+Furthermore, mx.DateTime must be installed and accessible from python (store
+users, package is called python-module-egenix-mx-base).
+
 
 Configuration
 --------------
