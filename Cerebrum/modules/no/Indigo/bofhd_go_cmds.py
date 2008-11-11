@@ -394,9 +394,14 @@ class BofhdExtension(object):
             seen[account_id] = True
             account.clear()
             account.find(account_id)
+            person = self._get_person("entity_id", int(account.owner_id))
+            owner_name = person.get_name(self.const.system_cached,
+                                         getattr(self.const,
+                                                 cereconf.DEFAULT_GECOS_NAME))
             ret.append({'account_id': account_id,
                         'name': row['name'],
-                        'owner_id': account.owner_id})
+                        'owner_id': account.owner_id,
+                        'owner_name': owner_name,})
 
         # school lita can see their own schools only!
         ret = self._filter_resultset_by_operator(operator, ret, "owner_id")
