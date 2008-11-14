@@ -1104,7 +1104,7 @@ class BDBSync:
         
         if owner.entity_type == self.const.entity_person:
             for aff in owner.get_affiliations():
-                account.set_account_type(aff['ou_id'], aff['affiliation'])
+                ac.set_account_type(aff['ou_id'], aff['affiliation'])
                 
         if _is_posix(account_info):
             self._promote_posix(account_info, ac)
