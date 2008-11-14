@@ -370,8 +370,17 @@ def generate_address_parts_file(orgs):
         addrs_1 = ou.get_entity_address(source=const.system_sap, type=const.address_post)
         apa_add_id = sko + '2'
         pobox = []
+
+        if len(addrs_1) == 0:
+            # This will happen when the OU has no valid postal address registered
+            # Use bogus/empty address to enable further processing            
+            logger.warning("OU '%s' (SKO: '%s', ENT-ID: '%s') is registered"
+                           " without a post address" % (ou.name, sko, o))
+            addrs_1.append((0, 0, 0, '', None, '', None, ''))
+
         for k in addrs_1[0][3].split('\n'):
             pobox.append(k)
+        
         for e in ['Name1:0', 'Name2:1', 'POBox:3', 'Street1:4', 'Department:12', 'Postalcode:13', 'City:14']:
             apa_id, apa_type = e.split(':')
             if apa_id == 'Name1':
