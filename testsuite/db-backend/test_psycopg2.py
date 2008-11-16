@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-#!/usr/bin/env python
-# -*- encoding: iso-8859-1 -*-
-
 """This file sets up the environment for the psycopg 2.x backend.
 
 For this test to work we'll need this environment:
