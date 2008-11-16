@@ -1072,7 +1072,7 @@ class PsycoPG2(PsycoPGBase):
 
 class PsycoPGCursor(Cursor):
     def execute(self, operation, parameters=()):
-        # IVR 2008-10-30 FIXME: This is not really how the psycopg framework
+        # IVR 2008-10-30 TBD: This is not really how the psycopg framework
         # is supposed to be used. There is an adapter mechanism, and we should
         # really register our type conversion hooks there.
         for k in parameters:
