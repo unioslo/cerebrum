@@ -401,7 +401,8 @@ class BofhdExtension(object):
             ret.append({'account_id': account_id,
                         'name': row['name'],
                         'owner_id': account.owner_id,
-                        'owner_name': owner_name,})
+                        'owner_name': owner_name,
+                        'birth': person.birth_date})
 
         # school lita can see their own schools only!
         ret = self._filter_resultset_by_operator(operator, ret, "owner_id")
