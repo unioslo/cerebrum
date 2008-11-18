@@ -70,7 +70,7 @@ class Message(object):
             traceback = """
             <div class="traceback">
                 <pre>%s</pre>
-            </div>""" % traceback
+            </div>""" % utils.html_quote(traceback)
         else:
             traceback = ''
 
@@ -79,6 +79,10 @@ class Message(object):
             'traceback': traceback,
         }
         data.update(self.__msg)
+
+        # Quote html (traceback handled above)
+        for k in ("error", "title", "message"):
+            data[k] = utils.html_quote(data[k])
 
         return """
         <div%(error)s>
