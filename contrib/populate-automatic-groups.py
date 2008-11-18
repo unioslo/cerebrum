@@ -295,7 +295,9 @@ def temporary_employee_hack(row, current_groups, perspective):
 
     This function performs a similar task to L{employee2groups}. However,
     given, for the time being (2008-01-25), we'll populate meta_ansatt@<sko>
-    groups differently.
+    groups differently. As of 2008-11-18, Group-API has saner support for
+    recursive membership lookups, and this function is probably no longer
+    necessary (use employee2groups instead).
 
     Specifically, given an affiliation in row with ou_id B, we generate the
     following groups and add row['person_id'] as member:
@@ -423,9 +425,6 @@ def employee2groups(row, current_groups, perspective):
     could trigger additional memberships (check the documentation for
     meta_ansatt@<sko>).
 
-    *** FIXME *** The meta-group code here is probably broken! Re-check it
-        before using this function!
-
     @type row: A db_row instance
     @param row:
       A db_row representing one affiliation for one person.
@@ -461,50 +460,12 @@ def employee2groups(row, current_groups, perspective):
 
     affiliation = int(row["affiliation"])
     status = int(row["status"])
-
-    prefix = "meta_ansatt"
     suffix = "@%s" % ou_info["sko"]
     result = list()
-    #
-    # The employees are members of certain groups.
-    if affiliation == constants.affiliation_ansatt:
-        # First, person_id is a member of ansatt@sko.
-        group_name = "ansatt" + suffix
-        employee_group_id = group_name2group_id(group_name,
-                                                "Tilsatte ved "+ou_info["name"],
-                                                current_groups,
-                                                constants.trait_auto_group)
-        result.append((person_id, constants.entity_person, employee_group_id))
-        # Then, ansatt@sko is a member of meta_ansatt@sko
-        meta_name = prefix + suffix
-        meta_group_id = group_name2group_id(
-                   meta_name,
-                   ("Tilsatte ved %s og underordnede organisatoriske enheter" % 
-                    ou_info["name"]),
-                   current_groups,
-                   constants.trait_auto_meta_group)
-        result.append((employee_group_id,
-                       constants.entity_group,
-                       meta_group_id))
-        # And, naturally, ansatt@sko, is a direct member of meta_ansatt@parentsko
-        parent_info = ou_id2parent_info(ou_id, perspective)
-        if parent_info:
-            parent_name = prefix + "@" + parent_info["sko"]
-            meta_parent_id = group_name2group_id(
-                parent_name,
-                ("Tilsatte ved %s og underordnede organisatoriske enheter" %
-                 parent_info["name"]),
-                current_groups,
-                constants.trait_auto_meta_group)
-            result.append((employee_group_id,
-                           constants.entity_group,
-                           meta_parent_id))
-        else:
-            logger.warn("Missing parent info for OU id=%s, sko=%s, name=%s. "
-                        "%s id=%s will not be a member of any parent group",
-                        ou_id, ou_info["sko"], ou_info["name"],
-                        group_name, employee_group_id)
-        
+
+    # First let's fix the simple cases -- group membership based on
+    # affiliation status.
+    # VIT -> ansatt_vitenskapelig@<sko>
     if status == constants.affiliation_status_ansatt_vitenskapelig:
         result.append(
             (person_id,
@@ -513,6 +474,7 @@ def employee2groups(row, current_groups, perspective):
                                  "Vitenskapelige tilsatte ved "+ou_info["name"],
                                  current_groups,
                                  constants.trait_auto_group)))
+    # TEKADM -> ansatt_tekadm@<sko>
     elif status == constants.affiliation_status_ansatt_tekadm:
         result.append(
             (person_id,
@@ -522,6 +484,7 @@ def employee2groups(row, current_groups, perspective):
                                  ou_info["name"],
                                  current_groups,
                                  constants.trait_auto_group)))
+    # BILAG -> ansatt_bilag@<sko>
     elif status == constants.affiliation_status_ansatt_bil:
         result.append(
             (person_id,
@@ -530,6 +493,45 @@ def employee2groups(row, current_groups, perspective):
                                  "Bilagslønnede ved " + ou_info["name"],
                                  current_groups,
                                  constants.trait_auto_group)))
+
+    # Now the fun begins. All employees are members of certain groups.
+    # 
+    # This affiliation (row) results in person_id being member of
+    # ansatt@<sko>.
+    if affiliation == constants.affiliation_ansatt:
+        # First, person_id is a member of ansatt@sko.
+        group_name = "ansatt" + suffix
+        employee_group_id = group_name2group_id(group_name,
+                                                "Tilsatte ved "+ou_info["name"],
+                                                current_groups,
+                                                constants.trait_auto_group)
+        result.append((person_id, constants.entity_person, employee_group_id))
+
+        # Now it becomes difficult, since we have to create a chain of
+        # meta_ansatt group memberships.
+        tmp_ou_id = ou_id
+        # The first step is not really a parent -- it's the OU itself. I.e.
+        # ansatt@<sko> is a member of meta_ansatt@<sko>. It's like that by
+        # design (consider asking "who's an employee at <sko> or subordinate
+        # <sko>?". The answer is "meta_ansatt@<sko>" and it should obviously
+        # include ansatt@<sko>)
+        parent_info = ou_id2ou_info(tmp_ou_id)
+        while parent_info:
+            parent_name = "meta_ansatt@" + parent_info["sko"]
+            meta_parent_id = group_name2group_id(
+                parent_name,
+                "Tilsatte ved %s og underordnede organisatoriske enheter" %
+                parent_info["name"],
+                current_groups,
+                constants.trait_auto_meta_group)
+            result.append((employee_group_id, constants.entity_group,
+                           meta_parent_id))
+            logger.debug("Group name=%s (from person_id=%s) added to "
+                         "meta group id=%s, name=%s",
+                         group_name, person_id, meta_parent_id, parent_name)
+            parent_info = ou_id2parent_info(tmp_ou_id, perspective)
+            if parent_info:
+                tmp_ou_id = parent_info["ou_id"]
 
     return result
 # end employee2groups
@@ -984,16 +986,15 @@ def perform_sync(perspective, source_system):
     # sequence of db-rows that are candidates for group addition (typically
     # person_id and a few more attributes). The second object is a callable
     # that yields a data structure indicating which group membership additions
-    # should be performed.
+    # should be performed; based on the db-rows generated by the first
+    # callable.
     person = Factory.get("Person")(database)
     global_rules = [
         # Employee rule: (ansatt@<ou>, ansatt_vitenskapelig@<ou>, etc.)
         (lambda: person.list_affiliations(
                    affiliation=(constants.affiliation_ansatt,),
                    source_system=source_system),
-         # IVR 2008-01-25 The fix is temporary.
-         lambda *rest: # employee2groups(perspective=perspective, *rest)),
-                       temporary_employee_hack(perspective=perspective, *rest)),
+         lambda *rest: employee2groups(perspective=perspective, *rest)),
 
         # Employee rule: role holder groups (e.g. EF-STIP@<ou>)
         (lambda: person.list_traits(code=_locate_all_auto_traits()),
@@ -1005,7 +1006,7 @@ def perform_sync(perspective, source_system):
     for rule in global_rules:
         # How do we get all the people for registering in the groups?
         person_generator = rule[0]
-        # Given a row with a person, which groups should he be registered in?
+        # Given a row with a person, which groups should (s)he be registered in?
         row2groups = rule[1]
         # Let's go
         populate_groups_from_rule(person_generator, row2groups,
