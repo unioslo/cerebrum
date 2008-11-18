@@ -109,7 +109,7 @@ class LMSExport(object):
                 identifier = "fnr:'%s'" % fnr
             else:
                 identifier = "ent_id:'%s'" % entity_id
-            logger.warning("Primary account is None for person: %s. Ignoring person" % identifier)
+            logger.info("Primary account is None for person: %s. Ignoring person" % identifier)
             return None
 
         account.find(primary_account_id)

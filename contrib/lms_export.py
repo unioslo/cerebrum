@@ -122,7 +122,7 @@ def fnrs2account_ids(rows):
         if importer.persons.has_key(fnr):
             result.append(importer.persons[fnr])
         else:
-            logger.warning("Unable to find account for user identified " +
+            logger.info("Unable to find account for user identified " +
                            "by '%s'" % fnr)
     return result
 

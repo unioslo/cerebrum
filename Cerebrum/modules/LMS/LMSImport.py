@@ -140,7 +140,7 @@ class LMSImport(object):
             fnr = person.get_external_id(id_type=constants.externalid_fodselsnr)[0]["external_id"]
             if primary_account_id is None:
                 identifier = "person_ent_id:'%s'" % individual["person_id"]
-                logger.warning("Primary account is None for person: %s" % identifier)
+                logger.info("Primary account is None for person: %s" % identifier)
             else:
                 self.persons[fnr] = primary_account_id
         logger.debug("assemble_person_to_account_id_mappings done")
@@ -294,7 +294,7 @@ class FSImport(LMSImport):
                 if fnr in self.persons:
                     class_students.append(self.persons[fnr])
                 else:
-                    logger.warning("No primary account registered for fnr '%s'. Skipping" % fnr)
+                    logger.info("No primary account registered for fnr '%s'. Skipping" % fnr)
 
             logger.debug("Students in class '%s': '%s'" % (class_id, class_students))
 
