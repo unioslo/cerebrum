@@ -57,7 +57,7 @@ def get_account_info(account, tr, owner=None):
     }
 
     if not owner:
-        owner = get_owner(account.get_owner())
+        owner = get_owner(account.get_owner(), tr)
 
     if owner:
         data['owner'] = owner.copy()
@@ -91,6 +91,8 @@ def get_group_info(group, tr):
 
 def search_account(transaction, query):
     result = {}
+
+    tr = transaction
 
     accounts = transaction.get_account_searcher()
     accounts.set_search_limit(20, 0)
