@@ -20,6 +20,7 @@
 
 import mx.DateTime
 import cherrypy
+import utils
 
 class Message(object):
     def __init__(self, title, message, is_error=False, date=None, link=None, tracebk=None):
@@ -46,7 +47,7 @@ class Message(object):
             %(error)s
         </div>""" % {
             'link': link,
-            'msg': self.__msg.get('message'),
+            'msg': utils.html_quote(self.__msg.get('message')),
             'error': error,
         }
 
