@@ -18,13 +18,18 @@ ActivePython-2.5.1.1-win32-x86.msi from
 http://downloads.activestate.com/ActivePython/windows/2.5/
 (A newer version will most probably work)
 
-pyOpenSSL-0.7a2-py2.5.exe from 
-http://sourceforge.net/project/showfiles.php?group_id=78018
+pywin32-212.win32-py2.5.exe from
+http://sourceforge.net/project/showfiles.php?group_id=78018&package_id=79063&release_id=616849
 
+pyOpenSSL-0.8.winxp32-py2.5.exe from 
+http://sourceforge.net/project/showfiles.php?group_id=31249&package_id=90289
 
-Win32OpenSSL_Light-0_9_8g from 
+Win32 OpenSSL v0.9.8i Light
 http://www.slproweb.com/products/Win32OpenSSL.html
 
+If OpenSSL is complaining about missing DLL, try to install 
+Visual C++ 2008 Redistributables from 
+http://www.slproweb.com/products/Win32OpenSSL.html
 
 Download the components of the ADserver from sourceforge: 
 The wanted components must be configured in the MixIn class in 
