@@ -725,7 +725,7 @@ class GroupSearcher(Searcher):
         if description:
             main.set_description_like(description)
 
-        gid_end = utils.web_to_spine(self, transaction, form.get('gid_end', '').strip())
+        gid_end = utils.web_to_spine(self.transaction, form.get('gid_end', '').strip())
         if gid_end:
             if gid_end:
                 main.set_posix_gid_less_than(int(gid_end))
