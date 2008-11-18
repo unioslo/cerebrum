@@ -1057,9 +1057,9 @@ class PsycoPGBase(PostgreSQLBase):
         return PsycoPGCursor(self)
 
 
-class PsycoPG1(PsycoPGBase):
+class PsycoPG(PsycoPGBase):
     _db_mod = "psycopg"
-# enc class PsycoPG1
+# end class PsycoPG
 
 
 class PsycoPG2(PsycoPGBase):
