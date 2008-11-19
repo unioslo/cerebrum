@@ -19,27 +19,18 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-
-import mx
-import pickle
-
 import cereconf
-from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
-from Cerebrum import Constants
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
-from Cerebrum import Database
-
-from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.no.hiof import bofhd_hiof_help
-from Cerebrum.Constants import _CerebrumCode, _SpreadCode
+from Cerebrum.Constants import _CerebrumCode
+from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.auth import BofhdAuth
-from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
-from Cerebrum.modules.no import fodselsnr
-from Cerebrum.modules import Email
-from Cerebrum.modules.no.hiof import ADMappingRules
+from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
+#from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.no.hiof import bofhd_hiof_help
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -121,25 +112,6 @@ class BofhdExtension(object):
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
 
-    def _user_get_ad_traits(self, account):
-        """
-        Utility function for methods user_*
-
-        Get all ad_traits for a user. 
-        """
-        ret = []
-        traits = account.get_traits()
-        relevant_traits = [self.const.trait_ad_homedir,
-                           self.const.trait_ad_profile_path,
-                           self.const.trait_ad_account_ou]
-        for trait_const_class, entity_trait in traits.iteritems():
-            if trait_const_class in relevant_traits:
-                ret.append((trait_const_class, entity_trait))
-        return ret
-
-    ## This method cannot be used until race condition with ad_sync is
-    ## solved.
-    ##
     # # user delete_ad_attrs
     # all_commands['user_delete_ad_attrs'] = Command(
     #     ('user', 'delete_ad_attrs'), AccountName(), Spread(),
@@ -148,9 +120,10 @@ class BofhdExtension(object):
     #     """
     #     Bofh command user delete_ad_attrs
     # 
-    #     Delete AD attributes home, profile_path and ou for user. AD
-    #     attributes are stored as a spread -> value mapping in an
-    #     entity trait in Cerebrum, where spread represents a AD domain.
+    #     Delete AD attributes home, profile_path and ou for user by
+    #     adding a BofhdRequests. The actual deletion is governed by
+    #     job_runner when calling process_bofhd_requests. This is done
+    #     to avvoid race condition with AD sync.
     # 
     #     @param operator: operator in bofh session
     #     @type  uname: string
@@ -163,31 +136,15 @@ class BofhdExtension(object):
     #     """
     #     account = self._get_account(uname, idtype='name')
     #     spread = self._get_constant(self.const.Spread, spread)
-    #     deleted_attrs = []
-    #     for trait_const_class, entity_trait in self._user_get_ad_traits(account):
-    #         # unpickle_val is a spread -> ad_attr_val dict
-    #         unpickle_val = pickle.loads(str(entity_trait['strval']))
-    #         new_attrs = unpickle_val.copy()
-    #         for u in unpickle_val.keys():
-    #             if self._get_constant(self.const.Spread, u, 'spread') == spread:
-    #                 # Check that there is a value for the given spread
-    #                 if int(spread) in new_attrs:
-    #                     del new_attrs[int(spread)]
-    #         # Only delete or update trait if a change has actually occured
-    #         if len(new_attrs) < len(unpickle_val):
-    #             deleted_attrs.append(str(trait_const_class))
-    #             # Only delete trait if int(spread) is the only key
-    #             if len(new_attrs) == 0:
-    #                 account.delete_trait(entity_trait['code'])
-    #             else:
-    #                 account.populate_trait(trait_const_class,
-    #                                        strval=pickle.dumps(new_attrs))
-    #             account.write_db()
-    #     if deleted_attrs:
-    #         return "OK, removed AD-traits %s for %s" % (
-    #             ', '.join(deleted_attrs), uname)
+    #     br = BofhdRequests(self.db, self.const)
+    #     delete_attrs = account.get_ad_attrs_by_spread(spread)
+    #     if delete_attrs:
+    #         # TBD: skal state_data være satt til noe?
+    #         #req = add_request(op, br.now, self.const.ad_attr_remove,
+    #         #                  account.entity_id, None)
+    #         return "OK, added remove AD attribute request for %s: %s" % (uname, delete_attrs)
     #     else:
-    #         return "No AD-traits removed for user %s" % uname
+    #         return "No AD attributes removed for user %s" % uname
 
     # user list_ad_attrs
     all_commands['user_list_ad_attrs'] = Command(
@@ -210,57 +167,14 @@ class BofhdExtension(object):
         """
         account = self._get_account(uname, idtype='name')
         ret = []
-        for trait_const_class, entity_trait in self._user_get_ad_traits(account):
-            unpickle_val = pickle.loads(str(entity_trait['strval']))
-            for spread, ad_val in unpickle_val.items():
-                ret.append({'spread': str(self._get_constant(self.const.Spread, spread, 'spread')),
-                            'ad_attr': str(trait_const_class),
-                            'ad_val': ad_val})
+        for spread, attr_map in account.get_ad_attrs().iteritems():
+            spread_str = str(self._get_constant(self.const.Spread,
+                                                spread, 'spread'))
+            for attr_type, attr_val in attr_map.items():
+                ret.append({'spread': spread_str,
+                            'ad_attr': attr_type,
+                            'ad_val': attr_val})
         return ret
-
-    # def _get_ad_rules(self, spread):
-    #     if spread == self.const.spread_ad_account_fag:
-    #         rules = ADMappingRules.Fag()
-    #     elif spread == self.const.spread_ad_account_adm:
-    #         rules = ADMappingRules.Adm()
-    #     elif spread == self.const.spread_ad_account_stud:
-    #         rules = ADMappingRules.Student()    
-    #     return rules
-
-    # def _get_ou_sko(self, ou_id):
-    #     self.ou.clear()
-    #     self.ou.find(ou_id)
-    #     return "%d%02d%02d" % (self.ou.fakultet, self.ou.institutt, self.ou.avdeling)
-
-    # # user verify_ad_attrs
-    # all_commands['user_verify_ad_attrs'] = Command(
-    #     ('user', 'verify_ad_attrs'), AccountName(), Spread(),
-    #     perm_filter='is_superuser')
-    # def user_verify_ad_attrs(self, operator, uname, spread):
-    #     """
-    #     Check what AD attributes a user should have in a domain
-    #     according to affiliation and spread.
-    #     """
-    #     account = self._get_account(uname, idtype='name')
-    #     spread = self._get_constant(self.const.Spread, spread)
-    #     # We can't calculate AD attributes for students without first
-    #     # parsing /cerebrum/dumps/FS/studieprog.xml
-    #     if spread == self.const.spread_ad_account_stud:
-    #         return "Not yet implemented for spread stud"
-    #     # Get affiliations
-    #     affs = account.get_account_types()
-    #     if not affs:
-    #         raise CerebrumError(
-    #             "Cannot calculate ad attrs for user without affiliation")
-    #     # TBD: what to do if more than one aff? For now, use aff with
-    #     # highest priority
-    #     sko = self._get_ou_sko(affs[0]['ou_id'])
-    #     rules = self._get_ad_rules(spread)
-    #     dn = rules.getDN(sko, uname)
-    #     return '\n'.join(
-    #         ["%12s: %s" % ("OU", dn[dn.find(',')+1:]), # OU part of DN
-    #          "%12s: %s" % ("Profile Path", rules.getProfilePath(sko, uname)),
-    #          "%12s: %s" % ("Homedir", rules.getHome(sko, uname))])
 
     # def _user_set_ad_trait(self, uname, spread, trait_const, ad_val):
     #     """
