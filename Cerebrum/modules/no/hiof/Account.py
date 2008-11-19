@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003-2005 University of Oslo, Norway
+# Copyright 2003-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -24,11 +24,12 @@ import cereconf
 
 import re
 import time
+import cPickle
 
 from Cerebrum import Account
+from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import Email
-from Cerebrum import Errors
 from Cerebrum.modules import PasswordHistory
 
 class AccountHiOfMixin(Account.Account):
@@ -41,6 +42,25 @@ class AccountHiOfMixin(Account.Account):
 
     """
 
+    def __init__(self, db):
+        """
+        Override __init__ to set up AD spesific constants.
+        """
+        self.__super.__init__(db)
+        # Setup AD spread constants
+        if not hasattr(cereconf, 'AD_ACCOUNT_SPREADS'):
+            raise Errors.CerebrumError("Missing AD_ACCOUNT_SPREADS in cereconf")
+        self.ad_account_spreads = {}
+        for spread_str in cereconf.AD_ACCOUNT_SPREADS:
+            c = self.const.Spread(spread_str)
+            self.ad_account_spreads[int(c)] = c
+        # Setup defined ad traits
+        if not hasattr(cereconf, 'AD_TRAIT_TYPES'):
+            raise Errors.CerebrumError("Missing AD_TRAIT_TYPES in cereconf")
+        self.ad_trait_types = []
+        for trait_str in cereconf.AD_TRAIT_TYPES:
+            self.ad_trait_types.append(self.const.EntityTrait(trait_str))
+        
     def illegal_name(self, name):
         # Avoid circular import dependency
         from Cerebrum.modules.PosixUser import PosixUser
@@ -245,3 +265,115 @@ class AccountHiOfMixin(Account.Account):
             if a['affiliation'] == self.const.affiliation_student:
                 return True
         return False            
+
+    def delete_spread(self, spread):
+        """
+        If the spread that is deleted is an AD account spread, any AD
+        attributes in Cerebrum belonging to that spread should also be
+        removed.
+        """
+        if spread in self.ad_account_spreads.values():
+            self.delete_ad_attrs(spread=spread)
+        ret = self.__super.delete_spread(spread)
+        return ret
+
+    ## Methods for manipulation accounts AD-attributes.
+    ## AD attributes OU, Homedir and Profile Path are stored in
+    ## entity_traits. The methods make it easier to get and set
+    ## these attributes.
+
+    def get_ad_attrs(self):
+        """
+        Return all AD attrs for account
+
+        @rtype: dict
+        @return: {spread : {attr_type:attr_val, ...}, ...} 
+        """
+        ret = {}
+        # It's quicker to get all traits at once instead of picking
+        # one at the time
+        traits = self.get_traits()
+        # We only want the relevant ad traits
+        for trait_type, entity_trait in traits.iteritems():
+            if trait_type in self.ad_trait_types:
+                attr_type = str(trait_type)    
+                unpickle_val = cPickle.loads(str(entity_trait['strval']))
+                # unpickle_val is a spread -> attribute value mapping
+                for spread, attr_val in unpickle_val.items():
+                    spread = int(spread)
+                    if not spread in ret:
+                        ret[spread] = {}
+                    ret[spread][attr_type] = attr_val
+        return ret
+
+    # TBD: assert int(spread) in self.ad_account_spreads.keys()?
+    def get_ad_attrs_by_spread(self, spread):
+        """
+        Return account's AD attributes given by spread.
+
+        @param spread: account ad spread
+        @type  spread: int OR _SpreadCode
+        @rtype: dict
+        @return: {attr_type : attr_value, ...}
+        """
+        tmp = self.get_ad_attrs()
+        return tmp.get(int(spread), {})
+
+    def get_ad_attrs_by_type(self, trait_type):
+        """
+        Return accounts's AD attributes of given type.
+
+        @param trait_type: ad trait type
+        @type  trait_type: str OR _EntityTraitCode
+        @rtype: dict
+        @return: {spread : attr_value, ...}
+        """
+        tmp = self.get_trait(trait_type)
+        if not tmp:
+            return {}
+        else:
+            return cPickle.loads(str(tmp['strval']))
+
+    def populate_ad_attrs(self, trait_type, ad_attr_map):
+        """
+        Store given AD attribute values as a entity_trait. Assert that
+        ad_attr_map is a spread -> value mapping.
+
+        @param trait_type: ad trait type
+        @type  trait_type: str OR _EntityTraitCode
+        @param ad_attr_map: spread -> attr value mapping
+        @type  ad_attr_map: dict
+        """
+        # Do strict checking of ad_attr_map before populating trait.
+        # If we populate something wrong, all kinds of weird errors
+        # will follow.
+        assert type(ad_attr_map) is dict
+        for k,v in ad_attr_map.items():
+            assert (type(k) is int and k in self.ad_account_spreads.keys())
+            assert type(v) is str
+        self.populate_trait(trait_type, strval=cPickle.dumps(ad_attr_map))
+
+    def delete_ad_attrs(self, spread=None):
+        """
+        Delete ad_attrs in entity trait for given spread, or for all
+        ad spreads if None given.
+
+        @param spread: ad account spread
+        @type  spread: int OR _SpreadCode
+        """
+        for trait_type in self.ad_trait_types:
+            # If spread is None simply delete all ad_traits for this user
+            if not spread:
+                self.delete_trait(trait_type)
+                continue            
+            # Spread is given, then we must modify the traits
+            tmp = self.get_ad_attrs_by_type(trait_type)
+            if tmp and int(spread) in tmp:
+                # If this spread is the only one, delete the trait
+                if len(tmp) <= 1:
+                    self.delete_trait(trait_type)
+                else:
+                    del tmp[spread]
+                    # Populate the remaining mapping
+                    self.populate_ad_attrs(trait_type, tmp)
+                    
