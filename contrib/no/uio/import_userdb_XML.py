@@ -1254,7 +1254,7 @@ def create_account(u, owner_id, owner_type, np_type=None):
             if not u.has_key('deleted_date'):
                 print "WARNING: User %s had splat, but no quarantine" % \
                       u['uname']
-            when = db.TimestampFromTicks(time())
+            when = db.TimestampFromTicks(int(time()))
             why = "Had splat on import from ureg2000"
         else:
             when = parse_date(u['quarantine']['when'])

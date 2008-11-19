@@ -1077,7 +1077,8 @@ class PsycoPGCursor(Cursor):
         # really register our type conversion hooks there.
         for k in parameters:
             if type(parameters[k]) is DateTime.DateTimeType:
-                parameters[k] = self.TimestampFromTicks(parameters[k].ticks())
+                parameters[k] = self.TimestampFromTicks(
+                                    int(parameters[k].ticks()))
             elif (type(parameters[k]) is unicode and
                   self._db.encoding != 'UTF-8'):
                 # pypgsql1 does not support unicode (only utf-8)

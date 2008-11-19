@@ -382,7 +382,7 @@ class DbQueueHandler(object):
         return ret
 
     def update_last_run(self, id, timestamp):
-        timestamp = self.db.TimestampFromTicks(timestamp)
+        timestamp = self.db.TimestampFromTicks(int(timestamp))
         self.logger.debug("update_last_run(%s, %s)" % (id, timestamp))
 
         try:

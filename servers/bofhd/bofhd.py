@@ -208,8 +208,8 @@ class BofhdSession(object):
         frequently enough to have last_seen < 1 day"""
         auth_threshold = time.time() - self._auth_timeout
         seen_threshold = time.time() - self._seen_timeout
-        auth_threshold = self._db.TimestampFromTicks(auth_threshold)
-        seen_threshold = self._db.TimestampFromTicks(seen_threshold)
+        auth_threshold = self._db.TimestampFromTicks(int(auth_threshold))
+        seen_threshold = self._db.TimestampFromTicks(int(seen_threshold))
         self._db.execute("""
         DELETE FROM [:table schema=cerebrum name=bofhd_session_state]
         WHERE exists (SELECT 'foo'
@@ -256,8 +256,9 @@ class BofhdSession(object):
                             bs.last_seen < :last_seen
                       )
         """ % ' OR '.join(sql)
-        params["last_seen"] = self._db.TimestampFromTicks(time.time() -
-                                                          self._short_timeout)
+        params["last_seen"] = self._db.TimestampFromTicks(int(time.time() -
+                                                              self._short_timeout))
+
         self._db.execute(stmt, params)
 
         # then nuke all the sessions

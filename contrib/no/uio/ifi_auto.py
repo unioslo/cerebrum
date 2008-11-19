@@ -209,8 +209,8 @@ def sync_filegroup(fgname, group, course, act):
     # Make the group last a year or so.  To avoid changing the database
     # every night, we only change expire date if it has less than three
     # month to live.
-    expdate = DateTime.TimestampFromTicks(time.time() + 12*31*24*3600)
-    refreshdate = DateTime.TimestampFromTicks(time.time() + 3*31*24*3600)
+    expdate = DateTime.TimestampFromTicks(int(time.time() + 12*31*24*3600))
+    refreshdate = DateTime.TimestampFromTicks(int(time.time() + 3*31*24*3600))
     try:
         fgroup = get_group(fgname)
     except Errors.NotFoundError:
