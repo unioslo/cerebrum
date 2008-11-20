@@ -599,7 +599,6 @@ class BDBSync:
 
         new_person.clear()
         found_person=False
-        print repr(person['id']), repr(fnr)
         try:
             new_person.find_by_external_id(const.externalid_bdb_person,str(person['id']))
         except Errors.NotFoundError:
