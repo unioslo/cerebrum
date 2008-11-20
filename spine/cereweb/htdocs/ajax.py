@@ -107,6 +107,8 @@ def search_account(transaction, query):
 def search_person(transaction, query):
     result = {}
 
+    tr = transaction
+
     searcher = transaction.get_person_name_searcher()
     searcher.set_search_limit(20, 0)
     searcher.set_name_variant(transaction.get_name_type("FULL"))
@@ -125,6 +127,8 @@ def search_person(transaction, query):
 
 def search_group(transaction, query):
     result = {}
+
+    tr = transaction
 
     searcher = transaction.get_group_searcher()
     searcher.set_search_limit(20, 0)
