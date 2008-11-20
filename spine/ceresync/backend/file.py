@@ -197,13 +197,14 @@ class ShadowFile(CLFileBack):
 class AliasFile(CLFileBack):
     filename="/etc/ceresync/aliases"
     def format(self, addr):
-        if addr.primary:
-            to=addr.user
-            mod="<>"
+        if addr.address_id == addr.primary_address_id:
+            return "%s@%s: <> %s@%s\n" % (
+                addr.local_part, addr.domain,
+                addr.account_name, addr.server_name )
         else:
-            to=addr.primary
-            mod=">>"
-        return "%s: %s %s\n" % ( self.wash(addr.name), mod, to)
+            return "%s@%s: %s@%s\n" % (
+                addr.local_part, addr.domain,
+                addr.primary_address_local_part, addr.primary_address_domain )
 
 class SambaFile(CLFileBack):
     """an entry in a samba passwordfile lookes like this:
@@ -264,6 +265,9 @@ def Group():
 def Account():
     return MultiHandler(PasswdFile(filename=config.get("file", "passwd")),
                         ShadowFile(filename=config.get("file","shadow")))
+
+def Alias():
+    return AliasFile(filename=config.get("file", "aliases"))
 
 
 # When using the file backend the user will want to save the id of the
