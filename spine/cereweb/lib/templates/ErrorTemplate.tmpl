@@ -18,6 +18,7 @@
 
 #import cherrypy
 #import config
+#from lib.utils import html_quote
 
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
@@ -25,7 +26,12 @@
 
 ## Displays an error page.
 #def error($title, $message, $path='', $traceback='', $referer='', $report=True)
-#set $charset = $cherrypy.session.get('encoding', 'utf-8')
+    #set $title = $html_quote($title)
+    #set $message = $html_quote($message)
+    #set $path = $html_quote($path)
+    #set $traceback = $html_quote($traceback).replace('"', '&quot;')
+    #set $referer = $html_quote($referer)
+    #set $charset = $cherrypy.session.get('encoding', 'utf-8')
     #set $user = ''
     ##FIXME: set $user = $cherrypy.session.get('username', '')
 ##
@@ -95,7 +101,7 @@ html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
                             <input type="hidden" name="referer" value="$referer" />
                             #end if
                             #if traceback
-                            <input type="hidden" name="traceback" value='$traceback.replace("'", '"')' />
+                            <input type="hidden" name="traceback" value="$traceback" />
                             #end if
                             <input type="hidden" name="title" value="$title" />
                             <input type="hidden" name="message" value="$message" />
