@@ -157,7 +157,7 @@ def get_address(person):
 
     # TBD: Should we check the validity of zip codes?
 
-    city = address['city']
+    city = address['city'] or ""
 
     # The country field seems unused in the database.
     # TBD: Fix this when SAP import imports country
@@ -165,7 +165,8 @@ def get_address(person):
     country = ''
 
     return {'address1': line1[:40], 
-            'address2': line2[:40], 
+            'address2': line2[:40],
+            'address': lines,
             'zip':     Zip[:4], 
             'city':    city[:16], 
             'country': country[:20]
@@ -222,8 +223,18 @@ def main(outfile):
     person = Factory.get("Person")(db)
 
     logger.debug("Getting all persons with affiliation ansatt")
-    result = person.list_affiliations(affiliation=constants.affiliation_ansatt)
-    persons = set(map(lambda x: x[0], result)) # set of person ids with affiliation ansatt
+    result = person.list_affiliations(affiliation=constants.affiliation_ansatt, 
+            source_system=constants.system_sap)
+
+    persons = set()
+    for i in result:
+        if i['status'] == constants.affiliation_status_ansatt_bil:
+            continue
+        if i['status'] == constants.affiliation_status_ansatt_ltreg:
+            logger.warn("Person %s has %s", i[0], constants.affiliation_status_ansatt_ltreg)
+            continue
+        persons.add(i[0])
+
     addresses=[]
     for p in persons:
         person.clear()
@@ -247,10 +258,19 @@ def main(outfile):
         addresses.append(person_information)
     addresses.sort(compare_addresses)
     for i in addresses:
-        print >>outfile, "%(name)-40s%(copies)-2s%(address1)-40s" \
-                "%(address2)-40s%(zip)-4s%(city)-16s%(country)-20s" \
-                "%(feed_code)-4s%(register_group)-10s%(register_code)-2s%(type_code)-4s" \
-                % i
+        for j, k in i.items():
+            if isinstance(k, str):
+                i[j] = k.replace('\t', ' ')
+            else:
+                i[j] = '\t'.join([x.replace('\t', ' ') for x in k])
+        line = "%(name)s\t%(zip)s\t%(city)s\t%(address)s" % i
+        #print >>outfile, "%(name)-40s%(copies)-2s%(address1)-40s" \
+        #        "%(address2)-40s%(zip)-4s%(city)-16s%(country)-20s" \
+        #        "%(feed_code)-4s%(register_group)-10s%(register_code)-2s%(type_code)-4s" \
+        #        % i
+        outfile.write(line)
+        outfile.write('\n')
+    outfile.flush()
 
     #print >>outfile, "%-40s%-2s" % (name, get_num_copies(person)) + \
     #                 "%-40s%-40s%-4s%-16s%-20s" % address + \
