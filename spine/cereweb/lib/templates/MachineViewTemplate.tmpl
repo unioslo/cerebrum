@@ -38,10 +38,10 @@
 #end def
 
 ## Main method for creating the host view page.
-#def content()
+#def viewContent($transaction, $entity)
     $viewInfo($entity)
     $addNote($entity)
-    $viewNotes($entity)
+    $viewNotes($entity, $transaction)
     $viewDisks($entity)
     $viewHistoryLog($entity)
 #end def

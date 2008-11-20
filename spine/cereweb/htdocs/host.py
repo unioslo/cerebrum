@@ -59,6 +59,7 @@ def view(transaction, id):
     """Creates a page with a view of the host given by id."""
     host = transaction.get_host(int(id))
     page = HostViewTemplate()
+    page.tr = transaction
     page.title = _('Host %s') % host.get_name()
     page.set_focus('host/view')
     page.links = _get_links()

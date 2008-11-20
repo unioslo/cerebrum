@@ -82,6 +82,7 @@ def view(transaction, id):
     domains = transaction.get_email_domain_searcher().search()
     domains = [(i.get_name(), i.get_name()) for i in domains]
     page = EmailTargetViewTemplate()
+    page.tr = transaction
     page.title = _("Email addresses")
     page.set_focus("emailtarget/view")
     page.entity = target

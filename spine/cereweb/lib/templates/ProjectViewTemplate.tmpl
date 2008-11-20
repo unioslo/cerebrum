@@ -34,11 +34,11 @@
 #end def
 
 ## Main method for creating the project view page.
-#def content()
+#def viewContent($transaction, $entity)
     $viewInfo($entity)
     ##$addNote($entity)
-    ##$viewNotes($entity)
-    $addAllocationName($entity, $tr)
+    ##$viewNotes($entity, $transaction)
+    $addAllocationName($entity, $transaction)
     $viewAllocations($entity)
     $viewHistoryLog($entity)
 #end def

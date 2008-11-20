@@ -22,6 +22,7 @@
 #from Widgets import Widgets
 
 #attr $widgets = Widgets()
+#attr $viewBirthNo = False
 
 #def viewActions($transaction, $ou)
     #set $id = $html_quote($ou.get_id())
@@ -37,19 +38,19 @@
 
 #def viewContent($transaction, $ou)
     $viewInfo($ou)
-    $viewQuarantines($ou)
+    $viewQuarantines($ou, $transaction)
     $addNote($ou)
-    $viewNotes($ou)
-    $viewTraits($entity)
-    $viewFamily($transaction, $ou)
-    $viewContactInfos($ou)
-    $viewAddresses($ou)
+    $viewNotes($ou, $transaction)
+    $viewTraits($entity, $transaction)
+    $viewFamily($ou, $transaction)
+    $viewContactInfos($ou, $transaction)
+    $viewAddresses($ou, $transaction)
     $addSpread($ou, $transaction)
-    $viewSpreads($ou)
+    $viewSpreads($ou, $transaction)
     $setExternalId($ou, $transaction)
-    $viewExternalIds($ou)
+    $viewExternalIds($ou, $viewBirthNo, $transaction)
     $viewHistoryLog($ou)
-    $affiliatedPersons($transaction,$ou)
+    $affiliatedPersons($ou, $transaction)
 #end def
 
 ## View information about OU.
@@ -64,7 +65,7 @@
     $widgets.viewInfo($info)
 #end def
 
-#def viewFamily($transaction, $ou)
+#def viewFamily($ou, $transaction)
     #set $perspectives = $transaction.get_ou_perspective_type_searcher().search()
     <div class="list box">
         <h3>$_('OU Family')</h3>
@@ -100,7 +101,7 @@
     </div>
 #end def
 
-#def affiliatedPersons($transaction, $ou)
+#def affiliatedPersons($ou, $transaction)
     #set $all_affs = $transaction.get_person_affiliation_type_searcher().search()
     #set $all_sources = $transaction.get_ou_perspective_type_searcher().search()
     #set $sources = []
@@ -130,7 +131,7 @@
             </div>
             <div class="required">
                 <label for="withoutssn">Without SSN:</label>
-                <input type="checkbox" name="withoutssn" id="withoutssn">
+                <input type="checkbox" name="withoutssn" id="withoutssn" />
             </div>
             <div class="buttons">
                 <input type="submit" value="$_('Search')" />
