@@ -178,9 +178,10 @@ class SocketHandling(object):
         raise SocketHandling.Timeout
     timeout = staticmethod(timeout)
 
-    def __init__(self):
+    def __init__(self, logger):
         self._is_listening = False
         signal.signal(signal.SIGALRM, SocketHandling.timeout)
+        self.logger = logger
 
     def _format_time(self, t):
         if t:
@@ -203,6 +204,7 @@ class SocketHandling(object):
         ret += "Command: %s\n" % job.get_pretty_cmd()
         ret += "Pre-jobs: %s\n" % job.pre
         ret += "Post-jobs: %s\n" % job.post
+        ret += "Non-concurrent jobs: %s\n" % job.nonconcurrent
         ret += "When: %s, max-freq: %s\n" % (job.when, job.max_freq)
         return ret
         
@@ -278,6 +280,7 @@ class SocketHandling(object):
                     ret += '\n%-35s %s\n' % ('Known jobs', '  Last run  Last duration')
                     for k in tmp:
                         t2 = job_runner.job_queue._last_run[k]
+                        self.logger.debug("Last run of '%s' is '%s'" % (k, t2))
                         if t2:
                             t = time.strftime('%H:%M.%S', time.localtime(t2))
                             days = int((time.time()-t2)/(3600*24))

@@ -381,7 +381,7 @@ def main():
                 cmd = 'RUNJOB %s %i' % (val, with_deps)
             elif opt == '--show-job':
                 cmd = 'SHOWJOB %s' % val
-            sock = SocketHandling()
+            sock = SocketHandling(logger)
             try:
                 print "Response: %s" % sock.send_cmd(cmd)
             except SocketHandling.Timeout:
@@ -404,7 +404,7 @@ def main():
             sys.exit(0)
     if not alt_config:
         import scheduled_jobs
-    sock = SocketHandling()
+    sock = SocketHandling(logger)
     ca = CallableAction()
     ca.set_id("master_jr_lock")
     try:
