@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2007 University of Oslo, Norway
+# Copyright 2002-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -216,7 +216,7 @@ class BofhdExtension(object):
         ('user', 'request_guest'),
         Integer(default="1", help_ref="nr_guests"),
         SimpleString(help_ref="string_from_to"),
-        EntityType(default="group"),
+        GroupName(help_ref="guest_owner_group"),
         SimpleString(help_ref="comment"),
         perm_filter='can_request_guests')
     def user_request_guest(self, operator, nr, date, groupname, comment):
