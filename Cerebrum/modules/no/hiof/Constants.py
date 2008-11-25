@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006-2007 University of Oslo, Norway
+# Copyright 2006-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -28,11 +28,12 @@ from Cerebrum import Constants
 from Cerebrum.Constants import _SpreadCode, \
                                _PersonAffiliationCode, \
                                _PersonAffStatusCode
-from Cerebrum.modules.EntityTrait import \
-     _EntityTraitCode
+from Cerebrum.modules.EntityTrait import _EntityTraitCode
 from Cerebrum.modules.no.Constants import ConstantsUniversityColleges, \
                                           ConstantsHigherEdu
 from Cerebrum.modules.PosixUser import _PosixShellCode
+from Cerebrum.modules.bofhd.utils import _BofhdRequestOpCode
+
 
 class Constants(Constants.Constants):
 
@@ -124,3 +125,7 @@ class Constants(Constants.Constants):
     trait_ad_account_ou = _EntityTraitCode(
         'ad_account_ou', Constants.Constants.entity_account,
         "AD OU for account")
+
+    # BofhdRequests constants
+    bofh_ad_attrs_remove = _BofhdRequestOpCode("br_ad_attr_rem",
+                                               "Remove AD attributes for a user")

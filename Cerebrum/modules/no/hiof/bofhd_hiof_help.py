@@ -107,12 +107,16 @@ command_help = {
     "misc": {
     "misc_affiliations":
         "List all known affiliations",
+    "misc_cancel_request":
+        "Cancel a pending request",
     "misc_check_password":
         "Test the quality of a given password",
     "misc_clear_passwords":
         "Forget the passwords which have been set this session",
     "misc_list_passwords":
         "View/print all the password altered this session",
+    "misc_list_requests":
+        "View pending jobs",
     "misc_stedkode":
         "Look up OU by stedkode or name",
     "misc_verify_password":
@@ -157,7 +161,7 @@ command_help = {
     'user_affiliation_remove': 'Remove an affiliation for an account',
     'user_create': 'Create a user account',
     'user_delete': 'Delete an account',
-    #'user_delete_ad_attrs': 'Delete ad attributes for a user',
+    'user_delete_ad_attrs': 'Delete ad attributes for a user',
     'user_list_ad_attrs': 'View ad attributes for a user',
     'user_find': 'Search for users',
     'user_history': "Show history of the account with uname. Limited to users subordinate to a privilege group the BOFH user is a member of",

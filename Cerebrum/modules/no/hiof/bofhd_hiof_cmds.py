@@ -29,12 +29,19 @@ from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
-#from Cerebrum.modules.bofhd.utils import BofhdRequests
+from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.modules.no.hiof import bofhd_hiof_help
 
-def format_day(field):
-    fmt = "yyyy-MM-dd"                  # 10 characters wide
-    return ":".join((field, "date", fmt))
+
+# BofhdRequests are unfortunately very UiO specific. Let's try to keep
+# Hiof stuff here to avoid making things worse.
+class HiofBofhdRequests(BofhdRequests):
+    def __init__(self, db, const, id=None):
+        # Do normal extension of baseclass constructor
+        BofhdRequests.__init__(self, db, const, id)
+        # Hiofs BohfdRequest constant must be added to self.conflicts
+        self.conflicts[int(const.bofh_ad_attrs_remove)] = None
+
 
 class BofhdExtension(object):
     OU_class = Utils.Factory.get('OU')
@@ -48,7 +55,8 @@ class BofhdExtension(object):
         #
         '_find_persons', '_get_person', '_get_account', '_get_ou',
         '_format_ou_name', '_user_create_set_account_type','_get_group',
-        '_get_constant', '_parse_date',
+        '_get_constant', '_parse_date', '_get_entity_name',
+        'misc_list_requests', 'misc_cancel_request',
         )
         
     def __new__(cls, *arg, **karg):
@@ -112,39 +120,40 @@ class BofhdExtension(object):
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
 
-    # # user delete_ad_attrs
-    # all_commands['user_delete_ad_attrs'] = Command(
-    #     ('user', 'delete_ad_attrs'), AccountName(), Spread(),
-    #     perm_filter='is_superuser')
-    # def user_delete_ad_attrs(self, operator, uname, spread):
-    #     """
-    #     Bofh command user delete_ad_attrs
-    # 
-    #     Delete AD attributes home, profile_path and ou for user by
-    #     adding a BofhdRequests. The actual deletion is governed by
-    #     job_runner when calling process_bofhd_requests. This is done
-    #     to avvoid race condition with AD sync.
-    # 
-    #     @param operator: operator in bofh session
-    #     @type  uname: string
-    #     @param uname: user name of account which AD values should be
-    #                   deleted
-    #     @type  spread: string
-    #     @param spread: code_str of spread
-    #     @rtype: string
-    #     @return: OK message if success
-    #     """
-    #     account = self._get_account(uname, idtype='name')
-    #     spread = self._get_constant(self.const.Spread, spread)
-    #     br = BofhdRequests(self.db, self.const)
-    #     delete_attrs = account.get_ad_attrs_by_spread(spread)
-    #     if delete_attrs:
-    #         # TBD: skal state_data være satt til noe?
-    #         #req = add_request(op, br.now, self.const.ad_attr_remove,
-    #         #                  account.entity_id, None)
-    #         return "OK, added remove AD attribute request for %s: %s" % (uname, delete_attrs)
-    #     else:
-    #         return "No AD attributes removed for user %s" % uname
+    # user remove_ad_attrs
+    all_commands['user_remove_ad_attrs'] = Command(
+        ('user', 'remove_ad_attrs'), AccountName(), Spread(),
+        perm_filter='is_superuser')
+    def user_remove_ad_attrs(self, operator, uname, spread):
+        """
+        Bofh command user remove_ad_attrs
+    
+        Delete AD attributes home, profile_path and ou for user by
+        adding a BofhdRequests. The actual deletion is governed by
+        job_runner when calling process_bofhd_requests. This is done
+        to avvoid race condition with AD sync.
+    
+        @param operator: operator in bofh session
+        @type  uname: string
+        @param uname: user name of account which AD values should be
+                      deleted
+        @type  spread: string
+        @param spread: code_str of spread
+        @rtype: string
+        @return: OK message if success
+        """
+        account = self._get_account(uname, idtype='name')
+        spread = self._get_constant(self.const.Spread, spread)
+        br = HiofBofhdRequests(self.db, self.const)
+        delete_attrs = account.get_ad_attrs_by_spread(spread)
+        if delete_attrs:
+            req = br.add_request(operator.get_entity_id(), br.now,
+                                 self.const.bofh_ad_attrs_remove,
+                                 account.entity_id, None,
+                                 state_data=str(spread))
+            return "OK, added remove AD attributes request for %s" % uname
+        else:
+            return "No AD attributes to remove for user %s" % uname
 
     # user list_ad_attrs
     all_commands['user_list_ad_attrs'] = Command(
@@ -464,3 +473,4 @@ class BofhdExtension(object):
         operator.store_state("new_account_passwd", {'account_id': int(account.entity_id),
                                                     'password': passwd})
         return {'account_id': int(account.entity_id)}
+
