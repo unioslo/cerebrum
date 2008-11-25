@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2008 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,6 +20,14 @@
 
 import xmlrpclib
 from mx import DateTime
+
+# Some db backends like psycopg2 return decimal.Decimal, so we must
+# handle that. On the other hand decimal was included in Python from
+# version 2.4 and we support python 2.3 which makes this a bit hackish
+try:
+    import decimal
+except ImportError:
+    decimal = False
 
 class AttributeDict(dict):
     """Adds attribute access to keys, ie. a['knott'] == a.knott"""
@@ -50,6 +58,8 @@ def native_to_xmlrpc(obj, no_unicodify=0):
                          for x in obj])
     elif isinstance(obj, (int, long, float)):
         return obj
+    elif decimal and isinstance(obj, decimal.Decimal):
+        return float(obj)
     elif isinstance(obj, (xmlrpclib.DateTime, DateTime.DateTimeType)):
         # TODO: This only works for Postgres.  Needs support
         # in Database.py as the Python database API doesn't
