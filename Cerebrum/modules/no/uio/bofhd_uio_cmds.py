@@ -4628,16 +4628,33 @@ class BofhdExtension(object):
     # group list_expanded
     all_commands['group_list_expanded'] = Command(
         ("group", "list_expanded"), GroupName(),
-        fs=FormatSuggestion("%8i %s", ("member_id", "name"), hdr="Id       Name"))
+        fs=FormatSuggestion("%8i %10s %30s %25s",
+                     ("member_id", "member_type", "member_name", "group_name"),
+                     hdr="%8s %10s %30s %30s" % ("mem_id", "mem_type",
+                                                 "member_name",
+                                                 "is a member of group_name")))
     def group_list_expanded(self, operator, groupname):
         """List members of group after expansion"""
         group = self._get_group(groupname)
-        members = group.search_members(group_id=group.entity_id,
-                                       indirect_members=True,
-                                       member_type=self.const.entity_account)
-        return [{"member_id": a["member_id"],
-                 "name": a["member_name"]}
-                for a in self._fetch_member_names(members)]
+        result = list()
+        type2str = lambda x: str(self.const.EntityType(int(x)))
+        all_members = list(group.search_members(group_id=group.entity_id,
+                                                indirect_members=True))
+        if len(all_members) > cereconf.BOFHD_MAX_MATCHES:
+            raise CerebrumError("More than %d (%d) matches. Cowardly refusing "
+                                "to return result." %
+                                (cereconf.BOFHD_MAX_MATCHES, len(all_members)))
+        for member in all_members:
+            member_type = member["member_type"]
+            member_id = member["member_id"]
+            result.append({"member_id": member_id,
+                           "member_type": type2str(member_type),
+                           "member_name": self._get_entity_name(member_type,
+                                                                member_id),
+                           "group_name": self._get_entity_name(self.const.entity_group,
+                                                               member["group_id"]),
+                           })
+        return result
     # end group_list_expanded
 
 
