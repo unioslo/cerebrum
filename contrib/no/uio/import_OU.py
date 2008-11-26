@@ -229,6 +229,11 @@ def import_org_units(sources, target_system, cer_ou_tab):
                                   xmlou.iternames())))
                 continue
 
+            if (xmlou.start_date and xmlou.start_date > DateTime.now()):
+                logger.info("OU %s is not active yet and will therefore be "
+                            "ignored for the time being.", formatted_sko)
+                continue
+
             if (xmlou.end_date and xmlou.end_date < DateTime.now()):
                 logger.info("OU %s is expired and some of its information "
                             "will no longer be maintained", formatted_sko)
