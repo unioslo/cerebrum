@@ -23,7 +23,7 @@ import cereconf
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum.Utils import Factory
-import pickle
+import cPickle
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def _filter_quarantines(self, user_dict):
@@ -83,9 +83,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
           'OU': '',            # Container-OU, used by ADutilMixIn
           'ACCOUNTDISABLE'     # Flag, used by ADutilMixIn
         """
-        db = self.db
-        const = self.co
-        self.person = Factory.get('Person')(db)
+        self.person = Factory.get('Person')(self.db)
 
         #
         # Find all users with relevant spread
@@ -115,16 +113,16 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         pid2names = {}
         for row in self.person.list_persons_name(
-                source_system = const.system_cached,
-                name_type     = [const.name_first,
-                                 const.name_last]):
+                source_system = self.co.system_cached,
+                name_type     = [self.co.name_first,
+                                 self.co.name_last]):
             pid2names.setdefault(int(row['person_id']), {})[
                 int(row['name_variant'])] = row['name']
         for v in tmp_ret.values():
             names = pid2names.get(v['TEMPownerId'])
             if names:
-                firstName = unicode(names.get(int(const.name_first), ''), 'ISO-8859-1')
-                lastName = unicode(names.get(int(const.name_last), ''), 'ISO-8859-1')
+                firstName = unicode(names.get(int(self.co.name_first), ''), 'ISO-8859-1')
+                lastName = unicode(names.get(int(self.co.name_last), ''), 'ISO-8859-1')
                 v['givenName'] = firstName
                 v['sn'] = lastName
                 v['displayName'] = "%s %s" % (firstName, lastName)
@@ -135,11 +133,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         for ad_trait, key in ((self.co.trait_ad_profile_path, 'profilePath'),
                               (self.co.trait_ad_account_ou, 'OU'),
                               (self.co.trait_ad_homedir, 'homeDirectory')):
+            # Use EntityTrait API instead og hiofs Account for
+            # efficiency reasons
             for row in self.ac.list_traits(ad_trait):
                 v = tmp_ret.get(int(row['entity_id']))
                 if v:
                     try:
-                        tmp = pickle.loads(row['strval'])
+                        tmp = cPickle.loads(row['strval'])
                         if int(spread) in tmp:
                             v[key] = unicode(tmp[int(spread)], 'ISO-8859-1')
                             if key == 'OU':                            
@@ -236,7 +236,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         self.logger.error('createDir on %s failed: %r', uname, ret)
                     ret = self.run_cmd('createDir', dry_run, 'profilePath')
                     if not ret[0]:
-                        self.logger.error("createDir on %s failed: %r",uname, ret)
+                        self.logger.error("createDir on %s failed: %r", uname, ret)
                      
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     #Groupsync Mixin
