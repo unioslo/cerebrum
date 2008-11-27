@@ -249,10 +249,18 @@ class XMLOU2Object(XMLEntity2Object):
         # Ideally, the information about expired OUs should be complete as
         # well, but we won't be this lucky in our lifetimes. So, for expired
         # OUs we won't care about the names.
+        # Neither do we care about the missing names of not yet active
+        # OUs; we choose to hope that the names will be in place when
+        # the OU becomes active.
         if result.get_name(DataOU.NAME_LONG) is None:
             if result.end_date and result.end_date < now():
                 if self.logger:
                     self.logger.debug("No name for expired OU %s",
+                                      result.get_id(DataOU.NO_SKO))
+                    
+            elif result.start_date and result.start_date > now():
+                if self.logger:
+                    self.logger.debug("No name for future OU %s",
                                       result.get_id(DataOU.NO_SKO))
             else:
                 if self.logger:
