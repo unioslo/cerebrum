@@ -256,7 +256,7 @@ def parse_args(options=[]):
     parser = optparse.OptionParser()
     parser.add_option("-v", "--verbose", help="be verbose", dest="verbose", default=False, 
                       action="callback", callback=_increase_verbosity)
-    parser.add_option("-c", "--config", help="read config from CONFIG", 
+    parser.add_option("-c", "--config", help="read config from CONFIG", metavar="CONFIG",
                       action="callback", type="string", 
                       callback=lambda opt, lopt, file, p: read(file, strict=True))
     for option in options:
