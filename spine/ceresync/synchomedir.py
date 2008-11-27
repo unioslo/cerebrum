@@ -54,7 +54,8 @@ def make_homedir(hd, setup_script, status_constants, dryrun):
     path = get_path(hd)
     account = hd.get_account()
     username = account.get_name()
-    
+    log.info("Creating homedir for %s: %s", username, path)
+
     try:
         uid = account.get_posix_uid()
         gid = account.get_primary_group().get_posix_gid()
@@ -77,18 +78,25 @@ def make_homedir(hd, setup_script, status_constants, dryrun):
 def main():
     # Parse command-line arguments. -v, --verbose and -c, --config are handled by default.
     config.parse_args([
-        config.make_option("-H", "--hostname", action="store", type="string", 
+        config.make_option("-H", "--hostname", action="store", type="string", metavar="HOSTNAME",
                             help="pretend to be file server HOSTNAME"),
+        config.make_option("-n", "--no-report", action="store_true", default=False,
+                            help="don't report back to cerebrum"),
         config.make_option("-d", "--dryrun", action="store_true", default=False,
-                            help="don't create directories, and don't report back to cerebrum"),
+                            help="don't create directories, and don't report back to cerebrum (implies --no-report)"),
         config.make_option("-r", "--retry-failed", action="store_true", default=False,
                             help="retry homedirs with creation failed status"),
     ])
-    dryrun          = config.get('args', 'dryrun')
-    retry_failed    = config.get('args', 'retry_failed')
+    dryrun          = config.getboolean('args', 'dryrun')
+    no_report       = config.getboolean('args', 'no_report')
+    retry_failed    = config.getboolean('args', 'retry_failed')
     hostname        = config.get('homedir', 'hostname', default=os.uname()[1])
     hostname        = config.get('args', 'hostname', default=hostname) # Allow command-line override
     setup_script    = config.get('homedir', 'setup_script', default="/local/skel/bdb-setup")
+
+    # --dryrun implies --no-report
+    if dryrun:
+        no_report = True
 
     log.debug("hostname is: %s" , hostname)
     log.debug("setupscript is: %s" , setup_script)
@@ -111,14 +119,14 @@ def main():
     hds = tr.get_home_directory_searcher()
     hds.add_join("disk", ds, "")
     if retry_failed:
-        hds.set_status(status.CREATE_FAILED)
+        hds.set_status(status_constants.CREATE_FAILED)
     else:
-        hds.set_status(status.NOT_CREATED)
+        hds.set_status(status_constants.NOT_CREATED)
 
     for hd in hds.search():
         make_homedir(hd, setup_script, status_constants, dryrun)
 
-    if dryrun:
+    if dryrun or no_report:
        tr.rollback()
     else:
        tr.commit()
