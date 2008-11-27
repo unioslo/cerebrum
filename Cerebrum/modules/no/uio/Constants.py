@@ -148,7 +148,7 @@ class Constants(Constants.Constants):
         'Personer registrert i SAP med INNKJØPER-rolle')
 
     affiliation_manuell = _PersonAffiliationCode(
-        'MANUELL', 'Tilknyttet enheter/instutusjoner som USIT har avtale med')
+        'MANUELL', 'Tilknyttet enheter/institusjoner som USIT har avtale med')
     affiliation_manuell_alumni = _PersonAffStatusCode(
         affiliation_manuell, 'alumni', 'Uteksaminerte studenter')
     affiliation_manuell_sio = _PersonAffStatusCode(
