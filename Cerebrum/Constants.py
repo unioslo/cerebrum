@@ -645,14 +645,6 @@ class ConstantsBase(DatabaseAccessor):
         # The database parameter is deprecated.
         # SH 2007-07-18 TDB: warn whenever this parameter is set.
 
-        # All CerebrumCodes use a common private db connection, stored in
-        # _CerebrumCode.  This connection must never be closed or
-        # invalidated. However, if it *is* closed, we try to transparently
-        # re-open it.
-
-        if _CerebrumCode.sql.fget(None) == None:
-            _CerebrumCode.sql.fset(None, Factory.get("Database")())
-
         # initialize myself with the CerebrumCode db.connection
         # This makes Constants.commit() and such possible.
         
