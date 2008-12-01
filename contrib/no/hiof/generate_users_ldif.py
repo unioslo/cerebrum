@@ -33,7 +33,8 @@ class UserLDIF(object):
 
     def make_auths(self, auth_type, old=None):
         auth = old or {}
-        for row in self.account.list_account_authentication(auth_type):
+        for row in self.account.list_account_authentication(auth_type,
+                                                            filter_expired=False):
             auth[int(row['account_id'])] = (row['entity_name'],
                                             row['auth_data'])
         return auth
