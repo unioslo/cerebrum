@@ -58,7 +58,6 @@ Postfix on archive files are '-%Y-%m-%d.tar.gz'
 """
 
 
-
 import getopt
 import sys
 import os
@@ -81,8 +80,8 @@ def find_files(name_pattern, dirname, min_age=0, file_type='file'):
     matches = []
     # min_age, in seconds
     time_threshold = time.time() - min_age*3600*24
-    try:
-        for name in os.listdir(dirname):
+    for name in os.listdir(dirname):
+        try:
             file_path = os.path.join(dirname, name)
             if file_type == 'dir' and not os.path.isdir(file_path):
                 continue
@@ -90,13 +89,15 @@ def find_files(name_pattern, dirname, min_age=0, file_type='file'):
                 continue
             if re.match(name_pattern, name):
                 mtime = os.stat(file_path).st_mtime
-                # If the files last modification time is less than min_age it's a match
+                # If the files last modification time is less than
+                # min_age it's a match
                 if mtime < time_threshold:
                     matches.append(name)
-        logger.debug("Found %d files in dir %s with pattern %s older than %s days" % (
+        except OSError:
+            # TBD: error or exception?
+            logger.ecxeption("Error listing files in %s" % dirname)
+    logger.debug("Found %d files in %s with pattern %s older than %s days" % (
             len(matches), dirname, name_pattern, min_age))
-    except OSError, e:
-        logger.error("Error finding files with pattern %s: %s" % (name_pattern, e))
     return matches
 
 
@@ -105,15 +106,21 @@ def delete_files(name_pattern='', dirname='', file_type='file',
     """
     Delete all files matching name_pattern that are older than min_age
     """
+    # Sanity checks
+    assert os.path.isdir(dirname), "%s is not a directory" % dirname
+    assert os.path.isabs(dirname), "%s is not an absolute path" % dirname
     # Find files matching pattern and age threashold
     for name in find_files(name_pattern, dirname, min_age, file_type):
         if not dryrun:
-            file_path = os.path.join(dirname, name)
-            logger.info("Unlink file: %s" % file_path)
-            if file_type == 'file':
-                os.unlink(file_path)
-            else:
-                shutil.rmtree(file_path)
+            try:
+                file_path = os.path.join(dirname, name)
+                logger.info("Unlink file: %s" % file_path)
+                if file_type == 'file':
+                    os.unlink(file_path)
+                else:
+                    shutil.rmtree(file_path)
+            except:
+                logger.exception("Couldn't delete %s" % file_path)
 
 
 def archive_files(name_pattern='', dirname='', archive_name='',
