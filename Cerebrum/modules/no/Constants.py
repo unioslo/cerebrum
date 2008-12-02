@@ -41,13 +41,13 @@ class ConstantsCommon(Constants.Constants):
     # external id definitions (NO_NIN, norwegian national id number)
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
                                                  Constants.Constants.entity_person,
-                                                 'Norwegian birth number')
+                                                 'Norwegian national ID number')
     system_override = _AuthoritativeSystemCode('Override',
-                                               'Override information fetched from proper authoritative systems')
+                                               'Override information fetched from authoritative systems')
 
     spread_ou_publishable = _SpreadCode('publishable_ou',
                        Constants.Constants.entity_ou,
-                       'Spread marking OUs publishable in online directories')
+                       'OUs publishable in online directories')
 
 class ConstantsHigherEdu(Constants.Constants):
 
@@ -58,10 +58,10 @@ class ConstantsHigherEdu(Constants.Constants):
     # external id definitions (student and employee id)
     externalid_studentnr = _EntityExternalIdCode('NO_STUDNO',
                                                  Constants.Constants.entity_person,
-                                                 'Norwegian student number')
+                                                 'Student ID number')
     externalid_sap_ansattnr = _EntityExternalIdCode('NO_SAPNO',
                                                     Constants.Constants.entity_person,
-                                                    'SAP employee number')
+                                                    'Employee ID number')
     externalid_uname = _EntityExternalIdCode('UNAME',
                                              Constants.Constants.entity_person,
                                              'User name (external system)')
@@ -82,9 +82,9 @@ class ConstantsHigherEdu(Constants.Constants):
     ## Affiliations for employees
     affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt')
     affiliation_status_ansatt_vitenskapelig = _PersonAffStatusCode(
-        affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelige ansatte')
+        affiliation_ansatt, 'vitenskapelig', 'Ansatt, vitenskapelig')
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
-        affiliation_ansatt, 'tekadm', 'Tekniske/administrative ansatte')
+        affiliation_ansatt, 'tekadm', 'Ansatt, teknisk-administrativ')
 
     spread_ldap_group = _SpreadCode(
         'group@ldap', Constants.Constants.entity_group,
