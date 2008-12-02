@@ -190,7 +190,7 @@ def get_motd(transaction, id):
         motd = transaction.get_cereweb_motd(int(id))
         message, subject = motd.get_message(), motd.get_subject()
         ## just decode from spine cjson vil do the rest
-        message = spine_to_web(transaction, transaction, message)
+        message = spine_to_web(transaction, message)
         subject = spine_to_web(transaction, subject)
     except NotFoundError, e:
         pass
