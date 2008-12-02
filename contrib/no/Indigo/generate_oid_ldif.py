@@ -100,7 +100,7 @@ def process_txt_file(file):
         ou_id = int(row['ou_id'])
         if not p_id2a_id.has_key(id):
             # no user
-            logger.warning("No user found for '%s'" % id)
+            logger.info("No user found for '%s'" % id)
             continue
         a_id = p_id2a_id[id]
         if not (a_id2auth.has_key(a_id) and a_id2auth[a_id][0]):
