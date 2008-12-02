@@ -1215,7 +1215,8 @@ class BDBSync:
             group_by_name[n['entity_name']] = n['entity_id']
         
         for gm in self.group.search_members(member_filter_expired=False):
-            oldgroup.setdefault(gm['member_id'], set()).add(gm['group_id'])
+            if gm['member_type'] == self.const.entity_account:
+                oldgroup.setdefault(gm['member_id'], set()).add(gm['group_id'])
 
         for pu in self.posix_user.list_posix_users():
             oldprimary[pu['account_id']]=pu['gid']
