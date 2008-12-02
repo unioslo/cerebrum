@@ -4232,6 +4232,28 @@ class BofhdExtension(object):
     # group commands
     #
 
+    # FIXME - group_multi_add should later be renamed to group_add, when there's
+    # enough time. group_padd and group_gadd should be removed as soon as
+    # the other institutions doesn't depend on them any more.
+
+    # group multi_add
+    # jokim 2008-12-02 TBD: won't let it be used by jbofh, only wofh for now
+    hidden_commands['group_multi_add'] = Command(
+        ('group', 'multi_add'),
+        MemberType(help_ref='member_type', default='account'),
+        MemberName(help_ref='member_name_src', repeat=True),
+        GroupName(help_ref='group_name_dest', repeat=True),
+        perm_filter='can_alter_group')
+    def group_multi_add(self, operator, member_type, src_name, dest_group):
+        '''Adds a person, account or group to a given group.'''
+
+        if member_type not in ('group', 'account', 'person', ):
+            raise CerebrumError("Unknown member_type: %s" % (member_type))
+
+        return self._group_add(operator, src_name, dest_group,
+                               member_type=member_type)
+
+
     # group add
     all_commands['group_add'] = Command(
         ("group", "add"), AccountName(help_ref="account_name_src", repeat=True),
@@ -4241,11 +4263,6 @@ class BofhdExtension(object):
         return self._group_add(operator, src_name, dest_group,
                                member_type="account")
 
-    # FIXME - this is sort of stupid. we should make a
-    # more generic solution for adding members for groups,
-    # something like 'group add <src_type> <src_name> <dest_name>'
-    # where src_type=[account|group|person]' but that will have to
-    # wait as it will be a change of existing functionality
     # group padd - add person to group
     all_commands['group_padd'] = Command(
         ("group", "padd"), PersonId(help_ref="id:target:person", repeat=True),
@@ -4443,6 +4460,28 @@ class BofhdExtension(object):
             raise
         return "OK, deleted group '%s'" % groupname
 
+    # group multi_remove
+    # jokim 2008-12-02 TBD: removed from jbofh, but not wofh
+    hidden_commands['group_multi_remove'] = Command(
+        ("group", "multi_remove"), 
+        MemberType(help_ref='member_type', default='account'),
+        MemberName(help_ref="member_name_src", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
+        perm_filter='can_alter_group')
+    def group_multi_remove(self, operator, member_type, src_name, dest_group):
+        '''Removes a person, account or group from a given group.'''
+
+        if member_type not in ('group', 'account', 'person', ):
+            return 'Unknown member_type "%s"' % (member_type)
+
+        return self._group_remove(operator, src_name, dest_group,
+                                  member_type=member_type)
+
+    # FIXME - group_remove and group_gremove is now handled by 
+    # group_multi_remove(membertype='group'...), and should be removed as soon as the 
+    # other institutions has updated their dependency. group_multi_remove should then
+    # be renamed to group_remove.
+
     # group remove
     all_commands['group_remove'] = Command(
         ("group", "remove"), AccountName(help_ref="account_name_member", repeat=True),
@@ -4462,10 +4501,29 @@ class BofhdExtension(object):
                                   member_type="group")
 
     def _group_remove(self, operator, src_name, dest_group, member_type=None):
+        # jokim 2008-12-02 TBD: Is this bad? Added support for removing
+        # members by their entity_id, as 'brukerinfo' (wofh) only knows
+        # the entity_id.
+        if isinstance(id, str) and not id.isdigit():
+            idtype = 'name';
+        else:
+            idtype = 'id';
+
         if member_type == "group":
-            src_entity = self._get_group(src_name)
+            src_entity = self._get_group(src_name, idtype=idtype)
         elif member_type == "account":
-            src_entity = self._get_account(src_name)
+            src_entity = self._get_account(src_name, idtype=idtype)
+        elif member_type == "person":
+            if(idtype == 'id'):
+                lookup = 'id';
+            else:
+                lookup = 'account'
+
+            try:
+                src_entity = self.util.get_target(src_name, 
+                          default_lookup=lookup, restrict_to=['Person'])
+            except Errors.TooManyRowsError:
+                raise CerebrumError("Unexpectedly found more than one person")
         group_d = self._get_group(dest_group)
         return self._group_remove_entity(operator, src_entity, group_d)
 

@@ -125,6 +125,14 @@ class GroupVisibility(Parameter):
     _type = 'groupVisibility'
     _help_ref = 'group_visibility'
 
+class MemberName(Parameter):
+    _type = 'memberName'
+    _help_ref = 'member_name_src'
+
+class MemberType(Parameter):
+    _type = 'memberType'
+    _help_ref = 'member_type'
+
 class Id(Parameter):
     _tab_func = 'tab_foobar'
     _type = 'id'

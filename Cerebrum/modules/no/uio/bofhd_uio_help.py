@@ -195,6 +195,7 @@ command_help = {
         "List the changes made to entity.",
     },
     'group': {
+    'group_multi_add': 'Let an account, person or group join a group',
     'group_add': 'Let an account join a group',
     'group_create': 'Create a new Cerebrum group',
     'group_def': 'Set default filegroup for an account',
@@ -209,6 +210,7 @@ command_help = {
     'group_padd': 'Let a person join a group',
     'group_personal': 'Create a new personal filegroup for an account',
     'group_promote_posix': 'Make an existing group into a POSIX-group',
+    'group_multi_remove': 'Remove member(s) from a given group',
     'group_remove': 'Remove member accounts from a given group',
     'group_request': 'Send in request for a new Cerebrum group',
     'group_search': 'Search for a group using various criteria',
@@ -494,6 +496,11 @@ abbreviated.  (Some of the types may not make sense for this command.)
         ['list_profile', 'Enter mailing list profile'],
     'mailing_list_description':
         ['list_description', 'Enter mailing list description'],
+    'member_type':
+        ['member_type', 'Enter type of member',
+         'account, person or group'],
+    'member_name_src':
+        ['member_name_src', 'Enter name of source member'],
     'move_type':
         ['move_type', 'Enter move type',
          """Legal move types:
