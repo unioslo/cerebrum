@@ -61,7 +61,7 @@ class Constants(Constants.Constants):
     account_guest = _AccountCode('gjestebruker','Gjestekonto')
 
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
-                                                'Ansatt ved UiO (i følge LT)')
+                                                'Registrert som aktiv ansatt ved UiO')
     affiliation_status_ansatt_vit = _PersonAffStatusCode(
         affiliation_ansatt, 'vitenskapelig', 'Vitenskapelig ansatt')
     affiliation_status_ansatt_bil = _PersonAffStatusCode(
