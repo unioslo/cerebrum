@@ -4504,7 +4504,7 @@ class BofhdExtension(object):
         # jokim 2008-12-02 TBD: Is this bad? Added support for removing
         # members by their entity_id, as 'brukerinfo' (wofh) only knows
         # the entity_id.
-        if isinstance(id, str) and not id.isdigit():
+        if isinstance(src_name, str) and not src_name.isdigit():
             idtype = 'name';
         else:
             idtype = 'id';
@@ -4514,14 +4514,12 @@ class BofhdExtension(object):
         elif member_type == "account":
             src_entity = self._get_account(src_name, idtype=idtype)
         elif member_type == "person":
-            if(idtype == 'id'):
-                lookup = 'id';
-            else:
-                lookup = 'account'
+            if(idtype == 'name'):
+                idtype = 'account'
 
             try:
                 src_entity = self.util.get_target(src_name, 
-                          default_lookup=lookup, restrict_to=['Person'])
+                          default_lookup=idtype, restrict_to=['Person'])
             except Errors.TooManyRowsError:
                 raise CerebrumError("Unexpectedly found more than one person")
         group_d = self._get_group(dest_group)
