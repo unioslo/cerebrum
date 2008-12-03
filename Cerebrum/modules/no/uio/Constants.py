@@ -48,7 +48,7 @@ from Cerebrum.modules.bofhd.utils import \
 
 class Constants(Constants.Constants):
     system_lt = _AuthoritativeSystemCode('LT', 'LT')
-    system_ureg = _AuthoritativeSystemCode('Ureg', 'Imported from ureg')
+    system_ureg = _AuthoritativeSystemCode('Ureg', 'Migrerte data, utdatert')
     system_fs_derived = _AuthoritativeSystemCode('FS-auto',
                                                  'Utledet av FS data')
     system_folk_uio_no = _AuthoritativeSystemCode('folk.uio.no',
@@ -67,30 +67,30 @@ class Constants(Constants.Constants):
     affiliation_status_ansatt_bil = _PersonAffStatusCode(
         affiliation_ansatt, 'bilag', 'Bilagslønnet')
     affiliation_status_ansatt_ltreg = _PersonAffStatusCode(
-        affiliation_ansatt, 'ltreg', 'Registert som gjest (POLS-ANSATT) i LT i påvente av POLS')    
+        affiliation_ansatt, 'ltreg', 'Registert som gjest, utdatert')    
     affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
         affiliation_ansatt, 'tekadm', 'Teknisk/administrativt ansatt')
     affiliation_status_ansatt_perm = _PersonAffStatusCode(
-        affiliation_ansatt, 'permisjon', 'Ansatt, men med aktiv permisjon')
+        affiliation_ansatt, 'permisjon', 'Ansatt, for tiden i permisjon')
 
     affiliation_student = _PersonAffiliationCode(
-        'STUDENT', 'Student ved UiO (i følge FS)')
+        'STUDENT', 'Student ved UiO, registrert i FS')
     affiliation_status_student_soker = _PersonAffStatusCode(
-        affiliation_student, 'soker', 'Registrert søker i FS')
+        affiliation_student, 'soker', 'Registrert med søknad i FS')
     affiliation_status_student_tilbud = _PersonAffStatusCode(
-        affiliation_student, 'tilbud', 'Har fått tilbud om opptak')
+        affiliation_student, 'tilbud', 'Registrert tilbud om opptak i FS')
     affiliation_status_student_opptak = _PersonAffStatusCode(
-        affiliation_student, 'opptak', 'Har studierett ved studieprogram')
+        affiliation_student, 'opptak', 'Registrert med gyldig studierett i FS ')
     affiliation_status_student_aktiv = _PersonAffStatusCode(
-        affiliation_student, 'aktiv', 'Aktiv student')
+        affiliation_student, 'aktiv', 'Registrert som aktiv student i FS')
     affiliation_status_student_drgrad = _PersonAffStatusCode(
-        affiliation_student, 'drgrad', 'Registrert student på doktorgrad')
+        affiliation_student, 'drgrad', 'Registrert som aktiv doktorgradsstudent i FS')
     affiliation_status_student_privatist = _PersonAffStatusCode(
         affiliation_student, 'privatist', 'Registrert som privatist i FS')
     affiliation_status_student_evu = _PersonAffStatusCode(
         affiliation_student, 'evu', 'Registrert som EVU-student i FS')
     affiliation_status_student_perm = _PersonAffStatusCode(
-        affiliation_student, 'permisjon', 'Har gyldig permisjonstatus i FS')
+        affiliation_student, 'permisjon', 'Registrert med gyldig permisjon i FS')
     affiliation_status_student_alumni = _PersonAffStatusCode(
         affiliation_student, 'alumni', 'Har fullført studieprogram i FS')
 
@@ -100,25 +100,25 @@ class Constants(Constants.Constants):
         affiliation_tilknyttet, 'fagperson', 'Registrert som fagperson i FS')
     affiliation_tilknyttet_emeritus = _PersonAffStatusCode(
         affiliation_tilknyttet, 'emeritus',
-        'Registrert i LT med gjestetypekode EMERITUS')
+        'Registrert med EMERITUS rolle i SAPUiO')
     affiliation_tilknyttet_bilag = _PersonAffStatusCode(
         affiliation_tilknyttet, 'bilag',
-        'Registrert i LT med gjestetypekode BILAGSLØN')
+        'Registrert med BILAGSLØN rolle i SAPUiO')
     affiliation_tilknyttet_ekst_forsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_forsker',
-        'Registrert i LT med gjestetypekode EF-FORSKER og SENIORFORS')
+        'Registrert med EF-FORSKER eller SENIORFORS rolle i SAPUiO')
     affiliation_tilknyttet_gjesteforsker = _PersonAffStatusCode(
         affiliation_tilknyttet, 'gjesteforsker',
-        'Registrert i LT med gjestetypekode GJ-FORSKER')
+        'Registrert med GJ-FORSKER rolle i SAPUiO')
     affiliation_tilknyttet_assosiert_person = _PersonAffStatusCode(
         affiliation_tilknyttet, 'assosiert_person',
-        'Registrert i LT med gjestetypekode ASSOSIERT')
+        'Registrert med ASSOSIERT rolle i SAPUiO')
     affiliation_tilknyttet_frida_reg = _PersonAffStatusCode(
         affiliation_tilknyttet, 'frida_reg',
-        'Registrert i LT med gjestetypekode REGANSV og REG-ANSV')
+        'Registrert med REGANSV og REG-ANSV rolle i SAPUiO')
     affiliation_tilknyttet_ekst_stip = _PersonAffStatusCode(
         affiliation_tilknyttet, 'ekst_stip',
-        'Personer registrert i LT med gjestetypekode=EF-STIP')
+        'Registrert med EF-STIP rolle i SAPUiO')
     affiliation_tilknyttet_sivilarbeider = _PersonAffStatusCode(
         affiliation_tilknyttet, 'sivilarbeider',
         'Personer registrert i LT med gjestetypekode=SIVILARB')
@@ -145,7 +145,7 @@ class Constants(Constants.Constants):
         'Personer registrert i LT med gjestetypekode=ST-ORG FRI eller ST-ORG UTV')
     affiliation_tilknyttet_innkjoper = _PersonAffStatusCode(
         affiliation_tilknyttet, 'innkjoper',
-        'Personer registrert i SAP med INNKJØPER-rolle')
+        'Registrert med INNKJØPER rolle i SAPUiO')
 
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL', 'Tilknyttet enheter/institusjoner som USIT har avtale med')
@@ -291,17 +291,17 @@ class Constants(Constants.Constants):
     spread_uio_ldap_ou = _SpreadCode('LDAP_OU', Constants.Constants.entity_ou,
                                      'OU included in LDAP directory')
     spread_uio_ldap_account = _SpreadCode('LDAP_account', Constants.Constants.entity_account,
-                                     'Accounts in the LDAP directory')
+                                     'Account included the LDAP directory')
     spread_uio_org_ou = _SpreadCode('ORG_OU', Constants.Constants.entity_ou,
-                                    'OU defined as part of UiO org.structure proper')    
-    spread_uio_ad_account = _SpreadCode('AD_account', Constants.Constants.entity_account,'account included in Active Directory')
-    spread_uio_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group,'group included in Active Directory')
+                                    'OU defined as part of UiOs org.structure proper')    
+    spread_uio_ad_account = _SpreadCode('AD_account', Constants.Constants.entity_account, 'Account included in Active Directory at UiO')
+    spread_uio_ad_group = _SpreadCode('AD_group', Constants.Constants.entity_group, 'Group included in Active Directory at UiO')
     spread_uio_ua = _SpreadCode('UA@uio', Constants.Constants.entity_person,
                                 'Person exported to UA')
     spread_uio_imap = _SpreadCode('IMAP@uio', Constants.Constants.entity_account,
-                                  'IMAP account')
+                                  'E-mail user at UiO')
     spread_uio_notes_account = _SpreadCode('Notes_user', Constants.Constants.entity_account,
-                                           'Account exported to Notes')
+                                           'Notes user at UiO')
     spread_fronter_kladdebok = _SpreadCode('CF@uio_kladdebok',
                                            Constants.Constants.entity_group,
                                            '''Group representing a course \
