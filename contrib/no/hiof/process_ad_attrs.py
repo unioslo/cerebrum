@@ -127,7 +127,7 @@ def main():
 
 
 def usage(exitcode=0):
-    print """Usage: process_bofhd_requests.py
+    print """Usage: process_ad_attrs.py
     --dryrun: dryrun mode
     --delete: find bofhd requests and delete ad attrs
     """
