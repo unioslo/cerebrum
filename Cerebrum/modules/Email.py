@@ -251,7 +251,7 @@ class EmailConstants(Constants.Constants):
     
     email_target_filter_greylist = _EmailTargetFilterCode(
         'greylist',
-        "Reject messages classified as spam, delay unknown servers")
+        "Delay messages from unknown servers")
 
 Entity_class = Utils.Factory.get("Entity")
 
