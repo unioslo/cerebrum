@@ -220,7 +220,7 @@ class PasswordNotifier(object):
         n = self.get_num_notifications(account)
         if 0 < n <= len(self.config.reminder_delay):
             delay = self.config.reminder_delay[n-1]
-            if self.get_notification_time(account) < self.today - delay:
+            if self.get_notification_time(account) <= self.today - delay:
                 return True
         return False
     # end remind_ok
@@ -282,7 +282,7 @@ class PasswordNotifier(object):
                     num_mailed += 1
                 else:
                     self.logger.error("User %s not modified", account.account_name)
-            elif self.get_deadline(account) < self.today:
+            elif self.get_deadline(account) <= self.today:
                 # Deadline given in notification is passed, splat.
                 if not self.dryrun:
                     self.splat_user(account)
