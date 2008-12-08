@@ -3889,7 +3889,10 @@ class BofhdExtension(object):
         except:
             hide = True
         ev = Email.EmailVacation(self.db)
-        ev.find_by_target_entity(acc.entity_id)
+        try:
+            ev.find_by_target_entity(acc.entity_id)
+        except Errors.NotFoundError:
+            return "No tripnotes for %s" % uname
         now = self._today()
         act_date = None
         for r in ev.get_vacation():
