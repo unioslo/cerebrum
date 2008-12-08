@@ -224,6 +224,7 @@ AD_STUNNEL_CONF = '/local/sbin/stunnel.conf'
 AD_DEFAULT_SYNC = ''
 AD_ACCOUNT_SPREADS = None
 AD_TRAIT_TYPES = None
+AD_DOMAIN_ADMIN_USER = 'cerebrum'
 
 # Novell eDirectory settings.
 NW_LDAPHOST = 'www.nldap.com'

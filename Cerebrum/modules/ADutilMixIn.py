@@ -23,8 +23,7 @@ import cereconf
 import xmlrpclib
 import re
 
-from Cerebrum import Errors
-from Cerebrum.Utils import Factory,read_password
+from Cerebrum.Utils import Factory, read_password
 
 
 class ADutil(object):
@@ -35,9 +34,11 @@ class ADutil(object):
 
         self.db = db
         self.co = co
+        ad_domain_admin = getattr(cereconf, "AD_DOMAIN_ADMIN_USER")
         if url is None:
-            password = read_password("cerebrum", host)
-            url = "https://%s:%s@%s:%i" % ('cerebrum', password, host, port)
+            password = read_password(ad_domain_admin, host)
+            url = "https://%s:%s@%s:%i" % (ad_domain_admin, password,
+                                           host, port)
         else:
             m = re.match(r'([^:]+)://([^:]+):(\d+)', url)
             if not m:
@@ -45,8 +46,8 @@ class ADutil(object):
             protocol = m.group(1)
             host = m.group(2)
             port = m.group(3)
-            password = read_password("cerebrum", host)
-            url = "%s://%s:%s@%s:%s" % (protocol, 'cerebrum', password, host, port)
+            password = read_password(ad_domain_admin, host)
+            url = "%s://%s:%s@%s:%s" % (protocol, ad_domain_admin, password, host, port)
         self.server = xmlrpclib.Server(url)
         self.logger = logger
         self.ad_ldap = ad_ldap
@@ -80,7 +81,7 @@ class ADutil(object):
             return ret
 
 
-    def get_default_ou(self, change = None):
+    def get_default_ou(self, change=None):
         #Returns default OU in AD.
         return "CN=Users,%s" % self.ad_ldap
 
@@ -148,10 +149,12 @@ class ADutil(object):
                         (type, delete, dry_run))     
 
         #Fetch cerebrum data.
+        self.logger.debug("Fetching cerebrum data...")
         cerebrumdump = self.fetch_cerebrum_data(spread)
         self.logger.info("Fetched %i cerebrum %ss" % (len(cerebrumdump), type))
 
         #Fetch AD-data.     
+        self.logger.debug("Fetching AD data...")
         addump = self.fetch_ad_data()       
         self.logger.info("Fetched %i ad-%ss" % (len(addump), type))
 
@@ -398,6 +401,8 @@ class ADuserUtil(ADutil):
                 if not ret[0]:
                     self.logger.warning("setObject on %s failed: %r",uname, ret)
 
+
+    # FIXME: Rewrite this mess. This is just ... ugly :(
     def compare(self, delete_users,cerebrumusrs,adusrs):
         #Keys in dict from cerebrum must match fields to be populated in AD.
 
