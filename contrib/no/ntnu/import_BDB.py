@@ -988,8 +988,11 @@ class BDBSync:
         if _is_primary(account_info) and np_type is None:
             person.clear()
             person.find(ac.owner_id)
-            person.populate_trait(const.trait_primary_account, target_id=ac.entity_id)
-            person.write_db()
+            t = person.get_trait(const.trait_primary_account)
+            if not t or t['target_id'] != ac.entity_id:
+                person.populate_trait(const.trait_primary_account,
+                                      target_id=ac.entity_id)
+                person.write_db()
 
 
     def _update_password(self, _account, ac):
