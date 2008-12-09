@@ -26,6 +26,22 @@ class AlreadyRunningWarning(AlreadyRunning):
     pass
 
 def create_pidfile(pid_file):
+
+    # I don't like setting sighandlers in such a hidden location, but I
+    # didn't know of any better place to put it. The sighandler is required
+    # because atexit doesn't work when the program is killed by a signal.
+    oldhandler = signal.getsignal(signal.SIGTERM)
+    def termhandler(signum, frame):
+        print >>sys.stderr, "Killed by signal %d" % signum
+        remove_pidfile(pid_file)
+        if type(oldhandler) == types.FunctionType:
+            oldhandler()
+        elif oldhandler != signal.SIG_IGN:
+            # Is this correct? sys.exit(1) here caused random segfaults,
+            # but this might skip som cleanup stuff.
+            os._exit(1)
+    signal.signal(signal.SIGTERM, termhandler)
+
     pid_dir = os.path.dirname(pid_file)
     if not os.path.isdir(pid_dir):
         try:
@@ -58,8 +74,11 @@ def create_pidfile(pid_file):
     pidfile.write(str(os.getpid()) + "\n")
     pidfile.close()
     log.info("Created pid file " + pid_file)
+    return pid_file
 
 def remove_pidfile(pid_file):
+    if not os.path.exists(pid_file):
+        return # File doesn't exist, nothing to do
     try:
         os.remove(pid_file)
     except OSError, e:
@@ -73,28 +92,9 @@ class Sync:
         self.incr=incr
         self.auth_type= auth_type or config.get('sync','auth_type')
 
-        try:
-            pid_file = config.get('sync', 'pid_file')
-        except:
-            pid_file = "/var/run/cerebrum/ceresync.pid"
-
-        # I don't like setting sighandlers in such a hidden location, but I
-        # didn't know of any better place to put it. The sighandler is required
-        # because atexit doesn't work when the program is killed by a signal.
-        oldhandler = signal.getsignal(signal.SIGTERM)
-        def termhandler(signum, frame):
-            print >>sys.stderr, "Killed by signal %d" % signum
-            remove_pidfile(pid_file)
-            if type(oldhandler) == types.FunctionType:
-                oldhandler()
-            elif oldhandler != signal.SIG_IGN:
-                # Is this correct? sys.exit(1) here caused random segfaults,
-                # but this might skip som cleanup stuff.
-                os._exit(1)
-        signal.signal(signal.SIGTERM, termhandler)
-
-        # Create a pid file
-        create_pidfile(pid_file)
+        # Create a pid file, and store the file name for use in the destructor
+        self.pid_file = None # Make sure self.pid_file exists, in case create_pidfile() fails.
+        self.pid_file = create_pidfile(config.get('sync', 'pid_file', "/var/run/cerebrum/ceresync.pid"))
 
         connection = SpineClient.SpineClient(config=config,
                                              logger=config.logger).connect()
@@ -124,6 +124,8 @@ class Sync:
         except: pass
         try: self.session.logout()
         except: pass
+        if self.pid_file:
+            remove_pidfile(self.pid_file)
 
     def set_authtype(self, auth_type):
         self.auth_type = auth_type
