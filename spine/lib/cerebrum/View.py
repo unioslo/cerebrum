@@ -357,6 +357,7 @@ class PersonView(Builder):
 
         Attribute('primary_account', int),
         Attribute('primary_account_name', str),
+        Attribute('primary_account_passwd', str),
         
         Attribute('birth_date', Date),
         Attribute('nin', str),
@@ -455,7 +456,8 @@ primary_account = """
 SELECT
 primary_account.person_id AS person_id,
 primary_account.account_id AS account_id,
-account_name.entity_name AS account_name
+account_name.entity_name AS account_name,
+account_authentication.auth_data AS passwd
 FROM
  (SELECT account_type.person_id AS person_id,
          account_type.account_id AS account_id,
@@ -469,6 +471,9 @@ FROM
 LEFT JOIN entity_name account_name
 ON (account_name.entity_id = primary_account.account_id
   AND account_name.value_domain = :account_namespace)
+LEFT JOIN account_authentication
+ON (account_authentication.method = :authentication_method
+  AND account_authentication.account_id = primary_account.account_id)
 """
 
 primary_affiliation = """
@@ -623,14 +628,15 @@ class View(DatabaseTransactionClass):
             aff = str(co.PersonAffiliation(affiliation['affiliation']))
 
             if affiliations_has(pid):
-                affiliations[pid].append(aid)
+                affiliations[pid].append(aff)
             else:
                 affiliations[pid] = [aff]
 
         primary_accounts={}
-        for a in db.query(primary_account,
-                          {"account_namespace": co.account_namespace}):
-            primary_accounts[a['person_id']]=(a['account_id'], a['account_name'])
+        for a in db.query(primary_account, self.query_data):
+            primary_accounts[a['person_id']] = (a['account_id'],
+                                                a['account_name'],
+                                                a['passwd'])
             
         for row in rows:
             row = row.dict()
@@ -640,7 +646,9 @@ class View(DatabaseTransactionClass):
             if affiliations_has(pid):
                 row['affiliations'] = affiliations[pid]
             if pid in primary_accounts:
-                row['primary_account'], row['primary_account_name'] = primary_accounts[pid]
+                ( row['primary_account'],
+                  row['primary_account_name'],
+                  row['primary_account_passwd'] ) = primary_accounts[pid]
 
             persons.append(row)
         return persons
