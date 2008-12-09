@@ -49,7 +49,7 @@ def get_path(hd):
     else:
         return home
 
-def make_disk_searcher(sync, hostname):
+def make_disk_searcher(sync, hostname, status):
     tr = sync.tr
     cmd = sync.cmd 
 
@@ -59,26 +59,20 @@ def make_disk_searcher(sync, hostname):
     hds = tr.get_home_directory_searcher()
     hds.add_join("disk", ds, "")
 
+    if status:
+        hds.set_status(status)
+
     return hds
 
-def get_status_constants(tr):
+def get_status_constants(s):
     # Create a little struct for holding status value constants
     class status_values(object): pass
     status_constants = status_values()
 
-    status_constants.CREATE_FAILED = tr.get_home_status("create_failed")
-    status_constants.ON_DISK = tr.get_home_status("on_disk")
-    status_constants.NOT_CREATED = tr.get_home_status("not_created")
+    status_constants.CREATE_FAILED = s.tr.get_home_status("create_failed")
+    status_constants.ON_DISK = s.tr.get_home_status("on_disk")
+    status_constants.NOT_CREATED = s.tr.get_home_status("not_created")
     return status_constants
-
-def status_to_string(status, status_constants):
-    if status == status_constants.CREATE_FAILED:
-        return "CREATE_FAILED"
-    elif status == status_constants.ON_DISK:
-        return "ON_DISK"
-    elif status == status_constants.NOT_CREATED:
-        return "NOT_CREATED"
-    return status
 
 def make_homedir(hd, setup_script, status_constants, dryrun):
     #path = hd.get_path() XXX
@@ -106,31 +100,29 @@ def make_homedir(hd, setup_script, status_constants, dryrun):
     else:
         hd.set_status(status_constants.ON_DISK)
 
-def make_homedirs(tr, hds, status_constants, retry_failed, no_report):
-    status_constants = get_status_constants(tr)
+def make_homedirs(s, hostname, setup_script, retry_failed, no_report, dryrun):
+    status_constants = get_status_constants(s)
     if retry_failed:
-        hds.set_status(status_constants.CREATE_FAILED)
+        hds = make_disk_searcher(s, hostname, status_constants.CREATE_FAILED)
     else:
-        hds.set_status(status_constants.NOT_CREATED)
+        hds = make_disk_searcher(s, hostname, status_constants.NOT_CREATED)
 
     for hd in hds.search():
         make_homedir(hd, setup_script, status_constants, dryrun)
 
-    if no_report:
-        tr.rollback()
+    if no_report or dryrun:
+        s.tr.rollback()
     else:
-        tr.commit()
+        s.tr.commit()
 
-def show_homedirs(tr, hds):
-    status_constants = get_status_constants(tr)
+def show_homedirs(s, hostname):
+    hds = make_disk_searcher(s, hostname, None)
     for hd in hds.search():
-        print "%-9s %s:\t%s" % (hd.get_account().get_name(), 
-                              status_to_string(hd.get_status(), status_constants),
-                              get_path(hd))
+        print "%-9s %s:\t%s" % (hd.get_account().get_name(), hd.get_status().get_name(), get_path(hd))
 
-def lint_homedirs(tr, hds):
-    status_constants = get_status_constants(tr)
-    hds.set_status(status_constants.ON_DISK)
+def lint_homedirs(s, hostname):
+    status_constants = get_status_constants(s)
+    hds = make_disk_searcher(s, hostname, status_constants.ON_DISK)
     for hd in hds.search():
         path = get_path(hd)
         if not os.path.exists(path):
@@ -169,16 +161,13 @@ def main():
     log.debug("setupscript is: %s" , setup_script)
 
     s = sync.Sync()
-    tr = s.tr
-
-    hds = make_disk_searcher(s, hostname)
 
     if lint:
-        lint_homedirs(tr, hds)
+        lint_homedirs(s, hostname)
     elif show_db:
-        show_homedirs(tr, hds)
+        show_homedirs(s, hostname)
     else:
-        make_homedirs(tr, hds, retry_failed, no_report)
+        make_homedirs(s, hostname, setup_script, retry_failed, no_report, dryrun)
 
 if __name__ == "__main__":
     main()
