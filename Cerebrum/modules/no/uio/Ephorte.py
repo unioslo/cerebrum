@@ -70,6 +70,16 @@ class EphorteConstants(ConstantsBase):
     ephorte_perm_b = _EphortePermTypeCode('B', 'Begrenset etter sikkerhetsloven')
     ephorte_perm_f = _EphortePermTypeCode('F', 'Fortrolig etter beskyttelsesinstruksen')
     ephorte_perm_k = _EphortePermTypeCode('K', 'Kontrakter og avtaler')                
+    # New permission codes, to be used from 01.01.2009
+    ephorte_perm_of = _EphortePermTypeCode('OF', 'Unntatt etter offentlighetsloven')
+    ephorte_perm_pv = _EphortePermTypeCode('PV', 'Personalsaker')
+    ephorte_perm_po = _EphortePermTypeCode('PO', 'Personers økonomiske forhold')
+    ephorte_perm_pd = _EphortePermTypeCode('PD', 'Disiplinærsaker personal')
+    ephorte_perm_pr = _EphortePermTypeCode('PR', 'Rettssaker')
+    ephorte_perm_sv = _EphortePermTypeCode('SV', 'Studentsaker')
+    ephorte_perm_sd = _EphortePermTypeCode('SD', 'Disiplinærsaker studenter')
+    ephorte_perm_ar = _EphortePermTypeCode('AR', 'Under arbeid')    
+    ephorte_perm_pa = _EphortePermTypeCode('PA', 'Personalsaker AKAN')
     
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
