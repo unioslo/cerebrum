@@ -20,7 +20,7 @@ role=Learner for studenter og Instructor for gruppe-lærer/foreleser.
 
 import getopt
 import pickle
-import sys
+import os, sys
 import cerebrum_path
 import locale
 from Cerebrum.Utils import Factory, SimilarSizeWriter
@@ -297,7 +297,9 @@ def dump_pickle_file(fname, urn_dict1, urn_dict2):
                 if owner_id:
                     owner_id2urn.setdefault(owner_id, []).append("%s@%s" %
                                                                  (role, urn))
-    pickle.dump(owner_id2urn, open(fname, "w"))
+    tmpfname = fname + ".tmp"
+    pickle.dump(owner_id2urn, open(tmpfname, "w"))
+    os.rename(tmpfname, fname)
 
 def main():
     try:

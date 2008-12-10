@@ -38,7 +38,7 @@ This script take the following arguments:
 --ldiffile fname : LDIF file with the group tree
 """
 
-import sys
+import os, sys
 import getopt
 import pickle
 import cerebrum_path
@@ -85,7 +85,9 @@ def main():
     destfile = ldif_outfile('GROUP', ldiffile)
     destfile.write(container_entry_string('GROUP'))
     dump_ldif(destfile)
-    pickle.dump(mbr2grp, open(picklefile, "w")) 
+    tmpfname = picklefile + ".tmp"
+    pickle.dump(mbr2grp, open(tmpfname, "w"))
+    os.rename(tmpfname, picklefile)
     end_ldif_outfile('GROUP', destfile)
 
 def usage(exitcode=0):
