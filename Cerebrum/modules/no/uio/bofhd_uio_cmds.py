@@ -4848,10 +4848,10 @@ class BofhdExtension(object):
     all_commands['group_set_description'] = Command(
         ("group", "set_description"),
         GroupName(), SimpleString(help_ref="string_description"),
-        perm_filter='can_delete_group')
+        perm_filter='can_alter_group')
     def group_set_description(self, operator, group, description):
         grp = self._get_group(group)
-        self.ba.can_delete_group(operator.get_entity_id(), grp)
+        self.ba.can_alter_group(operator.get_entity_id(), grp)
         grp.description = description
         grp.write_db()
         return "OK, description for group '%s' updated" % group
