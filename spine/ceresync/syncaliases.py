@@ -4,7 +4,7 @@
 from ceresync import sync
 import ceresync.backend.file as filebackend
 
-import config
+from ceresync import config
 log = config.logger
 
 def main():
