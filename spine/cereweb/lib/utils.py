@@ -471,7 +471,7 @@ def shownumber(n):
 
 def html_quote(s):
     """ maybe add more characters that need quoting later... """
-    return cgi.escape(str(s))
+    return cgi.escape(str(s)).replace('"', '&quot;')
 
 def url_quote(s):
     return urllib.quote(str(s))

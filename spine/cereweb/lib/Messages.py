@@ -64,7 +64,7 @@ class Message(object):
 
     def __str__(self):
         error = self.__msg.get('is_error')
-        error = error and ' class="error"' or ''
+        css_class = error and ' class="error"' or ''
         traceback = self.__msg.get('tracebk')
         if traceback:
             traceback = """
@@ -75,17 +75,17 @@ class Message(object):
             traceback = ''
 
         data = {
-            'error': error,
+            'css_class': css_class,
             'traceback': traceback,
         }
         data.update(self.__msg)
 
         # Quote html (traceback handled above)
-        for k in ("error", "title", "message"):
+        for k in ("title", "message"):
             data[k] = utils.html_quote(data[k])
 
         return """
-        <div%(error)s>
+        <div%(css_class)s>
             <h3>%(title)s</h3>
             <div class="short">
                 %(message)s
