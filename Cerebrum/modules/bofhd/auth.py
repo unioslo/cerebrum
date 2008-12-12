@@ -1021,7 +1021,7 @@ class BofhdAuth(DatabaseAccessor):
         req_operator = None
         br = BofhdRequests(self._db, self.const)
         for r in br.get_requests(request_id=req_id):
-            if int(r['requestee_id']) == operator:
+            if r['requestee_id'] and int(r['requestee_id']) == operator:
                 return True
         raise PermissionDenied("You are not requester")
 
