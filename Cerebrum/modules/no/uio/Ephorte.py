@@ -324,9 +324,31 @@ class EphortePermission(DatabaseAccessor):
             'adm_enhet': sko or '',
             'perm_type': str(tilgang)})
 
-    def list_permission(self, person_id=None):
+    # Some permissions can't be removed, but must be deactivated or
+    # expired by setting an end_date
+    def expire_permission(self, person_id, tilgang, sko):
+        binds = {
+            'person_id': person_id,
+            'perm_type': tilgang,
+            'adm_enhet': sko
+            }
+        self.execute("""
+        UPDATE[:table schema=cerebrum name=ephorte_permission]
+        SET end_date=[:now]
+        WHERE %s""" % " AND ".join(
+            ["%s=:%s" % (x, x) for x in binds.keys() if binds[x] is not None] +
+            ["%s IS NULL" % x for x in binds.keys() if binds[x] is None]),
+                     binds)
+        # TBD: log change?
+
+    def list_permission(self, person_id=None, filter_expired=False):
+        where = []
         if person_id:
-            where = "WHERE person_id=:person_id"
+            where.append("person_id=:person_id")
+        if filter_expired:
+            where.append("(end_date IS NULL OR end_date > [:now])")            
+        if where:
+            where = "WHERE %s" % " AND ".join(where)
         else:
             where = ""
         return self.query("""

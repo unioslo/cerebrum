@@ -321,6 +321,8 @@ class BofhdExtension(object):
             raise CerebrumError("Unexpectedly found more than one person")
         if not person.has_spread(self.const.spread_ephorte_person):
             raise CerebrumError("Person has no ephorte roles")
+        if tilgang in cereconf.EPHORTE_EXPIRED_PERMISSIONS:
+            raise CerebrumError("'Tilgang' %s is expired" % tilgang)
         ou = self._get_ou(stedkode=sko)
         self.ephorte_perm.add_permission(person.entity_id,
                                          self._get_tilgang(tilgang),
@@ -343,8 +345,8 @@ class BofhdExtension(object):
 
     all_commands['ephorte_list_perm'] = Command(("ephorte", "list_perm"), PersonId(), 
         perm_filter='can_list_ephorte_perm', fs=FormatSuggestion(
-        "%-10s %-35s %-15s", ('tilgang', 'adm_enhet', 'requestee'),
-        hdr="%-10s %-35s %-15s" % ("Tilgang", "Adm.enhet", "Tildelt av")))
+        "%-10s %-34s %-12s %-10s", ('tilgang', 'adm_enhet', 'requestee', 'end_date'),
+        hdr="%-10s %-34s %-12s %-10s" % ("Tilgang", "Adm.enhet", "Tildelt av", "Sluttdato")))
     def ephorte_list_perm(self, operator, person_id):
         if not self.ba.can_list_ephorte_perm(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to ephorte admins")
@@ -356,10 +358,15 @@ class BofhdExtension(object):
         for row in self.ephorte_perm.list_permission(person_id=person.entity_id):
             ou = self._get_ou(ou_id=row['adm_enhet'])
             requestee = self.util.get_target(int(row['requestee_id']))
+            if row['end_date']:
+                end_date = row['end_date'].date
+            else:
+                end_date = ''
             ret.append({
                 'tilgang': str(self._get_tilgang(row['perm_type'])),
                 'adm_enhet': self._format_ou_name(ou),
-                'requestee': requestee.get_names()[0][0]
+                'requestee': requestee.get_names()[0][0],
+                'end_date': end_date
                 }
                 )
         return ret
