@@ -188,7 +188,7 @@ class BDB:
         if not fdato and not pnr and not bdbid:
             cursor.execute("""
             SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'),
-              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward, n.person AS no_nin
+              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward, n.person AS no_nin, p.mail
             FROM person p,bruker b, no_nin_persons n
             WHERE b.person = p.id AND
               b.user_domain=1 AND
@@ -199,7 +199,7 @@ class BDB:
         elif bdbid:
             cursor.execute("""
             SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'),
-              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward, n.person AS no_nin
+              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward, n.person AS no_nin, p.mail
             FROM person p, no_nin_persons n
             WHERE p.id = %s AND
             p.id = n.person (+)
@@ -207,7 +207,7 @@ class BDB:
         else:
             cursor.execute("""
             SELECT DISTINCT p.id, to_char(p.fodselsdato,'YYYY-MM-DD'),
-              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward, n.person AS no_nin
+              p.personnr, p.personnavn, p.fornavn, p.etternavn, p.sperret, p.forward, n.person AS no_nin, p.mail
             FROM person p
             WHERE p.personnr = %s AND to_char(p.fodselsdato,'DDMMYY') = %s
             """ % (pnr,fdato))
@@ -235,6 +235,7 @@ class BDB:
             if bp[7]:
                 p['mail_forward'] = bp[7].strip()
             p['no_nin'] = bp[8]
+            p['mail'] = bp[9]
             persons.append(p)
         cursor.close()
         return persons

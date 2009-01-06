@@ -669,6 +669,17 @@ class BDBSync:
             new_person.populate_external_id(const.system_bdb,
                                             const.externalid_fodselsnr,
                                             fnr)
+
+        email_addr = person.get('mail')
+        if email_addr:
+            # Use a lower preference than normal, for easy overriding.
+            new_person.populate_contact_info(const.system_bdb,
+                                             type=const.contact_email,
+                                             value=email_addr,
+                                             contact_pref=30)
+        else:
+            new_person.delete_contact_info(const.system_bdb,
+                                           const.contact_email)
         # Write to database
         new_person.write_db()
 
