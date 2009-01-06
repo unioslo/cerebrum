@@ -25,6 +25,7 @@ from lib.Main import Main
 from lib.Forms import RoleCreateForm
 from lib.utils import transaction_decorator, commit_url
 from lib.utils import queue_message, redirect
+from lib.utils import spine_to_web, web_to_spine, url_quote
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.PermissionsTemplate import PermissionsTemplate
 from SpineIDL.Errors import NotFoundError
@@ -81,12 +82,11 @@ def view(transaction, id):
     """View the auth operation set."""
     op_set = transaction.get_auth_operation_set(int(id))
     page = PermissionsTemplate()
-    page.title = _('Operation set %s') % op_set.get_name()
+    page.title = _('Operation set %s') % spine_to_web(op_set.get_name())
     page.set_focus('permissions/view')
     page.links = _get_links()
     page.add_jscript('permissions.js')
     page.entity = op_set
-    page.tr = transaction
     page.entity_id = int(id)
 
     return page.respond()
@@ -97,7 +97,7 @@ def edit(transaction, id):
     """Edit the auth operation set."""
     op_set = transaction.get_auth_operation_set(int(id))
     page = Main()
-    page.title = _('Operation set %s') % op_set.get_name()
+    page.title = _('Operation set %s') % spine_to_web(op_set.get_name())
     page.set_focus('permissions/edit')
 
     template = PermissionsTemplate().edit(op_set)
@@ -126,7 +126,6 @@ def add(transaction, **vargs):
         return add_form(form, message=form.get_error_message())
 
     searcher = transaction.get_auth_operation_target_searcher()
-    target_type = vargs.get('target_type')
     searcher.set_type(target_type)
     if target_type in ['self', 'global']:
         target = None
@@ -213,7 +212,7 @@ def users(transaction, id):
     """View users on the op set."""
     op_set = transaction.get_auth_operation_set(int(id))
     page = Main()
-    page.title = _('Users on %s') % op_set.get_name()
+    page.title = _('Users on %s') % spine_to_web(op_set.get_name())
     page.set_focus('permissions/users')
 
     template = PermissionsTemplate().users(transaction, op_set)
@@ -226,6 +225,8 @@ def save(transaction, id, name, description):
     """Saves an updated operation set."""
     op_set = transaction.get_auth_operation_set(int(id))
 #    op_set.set_name(name)
+    if description:
+        description = web_to_spine(description.strip())
     op_set.set_description(description)
     
     msg = _("Operation set updated successfully.")
@@ -236,6 +237,8 @@ save.exposed = True
 def make(transaction, name, description=""):
     """Creates a new operation set."""
     commands = transaction.get_commands()
+    if description:
+        description = web_to_spine(description.strip())
     op_set = commands.create_auth_operation_set(name, description)
     
     msg = _("Operation set '%s' created successfully.") % name
@@ -277,7 +280,7 @@ def view_user_by_name(transaction, name, type):
     """Find the user by name and view his permissions."""
     cmd = transaction.get_commands()
     search = transaction.get_entity_name_searcher()
-    search.set_name(name)
+    search.set_name(web_to_spine(name))
     search.set_value_domain(cmd.get_namespace(type))
     try:
         entity_name, = search.search()
@@ -292,7 +295,7 @@ view_user_by_name.exposed = True
 
 def _view_user(transaction, entity):
     page = Main()
-    page.title = _('Permissions for %s') % entity.get_name()
+    page.title = _('Permissions for %s') % spine_to_web(entity.get_name())
     page.set_focus('permissions/')
     template = PermissionsTemplate().view_user(entity)
     page.content = lambda: template

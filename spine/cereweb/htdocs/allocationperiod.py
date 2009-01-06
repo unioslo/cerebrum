@@ -23,8 +23,10 @@ import cherrypy
 from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import commit, commit_url, queue_message, object_link, remember_link
+from lib.utils import commit, commit_url, queue_message
+from lib.utils import object_link, remember_link
 from lib.utils import transaction_decorator, redirect, redirect_object
+from lib.utils import html_quote, url_quote, web_to_spine, spine_to_web
 from lib.Searchers import AllocationPeriodSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AllocationPeriodViewTemplate import AllocationPeriodViewTemplate
@@ -56,12 +58,11 @@ def view(transaction, id):
     """Creates a page with a view of the allocation periods given by id."""
     allocationperiod = transaction.get_allocation_period(int(id))
     page = AllocationPeriodViewTemplate()
-    page.title = _('Allocation Period %s') % allocationperiod.get_name()
+    page.title = _('Allocation Period %s') % spine_to_web(allocationperiod.get_name())
     page.set_focus('allocationperiod/view')
     page.links = _get_links()
     page.entity_id = int(id)
     page.entity = allocationperiod
-    page.tr = transaction
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
@@ -75,8 +76,12 @@ def edit(transaction, id):
     page.set_focus("allocationperiod/edit")
     page.links = _get_links()
 
-    authorities = [(a.get_name(), a.get_name()) for a in
-               transaction.get_allocation_authority_searcher().search()]
+    authorities = []
+    for alloc in transaction.get_allocation_authority_searcher().search():
+        alloc_name = spine_to_web(alloc.get_name())
+        
+    ## authorities = [(a.get_name(), a.get_name()) for a in
+    ##           transaction.get_allocation_authority_searcher().search()]
 
     edit = AllocationPeriodEditTemplate()
     content = edit.editAllocationPeriod(allocationperiod, authorities)
@@ -124,7 +129,9 @@ create.exposed = True
 
 def make(transaction, name, description=""):
     """Creates the host."""
-    host = transaction.get_commands().create_host(name, description)
+    hostname = web_to_spine(name.strip())
+    desc = web_to_spine(description.strip())
+    host = transaction.get_commands().create_host(hostname, desc)
     commit(transaction, host, msg=_("Host successfully created."))
 make = transaction_decorator(make)
 make.exposed = True

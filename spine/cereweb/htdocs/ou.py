@@ -54,7 +54,7 @@ def tree(transaction, perspective=None):
     else:    
         cherrypy.session["ou_perspective"] = perspective    
     if perspective:
-        perspective = transaction.get_ou_perspective_type(perspective)
+        perspective = transaction.get_ou_perspective_type(web_to_spine(perspective))
     content = tree_template.viewTree(transaction, perspective)
     page.content = lambda: content
     return page
@@ -90,10 +90,10 @@ index = search
 def view(transaction, id):
     ou = transaction.get_ou(int(id))
     page = OUViewTemplate()
-    page.title = _("OU %s") % _get_display_name(ou)
+    page.tr = transaction
+    page.title = _("OU %s") % _get_display_name(transaction, ou)
     page.set_focus("ou/view")
     page.links = _get_links()
-    page.tr = transaction
     page.entity_id = int(id)
     page.entity = ou
     return page.respond()
@@ -103,7 +103,8 @@ view.exposed = True
 def edit(transaction, id):
     ou = transaction.get_ou(int(id))
     page = Main()
-    page.title = _("OU ") + utils.object_link(ou)
+    ou_name = utils.spine_to_web(ou.get_name())
+    page.title = _("OU ") + utils.object_link(ou, text=ou_name)
     page.set_focus("ou/edit")
     page.links = _get_links()
     content = OUEditTemplate().form(transaction, ou)
@@ -126,6 +127,7 @@ def create(transaction, **vargs):
     values['sort_name'] = vargs.get("sort_name", "")
 
     create = OUCreateTemplate(searchList=[{'formvalues': values}])
+    create.tr = transaction
     page.content = create.form
     
     return page
@@ -160,18 +162,18 @@ def make(transaction, name, institution,
         faculty = int(faculty)
         institute = int(institute)
         department = int(department)
-    
+        name = utils.web_to_spine(name.strip())
         ou = transaction.get_commands().create_ou(name, institution,
                                         faculty, institute, department)
     
         if acronym:
-            ou.set_acronym(acronym)
+            ou.set_acronym(utils.web_to_spine(acronym))
         if short_name:
-            ou.set_short_name(short_name)
+            ou.set_short_name(utils.web_to_spine(short_name))
         if display_name:
-            ou.set_display_name(display_name)
+            ou.set_display_name(utils.web_to_spine(display_name))
         if sort_name:
-            ou.set_sort_name(sort_name)
+            ou.set_sort_name(utils.web_to_spine(sort_name))
 
         msg = _("Organization Unit successfully created.")
         utils.commit(transaction, ou, msg=msg)
@@ -187,11 +189,11 @@ def save(transaction, id, name, submit=None, **vargs):
         utils.redirect_object(ou)
         return
 
-    ou.set_name(name)
-    ou.set_acronym(vargs.get("acronym", ""))
-    ou.set_short_name(vargs.get("short_name", ""))
-    ou.set_display_name(vargs.get("display_name", ""))
-    ou.set_sort_name(vargs.get("sort_name", ""))
+    ou.set_name(web_to_spine(name))
+    ou.set_acronym(web_to_spine(vargs.get("acronym", "")))
+    ou.set_short_name(web_to_spine(vargs.get("short_name", "")))
+    ou.set_display_name(web_to_spine(vargs.get("display_name", "")))
+    ou.set_sort_name(web_to_spine(vargs.get("sort_name", "")))
 
     stedkode_map = {
         'countrycode': ou.set_landkode,
@@ -229,7 +231,7 @@ save.exposed = True
 
 def delete(transaction, id):
     ou = transaction.get_ou(int(id))
-    msg =_("OU '%s' successfully deleted.") % _get_display_name(ou)
+    msg =_("OU '%s' successfully deleted.") % _get_display_name(transaction, ou)
     ou.delete()
     utils.commit_url(transaction, 'index', msg=msg)
 delete = utils.transaction_decorator(delete)
@@ -243,12 +245,12 @@ list_aff_persons = utils.transaction_decorator(list_aff_persons)
 list_aff_persons.exposed = True
     
 
-def _get_display_name(ou):
+def _get_display_name(transaction, ou):
     display_name = ou.get_display_name()
     if display_name:
-        return display_name
+        return utils.spine_to_web(display_name)
     else:
-        return ou.get_name()
+        return utils.spine_to_web(ou.get_name())
 
 def perform_search(transaction, **vargs):
     args = ('id', 'source', 'affiliation', 'recursive','withoutssn')

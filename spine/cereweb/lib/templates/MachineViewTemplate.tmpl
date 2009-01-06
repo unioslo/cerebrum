@@ -17,6 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.utils import object_link, remember_link, html_quote
+#from lib.utils import url_quote, spine_to_web
 #from Widgets import Widgets
 #extends HostViewTemplate
 #attr $widgets = Widgets()
@@ -24,24 +25,25 @@
 #def actions()
 <div id="actions">
     <h3>$_("Actions")</h3>
-    <a href="edit?id=$html_quote($entity_id)">$_("edit info")</a><br />
-    <a href="delete?id=$html_quote($entity_id)">$_("delete host")</a><br />
+    #set $id = $url_quote($entity_id)
+    <a href="edit?id=$id">$_("edit info")</a><br />
+    <a href="delete?id=$id">$_("delete host")</a><br />
     #if $entity.is_machine()
-    <a href="machine_demote?id=$html_quote($entity_id)">$_("demote host")</a><br />
+    <a href="machine_demote?id=$id">$_("demote host")</a><br />
     #else
-    <a href="machine_promote?id=$html_quote($entity_id)">$_("promote host")</a><br />
+    <a href="machine_promote?id=$id">$_("promote host")</a><br />
     #end if
-    <a href="/entity/full_historylog?id=$html_quote($entity_id)">$_('view full history log')</a>
+    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
     <br />
     $remember_link($entity)<br />
 </div>
 #end def
 
 ## Main method for creating the host view page.
-#def viewContent($transaction, $entity)
-    $viewInfo($entity)
+#def viewContent($tr, $entity)
+    $viewInfo($entity, $tr)
     $addNote($entity)
-    $viewNotes($entity, $transaction)
+    $viewNotes($entity, $tr)
     $viewDisks($entity)
     $viewHistoryLog($entity)
 #end def
@@ -49,12 +51,12 @@
 ## View information about host (name and description).
 #def viewInfo($host)
     #set $info = []
-    $info.append(($_("Name"), $html_quote($host.get_name())))
-    $info.append(($_("Description"), $html_quote($host.get_description())))
+    $info.append(($_("Name"), $spine_to_web($host.get_name())))
+    $info.append(($_("Description"), $spine_to_web($host.get_description())))
     #if host.is_machine()
-        $info.append(($_("Cpu arch"), $html_quote($host.get_cpu_arch().get_description())))
-        $info.append(($_("Operating system"), $html_quote($host.get_operating_system().get_description())))
-        $info.append(($_("Interconnect"), $html_quote($host.get_interconnect().get_description())))
+        $info.append(($_("Cpu arch"), $spine_to_web($host.get_cpu_arch().get_description())))
+        $info.append(($_("Operating system"), $spine_to_web($host.get_operating_system().get_description())))
+        $info.append(($_("Interconnect"), $spine_to_web($host.get_interconnect().get_description())))
         $info.append(($_("Total memory"), $html_quote($host.get_total_memory())))
         $info.append(($_("Node number"), $html_quote($host.get_node_number())))
         $info.append(($_("Node memory"), $html_quote($host.get_node_memory())))

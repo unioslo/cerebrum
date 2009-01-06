@@ -17,6 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.InitTemplate import InitTemplate
+#from lib.utils import html_quote, url_quote, spine_to_web
 #extends InitTemplate
 
 #from FormWidgets import FormWidgets
@@ -37,31 +38,31 @@
     <h3>$_('Create a new Organizarion Unit:')</h3>
     <form action="$getAction()" method="post">
         <div class="required">
-            $form_widgets.input("name", "Name", $fv.get("name", ""))
+            $form_widgets.input("name", "Name", $spine_to_web($fv.get("name", "")))
         </div>
         <div class="required">
-            $form_widgets.input("acronym", "Acronym *", $fv.get("acronym", ""))
+            $form_widgets.input("acronym", "Acronym *", $spine_to_web($fv.get("acronym", "")))
         </div>
         <div class="required">
-            $form_widgets.input("short_name", "Short name *", $fv.get("short_name", ""))
+            $form_widgets.input("short_name", "Short name *", $spine_to_web($fv.get("short_name", "")))
         </div>
         <div class="required">
-            $form_widgets.input("display_name", "Display name *", $fv.get("display_name", ""))
+            $form_widgets.input("display_name", "Display name *", $spine_to_web($fv.get("display_name", "")))
         </div>
         <div class="required">
-            $form_widgets.input("sort_name", "Sort name *", $fv.get("sort_name", ""))
+            $form_widgets.input("sort_name", "Sort name *", $spine_to_web($fv.get("sort_name", "")))
         </div>
         <div class="required">
-            $form_widgets.input("institution", "Institution **", $fv.get("institutation", ""))
+            $form_widgets.input("institution", "Institution **", $spine_to_web($fv.get("institutation", "")))
         </div>
         <div class="required">
-            $form_widgets.input("faculty", "Faculty **", $fv.get("faculty", ""))
+            $form_widgets.input("faculty", "Faculty **", $spine_to_web($fv.get("faculty", "")))
         </div>
         <div class="required">
-            $form_widgets.input("institute", "Institute **", $fv.get("institute", ""))
+            $form_widgets.input("institute", "Institute **", $spine_to_web($fv.get("institute", "")))
         </div>
         <div class="required">
-            $form_widgets.input("department", "Department **", $fv.get("department", ""))
+            $form_widgets.input("department", "Department **", $spine_to_web($fv.get("department", "")))
         </div>
         <div class="required">
             $form_widgets.showHelp($help)

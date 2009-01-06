@@ -17,13 +17,14 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.utils import object_link, html_quote, remember_link
+#from lib.utils import url_quote, spine_to_web
 #from urllib import urlencode
 #from Widgets import Widgets
 #extends EntityViewTemplate
 #attr $widgets = Widgets()
 
 #def viewActions($transaction, $allocation)
-    #set $id = $html_quote($allocation.get_id())
+    #set $id = $url_quote($allocation.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
         <li><a href="delete?id=$id">$_("delete allocation")</a></li>
@@ -36,7 +37,7 @@
 #def viewContent($transaction, $allocation)
     $viewInfo($allocation)
     $viewMachines($allocation)
-    $viewAccounts($allocation)
+    $viewAccounts($allocation, $transaction)
     ##$addNote($allocation)
     ##$viewNotes($allocation, $transaction)
     $viewHistoryLog($allocation)
@@ -46,28 +47,29 @@
 ## View information about host (name and description).
 #def viewInfo($allocation)
     #set $info = []
-    $info.append(($_("Allocation name"), $html_quote($allocation.get_allocation_name().get_name())))
-    $info.append(($_("Project"), $object_link($allocation.get_allocation_name().get_project())))
+    $info.append(($_("Allocation name"), $spine_to_web($allocation.get_allocation_name().get_name())))
+    #set $project_name = $spine_to_web($allocation.get_allocation_name().get_project().get_name())
+    $info.append(($_("Project"), $object_link($allocation.get_allocation_name().get_project(), text=$project_name)))
     $info.append(($_("Period"), $object_link($allocation.get_period())))
     ##( $period.get_startdate().strftime("%Y-%m-%d")
     ##- $period.get_enddate().strftime("%Y-%m-%d") )
-    $info.append(($_("Status"), $html_quote($allocation.get_status().get_name())))
+    $info.append(($_("Status"), $spine_to_web($allocation.get_status().get_name())))
     $widgets.viewInfo($info)
 #end def
 
 #def listMachines($allocation)
 #for $machine in $allocation.get_machines()
   <div class="machine">
-     $object_link($machine)
+     $object_link($machine, text=$spine_to_web($machine.get_name()))
   </div>
 #end for
 #end def
 
 # XXX fix in spine
-#def listAccounts($allocation)
+#def listAccounts($allocation, $tr)
 #for $account in $allocation.get_accounts()
   <div class="account">
-    $object_link($account)
+    $object_link($account, text=$spine_to_web($account.get_name()))
   </div>
 #end for
 #end def

@@ -16,22 +16,29 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, remember_link
+#from lib.utils import object_link, remember_link, url_quote
+#from lib.utils import url_quote, spine_to_web, html_quote
 #from lib.Main import Main
 #extends Main
 
 #from Widgets import Widgets
-#from lib.utils import html_quote
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 #attr $widgets = Widgets()
+#attr $tr = None
+#attr $entity = None
 
 ## Max addresses to view in emaildomain/view
 #attr $max_addresses = 20
 
 #def _create($tr)
-    #set $cats = $tr.get_email_domain_category_searcher().search()
-    #set $cats = [('',''),] + [(i.get_name(), i.get_description()) for i in $cats]
+    #set $all_cats = $tr.get_email_domain_category_searcher().search()
+    #set $cats = [('',''),]
+    #for $cat in $all_cats
+        #set $name = $spine_to_web($cat.get_name())
+        #set $desc = $spine_to_web($cat.get_description())
+        $cats.append(($name, $desc))
+    #end for
         <div class="required">
             $form_widgets.input('name', 'Domain name',value="")
         </div>
@@ -98,13 +105,18 @@
 #end def
 
 #def _search($tr, $vargs)
-    #set $cats = $tr.get_email_domain_category_searcher().search()
-    #set $cats = [('',''),] + [(i.get_name(), i.get_description()) for i in $cats]
+    #set $all_cats = $tr.get_email_domain_category_searcher().search()
+    #set $cats = [('',''),]
+    #for $cat in $all_cats
+        #set $name = $spine_to_web($cat.get_name())
+        #set $desc = $spine_to_web($cat.get_description())
+        $cats.append(($name, $desc))
+    #end for
     <div class="required">
-        $form_widgets.input("name", "Name", $vargs.get('name', ''))
+        $form_widgets.input("name", "Name", $spine_to_web($vargs.get('name', '')))
     </div>
     <div class="required">
-       $form_widgets.input("description", "Description", $vargs.get('description', ''))
+       $form_widgets.input("description", "Description", $spine_to_web($vargs.get('description', '')))
     </div>
     <div class="required">
         $form_widgets.generate_loption("category", "Category", $cats, $vargs.get('category',''))
@@ -123,7 +135,7 @@
 	<tr>
 		<td>
        			<div>
-			$html_quote($cat.get_name()) - $html_quote($cat.get_description())
+			$spine_to_web($cat.get_name()) - $spine_to_web($cat.get_description())
 			</div>
 		</td>
 	</tr>
@@ -138,9 +150,10 @@
 #def actions()
 <div id="actions">
     <h3>$_('Actions')</h3>
-    <a href="edit?id=$html_quote($entity_id)">$_('edit info')</a><br />
-    <a href="delete?id=$html_quote($entity_id)">$_('delete domain')</a><br />
-    <a href="addresses?id=$html_quote($entity_id)">$_('list adresses')</a><br />
+    #set $id = $url_quote($entity.get_id())
+    <a href="edit?id=$id">$_('edit info')</a><br />
+    <a href="delete?id=$id">$_('delete domain')</a><br />
+    <a href="addresses?id=$id">$_('list adresses')</a><br />
     $remember_link($entity)<br />
 </div>
 #end def
@@ -149,8 +162,8 @@
 <div class="view_content">
     ## Content
     #set $info = []
-    $info.append(($_("Domain name:"), $html_quote($entity.get_name())))
-    $info.append(($_("Description:"), $html_quote($entity.get_description())))
+    $info.append(($_("Domain name:"), $spine_to_web($entity.get_name())))
+    $info.append(($_("Description:"), $spine_to_web($entity.get_description())))
     $widgets.viewInfo($info)
 
     $addCategory($tr, $entity)
@@ -162,7 +175,6 @@
 
 #def addCategory($transaction, $domain)
 #set $categories = $transaction.get_email_domain_category_searcher()
-
 <div class="edit box" style="display:none;">
     <h3>$_('Add to category')</h3>
     <form action="add_to_category" method="post">
@@ -188,7 +200,8 @@
         #for $category in $cats
         <div class="item">
             $object_link($category)
-            $object_link($domain, method="remove_from_category", 
+            #set $domain_name = $spine_to_web($domain.get_name())
+            $object_link($domain, text=$domain_name, method="remove_from_category", 
             text=$_("Remove from category"), _class="action",
             category=$category.get_name())
         </div>
@@ -215,7 +228,7 @@
             #break
         #end if
         <div class="item">
-            $object_link($address.get_target(), $address.full_address())
+            $object_link($address.get_target(), text=$spine_to_web($address.full_address()))
         </div>
     #end for
     <div class="help">
@@ -228,16 +241,16 @@
 
 #def edit_domain($domain)
 <div class="edit box">
-    <h3>$_('Edit domain ' + $html_quote($domain.get_name()))</h3>
+    <h3>$_('Edit domain ' + $spine_to_web($domain.get_name()))</h3>
     <form action="save" method="post">
         <div class="hidden">
             <input type="hidden" name="id" value="$html_quote($domain.get_id())" />
         </div>
         <div class="required">
-            $form_widgets.input('name', 'Domain name', $html_quote($domain.get_name()))
+            $form_widgets.input('name', 'Domain name', $spine_to_web($domain.get_name()))
         </div>
         <div class="required">
-            $form_widgets.input('description', 'Description', $html_quote($domain.get_description()))
+            $form_widgets.input('description', 'Description', $spine_to_web($domain.get_description()))
         </div>
         <div class="buttons">
             <input type="submit" value="$_('Save')" name="submit" />

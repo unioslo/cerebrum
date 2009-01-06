@@ -108,6 +108,7 @@ def mail(transaction):
     page = MailUserTemplate()
     username = cherrypy.session.get('username', '')
     account = transaction.get_commands().get_account_by_name(username)
+    page.tr = transaction
     page.account = get_user_info(transaction, username)
     page.emailtargets = account.get_email_targets()
     if not page.messages:

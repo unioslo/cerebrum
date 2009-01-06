@@ -30,7 +30,7 @@
 #attr $page = 'cereweb'
 #attr $links = ()
 #attr $action = []
-#set $charset = $cherrypy.session.get('encoding', 'utf-8')
+#set $charset = $cherrypy.session.get('client_encoding', 'utf-8')
 
 ## Content is usually replaced with a lambda function from the view.
 #def content: stub
@@ -43,7 +43,7 @@
 #def activitylog: stub
 ##
 #def actions
-    <div id="actions">
+        <div id="actions">
         <h3>Actions</h3>
         <ul>
             #for $a in $action
@@ -60,7 +60,10 @@
 #end def
 
 ## setting this just to be safe that the browser understand...
-<% cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset=utf-8' %>
+<%
+content_type = 'application/xhtml+xml; charset=%s' % cherrypy.session['client_encoding']
+cherrypy.response.headerMap['Content-Type'] = content_type
+%>
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -68,7 +71,7 @@
     <head>
         <title>Cereweb $strip_html($title)</title>
         ## <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=$charset" />
-        <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=$charset" />
+        <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=$cherrypy.session['client_encoding']" />
         <meta http-equiv="Pragma" content="no-cache" />
         <meta http-equiv="Cache-Control" content="max-age=0" />
         <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
@@ -79,6 +82,10 @@
         <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/datatable/assets/datatable.css"/>
         <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/tabview/assets/tabview.css"/>
         <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/tabview/assets/border_tabs.css"/> 
+
+        <!-- Include our styles -->
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/css/default.css"/>
+        <link rel="stylesheet" type="text/css" charset="$charset" href="/css/style.css"/>
 
         <!-- Include yui components -->
         <script type="text/javascript" charset="$charset" src="/yui/utilities/utilities.js"></script>
@@ -105,9 +112,6 @@
 ##             // -->
 ##         </script>
 ##
-        <!-- Include our styles -->
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/css/default.css"/>
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/css/style.css"/>
 
         <!-- Include our javascript application -->
         <!-- $len($jscripts) -->

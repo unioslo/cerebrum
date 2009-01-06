@@ -27,6 +27,7 @@ from lib.Main import Main
 from lib.utils import queue_message, redirect_object, commit
 from lib.utils import object_link, transaction_decorator, commit_url
 from lib.utils import rollback_url, legal_date, remember_link
+from lib.utils import spine_to_web, web_to_spine
 from lib.Searchers import GroupSearcher
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 from lib.templates.GroupViewTemplate import GroupViewTemplate
@@ -62,12 +63,12 @@ def view(transaction, id, **vargs):
     """Creates a page with the view of the group with the given by."""
     group = transaction.get_group(int(id))
     page = GroupViewTemplate()
-    page.title = _('Group %s') % group.get_name()
+    page.tr = transaction
+    page.title = _('Group %s') % spine_to_web(group.get_name())
     page.set_focus('group/view')
     page.links = _get_links()
     page.entity_id = int(id)
     page.entity = group
-    page.tr = transaction
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
@@ -77,8 +78,10 @@ def add_member(transaction, id, name, type):
     cmd = transaction.get_commands()
     
     search = transaction.get_entity_name_searcher()
+    if name:
+        name = web_to_spine(name.strip())
     search.set_name(name)
-    search.set_value_domain(cmd.get_namespace(type))
+    search.set_value_domain(cmd.get_namespace(web_to_spine(type)))
     try:
         entity_name, = search.search()
     except ValueError, e:
@@ -93,8 +96,8 @@ def add_member(transaction, id, name, type):
         msg = _("Entity is already a member of group %s") % name
         queue_message(msg, True, object_link(entity))
         redirect_object(entity)
-
-    msg = _("%s added as a member to group.") % object_link(entity)
+    entity_name = spine_to_web(entity.get_name())
+    msg = _("%s added as a member to group.") % object_link(entity, text=entity_name)
     commit(transaction, group, msg=msg)
 add_member = transaction_decorator(add_member)
 add_member.exposed = True
@@ -106,8 +109,8 @@ def remove_member(transaction, groupid, memberid):
     group_member = transaction.get_group_member(group, member, member.get_type())
     ##group.remove_member(group_member)
     group.remove_member(member)
-
-    msg = _("%s removed from group.") % object_link(member)
+    member_name = spine_to_web(member.get_name())
+    msg = _("%s removed from group.") % object_link(member, text=member_name)
     commit(transaction, group, msg=msg)
 remove_member = transaction_decorator(remove_member)
 remove_member.exposed = True
@@ -115,11 +118,13 @@ remove_member.exposed = True
 def edit(transaction, id):
     """Creates a page with the form for editing a person."""
     group = transaction.get_group(int(id))
-    page = Main()
-    page.title = _("Edit ") + object_link(group)
+    #page = Main()
+    page = FormTemplate()
+    grp_name = spine_to_web(group.get_name())
+    page.title = _("Edit ") + object_link(group, text=grp_name)
     page.set_focus('group/edit')
     page.links = _get_links()
-
+    page.tr = tramsaction
     edit = GroupEditTemplate()
     content = edit.editGroup(transaction, group)
     page.content = lambda: content
@@ -162,8 +167,8 @@ def save(transaction, id, name, expire="",
         visibility = transaction.get_group_visibility_type(visi)
         group.set_visibility(visibility)
 
-    group.set_name(name)
-    group.set_description(description)
+    group.set_name(web_to_spine(name.strip()))
+    group.set_description(web_to_spine(description.strip()))
     
     commit(transaction, group, msg=_("Group successfully updated."))
 save = transaction_decorator(save)
@@ -185,7 +190,7 @@ def make(transaction, name, expire="", description=""):
     if not msg:
         commands = transaction.get_commands()
         try:
-            group = commands.create_group(name)
+            group = commands.create_group(web_to_spine(name.strip()))
         except ValueError, e:
             msg = _("Group '%s' already exists.") % name
     if not msg:    
@@ -194,7 +199,7 @@ def make(transaction, name, expire="", description=""):
             group.set_expire_date(expire)
 
         if description:
-            group.set_description(description)
+            group.set_description(web_to_spine(description.strip()))
         commit(transaction, group, msg=_("Group successfully created."))
     else:
         rollback_url('/group/create', msg, err=True)
@@ -220,7 +225,8 @@ posix_demote.exposed = True
 def delete(transaction, id):
     """Delete the group from the server."""
     group = transaction.get_group(int(id))
-    msg = _("Group '%s' successfully deleted.") % group.get_name()
+    grp_name = spine_to_web(group.get_name())
+    msg = _("Group '%s' successfully deleted.") % grp_name
     group.delete()
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
@@ -231,7 +237,8 @@ def join_group(transaction, entity, name):
     entity = transaction.get_entity(int(entity))
     try:
         # find the group by name.
-        group = transaction.get_commands().get_group_by_name(name)
+        grp_name = web_to_spine(name.strip())
+        group = transaction.get_commands().get_group_by_name(grp_name)
         group.add_member(entity)
     except NotFoundError, e:
         msg = _("Group '%s' not found") % name

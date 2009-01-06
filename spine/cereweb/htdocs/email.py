@@ -28,6 +28,7 @@ from lib.utils import queue_message, redirect, redirect_object, object_link
 from lib.utils import transaction_decorator, commit, commit_url
 from lib.utils import rollback_url, legal_domain_format
 from lib.utils import legal_domain_chars, remember_link
+from lib.utils import spine_to_web, web_to_spine
 from lib.Searchers import EmailDomainSearcher
 from lib.templates.EmailDomainSearchTemplate import EmailDomainSearchTemplate
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate
@@ -53,7 +54,9 @@ def search_form(transaction, remembered):
     page.search_action = '/email/search'
     page.form_values = remembered
     for cat in transaction.get_email_domain_category_searcher().search():
-        page.categories.append((cat.get_name(), cat.get_description()))
+        cat_name = spine_to_web(cat.get_name())
+        desc = spine_to_web(cat.get_description())
+        page.categories.append((cat_name, desc))
 
     return page.respond()
 
@@ -90,12 +93,13 @@ categories.exposed = True
 def view(transaction, id):
     domain = transaction.get_email_domain(int(id))
     page = EmailDomainTemplate()
+    page.tr = transaction
     page.entity_id = int(id)
     page.entity = domain
-    page.title = _("Email domain %s") % domain.get_name()
+    domain_name = spine_to_web(domain.get_name())
+    page.title = _("Email domain %s") % domain_name
     page.set_focus("email/view")
     page.links = _get_links()
-    page.tr = transaction
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
@@ -103,11 +107,14 @@ view.exposed = True
 def addresses(transaction, id):
     domain = transaction.get_email_domain(int(id))
     page = EmailDomainTemplate()
-    page.title = _("Addresses in ") + object_link(domain)
+    page.entity = domain
+    domain_name = spine_to_web(domain.get_name())
+    page.title = _("Addresses in ") + object_link(domain, text=domain_name)
     page.set_focus("email/addresses")
     page.links = _get_links()
     template = EmailDomainTemplate()
     content = template.list_addresses(transaction, domain)
+    print 'domain = ', domain.get_id()
     page.content = lambda: content
     return page
 addresses = transaction_decorator(addresses)
@@ -116,7 +123,8 @@ addresses.exposed = True
 def edit(transaction, id):
     domain = transaction.get_email_domain(int(id))
     page = Main()
-    page.title = _("Edit ") + object_link(domain)
+    domain_name = spine_to_web(domain.get_name())
+    page.title = _("Edit ") + object_link(domain, text=domain_name)
     page.set_focus("email/edit")
     page.links = _get_links()
     template = EmailDomainTemplate()
@@ -133,7 +141,11 @@ def save(transaction, id, name, description, submit=None):
         redirect_object(domain)
         return
 
+    if name:
+        name = web_to_spine(name.strip())
     domain.set_name(name)
+    if description:
+        description = web_to_spine(description.strip())
     domain.set_description(description)
 
     commit(transaction, domain, msg=_('Email domain successfully updated.'))
@@ -173,7 +185,9 @@ def make(transaction, name, description, category):
         msg=_('Domain-name is not registered in DNS.')
 
     if not msg:
-        domain = transaction.get_commands().create_email_domain(name, description)
+        domain_name = web_to_spine(name.strip())
+        desc = web_to_spine(description.strip())
+        domain = transaction.get_commands().create_email_domain(domain_name, desc)
         if category:
             category = transaction.get_email_domain_category(category)
             domain.add_to_category(category)
@@ -186,7 +200,7 @@ make.exposed = True
 
 def delete(transaction, id):
     domain = transaction.get_email_domain(int(id))
-    msg = _("Email domain '%s' successfully deleted.") % domain.get_name()
+    msg = _("Email domain '%s' successfully deleted.") % spine_to_web(domain.get_name())
     domain.delete()
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
@@ -197,7 +211,9 @@ def remove_from_category(transaction, id, category):
     category = transaction.get_email_domain_category(category)
     domain.remove_from_category(category)
     msg = _("Removed email domain %s from category %s")
-    msg = msg % (domain.get_name(), category.get_name())
+    domain_name = spine_to_web(domain.get_name())
+    cat_name = spine_to_web(category.get_name())
+    msg = msg % (domain_name, cat_name)
     commit(transaction, domain, msg=msg)
 remove_from_category = transaction_decorator(remove_from_category)
 remove_from_category.exposed = True
@@ -207,14 +223,17 @@ def add_to_category(transaction, id, category):
     category = transaction.get_email_domain_category(category)
     domain.add_to_category(category)
     msg = _("Added email domain %s to category %s")
-    msg = msg % (domain.get_name(), category.get_name())
+    domain_name = spine_to_web(domain.get_name())
+    cat_name = spine_to_web(category.get_name())
+    msg = msg % (domain_name, cat_name)
     commit(transaction, domain, msg=msg)
 add_to_category = transaction_decorator(add_to_category)
 add_to_category.exposed = True
 
 def make_target(transaction, entity, targettype, host):
     account = transaction.get_target_entity(int(entity))
-    target_type = transaction.get_email_target_type(targettype)
+    type = web_to_spine(targettype)
+    target_type = transaction.get_email_target_type(type)
     emailhost = transaction.get_host(int(host))
 
     cmds = transaction.get_commands()

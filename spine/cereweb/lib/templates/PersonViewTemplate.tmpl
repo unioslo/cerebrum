@@ -16,9 +16,10 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, strftime, html_quote, url_quote, ou_selects
+#from lib.utils import object_link, strftime, html_quote
+#from lib.utils import url_quote, ou_selects
 #from lib.utils import remember_link, web_to_spine, spine_to_web
-#from lib.utils import get_ou_structure, find_ou_root
+#from lib.utils import get_ou_structure, find_ou_root, get_lastname_firstname
 #import operator
 #from GroupViewTemplate import GroupViewTemplate
 #from Widgets import Widgets
@@ -29,8 +30,8 @@
 #attr $names_width = 5
 #attr $viewBirthNo = False
 
-#def viewActions($transaction, $person)
-    #set $id = $html_quote($person.get_id())
+#def viewActions($person)
+    #set $id = $url_quote($person.get_id())
     <ul>
         <li><a href="/person/edit?id=$id">$_("edit info")</a></li>
         <li><a href="/confirm/person/delete?id=$id">$_("delete person")</a></li>
@@ -43,44 +44,39 @@
 
 ## Page for viewing information about a person.
 #def content()
-    $viewInfo($entity, $tr)
+    $viewInfo($entity)
     $setName($entity, $tr)
-    $viewNames($entity, $tr)
-    $viewQuarantines($entity, $tr)
+    $viewNames($entity)
+    $viewQuarantines($entity)
     $addNote($entity)
-    $viewNotes($entity, $tr)
-    $viewAccounts($entity, $tr)
+    $viewNotes($entity)
+    $viewAccounts($entity)
     $addAffiliation($entity, $tr)
-    $viewAffiliation($entity, $tr)
-    $viewTraits($entity, $tr)
-    $viewContactInfos($entity, $tr)
-    $viewAddresses($entity, $tr)
+    $viewAffiliation($entity)
+    $viewTraits($entity)
+    $viewContactInfos($entity)
+    $viewAddresses($entity)
     $setExternalId($entity, $tr)
-    $viewExternalIds($entity, $viewBirthNo, $tr)
+    $viewExternalIds($entity, $viewBirthNo)
     $viewHistoryLog($entity)
 #end def
 
-#def viewInfo($person, $tr)
+#def viewInfo($person)
     #set $info = []
     #set $notice = []
     #if $person.get_deceased_date()
         $notice.append($_("Deceased"))
-        $info.append(($_("Deceased date"), $strftime($person.get_deceased_date())))
+        $info.append(($_("Deceased date"), $html_quote($strftime($person.get_deceased_date()))))
     #end if
-    #set $cached = $tr.get_source_system("Cached")
-    #set $first = $tr.get_name_type("FIRST")
-    #set $last = $tr.get_name_type("LAST")
-    #set $lastname = $spine_to_web($tr, $person.get_name($last, $cached))
-    #set $firstname = $spine_to_web($tr, $person.get_name($first, $cached))
-    $info.append(($_("Name"), $html_quote($lastname) + ", " + $html_quote($firstname)))
-    $info.append(($_("Gender"), $html_quote($spine_to_web($tr, $person.get_gender().get_description()))))
-    $info.append(($_("Date of birth"), $strftime($person.get_birth_date())))
-    $info.append(($_("Description"), $html_quote($spine_to_web($tr, $person.get_description()))))
+    $info.append(($_("Name"), $spine_to_web(get_lastname_firstname($person))))
+    $info.append(($_("Gender"), $spine_to_web($person.get_gender().get_description())))
+    $info.append(($_("Date of birth"), $html_quote($strftime($person.get_birth_date()))))
+    $info.append(($_("Description"), $spine_to_web($person.get_description()))))
     $widgets.viewInfo($info, $notice)
 #end def
 
 ## List accounts and groups the accounts are member of.
-#def viewAccounts($person, $tr)
+#def viewAccounts($person)
 #set $allaccounts = $person.get_accounts()
 #set $primary = $person.get_primary_account()
 #if $primary
@@ -98,7 +94,7 @@
         ## need a copy for comparing against the primary
         ##  which is not quoted.
         #set $acc_name_cmp = $account.get_name()
-        #set $account_name = $html_quote($spine_to_web($tr, $acc_name_cmp))
+        #set $account_name = $spine_to_web($acc_name_cmp)
         <div>
             <input type="checkbox" name="account_$account_id" />
             <em>$_('Account'):</em>$account_name
@@ -129,7 +125,7 @@
 </div>
 #end def
 
-#def viewAffiliation($person, $tr)
+#def viewAffiliation($person)
 #set $affils = $person.get_affiliations()
 #if $affils
 <div class="info box">
@@ -152,19 +148,19 @@
 
         #if not $marked
             <tr class="item">
-            <td>$spine_to_web($tr, $affil_type.get_name())</td>
-            <td>$spine_to_web($tr, $status.get_name())</td>
-            #set $ou_name = $spine_to_web($tr, $ou.get_name())
+            <td>$spine_to_web($affil_type.get_name())</td>
+            <td>$spine_to_web($status.get_name())</td>
+            #set $ou_name = $spine_to_web($ou.get_name())
             <td>$object_link($ou, text=$ou_name)</td>
             <td>&#x0020;</td>
-            <td>$html_quote($spine_to_web($tr, $source.get_name()))</td>
+            <td>$spine_to_web($source.get_name())</td>
             <td class="actions">
 
             ## urls should always be encoded in utf-8
             #set $person_id = $person.get_id()
             #set $ou_id =  ou.get_id()
-            #set $type_aff = $spine_to_web($tr, $affil_type.get_name())
-            #set $source_name = $spine_to_web($tr, source.get_name())
+            #set $type_aff = $spine_to_web($affil_type.get_name())
+            #set $source_name = $spine_to_web(source.get_name())
             #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
                             $url_quote($person_id),
                             $url_quote($ou_id),
@@ -181,7 +177,7 @@
 
 #def addAffiliation($person, $tr)
 #set $searcher = $tr.get_person_affiliation_status_searcher()
-#set $status = [($i.get_id(), "%s: %s" % ($spine_to_web($tr, $i.get_affiliation().get_name()), $spine_to_web($tr, $i.get_name()))) for $i in $searcher.search()]
+#set $status = [($i.get_id(), "%s: %s" % ($spine_to_web($i.get_affiliation().get_name()), $spine_to_web($i.get_name()))) for $i in $searcher.search()]
 
 #set $perspective_type = $tr.get_ou_perspective_type('Kjernen')
 #set $root = $find_ou_root($get_ou_structure($tr, $perspective_type), $perspective_type)
@@ -196,7 +192,7 @@
             $form_widgets.generate_loption("status", "Affiliation", $status)
         </div>
         <div class="required">
-            $form_widgets.generate_loption("ou", "Organization Unit", $ou_selects($tr, $root, $perspective_type), $quote=False)
+            $form_widgets.generate_loption("ou", "Organization Unit", $ou_selects($root, $perspective_type), $quote=False)
         </div>
         <div class="buttons">
             <input type="submit" value="$_('Add')" />&#x0020;
@@ -207,7 +203,7 @@
 #end def
 
 #from lib.utils import namelist
-#def viewNames($person, $tr)
+#def viewNames($person)
     <div class="info box">
         #set $names = $namelist($person)
         <h3>$_('Names')</h3>
@@ -218,11 +214,11 @@
               <th>$_('Sources')</th>
             </tr>
             #for $name in $names
-            #set $sources = ",".join([$spine_to_web($tr,$s.get_name()) for $s in $name.sources])
+            #set $sources = ",".join([$spine_to_web($s.get_name()) for $s in $name.sources])
             <tr>
-               <td>$html_quote($spine_to_web($tr, $name.variant.get_name()))</td>
-               <td>$html_quote($spine_to_web($tr, $name.value))</td>
-               <td>$html_quote($sources)</td>
+               <td>$spine_to_web($name.variant.get_name())</td>
+               <td>$spine_to_web($name.value)</td>
+               <td>$sources</td>
             </tr>
             #end for
         </table>
@@ -234,7 +230,7 @@
     <h3>$_('Set a name')</h3>
     <form action="add_name" method="post">
         #set $name_types = $tr.get_name_type_searcher().search()
-        #set $name_types = [($spine_to_web($tr, $i.get_name()), $spine_to_web($tr, $i.get_description())) for $i in $name_types]
+        #set $name_types = [($spine_to_web($i.get_name()), $spine_to_web($i.get_description())) for $i in $name_types]
         <div class="hidden">
             <input type="hidden" name="id" value="$html_quote($person.get_id())" />
         </div>

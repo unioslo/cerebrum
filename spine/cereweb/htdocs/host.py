@@ -26,6 +26,7 @@ from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.utils import rollback_url, remember_link
+from lib.utils import spine_to_web, web_to_spine, url_quote
 from lib.Searchers import HostSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.HostViewTemplate import HostViewTemplate
@@ -59,12 +60,14 @@ def view(transaction, id):
     """Creates a page with a view of the host given by id."""
     host = transaction.get_host(int(id))
     page = HostViewTemplate()
-    page.tr = transaction
-    page.title = _('Host %s') % host.get_name()
+    page.title = _('Host %s') % spine_to_web(host.get_name())
     page.set_focus('host/view')
     page.links = _get_links()
     server_type_searcher = transaction.get_email_server_type_searcher()
-    type_names = [ (type.get_name(), type.get_name()) for type in server_type_searcher.search()]
+    type_names = []
+    for type in server_type_searcher.search():
+        type_name = spine_to_web(type.get_name())
+        type_names.append((type_name, type_name))
     page.email_server_types = type_names
     page.entity = host
     page.entity_id = int(id)
@@ -76,14 +79,14 @@ def edit(transaction, id):
     """Creates a page with the form for editing a host."""
     host = transaction.get_host(int(id))
     page = Main()
-    # page.title = _("Edit ") + object_link(host)
-    page.title = _("Host")
+    host_name = spine_to_web(host.get_name())
+    page.title = _("Edit ") + object_link(host, text=host_name)
     page.set_focus("host/edit")
     page.links = _get_links()
 
     edit = HostEditTemplate()
-    edit.title = _('Edit ') + object_link(host) + _(':')
-    content = edit.editHost(host)
+    edit.title = _('Edit ') + object_link(host, text=host_name) + _(':')
+    content = edit.editHost(transaction, host)
     page.content = lambda: content
     return page
 edit = transaction_decorator(edit)
@@ -92,11 +95,13 @@ edit.exposed = True
 def save(transaction, id, name, description="", submit=None):
     """Saves the information for the host."""
     host = transaction.get_host(int(id))
-
     if submit == 'Cancel':
         redirect_object(host)
-    
+    if name:
+        name = web_to_spine(name.strip())
     host.set_name(name)
+    if description:
+        description = web_to_spine(description.strip())
     host.set_description(description)
     commit(transaction, host, msg=_("Host successfully updated."))
 save = transaction_decorator(save)
@@ -111,7 +116,11 @@ def create(transaction, name="", description=""):
 
     # Store given create parameters in create-form
     values = {}
+    if name:
+        name = web_to_spine(name.strip())
     values['name'] = name
+    if description:
+        description = web_to_spine(description.strip())
     values['description'] = description
 
     create = HostCreateTemplate(searchList=[{'formvalues': values}])
@@ -127,6 +136,11 @@ def make(transaction, name, description=""):
     if not name:
         msg=_('Hostname is empty.')
     if not msg:
+        if name:
+            name = web_to_spine(name.strip())
+        if description:
+            description = web_to_spine(description.strip())
+    if not msg:
         host = transaction.get_commands().create_host(name, description)
         commit(transaction, host, msg=_("Host successfully created."))
     else:
@@ -137,7 +151,8 @@ make.exposed = True
 def delete(transaction, id):
     """Delete the host from the server."""
     host = transaction.get_host(int(id))
-    msg = _("Host '%s' successfully deleted.") % host.get_name()
+    hostname = spine_to_web(host.get_name())
+    msg = _("Host '%s' successfully deleted.") % hostname
     host.delete()
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
@@ -145,7 +160,7 @@ delete.exposed = True
 
 def disks(transaction, host, add=None, delete=None, **checkboxes):
     if add:
-        redirect('/disk/create?host=%s' % host)
+        redirect('/disk/create?host=%s' % url_quote(host))
         
     elif delete:
         host = transaction.get_host(int(host))
@@ -158,7 +173,8 @@ def disks(transaction, host, add=None, delete=None, **checkboxes):
             commit(transaction, host, msg=msg)
         else:
             msg = _("No disk(s) selected for deletion")
-            queue_message(msg, error=True, link=object_link(host))
+            hostname = spine_to_web(host.get_name())
+            queue_message(msg, error=True, link=object_link(host, text=hostname))
             redirect_object(host)
     else:
         raise "I don't know what you want me to do"

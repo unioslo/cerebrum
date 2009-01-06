@@ -25,14 +25,17 @@
 #attr $username = ""
 #attr $messages = ""
 #attr $client = '/user_client'
-#set $charset = $cherrypy.session.get('encoding', 'utf-8')
-<% cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset=utf-8' %>
+#set $charset = $cherrypy.session.get('client_encoding', 'utf-8')
+<%
+content_type = 'application/xhtml+xml; charset=%s' % cherrypy.session.get('client_encoding', 'utf-8')
+cherrypy.response.headerMap['Content-Type']= content_type
+%>
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
     <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=$charset" />
+        <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=$charset" />
         <link rel="stylesheet" type="text/css" media="screen" href="css/login.css" charset="$charset" />
         <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
         <title>Log in to Cereweb</title>

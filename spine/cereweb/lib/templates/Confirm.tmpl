@@ -18,7 +18,14 @@
 
 ## Login template
 #from gettext import gettext as _
+#import cherrypy
+
 #implements respond
+
+<%
+content_type = 'application/xhtml+xml; charset=%s' % cherrypy.session['client_encoding']
+cherrypy.response.headerMap['Content-Type'] = content_type
+%>
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">

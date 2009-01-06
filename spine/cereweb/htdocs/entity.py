@@ -24,6 +24,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import transaction_decorator, commit
 from lib.utils import redirect_object, object_link, queue_message
+from lib.utils import web_to_spine, spine_to_web
 from lib.HistoryLog import view_history, view_history_all
 
 def view(transaction, id):
@@ -62,7 +63,7 @@ remove_external_id.exposed = True
 
 def add_spread(transaction, id, spread):
     entity = transaction.get_entity(int(id))
-    spread = transaction.get_spread(spread)
+    spread = transaction.get_spread(web_to_spine(spread))
     entity.add_spread(spread)
 
     msg = _("Spread successfully added.")
@@ -72,7 +73,7 @@ add_spread.exposed = True
 
 def remove_spread(transaction, id, spread):
     entity = transaction.get_entity(int(id))
-    spread = transaction.get_spread(spread)
+    spread = transaction.get_spread(web_to_spine(spread))
     entity.delete_spread(spread)
 
     msg = _("Spread successfully removed.")
@@ -83,8 +84,9 @@ remove_spread.exposed = True
 def add_contact_info(transaction, id, type, value, pref, desc=""):
     entity = transaction.get_entity(int(id))
     source_system = transaction.get_source_system("Manual")
-    type = transaction.get_contact_info_type(type)
-    
+    type = transaction.get_contact_info_type(web_to_spine(type))
+    if desc:
+        desc = web_to_spine(desc.strip())
     entity.add_contact_info(source_system, type, value, int(pref), desc)
 
     msg = _("Contact info successfully added.")
@@ -94,7 +96,7 @@ add_contact_info.exposed = True
 
 def remove_contact_info(transaction, id, ss, type, pref):
     entity = transaction.get_entity(int(id))
-    source_system = transaction.get_source_system(ss)
+    source_system = transaction.get_source_system(web_to_spine(ss))
     type = transaction.get_contact_info_type(type)
     entity.remove_contact_info(source_system, type, int(pref))
 

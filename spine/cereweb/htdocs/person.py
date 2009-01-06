@@ -30,7 +30,7 @@ from lib.utils import strftime, strptime, commit_url, unlegal_name
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url, html_quote
-from lib.utils import spine_to_web, web_to_spine
+from lib.utils import spine_to_web, web_to_spine, get_lastname_firstname
 from lib.Searchers import PersonSearcher
 from lib.Forms import PersonCreateForm, PersonEditForm
 from lib.templates.SearchResultTemplate import SearchResultTemplate
@@ -69,12 +69,13 @@ def _primary_name(person):
     """Returns the primary display name for the person."""
     #until such an thing is set in the database, we just use this method.
     names = {}
-    for name in person.get_names():
-        names[name.get_name_variant().get_name()] = name.get_name()
-    for type in ["FULL", "LAST", "FIRST"]:
-        if names.has_key(type):
-            return names[type]
-    return "unknown name"
+    return get_lastname_firstname(person)
+##     for name in person.get_names():
+##         names[name.get_name_variant().get_name()] = name.get_name()
+##     for type in ["FULL", "LAST", "FIRST"]:
+##         if names.has_key(type):
+##             return names[type]
+##    return "unknown name"
 
 def _get_person(transaction, id):
     """Returns a Person-object from the database with the specific id."""
@@ -89,13 +90,13 @@ def view(transaction, id, **vargs):
     tr = transaction
     person = transaction.get_person(int(id))
     page = PersonViewTemplate()
-    displayname = spine_to_web(tr, _primary_name(person))
+    displayname = spine_to_web(_primary_name(person))
     page.title = _("Person %s" % html_quote(displayname))
     page.set_focus("person/view")
     page.links = _get_links()
-    page.tr = transaction
     page.entity_id = int(id)
     page.entity = person
+    page.tr = transaction
     showBirthNo = vargs.get('birthno', '')
     if showBirthNo:
         page.viewBirthNo = True
@@ -108,6 +109,7 @@ def edit_form(form, message=None):
     if message:
         page.messages.append(message)
     page.title = form.get_title()
+    page.form_title = form.get_title()
     page.set_focus("person/edit")
     page.links = _get_links()
     page.form_fields = form.get_fields()
@@ -128,10 +130,8 @@ def edit(transaction, id, **vargs):
     values.update(vargs)
     form = PersonEditForm(transaction, **values)
     form.title = object_link(person)
-
     if not vargs:
         return edit_form(form)
-
     if not form.has_required() or not form.is_correct():
         return edit_form(form, message=form.get_error_message())
     else:
@@ -187,9 +187,11 @@ create.exposed = True
 def make(transaction, ou, affiliation, status, firstname, lastname, gender, birthdate, externalid, description=""):
     """Create a new person with the given values."""
     birthdate = strptime(transaction, birthdate)
-    gender = transaction.get_gender_type(gender)
+    gender = transaction.get_gender_type(web_to_spine(gender))
     source_system = transaction.get_source_system('Manual')
     ou = transaction.get_ou(int(ou))
+    firstname = web_to_spine(firstname)
+    lastname = web_to_spine(lastname)
     person = ou.create_person(
            birthdate, gender, firstname, lastname, source_system, int(affiliation), int(status))
     if not externalid:
@@ -200,7 +202,7 @@ def make(transaction, ou, affiliation, status, firstname, lastname, gender, birt
         person.set_external_id(externalid, eidt, source_system)
 
     if description:
-        person.set_description(description)
+        person.set_description(web_to_spine(description.strip()))
     commit_url(transaction, '/account/create?owner=%s' % person.get_id(), msg=_("Person successfully created.  Now he probably needs an account."))
 
 def create_form(form, message=None):
@@ -226,8 +228,10 @@ def save(transaction, id, gender, birthdate,
         redirect_object(person)
         return
     
-    person.set_gender(transaction.get_gender_type(gender))
+    person.set_gender(transaction.get_gender_type(web_to_spine(gender)))
     person.set_birth_date(strptime(transaction, birthdate))
+    if description:
+        description = web_to_spine(description.strip())
     person.set_description(description or '')
     person.set_deceased_date(strptime(transaction, deceased))
     
@@ -236,7 +240,7 @@ def save(transaction, id, gender, birthdate,
 def delete(transaction, id):
     """Delete the person from the server."""
     person = transaction.get_person(int(id))
-    msg = _("Person '%s' successfully deleted.") % _primary_name(person)
+    msg = _("Person '%s' successfully deleted.") % spine_to_web(_primary_name(person))
     person.delete()
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
@@ -249,8 +253,10 @@ def add_name(transaction, id, name, name_type):
     if msg:
         queue_message(msg, error=True)
         redirect_object(person)
-    name_type = transaction.get_name_type(name_type)
+    name_type = transaction.get_name_type(web_to_spine(name_type))
     source_system = transaction.get_source_system('Manual')
+    if name:
+        name = web_to_spine(name.strip())
     person.set_name(name, name_type, source_system)
 
     commit(transaction, person, msg=_("Name successfully added."))
@@ -260,8 +266,8 @@ add_name.exposed = True
 def remove_name(id, transaction, variant, ss):
     """Remove the name with the given values."""
     person = transaction.get_person(int(id))
-    variant = transaction.get_name_type(variant)
-    ss = transaction.get_source_system(ss)
+    variant = transaction.get_name_type(web_to_spine(variant))
+    ss = transaction.get_source_system(web_to_spine(ss))
 
     person.remove_name(variant, ss)
 
@@ -317,7 +323,7 @@ def add_affil(transaction, id, status, ou, description=""):
     affil = person.add_affiliation(ou, status, ss)
     
     if description:
-        affil.set_description(description)
+        affil.set_description(web_to_spine(description))
     
     commit(transaction, person, msg=_("Affiliation successfully added."))
 add_affil = transaction_decorator(add_affil)
@@ -326,8 +332,8 @@ add_affil.exposed = True
 def remove_affil(transaction, id, ou, affil, ss):
     person = transaction.get_person(int(id))
     ou = transaction.get_ou(int(ou))
-    ss = transaction.get_source_system(ss)
-    affil = transaction.get_person_affiliation_type(affil)
+    ss = transaction.get_source_system(web_to_spine(ss))
+    affil = transaction.get_person_affiliation_type(web_to_spine(affil))
     
     searcher = transaction.get_person_affiliation_searcher()
     searcher.set_person(person)

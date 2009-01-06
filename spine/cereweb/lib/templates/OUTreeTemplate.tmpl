@@ -16,7 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, remember_link
+#from lib.utils import object_link, remember_link, spine_to_web
 #extends EntityViewTemplate
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
@@ -27,11 +27,11 @@
 #attr title = "OU tree view"
 
 ## Main method for creating the ou tree page.
-#def viewTree($transaction, $perspective=None)
+#def viewTree($tr, $perspective=None)
 <h3>$title</h3>
 <div class="tree">
     <form>
-        #set $perspectives = $transaction.get_ou_perspective_type_searcher()
+        #set $perspectives = $tr.get_ou_perspective_type_searcher()
         $form_widgets.code_selector("perspective", 
                        $_("Perspective"),
                        $perspectives, $perspective)
@@ -46,22 +46,22 @@
     #end if 
     
     #set title = ($_("OU tree view of perspective %s") % 
-                  $perspective.get_name())
+                  $spine_to_web($perspective.get_name()))
     ## find roots of perspective and show them
     #set $roots = $perspective.get_roots()
     #for $root in $roots 
-        $subtree($transaction, $perspective, $root)
+        $subtree($perspective, $root)
     #end for
 </div>
 #end def
 
 
 
-#def subtree($transaction, $perspective, $ou)
+#def subtree($perspective, $ou)
     <div class="tree">
-        $object_link($ou)
+        $object_link($ou, text=$spine_to_web($ou.get_name()))
         #for $child in $ou.get_children($perspective)
-            $subtree($transaction, $perspective, $child)
+            $subtree($perspective, $child)
         #end for    
     </div>
 #end def

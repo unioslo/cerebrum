@@ -25,6 +25,7 @@ from lib.Main import Main
 from lib.utils import transaction_decorator, redirect, object_link
 from lib.utils import commit, queue_message, legal_date
 from lib.utils import legal_domain_format, legal_emailname, rollback_url
+from lib.utils import web_to_spine, spine_to_web, url_quote
 from SpineIDL.Errors import NotFoundError
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
@@ -80,14 +81,16 @@ def view(transaction, id):
     target_obj = transaction.get_email_target(id)
     target = parse_target(target_obj, id)
     domains = transaction.get_email_domain_searcher().search()
-    domains = [(i.get_name(), i.get_name()) for i in domains]
+    all_domains = []
+    for domain in domains:
+        domain_name = spine_to_web(domain.get_name())
+        all_domains.append((domain_name, domain_name))
     page = EmailTargetViewTemplate()
-    page.tr = transaction
     page.title = _("Email addresses")
     page.set_focus("emailtarget/view")
     page.entity = target
     page.entity_id = id
-    page.domains = domains
+    page.domains = all_domains
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
@@ -100,7 +103,7 @@ def delete(transaction, id, ref):
         adr.delete()
     target_obj.delete_email_target()
     transaction.commit()
-    redirect( ref )
+    redirect(ref)
 delete = transaction_decorator(delete)
 delete.exposed = True
 
@@ -151,18 +154,21 @@ def makeaddress(transaction, id, local, domain, expire):
                 msg = _('Expire date is not a legal date.')
     if not msg:
         cmds = transaction.get_commands()
-        domain = cmds.get_email_domain_by_name(domain)
-        emailaddr = cmds.create_email_address(local, domain, target)
+        domain_name = web_to_spine(domain.strip())
+        domain = cmds.get_email_domain_by_name(web_to_spine(domain_name))
+        local_part = web_to_spine(local.strip())
+        emailaddr = cmds.create_email_address(local_part, domain, target)
         if expire:
             expire = cmds.strptime(expire, "%Y-%m-%d")
             emailaddr.set_expire_date(expire)
         commit(transaction, target, msg=_("Email address successfully created."))
     else:
-        rollback_url('/emailtarget/view?id=%s' % id, msg, err=True)
+        rollback_url('/emailtarget/view?id=%s' % url_quote(id), msg, err=True)
 makeaddress = transaction_decorator(makeaddress)
 makeaddress.exposed = True
 
 def setprimary(transaction, id, addr):
+    id = url_quote(id)
     addr = transaction.get_email_address(int(addr))
     addr.set_as_primary()
     transaction.commit()

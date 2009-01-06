@@ -17,7 +17,8 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from urllib import urlencode
-#from lib.utils import object_link, html_quote
+#from lib.utils import object_link, html_quote, url_quote
+#from lib.utils import html_quote, url_quote, spine_to_web, web_to_spine
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from SpineIDL.Errors import NotFoundError
@@ -25,8 +26,8 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-#def view($entity, $transaction)
-#set $searcher = $transaction.get_email_target_searcher()
+#def view($entity, $tr)
+#set $searcher = $tr.get_email_target_searcher()
 $searcher.set_target_entity($entity)
 #set $targets = $searcher.search()
 #if $targets
@@ -39,10 +40,10 @@ $searcher.set_target_entity($entity)
         ##<div class="item">
         $target.get_alias_value()
             <div class="actions">
-                #set $url = "/emailtarget/view?id=%d" % $target.get_id()
+                #set $url = "/emailtarget/view?id=%s" % $url_quote($target.get_id())
                 <a class="action" href="$url">$_('Add email-address')</a>
                 &#x0020;
-                #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($entity.get_id(), $target.get_id())
+                #set $url = "/email/remove_target?entity=%s&amp;target=%s" % ($url_quote($entity.get_id()), $url_quote($target.get_id()))
                 <a class="action" href="$url">$_('Delete')</a>
             </div>
             ##for $address in $addresses:
@@ -51,15 +52,19 @@ $searcher.set_target_entity($entity)
             <div>
                 #set $primary_address = ''
                 #if $target.get_primary_address()
-                    #set $localpart = $target.get_primary_address().get_local_part()
-                    #set $domainpart = $target.get_primary_address().get_domain().get_name()
-                    #set $primary_address = '%s@%s' % ($html_quote($localpart), $html_quote($domainpart))
+                    #set $localpart = $spine_to_web($target.get_primary_address().get_local_part())
+                    #set $domainpart = $spine_to_web($target.get_primary_address().get_domain().get_name())
+                    #set $primary_address = '%s@%s' % ($localpart, $domainpart)
                 #end if
                 #set $servername = ''
                 #if $target.get_server()
-                    #set $servername = $target.get_server().get_name()
+                    #set $servername = $spine_to_web($target.get_server().get_name())
                 #end if
-                #set $target_type = '%s@%s' % ($html_quote($target.get_target_type().get_name()), $html_quote($servername))
+                #set $target_type = ''
+                #if $target.get_target_type()
+                    #set $target_type = $spine_to_web($target.get_target_type().get_name())
+                #end if
+                #set $target_type = '%s@%s' % ($target_type, $servername)
                 <td>
                     $target_type
                 </td>
@@ -75,14 +80,18 @@ $searcher.set_target_entity($entity)
 #end if
 #end def
 
-#def set($entity, $transaction)
-#set $search = $transaction.get_email_target_type_searcher().search()
-#set $target_types = [($s.get_name(), $s.get_name()) for $s in $search]
-#set $hosts = $transaction.get_host_searcher().search()
+#def set($entity, $tr)
+#set $search = $tr.get_email_target_type_searcher().search()
+#set $target_types = []
+#for $target_type in $search
+    #set $target_name = $spine_to_web($target_type.get_name())
+    $target_types.append(($target_name, $target_name))
+#end for
+#set $hosts = $tr.get_host_searcher().search()
 #set $mailservers = []
 #for $host in $hosts
     #if $host.get_email_server_type()
-        $mailservers.append((host.get_id(),host.get_name()))
+        $mailservers.append(($html_quote(host.get_id()),$spine_to_web(host.get_name())))
     #end if
 #end for
 
@@ -119,14 +128,14 @@ $searcher.set_target_entity($entity)
 </div>
 #end def
 
-#def entity_email($transaction, $entity)
+#def entity_email($tr, $entity)
 <div class="entityemail box">
     <div class="subtitle">
         <h3>$_("Email targets")</h3>
     </div>
 
     #set $target = None
-    #set $targets = $transaction.get_email_target_searcher()
+    #set $targets = $tr.get_email_target_searcher()
     $targets.set_target_entity($entity)
     #for $target in $targets.search():
         <div>
@@ -136,51 +145,62 @@ $searcher.set_target_entity($entity)
     #end for
     
     #if $target is None
-        $create_target($transaction, $entity) 
+        $create_target($tr, $entity) 
     #end if    
 </div>
 #end def
 
-#def add_address($transaction, $target, $suggestion="")
+#def add_address($tr, $target, $suggestion="")
 <form action="/emailtarget/add_address" method="post">
 <div>
-    <input type="hidden" name="target" value="$target.get_id()" />
+    <input type="hidden" name="target" value="$html_quote($target.get_id())" />
     <label>$_("Add an email address:")</label><br />
+    #if $suggestion
+        #set $suggestion = $spine_to_web($suggestion)
+    #end if
     <input name="local_part" value="$suggestion" /> @
 
-    #set $domains=$transaction.get_email_domain_searcher()
+    #set $domains=$tr.get_email_domain_searcher()
     #set $domains = [(d.get_id(), d.get_name()) for d in $domains.search()]
     $domains.sort(lambda x,y: cmp(x[1], y[1]))
-    $form_widgets.generate_option("domain", $domains)
+    #set $sorted_domains = []
+    #for $id, $name in $domains
+        $sorted_domains.append(($html_quote($id), $spine_to_web($name)))
+    #end for
+    $form_widgets.generate_option("domain", $sorted_domains)
     <input type="submit" value="$_("Add")" />
 </div>
 </form>
 #end def
 
-#def edit_address($transaction, $address)
+#def edit_address($tr, $address)
 <form action="/emailtarget/save_address" method="post">
 <div>
     <input type="hidden" name="address" value="$html_quote($address.get_id())" />
     <label>$_("Edit email address:")</label><br />
-    <input name="local_part" value="$html_quote($address.get_local_part())" /> @
+    <input name="local_part" value="$spine_to_web($address.get_local_part())" /> @
 
-    #set $domains=$transaction.get_email_domain_searcher()
+    #set $domains=$tr.get_email_domain_searcher()
     #set $domains = [(d.get_id(), d.get_name()) for d in $domains.search()]
     $domains.sort(lambda x,y: cmp(x[1], y[1]))
-    $form_widgets.generate_option("domain", $domains,
-                                  $address.get_domain().get_id())
+    #set $sorted_domains = []
+    #for $id, $name in $domains
+        $sorted_domains.append(($html_quote($id), $spine_to_web($name)))
+    #end for
+    $form_widgets.generate_option("domain", $sorted_domains,
+                                  $html_quote($address.get_domain().get_id()))
     <input type="submit" value="$_("Save")" />
 </div>
 </form>
 #end def
 
-#def edit_target($transaction, $target)
+#def edit_target($tr, $target)
 <form action="/emailtarget/save" method="post">
 <div>
     <input type="hidden" name="id" value="$html_quote($target.get_id())" />
     <div> 
-    #set $target_types=$transaction.get_email_target_type_searcher()
-    $form_widgets.code_selector("target_type", $_("Target type"),
+    #set $target_types=$tr.get_email_target_type_searcher()
+    $form_widgets.code_selector($tr, "target_type", $_("Target type"),
                                 $target_types, $target.get_type())
     </div>
 
@@ -194,7 +214,7 @@ $searcher.set_target_entity($entity)
     </div>
 
     <div><label for="alias">$_("Alias"):</label>
-    <input name="alias" value="$html_quote($target.get_alias_value())" />
+    <input name="alias" value="$spine_to_web($target.get_alias_value())" />
     </div>
     
 ##    <div><label for="using">$_("Using account"):</label>
@@ -208,7 +228,7 @@ $searcher.set_target_entity($entity)
 #end def
 
 
-#def view_target($transaction, $target, $suggestion="")
+#def view_target($tr, $target, $suggestion="")
 
 <div class="info box">
     <div class="subtitle">
@@ -217,26 +237,28 @@ $searcher.set_target_entity($entity)
 
     <div> 
     <em>$_("Target type"):</em> 
-        $html_quote($target.get_type().get_description())
+        $spine_to_web($target.get_type().get_description())
     </div>
 
     #set $entity = $target.get_target_entity()
     #if $entity is not None
-        <div><em>$_("Associated with") $_($entity.get_type().get_name()):</em>
-        $object_link($entity)
+        <div><em>$_("Associated with") $_($spine_to_web($entity.get_type().get_name())):</em>
+        #set $entity_name = $spine_to_web($entity.get_name())
+        $object_link($entity, text=$entity_name)
         </div>
     #end if
 
     #set $alias = $target.get_alias()
     #if $alias
         <div><em>$_("Alias"):</em>
-            $html_quote($alias)
+            $spine_to_web($alias)
         </div>
     #end if    
     
     #set $using = target.get_using()
     #if $using
          <div><em>$_("Using account"):</em>
+            
              $object_link($using)
          </div>
      #end if
@@ -262,8 +284,9 @@ $searcher.set_target_entity($entity)
     <td>
     #if $is_primary
         <strong>
-    #end if    
-    $addr.get_local_part()@$object_link($addr.get_domain())
+    #end if
+    #set $domain_name = $spine_to_web($addr.get_domain().get_name())
+    $spine_to_web($addr.get_local_part())@$object_link($addr.get_domain(), text=$domain_name)
     #if $is_primary
         </strong>
     #end if    
@@ -291,7 +314,7 @@ $searcher.set_target_entity($entity)
 #end for
 </table>
 <br />
-$add_address($transaction, $target, $suggestion)
+$add_address($tr, $target, $suggestion)
 </div>
 #end def
 

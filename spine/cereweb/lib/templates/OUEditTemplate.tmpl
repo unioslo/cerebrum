@@ -16,6 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+#from lib.utils import html_quote, spine_to_web
 #from types import StringTypes
 #from lib.InitTemplate import InitTemplate
 #from SpineIDL.Errors import NotFoundError
@@ -28,57 +29,60 @@
 #attr $help = []
 
 ## Creates the form for editing the main person info.
-#def form($transaction, $ou)
-<div class="view">
-    <h3>$_('General organization info')</h3>
+#def form($tr, $ou)
+## <div class="view">
+<div class="edit box">
+    <h3>$_('Edit general organization info')</h3>
+    <div>
     <form action="save" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$ou.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($ou.get_id())" />
         </div>
         <div class="required">
-            $form_widgets.input("name", "Name", $ou.get_name())
+            $form_widgets.input("name", "Name", $spine_to_web($ou.get_name()))
         </div>
         <div class="required">
-            $form_widgets.input("acronym", "Acronym", $ou.get_acronym())
+            $form_widgets.input("acronym", "Acronym", $spine_to_web($ou.get_acronym()))
         </div>
         <div class="required">
-            $form_widgets.input("short_name", "Short name", $ou.get_short_name())
+            $form_widgets.input("short_name", "Short name", $spine_to_web($ou.get_short_name()))
         </div>
         <div class="required">
-            $form_widgets.input("display_name", "Display name", $ou.get_display_name())
+            $form_widgets.input("display_name", "Display name", $spine_to_web($ou.get_display_name()))
         </div>
         <div class="required">
-            $form_widgets.input("sort_name", "Sort name", $ou.get_sort_name())
+            $form_widgets.input("sort_name", "Sort name", $spine_to_web($ou.get_sort_name()))
         </div>
         <div class="required">
-            $form_widgets.input("contrycode", "Country code", $ou.get_landkode())
+            $form_widgets.input("contrycode", "Country code", $html_quote($ou.get_landkode()))
         </div>
         <div class="required">
-            $form_widgets.input("institution", "Institution", $ou.get_institusjon())
+            $form_widgets.input("institution", "Institution", $html_quote($ou.get_institusjon()))
         </div>
         <div class="required">
-            $form_widgets.input("faculty", "Faculty", $ou.get_fakultet())
+            $form_widgets.input("faculty", "Faculty", $html_quote($ou.get_fakultet()))
         </div>
         <div class="required">
-            $form_widgets.input("institute", "Institute", $ou.get_institutt())
+            $form_widgets.input("institute", "Institute", $html_quote($ou.get_institutt()))
         </div>
         <div class="required">
-            $form_widgets.input("department", "Department", $ou.get_avdeling())
+            $form_widgets.input("department", "Department", $html_quote($ou.get_avdeling()))
         </div>
-        $edit_perspectives($transaction, $ou)
+        $edit_perspectives($tr, $ou)
         $form_widgets.showHelp($help)
         <div class="buttons">
-            <input type="submit" value="$_('Save')" name="submit" />
-            <input type="submit" value="$_('Cancel')" name="submit" />
+            <input type="submit" value="$_('Add')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
+    </div>
 </div>
 #end def
 
-#def edit_perspectives($transaction, $ou)
+#def edit_perspectives($tr, $ou)
 #set $extras = [ ("not_in", $_("(Not in perspective)")),
                  ("root", $_("(Root node)")) ]
-#set $perspectives = $transaction.get_ou_perspective_type_searcher()
+#set $perspectives = $tr.get_ou_perspective_type_searcher()
 
     <h3>$_('OU perspectives')</h3>
     #for $perspective in $perspectives.search()
@@ -125,24 +129,24 @@
     ## Internal recursive function for printing an OU options
     ## and all it's children
     #def ou_options($ou, $perspective, $indent="", $selected=None, $disable=None)
-        #set $name=$ou.get_id()
-        #set $descr=$ou.get_name()
-        #set $attribs=''
-        #if $selected==$name
+        #set $name = $ou.get_id()
+        #set $descr = $ou.get_name()
+        #set $attribs = ''
+        #if $selected == $name
             #set $attribs += " selected='selected'"
         #end if    
-        #if $disable==$name
+        #if $disable == $name
             #set $attribs += " disabled='disabled'"
         #end if
-        <option$attribs value="$name">
-            $indent $descr
+        <option$attribs value="$html_quote($name)">
+            $indent $spine_to_web($descr)
         </option>
         #for $child in $ou.get_children($perspective)
-            #if $disable==$name
+            #if $disable == $name
                 ## All kids are disabled too
-                #set dis=$child.get_id()
+                #set $dis = $child.get_id()
             #else
-                #set dis=$disable
+                #set $dis = $disable
             #end if
             $ou_options($child, $perspective, $indent+"--", $selected, $dis)
         #end for
@@ -157,16 +161,16 @@
         <select name="$name">
 
         ## First the extra options
-        #for $name,$descr in $extras
+        #for $name, $descr in $extras
             #set attribs=''
-            #if $selected==$name
+            #if $selected == $name
                 #set $attribs += " selected='selected'"
             #end if    
-            #if $disabled==$name
+            #if $disabled == $name
                 #set $attribs += " disabled='disabled'"
             #end if
-            <option$attribs value="$name">
-                $descr
+            <option$attribs value="$html_quote($name)">
+                $spine_to_web($descr)
             </option>
         #end for
         

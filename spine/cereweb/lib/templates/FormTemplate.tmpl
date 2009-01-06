@@ -46,6 +46,7 @@
                             $field['label'], $field['options'], $field['value'])
                     #elif $field['type'] == 'hidden'
                         <input class="$cls" type="hidden" name="$field['name']" id="$field['name']" value="$field['value']" />
+                    $field['value']
                     #elif $field['type'] == 'checkbox'
                         <label for="$field['name']">$field['label']:</label>
                         <input type="checkbox" name="$field['name']" id="$field['name']" value="$field['value']" />
@@ -82,6 +83,7 @@
                     #else
                         <label for="$field['name']">$field['label']:</label>
                         <input class="$cls" type="$field['type']" value="$field['value']" name="$field['name']" id="$field['name']" />
+                        $field['value']
                     #end if
                     #if $field.get('help')
                         <img alt="?" class="tt" src='/yui/container/assets/hlp16_1.gif' /><span class="nojs">$field['help']</span>

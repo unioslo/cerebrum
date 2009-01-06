@@ -23,7 +23,8 @@ import cherrypy
 from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import commit, commit_url, queue_message, object_link, remember_link
+from lib.utils import commit, commit_url, queue_message
+from lib.utils import object_link, remember_link, spine_to_web
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.Searchers import AllocationSearcher
 from lib.templates.SearchTemplate import SearchTemplate
@@ -58,13 +59,12 @@ def view(transaction, id):
     allocation = transaction.get_allocation(int(id))
     page = AllocationViewTemplate()
     page.title = _('Allocation %s %s') % (
-        allocation.get_allocation_name().get_name(),
-        allocation.get_period().get_name() )
+        spine_to_web(allocation.get_allocation_name().get_name()),
+        spine_to_web(allocation.get_period().get_name()))
     page.set_focus('allocation/view')
     page.links = _get_links()
     page.entity_id = int(id)
     page.entity = allocation
-    page.tr = transaction
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
@@ -73,7 +73,8 @@ def edit(transaction, id):
     """Creates a page with the form for editing a allocation."""
     allocation = transaction.get_allocation(int(id))
     page = Main()
-    page.title = _("Edit ") + object_link(allocation)
+    allocation_name = spine_to_web(allocation.get_allocation_name().get_name())
+    page.title = _("Edit ") + object_link(allocation, text=allocation_name)
     page.set_focus("allocation/edit")
     page.links = _get_links()
 
@@ -124,7 +125,8 @@ def make(transaction, project=None, allocation_name="", period=None, status=None
     status = transaction.get_allocation_status(status)
     
     cmd = transaction.get_commands()
-    allocation = cmd.create_allocation(authority, allocation_name, period, status)
+    all_name = web_to_spine(allocation_name.strip())
+    allocation = cmd.create_allocation(authority, all_name, period, status)
 
     commit(transaction, host, msg=_("Allocation successfully created."))
 make = transaction_decorator(make)

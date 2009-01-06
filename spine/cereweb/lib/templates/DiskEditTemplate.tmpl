@@ -17,6 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.InitTemplate import InitTemplate
+#from lib.utils import html_quote, url_quote, spine_to_web
 #extends InitTemplate
 
 #from lib.utils import object_link
@@ -41,16 +42,17 @@
 ## Creates the form for editing the main disk info.
 #def form($disk)
 <div class="view">
-<h3>$_('Edit ') + $object_link($disk) + $_(':')</h3>
+#set $diskname = $spine_to_web($disk.get_name())
+<h3>$_('Edit ') + $object_link($disk, text=$diskname) + $_(':')</h3>
     <form action="$getAction()" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$disk.get_id()" />
+            <input type="hidden" name="id" value="$html_quote($disk.get_id())" />
         </div>
         <div class="required">
-            $form_widgets.input("path", "Path", $disk.get_path())
+            $form_widgets.input("path", "Path", $spine_to_web($disk.get_path()))
         </div>
         <div class="required">
-            $form_widgets.input("description", "Description", $disk.get_description())
+            $form_widgets.input("description", "Description", $spine_to_web($disk.get_description()))
         </div>
         $form_widgets.showHelp($help)
         <div class="buttons">

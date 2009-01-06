@@ -111,9 +111,25 @@ def login(**vargs):
         else:
             cherrypy.session['session'] = session
             cherrypy.session['timeout'] = session.get_timeout()
-            #cherrypy.session['encoding'] = session.get_encoding()
-            cherrypy.session['encoding'] = "utf-8"
+            cherrypy.session['spine_encoding'] = session.get_encoding()
             cherrypy.session['options'] = Options(session, username)
+
+
+            ## Try to find Accept-Charset from web-browser
+            default_charset = 'utf-8'
+            selected_charset = None
+            allowed_charsets = cherrypy.request.headerMap.get('Accept-Charset', '')
+            if allowed_charsets:
+                charsets = allowed_charsets.split(',')
+                for charset in charsets:
+                    if charset.strip().lower() == default_charset:
+                        selected_charset = default_charset
+                ## just pick one...
+                if not selected_charset and charsets:
+                    selected_charset = charsets[0].strip()
+            if not selected_charset:
+                selected_charset = default_charset
+            cherrypy.session['client_encoding'] = selected_charset
             
             try:
                 next = cherrypy.session.pop('next')

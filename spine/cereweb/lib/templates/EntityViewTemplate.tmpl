@@ -26,22 +26,35 @@
 
 #attr $formvalues = {}
 
-#def viewNotes($entity, $tr)
+#def viewNotes($entity)
 #set $notes = $entity.get_notes()
 #if $notes
 <div class="note box">
     <h3>$_('Notes')</h3>
     #for $note in $notes
     #set $delete = '/note/delete?id=%s&amp;entity=%s' % ($url_quote($note.get_id()), $url_quote($entity.get_id()))
-    #set $description = $spine_to_web($tr, $note.get_description().strip())
-    #set $description = $description.replace('\n', '<br />')
+    #set $description = $note.get_description()
+    #if $description
+        #set $description = $spine_to_web($description).replace('\n', '<br />')
+    #end if
     <div class="item">
         <div class="actions">
             <a class="action" href="$delete">$_('delete')</a>
         </div>
-        <span class="name">$spine_to_web($tr, $note.get_subject())</span>&#x0020;
-        $set $creator = $spine_to_web($tr, $note.get_creator().get_name())
-        <span class="creator">-$_('by')  $object_link($note.get_creator(), text=$creator)</span>&#x0020;
+        #set $subject = $note.get_subject()
+        #if $subject
+            #set $subject = $spine_to_web($subject)
+        #end if
+        <span class="name">$subject</span>&#x0020;
+        <span class="creator">-$_('by ')
+        #set $creator_name = $note.get_creator().get_name()
+        #if $creator_name
+            #set $creator_name = $spine_to_web($creator_name)
+            $object_link($note.get_creator(), text=$creator_name)
+        #else
+            $object_link($note.get_creator())
+        #end if
+        </span>&#x0020;
         <span class="date">$html_quote($strftime($note.get_create_date()))</span>
         <div class="description">$description</div>
     </div>
@@ -73,7 +86,7 @@
 </div>
 #end def
 
-#def viewQuarantines($entity, $tr)
+#def viewQuarantines($entity)
 #set $quarantines = $entity.get_quarantines()
 #if $quarantines
 #set $id = $entity.get_id()
@@ -84,17 +97,30 @@
         #set $type = $q.get_type().get_name()
         #set $edit = '/quarantine/edit?entity=%s&amp;type=%s' % ($url_quote($id), $url_quote($type))
         #set $remove = '/quarantine/remove?entity=%s&amp;type=%s' % ($url_quote($id), $url_quote($type))
-        #set $description = $spine_to_web($tr, $q.get_description()).replace('\n', '<br />')
-                
+        #set $description = $q.get_description()
+        #if $description
+            #set $description = $spine_to_web($description).replace('\n', '<br />')
+        #end if
         <div class="actions">
             <a class="action" href="$edit">$_('edit')</a>
             <a class="action" href="$remove">$_('delete')</a>
         </div>
-        <strong>$spine_to_web($tr, $q.get_type().get_description())</strong>&#x0020;
-        #set $creator_name = $spine_to_web($tr, $q.get_creator().get_name())
-        <em>-$_('by')</em> $object_link($q.get_creator(), text=$creator_name)&#x0020;
+        #set $type_desc = $q.get_type().get_description()
+        #if $type_desc
+            #set $type_desc = $spine_to_web($type_desc)
+        #end if
+        <strong>$type_desc</strong>&#x0020;
+        <em>-$_('by ')</em>
+        #set $creator_name = $q.get_creator().get_name()
+        #if $creator_name
+            #set $creator_name = $spine_to_web($creator_name)
+            $object_link($q.get_creator(), text=$creator_name)
+        #else
+            $object_link($q.get_creator())
+        #end if
+        &#x0020;
         <span class="date">$html_quote($strftime($q.get_create_date()))</span>
-        <div class="description">$description.strip()</div>
+        <div class="description">$description</div>
         
         #set $end = $q.get_end_date()
         #set $until = $q.get_disable_until()
@@ -116,7 +142,7 @@
 #end def
 
 #from lib.utils import extidlist
-#def viewExternalIds($entity, $viewBirthNo,$tr)
+#def viewExternalIds($entity, $viewBirthNo)
 #set $ids = extidlist($entity)
 #if $ids
 <div class="info box">
@@ -128,9 +154,9 @@
       <th>$_('Sources')</th>
     </tr>
     #for $id in $ids
-    #set sources = ",".join([$spine_to_web($tr, $s.get_name()) for $s in $id.sources])
+    #set sources = ",".join([$spine_to_web($s.get_name()) for $s in $id.sources])
     <tr>
-            <td>$spine_to_web($tr, $id.variant.get_name())</td>
+            <td>$spine_to_web($id.variant.get_name())</td>
             <td>
             #if 'NO_BIRTHNO' == $id.variant.get_name()
                 #if $viewBirthNo
@@ -143,7 +169,7 @@
                $html_quote($id.value)
             #end if
             </td>
-           <td>$html_quote($sources)</td>
+           <td>$sources</td>
     </tr>
     #end for
     </table>
@@ -153,10 +179,9 @@
 
 
 
-#def setExternalId($entity, $transaction)
-#set $tr = $transaction
-#set $searcher = $transaction.get_entity_external_id_type_searcher()
-#set $id_types = [($type.get_name(), $type.get_description()) for $type in $searcher.search()]
+#def setExternalId($entity, $tr)
+#set $searcher = $tr.get_entity_external_id_type_searcher()
+#set $id_types = [($spine_to_web($type.get_name()), $spine_to_web($type.get_description())) for $type in $searcher.search()]
 
 <div class="edit box" style="display:none;">
     <h3>$_('Set external identifier')</h3>
@@ -180,7 +205,7 @@
 
 
 #from lib.utils import contactlist
-#def viewContactInfos($entity, $tr)
+#def viewContactInfos($entity)
 #set $contacts = contactlist($entity)
 #if $contacts
 <div class="info box">
@@ -192,11 +217,11 @@
       <th>$_('Sources')</th>
     </tr>
     #for $contact in $contacts
-    #set sources = ",".join(["%s:%s" % ($spine_to_web($tr, $s[0].get_name()), $html_quote($s[1])) for $s in $contact.sources])
+    #set sources = ",".join(["%s:%s" % ($spine_to_web($s[0].get_name()), $html_quote($s[1])) for $s in $contact.sources])
     <tr>
-       <td>$spine_to_web($tr, $contact.variant.get_name())</td>
-       <td>$spine_to_web($tr, $contact.value)</td>
-       <td>$html_quote($sources)</td>
+       <td>$spine_to_web($contact.variant.get_name())</td>
+       <td>$spine_to_web($contact.value)</td>
+       <td>$sources</td>
     </tr>
     #end for
     </table>
@@ -206,7 +231,7 @@
 
 
 #from lib.utils import addresslist
-#def viewAddresses($entity, $tr)
+#def viewAddresses($entity)
 #set $addresses = addresslist($entity)
 #if $addresses
 <div class="info box">
@@ -222,15 +247,15 @@
       <th>$_('Sources')</th>
     </tr>
     #for $address in $addresses
-    #set sources = ",".join([$spine_to_web($tr, $s.get_name()) for $s in $address.sources])
+    #set sources = ",".join([$spine_to_web($s.get_name()) for $s in $address.sources])
     <tr>
-       <td>$spine_to_web($tr, $address.variant.get_name())</td>
-       <td>$spine_to_web($tr, $address.value.address_text)</td>
-       <td>$spine_to_web($tr, $address.value.p_o_box)</td>
-       <td>$spine_to_web($tr, $address.value.postal_number)</td>
-       <td>$spine_to_web($tr, $address.value.city)</td>
-       <td>$spine_to_web($tr, $address.value.country)</td>
-       <td>$html_quote($sources)</td>
+       <td>$spine_to_web($address.variant.get_name())</td>
+       <td>$spine_to_web($address.value.address_text)</td>
+       <td>$spine_to_web($address.value.p_o_box)</td>
+       <td>$spine_to_web($address.value.postal_number)</td>
+       <td>$spine_to_web($address.value.city)</td>
+       <td>$spine_to_web($address.value.country)</td>
+       <td>$sources</td>
     </tr>
     #end for
     </table>
@@ -239,7 +264,7 @@
 #end def
 
 
-#def viewSpreads($entity, $tr)
+#def viewSpreads($entity)
 #set $spreads = $entity.get_spreads()
 #if $spreads
 #set $id = $entity.get_id()
@@ -252,19 +277,19 @@
         <div class="actions">
             <a class="action" href="$delete">$_('remove')</a>
         </div>
-        <span class="name">$spine_to_web($tr, $name)</span> -
-        <span class="value">$spine_to_web($tr, $spread.get_description())</span>
+        <span class="name">$spine_to_web($name)</span> -
+        <span class="value">$spine_to_web($spread.get_description())</span>
     </div>
     #end for
 </div>
 #end if
 #end def
 
-#def addSpread($entity, $transaction)
+#def addSpread($entity, $tr)
     #set $type = $entity.get_type()
     #set $cspreads = $entity.get_spreads()
-    #set $search = $transaction.get_spread_searcher().search()
-    #set $spreads = [($s.get_name(), $s.get_name()) for $s in $search if $type == $s.get_entity_type() and $s not in $cspreads]
+    #set $search = $tr.get_spread_searcher().search()
+    #set $spreads = [($spine_to_web($s.get_name()), $spine_to_web($s.get_name())) for $s in $search if $type == $s.get_entity_type() and $s not in $cspreads]
 
     <div class="edit box" style="display:none;">
         <h3>$_('Add a spread')</h3>
@@ -284,7 +309,7 @@
 #end def
 
 
-#def viewTraits($entity, $tr)
+#def viewTraits($entity)
 #set $traits = $entity.get_traits()
 #if $traits
 #set $id = $entity.get_id()
@@ -302,16 +327,16 @@
     #set $name = $trait.get_code().get_name()
     #set $delete = '/entity/remove_trait?id=%s&amp;trait=%s' % ($url_quote($id), $url_quote($name))
     <tr>
-    <td>$spine_to_web($tr, $name)</td>
+    <td>$spine_to_web($name)</td>
     <td>
        #set $target = $trait.get_target()
        #if $target
-         #set $target_name = $spine_to_web($tr, $target.get_name())
+         #set $target_name = $spine_to_web($target.get_name())
 	 $object_link($target, text=$target_name)
        #end if
     </td>
     <td>$html_quote($shownumber($trait.get_numval()))</td>
-    <td>$spine_to_web($tr, $trait.get_strval())</td>
+    <td>$spine_to_web($trait.get_strval())</td>
     <td>$html_quote($strftime($trait.get_date()))</td>
     <td>	
         <div class="actions">
@@ -336,7 +361,7 @@
 #def actions()
 <div id="actions">
     <h3>$_('Actions')</h3>
-    $viewActions($transaction, $entity)
+    $viewActions($entity)
 </div>
 #end def
 

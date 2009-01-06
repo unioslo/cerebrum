@@ -21,8 +21,8 @@
 from gettext import gettext as _
 import cgi
 import cherrypy
-from lib.utils import legal_date
-from lib.utils import randpasswd
+from lib.utils import legal_date, html_quote, spine_to_web, object_link
+from lib.utils import randpasswd, get_lastname_firstname
 
 """
 Helper-module for search-pages and search-result-pages in cereweb.
@@ -276,7 +276,6 @@ class PersonEditForm(PersonCreateForm):
 
 class AccountCreateForm(Form):
     def init_form(self):
-        print '////////////////// Form:: AccountCreate:: init_form:    called....'
         self.action = '/account/create'
 
         self.order = [
@@ -336,14 +335,14 @@ class AccountCreateForm(Form):
             },
         }
 
-        owner = self.transaction.get_entity(int(self.values.get('owner')))
+        self.owner = self.transaction.get_entity(int(self.values.get('owner')))
 
-        if owner.get_type().get_name() == 'person':
+        if self.owner.get_type().get_name() == 'person':
             self.type = 'person'
-            self.name = owner.get_cached_full_name()
+            self.name = spine_to_web(get_lastname_firstname(self.owner))
         else:
-            self.type = owner.get_type()
-            self.name = owner.get_name()
+            self.type = self.owner.get_type()
+            self.name = spine_to_web(self.owner.get_name())
             self.fields['np_type'] = {
                 'label': _('Account type'),
                 'required': True,
@@ -356,7 +355,6 @@ class AccountCreateForm(Form):
             }
             self.order.append('np_type')
             self.order.append('join')
-        ## print '+++++++++++++++++++ Form:: AccountCreate:: init_form:    finished....'
 
     def get_name_options(self):
         names = self.name.split(' ')
@@ -375,7 +373,7 @@ class AccountCreateForm(Form):
         return [(t.get_name(), t.get_description()) for t in searcher.search()]
 
     def get_title(self):
-        return "%s %s" % (_('Owner is'), self.name)
+        return "%s %s" % (_('Owner is'), object_link(self.owner, self.name))
 
     def is_correct(self):
         correct = self.has_required()
@@ -411,6 +409,8 @@ class AccountCreateForm(Form):
 
 class AccountEditForm(AccountCreateForm):
     def init_form(self):
+        self.action = '/account/edit'
+        self.error_message = ''
         self.order = [
             'id', 'expire_date', 'description',
         ]
@@ -434,14 +434,8 @@ class AccountEditForm(AccountCreateForm):
             },
         }
 
-        self.action = '/account/save'
-
         self.account = account = self.transaction.get_account(int(self.values.get('id')))
-        self.values['name'] = account.get_name()
-
-        self.values['description'] = account.get_description() or ''
-        if account.get_expire_date():
-            self.values['expire_date'] = account.get_expire_date().strftime("%Y-%m-%d")
+        self.title = object_link(self.account, text=spine_to_web(self.account.get_name()))
         if account.is_posix():
             self.order.extend(['group', 'gecos', 'shell'])
             self.fields['group'] = {
@@ -459,10 +453,11 @@ class AccountEditForm(AccountCreateForm):
                 'type': 'text',
                 'required': False,
             }
-            self.values['uid'] = account.get_posix_uid()
-            self.values['group'] = account.get_primary_group().get_id()
-            self.values['gecos'] = account.get_gecos()
-            self.values['shell'] = account.get_shell().get_name()
+            self.values['uid'] = html_quote(account.get_posix_uid())
+            self.values['group'] = html_quote(account.get_primary_group().get_id())
+            self.values['gecos'] = spine_to_web(account.get_gecos())
+            self.values['shell'] = spine_to_web(account.get_shell().get_name())
+        print 'init_form finished'
 
     def get_group_options(self):
         # groups which the user can have as primary group
@@ -474,11 +469,46 @@ class AccountEditForm(AccountCreateForm):
         shell_searcher = self.transaction.get_posix_shell_searcher()
         return [(i.get_name(), i.get_name())
                         for i in shell_searcher.search()]
+    def get_action(self):
+        print 'get_action'
+        return self.action
+
+    def has_required(self):
+        correct = True
+        if self.account.is_posix():
+            if not self.values['uid']:
+                self.error_message = 'uid is missing'
+                correct = False
+            if correct and not self.values['group']:
+                self.error_message = 'grouo is missing'
+                correct = False
+            if correct and not self.values['gecos']:
+                self.error_message = 'gecos is missing'
+                correct = False
+            if correct and not self.values['shell']:
+                self.error_message = 'shell is missing'
+                correct = False
+        if correct and not self.values['id']:
+            self.error_message = 'id is missing'
+            correct = False
+        print 'has_required = ', correct
+        return correct
+
+    def is_correct(self):
+        correct = True
+        if self.error_message:
+            correct = False
+        print 'is_correct = ', correct
+        return correct
 
     def get_title(self):
-        return "%s %s" % (_('Edit '), self.values['name'])
+        print 'get_title'
+        return self.title
 
-
+    def get_error_message(self):
+        print 'get_errot_message'
+        return self.error_message
+        
 class RoleCreateForm(Form):
     def init_form(self):
         self.order = [

@@ -30,7 +30,7 @@ def add(transaction, entity, subject="", description=""):
         queue_message(_("Could not add blank note"), error=True)
         redirect_object(entity)
     else:
-        entity.add_note(web_to_spine(transaction, subject), web_to_spine(transaction, description))
+        entity.add_note(web_to_spine(subject), web_to_spine(description))
         commit(transaction, entity, msg=_("Added note '%s'") % subject)
 add = transaction_decorator(add)
 add.exposed = True

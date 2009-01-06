@@ -202,6 +202,7 @@ class Searcher(object):
         return cgi.escape('%s?%s' % (self.url, urllib.urlencode(url_args))), current
 
     def get_results(self):
+        self.max_hits = 10
         results = self.search()
         rows = self.filter_rows(results)
         hits = self.searchers['main'].length()
@@ -353,11 +354,11 @@ class AccountSearcher(Searcher):
         main.join_name = ''
         searchers = {'main': main}
 
-        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
+        name = utils.web_to_spine(form.get('name', '').strip())
         if name:
             main.set_name_like(name)
 
-        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
+        description = utils.web_to_spine(form.get('description', '').strip())
         if description:
             main.set_description_like(description)
 
@@ -371,7 +372,7 @@ class AccountSearcher(Searcher):
             date = utils.get_date(self.transaction, create_date)
             main.set_create_date(date)
 
-        spread = utils.web_to_spine(self.transaction, form.get('spread', '').strip())
+        spread = utils.web_to_spine(form.get('spread', '').strip())
         if spread:
             spreadsearcher = self.transaction.get_spread_searcher()
             account_type = self.transaction.get_entity_type('account')
@@ -392,7 +393,7 @@ class AccountSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            owner_name = utils.spine_to_web(self.transaction, utils.get_lastname_firstname(elm.get_owner()))
+            owner_name = utils.spine_to_web(utils.get_lastname_firstname(elm.get_owner()))
             owner = utils.object_link(elm.get_owner(), text=owner_name)
             cdate = utils.strftime(elm.get_create_date())
             edate = utils.strftime(elm.get_expire_date())
@@ -424,7 +425,7 @@ class PersonSearcher(Searcher):
         person.join_name = ''
         searchers['person'] = person
 
-        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
+        description = utils.web_to_spine(form.get('description', '').strip())
         if description:
             person.set_description_like("*%s*" % description)
 
@@ -434,7 +435,7 @@ class PersonSearcher(Searcher):
             person.set_birth_date(date)
             main = person
 
-        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
+        name = utils.web_to_spine(form.get('name', '').strip())
         if name:
             name = '*' + name + '*'
             name = name.replace(" ", "*")
@@ -453,7 +454,7 @@ class PersonSearcher(Searcher):
             else:
                 main.add_join(main.join_name, searcher, searcher.join_name)
 
-        account_name = utils.web_to_spine(self.transaction, form.get('accountname', '').strip())
+        account_name = utils.web_to_spine(form.get('accountname', '').strip())
         if account_name:
             entity_type = self.transaction.get_entity_type('person')
 
@@ -469,7 +470,7 @@ class PersonSearcher(Searcher):
             #    main.add_join(main.join_name, searcher, searcher.join_name)
 
 
-        ou = utils.web_to_spine(self.transaction, form.get('ou', '').strip())
+        ou = utils.web_to_spine(form.get('ou', '').strip())
         if ou:
             s_ou = self.transaction.get_ou_searcher()
             s_ou.set_name_like(ou)
@@ -500,7 +501,7 @@ class PersonSearcher(Searcher):
                 else:
                     main.add_intersection(main.join_name, searcher, searcher.join_name)
 
-        aff = utils.web_to_spine(self.transaction, form.get('aff', '').strip())
+        aff = utils.web_to_spine(form.get('aff', '').strip())
         if aff:
             s_aff = self.transaction.get_person_affiliation_type_searcher()
             s_aff.set_name_like(aff)
@@ -557,19 +558,19 @@ class PersonSearcher(Searcher):
             ## to get norwegian characters displayed
             affs = []
             for i in pers.get_affiliations()[:3]:
-                linktext = utils.spine_to_web(self.transaction, i.get_ou().get_name())
+                linktext = utils.spine_to_web(i.get_ou().get_name())
                 affs.append(utils.object_link(i.get_ou(), text=linktext))
             ## affs = [str(utils.object_link(i.get_ou())) for i in pers.get_affiliations()[:3]]
             affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
             ## to get norwegian characters displayed
             accs = []
             for i in pers.get_accounts()[:3]:
-                linktext = utils.spine_to_web(self.transaction, i.get_name())
+                linktext = utils.spine_to_web(i.get_name())
                 accs.append(utils.object_link(i, text=linktext))
             ## accs = [str(utils.object_link(i)) for i in pers.get_accounts()[:3]]
             accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
             edit = utils.object_link(pers, text='edit', method='edit', _class='action')
-            linktext = utils.spine_to_web(self.transaction, utils.get_lastname_firstname(pers))
+            linktext = utils.spine_to_web(utils.get_lastname_firstname(pers))
             remb = utils.remember_link(pers, _class="action")
             rows.append([utils.object_link(pers, text=linktext), date, accs, affs, str(edit)+str(remb)])
               
@@ -586,11 +587,11 @@ class AllocationPeriodSearcher(Searcher):
         main = self.transaction.get_allocation_period_searcher()
         searchers = {'main': main}
 
-        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
+        name = utils.web_to_spine(form.get('name', '').strip())
         if name:
             main.set_name_like(name)
 
-        authority = utils.web_to_spine(self.transaction, form.get('allocationauthority', '').strip())
+        authority = utils.web_to_spine(form.get('allocationauthority', '').strip())
         if authority:
             main.set_allocationauthority_like(authority)
         return searchers
@@ -600,7 +601,7 @@ class AllocationPeriodSearcher(Searcher):
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            auth = utils.spine_to_web(self.transaction, elm.get_authority().get_name())
+            auth = utils.spine_to_web(elm.get_authority().get_name())
             rows.append([utils.object_link(elm), auth, str(edit)+str(remb)])
         return rows
 
@@ -618,7 +619,7 @@ class AllocationSearcher(Searcher):
         main = self.transaction.get_allocation_searcher()
         searchers = {'main': main}
 
-        allocation_name = utils.web_to_spine(self.transaction, form.get('allocation_name', '').strip())
+        allocation_name = utils.web_to_spine(form.get('allocation_name', '').strip())
         if allocation_name:
             an_searcher = self.transaction.get_project_allocation_name_searcher()
             an_searcher.set_name_like(allocation_name)
@@ -633,9 +634,9 @@ class AllocationSearcher(Searcher):
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
             proj = utils.object_link(elm.get_allocation_name().get_project())
-            period = utils.spine_to_web(self.transaction, elm.get_period().get_name())
-            status = utils.spine_to_web(self.transaction, elm.get_status().get_name())
-            machines = [utils.spine_to_web(self.transaction, m.get_name()) for m in elm.get_machines()]
+            period = utils.spine_to_web(elm.get_period().get_name())
+            status = utils.spine_to_web(elm.get_status().get_name())
+            machines = [utils.spine_to_web(m.get_name()) for m in elm.get_machines()]
             machines = "(%s)" % ",".join(machines)
             rows.append([utils.object_link(elm), period, status, machines, str(edit)+str(remb)])
         return rows
@@ -652,11 +653,11 @@ class DiskSearcher(Searcher):
         form = self.form_values
         main = self.transaction.get_disk_searcher()
 
-        path = utils.web_to_spine(self.transaction, form.get('path', '').strip())
+        path = utils.web_to_spine(form.get('path', '').strip())
         if path:
             main.set_path_like(path)
 
-        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
+        description = utils.web_to_spine(form.get('description', '').strip())
         if description:
             main.set_description_like(description)
 
@@ -671,7 +672,7 @@ class DiskSearcher(Searcher):
             host = utils.object_link(elm.get_host())
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([path, host, utils.spine_to_web(self.transaction, elm.get_description()), str(edit)+str(remb)])
+            rows.append([path, host, utils.spine_to_web(elm.get_description()), str(edit)+str(remb)])
         return rows
 
 class EmailDomainSearcher(Searcher):
@@ -685,11 +686,11 @@ class EmailDomainSearcher(Searcher):
         form = self.form_values
         main = self.transaction.get_email_domain_searcher()
 
-        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
+        name = utils.web_to_spine(form.get('name', '').strip())
         if name:
             main.set_name_like(name)
 
-        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
+        description = utils.web_to_spine(form.get('description', '').strip())
         if description:
             main.set_description_like(description)
 
@@ -699,11 +700,11 @@ class EmailDomainSearcher(Searcher):
         rows = []
         for elm in results:
             link = utils.object_link(elm)
-            cats = [utils.spine_to_web(self.transction, i.get_name()) for i in elm.get_categories()[:4]]
+            cats = [utils.spine_to_web(i.get_name()) for i in elm.get_categories()[:4]]
             cats = ", ".join(cats[:3]) + (len(cats) == 4 and '...' or '')
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([link, utils.spine_to_web(self.transaction, elm.get_description()), cats, str(edit)+str(remb)])
+            rows.append([link, utils.spine_to_web(elm.get_description()), cats, str(edit)+str(remb)])
         return rows
 
 class GroupSearcher(Searcher):
@@ -717,15 +718,15 @@ class GroupSearcher(Searcher):
         form = self.form_values
         main = self.transaction.get_group_searcher()
 
-        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
+        name = utils.web_to_spine(form.get('name', '').strip())
         if name:
             main.set_name_like(name)
 
-        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
+        description = utils.web_to_spine(form.get('description', '').strip())
         if description:
             main.set_description_like(description)
 
-        gid_end = utils.web_to_spine(self.transaction, form.get('gid_end', '').strip())
+        gid_end = utils.web_to_spine(form.get('gid_end', '').strip())
         if gid_end:
             if gid_end:
                 main.set_posix_gid_less_than(int(gid_end))
@@ -742,7 +743,7 @@ class GroupSearcher(Searcher):
             elif gid_option == "range":
                 self.searchers['main'].set_posix_gid_more_than(int(gid))
                 
-        spread = utils.web_to_spine(self.transaction, form.get('spread', '').strip())
+        spread = utils.web_to_spine(form.get('spread', '').strip())
         if spread:
             group_type = self.transaction.get_entity_type('group')
 
@@ -763,7 +764,7 @@ class GroupSearcher(Searcher):
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([utils.object_link(elm), utils.spine_to_web(self.transaction, elm.get_description()), str(edit)+str(remb)])
+            rows.append([utils.object_link(elm), utils.spine_to_web(elm.get_description()), str(edit)+str(remb)])
         return rows
 
 class HostSearcher(Searcher):
@@ -771,12 +772,14 @@ class HostSearcher(Searcher):
         main = self.transaction.get_host_searcher()
         form = self.form_values
 
-        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
+        name = form.get('name', '')
         if name:
+            name = utils.web_to_spine(name)
             main.set_name_like(name)
 
-        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
+        description = form.get('description', '')
         if description:
+            description = utils.web_to_spine(description)
             main.set_description_like(description)
 
         return {'main': main}
@@ -786,7 +789,10 @@ class HostSearcher(Searcher):
         for elm in results:
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            rows.append([utils.object_link(elm), utils.spine_to_web(self.transaction, elm.get_description()), str(edit)+str(remb)])
+            desc = elm.get_description()
+            if desc:
+                desc = utils.spine_to_web(desc)
+            rows.append([utils.object_link(elm), desc, str(edit)+str(remb)])
         return rows
 
 class OUSearcher(Searcher):
@@ -801,15 +807,15 @@ class OUSearcher(Searcher):
         main = self.transaction.get_ou_searcher()
         form = self.form_values
 
-        acronym = utils.web_to_spine(self.transaction, form.get('acronym', '').strip())
+        acronym = utils.web_to_spine(form.get('acronym', '').strip())
         if acronym:
             main.set_acronym_like(acronym)
 
-        short = utils.web_to_spine(self.transaction, form.get('short', '').strip())
+        short = utils.web_to_spine(form.get('short', '').strip())
         if short:
             main.set_short_name_like(short)
             
-        spread = utils.web_to_spine(self.transaction, form.get('spread', '').strip())
+        spread = utils.web_to_spine(form.get('spread', '').strip())
         if spread:
             ou_type = self.transaction.get_entity_type('ou')
 
@@ -823,11 +829,11 @@ class OUSearcher(Searcher):
             searcher.add_join('spread', spreadsearcher, '')
             main.add_intersection('', searcher, 'entity')
         
-        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
+        name = utils.web_to_spine(form.get('name', '').strip())
         if name:
             main.set_name_like(name)
 
-        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
+        description = utils.web_to_spine(form.get('description', '').strip())
         if description:
             main.set_description_like(description)
 
@@ -836,12 +842,13 @@ class OUSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            name = utils.spine_to_web(self.transaction, elm.get_display_name() or elm.get_name())
+        
+            name = utils.spine_to_web(elm.get_display_name() or elm.get_name())
             link = utils.object_link(elm, text=name)
             edit = utils.object_link(elm, text='edit', method='edit', _class='action')
             remb = utils.remember_link(elm, _class='action')
-            acro = utils.spine_to_web(self.transaction, elm.get_acronym())
-            short = utils.spine_to_web(self.transaction, elm.get_short_name())
+            acro = utils.spine_to_web(elm.get_acronym())
+            short = utils.spine_to_web(elm.get_short_name())
             rows.append([link, acro, short, str(edit)+str(remb)])
         return rows
 
@@ -857,15 +864,15 @@ class ProjectSearcher(Searcher):
         main = self.transaction.get_project_searcher()
         form = self.form_values
         
-        name = utils.web_to_spine(self.transaction, form.get('name', '').strip())
+        name = utils.web_to_spine(form.get('name', '').strip())
         if name:
             main.set_name_like(name)
 
-        description = utils.web_to_spine(self.transaction, form.get('description', '').strip())
+        description = utils.web_to_spine(form.get('description', '').strip())
         if description:
             main.set_description_like(description)
 
-        title = utils.web_to_spine(self.transaction, form.get('title', '').strip())
+        title = utils.web_to_spine(forrm.get('title', '').strip())
         if title:
             main.set_title_like(title)
 
@@ -906,18 +913,24 @@ class PersonAffiliationsSearcher(Searcher):
         person = tr.get_person_searcher()
         person.join_name = ''
 
-        id = utils.web_to_spine(self.transaction, form.get('id', '').strip())
+        id = utils.web_to_spine(form.get('id', '').strip())
         if id:
             try:
                 ou = tr.get_ou(int(id))
                 main.set_ou(ou)
             except SpineIDL.Errors.NotFoundError, e:
                 self.valid = False
-
-        source = utils.web_to_spine(self.transaction, form.get('source', '').strip())
+        
+        source = utils.web_to_spine(form.get('source', '').strip())
         if source:
             main.set_source_system(
                     tr.get_source_system(source))
+        
+        person_orderby_name = self.transaction.get_person_name_searcher()
+        person_orderby_name.set_name_variant(self.transaction.get_name_type('LAST'))
+        person_orderby_name.set_source_system(self.transaction.get_source_system('Cached'))
+        main.add_join(main.join_name, person_orderby_name, 'person')
+        main.order_by(person_orderby_name, 'name')
 
         return {'main': main, 'person_name': person_name, 'person': person}
 
@@ -926,11 +939,15 @@ class PersonAffiliationsSearcher(Searcher):
         #print 'filter_rows: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! len(results)=',len(results)
         for elm in results:
             p = elm.get_person()
-            affs = [utils.html_quote(a.get_ou().get_name()) for a in p.get_affiliations()]
-            type = utils.spine_to_web(self.transaction, elm.get_affiliation().get_name())
-            status = utils.spine_to_web(self.transaction, elm.get_status().get_name())
-            source = utils.spine_to_web(self.transaction, elm.get_source_system().get_name())
-            name = utils.object_link(p)
+            affs=[]
+            for a in p.get_affiliations():
+                affs.append(utils.object_link(a.get_ou(), text=utils.spine_to_web(a.get_ou().get_name())))
+            ##affs = [utils.spine_to_web(a.get_ou().get_name()) for a in p.get_affiliations()]
+            type = utils.spine_to_web(elm.get_affiliation().get_name())
+            status = utils.spine_to_web(elm.get_status().get_name())
+            source = utils.spine_to_web(elm.get_source_system().get_name())
+            persname = utils.spine_to_web(utils.get_lastname_firstname(p))
+            name = utils.object_link(p, text=persname)
             birth_date = utils.strftime(p.get_birth_date())
             rows.append([name, type, status, source, ", ".join(affs), birth_date])
         return rows
@@ -942,64 +959,63 @@ class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
         if not self.is_valid():
             return
     
-        transaction = self.transaction
         vargs = self.form_values
         tr = self.transaction
 
-        id = utils.web_to_spine(tr, vargs.get('id', '').strip())
-        ou = transaction.get_ou(int(id))
-        perspective = utils.web_to_spine(tr, vargs.get('source', '').strip())
-        affiliation = utils.web_to_spine(tr, vargs.get('affiliation','').strip())
-        withoutssn = utils.web_to_spine(tr, vargs.get('withoutssn', '').strip())
-        recursive = utils.web_to_spine(tr, vargs.get('recursive', '').strip())
-        #print '===================================== withoutssn =',withoutssn
+        id = utils.web_to_spine(vargs.get('id', '').strip())
+        ou = tr.get_ou(int(id))
+        perspective = utils.web_to_spine(vargs.get('source', '').strip())
+        affiliation = utils.web_to_spine(vargs.get('affiliation','').strip())
+        withoutssn = utils.web_to_spine(vargs.get('withoutssn', '').strip())
+        recursive = utils.web_to_spine(vargs.get('recursive', '').strip())
         perspectives = []
         if perspective == 'All':
-            perspectives.extend(transaction.get_ou_perspective_type_searcher().search())
+            for pers in tr.get_ou_perspective_type_searcher().search():
+                perspectives.append(pers)
         else:
-            perspectives.append(transaction.get_ou_perspective_type(perspective))
-        ou_list = [ou]
-        for perspective in perspectives:
-            if recursive:
+            perspectives.append(tr.get_ou_perspective_type(perspective))
+        ou_list = []
+        if recursive:
+            for perspective in perspectives:
                 try:
-                    ret = utils.flatten(ou.get_children(perspective), perspective)
+                    ret = utils.flatten(ou, perspective)
                     if ret:
-                        ou_list.extend(ret)
+                        for r in ret:
+                            ou_list.append(r)       
                 except SpineIDL.Errors.NotFoundError, e:
                     pass
+        else:
+            ou_list.append(ou)
         affs = []
         if affiliation == 'All':
-            affs.extend(transaction.get_person_affiliation_type_searcher().search())
+            for aff in tr.get_person_affiliation_type_searcher().search():
+                affs.append(aff)
         else:
-            affs.append(transaction.get_person_affiliation_type(affiliation))
+            affs.append(tr.get_person_affiliation_type(affiliation))
         allresults = []
         for theOu in ou_list:
             for aff in affs:
-                aff_searcher = transaction.get_person_affiliation_searcher()
+                aff_searcher = tr.get_person_affiliation_searcher()
                 aff_searcher.set_ou(theOu)
                 aff_searcher.set_affiliation(aff)
                 res = aff_searcher.search()
                 if res:
-                    allresults.extend(res)
+                    for result in res:
+                        allresults.append(result)
         if withoutssn:
-            #print '//////////////////////////////////// withoutssn'
-            #print '$$$$$$$$$$$$$$$$$$$$$$$$$$ len(allresults)=',len(allresults)
             filtered = []
             for personAff in allresults:
                 person = personAff.get_person()
                 extidsList = utils.extidlist(person)
                 found = False
                 for id in extidsList:
-                    #print '**********************',person.get_id()
-                    #print '**********************',id.variant.get_name()
                     if id.variant.get_name() == 'NO_BIRTHNO':
                         found = True
                 if not found:
                     filtered.append(personAff)
-            #print '||||||||||||||||||||||||||||||||||| len(filtered)=',len(filtered)
             allresults = filtered
-        #print '~~~~~~~~~~~~~~~~~~~~~~~~~~~ len(allresults)=',len(allresults)
         self.len = len(allresults)
+        allresults.sort(lambda x,y : cmp(utils.get_lastname_firstname(x.get_person()), utils.get_lastname_firstname(y.get_person())))
         return allresults
 
     def get_results(self):

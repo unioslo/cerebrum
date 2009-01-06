@@ -25,6 +25,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, object_link, remember_link
 from lib.utils import transaction_decorator, redirect_object
+from lib.utils import spine_to_web, web_to_spine
 from lib.Searchers import DiskSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.DiskViewTemplate import DiskViewTemplate
@@ -58,12 +59,11 @@ def view(transaction, id):
     """Creates a page with a view of the disk given by id."""
     disk = transaction.get_disk(int(id))
     page = DiskViewTemplate()
-    page.title = _('Disk %s') % disk.get_path()
+    page.title = _('Disk %s') % spine_to_web(disk.get_path())
     page.set_focus('disk/view')
     page.links = _get_links()
     page.entity_id = int(id)
     page.entity = disk
-    page.tr = transaction
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
@@ -72,8 +72,8 @@ def edit(transaction, id):
     """Creates a page with the form for editing a disk."""
     disk = transaction.get_disk(int(id))
     page = Main()
-    # page.title = _("Edit ") + object_link(disk)
-    page.title = _("Disk")
+    disk_name = spine_to_web(disk.get_name())
+    page.title = _("Edit ") + object_link(disk, text=disk_name)
     page.set_focus("disk/edit")
     page.links = _get_links()
 
@@ -91,8 +91,11 @@ def save(transaction, id, path="", description="", submit=None):
     if submit == 'Cancel':
         redirect_object(disk)
         return
-    
+    if path:
+        path = web_to_spine(path.strip())
     disk.set_path(path)
+    if description:
+        description = web_to_spine(description.strip())
     disk.set_description(description)
     
     commit(transaction, disk, msg=_("Disk successfully updated."))
@@ -106,7 +109,7 @@ def create(transaction, host=""):
     page.set_focus("disk/create")
     page.links = _get_links()
 
-    hosts = [(i.get_id(), i.get_name()) for i in
+    hosts = [(html_quote(i.get_id()), spine_to_web(i.get_name())) for i in
                     transaction.get_host_searcher().search()]
 
     create = DiskCreateTemplate()
@@ -121,7 +124,9 @@ create.exposed = True
 def make(transaction, host, path="", description=""):
     """Creates the host."""
     host = transaction.get_host(int(host))
-    disk = transaction.get_commands().create_disk(host, path, description)
+    thePath = web_to_spine(path.strip())
+    desc = web_to_spine(description.strip())
+    disk = transaction.get_commands().create_disk(host, thePath, desc)
     commit(transaction, disk, msg=_("Disk successfully created."))
 make = transaction_decorator(make)
 make.exposed = True
@@ -129,7 +134,7 @@ make.exposed = True
 def delete(transaction, id):
     """Delete the disk from the server."""
     disk = transaction.get_disk(int(id))
-    msg = _("Disk '%s' successfully deleted.") % disk.get_path()
+    msg = _("Disk '%s' successfully deleted.") % spine_to_web(disk.get_path())
     disk.delete()
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)

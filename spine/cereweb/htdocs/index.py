@@ -104,8 +104,8 @@ def save_motd(transaction, id=None, subject=None, message=None):
         except ValueError, e:
             pass
     try: # Create the new
-        subj = utils.web_to_spine(transaction, subject)
-        mess = utils.web_to_spine(transaction, message)
+        subj = utils.web_to_spine(subject)
+        mess = utils.web_to_spine(message)
         transaction.get_commands().create_cereweb_motd(subj, mess)
     except AccessDeniedError, e:
         msg = _("You do not have permission to create.");
@@ -138,7 +138,7 @@ edit_motd.exposed = True
 def delete_motd(transaction, id):
     """Delete the Motd from the server."""
     motd = transaction.get_cereweb_motd(int(id))
-    msg = _("Motd '%s' successfully deleted.") % utils.spine_to_web(transaction, motd.get_subject())
+    msg = _("Motd '%s' successfully deleted.") % utils.spine_to_web(motd.get_subject())
     motd.delete()
     commit_url(transaction, 'index', msg=msg)
 delete_motd = transaction_decorator(delete_motd)

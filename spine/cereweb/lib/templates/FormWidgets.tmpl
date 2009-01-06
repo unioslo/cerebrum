@@ -20,7 +20,7 @@
 #from lib.InitTemplate import InitTemplate
 #extends InitTemplate
 #from types import StringTypes
-#from lib.utils import html_quote, from_spine_decode
+#from lib.utils import html_quote, url_quote, spine_to_web, from_spine_decode
 
 ## Creates a drop-down option list where 'selected' is preselected.
 #def generate_option($name, $types, $selected=None, $id=None, $quote=True)
@@ -72,7 +72,7 @@
 ## $selected can be either a code object or code string
 
 #def code_selector($name, $label, $searcher, $selected=None)
-    #set codes = [($c.get_name(), $c.get_description()) 
+    #set codes = [($spine_to_web($c.get_name()), $spine_to_web($c.get_description())) 
                   for $c in $searcher.search()]
     #if $selected is not None and not isinstance($selected, StringTypes)
         ## Must be a code instance, get the code name
@@ -80,6 +80,16 @@
     #end if
     $generate_loption($name, $label, $codes, $selected)                 
 #end def    
+
+## #def code_selector($tr, $name, $label, $searcher, $selected=None)
+##     #set codes = [($spine_to_web($tr, $c.get_name()), $spine_to_web(tr, $c.get_description()))
+##                   for $c in $searcher.search()]
+##     #if $selected is not None and not isinstance($selected, StringTypes)
+##         ## Must be a code instance, get the code name
+##         #set $selected = $spine_to_web($tr, $selected.get_name())
+##     #end if
+##     $generate_loption($name, $label, $codes, $selected)
+## #end def
 
 #def td2input( $name, $label, $value, $text="", $type="text", $tdattrs={'align': {'left': 'left','right' :'left'}} )
 	#for $attr in $tdattrs.keys():

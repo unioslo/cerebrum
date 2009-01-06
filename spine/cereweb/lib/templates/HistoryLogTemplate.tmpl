@@ -17,13 +17,14 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.InitTemplate import InitTemplate
+#from lib.utils import url_quote
 #from Widgets import Widgets
 #extends InitTemplate
 #attr $widgets = Widgets()
 
 #def viewHistoryLog($table, $id)
     <div class="log box">
-        <h3><a href="/entity/full_historylog?id=$id">$_('History log')</a></h3>
+        <h3><a href="/entity/full_historylog?id=$url_quote($id)">$_('History log')</a></h3>
         $widgets.sorted_table($table)
     </div>
 #end def

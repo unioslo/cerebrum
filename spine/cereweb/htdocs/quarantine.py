@@ -23,7 +23,8 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import redirect_object, strftime, commit, html_quote
 from lib.utils import object_link, transaction_decorator, queue_message
-from lib.utils import legal_date, redirect
+from lib.utils import legal_date, redirect, object_name
+from lib.utils import spine_to_web, web_to_spine, url_quote
 from lib.templates.QuarantineTemplate import QuarantineTemplate
 
 def edit(transaction, entity, type, why="", start="", end="", disable_until=""):
@@ -40,8 +41,10 @@ def edit(transaction, entity, type, why="", start="", end="", disable_until=""):
     
     page = Main()
     page.title = _('Edit quarantine for ')
-    page.title += object_link(entity)
+    entity_name = spine_to_web(entity.get_name())
+    page.title += object_link(entity, text=entity_name)
     edit = QuarantineTemplate()
+    edit.tr = transaction
     edit.formvalues = formvalues
     content = edit.quarantine_form(entity, "/quarantine/save")
     page.content = lambda: content
@@ -74,7 +77,7 @@ def save(transaction, entity, type, why="",
             queue_message('Disable until date is unlegal.', error=True)
             err = True
     if err:
-        redirect("/quarantine/edit?entity=%s&type=%s&why=%s&start=%s&end=%s&disable_until=%s" % (id, type, why, start, end, disable_until))
+        redirect("/quarantine/edit?entity=%s&type=%s&why=%s&start=%s&end=%s&disable_until=%s" % (url_quote(id), url_quote(type), url_quote(why), url_quote(start), url_quote(end), url_quote(disable_until)))
     q_type = transaction.get_quarantine_type(type)
     quarantine = entity.get_quarantine(q_type)
     c = transaction.get_commands()
@@ -84,7 +87,7 @@ def save(transaction, entity, type, why="",
 
     quoted = ''
     if why:
-        quoted = html_quote(why)
+        quoted = web_to_spine(why)
     quarantine.set_description(quoted)
     quarantine.set_start_date(strptime(start, c.get_date_now()))
     quarantine.set_end_date(strptime(end, None))
@@ -119,6 +122,7 @@ def add(transaction, entity, type="", why="", start="", end="", disable_until=""
     page.title = _("Add quarantine on ")
     page.title += object_link(entity)
     add = QuarantineTemplate()
+    add.tr = transaction
     add.formvalues = formvalues
     content = add.quarantine_form(entity, "make", types)
     page.content = lambda: content
@@ -151,16 +155,16 @@ def make(transaction, entity, type, why="",
             queue_message('Postpone until date is not legal.', error=True)
             err = True
     if err:
-        redirect('/quarantine/add?entity=%i&type=%s&why=%s&start=%s&end=%s&disable_until=%s' % (id, type, why, start, end, disable_until))
+        redirect('/quarantine/add?entity=%i&type=%s&why=%s&start=%s&end=%s&disable_until=%s' % (url_quote(id), url_quote(type), url_quote(why), url_quote(start), url_quote(end), url_quote(disable_until)))
 
-    q_type = transaction.get_quarantine_type(type)
+    q_type = transaction.get_quarantine_type(web_to_spine(type))
     c = transaction.get_commands()
     date_start = start and c.strptime(start, "%Y-%m-%d") or c.get_date_now()
     date_end = end and c.strptime(end, "%Y-%m-%d") or None
     date_dis = disable_until and c.strptime(disable_until, "%Y-%m-%d") or None
     quoted = ''
     if why:
-        quoted = html_quote(why)
+        quoted = web_to_spine(why)
     entity.add_quarantine(q_type, quoted, date_start, date_end, date_dis)
     
     msg = _("Added quarantine '%s' successfully") % type

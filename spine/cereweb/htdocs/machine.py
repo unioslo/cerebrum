@@ -23,7 +23,9 @@ import cherrypy
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
-from lib.utils import transaction_decorator, redirect, redirect_object, remember_link
+from lib.utils import transaction_decorator, redirect
+from lib.utils import redirect_object, remember_link
+from lib.utils import spine_to_web, web_to_spine, url_quote
 from lib.Searchers import HostSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 # from lib.templates.HostViewTemplate import HostViewTemplate
@@ -65,8 +67,7 @@ def view(transaction, id):
     """Creates a page with a view of the host given by id."""
     host = transaction.get_host(int(id))
     page = MachineViewTemplate()
-    page.tr = transaction
-    page.title = _('Host %s') % host.get_name()
+    page.title = _('Host %s') % spine_to_web(host.get_name())
     page.set_focus('host/view')
     page.links = _get_links
     page.entity = host
@@ -79,10 +80,9 @@ def edit(transaction, id):
     """Creates a page with the form for editing a host."""
     host = transaction.get_host(int(id))
     page = Main()
-    page.title = _("Edit ") + object_link(host)
+    page.title = _("Edit ") + object_link(host, text=spine_to_web(host.get_name()))
     page.set_focus("host/edit")
     page.links = _get_links
-
     edit = MachineEditTemplate()
     content = edit.editHost(host,transaction)
     page.content = lambda: content
@@ -97,7 +97,10 @@ def save(transaction, id, name, description="", submit=None, **vargs):
 
     if submit == 'Cancel':
         redirect_object(host)
-    
+    if name:
+        name = web_to_spine(name.strip())
+    if description:
+        description = web_to_spine(description.strip())
     host.set_name(name)
     host.set_description(description)
     if host.is_machine():
@@ -153,7 +156,8 @@ def machine_promote(transaction, id):
     host.promote_machine(cpu_arch, operating_system, interconnect)
     msg = _("Host successfully promoted.")
     commit(transaction, host, msg=msg)
-    queue_message(_(msg), True, object_link(host))
+    hostname = spine_to_web(host.get_name())
+    queue_message(_(msg), True, object_link(host, text=hostname))
     redirect_object(host)
 machine_promote = transaction_decorator(machine_promote)
 machine_promote.exposed = True
@@ -200,7 +204,11 @@ def make(transaction, name, description="", **vargs):
     cpu_core_number = vargs.get('cpu_core_number')
     cpu_core_mflops = vargs.get('cpu_core_mflops')
     cpu_mhz = vargs.get('cpu_mhz')
-
+    
+    if name:
+        name = web_to_spine(name.strip())
+    if description:
+        description = web_to_spine(description.strip())
     host = transaction.get_commands().create_host(name, description)
 
     host.promote_machine(transaction.get_cpu_arch(cpu_arch), transaction.get_operating_system(operating_system), transaction.get_interconnect(interconnect))
@@ -227,7 +235,7 @@ make.exposed = True
 def delete(transaction, id):
     """Delete the host from the server."""
     host = transaction.get_host(int(id))
-    msg = _("Host '%s' successfully deleted.") % host.get_name()
+    msg = _("Host '%s' successfully deleted.") % spine_to_web(host.get_name())
     host.delete()
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
@@ -235,7 +243,7 @@ delete.exposed = True
 
 def disks(transaction, host, add=None, delete=None, **checkboxes):
     if add:
-        redirect('/disk/create?host=%s' % host)
+        redirect('/disk/create?host=%s' % url_quote(host))
         
     elif delete:
         host = transaction.get_host(int(host))
@@ -248,7 +256,8 @@ def disks(transaction, host, add=None, delete=None, **checkboxes):
             commit(transaction, host, msg=msg)
         else:
             msg = _("No disk(s) selected for deletion")
-            queue_message(msg, error=True, link=object_link(host))
+            hostname = spine_to_web(host.get_name())
+            queue_message(msg, error=True, link=object_link(host, text=hostname))
             redirect_object(host)
     else:
         raise "I don't know what you want me to do"

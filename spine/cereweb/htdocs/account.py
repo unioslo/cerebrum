@@ -112,10 +112,10 @@ def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_da
         #assert owner.get_type().get_name() == 'group'
         assert owner.get_typestr() == 'group'
         np_type = transaction.get_account_type(np_type)
-        account = owner.create_account(web_to_spine(transaction, name), np_type, expire_date)
+        account = owner.create_account(web_to_spine(name), np_type, expire_date)
     else:
         try:
-            account = owner.create_account(web_to_spine(transaction, name), expire_date)
+            account = owner.create_account(web_to_spine(name), expire_date)
         except IntegrityError, e:
             rollback_url(referer, 'Could not create account,- possibly identical usernames.', err=True)
     if join and owner.get_typestr() == "group":
@@ -125,7 +125,7 @@ def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_da
     if primary_group:
         referer = cherrypy.request.headerMap.get('Referer', '')
         try:
-            primary_group = commands.get_group_by_name(primary_group)
+            primary_group = commands.get_group_by_name(web_to_spine(primary_group))
             operation = transaction.get_group_member_operation_type("union")
             primary_group.add_member(account, operation)
             if primary_group.is_posix():
@@ -133,7 +133,7 @@ def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_da
         except NotFoundError, e:
             rollback_url(referer, _("Could not find group %s.  Account is not created." % primary_group), err=True)
     if desc:
-        account.set_description(web_to_spine(transaction, desc))
+        account.set_description(web_to_spine(desc))
 
     if not password:
         rollback_url(referer, 'Password is empty. Account is not created.', err=True)
@@ -148,31 +148,59 @@ def view(transaction, id, **vargs):
     """Creates a page with a view of the account given by id."""
     account = transaction.get_account(int(id))
     page = AccountViewTemplate()
-    page.title = _("Account %s") % account.get_name()
+    page.title = _("Account %s") % spine_to_web(account.get_name())
     page.links = _get_links()
     page.set_focus("account/view")
     page.links = _get_links()
-    page.tr = transaction
     page.entity = account
     page.entity_id = account.get_id()
+    page.tr = transaction
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
 
+def form_edit(form, message=None):
+    page = FormTemplate()
+    if message:
+        page.messages.append(message)
+    page.title = form.get_title()
+    page.set_focus("account/edit")
+    page.links = _get_links()
+    page.form_fields = form.get_fields()
+    page.form_action = form.get_action()
+    return page.respond()
+
 def edit(transaction, id, **vargs):
     """Creates a page with the form for editing an account."""
     account = transaction.get_account(int(id))
-    page = Main()
-    page.title = _("Edit ") + object_link(account)
-    page.set_focus("account/edit")
-    page.links = _get_links()
-
-    vargs['id'] = id
-    form = AccountEditForm(transaction, **vargs)
-    if len(vargs) == 1:
-        return view_form(form)
-    elif not form.is_correct():
-        return view_form(form, form.get_error_message())
+    name = spine_to_web(account.get_name())
+    expire_date = account.get_expire_date()
+    description = account.get_description()
+    if expire_date:
+        expire_date = html_quote(expire_date.strftime('%Y-%m-%d'))
+    else:
+        expire_date = ''
+    if description:
+        description = spine_to_web(description.strip())
+    else:
+        description = ''
+    values = {
+        'id' : html_quote(id),
+        'expire_date': expire_date,
+        'description' : description,
+    } 
+    values.update(vargs)
+    form = AccountEditForm(transaction, **values)
+    form.title = 'Edit ' + object_link(account, text=name)
+    if not vargs:
+        print 'form_edit(form)'
+        return form_edit(form)
+    if not form.has_required() or not form.is_correct():
+        print 'form not correct'
+        return form_edit(form, message=form.get_error_message())
+    else:
+        vargs = form.get_values()
+        save(transaction, vargs)
 edit = transaction_decorator(edit)
 edit.exposed = True
 
@@ -181,9 +209,9 @@ def save(transaction, **vargs):
     expire_date = vargs.get('expire_date')
     uid = vargs.get('uid')
     primary_group = vargs.get('group')
-    gecos = vargs.get('gecos')
-    shell = vargs.get('shell')
-    description = vargs.get('description')
+    gecos = web_to_spine(vargs.get('gecos'))
+    shell = web_to_spine(vargs.get('shell'))
+    description = web_to_spine(vargs.get('description'))
     submit = vargs.get('submit')
 
     account = transaction.get_account(int(id))
@@ -210,14 +238,14 @@ def save(transaction, **vargs):
             error_msgs.append("Error, no such shell: %s" % shell)
         
     account.set_expire_date(expire_date)
-    account.set_description(web_to_spine(transaction, description))
+    account.set_description(description)
 
     if account.is_posix():
         if uid:
             account.set_posix_uid(int(uid))
 
         if shell:
-            account.set_shell(web_to_spine(transaction, shell))
+            account.set_shell(shell)
 
         if primary_group:
             for group in account.get_groups():
@@ -227,7 +255,7 @@ def save(transaction, **vargs):
             else:
                 error_msgs.append("Error, primary group not found.")
         
-        account.set_gecos(web_to_spine(transaction, gecos))
+        account.set_gecos(gecos)
 
     if error_msgs:
         for msg in error_msgs:
@@ -277,7 +305,7 @@ posix_demote.exposed = True
 def delete(transaction, id):
     """Delete account in the database."""
     account = transaction.get_account(int(id))
-    msg = _("Account '%s' successfully deleted.") % account.get_name()
+    msg = _("Account '%s' successfully deleted.") % spine_to_web(account.get_name())
     account.delete()
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)
@@ -342,7 +370,7 @@ set_home.exposed = True
 
 def remove_home(transaction, id, spread):
     account = transaction.get_account(int(id))
-    spread = transaction.get_spread(spread)
+    spread = transaction.get_spread(web_to_spine(spread))
     account.remove_homedir(spread)
     
     msg = _("Home directory successfully removed.")
@@ -366,7 +394,7 @@ def add_affil(transaction, id, aff_ou, priority):
     account = transaction.get_account(int(id))
     aff, ou = aff_ou.split(":", 2)
     ou = transaction.get_ou(int(ou))
-    aff = transaction.get_person_affiliation_type(aff)
+    aff = transaction.get_person_affiliation_type(web_to_spine(aff))
     priority = int(priority)
 
     account.set_affiliation(ou, aff, priority)
@@ -379,7 +407,7 @@ add_affil.exposed = True
 def remove_affil(transaction, id, ou, affil):
     account = transaction.get_account(int(id))
     ou = transaction.get_ou(int(ou))
-    affil = transaction.get_person_affiliation_type(affil)
+    affil = transaction.get_person_affiliation_type(web_to_spine(affil))
 
     account.remove_affiliation(ou, affil)
 

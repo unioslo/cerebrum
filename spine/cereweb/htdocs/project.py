@@ -25,6 +25,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
+from lib.utils import spine_to_web, web_to_spine, url_quote
 from lib.Searchers import ProjectSearcher
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.ProjectViewTemplate import ProjectViewTemplate
@@ -60,12 +61,11 @@ def view(transaction, id):
     """Creates a page with a view of the project given by id."""
     project = transaction.get_project(int(id))
     page = ProjectViewTemplate()
-    page.title = _('Project %s') % project.get_title()
+    page.title = _('Project %s') % spine_to_web(project.get_title())
     page.set_focus('project/view')
     page.links = _get_links()
     page.entity = project
     page.entity_id = int(id)
-    page.tr = transaction
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
@@ -73,6 +73,8 @@ view.exposed = True
 def add_allocation_name(transaction, id, allocation_name, authority):
     project = transaction.get_project(int(id))
     authority = transaction.get_allocation_authority(authority)
+    if allocation_name:
+        allocation_name = web_to_spine(allocation_name.strip())
     project.add_allocation_name(allocation_name, authority)
 
     msg = _("Allocation name successfully added.")
@@ -82,7 +84,7 @@ add_allocation_name.exposed = True
 
 def remove_allocation_name(transaction, id, allocation_name):
     project = transaction.get_project(int(id))
-    project.remove_allocation_name(allocation_name)
+    project.remove_allocation_name(web_to_spine(allocation_name))
     msg = _("Allocation name successfully removed.")
     
     commit(transaction, project, msg=msg)
@@ -94,7 +96,8 @@ def edit(transaction, id):
     """Creates a page with the form for editing a project."""
     project = transaction.get_project(int(id))
     page = Main()
-    page.title = _("Edit ") + object_link(project)
+    project_name = spine_to_web(project.get_title())
+    page.title = _("Edit ") + object_link(project, text=project_name)
     page.set_focus("project/edit")
 
     edit = ProjectEditTemplate()
@@ -112,7 +115,11 @@ def save(transaction, id, title="", description="", owner=None,
     if submit == 'Cancel':
         redirect_object(project)
 
+    if title:
+        title = web_to_spine(title.strip())
     project.set_title(title)
+    if description:
+        description = web_to_spine(description.strip())
     project.set_description(description)
     #XXX project.set_owner(owner)
 
@@ -126,7 +133,6 @@ def create(transaction, owner, title="", description="", science=None):
     page = Main()
     page.title = _("Create a new project")
     page.set_focus("project/create")
-
     owner = transaction.get_entity(int(owner))
     
     # Store given create parameters in create-form
@@ -151,6 +157,10 @@ def make(transaction, title="", description="", owner=None, science=None):
     owner = transaction.get_entity(int(owner))
 
     cmd = transaction.get_commands()
+    if title:
+        title = web_to_spine(title.strip())
+    if description:
+        description = web_to_spine(description.strip())
     project = cmd.create_project(owner, science,
                                  title, description)
 
@@ -161,7 +171,7 @@ make.exposed = True
 def delete(transaction, id):
     """Delete the project from the server."""
     project = transaction.get_project(int(id))
-    msg = _("Project '%s' successfully deleted.") % project.get_title()
+    msg = _("Project '%s' successfully deleted.") % spine_to_web(project.get_title())
     project.delete()
     commit_url(transaction, 'index', msg=msg)
 delete = transaction_decorator(delete)

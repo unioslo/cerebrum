@@ -66,7 +66,8 @@ def object_name(object):
     ##type = object.get_type().get_name()
     type = object.get_typestr()
     if type == 'person':
-        text = object.get_cached_full_name()
+        ## text = object.get_cached_full_name()
+        text = spine_to_web(get_lastname_firstname(object))
     elif type == 'ou':
         tmp = object.get_display_name()
         text = tmp and tmp or object.get_name()
@@ -114,8 +115,10 @@ def object_url(object, method="view", **params):
 
     params['id'] = object_id(object)
 
-    if object_type == 'emaildomain':
+    if object_type == 'email_domain':
         object_type = 'email'
+    if object_type == 'email_target':
+        object_type = 'emailtarget'
 
     params = urllib.urlencode(params)
     return cgi.escape("/%s/%s?%s" % (object_type, method, params))
@@ -354,13 +357,19 @@ def get_tabs(current=None):
         res.append(html % (selected, link, name))
     return "\n".join(res)
 
-def ou_selects(tr, elem, perspective_type, indent=""):
+def flatten(elem, perspective_type):
+    output = [elem]
+    for ou in elem.get_children(perspective_type):
+        output += flatten(ou, perspective_type)
+    return output
+
+def ou_selects(elem, perspective_type, indent=""):
     output = []
     id = html_quote(elem.get_id())
-    name = indent + html_quote(spine_to_web(tr, elem.get_name()))
+    name = indent + spine_to_web(elem.get_name())
     output += [(id, name)]
     for ou in elem.get_children(perspective_type):
-       output += ou_selects(tr, ou, perspective_type, "&nbsp;&nbsp;&nbsp;" + indent)
+       output += ou_selects(ou, perspective_type, "&nbsp;&nbsp;&nbsp;" + indent)
     return output
 
 
@@ -495,50 +504,29 @@ def randpasswd(length=8):
         result += getsalt(chars,1)
     return result
 
-##
-## cherrypy.session['encoding'] is set
-## to the same as spine-encoding in login.py
-##
-##def get_web_encoding():
-##     web_enc = cherrypy.session['encoding']
-##     if web_enc:
-##         return web_enc
-##     return 'utf-8'
+def get_spine_encoding():
+    return cherrypy.session['spine_encoding']
 
-## def get_spine_encoding():
-##    return get_web_encoding()
+def get_client_encoding():
+    return cherrypy.session['client_encoding']
 
-def spine_to_web(tr, string):
-    return to_web_encode(from_spine_decode(tr, html_quote(string)))
+def spine_to_web(string):
+    return to_web_encode(from_spine_decode(html_quote(string)))
 
-def web_to_spine(tr, string):
-    return to_spine_encode(tr, from_web_decode(string))
+def web_to_spine(string):
+    return to_spine_encode(from_web_decode(string))
 
-def from_spine_decode(tr, string):
-    return string.decode(tr.get_encoding())
+def from_spine_decode(string):
+    return string.decode(get_spine_encoding())
 
-def to_spine_encode(tr, string):
-    return string.encode(tr.get_encoding())
-
-def get_content_charset(headers):
-    encoding = 'utf-8'
-    if headers:
-        ct = headers.get('Content-Type', '').strip()
-        if ct:
-            ll = ct.split(';')
-            if len(ll) == 2:
-                dd = ll[1].split('=')
-                if len(dd) == 2:
-                    if dd[0].strip().lower() == 'charset':
-                        encoding = dd[1].strip()
-    return encoding
+def to_spine_encode(string):
+    return string.encode(get_spine_encoding())
 
 def from_web_decode(string):
-    encoding = get_content_charset(cherrypy.request.headerMap)
-    return string.decode(encoding)
+    return string.decode(get_client_encoding())
 
 def to_web_encode(string):
-    return string.encode(get_content_charset(cherrypy.request.headerMap))
+    return string.encode(get_client_encoding())
 
 def encode_args(args):
     retStr= ''
@@ -567,17 +555,22 @@ def find_ou_root(ou_structure, perspective):
 def get_lastname_firstname(pers):
     lastname = None
     firstname = None
-    fullname = ''
+    fullname = None
+    found = None
     for name in pers.get_names():
         if name.get_name_variant().get_name() == 'LAST':
             lastname = name.get_name()
         if name.get_name_variant().get_name() == 'FIRST':
             firstname = name.get_name()
-    if lastname:
-        fullname += lastname
-    if firstname and lastname:
-        fullname += ', ' + firstname
-    else:
-        fullname += firstname
-    return fullname
+        if name.get_name_variant().get_name() == 'FULL':
+            fullname  = name.get_name()
+    if lastname and firstname:
+        found = lastname + ", " + firstname
+    elif fullname:
+        found = fullname
+    elif lastname:
+        found = lastname
+    elif firstname:
+        found = firstname
+    return found
 

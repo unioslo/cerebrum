@@ -17,7 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.Main import Main
-#from lib.utils import html_quote
+#from lib.utils import html_quote, url_quote, spine_to_web
 #from FormWidgets import FormWidgets
 #from Widgets import Widgets
 #extends Main
@@ -38,8 +38,8 @@
 #def viewInfo($account)
     #set $info = []
     #set $notice = []
-    $info.append(($_('Account name'), $html_quote($account['username'])))
-    $info.append(($_('Owned by'), $html_quote($account['fullname'])))
+    $info.append(($_('Account name'), $spine_to_web( $account['username'])))
+    $info.append(($_('Owned by'), $spine_to_web($account['fullname'])))
     $info.append(($_('Birthdate'), $html_quote($account.get('birthdate', ''))))
     #if $account['quarantined'] == 1
         $notice.append($_("This account has been set a quarantine."))
@@ -52,7 +52,7 @@
     ## If external_id is populated, we have a list with dicts to play with
     #for $extid in $account['external_id']
         #if $extid['extid_type'] == "NO_BIRTHNO"
-            $info.append(($html_quote($_($extid['extid_type_description'])), $html_quote($_($extid['external_id']))))
+            $info.append(($spine_to_web($_($extid['extid_type_description'])), $html_quote($_($extid['external_id']))))
         #end if
     #end for
     $widgets.viewInfo($info, $notice)
@@ -65,10 +65,10 @@
     #for $spread in $account['spreads']
         <tr>
             <td>
-                $html_quote($spread[0])
+                $spine_to_web($spread[0])
             </td>
             <td>
-                $html_quote($spread[1])
+                $spine_to_web($spread[1])
             </td>
         </tr>
     #end for
@@ -83,10 +83,10 @@
     #for $group in $account['groups']
         <tr>
             <td>
-                $html_quote($group[0])
+                $spine_to_web($group[0])
             </td>
             <td>
-                $html_quote($group[1])
+                $spine_to_web($group[1])
             </td>
         </tr>
     #end for
@@ -101,13 +101,13 @@
     #for $aff in $account['affiliations']
         <tr>
             <td>
-                $html_quote($aff[0])
+                $spine_to_web($aff[0])
             </td>
             <td>
-                $html_quote($aff[1])
+                $spine_to_web($aff[1])
             </td>
             <td>
-                $html_quote($aff[2])
+                $spine_to_web($aff[2])
             </td>
         </tr>
     #end for
