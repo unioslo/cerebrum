@@ -310,7 +310,7 @@ $widgets.viewInfo($info, $notice)
                 <span class="name">$_("Spread"):</span> <span class="value">$spine_to_web($sname)</span><br />
 		#set $disk = $homedir.get_disk()
 		#if $disk
-                <span class="name">$_("Disk"):</span> <span class="value">"%s:%s" % ($spine_to_web($disk.get_host().get_name()), $spine_to_web($disk.get_path()))</span><br />
+                <span class="name">$_("Disk"):</span> <span class="value">'%s:%s' % ($spine_to_web($disk.get_host().get_name()), $spine_to_web($disk.get_path()))</span><br />
 		#end if
                 <span class="name">$_("Home directory"):</span> <span class="value">$spine_to_web($account.get_homepath($spread))</span><br />
                 <span class="name">$_("Status"):</span> <span class="value">$spine_to_web($homedir.get_status().get_description())</span>
