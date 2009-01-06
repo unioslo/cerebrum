@@ -34,12 +34,12 @@ from lib.utils import *
 ## 2007-09-28 tk.
 ##
 
-def get_owner(owner, tr):
+def get_owner(owner):
     owner_type = owner.get_type().get_name() 
     if owner_type == 'person':
-        data = get_person_info(owner, tr)
+        data = get_person_info(owner)
     elif owner_type == 'group':
-        data = get_group_info(owner, tr)
+        data = get_group_info(owner)
     else:
         data = {
             'id': html_quote(owner.get_id()),
@@ -49,15 +49,15 @@ def get_owner(owner, tr):
 
     return data
 
-def get_account_info(account, tr, owner=None):
+def get_account_info(account, owner=None):
     data = {
             "id": "%s" % html_quote(account.get_id()),
-            "name": "%s" % spine_to_web(tr, account.get_name()),
+            "name": "%s" % account.get_name(),
             "type": "account",
     }
 
     if not owner:
-        owner = get_owner(account.get_owner(), tr)
+        owner = get_owner(account.get_owner())
 
     if owner:
         data['owner'] = owner.copy()
@@ -66,60 +66,51 @@ def get_account_info(account, tr, owner=None):
 
     return data
 
-def get_person_name(person, tr):
-    for n in person.get_names():
-        if n.get_name_variant().get_name() == "FULL":
-            return spine_to_web(tr, n.get_name())
-    return None
+def get_person_name(person):
+    return get_lastname_firstname(person)
 
-def get_person_info(person, tr):
+def get_person_info(person):
     data = {
         "id": html_quote(person.get_id()),
-        "name": get_person_name(person, tr),
+        "name": get_person_name(person),
         "type": 'person',
     }
     return data
 
-def get_group_info(group, tr):
-    #spine_enc = cherrypy.session['encoding']
+def get_group_info(group):
     data = {
         'id': html_quote(group.get_id()),
-        'name': spine_to_web(tr, group.get_name()),
+        'name': group.get_name(),
         'type': 'group',
     }
     return data
 
 def search_account(transaction, query):
     result = {}
-
-    tr = transaction
-
     accounts = transaction.get_account_searcher()
     accounts.set_search_limit(20, 0)
     accounts.order_by(accounts, 'name')
-    accounts.set_name_like("%s*" % web_to_spine(transaction, query))
+    accounts.set_name_like("%s*" % query)
     accounts = accounts.search()
     for account in accounts:
-        account = get_account_info(account, tr)
+        account = get_account_info(account)
         result[account['id']] = account
     return result.values()
 
 def search_person(transaction, query):
     result = {}
-
-    tr = transaction
-
     searcher = transaction.get_person_name_searcher()
     searcher.set_search_limit(20, 0)
     searcher.set_name_variant(transaction.get_name_type("FULL"))
-    searcher.set_name_like("*%s*" % web_to_spine(transaction, query))
+    searcher.order_by(searcher, 'person')
+    searcher.set_name_like("*%s*" % query)
     people = [x.get_person() for x in searcher.search()]
 
     for person in people:
-        data = get_person_info(person, tr)
+        data = get_person_info(person)
         accounts = {}
         for account in person.get_accounts():
-            account = get_account_info(account, tr, data)
+            account = get_account_info(account, data)
             accounts[account['id']] = account
         data['accounts'] = accounts.values()
         result[data['id']] = data
@@ -127,22 +118,21 @@ def search_person(transaction, query):
 
 def search_group(transaction, query):
     result = {}
-
-    tr = transaction
-
     searcher = transaction.get_group_searcher()
     searcher.set_search_limit(20, 0)
-    searcher.set_name_like("%s*" % web_to_spine(transaction, query))
+    searcher.order_by(searcher, 'account')
+    searcher.set_name_like("%s*" % query)
     for group in searcher.search():
-        group = get_group_info(group, tr)
+        group = get_group_info(group)
         result[group['id']] = group
     return result.values()
 
 def search(transaction, query=None, type=None, output=None):
     if not query: return
 
-    # convert to from web to spine encoding
-    
+    ## must convert from web encoding to native python
+    ## string before calling islower
+    query = from_web_decode(query)
     if not type:
         # We assume that people have names with upper case letters.
         if (query.find(':') == -1):
@@ -152,8 +142,11 @@ def search(transaction, query=None, type=None, output=None):
                 type = "account"
         else:
             type, query = query.split(':', 1)
+    if type:
+        type = type.lower()
 
-    query = query.strip()
+    ## convert to spine encoding
+    query = to_spine_encode(query.strip())
 
     # Do not search unless the query has a chance of returning a good result.
     if len(query) < 3:
@@ -179,6 +172,7 @@ def search(transaction, query=None, type=None, output=None):
     else:
         # JSON doesn't consider [] and {} to be empty.
         result = None
+    ## cjson will convert to browser's charset
     return cjson.encode(result)
 search = transaction_decorator(search)
 search.exposed = True
@@ -190,8 +184,8 @@ def get_motd(transaction, id):
         motd = transaction.get_cereweb_motd(int(id))
         message, subject = motd.get_message(), motd.get_subject()
         ## just decode from spine cjson vil do the rest
-        message = spine_to_web(transaction, message)
-        subject = spine_to_web(transaction, subject)
+        ##message = to_web_encode(message)
+        ##subject = to_web_encode(subject)
     except NotFoundError, e:
         pass
     return cjson.encode({'message': message, 'subject': subject})
