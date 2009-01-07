@@ -23,7 +23,6 @@ import cherrypy
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import *
-## from lib.CerebrumUserSchema import CerebrumUserSchema
 from lib.Searchers import AccountSearcher
 from lib.Forms import AccountCreateForm, AccountEditForm
 from lib.templates.FormTemplate import FormTemplate
@@ -415,80 +414,81 @@ def remove_affil(transaction, id, ou, affil):
 remove_affil = transaction_decorator(remove_affil)
 remove_affil.exposed = True
  
-## def print_contract(transaction, id, lang):
-##     tr = transaction
-##     referer = cherrypy.request.headerMap.get('Referer', '')
-##     account = tr.get_account(int(id))
-##     owner = account.get_owner()
-##     names = owner.get_names()
-##     lastname = None
-##     firstname = None
-##     for name in names:
-##         nameVariant = name.get_name_variant()
-##         sourceSystem = name.get_source_system()
-##         if sourceSystem.get_name() == 'Cached':
-##             if nameVariant.get_name() == 'LAST':
-##                 lastname = from_spine_decode(tr, name.get_name())
-##             if nameVariant.get_name() == 'FIRST':
-##                 firstname = from_spine_decode(tr, name.get_name())
-##     targetSearcher = tr.get_email_target_searcher()
-##     targetSearcher.set_target_entity(account)
-##     emailTargets = targetSearcher.search()
-##     emailAddress = None
-##     if emailTargets:
-##         ## which one to choose?
-##         primaryEmail = emailTargets[0].get_primary_address()
-##         if primaryEmail:
-##             domain  = primaryEmail.get_domain().get_name()
-##             emailAddress = from_spine_decode(tr, primaryEmail.get_local_part()) + '@' +from_spine_decode(tr, domain)
-##     username = from_spine_decode(tr, account.get_name())
-##     passwd = None
-##     birthdate = owner.get_birth_date().strftime('%d-%m-%Y')
-##     studyprogram = None
-##     year = None
-##     affiliation = None
-##     affiliations = owner.get_affiliations()
-##     if affiliations:
-##         for aff in affiliations:
-##             if not aff.marked_for_deletion():
-##                 affiliation = aff
-##     perspective  = transaction.get_ou_perspective_type('Kjernen')   
-##     faculty = None
-##     department = None
-##     if affiliation:
-##         faculty = from_spine_decode(tr, affiliation.get_ou().get_parent(perspective).get_name())
-##         department = from_spine_decode(tr, affiliation.get_ou().get_name())
-##     else:
-##         rollback_url(referer, 'User has no affiliation.', err=True)
-##     ## print 'lastename = ', lastname
-##     ## print 'firstname = ', firstname
-##     ## print 'email = ', emailAddress
-##     ## print 'username = ', username
-##     ## print 'passwd = ', passwd
-##     ## print 'birthdate = ', birthdate
-##     ## print 'studyprogram = ', studyprogram
-##     ## print 'year = ', year
-##     ## print 'faculty = ', faculty
-##     ## print 'department = ', department
-##     ## print 'lang = ', lang
-##     pdfSchema= CerebrumUserSchema(lastname, firstname, emailAddress, username, passwd, birthdate, studyprogram, year, faculty, department, lang)
-##     pdfContent = pdfSchema.build()
-##     if pdfContent:
-##         contentLength = len(pdfContent)
-##         cherrypy.response.headers['Content-Type'] = 'application/pdf'
-##         cherrypy.response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, max-age=0'
-##         cherrypy.response.headers['pragma'] = 'no-cache'
-##         cherrypy.response.headers['Content-Disposition'] = 'inline; filename='+username+'-contract.pdf'
-##         cherrypy.response.headers['Content-Transfer-Encoding'] = 'binary'
-##         cherrypy.response.headers['Content-Length'] = str(contentLength)
-##         ## outFile = open("/tmp/contract.pdf", "w")
-##         ## outFile.write(pdfContent)
-##         ## outFile.close()
-##         tr.rollback()
-##         return pdfContent
-##     else:
-##         rollback_url(referer, 'Could not make a contract.', err=True)
-## print_contract = transaction_decorator(print_contract)
-## print_contract.exposed = True
+def print_contract(transaction, id, lang):
+    from lib.CerebrumUserSchema import CerebrumUserSchema
+    tr = transaction
+    referer = cherrypy.request.headerMap.get('Referer', '')
+    account = tr.get_account(int(id))
+    owner = account.get_owner()
+    names = owner.get_names()
+    lastname = None
+    firstname = None
+    for name in names:
+        nameVariant = name.get_name_variant()
+        sourceSystem = name.get_source_system()
+        if sourceSystem.get_name() == 'Cached':
+            if nameVariant.get_name() == 'LAST':
+                lastname = from_spine_decode(name.get_name())
+            if nameVariant.get_name() == 'FIRST':
+                firstname = from_spine_decode(name.get_name())
+    targetSearcher = tr.get_email_target_searcher()
+    targetSearcher.set_target_entity(account)
+    emailTargets = targetSearcher.search()
+    emailAddress = None
+    if emailTargets:
+        ## which one to choose?
+        primaryEmail = emailTargets[0].get_primary_address()
+        if primaryEmail:
+            domain  = primaryEmail.get_domain().get_name()
+            emailAddress = from_spine_decode(primaryEmail.get_local_part()) + '@' +from_spine_decode(domain)
+    username = from_spine_decode(account.get_name())
+    passwd = None
+    birthdate = owner.get_birth_date().strftime('%d-%m-%Y')
+    studyprogram = None
+    year = None
+    affiliation = None
+    affiliations = owner.get_affiliations()
+    if affiliations:
+        for aff in affiliations:
+            if not aff.marked_for_deletion():
+                affiliation = aff
+    perspective  = transaction.get_ou_perspective_type('Kjernen')   
+    faculty = None
+    department = None
+    if affiliation:
+        faculty = from_spine_decode(affiliation.get_ou().get_parent(perspective).get_name())
+        department = from_spine_decode(affiliation.get_ou().get_name())
+    else:
+        rollback_url(referer, 'User has no affiliation.', err=True)
+    ## print 'lastename = ', lastname
+    ## print 'firstname = ', firstname
+    ## print 'email = ', emailAddress
+    ## print 'username = ', username
+    ## print 'passwd = ', passwd
+    ## print 'birthdate = ', birthdate
+    ## print 'studyprogram = ', studyprogram
+    ## print 'year = ', year
+    ## print 'faculty = ', faculty
+    ## print 'department = ', department
+    ## print 'lang = ', lang
+    pdfSchema= CerebrumUserSchema(lastname, firstname, emailAddress, username, passwd, birthdate, studyprogram, year, faculty, department, lang)
+    pdfContent = pdfSchema.build()
+    if pdfContent:
+        contentLength = len(pdfContent)
+        cherrypy.response.headers['Content-Type'] = 'application/pdf'
+        cherrypy.response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, max-age=0'
+        cherrypy.response.headers['pragma'] = 'no-cache'
+        cherrypy.response.headers['Content-Disposition'] = 'inline; filename='+username+'-contract.pdf'
+        cherrypy.response.headers['Content-Transfer-Encoding'] = 'binary'
+        cherrypy.response.headers['Content-Length'] = str(contentLength)
+        ## outFile = open("/tmp/contract.pdf", "w")
+        ## outFile.write(pdfContent)
+        ## outFile.close()
+        tr.rollback()
+        return pdfContent
+    else:
+        rollback_url(referer, 'Could not make a contract.', err=True)
+print_contract = transaction_decorator(print_contract)
+print_contract.exposed = True
     
 # arch-tag: 4e19718e-008b-4939-861a-12bd272048df
