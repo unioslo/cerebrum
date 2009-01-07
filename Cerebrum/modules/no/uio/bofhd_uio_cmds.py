@@ -3536,7 +3536,10 @@ class BofhdExtension(object):
         et.find_by_target_entity(acc.entity_id)
         old_server = et.email_server_id
         es = Email.EmailServer(self.db)
-        es.find_by_name(server)
+        try:
+            es.find_by_name(server)
+        except Errors.NotFoundError:
+            raise CerebrumError, ("%s is not registered as an e-mail server") % server
         if old_server == es.entity_id:
             raise CerebrumError, "User is already at %s" % server
 
