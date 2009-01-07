@@ -1683,7 +1683,7 @@ class BofhdExtension(object):
         ed = self._get_email_domain(dom)
         self.ba.can_email_archive_create(operator.get_entity_id(), ed)
         if not self._is_mailing_list(listname):
-            raise CerebrumError("'%s' is not a valid mailing list", listname)
+            raise CerebrumError("'%s' is not a valid mailing list" % listname)
         ea = Email.EmailAddress(self.db)
         try:
             ea.find_by_local_part_and_domain(lp + "-archive",
@@ -1706,8 +1706,9 @@ class BofhdExtension(object):
         ea.populate(arch, ed.entity_id, et.entity_id)
         ea.write_db()
         # TODO: add bofh request to run mkdir on www
-        return ("OK, now run ssh caesar 'mkdir -p %s; chown %s %s; chmod o= %s'"
-                % (archive_dir, archive_user, archive_dir, archive_dir))
+        return ("OK, now run:   ssh jess \"su www -c 'mkdir -p %s; chmod o= %s'\""
+                % (archive_dir, archive_dir))
+
 
     # email modify_name
     all_commands['email_mod_name'] = Command(
