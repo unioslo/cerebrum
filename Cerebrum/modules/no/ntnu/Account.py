@@ -26,7 +26,7 @@ from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 
 import re
 import random
-
+import cereconf
 
 # Todo: create a local module to store these rules.
 
@@ -157,5 +157,83 @@ class AccountNTNUMixin(Account.Account):
 
         # Ok, then. Acctually set the password.
         return self.__super.set_password(plaintext)
+
+
+    # Hacked version of AutoPriorityMixin to remain compatible with
+    # BDB's idea of primary accounts (saved in the trait). LDAP needs this.
+    # Keep while BDB is still running.
+    def _calculate_account_priority(self, ou_id, affiliation,
+                                    current_pri=None):
+        # Determine the status this affiliation resolves to
+        if self.owner_id is None:
+            raise ValueError, "non-owned account can't have account_type"
+        person = Factory.get('Person')(self._db)
+        status = None
+        for row in person.list_affiliations(person_id=self.owner_id,
+                                            include_deleted=True):
+            if row['ou_id'] == ou_id and row['affiliation'] == affiliation:
+                status = self.const.PersonAffStatus(
+                    row['status'])._get_status()
+                break
+        if status is None:
+            raise ValueError, "Person don't have that affiliation"
+        affiliation = str(self.const.PersonAffiliation(int(affiliation)))
+
+        # Find the range that we resolve to
+        pri_ranges = cereconf.ACCOUNT_PRIORITY_RANGES
+        if not isinstance(pri_ranges, dict):
+            return None
+        if not affiliation in pri_ranges:
+            affiliation = '*'
+        if not status in pri_ranges[affiliation]:
+            status = '*'
+        pri_min, pri_max = pri_ranges[affiliation][status]
+
+        person.find(self.owner_id)
+        primary_trait = person.get_trait(self.const.trait_primary_account)
+        primary_account = primary_trait['target_id']
+        isprimary = (primary_account == self.entity_id)
+        
+        if not isprimary and pri_min <= current_pri < pri_max:
+            return current_pri
+        
+        # Find taken values in this range and sort them
+        taken = []
+        thisaff = []
+        for row in self.get_account_types(all_persons_types=True,
+                                          filter_expired=False):
+            taken.append(int(row['priority']))
+            if row['ou_id'] == ou_id and row['affiliation'] == affiliation:
+                thisaff.append(int(row['priority']))
+        taken = [x for x in taken if x >= pri_min and x < pri_max]
+        taken.sort()
+        thisaff.sort()
+        
+
+        if isprimary and len(thisaff) > 0:
+            # Keep if this account already has the lowest pri
+            if (current_pri == thisaff[0] and
+                pri_min <= current_pri < pri_max):
+                return current_pri
+            # Try to lower the priority
+            new_pri = thisaff[0] - 1
+        else:
+            if (not taken):
+                taken.append(pri_min)
+            new_pri = taken[-1] + 2
+            if new_pri < pri_max:
+                return new_pri
+
+            # In the unlikely event that the previous taken value was at the
+            # end of the range
+            new_pri = pri_max - 1
+        while new_pri >= pri_min:
+            if new_pri not in taken:
+                return new_pri
+            new_pri -= 1
+        raise ValueError, "No free priorities for that account_type!"
+
+
+
 
 # arch-tag: 115d851e-d604-11da-80dd-29649c6d89a0
