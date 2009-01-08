@@ -25,19 +25,38 @@
 #attr $username = ""
 #attr $messages = ""
 #attr $client = '/user_client'
-#set $charset = $cherrypy.session.get('client_encoding', 'utf-8')
+
+## setting this just to be safe that the browser understand...
+##
+## the fucking MSIE do not accept application/xhml+xml... *sigh*
+##
 <%
-content_type = 'application/xhtml+xml; charset=%s' % cherrypy.session.get('client_encoding', 'utf-8')
+client_charset = cherrypy.session.get('client_encoding', 'utf-8')
+
+content_type = 'application/xhtml+xml; charset=%s' % client_charset
+
+user_agent = cherrypy.request.headerMap['User-Agent']
+if user_agent.rfind('MSIE') != -1:
+    content_type = 'text/html; charset=%s' % client_charset
+
 cherrypy.response.headerMap['Content-Type']= content_type
+
+pragma = 'no-cache'
+cache_control='private, no-cache, no-store, must-revalidate, max-age=0'
+
+cherrypy.response.headerMap['Pragma'] = pragma
+cherrypy.response.headerMap['Cache-Control'] = cache_control
 %>
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
     <head>
-        <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=$charset" />
-        <link rel="stylesheet" type="text/css" media="screen" href="css/login.css" charset="$charset" />
+        <meta http-equiv="Content-Type" content="$content_type" />
+        <meta http-equiv="Pragma" content="$pragma" />
+        <meta http-equiv="Cache-Control" content="$cache_control" />
         <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
+        <link rel="stylesheet" type="text/css" media="screen" href="css/login.css" charset="utf-8" />
         <title>Log in to Cereweb</title>
     </head>
     <body>

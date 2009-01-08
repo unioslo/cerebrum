@@ -30,7 +30,6 @@
 #attr $page = 'cereweb'
 #attr $links = ()
 #attr $action = []
-#set $charset = $cherrypy.session.get('client_encoding', 'utf-8')
 
 ## Content is usually replaced with a lambda function from the view.
 #def content: stub
@@ -60,9 +59,26 @@
 #end def
 
 ## setting this just to be safe that the browser understand...
+##
+## the fucking MSIE do not accept application/xhml+xml... *sigh*
+##
 <%
-content_type = 'application/xhtml+xml; charset=%s' % cherrypy.session['client_encoding']
-cherrypy.response.headerMap['Content-Type'] = content_type
+client_charset = cherrypy.session.get('client_encoding', 'utf-8')
+
+content_type = 'application/xhtml+xml; charset=%s' % client_charset
+
+user_agent = cherrypy.request.headerMap['User-Agent']
+if user_agent.rfind('MSIE') != -1:
+    content_type = 'text/html; charset=%s' % client_charset
+
+cherrypy.response.headerMap['Content-Type']= content_type
+
+pragma = 'no-cache'
+cache_control='private, no-cache, no-store, must-revalidate, max-age=0'
+
+cherrypy.response.headerMap['Pragma'] = pragma
+cherrypy.response.headerMap['Cache-Control'] = cache_control
+
 %>
 <!DOCTYPE
  html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
@@ -70,37 +86,36 @@ cherrypy.response.headerMap['Content-Type'] = content_type
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" >
     <head>
         <title>Cereweb $strip_html($title)</title>
-        ## <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=$charset" />
-        <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=$cherrypy.session['client_encoding']" />
-        <meta http-equiv="Pragma" content="no-cache" />
-        <meta http-equiv="Cache-Control" content="max-age=0" />
+        <meta http-equiv="Content-Type" content="$content_type" />
+        <meta http-equiv="Pragma" content="$pragma" />
+        <meta http-equiv="Cache-Control" content="$cache_control" />
         <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
         <!-- Include yui styles -->
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/reset-fonts-grids/reset-fonts-grids.css"/>
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/container/assets/container.css"/>
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/logger/assets/logger.css"/>
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/datatable/assets/datatable.css"/>
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/tabview/assets/tabview.css"/>
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/yui/tabview/assets/border_tabs.css"/> 
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/reset-fonts-grids/reset-fonts-grids.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/container/assets/container.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/logger/assets/logger.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/datatable/assets/datatable.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/tabview/assets/tabview.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/tabview/assets/border_tabs.css"/> 
 
         <!-- Include our styles -->
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/css/default.css"/>
-        <link rel="stylesheet" type="text/css" charset="$charset" href="/css/style.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/css/default.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/css/style.css"/>
 
         <!-- Include yui components -->
-        <script type="text/javascript" charset="$charset" src="/yui/utilities/utilities.js"></script>
-        <script type="text/javascript" charset="$charset" src="/yui/logger/logger-min.js"></script>
-        <script type="text/javascript" charset="$charset" src="/yui/container/container-min.js"></script>
-        <script type="text/javascript" charset="$charset" src="/yui/element/element-beta-min.js"></script>
-        <script type="text/javascript" charset="$charset" src="/yui/datasource/datasource-beta-min.js"></script>
-        <script type="text/javascript" charset="$charset" src="/yui/datatable/datatable-beta-min.js"></script>
-        <script type="text/javascript" charset="$charset" src="/yui/autocomplete/autocomplete-min.js"></script>
-        <script type="text/javascript" charset="$charset" src="/yui/tabview/tabview-min.js"></script> 
+        <script type="text/javascript" charset="utf-8" src="/yui/utilities/utilities.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/logger/logger-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/container/container-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/element/element-beta-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/datasource/datasource-beta-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/datatable/datatable-beta-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/autocomplete/autocomplete-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/tabview/tabview-min.js"></script> 
 ##
 ## Maybe an *ugly* fix for selects that are too narrow in ie.
 ## Check FormWidgets for more...   tk.
 ##
-##         <script type="text/javascript" charset="$charset">
+##         <script type="text/javascript" charset="utf-8">
 ##             <!--
 ##             function expandSelect(sel){
 ##                 sel.style.width = '25em';
@@ -116,7 +131,7 @@ cherrypy.response.headerMap['Content-Type'] = content_type
         <!-- Include our javascript application -->
         <!-- $len($jscripts) -->
         #for $i in $jscripts
-            <script type="text/javascript" charset="$charset" src="/jscript/$i"></script>
+            <script type="text/javascript" charset="utf-8" src="/jscript/$i"></script>
         #end for
     </head>
     <body>
