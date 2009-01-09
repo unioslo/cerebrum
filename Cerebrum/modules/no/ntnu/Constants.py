@@ -59,6 +59,14 @@ class Constants(Constants.Constants):
         'primary_account', Constants.Constants.entity_person,
         "Primary account for person (BDB compability)")
         
+    externalid_kjerneid_person = _EntityExternalIdCode('KJERNEID_PERSON',
+        Constants.Constants.entity_person,
+        'Kjernens internal ID for entities (persons and ous)')
+
+    externalid_kjerneid_ou = _EntityExternalIdCode('KJERNEID_OU',
+        Constants.Constants.entity_ou,
+        'Kjernens internal ID for entities (persons and ous)')
+
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
         'Norwegian birth number')
