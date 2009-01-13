@@ -132,7 +132,9 @@ def process_txt_file(file):
                         a_id2email[a_id],
                         ou_id2name[ou_id], first, last)) + '\n'
         file.write(txt)
-        users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
+        # Filter out co.affiliation_tilknyttet
+        if aff in (int(co.affiliation_ansatt), int(co.affiliation_elev)):
+            users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
     return users_ou
         
 
@@ -334,19 +336,6 @@ def main():
     f.set_size_change_limit(10)
     process_prof_group("ELEVER", users, f)
     f.close()
-
-    # Dump info about users with co.affiliation_affiliate 
-    f = SimilarSizeWriter("%s/tilk_user_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    users = process_users(co.affiliation_tilknyttet, f)
-    f.close()
-    
-    # Make a group out of these users
-    f = SimilarSizeWriter("%s/tilk_group_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    process_prof_group("TILKNYTTET", users, f)
-    f.close()
-
             
     # Make and populate groups with spread spread_oid_grp
     f = SimilarSizeWriter("%s/group_oid.ldif" % oid_path, "w")
