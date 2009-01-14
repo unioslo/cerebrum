@@ -321,8 +321,8 @@ class BofhdExtension(object):
             raise CerebrumError("Unexpectedly found more than one person")
         if not person.has_spread(self.const.spread_ephorte_person):
             raise CerebrumError("Person has no ephorte roles")
-        if tilgang in cereconf.EPHORTE_EXPIRED_PERMISSIONS:
-            raise CerebrumError("'Tilgang' %s is expired" % tilgang)
+        #if tilgang in cereconf.EPHORTE_EXPIRED_PERMISSIONS:
+        #    raise CerebrumError("'Tilgang' %s is expired" % tilgang)
         ou = self._get_ou(stedkode=sko)
         self.ephorte_perm.add_permission(person.entity_id,
                                          self._get_tilgang(tilgang),
