@@ -26,7 +26,17 @@ from Cerebrum.Utils import Factory
 import cPickle
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
+    """
+    Hiof specific AD user sync mixin.
+    """
+
     def _filter_quarantines(self, user_dict):
+        """
+        Filter quarantined accounts
+
+        @param user_dict: account_id -> account info mapping
+        @type user_dict: dict
+        """
         def apply_quarantines(entity_id, quarantines):
             q_types = []
             for q in quarantines:
@@ -52,7 +62,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if user_rows:
                 apply_quarantines(prev_user, user_rows)
 
+
     def _fetch_primary_mail_addresses(self, user_dict):
+        """
+        Fetch primary email addresses for users in user_dict.
+        Add key, value pair 'mail', <primary address> if found.
+
+        @param user_dict: account_id -> account info mapping
+        @type user_dict: dict
+        """
         from Cerebrum.modules.Email import EmailDomain, EmailTarget
         etarget = EmailTarget(self.db)
         rewrite = EmailDomain(self.db).rewrite_special_domains
@@ -68,9 +86,17 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             except TypeError:
                 pass  # Silently ignore
 
+
     def fetch_cerebrum_data(self, spread):
-        """Return a dict {uname: {'adAttrib': 'value'}} for all users
-        of relevant spread.  Typical attributes::
+        """
+        Fetch relevant cerebrum data for users with the given spread.
+
+        @param spread: ad account spread for a domain
+        @type spread: _SpreadCode
+        @rtype: dict
+
+        @return: a dict {uname: {'adAttrib': 'value'}} for all users
+        of relevant spread. Typical attributes::
         
           # canonicalName er et 'constructed attribute' (fra dn)
           'displayName': '',   # Fullt navn
@@ -84,30 +110,22 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
           'ACCOUNTDISABLE'     # Flag, used by ADutilMixIn
         """
         self.person = Factory.get('Person')(self.db)
-
         #
         # Find all users with relevant spread
         #
         tmp_ret = {}
-        # We use list_account_home even if we don't get home from
-        # here, but since it's the only list-method that returns
-        # owner_id and entity_name
-        for row in self.ac.list_account_home(account_spread=spread,
-                                             filter_expired=True,
-                                             include_nohome=True):
+        for row in self.ac.search(spread=spread):
             tmp_ret[int(row['account_id'])] = {
                 'homeDrive': 'N:',
                 'TEMPownerId': row['owner_id'],
-                'TEMPuname': row['entity_name'],
+                'TEMPuname': row['name'],
                 'ACCOUNTDISABLE': False   # if ADutilMixIn used get we could remove this
                 }
         self.logger.debug("Found info about %d accounts" % len(tmp_ret.keys()))
-
         #
         # Remove/mark quarantined users
         #
         self._filter_quarantines(tmp_ret)
-        
         #
         # Set person names
         #
@@ -171,31 +189,87 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self._make_ou_if_missing(required_ous.keys())
         return ret
 
+
     def _make_ou_if_missing(self, required_ous, object_list=None, dryrun=False):
+        """
+        If an accounts OU doesn't exist in AD, create it (and if
+        neccessary the parent OUs) before syncing the account.
+        """
         if object_list is None:
             object_list = self.server.listObjects('organizationalUnit')
+            if not object_list:
+                self.logger.warn("Problems getting OUs from server.listObjects")
             object_list.append(self.ad_ldap)
-            # self.logger.debug("OU-list: %s" % repr(object_list))
         for ou in required_ous:
             if ou not in object_list:
                 name, parent_ou = ou.split(",", 1)
-                self.logger.debug("Creating missing OU: %s" % ou)
                 if not parent_ou in object_list:
                     # Recursively create parent
-                    self._make_ou_if_missing([parent_ou], object_list=object_list, dryrun=dryrun)
+                    self._make_ou_if_missing([parent_ou],
+                                             object_list=object_list,
+                                             dryrun=dryrun)
                 name = name[name.find("=")+1:]
-                self.run_cmd('createObject', dryrun, "organizationalUnit", parent_ou, name)
+                self.create_ou(parent_ou, name, dryrun)
+                self.logger.debug("Creating missing OU: %s" % ou)
                 object_list.append(ou)
 
-    def get_default_ou(self, change = None):
-        #Returns default OU in AD.
+
+    def create_ou(self, ou, name, dryrun):
+        ret = self.run_cmd('createObject', dryrun,
+                           "organizationalUnit", ou, name)
+        if not ret[0]:
+            self.logger.warn(ret[1])
+        
+
+    def get_default_ou(self, change=None):
+        """
+        Return default OU for hiof.no
+        """
         return "OU=BOFH brukere,%s" % self.ad_ldap
 
+
+    def perform_changes(self, changelist, dry_run):
+        """
+        Handle changes for accounts synced to AD. If change is OK run
+        the proper change command on AD domain server.
+
+        @param changelist: list of changes (dicts)
+        @type  changelist: list
+        """
+        for chg in changelist:
+            if ('OU' in chg and chg['OU'] == self.get_default_ou() and 
+                chg['type'] in ('create_object', 'move_object', 'alter_object')):
+                msg = "No OU was calculated for %s. Not syncing %s operation" % (
+                    chg.get('distinguishedName', ''), chg.get('type', ''))
+                self.logger.warn(msg)
+                continue
+            self.logger.debug("Process change: %s" % repr(chg))
+            if chg['type'] == 'create_object':
+                self.create_object(chg, dry_run)
+            else:
+                ret = self.run_cmd('bindObject', dry_run,
+                                   chg['distinguishedName'])
+                if not ret[0]:
+                    self.logger.warning("bindObject on %s failed: %r" % \
+                                   (chg['distinguishedName'], ret))
+                else:
+                    exec('self.' + chg['type'] + '(chg, dry_run)')
+
+
     def create_object(self, chg, dry_run):
+        """
+        Create account, it's properties, homedir and profile path in
+        AD. ADutilMixIn.create_object is overwritten because we don't
+        want to sync users without proper OU.
+
+        @param chg: changes to be synced for an account
+        @type  chg: dict
+        """
         if chg.has_key('OU'):
             ou = chg['OU']
         else:
-            ou = self.get_default_ou(chg)
+            self.logger.error("No OU for %s" % chg.get('distinguishedName', ''))
+            return
         ret = self.run_cmd('createObject', dry_run,
                            'User', ou, chg['sAMAccountName'])
         if not ret[0]:
@@ -239,16 +313,28 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         self.logger.error("createDir on %s failed: %r", uname, ret)
                      
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
-    #Groupsync Mixin
+    """
+    Hiof specific AD group sync mixin.
+    """
 
-    def get_default_ou(self, change = None):
+    def get_default_ou(self, change=None):
+        """
+        Return default OU for hiof.no.
+        """
         #Returns default OU in AD.
         return "OU=Grupper,%s" %  self.ad_ldap
     
     def fetch_ad_data(self):
+        """
+        Fetch relevant data from AD
+
+        @rtype: dict 
+        @return: dict of ad user data. 
+        """
         ret = self.server.listObjects('group', True, self.get_default_ou())
         if ret is False:
             self.logger.error("Couldn't fetch data from AD service. Quitting!")
+            # TODO: raise an exception, don't quit.
             sys.exit(1)
         return ret
 
