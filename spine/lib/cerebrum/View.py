@@ -301,7 +301,7 @@ LEFT JOIN stedkode stedkode_parent
 -- contacts
 LEFT JOIN entity_contact_info contact_email
   ON (contact_email.entity_id = ou_info.ou_id
-    AND contact_email.source_system = :system_cached
+    AND contact_email.source_system = :system_bdb
     AND contact_email.contact_type = :contact_email)
 LEFT JOIN entity_contact_info contact_url
   ON (contact_url.entity_id = ou_info.ou_id
