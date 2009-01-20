@@ -301,7 +301,7 @@ LEFT JOIN stedkode stedkode_parent
 -- contacts
 LEFT JOIN entity_contact_info contact_email
   ON (contact_email.entity_id = ou_info.ou_id
-    AND contact_email.source_system = :system_bdb
+    AND contact_email.source_system = :system_kjernen
     AND contact_email.contact_type = :contact_email)
 LEFT JOIN entity_contact_info contact_url
   ON (contact_url.entity_id = ou_info.ou_id
@@ -424,7 +424,7 @@ ON ((person_work_title.person_id = person_info.person_id)
 LEFT JOIN entity_contact_info contact_email
 ON (contact_email.entity_id = person_info.person_id
   AND contact_email.contact_type = :contact_email
-  AND contact_email.source_system = :system_cached) 
+  AND contact_email.source_system = :system_bdb)
 LEFT JOIN entity_contact_info contact_url
 ON (contact_url.entity_id = person_info.person_id
   AND contact_url.contact_type = :contact_url
@@ -565,6 +565,8 @@ class View(DatabaseTransactionClass):
             "name_work_title": co.name_work_title,
             "externalid_nin": co.externalid_fodselsnr,
             "nin_source": co.system_bdb,
+            "system_kjernen": co.system_kjernen,
+            "system_bdb": co.system_bdb,
             "group_visibility_all": co.group_visibility_all,
             "contact_url": co.contact_url,
             "contact_email": co.contact_email,
