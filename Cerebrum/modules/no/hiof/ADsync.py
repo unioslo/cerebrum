@@ -121,7 +121,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 'TEMPuname': row['name'],
                 'ACCOUNTDISABLE': False   # if ADutilMixIn used get we could remove this
                 }
-        self.logger.debug("Found info about %d accounts" % len(tmp_ret.keys()))
         #
         # Remove/mark quarantined users
         #
@@ -268,7 +267,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         if chg.has_key('OU'):
             ou = chg['OU']
         else:
-            self.logger.error("No OU for %s" % chg.get('distinguishedName', ''))
+            self.logger.error("No OU for %s" % chg.get('sAMAccountName', chg))
             return
         ret = self.run_cmd('createObject', dry_run,
                            'User', ou, chg['sAMAccountName'])
