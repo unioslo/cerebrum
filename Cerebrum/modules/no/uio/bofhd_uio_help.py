@@ -598,6 +598,11 @@ printer."""],
     'spread':
         ['spread', 'Enter spread',
          "'spread list' lists possible values"],
+    'spread_filter':
+        ['spread_filter', 'Enter spread to filter by (leave empty for no filtering)',
+         """Results should only include groups having the given spread.
+If no value is given, no filtering will occur.
+The bofh-command 'spread list' lists possible values"""],
     'string_attribute':
         ['attr', 'Enter attribute',
          "Experts only.  See the documentation for details"],

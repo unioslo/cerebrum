@@ -4884,16 +4884,20 @@ class BofhdExtension(object):
 
     # group memberships
     all_commands['group_memberships'] = Command(
-        ('group', 'memberships'), EntityType(default="account"), Id(),
+        ('group', 'memberships'), EntityType(default="account"),
+        Id(), Spread(optional=True, help_ref='spread_filter'),
         fs=FormatSuggestion(
         "%-9s %-18s", ("memberop", "group"),
         hdr="%-9s %-18s" % ("Operation", "Group")))
-    def group_memberships(self, operator, entity_type, id):
+    def group_memberships(self, operator, entity_type, id,
+                          spread=None):
         entity = self._get_entity(entity_type, id)
         group = self.Group_class(self.db)
         co = self.const
+        if spread is not None:
+            spread = self._get_constant(self.const.Spread, spread, "spread")
         ret = []
-        for row in group.search(member_id=entity.entity_id):
+        for row in group.search(member_id=entity.entity_id, spread=spread):
             ret.append({'memberop': str(co.group_memberop_union),
                         'entity_id': row["group_id"],
                         'group': row["name"],
