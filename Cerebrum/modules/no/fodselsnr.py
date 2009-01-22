@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 # Copyright 2002 University of Oslo, Norway
 #
@@ -182,9 +183,15 @@ def del_fnr_4(fnr):
 if __name__ == '__main__':
     import sys
     fnr = sys.argv[1]
-    print "personnr_ok: %s" % `personnr_ok(fnr)`
-    print "er_mann: %s" % `er_mann(fnr)`
-    print "er_kvinne: %s" % `er_kvinne(fnr)`
-    print "fodt_dato: %s" % `fodt_dato(fnr)`
+    sjekksum_fnr = beregn_sjekksum(fnr)
+    print "Riktig sjekksum for '%s' er '%s'" % (fnr[:9], sjekksum_fnr[9:])
+    if fnr[9:] != sjekksum_fnr[9:]:
+        print "   (Riktig fnr blir da '%s')" % sjekksum_fnr
+    try:
+        print "Sjekksum ok for '%s'" % personnr_ok(fnr)
+        print "er_mann: %s" % er_mann(fnr)
+        print "er_kvinne: %s" % er_kvinne(fnr)
+        print "fodt_dato: %s" % str(fodt_dato(fnr))
+    except:
+        print "Sjekksum '%s' er ugyldig for '%s'" % (fnr[9:], fnr)
 
-# arch-tag: 2a1021cd-1605-4415-ac20-e61278bf7c3c
