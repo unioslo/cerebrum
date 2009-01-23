@@ -202,7 +202,7 @@ class Constants(Constants.Constants):
     spread_it_radius_user = _SpreadCode(
         'account@radiusit', Constants.Constants.entity_account,
         'User in Radius domain "it"')
-    spread_it_radius_user = _SpreadCode(
+    spread_sia_radius_user = _SpreadCode(
         'account@radiusia', Constants.Constants.entity_account,
         'User in Radius domain "sia"')
 
