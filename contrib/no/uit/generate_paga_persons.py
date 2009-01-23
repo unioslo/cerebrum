@@ -44,6 +44,7 @@ __doc__="""Usage: %s [options]
     options:
     -o | --out_file   : alternative xml file to store data in
     -p | --paga-file  : file to read from
+    -s | --show       : give fnr,and person info is shown
     -h | --help       : show this
     --logger-name     : name of logger to use
     --logger-level    : loglevel to use
@@ -103,7 +104,7 @@ def parse_paga_csv(pagafile):
         ssn=detail[KEY_FNR]        
         
         # some checks
-        if detail[KEY_PERMISJONKODE]!='0':
+        if detail[KEY_PERMISJONKODE] not in cereconf.PAGA_PERMKODER_ALLOWED:
             logger.warn("Dropping detail for %s, P.Kode=%s" % \
                 (ssn,detail[KEY_PERMISJONKODE]))
             permisjoner[ssn]=detail[KEY_PERMISJONKODE]
@@ -252,9 +253,10 @@ def main():
        
     out_file = os.path.join(dumpdir_employees, default_employee_file)
     paga_file = os.path.join(dumpdir_paga, default_paga_file)
+    show_person = None
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'hp:o:',
-            ['paga-file=','out-file=','help'])
+        opts,args = getopt.getopt(sys.argv[1:],'hp:o:s:',
+            ['paga-file=','out-file=','help','show='])
     except getopt.GetoptError,m:
         usage(1,m)
 
@@ -263,14 +265,31 @@ def main():
             out_file = val
         if opt in ('-p','--paga-file'):
             paga_file = val
+        if opt in ('-s','--show'):
+            show_person = val
         if opt in ('-h','--help'):
             usage()
     
     pers,tils,perms = parse_paga_csv(paga_file)
     logger.debug("File parsed. Got %d persons" % (len(pers),))
-    xml=person_xml(out_file)
-    xml.create(pers,tils,perms)
-    sys.exit(0)
+
+    if show_person is not None:
+        if pers.has_key(show_person):
+            print "*** Personinfo ***"
+            print pers[show_person]
+            print ""
+        if tils.has_key(show_person):
+            print "*** Tilsettingsinfo ***"
+            print tils[show_person]
+            print ""
+        if perms.has_key(show_person):
+            print "*** Permisjonsinfo ***"
+            print perms[show_person]
+            print ""
+    else:
+        xml=person_xml(out_file)
+        xml.create(pers,tils,perms)
+        sys.exit(0)
     
 def usage(exit_code=0,msg=None):
     if msg: print msg
