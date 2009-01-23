@@ -30,9 +30,182 @@ from Cerebrum import Person
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 
+from Cerebrum.modules.Email import AccountEmailMixin
+import re
+
+class UiTAccountEmailMixin(AccountEmailMixin):
+
+    def get_email_cn_local_part(self, given_names=-1, max_initials=None):
+        """
+        Construct a "pretty" local part.
+
+        If given_names=-1, keep the given name if the person has only
+        one, but reduce them to initials only when the person has more
+        than one.
+           "John"                  -> "john"
+           "John Doe"              -> "john.doe"
+           "John Ronald Doe"       -> "j.r.doe"
+           "John Ronald Reuel Doe" -> "j.r.r.doe"
+
+        If given_names=0, only initials are included
+           "John Ronald Doe"       -> "j.r.doe"
+
+        If given_names=1, the first given name will always be included
+           "John Ronald Doe"       -> "john.r.doe"
+
+        If max_initials is set, no more than this number of initials
+        will be included.  With max_initials=1 and given_names=-1
+           "John Doe"              -> "john.doe"
+           "John Ronald Reuel Doe" -> "j.doe"
+
+        With max_initials=1 and given_names=1
+           "John Ronald Reuel Doe" -> "john.r.doe"
+        """
+
+        assert(given_names >= -1)
+        assert(max_initials is None or max_initials >= 0)
+
+        try:
+            full = self.get_fullname()
+        except Errors.NotFoundError:
+            full = self.account_name
+        names = [x.lower() for x in re.split(r'\s+', full)]
+        last = names.pop(-1)
+        #names = [x for x in '-'.join(names).split('-') if x]
+
+        if given_names == -1:
+            if len(names) == 1:
+                # Person has only one name, use it in full
+                given_names = 1
+            else:
+                # Person has more than one name, only use initials
+                given_names = 0
+
+        if len(names) > given_names:
+            initials = [x[0] for x in names[given_names:]]
+            if max_initials is not None:
+                initials = initials[:max_initials]
+            names = names[:given_names] + initials
+        names.append(last)
+        return self.wash_email_local_part(".".join(names))
+
+
+
+    def getdict_uname2mailinfo(self, filter_expired_accounts=True, filter_expired_emails=True):
+        ret = {}
+        target_type = int(self.const.email_target_account)
+        namespace = int(self.const.account_namespace)
+        where = "en.value_domain = :namespace"
+
+        if filter_expired_accounts:
+            where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
+
+        if filter_expired_emails:
+            where += " AND (ea.expire_date IS NULL OR ea.expire_date > [:now])"
+
+        for row in self.query("""
+        SELECT en.entity_name, ea.local_part, ed.domain, ea.create_date, ea.change_date, ea.expire_date
+        FROM [:table schema=cerebrum name=account_info] ai
+        JOIN [:table schema=cerebrum name=entity_name] en
+          ON en.entity_id = ai.account_id
+        JOIN [:table schema=cerebrum name=email_target] et
+          ON et.target_type = :targ_type AND
+             et.target_entity_id = ai.account_id
+        JOIN [:table schema=cerebrum name=email_address] ea
+          ON ea.target_id = et.target_id
+        JOIN [:table schema=cerebrum name=email_domain] ed
+          ON ed.domain_id = ea.domain_id
+        WHERE """ + where,
+                              {'targ_type': target_type,
+                               'namespace': namespace}):
+
+            addresses = ret.get(row['entity_name'])
+            if addresses is None:
+               addresses = []
+
+            mailinfo = {}
+            mailinfo['local_part'] = row['local_part']
+            mailinfo['domain'] = row['domain']
+            mailinfo['create_date'] = row['create_date']
+            mailinfo['change_date'] = row['change_date']
+            mailinfo['expire_date'] = row['expire_date']
+
+            addresses.append(mailinfo)
+
+            ret[row['entity_name']] = addresses
+            
+        return ret
+
+    # UIT Extension to manipulate AD EMAIL table (sets/overrides primary emails)
+
+    # Add or update email entry for user
+    def set_ad_email(self, local_part, domain_part):
+
+        uname = self.get_account_name()
+
+        # Query to check if update is necessary 
+        sel_query = """
+        SELECT account_name, local_part, domain_part from [:table schema=cerebrum name=ad_email]
+        WHERE account_name=:account_name
+        """
+        sel_binds = {'account_name': uname}
+
+        # Insert query
+        ins_query = """
+        INSERT INTO [:table schema=cerebrum name=ad_email]
+        (account_name, local_part, domain_part, create_date, update_date)
+        VALUES (:account_name, :local_part, :domain_part, [:now], [:now])
+        """
+        ins_binds = {'account_name':uname,
+                     'local_part': local_part,
+                     'domain_part': domain_part}
+        
+        # Update query
+        upd_query = """
+        UPDATE [:table schema=cerebrum name=ad_email]
+        SET local_part=:local_part, domain_part=:domain_part, update_date=[:now]
+        WHERE account_name=:account_name
+        """
+        upd_binds = { 'local_part' : local_part,
+                      'domain_part' : domain_part,
+                      'account_name': uname}
+
+        try:
+            res = self.query_1(sel_query, sel_binds)
+            res = self.execute(upd_query, upd_binds)
+            self.logger.info("Updated ad_email table: %s to %s@%s" % (uname, local_part, domain_part))
+        except Errors.NotFoundError:
+            res = self.execute(ins_query, ins_binds)
+            self.logger.info("Inserted into ad_email table: %s to %s@%s" % (uname, local_part, domain_part))
+
+
+    # Deletes ad email entry for user
+    def delete_ad_email(self):
+
+        uname = self.get_account_name()
+
+        # Delete query
+        sql = """
+        DELETE from [:table schema=cerebrum name=ad_email]
+        WHERE account_name=:account_name
+        """
+        binds = {'account_name': uname }
+        self.execute(sql, binds)
+        self.logger.info("Deleted %s from ad_email table" % (uname))
+
+
+    # Lists emails in ad email table
+    def list_ad_email(self):
+        sql = """
+        SELECT account_name, local_part, domain_part
+        FROM [:table schema=cerebrum name=ad_email]
+        """
+        return self.query(sql)
+
+
 class email_address:
 
-    def __init__(self,db,logger=None):
+    def __init__(self, db, logger=None):
         self.db = db
         self.account = Factory.get("Account")(db)
         self.constants = Factory.get("Constants")(db)
@@ -71,13 +244,8 @@ class email_address:
         return email_list
     
 
-    def process_mail(self,account_id, type, addr):
-        self.logger.debug("no.uit.email.process_mail")
-        #stack= traceback.extract_stack()
-        #stack=stack[0]
-        #print "a"
+    def process_mail(self, account_id, addr, is_primary=False):
         self.logger.debug("account_id to email.process_mail = %s" % account_id)
-        #print "b"
         if (addr==None):
             #this account has no email address attached to it.
             # return None to the calling process
@@ -87,7 +255,6 @@ class email_address:
         if len(fld) != 2:
             self.logger.error("Bad address: %s. Skipping", addr)
             return None
-        # fi
         lp, dom = fld
 
         try:
@@ -98,7 +265,6 @@ class email_address:
             self.edom.populate(dom, "Generated by no.uit.process_mail.")
             self.edom.write_db()
             self.logger.debug("Domain created: %s: %d", dom, self.edom.entity_id)
-        # yrt
 
         try:
             self.et.find_by_target_entity(int(account_id))
@@ -111,7 +277,6 @@ class email_address:
             self.et.write_db()
             self.logger.debug("EmailTarget created: %s: %d",
                          account_id, self.et.entity_id)
-        # yrt
 
         try:
             self.ea.find_by_address(addr)
@@ -120,240 +285,35 @@ class email_address:
             self.ea.populate(lp, self.edom.entity_id, self.et.entity_id)
             self.ea.write_db()
             self.logger.debug("EmailAddress created: addr='%s': ea_id='%d'", addr, self.ea.entity_id)
-        # yrt
 
-        if type == "depricated":
-            try:
-                self.epat.find(self.et.entity_id)
-                self.logger.debug("EmailPrimary found: %s: %d",
-                             addr, self.epat.entity_id)
-                #self.epat.clear()
-                #self.epat.populate(self.ea.entity_id, parent=self.et)
-                #self.epat.write_db()
-                
-            except Errors.NotFoundError:
-                if self.ea.email_addr_target_id == self.et.entity_id:
+        try:
+            self.epat.find(self.et.entity_id)
+            self.logger.debug("EmailPrimary found: addr=%s,et=%d ea=%d" ,
+                               addr, self.epat.entity_id, self.epat.email_primaddr_id)
+            if (is_primary and (self.epat.email_primaddr_id != self.ea.entity_id)):
+                self.logger.info("EmailPrimary NOT equal to this email id (%d), updating..." % self.ea.entity_id)
+
+                try:
+                    self.epat.delete()  # deletes old emailprimary, ready to create new
                     self.epat.clear()
                     self.epat.populate(self.ea.entity_id, parent=self.et)
                     self.epat.write_db()
-                    self.logger.debug("EmailPrimary created: %s: %d",
-                                 addr, self.epat.entity_id)
-                else:
-                    self.logger.error("EmailTarget mismatch: ea: %d, et: %d", 
-                                 self.ea.email_addr_target_id, self.et.entity_id)
-                # fi
-            # yrt
-        elif (type == "no_primary_update"):
-            # We are not to update primary email address. -> pass
-            self.logger.debug("not updating primary email address")
-            pass
-        elif (type=="defaultmail"):
-            #print "debug: before try:  self.ea.email_addr_target_id=%s,  self.et.entity_id=%s" % (self.ea.email_addr_target_id ,elf.et.entity_id)
-            try:
-                self.epat.find(self.et.entity_id)
-                self.logger.debug("EmailPrimary found: addr=%s,et=%d ea=%d" ,
-                                   addr, self.epat.entity_id, self.epat.email_primaddr_id)
-                if (self.epat.email_primaddr_id != self.ea.entity_id):
-                    self.logger.info("EmailPrimary NOT equal to this email id (%d), updating..." % self.ea.entity_id)
-
-                    try:
-                        self.epat.delete()  # deletes old emailprimary, ready to create new
-                        self.epat.clear()
-                        self.epat.populate(self.ea.entity_id, parent=self.et)
-                        self.epat.write_db()
-                        self.logger.debug("EmailPrimary created: addr='%s'(ea_id=%d): et_id%d", addr, self.ea.entity_id, self.epat.entity_id)
-                    except Exception, msg:
-                        self.logger.error("EmailPrimaryAddess Failed to set for %s: ea: %d, et: %d! Reason:%s",
-                                           addr, self.ea.entity_id, self.et.entity_id,str(msg).replace('\n','--'))    
-            except Errors.NotFoundError:
-                if self.ea.email_addr_target_id == self.et.entity_id:
-                    self.epat.clear()
-                    self.epat.populate(self.ea.entity_id, parent=self.et)
-                    self.epat.write_db()
-                    self.logger.debug("EmailPrimary created: addr='%s': et_id='%d', ea_id='%d'",
-                                 addr, self.epat.entity_id,self.ea.entity_id)
-                else:
-                    self.logger.error("EmailTarget mismatch: ea: %d, et: %d: EmailPrimary not set",
-                                 self.ea.email_addr_target_id, self.et.entity_id)
-                # fi
-                
-                
-#            try:
-#                if self.ea.email_addr_target_id == self.et.entity_id:
-#                    self.epat.clear()
-#                    self.epat.populate(self.ea.entity_id, parent=self.et)
-#                    self.epat.write_db()
-#                    self.logger.debug("EmailPrimary created: %s: %d",
-#                                 addr, self.epat.entity_id)
-#                else:
-#                    self.logger.error("EmailTarget mismatch: ea: %d, et: %d", 
-#                                 self.ea.email_addr_target_id, self.et.entity_id)
-#                # fi           
-#                
-#            except Exception,msg:
-#                    self.logger.error("EmailPrimaryAddess Failed to set: ea: %d, et: %d\nReason:%s",
-#                                 self.ea.email_addr_target_id, self.et.entity_id,msg)
-#                
-        # fi
+                    self.logger.debug("EmailPrimary created: addr='%s'(ea_id=%d): et_id%d", addr, self.ea.entity_id, self.epat.entity_id)
+                except Exception, msg:
+                    self.logger.error("EmailPrimaryAddess Failed to set for %s: ea: %d, et: %d! Reason:%s",
+                                       addr, self.ea.entity_id, self.et.entity_id,str(msg).replace('\n','--'))    
+        except Errors.NotFoundError:
+            if self.ea.email_addr_target_id == self.et.entity_id:
+                self.epat.clear()
+                self.epat.populate(self.ea.entity_id, parent=self.et)
+                self.epat.write_db()
+                self.logger.debug("EmailPrimary created: addr='%s': et_id='%d', ea_id='%d'",
+                                  addr, self.epat.entity_id,self.ea.entity_id)
+            else:
+                self.logger.error("EmailTarget mismatch: ea: %d, et: %d: EmailPrimary not set",
+                             self.ea.email_addr_target_id, self.et.entity_id)
     
         self.et.clear()
         self.ea.clear()
         self.edom.clear()
         self.epat.clear()
-        # end process_mail
-
-
-
-
-    def account_id2email_address(self,entity_id,email_list):
-        logger = Factory.get_logger("console")
-
-        # lets get account username
-        #print "account_id2email_address. entity_id =%s" % entity_id
-        try:
-            self.account.clear()
-            self.account.find(entity_id)
-            account_name = self.account.get_account_name()
-
-            #my_account_type = self.account.get_account_types(entity_id)
-            my_account_type = self.account.get_account_types()
-            #print "Account_name = %s" % account_name
-        except Errors.NotFoundError:
-            self.logger.debug("entity_id %s has no account" % entity_id)
-            self.logger.debug("exiting..")
-            sys.exit(1)
-        #self.logger.debug("----")
-        #print " starting on account: %s" %account_name 
-
-        #student_counter = 0
-        #ansatt_counter = 0
-
-        emp_email = stud_email = None
-
-        for i in my_account_type:
-
-            #print "affiliation = %s" % i.affiliation
-            if i.affiliation == self.constants.affiliation_student:
-                email = "%s@mailbox.uit.no" % (account_name)
-
-                logger.debug("student account...")
-                logger.debug("email =%s" % email)
-                #return email # returning student email address
-                stud_email = email
-            elif i.affiliation == self.constants.affiliation_ansatt:
-                #lets get email address for this employee user
-                logger.debug("----")
-                logger.debug("Employee account..")
-
-                #if (isinstance(email_list)):
-                if (account_name not in email_list):
-                    # second attempt to get email address for employee.
-                    # this time we check directly for this user against the ad_email table
-                    email_list = self.get_employee_email(entity_id,self.db)
-                if account_name in email_list:
-                    email = email_list[account_name].rstrip()
-                    throw_away,domain = email.split("@",1)
-                    my_domain = domain.split(".",1)
-                    if my_domain[0] == 'ad':
-                        # not proper email address..lets run an extra check on this
-                        logger.debug("only ad domain in email_file for this user...must check the stedkode table to get ou data")
-                        # lets get ou info first
-                        #self.ou.clear()
-                        #self.ou.find(i.ou_id)
-                        my_domain="asp"
-                        #my_domain = self.check_email_address(account_name,default_email_conversion_list,self.ou.fakultet,self.ou.institutt,self.ou.avdeling)
-                        email = "%s@%s.uit.no" % (throw_away,my_domain)
-                    logger.debug("email address for AD account = %s" % email)
-                    #return email
-                    emp_email = email
-                else:
-                    #we have an employee account that doesnt have any email email address associated with it
-                    # from AD.
-                    #self.ou.clear()
-                    #self.ou.find(i.ou_id)
-                    my_domain="mailbox"
-                    #my_domain = self.check_email_address(account_name,default_email_conversion_list,self.ou.fakultet,self.ou.institutt,self.ou.avdeling)
-                    logger.debug("WARNING -> account %s has no email address from AD. checking ou_data towards conversion file" % account_name)
-                    email ="%s@%s.uit.no" % (account_name,my_domain) 
-                    logger.debug("will use %s" % email)
-                    #return email
-                    emp_email = email
-                
-            else:
-                # This account belongs to a person whos not a student or an employee
-                # No email address registered on this account
-                #return None
-                pass
-
-        if emp_email:
-            return emp_email
-        if stud_email:
-            return stud_email
-
-        logger.debug("ERROR. should never get here..exiting (account % s has no account_type)" % entity_id)
-        sys.exit(1)
-        
-def main():
-    db = Factory.get("Database")()
-    logger=Factory.get_logger("console")
-    #account = Factory.get("Account")(db)
-    #constants = Factory.get("Constants")(db)
-    #person = Factory.get("Person")(db)
-    #ou = Factory.get("OU")(db)
-    try:
-        opts,args = getopt.getopt(sys.argv[1:],'p:',['person_id='])
-    except getopt.GetoptError:
-        usage()
-        sys.exit(1)
-
-    #person_id = 129249
-    for opt,val in opts:
-        if opt in('-p','--person_id'):
-            person_id = val
-
-    execute = email_address(db,logger)
-    email_list = execute.build_email_list()
-    
-    ## This code will not update email_primary_adress table.
-    ## We will need to check for person affiliation and change "defaultmail" to "ansattemail" 
-    ## to set primary mail address.
-    if person_id == 0:
-        for pers in execute.person.list_persons():
-            execute.person.find(pers['person_id'])
-            for accounts in execute.person.get_accounts():
-                email = execute.account_id2email_address(accounts['account_id'],email_list)
-                execute.process_mail(accounts['account_id'],"defaultmail",email)
-            execute.person.clear()
-    else:
-        execute.person.find(person_id)
-        for accounts in execute.person.get_accounts():
-            email = execute.account_id2email_address(accounts['account_id'],email_list)
-            execute.process_mail(accounts['account_id'],"ansattemail",email)
-            execute.person.clear()
-    execute.db.commit()
-
-
-def usage():
-    print """ Usage: python Email.py [-p]
-    If Email.py is run withouth any parameters it will create email addresses for all accounts in cerebrum.
-    If the optional -p is used only the person with the given person_id will get a new email address.
-
-    -p | --person_id : person_id of person to create email address for
-    
-    
-    PS! This script will currently not update primary_email_address table!
-    """
-
-if __name__ == '__main__':
-    main()
-
-#hvis ansatt:
-  # hvis something@noe (noe!=ad) -> bruk det jeg faar (something@noe).
-  # hvis somethinge@ad           -> something@asp.uit.no
-
-  # hvis ikke noe -> username@invalid.uit.no
-
-#hvis student:
-  # brukernavn@student.uit.no
-
-# arch-tag: 84ba187a-b4f2-11da-9341-4834911ab5d3
