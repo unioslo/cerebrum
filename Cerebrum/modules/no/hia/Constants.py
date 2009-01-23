@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003, 2004 University of Oslo, Norway
+# Copyright 2002-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -202,6 +202,9 @@ class Constants(Constants.Constants):
     spread_it_radius_user = _SpreadCode(
         'account@radiusit', Constants.Constants.entity_account,
         'User in Radius domain "it"')
+    spread_it_radius_user = _SpreadCode(
+        'account@radiusia', Constants.Constants.entity_account,
+        'User in Radius domain "sia"')
 
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
 
