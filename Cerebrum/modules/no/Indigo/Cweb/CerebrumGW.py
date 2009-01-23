@@ -170,6 +170,18 @@ class CerebrumProxy(object):
     def group_remove_entity(self, member_id, group_id):
         return self.run_command('group_remove_entity', member_id, group_id)
 
+    def change_password_for_group_members(self, group_id, member_ids):
+        """Change password for specified members of group_id."""
+        results = []
+        for member_id in member_ids:
+            self.user_password(member_id)
+            item = self.run_command("get_password_information", member_id)
+            # FIXME. What if get_password_information fails?
+            results.append(item)
+
+        return results
+    # end change_password_for_group_members
+
     def _get_search_str(self, etype=None, entity_id=None, name=None):
         if entity_id:
             if etype in ('user', 'group'):

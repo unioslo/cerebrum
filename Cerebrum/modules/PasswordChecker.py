@@ -314,6 +314,9 @@ class PasswordChecker(DatabaseAccessor):
 
         # A sequence of keyboard keys?
         # TODO: 'kbd' should match a typical keyboard
+        # IVR 2009-01-23 FIXME: This is broken. A word like 'bygg' will be
+        # considered in-sequence by the code below, since different rows of a
+        # qwerty keyboard are mapped onto the same character sequence.
         kbd = ("qwertyuiop[]asdfghjkl;'zxcvbnm,./",
                "abcdefghijklabcdefghijkabcdefghij",
                "!@#$%^&*()_+|~",

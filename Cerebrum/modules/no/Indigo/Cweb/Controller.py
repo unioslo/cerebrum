@@ -110,7 +110,9 @@ class Controller(object):
             'show_user_find': [self.html_util.show_page,
                                Layout.UserTemplate, 'user_find'],
             'show_user_password': [self.html_util.show_page,
-                                   Layout.UserTemplate, 'user_password']
+                                   Layout.UserTemplate, 'user_password'],
+            'show_group_password': [self.group_cmd.show_group_password],
+            'do_group_password': [self.group_cmd.group_password],
             }
         action = self.state.get_form_value("action")
         self.logger.debug("Action: %s" % action)

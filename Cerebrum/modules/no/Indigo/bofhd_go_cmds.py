@@ -623,6 +623,50 @@ class BofhdExtension(object):
             return ou_id
     # end find_school
 
+    
+    all_commands["get_password_information"] = None
+    def get_password_information(self, operator, entity_id):
+        """Retrieve information about password changes for entity_id.
+
+        This function helps implement a command in Giske's cweb.
+        """
+
+        self.logger.debug("Processing for id=%s", entity_id)
+        entity_id = int(entity_id)
+        result = {}
+        for row in operator.get_state():
+
+            if entity_id != row["state_data"]["account_id"]:
+                continue
+            if row["state_type"] not in ("new_account_passwd", "user_passwd"):
+                continue
+
+            result = {"account_id": entity_id,
+                      "uname": self._get_entity_name(self.const.entity_account,
+                                                     entity_id),
+                      "password": row["state_data"]["password"]}
+            account = self._get_entity(id=entity_id)
+            owner = self._get_entity(id=account.owner_id)
+            result["name"] = self._get_entity_name(owner.entity_type,
+                                                   owner.entity_id)
+            if owner.entity_type == self.const.entity_person:
+                result["birth_date"] = owner.birth_date
+                # Main affiliation points to school.
+                affs = account.list_accounts_by_type(primary_only=True,
+                                                     person_id=owner.entity_id,
+                                                     account_id=account.entity_id)
+                if affs:
+                    ou = self._get_entity(id=affs[0]["ou_id"])
+                    result["institution_name"] = ou.name
+                else:
+                    result["institution_name"] = "n/a"
+            else:
+                result["birth_date"] = "n/a"
+                result["institution_name"] = "n/a"
+        return result
+    # end get_password_information
+
+
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
 

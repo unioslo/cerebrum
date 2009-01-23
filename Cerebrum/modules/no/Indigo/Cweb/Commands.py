@@ -186,6 +186,16 @@ class GroupCommands(VirtualCommands):
         return tpl.show({'members': r,
                          'target_id': entity_id})
 
+    def show_group_password(self, entity_id=None):
+        tpl = GroupTemplate(self.state, 'group_password')
+        if not entity_id:
+            entity_id = self._get_target_id()
+        rows = self.cerebrum.group_list(entity_id=entity_id)
+        return tpl.show({"members": rows,
+                         "target_id": entity_id})
+    # end show_group_password
+    
+
     def group_create(self):
         name = self.state.get_form_value('name')
         self.cerebrum.group_create(name,
@@ -221,6 +231,29 @@ class GroupCommands(VirtualCommands):
                     ids.append(tmp['entity_id'])
             self.cerebrum.group_add_entity(ids, tgt_id)
         return self.show_group_mod(tgt_id)
+
+    def group_password(self):
+        """Assign passwords en masse for all members of a group."""
+
+        target_id = self.state.get_form_value("target_id")
+        # Depending on whether people chose all or some members, we fetch
+        # different member list for password setting
+        if self.state.get_form_value("choose_some"):
+            ids = self.state.get_form_value("change_password", [])
+            if ids and not isinstance(ids, list):
+                ids = [ids,]
+            ids = [int(x) for x in ids]
+        else:
+            ids = [int(x["id"]) for x in
+                   self.cerebrum.group_list(entity_id=target_id)]
+
+        rows = self.cerebrum.change_password_for_group_members(target_id, ids)
+        group_info = self.cerebrum.group_info(target_id)
+        tpl = GroupTemplate(self.state, 'group_password_ok')
+        return tpl.show({"members": rows,
+                         "group_name": group_info["name"]})
+    # end group_password
+
 
     def show_group_info(self, entity_id=None, name=None):
         tpl = GroupTemplate(self.state, 'group_info')
