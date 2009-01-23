@@ -267,7 +267,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         if chg.has_key('OU'):
             ou = chg['OU']
         else:
-            self.logger.error("No OU for %s" % chg.get('sAMAccountName', chg))
+            self.logger.warn("No OU for %s. Not creating object." %
+                             chg.get('sAMAccountName', chg))
             return
         ret = self.run_cmd('createObject', dry_run,
                            'User', ou, chg['sAMAccountName'])
