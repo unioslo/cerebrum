@@ -110,8 +110,10 @@ class Object2Cerebrum(object):
                                     address_text=addresses[addr].street,
                                     p_o_box=addresses[addr].pobox,
                                     postal_number=addresses[addr].postcode,
-                                    city=addresses[addr].city,
-                                    country=addresses[addr].country)
+                                    city=addresses[addr].city)
+            ## todo fetch reference to country in country-table
+            ## ,
+            ##                        country=addresses[addr].country)
             
 
     def _add_entity_contact_info(self, entity, contact_info):
