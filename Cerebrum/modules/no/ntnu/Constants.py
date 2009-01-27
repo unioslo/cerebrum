@@ -300,4 +300,11 @@ class Constants(Constants.Constants):
     email_spam_action_delete = _EmailSpamActionCode(
         'dropspam', "Messages classified as spam won't be delivered at all")
 
+    # TODO actually a constant that shall live in a global
+    # contants-file.  will be moved later.
+    # *temporary* fix
+    trait_group_imported = _EntityTraitCode(
+        'imported_group', Constants.Constants.entity_group,
+        'Register last_seen date for groups imported from by ABC')
+
 # arch-tag: e25e35ae-30f6-11da-9180-bcf822108a14
