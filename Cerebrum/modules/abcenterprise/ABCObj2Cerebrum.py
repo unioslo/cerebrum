@@ -136,6 +136,8 @@ class ABCObj2Cerebrum(object):
             new_org = self._conv_const_ou(org)
             (ret, org_e_id) = self._o2c.store_ou(new_org)
             self._o2c.set_ou_parent(org_e_id, abcconf.OU_PERSPECTIVE, None)
+            if not org.ou:
+                continue
             # org.parent is an iterator if there are children
             for ou in org.ou:
                 new_ou = self._conv_const_ou(ou)
