@@ -249,9 +249,6 @@ class XMLOrg2Object(XMLEntity2Object):
                 type = sub.attrib.get("orgnametype")
                 # TODO: support lang
                 lang = sub.attrib.get("lang")
-                # TODO, expand column for acronym in DB...
-                if type == 'acronym':
-                    value = value[:15]
                 result.add_name(ABCTypes.get_type("orgnametype",(type,)),
                                 value)
             elif sub.tag == "realm":
@@ -320,9 +317,6 @@ class XMLOU2Object(XMLEntity2Object):
                 type = sub.attrib.get("ounametype")
                 # TODO: support lang
                 lang = sub.attrib.get("lang")
-                # TODO, expand column for acronym in DB...
-                if type == 'acronym':
-                    value = value[:15]
                 result.add_name(ABCTypes.get_type("ounametype",(type,)),
                                 value)
             elif sub.tag == "parentid":
