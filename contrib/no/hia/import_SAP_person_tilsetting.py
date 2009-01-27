@@ -36,13 +36,14 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
 from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
+from Cerebrum.modules.no.hia.mod_sap_utils import slurp_expired_employees
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 from Cerebrum.modules.no.Constants import SAPStillingsTypeKode
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 
-import sys
 import getopt
-import string
+import os
+import sys
 
 FIELDS_IN_ROW = 9
 
@@ -97,7 +98,7 @@ def locate_ou(ou, orgeh, fo_kode, const):
 
 
 
-def populate_tilsetting(person, ou, fields, const):
+def populate_tilsetting(person, ou, fields, const, expired):
     """
     Populate PERSON with tilsetting (employment) information from FIELDS.
 
@@ -116,19 +117,21 @@ def populate_tilsetting(person, ou, fields, const):
           int(const.sap_eksterne_tilfeldige)):
         logger.debug("External employment, ignored")
         return True
-    # fi
+
+    if sap_id in expired:
+        logger.debug("Person sap_id=%s is no longer an employee; "
+                     "all employment info will be ignored", sap_id)
+        return True
 
     if not locate_person(person, sap_id, const):
         logger.info("Aiee! Cannot locate person with SAP id «%s»",
                     sap_id)
         return False
-    # fi
 
     if not locate_ou(ou, orgeh, fo_kode, const):
         logger.info("Aiee! Cannot locate OU with SAP id «%s-%s»",
                     orgeh, fo_kode)
         return False
-    # fi
 
     #
     # Convert the codes between external/internal representation
@@ -160,12 +163,13 @@ def populate_tilsetting(person, ou, fields, const):
 
 
 
-def process_tilsettinger(filename, db):
+def process_tilsettinger(employment_filename, person_filename, db):
     """
     Read all entries from FILENAME and insert information into Cerebrum.
     """
 
-    stream = open(filename, "r")
+    expired = slurp_expired_employees(person_filename)
+    stream = open(employment_filename, "r")
 
     person = Factory.get("Person")(db)
     ou = Factory.get("OU")(db)
@@ -181,15 +185,12 @@ def process_tilsettinger(filename, db):
         if len(fields) != FIELDS_IN_ROW:
             logger.warn("Strange line: «%s»", entry)
             continue
-        # fi
 
-        if not populate_tilsetting(person, ou, fields, const):
+        if not populate_tilsetting(person, ou, fields, const, expired):
             logger.debug("Skipping employment record «%s»", entry.strip())
             continue
-        # fi
 
         success += 1
-    # od
 
     logger.debug("Total %d records, %d successful updates", total, success)
 # end process_tilsettinger
@@ -205,27 +206,31 @@ def main():
     logger = Factory.get_logger("cronjob")
 
     options, rest = getopt.getopt(sys.argv[1:],
-                                  "s:d",
+                                  "s:p:d",
                                   ["sap-file=",
+                                   "person-file=",
                                    "dryrun",])
-    input_name = None
+    employment_file = None
     dryrun = False
+    person_file = None
     
     for option, value in options:
         if option in ("-s", "--sap-file"):
-            input_name = value
+            employment_file = value
         elif option in ("-d", "--dryrun"):
             dryrun = True
-        # fi
-    # od
+        elif option in ("-p", "--person-file"):
+            person_file = value
 
     db = Factory.get("Database")()
     db.cl_init(change_program='import_SAP')
 
+    assert (os.access(person_file, os.R_OK) and
+            os.access(employment_file, os.R_OK))
     # We insist on all fields having the same length.
-    assert check_field_consistency(input_name, FIELDS_IN_ROW)
+    assert check_field_consistency(employment_file, FIELDS_IN_ROW)
 
-    process_tilsettinger(input_name, db)
+    process_tilsettinger(employment_file, person_file, db)
 
     if dryrun:
         db.rollback()
@@ -233,7 +238,6 @@ def main():
     else:
         db.commit()
         logger.info("Committed all changes")
-    # fi
 # end main
 
 

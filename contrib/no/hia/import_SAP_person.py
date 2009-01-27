@@ -62,11 +62,13 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
 from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
+from Cerebrum.modules.no.hia.mod_sap_utils import slurp_expired_employees
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 from Cerebrum.modules.no import fodselsnr
 
-import sys
 import getopt
+import mx.DateTime
+import sys
 
 FIELDS_IN_ROW = 39
 
@@ -196,7 +198,7 @@ def fnr2person_id(fnr, const):
 # end fnr2person_id
 
 
-def populate_external_ids(person, fields, const):
+def populate_external_ids(person, fields, const, expired):
     """
     Locate (or create) a person holding the IDs contained in FIELDS and
     register these external IDs if necessary.
@@ -213,13 +215,20 @@ def populate_external_ids(person, fields, const):
 
     sap_id, no_ssn, birth_date, fo_kode = (fields[0], fields[4],
                                            fields[5], fields[25])
-
     if (fo_kode and 
         int(SAPForretningsOmradeKode(fo_kode)) ==
         int(const.sap_eksterne_tilfeldige)):
         logger.debug("Ignored external person: «%s»«%s»", sap_id, no_ssn)
         return False
-    # fi
+
+    # IVR 2009-01-27: We should respect termination dates registered in the
+    # files. If a person is no longer an employee, we should not import any
+    # information about him/her.
+    if sap_id in expired:
+        logger.info("Ignoring person sap_id=%s, fnr=%s whose employments have"
+                    " been terminated", sap_id, no_ssn)
+        return False
+    
     
     try:
         already_exists = locate_person(person, sap_id, no_ssn, const)
@@ -468,6 +477,8 @@ def process_people(filename):
     const = Factory.get("Constants")(database)
     group = Factory.get("Group")(database)
 
+    expired = slurp_expired_employees(filename)
+
     stream = open(filename, "r")
     for entry in stream:
         person.clear()
@@ -479,9 +490,8 @@ def process_people(filename):
         # fi
 
         # If the IDs are inconsistent with Cerebrum, skip the record
-        if not populate_external_ids(person, fields, const):
+        if not populate_external_ids(person, fields, const, expired):
             continue
-        # fi
 
         # Force a new entity_id for new entries
         person.write_db()

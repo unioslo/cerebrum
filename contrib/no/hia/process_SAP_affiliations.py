@@ -46,9 +46,10 @@ bogus updates (remove A, add A) 3) the db would probably not appreciate such a
 usage pattern.
 """
 
-import sys
 import getopt
 from mx.DateTime import strptime, today, DateTimeDelta
+import os
+import sys
 
 import cerebrum_path
 import cereconf
@@ -57,6 +58,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
 from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
+from Cerebrum.modules.no.hia.mod_sap_utils import slurp_expired_employees
 from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
 
@@ -207,7 +209,7 @@ def remove_affiliations(cache):
 
 
 
-def process_affiliations(employment_file):
+def process_affiliations(employment_file, person_file):
     """Parse employment_file and determine all affiliations.
 
     There are roughly 3 distinct parts:
@@ -225,6 +227,8 @@ def process_affiliations(employment_file):
     # mapping (ou-id, affiliation) => status. 
     db_aff_cache = cache_db_affiliations(person)
 
+    expired = slurp_expired_employees(person_file)
+    
     # for each line in file decide what to do with affiliations
     for row in file(employment_file, "r"):
         tmp = sap_row_to_tuple(row)
@@ -246,6 +250,11 @@ def process_affiliations(employment_file):
             logger.debug("Ignored external person: «%s»", sap_ansattnr)
             continue 
 
+        if sap_ansattnr in expired:
+            logger.debug("Person sap_id=%s is no longer an employee; "
+                         "all employment info will be ignored", sap_ansattnr)
+            continue
+
         # Can we find the OU in Cerebrum?
         ou_id = sap_ou_number2ou_id(fo_kode, sap_ou_number)
         if ou_id is None:
@@ -265,7 +274,7 @@ def process_affiliations(employment_file):
             continue
 
         # Is the entry in the valid timeframe? We deal affiliations up to 30
-        # days prior to the start day. It is by design.
+        # days prior to the start day. It is like that by design.
         # IVR 2007-03-27 HiA has requested a temporary extension of
         # this time period to 180 days.
         if not (date_start - DateTimeDelta(180) <= today() <= date_end):
@@ -334,19 +343,26 @@ def process_affiliations(employment_file):
 def main():
     options, rest = getopt.getopt(sys.argv[1:],
                                   "e:dp:",
-                                  ("employment-file=", "dryrun"))
+                                  ("employment-file=",
+                                   "dryrun",
+                                   "person-file=",))
     employment_file = None
+    person_file = None
     dryrun = False
     for option, value in options:
-        if option in ("-e", "--employment_file"):
+        if option in ("-e", "--employment-file"):
             employment_file = value
         elif option in ("-d", "--dryrun"):
             dryrun = True
+        elif option in ("-p", "--person-file",):
+            person_file = value
 
     if employment_file:
         # We insist on all fields having the same length.
         assert check_field_consistency(employment_file, FIELDS_IN_ROW)
-        process_affiliations(employment_file)
+        assert (os.access(employment_file, os.F_OK) and
+                os.access(person_file, os.F_OK))
+        process_affiliations(employment_file, person_file)
 
     if dryrun:
         cerebrum_db.rollback()
