@@ -266,6 +266,9 @@ class Object2Cerebrum(object):
     def _update_groups(self):
         """Run through the cache and remove people's group membership if it hasn't
         been seen in this push."""
+        if self._group is None:
+            self._group = Factory.get("Group")(self.db)
+        self._group.clear()
         for grp in self._groups.keys():
             self._group.clear()
             self._group.find_by_name(grp)
