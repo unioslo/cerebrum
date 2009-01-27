@@ -313,7 +313,8 @@ class Object2Cerebrum(object):
                     self._person.delete_affiliation(ou_id, aff, self.source_system)
             else:
                 # Person no longer in the data file
-                if not self._person.entity_id == p_id:
+                if not hasattr(self._person, "entity_id") or \
+                    not self._person.entity_id == p_id:
                     self._person.clear()
                     self._person.find(p_id)
                 self._person.delete_affiliation(ou_id, aff, self.source_system)
