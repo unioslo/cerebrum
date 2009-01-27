@@ -42,12 +42,14 @@ def usage():
     """
     sys.exit(0)
 
-def register_host(hname):
+def register_host(hname, description="A host"):
     host = Factory.get('Host')(db)
     try:
         host.find_by_name(hname)
+        if host.description != description:
+            host.description=description
     except Errors.NotFoundError:
-        host.populate(hname, 'HiOF host')
+        host.populate(hname, description)
     try:
         host.write_db()
         logger.info("Host %s registered\n", hname)
@@ -67,11 +69,17 @@ def register_email_server(email_srv_type, email_srv_name, description):
                      email_srv_type)
         return
     
-    host = Factory.get('Host')(db)
     try:
-        host.find_by_name(email_srv_name)
-    except Errors.NotFoundError:        
-        email_server.populate(email_srv_type, name=email_srv_name, description=description)
+        email_server.find_by_name(email_srv_name)
+        email_server.email_server_type=email_srv_name
+        email_server.description=description
+    except Errors.NotFoundError:
+        try:
+            host = Factory.get('Host')(db)
+            host.find_by_name(email_srv_name)
+            email_server.populate(email_srv_type, parent=host.entity_id)
+        except Errors.NotFoundError:        
+            email_server.populate(email_srv_type, name=email_srv_name, description=description)
     try:
         email_server.write_db()
         logger.debug("Registered email server %s", email_srv_name)
@@ -79,7 +87,7 @@ def register_email_server(email_srv_type, email_srv_name, description):
         logger.error("Could not write to the Cerebrum-database")
         sys.exit(3)
         
-def register_disk(host_name, disk_path):
+def register_disk(host_name, disk_path, description="A disk"):
     disk = Factory.get('Disk')(db)
     host = Factory.get('Host')(db)            
     try:
@@ -89,20 +97,23 @@ def register_disk(host_name, disk_path):
         sys.exit(3)
     try:
         disk.find_by_path(disk_path)
+        if disk.description != description:
+            disk.description=description
     except Errors.NotFoundError:
-        disk.populate(host.entity_id, disk_path, 'HiOF disk')
-        try:
-            disk.write_db()
-            logger.info("Disk %s registered\n", disk_path)
-        except Errors.DatabaseException:
-            logger.error("Could not write to the Cerebrum-database")
-            sys.exit(2)
+        disk.populate(host.entity_id, disk_path, description)
+    try:
+        disk.write_db()
+        logger.info("Disk %s registered\n", disk_path)
+    except Errors.DatabaseException:
+        logger.error("Could not write to the Cerebrum-database")
+        sys.exit(2)
 
 def process_line(infile, emailsvr):
     stream = open(infile, 'r')        
     disk = None
     if emailsvr:
         for l in stream:
+            l=l.split("#",1)[0]
             if not l.strip():
                 continue
             logger.debug("Next is <%s>", l.strip())
@@ -110,10 +121,23 @@ def process_line(infile, emailsvr):
             register_email_server(server_type, name, description)
         return None
     for l in stream:
-        if ':' in l.strip():
-            hostname, disk = l.strip().split(":")
+        l=l.split("#",1)[0].strip()
+        if l=="":
+            continue
+        args = l.split(":")
+        if len(args)==3:
+            hostname, disk, description = args
+            if (disk==""):
+                register_host(hostname, description)
+            else:
+                register_disk(hostname, disk, description)
+            continue
+        elif len(args)==2:
+            hostname, disk = args
+        elif len(args)==1:
+            hostname = args[0]
         else:
-            hostname = l.strip()
+            logger.warn("syntax error")
         if hostname:
             register_host(hostname)
         if disk:
