@@ -21,22 +21,22 @@
 # from Cerebrum.default_config import *
 
 # Classes to fetch in ABCFactory
-CLASS_SETTINGS = ['Cerebrum.modules.abcenterprise.ABCEnterprise/Settings']
+CLASS_SETTINGS = ['Cerebrum.modules.no.ntnu.abcenterprise.ABCEnterprise/Settings']
 
-CLASS_PREPARSER = ['Cerebrum.modules.abcenterprise.ABCEnterprise/ABCPreParser']
+CLASS_PREPARSER = ['Cerebrum.modules.no.ntnu.abcenterprise.ABCEnterprise/ABCPreParser']
 
-CLASS_ANALYZER=['Cerebrum.modules.abcenterprise.ABCEnterprise/ABCAnalyzer']
+CLASS_ANALYZER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCEnterprise/ABCAnalyzer']
 
 CLASS_XMLPARSER='cElementTree'
 
-CLASS_ENTITYITERATOR=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLEntityIterator']
+CLASS_ENTITYITERATOR=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLEntityIterator']
 
-CLASS_PROPERTIESPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLPropertiesParser']
-CLASS_PERSONPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLPerson2Object']
-CLASS_ORGPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLOrg2Object']
-CLASS_OUPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLOU2Object']
-CLASS_GROUPPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLGroup2Object']
-CLASS_RELATIONPARSER=['Cerebrum.modules.abcenterprise.ABCXmlParsers/XMLRelation2Object']
+CLASS_PROPERTIESPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLPropertiesParser']
+CLASS_PERSONPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLPerson2Object']
+CLASS_ORGPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLOrg2Object']
+CLASS_OUPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLOU2Object']
+CLASS_GROUPPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLGroup2Object']
+CLASS_RELATIONPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLRelation2Object']
 CLASS_PROCESSOR=['Cerebrum.modules.abcenterprise.ABCObj2Cerebrum/ABCObj2Cerebrum']
 CLASS_OBJ2CEREBRUM=['Cerebrum.modules.abcenterprise.Object2Cerebrum/Object2Cerebrum']
 
@@ -45,34 +45,37 @@ CLASS_OBJ2CEREBRUM=['Cerebrum.modules.abcenterprise.Object2Cerebrum/Object2Cereb
 TYPES={'addresstype'  : (("organization", "Postal", "ADDR_ORG_POSTAL"),
                          ("person", "Home", "ADDR_PERS_HOME"),),
        'contacttype'  : (("organization", "Contactphone", "CONT_ORG_CONTPHONE"),
-                            ("organization", "e-mail", "CONT_ORG_EMAIL"),
-                            ("organization", "url", "CONT_ORG_URL"),
-                            ("organization", "switchboard", "CONT_ORG_SWITCHBOARD"),
+                         ("organization", "e-mail", "CONT_ORG_EMAIL"),
+                         ("organization", "url", "CONT_ORG_URL"),
+                         ("organization", "switchboard", "CONT_ORG_SWITCHBOARD"),
+                         ("ou", "e-mail", "CONT_ORG_EMAIL"),
+                         ("ou", "url", "CONT_ORG_URL"),
+                         ("ou", "switchboard", "CONT_ORG_SWITCHBOARD"),
                          ("person", "Homephone", "CONT_PERS_HOMEPHONE"),
                          ("person", "Officephone", "CONT_PERS_OFFICEPHONE"),
                          ("person", "Mobile", "CONT_PERS_MOBIL"),),
        'orgidtype'    : (("Orgnr", "ORG_ID_ORGID"),
-                            ("kjerneid", "ORG_ID_KJERNEID"),
-                            ("stedkode", "ORG_ID_STEDKODE"),),
+                         ("kjerneid", "ORG_ID_KJERNEID"),
+                         ("stedkode", "ORG_ID_STEDKODE"),),
        'orgnametype'  : (("Akronym", "ORG_NAME_ACRONYM"),
                          ("Navn", "ORG_NAME_NAME"),
-                            ("acronym", "ORG_NAME_ACRONYM"),
-                            ("name", "ORG_NAME_NAME"),),
+                         ("acronym", "ORG_NAME_ACRONYM"),
+                         ("name", "ORG_NAME_NAME"),),
        'ouidtype'     : (("Orgnr", "OU_ID_ORGID"),
                          ("OUID", "OU_ID_OUID"),
-                            ("kjerneid", "OU_ID_KJERNEID"),
-                            ("stedkode", "OU_ID_STEDKODE"),),
+                         ("kjerneid", "OU_ID_KJERNEID"),
+                         ("stedkode", "OU_ID_STEDKODE"),),
        'ounametype'   : (("ID", "OU_NAME_ID"),
                          ("Navn", "OU_NAME_NAME"),
-                            ("acronym", "OU_NAME_ACRONYM"),
-                            ("name", "OU_NAME_NAME"),),
+                         ("acronym", "OU_NAME_ACRONYM"),
+                         ("name", "OU_NAME_NAME"),),
        'personidtype' : (("fnr", "PERS_ID_FNR"),
-                            ("kjerneid", "PERS_ID_KJERNEID"),),
+                         ("kjerneid", "PERS_ID_KJERNEID"),),
        'groupidtype'  : (("grpid", "GRP_ID_GRPID"),),
        'relationtype' : (("ou", "person", "Employee", "REL_OU_PERS_EMPLOYEE"),
                          ("ou", "person", "Pupil", "REL_OU_PERS_PUPIL"),
                          ("group", "person", "Responsible", "REL_GRP_PERS_RESPONSIBLE"),
-                         ("group", "person", "Pupil", "REL_GRP_PERS_PUPIL"),)
+                         ("group", "person", "Pupil", "REL_GRP_PERS_PUPIL"),),
         }
 
 # People's names has to be converted into "type" : "value". This dict is a mapping
@@ -93,39 +96,57 @@ NAMETYPES={'fn'       : "NAME_FULL",
 # Provide Constants:
 import cerebrum_path
 import cereconf
+
+## for cls in cereconf.CLASS_CONSTANTS:
+##     print '==========================> ', cls
+
+## print 'ffffffffffffffffffffffffffffffffffffffffff'
+
 from Cerebrum.Utils import Factory
 co = Factory.get('Constants')(Factory.get('Database')())
 
-SOURCE={'datasource'   : "Example SAS",
-        'target'       : "Example BAS",
-        'source_system': "Kjernen",
+## print 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+
+## SOURCE={'datasource'   : "Example SAS",
+##         'target'       : "Example BAS",
+##         'source_system': "Kjernen",
+##         }
+SOURCE={'datasource'   : "kjernen",
+        'target'       : "cerebrum",
+        'source_system': co.system_kjernen,
         }
+
 
 # Mock up
 CONSTANTS={'ADDR_ORG_POSTAL'         : co.address_post,
            'ADDR_PERS_HOME'          : co.address_post_private,
            'CONT_ORG_CONTPHONE'      : co.contact_phone,
-            'CONT_ORG_EMAIL'            : "CONT_ORG_EMAIL",
-            'CONT_ORG_URL'              : "CONT_ORG_URL",
-            'CONT_ORG_SWITCHBOARD'      : "CONT_ORG_SWITCHBOARD",
+           'CONT_ORG_EMAIL'          : co.contact_email,
+           'CONT_ORG_URL'            : co.contact_url,
+           'CONT_ORG_SWITCHBOARD'    : co.contact_phone,
            'CONT_PERS_HOMEPHONE'     : co.contact_phone_private,
            'CONT_PERS_OFFICEPHOONE'  : co.contact_phone,
            'CONT_PERS_MOBILE'        : co.contact_mobile_phone,   
-           'ORG_ID_ORGID'            : co.externalid_orgnr,
-            'ORG_ID_KJERNEID'           : co.externalid_kjerneid_ou,
-            'ORG_ID_STEDKODE'           : "ORG_ID_STEDKODE",
+           ## 'ORG_ID_ORGID'            : co.externalid_orgnr,
+           'ORG_ID_ORGID'            : None,
+           'ORG_ID_KJERNEID'         : co.externalid_kjerneid_ou,
+           ##'ORG_ID_STEDKODE'         : "ORG_ID_STEDKODE",
            'ORG_NAME_ACRONYM'        : "OU_NAME_ACRONYM",
            'ORG_NAME_NAME'           : "OU_NAME_NAME",
-           'OU_ID_ORGID'            : co.externalid_orgnr,
-           'OU_ID_OUID'              : co.externalid_ouid,
-            'OU_ID_KJERNEID'            :  co.externalid_kjerneid_ou,
-            'OU_ID_STEDKODE'            : "OU_ID_STEDKODE",
+           ## 'OU_ID_ORGID'             : co.externalid_orgnr,
+           'OU_ID_ORGID'             : None,
+           ## 'OU_ID_OUID'              : co.externalid_ouid,
+           'OU_ID_OUID'              : None,
+           'OU_ID_KJERNEID'          :  co.externalid_kjerneid_ou,
+           ## 'OU_ID_STEDKODE'            : "OU_ID_STEDKODE",
+           'OU_ID_STEDKODE'          : None,
            'OU_NAME_ID'              : "OU_NAME_ID",
            'OU_NAME_NAME'            : "OU_NAME_NAME",
-            'OU_NAME_ACRONYM'           : "OU_NAME_ACRONYM",
+           'OU_NAME_ACRONYM'         : "OU_NAME_ACRONYM",
            'PERS_ID_FNR'             : co.externalid_fodselsnr,
-            'PERS_ID_KJERNEID'          : co.externalid_kjerneid_person,
-           'GRP_ID_GRPID'            : co.external_id_groupid,
+           'PERS_ID_KJERNEID'        : co.externalid_kjerneid_person,
+           ## 'GRP_ID_GRPID'            : co.external_id_groupid,
+           'GRP_ID_GRPID'            : None,
            'REL_OU_PERS_EMPLOYEE'    : None,
            'REL_OU_PERS_PUPIL'       : None,
            'REL_GRP_PERS_RESPONSIBLE': None,
@@ -143,32 +164,33 @@ OU_NAMES={'name'        : "OU_NAME_NAME",
           'sort_name'   : None
           }
 
-OU_PERSPECTIVE=co.perspective_same_source_system
+## OU_PERSPECTIVE=co.perspective_same_source_system
+OU_PERSPECTIVE=co.perspective_kjernen
 
 # In ABC Enterprise a group's name is the same as an ID. Therefore
 # we map one ID to become the groups name.
-GROUP_NAMES=(co.external_id_groupid,)
+## GROUP_NAMES=(co.external_id_groupid,)
 
 # Rewrite rule for group names
 # OPTIONAL! Remove if you don't need rewriting.
-GROUP_REWRITE = lambda x: "import_abc_%s" % x
+## GROUP_REWRITE = lambda x: "import_abc_%s" % x
 
 # Mapping of what should be done in relations
-RELATIONS={'ou' : {'person' : {'Employee' : ('affiliation',
-                                             co.affiliation_ansatt),
-                               'Pupil' : ('affiliation',
-                                          co.affiliation_elev),
-                               },
-                    },
-           'group' : {'person' : {'Responsible' : ('memberof',),
-                                  'Pupil' : ('memberof',),
-                                  }
-                      }
-           }
-
-AFF_STATUS={ co.affiliation_elev : co.affiliation_status_elev_ektiv,
-             co.affiliation_ansatt : co.affiliation_status_ansatt_tekadm
-             }
+## RELATIONS={'ou' : {'person' : {'Employee' : ('affiliation',
+##                                              co.affiliation_ansatt),
+##                                'Pupil' : ('affiliation',
+##                                           co.affiliation_elev),
+##                                },
+##                     },
+##            'group' : {'person' : {'Responsible' : ('memberof',),
+##                                   'Pupil' : ('memberof',),
+##                                   }
+##                       }
+##            }
+## 
+## AFF_STATUS={ co.affiliation_elev : co.affiliation_status_elev_aktiv,
+##              co.affiliation_ansatt : co.affiliation_status_ansatt_tekadm
+##              }
 
 
 # arch-tag: fe6dc034-6995-11da-8b95-70cd30d8e9fc

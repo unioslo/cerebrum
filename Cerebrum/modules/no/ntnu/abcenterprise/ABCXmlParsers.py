@@ -28,6 +28,7 @@ from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypesError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataPerson
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataOU
+from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsMixin import DataOUMixin
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataGroup
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataRelation
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataAddress
@@ -248,6 +249,9 @@ class XMLOrg2Object(XMLEntity2Object):
                 type = sub.attrib.get("orgnametype")
                 # TODO: support lang
                 lang = sub.attrib.get("lang")
+                # TODO, expand column for acronym in DB...
+                if type == 'acronym':
+                    value = value[:15]
                 result.add_name(ABCTypes.get_type("orgnametype",(type,)),
                                 value)
             elif sub.tag == "realm":
@@ -296,7 +300,7 @@ class XMLOU2Object(XMLEntity2Object):
         # This call with propagate StopIteration when all the (XML) elements
         # are exhausted.
         element = super(XMLOU2Object, self).next()
-        result = DataOU()
+        result = DataOUMixin()
        
         # Iterate over *all* subelements
         for sub in element.getiterator():
@@ -316,6 +320,9 @@ class XMLOU2Object(XMLEntity2Object):
                 type = sub.attrib.get("ounametype")
                 # TODO: support lang
                 lang = sub.attrib.get("lang")
+                # TODO, expand column for acronym in DB...
+                if type == 'acronym':
+                    value = value[:15]
                 result.add_name(ABCTypes.get_type("ounametype",(type,)),
                                 value)
             elif sub.tag == "parentid":
@@ -324,11 +331,14 @@ class XMLOU2Object(XMLEntity2Object):
                 type = sub.attrib.get("ouidtype")
                 result.parent = (ABCTypes.get_type("ouidtype",(type,)),
                                  value)
-            elif sub.tag = "replacedbyid":
+            elif sub.tag == "replacedbyid":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in replacedbyid: %s" % value
                 type = sub.attrib.get("ouidtype")
-                result.add_id(ABCTypes.get_type("ouidtype", (type,)), value)
+                ## result.add_id(ABCTypes.get_type("ouidtype", (type,)), value)
+                ## added by a mixin
+                result.replacedby = (ABCTypes.get_type("ouidtype",(type,)),
+                                 value)
             elif sub.tag == "address":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in address: %s" % value
