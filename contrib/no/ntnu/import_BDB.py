@@ -1165,6 +1165,9 @@ class BDBSync:
         except Errors.NotFoundError,e:
             self.logger.warn("Account with name %s not found. Continuing." % username)
             return
+        
+        ignorespreads = [int(self.const.Spread(s))
+                         for s in getattr(cereconf, "BDB_IGNORESPREADS", [])]
 
         oldspreads = set([s['spread'] for s in ac.get_spread()])
         newspreads = set()
@@ -1172,10 +1175,10 @@ class BDBSync:
             i=s_map.get(s['spread_name'])
             if i: newspreads.add(i)
 
-        for s in oldspreads - newspreads:
+        for s in oldspreads - newspreads - ignorespreads:
             ac.delete_spread(s)
 
-        for s in newspreads - oldspreads:
+        for s in newspreads - oldspreads - ignorespreads:
             ac.add_spread(s)
         
         
