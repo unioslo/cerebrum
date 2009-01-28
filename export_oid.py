@@ -127,7 +127,7 @@ def scan_person_affs(person):
 
 def load_cache():
     global account2name,owner2account,persons,uname2mail
-    global num2const,name_cache_cached,name_cache_ad,auth_list,person2contact
+    global num2const,name_cache_cached,auth_list,person2contact
     global bas_portal_mapping, ou_stedkode_mapping, pid_fnr_dict, aff_to_stilling_map
 
 
@@ -148,17 +148,25 @@ def load_cache():
         stedkode_from = mapping[STEDKODE_FROM].strip()
         stedkode_to = mapping[STEDKODE_TO].strip()
         try:
-            ou_from = stedkode_ou_mapping[stedkode_from]
+            try:
+                ou_from = stedkode_ou_mapping[stedkode_from]
+            except KeyError:
+                logger.error("Mapping FROM failed: %s %s" % (stedkode_from, stedkode_to))
+                raise KeyError
 
             if stedkode_to == 'SKIP':
                 ou_to = stedkode_to
             else:
-                ou_to = stedkode_ou_mapping[stedkode_to]
+                try:
+                   ou_to = stedkode_ou_mapping[stedkode_to]
+                except KeyError:
+                   logger.error("Mapping TO failed: %s %s" % (stedkode_from, stedkode_to))
+                   raise KeyError
             
             bas_portal_mapping[ou_from] = ou_to
             logger.info('Mapping OK: %s to %s' % (stedkode_from, stedkode_to))
         except KeyError:
-            logger.error('Mapping FAILED: %s to %s' % (stedkode_from, stedkode_to))
+            pass
 
 
     logger.info('Generating dict of PAGA persons affiliations and their stillingskoder, dbh_kat, etc')
@@ -175,12 +183,7 @@ def load_cache():
     logger.info("Retrieving person names")
     name_cache_cached = p.getdict_persons_names(source_system=co.system_cached,\
                                                 name_types=(co.name_first, \
-                                                            co.name_last,
-                                                            co.name_work_title))
-    name_cache_ad = p.getdict_persons_names(source_system=co.system_paga,
-                                            name_types=(co.name_first, \
-                                                        co.name_last,
-                                                        co.name_work_title))   
+                                                            co.name_last))
 
     logger.info("Retrieving account names")
     account2name=dict()
@@ -225,7 +228,7 @@ def load_cb_data():
 
     skip_source = []
     skip_source.append(co.system_lt)
-    skip_source.append(co.system_hitos)
+    #skip_source.append(co.system_hitos)
 
     #print aff_to_stilling_map
     
@@ -287,15 +290,12 @@ def load_cb_data():
             logger.error("Skipping personID=%s, no account found" % p_id)
             continue
 
-        namelist = name_cache_ad.get(p_id,None)
-        if not namelist:
-            namelist = name_cache_cached.get(p_id,None)
+        namelist = name_cache_cached.get(p_id,None)
         
         first_name=last_name=worktitle=""
         if namelist:
             first_name = namelist.get(int(co.name_first),"")
             last_name = namelist.get(int(co.name_last),"")
-            #worktitle = namelist.get(int(co.name_work_title),"")
         if not acc_name:
             logger.warn("No account for %s %s (fnr=%s)(pid=%s)" % \
                 (first_name, last_name,pnr,p_id))
