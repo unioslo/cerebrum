@@ -28,6 +28,7 @@ import os
 import locale
 import getopt
 import time
+import mx.DateTime
 
 if True:
     import cerebrum_path
@@ -985,8 +986,8 @@ def main():
             attrs.get("status_nettbasert_und") == 'J'):
             
             if (immediate_evu_expire and
-                time.mktime(time.strptime(attrs.get("dato_til"),
-                                          "%Y-%m-%d")) < time.time()):
+                mx.DateTime.strptime(attrs.get("dato_til"), "%Y-%m-%d") <
+                mx.DateTime.now()):
                 logger.debug("Kurs %s-%s ekspirerte",
                              attrs["etterutdkurskode"],
                              attrs["kurstidsangivelsekode"])
