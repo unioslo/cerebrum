@@ -87,6 +87,7 @@ person_db = Factory.get("Person")(cerebrum_db)
 account_db = Factory.get("Account")(cerebrum_db)
 ou_db = Stedkode(cerebrum_db)
 source_system=constants.system_paga
+system_cached = constants.system_cached
 
 #UIT:
 # Added by kenneth
@@ -1188,11 +1189,11 @@ def output_person(writer, pobj, phd_cache, system_source):
                                                     person_db,
                                                     constants))
     # surname
-    navn = str(person_db.get_name(system_source,constants.name_last))
+    navn = str(person_db.get_name(system_cached,constants.name_last))
     output_element(writer,navn,"etternavn")
 
     # first name
-    navn = str(person_db.get_name(system_source,constants.name_first))
+    navn = str(person_db.get_name(system_cached,constants.name_first))
     output_element(writer,navn,"fornavn")
 
     # if person in phd_cache, delete!
@@ -1269,11 +1270,7 @@ def output_phd_students(writer, sysname, phd_students, ou_cache):
     group = Factory.get("Group")(cerebrum_db)
     try:
         group.find_by_name(sys2group[sysname])
-        reserved = set(int(x["member_id"]) for x in
-                       group.search_members(group_id=group.entity_id,
-                                        indirect_member=True,
-                                        member_type=constants.entity_account))
-
+        reserved = group.get_members()
     except Errors.NotFoundError:
         reserved = [] # was set()
 
@@ -1445,7 +1442,7 @@ def output_xml(output_file,
 
     # Nuke the old copy
     output_stream = SimilarSizeWriter(output_file, "w")
-    output_stream.set_size_change_limit(10)
+    output_stream.set_size_change_limit(15)
     writer = xmlprinter.xmlprinter(output_stream,
                                    indent_level = 2,
                                    # Output is for humans too
