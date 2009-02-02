@@ -115,6 +115,12 @@ def change_names(changes):
 
     logger.info("Processing list of potential namechanges")
     for accountname in changes.keys():
+
+        if '999' in accountname:
+            logger.warning("Found administrative account %s. Skipping!" % accountname)
+            continue
+
+
         (firstname, lastname) = changes[accountname]
         fullname = ' '.join((firstname, lastname))
 
@@ -166,7 +172,7 @@ def change_names(changes):
                         logger.error("Database error, cached name not updated for %s: %s" % (accountname, m))
                         continue
 
-                    logger.info("Name changed for user %s: %s %s" % (accountname, firstname, lastname))
+                    logger.info("Name changed for user %s. First name: \"%s\" -> \"%s\". Last name: \"%s\" -> \"%s\"." % (accountname, cached_name.get(int(const.name_first)), firstname, cached_name.get(int(const.name_last)), lastname))
                     registered_changes = registered_changes + 1
 
                 # Do nothing if names are equal
