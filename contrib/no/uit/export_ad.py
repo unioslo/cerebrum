@@ -98,7 +98,10 @@ class ad_export:
         self.cached_telefon = {}
         logger.info("Cache telefon (intern)")
         for contact in person.list_contact_info(source_system=co.system_tlf, contact_type=co.contact_phone, entity_type=co.entity_person):
-            self.cached_telefon[contact['entity_id']] = contact['contact_value']
+            if self.cached_telefon.has_key(contact['entity_id']):
+                logger.warn("Several numbers found for %s. Only using number with highest pref." % (contact['entity_id']))
+            else:
+                self.cached_telefon[contact['entity_id']] = contact['contact_value']
 
         logger.info("Finished caching of names done")
         logger.info("Start caching of OU id's to SKO's")
