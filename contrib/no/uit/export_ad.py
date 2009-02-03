@@ -40,7 +40,7 @@
 ## sko = Stedkode where person is employed
 
 ITEMLIST = ('userid','name_first','name_last', 'title','sko','skoname',
-            'company','expire','acc_disabled')
+            'company','expire','acc_disabled','email', 'telefon')
 
 import os
 import sys
@@ -60,12 +60,6 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uit import Email
 
-try:
-    set()
-except NameError:
-    from sets import Set as set
-    
-
 max_nmbr_users = 10000
 logger_name = cereconf.DEFAULT_LOGGER_TARGET
 logger = Factory.get_logger(logger_name)
@@ -73,6 +67,9 @@ logger = Factory.get_logger(logger_name)
 default_user_file = os.path.join(cereconf.DUMPDIR,'AD','ad_export_user_%s.txt' % (time.strftime("%Y%m%d")))
 default_group_file = os.path.join(cereconf.DUMPDIR,'AD','ad_export_group_%s.txt' % (time.strftime("%Y%m%d")))
 
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
+person = Factory.get('Person')(db)
 
 class ad_export:
 
@@ -80,28 +77,35 @@ class ad_export:
         self.userfile = userfile
         self.groupfile = groupfile        
         self.userlist = {}
-        self.db = Factory.get('Database')()
-        self.co = Factory.get('Constants')(self.db)
-        self.ou = Factory.get('OU')(self.db)
-        self.ent_name = Entity.EntityName(self.db)
-        self.ent_sprd = Entity.EntitySpread(self.db)
-        self.group = Factory.get('Group')(self.db)
-        self.account = Factory.get('Account')(self.db)
-        self.person = Factory.get('Person')(self.db)
-        self.posixuser = pu = PosixUser.PosixUser(self.db)
+        self.ou = Factory.get('OU')(db)
+        self.ent_name = Entity.EntityName(db)
+        self.ent_sprd = Entity.EntitySpread(db)
+        self.group = Factory.get('Group')(db)
+        self.account = Factory.get('Account')(db)
+        self.posixuser = pu = PosixUser.PosixUser(db)
 
 
         self.dont_touch_filter = ['users']
         self.OU2name = dict()
 
-        logger.info("Start caching of names")
-        self.name_cache = self.person.getdict_persons_names( name_types=(self.co.name_first,self.co.name_last,self.co.name_work_title))
+        logger.info("Cache person names")
+        self.cached_names=person.getdict_persons_names( source_system=co.system_cached,
+                                                        name_types=(co.name_first,co.name_last))
+        logger.info("Cache worktitles")
+        self.cached_worktitle=person.getdict_persons_names( source_system=co.system_paga,
+                                                              name_types=(co.name_work_title,))
+
+        self.cached_telefon = {}
+        logger.info("Cache telefon (intern)")
+        for contact in person.list_contact_info(source_system=co.system_tlf, contact_type=co.contact_phone, entity_type=co.entity_person):
+            self.cached_telefon[contact['entity_id']] = contact['contact_value']
+
         logger.info("Finished caching of names done")
         logger.info("Start caching of OU id's to SKO's")
-        self.OU2Stedkodemap = self.make_ou_to_stedkode_map(self.db)
+        self.OU2Stedkodemap = self.make_ou_to_stedkode_map(db)
         logger.info("Finished caching of OU id's to SKO's")
 
-        
+
     def make_ou_to_stedkode_map(self,db):
         """
         Returns a dictionary mapping ou_ids to (fak,inst,avd) triplets
@@ -141,7 +145,7 @@ class ad_export:
         
         
     def get_group(self,id):
-        gr = PosixGroup.PosixGroup(self.db)
+        gr = PosixGroup.PosixGroup(db)
         if isinstance(id, int):
             gr.find(id)
         else:
@@ -221,7 +225,7 @@ class ad_export:
             sko = '000000'
             skoname='Unknown'
             for aff in self.account.get_account_types(filter_expired=False):
-                if aff['affiliation'] == int(self.co.affiliation_student):
+                if aff['affiliation'] == int(co.affiliation_student):
                     logger.info("skipping student aff for %s" % (uname,))
                     continue
                 else:
@@ -233,21 +237,13 @@ class ad_export:
                         continue
                     break            
             logger.debug("Aff sko exported is %s %s" % (sko,skoname))                           
-#            if len(acc_affs)>0:
-#                sko = self.OU2Stedkodemap[acc_affs[0]['ou_id']]
-#                skoname=self.OU2name[acc_affs[0]['ou_id']]
 
-            
-            namelist = self.name_cache.get(self.account.owner_id)
-            #print "Namecache for account=%s, owner=%s :%s" % (self.posixuser.account_name,self.posixuser.owner_id,namelist)
-            first_name = namelist.get(int(self.co.name_first))
-            last_name = namelist.get(int(self.co.name_last))
-            worktitle = namelist.get(int(self.co.name_work_title))
-            if not worktitle:
-                worktitle=""
-            #print "WorkTitle: %s, %d" % (self.co.name_work_title,int(self.co.name_work_title))
-            #print "names for for account=%s, owner=%s:: first=%s, last=%s, title=%s" % (self.posixuser.account_name,self.posixuser.owner_id,
-            #                                                                             first_name,last_name,worktitle)
+            namelist = self.cached_names.get(self.account.owner_id, None)
+            titlelist =self.cached_worktitle.get(self.account.owner_id, dict())
+            first_name = namelist.get(int(co.name_first))
+            last_name = namelist.get(int(co.name_last))
+            worktitle = titlelist.get(int(co.name_work_title)) or ""
+            telefon = self.cached_telefon.get(self.account.owner_id, '')
 
             # Check quarantines, and set to True if exists
             qu = self.account.get_entity_quarantine()
@@ -256,7 +252,6 @@ class ad_export:
             else:
                 acc_disabled=0
             
-            # hardcode until we get an updated stedkoder with correct names
 
             # Got all info... Build final dict for user
             entry['userid'] = self.account.account_name
@@ -275,6 +270,7 @@ class ad_export:
             entry['tsprofilepath'] = tsprofilepath
             entry['acc_disabled'] = acc_disabled
             entry['cant_change_password'] = cereconf.AD_CANT_CHANGE_PW
+            entry['telefon'] = telefon
 
         for delitem in dellist:
             del(self.userlist[type][delitem])
@@ -286,9 +282,6 @@ class ad_export:
         logger.info("Retreiving %s info..." % (type))
         count = 0
         dellist = []
-        account2name = dict((x["entity_id"], x["entity_name"]) for x in 
-                            self.group.list_names(self.co.account_namespace))
-
         for gname in self.userlist[type]:
             if gname in self.dont_touch_filter:
                 logger.error("Reserved AD group name '%s', skip" % (gname))
@@ -311,17 +304,10 @@ class ad_export:
                 logger.info("Processed %d %s" % (count,type))
             ou = entry['ou']
             logger.info("Get %s info: %s -> %s:: %s" % (type,gid,ou,gr.group_name))
+            member_tuple_list = gr.get_members(get_entity_name=True)
             members=[]
-            for item in gr.search_members(group_id=gr.entity_id,
-                                          indirect_members=True,
-                                          member_type=self.co.entity_account):
-                member_id = int(item["member_id"])
-                if member_id not in account2name:
-                    continue
-                name = account2name[member_id]
-                members.append(name)
-
-            members = list(set(members))
+            for item in member_tuple_list:
+                members.append(item[1])
             memberstr = ','.join(members)
             entry['description']= gr.description
             entry['members']=memberstr
@@ -387,20 +373,20 @@ class ad_export:
         grp_postfix = ''
         logger.info("Start retrival of %s objects from Cerebrum" % (entity_type))
         if entity_type == 'user':
-            namespace = int(self.co.account_namespace)
-            spreadlist = [int(self.co.spread_uit_ad_account )]
+            namespace = int(co.account_namespace)
+            spreadlist = [int(co.spread_uit_ad_account )]
             cbou = cereconf.AD['USEROU']
         elif entity_type=='adminuser':
-            namespace = int(self.co.account_namespace)
-            spreadlist = [int(self.co.spread_uit_ad_lit_admin)]
+            namespace = int(co.account_namespace)
+            spreadlist = [int(co.spread_uit_ad_lit_admin)]
             cbou = cereconf.AD['ADMINOU']
         elif entity_type=='group':
-            namespace = int(self.co.group_namespace)
-            spreadlist = [int(self.co.spread_uit_ad_group)]
+            namespace = int(co.group_namespace)
+            spreadlist = [int(co.spread_uit_ad_group)]
             cbou = cereconf.AD['GROUPOU']
         elif entity_type=='admingroup':
-            namespace = int(self.co.group_namespace)
-            spreadlist = [int(self.co.spread_uit_ad_lit_admingroup)]
+            namespace = int(co.group_namespace)
+            spreadlist = [int(co.spread_uit_ad_lit_admingroup)]
             cbou = cereconf.AD['ADMINOU']
         else:
             logger.error("Invalid type to get_objects(): %s" % (entity_type))
@@ -460,7 +446,6 @@ def main():
     
     sted_file = None
 
-    #what = 'user,adminuser,group,admingroup'
     what = 'user,group'    
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'u:g:w:s:h',
@@ -480,22 +465,19 @@ def main():
             usage(0)
         elif opt in ['-w', '--what']:
             what=val
-        
 
-
+    start=time.strftime("%Y%m%d %H:%M:%S")
     what = what.split(',')
     worker = ad_export(default_user_file,default_group_file)
     if sted_file:
         worker.write_steder(sted_file)
         sys.exit()
-    
-    
 
     for item in what:
         worker.get_objects(item)
         worker.build_export(item)
     worker.write_export()
-    
+    logger.debug("Started %s ended %s" %  (start,time.strftime("%Y%m%d %H:%M:%S")))
 
 
 if __name__ == '__main__':
