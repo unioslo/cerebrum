@@ -356,8 +356,10 @@ class BDB:
         cursor.execute("""
         SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'),
           t.org_enhet, t.fakultet, t.institutt, t.tilkn_form,
-          t.familie, f.navn, f.alltidsluttdato, k.kode, b.brukernavn
-        FROM tilknyttet t, person p, bruker b, tilkn_former f, ksted k, no_nin_persons n
+          t.familie, f.navn, f.alltidsluttdato, k.kode, b.brukernavn,
+          kj.kjerneid
+        FROM tilknyttet t, person p, bruker b, tilkn_former f,
+             ksted k, c_ksted kj, no_nin_persons n
         WHERE t.person = p.id AND
           b.person = p.id AND
           p.id = n.person (+) AND
@@ -369,7 +371,9 @@ class BDB:
           ((t.org_enhet = 100 AND
             (t.fakultet = k.fakultet OR (t.fakultet IS NULL AND k.fakultet IS NULL)) AND
             (t.institutt = k.institutt OR (t.institutt IS NULL AND k.institutt IS NULL)))
-          OR (t.org_enhet IN (344, 243, 146, 22) AND to_char(t.org_enhet) = k.navn))
+            (t.fakultet = kj.fakultet OR (t.fakultet IS NULL AND kj.fakultet IS NULL)) AND
+            (t.institutt = kj.institutt OR (t.institutt IS NULL AND kj.institutt IS NULL)))
+          OR (t.org_enhet IN (344, 243, 146, 22, 145, 101) AND to_char(t.org_enhet) = k.navn))
         """)
         bdb_affs = cursor.fetchall()
         affiliations = []
@@ -387,6 +391,7 @@ class BDB:
             aff['has_end_date'] = af[9]
             aff['ou_code'] = af[10]
             aff['username'] = af[11]
+            aff['ou_kjcode'] = af[12]
             affiliations.append(aff)
         cursor.close()
         return affiliations
