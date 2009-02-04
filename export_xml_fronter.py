@@ -104,13 +104,6 @@ def init_globals():
     elif len(args) <> 0:
         usage(2)
 
-    global entity2name
-    group = Factory.get("Group")(db)
-    entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
-                       group.list_names(const.account_namespace))
-    entity2name.update((x["entity_id"], x["entity_name"]) for x in
-                       group.list_names(const.group_namespace))
-
     global fxml
     fxml = uit_fronter_lib.FronterXML(filename,
                                   cf_dir = cf_dir,
@@ -119,46 +112,57 @@ def init_globals():
                                   fronter = None)
 
 def load_acc2name():
-    #etarget = Email.EmailTarget(db)
-    #ea = Email.EmailAddress(db)
-    #rewrite = Email.EmailDomain(db).rewrite_special_domains
     person = Person.Person(db)
     account = Factory.get('Account')(db)
-    #const = Factory.get('Constants')(db)
     logger.debug('Loading person/user-to-names table')
     ret = {}
-    my_email = {}
-    front = uit_fronter_lib.uitfronter(db)
-    """	Followin field in fronter_lib.hiafronter.list_cf_persons
-	person_id, account_id, external_id, name, entity_name,
-	fs_l_name, fs_f_name, local_part, domain """
-    
-    for pers in front.list_cf_persons():
-	#logger.debug("Loading person: %s" % pers['name'])
-	if not (pers['fs_f_name'] and pers['fs_l_name']):
-	    l_name, f_name = get_names(pers['person_id'])
-	else:
-	    l_name, f_name = pers['fs_l_name'],pers['fs_f_name']
-        
-        #UIT: added next line to get email address for account going to classfronter
-        #person.clear()
-        #person.find(pers['person_id'])
-        #primary_account = person.get_primary_account()
-        account.clear()
-        account.find(pers['account_id'])
-        try:
-            my_email = account.get_primary_mailaddress()
-        except Errors.NotFoundError:
-            # Person has no mail account. Drop person. Log an error an continue on next
-            logger.error("Person %s %s with account %s (acc_id=%d) has no mail adress"  % (f_name,
-                                                                                           l_name,
-                                                                                           account.account_name,
-                                                                                           account.entity_id))
+
+    logger.info("Cache person names")
+    cached_names=person.getdict_persons_names(source_system=const.system_cached,
+                                              name_types=(const.name_first,const.name_last))
+    has_aff=list()
+    logger.debug("Loading account affiliations")
+    for acc_aff in account.list_accounts_by_type(primary_only=True):
+       has_aff.append(acc_aff['account_id'])
+
+    uname2owner=dict()
+    uname2accid=dict()
+    logger.info("Retreiving accounts with fronter spread")
+    for acc in account.search(spread=const.spread_uit_fronter_account):
+        if acc['account_id'] not in has_aff:
+            logger.debug("Skipping account %s, no active affiliations" % (acc['name'],))
             continue
+        uname2owner[acc['name']]=acc['owner_id']
+        uname2accid[acc['name']]=acc['account_id']
+    logger.debug("loaded %d accounts from cerebrum" % len(uname2owner))
+    
+    logger.info("Cache email addresses")
+    acc2email = account.getdict_uname2mailaddr()
+    logger.info("Building users dict")
+    for uname,owner_id in uname2owner.iteritems():
+
+        namelist = cached_names.get(owner_id, None)
+        if not namelist:
+            logger.error("No namelist found for %s, skipping" % uname)
+            continue
+        try:
+            first_name = namelist.get(int(const.name_first), "")
+            last_name = namelist.get(int(const.name_last),"")
+        except AttributeError:
+            logger.error("Could not get name for %s from %s" % (uname,namelist))
+            continue
+        
+        if first_name=="" and last_name=="":
+           logger.error("No names for %s, skipping" % uname)
+
+        email=acc2email.get(uname,None)
+        if not email:
+           logger.error("Skipping account %s, no mailaddress found" % (uname,))
+           continue
 
         # Define which IMAP server should be used for different people
         imap = ""
-        if my_email.find("mailbox.uit.no") >= 0:
+        if not email.endswith("@"+cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES):
             imap = cereconf.IMAPMAILBOX
             passw = 'FRONTERLOGIN'
         else:
@@ -166,47 +170,22 @@ def load_acc2name():
             passw = 'askuser:'
         
         
-        ret[pers['account_id']] = {
-            'NAME': pers['entity_name'],
-            'FN': pers['name'],
-            'GIVEN': f_name,
-            'FAMILY': l_name,
-            #'EMAIL': '@'.join((pers['entity_name'],'%s' % my_email_domain)),
-            'EMAIL': my_email,
+        ret[uname2accid[uname]] = {
+            'NAME': uname,
+            'FN': " ".join((first_name,last_name)),
+            'GIVEN': first_name,
+            'FAMILY': last_name,
+            'EMAIL': email,
             'USERACCESS': 2,
-            #'PASSWORD': 1,
             'PASSWORD_TYPE':1,
-            #'PASSWORD_CRYPT': auth_data,
             'USE_EMAILCLIENT': use_emailclient,
             'EMAILCLIENT': 1,
             'IMAPSERVER': imap,
             'IMAPPASSWD': passw}
        
+    logger.debug("Returning %s users" % len(ret))
     return ret
 
-def get_names(person_id):
-    name_tmp = {}
-    person = Factory.get('Person')(db)
-    person.find(person_id)
-    for names in person.get_all_names():
-	if int(names['source_system']) <> int(const.system_cached):
-	    sys_key = int(names['source_system'])
-            sys_names = name_tmp.setdefault(sys_key, [])
-	    name_li = "%s:%s" % (names['name_variant'], names['name'])
-            sys_names.append(name_li)
-    last_n = first_n = None
-    for a_sys in cereconf.SYSTEM_LOOKUP_ORDER:
-	sys_key = int(getattr(const, a_sys))
-        for p_name in name_tmp.get(sys_key, []):
-            var_n, nam_n = p_name.split(':')
-            if (int(var_n) == int(const.name_last)):
-                last_n = nam_n
-            elif (int(var_n) == int(const.name_first)):
-                first_n = nam_n
-            else: pass
-            if first_n is not None and last_n is not None:
-                return (last_n, first_n)
-    return ("*Ukjent etternavn*", "*Ukjent fornavn*")
 
 def get_ans_fak(fak_list, ent2uname):
     fak_res = {}
@@ -221,7 +200,6 @@ def get_ans_fak(fak_list, ent2uname):
                                         affiliation=const.affiliation_ansatt,
                                         ou_id=int(ou['ou_id'])):
                 person.clear()
-                #person.entity_id = int(pers['person_id'])
                 try:
                     person.find(int(pers['person_id']))
                     acc_id = person.get_primary_account()
@@ -235,7 +213,7 @@ def get_ans_fak(fak_list, ent2uname):
                         ans_list.append(uname)
                 else:
                     logger.error("Person pers_id: %d have no account!" % \
-                                                        person.entity_id)
+                                                   person.entity_id)
         fak_res[int(fak)] = ans_list
     return fak_res
 
@@ -243,7 +221,6 @@ def get_ans_fak(fak_list, ent2uname):
 def register_spread_groups(emne_info, stprog_info):
     group = Factory.get('Group')(db)
     for r in group.search(spread=const.spread_uit_fronter):
-        #print "GROUP.SEARCH: %s" % r
         gname = r['name']
         gname_el = gname.split(':')
         if gname_el[4] == 'undenh':
@@ -254,13 +231,8 @@ def register_spread_groups(emne_info, stprog_info):
             # nivå 4.
             instnr = gname_el[3]
             ar, term, emnekode, versjon, terminnr = gname_el[5:10]
-            #print "AR = '%s'" % ar
-            #print "emnekode = '%s'" % emnekode
-            #print "term = '%s'" % term
             if int(ar) < 2006:
-                #print "CONTINUE"
                 continue
-            #print "emne_info emnekode = '%s'" % emne_info[emnekode]
             fak_sko = "%02d0000" % emne_info[emnekode]['fak']
 
             # Rom for undervisningsenheten.
@@ -307,16 +279,9 @@ def register_spread_groups(emne_info, stprog_info):
             # undervisningsenheten.
             group.clear()
             group.find(r['group_id'])
-            for member in group.search_members(group_id=group.entity_id,
-                                               member_type=const.entity_group):
-                subg_id = int(member["member_id"])
-                if subg_id not in entity2name:
-                    logger.warn("No name for member id=%s of name=%s gid=%s",
-                                subg_id, group.group_name, group.entity_id)
-                    continue
-                else:
-                    subg_name = entity2name[subg_id]
-            
+	    for op, subg_id, subg_name in \
+                    group.list_members(None, int(const.entity_group),
+                                       get_entity_name=True)[0]:
                 # Nivå 4: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
                 #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR:KATEGORI
                 subg_name_el = subg_name.split(':')
@@ -355,16 +320,15 @@ def register_spread_groups(emne_info, stprog_info):
                     title += '%s' % (subg_name_el[6].upper()) # EMNEKODE
 
                 fronter_gname = ':'.join(subg_name_el)
-                print "$15"
                 register_group(title, fronter_gname, parent_id,
                                allow_contact=True)
                 group.clear()
                 group.find(subg_id)
                 user_members = [
-                    entity2name.get(int(row["member_id"])) for row in
-                    group.search_members(group_id=group.entity_id,
-                                         member_type=const.entity_account)
-                    if int(row["member_id"]) in entity2name ]
+                    row[2]  # username
+                    for row in group.list_members(None,
+                                                  const.entity_account,
+                                                  get_entity_name=True)[0]]
                 ##print "2.group_name = %s"% fronter_gname
                 ##for i in user_members:
                 ##    print"members: %s" % (i)
@@ -379,17 +343,10 @@ def register_spread_groups(emne_info, stprog_info):
             # gruppene på nivå 4.
             group.clear()
             group.find(r['group_id'])
-            for member in group.search_members(group_id=group.entity_id,
-                                               member_type=const.entity_group):
-                subg_id = int(member["member_id"])
-                if subg_id not in entity2name:
-                    logger.warn("No name for member id=%s of name=%s gid=%s",
-                                subg_id, group.group_name, group.entity_id)
-                    continue
-                else:
-                    subg_name = entity2name[subg_id]
-
-            
+	    # Legges inn new group hvis den ikke er opprettet            
+            for op, subg_id, subg_name in \
+                    group.list_members(None, int(const.entity_group),
+                                       get_entity_name=True)[0]:
                 subg_name_el = subg_name.split(':')
                 # Fjern "internal:"-prefiks.
                 if subg_name_el[0] == 'internal':
@@ -417,20 +374,16 @@ def register_spread_groups(emne_info, stprog_info):
                     #    fak_sko, 'student'))
                     #brukere_stprog_id = brukere_studenter_id + \
                     #                    ':%s' % stprog
-                    #print "$18"
                     #register_group(stprog.upper(), brukere_stprog_id,
                     #               brukere_studenter_id)
-                    #print "$19"
                     #register_group(
                     #    'Studenter på %s' % subg_name_el[6], # kullkode
                     #    fronter_gname, brukere_stprog_id,
                     #    allow_contact=True)
                     fellesrom_studenter_id = fellesrom_sted_id + \
                                                 ':studenter'
-                    print "$18"
                     register_group("Studenter", fellesrom_studenter_id,
                                    fellesrom_sted_id)
-                    print "$19"
                     kull =  subg_name_el[-3]
                     sem =  subg_name_el[-2]                    
                     register_group(
@@ -447,10 +400,8 @@ def register_spread_groups(emne_info, stprog_info):
                 elif subg_name_el[-1] == 'studieleder':
                     fellesrom_studieledere_id = fellesrom_sted_id + \
                                                 ':studieledere'
-                    print "$20"
                     register_group("Studieledere", fellesrom_studieledere_id,
                                    fellesrom_sted_id)
-                    print "$21"
                     register_group(
                         "Studieledere for program %s" % stprog.upper(),
                         fronter_gname, fellesrom_studieledere_id,
@@ -467,10 +418,10 @@ def register_spread_groups(emne_info, stprog_info):
                 group.clear()
                 group.find(subg_id)
                 user_members = [
-                    entity2name.get(int(row["member_id"])) for row in
-                    group.search_members(group_id=group.entity_id,
-                                         member_type=const.entity_account)
-                    if int(row["member_id"]) in entity2name ]
+                    row[2]  # username
+                    for row in group.list_members(None,
+                                                  const.entity_account,
+                                                  get_entity_name=True)[0]]
                 #print "1.group_name = %s" % fronter_gname
                 ##for i in user_members:
                     ##print"members: %s" % (i)
@@ -506,27 +457,11 @@ def register_group(title, id, parentid,
     """Adds info in new_group about group."""
 
     # inserting function to filter out institution number different than 186
-        
-    #start,end = id.split(":",2)
-
-    #print "temp id check= %s" % (id)
-    #sys.exit(1)
     found = -1
     found2 = -1
     found = id.find(":195:")
     found2 = id.find(":4902:")
-    #print "found = %s" % found
     if ((found == -1) and (found2 == -1)):
-        
-            
-        print "##############################"
-        print "title = %s" % title
-        print "parent = %s" % parentid
-        print "allow_room =%s" % allow_room
-        print "allow_contact = %s" % allow_contact
-        print "CFid = %s " % id
-        print "##############################"
-            
         new_group[id] = { 'title': title,
                           'parent': parentid,
                           'allow_room': allow_room,
@@ -535,27 +470,21 @@ def register_group(title, id, parentid,
                           }
     else:
         logger.warn("not inserting: '%s'" % id)
-        #print "not inserting -> " % id
 
 def output_group_xml():
     """Generer GROUP-elementer uten forover-referanser."""
     done = {}
     def output(id):
-        #for k,v in new_group.items():
-        #    print k,v
         if id in done:
             return
 
-        #print "id=(%s)" % id
         data = new_group[id]
         parent = data['parent']
-        #print "..parent=(%s)" % parent
         if parent <> id:
             output(parent)
         fxml.group_to_XML(data['CFid'], uit_fronter_lib.Fronter.STATUS_ADD, data)
         done[id] = True
     for group in new_group.iterkeys():
-        #print "##############new group='%s'" % group
         output(group)
 
 def usage(exitcode):
@@ -577,43 +506,35 @@ def main():
     acc2names = load_acc2name()
     # Spytt ut PERSON-elementene.
     for user in acc2names.itervalues():
-	# 2 = recstatus modify fix denne senere # uit
-
-	fxml.user_to_XML(user['NAME'],2,user)
+       # 2 = recstatus modify fix denne senere # uit
+       fxml.user_to_XML(user['NAME'],2,user)
 
     # Registrer en del semi-statiske strukturnoder.
     root_node_id = "STRUCTURE:ClassFronter structure root node"
 
-    print "$16"
     register_group('Universitetet i Tromsø', root_node_id, root_node_id)
 
     manuell_node_id = 'STRUCTURE:%s:manuell' % \
                       cereconf.INSTITUTION_DOMAIN_NAME
-    print "$17"
     register_group('Manuell', manuell_node_id, root_node_id,
                    allow_room=True)
 
     emner_id = 'STRUCTURE:%s:fs:emner' % cereconf.INSTITUTION_DOMAIN_NAME
-    print "$11#"
     register_group('Emner', emner_id, root_node_id)
 
     this_sem, next_sem = access_FSUiT.get_semester()
     emner_this_sem_id = emner_id + ':%s:%s' % tuple(this_sem)
     emner_next_sem_id = emner_id + ':%s:%s' % tuple(next_sem)
 
-    print "$10#"
     register_group('Emner %s %s' % (this_sem[1].upper(), this_sem[0]),
                    emner_this_sem_id, emner_id)
-    print "$9#"
     register_group('Emner %s %s' % (next_sem[1].upper(), next_sem[0]),
                    emner_next_sem_id, emner_id)
 
     emnerom_this_sem_id = emner_this_sem_id + ':emnerom'
     emnerom_next_sem_id = emner_next_sem_id + ':emnerom'
-    print "$8#"
     register_group('Emnerom %s %s' % (this_sem[1].upper(), this_sem[0]),
                    emnerom_this_sem_id, emner_this_sem_id)
-    print "$7#"
     register_group('Emnerom %s %s' % (next_sem[1].upper(), next_sem[0]),
                    emnerom_next_sem_id, emner_next_sem_id)
 
@@ -630,18 +551,13 @@ def main():
             #                                        sem[0]))
             ):
             node_id = sem_node_id + ':' + suffix
-            #print "7"
-            print "$6#"
             register_group(title, node_id, sem_node_id)
 
     brukere_id= 'STRUCTURE:%s:fs:brukere' % cereconf.INSTITUTION_DOMAIN_NAME
-    print "$5#"
     register_group('Brukere', brukere_id, root_node_id)
 
-    #fellesrom_id = 'STRUCTURE:%s:fs:fellesrom:186:000000' % \
     fellesrom_id = 'STRUCTURE:%s:fs:fellesrom' % \
                    cereconf.INSTITUTION_DOMAIN_NAME
-    print "$4#"
     register_group('Fellesrom', fellesrom_id, root_node_id)
 
     # Populer dicter for "emnekode -> emnenavn" og "fakultet ->
@@ -652,8 +568,6 @@ def main():
         
         if element <> 'undenhet':
             return
-        #print "##emnenavnfork = %s" % attrs['emnenavnfork']
-        #print "##attrs['emnekode'] = %s " % attrs['emnekode']
         emnenavnfork = attrs['emnenavnfork']
         emnekode = attrs['emnekode'].lower()
         faknr = int(attrs['faknr_kontroll'])
@@ -679,24 +593,12 @@ def main():
     fak_temp.append(74) # UIT. We add 74 (which is UVETT)
     fak_temp.append(99) # UIT. we add 99 (which is external units)
     ans_dict = get_ans_fak(fak_temp,acc2names)  # UIT
-    #ans_dict = get_ans_fak(fak_emner.keys(),acc2names) 
 
     # Opprett de forskjellige stedkode-korridorene.
     ou = Stedkode.Stedkode(db)
-    #print "FOO =%s" % fak_emner.items()
-    #temp = fak_emner.keys()
-    #temp_fak_value = 0
-    #temp.append(temp_fak_value)
-    #fak_temp = fak_emner.keys() # UIT
-    #fak_temp.append(74) # UIT. We add 74 (which is UVETT)
 
-    #for faknr in fak_emner.keys():
-    #    print "faknr = %s" % faknr
-    #sys.exit(1)
     for faknr in fak_temp: # UIT
-        
         fak_sko = "%02d0000" % faknr
-        
         ou.clear()
         try:
 	    ou.find_stedkode(faknr, 0, 0,
@@ -714,30 +616,23 @@ def main():
                       cereconf.DEFAULT_INSTITUSJONSNR,
                       fak_sko)
         ans_title = "Ansatte ved %s" % faknavn
-        print "$12#"
         register_group(ans_title, fak_ans_id, brukere_id,
                        allow_contact=True)
         ans_memb = ans_dict[int(faknr)]
 
-        ##print "1.group_name = %s" % fak_ans_id
-        ##for i in ans_memb:
-        ##    print"members: %s" % (i)
         register_members(fak_ans_id, ans_memb)
         for sem_node_id in (emnerom_this_sem_id,
                             emnerom_next_sem_id):
             fak_node_id = sem_node_id + \
                           ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
                                       fak_sko)
-            print "$13#"
             register_group(faknavn, fak_node_id, sem_node_id,
                            allow_room=True)
         brukere_sted_id = brukere_id + \
                           ":%s:%s" % (cereconf.DEFAULT_INSTITUSJONSNR,
                                       fak_sko)
-        print "$3#"
         register_group(faknavn, brukere_sted_id, brukere_id)
         brukere_studenter_id = brukere_sted_id + ':student'
-        print "$2#"
         register_group('Studenter ved %s' % faknavn,
                        brukere_studenter_id, brukere_sted_id)
         fellesrom_sted_id = ("STRUCTURE:uit.no:fs:fellesrom") # UIT
@@ -745,9 +640,15 @@ def main():
         #fellesrom_sted_id = fellesrom_id + ":%s:%s" % (
         fellesrom_sted_id = fellesrom_sted_id + ":%s:%s" % (
             cereconf.DEFAULT_INSTITUSJONSNR, fak_sko)
-        print "$1#"
         register_group(faknavn, fellesrom_sted_id, fellesrom_id,
                        allow_room=True)
+
+    # FELLESROM HITOS - Inntil FSene er slått sammen
+    register_group("Avdeling for helsefag", "STRUCTURE:uit.no:fs:fellesrom:186:820000", "STRUCTURE:uit.no:fs:fellesrom", allow_room=True)
+    register_group("Avdeling for ingeniør- og økonomifag", "STRUCTURE:uit.no:fs:fellesrom:186:830000", "STRUCTURE:uit.no:fs:fellesrom", allow_room=True)
+    register_group("Avdeling for lærerutdanning", "STRUCTURE:uit.no:fs:fellesrom:186:850000", "STRUCTURE:uit.no:fs:fellesrom", allow_room=True)
+    register_group("Avdeling for kunstfag", "STRUCTURE:uit.no:fs:fellesrom:186:840000", "STRUCTURE:uit.no:fs:fellesrom", allow_room=True)
+
 
     register_spread_groups(emne_info, stprog_info)
 
@@ -767,9 +668,6 @@ def main():
         fxml.personmembers_to_XML(gname, uit_fronter_lib.Fronter.STATUS_ADD,
                                   members)
     fxml.end()
-
-
-
 
 
 if __name__ == '__main__':
