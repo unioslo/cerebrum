@@ -27,7 +27,7 @@ from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypes
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypesError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataPerson
-from Cerebrum.modules.abcenterprise.ABCDataObjects import DataOU
+##from Cerebrum.modules.abcenterprise.ABCDataObjects import DataOU
 from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsMixin import DataOUMixin
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataGroup
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataRelation
@@ -229,7 +229,7 @@ class XMLOrg2Object(XMLEntity2Object):
         # This call with propagate StopIteration when all the (XML) elements
         # are exhausted.
         element = super(XMLOrg2Object, self).next()
-        result = DataOU()
+        result = DataOUMixin()
         
         # Iterate over *all* subelements
         for sub in element.getiterator():
@@ -241,8 +241,14 @@ class XMLOrg2Object(XMLEntity2Object):
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "wrong number of arguments: %s" % value
                 type = sub.attrib.get("orgidtype")
-                result.add_id(ABCTypes.get_type("orgidtype",(type,)),
+                ## FIXME: *very*, *very* ugly...
+                if type == 'stedkode':
+                    ## print 'XMLOrg2Object:: next: stedkode = ', value
+                    result.stedkodes.append(value)
+                else:
+                    result.add_id(ABCTypes.get_type("orgidtype",(type,)),
                               value)
+                ## print 'XMLOrg2Object:: next: type = %s', ABCTypes.get_type("orgidtype", (type,))
             elif sub.tag == "orgname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "not 2 attributes: %s" % value
@@ -309,8 +315,14 @@ class XMLOU2Object(XMLEntity2Object):
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in ouid: %s" % value
                 type = sub.attrib.get("ouidtype")
-                result.add_id(ABCTypes.get_type("ouidtype",(type,)),
+                ## FIXME: *very*, *very* ugly...
+                if type == 'stedkode':
+                    ## print 'XMLOU2Object:: next: stedkode = ', value
+                    result.stedkodes.append(value)
+                else:
+                    result.add_id(ABCTypes.get_type("ouidtype",(type,)),
                               value)
+                ## print 'XMLOU2Object:: next: type = %s', ABCTypes.get_type("ouidtype", (type,))
             elif sub.tag == "ouname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "error in ouname: %s" % value
@@ -331,8 +343,7 @@ class XMLOU2Object(XMLEntity2Object):
                 type = sub.attrib.get("ouidtype")
                 ## result.add_id(ABCTypes.get_type("ouidtype", (type,)), value)
                 ## added by a mixin
-                result.replacedby = (ABCTypes.get_type("ouidtype",(type,)),
-                                 value)
+                result.replacedby = value
             elif sub.tag == "address":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in address: %s" % value

@@ -38,11 +38,12 @@ CLASS_OUPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLOU2Obje
 CLASS_GROUPPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLGroup2Object']
 CLASS_RELATIONPARSER=['Cerebrum.modules.no.ntnu.abcenterprise.ABCXmlParsers/XMLRelation2Object']
 CLASS_PROCESSOR=['Cerebrum.modules.abcenterprise.ABCObj2Cerebrum/ABCObj2Cerebrum']
-CLASS_OBJ2CEREBRUM=['Cerebrum.modules.abcenterprise.Object2Cerebrum/Object2Cerebrum']
+CLASS_OBJ2CEREBRUM=['Cerebrum.modules.no.ntnu.abcenterprise.Object2Cerebrum/Object2Cerebrum']
 
 
 # Types used in ABCEnterprise. Last argument in list is a coded type.
 TYPES={'addresstype'  : (("organization", "Postal", "ADDR_ORG_POSTAL"),
+                         ("organization", "postal", "ADDR_ORG_POSTAL"),
                          ("person", "Home", "ADDR_PERS_HOME"),),
        'contacttype'  : (("organization", "Contactphone", "CONT_ORG_CONTPHONE"),
                          ("organization", "e-mail", "CONT_ORG_EMAIL"),

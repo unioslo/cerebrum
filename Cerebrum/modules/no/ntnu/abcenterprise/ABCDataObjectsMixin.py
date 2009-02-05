@@ -10,6 +10,7 @@ class DataOUMixin(DataOU):
     def __init__(self):
         super(DataOUMixin, self).__init__()
         self.replacedby = None
+        self.stedkodes = []
 
     def __str__(self):
         result = ("%sDataOUMixin: \n"
