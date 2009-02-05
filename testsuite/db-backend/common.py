@@ -109,21 +109,49 @@ class DBTestBase(object):
 
     def __init__(self):
         self.db = None
+        # If a backend needs a schema, this has to be overridden in the
+        # subclass. Those that do not want/need this, can simply leave this
+        # default.
+        self.schema = "cerebrum"
+    # end __init__
+
+
+    def _get_table(self, name):
+        """Return a backend-specific name for a table.
+
+        This method should be used for all tests, since some backends have a
+        peculiar way of addressing tables. E.g. oracle uses a schema name (in
+        some situations) to refer to an entity (table, sequence, etc)
+
+        @type name: basestring
+        @param name: plain table name.
+        """
+
+        if hasattr(self, "schema") and self.schema:
+            return "[:table name=%s schema=%s]" % (name, self.schema)
+        return name
+    # end _get_table
+
 
     def setup(self):
         raise NotImplementedError("You must implement setup() "
                                   "for your db-backend")
+    # end setup
+
 
     def teardown(self):
         raise NotImplementedError("You must implement teardown() "
                                   "for your db-backend")
+    # end teardown
+
 
     def test_support_Norwegian_chars(self):
         """Make sure we can use Norwegian chars"""
 
         raise NotImplementedError("Implement רזו-testing")
     # end test_support_Norwegian_chars
-        
+
+
     def test_dbapi2(self):
         """Check that DB-API 2.0 methods are present"""
 
@@ -189,6 +217,7 @@ class DBTestBase(object):
         """)
     # end test_table_all_datatypes
 
+
     def test_table_with_default(self):
         """Check that specifying defaults works"""
 
@@ -212,16 +241,16 @@ class DBTestBase(object):
         """)
 
         self.db.execute("""
-        INSERT INTO nosetest1
+        INSERT INTO %s
         (field1, field2)
         VALUES ([:now], 20)
-        """)
+        """ % self._get_table("nosetest1"))
 
         self.db.query("""
         SELECT *
-        FROM nosetest1
+        FROM %s
         WHERE field1 = [:now]
-        """)
+        """ % self._get_table("nosetest1"))
     # end test_cerebrum_syntax
 
 
@@ -236,19 +265,17 @@ class DBTestBase(object):
         """)
 
         self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
+        INSERT INTO %s (field1)
         VALUES ([:now])
-        """)
+        """% self._get_table("nosetest1"))
 
         value = self.db.query_1("""
-        SELECT * FROM [:table schema=cerebrum name=nosetest1]
-        """)
+        SELECT * FROM %s""" % self._get_table("nosetest1"))
 
         now = mx.DateTime.now()
-        # 1 day, since [:now] happens at midnight
-        assert (now - value["field1"]) < mx.DateTime.DateTimeDelta(1, # days
+        assert (now - value["field1"]) < mx.DateTime.DateTimeDelta(0, # days
                                                                    0, # hours
-                                                                   0, # minutes
+                                                                   1, # minutes
                                                                    0) # seconds
     # end test_cerebrum_syntax_now_is_sensible
 
@@ -268,14 +295,14 @@ class DBTestBase(object):
         """)
 
         value = "message"
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1]
-        VALUES (:value)
-        """, {"value": value})
+        self.db.execute("INSERT INTO %s VALUES (:value)" %
+                        self._get_table("nosetest1"),
+                        {"value": value})
 
         db_value = self.db.query_1("""
-        SELECT field1 FROM [:table schema=cerebrum name=nosetest1]
-        WHERE field1 = :value""", {"value": value})
+        SELECT field1 FROM %s
+        WHERE field1 = :value""" % self._get_table("nosetest1"),
+                                   {"value": value})
 
         assert db_value == value
     # end test_query_1_from_single_is_not_dbrow
@@ -290,10 +317,9 @@ class DBTestBase(object):
         )
         """)
 
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1]
-        VALUES (:value)
-        """, {"value": mx.DateTime.now()})
+        self.db.execute("INSERT INTO %s VALUES (:value)" %
+                        self._get_table("nosetest1"),
+                        {"value": mx.DateTime.now()})
     # end test_python_date_to_db
 
 
@@ -309,17 +335,16 @@ class DBTestBase(object):
 
         now = mx.DateTime.now()
         self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1, field2)
-        VALUES (1, :value)
-        """, {"value": now})
+        INSERT INTO %s (field1, field2) VALUES (1, :value)
+        """ % self._get_table("nosetest1"), {"value": now})
 
-        self.db.execute("""
-        DELETE FROM [:table schema=cerebrum name=nosetest1]
-        WHERE field2 = :value
-        """, {"value": now})
+        self.db.execute("DELETE FROM %s WHERE field2 = :value" %
+                        self._get_table("nosetest1"),
+                        {"value": now})
 
         # we cannot have any rows
-        assert not self.db.query("SELECT * from nosetest1")
+        assert not self.db.query("SELECT * from %s" %
+                                 self._get_table("nosetest1"))
     # end test_date_delete
 
 
@@ -332,10 +357,9 @@ class DBTestBase(object):
         )
         """)
 
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1]
-        VALUES (:value)
-        """, {"value": mx.DateTime.now()})
+        self.db.execute("INSERT INTO %s VALUES (:value)" %
+                        self._get_table("nosetest1"),
+                        {"value": mx.DateTime.now()})
     # end test_mxdatetime_to_timestamp
 
 
@@ -350,18 +374,16 @@ class DBTestBase(object):
         """)
 
         now = mx.DateTime.now()
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1, field2)
-        VALUES (1, :value)
-        """, {"value": now})
+        self.db.execute("INSERT INTO %s (field1, field2) VALUES (1, :value)" %
+                        self._get_table("nosetest1"),
+                        {"value": now})
 
-        self.db.execute("""
-        DELETE FROM [:table schema=cerebrum name=nosetest1]
-        WHERE field2 = :value
-        """, {"value": now})
+        self.db.execute("DELETE FROM %s WHERE field2 = :value" %
+                        self._get_table("nosetest1"), 
+                        {"value": now})
 
         # we cannot have any rows
-        assert not self.db.query("SELECT * from nosetest1")
+        assert not self.db.query("SELECT * FROM %s" % self._get_table("nosetest1"))
     # end test_date_delete
 
 
@@ -375,14 +397,12 @@ class DBTestBase(object):
         """)
 
         now = mx.DateTime.now()
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (:value)
-        """, {"value": now})
+        self.db.execute("INSERT INTO %s (field1) VALUES (:value)" %
+                        self._get_table("nosetest1"), 
+                        {"value": now})
 
-        rows = self.db.query("""SELECT *
-                                FROM [:table schema=cerebrum name=nosetest1]
-                             """)
+        rows = self.db.query("SELECT * FROM %s" %
+                             self._get_table("nosetest1"))
         assert len(rows) == 1
         row = rows[0]
         assert type(row["field1"]) is mx.DateTime.DateTimeType
@@ -399,23 +419,24 @@ class DBTestBase(object):
         """)
 
         now = mx.DateTime.now()
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (:value)
-        """, {"value": now})
+        self.db.execute("INSERT INTO %s (field1) VALUES (:value)" %
+                        self._get_table("nosetest1"), 
+                        {"value": now})
 
-        rows = self.db.query("""SELECT *
-                                FROM [:table schema=cerebrum name=nosetest1]
-                             """)
+        rows = self.db.query("SELECT * FROM %s" % self._get_table("nosetest1"))
         assert len(rows) == 1
         row = rows[0]
         assert type(row["field1"]) is mx.DateTime.DateTimeType
     # end test_timestamp_maps_to_mxdatetime
 
 
-
     def test_cerebrum_syntax_table(self):
         """Check Cerebrum's [:table] syntax extension"""
+
+        # If we have not defined a schema, there is no point in running this
+        # test. Is silent success ok in this case?
+        if not self.schema:
+            return 
 
         self.db.query("""
         CREATE TABLE nosetest1 (
@@ -424,15 +445,9 @@ class DBTestBase(object):
         )
         """)
 
-        self.db.query("""
-        SELECT *
-        FROM [:table schema=cerebrum name=nosetest1]
-        """)
-
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1, field2)
-        VALUES (1, 2)
-        """)
+        self.db.query("SELECT * FROM %s" % self._get_table("nosetest1"))
+        self.db.execute("INSERT INTO %s (field1, field2) VALUES (1, 2)" %
+                        self._get_table("nosetest1"))
     # end test_cerebrum_syntax_table
     
 
@@ -455,8 +470,9 @@ class DBTestBase(object):
         """ % start)
 
         y = self.db.nextval("nosetest1")
-        assert y - start == 0
+        assert y == start
     # end test_cerebrum_syntax_sequence
+
 
     def test_primary_key1(self):
         """Check that PKs can be specified"""
@@ -470,6 +486,7 @@ class DBTestBase(object):
         """)
     # end test_primary_key1
         
+
     def test_primary_key2(self):
         """Check that PKs are enforced"""
 
@@ -481,11 +498,8 @@ class DBTestBase(object):
         )
         """)
 
-        insert1 = """
-        INSERT INTO [:table schema=cerebrum name=nosetest1]
-        (field1, field2)
-        VALUES (1, 2)
-        """
+        insert1 = ("INSERT INTO %s (field1, field2) VALUES (1, 2)" %
+                   self._get_table("nosetest1"))
 
         self.db.execute(insert1)
         assert_raises(self.db.DatabaseError,
@@ -514,6 +528,7 @@ class DBTestBase(object):
         """)
     # end test_foreign_key1
 
+
     def test_foreign_key2(self):
         """Check that foreign keys are enforced"""
 
@@ -533,20 +548,19 @@ class DBTestBase(object):
         )
         """)
 
-        insert1 = """
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (1)
-        """
-        insert2 = """
-        INSERT INTO [:table schema=cerebrum name=nosetest2] (field1)
-        VALUES (1)
-        """
+        # This is the insert that should have been in nosetest1
+        # insert1 = ("INSERT INTO %s (field1) VALUES (1)" %
+        #            self._get_table("nosetest1"))
+
+        insert2 = ("INSERT INTO %s (field1) VALUES (1)" %
+                   self._get_table("nosetest2"))
 
         # fail, when the value is not in the referred table
         assert_raises(self.db.DatabaseError,
                       self.db.execute,
                       insert2)
     # end test_foreign_key2
+
 
     def test_foreign_key3(self):
         """Check that foreign keys are observed"""
@@ -567,20 +581,13 @@ class DBTestBase(object):
         )
         """)
 
-        insert1 = """
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (1)
-        """
-        insert2 = """
-        INSERT INTO [:table schema=cerebrum name=nosetest2] (field1)
-        VALUES (1)
-        """
+        insert = "INSERT INTO %s (field1) VALUES (1)" 
 
         # this always succeeds
-        self.db.execute(insert1)
+        self.db.execute(insert % self._get_table("nosetest1"))
 
         # this must succeed now
-        self.db.execute(insert2)
+        self.db.execute(insert % self._get_table("nosetest2"))
     # end test_foreign_key2
 
 
@@ -602,21 +609,17 @@ class DBTestBase(object):
         )
         """)
 
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (1)
-        """)
+        self.db.execute("INSERT INTO %s (field1) VALUES (1)" %
+                        self._get_table("nosetest1"))
 
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest2] (field2)
-        VALUES (2)
-        """)
+        self.db.execute("INSERT INTO %s (field2) VALUES (2)" %
+                        self._get_table("nosetest2"))
 
         result = self.db.query("""
-        SELECT field1 as field FROM [:table schema=cerebrum name=nosetest1]
+        SELECT field1 as field FROM %s
         UNION
-        SELECT field2 as field FROM [:table schema=cerebrum name=nosetest2]
-        """)
+        SELECT field2 as field FROM %s
+        """ % (self._get_table("nosetest1"), self._get_table("nosetest2")))
 
         assert len(result) == 2
         for x in result:
@@ -636,18 +639,13 @@ class DBTestBase(object):
         )
         """)
 
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (:value1)
-        """, {"value1": 10,
-              "value2": None,})
+        self.db.execute("INSERT INTO %s (field1) VALUES (:value1)" %
+                        self._get_table("nosetest1"),
+                        {"value1": 10, "value2": None,})
 
-        x = self.db.query_1("""
-        SELECT field1
-        FROM [:table schema=cerebrum name=nosetest1]
-        WHERE field1 = :value1
-        """, {"value1": 10,
-              "value2": None,})
+        x = self.db.query_1("SELECT field1 FROM %s WHERE field1 = :value1" %
+                            self._get_table("nosetest1"),
+                            {"value1": 10, "value2": None,})
         assert x == 10
     # end test_extraneous_bind_parameters
     
@@ -661,14 +659,13 @@ class DBTestBase(object):
         )
         """)
         
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (1)""")
+        self.db.execute("INSERT INTO %s (field1) VALUES (1)" %
+                        self._get_table("nosetest1"))
 
         # NB! select count(*) from nosetest1 actually works. Why?
         assert_raises(Exception,
                       self.db.query,
-                      """SELECT 1, count(*) FROM nosetest1""")
+                      "SELECT 1, count(*) FROM %s" % self._get_table("nosetest1"))
     # end test_all_args_must_be_named
 
 
@@ -682,16 +679,12 @@ class DBTestBase(object):
         )
         """)
 
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1]
-        VALUES (1, 2)""")
+        self.db.execute("INSERT INTO %s VALUES (1, 2)" %
+                        self._get_table("nosetest1"))
 
-        row = self.db.query_1("""
-        SELECT *
-        FROM [:table schema=cerebrum name=nosetest1]
-        """)
+        row = self.db.query_1("SELECT * FROM %s" % self._get_table("nosetest1"))
 
-        # they weren't named explicitely, but we can still access them
+        # they weren't named explicitly, but we can still access them
         assert row["field1"] == 1
         assert row["field2"] == 2
     # end test_unnamed_asterix
@@ -708,16 +701,11 @@ class DBTestBase(object):
 
         items = range(5)
         for item in items:
-            self.db.execute("""
-            INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-            VALUES (%d)""" % item)
+            self.db.execute("INSERT INTO %s (field1) VALUES (%d)""" %
+                            (self._get_table("nosetest1"), item))
 
-
-        x = self.db.query_1("""
-        SELECT SUM(field1) as total
-        FROM [:table schema=cerebrum name=nosetest1]
-        """)
-
+        x = self.db.query_1("SELECT SUM(field1) AS total FROM %s" %
+                            self._get_table("nosetest1"))
         assert x == sum(items)
     # end test_named_aggregates_are_accepted
 
@@ -735,15 +723,12 @@ class DBTestBase(object):
         )
         """)
 
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (:value)""", {"value": None})
+        self.db.execute("INSERT INTO %s (field1) VALUES (:value)" %
+                        self._get_table("nosetest1"),
+                        {"value": None})
 
-        x = self.db.query_1("""
-        SELECT field1
-        FROM [:table schema=cerebrum name=nosetest1]
-        """)
-
+        x = self.db.query_1("SELECT field1 FROM %s" %
+                            self._get_table("nosetest1"))
         assert x is None
     # end test_process_none
 
@@ -759,14 +744,12 @@ class DBTestBase(object):
 
         items = range(5)
         for item in items:
-            self.db.execute("""
-            INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-            VALUES (%d)""" % item)
+            self.db.execute("INSERT INTO %s (field1) VALUES (%d)" %
+                            (self._get_table("nosetest1"), item))
 
         assert_raises(Exception,
                       self.db.query_1,
-                      """SELECT *
-                         FROM [:table schema=cerebrum name=nosetest1]""")
+                      "SELECT * FROM %s" % self._get_table("nosetest1"))
     # end test_query_1_fails_on_many
 
     def test_query_1_cannot_returns_0(self):
@@ -780,8 +763,7 @@ class DBTestBase(object):
 
         assert_raises(Exception,
                       self.db.query_1,
-                      """SELECT *
-                      FROM [:table schema=cerebrum name=nosetest1]""")
+                      "SELECT * FROM %s" % self._get_table("nosetest1"))
     # end test_query_1_returns_0
 
 
@@ -798,23 +780,20 @@ class DBTestBase(object):
         """)
 
         x = 1
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (:value)""", {"value": x})
+        self.db.execute("INSERT INTO %s (field1) VALUES (:value)" %
+                        self._get_table("nosetest1"),
+                        {"value": x})
 
-        row = self.db.query_1("""
-        SELECT *
-        FROM [:table schema=cerebrum name=nosetest1]
-        WHERE field1 = :value""", {"value": x})
-
+        row = self.db.query_1("SELECT * FROM %s WHERE field1 = :value" %
+                              self._get_table("nosetest1"), {"value": x})
         assert row
     # end test_free_variables
 
 
     def test_numeric0_gives_int(self):
-        """Check that NUMERIC(X, 0) operates on int
+        """Check that NUMERIC(X, 0) operates on int/long.
 
-        Fetching from NUMERIC(X, 0) *must* return us an int.
+        Fetching from NUMERIC(X, 0) *must* return us an int/long.
         """
 
         self.db.execute("""
@@ -824,13 +803,10 @@ class DBTestBase(object):
         """)
 
         x = 1
-        self.db.execute("""
-        INSERT INTO [:table schema=cerebrum name=nosetest1] (field1)
-        VALUES (:value)""", {"value": x})
+        self.db.execute("INSERT INTO %s (field1) VALUES (:value)" %
+                        self._get_table("nosetest1"), {"value": x})
 
-        rows = self.db.query("""
-                             SELECT *
-                             FROM [:table schema=cerebrum name=nosetest1]""")
+        rows = self.db.query("SELECT * FROM %s" % self._get_table("nosetest1"))
         assert len(rows) == 1
         row = rows[0]
         assert isinstance(row["field1"], (int, long))
@@ -840,5 +816,17 @@ class DBTestBase(object):
     def test_insert_unicode(self):
         """Check that we can send unicode to CHAR/VARCHAR/TEXT"""
         pass
+    # end test_insert_unicode
+
+
+    def test_check_decimal(self):
+        """Check that we can cope with Decimal.
+
+        We should check whether there are situations when the backend returns
+        a Decimal. Our code is NOT prepared for this.
+        """
+        pass
+    # end test_check_decimal
+        
         
 # end DBTestBase
