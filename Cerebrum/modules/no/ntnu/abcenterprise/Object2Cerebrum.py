@@ -59,6 +59,7 @@ class Object2Cerebrum(object):
         # This is updated in store_group and add_group_member.
         self._groups = dict()
         self._affiliations = dict()
+        self._replacedby = dict()
 
 
     def _add_external_ids(self, entity, id_dict):
@@ -170,13 +171,44 @@ class Object2Cerebrum(object):
                             sort_name = ou.ou_names['name'],
                             parent=None)
 
+    def _update_person_affiliations(self):
+        person = Factory.get('Person')(self.db)
+        pp = Factory.get('Person')(self.db)
+        for k in self._replacedby.keys():
+            ou_id = int(k)
+            person.clear()
+            for row in person.list_affiliations(source_system=self.source_system,
+                                                ou_id=ou_id)
+                p_id = int(row['person_id'])
+                aff = int(row['affiliation'])
+                status = int(row['status'])
+                pp.clear()
+                pp.find(p_id)
+                pp.delete_affiliation( k, aff, self.source_system)
+                pp.add_affiliation(int(self.replacedby[k]), aff,
+                        self.source_system, status)
+                
+                
+    def _find_replacedby(self, kjerne_id):
+        entity_id = None
+        replacedby = Factory.get("OU")(self.db)
+        replacedby.clear()
+        try:
+            replacedby.find_by_external_id(self.co.externalid_kjerneid_ou,
+                                        kjerne_id,
+                                        self.source_system)
+            entity_id = replacedby.entity_id
+        except Errors.NotFoundError, e:
+            entity_id = None
+        return entity_id
+
     def store_ou(self, ou):
         """Pass a DataOU to this function and it gets stored
         in Cerebrum."""
         if self._ou is None:
             self._ou = Factory.get("OU")(self.db)
         self._ou.clear()
-        self.co = Factory.get('Constants')()
+        ##self.co = Factory.get('Constants')()
         stedkode = None
         populated = True
         print '**** find by kjerneid :: ', ou.ou_names['name']
@@ -205,7 +237,7 @@ class Object2Cerebrum(object):
                         entity_id = self._ou.entity_id
                         stedkode = kode
                         break
-                    except Errors.NotFoundError:
+                    except Errors.NotFoundError, e:
                         # paranoia
                         stedkode = None
                         entity_id = None
@@ -232,6 +264,9 @@ class Object2Cerebrum(object):
         self._add_external_ids(self._ou, ou._ids)
         self._add_entity_addresses(self._ou, ou._address)
         self._add_entity_contact_info(self._ou, ou._contacts)
+        if ou.replacedby:
+            # find the entity_id which replaces this ou
+            self._replacedby[self._ou.entity_id] = self._find_replacedby(ou.replacedby)   
         return (self._ou.write_db(), self._ou.entity_id)
 
 
@@ -381,8 +416,33 @@ class Object2Cerebrum(object):
                 self._group.find_by_name(name)
                 self._group.delete()
                 self.logger.info("Group '%s' deleted as it is no longer in file." % name)
-                
+     
+    def _update_ou_affiliation(self):
+        person = Factory.get('Person')(self.db)
+        pp = Factory.get('Person')(self.db)
+        for k in self._replacedby.keys():
+            ou_id = int(k)
+            person.clear()
+            for row in person.list_affiliations(source_system=self.source_system,
+                                                ou_id=ou_id)
+                p_id = int(row['person_id'])
+                aff = int(row['affiliation'])
+                status = int(row['status'])
+                pp.clear()
+                pp.find(p_id)
+                pp.delete_affiliation( k, aff, self.source_system)
+                pp.add_affiliation(int(self.replacedby[k]), aff,
+                        self.source_system, status)
 
+                   
+    def _update_ous(self):
+        self._update_ou_affiliations()
+        to_delete = Factory.get('OU')(self.db)
+        for k in self._replacedby.keys():
+            to_delete.clear()
+            to_delete.find(int(k))
+            to_delete.delete()
+            
     def _update_person_affiliations(self):
         """Run through the cache and remove people's affiliation if it hasn't
         been seen in this push."""
@@ -412,6 +472,7 @@ class Object2Cerebrum(object):
         # - Diff OUs as well.
         
         # Process the cache before calling commit.
+        self._update_ous()
 
         ## TODO:###########
         ## a trait is missing, must be enabled again later

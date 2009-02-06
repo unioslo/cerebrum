@@ -343,7 +343,8 @@ class XMLOU2Object(XMLEntity2Object):
                 type = sub.attrib.get("ouidtype")
                 ## result.add_id(ABCTypes.get_type("ouidtype", (type,)), value)
                 ## added by a mixin
-                result.replacedby = value
+                if value:
+                    result.replacedby = value
             elif sub.tag == "address":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in address: %s" % value
