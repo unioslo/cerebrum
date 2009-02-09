@@ -171,24 +171,6 @@ class Object2Cerebrum(object):
                             sort_name = ou.ou_names['name'],
                             parent=None)
 
-    def _update_person_affiliations(self):
-        person = Factory.get('Person')(self.db)
-        pp = Factory.get('Person')(self.db)
-        for k in self._replacedby.keys():
-            ou_id = int(k)
-            person.clear()
-            for row in person.list_affiliations(source_system=self.source_system,
-                                                ou_id=ou_id)
-                p_id = int(row['person_id'])
-                aff = int(row['affiliation'])
-                status = int(row['status'])
-                pp.clear()
-                pp.find(p_id)
-                pp.delete_affiliation( k, aff, self.source_system)
-                pp.add_affiliation(int(self.replacedby[k]), aff,
-                        self.source_system, status)
-                
-                
     def _find_replacedby(self, kjerne_id):
         entity_id = None
         replacedby = Factory.get("OU")(self.db)
@@ -417,14 +399,15 @@ class Object2Cerebrum(object):
                 self._group.delete()
                 self.logger.info("Group '%s' deleted as it is no longer in file." % name)
      
-    def _update_ou_affiliation(self):
+    def _update_ou_affiliations(self):
+        print '_update_ou_affiliations ==========================='
         person = Factory.get('Person')(self.db)
         pp = Factory.get('Person')(self.db)
         for k in self._replacedby.keys():
+            print 'ou number = ', k
             ou_id = int(k)
             person.clear()
-            for row in person.list_affiliations(source_system=self.source_system,
-                                                ou_id=ou_id)
+            for row in person.list_affiliations(source_system=self.source_system, ou_id=ou_id):
                 p_id = int(row['person_id'])
                 aff = int(row['affiliation'])
                 status = int(row['status'])
@@ -433,15 +416,18 @@ class Object2Cerebrum(object):
                 pp.delete_affiliation( k, aff, self.source_system)
                 pp.add_affiliation(int(self.replacedby[k]), aff,
                         self.source_system, status)
+        print '_update_ou_affiliations =========================== *emd*'
 
                    
     def _update_ous(self):
+        print '_update_ous ==========================='
         self._update_ou_affiliations()
         to_delete = Factory.get('OU')(self.db)
         for k in self._replacedby.keys():
             to_delete.clear()
             to_delete.find(int(k))
             to_delete.delete()
+        print '_update_ous =========================== *end*'
             
     def _update_person_affiliations(self):
         """Run through the cache and remove people's affiliation if it hasn't
@@ -485,6 +471,11 @@ class Object2Cerebrum(object):
 
 
     def rollback(self):
+        # TODO:
+        # - Diff OUs as well.
+        
+        # Process the cache before calling commit.
+        self._update_ous()
         # Process the cache before calling commit.
         self._update_groups()
         # Update affiliations for people
