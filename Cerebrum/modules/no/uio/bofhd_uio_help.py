@@ -635,7 +635,8 @@ The bofh-command 'spread list' lists possible values"""],
     'string_email_filter':
         ['email_filter', 'Enter e-mail filter type',
          """Legal filter types:
-            - greylist"""],
+            - greylist
+            - uioonly"""],
     'string_email_target_name':
         ['email_target_name', 'Enter e-mail target name',
          """Target name should be a valid e-mail address"""],

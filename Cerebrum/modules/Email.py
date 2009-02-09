@@ -253,6 +253,11 @@ class EmailConstants(Constants.Constants):
         'greylist',
         "Delay messages from unknown servers")
 
+    email_target_filter_uioonly = _EmailTargetFilterCode(
+        'uioonly',
+        "Only accept the use of an UiO address as sender address"
+        " on the UiO network, or when using authenticated SMTP")
+
 Entity_class = Utils.Factory.get("Entity")
 
 class EmailDomain(Entity_class):
