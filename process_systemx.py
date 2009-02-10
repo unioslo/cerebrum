@@ -57,10 +57,20 @@ db.cl_init(change_program='process_systemx')
 co=Factory.get('Constants')(db)
 logger=Factory.get_logger("cronjob")
 
+sys_x_affs = {}
+
 
 def get_existing_accounts():
 
     ou = Factory.get('OU')(db)
+
+    stedkoder = ou.get_stedkoder()
+    ou_stedkode_mapping = {}
+    for stedkode in stedkoder:
+        ou_stedkode_mapping[stedkode['ou_id']] = str(stedkode['fakultet']).zfill(2) + str(stedkode['institutt']).zfill(2) + str(stedkode['avdeling']).zfill(2)
+
+
+
         
     #get persons that comes from sysX and their accounts
     pers=Factory.get("Person")(db)
@@ -86,6 +96,10 @@ def get_existing_accounts():
                 tmp_persons[tmp].append_affiliation(
                     int(row['affiliation']), int(row['ou_id']), 
                     int(row['status']))
+                try:
+                    sys_x_affs[tmp] = ou_stedkode_mapping[row['ou_id']]
+                except:
+                    pass
             except EntityExpiredError, msg:
                 logger.error("Skipping affiliation to ou_id %s (expired) for " \
                              "person with sysx_id %s." % (row['ou_id'], tmp))
@@ -127,7 +141,7 @@ def get_existing_accounts():
     # Spreads
     spread_list=[co.spread_uit_ldap_account,co.spread_uit_fd,\
                  co.spread_uit_sut_user,co.spread_uit_fronter_account, \
-                 co.spread_uit_ad_account,co.spread_uit_frida]
+                 co.spread_uit_ad_account,co.spread_uit_frida, co.spread_uit_sutmail, co.spread_uit_exchange]
     for spread_id in spread_list:
         is_account_spread=is_person_spread=False
         spread=co.Spread(spread_id)
@@ -344,7 +358,7 @@ def _update_email(acc_id,bruker_epost):
         logger.debug("update_email(): person_aff=%s" % person_aff)
         if(len(person_aff)>0):
             logger.debug("update_email(): %s has student affiliation" % account_obj.entity_id)
-            ad_email="@".join((account_obj.account_name,"mailbox.uit.no"))
+            ad_email="@".join((account_obj.account_name,cereconf.NO_MAILBOX_DOMAIN))
         elif(bruker_epost!=""):
             ## FIXME: Never ever set extrernal email here !!!
             ad_email="%s" % bruker_epost
@@ -364,7 +378,7 @@ def _update_email(acc_id,bruker_epost):
         # update email!
         logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
         try:
-            em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
+            em.process_mail(account_obj.entity_id,ad_email)
         except Exception,m:
             logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s,error:%s" % (account_obj.entity_id,ad_email,m))
             sys.exit(2)
@@ -498,15 +512,39 @@ class Build(object):
         
         #check gecos?
 
+        # Check if at the affiliation from SystemX could qualify for exchange_mailbox spread
+        could_have_exchange = False
+        got_exchange = False
+        person_sko = sys_x_affs[sysx_id]
+
+        # No external codes should have exchange spread, except GENØK (999510)
+        if person_sko[0:2] != '99' or person_sko[0:6] in  ('999510',):
+            could_have_exchange = True
+
+        # Run through exchange employee filter
+        for skofilter in cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO:
+            if skofilter == person_sko[0:len(skofilter)]:
+               logger.info('Not setting exchange spread because OU %s is in EMPLOYEE_FILTER_EXCHANGE_SKO' % person_sko)
+               could_have_exchange = False
+               break
+
         #make sure all spreads defined in sysX is set
         tmp_spread=[int(co.Spread('ldap@uit'))]
         for s in person_info.get('spreads'):
             tmp_spread.append(int(co.Spread(s)))
             if s=='SUT@uit':
                 tmp_spread.append(int(co.Spread('fd@uit')))
+            elif s=="AD_account" and could_have_exchange:
+                got_exchange = True
+                tmp_spread.append(int(co.Spread('exchange_mailbox')))
+        if not got_exchange:
+            tmp_spread.append(int(co.Spread('sut_mailbox')))        
+
+
         sysX_spreads=Set(tmp_spread)
         cb_spreads=Set(acc_obj.get_spreads())
         to_add=sysX_spreads - cb_spreads
+
         if to_add:
             changes.append(('spreads_add',to_add))
         
@@ -534,9 +572,6 @@ class Build(object):
                 'template': 'ansvarlig'
                 })
             _send_mailq(mailq)
-        # always update email for sysx persons
-        _update_email(acc_id,person_info['bruker_epost'])
-
 
 
     def check_expired_sourcedata(self, expire_date):
