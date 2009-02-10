@@ -25,6 +25,13 @@ from common import sneaky_import
 
 
 class test_cxOracle(DBTestBase):
+
+    def __init__(self):
+        super(test_cxOracle, self).__init__()
+        # our testdb has no schema.
+        self.schema = None
+    # end __init__
+    
     def setup(self):
         if not self.db_class:
             import cereconf
@@ -70,6 +77,4 @@ class test_cxOracle(DBTestBase):
         self.db.close()
     # end teardown
 
-    def test_cerebrum_syntax_table(self):
-        raise NotImplementedError("Aiee!")
 # end class test_cxOracle
