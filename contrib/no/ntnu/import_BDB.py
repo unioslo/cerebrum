@@ -1346,14 +1346,18 @@ class BDBSync:
         
         self.logger.debug("Fetching data from Cerebrum")
 
+        ignorespreads = [int(self.const.Spread(s))
+                         for s in getattr(cereconf, "BDB_IGNORESPREADS", [])]
+
         oldquarantines={}
         for q in self.ac.list_entity_quarantines(entity_types=const.entity_account):
             oldquarantines.setdefault(q['entity_id'], set()).add(int(q['quarantine_type']))
 
         oldspreads={}
         for s in self.ac.list_entity_spreads(entity_types=const.entity_account):
-            oldspreads.setdefault(s['entity_id'], set()).add(int(s['spread']))
-        
+            if not int(s['spread']) in ignorespreads:
+                oldspreads.setdefault(s['entity_id'], set()).add(int(s['spread']))
+            
         account_by_name = {}
         for n in self.ac.list_names(const.account_namespace):
             account_by_name[n['entity_name']] = n['entity_id']
@@ -1371,7 +1375,8 @@ class BDBSync:
                 self.logger.warn("Spread: Unhandled BDB system spread %s" % s['spread_name'])
                 continue
             spread=s_map[s['spread_name']]
-            newspreads.setdefault(account_id, set()).add(int(spread))
+            if not int(spread) in ignorespreads:
+                newspreads.setdefault(account_id, set()).add(int(spread))
             if s['shell'] == '/bin/badpw':
                 newquarantines.setdefault(account_id, set()).add(int(const.quarantine_svakt_passord))
             if s['shell'] == '/bin/sperret':
