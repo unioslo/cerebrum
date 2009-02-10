@@ -172,8 +172,11 @@ class UiTAccountEmailMixin(AccountEmailMixin):
 
         try:
             res = self.query_1(sel_query, sel_binds)
-            res = self.execute(upd_query, upd_binds)
-            self.logger.info("Updated ad_email table: %s to %s@%s" % (uname, local_part, domain_part))
+            if res['local_part'] != local_part or res['domain_part'] != domain_part:
+                res = self.execute(upd_query, upd_binds)
+                self.logger.info("Updated ad_email table: %s to %s@%s" % (uname, local_part, domain_part))
+            else:
+                self.logger.info("ad_email table already up to date: %s had %s@%s"  % (uname, local_part, domain_part))
         except Errors.NotFoundError:
             res = self.execute(ins_query, ins_binds)
             self.logger.info("Inserted into ad_email table: %s to %s@%s" % (uname, local_part, domain_part))
