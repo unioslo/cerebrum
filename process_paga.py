@@ -55,6 +55,7 @@ from Cerebrum.Utils import Factory, simple_memoize
 from Cerebrum.Constants import Constants
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no import fodselsnr
+from Cerebrum.modules.no import Stedkode
 from Cerebrum.modules.no.uit import Email
 from Cerebrum.modules.xmlutils import GeneralXMLParser
 from Cerebrum.modules.no.uit.EntityExpire import EntityExpiredError
@@ -106,21 +107,25 @@ class PagaDataParser(xml.sax.ContentHandler):
 
 class ExistingAccount(object):
     def __init__(self, fnr, uname, expire_date):
-        self._affs=[]
+        self._affs=list()
+        self._new_affs=list()
         self._expire_date= expire_date
         self._fnr=fnr        
         self._owner_id=None
         self._uid=None
-        self._home={}
-        self._quarantines=[]
-        self._spreads=[]
-        self._traits=[]
+        self._home=dict()
+        self._quarantines=list()
+        self._spreads=list()
+        self._traits=list()
         self._email=None
         self._uname=uname
         self._gecos=None
 
     def append_affiliation(self, affiliation, ou_id,priority):
-        self._affs.append((affiliation, ou_id,priority)) 
+        self._affs.append((affiliation, ou_id,priority))
+
+    def append_new_affiliations(self,affiliation,ou_id):
+        self._new_affs.append((affiliation, ou_id, None))
 
     def append_quarantine(self, q):
         self._quarantines.append(q)
@@ -134,9 +139,12 @@ class ExistingAccount(object):
     def get_affiliations(self):
         return self._affs
 
+    def get_new_affiliations(self):
+        return self._new_affs
+
     def get_email(self):
         return self._email
-        
+
     def get_expire_date(self):
         return self._expire_date
         
@@ -188,10 +196,10 @@ class ExistingAccount(object):
 
 class ExistingPerson(object):
     def __init__(self,person_id=None):
-        self._affs=[]
-        self._groups=[]
-        self._spreads=[]
-        self._accounts=[]
+        self._affs=list()
+        self._groups=list()
+        self._spreads=list()
+        self._accounts=list()
         self._primary_accountid=None
         self._personid=person_id
         self._fullname=None
@@ -210,6 +218,9 @@ class ExistingPerson(object):
 
     def get_affiliations(self):
         return self._affs
+
+    def get_new_affiliations(self):
+        return self._new_affs
 
     def get_fullnanme(self):
         return self._full_name
@@ -271,6 +282,11 @@ def get_creator_id():
     return id
 get_creator_id=simple_memoize(get_creator_id)
 
+def get_sko(ou_id):
+    ou.clear()
+    ou.find(ou_id)
+    return "%02s%02s%02s" % (ou.fakultet,ou.institutt,ou.avdeling)
+get_sko=simple_memoize(get_sko)
 
 def get_expire_date():
     """ calculate a default expire date
@@ -344,10 +360,8 @@ def get_existing_accounts():
             tmp.append_quarantine(int(row['quarantine_type']))
 
     # Spreads
-    logger.info("Loading spreads...")
-    spread_list=[const.spread_uit_ldap_account,const.spread_uit_fd,\
-                 const.spread_uit_sut_user,const.spread_uit_fronter_account, \
-                 const.spread_uit_ad_account,const.spread_uit_frida]
+    logger.info("Loading spreads... %s " % cereconf.EMPLOYEE_SPREADLIST) 
+    spread_list= [int(const.Spread(x)) for x in cereconf.EMPLOYEE_SPREADLIST]
     for spread_id in spread_list:
         is_account_spread=is_person_spread=False
         spread=const.Spread(spread_id)
@@ -378,7 +392,7 @@ def get_existing_accounts():
     # Account Affiliations
     logger.info("Loading account affs...")
     for row in account_obj.list_accounts_by_type(filter_expired=False,
-                                                 primary_only=True,
+                                                 primary_only=False,
                                                  fetchall=False):
         tmp=tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
@@ -389,15 +403,6 @@ def get_existing_accounts():
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']),
                                    int(row['priority']))
             
-
-    # Account emails.
-    logger.info("Loading account email addresses")
-    a2m_dict=account_obj.getdict_accid2mailaddr(filter_expired=False)
-    for acc_id,email in a2m_dict.iteritems():
-        tmp=tmp_ac.get(acc_id,None)
-        if tmp is not None:
-            tmp.set_email(email)
-        
 
 ##    # traits
 ##    logger.info("Loading traits...")
@@ -416,11 +421,6 @@ def get_existing_accounts():
             aff,ou_id,pri = aff
             tmp_persons[fnr].set_primary_account(ac_id,pri)
 
-    logger.info("Loading exchange emailaddesses")
-    global exch_list
-    em=Email.email_address(db)
-    exch_list=em.build_email_list()
-    
     logger.info(" found %i persons and %i accounts" % (
         len(tmp_persons), len(tmp_ac)))
     return tmp_persons, tmp_ac  
@@ -540,27 +540,8 @@ def _populate_account_affiliations(account_id, fnr):
     for aff, ou, status in persons[fnr].get_affiliations():
         if not (aff,ou) in account_affs:
             changes.append(('set_ac_type', (ou, aff)))
+            accounts[account_id].append_new_affiliations(aff,ou)
     return changes
-
-
-def calculate_email(uname):    
-    exch_addr=exch_list.get(uname,None)
-    default_addr="%s@%s" % (uname, cereconf.NO_MAILBOX_DOMAIN)
-    user_addr =  exch_addr or default_addr   
-    logger.debug("Calculated email for %s is %s" % (uname, user_addr))
-    return user_addr
-
-
-def update_email(acc_id,new_mail):
-    em = Email.email_address(db)
-    try:
-        em.process_mail(acc_id,"defaultmail",new_mail)
-    except Exception,m:
-        logger.critical("EMAIL UPDATE FAILED: account_id=%s, email=%s: %s" % \
-            (acc_id,new_mail,m))
-        sys.exit(2)
-    else:
-        logger.debug("Email update ok for %s, new='%s'" % (acc_id, new_mail))
 
 
 class Build:
@@ -579,7 +560,31 @@ class Build:
     def process_all(self):
         for fnr in self.source_personlist:
             self.process_person(fnr)
-   
+
+
+    def _calculate_spreads(self,acc_affs,new_affs):
+
+        default_spreads= [int(const.Spread(x)) for x in cereconf.EMPLOYEE_DEFAULT_SPREADS]
+        logger.debug("acc_affs=%s, new_affs=%s" % (acc_affs,new_affs))
+        all_affs = acc_affs+new_affs
+        logger.debug("all_affs=%s" % (all_affs,))
+        #do not build uit.no addresses for affs in these sko's
+        no_exchange_skos =cereconf.EMPLOYEE_FILTER_EXCHANGE_SKO
+        tmp=Set()
+        for aff,ou_id,pri in all_affs:
+            sko=get_sko(ou_id)
+            for x in no_exchange_skos:
+                if sko.startswith(x):
+                    tmp.add(( aff,ou_id,pri))
+                    break
+
+        # need atleast one aff to give exchange spread
+        logger.debug("acc_affs=%s,in filter=%s, result=%s" % (Set(all_affs),tmp,Set(all_affs)-tmp))
+        if Set(all_affs)-tmp:
+            default_spreads.append(int(const.Spread('exchange_mailbox')))
+        return default_spreads
+
+
     def process_person(self, fnr):
         logger.info("Process person %s" % (fnr))
         p_obj=persons.get(fnr,None)
@@ -613,30 +618,15 @@ class Build:
         #check gecos?
         # Har ikke personnavn tilgjengelig pr nuh..
 
-        #check mailaddr
-        current_email=acc_obj.get_email() or ''
-        new_mail=calculate_email(acc_obj.get_uname())
-        logger.debug("Mail check: current: %s, new: %s" % (current_email,new_mail))
-        if  new_mail.lower() != current_email.lower():
-            changes.append(('update_mail',new_mail))
-
-        #make sure all spreads is set, if owner has affiliations
+        #make sure user has correct spreads
         if p_obj.get_affiliations():
-            # do not add spreads if person does not have 
-            # active affiliations from paga.
-            default_spreads=[int(const.Spread('ldap@uit')),
-                            int(const.Spread('AD_account')),
-                            int(const.Spread('fd@uit'))]
+            # if person has affiliations, add spreads
+            default_spreads=self._calculate_spreads(acc_obj.get_affiliations(),acc_obj.get_new_affiliations())
             def_spreads=Set(default_spreads)
             cb_spreads=Set(acc_obj.get_spreads())
             to_add=def_spreads - cb_spreads
             if to_add:
                 changes.append(('spreads_add',to_add))
-        
-##            #check account homes for each spread already in CB
-##            for s in cb_spreads:
-##                if not account_home_ok(s,acc_obj.get_uname()):
-##                    changes.append(('update_homedir',s))
 
         #check quarantines
         for qt in acc_obj.get_quarantines():
@@ -662,8 +652,8 @@ def main():
         usage(1,m)
         
     person_file = default_person_file
-    dryrun = False 
-    ssn=None    
+    dryrun = False
+    ssn=None
     for opt,val in opts:
         if opt in('-d','--dryrun'):
             dryrun = True
@@ -673,6 +663,19 @@ def main():
             ssn=val
         elif opt in ('-h','--help'):
             usage()
+
+
+    conf_ok=True
+    for attr in ['EMPLOYEE_FILTER_EXCHANGE_SKO','EMPLOYEE_DEFAULT_SPREADS',
+                 'EMPLOYEE_SPREADLIST']:
+        try:
+            tmp=getattr(cereconf,attr)
+        except AttributeError,m:
+            logger.critical("Attr %s missing from your cereconf" % attr)
+            conf_ok=False
+
+    if not conf_ok:
+        sys.exit(1)
 
     persons, accounts = get_existing_accounts()
     build=Build()
