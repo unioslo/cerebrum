@@ -329,7 +329,7 @@ class DBTestBase(object):
         self.db.execute("""
         CREATE TABLE nosetest1 (
         field1  INT	NOT NULL,
-        field2	DATE	NOT NULL DEFAULT [:now]
+        field2	DATE	DEFAULT [:now] NOT NULL 
         )
         """)
 
@@ -369,7 +369,7 @@ class DBTestBase(object):
         self.db.execute("""
         CREATE TABLE nosetest1 (
         field1  INT		NOT NULL,
-        field2	TIMESTAMP 	NOT NULL DEFAULT [:now]
+        field2	TIMESTAMP 	DEFAULT [:now] NOT NULL 
         )
         """)
 
@@ -392,7 +392,7 @@ class DBTestBase(object):
 
         self.db.execute("""
         CREATE TABLE nosetest1 (
-        field1	DATE NOT NULL DEFAULT [:now]
+        field1	DATE DEFAULT [:now] NOT NULL 
         )
         """)
 
@@ -414,7 +414,7 @@ class DBTestBase(object):
 
         self.db.execute("""
         CREATE TABLE nosetest1 (
-        field1	TIMESTAMP NOT NULL DEFAULT [:now]
+        field1	TIMESTAMP DEFAULT [:now] NOT NULL
         )
         """)
 
