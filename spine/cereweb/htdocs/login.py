@@ -126,7 +126,7 @@ def login(**vargs):
                         selected_charset = default_charset
                 ## just pick one...
                 if not selected_charset and charsets:
-                    selected_charset = charsets[0].strip()
+                    selected_charset = charsets[0].strip().lower()
             if not selected_charset:
                 selected_charset = default_charset
             cherrypy.session['client_encoding'] = selected_charset
