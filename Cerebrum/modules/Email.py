@@ -1158,8 +1158,8 @@ class EmailTargetFilter(EmailTarget):
         self.email_target_filter_filter = self.query_1("""
         SELECT filter
         FROM [:table schema=cerebrum name=email_target_filter]
-        WHERE target_id=:t_id""",{'t_id': self.entity_id,
-                                  'filter': filter})
+        WHERE target_id=:t_id AND filter=:filter""", {'t_id': self.entity_id,
+                                                      'filter': filter})
         try:
             del self.__in_db
         except AttributeError:
