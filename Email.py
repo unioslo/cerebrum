@@ -35,7 +35,7 @@ import re
 
 class UiTAccountEmailMixin(AccountEmailMixin):
 
-    def get_email_cn_local_part(self, given_names=-1, max_initials=None):
+    def get_email_cn_local_part(self, given_names=-1, max_initials=None, keep_dash=True):
         """
         Construct a "pretty" local part.
 
@@ -71,7 +71,8 @@ class UiTAccountEmailMixin(AccountEmailMixin):
             full = self.account_name
         names = [x.lower() for x in re.split(r'\s+', full)]
         last = names.pop(-1)
-        #names = [x for x in '-'.join(names).split('-') if x]
+        if not keep_dash:
+            names = [x for x in '-'.join(names).split('-') if x]
 
         if given_names == -1:
             if len(names) == 1:
@@ -197,13 +198,32 @@ class UiTAccountEmailMixin(AccountEmailMixin):
         self.logger.info("Deleted %s from ad_email table" % (uname))
 
 
-    # Lists emails in ad email table
-    def list_ad_email(self):
+    # Searches ad email table
+    def search_ad_email(self,account_name=None,local_part=None,domain_part=None):
+
+        tables = list()
+        where = list()
+        binds = dict()
+        if account_name:
+            where.append('account_name=:account_name')
+            binds['account_name']=account_name
+
+        if local_part:
+            where.append('local_part=:local_part')
+            binds['local_part']=local_part
+        
+        if domain_part:
+            where.append('domain_part=:domain_part')
+            binds['domain_part']=domain_part
+
+        where_str=""
+        if where:
+            where_str = "WHERE " + " AND ".join(where)
         sql = """
         SELECT account_name, local_part, domain_part
         FROM [:table schema=cerebrum name=ad_email]
-        """
-        return self.query(sql)
+        %s""" % (where_str)
+        return self.query(sql,binds)
 
 
 class email_address:
