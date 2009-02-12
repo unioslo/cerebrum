@@ -76,10 +76,4 @@ class test_cxOracle(DBTestBase):
         self.db.close()
     # end teardown
 
-    def test_sequence1(self):
-        pass
-
-    def test_cerebrum_syntax_sequence(self):
-        pass
-    
 # end class test_cxOracle

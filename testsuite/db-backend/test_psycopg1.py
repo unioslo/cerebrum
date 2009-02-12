@@ -31,12 +31,7 @@ class test_PsycoPG1(DBTestBase):
             db_mod = sneaky_import("Cerebrum.Database")
     
             # This is the environment that *must* be present.
-            # CLASS_DATABASE and CLASS_DB_DRIVER are irrelevant here, as we skip the
-            # Factory.get() step
-            # cereconf.CLASS_DATABASE = ['Cerebrum.CLDatabase/CLDatabase',]
-            # cereconf.CLASS_DB_DRIVER = ['Cerebrum.Database/PsycoPG',]
-        
-            # These cannot really be guessed or somehow faked.
+            # They cannot really be guessed or somehow faked.
             assert exists(cereconf.DB_AUTH_DIR), \
                    "DB_AUTH_DIR points to non-existing directory"
             assert hasattr(cereconf, "CEREBRUM_DATABASE_NAME"), \
@@ -49,7 +44,7 @@ class test_PsycoPG1(DBTestBase):
             assert "host" in cereconf.CEREBRUM_DATABASE_CONNECT_DATA, \
                    "Missing 'host' in CEREBRUM_DATABASE_CONNECT_DATA"
             
-            DBTestBase.db_class = db_mod.PsycoPG1
+            DBTestBase.db_class = db_mod.PsycoPG
 
         self.db = self.db_class()
         self.db._db.set_isolation_level(3)

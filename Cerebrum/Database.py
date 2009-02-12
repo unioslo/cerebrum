@@ -37,6 +37,7 @@ import os
 from types import DictType, StringType
 from cStringIO import StringIO
 from mx import DateTime
+import datetime
 
 import cereconf
 from Cerebrum import Errors
@@ -1261,15 +1262,25 @@ class cx_Oracle(OracleBase):
         # this will in turn invoke the connect() function in the
         # cx_Oracle module.
         super(cx_Oracle, self).connect(conn_str)
-
-    def pythonify_data(self, data):
-        """Convert type of values in row to native Python types."""
-        # Short circuit; no conversion is necessary for DCOracle2.
-        return data
+    # end connect
+    
 
     def cursor(self):
         return cx_OracleCursor(self)
     # end cursor
+
+
+    def pythonify_data(self, data):
+        """Convert type of value(s) in data to native Python types."""
+        if isinstance(data, datetime.datetime):
+            return DateTime.DateTime(data.year, data.month, data.day,
+                                     data.hour, data.minute, data.second)
+        return super(cx_Oracle, self).pythonify_data(data)
+    # end pythonify_data
+
+    # IVR 2009-02-12 FIXME: We should override nextval() here to query the
+    # schema name directly from the underlying connection object. This should
+    # be possible from cx_Oracle 5.0
 # end cx_Oracle
 
 
@@ -1285,12 +1296,22 @@ class cx_OracleCursor(Cursor):
     """
 
     def execute(self, operation, parameters=()):
+        # cx_Oracle operates with datetime.
+        for k in parameters:
+            if type(parameters[k]) is DateTime.DateTimeType:
+                tmp = parameters[k]
+                parameters[k] = datetime.datetime(tmp.year, tmp.month, tmp.day,
+                                                  tmp.hour, tmp.minute,
+                                                  int(tmp.second))
+
         # Translate Cerebrum-specific hacks ([:]-syntax we love, e.g.). We
         # must do this, before feeding operation to the backend, since we've
         # effectively extended sql syntax.
         sql, binds = self._translate(operation, parameters)
         # Now that we have raw sql, we need to check if binds contains some
-        # superfluous identifiers. If it does, we have to purge them.
+        # superfluous identifiers. If it does, we have to purge them, since
+        # cx_Oracle bails with an error when there are more binds than free
+        # variables.  
 
         # 1. Prepare the statement (so that the backend can report some useful
         #    information about this.) This costs extra time, but it is
@@ -1314,8 +1335,26 @@ class cx_OracleCursor(Cursor):
         # super().execute will redo a considerable part of the work here. It
         # is a performance hit (FIXME: how much of a performance hit?), but
         # right now (2008-06-30) we do not care.
-        return super(cx_OracleCursor, self).execute(sql, mybinds)
+        retval = super(cx_OracleCursor, self).execute(sql, mybinds)
+        return retval
     # end execute
+
+
+    def query(self, query, params=(), fetchall=True):
+        raw_result = super(cx_OracleCursor, self).query(
+                         query, params=params, fetchall=fetchall)
+
+        # IVR 2009-02-12 FIXME: respect fetchall while making conversions.
+
+        for i in range(len(raw_result)):
+            for j in range(len(raw_result[i])):
+                field = raw_result[i][j]
+                if type(field) is datetime.datetime:
+                    raw_result[i][j] = DateTime.DateTime(field.year, field.month,
+                                                         field.day, field.hour,
+                                                         field.minute, field.second)
+        return raw_result
+    # end query
 # end cx_OracleCursor
 
 
@@ -1344,8 +1383,8 @@ class SQLite(Database):
     # however CURRENT_TIMESTAMP is represented.
     _mx_format = "%Y-%m-%d %H:%M:%S"
 
-    def _sqlite2mx(self, string):
-        return DateTime.strptime(s, self._mx_format)
+    def _sqlite2mx(self, object):
+        return DateTime.strptime(object, self._mx_format)
 
     def _mx2sqlite(self, dt):
         return "%s" % dt.strftime(self._mx_format)

@@ -145,13 +145,6 @@ class DBTestBase(object):
     # end teardown
 
 
-    def test_support_Norwegian_chars(self):
-        """Make sure we can use Norwegian chars"""
-
-        raise NotImplementedError("Implement øæå-testing")
-    # end test_support_Norwegian_chars
-
-
     def test_dbapi2(self):
         """Check that DB-API 2.0 methods are present"""
 
@@ -813,9 +806,44 @@ class DBTestBase(object):
     # end test_numeric0_gives_int
         
 
-    def test_insert_unicode(self):
+    def test_insert_unicode1(self):
         """Check that we can send unicode to CHAR/VARCHAR/TEXT"""
-        pass
+
+        # latin-1
+        text = "blåbærsyltetøy" 
+        utext = unicode(text, "latin-1")
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 VARCHAR(50) NOT NULL
+        )
+        """)
+
+        self.db.execute("INSERT INTO %s (field1) VALUES (:value)" %
+                        self._get_table("nosetest1"),
+                        {"value": utext})
+    # end test_insert_unicode
+
+
+    def test_retrieve_unicode1(self):
+        """Check that we fish out unicode objects from CHAR/VARCHAR/TEXT"""
+
+        # latin-1
+        text = "blåbærsyltetøy" 
+        utext = unicode(text, "latin-1")
+
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1 VARCHAR(50) NOT NULL
+        )
+        """)
+
+        self.db.execute("INSERT INTO %s (field1) VALUES (:value)" %
+                        self._get_table("nosetest1"),
+                        {"value": utext})
+        rows = self.db.query("SELECT * FROM %s" % self._get_table("nosetest1"))
+        assert rows[0]["field1"] == utext
+        assert type(rows[0]["field1"]) == type(utext)
     # end test_insert_unicode
 
 
@@ -825,7 +853,8 @@ class DBTestBase(object):
         We should check whether there are situations when the backend returns
         a Decimal. Our code is NOT prepared for this.
         """
-        pass
+
+        raise NotImplementedError("Fix Decimal tests")
     # end test_check_decimal
         
         
