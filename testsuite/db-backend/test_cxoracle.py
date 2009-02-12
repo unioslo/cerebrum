@@ -57,7 +57,7 @@ class test_cxOracle(DBTestBase):
 
         self.db = self.db_class()
         self.db.execute("set transaction isolation level serializable")
-        for tname in ("nosetest1", "nosetest2"):
+        for tname in ("nosetest2", "nosetest1"):
             try:
                 self.db.execute("drop table %s" % tname)
             except self.db.DatabaseError:
@@ -72,9 +72,14 @@ class test_cxOracle(DBTestBase):
     # end setup
 
     def teardown(self):
-            
         self.db.rollback()
         self.db.close()
     # end teardown
 
+    def test_sequence1(self):
+        pass
+
+    def test_cerebrum_syntax_sequence(self):
+        pass
+    
 # end class test_cxOracle
