@@ -413,7 +413,7 @@ class Object2Cerebrum(object):
                 status = int(row['status'])
                 pp.clear()
                 pp.find(p_id)
-                pp.delete_affiliation( k, aff, self.source_system)
+                pp.delete_affiliation( ou_id, aff, self.source_system)
                 pp.add_affiliation(int(self.replacedby[k]), aff,
                         self.source_system, status)
         print '_update_ou_affiliations =========================== *emd*'
@@ -463,7 +463,7 @@ class Object2Cerebrum(object):
         ## TODO:###########
         ## a trait is missing, must be enabled again later
         ###
-        ## self._update_groups()
+        self._update_groups()
 
         # Update affiliations for people
         self._update_person_affiliations()
