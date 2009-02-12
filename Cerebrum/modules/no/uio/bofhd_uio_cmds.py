@@ -6157,9 +6157,9 @@ class BofhdExtension(object):
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString(),
         SimpleString(optional=True, help_ref="affiliation_optional"),
-        fs=FormatSuggestion("%6i   %10s   %-12s  %s",
+        fs=FormatSuggestion("%7i   %10s   %-12s  %s",
                             ('id', 'birth', 'account', 'name'),
-                            hdr="%6s   %10s   %-12s  %s" % \
+                            hdr="%7s   %10s   %-12s  %s" % \
                             ('Id', 'Birth', 'Account', 'Name')))
     def person_find(self, operator, search_type, value, filter=None):
         # TODO: Need API support for this
