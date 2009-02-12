@@ -18,16 +18,19 @@
 
 #extends EntityViewTemplate
 #from lib.utils import object_link, html_quote, remember_link, html_quote
+#from lib.utils import url_quote, spine_to_web
 #from SpineIDL.Errors import NotFoundError
 #from Widgets import Widgets
+#from lib.templates.OUEditTemplate import OUEditTemplate
 
 #attr $widgets = Widgets()
 #attr $viewBirthNo = False
+#attr $ouTemplate = OUEditTemplate()
 
-#def viewActions($transaction, $ou)
-    #set $id = $html_quote($ou.get_id())
+#def viewActions($ou)
+    #set $id = $url_quote($ou.get_id())
     <ul>
-        <li><a href="edit?id=$id">$_("edit info")</a></li>
+        ## <li><a href="edit?id=$id">$_("edit info")</a></li>
         <li><a href="delete?id=$id">$_("delete ou")</a></li>
         <li><a href="list_aff_persons?id=$id">$_("list affiliated persons")</a></li>
         <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
@@ -36,37 +39,44 @@
     </ul>
 #end def
 
-#def viewContent($transaction, $ou)
+#def viewContent($tr, $ou)
+    $editOU($tr, $ou)
     $viewInfo($ou)
-    $viewQuarantines($ou, $transaction)
+    $viewQuarantines($ou)
     $addNote($ou)
-    $viewNotes($ou, $transaction)
-    $viewTraits($entity, $transaction)
-    $viewFamily($ou, $transaction)
-    $viewContactInfos($ou, $transaction)
-    $viewAddresses($ou, $transaction)
-    $addSpread($ou, $transaction)
-    $viewSpreads($ou, $transaction)
-    $setExternalId($ou, $transaction)
-    $viewExternalIds($ou, $viewBirthNo, $transaction)
+    $viewNotes($ou)
+    $viewTraits($entity)
+    $viewFamily($tr, $ou)
+    $viewContactInfos($ou)
+    $viewAddresses($ou)
+    $addSpread($ou, $tr)
+    $viewSpreads($ou)
+    $setExternalId($ou, $tr)
+    $viewExternalIds($ou, $viewBirthNo)
     $viewHistoryLog($ou)
-    $affiliatedPersons($ou, $transaction)
+    $affiliatedPersons($tr, $ou)
+#end def
+
+#def editOU($tr, $ou)
+    $ouTemplate.form($tr, $ou)
 #end def
 
 ## View information about OU.
 #def viewInfo($ou)
     #set $info = []
-    $info.append(($_('Name'), $html_quote($ou.get_name())))
-    $info.append(($_('Acronym'), $html_quote($ou.get_acronym())))
-    $info.append(($_('Short name'), $html_quote($ou.get_short_name())))
-    $info.append(($_('Display name'), $html_quote($ou.get_display_name())))
-    $info.append(($_('Sort name'), $html_quote($ou.get_sort_name())))
-    $info.append(($_('Stedkode'), $html_quote($ou.get_stedkode())))
+    $info.append(($_('Name'), $spine_to_web($ou.get_name())))
+    $info.append(($_('Acronym'), $spine_to_web($ou.get_acronym())))
+    $info.append(($_('Short name'), $spine_to_web($ou.get_short_name())))
+    $info.append(($_('Display name'), $spine_to_web($ou.get_display_name())))
+    $info.append(($_('Sort name'), $spine_to_web($ou.get_sort_name())))
+    ## removed after starting import of OUs in UNINETT ABC format.
+    ## UNINET ABC does not have stedkode,- only kjerne-id.
+    ## $info.append(($_('Stedkode'), $spine_to_web($ou.get_stedkode())))
     $widgets.viewInfo($info)
 #end def
 
-#def viewFamily($ou, $transaction)
-    #set $perspectives = $transaction.get_ou_perspective_type_searcher().search()
+#def viewFamily($tr, $ou)
+    #set $perspectives = $tr.get_ou_perspective_type_searcher().search()
     <div class="list box">
         <h3>$_('OU Family')</h3>
         #for $perspective in $perspectives
@@ -77,9 +87,10 @@
                 #continue
             #end try
             <h4>$_('Parent in perspective')
-	    	$html_quote($perspective.get_name())</h4>
+	    	$spine_to_web($perspective.get_name())</h4>
             #if $parent
-            <div>$object_link($parent)</div>
+            #set $parent_name = $spine_to_web($parent.get_name())
+            <div>$object_link($parent, text=$parent_name)</div>
             #else
             <div>$_('(Root of perspective)')</div>
             #end if
@@ -92,25 +103,28 @@
             #end try
             #if $children
                 <h4>$_('Children in perspective')
-                    $html_quote($perspective.get_name())</h4>
+                    $spine_to_web($perspective.get_name())</h4>
                 #for $child in $children
-                <div>$object_link($child)</div>
+                #set $child_name = $spine_to_web($child.get_name())
+                <div>$object_link($child, text=$child_name)</div>
                 #end for
             #end if     
         #end for
     </div>
 #end def
 
-#def affiliatedPersons($ou, $transaction)
-    #set $all_affs = $transaction.get_person_affiliation_type_searcher().search()
-    #set $all_sources = $transaction.get_ou_perspective_type_searcher().search()
+#def affiliatedPersons($tr, $ou)
+    #set $all_affs = $tr.get_person_affiliation_type_searcher().search()
+    #set $all_sources = $tr.get_ou_perspective_type_searcher().search()
     #set $sources = []
     #for $source in $all_sources
-        $sources.append(($source.get_name(),$source.get_name()))
+        #set $source_name = $spine_to_web($source.get_name())
+        $sources.append(($source_name, $source_name))
     #end for
     #set $affiliations = [('All','All')]
     #for $aff in $all_affs
-        $affiliations.append(($aff.get_name(),$aff.get_name()))
+        #set $aff_name = $spine_to_web($aff.get_name)
+        $affiliations.append(($aff_name, $aff_name))
     #end for
     ## <div class="edit box" style="display:none;">
     <div class="edit box">

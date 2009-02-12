@@ -96,8 +96,8 @@
             #end if
         #end try    
         
-        $select_ou($perspective, "parent_" + $perspective.get_name(),
-                   $_("Parent in %s:") % $perspective.get_name(),
+       $select_ou($perspective, "parent_" + $perspective.get_name(),
+                  $_("Parent in %s:") % $perspective.get_name(),
                    $parent, $ou, $extras) 
     #end for
 #end def

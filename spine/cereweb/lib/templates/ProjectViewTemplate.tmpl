@@ -17,6 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.utils import object_link, remember_link, html_quote
+#from lib.utils import url_quote, spine_to_web
 #extends EntityViewTemplate
 
 #from FormWidgets import FormWidgets
@@ -26,54 +27,57 @@
 #attr $formvalues = {}
 
 #def actions()
-    <a href="edit?id=$html_quote($entity_id)">$_("edit info")</a><br />
-    <a href="delete?id=$html_quote($entity_id)">$_("delete project")</a><br />
-    <a href="/entity/full_historylog?id=$html_quote($entity_id)">$_('view full history log')</a>
+    #set $id = $url_quote(entity_id)
+    <a href="edit?id=$id">$_("edit info")</a><br />
+    <a href="delete?id=$id">$_("delete project")</a><br />
+    <a href="/entity/full_historylog?id=$id">$_('view full history log')</a>
     <br />
     $remember_link($entity)<br />
 #end def
 
 ## Main method for creating the project view page.
-#def viewContent($transaction, $entity)
-    $viewInfo($entity)
+#def viewContent($tr, $entity)
+    $viewInfo($entity, $tr)
     ##$addNote($entity)
-    ##$viewNotes($entity, $transaction)
-    $addAllocationName($entity, $transaction)
-    $viewAllocations($entity)
+    ##$viewNotes($entity)
+    $addAllocationName($entity, $tr)
+    $viewAllocations($entity, $tr)
     $viewHistoryLog($entity)
 #end def
 
 ## View information about host (name and description).
 #def viewInfo($project)
     #set $info = []
-    $info.append(($_("Title"), $html_quote($project.get_title())))
-    $info.append(($_("Description"), $html_quote($project.get_description())))
-    $info.append(($_("Owner"), $object_link($project.get_owner())))
-    $info.append(($_("Science"), $html_quote($project.get_science().get_description())))
+    $info.append(($_("Title"), $spine_to_web($project.get_title())))
+    $info.append(($_("Description"), $spine_to_web($project.get_description())))
+    #set $owner_name = $spine_to_web(project.get_owner().get_name())
+    $info.append(($_("Owner"), $object_link($project.get_owner(), text=$owner_name)))
+    $info.append(($_("Science"), $spine_to_web($project.get_science().get_description())))
     $widgets.viewInfo($info)
 #end def
 
 #def viewAllocations($project)
 
 #set $allallocationnames = $project.get_allocation_names()
-#set $project_id = $project.get_id()
+#set $project_id = $url_quote($project.get_id())
 <div class="list box">
     <h3>$_('Allocation Names')</h3>
     <ul>
     #for $allocationname in $allallocationnames
 	#set aname = $allocationname.get_name()
-	#set delete_aname = $html_quote("remove_allocation_name?id=%i&amp;allocation_name=%s" % ( $project_id, $aname ))
-	#set create_allocation = $html_quote("/allocation/create?project=%i&amp;allocation_name=%s" % ( $project_id, $aname ))
-       <li> $aname
+	#set delete_aname = "remove_allocation_name?id=%s&amp;allocation_name=%s" % ( $project_id, $url_quote($aname))
+	#set create_allocation = "/allocation/create?project=%s&amp;allocation_name=%s" % ( $project_id, $url_quote($aname ))
+       <li> $spine_to_web($aname)
             <a href="$delete_aname">[Delete]</a>
             <a href="$create_allocation">[create allocation]</a>
        <ul>
 	#for allocation in $allocationname.get_allocations()
-	  <li>$allocation.get_period().get_name()
-          $allocation.get_status().get_name()
+	  <li>$spine_to_web($allocation.get_period().get_name())
+          $spine_to_web($allocation.get_status().get_name())
              ( 
              #for machine in $allocation.get_machines()
-                $object_link($machine)
+                #set $machine_name = $spine_to_web($machine.get_name())
+                $object_link($machine, text=$machine_name)
              #end for
              )
           </li>
@@ -85,12 +89,14 @@
 </div>
 #end def
 
-#def addAllocationName($project, $transaction)
+#def addAllocationName($project, $tr)
     #set $fv = $formvalues
-    #set $searcher = $transaction.get_allocation_authority_searcher()
-    #set $authorities = [($type.get_name(), $type.get_name()) 
-                            for $type in $searcher.search()]
-
+    #set $searcher = $tr.get_allocation_authority_searcher()
+    #set $authorities = []
+    #for $type in $searcher.search()
+        #set $name = $spine_to_web($type.get_name())
+        $authorities.append(($name, $name))
+    #end for
     <div class="edit box">
         <form action="/project/add_allocation_name" method="post">
             <h3>$_('Add allocation name')</h3>
@@ -102,7 +108,7 @@
             </div>
             <div class="required">
             $form_widgets.generate_loption("authority", "Allocation Authority",
-                                    $authorities, $fv.get("authority", "notur"))
+                                    $authorities, $spine_to_web($fv.get("authority", "notur")))
             </div>
             <div class="buttons">
                 <input type="submit" value="$_('Add')" />&#x0020;

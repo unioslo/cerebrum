@@ -17,11 +17,12 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from lib.utils import object_link, html_quote, remember_link, html_quote
+#from lib.utils import url_quote, spine_to_web
 #from Widgets import Widgets
 #extends EntityViewTemplate
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
-
+#attr $tr = None
 #attr $widgets = Widgets()
 
 #attr $email_server_types = []
@@ -32,23 +33,32 @@
 <div id="actions">
     <h3>$_("Actions")</h3>
     <ul>
-        <li><a href="edit?id=$html_quote($entity_id)">$_("edit info")</a></li>
-        <li><a href="delete?id=$html_quote($entity_id)">$_("delete host")</a></li>
-        <li><a href="/entity/full_historylog?id=$html_quote($entity_id)">$_('view full history log')</a></li>
+        #set $id = $url_quote($entity_id)
+        <li><a href="edit?id=$id">$_("edit info")</a></li>
+        <li><a href="delete?id=$id">$_("delete host")</a></li>
+        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a></li>
         #if $entity.get_email_server_type()
-            <li><a href="/host/demote_mailhost?id=$html_quote($entity_id)">$_('Demote as mailhost')</a></li>
+            <li><a href="/host/demote_mailhost?id=$id">$_('Demote as mailhost')</a></li>
         #end if
-        <li>$remember_link($entity)</li>
+        <li>
+        #set $entity_name = $entity.get_name()
+        #if $entity_name
+            #set $entity_name = $spine_to_web($entity_name)
+            $remember_link($entity, text=$entity_name)
+        #else
+            $remember_link($entity)
+        #end if
+        </li>
     </ul>
 </div>
 #end def
 
 ## Main method for creating the host view page.
-#def viewContent($transaction, $entity)
+#def viewContent($tr, $entity)
     $viewInfo($entity)
     $addNote($entity)
-    $viewNotes($entity, $transaction)
-    $viewTraits($entity, $transaction)
+    $viewNotes($entity)
+    $viewTraits($entity)
     $viewDisks($entity)
     #if not $entity.get_email_server_type()
         $promote_to_mailhost($entity)
@@ -59,10 +69,21 @@
 ## View information about host (name and description).
 #def viewInfo($host)
     #set $info = []
-    $info.append(($_("Name:"), $html_quote($host.get_name())))
-    $info.append(($_("Description:"), $html_quote($host.get_description())))
+    #set $hostname = $host.get_name()
+    #if $hostname
+        #set $hostname = $spine_to_web($hostname)
+    #end if
+    $info.append(($_("Name:"), $hostname))
+    #set $desc = $host.get_description()
+    #if $desc
+        #set $desc = $spine_to_web($desc)
+    #end if
+    $info.append(($_("Description:"), $desc))
     #if $host.get_email_server_type()
-        $info.append(($_("Mailhost:"), $html_quote($host.get_email_server_type().get_name())))
+        #set $servertype = $host.get_email_server_type().get_name()
+        #if $servertype
+            $info.append(($_("Mailhost:"), $spine_to_web($servertype)))
+        #end if
     #end if
     $widgets.viewInfo($info)
 #end def
@@ -78,7 +99,12 @@
             #for $disk in $disks
             <div class="item">
                 <input type="checkbox" name="$html_quote($disk.get_id())" />
-                <em>$_('Path'):</em> $html_quote($disk.get_path())
+                <em>$_('Path'):
+                #set $path = $disk.get_path()
+                #if $path
+                    $spine_to_web($path)
+                #end if
+                </em> 
                 $object_link($disk, "view", _class="action")
                 $object_link($disk, "edit", "edit", _class="action")
                 $remember_link($disk, _class="action")
