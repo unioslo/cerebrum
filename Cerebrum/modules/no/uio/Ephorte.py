@@ -150,7 +150,9 @@ class EphorteConstants(ConstantsBase):
 ##          -tilganger og spreads automatisk fjernes
 ##        * hvis en person mister alle sine roller, skal også
 ##          tilganger og spread fjernes automatisk.
-##
+##        * Hvis en person får en ny rolle og personen ikke har noen
+##          standardrolle skal den nye rollen settes som standardrolle
+    
 class EphorteRole(DatabaseAccessor):
     def __init__(self, database):
         super(EphorteRole, self).__init__(database)
@@ -158,8 +160,8 @@ class EphorteRole(DatabaseAccessor):
         self.pe = Factory.get('Person')(database)
         self.ephorte_perm = EphortePermission(database)
 
-    def add_role(self, person_id, role, sko, arkivdel, journalenhet,
-                 rolletittel='', stilling='', standard_role='F', auto_role='T'):
+    def _add_role(self, person_id, role, sko, arkivdel, journalenhet,
+                  rolletittel='', stilling='', standard_role='F', auto_role='T'):
         # TBD: når en rolle addes bør vi sette start_date til dd?
         binds = {
             'person_id': person_id,
@@ -184,6 +186,15 @@ class EphorteRole(DatabaseAccessor):
             'arkivdel': arkivdel and str(arkivdel) or '',
 #            'adm_enhet': adm_enhet and str(adm_enhet) or '',
             'rolle_type': str(role)})
+
+    # Wrapper for _add_role.
+    def add_role(self, person_id, role, sko, arkivdel, journalenhet,
+                 rolletittel='', stilling='', standard_role='F', auto_role='T'):
+        # If person don't have any roles, set this role as standard_role
+        if not self.list_roles(person_id=person_id):
+            standard_role = 'T'
+        self._add_role(person_id, role, sko, arkivdel, journalenhet,
+                       rolletittel, stilling, standard_role, auto_role)
     
     def set_standard_role_val(self, person_id, role, sko, arkivdel,
                               journalenhet, standard_role):
@@ -277,6 +288,14 @@ class EphorteRole(DatabaseAccessor):
         FROM [:table schema=cerebrum name=ephorte_role] %s""" % where, {
             'person_id': person_id})
 
+    def is_standard_role(self, person_id, role, sko, arkivdel, journalenhet):
+        tmp = self.get_role(person_id, role, sko, arkivdel, journalenhet)
+        print tmp
+        if tmp and len(tmp) == 1 and tmp[0]['standard_role'] == 'T':
+            return True
+        return False
+
+
 ##
 ## Vi skal oppdatere tilgangskoder for personer i Ephorte
 ## via web-servicen. Denne klassen inneholder metodene
@@ -326,7 +345,7 @@ class EphortePermission(DatabaseAccessor):
 
     # Some permissions can't be removed, but must be deactivated or
     # expired by setting an end_date
-    def expire_permission(self, person_id, tilgang, sko):
+    def expire_permission(self, person_id, tilgang, sko, end_date=None):
         binds = {
             'person_id': person_id,
             'perm_type': tilgang,
@@ -334,10 +353,10 @@ class EphortePermission(DatabaseAccessor):
             }
         self.execute("""
         UPDATE[:table schema=cerebrum name=ephorte_permission]
-        SET end_date=[:now]
-        WHERE %s""" % " AND ".join(
+        SET end_date=%s
+        WHERE %s""" % (end_date or "[:now]", " AND ".join(
             ["%s=:%s" % (x, x) for x in binds.keys() if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds.keys() if binds[x] is None]),
+            ["%s IS NULL" % x for x in binds.keys() if binds[x] is None])),
                      binds)
         # TBD: log change?
 
