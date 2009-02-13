@@ -164,7 +164,7 @@ class LdapBack:
         try:
             self.l.search_s(self.base, ldap.SCOPE_BASE)
         except ldap.NO_SUCH_OBJECT, e:
-            log.warning("Creating non-existing base '%s'.")
+            log.warning("Creating non-existing base '%s'.",self.base)
             entry= { 'objectClass': ['top','organizationalUnit'],
                      'ou': self.base.split(',',1)[0].split('=',1)[1], }
             self.l.add_s(self.base, modlist.addModlist(entry))
@@ -373,7 +373,7 @@ class PosixUser(LdapBack):
         s = {}
         s['objectClass']   = self.obj_class
         s['cn']            = ["%s"     %  self.iso2utf(obj.gecos)]
-        s['sn']            = ["%s"     %  self.iso2utf(obj.gecos)]
+        s['sn']            = ["%s"     %  self.iso2utf(obj.gecos).split(" ").pop()]
         s['uid']           = ["%s"     %  obj.name]
         s['gecos']         = ["%s"     %  self.gecos(obj.gecos)]
         s['uidNumber']     = ["%s"     %  obj.posix_uid]
@@ -421,10 +421,10 @@ class PosixGroup(LdapBack):
         s['objectClass']     = self.obj_class
         s['cn']              = ["%s" % obj.name]
         s['gidNumber']       = ["%s" % obj.posix_gid]
-        if (len(obj.membernames) > 0):
-            s['memberUid']   = obj.membernames
-        if (len(obj.description) > 0):
-            s['description'] = obj.description
+        if (len(obj.members) > 0):
+            s['memberUid']   = obj.members
+        #if (len(obj.description) > 0):
+        #    s['description'] = obj.description
         return s
 
     def get_dn(self,obj):
@@ -459,25 +459,60 @@ class Person(LdapBack):
         LdapBack.__init__(self)
         self.base = base
         self.filter = config.get("ldap","peoplefilter")
-        self.obj_class = ['top','person','organizationalPerson','inetorgperson','eduperson','noreduperson']
+        self.obj_class = ['top','person','organizationalPerson','inetOrgPerson','eduPerson','norEduPerson','ntnuPerson']
         self.ignore_attr_types = []
 
     def get_dn(self,obj):
-        return "uid=" + obj.name + "," + self.base
+        return "uid=" + obj.primary_account_name + "," + self.base
 
     def get_attributes(self,obj):
         s = {}
         s['objectClass']            = self.obj_class
         s['cn']                     = ["%s"     %  self.iso2utf(obj.full_name)]
-        s['sn']                     = ["%s"     %  self.iso2utf(obj.full_name.split()[len(obj.full_name)-1])] # presume last name, is surname
-        s['uid']                    = ["%s"     %  obj.name]
-        s['description']            = ["%s"     %  obj.description]
-        s['userPassword']           = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
-        s['norEduPersonNIN']        = ["%s"     %  obj.birth_date] # Norwegian "Birth number" / SSN FIXME
-        s['norEduPersonBirthDate']  = ["%s"     %  obj.birth_date] # Norwegian "Birth date" FIXME 
-        s['eduPersonPrincipalName'] = ["%s@%s"  %  obj.name, config.get('ldap','eduperson_realm')]
-        # FIXME;
-        #s['mail']                   = s['eduPersonPrincipalName']
+        s['sn']                     = ["%s"     %  self.iso2utf(obj.last_name)]
+        s['givenName']              = ["%s"     %  self.iso2utf(obj.first_name)]
+        s['uid']                    = ["%s"     %  obj.primary_account_name]
+        # FIXME: Must look up in primary account to get password
+        s['userPassword']           = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.primary_account_passwd)]
+        #s['userPassword']           = ["Ikkepassord"] #["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
+        s['eduPersonOrgDn']         = ["dc=ntnu,dc=no"] #Should maybe be in config?
+
+	#must remove duplicate values
+        affiliations = []
+        for aff in obj.affiliations:
+		if aff == 'STUDENT':
+			affiliations.extend(['student','member'])
+                elif aff == 'ANSATT':
+			affiliations.extend(['employee','member'])
+		elif aff == 'TILKNYTTET':
+			affiliations.extend(['affiliate'])
+		elif aff == 'ALUMNI':
+			affiliations.extend(['alum'])
+                else:
+			print "Unknown affiliation: %s" % aff
+        s['eduPersonAffiliation']   = {}.fromkeys(affiliations).keys() 
+
+        # Expecting birth_date from spine on the form "%Y-%m-%d 00:00:00.00"
+        # Ldap wants the form "%Y%m%d".
+        # FIXME: Should probably use datetime or mx.DateTime
+        birth_date= obj.birth_date.split()[0].replace('-','')
+        s['norEduPersonBirthDate']  = ["%s"     %  birth_date]
+        s['norEduPersonNIN']        = ["%s"     %  obj.nin] # Norwegian "Birth number" / SSN 
+        s['eduPersonPrincipalName'] = ["%s@%s"  %  (obj.primary_account_name, config.get('ldap','eduperson_realm'))]
+        if 'ANSATT' in obj.affiliations:
+		s['title'] 	    = 'ansatt'
+        elif 'STUDENT' in obj.affiliations:
+		s['title']          = 'student'
+        elif 'TILKNYTTET' in obj.affiliations:
+ 		s['title']          = 'tilknyttet'
+	elif 'ALUMNI' in obj.affiliations:
+		s['title']          = 'alumnus'
+        else:
+		s['title']                  = ["Ikke title enno"] 
+        if obj.work_title != '': 
+                print "%s"     %  obj.work_title
+        #s['title']                  = ["Ikke title enno"] #["%s"     %  obj.work_title]
+        s['mail']                   = ["%s"     %  obj.email]
         return s
 
 class Alias:

@@ -39,14 +39,12 @@ def main():
         log.error(str(e))
         exit(1)
 
-    systems = [
-        ["ou=ansatt,ou=system,dc=ntnu,dc=no", "user@ansatt"],
-        ["ou=stud,ou=system,dc=ntnu,dc=no", "user@stud"],
+    systems =[ 
         ["ou=nav,ou=system,dc=ntnu,dc=no", "user@nav"]
     ]
-
+         
     for base, spread in systems:
-        print "Syncronizing %s, %s" % (base, spread)
+        log.info("Syncronizing %s, %s" % (base, spread))
         system = ldapbackend.PosixUser(base=base)
         system.begin(incr)
 
@@ -55,7 +53,7 @@ def main():
             for account in s.get_accounts():
                 system.add(account)
         except IOError,e:
-            print "Exception %s occured, aborting" % e
+            log.error("Exception %s occured, aborting" % e)
         else:
             system.close()
 
@@ -64,45 +62,49 @@ def main():
     groups = ldapbackend.PosixGroup(base=config.get("ldap","group_base"))
     persons = ldapbackend.Person(base=config.get("ldap","people_base"))
 
-    # Syncronize users
-    print "Syncronizing users"
+    # Syncronize users 
+    spread = config.get("sync", "account_spread")
+    log.info("Syncronizing users, spread %s" % spread)
+    s.view.set_account_spread(s.tr.get_spread(spread))
     user.begin(incr)
     try:
-        for account in s.get_accounts():
+        accounts = s.get_accounts()
+        log.debug("Antall brukere i get_accounts: %d" % len(accounts))
+        for account in accounts:
             if account.posix_uid == -1: continue # Possible at all?
             if account.full_name == "": continue # Do not add system users to ou=users
             user.add(account)
     except IOError,e:
-        print "Exception %s occured, aborting" % e
+        log.error("Exception %s occured, aborting" % e)
     else:
         user.close()
 
-    # Syncronize groups
-    print "Syncronizing groups"
-    groups.begin(incr)
-    try:
-        for group in s.get_groups():
-            if not group.posix_gid_exists: continue
-            groups.add(group)
-    except IOError,e:
-        print "Exception %s occured, aborting" % e
-    else:
-        groups.close()
-
     # Syncronize persons
-    print "Syncronizing persons"
+    log.info("Syncronizing persons")
     persons.begin(incr)
     try:
-        for person in s.get_persons():
+        for person in [p for p in s.get_persons() if p.primary_account != -1]:
             persons.add(person)
     except IOError,e:
-        print "Exception %s occured, aborting" % e
+        log.error("Exception %s occured, aborting" % e)
     else:
         persons.close()
 
-    print "Final closing"
+    # Syncronize groups
+    log.info("Syncronizing groups")
+    groups.begin(incr)
+    try:
+        for group in s.get_groups():
+            if group.posix_gid == None: continue
+            groups.add(group)
+    except IOError,e:
+        log.error("Exception %s occured, aborting" % e)
+    else:
+        groups.close()
+
+    log.info("Final closing")
     s.close()
-    print "Done"
+    log.info("Done")
 
 
 if __name__ == "__main__":
