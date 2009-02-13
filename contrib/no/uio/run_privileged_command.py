@@ -55,6 +55,8 @@ commands = {
     'dist_NotesID': [cereconf.DIST_NOTESID_SCRIPT, 4],
     # move IMAP users
     'imap_move': ["/local/bin/ssh", 21],
+    # sync src from external servers
+    'sync_files': ["/local/bin/rsync", 3],
     }
 
 def usage(exitcode=0):
