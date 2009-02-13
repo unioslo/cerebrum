@@ -183,14 +183,9 @@ class BofhdExtension(object):
         if not person.has_spread(self.const.spread_ephorte_person):
             person.add_spread(self.const.spread_ephorte_person)
             extra_msg = " (implicitly added ephorte-spread)"
-        if arkivdel:
-            arkivdel = self._get_arkivdel(arkivdel)
-        else:
-            arkivdel = None
-        if journalenhet:
-            journalenhet = self._get_journalenhet(journalenhet)
-        else:
-            journalenhet = None
+
+        arkivdel = self._get_arkivdel(arkivdel)
+        journalenhet = self._get_journalenhet(journalenhet)
         self.ephorte_role.add_role(person.entity_id, self._get_role(role), ou.entity_id,
                                    arkivdel, journalenhet, auto_role='F')
         return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
@@ -205,14 +200,14 @@ class BofhdExtension(object):
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         ou = self._get_ou(stedkode=sko)
-        if arkivdel:
-            arkivdel = self._get_arkivdel(arkivdel)
-        else:
-            arkivdel = None
-        if journalenhet:
-            journalenhet = self._get_journalenhet(journalenhet)
-        else:
-            journalenhet = None
+        arkivdel = self._get_arkivdel(arkivdel)
+        journalenhet = self._get_journalenhet(journalenhet)
+        if self.ephorte_role.is_standard_role(person.entity_id,
+                                              self._get_role(role),
+                                              ou.entity_id,
+                                              arkivdel,
+                                              journalenhet):
+            raise CerebrumError("Cannot delete standard role.")
         self.ephorte_role.remove_role(person.entity_id, self._get_role(role), ou.entity_id,
                                    arkivdel, journalenhet)
         return "OK, removed %s role for %s" % (role, person_id)
@@ -302,7 +297,6 @@ class BofhdExtension(object):
                                                 self._get_arkivdel(arkivdel),
                                                 self._get_journalenhet(journalenhet),
                                                 'T')
-        
         return "OK, set new standard role"
 
     ##
