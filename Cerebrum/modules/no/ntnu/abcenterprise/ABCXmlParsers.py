@@ -26,7 +26,8 @@ import abcconf
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypes
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypesError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
-from Cerebrum.modules.abcenterprise.ABCDataObjects import DataPerson
+#from Cerebrum.modules.abcenterprise.ABCDataObjects import DataPerson
+from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsMixin import DataPersonMixin
 ##from Cerebrum.modules.abcenterprise.ABCDataObjects import DataOU
 from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsMixin import DataOUMixin
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataGroup
@@ -422,7 +423,7 @@ class XMLPerson2Object(XMLEntity2Object):
         # This call with propagate StopIteration when all the (XML) elements
         # are exhausted.
         element = super(XMLPerson2Object, self).next()
-        result = DataPerson()
+        result = DataPersonMixin()
         
         # Iterate over *all* subelements
         for sub in element.getiterator():
@@ -434,7 +435,10 @@ class XMLPerson2Object(XMLEntity2Object):
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in personid: %s" % value
                 type = sub.attrib.get("personidtype")
-                result.add_id(ABCTypes.get_type("personidtype",(type,)),
+                if type == "fnr_closed":
+                    result.fnr_old.append(value)
+                else:
+                    result.add_id(ABCTypes.get_type("personidtype",(type,)),
                               value)
             elif sub.tag == "name":
                 for t,v in self._make_person_name(sub):
@@ -448,7 +452,7 @@ class XMLPerson2Object(XMLEntity2Object):
                         value = "19%s-%s-%s" % (value[4:6], value[2:4], value[0:2])
                     result.birth_date = self._make_mxdate(value)
             elif sub.tag == "gender":
-                result.gender = value
+                result.gender = value.lower()
             elif sub.tag == "address":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in address: %s" % value
@@ -465,7 +469,8 @@ class XMLPerson2Object(XMLEntity2Object):
                                                      ("person", type,)),
                                    value)
             
-        
+            elif sub.tag == "privacy":
+                result.privacy = value.lower()
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return result
