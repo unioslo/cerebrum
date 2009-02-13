@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2007-2008 University of Oslo, Norway
+# Copyright 2007-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -267,6 +267,17 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             'start_date': row['start_date'],
             'end_date': row['end_date']
             })
+
+    # Check standard role. If a person has more than one role, then
+    # one of them should be set as standard role
+    for e_id, p in persons.items():
+        if len(p['roles']) > 1:
+            nr_stdroles = len([1 for x in p['roles'] if x['standard_rolle'] == 'T'])
+            if nr_stdroles == 0:
+                logger.warn('Person %s has %d roles, but no standard role.' % (
+                    e_id, len(p['roles'])))
+            elif nr_stdroles > 1:
+                logger.warn('Person %s has more than one standard role.' % e_id)
                                   
     logger.info("fetching permissions...")
     for row in ephorte_permission.list_permission():
