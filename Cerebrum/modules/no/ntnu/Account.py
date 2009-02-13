@@ -191,8 +191,11 @@ class AccountNTNUMixin(Account.Account):
 
         person.find(self.owner_id)
         primary_trait = person.get_trait(self.const.trait_primary_account)
-        primary_account = primary_trait['target_id']
-        isprimary = (primary_account == self.entity_id)
+        if primary_trait is not None:
+            primary_account = primary_trait['target_id']
+            isprimary = (primary_account == self.entity_id)
+        else:
+            isprimary = False
         
         if not isprimary and pri_min <= current_pri < pri_max:
             return current_pri
