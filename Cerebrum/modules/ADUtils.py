@@ -25,7 +25,7 @@ import time
 
 import cerebrum_path
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, read_password
 from Cerebrum import Errors
 from Cerebrum import Entity
 from Cerebrum import QuarantineHandler
@@ -55,11 +55,14 @@ class SocketCom(object):
         
     def connect(self):    
         try:
+            passwd = read_password("cerebrum", "AD", cereconf.AD_SERVER_HOST)
+            
             self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             logger.debug(">> %s" % self.sockobj.recv(8192).strip())
+            
             logger.debug("<< Authenticating")
-            self.sockobj.send(cereconf.AD_PASSWORD)
+            self.sockobj.send(cereconf.passwd)
             self.read()
             logger.debug("Connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))    
         except:
