@@ -1352,7 +1352,7 @@ class cx_OracleCursor(Cursor):
                 if type(field) is datetime.datetime:
                     raw_result[i][j] = DateTime.DateTime(field.year, field.month,
                                                          field.day, field.hour,
-                                                         field.minute, field.second)
+                                                         field.minute, int(field.second))
         return raw_result
     # end query
 # end cx_OracleCursor
