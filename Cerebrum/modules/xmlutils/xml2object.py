@@ -55,7 +55,7 @@ try:
 except ImportError:
     from cElementTree import parse, iterparse, ElementTree
 
-from mx.DateTime import Date
+from mx.DateTime import Date, DateTimeDelta
 
 import cerebrum_path
 import cereconf
@@ -191,7 +191,9 @@ class DataEmployment(object):
     def is_guest(self):
         return self.kind == self.GJEST
 
-    def is_active(self, date = Date(*time.localtime()[:3])):
+    # IVR 2009-02-16 jazz requested on 2009-02-16 that all employment-related
+    # info should be considered active 3 days prior to the actual start day. 
+    def is_active(self, date = Date(*time.localtime()[:3]) - DateTimeDelta(3)):
         # NB! None <= Date(...) == True
         return self.start <= date and ((not self.end) or
                                        (date <= self.end))
