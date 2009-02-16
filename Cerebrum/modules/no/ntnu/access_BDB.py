@@ -352,6 +352,8 @@ class BDB:
         return groups
 
     def get_affiliations(self):
+        external_ous=[str(int(o)) for o in cereconf.BDB_EXTERNAL_OUS]
+
         cursor = self.db.cursor()
         cursor.execute("""
         SELECT t.id, t.person, to_char(t.siden,'YYYY-MM-DD'),
@@ -371,8 +373,8 @@ class BDB:
           ((t.org_enhet = 100 AND
             (t.fakultet = k.fakultet OR (t.fakultet IS NULL AND k.fakultet IS NULL)) AND
             (t.institutt = k.institutt OR (t.institutt IS NULL AND k.institutt IS NULL)))
-          OR (t.org_enhet IN (344, 243, 146, 22, 145, 101) AND to_char(t.org_enhet) = k.navn))
-        """)
+          OR (t.org_enhet IN (%s) AND to_char(t.org_enhet) = k.navn))
+        """ % ", ".join(external_ous))
         bdb_affs = cursor.fetchall()
         affiliations = []
         for af in bdb_affs:
