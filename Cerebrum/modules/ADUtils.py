@@ -62,7 +62,7 @@ class SocketCom(object):
             logger.debug(">> %s" % self.sockobj.recv(8192).strip())
             
             logger.debug("<< Authenticating")
-            self.sockobj.send(cereconf.passwd)
+            self.sockobj.send(passwd)
             self.read()
             logger.debug("Connecting to:%s %s" % (cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))    
         except:
