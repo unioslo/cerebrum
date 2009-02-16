@@ -330,6 +330,12 @@ class BDBSync:
         cereaffs = self.new_person.list_affiliations(
             source_system=const.system_bdb)
 
+        kjerneider = self.ou.list_external_ids(const.system_kjernen,
+                                               const.externalid_kjerneid_ou)
+        kjerne_map = {}
+        for k in kjerneider:
+            kjerne_map[k['external_id']] = k['entity_id']
+
         stedkoder=self.ou.get_stedkoder()
         sted_map = {}
         for s in stedkoder:
@@ -356,11 +362,14 @@ class BDBSync:
                                     a['person'])
                 continue
             try:
-                ou_id = sted_map["%06d" % a['ou_code']]
+                ou_id = kjerne_map[str(a['ou_kjcode'])]
             except KeyError:
-                self.logger.warning("Affiliation: OU (stedkode %d) does not exist" %
-                                    a['ou_code'])
-                continue
+                try:
+                    ou_id = sted_map["%06d" % a['ou_code']]
+                except KeyError:
+                    self.logger.warning("Affiliation: OU (stedkode %06d, kjerneid %d) does not exist" %
+                                        a['ou_code'], a['ou_kjcode'])
+                    continue
             try:
                 status = int(aff_map[a['aff_type']])
             except KeyError:
