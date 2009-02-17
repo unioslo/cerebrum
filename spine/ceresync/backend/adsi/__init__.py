@@ -158,9 +158,9 @@ class _AdsiBack(object):
                                     self.objectClass):
                 # FIXME: should use SUBTREE something to avoid returning
                 # self.ou
-                if o.distinguishedName == self.ou.distinguishedName:
+                if not 'user' in o.objectClass:
                     continue
-
+                
                 # Supports both cn=name, ou=name, etc.                    
                 name = o.name.split("=")[1]
                 self._remains[name] = o
