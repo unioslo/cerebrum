@@ -327,9 +327,9 @@ class ADUser(_ADAccount):
         except ValueError:
             first_name, last_name= ' ', full_name
 
-        ad_obj.firstName= first_name
-        ad_obj.lastName= last_name
-        ad_obj.fullName= full_name
+        ad_obj.givenName= first_name
+        ad_obj.sn= last_name
+        ad_obj.displayName= full_name
         ad_obj.homeDirectory= obj.homedir
         ad_obj.userPrincipalName= '%s@%s' % (obj.name,obj.domain)
         ad_obj.profilePath= obj.profilepath
