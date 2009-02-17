@@ -60,7 +60,7 @@ class SocketCom(object):
             logger.info(">> %s", self.sockobj.recv(8192))
             
             logger.info("<< Authenticating")
-            self.sockobj.send(passwd)
+            self.sockobj.send(passwd + "\n")
             self.readline()
         except:
             logger.critical("failed connecting to: %s:%s",
