@@ -44,7 +44,7 @@ from os.path import join, normpath, exists
 from os import getcwd
 import mx.DateTime
 
-from nose.tools import assert_raises
+from nose.tools import assert_raises, assert_almost_equals
 
 
 
@@ -266,10 +266,8 @@ class DBTestBase(object):
         SELECT * FROM %s""" % self._get_table("nosetest1"))
 
         now = mx.DateTime.now()
-        assert (now - value["field1"]) < mx.DateTime.DateTimeDelta(0, # days
-                                                                   0, # hours
-                                                                   1, # minutes
-                                                                   0) # seconds
+        diff = (now - value["field1"])
+        assert diff < mx.DateTime.DateTimeDelta(1) # less than 1 day
     # end test_cerebrum_syntax_now_is_sensible
 
 
@@ -847,14 +845,26 @@ class DBTestBase(object):
     # end test_insert_unicode
 
 
-    def test_check_decimal(self):
-        """Check that we can cope with Decimal.
+    def test_check_decimal1(self):
+        """Check that we mask Decimal.
 
         We should check whether there are situations when the backend returns
         a Decimal. Our code is NOT prepared for this.
         """
 
-        raise NotImplementedError("Fix Decimal tests")
+        self.db.execute("""
+        CREATE TABLE nosetest1(
+        field1  NUMERIC(7, 2)   NOT NULL
+        )
+        """)
+
+        x = 12.56
+        self.db.execute("INSERT INTO %s (field1) VALUES (:x)" %
+                        self._get_table("nosetest1"),
+                        locals())
+        value = self.db.query_1("SELECT * from %s" % self._get_table("nosetest1"))
+        assert isinstance(value, float)
+        assert_almost_equals(value, x, places=2)
     # end test_check_decimal
         
         

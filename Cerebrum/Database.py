@@ -1146,6 +1146,12 @@ class PsycoPG2Cursor(PsycoPGCursor):
                     self._convert_cols[n] = date_to_mxdatetime
                 elif item[1] == db_mod._psycopg.DATETIME:
                     self._convert_cols[n] = datetime_to_mxdatetime
+                # we want to coerce Decimal (python 2.5 + psycopg2) to float,
+                # since we do not know how our code base will react to Decimal
+                # 1 - typecode, 5 - scale. psycopg2 returns decimals for
+                # elements that have scale > 0.
+                elif item[1] == db_mod._psycopg.DECIMAL and item[5] > 0:
+                    self._convert_cols[n] = float
         return ret
     # end execute
 # end PsycoPG2Cursor
