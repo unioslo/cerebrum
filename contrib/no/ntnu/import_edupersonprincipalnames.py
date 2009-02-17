@@ -26,6 +26,7 @@ db = Factory.get('Database')()
 db.cl_init(change_program='import_feideid')
 const = Factory.get('Constants')(db)
 person = Factory.get('Person')(db)
+person2 = Factory.get('Person')(db)
 account = Factory.get('Account')(db)
 
 logger = Factory.get_logger("console")
@@ -58,6 +59,7 @@ def sync_feideid(feideperson):
     username = feideperson.get('uid')[0]
     logger.debug("Processing %s" % username)
     person.clear()
+    person2.clear()
     account.clear()
     try:
         account.find_by_name(username)
@@ -66,21 +68,28 @@ def sync_feideid(feideperson):
         return
     person.find(account.owner_id)
     ldap_feideid = feideperson.get('eduPersonPrincipalName')[0]
+
+    try:
+        person2.find_by_external_id(const.externalid_feideid, ldap_feideid, const.system_bdb)
+    except Errors.NotFoundError:
+        pass
+    else:
+        if person.entity_id != person2.entity_id:
+            logger.info("Removing FeideID %s from person cerebrum-%d" %
+                         (ldap_feideid, person2.entity_id))
+            person2.affect_external_id(const.system_bdb, const.externalid_feideid)
+            person2.write_db()
+
     res = person.get_external_id(const.system_bdb,const.externalid_feideid)
     if len(res) == 0:
+        logger.info("Writing FeideID %s to database" % ldap_feideid)
         person.affect_external_id( const.system_bdb, const.externalid_feideid)
         person.populate_external_id(const.system_bdb,const.externalid_feideid,ldap_feideid)
         person.write_db()
-        logger.debug("Writing FeideID %s to database" % ldap_feideid)
     else:
-        res = res[0]
-        t,f,cerebrum_feide_id = res
+        cerebrum_feide_id = res[0]['external_id']
         if cerebrum_feide_id != ldap_feideid:
             logger.info("FeideID was %s. Changing to %s" % (cerebrum_feide_id,ldap_feideid))
-            # Remove old
-            person._delete_external_id(const.system_bdb, const.externalid_feideid)
-            person.write_db()
-            # Add new
             person.affect_external_id(const.system_bdb, const.externalid_feideid)
             person.populate_external_id(const.system_bdb,const.externalid_feideid,ldap_feideid)
             person.write_db()
