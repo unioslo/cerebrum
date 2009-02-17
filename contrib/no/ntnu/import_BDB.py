@@ -687,8 +687,9 @@ class BDBSync:
                                              value=email_addr,
                                              contact_pref=30)
         else:
-            new_person.delete_contact_info(const.system_bdb,
-                                           const.contact_email)
+            # This will mark any contact_info for deletion
+            new_person.populate_contact_info(const.system_bdb)
+
         # Write to database
         new_person.write_db()
 
