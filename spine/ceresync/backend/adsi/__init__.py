@@ -168,9 +168,9 @@ class _AdsiBack(object):
     def close(self):
         """Close the connection to AD"""
         if not self.incr:
-            for obj in self._remains.keys():
-                log.info("Disabling %s",obj)
-                self.delete(_Dummy(obj))
+            for accountname in self._remains.keys():
+                log.info("Disabling %s",accountname)
+                self.delete(_Dummy(accountname))
         self._remains = None
         self.ou = None
 
