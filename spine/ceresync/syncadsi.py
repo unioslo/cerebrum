@@ -24,12 +24,44 @@ from ceresync import sync
 from ceresync import config
 import ceresync.backend.adsi as adsibackend
 
+from sys import exit 
+import os
+import omniORB
+
 log=config.logger
 
+spine_cache= config.get("spine","last_change") or \
+             "/var/lib/cerebrum/sync.last_change"
+
+
 def main():
-    incr = False
-    id = -1
-    s = sync.Sync(incr,id)
+    config.parse_args(config.make_bulk_options())
+
+    incr= config.getboolean('args','incremental')
+    local_id= 0
+    if os.path.isfile(spine_cache):
+        local_id= long(file(spine_cache).read())
+    try:
+        log.info("Connecting to spine-server")
+        s = sync.Sync(incr,local_id)
+    except omniORB.CORBA.TRANSIENT, e:
+        log.error("Unable to connect to spine-server: %s", e)
+        exit(1)
+    except omniORB.CORBA.COMM_FAILURE, e:
+        log.error("Unable to connect to spine-server: %s", e)
+        exit(1)
+    except errors.LoginError, e:
+        log.error("%S", e)
+        exit(1)
+    server_id= long(s.cmd.get_last_changelog_id())
+    log.info("Local id: %d, server_id: %d",local_id,server_id)
+
+    if local_id > server_id:
+        log.warning("local changelogid is larger than the server's!")
+    elif incr and local_id == server_id:
+        log.info("Nothing to be done.")
+        s.close()
+        return
 
     # FIXME: URLs from config
     userAD = adsibackend.ADUser("LDAP://OU=Brukere,DC=tymse,DC=itea,DC=ntnu,DC=no")
@@ -65,6 +97,9 @@ def main():
     else:
         groupAD.close()
     log.info("Done synchronizing groups")
+    if incr or ( not incr and add and update and delete ):
+        log.debug("Storing changelog-id %d", server_id) 
+        file(spine_cache, 'w').write( str(server_id) )
 
 if __name__ == "__main__":
     main()
