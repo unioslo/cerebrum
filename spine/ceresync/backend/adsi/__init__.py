@@ -193,17 +193,6 @@ class _AdsiBack(object):
             if obj.name in self._remains:
                 del self._remains[obj.name]
 
-    def delete(self, obj):
-        ad_obj = self._find(obj.name)
-        if not ad_obj:
-            return None
-        ad_obj.getInfo()
-        if not ad_obj.userAccountControl & 0x00002:
-            ad_obj.userAccountControl |= 0x00002
-        if not self.incr:
-            if obj.name in self._remains:
-                del self._remains[obj.name]
-
     def _move_here(self, dn, accountname):
         """move object referred to with distinguishedName, dn, to currently 
         bound ou"""
@@ -357,6 +346,39 @@ class ADUser(_ADAccount):
             log.warning("No password on %s.", obj.name)
         ad_obj.setInfo()
         return ad_obj
+
+    def add(self, obj):
+        """Adds an object to AD. If it already exist, the existing
+           AD object will be updated instead."""
+        
+        obj_path= config.get('adsi', obj.primary_affiliation)
+        if obj_path == 'None':
+            log.warning("Not adding account '%s' with primary affiliation '%s'",
+                obj.name, obj.primary_affiliation)
+            return
+        if self.ou_path != obj_path:
+            self.ou_path= obj_path
+            self._connect()
+        super(ADUser, self).add(obj)
+
+    def delete(self, obj):
+        try:
+            ad_obj = self._find(obj.name)
+        except OutsideOUError, e:
+            dn, accountname= e
+            self.ou_path='LDAP://'+str(dn).split(',',1)[1]
+            self._connect()
+            ad_obj = self._find(obj.name)
+            
+        if not ad_obj:
+            return None
+        ad_obj.getInfo()
+        if not ad_obj.userAccountControl & 0x00002:
+            ad_obj.userAccountControl |= 0x00002
+        if not self.incr:
+            if obj.name in self._remains:
+                del self._remains[obj.name]
+
 
 class ADGroup(_ADAccount):
     """Backend for Groups in Active Directory. 
