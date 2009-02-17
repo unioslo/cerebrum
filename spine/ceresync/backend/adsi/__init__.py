@@ -278,7 +278,11 @@ class _ADAccount(_AdsiBack):
             already_exists = self._find(obj.name)
         except OutsideOUError, e:
             dn, accountname= e
-            log.info("moving %s from %s", accountname, dn.__str__().encode('cp1252'))
+            log.info("moving %s from %s to %s",
+                accountname.encode('cp1252'), 
+                dn.__str__().encode('cp1252'),
+                self.ou_path,
+            )
             self._move_here(dn, accountname)
             already_exists = True
         if already_exists:
@@ -287,7 +291,7 @@ class _ADAccount(_AdsiBack):
             if self.incr:
                 # in non-incr (full-sync) mode, everything will be
                 # add(), so we won't report those
-                log.warn("Already exists %s, updating instead", obj.name)
+                log.info("'%s' Already exists, updating instead", obj.name)
             return self.update(obj)
         
         ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)
@@ -344,6 +348,7 @@ class ADUser(_ADAccount):
         if obj.passwd:
             dec= Pgp().decrypt(obj.passwd)
             try: 
+                log.info("Updating password on '%s'", obj.name)
                 ad_obj.setPassword(dec)
             except Exception,e:
                 log.warning("Failed to set password on '%s': %s", obj.name, e) 

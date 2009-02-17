@@ -36,7 +36,13 @@ def main():
     groupAD = adsibackend.ADGroup("LDAP://OU=Grupper,DC=tymse,DC=itea,DC=ntnu,DC=no")
 
     log.debug("Retrieving accounts and groups from spine")
-    accounts, groups= s.get_accounts(), s.get_groups()
+    try: 
+        accounts, groups= s.get_accounts(), s.get_groups()
+    except:
+        log.exception("Exception occured. Aborting")
+        s.close()
+        exit(1)
+
     log.debug("Closing connection to spine")
     s.close()
 
