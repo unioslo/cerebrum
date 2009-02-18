@@ -1351,14 +1351,13 @@ class cx_OracleCursor(Cursor):
                          query, params=params, fetchall=fetchall)
 
         # IVR 2009-02-12 FIXME: respect fetchall while making conversions.
-
-        for i in range(len(raw_result)):
-            for j in range(len(raw_result[i])):
-                field = raw_result[i][j]
+        for item in raw_result:
+            for j in range(len(item)):
+                field = item[j]
                 if type(field) is datetime.datetime:
-                    raw_result[i][j] = DateTime.DateTime(field.year, field.month,
-                                                         field.day, field.hour,
-                                                         field.minute, int(field.second))
+                    item[j] = DateTime.DateTime(field.year, field.month,
+                                                field.day, field.hour,
+                                                field.minute, int(field.second))
         return raw_result
     # end query
 # end cx_OracleCursor
