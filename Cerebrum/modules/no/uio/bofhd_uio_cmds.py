@@ -873,7 +873,7 @@ class BofhdExtension(object):
         perm_filter='can_email_address_delete')
     def email_remove_address(self, operator, uname, address):
         et, acc = self.__get_email_target_and_account(uname)
-        lp, dom = self._split_email_address(address)
+        lp, dom = self._split_email_address(address, with_checks=False)
         ed = self._get_email_domain(dom)
         self.ba.can_email_address_add(operator.get_entity_id(),
                                       account=acc, domain=ed)
@@ -1776,7 +1776,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter="can_email_archive_delete")
     def email_delete_archive(self, operator, addr):
-        lp, dom = self._split_email_address(addr)
+        lp, dom = self._split_email_address(addr, with_checks=False)
         ed = self._get_email_domain(dom)
         et, acc = self.__get_email_target_and_account(addr)
         if et.email_target_type <> self.const.email_target_pipe:
@@ -1831,7 +1831,7 @@ class BofhdExtension(object):
         EmailAddress(help_ref="email_address"),
         perm_filter="can_email_pipe_create")
     def email_delete_pipe(self, operator, addr):
-        lp, dom = self._split_email_address(addr)
+        lp, dom = self._split_email_address(addr, with_checks=False)
         ed = self._get_email_domain(dom)
         self.ba.can_email_pipe_create(operator.get_entity_id(), ed)
         ea = Email.EmailAddress(self.db)
@@ -2541,7 +2541,7 @@ class BofhdExtension(object):
         EmailAddress(help_ref='mailing_list_alias'),
         perm_filter='can_email_list_create')
     def email_remove_list_alias(self, operator, alias):
-        lp, dom = self._split_email_address(alias)
+        lp, dom = self._split_email_address(alias, with_checks=False)
         ed = self._get_email_domain(dom)
         remove_addrs = [alias]
         self.ba.can_email_list_create(operator.get_entity_id(), ed)
@@ -2573,7 +2573,7 @@ class BofhdExtension(object):
         EmailAddress(help_ref='mailing_list_alias'),
         perm_filter='can_email_list_create')
     def email_remove_sympa_list_alias(self, operator, alias):
-        lp, dom = self._split_email_address(alias)
+        lp, dom = self._split_email_address(alias, with_checks=False)
         ed = self._get_email_domain(dom)
         remove_addrs = [alias]
         self.ba.can_email_list_create(operator.get_entity_id(), ed)
@@ -2748,7 +2748,27 @@ class BofhdExtension(object):
     # end email_delete_sympa_list
                 
         
-    def _split_email_address(self, addr):
+    def _split_email_address(self, addr, with_checks=True):
+        """Split an e-mail address into local part and domain.
+
+        Additionally, perform certain basic checks to ensure that the address
+        looks sane.
+
+        @type addr: basestring
+        @param addr:
+          E-mail address to split, spelled as 'foo@domain'.
+
+        @type with_checks: bool
+        @param with_checks:
+          Controls whether to perform local part checks on the
+          address. Occasionally we may want to sidestep this (e.g. when
+          *removing* things from the database).
+
+        @rtype: tuple of (basestring, basestring)
+        @return:
+          A pair, local part and domain extracted from the L{addr}.
+        """
+
         if addr.count('@') == 0:
             raise CerebrumError, \
                   "E-mail address (%s) must include domain" % addr
@@ -2757,6 +2777,10 @@ class BofhdExtension(object):
            dom not in cereconf.LDAP['rewrite_email_domain']:
             raise CerebrumError, \
                   "E-mail address (%s) can't contain upper case letters" % addr
+
+        if not with_checks:
+            return lp, dom
+
         ea = Email.EmailAddress(self.db)
         if not ea.validate_localpart(lp):
             raise CerebrumError, "Invalid localpart '%s'" % lp
