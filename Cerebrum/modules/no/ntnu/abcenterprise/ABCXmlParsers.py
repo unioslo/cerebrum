@@ -469,8 +469,8 @@ class XMLPerson2Object(XMLEntity2Object):
                                                      ("person", type,)),
                                    value)
             
-            elif sub.tag == "privacy":
-                result.privacy = value.lower()
+            elif sub.tag == "reserv_publish":
+                result.reserv_publish = value.lower()
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return result

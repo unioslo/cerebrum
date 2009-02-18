@@ -20,16 +20,17 @@ class DataOUMixin(DataOU):
                 kodes = kode
             else:
                 kodes += ", " + kode
-        result = ("%sDataOUMixin: \n"
-            "\treplacedby: %s Stedkoder: %s\n" % (super(DataOUMixin, self).__str__(),
-                                      self.replacedby, kodes))
-       return result
+        result = ("%sDataOUMixin: \n" +
+                    "\treplacedby: %s Stedkoder: %s\n" %
+                    (super(DataOUMixin, self).__str__(),
+                    self.replacedby, kodes))
+        return result
 
 class DataPersonMixin(DataPerson):
     def __init__(self):
         super(DataPersonMixin, self).__init__()
         self.fnr_old = []
-        self.privacy = None
+        self.reserv_publish = None
 
     def __str__(self):
         old_fnr = None
@@ -38,7 +39,8 @@ class DataPersonMixin(DataPerson):
                 old_fnr = old
             else:
                 old_fnr += ", " + old
-        result = ("%sDataPersonMixin: \n"
-                "privacy: %s Old fnr: %s" % (super(DataPersonMixin, self).__str__(),
-                                    self.privacy, old_fnr))
+        result = ("%sDataPersonMixin: \n" +
+                    "\tprivacy: %s Old fnr: %s" %
+                    (super(DataPersonMixin, self).__str__(),
+                    self.reserv_publish, old_fnr))
         return result
