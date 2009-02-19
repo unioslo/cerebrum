@@ -2,11 +2,19 @@
   <span metal:use-macro="tpl/macros/page">
     <span metal:fill-slot="body" tal:omit-tag="">
 
+      <script language="JavaScript">
+      function markAll(name, state)
+      {
+          for (i=0; i < name.length; ++i)
+              name[i].checked = state;
+      }      
+      </script>
+
       <p>
         Medlemmer:
       </p>
 
-      <form action="#" method="post">
+      <form action="#" method="post" name="group_members">
         <input type="HIDDEN" name="action" value="do_group_password">
         <input type="HIDDEN" name="target_id" tal:attributes="value target_id">
 
@@ -24,11 +32,14 @@
         </table>
 
         <p>
-          <input type="SUBMIT" name="choose_some" value="Bytt passord (kun avkryssede)">
+          <input type="BUTTON" name="checkall" value="Velg alle"
+                 onClick="markAll(document.group_members.change_password, true)">
+          <input type="BUTTON" name="uncheckall" value="Nullstill"
+                 onClick="markAll(document.group_members.change_password, false)">
         </p>
 
         <p>
-          <input type="SUBMIT" name="choose_all" value="Bytt passord (alle)"> 
+          <input type="SUBMIT" name="choose_some" value="Bytt passord (kun avkryssede)">
         </p>
 
       </form>
