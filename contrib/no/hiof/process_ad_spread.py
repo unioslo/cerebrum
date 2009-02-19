@@ -61,7 +61,7 @@ co = Factory.get('Constants')(db)
 ac = Factory.get('Account')(db)
 ou = Factory.get('OU')(db)
 person = Factory.get('Person')(db)
-logger = Factory.get_logger("cronjob")
+logger = None
 
 entity_id2uname = {}
 user_diff_attrs = {} # Users which new and old AD attrs differ
@@ -345,6 +345,7 @@ def main():
     except getopt.GetoptError:
         usage(1)
 
+    global logger
     dryrun = False
     person_file = None
     stprog_file = None
@@ -364,6 +365,10 @@ def main():
         elif opt in ('-o', '--out-file'):
             out_file = val
 
+    if not spread_str:
+        usage(1)
+    logger_name = "process_ad_" + str(spread_str).split('@ad_')[1]
+    logger = Factory.get_logger(logger_name)
     si = StudieInfo(person_file, stprog_file)
     j = Job(spread_str, si)
     # Process ad attributes for accounts with this spread
