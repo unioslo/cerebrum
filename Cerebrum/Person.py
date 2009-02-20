@@ -345,7 +345,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
     def find_persons_by_bdate(self, bdate):
         return self.query("""
         SELECT person_id FROM [:table schema=cerebrum name=person_info]
-        WHERE to_date(birth_date, 'YYYY-MM-DD')=:bdate""", locals())
+        WHERE to_date(CAST(birth_date AS TEXT), 'YYYY-MM-DD')=:bdate""", locals())
 
     # Obsolete, use list_persons_by_name instead.
     def find_persons_by_name(self, name, case_sensitive=True):
