@@ -2,12 +2,14 @@
   <span metal:use-macro="tpl/macros/page">
     <span metal:fill-slot="body" tal:omit-tag="">
 
-      <script language="JavaScript">
+      <script type="text/javascript">
+      <!--
       function markAll(name, state)
       {
           for (i=0; i < name.length; ++i)
               name[i].checked = state;
-      }      
+      }
+      // -->
       </script>
 
       <p>
@@ -32,10 +34,19 @@
         </table>
 
         <p>
-          <input type="BUTTON" name="checkall" value="Velg alle"
-                 onClick="markAll(document.group_members.change_password, true)">
-          <input type="BUTTON" name="uncheckall" value="Nullstill"
-                 onClick="markAll(document.group_members.change_password, false)">
+            <script type="text/javascript">
+            <!--
+            document.write(
+              "<input type=\"BUTTON\" name=\"checkall\" value=\"Velg alle\" " +
+                     "onClick=\"markAll(document.group_members.change_password, true)\"> " +
+              "<input type=\"BUTTON\" name=\"uncheckall\" value=\"Nullstill\" " + 
+                     "onClick=\"markAll(document.group_members.change_password, false)\">"
+                     );
+            //-->
+            </script>
+            <noscript>
+                Sl&aring; p&aring; javascript for raske operasjoner p&aring; avkrysningsboksene.
+            </noscript>
         </p>
 
         <p>
