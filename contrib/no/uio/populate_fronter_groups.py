@@ -87,7 +87,7 @@ kategorier:
       Ansvar und.akt:       uio.no:fs:<enhetid>:aktivitetsansvar-sek:<aktkode>
       Alle stud. v/enh:     uio.no:fs:<enhetid>:student-sek
 
-<rolletype> er en av 11 predefinerte roller (jfr. valid_roles). enhetsansvar
+<rolletype> er en av 12 predefinerte roller (jfr. valid_roles). enhetsansvar
 og aktivitetsansvar-gruppene finnes kun for Ifi, som ønsker sine grupper (for
 NIS) bygget litt annerledes. Alle slike grupper hvor det er meningen det skal
 være accounts, får en passende fronterspread, basert på informasjonen fra
@@ -148,7 +148,7 @@ from Cerebrum.modules.no.uio.fronter_lib \
 # Roles that are considered at all
 valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
                "GRUPPELÆRE", "HOVEDLÆRER", "IT-ANSVARL", "LÆRER", "SENSOR",
-               "STUDIEKONS")
+               "STUDIEKONS", "FUNKONTAKT",)
 # Roles that are inherited by entities located at a certain sko or at a
 # certain stprog.
 recursive_roles = ("ADMIN", "DLO", "IT-ANSVARL", "STUDIEKONS")

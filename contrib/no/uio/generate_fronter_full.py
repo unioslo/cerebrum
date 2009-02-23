@@ -561,9 +561,13 @@ view_contacts = {'gacc': '100',
 # 'kull'    - permissions for kull
 # 'student' - permissions for student groups.
 #
-# Each sub-dictionary lists 11 roles that we may encounter, and their
-# permissions with respect to various fronter constructions (fellesrom,
-# lærerrom and so on).
+# Each sub-dictionary lists roles that we may encounter, and their permissions
+# with respect to various fronter constructions (fellesrom, lærerrom and so
+# on). Some entries may be missing (i.e. a specific role may not have any
+# permissions defined for a specific fronter structure; e.g. 'funkontakt' has
+# no permissions defined for 'larer') This means that that particular role
+# does NOT have any permissions wrt the specified group/structure. The code
+# must be prepared for such an eventuality. 
 #
 # The same roles in different sub-dictionaries (may) have different set of
 # attributes.
@@ -616,6 +620,11 @@ kind2permissions = {
                               'larer': Fronter.ROLE_CHANGE,
                               'korridor': admin_lite,
                               'student': view_contacts},
+               'funkontakt': {'felles': Fronter.ROLE_READ,
+                              # 'larer': NOTIMPLEMENTED on purpose
+                              # 'korridor': NOTIMPLEMENTED on purpose
+                              'student': view_contacts},
+
     },
     #
     # Permissions for undakt/EVU-kursaktivitet
@@ -674,6 +683,11 @@ kind2permissions = {
                               'undakt': Fronter.ROLE_CHANGE,
                               'korridor': admin_lite,
                               'student': view_contacts},
+               'funkontakt': {'felles': Fronter.ROLE_READ,
+                              # 'larer': NOTIMPLEMENTED on purpose
+                              'undakt': Fronter.ROLE_READ,
+                              # 'korridor': NOTIMPLEMENTED on purpose
+                              'student': view_contacts,},
     },
     #
     # Permissions for kull.
@@ -699,6 +713,8 @@ kind2permissions = {
                         'korridor': admin_lite,},
              'studiekons': {'kullrom': Fronter.ROLE_CHANGE,
                             'korridor': admin_lite,},
+             'funkontakt': {'kullrom': Fronter.ROLE_READ,},
+                            # 'korridor': NOTIMPLEMENTED on purpose
     },
     'student': {'undakt': Fronter.ROLE_WRITE,
                 'undenh': Fronter.ROLE_WRITE,
@@ -709,7 +725,7 @@ kind2permissions = {
 
 def process_undakt_permissions(template, korridor, fellesrom,
                                larerrom, studentnode, undakt_node):
-    """Assign fronter permissions to undakt roles.
+    """Assign fronter permissions to undakt/evu-kursakt roles.
 
     Works much like L{process_undenh_permissions}, except for
     undakt/EVU-kursakt. 
@@ -761,16 +777,19 @@ def process_undakt_permissions(template, korridor, fellesrom,
         new_acl.setdefault(
             xml_name, {})[studentnode] = view_contacts
 
-        # Role holders have permissions in the undakt/kursakt room, lærerrom,
-        # fellesrom and the corridor:
-        new_acl.setdefault(
-            korridor, {})[xml_name] = role_permissions["korridor"]
+        # Role holders may have permissions in the undakt/kursakt room,
+        # lærerrom, fellesrom and the corridor:
+        if "korridor" in role_permissions:
+            new_acl.setdefault(
+                korridor, {})[xml_name] = role_permissions["korridor"]
         # ... fellesrommet
-        new_acl.setdefault(fellesrom, {})[xml_name] = {
-            'role': role_permissions["felles"]}
+        if "felles" in role_permissions:
+            new_acl.setdefault(fellesrom, {})[xml_name] = {
+                'role': role_permissions["felles"]}
         # ... lærerrommet
-        new_acl.setdefault(larerrom, {})[xml_name] = {
-            'role': role_permissions["larer"]}
+        if "larer" in role_permissions:
+            new_acl.setdefault(larerrom, {})[xml_name] = {
+                'role': role_permissions["larer"]}
         # ... ann finally undakt/kursakt room
         new_acl.setdefault(undakt_node, {})[xml_name] = {
             'role': role_permissions["undakt"]}
@@ -835,13 +854,18 @@ def process_undenh_permissions(template, korridor, fellesrom,
         new_acl.setdefault(xml_name, {})[xml_name] = view_contacts
 
         # Role holders have special permissions in the student corridor.
-        new_acl.setdefault(korridor, {})[xml_name] = role_permissions["korridor"]
+        if "korridor" in role_permissions:
+            new_acl.setdefault(korridor, {})[xml_name] = \
+                                         role_permissions["korridor"]
 
-        # Felles/lærerrom permissions
-        new_acl.setdefault(fellesrom, {})[xml_name] = {
-            'role': role_permissions["felles"]}
-        new_acl.setdefault(larerrom, {})[xml_name] = {
-            'role': role_permissions["larer"]}
+        # ... fellesrommet
+        if "felles" in role_permissions:
+            new_acl.setdefault(fellesrom, {})[xml_name] = {
+                'role': role_permissions["felles"]}
+        # ... lærerrommet
+        if "larer" in role_permissions:
+            new_acl.setdefault(larerrom, {})[xml_name] = {
+                'role': role_permissions["larer"]}
 
         # Role holders have special permissions wrt the student group.
         new_acl.setdefault(
@@ -892,7 +916,9 @@ def process_kull_permissions(template, korridor, kullrom, studentnode):
         new_acl.setdefault(xml_name, {})[xml_name] = view_contacts
 
         # The role holders have permissions in the corridor...
-        new_acl.setdefault(korridor, {})[xml_name] = role_permissions["korridor"]
+        if "korridor" in role_permissions:
+            new_acl.setdefault(korridor, {})[xml_name] = \
+                                         role_permissions["korridor"]
 
         # ... and in the room itself.
         new_acl.setdefault(kullrom, {})[xml_name] = {
