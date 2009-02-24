@@ -107,24 +107,6 @@ $widgets.viewInfo($info, $notice)
 </div>
 #end def
 
-#def joinGroup($entity)
-    <div id="joinGroupBox" class="edit box" style="display:none;">
-        <h3>$_('Join group')</h3>
-        <form action="/group/join_group" method="post">
-            <div class="hidden">
-                <input type="hidden" name="entity" value="$html_quote($entity.get_id())" />
-            </div>
-            <div class="required">
-                $form_widgets.input('name', 'Group name', $klass="ac_group")
-            </div>
-            <div class="buttons">
-                <input type="submit" value="$_('Join group')" />&#x0020;
-                <input type="button" value="$_('Cancel')" class="cancel" />
-            </div>
-        </form>
-    </div>
-#end def
-
 #def viewMembers($group)
 #set $members = $group.get_group_members()
 $members.sort(lambda x,y: cmp(from_spine_decode(x.get_type().get_name()+x.get_name()), from_spine_decode(y.get_type().get_name()+y.get_name())))
@@ -180,41 +162,5 @@ $members.sort(lambda x,y: cmp(from_spine_decode(x.get_type().get_name()+x.get_na
     #end for
 </div>
 #end if
-#end def
-
-## Used by person and account view-templates to display groups an account has.
-#def listGroups($account)
-    #set $primary_group = ''
-    #if $account.is_posix()
-        #set $primary_group = $account.get_primary_group().get_name()
-    #end if
-
-    #set $direct_groups = $account.get_direct_groups()
-    #for $group in $account.get_groups()
-        <div class="item">
-            #set $group_name = $spine_to_web($group.get_name())
-            #set $disabled = ""
-            #set $header = "Group"
-            #if $group not in $direct_groups
-                #set $disabled = 'disabled="disabled" '
-                #set $header = "Indirect group"
-            #elif $group_name == $primary_group
-                #set $disabled = 'disabled="disabled" '
-            #end if
-            
-            #set $name = "member_%s_%s" % ($html_quote($account.get_id()), $html_quote($group.get_id()))
-            <input type="checkbox" name="$name" $disabled/>
-            <em>$_($header):</em> $group_name
-            $object_link($group, text="view", _class="action")
-            $object_link($group, text="edit", method="edit", _class="action")
-            $remember_link($group, _class="action")
-            #if $group_name == $primary_group
-                <span class="extra">(primary)</span>
-            #end if
-            #if $group.is_posix()
-                <span class="extra">(posix)</span>
-            #end if
-        </div>
-    #end for
 #end def
 
