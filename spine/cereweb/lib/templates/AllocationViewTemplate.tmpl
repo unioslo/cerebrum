@@ -23,7 +23,7 @@
 #extends EntityViewTemplate
 #attr $widgets = Widgets()
 
-#def viewActions($transaction, $allocation)
+#def viewActions($allocation)
     #set $id = $url_quote($allocation.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
@@ -37,9 +37,9 @@
 #def viewContent($transaction, $allocation)
     $viewInfo($allocation)
     $viewMachines($allocation)
-    $viewAccounts($allocation, $transaction)
+    $viewAccounts($allocation)
     ##$addNote($allocation)
-    ##$viewNotes($allocation, $transaction)
+    ##$viewNotes($allocation)
     $viewHistoryLog($allocation)
 </div>
 #end def

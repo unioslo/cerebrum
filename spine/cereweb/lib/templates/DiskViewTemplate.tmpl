@@ -23,7 +23,7 @@
 #from urllib import urlencode
 #attr $widgets = Widgets()
 
-#def viewActions($transaction, $disk)
+#def viewActions($disk)
     #set $id = $url_quote($disk.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
@@ -34,14 +34,14 @@
 #end def
 
 #def viewContent($transaction, $disk)
-    $viewInfo($disk, $transaction)
+    $viewInfo($disk)
     $addNote($disk)
-    $viewTraits($entity, $transaction)
-    $viewNotes($disk, $transaction)
+    $viewTraits($entity)
+    $viewNotes($disk)
     $viewHistoryLog($disk)
 #end def
 
-#def viewInfo($disk, $tr)
+#def viewInfo($disk)
     #set $info = []
     #set $host_name = $spine_to_web($disk.get_host().get_name())
     $info.append(($_('Host'), $object_link($disk.get_host(),text=$host_name)))

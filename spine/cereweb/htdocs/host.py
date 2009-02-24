@@ -63,6 +63,8 @@ def view(transaction, id):
     page.title = _('Host %s') % spine_to_web(host.get_name())
     page.set_focus('host/view')
     page.links = _get_links()
+    page.tr = transaction
+
     server_type_searcher = transaction.get_email_server_type_searcher()
     type_names = []
     for type in server_type_searcher.search():
@@ -83,7 +85,7 @@ def edit(transaction, id):
     page.title = _("Edit ") + object_link(host, text=host_name)
     page.set_focus("host/edit")
     page.links = _get_links()
-
+    
     edit = HostEditTemplate()
     edit.title = _('Edit ') + object_link(host, text=host_name) + _(':')
     content = edit.editHost(transaction, host)

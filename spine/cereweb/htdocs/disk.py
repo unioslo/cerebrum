@@ -64,6 +64,8 @@ def view(transaction, id):
     page.links = _get_links()
     page.entity_id = int(id)
     page.entity = disk
+    page.tr = transaction
+
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True

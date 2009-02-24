@@ -22,7 +22,7 @@
 #extends EntityViewTemplate
 #attr $widgets = Widgets()
 
-#def viewActions($transaction, $allocationperiod)
+#def viewActions($allocationperiod)
     #set $id = $url_quote($allocationperiod.get_id())
     <ul>
         <li><a href="edit?id=$id">$_("edit info")</a></li>
@@ -34,9 +34,9 @@
 
 ## Main method for creating the allocationperiod view page.
 #def viewContent($transaction, $allocationperiod)
-    $viewInfo($allocationperiod, $transaction)
+    $viewInfo($allocationperiod)
     ##$addNote($allocationperiod)
-    ##$viewNotes($allocationperiod, $transaction)
+    ##$viewNotes($allocationperiod)
     $viewHistoryLog($allocationperiod)
 #end def
 
