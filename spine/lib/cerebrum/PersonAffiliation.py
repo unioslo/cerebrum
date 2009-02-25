@@ -46,7 +46,7 @@ class PersonAffiliation(DatabaseClass):
         DatabaseAttr('status', table, PersonAffiliationStatus, write=True),
         DatabaseAttr('create_date', table, Date),
         DatabaseAttr('last_date', table, Date),
-        DatabaseAttr('deleted_date', table, Date),
+        DatabaseAttr('deleted_date', table, Date, optional=True),
     )
 
     db_attr_aliases = {
