@@ -64,11 +64,9 @@ class SearchClass(DatabaseTransactionClass):
 
     def get_alive_slots(self): # FIXME: dårlig navn?
         alive = {}
-        mine = object() # make a unique object
         for attr in self.slots:
-            val = getattr(self, attr.var_private, mine)
-            if val is not mine:
-                alive[attr.name] = val
+            if hasattr(self, attr.var_private):
+                alive[attr.name] = getattr(self, attr.var_private)
         return alive
 
     def clear(self):
