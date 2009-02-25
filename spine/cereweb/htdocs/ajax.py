@@ -20,7 +20,7 @@
 
 import cherrypy
 
-from lib import cjson
+import cjson
 from sets import Set
 
 from SpineIDL.Errors import NotFoundError

@@ -17,7 +17,6 @@ install: install-lib
 install-lib: $(sources)
 	$(INSTALL) -d ${WEBROOT}/lib
 	$(INSTALL) -m 644 $^ $(WEBROOT)/lib/
-	$(INSTALL) -m 644 cjson.so $(WEBROOT)/lib/
 
 clean:
 	$(MAKE) -C templates $@

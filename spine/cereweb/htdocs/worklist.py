@@ -20,7 +20,7 @@
 
 import cherrypy
 
-from lib import cjson
+import cjson
 from lib import utils
 from SpineIDL.Errors import NotFoundError
 from lib.templates.WorkListTemplate import WorkListTemplate
