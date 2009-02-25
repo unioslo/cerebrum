@@ -1315,7 +1315,13 @@ def sync_group(affil, gname, descr, mtype, memb, visible=False, recurse=True,
                 if (mtype == co.entity_group and
                     correct_visib == co.group_visibility_internal and
                     (not known_FS_groups.has_key(member))):
-                    destroy_group(member, recurse=recurse)
+                    # IVR 2009-02-25 TBD: It has been decided (by baardj, jazz
+                    # and ivr) that deletion *cannot* be implemented until it
+                    # is THOROUGHLY and precisely specified. Until such
+                    # specification is forthcoming, no deletion should be
+                    # performed (recursive or otherwise).
+                    # destroy_group(member, recurse=recurse)
+                    pass
 
     for member in members.keys():
         group.add_member(member)
