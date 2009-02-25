@@ -903,6 +903,7 @@ class PersonAffiliationsSearcher(Searcher):
         tr = self.transaction
 
         main = tr.get_person_affiliation_searcher()
+        main.set_deleted_date_exists(False)
         main.join_name = 'person'
 
         person_name = tr.get_person_name_searcher()
