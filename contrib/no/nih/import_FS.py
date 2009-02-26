@@ -37,9 +37,9 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.modules.no.uio import AutoStud
 
-default_personfile = "/cerebrum/dumps/FS/merged_persons.xml"
-default_studieprogramfile = "/cerebrum/dumps/FS/studieprog.xml"
-default_emnefile = "/cerebrum/dumps/FS/emner.xml"
+default_personfile = "/cerebrum/nih/dumps/FS/merged_persons.xml"
+default_studieprogramfile = "/cerebrum/nih/dumps/FS/studieprog.xml"
+default_emnefile = "/cerebrum/nih/dumps/FS/emner.xml"
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
 
