@@ -26,7 +26,9 @@ Address, Gender etc. type."""
 
 from Cerebrum import Constants
 from Cerebrum.Constants import _SpreadCode, \
-                               _EntityExternalIdCode
+                               _EntityExternalIdCode, \
+                               _PersonAffiliationCode,\
+                               _PersonAffStatusCode
 
 class Constants(Constants.Constants):
     ## affiliations for others
