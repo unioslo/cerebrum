@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -63,6 +63,6 @@ class Constants(Constants.Constants):
     externalid_adsid = _EntityExternalIdCode('ADSID',
                                              Constants.Constants.entity_account,
                                              'SID for account as registered in AD')
-    externalid_adsid = _EntityExternalIdCode('ADGUID',
+    externalid_adguid = _EntityExternalIdCode('ADGUID',
                                              Constants.Constants.entity_account,
                                              'GUID for account as registered in AD')
