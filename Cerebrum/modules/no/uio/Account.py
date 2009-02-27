@@ -111,6 +111,10 @@ class AccountUiOMixin(Account.Account):
                 self.set_home(spread, tmp['homedir_id'])
             except Errors.NotFoundError:
                 pass  # User has no homedir for this spread yet
+        elif spread == self.const.spread_uio_notes_account:
+            if self.owner_type == self.const.entity_group:
+                raise Errors.CerebrumError, \
+                      "Cannot add Notes-spread to a non-personal account."
         return ret
 
     def set_home(self, spread, homedir_id):
