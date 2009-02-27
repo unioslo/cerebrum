@@ -133,7 +133,7 @@ class BofhdExtension(object):
         x = object.__new__(cls)
         return x
 
-    def __init__(self, server, default_zone='nmh'):
+    def __init__(self, server, default_zone='nih'):
         self.server = server
         self.logger = server.logger
         self.util = server.util
@@ -158,9 +158,9 @@ class BofhdExtension(object):
 
 
     def get_help_strings(self):
-        return (bofhd_nmh_help.group_help,
-                bofhd_nmh_help.command_help,
-                bofhd_nmh_help.arg_help)
+        return (bofhd_nih_help.group_help,
+                bofhd_nih_help.command_help,
+                bofhd_nih_help.arg_help)
     
     def get_commands(self, account_id):
         try:
