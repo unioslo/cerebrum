@@ -113,7 +113,7 @@ class AccountUiOMixin(Account.Account):
                 pass  # User has no homedir for this spread yet
         elif spread == self.const.spread_uio_notes_account:
             if self.owner_type == self.const.entity_group:
-                raise self._db.IntegrityError, \                      
+                raise self._db.IntegrityError, \
                       "Cannot add Notes-spread to a non-personal account."
         return ret
 
