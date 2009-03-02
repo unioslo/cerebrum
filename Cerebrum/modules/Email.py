@@ -248,6 +248,10 @@ class EmailConstants(Constants.Constants):
     email_server_type_sympa = _EmailServerTypeCode(
         'sympa',
         "Server is a Sympa mailing list server.")
+
+    email_server_type_exchange = _EmailServerTypeCode(
+        'exchange',
+        "Exchange server.")    
     
     email_target_filter_greylist = _EmailTargetFilterCode(
         'greylist',
