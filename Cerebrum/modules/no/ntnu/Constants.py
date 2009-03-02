@@ -95,6 +95,10 @@ class Constants(Constants.Constants):
         Constants.Constants.entity_person,
         'The unique identifier for a user in FEIDE')
 
+    externalid_business_reg_num = _EntityExternalIdCode('BUSINESS_REG_NUM',
+        Constants.Constants.entity_ou,
+        'The norwegian Business Register Number')
+
     system_lt = _AuthoritativeSystemCode('Kjernen', 'Kjernen')
     system_kjernen = _AuthoritativeSystemCode('Kjernen', 'Kjernen')
     perspective_kjernen = _OUPerspectiveCode('Kjernen', 'Kjernen')
