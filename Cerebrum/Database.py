@@ -1347,8 +1347,8 @@ class cx_OracleCursor(Cursor):
 
 
     def query(self, query, params=(), fetchall=True):
-        raw_result = super(cx_OracleCursor, self).query(
-                         query, params=params, fetchall=fetchall)
+        raw_result = list(super(cx_OracleCursor, self).query(
+                         query, params=params, fetchall=fetchall))
 
         # IVR 2009-02-12 FIXME: respect fetchall while making conversions.
         for item in raw_result:
