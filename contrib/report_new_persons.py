@@ -88,7 +88,8 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hds:c:t:f:",
                                    ["help", "dryrun", "start-date=",
-                                    "change-program=", "mail-to"])
+                                    "change-program=", "mail-to=",
+                                    "mail-from="])
     except getopt.GetoptError:
         usage(1)
 
