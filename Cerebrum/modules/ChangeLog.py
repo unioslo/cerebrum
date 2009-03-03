@@ -82,7 +82,8 @@ class ChangeLog(object):
 
     def get_log_events(self, start_id=0, max_id=None, types=None,
                        subject_entity=None, dest_entity=None,
-                       any_entity=None, change_by=None, sdate=None):
+                       any_entity=None, change_by=None, change_program=None,
+                       sdate=None):
         if any_entity and (dest_entity or subject_entity):
             raise self.ProgrammingError, "any_entity is mutually exclusive with dest_entity or subject_entity"
         where = ["change_id >= :start_id"]
@@ -100,6 +101,9 @@ class ChangeLog(object):
         if change_by is not None:
             where.append("change_by=:change_by")
             bind['change_by'] = int(change_by)
+        if change_program is not None:
+            where.append("change_program=:change_program")
+            bind['change_program'] = change_program
         if max_id is not None:
             where.append("change_id <= :max_id")
             bind['max_id'] = int(max_id)
