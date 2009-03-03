@@ -177,17 +177,17 @@ class AccountNTNUMixin(Account.Account):
                 break
         if status is None:
             raise ValueError, "Person don't have that affiliation"
-        affiliation = str(self.const.PersonAffiliation(int(affiliation)))
+        affiliationstr = str(self.const.PersonAffiliation(int(affiliation)))
 
         # Find the range that we resolve to
         pri_ranges = cereconf.ACCOUNT_PRIORITY_RANGES
         if not isinstance(pri_ranges, dict):
             return None
-        if not affiliation in pri_ranges:
-            affiliation = '*'
-        if not status in pri_ranges[affiliation]:
+        if not affiliationstr in pri_ranges:
+            affiliationstr = '*'
+        if not status in pri_ranges[affiliationstr]:
             status = '*'
-        pri_min, pri_max = pri_ranges[affiliation][status]
+        pri_min, pri_max = pri_ranges[affiliationstr][status]
 
         person.find(self.owner_id)
         primary_trait = person.get_trait(self.const.trait_primary_account)
