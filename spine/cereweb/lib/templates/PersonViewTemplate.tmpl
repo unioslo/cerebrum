@@ -69,7 +69,7 @@
     $info.append(($_("Name"), $spine_to_web(get_lastname_firstname($person))))
     $info.append(($_("Gender"), $spine_to_web($person.get_gender().get_description())))
     $info.append(($_("Date of birth"), $html_quote($strftime($person.get_birth_date()))))
-    $info.append(($_("Description"), $spine_to_web($person.get_description()))))
+    $info.append(($_("Description"), $spine_to_web($person.get_description())))
     $widgets.viewInfo($info, $notice)
 #end def
 
