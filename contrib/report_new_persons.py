@@ -27,6 +27,8 @@ Cerebrum.
 import sys
 import getopt
 from mx import DateTime 
+
+import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
