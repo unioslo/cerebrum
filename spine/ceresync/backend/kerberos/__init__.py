@@ -46,15 +46,12 @@ class Account:
         self.keytab= keytab or config.get('kerberos', 'keytab')
 
         # If dryrun is True, no changes will be made to kerberos.
-        self.dryrun= config.has_option('kerberos','dryrun') and \
-                config.getboolean('kerberos','dryrun') or \
-                False
+        self.dryrun= config.getboolean('kerberos','dryrun',default=False)
         if self.dryrun:
             log.info("Dry run. No changes will be made to kerberos.")
         
         self.reserved= ['default']
-        if config.has_option('kerberos','reserved'):
-            self.reserved.extend(config.get('kerberos','reserved').split())
+        self.reserved += config.get('kerberos','reserved',default='').split()
 
         # Use a non-default cache-file so a rogue kinit won't affect the script.
         os.putenv('KRB5CCNAME', 'FILE:/tmp/krb5cc_%d_synckerberos' % os.geteuid())
