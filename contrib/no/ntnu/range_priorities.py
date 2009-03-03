@@ -129,7 +129,6 @@ def main():
         elif opt in ('--newfromperson','-n'):
             newfromperson = True
     
-    print affiliation, newfromperson
     range_priorities(affiliation, newfromperson)
 
 if __name__ == '__main__':
