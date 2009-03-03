@@ -25,6 +25,8 @@ from ceresync.backend import ldapbackend
 from ceresync import config
 import traceback
 
+log = config.logger
+
 def main():
     config.parse_args()
 
