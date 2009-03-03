@@ -53,6 +53,7 @@ logger = Factory.get_logger("cronjob")
 
 # Default choices for script options
 options = {"affiliations": False,
+           "source_system": None,
            "details": False,
            "header": None,
            "events": "person_create,account_create,group_create",
@@ -71,6 +72,8 @@ def usage(exitcode=0, message=None):
     --help           Prints this message.
     
     --affiliations   Break down totals by affiliation also.
+    
+    --source-system  Show information for given source system.
     
     --from           Start date for events to be processed (inclusive).
                      Default value is Monday of last week.
@@ -158,7 +161,12 @@ def main():
         if options['affiliations']:
             processor.calculate_count_by_affiliation()
 
+        # count by source system only makes sense for person entities
+        if options['source_system'] and str(current_type) == 'person:create':
+            processor.calculate_count_by_source_system(options['source_system'])
+
         processor.print_report(print_affiliations=options['affiliations'],
+                               print_source_system=bool(options['source_system']),
                                print_details=options['details'])
 
     print ""  # For a nice newline at the end of the report
@@ -169,9 +177,10 @@ if __name__ == '__main__':
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   "hadf:t:h:e:",
+                                   "hadf:t:h:e:s:",
                                    ["help", "affiliations", "details",
-                                    "from=", "to=", "header=", "events="])
+                                    "from=", "to=", "header=", "events=",
+                                    "source-system="])
     except getopt.GetoptError:
         # print help information and exit
         usage(1)
@@ -200,6 +209,10 @@ if __name__ == '__main__':
             logger.debug("Will process and display info about affiliations")
             options['affiliations'] = True
 
+        elif opt in ('-s', '--source-system',):
+            logger.debug("Will process and display info about source system")
+            options['source_system'] = val
+
         elif opt in ('-d', '--details',):
             logger.debug("Will display details about the events in question")
             options['details'] = True
@@ -215,5 +228,3 @@ if __name__ == '__main__':
     main()
 
     logger.info("Statistics for Cerebrum activities - done")
-
-# arch-tag: 8aa29596-b8c1-11da-872b-80bcc4277318

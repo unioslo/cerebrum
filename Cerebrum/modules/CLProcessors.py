@@ -51,6 +51,7 @@ __version__ = "$Revision$"
 db = Factory.get('Database')()
 constants = Factory.get('Constants')(db)
 account = Factory.get('Account')(db)
+person = Factory.get('Person')(db)
 logger = Factory.get_logger("cronjob")
 
 
@@ -171,7 +172,7 @@ class EventProcessor(object):
         return len(self._entity_ids)
     
 
-    def print_report(self, print_affiliations=False,
+    def print_report(self, print_affiliations=False, print_source_system=False,
                      print_details=False):
         """Prints summary of collected info.
 
@@ -181,7 +182,12 @@ class EventProcessor(object):
         @param print_affiliations: Whether or not affiliation info
             should be printed.
         @type print_affiliations: Boolean
-
+        @param print_source_system: Whether or not source system info
+            should be printed.
+        @type print_source_system: Boolean
+        @param print_details: Whether or not detailed info should be
+            printed.
+        @type print_details: Boolean
         """
         print ""
         print ("Event:        '%s'" % self._description),
@@ -190,6 +196,9 @@ class EventProcessor(object):
 
         if print_affiliations:
             self._print_affiliation_info()
+
+        if print_source_system:
+            self._print_source_system_info()
 
         if print_details:
             self._print_details()
@@ -226,6 +235,17 @@ class EventProcessor(object):
                 print outline
         
         print no_affiliation_line
+
+
+    def _print_source_system_info(self):
+        """Prints detailed info for this particular prosessor.
+
+        Default is to print no details, letting those subclasses that
+        have interesting details to tell decide for themselves if they
+        have something to provide here
+        
+        """
+        pass
 
 
     def _print_details(self):
@@ -297,7 +317,6 @@ class EventProcessor(object):
             designated_affiliation = self.get_most_significant_affiliation(affiliations)
 
         self._add_to_affiliation(designated_affiliation)   
-        
 
 
 class CreatePersonProcessor(EventProcessor):
@@ -308,10 +327,39 @@ class CreatePersonProcessor(EventProcessor):
         EventProcessor.__init__(self)
         self._log_event = int(constants.person_create)
         self._description = "Create Person"
+        self._person2account = {}
+        self._persons_by_source_system = {}
         
+
+    def calculate_count_by_source_system(self, source_system):
+        """Implementations of superclass' abstract function."""
+        logger.debug("Given source system: " + source_system)
+        self._source_system = source_system
+        for current_entity in self._entity_ids:
+            logger.debug("Checking source_system for person entity '%s'", current_entity)
+
+            person.clear()
+            try:
+                person.find(current_entity)
+            except NotFoundError:
+                # Unable to look up person (deleted? merged?) 
+                logger.debug("Unable to find person with entity-id '%s'" % current_entity)
+                continue
+
+            event_rows = person.get_external_id()
+            source_as_num = event_rows[0]['source_system']
+            source = str(constants.AuthoritativeSystem(source_as_num))
+            if source == source_system:
+                logger.debug("Source system for person '%s' is %s " % (
+                    current_entity, source))
+                self._persons_by_source_system.setdefault(source_system,
+                                                          []).append(current_entity)
+            # person -> account mapping
+            self._person2account[current_entity] = person.get_primary_account()
+
+
     def calculate_count_by_affiliation(self):
         """Implementations of superclass' abstract function."""
-        person = Factory.get('Person')(db)
         for current_entity in self._entity_ids:
             logger.debug("Checking affiliations for person entity '%s'", current_entity)
 
@@ -336,7 +384,41 @@ class CreatePersonProcessor(EventProcessor):
             
                 logger.debug("Source for entity '%s' determined to be %s " % (current_entity, source))
                 self._add_to_affiliation(no_affiliation + " (source: " + source + ")")
+            
 
+    def _print_details(self):
+        """Provides the entity_id's of the persons created."""
+        p_ids = []
+        for entity_id in self._entity_ids:
+            person.clear()
+            person.find(entity_id)
+            p_ids.append(entity_id)
+        if p_ids:
+            print "Enitity ids for created persons:"
+            print textwrap.fill(" ".join(map(str,p_ids)), 76)
+        else:
+            print "No new persons."
+
+
+    def _print_source_system_info(self):
+        """Implementations of superclass' abstract function."""
+        print ""
+        if not self._persons_by_source_system:
+            print "No new persons from source system: " + self._source_system
+            return
+
+        for source, persons in self._persons_by_source_system.iteritems():
+            print "Created persons from source system: " + source
+            for p_id in persons:
+                tmp = "  id:%8s" % p_id
+                a_id = self._person2account[p_id]
+                if a_id:
+                    account.clear()
+                    account.find(a_id)
+                    uname = account.account_name
+                    tmp += ", account: %s" % uname 
+                print tmp
+        print ""
 
 
 class CreateAccountProcessor(EventProcessor):
@@ -353,7 +435,6 @@ class CreateAccountProcessor(EventProcessor):
         for current_entity in self._entity_ids:
             logger.debug("Checking affiliations for person entity '%s'", current_entity)
 
-            account = Factory.get('Account')(db)
             account.clear()
             account.find(current_entity)
             affiliation_rows = account.list_accounts_by_type(account_id=current_entity)
