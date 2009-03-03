@@ -43,20 +43,20 @@ def range_priorities(affiliation=None, add_person_affiliations=False):
     old_account_types = {}
     new_account_types = {}
 
-    logger.info("Getting all accounts")
+    logger.debug("Getting all accounts")
 
     if affiliation:
         all_accounts = account.list_accounts_by_type(affiliation=affiliation)
     else:
         all_accounts = account.list(filter_expired=True)
 
-    logger.info("Done getting all accounts")
+    logger.debug("Done getting all accounts")
 
     for ac in all_accounts:
         account.clear()
         account.find(int(ac['account_id']))
-        logger.info("*******************START***********************************")
-        logger.info("Found account |%s| for |%s|" % (account.account_name,
+        logger.debug("*******************START***********************************")
+        logger.debug("Found account |%s| for |%s|" % (account.account_name,
         						 account.owner_id))
     
         person.clear()
@@ -65,7 +65,7 @@ def range_priorities(affiliation=None, add_person_affiliations=False):
         except Errors.NotFoundError, e:
             continue
 
-        logger.info("Getting account types")
+        logger.debug("Getting account types")
 
         old_account_types = account.get_account_types()
         old_pri={}
@@ -77,7 +77,7 @@ def range_priorities(affiliation=None, add_person_affiliations=False):
         else:
             affiliations = old_account_types
         
-        logger.info("Rearranging priorities for |%s|.", account.account_name)
+        logger.debug("Rearranging priorities for |%s|.", account.account_name)
         for a in affiliations:
             ou_id=int(a['ou_id'])
             affiliation=int(a['affiliation'])
@@ -91,14 +91,14 @@ def range_priorities(affiliation=None, add_person_affiliations=False):
                     account.set_account_type(ou_id, affiliation, new_pri)
                     account.write_db()
                 except Exception,msg:
-                    logger.info("Manual intervention required for this user\nReason:%s" % msg)
+                    logger.warning("Manual intervention required for this user\nReason:%s" % msg)
 
         new_account_types = account.get_account_types()
         for n in new_account_types:
-    	    logger.info("New priority %d for affiliation %d to ou %d" % (int(n['priority']),
+    	    logger.debug("New priority %d for affiliation %d to ou %d" % (int(n['priority']),
                                                                          int(n['affiliation']),
                                                                          int(n['ou_id'])))
-        logger.info("*******************END*************************************")
+        logger.debug("*******************END*************************************")
         db.commit()
 
 def usage(e):
