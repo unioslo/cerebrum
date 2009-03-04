@@ -35,22 +35,7 @@ posix_spreads=(
     "user@stud"
     )
 
-spread_homedirs = {
-    #"user@ansatt":
-    #[  ("/home/ahomea", 1, 1),
-    #   ("/home/ahomeb", 1, 1),
-    #   ("/home/ahomec", 1, 1),
-    #   ("/home/ahomed", 1, 1),
-    #   ("/home/ahomee", 1, 1),
-    #   ("/home/ahomef", 1, 1) ],
-    "user@stud":
-    [  ("/home/homeo", 2, 1),
-       ("/home/homep", 2, 1),
-       ("/home/homeq", 2, 1),
-       ("/home/homer", 2, 1),
-       ("/home/homes", 2, 1),
-       ("/home/homet", 2, 1) ]
-    }
+spread_homedirs = cereconf.SPREAD_HOMEDIRS
 
 
 account_name_regex=re.compile("^[a-z][a-z0-9]*$")
