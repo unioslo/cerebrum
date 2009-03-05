@@ -104,8 +104,7 @@ class LdifBack( object ):
             self.records = ldif.ParseLDIF(file) # ldif.ParseLDIF is deprecated... re-implement later
             file.close() 
         except IOError,e:
-            print "An error occured while importing file: ", srcfile
-            print e
+            log.exception("An error occured while importing file: %s" % srcfile)
 
     def writeout(self):
         self.outfile = open(self.output_file,"w")
@@ -157,7 +156,7 @@ class LdapBack:
             self.l.simple_bind_s(self.binddn,self.bindpw)
             self.insync = []
         except ldap.LDAPError,e:
-            print "Error connecting to server: %s" % (e)
+            log.error("Error connecting to server: %s" % (e))
             raise LdapConnectionError
 
         # Check that the base exists. If not, produce a warning and create it.
@@ -182,7 +181,7 @@ class LdapBack:
         try:
             self.l.unbind_s()
         except ldap.LDAPError,e:
-            print "Error occured while closing LDAPConnection: %s" % (e)
+            log.error("Error occured while closing LDAPConnection: %s" % (e))
 
     def _cmp(self,x,y):
         """Comparator for sorting hierarchical DNs for ldapsearch-result"""
@@ -199,7 +198,7 @@ class LdapBack:
         if self.incr:
             return
 
-        print "Syncronizing LDAP database"
+        log.debug("Syncronizing LDAP database")
         self.indirectory = []
         res = self.search(filterstr=self.filter,attrslist=["dn"]) # Only interested in attribute dn to be received
         for (dn,attrs) in res:
@@ -218,7 +217,7 @@ class LdapBack:
             else:
                 log.info("Found %s in database.. should not be here.. removing" % entry)
                 self.delete(dn=entry)
-        print "Done syncronizing"
+        log.debug("Done syncronizing")
 
     def abort(self):
         """
@@ -227,7 +226,7 @@ class LdapBack:
         try:
             self.l.unbind_s()
         except ldap.LDAPError,e:
-            print "Error occured while closing LDAPConnection: %s" % (e)
+            log.error("Error occured while closing LDAPConnection: %s" % (e))
 
     def add(self, obj, update_if_exists=True):
         """
@@ -301,15 +300,14 @@ class LdapBack:
         """
         Delete object from LDAP. 
         """
-        #FIXME: Change print statements to exception,warning,error etc
         if obj:
             dn=self.get_dn(obj)
         try:
             self.l.delete_s(dn)
         except ldap.NO_SUCH_OBJECT,e:
-            print "%s not found when trying to remove from database" % (dn)
+            log.error("%s not found when trying to remove from database" % (dn))
         except ldap.LDAPError,e:
-            print "Error occured while trying to remove %s from database: %s" % (dn,e)
+            log.error("Error occured while trying to remove %s from database: %s" % (dn,e))
 
     def search(self,base=None,scope=ldap.SCOPE_SUBTREE,filterstr='(objectClass=*)',attrslist=None,attrsonly=0):
         if base == None:
@@ -318,7 +316,7 @@ class LdapBack:
             result = self.l.search_s(base,scope,filterstr,attrslist,attrsonly)
         except ldap.LDAPError,e:
             # FIXME: Returns error when on no entries found... (bug or feature?)
-            print "Error occured while searching with filter: %s" % (filterstr)
+            log.error("Error occured while searching with filter: %s" % (filterstr))
             return [] # Consider raise exception later
         return result
 
@@ -489,7 +487,7 @@ class Person(LdapBack):
 		elif aff == 'ALUMNI':
 			affiliations.extend(['alum'])
                 else:
-			print "Unknown affiliation: %s" % aff
+			log.warn("Unknown affiliation: %s" % aff)
         s['eduPersonAffiliation']   = {}.fromkeys(affiliations).keys() 
 
         # Expecting birth_date from spine on the form "%Y-%m-%d 00:00:00.00"
@@ -509,8 +507,9 @@ class Person(LdapBack):
 		s['title']          = 'alumnus'
         else:
 		s['title']                  = ["Ikke title enno"] 
-        if obj.work_title != '': 
-                print "%s"     %  obj.work_title
+        if obj.work_title != '':
+            pass
+            #print "%s"     %  obj.work_title
         #s['title']                  = ["Ikke title enno"] #["%s"     %  obj.work_title]
         s['mail']                   = ["%s"     %  obj.email]
         return s
