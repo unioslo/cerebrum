@@ -44,6 +44,7 @@
 #def content()
     $viewInfo($entity)
     $setName($entity, $tr)
+    $printDialog($entity)   
     $viewNames($entity)
     $viewQuarantines($entity)
     $addNote($entity)
@@ -243,6 +244,25 @@
             <input type="button" value="$_('Cancel')" class="cancel" />
         </div>
     </form>
+</div>
+#end def
+
+#def printDialog($person)
+#set $langs= [ ('no', 'Norwegian'),('en', 'English')]
+<div class="edit box">
+    <h3>$_('Print contract')</h3>
+        <form action="print_contract" method="post">
+            <div>
+            <input type="hidden" name="id" value="$html_quote($person.get_id())" />
+            <div>
+                $form_widgets.generate_loption("lang", "Language", $langs)
+            </div>
+            <div class="buttons">
+            <input type="submit" value="$_('Print')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+            </div>
+        </form>
 </div>
 #end def
 
