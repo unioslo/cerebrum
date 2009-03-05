@@ -38,6 +38,9 @@ def main():
     config.parse_args(config.make_bulk_options())
 
     incr= config.getboolean('args','incremental')
+    add= config.getboolean('args','add')
+    update= config.getboolean('args','update')
+    delete= config.getboolean('args','delete')
     local_id= 0
     if os.path.isfile(spine_cache):
         local_id= long(file(spine_cache).read())
