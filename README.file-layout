@@ -192,7 +192,7 @@ why Cerebrum installs its files in so many different directories.
 ** SQL definitions etc.
 
   Files under cerebrum/design/ should be installed as "data_files" to
-  $prefix/share/doc/cerebrum/design/.
+  $prefix/share/cerebrum/design/.
 
 
 Hopefully, that should cover most of it.  If there still are areas of

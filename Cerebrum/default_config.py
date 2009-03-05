@@ -267,7 +267,7 @@ QUARANTINE_RULES = {}
 # List of quarantine-rule names where LDAP Person/FEIDE should ignore 'lock'
 QUARANTINE_FEIDE_NONLOCK = ()
 
-CEREBRUM_DDL_DIR="../share/doc/cerebrum/design"
+CEREBRUM_DDL_DIR="../share/cerebrum/design"
 BOFHD_SUPERUSER_GROUP=INITIAL_GROUPNAME
 BOFHD_STUDADM_GROUP=BOFHD_SUPERUSER_GROUP
 BOFHD_FNR_ACCESS_GROUP=None

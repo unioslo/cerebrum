@@ -43,12 +43,11 @@
 #   '/'.  E.g., for uio.no, the directory modules/no/uio is used.
 #
 # design/
-#   *.sql:        usr/share/cerebrum/doc/design/
-#   *.html,*.dia: usr/share/cerebrum/doc/
+#   *.sql:        usr/share/cerebrum/design/
+#   *.html,*.dia: usr/share/doc/cerebrum/
 #
 # doc/
-#   *:            usr/share/cerebrum/doc/
-#   *cron*:       usr/share/cerebrum/doc/samples
+#   *:            Not installed
 #
 # testsuite/
 #   *:            Not installed
@@ -287,7 +286,7 @@ if (bofh):
         print "'%s': not found. Skipping." % jar_file 
 
 data_files = [
-    ({'path': "%s/doc/cerebrum/design" % sharedir,
+    ({'path': "%s/cerebrum/design" % sharedir,
       'owner': cerebrum_user,
       'mode': 0755},
      [('design/*.sql', 0644),
