@@ -1604,7 +1604,7 @@ class BDBSync:
             try:
                 self.et.find_by_target_entity(account_id)
             except Errors.NotFoundError:
-                self.logger.debug("%s: making to new target" % addr)
+                self.logger.info("%s: making to new target" % addr)
                 self.et.populate(const.email_target_account,
                                  target_entity_id=account_id,
                                  target_entity_type=const.entity_account)
@@ -1613,30 +1613,34 @@ class BDBSync:
             
         if otarget_id:
             self.ea.find_by_local_part_and_domain(local_part, domain_id)
-            if oprimary != False:
-                self.logger.debug("%s: removing primary" % addr)
+            if oprimary != False and ( primary == False or
+                                       otarget_id != target_id ):
                 self.epat.clear()
                 self.epat.find(otarget_id)
                 if self.epat.email_primaddr_id == self.ea.entity_id:
+                    self.logger.info("%s: removing primary" % addr)
                     self.epat.delete()
             if account_id and account_id != oaccount_id:
-                self.logger.debug("%s: assigning to new target" % addr)
+                self.logger.info("%s: assigning to new target" % addr)
                 self.ea.email_addr_target_id = target_id
                 self.ea.write_db()
             if account_id is None:
-                self.logger.debug("%s: deleting" % addr)
+                self.logger.info("%s: deleting" % addr)
                 self.ea.delete()
         else:
-            self.logger.debug("%s: creating" % addr)
+            self.logger.info("%s: creating" % addr)
             self.ea.populate(local_part, domain_id, target_id)
             self.ea.write_db()
         if primary != False:
-            self.logger.debug("%s: making primary" % addr)
             self.epat.clear()
             try:
                 self.epat.find(target_id)
-                self.epat.email_primaddr_id = self.ea.entity_id
-                self.epat.email_server_id = primary
+                if self.epat.email_primaddr_id != self.ea.entity_id:
+                    self.logger.info("%s: making primary" % addr)
+                    self.epat.email_primaddr_id = self.ea.entity_id
+                if self.epat.email_server_id != primary:
+                    self.logger.info("%s: changing email server" % addr)
+                    self.epat.email_server_id = primary
             except Errors.NotFoundError:
                 self.et.clear()
                 self.et.find(target_id)
