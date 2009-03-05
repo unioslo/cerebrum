@@ -25,6 +25,7 @@ import ceresync.backend.kerberos as kerberosbackend
 from ceresync import config
 import os
 import omniORB
+from sys import exit
 
 try:
     set()

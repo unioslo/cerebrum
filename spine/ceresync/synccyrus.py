@@ -23,6 +23,7 @@ import sync
 import backend.cyrus
 import config
 import os
+from sys import exit
 
 try:
     set()

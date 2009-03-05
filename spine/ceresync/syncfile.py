@@ -23,6 +23,7 @@ from ceresync import sync
 import ceresync.backend.file as filebackend
 from ceresync import config
 import re
+from sys import exit
 
 log = config.logger
 

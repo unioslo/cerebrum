@@ -24,6 +24,7 @@ from ceresync import sync
 from ceresync.backend import ldapbackend
 from ceresync import config
 import traceback
+from sys import exit
 
 log = config.logger
 

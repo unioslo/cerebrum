@@ -3,6 +3,7 @@
 
 from ceresync import sync
 import ceresync.backend.file as filebackend
+from sys import exit
 
 from ceresync import config
 log = config.logger
