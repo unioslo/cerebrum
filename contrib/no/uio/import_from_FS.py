@@ -87,8 +87,6 @@ def write_edu_info(outfile):
     f.set_size_change_limit(15)
     f.write(xml.xml_hdr + "<data>\n")
 
-    # IVR 2009-03-03 FIXME: Noen må se på spørringene mot FS for å avgjøre om
-    # de overhodet gir mening. 
     for triple in (("kull", None, fs.undervisning.list_studenter_alle_kull),
                    ("undenh", None, fs.undervisning.list_studenter_alle_undenh),
                    ("undakt", None, fs.undervisning.list_studenter_alle_undakt),
