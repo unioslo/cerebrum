@@ -770,8 +770,8 @@ class XMLHelper(object):
         else:
             extra_attr = ''
         return "<%s " % tag + (
-            " ".join(["%s=%s" % (cols[i], self.escape_xml_attr(row[i]))
-                      for i in range(len(cols)) if row[i] is not None])+
+            " ".join(["%s=%s" % (x, self.escape_xml_attr(row[x]))
+                      for x in cols if row[x] is not None]) +
             "%s%s>" % (extra_attr, close_tag))
 
     def escape_xml_attr(self, a):

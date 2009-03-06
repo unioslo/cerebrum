@@ -26,7 +26,7 @@ import time
 
 from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, DataOU, DataName, \
-     DataAddress, DataContact
+     DataAddress, DataContact, XMLEntityIterator
 
 
 
@@ -163,5 +163,113 @@ class XMLOU2Object(XMLEntity2Object):
         return result
     # end next_object
 # end XMLOU2Object
-        
+
+
+
+class EduDataGetter(XMLDataGetter):
+    "An abstraction layer for FS files pertaining to educational information."
+
+    def __fix_iterator(self, element, fields):
+        # We are cheating here somewhat: _make_iterator() expects a class, not
+        # a callable that returns one. However, a callable would do as well,
+        # given how class is used in XMLDataGetter.
+        return self._make_iterator(element,
+                       lambda iterator, logger:
+                           EduKind2Object(iterator, logger, fields))
             
+    def iter_undenh(self):
+        return self.__fix_iterator("enhet", ("institusjonsnr",
+                                             "terminnr",
+                                             "terminkode",
+                                             "emnekode",
+                                             "arstall",
+                                             "versjonskode",
+                                             "status_eksport_lms",
+                                             "institusjonsnr_kontroll",
+                                             "faknr_kontroll",
+                                             "instituttnr_kontroll",
+                                             "gruppenr_kontroll",
+                                             "emnenavn_bokmal",
+                                             "emnenavnfork"))
+    def iter_undakt(self):
+        return self.__fix_iterator("aktivitet", ("institusjonsnr",
+                                                 "terminnr",
+                                                 "terminkode",
+                                                 "emnekode",
+                                                 "arstall",
+                                                 "versjonskode",
+                                                 "aktivitetkode",
+                                                 "status_eksport_lms",
+                                                 "aktivitetsnavn",
+                                                 "institusjonsnr_kontroll",
+                                                 "faknr_kontroll",
+                                                 "instituttnr_kontroll",
+                                                 "gruppenr_kontroll"))
+    def iter_evu(self):
+        return self.__fix_iterator("evu", ("kurstidsangivelsekode",
+                                           "etterutdkurskode",
+                                           "status_eksport_lms",
+                                           "institusjonsnr_adm_ansvar",
+                                           "faknr_adm_ansvar",
+                                           "instituttnr_adm_ansvar",
+                                           "gruppenr_adm_ansvar",
+                                           "etterutdkursnavn"))
+    def iter_kursakt(self):
+        return self.__fix_iterator("kursakt", ("kurstidsangivelsekode",
+                                               "etterutdkurskode",
+                                               "aktivitetskode",
+                                               "status_eksport_lms",
+                                               "aktivitetsnavn"))
+    def iter_kull(self):
+        return self.__fix_iterator("kull", ("arstall",
+                                            "studieprogramkode",
+                                            "terminkode",
+                                            "institusjonsnr_studieansv",
+                                            "faknr_studieansv",
+                                            "instituttnr_studieansv",
+                                            "gruppenr_studieansv",
+                                            "studiekullnavn"))
+# end FSXMLDataGetter
+
+
+
+class EduGenericIterator(XMLEntityIterator):
+    """A convenience class -- iterates over XML element attributes as dicts."""
+    def __init__(self, filename, element):
+        super(EduGenericIterator, self).__init__(filename, element)
+    # end __init__
+    
+    def next(self):
+        element = super(EduGenericIterator, self).next()
+
+        def encode(x):
+            if isinstance(x, unicode):
+                return x.encode("latin-1")
+            return x
+
+        return dict((encode(x), encode(y)) for (x, y) in element.items())
+    # end next
+
+    def __iter__(self):
+        return self
+# end EduGenericIterator
+
+
+
+class EduKind2Object(XMLEntity2Object):
+    def __init__(self, iterator, logger, required_attributes):
+        super(EduKind2Object, self).__init__(iterator, logger)
+        import copy
+        self._required_attributes = copy.deepcopy(required_attributes)
+
+    def next_object(self, subtree):
+        # The easiest option is making a dict -- it is in many respects
+        # similar to db-row, which is what this method's return value is meant
+        # to replace.
+        def encode(x):
+            if isinstance(x, unicode):
+                return x.encode("latin-1")
+            return x
+
+        return dict((encode(x), encode(subtree.get(x))) for x in self._required_attributes)
+# end EduKind2Object

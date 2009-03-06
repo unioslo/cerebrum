@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,12 +19,13 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cerebrum_path
 
 import re
 import os
 import sys
 import getopt
+
+import cerebrum_path
 import cereconf
 
 from Cerebrum import Database
@@ -34,6 +35,7 @@ from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.extlib import xmlprinter
 from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no import fodselsnr
 
 default_person_file = "/cerebrum/dumps/FS/persons.xml"
 default_emne_file = "/cerebrum/dumps/FS/emner.xml"
@@ -59,6 +61,61 @@ def _ext_cols(db_rows):
         cols = list(db_rows[0].keys())
     return cols, db_rows
 
+
+def write_edu_info(outfile):
+    """Lager en fil med undervisningsinformasjonen til alle studenter.
+
+    For hver student, lister vi opp alle tilknytningene til undenh, undakt,
+    evu, kursakt og kull.
+
+    Hovedproblemet i denne metoden er at vi må bygge en enorm dict med all
+    undervisningsinformasjon. Denne dicten bruker mye minne.
+
+    Advarsel: vi gjør ingen konsistenssjekk på at undervisningselementer nevnt
+    i outfile vil faktisk finnes i andre filer genererert av dette
+    skriptet. Mao. det er fullt mulig at en student S er registrert ved undakt
+    U1, samtidig som U1 ikke er nevnt i undervisningsaktiveter.xml. 
+
+    fs.undervisning.list_studenter_alle_kull()      <- kull deltagelse
+    fs.undervisning.list_studenter_alle_undenh()    <- undenh deltagelse
+    fs.undervisning.list_studenter_alle_undakt()    <- undakt deltagelse
+    fs.evu.list_studenter_alle_kursakt()            <- kursakt deltagelse
+    fs.evu.list()                                   <- evu deltagelse
+    """
+
+    f = SimilarSizeWriter(outfile, "w")
+    f.set_size_change_limit(15)
+    f.write(xml.xml_hdr + "<data>\n")
+
+    # IVR 2009-03-03 FIXME: Noen må se på spørringene mot FS for å avgjøre om
+    # de overhodet gir mening. 
+    for triple in (("kull", None, fs.undervisning.list_studenter_alle_kull),
+                   ("undenh", None, fs.undervisning.list_studenter_alle_undenh),
+                   ("undakt", None, fs.undervisning.list_studenter_alle_undakt),
+                   ("evu", ("fodselsdato",
+                            "personnr",
+                            "etterutdkurskode",
+                            "kurstidsangivelsekode"),
+                    fs.evu.list),
+                   ("kursakt", None, fs.evu.list_studenter_alle_kursakt)):
+        kind, fields, selector = triple
+        logger.debug("Processing %s entries", kind)
+        for row in selector():
+            if fields is None:
+                tmp_row = row
+                keys = row.keys()
+            else:
+                tmp_row = dict((f, row[f]) for f in fields)
+                keys = fields
+                
+            f.write(xml.xmlify_dbrow(tmp_row, keys, kind) + '\n')
+
+    f.write("</data>\n")
+    f.close()
+# end write_edu_info
+    
+
+
 def write_person_info(outfile):
     """Lager fil med informasjon om alle personer registrert i FS som
     vi muligens også ønsker å ha med i Cerebrum.  En person kan
@@ -82,7 +139,7 @@ def write_person_info(outfile):
     # privatist) og Alumni
     cols, students = _ext_cols(fs.student.list())
     for s in students:
-	# The Oracle driver thinks the result of a union of ints is float
+        # The Oracle driver thinks the result of a union of ints is float
         fix_float(s)
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'opptak') + "\n")
 
@@ -361,8 +418,6 @@ def usage(exitcode=0):
     --misc-file name: name of output file for misc-func
     --misc-tag tag: tag to use in misc-file
     --ou-file name: override ou xml filename
-    --db-user name: connect with given database username
-    --db-service name: connect to given database
     --role-file name: override person role xml filename
     --netpubl-file: override netpublication filename
     -p: generate person xml file
@@ -377,23 +432,20 @@ def usage(exitcode=0):
     -n: generate netpublication reservation xml file
     """
     sys.exit(exitcode)
+# end usage
 
-def assert_connected(user="ureg2000", service="FSPROD.uio.no"):
-    global fs
-    if fs is None:
-        db = Database.connect(user=user, service=service,
-                              DB_driver='Oracle')
-        fs = FS(db)
+
 
 def main():
     logger.info("Starting import from FS")
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ptsroefbkn",
+        opts, args = getopt.getopt(sys.argv[1:], "ptsroefbknd",
                                    ["person-file=", "topics-file=",
                                     "studprog-file=", "regkort-file=",
-                                    'emne-file=', "ou-file=", "db-user=",
+                                    'emne-file=', "ou-file=", 
                                     'fnr-update-file=', 'betalt-papir-file=',
-				    'role-file=', 'netpubl-file=', "db-service=",
+                                    'role-file=', 'netpubl-file=',
+                                    'edu-file=',
                                     "misc-func=", "misc-file=", "misc-tag="])
     except getopt.GetoptError:
         usage()
@@ -409,8 +461,7 @@ def main():
     fnrupdate_file = default_fnrupdate_file
     betalt_papir_file = default_betalt_papir_file
     netpubl_file = default_netpubl_file
-    db_user = None         # TBD: cereconf value?
-    db_service = None      # TBD: cereconf value?
+    edu_file = None
     for o, val in opts:
         if o in ('--person-file',):
             person_file = val
@@ -428,15 +479,16 @@ def main():
             fnrupdate_file = val
         elif o in ('--betalt-papir-file',):
             betalt_papir_file = val
-	elif o in('--role-file',):
-	    role_file = val
-	elif o in('--netpubl-file',):
-	    netpubl_file = val
-        elif o in ('--db-user',):
-            db_user = val
-        elif o in ('--db-service',):
-            db_service = val
-    assert_connected(user=db_user, service=db_service)
+        elif o in('--role-file',):
+            role_file = val
+        elif o in('--netpubl-file',):
+            netpubl_file = val
+        elif o in ('--edu-file',):
+            edu_file = val
+
+    global fs
+    fs = Factory.get("FS")()
+
     for o, val in opts:
         try:
             if o in ('-p',):
@@ -458,7 +510,9 @@ def main():
             elif o in ('-k',):
                 write_personrole_info(role_file)
             elif o in ('-n',):
-                write_netpubl_info(netpubl_file)                
+                write_netpubl_info(netpubl_file)
+            elif o in ('-d',):
+                write_edu_info(edu_file)
             # We want misc-* to be able to produce multiple file in one script-run
             elif o in ('--misc-func',):
                 misc_func = val

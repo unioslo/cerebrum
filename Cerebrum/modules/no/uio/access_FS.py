@@ -804,6 +804,26 @@ class UiOUndervisning(access_FS.Undervisning):
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
 
+    def list_studenter_alle_kull(self):
+        query = """
+        SELECT DISTINCT
+            fodselsdato, personnr, studieprogramkode, terminkode_kull,
+            arstall_kull
+        FROM
+            fs.studieprogramstudent
+        WHERE
+            studentstatkode IN ('AKTIV', 'PERMISJON') AND
+            NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+            /* IVR 2007-11-12: According to baardj, it makes no sense to
+               register 'kull' for earlier timeframes. */
+            arstall_kull >= 2002
+        """
+
+        return self.db.query(query)
+    # end list_studenter_alle_kull
+
+    
+
     def list_studenter_alle_undenh(self):
         """Hent alle studenter på alle undenh.
 
@@ -896,7 +916,8 @@ class UiOEVU(access_FS.EVU):
           instituttnr_adm_ansvar, gruppenr_adm_ansvar,
           TO_CHAR(NVL(dato_fra, SYSDATE), 'YYYY-MM-DD') AS dato_fra,
           TO_CHAR(NVL(dato_til, SYSDATE), 'YYYY-MM-DD') AS dato_til,
-          status_aktiv, status_nettbasert_und, status_eksport_lms
+          status_aktiv, status_nettbasert_und, status_eksport_lms,
+          lmsrommalkode
         FROM fs.etterutdkurs
         WHERE status_aktiv='J' AND
           NVL(dato_til, SYSDATE) >= (SYSDATE - 30)
@@ -920,6 +941,24 @@ class UiOEVU(access_FS.EVU):
 
         return self.db.query(qry)
     # end get_kurs_aktivitet
+
+
+
+    def list_kurs_aktiviteter(self):
+        """Som get_kurs_aktivitet, men lister opp alle.
+
+        Hent alle EVU-kursaktiviteter som finnes. 
+        """
+
+        qry = """
+        SELECT k.etterutdkurskode, k.kurstidsangivelsekode, k.aktivitetskode,
+               k.aktivitetsnavn, k.undformkode, k.status_eksport_lms,
+               k.lmsrommalkode
+        FROM fs.kursaktivitet k
+        """
+
+        return self.db.query(qry)
+    # end list_kurs_aktiviteter
 
 
     def list_studenter_alle_kursakt(self):

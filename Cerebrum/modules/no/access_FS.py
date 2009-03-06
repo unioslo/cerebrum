@@ -952,8 +952,7 @@ class EVU(FSObject):
               NVL(e.dato_til, SYSDATE) >= SYSDATE - 30"""
         return self.db.query(qry)
         
-    def list_kurs(self, date=time.localtime()):  # GetEvuKurs
-
+    def list_kurs(self):  # GetEvuKurs
         """Henter info om aktive EVU-kurs, der aktive er de som har
         status_aktiv satt til 'J' og som ikke er avsluttet
         (jmf. dato_til)."""
@@ -1012,7 +1011,8 @@ class EVU(FSObject):
               k.kurstidsangivelsekode='%s'
         """ % (kurs, tid)
 
-        return self.db.query(qry) 
+        return self.db.query(qry)
+
 
     def list_kurs_stud(self, kurs, tid):  # GetStudEvuKurs
         qry = """

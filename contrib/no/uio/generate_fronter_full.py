@@ -51,6 +51,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uio.fronter_lib \
      import XMLWriter, UE2KursID, key2fields, fields2key, host_config
+from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 
 
 root_sko = '900199'
@@ -80,11 +81,12 @@ class Fronter(object):
     EVU_PREFIX = 'EVU'
     KULL_PREFIX = 'KULL'
 
-    def __init__(self, fronter_host, db, const, fs_db, logger=None):
+    def __init__(self, fronter_host, db, const,
+                 undenh_file, undakt_file, evu_file, kursakt_file, kull_file,
+                 logger=None):
         self.fronter_host = fronter_host
         self.db = db
         self.const = const
-        self._fs = fs_db
         self.logger = logger
         _config = host_config[fronter_host]
         for k in ('DBinst', 'admins', 'export'):
@@ -101,12 +103,20 @@ class Fronter(object):
         self.enhet2akt = {}
         self.emne_versjon = {}
         self.emne_termnr = {}
-        self.akt2undform = {}
         # Cache av undakt -> romprofil, siden vi ønsker å ha spesialiserte
         # romprofiler.
         self.akt2room_profile = {}
         if 'FS' in [x[0:2] for x in self.export]:
-            self.read_kurs_data()
+            self.read_kurs_data(undenh_file, undakt_file, evu_file,
+                                kursakt_file, kull_file)
+
+        # ugh!
+        t = time.localtime()[0:3]
+        self.year = t[0]
+        if t[1] <= 6:
+            self.semester = 'VÅR'
+        else:
+            self.semester = 'HØST'
     # end __init__
 
 
@@ -291,7 +301,9 @@ class Fronter(object):
     # end _group_name2key
 
 
-    def read_kurs_data(self):
+
+    def read_kurs_data(self, undenh_file, undakt_file, evu_file,
+                       kursakt_file, kull_file):
         """Fetch FS data and populate internal data structures.
 
         This method populates a number of internal dicts with names, places,
@@ -313,13 +325,15 @@ class Fronter(object):
                           len(self.exportable), len(kurs))
 
         # Fetch all the undenh
-        self._read_undenh_data(kurs)
+        self._read_undenh_data(kurs, undenh_file)
         # ... and undakt
-        self._read_undakt_data(kurs)
-        # ... and EVU-kurs + EVU-kursakt
-        self._read_evu_data(kurs)
+        self._read_undakt_data(kurs, undakt_file)
+        # ... and EVU-kurs 
+        self._read_evu_data(kurs, evu_file)
+        # ... and EVU-kursakt
+        self._read_kursakt_data(kurs, kursakt_file)
         # ... and finally kull 
-        self._read_kull_data(kurs)
+        self._read_kull_data(kurs, kull_file)
 
         # IVR 2007-10-13 TBD: How do we clean up the spreads?
         #
@@ -332,7 +346,7 @@ class Fronter(object):
     # end read_kurs_data
         
 
-    def _read_undenh_data(self, kurs):
+    def _read_undenh_data(self, kurs, undenh_file):
         """Scan all undenh in FS and populate the internal data structures for
         those undenh that are to be exported.
 
@@ -343,8 +357,8 @@ class Fronter(object):
         @type kurs: dict
         """
 
-        self.logger.debug("Leser alle undenh fra FS...")
-        for undenh in self._fs.undervisning.list_undervisningenheter():
+        self.logger.debug("Leser alle undenh fra %s...", undenh_file)
+        for undenh in EduDataGetter(undenh_file, logger).iter_undenh():
             id_seq = (self.EMNE_PREFIX, undenh['institusjonsnr'],
                       undenh['emnekode'], undenh['versjonskode'],
                       undenh['terminkode'], undenh['arstall'],
@@ -367,16 +381,17 @@ class Fronter(object):
             self.emne_termnr.setdefault(
                 multi_id, {})[undenh['terminnr']] = 1
             
-            full_sko = "%02d%02d%02d" % (undenh['faknr_kontroll'],
-                                         undenh['instituttnr_kontroll'],
-                                         undenh['gruppenr_kontroll'])
+            full_sko = "%02d%02d%02d" % (int(undenh['faknr_kontroll']),
+                                         int(undenh['instituttnr_kontroll']),
+                                         int(undenh['gruppenr_kontroll']))
             if full_sko in ("150030",):
                 # UNIK is special; they get their own corridor. It's like that
                 # by design.
                 self.enhet2sko[key] = full_sko
             else:
                 self.enhet2sko[key] = "%02d%02d00" % (
-                    undenh['faknr_kontroll'], undenh['instituttnr_kontroll'])
+                    int(undenh['faknr_kontroll']),
+                    int(undenh['instituttnr_kontroll']))
             
             emne_tittel = undenh['emnenavn_bokmal']
             if len(emne_tittel) > 50:
@@ -395,7 +410,7 @@ class Fronter(object):
     # end _read_undenh_data
         
 
-    def _read_undakt_data(self, kurs):
+    def _read_undakt_data(self, kurs, undakt_file):
         """Scan all undakt from FS and populate the internal data structures
         for those undakt that are to be exported.
 
@@ -404,8 +419,8 @@ class Fronter(object):
         @type kurs: dict
         """
 
-        self.logger.debug("Leser alle undakt fra FS...")
-        for undakt in self._fs.undervisning.list_aktiviteter():
+        self.logger.debug("Leser alle undakt fra %s...", undakt_file)
+        for undakt in EduDataGetter(undakt_file, logger).iter_undakt():
             id_seq = (self.EMNE_PREFIX, undakt['institusjonsnr'],
                       undakt['emnekode'], undakt['versjonskode'],
                       undakt['terminkode'], undakt['arstall'],
@@ -431,14 +446,14 @@ class Fronter(object):
             self.enhet2akt.setdefault(enhet_id, []).append(
                 (undakt['aktivitetkode'], undakt['aktivitetsnavn'],
                  undakt['terminkode'], undakt['arstall'], undakt['terminnr']))
-            self.akt2undform[key] = undakt["undformkode"]
-            if undakt["lmsrommalkode"]:
+            if undakt.get("lmsrommalkode"):
                 self.akt2room_profile[key] = undakt["lmsrommalkode"]
     # end _read_undakt_data
 
 
-    def _read_evu_data(self, kurs):
-        """Scan all EVU-kurs/kursakt and populate the internal data structures
+
+    def _read_evu_data(self, kurs, evu_file):
+        """Scan all EVU-kurs and populate the internal data structures
         for those entities that are to be exported.
 
         @param kurs:
@@ -447,7 +462,7 @@ class Fronter(object):
         """
 
         self.logger.debug("Leser alle EVU-kurs/kursakt fra FS...")
-        for evu in self._fs.evu.list_kurs():
+        for evu in EduDataGetter(evu_file, logger).iter_evu():
             id_seq = (self.EVU_PREFIX, evu['etterutdkurskode'],
                       evu['kurstidsangivelsekode'])
             key = fields2key(*id_seq)
@@ -458,33 +473,49 @@ class Fronter(object):
 
             self.logger.debug("registrerer EVU-kurs <%s> (key: %s)", id_seq, key)
             self.kurs2enhet.setdefault(key, []).append(key)
-            self.enhet2sko[key] = "%02d%02d00" % (evu['faknr_adm_ansvar'],
-                                                  evu['instituttnr_adm_ansvar'])
+            self.enhet2sko[key] = "%02d%02d00" % (int(evu['faknr_adm_ansvar']),
+                                                  int(evu['instituttnr_adm_ansvar']))
             # The correct name for EVU-kurs is always readily available (as
             # opposed to multisemester subjects (flersemesteremner)).
             self.kurs2navn[key] = evu['etterutdkursnavn']
-
-            # Fetch all corresponding kursakt. This could have been a separate
-            # method.
-            for kursakt in self._fs.evu.get_kurs_aktivitet(
-                evu['etterutdkurskode'], evu['kurstidsangivelsekode']):
-                akt_id = fields2key(key, kursakt["aktivitetskode"])
-
-                # If kursakt has no fronter spreads, ignore it.
-                if akt_id not in kurs:
-                    self.logger.debug("ignorerer EVU-kursakt for <%s> "
-                                      "(EVU-kurs %s)", akt_id, key)
-                    continue
-                
-                self.logger.debug("registrerer EVU-kursakt for <%s> (key: %s)",
-                                  id_seq, akt_id)
-                self.enhet2akt.setdefault(key, []).append(
-                    (kursakt['aktivitetskode'], kursakt['aktivitetsnavn']))
-                self.akt2undform[akt_id] = kursakt["undformkode"]
     # end _read_evu_data
+
+
+
+    def _read_kursakt_data(self, kurs, kursakt_file):
+        """Scan all EVU-kursakt and populate the internal data structures for
+        those entities that are to be exported.
+
+        @param kurs:
+          Same as L{_read_undenh_data}.
+        @type kurs: dict
+        """
+
+        for kursakt in EduDataGetter(kursakt_file, logger).iter_kursakt():
+            id_seq = (self.EVU_PREFIX, kursakt['etterutdkurskode'],
+                     kursakt['kurstidsangivelsekode'])
+            key = fields2key(*id_seq)
+            akt_id = fields2key(key, kursakt["aktivitetskode"])
+
+            # EVU-kurs without fronter spreads are not going to fronter.
+            if key not in kurs:
+                continue
+
+            # If kursakt has no fronter spreads, ignore it.
+            if akt_id not in kurs:
+                self.logger.debug("ignorerer EVU-kursakt for <%s> "
+                                  "(EVU-kurs %s)", akt_id, key)
+                continue
+                
+            self.logger.debug("registrerer EVU-kursakt for <%s> (key: %s)",
+                              id_seq, akt_id)
+            self.enhet2akt.setdefault(key, []).append(
+                (kursakt['aktivitetskode'], kursakt['aktivitetsnavn']))
+    # end _read_kursakt_data
+
             
         
-    def _read_kull_data(self, kurs):
+    def _read_kull_data(self, kurs, kull_file):
         """Scan all kull and populate the internal data structures for those
         that are to be exported.
 
@@ -496,7 +527,7 @@ class Fronter(object):
         """
 
         self.logger.debug("Leser alle kull fra FS...")
-        for kull in self._fs.info.list_kull():
+        for kull in EduDataGetter(kull_file, logger).iter_kull():
             id_seq = (self.KULL_PREFIX, kull["studieprogramkode"],
                       kull["terminkode"], kull["arstall"])
             key = fields2key(*id_seq)
@@ -507,9 +538,9 @@ class Fronter(object):
 
             self.kurs2enhet.setdefault(key, []).append(key)
             self.enhet2sko[key] = "%02d%02d%02d" % (
-                kull["faknr_studieansv"],
-                kull["instituttnr_studieansv"],
-                kull["gruppenr_studieansv"],)
+                int(kull["faknr_studieansv"]),
+                int(kull["instituttnr_studieansv"]),
+                int(kull["gruppenr_studieansv"]),)
             self.kurs2navn[key] = kull["studiekullnavn"]
             self.logger.debug("registrerer kull <%s> (key: %s)", id_seq, key)
     # end _read_kull_data
@@ -1152,6 +1183,11 @@ def init_globals():
                                     'uten-passord',
                                     'debug-file=', 'debug-level=',
                                     'cf-dir=',
+                                    "undenh-file=",
+                                    "undakt-file=",
+                                    "evu-file=",
+                                    "kursakt-file=",
+                                    "kull-file=",
                                     ])
     except getopt.GetoptError:
         usage(1)
@@ -1159,6 +1195,7 @@ def init_globals():
     debug_level = 4
     host = None
     set_pwd = True
+    undenh_file = undakt_file = evu_file = kursakt_file = kull_file = None
     for opt, val in opts:
         if opt in ('-h', '--host'):
             host = val
@@ -1173,13 +1210,21 @@ def init_globals():
             set_pwd = False
         elif opt == '--cf-dir':
             cf_dir = val
+        elif opt in ("--undenh-file",):
+            undenh_file = val
+        elif opt in ("--undakt-file",):
+            undakt_file = val
+        elif opt in ("--evu-file",):
+            evu_file = val
+        elif opt in ("--kursakt-file",):
+            kursakt_file = val
+        elif opt in ("--kull-file",):
+            kull_file = val
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
 
     global root_ou_id
     root_ou_id = _get_ou(root_sko).entity_id
-
-    fs_db = Factory.get("FS")()
 
     global entity2name
     group = Factory.get("Group")(db)
@@ -1192,7 +1237,11 @@ def init_globals():
     global fronter
     # TODO: Use the data files from FS instead of fetching data directly from
     # the FS database
-    fronter = Fronter(host, db, const, fs_db, logger=logger)
+    assert undenh_file # and undakt_file and evu_file and kursakt_file and kull_file
+    
+    fronter = Fronter(host, db, const,
+                      undenh_file, undakt_file, evu_file, kursakt_file,
+                      kull_file, logger=logger)
 
     filename = os.path.join(cf_dir, 'test.xml')
     if len(args) == 1:
@@ -1567,10 +1616,10 @@ def process_kurs2enhet():
             process_akt_data = False
 
             # Fixup multisemester entity names (flersemesteremner)
-            naa_aar = fronter._fs.info.year
-            naa_termk = fronter._fs.info.semester
-            if int(termnr) <> 1:
-                if termk.upper() <> naa_termk:
+            naa_aar = fronter.year
+            naa_termk = fronter.semester
+            if int(termnr) != 1:
+                if termk.upper() != naa_termk:
                     logger.debug("Termnr: '%s'" % termnr)
                     logger.debug("Fant 'forskuttert' enhet: %s - %s %s %s %s. termin" %
                                  (emnekode.upper(), fronter.kurs2navn[kurs_id],
