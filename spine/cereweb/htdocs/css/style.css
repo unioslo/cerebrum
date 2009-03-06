@@ -348,6 +348,7 @@ div.box span.name { font-weight: bold; }
 div.box span.value { }
 div.box span.date { font-size: 85%;
 }
+div.box tr.primary { font-weight: bold; }
 div.box div.item {
     padding: 2px 0 2px 0.5em;
     border-bottom: 1px dashed;

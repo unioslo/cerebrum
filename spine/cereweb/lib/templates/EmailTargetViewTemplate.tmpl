@@ -18,17 +18,21 @@
 
 #extends EntityViewTemplate
 #from lib.utils import object_link, strftime, strftime, html_quote
-#from lib.utils import remember_link, url_quote
+#from lib.utils import remember_link, url_quote, spine_to_web
 #from FormWidgets import FormWidgets
+#from Widgets import Widgets
 #from urllib import urlencode
 #import datetime
 #import cherrypy
 
 #attr $form_widgets = FormWidgets()
+#attr $widgets = Widgets()
 
 #def unix2date($the_stamp)
+#if $the_stamp is not None
 #set $the_date = datetime.datetime.fromtimestamp($the_stamp)
 $html_quote($strftime($the_date))
+#end if
 #end def
 
 #def edit_target($target)
@@ -53,101 +57,69 @@ $html_quote($strftime($the_date))
 
 ## Main method for creating the view
 #def content()
+$viewInfo()
+$viewEmailAddresses()
+$addEmailAddress()
+#end def
+
+
+#def viewInfo()
+#set $info = []
+#set $notice = []
+#set $id = $entity['id']
+#set $primary = $entity['primary']
+$info.append(($_('Type'), $html_quote($entity['type'].capitalize())))
+$info.append(($_('Owner'), $entity['entity']))
+$info.append(($_('Server'), $spine_to_web($entity['server'])))
+$info.append(($_('Primary Address'),
+  $html_quote($entity['primary']['local']+"@"+$entity['primary']['domain'])))
+$widgets.viewInfo($info, $notice)
+#end def
+
+#def viewEmailAddresses()
     #set $id = $entity['id']
-    #set $primary = $entity['primary']
     #set $addresses = $entity.get('addresses', None)
-
-    <div class="view view_info">
-        <h3>$_('Email addresses:')</h3>
-        <div>
-            <strong><em>$_('Type:')</em></strong>&#x0020;
-                    $html_quote($entity['type'].capitalize())
-        </div>
-        <div>
-            <strong><em>$_('Owner:')</em></strong>&#x0020;
-                    $entity['entity']
-        </div>
-        <h4>$_('Primary address:')</h4>
-
-        #if $primary
-            <table>
-                <tr>
-                #for $key,$value in $primary.items()
-                    #if not $key == 'id' and not $key == 'primary'
-                        <th> $html_quote($key.capitalize()) </th>
-                    #end if
-                #end for
-                </tr>
-                <tr>
-                #for $key,$value in $primary.items()
-                    #if not $key == 'id' and not key == 'primary'
-                        <td>
-                            #if $value
-                                #if $key == 'created' or $key == 'changed' or $key == 'expire'
-                                    $unix2date($value)
-                                #else
-                                    $html_quote($value)
-                                #end if
-                            #end if
-                        </td>
-                    #end if
-                #end for
-                    <td>
-                        #set $addressid = $primary['id']	
-                        <div class="actions">
-                            <a href="/emailtarget/delete_addr?id=$url_quote($id)&amp;addr=$url_quote($addressid)">Delete</a>
-                        </div>
-                    </td>
-                </tr>
-            </table>
-        #else
-            <div>$_('No primary address.')</div>
-        #end if
-
-        <h4>$_('Additional addresses:')</h4>
+    <div class="info box">
+    <h3>$_('Email Addresses:')</h3>
         #if $addresses
             <table>
                 <tr>
-                    #for $key,$values in $addresses[0].items()
-                        #if not $key == 'id' and not $key == 'primary'
-                            <th>$html_quote($key.capitalize())</th>
-                        #end if
-                    #end for
+		<th>$_('Address')</th>
+		<th>$_('Created')</th>
+		<th>$_('Changed')</th>
+		<th>$_('Expires')</th>
                 </tr>
                 #for $addr in $addresses
-                    #if not $addr['primary']
-                        <tr>
-                            #for $key,$value in $addr.items()
-                                #if not $key == 'id' and not $key == 'primary'
-                                <td>
-                                    #if $value
-                                        #if $key == 'created' or $key == 'changed' or $key == 'expire'
-                                            $unix2date($value)
-                                        #else
-                                            $html_quote($value)
-                                        #end if
-                                    #end if
-                                </td>
-                                #end if
-                            #end for
-                            <td>
-                                <div class="actions">
-                                    #set $address = $addr['id']
-                                    <a class="action" href="/emailtarget/delete_addr?id=$url_quote($id)&amp;addr=$url_quote($address)">Delete</a>&#x0020;
-                                    <a class="action" href="/emailtarget/setprimary?id=$url_quote($id)&amp;addr=$url_quote($address)">Primary</a>
-                                </div>
-                            </td>
-                        </tr>
-                    #end if
+                    #if $addr['primary']
+                    <tr class="primary item">
+		    #else
+		    <tr class="item">
+		    #end if
+			<td>
+			    $html_quote($addr['local']+"@"+$addr['domain'])
+                        </td>
+			<td>$unix2date($addr['created'])</td>
+			<td>$unix2date($addr['changed'])</td>
+			<td>$unix2date($addr['expire'])</td>
+                        <td>
+                            #set $address = $addr['id']
+                            <a class="action" href="/emailtarget/delete_addr?id=$url_quote($id)&amp;addr=$url_quote($address)">Delete</a>
+			    #if not $addr['primary']
+                            <a class="action" href="/emailtarget/setprimary?id=$url_quote($id)&amp;addr=$url_quote($address)">Primary</a>
+			    #end if
+                        </td>
+                    </tr>
                 #end for
             </table>
-            #else
-                <div>No additional addresses</div>
-            #end if
-        ##</table>
+        #else
+            <div>No addresses</div>
+        #end if
     </div>
+#end def
 
-    <div class="view">
+#def addEmailAddress
+    #set $id = $entity['id']
+    <div class="info box">
         <h3>$_('Add a new email address:')</h3>
         <form action="/emailtarget/makeaddress" method="post">
             <input type="hidden" name="id" value="$html_quote($id)" />

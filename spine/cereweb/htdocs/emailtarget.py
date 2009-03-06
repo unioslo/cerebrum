@@ -62,7 +62,11 @@ def parse_target(target_obj, t_id):
         'object_type': 'email_target',
 	'name': "%s_email_target" % name,
     }
-
+    server_obj = target_obj.get_server()
+    if server_obj:
+        target['server'] = server_obj.get_name()
+    else:
+        target['server'] = None
     try:
         primary_obj = target_obj.get_primary_address()
     except NotFoundError, e:
@@ -86,7 +90,7 @@ def view(transaction, id):
         domain_name = spine_to_web(domain.get_name())
         all_domains.append((domain_name, domain_name))
     page = EmailTargetViewTemplate()
-    page.title = _("Email addresses")
+    page.title = _("Email account")
     page.set_focus("emailtarget/view")
     page.entity = target
     page.entity_id = id
