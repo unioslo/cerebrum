@@ -152,7 +152,7 @@ class xmlprinter(object):
         self._has_data = 0
 
     def comment(self, data):
-        self.fp.write("<!-- %s -->" % data);
+        self.fp.write("<!-- %s -->" % self._encode_str(data))
         if len(self._elstack) == 0:
             self.fp.write("\n")
 
