@@ -557,11 +557,14 @@ class PersonSearcher(Searcher):
             date = utils.strftime(pers.get_birth_date())
             ## to get norwegian characters displayed
             affs = []
-            for i in pers.get_affiliations()[:3]:
-                linktext = utils.spine_to_web(i.get_ou().get_name())
-                affs.append(utils.object_link(i.get_ou(), text=linktext))
+            for i in pers.get_affiliations():
+                if not i.marked_for_deletion():
+                    linktext = utils.spine_to_web(i.get_ou().get_name())
+                    affs.append(utils.object_link(i.get_ou(), text=linktext))
             ## affs = [str(utils.object_link(i.get_ou())) for i in pers.get_affiliations()[:3]]
-            affs = ', '.join(affs[:2]) + (len(affs) == 3 and '...' or '')
+            if len(affs) > 2:
+                affs = affs[:3]
+            affs = ', '.join(affs[:2]) + (len(affs) == 3 and ',...' or '')
             ## to get norwegian characters displayed
             accs = []
             for i in pers.get_accounts()[:3]:

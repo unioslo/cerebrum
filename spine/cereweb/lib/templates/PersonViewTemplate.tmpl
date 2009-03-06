@@ -124,9 +124,22 @@
 </div>
 #end def
 
+#def writeAffiliations($affiliations)
+#for $aff in $affiliations
+    <tr>
+        <td>$aff['affiliation']</td>
+        <td>$aff['status']</td>
+        <td>$aff['ou']</td>
+        <td>$aff['addinfo']</td>
+        <td>$aff['source']</td>
+        <td>$aff['action']</td>
+    </tr>
+#end for
+#end def
+
 #def viewAffiliation($person)
-#set $affils = $person.get_affiliations()
-#if $affils
+#set $affilitions= $person.get_affiliations()
+#if $affilitions
 <div class="info box">
     <h3>$_('Affiliations')</h3>
     <table>
@@ -138,37 +151,42 @@
         <th>$_('Source')</th>
         <th>$_('Actions')</th>
         </tr>
-        #for $affil in $person.get_affiliations()
+        #set $active = []
+        #set $deleted = []
+        #for $affil in $affilitions
             #set $ou = $affil.get_ou()
             #set $affil_type = $affil.get_affiliation()
             #set $status = $affil.get_status()
             #set $marked = $affil.marked_for_deletion()
             #set $source = $affil.get_source_system()
-
-        #if not $marked
-            <tr class="item">
-            <td>$spine_to_web($affil_type.get_name())</td>
-            <td>$spine_to_web($status.get_name())</td>
+            #set $item = dict()
+            #set $item['affiliation'] = $spine_to_web($affil_type.get_name())
+            #set $item['status'] = $spine_to_web($status.get_name())
+            #set $item['source'] = $spine_to_web($source.get_name())
             #set $ou_name = $spine_to_web($ou.get_name())
-            <td>$object_link($ou, text=$ou_name)</td>
-            <td>&#x0020;</td>
-            <td>$spine_to_web($source.get_name())</td>
-            <td class="actions">
-
-            ## urls should always be encoded in utf-8
-            #set $person_id = $person.get_id()
-            #set $ou_id =  ou.get_id()
-            #set $type_aff = $spine_to_web($affil_type.get_name())
-            #set $source_name = $spine_to_web(source.get_name())
-            #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
+            #set $item['ou'] = $object_link($ou, text=$ou_name)
+            #if $marked
+                #set $item['addinfo'] = $_('deleted')
+                #set $item['action'] = $_('&#x0020;')
+                $deleted.append($item)
+            #else
+                #set $item['addinfo'] = $_('active')
+                #set $person_id = $person.get_id()
+                #set $ou_id = $ou.get_id()
+                #set $type_aff = $spine_to_web($affil_type.get_name())
+                #set $source_name = $spine_to_web($source.get_name())
+                #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
                             $url_quote($person_id),
                             $url_quote($ou_id),
                             $url_quote($type_aff),
                             $url_quote($source_name))
-            <a class="action" href="/confirm/person/remove_affil?$args">$_('delete')</a></td>
-            </tr>
-        #end if
+                #set $action = '<a class="action" href="/confirm/person/remove_affil?%s">delete</a>' % $args
+                #set $item['action'] = $action
+                $active.append($item)
+            #end if
         #end for
+        $writeAffiliations($active)
+        $writeAffiliations($deleted)
     </table>
 </div>
 #end if
