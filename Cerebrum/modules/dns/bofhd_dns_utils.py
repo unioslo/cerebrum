@@ -156,14 +156,12 @@ class DnsBofhdUtils(object):
         self._dns_owner.write_db()
         return action
 
+
     #
     # IP-numbers
     #
-
     def get_relevant_ips(self, subnet_or_ip, force=False):
         subnet, ip = self._parser.parse_subnet_or_ip(subnet_or_ip)
-        if subnet is None and ip is None:
-            raise CerebrumError, "Unknown subnet and incomplete ip"
         if subnet is None and not force:
             raise CerebrumError, "Unknown subnet.  Must force"
         if not ip:
@@ -175,7 +173,9 @@ class DnsBofhdUtils(object):
             free_ip_numbers = self._find.find_free_ip(subnet, first=first)
         else:
             free_ip_numbers = [ ip ]
+                
         return free_ip_numbers
+    
 
     def alloc_ip(self, a_ip, force=False):
         """Allocates an IP-number.  force must be true to use IPs in a
@@ -390,7 +390,7 @@ class DnsBofhdUtils(object):
         else:
             ip_ref = self._find.find_ip(ip)
             if ip_ref and not force:
-                raise CerebrumError, "IP already in use, must force (y)"
+                raise CerebrumError, "IP already in use or reserved, must force (y)"
             # Catch Utils.Find.find_free_ip()s CerebrumError in case there
             # are no free IPs. You must still force to register the a_record.
             new_ips = []

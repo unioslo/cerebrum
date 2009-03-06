@@ -47,6 +47,9 @@ class Constants(Constants.Constants):
     entity_dns_ip_number = Constants._EntityTypeCode(
         'dns_ip_number',
         'dns_ip_number - see table "cerebrum.dns_ip_number" and friends.')
+    entity_dns_subnet = Constants._EntityTypeCode(
+        'dns_subnet',
+        'dns_subnet - see table "cerebrum.dns_dubnet" and friends.')
     dns_owner_namespace = Constants._ValueDomainCode('dns_owner_ns',
                                                      'Domain for dns_owners')
 
@@ -119,6 +122,12 @@ class Constants(Constants.Constants):
         'host', 'rev_ovr_del', 'del rev-override for %(subject)s')
     rev_override_update = _ChangeTypeCode(
         'host', 'rev_ovr_upd', 'update rev-override %(subject)s -> %(dest)s')
+    subnet_create = _ChangeTypeCode(
+        'subnet', 'subnet_create', 'create subnet %(subject)s')
+    subnet_mod = _ChangeTypeCode(
+        'subnet', 'subnet_mod', 'modify subnet %(subject)s')
+    subnet_delete = _ChangeTypeCode(
+        'subnet', 'subnet_delete', 'delete subnet %(subject)s')
     srv_record_add = _ChangeTypeCode(
         'host', 'srv_rec_add', 'add srv-record %(subject)s -> %(dest)s')
     srv_record_del = _ChangeTypeCode(

@@ -44,6 +44,7 @@ targets = {
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
+    'dns': ('dns_1_0', 'dns_1_1'),
     }
 
 # Global variables
@@ -848,6 +849,15 @@ def migrate_to_posixuser_1_1():
     db.commit()
     print "Migration to posixuser 1.1 completed successfully"
 # end migrate_to_posixuser_1_1
+
+def migrate_to_dns_1_1():
+    print "\ndone."
+    assert_db_version("1.0", component='dns')
+    makedb('dns_1_1', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_dns", "1.1")
+    print "Migration to DNS 1.1 completed successfully"
+    db.commit()
 
 def init():
     global db, co

@@ -5,11 +5,11 @@ from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
+from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import CerebrumError
-import cereconf_dns
 from Cerebrum.modules import dns
 
 class DnsParser(object):
@@ -54,15 +54,19 @@ class DnsParser(object):
 
         if len(ip_id.split(".")) < 3:
             raise CerebrumError, "'%s' does not look like a subnet" % ip_id
+
         full_ip = len(ip_id.split(".")) == 4
         if len(tmp) > 1 or not full_ip:  # Trailing "/" or few octets
             full_ip = False
+
         try:
             ipc = Find(self._db, None)
-            subnet = ipc._find_subnet(ip_id).net
+            subnet_ip = ipc._find_subnet(ip_id)
         except DNSError:
-            subnet = None
-        return subnet, full_ip and ip_id or None
+            subnet_ip = None
+
+        return subnet_ip, full_ip and ip_id or None
+
 
     def parse_force(self, string):
         if string and not string[0] in ('Y', 'y', 'N', 'n'):
@@ -70,6 +74,7 @@ class DnsParser(object):
         if string and string[0] in ('Y', 'y'):
             return True
         return False
+
 
     def parse_hostname_repeat(self, name):
         """Handles multiple hostnames with the same prefix and a
@@ -140,11 +145,7 @@ class Find(object):
         self._host = HostInfo.HostInfo(db)
         self._cname = CNameRecord.CNameRecord(db)
         self._dns_parser = DnsParser(db, default_zone)
-        self.subnets = {}
         ic = IPCalc()
-        for sub_def in cereconf_dns.all_nets:
-            start, stop = ic.ip_range_by_netmask(sub_def.net, sub_def.mask)
-            self.subnets[sub_def.net] = sub_def
 
 
     def find_dns_owners(self, dns_owner_id, only_type=True):
@@ -311,10 +312,7 @@ class Find(object):
 
     def find_free_ip(self, subnet, first=None):
         """Returns the first free IP on the subnet"""
-        subnet_def = self._find_subnet(subnet)
-        if not subnet_def:
-            return None
-        a_ip = self._find_available_ip(subnet_def)
+        a_ip = self._find_available_ip(subnet)
         if not a_ip:
             raise CerebrumError, "No available ip on that subnet"
         if first is not None:
@@ -326,29 +324,56 @@ class Find(object):
         self.subnets"""
         if not subnet:
             return None
-        elif len(subnet.split(".")) == 3:
-            subnet += ".0"
-        numeric_ip = IPCalc.ip_to_long(subnet)
-        for net, subnet_def in self.subnets.items():
-            if numeric_ip >= subnet_def.start and numeric_ip <= subnet_def.stop:
-                return subnet_def
-        raise DNSError, "%s is not in any known subnet" % subnet
+        sub = Subnet.Subnet(self._db)
+        sub.find(subnet)
+        return sub.subnet_ip
+    
 
-    def _find_available_ip(self, subnet_def):
+    def _find_available_ip(self, subnet):
         """Returns all ips that are not reserved or taken on the given
         subnet in ascending order."""
 
         ip_number = IPNumber.IPNumber(self._db)
         ip_number.clear()
+        sub = Subnet.Subnet(self._db)
+        sub.clear()
+        sub.find(subnet)
         taken = {}
-        for row in ip_number.find_in_range(subnet_def.start, subnet_def.stop):
+        for row in ip_number.find_in_range(sub.ip_min, sub.ip_max):
             taken[long(row['ipnr'])] = int(row['ip_number_id'])
         ret = []
-        for n in range(0, (subnet_def.stop-subnet_def.start)+1):
-            if (not taken.has_key(long(subnet_def.start+n)) and
-                n+subnet_def.start not in subnet_def.reserved):
-                ret.append(n+subnet_def.start)
+        for n in range(0, (sub.ip_max-sub.ip_min)+1):
+            if (not taken.has_key(long(sub.ip_min+n)) and
+                n+sub.ip_min not in sub.reserved_adr):
+                ret.append(n+sub.ip_min)
         return ret
+
+
+    def find_used_ips(self, subnet):
+        """Returns all ips that are taken on the given subnet in
+        ascending order.
+
+        Addresses returned are as xxx.xxx.xxx.xxx, not longs.
+
+        """
+
+        ip_number = IPNumber.IPNumber(self._db)
+        ip_number.clear()
+        sub = Subnet.Subnet(self._db)
+        sub.clear()
+        sub.find(subnet)
+        
+        taken = {}
+        for row in ip_number.find_in_range(sub.ip_min, sub.ip_max):
+            taken[long(row['ipnr'])] = int(row['ip_number_id'])
+                       
+        ret = []
+        for n in range(0, (sub.ip_max-sub.ip_min)+1):
+            if (taken.has_key(long(sub.ip_min+n)) and
+                n+sub.ip_min not in sub.reserved_adr):
+                ret.append(IPCalc.long_to_ip(n+sub.ip_min))
+        return ret
+
 
     def find_ip(self, a_ip):
         self._ip_number.clear()

@@ -690,24 +690,22 @@ LDAP_MAIL_DNS_DIG_CMD = "/usr/bin/dig %s. @%s. axfr"
 LDAP_MAIL_DNS_MAX_CHANGE = 10
 
 # DNS
-# reserved ip's by netmask.  The values are added to the first IP on the subnet
-DEFAULT_RESERVED_IP_BY_NETMASK = {
-    # The first 10 addresses are reserved for routers (tradition).
-    # The last address is reserved for broadcast.
-    # The few addresses inbetween for /22 and /23 should help us split nets,
-    # should such a split become desirable/necessary.
-    20: range(0, 10) + [2**(32-20)-1],
-    21: range(0, 10) + [2**(32-21)-1],
-    22: range(0, 10) + [255, 256] + [255*2+1, 255*2+2] + [2**(32-22)-1],
-    23: range(0, 10) + [255, 256] +  [2**(32-23)-1],
-    24: range(0, 10) + [2**(32-24)-1],
-    25: range(0, 8) + [2**(32-25)-1],
-    26: range(0, 8) + [2**(32-26)-1],
-    27: range(0, 4) + [2**(32-27)-1],
-    28: range(0, 4) + [2**(32-28)-1],
-    29: range(0, 2**(32-29)-1 + 1)  # Whole net for such small nets
-    }
 DNS_EMAIL_REGEXP=r'^[-+=a-z0-9_.]+@[a-z0-9_-]+[-a-z0-9_.]*\.[a-z]{2,3}$'
+# Default number of adresses to reserve at start of a
+# subnet. Additionally, if any addresses are reserved, broadcast
+# (last) address is reserved too. If no entry, max value from
+# dictionary is used.
+DEFAULT_RESERVED_BY_NET_SIZE = {
+    25: 10,
+    26: 3,
+    27: 3,
+    28: 3,
+    29: 3,
+    30: 0,
+    31: 0,
+    32: 0,
+    }
+
 
 # STATISTICS
 # Various settings used by statistics-programs Lists most significant

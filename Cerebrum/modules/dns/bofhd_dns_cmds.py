@@ -33,6 +33,7 @@ from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
+from Cerebrum.modules.dns import Subnet
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Utils
@@ -220,6 +221,7 @@ class BofhdExtension(object):
             'host_history': 'Show history for a host',
             'host_info': 'List data for given host, IP-address or CNAME',
             'host_unused_list': 'List unused IP addresses',
+            'host_used_list': 'List used IP addresses',
             'host_mx_set': 'Set MX for host to specified MX definition',
             'host_mxdef_add': 'Add host to MX definition',
             'host_mxdef_remove': 'Remove host from MX definition',
@@ -402,9 +404,15 @@ class BofhdExtension(object):
     def host_a_add(self, operator, host_name, subnet_or_ip, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
-        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
+
+        s = Subnet.Subnet(self.db)
+        s.find(subnet_or_ip)
+        if s.dns_delegated and not force:
+            raise CerebrumError("Must force 'host a_add' for subnets " +
+                                "delegated to external DNS-server")
+        
         free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
-        ip = self.mb_utils.alloc_arecord(host_name, subnet, free_ip_numbers[0], force)
+        ip = self.mb_utils.alloc_arecord(host_name, s.subnet_ip, free_ip_numbers[0], force)
         return "OK, ip=%s" % ip
 
     # host a_remove
@@ -429,11 +437,17 @@ class BofhdExtension(object):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
         hostnames = self.dns_parser.parse_hostname_repeat(hostname)
-        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet_or_ip)
         hinfo = self._map_hinfo_code(hinfo)
         free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
         if len(free_ip_numbers) < len(hostnames):
             raise CerebrumError("Not enough free ips")
+        
+        s = Subnet.Subnet(self.db)
+        s.find(subnet_or_ip)
+        if s.dns_delegated:
+            raise CerebrumError("Cannot add host to subnet zone " +
+                                "delegated to external DNS-server")
+        
         # If user don't want mx_set, it must be removed with "ip mx_set"
         mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
         ret = []
@@ -441,11 +455,12 @@ class BofhdExtension(object):
             # TODO: bruk hinfo ++ for å se etter passende sekvens uten
             # hull (i en passende klasse)
             ip = self.mb_utils.alloc_arecord(
-                name, subnet, free_ip_numbers.pop(0), force)
+                name, s.subnet_ip, free_ip_numbers.pop(0), force)
             self.mb_utils.alloc_host(
                 name, hinfo, mx_set.mx_set_id, comment, contact)
             ret.append({'name': name, 'ip': ip})
         return ret
+    
 
     # host cname_add
     all_commands['host_cname_add'] = Command(
@@ -723,13 +738,37 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%s", ('ip',), hdr="Ip"))
     def host_unused_list(self, operator, subnet):
         # TODO: Skal det være mulig å få listet ut ledige reserved IP?
-        subnet, ip = self.dns_parser.parse_subnet_or_ip(subnet)
+        subnet = self.dns_parser.parse_subnet_or_ip(subnet)
         if subnet is None:
-            raise CerebrumError, "Unknown subnet, check cereconf_dns.py"
+            raise CerebrumError, "Unknown subnet"
         ret = []
         for ip in self._find.find_free_ip(subnet):
             ret.append({'ip': ip})
         return ret
+
+
+    # host used_list
+    all_commands['host_used_list'] = Command(
+        ("host", "used_list"), SubNetOrIP(),
+        fs=FormatSuggestion("%-15s  %s", ('ip', 'hostname'),
+                            hdr = "%-15s  %s" % (('Ip', 'Hostname'))))
+    def host_used_list(self, operator, subnet_or_ip):
+        arecord = ARecord.ARecord(self.db)
+        s = Subnet.Subnet(self.db)
+        s.find(subnet_or_ip)
+
+        ret = []
+        for ip in self._find.find_used_ips(s.subnet_ip):
+            owner_id = self._find.find_target_by_parsing(
+                ip, dns.IP_NUMBER)
+            try:
+                name =  arecord.list_ext(ip_number_id=owner_id)[0][6]
+            except:
+                # Need to expand how names are looked for, but this needs testing
+                name = "(Unknown)"
+            ret.append({'ip': ip, 'hostname': name})
+        return ret
+
 
     # host mxdef_add
     all_commands['host_mxdef_add'] = Command(
@@ -838,6 +877,7 @@ class BofhdExtension(object):
         return "OK, dns-owner %s renamed to %s (IP: %s)" % (
             old_id, new_id, ", ".join(ips))
 
+
     # host ptr_add
     all_commands['host_ptr_add'] = Command(
         ("host", "ptr_add"), Ip(), HostName(), Force(optional=True),
@@ -845,9 +885,17 @@ class BofhdExtension(object):
     def host_ptr_add(self, operator, ip_host_id, dest_host, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
+
+        s = Subnet.Subnet(self.db)
+        s.find(ip_host_id)
+        if s.dns_delegated:
+            raise CerebrumError("Cannot add reversemap in subnet zone " +
+                                "delegated to external DNS-server")
+        
         self.mb_utils.add_revmap_override(ip_host_id, dest_host, force)
         return "OK, added reversemap override for %s -> %s" % (
             ip_host_id, dest_host)
+
 
     # host ptr_remove
     all_commands['host_ptr_remove'] = Command(
