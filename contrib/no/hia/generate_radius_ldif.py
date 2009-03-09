@@ -77,8 +77,8 @@ class RadiusLDIF(object):
                 # Ikke endelig innhold
                 'objectClass': ['top', 'account', 'uiaRadiusAccount'],
                 'uid': (uname,),
-                'radiusTunnelType': ('13',),
-                'radiusTunnelMediumType': ('6',),
+                'radiusTunnelType': ('VLAN',),
+                'radiusTunnelMediumType': ('IEEE-802',),
                 'radiusTunnelPrivateGroupId': (vlan_vpn[0],),
                 'radiusClass': (vlan_vpn[1],)}
             if auth:
