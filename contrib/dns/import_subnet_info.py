@@ -36,15 +36,69 @@ progname = __file__.split("/")[-1]
 __doc__ = """
 Usage: %s [options]
    --datafile, -d   File containing info about subnets
-   --vlanfile, -v   File containing info about VLANs
+   --vlanfile, -v   File containing info about VLANs. VLAN-info is only
+                    used for new subnet, nor for updating existing subnets
    --force, -f      Force import to make non-erronous changes,
                     even if other parts of the import fail
    --help, -h       Prints this message and quits
 
+   Mail options:
+   --status_recipients, -s   Those who should receive mail when
+                             things go well
+   --error_recipients, -e    Those who should receive mail when
+                             things don't go well
+   --mail-cc                 Those who should receive copies of any mails
+   --mail-from               Designated sender of the mails
+
 '--datafile' must be specified
 
-This program loads data for subnets from given datafile, adding info
-about VLANs where available.
+This program loads data for subnets from given 'datafile', adding info
+about VLANs from 'vlanfile' when available. The datafile should be a
+complete picture of the subnet structure in use, since this import
+will change the database to be in line with the datafile, adding and
+subtracting subnets where necessary to bring that about.If any errors
+occur during the import, no changes are made to the database.
+
+Errors that the import checks for:
+- Removal of subnets where addresses are in use
+- Adding subnets where designated reserved addresses are already  in use
+- Adding subnets that overlap with other subnets (i.e. share addresses)
+
+By using the 'force'-option, the import will ignore the first two
+types of errors, and will also make valid changes specififed, even if
+there are overlapping subnets specified in the datafile. The import
+will never add subnets that overlap other subnets, though.
+
+FORMAT OF DATAFILE
+
+* One subnet per line
+* Empty lines or lines starting with '#' are ignored
+* Each line should contain the following,. ordered left to right:
+
+  * Subnet identifier, e.g. 129.240.28.0/23
+  * One or more whitespace characters
+  * A description of the subnet (till end of line)
+
+* Warnings are issued for lines that do not satisfy any of the above
+  criteria.
+
+FORMAT OF VLANFILE (when supplied)
+
+* One subnet per line
+* Each line contains the following:
+
+  * An integer (the VLAN ID)
+  * One or more whitespace characters
+  * Subnet identifier, e.g. 129.240.196.160/27
+
+* Lines that do not satisfy these criteria are ignored.
+
+RETURN VALUES
+
+ 0 - Completed succesfully (includes when forces)
+ 1 - Option-error (incorrect use; option doesn't exist, etc)
+ 2 - No datafile supplied
+ 3 - Data error, import rolled back
 
 """ % progname
 
@@ -58,7 +112,16 @@ db = Factory.get('Database')()
 db.cl_init(change_program=progname[:16])
 
 
-def add_subnet(subnet, description, vlan, perform_checks= True):
+def add_subnet(subnet, description, vlan, perform_checks=True):
+    """Utility method for adding a (new) subnet based on the
+    information given.
+
+    If errors occur during the addition, Cerebrum- and/or
+    Subnet-errors will be raised.
+
+    TODO: parameter doc.
+    
+    """
     s = Subnet(db)
     s.clear()
     s.populate(subnet, description, vlan=vlan)
@@ -69,11 +132,16 @@ def add_subnet(subnet, description, vlan, perform_checks= True):
 
 
 def parse_vlan_file(filename):
+    """Parse the contents of the file containing VLAN-identifiers.
+
+    TODO: parameter doc.
+    
+    """
     subnet_to_vlan = {}
     logger.info("Parsing VLAN-file '%s'" % filename)
     infile = open(filename)
 
-    matcher = re.compile(r'(\d+)\s+([1234567890./]+)') # r'(\d+)\s+((\d+){4}/\d{2})'
+    matcher = re.compile(r'(\d+)\s+([1234567890./]+)')
     for line in infile:
         result = matcher.match(line)
         if result:
@@ -89,6 +157,12 @@ def parse_vlan_file(filename):
     
     
 def parse_data_file(filename, subnet_to_vlan):
+    """Parses the content of the given datafile for information about
+    subnets.
+
+    TODO: parameter doc.
+    
+    """
     subnets_in_file = {}
     logger.info("Parsing data-file '%s'" % filename)
     infile = open(filename)
@@ -115,9 +189,15 @@ def parse_data_file(filename, subnet_to_vlan):
     
 
 def compare_file_to_db(subnets_in_file, force):
+    """Analyzes the info obtained from the files that are to be
+    imported, compares to content of database and makes changes were
+    needed to bring the database in sync with the datafile.
+
+    TODO: parameter doc.
+    
+    """
     errors = []
     changes = []
-    subnets_to_add = []
     perform_checks = not force
         
     s = Subnet(db)
