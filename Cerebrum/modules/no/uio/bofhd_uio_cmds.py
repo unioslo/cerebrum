@@ -1062,6 +1062,54 @@ class BofhdExtension(object):
         return "OK, added '%s' as forward-address for '%s'" % (
             address, uname)
 
+    # email delete_forward address
+    all_commands['email_delete_forward'] = Command(
+        ("email", "delete_forward"),
+        EmailAddress(help_ref='email_address'),
+        fs=FormatSuggestion([("Deleted forward address: %s", ("address", ))]),
+        perm_filter='can_email_forward_create')
+    def email_delete_forward(self, operator, address):
+        """Delete a forward target with associated aliases. Requires primary
+        address."""
+
+        # Allow us to delete an address, even if it is malformed.
+        lp, dom = self._split_email_address(address, with_checks=False)
+        ed = self._get_email_domain(dom)
+        et, acc = self.__get_email_target_and_account(address)
+        self.ba.can_email_forward_edit(operator.get_entity_id(), domain=ed)
+        epat = Email.EmailPrimaryAddressTarget(self.db)
+        try:
+            epat.find(et.entity_id)
+            # but if one exists, we require the user to supply that
+            # address, not an arbitrary alias.
+            if address != self.__get_address(epat):
+                raise CerebrumError("%s is not the primary address of "
+                                    "the target" % address)
+            epat.delete()
+        except Errors.NotFoundError:
+            # a forward address does not need a primary address
+            pass
+
+        fw = Email.EmailForward(self.db)
+        try:
+            fw.find(et.entity_id)
+            for f in fw.get_forward():
+                fw.delete_forward(f['forward_to'])
+        except Errors.NotFoundError:
+            # There are som stale forward targets without any address to
+            # forward to, hence ignore.
+            pass
+
+        result = []
+        ea = Email.EmailAddress(self.db)
+        for r in et.get_addresses():
+            ea.clear()
+            ea.find(r['address_id'])
+            result.append({'address': self.__get_address(ea)})
+            ea.delete()
+        et.delete()
+        return result
+
     # email remove_forward <account>+ <address>+
     # account can also be an e-mail address for pure forwardtargets
     all_commands['email_remove_forward'] = Command(

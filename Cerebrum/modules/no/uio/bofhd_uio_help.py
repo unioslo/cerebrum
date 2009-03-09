@@ -150,6 +150,8 @@ command_help = {
         "Remove a Sympa list's addresses",
     "email_delete_multi":
         "Remove a multi target and all its addresses",
+    "email_delete_forward":
+        "Delete an e-mail forward target",
     "email_edit_pipe_command":
         "Change the command the pipe target runs",
     "email_edit_pipe_user":
