@@ -196,11 +196,11 @@ class _AdsiBack(object):
     def _move_here(self, dn, accountname):
         """move object referred to with distinguishedName, dn, to currently 
         bound ou"""
-        ad_obj= win32com.client.GetObject('LDAP://'+self.ou.distinguishedName)
+        ad_obj= win32com.client.GetObject(u'LDAP://'+self.ou.distinguishedName)
         # If an account has been added manually, the CN may be the full name
         # instead of username, and the full name may contain non-ascii chars.
         # FIXME: There's probably a better way to handle this
-        ad_obj.moveHere(dn.__str__().encode('cp1252'), 'CN='+accountname)
+        ad_obj.moveHere(dn.path(), u'CN=%s' % (accountname,))
         
 
 class _ADAccount(_AdsiBack):                
@@ -268,8 +268,8 @@ class _ADAccount(_AdsiBack):
         except OutsideOUError, e:
             dn, accountname= e
             log.info("moving %s from %s to %s",
-                accountname.encode('cp1252'), 
-                dn.__str__().encode('cp1252'),
+                accountname, 
+                dn.path(),
                 self.ou_path,
             )
             self._move_here(dn, accountname)

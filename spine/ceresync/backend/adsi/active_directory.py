@@ -311,7 +311,7 @@ class AD_object(object):
         return self.as_string()
 
     def __repr__(self):
-        return "<%s: %s>" % (self.__class__.__name__, self.as_string())
+        return u"<%s: %s>" % (self.__class__.__name__, self.as_string())
 
     class AD_iterator:
         """Inner class for wrapping iterated objects"""
