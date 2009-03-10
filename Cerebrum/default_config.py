@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2008 University of Oslo, Norway
+# Copyright 2002-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -736,4 +736,5 @@ EPHORTE_UIO_ROOT_SKO = ''
 EPHORTE_MAIL_WARNINGS = ""
 EPHORTE_MAIL_WARNINGS2 = ""
 EPHORTE_MAIL_TIME = []  
-EPHORTE_EXPIRED_PERMISSIONS = []
+EPHORTE_NEW2OLD_PERMISSIONS = {}
+EPHORTE_OLD2NEW_PERMISSIONS = {}

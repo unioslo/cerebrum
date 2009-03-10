@@ -315,14 +315,28 @@ class BofhdExtension(object):
             raise CerebrumError("Unexpectedly found more than one person")
         if not person.has_spread(self.const.spread_ephorte_person):
             raise CerebrumError("Person has no ephorte roles")
-        #if tilgang in cereconf.EPHORTE_EXPIRED_PERMISSIONS:
-        #    raise CerebrumError("'Tilgang' %s is expired" % tilgang)
         ou = self._get_ou(stedkode=sko)
+        # This is a hack needed by the archivists.
+        # If one of the new permissions, defined in
+        # EPHORTE_NEW2OLD_PERMISSIONS.values() is to be added, the old
+        # (expired) one must be added to. And vice versa.
+        corresponding_perm = cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(tilgang, None) or \
+                             cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(tilgang, None) 
+        if corresponding_perm:
+            # Add the corresponding permission
+            self.ephorte_perm.add_permission(person.entity_id,
+                                             self._get_tilgang(corresponding_perm),
+                                             ou.entity_id,
+                                             operator_id)
+            ret_msg_suffix = " Also added 'tilgang' %s" % corresponding_perm
+        else:
+            ret_msg_suffix = ""
+        # Add new permission
         self.ephorte_perm.add_permission(person.entity_id,
                                          self._get_tilgang(tilgang),
                                          ou.entity_id,
                                          operator_id)
-        return "OK, added 'tilgang' %s  for %s" % (tilgang, person_id)
+        return "OK, added 'tilgang' %s for %s.%s" % (tilgang, person_id, ret_msg_suffix)
     
     all_commands['ephorte_remove_perm'] = Command(("ephorte", "remove_perm"), PersonId(), Tilgang(), OU(repeat=True), 
         perm_filter='can_remove_ephorte_perm')
@@ -334,8 +348,25 @@ class BofhdExtension(object):
         except Errors.TooManyRowsError:
             raise CerebrumError("Unexpectedly found more than one person")
         ou = self._get_ou(stedkode=sko)
-        self.ephorte_perm.remove_permission(person.entity_id, self._get_tilgang(tilgang), ou.entity_id)
-        return "OK, removed 'tilgang' %s for %s" % (tilgang, person_id)    
+        # This is a hack needed by the archivists.
+        # If one of the new permissions, defined in
+        # EPHORTE_NEW2OLD_PERMISSIONS.values() is to be added, the old
+        # (expired) one must be added to. And vice versa.
+        corresponding_perm = cereconf.EPHORTE_NEW2OLD_PERMISSIONS.get(tilgang, None) or \
+                             cereconf.EPHORTE_OLD2NEW_PERMISSIONS.get(tilgang, None) 
+        if corresponding_perm:
+            # Remove old permission
+            self.ephorte_perm.remove_permission(person.entity_id,
+                                                self._get_tilgang(corresponding_perm),
+                                                ou.entity_id)
+            ret_msg_suffix = " Also removed 'tilgang' %s" % corresponding_perm
+        else:
+            ret_msg_suffix = ""
+        # Remove new permission
+        self.ephorte_perm.remove_permission(person.entity_id,
+                                            self._get_tilgang(tilgang),
+                                            ou.entity_id)
+        return "OK, removed 'tilgang' %s for %s.%s" % (tilgang, person_id, ret_msg_suffix)
 
     all_commands['ephorte_list_perm'] = Command(("ephorte", "list_perm"), PersonId(), 
         perm_filter='can_list_ephorte_perm', fs=FormatSuggestion(

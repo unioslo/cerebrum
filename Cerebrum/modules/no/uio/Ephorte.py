@@ -290,7 +290,6 @@ class EphorteRole(DatabaseAccessor):
 
     def is_standard_role(self, person_id, role, sko, arkivdel, journalenhet):
         tmp = self.get_role(person_id, role, sko, arkivdel, journalenhet)
-        print tmp
         if tmp and len(tmp) == 1 and tmp[0]['standard_role'] == 'T':
             return True
         return False
@@ -308,7 +307,7 @@ class EphortePermission(DatabaseAccessor):
         super(EphortePermission, self).__init__(database)
         self.co = Factory.get('Constants')(database)
         self.pe = Factory.get('Person')(database)
-        
+
     def add_permission(self, person_id, tilgang, sko, requestee):
         binds = {
             'person_id': person_id,
