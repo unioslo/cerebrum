@@ -57,6 +57,7 @@ def main():
         log.error("%S", e)
         exit(1)
     server_id= long(s.cmd.get_last_changelog_id())
+    encoding= s.session.get_encoding()
     log.debug("Local id: %ld, server_id: %ld",local_id,server_id)
 
     if local_id > server_id:
@@ -82,7 +83,7 @@ def main():
     s.close()
 
     log.debug("Synchronizing accounts")
-    userAD.begin(incr)
+    userAD.begin(encoding, incr)
     for account in accounts:
         log.debug("Processing account '%s'", account.name)
         userAD.add(account)
@@ -90,7 +91,7 @@ def main():
     log.debug("Done synchronizing accounts")
 
     log.debug("Synchronizing groups")
-    groupAD.begin(incr)
+    groupAD.begin(encoding, incr)
     try:
         for group in groups:
             log.debug("Processing group '%s'", group.name)

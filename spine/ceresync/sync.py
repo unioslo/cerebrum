@@ -105,6 +105,10 @@ class Sync:
         except SpineCore.Spine.LoginError, e:
             raise errors.LoginError(e)
 
+        encoding= config.get('sync','encoding', default='')
+        if encoding != '':
+            self.session.set_encoding(encoding)
+
         self.tr = self.session.new_transaction()
         self.cmd = self.tr.get_commands()
         self.view = self.tr.get_view()

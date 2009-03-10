@@ -143,8 +143,9 @@ class _AdsiBack(object):
         else:
             self.ou = ad.AD_object(path=self.ou_path)
 
-    def begin(self, incr=False):
+    def begin(self, encoding, incr=False):
         """Initializes the Active Directory synchronization"""
+        self.encoding= encoding
         self.incr = incr
         self._connect() # reconnect
         
@@ -267,7 +268,7 @@ class _ADAccount(_AdsiBack):
             already_exists = self._find(obj.name)
         except OutsideOUError, e:
             dn, accountname= e
-            log.info("moving %s from %s to %s",
+            log.info(u"moving %s from %s to %s",
                 accountname, 
                 dn.path(),
                 self.ou_path,
@@ -290,7 +291,7 @@ class _ADAccount(_AdsiBack):
         ad_obj = self.update(obj)
         # update() will also remove from self._remains if necessary
         return ad_obj
-
+    
     def update(self, obj):
         """Updates an object in AD. If it does not already exist, the
            AD object will be added instead."""
@@ -306,6 +307,7 @@ class _ADAccount(_AdsiBack):
             if obj.name in self._remains:
                 del self._remains[obj.name]
         return ad_obj    
+
 class ADUser(_ADAccount):
     objectClass = "user"
     """Backend for Users in Active Directory.
@@ -321,7 +323,7 @@ class ADUser(_ADAccount):
         ad_obj.userAccountControl= str2int(obj.control_flags)
         # Setting FirstName and LastName based on the last space in the full
         # name. The bdb client does this, though I have no idea why :)
-        full_name= obj.full_name or obj.gecos or ' '
+        full_name= unicode(obj.full_name or obj.gecos or ' ', self.encoding)
         try: 
             first_name, last_name= full_name.rsplit(None,1)
         except ValueError:
