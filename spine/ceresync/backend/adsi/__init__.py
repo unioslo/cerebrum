@@ -151,7 +151,7 @@ class _AdsiBack(object):
         
         # Find all existing objects
         if not self.incr:
-            self._remains = {}
+            self._remains = set()
             # Don't touch objects of other classes than our
             # (Scenario: groups and users in same OU, both handled
             #  by different subclass)
@@ -163,13 +163,12 @@ class _AdsiBack(object):
                     continue
                 
                 # Supports both cn=name, ou=name, etc.                    
-                name = o.name.split("=")[1]
-                self._remains[name] = o
+                self._remains.add(o.name.split("=")[1])
 
     def close(self):
         """Close the connection to AD"""
         if not self.incr:
-            for accountname in self._remains.keys():
+            for accountname in self._remains:
                 log.info("Disabling %s",accountname)
                 self.delete(_Dummy(accountname))
         self._remains = None
@@ -192,7 +191,7 @@ class _AdsiBack(object):
         self._nuke(ad_obj)
         if not self.incr:
             if obj.name in self._remains:
-                del self._remains[obj.name]
+                self._remains.remove(obj.name)
 
     def _move_here(self, dn, accountname):
         """move object referred to with distinguishedName, dn, to currently 
@@ -305,7 +304,7 @@ class _ADAccount(_AdsiBack):
             return self.add(obj)
         if not self.incr:
             if obj.name in self._remains:
-                del self._remains[obj.name]
+                self._remains.remove(obj.name)
         return ad_obj    
 
 class ADUser(_ADAccount):
@@ -382,7 +381,7 @@ class ADUser(_ADAccount):
             ad_obj.userAccountControl |= 0x00002
         if not self.incr:
             if obj.name in self._remains:
-                del self._remains[obj.name]
+                self._remains.remove(obj.name)
 
 
 class ADGroup(_ADAccount):
@@ -836,12 +835,12 @@ class TestADSIBack(TestOUFramework):
                          (ridmanager == my_name) )
     
     def testRemainsEmpty(self):
-        self.assertEqual(self.adsi._remains, {})
+        self.assertEqual(self.adsi._remains, set()
     
     def testContainsUsers(self):
         self.createUser()
         self.adsi.begin() # reload _remains
-        self.assertEqual(self.adsi._remains.keys(), ["temp1337"])
+        self.assertEqual(self.adsi._remains, set(["temp1337"]))
         self.hasAccount()
 
     def testCloseRemovesUnknown(self):
@@ -893,7 +892,7 @@ class TestADAccount(TestOUFramework):
 
         self.adaccount.begin() # reload _remains
         # now empty again
-        self.assertEqual(self.adaccount._remains.keys(), []) 
+        self.assertEqual(self.adaccount._remains, set([])) 
 
     def testRemoveAccount(self):
         class Account:
@@ -908,7 +907,7 @@ class TestADAccount(TestOUFramework):
         #  Should not find anything
         self.hasNotAccount()
         # Should no longer be in _remains
-        self.assertEqual(self.adaccount._remains.keys(), []) 
+        self.assertEqual(self.adaccount._remains, set([])) 
 
     def testFindAccount(self):
         # should not find before creation
