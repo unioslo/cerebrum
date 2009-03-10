@@ -101,9 +101,17 @@ add_affiliation.signature_write = True
 def get_affiliations(self):
     s = registry.PersonAffiliationSearcher(self.get_database())
     s.set_person(self)
+    s.set_deleted_date_exists(False)
     return s.search()
 get_affiliations.signature = [PersonAffiliation]
 
-Person.register_methods([add_affiliation, get_affiliations])
+def get_all_affiliations(self):
+    s = registry.PersonAffiliationSearcher(self.get_database())
+    s.set_person(self)
+    return s.search()
+get_affiliations.signature = [PersonAffiliation]
+
+Person.register_methods([add_affiliation, get_affiliations,
+                         get_all_affiliations])
 
 # arch-tag: 848f642e-e7d7-11d9-8ba0-fa7bc076c927
