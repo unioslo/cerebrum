@@ -109,7 +109,7 @@ def get_all_affiliations(self):
     s = registry.PersonAffiliationSearcher(self.get_database())
     s.set_person(self)
     return s.search()
-get_affiliations.signature = [PersonAffiliation]
+get_all_affiliations.signature = [PersonAffiliation]
 
 Person.register_methods([add_affiliation, get_affiliations,
                          get_all_affiliations])
