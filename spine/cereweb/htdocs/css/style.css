@@ -349,6 +349,8 @@ div.box span.value { }
 div.box span.date { font-size: 85%;
 }
 div.box tr.primary { font-weight: bold; }
+/* div.box tr.deleted { background: #f00; visibility: hidden; } */
+div.box tr.deleted { background: #f00; }
 div.box div.item {
     padding: 2px 0 2px 0.5em;
     border-bottom: 1px dashed;

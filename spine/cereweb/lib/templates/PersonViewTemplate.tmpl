@@ -126,19 +126,23 @@
 
 #def writeAffiliations($affiliations)
 #for $aff in $affiliations
-    <tr>
+#if $aff['deleted']:
+    <tr class="item deleted">
+#else    
+    <tr class="item">
+#end if
         <td>$aff['affiliation']</td>
         <td>$aff['status']</td>
         <td>$aff['ou']</td>
-        <td>$aff['addinfo']</td>
+        <td>$aff.get('addinfo','')</td>
         <td>$aff['source']</td>
-        <td>$aff['action']</td>
+        <td>$aff.get('action', '')</td>
     </tr>
 #end for
 #end def
 
 #def viewAffiliation($person)
-#set $affilitions= $person.get_affiliations()
+#set $affilitions= $person.get_all_affiliations()
 #if $affilitions
 <div class="info box">
     <h3>$_('Affiliations')</h3>
@@ -166,10 +170,10 @@
             #set $ou_name = $spine_to_web($ou.get_name())
             #set $item['ou'] = $object_link($ou, text=$ou_name)
             #if $marked
-                #set $item['addinfo'] = $_('deleted')
-                #set $item['action'] = $_('&#x0020;')
+                #set $item['deleted'] = True
                 $deleted.append($item)
             #else
+		#set $item['deleted'] = False
                 #set $item['addinfo'] = $_('active')
                 #set $person_id = $person.get_id()
                 #set $ou_id = $ou.get_id()
