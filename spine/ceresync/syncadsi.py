@@ -45,8 +45,8 @@ def main():
     if os.path.isfile(spine_cache):
         local_id= long(file(spine_cache).read())
     try:
-        log.info("Connecting to spine-server")
-        s = sync.Sync(incr,local_id)
+        log.debug("Connecting to spine-server")
+        s = sync.Sync(incr, local_id)
     except omniORB.CORBA.TRANSIENT, e:
         log.error("Unable to connect to spine-server: %s", e)
         exit(1)
@@ -57,12 +57,12 @@ def main():
         log.error("%S", e)
         exit(1)
     server_id= long(s.cmd.get_last_changelog_id())
-    log.info("Local id: %d, server_id: %d",local_id,server_id)
+    log.debug("Local id: %ld, server_id: %ld",local_id,server_id)
 
     if local_id > server_id:
         log.warning("local changelogid is larger than the server's!")
     elif incr and local_id == server_id:
-        log.info("Nothing to be done.")
+        log.debug("No changes to apply. Quiting.")
         s.close()
         return
 
@@ -81,15 +81,15 @@ def main():
     log.debug("Closing connection to spine")
     s.close()
 
-    log.info("Synchronizing accounts")
+    log.debug("Synchronizing accounts")
     userAD.begin(incr)
     for account in accounts:
         log.debug("Processing account '%s'", account.name)
         userAD.add(account)
     userAD.close()
-    log.info("Done synchronizing accounts")
+    log.debug("Done synchronizing accounts")
 
-    log.info("Synchronizing groups")
+    log.debug("Synchronizing groups")
     groupAD.begin(incr)
     try:
         for group in groups:
@@ -99,9 +99,9 @@ def main():
         log.exception("Exception %s occured, aborting", e)
     else:
         groupAD.close()
-    log.info("Done synchronizing groups")
+    log.debug("Done synchronizing groups")
     if incr or ( not incr and add and update and delete ):
-        log.debug("Storing changelog-id %d", server_id) 
+        log.debug("Storing changelog-id %ld", server_id) 
         file(spine_cache, 'w').write( str(server_id) )
 
 if __name__ == "__main__":
