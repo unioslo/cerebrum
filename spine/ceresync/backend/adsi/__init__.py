@@ -320,6 +320,9 @@ class ADUser(_ADAccount):
 
     def update(self, obj):
         ad_obj = super(ADUser, self).update(obj)
+        if not ad_obj.distinguishedName.split(',')[0].split('=')[1]==obj.name:
+            self._move_here(ad_obj, obj.name)
+            ad_obj = super(ADUser, self).update(obj)
         ad_obj.userAccountControl= str2int(obj.control_flags)
         # Setting FirstName and LastName based on the last space in the full
         # name. The bdb client does this, though I have no idea why :)
