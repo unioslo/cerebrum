@@ -835,7 +835,7 @@ class TestADSIBack(TestOUFramework):
                          (ridmanager == my_name) )
     
     def testRemainsEmpty(self):
-        self.assertEqual(self.adsi._remains, set()
+        self.assertEqual(self.adsi._remains, set())
     
     def testContainsUsers(self):
         self.createUser()
@@ -892,7 +892,7 @@ class TestADAccount(TestOUFramework):
 
         self.adaccount.begin() # reload _remains
         # now empty again
-        self.assertEqual(self.adaccount._remains, set([])) 
+        self.assertEqual(self.adaccount._remains, set()) 
 
     def testRemoveAccount(self):
         class Account:
@@ -907,7 +907,7 @@ class TestADAccount(TestOUFramework):
         #  Should not find anything
         self.hasNotAccount()
         # Should no longer be in _remains
-        self.assertEqual(self.adaccount._remains, set([])) 
+        self.assertEqual(self.adaccount._remains, set()) 
 
     def testFindAccount(self):
         # should not find before creation
