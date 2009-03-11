@@ -150,7 +150,7 @@ from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 # Roles that are considered at all
 valid_roles = ("ADMIN", "DLO", "FAGANSVAR", "FORELESER", "GJESTEFORE",
                "GRUPPELÆRE", "HOVEDLÆRER", "IT-ANSVARL", "LÆRER", "SENSOR",
-               "STUDIEKONS", "FUNKONTAKT",)
+               "STUDIEKONS", "TOLK",)
 # Roles that are inherited by entities located at a certain sko or at a
 # certain stprog.
 recursive_roles = ("ADMIN", "DLO", "IT-ANSVARL", "STUDIEKONS")

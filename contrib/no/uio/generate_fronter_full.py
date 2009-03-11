@@ -595,7 +595,7 @@ view_contacts = {'gacc': '100',
 # Each sub-dictionary lists roles that we may encounter, and their permissions
 # with respect to various fronter constructions (fellesrom, lærerrom and so
 # on). Some entries may be missing (i.e. a specific role may not have any
-# permissions defined for a specific fronter structure; e.g. 'funkontakt' has
+# permissions defined for a specific fronter structure; e.g. 'tolk' has
 # no permissions defined for 'larer') This means that that particular role
 # does NOT have any permissions wrt the specified group/structure. The code
 # must be prepared for such an eventuality. 
@@ -651,10 +651,10 @@ kind2permissions = {
                               'larer': Fronter.ROLE_CHANGE,
                               'korridor': admin_lite,
                               'student': view_contacts},
-               'funkontakt': {'felles': Fronter.ROLE_READ,
-                              # 'larer': NOTIMPLEMENTED on purpose
-                              # 'korridor': NOTIMPLEMENTED on purpose
-                              'student': view_contacts},
+               'tolk': {'felles': Fronter.ROLE_READ,
+                        # 'larer': NOTIMPLEMENTED on purpose
+                        # 'korridor': NOTIMPLEMENTED on purpose
+                        'student': view_contacts},
 
     },
     #
@@ -714,11 +714,11 @@ kind2permissions = {
                               'undakt': Fronter.ROLE_CHANGE,
                               'korridor': admin_lite,
                               'student': view_contacts},
-               'funkontakt': {'felles': Fronter.ROLE_READ,
-                              # 'larer': NOTIMPLEMENTED on purpose
-                              'undakt': Fronter.ROLE_READ,
-                              # 'korridor': NOTIMPLEMENTED on purpose
-                              'student': view_contacts,},
+               'tolk': {'felles': Fronter.ROLE_READ,
+                        # 'larer': NOTIMPLEMENTED on purpose
+                        'undakt': Fronter.ROLE_READ,
+                        # 'korridor': NOTIMPLEMENTED on purpose
+                        'student': view_contacts,},
     },
     #
     # Permissions for kull.
@@ -744,8 +744,8 @@ kind2permissions = {
                         'korridor': admin_lite,},
              'studiekons': {'kullrom': Fronter.ROLE_CHANGE,
                             'korridor': admin_lite,},
-             'funkontakt': {'kullrom': Fronter.ROLE_READ,},
-                            # 'korridor': NOTIMPLEMENTED on purpose
+             'tolk': {'kullrom': Fronter.ROLE_READ,},
+                      # 'korridor': NOTIMPLEMENTED on purpose
     },
     'student': {'undakt': Fronter.ROLE_WRITE,
                 'undenh': Fronter.ROLE_WRITE,
