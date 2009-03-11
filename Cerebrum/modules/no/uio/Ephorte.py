@@ -179,7 +179,7 @@ class EphorteRole(DatabaseAccessor):
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=ephorte_role]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
-                                 ", ".join([":%s" % k for k in binds.keys()])),
+                                 ", ".join([":%s" % k for k in binds])),
                                  binds)
         self._db.log_change(person_id, self.co.ephorte_role_add,
                             sko, change_params={
@@ -209,7 +209,7 @@ class EphorteRole(DatabaseAccessor):
         UPDATE [:table schema=cerebrum name=ephorte_role]
         SET standard_role='%s'
         WHERE %s""" % (standard_role, " AND ".join(
-            ["%s=:%s" % (x, x) for x in binds.keys() if binds[x]]))
+            ["%s=:%s" % (x, x) for x in binds if binds[x]]))
         self.execute(query, binds)
         self._db.log_change(person_id, self.co.ephorte_role_upd,
                             sko, change_params={
@@ -228,8 +228,8 @@ class EphorteRole(DatabaseAccessor):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=ephorte_role]
         WHERE %s""" % " AND ".join(
-            ["%s=:%s" % (x, x) for x in binds.keys() if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds.keys() if binds[x] is None]),
+            ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
+            ["%s IS NULL" % x for x in binds if binds[x] is None]),
                      binds)
         self._db.log_change(person_id, self.co.ephorte_role_rem,
                             sko, change_params={
@@ -272,8 +272,8 @@ class EphorteRole(DatabaseAccessor):
                start_date, end_date, auto_role
         FROM [:table schema=cerebrum name=ephorte_role]
         WHERE %s""" % " AND ".join(
-            ["%s=:%s" % (x, x) for x in binds.keys() if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds.keys() if binds[x] is None]),
+            ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
+            ["%s IS NULL" % x for x in binds if binds[x] is None]),
                      binds)
             
     def list_roles(self, person_id=None):
@@ -318,7 +318,7 @@ class EphortePermission(DatabaseAccessor):
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=ephorte_permission]
           (%s) VALUES (%s)""" % (", ".join(binds.keys()),
-                                 ", ".join([":%s" % k for k in binds.keys()])),
+                                 ", ".join([":%s" % k for k in binds])),
                                  binds)
         self._db.log_change(person_id, self.co.ephorte_perm_add,
                             sko, change_params={
@@ -334,8 +334,8 @@ class EphortePermission(DatabaseAccessor):
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=ephorte_permission]
         WHERE %s""" % " AND ".join(
-            ["%s=:%s" % (x, x) for x in binds.keys() if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds.keys() if binds[x] is None]),
+            ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
+            ["%s IS NULL" % x for x in binds if binds[x] is None]),
                      binds)
         self._db.log_change(person_id, self.co.ephorte_perm_rem,
                             sko, change_params={
@@ -350,19 +350,27 @@ class EphortePermission(DatabaseAccessor):
             'perm_type': tilgang,
             'adm_enhet': sko
             }
-        self.execute("""
+        query = """
         UPDATE[:table schema=cerebrum name=ephorte_permission]
-        SET end_date=%s
-        WHERE %s""" % (end_date or "[:now]", " AND ".join(
-            ["%s=:%s" % (x, x) for x in binds.keys() if binds[x] is not None] +
-            ["%s IS NULL" % x for x in binds.keys() if binds[x] is None])),
-                     binds)
+        SET end_date=%s 
+        WHERE %s""" % (end_date and ':end_date' or '[:now]',
+                       " AND ".join(
+            ["%s=:%s" % (x, x) for x in binds if binds[x] is not None] +
+            ["%s IS NULL" % x for x in binds if binds[x] is None]))
+        if end_date:
+            binds['end_date'] = end_date
+        self.execute(query, binds)
         # TBD: log change?
 
-    def list_permission(self, person_id=None, filter_expired=False):
+    def list_permission(self, person_id=None, perm_type=None, adm_enhet=None,
+                        filter_expired=False):
         where = []
         if person_id:
             where.append("person_id=:person_id")
+        if perm_type:
+            where.append("perm_type=:perm_type")
+        if adm_enhet:
+            where.append("adm_enhet=:adm_enhet")
         if filter_expired:
             where.append("(end_date IS NULL OR end_date > [:now])")            
         if where:
@@ -373,7 +381,15 @@ class EphortePermission(DatabaseAccessor):
         SELECT person_id, perm_type, adm_enhet,
                requestee_id, start_date, end_date
         FROM [:table schema=cerebrum name=ephorte_permission] %s""" % where, {
-            'person_id': person_id})
+            'person_id': person_id,
+            'perm_type': perm_type,
+            'adm_enhet': adm_enhet})
+
+    def has_permission(self, person_id, perm_type, adm_enhet):
+        if self.list_permission(person_id, perm_type, adm_enhet):
+            return True
+        return False
+
     
 ## Denne koden er ikke klar ennå
 # class PersonEphorteMixin(Person.Person):
