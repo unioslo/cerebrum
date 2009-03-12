@@ -866,7 +866,7 @@ class UiOUndervisning(access_FS.Undervisning):
         """
 
         result = self.db.query(qry, {"aar1": self.year,
-                                     "aar2": self.year}. fetchall=True)
+                                     "aar2": self.year}, fetchall=True)
         # IVR 2009-03-12 FIXME: DCOracle2 returns a float when taking a union
         # of two ints. The resons for this escape me.
         for row in result:
