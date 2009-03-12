@@ -33,7 +33,7 @@ public class EphorteConnectionImpl extends EphorteConnection {
     protected void connect(String url, String userName, String passWord, String dataBase) {
         ServicesLocator locator = new ServicesLocator();
 	log.info("Using web-service at url: " + url);
-	log.info("Using database: " + dataBase + ", user: " + userName);
+	log.info("Using database: " + dataBase);
         try {
             if (url == null) {
                 service = locator.getServicesSoap();
