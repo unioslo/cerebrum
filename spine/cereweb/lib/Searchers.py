@@ -144,19 +144,19 @@ class Searcher(object):
         main = self.searchers['main']
         main.set_search_limit(self.max_hits, offset)
 
-        if orderby:
-            try:
-                orderby_searcher, orderby = orderby.split('.')
-                orderby_searcher = self.searchers[orderby_searcher]
-                join_name = orderby_searcher.join_name
-                main.add_join(main.join_name, orderby_searcher, join_name)
-            except (ValueError, KeyError), e:
-                orderby_searcher = main
-                
-            if orderby_dir == 'desc':
-                main.order_by_desc(orderby_searcher, orderby)
-            else:
-                main.order_by(orderby_searcher, orderby)
+        ## if orderby:
+        ##     try:
+        ##         orderby_searcher, orderby = orderby.split('.')
+        ##         orderby_searcher = self.searchers[orderby_searcher]
+        ##         join_name = orderby_searcher.join_name
+        ##         main.add_join(main.join_name, orderby_searcher, join_name)
+        ##     except (ValueError, KeyError), e:
+        ##         orderby_searcher = main
+        ##         
+        ##     if orderby_dir == 'desc':
+        ##         main.order_by_desc(orderby_searcher, orderby)
+        ##     else:
+        ##         main.order_by(orderby_searcher, orderby)
 
     def remember_last(self):
         if cherrypy.session['options'].getboolean('search', 'remember last'):
@@ -408,8 +408,8 @@ class PersonSearcher(Searcher):
           include another search term.
     """
     headers = [
-        ('Name', 'name.name'),
-        ('Date of birth', 'person.birth_date'),
+        ('Name', ''),
+        ('Date of birth', ''),
         ('Account(s)', ''),
         ('Affiliation(s)', ''),
         ('Actions', '')
