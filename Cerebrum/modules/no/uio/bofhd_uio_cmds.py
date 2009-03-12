@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2008 University of Oslo, Norway
+# Copyright 2002-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -8405,7 +8405,8 @@ class BofhdExtension(object):
             elif idtype == 'id':
                 group.find(id)
             else:
-                raise CerebrumError, "unknown idtype: '%s'" % idtype
+                raise CerebrumError, "Unknown idtype: '%s', did you mean name:%s:%s?" % (
+                        idtype, idtype, id)
         except Errors.NotFoundError:
             raise CerebrumError, "Could not find %s with %s=%s" % (grtype, idtype, id)
         return group
