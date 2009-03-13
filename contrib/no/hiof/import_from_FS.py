@@ -75,14 +75,14 @@ def write_person_info(outfile):
     cols, student = _ext_cols(fs.student.list_eksamensmeldinger())
     for s in student:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
-    # EVU-studenter ved Hiÿf
-    cols, student = _ext_cols(fs.evu.list())
-    for e in student:
-        f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
+#     # EVU-studenter ved Hiÿf
+#     cols, student = _ext_cols(fs.evu.list())
+#     for e in student:
+#         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
     # Studenter med privatistopptak ved Hiÿf
-    cols, student = _ext_cols(fs.evu.list())
-    for e in student:
-        f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'privatist') + "\n")        
+#     cols, student = _ext_cols(fs.evu.list())
+#     for e in student:
+#         f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'privatist') + "\n")        
 
     f.write("</data>\n")
     f.close()
