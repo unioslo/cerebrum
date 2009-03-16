@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2004-2008 University of Oslo, Norway
+# Copyright 2004-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -41,7 +41,7 @@ class Constants(_c.Constants):
     trait_passwordnotifier_notifications = _EntityTraitCode(
         'pw_notifications',
         _c.Constants.entity_account,
-        "Trait marking accounts whose password's change is not enforced by PasswordNotifier.")
+        "Trait for PasswordNotifier's bookkeeping.")
 
 class PasswordNotifier(object):
     """
