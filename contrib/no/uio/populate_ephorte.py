@@ -12,6 +12,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
 from Cerebrum.modules import CLHandler
 from Cerebrum.modules.no.uio.Ephorte import EphorteRole
+from Cerebrum.modules.no.uio.Ephorte import EphortePermission, _EphortePermTypeCode
 
 progname = __file__.split("/")[-1]
 __doc__ = """
@@ -31,6 +32,7 @@ ac = Factory.get('Account')(db)
 pe = Factory.get('Person')(db)
 group = Factory.get('Group')(db)
 ephorte_role = EphorteRole(db)
+ephorte_perm = EphortePermission(db)
 ou = Factory.get("OU")(db)
 cl = CLHandler.CLHandler(db)
 logger = Factory.get_logger("cronjob")
@@ -61,7 +63,7 @@ class PopulateEphorte(object):
 
         logger.info("Fetching OU info from Cerebrum")
         ephorte_sko_ignore = ['null', '[Ufordelt]'] # Special sko, ignore
-        sko2ou_id = {}           # stedkode -> ouid 
+        self.sko2ou_id = {}      # stedkode -> ouid 
         self.ouid_2roleinfo = {} # ouid -> (arkivdel, journalenhet) 
         self.ouid2sko = {}       # ouid -> stedkode 
         for row in ou.get_stedkoder():
@@ -69,7 +71,7 @@ class PopulateEphorte(object):
                 int(row[x]) for x in ('fakultet', 'institutt', 'avdeling')])
             ou_id = int(row['ou_id'])
             self.ouid2sko[ou_id] = sko
-            sko2ou_id[sko] = ou_id
+            self.sko2ou_id[sko] = ou_id
             # Specal case, SO
             if sko in cereconf.EPHORTE_SO_SKO:
                 self.ouid_2roleinfo[ou_id] = (
@@ -111,7 +113,7 @@ class PopulateEphorte(object):
         for line in lines:
             ephorte_sko = line.split(";")[posname2num['AI_FORKDN']]
             ephorte_name = line.split(";")[posname2num['AI_ADMBET']]
-            ou_id = sko2ou_id.get(ephorte_sko)
+            ou_id = self.sko2ou_id.get(ephorte_sko)
             if ou_id is None:
                 if ephorte_sko not in ephorte_sko_ignore:
                     logger.warn("Unknown ePhorte sko: '%s'" % ephorte_sko)
@@ -157,13 +159,15 @@ class PopulateEphorte(object):
 
         # superuser-rollen skal ha UiOs rotnode som adm_enhet
         self._superuser_role = SimpleRole(
-            int(co.ephorte_role_sy), sko2ou_id[cereconf.EPHORTE_UIO_ROOT_SKO],
+            int(co.ephorte_role_sy), self.sko2ou_id[cereconf.EPHORTE_UIO_ROOT_SKO],
             int(co.ephorte_arkivdel_sak_uio), int(co.ephorte_journenhet_uio),
             auto_role=False)
+
 
     def map_ou2role(self, ou_id):
         arkiv, journal = self.ouid_2roleinfo[ou_id]
         return SimpleRole(int(co.ephorte_role_sb), ou_id, arkiv, journal)
+
 
     def find_person_info(self, person_id):
         ret = {'person_id': person_id}
@@ -188,11 +192,11 @@ class PopulateEphorte(object):
         except (Errors.NotFoundError, IndexError):
             logger.info("Couldn't find primary account for person %s" % person_id)
             ret['uname'] = ""
-            
-
+        
         return ret
+
     
-    def run(self):
+    def populate_roles(self):
         """Automatically add roles and spreads for employees according to
         rules in ephorte-sync-spec.rst """
 
@@ -283,9 +287,50 @@ class PopulateEphorte(object):
                     logger.debug("Removing role (pid=%i): %s" % (person_id, er))
                     ephorte_role.remove_role(person_id, er.role_type, er.adm_enhet,
                                              er.arkivdel, er.journalenhet)
+        logger.info("Done")
 
-        logger.info("All done")
-        db.commit()
+
+    def populate_permissions(self):
+        """
+        Check if all persons have the default permissions and populate
+        if not.
+        """
+        logger.debug("Populate default permissions...")
+        default_perm_type = co.EphortePermission(cereconf.EPHORTE_DEFAULT_PERM)
+        old_default_perm_type = co.EphortePermission(cereconf.EPHORTE_DEFAULT_OLD_PERM)
+        adm_enhet = self.sko2ou_id[cereconf.EPHORTE_EGNE_SAKER_SKO]
+        ac.clear()
+        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        requestee = ac.entity_id
+        # Check all ephorte persons
+        for row in pe.list_all_with_spread(co.spread_ephorte_person):
+            # First check the new permission
+            if not ephorte_perm.has_permission(row['entity_id'],
+                                               default_perm_type,
+                                               adm_enhet):
+                ephorte_perm.add_permission(row['entity_id'],
+                                            default_perm_type,
+                                            adm_enhet,
+                                            requestee)
+                logger.debug("Adding permission %s for person %s at %s" % (
+                    default_perm_type, row['entity_id'], cereconf.EPHORTE_EGNE_SAKER_SKO))
+            # Then check the old
+            if not ephorte_perm.has_permission(row['entity_id'],
+                                               old_default_perm_type,
+                                               adm_enhet):
+                ephorte_perm.add_permission(row['entity_id'],
+                                            old_default_perm_type,
+                                            adm_enhet,
+                                            requestee)
+                             # The perm should be added, and expired
+                ephorte_perm.expire_permission(row['entity_id'],
+                                               old_default_perm_type,
+                                               adm_enhet)
+                logger.debug("Adding expired permission %s for person %s at %s" % (
+                    old_default_perm_type, row['entity_id'],
+                    cereconf.EPHORTE_EGNE_SAKER_SKO))
+        logger.debug("Done")
+
 
 def mail_warnings(mailto, debug=False):
     """
@@ -320,6 +365,7 @@ def mail_warnings(mailto, debug=False):
         send_mail(mailto, cereconf.EPHORTE_MAIL_WARNINGS2, substitute,
                   debug=debug)
 
+
 def send_mail(mailto, mail_template, substitute, debug=False):
     ret = Utils.mail_template(mailto, mail_template, substitute=substitute,
                               debug=debug)
@@ -328,33 +374,56 @@ def send_mail(mailto, mail_template, substitute, debug=False):
     else:
         logger.debug("Sending mail to: %s" % mailto)
 
+
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'p:',
-                                   ['help', 'mail-warnings-to=', 'mail-dryrun'])
+        opts, args = getopt.getopt(sys.argv[1:], 'prs:',
+                                   ['populate-roles', 'populate-permissions',
+                                    'stedinfo', 'help', 'mail-warnings-to=',
+                                    'dryrun'])
     except getopt.GetoptError:
         usage(1)
 
+    populate_roles = False    
+    populate_perms = False
     mail_warnings_to = None
-    mail_dryrun = False
+    dryrun = False
     for opt, val in opts:
         if opt in ('--help',):
             usage()
-        elif opt in ('-p',):
-            pop = PopulateEphorte(val)
-            pop.run()
+        elif opt in ('-s', '--stedinfo'):
+            stedinfo_file = val
+        elif opt in ('-r', '--populate-roles'):
+            populate_roles = True
+        elif opt in ('-p', '--populate-permissions'):
+            populate_perms = True
         elif opt in ('--mail-warnings-to',):
             mail_warnings_to = val
-        elif opt in ('--mail-dryrun',):
+        elif opt in ('--dryrun',):
             mail_dryrun = True
     if not opts:
         usage(1)
+    
+    pop = PopulateEphorte(stedinfo_file)
+    if populate_roles:
+        pop.populate_roles()
+    if populate_perms:
+        pop.populate_permissions()
     if mail_warnings_to:
-        mail_warnings(mail_warnings_to, debug=mail_dryrun)
+        mail_warnings(mail_warnings_to, debug=dryrun)
+
+    if dryrun:
+        db.rollback()
+        logger.info("DRYRUN: Roll back changes")
+    else:
+        db.commit()
+        logger.info("Committing changes")
+
 
 def usage(exitcode=0):
     print __doc__
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
