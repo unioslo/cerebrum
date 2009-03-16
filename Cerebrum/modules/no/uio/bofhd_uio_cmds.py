@@ -2024,6 +2024,20 @@ class BofhdExtension(object):
         else:
             return "%s unchanged" % catcode
 
+    # email domain_set_description
+    all_commands['email_domain_set_description'] = Command(
+        ("email", "domain_set_description"),
+        SimpleString(help_ref="email_domain"),
+        SimpleString(help_ref="string_description"),
+        perm_filter='can_email_domain_create')
+    def email_domain_set_description(self, operator, domainname, description):
+        """Set the description of an e-mail domain."""
+        self.ba.can_email_domain_create(operator.get_entity_id())
+        ed = self._get_email_domain(domainname)
+        ed.email_domain_description = description
+        ed.write_db()
+        return "OK, description for domain '%s' updated" % domainname
+
     def _get_boolean(self, onoff):
         if onoff.lower() in ('on', 'true', 'yes'):
             return True

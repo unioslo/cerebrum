@@ -106,6 +106,8 @@ command_help = {
         "Remove link between OU and e-mail domain",
     "email_domain_configuration":
         "Configure settings for an e-mail domain",
+    "email_domain_set_description":
+        "Set the description of an e-mail domain",
     "email_failure_message":
         "Customise the failure message for a deleted account",
     "email_forward":
