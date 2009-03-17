@@ -1,7 +1,7 @@
 category:metainfo;
 name=dns;
 category:metainfo;
-version=1.0;
+version=1.1;
 
 category:drop;
 DROP TABLE dns_srv_record;
@@ -416,5 +416,40 @@ CREATE TABLE dns_reserved_host(
 );
 */
 
-/* arch-tag: 712a00e6-bdbe-4029-9dcc-795f9a047ee8
-   (do not change this comment) */
+
+category:pre;
+CREATE TABLE dns_subnet
+(
+   entity_type        NUMERIC(6,0)
+	 	      DEFAULT [:get_constant name=entity_dns_subnet]
+  		      NOT NULL
+		      CONSTRAINT dns_subnet_entity_type_chk
+ 		         CHECK (entity_type = [:get_constant name=entity_dns_subnet]),
+   entity_id          NUMERIC(12,0)
+ 		      NOT NULL
+		      CONSTRAINT dns_subnet_pk PRIMARY KEY,
+   subnet_ip          CHAR VARYING(18)
+ 		      NOT NULL
+		      CONSTRAINT dns_subnet_ip_uniq UNIQUE,
+   ip_min	      NUMERIC(12,0)
+   		      NOT NULL,
+   ip_max	      NUMERIC(12,0)
+   		      NOT NULL,
+   description        CHAR VARYING(512)
+ 		      NOT NULL
+   		      DEFAULT '',
+   dns_delegated      BOOLEAN
+   		      NOT NULL
+		      DEFAULT FALSE,
+   name_prefix        CHAR VARYING(128)
+   		      NOT NULL
+   		      DEFAULT '',
+   vlan_number	      NUMERIC(12,0)
+   		      DEFAULT NULL,
+   no_of_reserved_adr NUMERIC(3,0)
+		      NOT NULL
+		      DEFAULT 3,
+
+   CONSTRAINT dns_subnet_entity_info FOREIGN KEY (entity_type, entity_id) 
+   	      			     REFERENCES entity_info(entity_type, entity_id)
+);
