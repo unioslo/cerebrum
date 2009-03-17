@@ -142,9 +142,6 @@ def generate_people_info(exported_orgs):
             exported_employee_id.append(p['person_id'])
         else:
             continue
-        if p['status'] == int(const.affiliation_status_ansatt_bil):
-            logger.info("Skipping ANSATT/bilag (%s)", p['person_id'])
-            continue
         person.clear()
         person.find(p['person_id'])
         ou.clear()
@@ -215,7 +212,7 @@ def generate_people_info(exported_orgs):
                                          'use_change_invoicing_addr': '0',
                                          'use_edit_invoicing_addr': '',
                                          'use_inherit_cost_center': '0',
-                                         'use_cce_id': use_home_oun_id,
+                                         'use_cce_id': '',
                                          'use_change_cost_center': '1',
                                          'use_ugr_id': '',
                                          'use_enabled': quarantined,
@@ -237,10 +234,17 @@ def fetch_employee_data():
     exported_employee_id = []
     employee_data = {}
     all_employee_ids = person.list_affiliations(source_system=const.system_sap,
-                                                affiliation=const.affiliation_ansatt)
+                                                affiliation=const.affiliation_ansatt,
+                                                status=const.affiliation_status_ansatt_tekadm)
+    all_vit_ids = person.list_affiliations(source_system=const.system_sap,
+                                           affiliation=const.affiliation_ansatt,
+                                           status=const.affiliation_status_ansatt_vit)
     all_guest_ids = person.list_affiliations(source_system=const.system_sap,
                                              affiliation=const.affiliation_tilknyttet,
                                              status=const.affiliation_tilknyttet_innkjoper)
+    for v in all_vit_ids:
+        all_employee_ids.append(v)
+        
     for i in all_guest_ids:
         all_employee_ids.append(i)
     return all_employee_ids
