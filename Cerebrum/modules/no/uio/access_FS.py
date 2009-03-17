@@ -954,14 +954,19 @@ class UiOEVU(access_FS.EVU):
     def list_kurs_aktiviteter(self):
         """Som get_kurs_aktivitet, men lister opp alle.
 
-        Hent alle EVU-kursaktiviteter som finnes. 
+        Hent alle EVU-kursaktiviteter som finnes. Vi må naturligvis følge de
+        samme begrensningene som gjelder for list_kurs (derav en join).
         """
 
         qry = """
         SELECT k.etterutdkurskode, k.kurstidsangivelsekode, k.aktivitetskode,
                k.aktivitetsnavn, k.undformkode, k.status_eksport_lms,
                k.lmsrommalkode
-        FROM fs.kursaktivitet k
+        FROM fs.kursaktivitet k, fs.etterutdkurs e
+        WHERE e.status_aktiv = 'J' AND
+              NVL(e.dato_til, SYSDATE) >= (SYSDATE - 30) AND
+              k.etterutdkurskode = e.etterutdkurskode AND
+              k.kurstidsangivelsekode = e.kurstidsangivelsekode
         """
 
         return self.db.query(qry)
