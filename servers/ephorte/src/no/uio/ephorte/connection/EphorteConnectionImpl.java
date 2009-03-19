@@ -76,9 +76,9 @@ public class EphorteConnectionImpl extends EphorteConnection {
     {
         Vector<Hashtable<String, String>> ret = new Vector<Hashtable<String, String>>();
         GetDataSetResponseGetDataSetResult res = service.getDataSet(sessionID,
-                criteriaCollectionString+";MaxRecords=30000");  
+                criteriaCollectionString+";MaxRecords=50000");  
         /* 
-	 * IMPORTANT! Don't set MaxRecords any lower than 30000, until
+	 * IMPORTANT! Don't set MaxRecords any lower than 50000, until
 	 * the code can handle partial results from the web service.
          */
         for (MessageElement me : res.get_any()) {
