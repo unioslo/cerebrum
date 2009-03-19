@@ -35,6 +35,8 @@ from Cerebrum.Constants import _EntityExternalIdCode, \
                                _PersonAffStatusCode
 from Cerebrum.modules.bofhd.utils import \
           _AuthRoleOpCode
+from Cerebrum.modules.EntityTrait import \
+     _EntityTraitCode
 
 class ConstantsActiveDirectory(Constants.Constants):
     # FIXME: This Constants-class will eventually be moved to an AD-modul. Jazz, 2009-03-18
@@ -44,6 +46,9 @@ class ConstantsActiveDirectory(Constants.Constants):
     externalid_accountsid = _EntityExternalIdCode('AD_ACCSID',
                                                   Constants.Constants.entity_account,
                                                   "Account's SID, fetched from Active Directory")
+    trait_exchange_mdb = _EntityTraitCode(
+        'exchange_mdb', Constants.Constants.entity_account,
+        "The assigned mailbox-database in Exchange for the given account.")
 
 class ConstantsCommon(Constants.Constants):
 
