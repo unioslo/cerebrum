@@ -36,6 +36,15 @@ from Cerebrum.Constants import _EntityExternalIdCode, \
 from Cerebrum.modules.bofhd.utils import \
           _AuthRoleOpCode
 
+class ConstantsActiveDirectory(Constants.Constants):
+    # FIXME: This Constants-class will eventually be moved to an AD-modul. Jazz, 2009-03-18
+    externalid_groupsid = _EntityExternalIdCode('AD_GRPSID',
+                                                Constants.Constants.entity_group,
+                                                "Group's SID, fetched from Active Directory")
+    externalid_accountsid = _EntityExternalIdCode('AD_ACCSID',
+                                                  Constants.Constants.entity_account,
+                                                  "Account's SID, fetched from Active Directory")
+
 class ConstantsCommon(Constants.Constants):
 
     # external id definitions (NO_NIN, norwegian national id number)
