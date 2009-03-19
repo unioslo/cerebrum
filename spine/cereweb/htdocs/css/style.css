@@ -224,6 +224,11 @@ div.td_lead_info{
     font-weight: bold;
 }
 
+div.primary {
+    font-style: oblique;
+    font-weight: bold;
+}
+
 div.td_passwd_info {
     padding: 0 0.5em 0 0.5em;
     width: auto;

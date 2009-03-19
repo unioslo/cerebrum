@@ -94,7 +94,11 @@
         ##  which is not quoted.
         #set $acc_name_cmp = $account.get_name()
         #set $account_name = $spine_to_web($acc_name_cmp)
-        <div>
+        #if $acc_name_cmp == $primary
+        <div class="item primary">
+        #else
+        <div class="item">
+        #end if
             <input type="checkbox" name="account_$account_id" />
             <em>$_('Account'):</em>$account_name
             $object_link($account, "view", _class="action")

@@ -359,14 +359,19 @@
 
     #set $direct_groups = $account.get_direct_groups()
     #for $group in $account.get_groups()
-        <div class="item">
-            #set $group_name = $spine_to_web($group.get_name())
+        #set $group_name_cmp = $group.get_name()
+        #set $group_name = $spine_to_web($group_name_cmp)
+        #if $group_name_cmp == $primary_group
+            <div class="item primary">
+        #else
+            <div class="item">
+        #end if
             #set $disabled = ""
             #set $header = "Group"
             #if $group not in $direct_groups
                 #set $disabled = 'disabled="disabled" '
                 #set $header = "Indirect group"
-            #elif $group_name == $primary_group
+            #elif $group_name_cmp == $primary_group
                 #set $disabled = 'disabled="disabled" '
             #end if
             
@@ -376,7 +381,7 @@
             $object_link($group, text="view", _class="action")
             $object_link($group, text="edit", method="edit", _class="action")
             $remember_link($group, _class="action")
-            #if $group_name == $primary_group
+            #if $group_name_cmp == $primary_group
                 <span class="extra">(primary)</span>
             #end if
             #if $group.is_posix()
