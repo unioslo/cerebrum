@@ -4278,8 +4278,8 @@ class BofhdExtension(object):
     # entity accounts
     all_commands['entity_accounts'] = Command(
         ("entity", "accounts"), EntityType(default="person"), Id(),
-        fs=FormatSuggestion("%6i %-10s %s", ("account_id", "name", format_day("expire")),
-                            hdr="%6s %-10s %s" % ("Id", "Name", "Expire")))
+        fs=FormatSuggestion("%7i %-10s %s", ("account_id", "name", format_day("expire")),
+                            hdr="%7s %-10s %s" % ("Id", "Name", "Expire")))
     def entity_accounts(self, operator, entity_type, id):
         entity = self._get_entity(entity_type, id)
         account = self.Account_class(self.db)
@@ -5582,10 +5582,10 @@ class BofhdExtension(object):
         ("misc", "list_requests"), SimpleString(
         help_ref='string_bofh_request_search_by', default='requestee'),
         SimpleString(help_ref='string_bofh_request_target', default='<me>'),
-        fs=FormatSuggestion("%-6i %-10s %-16s %-15s %-10s %-20s %s",
+        fs=FormatSuggestion("%-7i %-10s %-16s %-16s %-10s %-20s %s",
                             ("id", "requestee", format_time("when"),
                              "op", "entity", "destination", "args"),
-                            hdr="%-6s %-10s %-16s %-15s %-10s %-20s %s" % \
+                            hdr="%-7s %-10s %-16s %-16s %-10s %-20s %s" % \
                             ("Id", "Requestee", "When", "Op", "Entity",
                              "Destination", "Arguments")))
     def misc_list_requests(self, operator, search_by, destination):
@@ -7498,9 +7498,9 @@ class BofhdExtension(object):
         ("user", "find"), UserSearchType(), SimpleString(),
         SimpleString(optional=True, help_ref="affiliation_optional"),
         YesNo(optional=True, default='n', help_ref='yes_no_include_expired'),
-        fs=FormatSuggestion("%6i   %-12s %s",
+        fs=FormatSuggestion("%7i   %-12s %s",
                             ('entity_id', 'username', format_day("expire")),
-                            hdr="%6s   %-10s   %-12s" % \
+                            hdr="%7s   %-10s   %-12s" % \
                             ('Id', 'Username', 'Expire date')))
     def user_find(self, operator, search_type, value,
                   include_expired="no", aff_filter=None):
