@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003-2005 University of Oslo, Norway
+# Copyright 2003-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -150,6 +150,8 @@ class EmailLDAP(DatabaseAccessor):
             result["spoolInfo"] = "home=%s maildrop=%s/%s" % (home,
                                                               maildrop,
                                                               uname)
+        elif server_type == self.const.email_server_type_exchange:
+            result["ExchangeServer"] == server_name
         elif server_type == self.const.email_server_type_cyrus:
             result["IMAPserver"] = server_name
 
