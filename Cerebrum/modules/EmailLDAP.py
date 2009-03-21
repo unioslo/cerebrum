@@ -151,7 +151,7 @@ class EmailLDAP(DatabaseAccessor):
                                                               maildrop,
                                                               uname)
         elif server_type == self.const.email_server_type_exchange:
-            result["ExchangeServer"] == server_name
+            result["ExchangeServer"] = server_name
         elif server_type == self.const.email_server_type_cyrus:
             result["IMAPserver"] = server_name
 
