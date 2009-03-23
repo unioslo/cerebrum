@@ -1238,7 +1238,7 @@ class BofhdAuth(DatabaseAccessor):
         return self._is_local_postmaster(operator, self.const.auth_email_delete,
                                          None, domain, query_run_any)
 
-    # create e-mail targets of type "forward"
+    # create/delete e-mail targets of type "forward"
     def can_email_forward_create(self, operator, domain=None,
                                  query_run_any=False):
         return self._is_local_postmaster(operator, self.const.auth_email_create,
