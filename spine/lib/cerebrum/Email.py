@@ -301,42 +301,6 @@ class EmailTarget(Entity):
         return self.get_entity()
     get_auth_entity.signature = Entity
 
-    def get_entity(self):
-        """
-        Fetch the entity associated with this target (if any).
-
-        \\return The entity associated with the target (an account, a group, or
-                 None if no entity is associated with the target).
-        """
-        obj = Cerebrum.modules.Email.EmailTarget(self.get_database())
-        obj.find(self.get_id())
-        if obj.email_target_entity_id is None:
-            return None
-        return registry.Entity(self.get_database(), obj.email_target_entity_id)
-
-    def set_entity(self, entity):
-        """
-        Set the entity that should be associated with this e-mail target.
-
-        \\param entity The entity that should be associated with this target.
-                NOTE: The entity must be either an account, a group or None.
-
-        \\see Account
-        \\see Group
-        """
-        obj = Cerebrum.modules.Email.EmailTarget(self.get_database())
-        obj.find(self.get_id())
-        if entity is None:
-            obj.email_target_entity_id = None
-            obj.email_target_entity_type = None
-        else:
-            obj.email_target_entity_id = entity.get_id()
-            obj.email_target_entity_type = entity.get_type().get_id()
-        try:
-            obj.write_db()
-        except Cerebrum.Database.OperationalError:
-            raise SpineExceptions.AlreadyExistsError('There already exists a target for the specified entity.')
-
     def delete_email_target(self):
         obj = Cerebrum.modules.Email.EmailTarget(self.get_database())
         obj.find(self.get_id())
@@ -374,7 +338,7 @@ Commands.create_email_target = create_email_target
 
 def get_email_targets(self):
     s = registry.EmailTargetSearcher(self.get_database())
-    s.set_entity(self)
+    s.set_target_entity(self)
     return s.search()
 get_email_targets.signature = [EmailTarget]
 Entity.register_methods([get_email_targets])
