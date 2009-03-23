@@ -379,7 +379,9 @@ class EmailDomain(Entity_class):
         # conv
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=email_domain_category]
-        WHERE domain_id=:d_id""", {'d_id': self.entity_id})
+        WHERE domain_id=:d_id AND category=:cat""",
+                            {'d_id': self.entity_id,
+                             'cat': int(category)})
 
     def list_email_domains_with_category(self, category):
         # NA
