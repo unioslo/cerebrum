@@ -85,6 +85,10 @@ public class PersonRolle {
         if (obj instanceof PersonRolle) {
             PersonRolle pr = (PersonRolle) obj;
             // Vi ser ikke på self.id ettersom denne vil være -1 fra import filen
+	    //log.debug("self.id = " + id + ", other.id = " + pr.getId());
+	    if (id != -1 && pr.getId() != -1) {
+		return id == pr.getId();
+	    }
             return  XMLUtil.equals(rolleId, pr.rolleId) && 
 		XMLUtil.equals(journalEnhet, pr.journalEnhet) && 
 		XMLUtil.equals(arkivDel, pr.arkivDel) &&
@@ -106,6 +110,8 @@ public class PersonRolle {
 
         xml.writeElement("PR_PEID_PE", "" + person.getId());
         xml.writeElement("PR_ROLLEID_RO", "" + rolleId);
+	// TODO: fiks stdRolle
+        //xml.writeElement("PR_STDROLLE", stdRolle ? "-1" : "0");
         xml.writeElement("PR_STDROLLE", stdRolle ? "0" : "-1");
         xml.writeElement("PR_TITTEL", tittel);
         if (journalEnhet != null)
@@ -165,6 +171,8 @@ public class PersonRolle {
         return "Rolle: pid=" + person.getId() + ", id=" + id + ", rolleid=" + 
 	    rolleId + ", tittel=" + tittel + ", journEnhet=" + journalEnhet + 
 	    ", adminDel=" + adminDel + ", arkivDel=" + arkivDel + 
+	    // TODO: fiks stdRolle
+	    //", stdRolle=" + (stdRolle ? "-1" : "0");
 	    ", stdRolle=" + (stdRolle ? "0" : "-1");
     }
 

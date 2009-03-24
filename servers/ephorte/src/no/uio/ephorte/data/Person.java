@@ -33,6 +33,7 @@ public class Person {
     private boolean isNew = false; // Was created during this execution
     private Date fraDato, tilDato;
     private boolean tilDatoNeedsUpdate = false;
+    private boolean brukerIdNeedsUpdate = false;
     private boolean isDeletable = false;
     private boolean fromEphorte;
     
@@ -108,6 +109,9 @@ public class Person {
         xml.writeElement("PE_ID", "" + id);
         xml.writeElement("SEEKFIELDS", "PE_ID");
         xml.writeElement("SEEKVALUES", "" + id);
+	if (brukerIdNeedsUpdate) {
+	    xml.writeElement("PE_BRUKERID", brukerId);
+	}
         xml.endTag("PERSON");
     }
 
@@ -250,6 +254,9 @@ public class Person {
 
     public void setTilDatoNeedsUpdate(boolean tilDatoNeedsUpdate) {
 	this.tilDatoNeedsUpdate = tilDatoNeedsUpdate;
+    }
+    public void setBrukerIdNeedsUpdate(boolean brukerIdNeedsUpdate) {
+	this.brukerIdNeedsUpdate = brukerIdNeedsUpdate;
     }
 
     public void setTilDato(Date tilDato) {

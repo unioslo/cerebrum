@@ -8,7 +8,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
-import no.uio.ephorte.connection.EphorteGW;
 import no.uio.ephorte.data.Adresse;
 import no.uio.ephorte.data.BadDataException;
 import no.uio.ephorte.data.Person;
@@ -33,7 +32,7 @@ public class CustomXMLParser {
     Person tmpPerson;
     //OrgUnit tmpOrgUnit;
     // Hashtable<String, Person> potentialFeideId2Person = new Hashtable<String, Person>();
-    private Log log = LogFactory.getLog(EphorteGW.class);
+    private Log log = LogFactory.getLog(CustomXMLParser.class);
 
     class MyHandler extends DefaultHandler {
         @Override

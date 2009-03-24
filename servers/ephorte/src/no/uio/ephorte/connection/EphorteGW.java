@@ -195,6 +195,13 @@ public class EphorteGW {
 	} else {
 	    // Modify person, write xml to find person in ephorte
             newPerson.setId(oldPerson.getId());
+	    // Check if brukerid needs to be updated
+	    if (!oldPerson.getBrukerId().equals(newPerson.getBrukerId())) {
+		newPerson.setBrukerIdNeedsUpdate(true);
+		log.info("change brukerid: "+oldPerson.getBrukerId()+" -> "+
+			 newPerson.getBrukerId());
+		isDirty = true;
+	    }
 	    newPerson.toSeekXML(xml);
 	}
 
@@ -204,6 +211,8 @@ public class EphorteGW {
                 newPerson.getPersonNavn().setId(oldPerson.getPersonNavn().getId());
             }
             newPerson.getPersonNavn().toXML(xml);
+	    // RH: verifiser at vi logger riktig
+	    log.info("Change name for person " + newPerson.getBrukerId());
             isDirty = true;
         }
 	// Check if Adresse needs to be updated
@@ -213,6 +222,8 @@ public class EphorteGW {
                 newPerson.getAdresse(Adresse.ADRTYPE_A).setId(oldPerson.getAdresse(Adresse.ADRTYPE_A).getId());
             }
             newPerson.getAdresse(Adresse.ADRTYPE_A).toXML(xml);
+	    // RH: verifiser at vi logger riktig
+	    log.info("Change address for person " + newPerson.getBrukerId());
             isDirty = true;
         }
 	// Check if roles need to be updated
@@ -272,7 +283,11 @@ public class EphorteGW {
 	// Didn't find person in brukerId2Person. Check potentialFeideIds
     	for (String feideId : newPerson.getPotentialFeideIds()) {
 	    ret = brukerId2Person.get(feideId);
-	    if(ret != null) return ret;
+	    if(ret != null) {
+		log.info("Found person with old feide id "+ret.getBrukerId()+
+			 " in ePhorte. New feide id from Cerebrum is "+newPerson.getBrukerId());
+		return ret;
+	    }
 	}
 	// Didn't find person in potentialFeideIds either. Check if
 	// another PersonObject has the same initialer (aka user name)
@@ -329,11 +344,20 @@ public class EphorteGW {
     private boolean updateRoles(XMLUtil xml, Person p) {
 	Vector<PersonRolle> tmpDeletedRoller;
         boolean isDirty = false;
+	// Person p is from Cerebrum, oldPerson is from Ephorte
         Person oldPerson = getPerson(p);
         if (oldPerson == null || (oldPerson.getId() == -1 && !oldPerson.isNew())) {
             log.warn("updateRoles for non-existing person " + p.getBrukerId());
             return isDirty;
         }
+	// log.debug("oldperson.roller: ");
+        // for (PersonRolle pr : oldPerson.getRoller()) { 
+	//     log.debug("  o.r: "+pr);
+	// }
+	// log.debug("oldperson.deletedRoller: ");
+        // for (PersonRolle pr : oldPerson.getDeletedRoller()) { 
+	//     log.debug("  o.dr: "+pr);
+	// }
         for (PersonRolle pr : p.getRoller()) {
 	    // Sjekk at denne testen faktisk gjør som den skal 
 	    // sjekk at contains gjør som den skal.
@@ -356,7 +380,7 @@ public class EphorteGW {
 		}
                 isDirty = true;
             } else {
-                log.debug("Person already has role: " + pr);
+                log.debug("Person " + p.getBrukerId() + " already has role: " + pr);
                 oldPerson.getRoller().remove(pr);
             }
         }
