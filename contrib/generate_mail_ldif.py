@@ -189,8 +189,9 @@ def write_ldif():
             # from table email_forward.
             pass
         
-        elif tt in (co.email_target_pipe, co.email_target_file, 
-                    co.email_target_Mailman, co.email_target_Sympa):
+        elif tt in (co.email_target_pipe, co.email_target_RT,
+                    co.email_target_file, co.email_target_Mailman,
+                    co.email_target_Sympa):
 
             # Target is a shell pipe. The command (and args) to pipe mail
             # into is gathered from email_target.alias_value.  Iff
@@ -202,8 +203,8 @@ def write_ldif():
             # is set and belongs to an Account, deliveries to this target
             # will be run as that account.
             #   or
-            # Target is a Mailman mailing list. The command (and args) to
-            # pipe mail into is gathered from email_target.alias_value.
+            # Target is a Mailman or Sympa mailing list. The command (and args)
+            # to pipe mail into is gathered from email_target.alias_value.
             # Iff email_target.target_entity_id is set and belongs to an
             # Account, deliveries to this target will be run as that
             # account.

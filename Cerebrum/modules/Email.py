@@ -216,6 +216,13 @@ class EmailConstants(Constants.Constants):
         " email_target.using_uid is set, deliveries to this target"
         " will be run as that PosixUser.")
 
+    email_target_RT = _EmailTargetCode(
+        'RT',
+        "Target is a RT queue.  The command (and args) to pipe mail"
+        " into is gathered from email_target.alias_value.  Iff"
+        " email_target.using_uid is set, deliveries to this target"
+        " will be run as that PosixUser.")
+
     email_target_Mailman = _EmailTargetCode(
         'Mailman',
         "Target is a Mailman mailing list.  The command (and args) to"
@@ -842,7 +849,7 @@ class EmailAddress(Entity_class):
     # FIXME: Should probably be replaced by search().
     def list_email_addresses_ext(self, domain=None):
         # NA
-        """Return address_id, target_id, local_part and domainof all
+        """Return address_id, target_id, local_part and domain of all
         EmailAddress in database"""
         with_domain = ""
         if domain is not None:

@@ -1262,14 +1262,14 @@ class BofhdExtension(object):
          "Save as:          %s",
          ("file_name", "file_runas")),
         # target_type == pipe
-        # ... special case for RT
-        ("RT queue:         %s on %s\n"+
-         "Action:           %s",
-         ("rt_queue", "rt_host", "rt_action")),
-        # ... other pipes
         ("Command:          %s\n"+
          "Run as:           %s",
          ("pipe_cmd", "pipe_runas")),
+        # target_type == RT
+        ("RT queue:         %s on %s\n"+
+         "Action:           %s\n"+
+         "Run as:           %s",
+         ("rt_queue", "rt_host", "rt_action","pipe_runas")),
         # target_type == forward
         ("Address:          %s",
          ("fw_target",)),
@@ -1294,7 +1294,8 @@ class BofhdExtension(object):
         if ttype not in (self.const.email_target_account,
                          self.const.email_target_Mailman,
                          self.const.email_target_Sympa,
-                         self.const.email_target_pipe):
+                         self.const.email_target_pipe,
+                         self.const.email_target_RT):
             ret += [ {'target_type': ttype_name } ]
 
         epat = Email.EmailPrimaryAddressTarget(self.db)
@@ -1326,6 +1327,8 @@ class BofhdExtension(object):
             ret += self._email_info_file(uname, et)
         elif ttype == self.const.email_target_pipe:
             ret += self._email_info_pipe(uname, et)
+        elif ttype == self.const.email_target_RT:
+            ret += self._email_info_rt(uname, et)
         elif ttype == self.const.email_target_forward:
             ret += self._email_info_forward(uname, et)
         elif (ttype == self.const.email_target_account or
@@ -1691,13 +1694,23 @@ class BofhdExtension(object):
                  'file_runas': account_name}]
 
     def _email_info_pipe(self, addr, et):
+        #XXX: Remove RT cruft when all RT-pipe targets are moved to target_type == RT.
         m = re.match(self._rt_patt, et.get_alias())
+        acc = self._get_account(et.email_target_using_uid, idtype='id')
         if m:
             return [{'rt_action': m.group(1),
                      'rt_queue': m.group(2),
-                     'rt_host': m.group(3)}]
-        acc = self._get_account(et.email_target_using_uid, idtype='id')
+                     'rt_host': m.group(3),
+                     'pipe_runas': acc.account_name}]
         return [{'pipe_cmd': et.get_alias(), 'pipe_runas': acc.account_name}]
+
+    def _email_info_rt(self, addr, et):
+        m = re.match(self._rt_patt, et.get_alias())
+        acc = self._get_account(et.email_target_using_uid, idtype='id')
+        return [{'rt_action': m.group(1),
+                 'rt_queue': m.group(2),
+                 'rt_host': m.group(3),
+                 'pipe_runas':  acc.account_name}]
 
     def _email_info_forward(self, addr, et):
         data = []
@@ -3421,7 +3434,7 @@ class BofhdExtension(object):
         ea = Email.EmailAddress(self.db)
         cmd = self._rt_pipe % {'action': "correspond",
                                'queue': queue, 'host': host}
-        et.populate(self.const.email_target_pipe, alias=cmd,
+        et.populate(self.const.email_target_RT, alias=cmd,
                     using_uid=acc.entity_id)
         et.write_db()
         # Add primary address
@@ -3448,7 +3461,7 @@ class BofhdExtension(object):
         et.clear()
         cmd = self._rt_pipe % {'queue': queue, 'action': "comment",
                                'host': host}
-        et.populate(self.const.email_target_pipe, alias=cmd,
+        et.populate(self.const.email_target_RT, alias=cmd,
                     using_uid=acc.entity_id)
         et.write_db()
         ea.clear()
