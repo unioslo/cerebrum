@@ -73,7 +73,7 @@ public class CustomXMLParser {
             } else if ("roles".equals(qName)) {
                 try {
                     tmpPerson.addRolle(attr.getValue("role_type"), 
-				       "T".equals(attr.getValue("standard_role")), 
+				       "T".equals(attr.getValue("standard_rolle")), 
 				       attr.getValue("adm_enhet"), 
 				       attr.getValue("arkivdel"), 
 				       attr.getValue("journalenhet"), 
