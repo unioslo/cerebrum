@@ -110,9 +110,7 @@ public class PersonRolle {
 
         xml.writeElement("PR_PEID_PE", "" + person.getId());
         xml.writeElement("PR_ROLLEID_RO", "" + rolleId);
-	// TODO: fiks stdRolle
-        //xml.writeElement("PR_STDROLLE", stdRolle ? "-1" : "0");
-        xml.writeElement("PR_STDROLLE", stdRolle ? "0" : "-1");
+        xml.writeElement("PR_STDROLLE", stdRolle ? "-1" : "0");
         xml.writeElement("PR_TITTEL", tittel);
         if (journalEnhet != null)
             xml.writeElement("PR_JENHET_JE", journalEnhet);
@@ -171,9 +169,7 @@ public class PersonRolle {
         return "Rolle: pid=" + person.getId() + ", id=" + id + ", rolleid=" + 
 	    rolleId + ", tittel=" + tittel + ", journEnhet=" + journalEnhet + 
 	    ", adminDel=" + adminDel + ", arkivDel=" + arkivDel + 
-	    // TODO: fiks stdRolle
-	    //", stdRolle=" + (stdRolle ? "-1" : "0");
-	    ", stdRolle=" + (stdRolle ? "0" : "-1");
+	    ", stdRolle=" + (stdRolle ? "-1" : "0");
     }
 
     public void setTilDato(Date tilDato) {
