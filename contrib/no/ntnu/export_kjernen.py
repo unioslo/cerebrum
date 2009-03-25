@@ -1,187 +1,161 @@
 #! /usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
-
-# Copyright 2004, 2005 University of Oslo, Norway
-#
-# This file is part of Cerebrum.
-#
-# Cerebrum is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# Cerebrum is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Cerebrum; if not, write to the Free Software Foundation,
-# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-#
-# $Id$
-#
-
-"""
-This is an example client that uses python interactive mode to work against
-spine.  It adds some shortcuts to often used functionality, but is basically
-just a convenient way to connect to Spine and test out things from the 
-command line.
-
-For command line completion and such, add the following three lines to your
-~/.pythonrc.py:
-import rlcompleter
-import readline
 import sys
+import getopt
+import mx
 
-readline.parse_and_bind("tab: complete")
+import cerebrum_path
+import cereconf
 
-Make sure PYTHONPATH contains the path to SpineClient.py and that SpineCore.idl
-is in the same directory as SpineClient.py.
-"""
+from Cerebrum.Utils import Factory
+from Cerebrum import Errors
 
-import user
-import sys, os
-import SpineIDL.Errors
-import ConfigParser
-conf = ConfigParser.ConfigParser()
-conf.read(('client.conf.template', 'client.conf'))
 
-try:
-    import SpineClient
-except:
-    print >> sys.stderr, """Importing SpineClient failed.
-Please make sure cerebrum/spine/client is in your PYTHONPATH
-environment variable.  Example:
-export PYTHONPATH=$PYTHONPATH:~/cerebrum/spine/client/"""
-    sys.exit(1)
+affiliations = {
+                93 : 'tilkyttet',
+                94 : 'ansatt',
+                95 : 'alumni',
+                96 : 'student',
+                }
+lastName = 8
+firstName = 11
 
-def _login(username=None, password=None):
-    global wrapper, __s, tr, c
-    wrapper = Session(username=username, password=password)
-    __s = wrapper.session
-    tr = wrapper.tr
-    c = wrapper.c
+valueDomainAccount = 4
+ 
+outFileName = '/tmp/cerebrum_to_kjernen.sdv'
+fileMode = 'w'
+bufferSize = 16384
+               
+class Export2Kjernen(object):
+    
+    def __init__(self):
+        self.db = Factory.get('Database')()
+        self.co = Factory.get('Constants')(self.db)
+        self._person = Factory.get('Person')(self.db)
+        self._ou = Factory.get('OU')(self.db)
+        self._account = Factory.get('Account')(self.db)
+        self._iso_format = '%Y-%m-%d'
+        self._norw_format = '%d%m%y'
 
-def _new_transaction():
-    global wrapper, tr, c
-    wrapper.new_transaction()
-    tr = wrapper.tr
-    c = wrapper.c
+    def get_stedkoder(self):
+        koder = {}
+        for row in self._ou.get_stedkoder():
+            koder[row['ou_id']] = '%03d%02d%02d%02d' %(row['institusjon'], row['fakultet'], row['institutt'], row['avdeling'])
+        return koder
+
+    def get_birthdates(self):
+        bdates = {}
+        for row in self._person.list_persons():
+            bdates[row['person_id']] = row['birth_date'].strftime(self._iso_format)
+        return bdates
+
+    def get_nins(self):
+        nins = {}
+        ## for row in self._person.list_external_ids(self.co.system_kjernen, self.co.externalid_fodselsnr):
+        for row in self._person.list_external_ids(id_type=self.co.externalid_fodselsnr):
+            nins[row["entity_id"]]=row["external_id"]
+        return nins
+
+    def get_emails(self):
+        emails = {}
+        ## for row in self._person.list_contact_info(self.co.system_kjernen, self.co.contact_email):
+        for row in self._person.list_contact_info(contact_type=self.co.contact_email):
+            emails[row["entity_id"]]=row["contact_value"]
+        return emails
+     
+    def get_lastnames(self):
+        lastnames = {}
+        for row in self._person.list_persons_name(name_type=lastName):
+            lastnames[row['person_id']] = row['name']
+        return lastnames
+
+    def get_firstnames(self):
+        firstnames = {}
+        for row in self._person.list_persons_name(name_type=firstName):
+            firstnames[row['person_id']] = row['name']
+        return firstnames
+
+    def get_entities(self):
+        entities = {}
+        for row in self._account.list_names(valueDomainAccount):
+            entities[row['entity_id']] = row['entity_name']
+        return entities
+
+    def get_accounts(self, entities):
+        accounts = {}
+        for row in self._account.list():
+            accounts[row['owner_id']] = entities[row.get('account_id', '')]
+        return accounts
+
+    def get_affiliations(self):
+        affs = {}
+        ous = {}
+        ## for row in self._person.list_affiliations(source_system=self.co.system_kjernen):
+        for row in self._person.list_affiliations():
+            affs[row['person_id']] = row['affiliation']
+            ous[row['person_id']] = row['ou_id']
+        return (affs, ous)
         
-class Session(object):
-    def __init__(self, ior_file=None, username=None, password=None):
-        print "Loggin in..."
-        self.username = username or conf.get('login', 'username')
-        self.password = password or conf.get('login', 'password')
-        ior_file = ior_file or conf.get('SpineClient', 'url')
-        cache_dir = conf.get('SpineClient', 'idl_path')
-        self.spine = SpineClient.SpineClient(ior_file, idl_path=cache_dir).connect()
-        self.session = self.spine.login(self.username, self.password)
-        self.new_transaction()
+    def export_persons(self):
+        print ''
+        print 'Fetching stedkoder...'
+        stedkoder = self.get_stedkoder()
 
-    def new_transaction(self):
-        self.tr = self.session.new_transaction()
-        self.c = self.tr.get_commands()
+        print 'Fetching birthdates...'
+        birthdates = self.get_birthdates()
 
-    def __del__(self):
-        print "Logging out..."
-        for i in self.session.get_transactions():
-            i.rollback()
-        self.session.logout()
+        print 'fetching nins...'
+        nins = self.get_nins()
+         
+        print 'Fetching emails...'
+        emails = self.get_emails()
 
-_login()
+        print 'Fetching affiliations...'
+        (affs, ous) = self.get_affiliations()
 
-buffersize = 16384
-external_id_type = tr.get_entity_external_id_type("NO_BIRTHNO")
-source_system = tr.get_source_system('Cached')
-first_name_type = tr.get_name_type('FIRST')
-last_name_type = tr.get_name_type('LAST')
+        print 'Fetching lastnames...'
+        lastnames = self.get_lastnames()
 
-#
-# todo:
-# outfile should be placed in a conig-file...
-#
-f = open("/tmp/cerebrum-til-kjernen.sdv", "w", buffersize)
-
-#
-# export file format:
-# entity_id;birthdate;nin;birthday;givenname;surname;mail;affiliation;ou-code;username;
-#
-
-print 'Getting persons...'
-i = 0
-persons = tr.get_person_searcher().search()
-for person in persons:
-    i += 1
-    entity_id = str(person.get_id())
+        print 'Fetching firstnames...'
+        firstnames = self.get_firstnames()
     
-    day = ''
-    month = ''
-    year = ''
-    birthdate_iso = ''
-    bdate = person.get_birth_date()
-    if bdate:
-        day = str(bdate.get_day())
-        if bdate.get_day() < 10:
-            day = '0' + day
-        month = str(bdate.get_month())
-        if bdate.get_month() < 10:
-            month = '0' + month
-        year = str(bdate.get_year())
-        birthdate_iso = bdate.strftime("%Y-%m-%d")
-    birthdate=day+month+year
-    
-    #
-    # had to use try, except because of unlegal data in db
-    # maybe it is time to remove this?
-    #
-    try:
-        nin = str(person.get_external_id(external_id_type, source_system))
-    except SpineIDL.Errors.NotFoundError, e:
-        nin=''
+        print 'fetching accounts...'
+        accounts = self.get_accounts(self.get_entities())
 
-    try:
-        givenname = person.get_name(first_name_type, source_system)
-    except SpineIDL.Errors.NotFoundError, e:
-        givenname = ''
+        i = 0
+        f = open(outFileName, fileMode, bufferSize)
+        for k in nins.keys():
+            out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
+                    (k,
+                    nins[k][:6],
+                    nins[k][6:],
+                    birthdates.get(k, ''),
+                    firstnames.get(k,''),
+                    lastnames.get(k, ''),
+                    emails.get(k, ''),
+                    affiliations.get(affs.get(k, ''),''),
+                    stedkoder.get(ous.get(k, ''), ''),
+                    accounts.get(k, ''))
+            
+            f.write(out_line)
+            i += 1
+            ## if (i % 100) == 0:
+            ##     print 'Persons written',i
 
-    try:
-        surname = person.get_name(last_name_type, source_system)
-    except SpineIDL.Errors.NotFoundError, e:
-        givenname = ''
-    
-    email = ''
-    emailtarget_searcher = tr.get_email_target_searcher()
-    emailtarget_searcher.set_entity(person)
-    targets = emailtarget_searcher.search()
-    if targets:
-        for target in targets:
-            email = target.get_primary_address().get_name()
-    
-    affiliation = ''
-    ou_code = ''
-    username = ''
-    primary_account = person.get_primary_account()
+        print ''
+        print '--------------------------------------------------------------------------------'
+        print 'Total persons written:',i
+        print '================================================================================'
+        print ''
 
-    #
-    # todo:
-    # which affiliation and which ou are the right ones?
-    #
-    if primary_account:
-        affiliations = primary_account.get_affiliations()
-        if affiliations:
-            for aff in affiliations:
-                affiliation = aff.get_affiliation().get_name()
-                ou_code = str(aff.get_ou().get_stedkode())
-    
-        username = primary_account.get_name()
-    line = entity_id+";"+birthdate+";"+nin+";"+birthdate_iso+";"+givenname+";"+surname+";"+email+";"+affiliation+";"+ou_code+";"+username+';\n'
-    f.write(line)
-    if (i % 10) == 0:
-        print str(i) + ' lines written...'
+        f.flush()
+        f.close()
 
-print 'Total: ' + str(i) + ' persons processed.'
-f.flush()
-f.close()
-sys.exit(0)
+def main(*args):
+    export_kj = Export2Kjernen()
+    export_kj.export_persons()
+    
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
+
