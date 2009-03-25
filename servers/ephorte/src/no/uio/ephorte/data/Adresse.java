@@ -17,7 +17,7 @@ public class Adresse {
      */
     public final static String ADRTYPE_A = "A"; // Persons arbeidsadresse
     public final static String ADRTYPE_P = "P"; // Persons privatadresse
-    public final static String ADRTYPE_V = "P"; // Adresse til virksomhet
+    public final static String ADRTYPE_V = "V"; // Adresse til virksomhet
 
     private int id = -1;
     private String adrType; // AK_TYPE
@@ -121,8 +121,7 @@ public class Adresse {
         this.id = id;
     }
 
-	public String getAdrType() {
-		return adrType;
-	}
-
+    public String getAdrType() {
+	return adrType;
+    }   
 }

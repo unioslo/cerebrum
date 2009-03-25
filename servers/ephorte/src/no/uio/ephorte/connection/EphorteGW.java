@@ -198,7 +198,7 @@ public class EphorteGW {
 	    // Check if brukerid needs to be updated
 	    if (!oldPerson.getBrukerId().equals(newPerson.getBrukerId())) {
 		newPerson.setBrukerIdNeedsUpdate(true);
-		log.info("change brukerid: "+oldPerson.getBrukerId()+" -> "+
+		log.info("Change brukerid: "+oldPerson.getBrukerId()+" -> "+
 			 newPerson.getBrukerId());
 		isDirty = true;
 	    }
@@ -211,7 +211,6 @@ public class EphorteGW {
                 newPerson.getPersonNavn().setId(oldPerson.getPersonNavn().getId());
             }
             newPerson.getPersonNavn().toXML(xml);
-	    // RH: verifiser at vi logger riktig
 	    log.info("Change name for person " + newPerson.getBrukerId());
             isDirty = true;
         }
@@ -222,7 +221,6 @@ public class EphorteGW {
                 newPerson.getAdresse(Adresse.ADRTYPE_A).setId(oldPerson.getAdresse(Adresse.ADRTYPE_A).getId());
             }
             newPerson.getAdresse(Adresse.ADRTYPE_A).toXML(xml);
-	    // RH: verifiser at vi logger riktig
 	    log.info("Change address for person " + newPerson.getBrukerId());
             isDirty = true;
         }
