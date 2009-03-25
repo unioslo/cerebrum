@@ -85,17 +85,9 @@ public class Adresse {
         xml.writeElement("AK_ADRID", "" + id);
         xml.writeElement("AK_TYPE", adrType);
         /*
-         * TODO: ePhorte will usually gleefully ignore our navn value, fetching
-         * the persons name instead.
-         * 
-         * UpdateByXML and this XML seems to allow changing AK_NAVN for an existing record:
-         * 
-         * <?xml version="1.0" standalone="yes"?> <XML2Ephorte><ADRESSEKP><SEEKFIELDS>AK_ADRID</SEEKFIELDS>
-         * <SEEKVALUES>74</SEEKVALUES> <AK_ADRID>2</AK_ADRID><AK_TYPE>A</AK_TYPE>
-         * <AK_NAVN>En test</AK_NAVN> <AK_POSTADR>Foo2 ...dallen 23</AK_POSTADR>
-         * <AK_POSTNR_PO>349</AK_POSTNR_PO> <AK_POSTSTED_PO>OSLO</AK_POSTSTED_PO>
-         * <AK_EPOST>rune.froysa@usit.uio.no</AK_EPOST> <AK_TLF>+4722852878</AK_TLF>
-         * </ADRESSEKP> </XML2Ephorte>
+         * TODO: ePhorte don't update AK_NAVN for some reason. Other
+	 *       values are OK. Check if this bug still exists in new
+	 *       ephorte version. If so complain.
          */
         xml.writeElement("AK_NAVN", navn);
         xml.writeElement("AK_POSTADR", postadr);
