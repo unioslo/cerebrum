@@ -1956,8 +1956,9 @@ class BofhdExtension(object):
             raise CerebrumError, "%s: No such address exists" % addr
         et = Email.EmailTarget(self.db)
         et.find(ea.email_addr_target_id)
-        if et.email_target_type != self.const.email_target_pipe:
-            raise CerebrumError, "%s is not connected to a pipe target" % addr
+        if not et.email_target_type in (self.const.email_target_pipe,
+                                        self.const.email_target_RT):
+            raise CerebrumError, "%s is not connected to a pipe or RT target" % addr
         if not cmd.startswith('|'):
             cmd = '|' +  cmd
         et.email_target_alias = cmd
@@ -1981,8 +1982,9 @@ class BofhdExtension(object):
             raise CerebrumError, "%s: No such address exists" % addr
         et = Email.EmailTarget(self.db)
         et.find(ea.email_addr_target_id)
-        if et.email_target_type != self.const.email_target_pipe:
-            raise CerebrumError, "%s is not connected to a pipe target" % addr
+        if not et.email_target_type in (self.const.email_target_pipe,
+                                        self.const.email_target_RT):
+            raise CerebrumError, "%s is not connected to a pipe or RT target" % addr
         et.email_target_using_uid = self._get_account(uname).entity_id
         et.write_db()
         return "OK, edited %s" % addr
@@ -3372,7 +3374,7 @@ class BofhdExtension(object):
             ea.delete()
         return result
 
-    _rt_pipe = ("|/local/bin/rt-mailgate --action %(action)s --queue %(queue)s "
+    _rt_pipe = ("|/local/bin/rt-mailgate\s+--action %(action)s\s+--queue %(queue)s\s+"
                 "--url https://%(host)s/")
     # This assumes that the only RE meta character in _rt_pipe is the
     # leading pipe.

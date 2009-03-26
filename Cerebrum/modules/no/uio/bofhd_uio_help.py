@@ -155,9 +155,9 @@ command_help = {
     "email_delete_forward":
         "Delete an e-mail forward target",
     "email_edit_pipe_command":
-        "Change the command the pipe target runs",
+        "Change the command the pipe or RT target runs",
     "email_edit_pipe_user":
-        "Change the account the pipe target runs as",
+        "Change the account the pipe or RT target runs as",
     "email_migrate":
         "Migrate users from old to new e-mail service",
     "email_mod_name":
