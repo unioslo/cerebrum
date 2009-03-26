@@ -58,7 +58,7 @@ class HiOfStudent(access_FS.Student):
           %s AND
           %s
           sps.status_privatist = 'N' AND
-          sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
+          sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
           """ % (self._is_alive(), extra)
         return self.db.query(qry, locals())
