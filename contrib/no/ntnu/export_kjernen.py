@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
+import os
 import sys
 import getopt
 import mx
@@ -10,46 +11,46 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Errors
 
-
-affiliations = {
-                93 : 'tilkyttet',
-                94 : 'ansatt',
-                95 : 'alumni',
-                96 : 'student',
-                }
-lastName = 8
-firstName = 11
-
-valueDomainAccount = 4
- 
-outFileName = '/tmp/cerebrum_to_kjernen.sdv'
 fileMode = 'w'
 bufferSize = 16384
                
 class Export2Kjernen(object):
     
-    def __init__(self):
+    def __init__(self, outfile, verbose):
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self._person = Factory.get('Person')(self.db)
         self._ou = Factory.get('OU')(self.db)
         self._account = Factory.get('Account')(self.db)
-        self._iso_format = '%Y-%m-%d'
-        self._norw_format = '%d%m%y'
+        self._iso_format = '%Y.%m.%d'
+        self.outfile = outfile
+        self.verbose = verbose
+        self.affiliations = {
+            self.co.affiliation_tilknyttet :    'tilknyttet',
+            self.co.affiliation_ansatt:         'ansatt',
+            self.co.affiliation_alumni:         'alumni',
+            self.co.affiliation_student:        'student'
+        }
 
     def get_stedkoder(self):
+        if self.verbose:
+            print 'Fetching stedkoder...'
         koder = {}
         for row in self._ou.get_stedkoder():
             koder[row['ou_id']] = '%03d%02d%02d%02d' %(row['institusjon'], row['fakultet'], row['institutt'], row['avdeling'])
         return koder
 
     def get_birthdates(self):
+        if self.verbose:
+            print 'Fetching birthdates...'
         bdates = {}
         for row in self._person.list_persons():
             bdates[row['person_id']] = row['birth_date'].strftime(self._iso_format)
         return bdates
 
     def get_nins(self):
+        if self.verbose:
+            print 'Fetching nins...'
         nins = {}
         ## for row in self._person.list_external_ids(self.co.system_kjernen, self.co.externalid_fodselsnr):
         for row in self._person.list_external_ids(id_type=self.co.externalid_fodselsnr):
@@ -57,6 +58,8 @@ class Export2Kjernen(object):
         return nins
 
     def get_emails(self):
+        if self.verbose:
+            print 'Fetching emailaddreses...'
         emails = {}
         ## for row in self._person.list_contact_info(self.co.system_kjernen, self.co.contact_email):
         for row in self._person.list_contact_info(contact_type=self.co.contact_email):
@@ -64,30 +67,40 @@ class Export2Kjernen(object):
         return emails
      
     def get_lastnames(self):
+        if self.verbose:
+            print 'Fetching lastnames...'
         lastnames = {}
-        for row in self._person.list_persons_name(name_type=lastName):
+        for row in self._person.list_persons_name(name_type=self.co.name_last):
             lastnames[row['person_id']] = row['name']
         return lastnames
 
     def get_firstnames(self):
+        if self.verbose:
+            print 'Fetching firstnames...'
         firstnames = {}
-        for row in self._person.list_persons_name(name_type=firstName):
+        for row in self._person.list_persons_name(name_type=self.co.name_first):
             firstnames[row['person_id']] = row['name']
         return firstnames
 
     def get_entities(self):
+        if self.verbose:
+            print 'Fetching entities...'
         entities = {}
-        for row in self._account.list_names(valueDomainAccount):
+        for row in self._account.list_names(self.co.account_namespace):
             entities[row['entity_id']] = row['entity_name']
         return entities
 
     def get_accounts(self, entities):
+        if self.verbose:
+            print 'Fetching accounts...'
         accounts = {}
         for row in self._account.list():
             accounts[row['owner_id']] = entities[row.get('account_id', '')]
         return accounts
 
     def get_affiliations(self):
+        if self.verbose:
+            print 'Fetching affiliations...'
         affs = {}
         ous = {}
         ## for row in self._person.list_affiliations(source_system=self.co.system_kjernen):
@@ -95,67 +108,81 @@ class Export2Kjernen(object):
             affs[row['person_id']] = row['affiliation']
             ous[row['person_id']] = row['ou_id']
         return (affs, ous)
-        
-    def export_persons(self):
-        print ''
-        print 'Fetching stedkoder...'
-        stedkoder = self.get_stedkoder()
-
-        print 'Fetching birthdates...'
-        birthdates = self.get_birthdates()
-
-        print 'fetching nins...'
-        nins = self.get_nins()
-         
-        print 'Fetching emails...'
-        emails = self.get_emails()
-
-        print 'Fetching affiliations...'
-        (affs, ous) = self.get_affiliations()
-
-        print 'Fetching lastnames...'
-        lastnames = self.get_lastnames()
-
-        print 'Fetching firstnames...'
-        firstnames = self.get_firstnames()
-    
-        print 'fetching accounts...'
-        accounts = self.get_accounts(self.get_entities())
-
+ 
+    def write_file(self):
+        if self.verbose:
+            print 'Writing persons to', self.outfile
         i = 0
-        f = open(outFileName, fileMode, bufferSize)
-        for k in nins.keys():
+        f = open(self.outfile, fileMode, bufferSize)
+        for k in self.nins.keys():
             out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
                     (k,
-                    nins[k][:6],
-                    nins[k][6:],
-                    birthdates.get(k, ''),
-                    firstnames.get(k,''),
-                    lastnames.get(k, ''),
-                    emails.get(k, ''),
-                    affiliations.get(affs.get(k, ''),''),
-                    stedkoder.get(ous.get(k, ''), ''),
-                    accounts.get(k, ''))
-            
+                    self.nins[k][:6],
+                    self.nins[k][6:],
+                    self.birthdates.get(k, ''),
+                    self.firstnames.get(k,''),
+                    self.lastnames.get(k, ''),
+                    self.emails.get(k, ''),
+                    self.affiliations.get(self.affs.get(k, ''),''),
+                    self.stedkoder.get(self.ous.get(k, ''), ''),
+                    self.accounts.get(k, ''))
+
             f.write(out_line)
             i += 1
-            ## if (i % 100) == 0:
-            ##     print 'Persons written',i
-
-        print ''
-        print '--------------------------------------------------------------------------------'
-        print 'Total persons written:',i
-        print '================================================================================'
-        print ''
 
         f.flush()
         f.close()
+        if self.verbose:
+            print '--------------------------------------------------------------------------------'
+            print 'Total persons written:',i
+            print '================================================================================'
 
-def main(*args):
-    export_kj = Export2Kjernen()
+       
+    def export_persons(self):
+        self.stedkoder = self.get_stedkoder()
+        self.birthdates = self.get_birthdates()
+        self.nins = self.get_nins()
+        self.emails = self.get_emails()
+        (self.affs, self.ous) = self.get_affiliations()
+        self.lastnames = self.get_lastnames()
+        self.firstnames = self.get_firstnames()
+        self.accounts = self.get_accounts(self.get_entities())
+        self.write_file()
+
+def usage(p):
+    print '\nUsage: %s [OPTIONS]\n\n    OPTIONS\n\t-h, --help\t\tshow this help and exit.\n\t-o FILE, --output=FILE\twrite report to FILE.\n\t-v, --verbose\t\tshow status-messages to stdout.\n' % p
+
+
+def main(argv):
+    opts = None
+    args = None
+    prog = os.path.basename(argv[0])
+    try:
+        opts, args = getopt.getopt(argv[1:], 'ho:v', ['help', 'output=', 'verbose'])
+    except getopt.GetoptError, err:
+        print str(err)
+        usage(prog)
+        sys.exit(1)
+    output = None
+    verbose = False
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage(prog)
+            sys.exit(0)
+        elif opt in ('-v', '--verbose'):
+            verbose = True
+        elif opt in ('-o', '--output'):
+            output = arg
+        else:
+            assert False, "unhandled option"
+            sys.exit(2)
+    if not output:
+        usage(prog)
+        sys.exit(3)
+    export_kj = Export2Kjernen(output, verbose)
     export_kj.export_persons()
     
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main(sys.argv)
 
