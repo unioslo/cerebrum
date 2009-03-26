@@ -1961,6 +1961,8 @@ class BofhdExtension(object):
             raise CerebrumError, "%s is not connected to a pipe or RT target" % addr
         if not cmd.startswith('|'):
             cmd = '|' +  cmd
+        if not re.match(self._rt_patt, cmd):
+            raise CerebrumError("'%s' is not a valid RT command" % cmd)
         et.email_target_alias = cmd
         et.write_db()
         return "OK, edited %s" % addr
@@ -3374,7 +3376,7 @@ class BofhdExtension(object):
             ea.delete()
         return result
 
-    _rt_pipe = ("|/local/bin/rt-mailgate\s+--action %(action)s\s+--queue %(queue)s\s+"
+    _rt_pipe = ("|/local/bin/rt-mailgate --action %(action)s --queue %(queue)s "
                 "--url https://%(host)s/")
     # This assumes that the only RE meta character in _rt_pipe is the
     # leading pipe.
