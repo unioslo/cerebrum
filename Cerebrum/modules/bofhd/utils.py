@@ -376,6 +376,21 @@ class BofhdRequests(object):
                                       {'op': int(self.co.bofh_move_give)}))
         return ret
 
+
+    def get_operations(self):
+        """Retrieves the various types/operations that it is possible
+        to generate bofhd-requests for.
+
+        """
+        qry = """
+        SELECT code, code_str, description
+        FROM [:table schema=cerebrum name=bofhd_request_code]
+        ORDER BY code_str
+        """
+        return self._db.query(qry)
+
+
+
 class BofhdUtils(object):
     """Utility functions for bofhd."""
 

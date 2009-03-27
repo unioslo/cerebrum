@@ -5595,6 +5595,23 @@ class BofhdExtension(object):
             tpl_lang, tpl_name, tpl_type, skriver, selection))
         return "\n".join(ret)
 
+
+    all_commands['misc_list_bofhd_request_types'] = Command(
+        ("misc", "list_bofhd_request_types"),
+        fs=FormatSuggestion("%-20s %s", ("code_str", "description"),
+                            hdr="%-20s %s" % ("Code", "Description")),
+        perm_filter='is_superuser')
+    def misc_list_bofhd_request_types(self, operator):
+        br = BofhdRequests(self.db, self.const)
+        
+        result = []
+        for row in br.get_operations():
+            result.append({"code_str": row["code_str"].lstrip("br_"),
+                           "description": row["description"]})
+
+        return result
+
+
     all_commands['misc_list_requests'] = Command(
         ("misc", "list_requests"), SimpleString(
         help_ref='string_bofh_request_search_by', default='requestee'),

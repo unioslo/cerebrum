@@ -250,6 +250,8 @@ command_help = {
         "Register a new host",
     "misc_hrem":
         "Remove a host",
+    'misc_list_bofhd_request_types':
+        'List the various types of operations that can be done via bofhd-requests',
     "misc_list_passwords":
         "View/print all the password altered this session",
     "misc_reload":
