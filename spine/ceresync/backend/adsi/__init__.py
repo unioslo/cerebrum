@@ -143,10 +143,14 @@ class _AdsiBack(object):
         else:
             self.ou = ad.AD_object(path=self.ou_path)
 
-    def begin(self, encoding, incr=False):
+    def begin(self, encoding, incr=False, bulk_add=True, bulk_update=True, 
+                    bulk_delete=True):
         """Initializes the Active Directory synchronization"""
         self.encoding= encoding
         self.incr = incr
+        self.do_add= incr or bulk_add
+        self.do_update= incr or bulk_update
+        self.do_delete= incr or bulk_delete
         self._connect() # reconnect
         
         # Find all existing objects
@@ -170,8 +174,9 @@ class _AdsiBack(object):
         if not self.incr:
             while self._remains:
                 accountname= self._remains.pop()
-                log.info("Disabling %s",accountname)
-                self.delete(_Dummy(accountname))
+                if self.do_delete:
+                    log.info("Disabling %s",accountname)
+                    self.delete(_Dummy(accountname))
         self._remains = None
         self.ou = None
 
@@ -264,16 +269,20 @@ class _ADAccount(_AdsiBack):
     def add(self, obj):
         """Adds an object to AD. If it already exist, the existing
            AD object will be updated instead."""
+        if not self.incr:
+            if obj.name in self._remains:
+                self._remains.remove(obj.name)
         try:
             already_exists = self._find(obj.name)
         except OutsideOUError, e:
             dn, accountname= e
-            log.info(u"moving %s from %s to %s",
-                accountname, 
-                dn.path(),
-                self.ou_path,
-            )
-            self._move_here(dn, accountname)
+            if self.do_update:
+                log.info(u"moving %s from %s to %s",
+                    accountname, 
+                    dn.path(),
+                    self.ou_path,
+                )
+                self._move_here(dn, accountname)
             already_exists = True
         if already_exists:
             # FIXME: Proper logging, and maybe hint caller that he
@@ -281,32 +290,41 @@ class _ADAccount(_AdsiBack):
             if self.incr:
                 # in non-incr (full-sync) mode, everything will be
                 # add(), so we won't report those
-                log.info("'%s' Already exists, updating instead", obj.name)
-            return self.update(obj)
+                log.debug("'%s' Already exists, updating instead", obj.name)
+            if self.do_update:
+                return self.update(obj)
+            return None
         
-        ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)
-        ad_obj.sAMAccountName = obj.name
-        ad_obj.setInfo()
-        # update should fetch object again for auto-generated values 
-        ad_obj = self.update(obj)
-        # update() will also remove from self._remains if necessary
-        return ad_obj
+        if self.do_add:
+            ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)
+            ad_obj.sAMAccountName = obj.name
+            ad_obj.setInfo()
+            # update should fetch object again for auto-generated values 
+            ad_obj = self._find(obj.name)
+            if not ad_obj:
+                log.warning("Failed to add account '%s'", obj.name)
+                return ad_obj
+            self._update_attributes(obj, ad_obj)
+            # update() will also remove from self._remains if necessary
+            return ad_obj
     
     def update(self, obj):
         """Updates an object in AD. If it does not already exist, the
            AD object will be added instead."""
         # Do the specialization here, always return for subclasses to
         # do more work on object
+        if not self.incr:
+            if obj.name in self._remains:
+                self._remains.remove(obj.name)
         ad_obj = self._find(obj.name)
         if not ad_obj:
             # FIXME: Proper logging, and maybe hint caller that he
             # should do a full sync instead
             log.warn("Did not exist %s, adding instead", obj.name)
             return self.add(obj)
-        if not self.incr:
-            if obj.name in self._remains:
-                self._remains.remove(obj.name)
         return ad_obj    
+    def _update_attributes(self, obj, ad_obj):
+        pass
 
 class ADUser(_ADAccount):
     objectClass = "user"
@@ -318,27 +336,23 @@ class ADUser(_ADAccount):
     # http://www.microsoft.com/windows2000/techinfo/howitworks/activedirectory/adsilinks.asp
     # http://search.microsoft.com/search/results.aspx?qu=adsi&View=msdn&st=b&c=4&s=1&swc=4
 
-    def update(self, obj):
-        ad_obj = super(ADUser, self).update(obj)
-        if not ad_obj.distinguishedName.split(',')[0].split('=')[1]==obj.name:
-            self._move_here(ad_obj, obj.name)
-            ad_obj = super(ADUser, self).update(obj)
+    def _update_attributes(self, obj, ad_obj):
+        """Update the ad_object, ad_obj, with the fields from the spine object,
+           obj.
+        """
         ad_obj.userAccountControl= str2int(obj.control_flags)
-        # Setting FirstName and LastName based on the last space in the full
-        # name. The bdb client does this, though I have no idea why :)
         full_name= unicode(obj.full_name or obj.gecos or ' ', self.encoding)
         try: 
             first_name, last_name= full_name.rsplit(None,1)
         except ValueError:
             first_name, last_name= ' ', full_name
-
         ad_obj.givenName= first_name
         ad_obj.sn= last_name
         ad_obj.displayName= full_name
         ad_obj.homeDirectory= obj.homedir
         ad_obj.userPrincipalName= '%s@%s' % (obj.name,obj.domain)
         ad_obj.profilePath= obj.profilepath
-
+        ad_obj.scriptPath= obj.scriptpath
         if obj.passwd:
             dec= Pgp().decrypt(obj.passwd)
             try: 
@@ -346,10 +360,17 @@ class ADUser(_ADAccount):
                 ad_obj.setPassword(dec)
             except Exception,e:
                 log.warning("Failed to set password on '%s': %s", obj.name, e) 
-                pass
         else:
             log.warning("No password on %s.", obj.name)
         ad_obj.setInfo()
+
+    def update(self, obj):
+        ad_obj = super(ADUser, self).update(obj)
+        if not ad_obj.distinguishedName.split(',')[0].split('=')[1]==obj.name:
+            # TODO: log message
+            self._move_here(ad_obj, obj.name)
+            ad_obj = super(ADUser, self).update(obj)
+        self._update_attributes(obj, ad_obj)
         return ad_obj
 
     def add(self, obj):

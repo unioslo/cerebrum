@@ -83,7 +83,7 @@ def main():
     s.close()
 
     log.debug("Synchronizing accounts")
-    userAD.begin(encoding, incr)
+    userAD.begin(encoding, incr, add, update, delete)
     for account in accounts:
         log.debug("Processing account '%s'", account.name)
         userAD.add(account)
