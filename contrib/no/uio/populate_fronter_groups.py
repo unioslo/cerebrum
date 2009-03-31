@@ -810,7 +810,7 @@ def get_evu(evu_file, edu_file):
     # Build an overview of the students...
     students = dict()
     for entry in EduGenericIterator(edu_file, "evu"):
-        evu_id = fields2key("kurs", entry['etterutdkurskode'],
+        evu_id = fields2key("evu", entry['etterutdkurskode'],
                             entry['kurstidsangivelsekode'])
         fnr = "%06d%05d" % (int(entry["fodselsdato"]), int(entry["personnr"]))
         students.setdefault(evu_id, list()).append(fnr)
@@ -868,13 +868,9 @@ def get_kursakt(edu_info, kursakt_file, edu_file):
     # Build an overview of the students...
     students = dict()
     for entry in EduGenericIterator(edu_file, "kursakt"):
-        try:
-            kursakt_id = fields2key("kurs", entry['etterutdkurskode'],
-                                    entry['kurstidsangivelsekode'],
-                                    entry['aktivitetskode'])
-        except KeyError:
-            print "kursakt failed:", entry
-            raise
+        kursakt_id = fields2key("evu", entry['etterutdkurskode'],
+                                entry['kurstidsangivelsekode'],
+                                entry['aktivitetskode'])
         fnr = "%06d%05d" % (int(entry["fodselsdato"]), int(entry["personnr"]))
         students.setdefault(kursakt_id, list()).append(fnr)
     logger.debug("Done loading student kursakt info")
