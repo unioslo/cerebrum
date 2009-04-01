@@ -180,9 +180,9 @@ command_help = {
     "email_rt_remove_address":
         "Remove a valid address from the RT target",
     "email_spam_action":
-        "How to handle user's spam",
+        "How to handle target's spam",
     "email_spam_level":
-        "Change user's tolerance for spam",
+        "Change target's tolerance for spam",
     "email_tripnote":
         "Turn vacation messages on/off",
     "email_add_tripnote":

@@ -275,38 +275,36 @@ def write_ldif():
                 if enable == 'T':
                     f.write("forwardDestination: %s\n" % addr)
 
-        if tt in (co.email_target_account,
-                  co.email_target_Mailman,
-                  co.email_target_Sympa):
-            # Find spam-settings:
-            if ldap.targ2spam.has_key(t):
-                level, action = ldap.targ2spam[t]
-                f.write("spamLevel: %s\n" % level)
-                f.write("spamAction: %s\n" % action)
-            else:
-                # Set default-settings.
-                f.write("spamLevel: %s\n" % default_spam_level)
-                f.write("spamAction: %s\n" % default_spam_action)
+        # Find spam-settings:
+        if ldap.targ2spam.has_key(t):
+            level, action = ldap.targ2spam[t]
+            f.write("spamLevel: %s\n" % level)
+            f.write("spamAction: %s\n" % action)
+        else:
+            # Set default-settings.
+            f.write("spamLevel: %s\n" % default_spam_level)
+            f.write("spamAction: %s\n" % default_spam_action)
 
-            # Filters
-            if ldap.targ2filter.has_key(t):
-                for a in ldap.targ2filter[t]:
-                    f.write("mailFilter: %s\n" % a)
-                
-            # Find virus-setting:
-            if ldap.targ2virus.has_key(t):
-                found, rem, enable = ldap.targ2virus[t]
-                f.write("virusFound: %s\n" % found)
-                f.write("virusRemoved: %s\n" % rem)
-                if enable == 'T':
-                    f.write("virusScanning: TRUE\n")
-                else:
-                    f.write("virusScanning: FALSE\n")
-            else:
-                # Set default-settings.
+        # Filters
+        if ldap.targ2filter.has_key(t):
+            for a in ldap.targ2filter[t]:
+                f.write("mailFilter: %s\n" % a)
+            
+        # Find virus-setting:
+        if ldap.targ2virus.has_key(t):
+            found, rem, enable = ldap.targ2virus[t]
+            f.write("virusFound: %s\n" % found)
+            f.write("virusRemoved: %s\n" % rem)
+            if enable == 'T':
                 f.write("virusScanning: TRUE\n")
-                f.write("virusFound: 1\n")
-                f.write("virusRemoved: 1\n")
+            else:
+                f.write("virusScanning: FALSE\n")
+        else:
+            # Set default-settings.
+            f.write("virusScanning: TRUE\n")
+            f.write("virusFound: 1\n")
+            f.write("virusRemoved: 1\n")
+
         # Populate auth-data:
         if auth and tt == co.email_target_account:
             if ldap.e_id2passwd.has_key(ei):

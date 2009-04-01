@@ -1337,6 +1337,14 @@ class BofhdExtension(object):
         else:
             raise CerebrumError, ("email info for target type %s isn't "
                                   "implemented") % ttype_name
+
+        # Only the account owner and postmaster can see account settings, and
+        # that is handled properly in _email_info_account.
+        if not ttype in (self.const.email_target_account,
+                         self.const.email_target_deleted):
+            ret += self._email_info_spam(et)
+            ret += self._email_info_filters(et)
+
         return ret
 
     def _email_info_account(self, operator, acc, et, addrs):
@@ -1521,9 +1529,7 @@ class BofhdExtension(object):
         et.clear()
         et.find(ea.email_addr_target_id)
         addrs = self.__get_valid_email_addrs(et, sort=True)
-        ret += self._email_info_spam(et)
         ret += self._email_info_forwarding(et, addrs)
-        ret += self._email_info_filters(et)
         aliases = []
         for r in et.get_addresses():
             a = "%(local_part)s@%(domain)s" % r
@@ -1625,10 +1631,8 @@ class BofhdExtension(object):
         et.find(ea.email_addr_target_id)
         addrs = self.__get_valid_email_addrs(et, sort=True)
         # IVR 2008-08-21 According to postmasters, only superusers should see
-        # spam, forwarding and delivery host information
+        # forwarding and delivery host information
         if self.ba.is_postmaster(operator.get_entity_id()):
-            ret += self._email_info_spam(et)
-            ret += self._email_info_filters(et)
             if et.email_server_id is None:
                 delivery_host = "N/A (this is an error)"
             else:
@@ -1767,6 +1771,9 @@ class BofhdExtension(object):
         ea.populate(arch, ed.entity_id, et.entity_id)
         ea.write_db()
         # TODO: add bofh request to run mkdir on www
+        addr = arch + "@" + dom
+        self._register_spam_settings(addr, self.const.email_target_pipe)
+        self._register_filter_settings(addr, self.const.email_target_pipe)
         return ("OK, now run:   ssh jess \"su www -c 'mkdir -p %s; chmod o= %s'\""
                 % (archive_dir, archive_dir))
 
@@ -1884,6 +1891,8 @@ class BofhdExtension(object):
         ea.clear()
         ea.populate(lp, ed.entity_id, et.entity_id)
         ea.write_db()
+        self._register_spam_settings(addr, self.const.email_target_pipe)
+        self._register_filter_settings(addr, self.const.email_target_pipe)
         return "OK, created pipe address %s" % addr
 
     # email delete_pipe <address>
@@ -2245,45 +2254,57 @@ class BofhdExtension(object):
             ef.add_forward(addr)
         except Errors.TooManyRowsError:
             raise CerebrumError, "Forward address added already (%s)" % addr
+        self._register_spam_settings(localaddr, target_type)
+        self._register_filter_settings(localaddr, target_type)
         return "OK, created forward address '%s'" % localaddr
 
 
-    def _register_list_spam_settings(self, listname, target_type):
-        """Register spam settings (level/action) associated with a ML."""
+    def _register_spam_settings(self, address, target_type):
+        """Register spam settings (level/action) associated with an address."""
         
-        email_target, addr = self.__get_email_target_and_address(listname)
+        et, addr = self.__get_email_target_and_address(address)
         esf = Email.EmailSpamFilter(self.db)
+        all_targets = [et.entity_id]
+        if target_type in (self.const.email_target_Mailman,
+                           self.const.email_target_Sympa):
+            all_targets = self.__get_all_related_maillist_targets(addr.get_address())
+        elif target_type == self.const.email_target_RT:
+            all_targets = self.__get_all_related_rt_targets(addr.get_address())
         target_type = str(target_type)
-        all_targets = self.__get_all_related_maillist_targets(addr.get_address())
         if cereconf.EMAIL_DEFAULT_SPAM_SETTINGS.has_key(target_type):
             sl, sa = cereconf.EMAIL_DEFAULT_SPAM_SETTINGS[target_type]
             spam_level = int(self.const.EmailSpamLevel(sl))
             spam_action = int(self.const.EmailSpamAction(sa))
             for target_id in all_targets:
-                email_target.clear()
-                email_target.find(target_id)
+                et.clear()
+                et.find(target_id)
                 esf.clear()
-                esf.populate(spam_level, spam_action, parent=email_target)
+                esf.populate(spam_level, spam_action, parent=et)
                 esf.write_db()
-    # end _register_list_spam_settings
+    # end _register_spam_settings
             
 
-    def _register_list_filter_settings(self, listname, target_type):
-        """Register spam filter settings associated with a ML."""
-        email_target, addr = self.__get_email_target_and_address(listname)
+    def _register_filter_settings(self, address, target_type):
+        """Register spam filter settings associated with an address."""
+        et, addr = self.__get_email_target_and_address(address)
         etf = Email.EmailTargetFilter(self.db)
+        all_targets = [et.entity_id]
+        if target_type in (self.const.email_target_Mailman,
+                           self.const.email_target_Sympa):
+            all_targets = self.__get_all_related_maillist_targets(addr.get_address())
+        elif target_type == self.const.email_target_RT:
+            all_targets = self.__get_all_related_rt_targets(addr.get_address())
         target_type = str(target_type)
-        all_targets = self.__get_all_related_maillist_targets(addr.get_address())
         if cereconf.EMAIL_DEFAULT_FILTERS.has_key(target_type):
             for f in cereconf.EMAIL_DEFAULT_FILTERS[target_type]:
                 filter_code = int(self.const.EmailTargetFilter(f))
                 for target_id in all_targets:
-                    email_target.clear()
-                    email_target.find(target_id)
+                    et.clear()
+                    et.find(target_id)
                     etf.clear()
-                    etf.populate(filter_code, parent=email_target)
+                    etf.populate(filter_code, parent=et)
                     etf.write_db()
-    # end _register_list_filter_settings
+    # end _register_filter_settings
     
                 
     # email create_list <list-address> [admin,admin,admin]
@@ -2504,8 +2525,8 @@ class BofhdExtension(object):
         else:
             raise CerebrumError("Unknown mail list target: %s" % target_type)
         # register auto spam and filter settings for the list
-        self._register_list_spam_settings(listname, target_type)
-        self._register_list_filter_settings(listname, target_type)
+        self._register_spam_settings(listname, target_type)
+        self._register_filter_settings(listname, target_type)
     # end _create_mailing_list_in_cerebrum
 
 
@@ -3335,6 +3356,8 @@ class BofhdExtension(object):
         epat = Email.EmailPrimaryAddressTarget(self.db)
         epat.populate(ea.entity_id, parent=et)
         epat.write_db()
+        self._register_spam_settings(addr, self.const.email_target_multi)
+        self._register_filter_settings(addr, self.const.email_target_multi)
         return "OK, multi-target for '%s' created" % addr
 
     # email delete_multi <address>
@@ -3475,6 +3498,9 @@ class BofhdExtension(object):
         msg = "RT queue %s on %s added" % (queue, host)
         if replaced_lists:
             msg += ", replacing mailing list(s) %s" % ", ".join(replaced_lists)
+        addr = queue + "@" + host
+        self._register_spam_settings(addr, self.const.email_target_RT)
+        self._register_filter_settings(addr, self.const.email_target_RT)
         return msg
 
     # email rt_delete queue[@host]
@@ -3491,31 +3517,29 @@ class BofhdExtension(object):
         ea = Email.EmailAddress(self.db)
         epat = Email.EmailPrimaryAddressTarget(self.db)
         result = []
-        for action in ("correspond", "comment"):
-            alias = self._rt_pipe % { 'action': action, 'queue': queue,
-                                      'host': host }
+
+        for target_id in self.__get_all_related_rt_targets(queuename):
             try:
                 et.clear()
-                et.find_by_alias(alias)
-                epat.clear()
-                try:
-                    epat.find(et.entity_id)
-                except Errors.NotFoundError:
-                    pass
-                else:
-                    epat.delete()
-                for r in et.get_addresses():
-                    addr = '%(local_part)s@%(domain)s' % r
-                    ea.clear()
-                    ea.find_by_address(addr)
-                    ea.delete()
-                    result.append({'address': addr})
-                et.delete()
+                et.find(target_id)
+            except Errors.NotFoundError:
+                continue
+
+            epat.clear()
+            try:
+                epat.find(et.entity_id)
             except Errors.NotFoundError:
                 pass
-        if not result:
-            raise CerebrumError, ("RT queue %s on host %s not found" %
-                                  (queue, host))
+            else:
+                epat.delete()
+            for r in et.get_addresses():
+                addr = '%(local_part)s@%(domain)s' % r
+                ea.clear()
+                ea.find_by_address(addr)
+                ea.delete()
+                result.append({'address': addr})
+            et.delete()
+
         return result
 
     # email rt_add_address queue[@host] address
@@ -3587,6 +3611,49 @@ class BofhdExtension(object):
             raise CerebrumError, "Invalid RT queue name: %s" % queuename
         return queuename.split('@')
 
+    def __get_all_related_rt_targets(self, address):
+        """This method locates and returns all ETs associated with the same RT
+        queue.
+
+        Given any address associated with a RT queue, this method returns
+        all the ETs associated with that RT queue. E.g.: 'foo@domain' will return
+        'foo@domain' and 'foo-comment@queuehost'
+
+	If address (EA) is not associated with a RT queue, this method
+	raises an exception. Otherwise a list of ET entity_ids is returned.
+
+        @type address: basestring
+        @param address:
+          One of the mail addresses associated with a RT queue.
+
+        @rtype: sequence (of ints)
+        @return:
+          A sequence with entity_ids of all ETs related to the RT queue that address
+          is related to.
+	"""
+      
+        et = Email.EmailTarget(self.db)
+        queue, host = self._get_rt_queue_and_host(address)
+        targets = set([])
+        for action in ("correspond", "comment"):
+            alias = self._rt_pipe % { 'action': action, 'queue': queue,
+                                      'host': host }
+            try:
+                et.clear()
+                et.find_by_alias(alias)
+            except Errors.NotFoundError:
+                continue
+
+            targets.add(et.entity_id)
+
+        if not targets:
+            raise CerebrumError, ("RT queue %s on host %s not found" %
+                                  (queue, host))
+
+        return targets
+
+    # end __get_all_related_rt_targets
+
     def _get_rt_email_target(self, queue, host):
         et = Email.EmailTarget(self.db)
         try:
@@ -3596,6 +3663,15 @@ class BofhdExtension(object):
             raise CerebrumError, ("Unknown RT queue %s on host %s" %
                                   (queue, host))
         return et
+
+    def _get_rt_queue_and_host(self, address):
+        et, addr = self.__get_email_target_and_address(address)
+
+        try:
+            m = re.match(self._rt_patt, et.get_alias())
+            return m.group(2), m.group(3)
+        except AttributeError:
+            raise CerebrumError("Could not get queue and host for %s" % address)
 
     # email migrate
     all_commands['email_migrate'] = Command(
@@ -3789,6 +3865,8 @@ class BofhdExtension(object):
             # The only way we can get here is if uname is actually an e-mail
             # address on its own.
             target_ids = self.__get_all_related_maillist_targets(address)
+        elif int(et.email_target_type) == (self.const.email_target_RT):
+            target_ids = self.__get_all_related_rt_targets(address)
         for target_id in target_ids:
             try:
                 et.clear()
@@ -3823,6 +3901,8 @@ class BofhdExtension(object):
             # The only way we can get here is if uname is actually an e-mail
             # address on its own.
             target_ids = self.__get_all_related_maillist_targets(address)
+        elif int(et.email_target_type) == (self.const.email_target_RT):
+            target_ids = self.__get_all_related_rt_targets(address)
         processed = list()
         for target_id in target_ids:
             try:
@@ -3848,8 +3928,8 @@ class BofhdExtension(object):
         perm_filter='can_email_spam_settings')
     def email_spam_level(self, operator, level, uname):
         """Set the spam level for the EmailTarget associated with username.
-        It is also possible for super users to pass the name of a mailing
-        list."""
+        It is also possible for super users to pass the name of other email
+        targets."""
         codes = self.const.fetch_constants(self.const.EmailSpamLevel,
                                            prefix_match=level)
         if len(codes) == 1:
@@ -3866,11 +3946,14 @@ class BofhdExtension(object):
         # ETs "related" to the same ML should have the
         # spam settings should be processed )
         target_ids = [et.entity_id]
+        # The only way we can get here is if uname is actually an e-mail
+        # address on its own.
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
-            # The only way we can get here is if uname is actually an e-mail
-            # address on its own.
             target_ids = self.__get_all_related_maillist_targets(uname)
+        elif int(et.email_target_type) == self.const.email_target_RT:
+            targets_ids = self.__get_all_related_rt_targets(uname)
+
         for target_id in target_ids:
             try:
                 et.clear()
@@ -3904,8 +3987,8 @@ class BofhdExtension(object):
         perm_filter='can_email_spam_settings')
     def email_spam_action(self, operator, action, uname):
         """Set the spam action for the EmailTarget associated with username.
-        It is also possible for super users to pass the name of a mailing
-        list."""
+        It is also possible for super users to pass the name of other email
+        targets."""
         codes = self.const.fetch_constants(self.const.EmailSpamAction,
                                            prefix_match=action)
         if len(codes) == 1:
@@ -3922,11 +4005,13 @@ class BofhdExtension(object):
         # ETs "related" to the same ML should have the
         # spam settings should be processed )
         target_ids = [et.entity_id]
+        # The only way we can get here is if uname is actually an e-mail
+        # address on its own.
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
-            # The only way we can get here is if uname is actually an e-mail
-            # address on its own.
             target_ids = self.__get_all_related_maillist_targets(uname)
+        elif int(et.email_target_type) == self.const.email_target_RT:
+            targets_ids = self.__get_all_related_rt_targets(uname)
 
         for target_id in target_ids:
             try:
