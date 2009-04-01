@@ -1284,6 +1284,8 @@ class BofhdExtension(object):
          ("spam_level", "spam_level_desc", "spam_action", "spam_action_desc")),
         ("Filters:          %s",
          ("filters",)),
+        ("Status:           %s",
+         ("status",)),
         ]))
     def email_info(self, operator, uname):
         et, acc = self.__get_email_target_and_account(uname)
@@ -1466,6 +1468,11 @@ class BofhdExtension(object):
                              'dis_quota_soft': eq.email_quota_soft})
         except Errors.NotFoundError:
             pass
+
+        # Check if the ldapservers have set mailPaused
+        if self._email_delivery_stopped(acc.account_name):
+            info.append({'status': 'Paused (migrating to new server)'})
+
         return info
 
     def _email_info_forwarding(self, target, addrs):
@@ -1735,6 +1742,28 @@ class BofhdExtension(object):
                 data.append({'fw_addr': forw[idx]['forward_to'],
                              'fw_enable': self._onoff(forw[idx]['enable'])})
         return data
+
+    def _email_delivery_stopped(self, user):
+        # Delayed import so the script can run on machines without ldap
+        # module
+        import ldap, ldap.filter, ldap.ldapobject
+        ldapconns = [ldap.ldapobject.ReconnectLDAPObject("ldap://%s/" % server)
+                     for server in cereconf.LDAP_SERVERS]
+        userfilter = ("(&(target=%s)(mailPause=TRUE))" %
+                      ldap.filter.escape_filter_chars(user))
+        for conn in ldapconns:
+            try:
+                # FIXME: cereconf.LDAP_MAIL['dn'] has a bogus value, so we
+                # must hardcode the DN.
+                res = conn.search_s("cn=targets,cn=mail,dc=uio,dc=no",
+                                    ldap.SCOPE_ONELEVEL, userfilter, ["1.1"])
+                if len(res) != 1:
+                    return False
+            except ldap.LDAPError, e:
+                logger.error("LDAP search failed: %s", e)
+                return False
+
+        return True
 
     # email create_archive <list-address>
     all_commands['email_create_archive'] = Command(
