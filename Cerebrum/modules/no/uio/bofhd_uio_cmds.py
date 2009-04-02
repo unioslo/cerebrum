@@ -1705,14 +1705,7 @@ class BofhdExtension(object):
                  'file_runas': account_name}]
 
     def _email_info_pipe(self, addr, et):
-        #XXX: Remove RT cruft when all RT-pipe targets are moved to target_type == RT.
-        m = re.match(self._rt_patt, et.get_alias())
         acc = self._get_account(et.email_target_using_uid, idtype='id')
-        if m:
-            return [{'rt_action': m.group(1),
-                     'rt_queue': m.group(2),
-                     'rt_host': m.group(3),
-                     'pipe_runas': acc.account_name}]
         return [{'pipe_cmd': et.get_alias(), 'pipe_runas': acc.account_name}]
 
     def _email_info_rt(self, addr, et):
