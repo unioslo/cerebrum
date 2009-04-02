@@ -61,7 +61,7 @@ def write_hia_person_info(outfile):
     f.set_minimum_size_limit(1*MiB)
     f.write(xml.xml_hdr + "<data>\n")
 
-    #Aktive ordinære studenter ved HiA
+    # Aktive ordinære studenter ved HiA
     cols, hiastudent = _ext_cols(fs.student.list_aktiv())
     for a in hiastudent:
 	fix_float(a)
@@ -70,15 +70,16 @@ def write_hia_person_info(outfile):
     cols, hiastudent = _ext_cols(fs.student.list_eksamensmeldinger())
     for s in hiastudent:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
-    #Privatister ved HiA
+    # Privatister ved HiA
     cols, hiastudent = _ext_cols(fs.student.list_privatist())
     for p in hiastudent:
 	f.write(xml.xmlify_dbrow(p,xml.conv_colnames(cols),'privatist_studieprogram') + "\n")
-    #Personer som har tilbud om opptak ved HiA
-    cols, hiastudent = _ext_cols(fs.student.list_tilbud())
-    for t in hiastudent:
-        f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
-    #EVU-studenter ved HiA
+    # Personer som har tilbud om opptak ved HiA
+    ## No longer necessary, Jazz 2009-04-02
+    ## cols, hiastudent = _ext_cols(fs.student.list_tilbud())
+    ## for t in hiastudent:
+    ##    f.write(xml.xmlify_dbrow(t,xml.conv_colnames(cols),'tilbud') + "\n")
+    # EVU-studenter ved HiA
     cols, hiastudent = _ext_cols(fs.evu.list())
     for e in hiastudent:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
