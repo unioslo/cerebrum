@@ -31,6 +31,20 @@ class Export2Kjernen(object):
             self.co.affiliation_alumni:         'alumni',
             self.co.affiliation_student:        'student'
         }
+        self.affiliations_status = {
+            self.co.affiliation_status_tilknyttet_bilag:        'bilag',
+            self.co.affiliation_status_ansatt_ansatt:           'ansatt',
+            self.co.affiliation_status_student_student:         'student',
+            self.co.affiliation_status_student_bachelor:        'bachelor',
+            self.co.affiliation_status_tilknyttet_annen:        'annen',
+            self.co.affiliation_status_student_aktiv:           'master',
+            self.co.affiliation_status_tilknyttet_gjest:        'gjest',
+            self.co.affiliation_status_tilknyttet_fagperson:    'fagperson',
+            self.co.affiliation_status_ansatt_vit:              'vitenskaplig',
+            self.co.affiliation_status_alumni_aktiv:            'alumni',
+            self.co.affiliation_status_student_drgrad:          'drgrad',
+            self.co.affiliation_status_ansatt_tekadm:           'tekadm'
+        }
 
     def get_stedkoder(self):
         if self.verbose:
@@ -102,12 +116,17 @@ class Export2Kjernen(object):
         if self.verbose:
             print 'Fetching affiliations...'
         affs = {}
+        affs_status = {}
         ous = {}
+        aff_created = {}
         ## for row in self._person.list_affiliations(source_system=self.co.system_kjernen):
         for row in self._person.list_affiliations():
             affs[row['person_id']] = row['affiliation']
+            affs_status[row['person_id']] = row['status']
             ous[row['person_id']] = row['ou_id']
-        return (affs, ous)
+            aff_created[row['person_id']] = row['create_date'].strftime(self._iso_format)
+            
+        return (affs, ous, affs_status, aff_created)
  
     def write_file(self):
         if self.verbose:
@@ -115,7 +134,7 @@ class Export2Kjernen(object):
         i = 0
         f = open(self.outfile, fileMode, bufferSize)
         for k in self.nins.keys():
-            out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
+            out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
                     (k,
                     self.nins[k][:6],
                     self.nins[k][6:],
@@ -123,9 +142,11 @@ class Export2Kjernen(object):
                     self.firstnames.get(k,''),
                     self.lastnames.get(k, ''),
                     self.emails.get(k, ''),
-                    self.affiliations.get(self.affs.get(k, ''),''),
+                    self.affiliations.get(self.affs.get(k, ''), ''),
+                    self.affiliations_status.get(self.affs_status.get(k, ''),''),
                     self.stedkoder.get(self.ous.get(k, ''), ''),
-                    self.accounts.get(k, ''))
+                    self.accounts.get(k, ''),
+                    self.created.get(k, ''))
 
             f.write(out_line)
             i += 1
@@ -143,7 +164,7 @@ class Export2Kjernen(object):
         self.birthdates = self.get_birthdates()
         self.nins = self.get_nins()
         self.emails = self.get_emails()
-        (self.affs, self.ous) = self.get_affiliations()
+        (self.affs, self.ous, self.affs_status, self.created) = self.get_affiliations()
         self.lastnames = self.get_lastnames()
         self.firstnames = self.get_firstnames()
         self.accounts = self.get_accounts(self.get_entities())
