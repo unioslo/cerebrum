@@ -16,8 +16,10 @@ import no.uio.ephorte.xml.XMLUtil;
  * 
  */
 public class PersonRolle {
+    static Hashtable<Integer, String> id2stedAkronym;
     static Hashtable<String, Integer> stedkode2Id;
     static Hashtable<String, Integer> rolleType2Id;
+    static Hashtable<Integer, String> id2rolleBeskrivelse;
     private static Log log = LogFactory.getLog(PersonRolle.class);
 
     private Person person;
@@ -58,8 +60,9 @@ public class PersonRolle {
         }
     }
 
-    public PersonRolle(Person person, String rolleType, boolean stdRolle, String sko,
-            String arkivDel, String journalEnhet, String tittel, String stilling)
+    public PersonRolle(Person person, String rolleType, boolean stdRolle, 
+		       String sko, String arkivDel, String journalEnhet, 
+		       String tittel, String stilling)
             throws BadDataException {
         this.person = person;
         Integer tmp = rolleType2Id.get(rolleType);
@@ -71,9 +74,15 @@ public class PersonRolle {
         if (tmp == null)
             throw new BadDataException("Illegal sko: " + sko);
         adminDel = tmp;
-	// It seems that the web service sets the title automagically
-	//if (tittel == null || tittel.isEmpty()) 
-        //    throw new BadDataException("Rolletittel cannot be empty");
+	// The web service sets the title automagically if empty, but
+	// we want to set it explicitly to avvoid an error which occur
+	// if a person has two roles where rolletype and adminDel is
+	// the same, but arkivdel and journalenhet differs.
+	if (tittel == null || tittel.isEmpty()) {
+	    String ouDescr = id2stedAkronym.get(adminDel);
+	    tittel = id2rolleBeskrivelse.get(rolleId) + " " + ouDescr + 
+		", " + arkivDel;
+	}
         this.tittel = tittel;
         this.arkivDel = arkivDel;
         this.journalEnhet = journalEnhet;
@@ -84,8 +93,8 @@ public class PersonRolle {
     public boolean equals(Object obj) {
         if (obj instanceof PersonRolle) {
             PersonRolle pr = (PersonRolle) obj;
-            // Vi ser ikke på self.id ettersom denne vil være -1 fra import filen
-	    //log.debug("self.id = " + id + ", other.id = " + pr.getId());
+            // Vi ser ikke på self.id ettersom denne vil være -1 fra
+            // importfilen
 	    if (id != -1 && pr.getId() != -1) {
 		return id == pr.getId();
 	    }
@@ -100,10 +109,10 @@ public class PersonRolle {
     public void toXML(XMLUtil xml) {
         xml.startTag("PERROLLE");
         /*
-         * Når man oppretter en ny entry i ePhorte, må ID for denne typen være
-         * unik. Verdien er i seg selv ikke relevant, men den kan benyttes som
-         * referanse dersom andre XML-blokker i det samme UpdatePersonByXML
-         * kallet ønsker det.
+         * Når man oppretter en ny entry i ePhorte, må ID for denne
+         * typen være unik. Verdien er i seg selv ikke relevant, men
+         * den kan benyttes som referanse dersom andre XML-blokker i
+         * det samme UpdatePersonByXML kallet ønsker det.
          * 
          */
         xml.writeElement("PR_ID", "" + (person.getRoller().indexOf(this) + 1));
@@ -149,18 +158,26 @@ public class PersonRolle {
     public static void setup(Vector<Hashtable<String, String>> adminDelDataSet,
             Vector<Hashtable<String, String>> rolleDataSet) {
         stedkode2Id = new Hashtable<String, Integer>();
+	id2stedAkronym = new Hashtable<Integer, String>();
         for (Hashtable<String, String> ht : adminDelDataSet) {
 	    try {
-		stedkode2Id.put(ht.get("AI_FORKDN"), Integer.parseInt(ht.get("AI_ID")));
+		stedkode2Id.put(ht.get("AI_FORKDN"), 
+				Integer.parseInt(ht.get("AI_ID")));
+		id2stedAkronym.put(Integer.parseInt(ht.get("AI_ID")), 
+				   ht.get("AI_ADMKORT"));
 	    } catch (Exception e) {
 		log.warn("Wrong format: AI_FORKDN: " + ht.get("AI_FORKDN") + 
+			 ", AI_ADMKORT: " + ht.get("AI_ADMKORT") +
 			 ", AI_ID: " + ht.get("AI_ID"));
 	    }
         }
-
         rolleType2Id = new Hashtable<String, Integer>();
+        id2rolleBeskrivelse = new Hashtable<Integer, String>();
         for (Hashtable<String, String> ht : rolleDataSet) {
-            rolleType2Id.put(ht.get("RO_NAVN"), Integer.parseInt(ht.get("RO_ROLLEID")));
+            rolleType2Id.put(ht.get("RO_NAVN"), 
+			     Integer.parseInt(ht.get("RO_ROLLEID")));
+            id2rolleBeskrivelse.put(Integer.parseInt(ht.get("RO_ROLLEID")), 
+				    ht.get("RO_BESKRIVELSE_G"));
         }
     }
 
