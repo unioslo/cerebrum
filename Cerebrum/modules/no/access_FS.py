@@ -493,6 +493,8 @@ class Student(FSObject):
                                    'pnr': pnr})
 
     def list_tilbud(self):  # GetStudentTilbud_50
+        ## OBS! Denne metoden er ikke lenger i bruk og virker ikke
+        ## med FS 6.4 
         """Hent personer som har fått tilbud om opptak og
         har takket ja til tilbudet.
         Disse skal gis affiliation student med kode tilbud til
@@ -506,7 +508,7 @@ class Student(FSObject):
         begynne å lete etter personer som har fått tilbud). Hvis vi skal
         kjøre dette på UiO kan det hende at vi må ha:
         "sa.opptakstypekode = 'NOM'" med i søket. Dette er imidlertid
-        uklart"""
+        uklart. """
 
         qry = """
         SELECT DISTINCT
