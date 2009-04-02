@@ -55,6 +55,7 @@ logger = Factory.get_logger("cronjob")
 sko_cache = {}
 feide_id_cache = {}
 
+
 class ExtXMLHelper(XMLHelper):
     def xmlify_tree(self, tag, dta):
         """Write a dict out in xml.  If any values are a list/tuple of
@@ -248,16 +249,15 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             logger.error("person dict has no key 'roles'. This shouldn't happen." +
                          "Person: %s " % row['person_id'])
             continue
+        try:
+            arkivdel = str(co.EphorteArkivdel(row['arkivdel']))
+            journalenhet = str(co.EphorteJournalenhet(row['journalenhet']))
+        except TypeError, Errors.NotFoundError:
+            logger.warn("Wrong arkivdel or journalenhet. Skipping this role %s" % row)
+            continue
 
-        arkivdel = row['arkivdel']
-        if arkivdel:
-            arkivdel = str(co.EphorteArkivdel(arkivdel))
-        journalenhet = row['journalenhet']
-        if journalenhet:
-            journalenhet = str(co.EphorteJournalenhet(journalenhet))
-        
         tmp['roles'].append({
-            'role_type': str(co.EphorteRole(row['role_type'])) ,
+            'role_type': str(co.EphorteRole(row['role_type'])),
             'standard_rolle': row['standard_role'],
             'adm_enhet': _get_sko(row['adm_enhet']),
             'arkivdel': arkivdel,
@@ -271,6 +271,9 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     # Check standard role. If a person has more than one role, then
     # one of them should be set as standard role
     for e_id, p in persons.items():
+        if not 'roles' in p:
+            logger.debug("No roles for person %s" % p)
+            continue
         if len(p['roles']) > 1:
             nr_stdroles = len([1 for x in p['roles'] if x['standard_rolle'] == 'T'])
             if nr_stdroles == 0:
