@@ -24,7 +24,11 @@ process_students (or possibly other programs) quarantine student
 accounts which no longer should have permission to IT services. But,
 some of the persons owning these accounts might also have other
 affiliations and so it would be rather rude to quarantine their
-accounts. This script removes the quarantine for such accounts.
+accounts.
+
+This script removes the quarantine for such accounts. In addition
+student affiliation can bre removed and group membership for given
+groups deleted.
 
 """
 
@@ -40,16 +44,19 @@ db = Factory.get('Database')()
 pe = Factory.get("Person")(db)
 ac = Factory.get("Account")(db)
 co = Factory.get("Constants")(db)
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 db.cl_init(change_program="studsplat_revisor")
 
 
 def usage(exitcode=0):
     print """Usage: %s [options]
-    --infile         : Mandatory. Contains data about quarantined accounts
-    --nosplat-file   : Accounts that should be unsplatted
-    --studsplat-file : Out file containing splatted student accounts
-    --unsplat        : Unsplat accounts?
+    --infile <file> : Mandatory. Contains data about quarantined accounts
+    --studsplat-file <file> : Outfile containing splatted student accounts
+    --remove-affiliation : remove student affiliation for splatted accounts?
+    --output-email-addr : Output email-addrs rather than account names
+                          for splatted accounts
+    --dryrun : don't perform any changes
+    
 
     The infile should have the following format: <account id> <fnr>
     
@@ -69,30 +76,52 @@ def person_has_sap_aff(fnr):
     return False
 
 
-def unsplat_account(account_id):
+def remove_quarantine(account_id, quarantine_type=co.quarantine_auto_inaktiv):
     ac.clear()
-    ac.find(account_id)
-    logger.debug("Unsplat user %s..." % ac.account_name)
-    if ac.get_entity_quarantine(type=co.quarantine_auto_inaktiv):
-        ac.delete_entity_quarantine(type=co.quarantine_auto_inaktiv)
-        logger.info("Deleted quarantine %s for %s" % (co.quarantine_auto_inaktiv,
-                                                      ac.account_name))
+    try:
+        ac.find(account_id)
+        if ac.get_entity_quarantine(type=quarantine_type):
+            ac.delete_entity_quarantine(type=quarantine_type)
+            ac.write_db()
+            logger.debug("Deleted quarantine %s for %s" % (quarantine_type,
+                                                           ac.account_name))
+    except Errors.NotFoundError:
+            logger.warn("Couldn't Delete quarantine %s for %s" % (
+                quarantine_type, account_id))
+
+
+def remove_affiliation(account_id, affiliation=co.affiliation_student):
+    affs = ac.list_accounts_by_type(account_id=account_id,
+                                    affiliation=affiliation)
+    for row in affs:
+        try:
+            ac.clear()
+            ac.find(account_id)
+            ac.del_account_type(row['ou_id'], affiliation)
+            ac.write_db()
+            logger.debug("Remove affiliation %s for account %s" % (
+                affiliation, ac.account_name))
+        except Errors.NotFoundError:
+            logger.warn("Couldn't remove affiliation %s for account %s" % (
+                affiliation, account_id))
+
 
 def check_users(acc_fnrs):
     "acc_fnrs is a list of account_id, fnr pairs"
+    has_sap_aff = []
     no_sap_affs = []
     logger.info("Investigating affiliations for %d qurantined accounts" %
                 len(acc_fnrs))
     for account_id, fnr in acc_fnrs:
         try:
             if person_has_sap_aff(fnr):
-                unsplat_account(account_id)
+                has_sap_aff.append(account_id)
             else:
                 no_sap_affs.append(account_id)
         except Errors.NotFoundError:
             logger.warn("Couldn't find person with fnr " + fnr)
             
-    return no_sap_affs
+    return has_sap_aff, no_sap_affs
 
 
 def write_file(out_file, output_type, accounts):
@@ -101,22 +130,23 @@ def write_file(out_file, output_type, accounts):
         try:
             ac.clear()
             ac.find(acc_id)            
-            if output_type == 'email-addr':
+            if output_type == 'email-addrs':
                 outf.write(ac.get_primary_mailaddress() + os.linesep)
             else:
                 outf.write(ac.account_name + os.linesep)
         except Errors.NotFoundError:
             logger.warn("Couldn't find account " + acc_id)
     outf.close()
-    logger.info("Wrote %ss to %s" % (output_type, out_file))
+    logger.info("Wrote %s to %s" % (output_type, out_file))
 
 
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   "di:s:e",
+                                   "di:rs:e",
                                    ['dryrun',
                                     'infile=',
+                                    'remove-stud-aff',
                                     'studsplat-file=',
                                     'output-emailaddr'])
     except getopt.GetoptError:
@@ -125,17 +155,20 @@ def main():
 
     dryrun = False
     infile = None
+    remove_stud_aff = False
     out_studsplat_file = None
-    output_type = 'account'
+    output_type = 'accounts'
     for option, value in opts:
         if option in ('-d', '--dryrun',):
             dryrun = True
         elif option in ('-i', '--infile',):
             infile = value
+        elif option in ('-r', '--remove-stud-aff',):
+            remove_stud_aff = True
         elif option in ('-s', '--studsplat-file',):
             out_studsplat_file = value
         elif option in ('-e', '--output-emailaddr',):
-            output_type = 'email-addr'
+            output_type = 'email-addrs'
 
     try:
         f = file(infile)
@@ -144,9 +177,21 @@ def main():
     except:
         usage(1)
 
-    no_aff = check_users(acc_fnrs)
-    logger.debug("Number of splatted students: %d " % len(no_aff))
-    write_file(out_studsplat_file, output_type, no_aff)
+    # Cheack all splatted accounts
+    has_sap_aff, no_sap_aff = check_users(acc_fnrs)
+    logger.info("Number of accounts to unsplat: %d " % len(has_sap_aff))
+
+    # Remove quarantine for SAP persons 
+    for account_id in has_sap_aff:
+        remove_quarantine(account_id)
+    
+    # Remove student affiliation?
+    if remove_stud_aff:
+        for account_id in has_sap_aff:
+            remove_affiliation(account_id, affiliation=co.affiliation_student)
+            
+    logger.info("Number of splatted students: %d " % len(no_sap_aff))
+    write_file(out_studsplat_file, output_type, no_sap_aff)
     
     if dryrun:
         db.rollback()
