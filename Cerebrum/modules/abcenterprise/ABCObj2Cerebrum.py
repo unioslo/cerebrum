@@ -53,6 +53,7 @@ class ABCObj2Cerebrum(object):
         
     def _conv_const_entity(self, entity):
         """Convert temporary text constants to real Constants."""
+        entity = self._process_tags(entity)
         for i in entity._ids.keys():
             entity._ids[self._conv_cons(i)] = entity._ids[i]
             del entity._ids[i]
@@ -66,6 +67,23 @@ class ABCObj2Cerebrum(object):
         for i in entity._contacts.keys():
             entity._contacts[self._conv_cons(i)] = entity._contacts[i]
             del entity._contacts[i]
+        return entity
+
+    def _process_tags(self, entity):
+        """Process known «tag» mechanis. Translate the tagtype into something
+        Object2Cerebrum understands."""
+        new_tags = dict()
+        for i in entity._tags.keys():
+            if i == "ADD_SPREAD":
+                for s in entity._tags[i]:
+                    if abcconf.TAG_REWRITE.has_key(s):
+                        new_tags.setdefault(i, []).append(abcconf.TAG_REWRITE[s])
+                    else:
+                        raise ABCConfigError, "missing TAG_REWRITE rule: %s" % s
+                
+            else:
+                raise ABCConfigError, "no known action for tag_type: %s" % i
+        entity._tags = new_tags
         return entity
 
     def _conv_const_person(self, person):

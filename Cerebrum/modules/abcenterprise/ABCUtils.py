@@ -110,10 +110,10 @@ class ABCTypes(object):
                         ("orgidtype", 1), ("orgnametype", 1),
                         ("ouidtype", 1), ("ounametype", 1),
                         ("personidtype", 1), ("groupidtype", 1),
-                        ("relationtype", 3)):
+                        ("relationtype", 3), ("tagtype", 2)):
             if type == t:
                 if not vals == lenght:
-                    raise ABCTypesError, "wrong length on list. '%d'" % lenght
+                    raise ABCTypesError, "wrong length on list: '%s':'%d' should be '%d' - %s" % (t, lenght, vals, args)
                 lists = abcconf.TYPES[type]
                 for lst in lists:
                     if lst[:vals] == args:

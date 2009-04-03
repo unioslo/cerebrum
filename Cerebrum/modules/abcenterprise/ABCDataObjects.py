@@ -22,6 +22,7 @@ class DataEntity(object):
     
     def __init__(self):
         self._ids = dict()
+        self._tags = dict()
         self._names = dict()
         self._address = dict()
         self._contacts = dict()
@@ -32,9 +33,11 @@ class DataEntity(object):
             addr[a] = v.__str__()
         result = ("DataEntity:\n"
                   "\tIDs: %s\n"
+                  "\ttags: %s\n"
                   "\tnames: %s\n"
                   "\taddress: %s\n"
                   "\tcontacts: %s\n"% (list(self.iterids()),
+                                       list(self.itertags()),
                                        list(self.iternames()),
                                        list(addr.iteritems()),
                                        list(self.itercontacts())))                                              
@@ -42,6 +45,9 @@ class DataEntity(object):
     
     def add_id(self, kind, value):
         self._ids[kind] = value
+
+    def add_tag(self, kind, value):
+        self._tags.setdefault(kind, []).append(value)
 
     def add_name(self, kind, value):
         self._names[kind] = value
@@ -54,6 +60,9 @@ class DataEntity(object):
 
     def iterids(self):
         return self._ids.iteritems()
+
+    def itertags(self):
+        return self._tags.iteritems()
 
     def iternames(self):
         return self._names.iteritems()

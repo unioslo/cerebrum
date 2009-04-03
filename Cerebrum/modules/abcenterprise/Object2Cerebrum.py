@@ -19,6 +19,7 @@
 
 import cerebrum_path
 import cereconf
+import abcconf
 
 from mx import DateTime
 
@@ -55,8 +56,9 @@ class Object2Cerebrum(object):
         self._ou = None
         self._group = None
 
-        # Set up the group and affiliation cache
+        # Set up the spread, group and affiliation cache
         # This is updated in store_group and add_group_member.
+        self._spreads = dict()
         self._groups = dict()
         self._affiliations = dict()
 
@@ -73,6 +75,23 @@ class Object2Cerebrum(object):
                                         id_type,
                                         id_dict[id_type])
 
+    def _process_tags(self, entity, tag_dict):
+        """Process an entity's tags."""
+        for tag_type in tag_dict.keys():
+            if tag_type is None:
+                raise ABCErrorInData, "None not allowed as type: '%s'" % tag_type
+            elif tag_dict[tag_type] is None:
+                raise ABCErrorInData, "None not alowed as a value: '%s': '%s'" % (tag_type, tag_dict[tag_type])
+            # Add other actions to the following list if general events. Otherwise
+            # override through Mixin
+            if tag_type == "ADD_SPREAD":
+                for spread in tag_dict[tag_type]:
+                    if not entity.has_spread(spread):
+                        entity.add_spread(spread)
+                        self.logger.info("Entity: '%d' got spread '%s'." % (entity.entity_id,spread)) 
+                    self._spreads.setdefault(entity.entity_id, []).append(spread)
+            else:
+                raise ABCErrorInData, "Type: '%s' is not known in _process_tags()" % tag_type
 
     def _check_entity(self, entity, data_entity): 
         """Check for conflicting entities or return found or None."""
@@ -143,6 +162,7 @@ class Object2Cerebrum(object):
                           ou.ou_names['sort_name'],
                           None)
         self._ou.write_db()
+        self._process_tags(self._ou, ou._tags)
         self._add_external_ids(self._ou, ou._ids)
         self._add_entity_addresses(self._ou, ou._address)
         self._add_entity_contact_info(self._ou, ou._contacts)
@@ -190,6 +210,7 @@ class Object2Cerebrum(object):
                                        person._names[name_type])
         # Deal with addresses and contacts. 
         ret = self._person.write_db()
+        self._process_tags(self._person, person._tags)
         self._add_entity_addresses(self._person, person._address)
         self._add_entity_contact_info(self._person, person._contacts)
         ret = self._person.write_db()
@@ -213,6 +234,7 @@ class Object2Cerebrum(object):
                              group.name, description=group.desc)
         self._add_external_ids(self._group, group._ids)
         ret = self._group.write_db()
+        self._process_tags(self._group, group._tags)
         self._group.populate_trait(self.co.trait_group_imported,
                                    date=DateTime.now())
         self._group.write_db()
@@ -264,6 +286,30 @@ class Object2Cerebrum(object):
                                                            self._ou.entity_id))
         return ret
 
+
+    def _post_process_tags(self):
+        """Process possible after-effects of tags. This may include removing
+        spreads, roles and such.
+
+        Currently only spreads are supported."""
+        # Access Entity objects directly.
+        from Cerebrum.Entity import EntitySpread
+        es = EntitySpread(self.db)
+        for row in es.list_all_with_spread(abcconf.TAG_REWRITE.values()):
+            if self._spreads.has_key(int(row['entity_id'])):
+                # Entity found, check spreads in database
+                if not int(row['spread']) in self._spreads[int(row['entity_id'])]:
+                    es.clear()
+                    es.find(int(row['entity_id']))
+                    es.delete_spread(int(row['spread']))
+                    self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread']))) 
+            else:
+                # Entity missing from file, remove all spreads
+                es.clear()
+                es.find(int(row['entity_id']))
+                es.delete_spread(int(row['spread']))
+                self.logger.info("Entity: '%d', removed spread '%s'" % (es.entity_id,int(row['spread']))) 
+            
 
     def _update_groups(self):
         """Run through the cache and remove people's group membership if it hasn't
@@ -326,6 +372,7 @@ class Object2Cerebrum(object):
         # - Diff OUs as well.
         
         # Process the cache before calling commit.
+        self._post_process_tags()
         self._update_groups()
         # Update affiliations for people
         self._update_person_affiliations()
@@ -334,6 +381,7 @@ class Object2Cerebrum(object):
 
     def rollback(self):
         # Process the cache before calling commit.
+        self._post_process_tags()
         self._update_groups()
         # Update affiliations for people
         self._update_person_affiliations()

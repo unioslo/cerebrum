@@ -141,10 +141,11 @@ class XMLPropertiesParser(object):
                         self._check_type("groupidtype", (value,))
 
                     # Get the "strange" types
-                    elif n.tag in ("addresstype", "contacttype", "relationtype"):
+                    elif n.tag in ("addresstype", "contacttype", "relationtype", "tagtype"):
                         for t, v in (("addresstype", 1),
                                      ("contacttype", 1),
-                                     ("relationtype", 2)):
+                                     ("relationtype", 2),
+                                     ("tagtype", 1)):
                             if not n.tag == t:
                                 continue
                             if len(n.attrib) <> v:
@@ -310,6 +311,12 @@ class XMLOU2Object(XMLEntity2Object):
                 type = sub.attrib.get("ouidtype")
                 result.add_id(ABCTypes.get_type("ouidtype",(type,)),
                               value)
+            elif sub.tag == "tag":
+                if len(sub.attrib) <> 1:
+                    raise ABCTypesError, "error in tag: %s" % value
+                type = sub.attrib.get("tagtype")
+                result.add_tag(ABCTypes.get_type("tagtype",("ou", type)),
+                               value)
             elif sub.tag == "ouname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "error in ouname: %s" % value
@@ -329,7 +336,7 @@ class XMLOU2Object(XMLEntity2Object):
                     raise ABCTypesError, "error in address: %s" % value
                 type = sub.attrib.get("addresstype")
                 addr_type = ABCTypes.get_type("addresstype",
-                                              ("organization", type))
+                                              ("ou", type))
                 result.add_address(addr_type, self._make_address(sub))
             elif sub.tag == "contactinfo":
                 if len(sub.attrib) <> 1:
@@ -338,7 +345,7 @@ class XMLOU2Object(XMLEntity2Object):
                     continue
                 type = sub.attrib.get("contacttype")
                 result.add_contact(ABCTypes.get_type("contacttype",
-                                                     ("organization", type,)),
+                                                     ("ou", type,)),
                                    value)
            
         # NB! This is crucial to save memory on XML elements
@@ -415,6 +422,12 @@ class XMLPerson2Object(XMLEntity2Object):
                 type = sub.attrib.get("personidtype")
                 result.add_id(ABCTypes.get_type("personidtype",(type,)),
                               value)
+            elif sub.tag == "tag":
+                if len(sub.attrib) <> 1:
+                    raise ABCTypesError, "error in tag: %s" % value
+                type = sub.attrib.get("tagtype")
+                result.add_tag(ABCTypes.get_type("tagtype",("person", type)),
+                               value)
             elif sub.tag == "name":
                 for t,v in self._make_person_name(sub):
                     result.add_name(t, v)
@@ -484,6 +497,12 @@ class XMLGroup2Object(XMLEntity2Object):
                 type = sub.attrib.get("groupidtype")
                 result.add_id(ABCTypes.get_type("groupidtype",(type,)),
                               value)
+            elif sub.tag == "tag":
+                if len(sub.attrib) <> 1:
+                    raise ABCTypesError, "error in tag: %s" % value
+                type = sub.attrib.get("tagtype")
+                result.add_tag(ABCTypes.get_type("tagtype",("group", type)),
+                               value)
             elif sub.tag == "description":
                 result.desc = value
            
