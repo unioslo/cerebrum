@@ -267,12 +267,18 @@ class EntitySpread(Entity):
         WHERE entity_id=:e_id AND spread=:spread""", {'e_id': self.entity_id,
                                                       'spread': int(spread)})
 
-    def list_all_with_spread(self, spread):
+    def list_all_with_spread(self, spreads=None):
         """Return sequence of all 'entity_id's that has ``spread``."""
+        sel = ""
+        if spreads:
+            sel = """WHERE spread """
+            if isinstance(spreads, (list, tuple)):
+                sel += "IN (%s)" % ", ".join(map(str, map(int, spreads)))
+            else:
+                sel += "= %d" % spreads
         return self.query("""
-        SELECT entity_id
-        FROM [:table schema=cerebrum name=entity_spread]
-        WHERE spread=:spread""", {'spread': spread})
+        SELECT entity_id, spread
+        FROM [:table schema=cerebrum name=entity_spread]""" + sel)
 
     def list_entity_spreads(self, entity_types=None):
         sel = ""
