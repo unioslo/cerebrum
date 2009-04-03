@@ -269,3 +269,19 @@ man legge på ";StartRowIndex=NNN" for å starte fra en gitt rad i
 "oppfølgings-søket".
 
 
+Bugs and workarounds
+====================
+
+Rolletittel
+-----------
+
+If a person has two roles (in Cerebrum) where rolletype and admenhet
+are equal, but Arkivdel and Journalenhet differs, then the web service
+will complain::
+
+  System.Web.Services.Protocols.SoapException: Server was unable to
+  process request. ---> System.Exception: Rolletittelen Saksbehandler
+  SO er allerede registrert for denne personen
+
+This is avvoided by setting rolletittel explicitly, instead of letting
+the web service do it automatically.
