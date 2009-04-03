@@ -232,11 +232,10 @@ class XMLOrg2Object(XMLEntity2Object):
         result = DataOU()
         
         # Iterate over *all* subelements
-        for sub in element.getiterator():
+        for sub in element.findall('*'):
             value = None
             if sub.text:
                 value = sub.text.strip().encode("latin1")
-
             if sub.tag == "orgid":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "wrong number of arguments: %s" % value
