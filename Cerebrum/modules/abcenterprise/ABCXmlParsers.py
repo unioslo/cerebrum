@@ -232,7 +232,7 @@ class XMLOrg2Object(XMLEntity2Object):
         result = DataOU()
         
         # Iterate over *all* subelements
-        for sub in element.findall('*'):
+        for sub in element:
             value = None
             if sub.text:
                 value = sub.text.strip().encode("latin1")
