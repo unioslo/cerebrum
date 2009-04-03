@@ -27,8 +27,7 @@ affiliations and so it would be rather rude to quarantine their
 accounts.
 
 This script removes the quarantine for such accounts. In addition
-student affiliation can bre removed and group membership for given
-groups deleted.
+student affiliation can be removed.
 
 """
 
