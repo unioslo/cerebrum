@@ -449,3 +449,73 @@ class MachineNetGroup(NISGroupUtil):
             if not self._exported_groups.has_key(tmp_gname):
                 self._num_map[group_name] = n
                 return tmp_gname
+
+
+class HackUserNetGroupUIO(UserNetGroup):
+    """Class for hacking members of {meta_ansatt,ansatt}@<sko> groups.
+
+    These groups contain *people* (rather than accounts), which is not what
+    NISUtils framework opens for (i.e. we'll need to combine people and users)
+    Unfortunately, for a period of about 6-8 weeks we need to push employees'
+    primary accounts to UIO-nismaps from certain groups.
+
+    So, this class should help us do just that. For certain group (i.e. groups
+    with certain traits) we'll collect direct account members of groups AND
+    primary accounts of person members of groups. In all cases user_spread is
+    used as a filter, and it's always an account that must have this spread if
+    it is to be collected into a NIS map.
+    """
+    
+    def __init__(self, group_spread, member_spread):
+        super(HackUserNetGroupUIO, self).__init__(group_spread, member_spread)
+        # collect person_id -> primary account_id. Notice that we collect
+        # accounts with member_spread only. The rest is irrelevant.
+        self._person2primary_account = dict()
+        for i in Factory.get("Account")(db).list_accounts_by_type(
+                    account_spread=member_spread,
+                    primary_only=True):
+            self._person2primary_account[i["person_id"]] = i["account_id"]
+
+        # auto-generated groups are special. We want to find them quickly.
+        self._auto_groups = set([x["entity_id"] for x in
+                                 Factory.get("Group")(db).list_traits(
+                                     code=(co.trait_auto_group,
+                                           co.trait_auto_meta_group))])
+    # end __init__
+
+
+    def _expand_group(self, gid):
+        ret_groups = []
+        ret_non_groups = []
+        ret_groups, ret_non_groups = super(HackUserNetGroupUIO,
+                                           self)._expand_group(gid)
+        # For automatically generated groups we need to sweep person members
+        # as well :( This is the hackish part.
+        if gid not in self._auto_groups:
+            return ret_groups, ret_non_groups
+
+        # Ah, let's fish all the person members (direct or indirect) and remap
+        # them to primary accounts.
+        # NB! Notice that group members are not processed here -- they've been
+        # covered by the super()._expand_group() call above.
+        for row in self._group.search_members(group_id=gid,
+                                              indirect_members=True,
+                                              member_type=co.entity_person):
+            person_id = int(row["member_id"])
+            # Fuck this crap, we don't want to generate any noise about the
+            # hacks. Continue as nothing had happened with no error.
+            if person_id not in self._person2primary_account:
+                continue
+
+            account_id = self._person2primary_account[person_id]
+            name = self._entity2name.get(account_id)
+            # See above.
+            if not name:
+                continue
+            # FIXME: Should this be an adjoin?
+            ret_non_groups.append(name)
+
+        return ret_groups, ret_non_groups
+    # end _expand_groups
+
+        

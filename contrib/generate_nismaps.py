@@ -27,6 +27,7 @@ from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Constants import _SpreadCode, _AuthenticationCode
 from Cerebrum.modules.NISUtils import Passwd, FileGroup, UserNetGroup, MachineNetGroup
+from Cerebrum.modules.NISUtils import HackUserNetGroupUIO
 
 Factory = Utils.Factory
 db = Factory.get('Database')()
@@ -67,7 +68,7 @@ def main():
                                     'passwd=', 'group_spread=',
                                     'user_spread=', 'netgroup=', 'auth_method=',
                                     'max_memberships=', 'shadow=',
-                                    'mnetgroup=', 'zone='])
+                                    'mnetgroup=', 'zone=', 'this-is-an-ugly-hack=',])
     except getopt.GetoptError, msg:
         usage(1)
 
@@ -97,10 +98,16 @@ def main():
             p.write_passwd(val, shadow_file, e_o_f)
             shadow_file = None
         elif opt in ('-n', '--netgroup'):
-            if not (user_spread and user_spread):
+            if not (user_spread and group_spread):
                 sys.stderr.write("Must set user and group spread!\n")
                 sys.exit(1)
             ung = UserNetGroup(group_spread, user_spread)
+            ung.write_netgroup(val, e_o_f)
+        elif opt in ('--this-is-an-ugly-hack',):
+            if not (user_spread and group_spread):
+                sys.stderr.write("Must set user and group spread!\n")
+                sys.exit(1)
+            ung = HackUserNetGroupUIO(group_spread, user_spread)
             ung.write_netgroup(val, e_o_f)
         elif opt in ('-m', '--mnetgroup'):
             ngu = MachineNetGroup(group_spread, None, zone)
