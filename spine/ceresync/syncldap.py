@@ -43,12 +43,15 @@ def main():
         exit(1)
 
     systems =[ 
-        ["ou=nav,ou=system,dc=ntnu,dc=no", "user@nav"]
+        ["ou=nav,ou=system,dc=ntnu,dc=no",
+         "user@nav",ldapbackend.PosixUser],
+        ["ou=kalender,ou=system,dc=ntnu,dc=no",
+         "user@kalender", ldapbackend.OracleCalendar]
     ]
          
-    for base, spread in systems:
+    for base, spread, backend in systems:
         log.info("Syncronizing %s, %s" % (base, spread))
-        system = ldapbackend.PosixUser(base=base)
+        system = backend(base=base)
         system.begin(incr)
 
         try:

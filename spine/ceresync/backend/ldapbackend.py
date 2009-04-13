@@ -578,6 +578,38 @@ class OU(LdapBack):
         #s['norEduOrgAcronym'] = obj.acronyms
         return s
 
+
+class OracleCalendar(LdapBack):
+    """
+    """
+    def __init__(self,base=None):
+        LdapBack.__init__(self)
+        if base == None:
+            self.base = config.get("ldap","calendar_base")
+        else:
+            self.base = base
+        self.filter = config.get("ldap","calendarfilter")
+        self.obj_class = ('top','inetOrgPerson', 'shadowAccount', 'ctCalUser')
+        self.obj_class = ('top','inetOrgPerson', 'shadowAccount')
+
+    def get_dn(self,obj):
+        return "uid=" + obj.name + "," + self.base
+
+    def get_attributes(self,obj):
+        names = obj.full_name.split(" ")
+        sn = names.pop()
+        givenName = " ".join(names)
+        s = {}
+        s['objectClass']      = self.obj_class
+        s['uid']              = [obj.name]
+        s['cn']               = [self.iso2utf(obj.gecos)]
+        s['sn']               = [self.iso2utf(sn)]
+        s['givenName']        = [self.iso2utf(givenName)]
+        s['userPassword']     = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
+        return s
+
+
+
 ###
 ### UnitTesting is good for you
 ###
