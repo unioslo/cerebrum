@@ -377,7 +377,7 @@ class ADUser(_ADAccount):
         """Adds an object to AD. If it already exist, the existing
            AD object will be updated instead."""
         
-        obj_path= config.get('adsi', obj.primary_affiliation)
+        obj_path= config.get('affiliations', obj.primary_affiliation)
         if obj_path == 'None':
             log.warning("Not adding account '%s' with primary affiliation '%s'",
                 obj.name, obj.primary_affiliation)

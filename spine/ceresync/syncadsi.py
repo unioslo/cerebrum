@@ -68,8 +68,8 @@ def main():
         return
 
     # FIXME: URLs from config
-    userAD = adsibackend.ADUser("LDAP://OU=Brukere,DC=tymse,DC=itea,DC=ntnu,DC=no")
-    groupAD = adsibackend.ADGroup("LDAP://OU=Grupper,DC=tymse,DC=itea,DC=ntnu,DC=no")
+    userAD = adsibackend.ADUser( config.get("ad_ldap","userdn") )
+    groupAD = adsibackend.ADGroup( config.get("ad_ldap","groupdn") )
 
     log.debug("Retrieving accounts and groups from spine")
     try: 
