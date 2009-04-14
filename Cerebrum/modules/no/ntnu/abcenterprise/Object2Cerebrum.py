@@ -131,6 +131,7 @@ class Object2Cerebrum(object):
         else:
             save_num_zeros = 0
             for i in range(0, len(kodes)):
+                ## reverse stedkode
                 kode = kodes[i][::-1]
                 num_zeros = 0
                 for j in range(0, len(kode)):
@@ -192,56 +193,50 @@ class Object2Cerebrum(object):
         self._ou.clear()
         ##self.co = Factory.get('Constants')()
         stedkode = None
-        populated = True
-        print '**** find by kjerneid :: ', ou.ou_names['name']
         entity_id = self._check_entity(self._ou, ou)
         if entity_id:
-            text = '==== entityid found:: %s : %s' %(str(entity_id), str(ou.ou_names['name']))
-            print text
+            ## ou has an uniq external identifier
+            ##  and an entity_id
             stedkode = None
             self._ou.clear()
             self._ou.find(entity_id)
             self._populate_ou(ou, stedkode)
             populated = True
-            print '++++ populated by kjerneid:: ', ou.ou_names['name']
-        if not populated:
-            if ou.stedkodes:
-                print '++++ find by stedkode::', ou.ou_names['name']
-                entity_id = None
-                for kode in ou.stedkodes:
-                    try:
-                        self._ou.clear()
-                        self._ou.find_stedkode(int(kode[5:7]),
-                                                int(kode[7:9]),
-                                                int(kode[9:]),
-                                                int(kode[2:5]),
-                                                landkode = int(kode[:2]))
-                        entity_id = self._ou.entity_id
-                        stedkode = kode
-                        break
-                    except Errors.NotFoundError, e:
-                        # paranoia
-                        stedkode = None
-                        entity_id = None
-                        continue
-                if entity_id and stedkode:
-                    self._populate_ou(ou, stedkode)
-                    populated = True
-                    print '%%%% populated by stedkode:: %s : %s' %(str(stedkode), str(ou.ou_names['name']))
+        else:
+            ## try to find by stedkode, stedkode may
+            ## not be uniq and we have to loop thru
+            ## all possible stedkodes
+            entity_id = None
+            for kode in ou.stedkodes:
+                try:
+                    self._ou.clear()
+                    self._ou.find_stedkode(int(kode[5:7]),
+                                           int(kode[7:9]),
+                                           int(kode[9:]),
+                                           int(kode[2:5]),
+                                           landkode = int(kode[:2]))
+                    entity_id = self._ou.entity_id
+                    stedkode = kode
+                    break
+                except Errors.NotFoundError, e:
+                    # paranoia
+                    stedkode = None
+                    entity_id = None
+                    continue
+            if entity_id and stedkode:
+                self._populate_ou(ou, stedkode)
+            else:
+                ## could not identify an ou from stedkodes.
+                ## pick the lowest stedkode, populate ou and
+                ## and the db will auto-generate entity_id
+                if ou.stedkodes:
+                    stedkode = self._find_lowest(ou.stedkodes)
+                    if stedkode:
+                        self._populate_ou(ou, stedkode)
                 else:
-                    ## nor entity-id or stedkode found
-                    ## populate and auto-generate entity-id
-                    print '//// auto-generate entityid:: ',ou.ou_names['name']
-                    if ou.stedkodes:
-                        stedkode = self._find_lowest(ou.stedkodes)
-                        if stedkode:
-                            self._populate_ou(ou, stedkode)
-                            populated = True
-                            print '//// populated without entityid:: %s : %s' % (stedkode, ou.ou_names['name'])
-        if not populated:
-            ## give up
-            raise ABCErrorInData, 'Unable to store OU = %s' % ou.ou_names['name']
-        print '================================================================================'
+                    self.logger.warning('Skipping OU %s without stedkode' % ou.ou_names['name'])
+                    return (None, None)
+
         self._ou.write_db()
         self._add_external_ids(self._ou, ou._ids)
         self._add_entity_addresses(self._ou, ou._address)
@@ -400,11 +395,9 @@ class Object2Cerebrum(object):
                 self.logger.info("Group '%s' deleted as it is no longer in file." % name)
      
     def _update_ou_affiliations(self):
-        print '_update_ou_affiliations ==========================='
         person = Factory.get('Person')(self.db)
         pp = Factory.get('Person')(self.db)
         for k in self._replacedby.keys():
-            print 'ou number = ', k
             ou_id = int(k)
             person.clear()
             for row in person.list_affiliations(source_system=self.source_system, ou_id=ou_id):
@@ -416,18 +409,10 @@ class Object2Cerebrum(object):
                 pp.delete_affiliation( ou_id, aff, self.source_system)
                 pp.add_affiliation(int(self.replacedby[k]), aff,
                         self.source_system, status)
-        print '_update_ou_affiliations =========================== *emd*'
 
                    
     def _update_ous(self):
-        print '_update_ous ==========================='
         self._update_ou_affiliations()
-        to_delete = Factory.get('OU')(self.db)
-        for k in self._replacedby.keys():
-            to_delete.clear()
-            to_delete.find(int(k))
-            to_delete.delete()
-        print '_update_ous =========================== *end*'
             
     def _update_person_affiliations(self):
         """Run through the cache and remove people's affiliation if it hasn't

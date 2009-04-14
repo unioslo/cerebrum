@@ -233,7 +233,7 @@ class XMLOrg2Object(XMLEntity2Object):
         result = DataOUMixin()
         
         # Iterate over *all* subelements
-        for sub in element.getiterator():
+        for sub in element:
             value = None
             if sub.text:
                 value = sub.text.strip().encode("latin1")
@@ -244,12 +244,10 @@ class XMLOrg2Object(XMLEntity2Object):
                 type = sub.attrib.get("orgidtype")
                 ## FIXME: *very*, *very* ugly...
                 if type == 'stedkode':
-                    ## print 'XMLOrg2Object:: next: stedkode = ', value
                     result.stedkodes.append(value)
                 else:
                     result.add_id(ABCTypes.get_type("orgidtype",(type,)),
                               value)
-                ## print 'XMLOrg2Object:: next: type = %s', ABCTypes.get_type("orgidtype", (type,))
             elif sub.tag == "orgname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "not 2 attributes: %s" % value
@@ -289,7 +287,6 @@ class XMLOU2Object(XMLEntity2Object):
 
     def __init__(self, xmliter):
         """Constructs an iterator supplying DataPerson objects."""
-
         super(XMLOU2Object, self).__init__(xmliter)
 
     def next(self):
@@ -318,12 +315,10 @@ class XMLOU2Object(XMLEntity2Object):
                 type = sub.attrib.get("ouidtype")
                 ## FIXME: *very*, *very* ugly...
                 if type == 'stedkode':
-                    ## print 'XMLOU2Object:: next: stedkode = ', value
                     result.stedkodes.append(value)
                 else:
                     result.add_id(ABCTypes.get_type("ouidtype",(type,)),
                               value)
-                ## print 'XMLOU2Object:: next: type = %s', ABCTypes.get_type("ouidtype", (type,))
             elif sub.tag == "ouname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "error in ouname: %s" % value
