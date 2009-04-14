@@ -656,10 +656,10 @@ class BofhdExtension(object):
 
         result = list()
         matches = self.ba.list_alterable_entities(account_id, target_type)
-        if len(matches) > cereconf.BOFHD_MAX_MATCHES:
-            raise CerebrumError("More than %d (%d) matches. Cowardly refusing "
-                                "to return result" %
-                                (cereconf.BOFHD_MAX_MATCHES, len(matches)))
+        if len(matches) > cereconf.BOFHD_MAX_MATCHES_ACCESS:
+            raise CerebrumError("More than %d (%d) matches. Refusing to return "
+                                "result" %
+                                (cereconf.BOFHD_MAX_MATCHES_ACCESS, len(matches)))
         for row in matches:
             entity = self._get_entity(id=row["entity_id"])
             etype = str(self.const.EntityType(entity.entity_type))
