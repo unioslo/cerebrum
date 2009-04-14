@@ -20,10 +20,7 @@ class DataOUMixin(DataOU):
                 kodes = kode
             else:
                 kodes += ", " + kode
-        result = ("%sDataOUMixin: \n" +
-                    "\treplacedby: %s Stedkoder: %s\n" %
-                    (super(DataOUMixin, self).__str__(),
-                    self.replacedby, kodes))
+        result = "%s DataOUMixin: \n\treplacedby: %s\n\tStedkoder: %s\n" % (super(DataOUMixin, self).__str__(), self.replacedby, kodes)
         return result
 
 class DataPersonMixin(DataPerson):
