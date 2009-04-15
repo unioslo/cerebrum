@@ -20,13 +20,14 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""Module with functions for cerebrum export to Active Directory at UiA
+
+Extends the functionality provided in the general AD-export module 
+ADutilMixIn.py to work with the setup at UiA with Active Directory 
+and Exchange 2007.
 """
-Replces functions in ADutilMixIn.py that has to be modiifed for
-use at ADsync at UiA.
 
-"""
-
-
+import cerebrum_path
 import sys
 import cereconf
 from Cerebrum.Constants import _SpreadCode
@@ -40,8 +41,9 @@ import cPickle
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def _filter_quarantines(self, user_dict):
-        """
-        Filter quarantined accounts
+        """Filter quarantined accounts
+
+        Removes all accounts that are quarantined from export to AD
 
         @param user_dict: account_id -> account info mapping
         @type user_dict: dict
@@ -72,11 +74,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 apply_quarantines(prev_user, user_rows)
 
 
-    def _fetch_mail_info(self, user_dict):
-        """
+    def _update_mail_info(self, user_dict):
+        """Get email info about a user from cerebrum
+
         Fetch primary email address and all valid addresses
-        for users in user_dict.
-        Add info to user_dict if found. For the AD 'mail' attribute
+        for users in user_dict. 
+        Add info to user_dict from cerebrum. For the AD 'mail' attribute
         add key/value pair 'mail'/<primary address>. For the
         AD 'proxyaddresses' attribute add key/value pair
         'proxyaddresses'/<list of all valid addresses>. The addresses
@@ -86,7 +89,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         Also write Exchange attributes for those accounts that have
         that spread.
 
-        @param user_dict: account_id -> account info mapping
+        user_dict is established in the fetch_cerebrum_data function, and 
+        this function populates the following values:
+        mail, proxyAddresses, mDBOverHardQuotaLimit, mDBOverQuotaLimit,
+        mDBStorageQuota and homeMDB.
+
+        @param user_dict: account_id -> account information
         @type user_dict: dict
         """
         from Cerebrum.modules.Email import EmailDomain, EmailTarget, EmailQuota
@@ -108,7 +116,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         
         #TODO: Try-cath for exceptions here?
         #Set proxyaddresses attribute
-        for k,v in user_dict.items():
+        for k,v in user_dict.iteritems():
             etarget.clear()
             etarget.find_by_target_entity(int(k))
             v['proxyAddresses'] = []
@@ -120,7 +128,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     v['proxyAddresses'].append(("smtp:" + addr))
            
         #Set homeMDB and Quota-info for Exchange users
-        for k,v in user_dict.items():
+        for k,v in user_dict.iteritems():
             self.ac.clear()
             if v['Exchange']:
                 try:
@@ -130,23 +138,31 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
                 #mdb = self.ac.get_trait(self.co.trait_exchange_mdb)
                 #if mdb['exchange_mdb']:
-                    #v['homeMDB'] = mdb['exchange_mdb'] + "," + cereconf.AD_EX_MDB_SERVER
+                    #v['homeMDB'] = (mdb['exchange_mdb'] + 
+                           #"," + cereconf.AD_EX_MDB_SERVER)
                 #else:
-                    #self.logger.warning("Error getting homeMDB for accountid: %i" % int(k))  
+                    #self.logger.warning("Error getting homeMDB"
+                                          #" for accountid: %i" % int(k))  
                 #For aa ha en gyldig mailbox store paa testmiljoet:
-                v['homeMDB'] = "CN=Mailbox Database,CN=First Storage Group,CN=InformationStore,CN=CB-EX-SIS-TEST,CN=Servers,CN=Exchange Administrative Group (FYDIBOHF23SPDLT),CN=Administrative Groups,CN=cb-sis-test,CN=Microsoft Exchange,CN=Services,CN=Configuration,DC=cb-sis-test,DC=intern"
+                v['homeMDB'] = ("CN=Mailbox Database,CN=First Storage Group,"
+                                "CN=InformationStore,CN=CB-EX-SIS-TEST,"
+                                "CN=Servers,CN=Exchange Administrative Group "
+                                "(FYDIBOHF23SPDLT),CN=Administrative Groups,"
+                                "CN=cb-sis-test,CN=Microsoft Exchange,"
+                                "CN=Services,CN=Configuration,DC=cb-sis-test,"
+                                "DC=intern")
                 equota.clear()
                 equota.find_by_target_entity(int(k))
                 try:
                     q_soft = equota.get_quota_soft()
                     q_hard = equota.get_quota_hard()
                 except Errors.NotFoundError:
-                    self.logger.warning("Error getting EmailQuota for accountid: %i. Setting default." 
-                                     % int(k))  
+                    self.logger.warning("Error getting EmailQuota for "
+                                        "accountid:%i. Setting default."% int(k))
                 #set a default quota
                 if (q_soft is None or q_hard is None):
-                    self.logger.warning("Error getting EmailQuota for accountid: %i. Setting default." 
-                                     % int(k))
+                    self.logger.warning("Error getting EmailQuota for "
+                                        "accountid:%i. Setting default."% int(k))
                     if q_soft is None:
                         q_soft = cereconf.AD_EX_QUOTA_SOFT_DEFAULT
                     if q_hard is None:
@@ -154,48 +170,39 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 #Mailquota in Cerebrum is in MB, Exchange wants KB.
                 #mDBStorageQuota is set to 90% of mDBOverQuotaLimit
                 v['mDBOverHardQuotaLimit'] = q_hard * 1024
-                v['mDBOverQuotaLimit'] = v['mDBOverHardQuotaLimit'] * q_soft // 100
+                v['mDBOverQuotaLimit'] = (v['mDBOverHardQuotaLimit'] 
+                                          * q_soft // 100)
                 v['mDBStorageQuota'] = v['mDBOverQuotaLimit'] * 90 // 100
 
     
-    def _get_contact_info(self, user_dict):
+    def _update_contact_info(self, user_dict):
         """
-        Get contact info: phonenumber and title. Personal title takes presedence.
+        Get contact info: phonenumber and title. Personal title takes precedence.
 
         @param user_dict: account_id -> account info mapping
         @type user_dict: dict
         """
-        for v in user_dict.values(): 
+        for v in user_dict.itervalues(): 
             self.person.clear()
             try:
                 self.person.find(v['TEMPownerId'])
             except Errors.NotFoundError:
-                self.logger.warning("Getting contact info: Skipping ownerid=%s,no valid account found"
-                                 , v['TEMPownerId'])
+                self.logger.warning("Getting contact info: Skipping ownerid=%s,"
+                                    "no valid account found", v['TEMPownerId'])
                 continue
             phones = self.person.get_contact_info(type=self.co.contact_phone)
             if not phones:
                 v['telephoneNumber'] = ''
             else:
                 v['telephoneNumber'] = phones[0]['contact_value']
-            personal_title = ''
-            work_title = ''
-            try:
-                work_title = unicode(self.person.get_name(
-                        self.co.system_sap, self.co.name_work_title), 'ISO-8859-1') 
-            except Errors.NotFoundError:
-                pass
-            try:
-                personal_title = unicode(self.person.get_name(
-                        self.co.system_sap,self.co.name_personal_title), 'ISO-8859-1') 
-            except Errors.NotFoundError:
-                pass
-            if personal_title:
-                v['title'] = personal_title
-            elif work_title:
-                v['title'] = work_title
-            else:
-                v['title'] = ''
+            v["title"] = u""
+            for title_type in (self.co.name_work_title, 
+                               self.co.name_personal_title):
+                try:
+                    v["title"] = unicode(self.person.get_name(
+                            self.co.system_sap, title_type), 'ISO-8859-1')
+                except Errors.NotFoundError:
+                    pass
                         
 
     def get_default_ou(self):
@@ -248,7 +255,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         # Find all users with relevant spread
         #
         tmp_ret = {}
-        spread_res = self.ac.search(spread=spread)
+        spread_res = list(self.ac.search(spread=spread))
         for row in spread_res:
             tmp_ret[int(row['account_id'])] = {
                 'Exchange' : False,
@@ -260,16 +267,17 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 'TEMPuname': row['name'],
                 'ACCOUNTDISABLE': False
                 }
-        self.logger.info("Fetched %i person with spread %s" % (len(tmp_ret),spread))
+        self.logger.info("Fetched %i accounts with spread %s" 
+                         % (len(tmp_ret),spread))
 
         set1 = set([row['account_id'] for row in spread_res])
-        set2 = set([row['account_id'] for row in self.ac.search(spread=exchange_spread)])
-        set_res = set1.intersection(set2)
-        ij = 0
-        for row_account_id in set_res:
+        set2 = set([row['account_id'] for row in 
+                    list(self.ac.search(spread=exchange_spread))])
+        set_res = set1.intersection(set2)        
+        for count, row_account_id in enumerate(set_res):
             tmp_ret[int(row_account_id)]['Exchange'] = True
-            ij += 1
-        self.logger.info("Fetched %i person with both spread %s and %s" % (ij,spread,exchange_spread))
+        self.logger.info("Fetched %i accounts with both spread %s and %s" % 
+                         (count, spread, exchange_spread))
 
         #
         # Remove/mark quarantined users
@@ -289,8 +297,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         for v in tmp_ret.values():
             names = pid2names.get(v['TEMPownerId'])
             if names:
-                firstName = unicode(names.get(int(self.co.name_first), ''), 'ISO-8859-1')
-                lastName = unicode(names.get(int(self.co.name_last), ''), 'ISO-8859-1')
+                firstName = unicode(names.get(int(self.co.name_first), ''),
+                                    'ISO-8859-1')
+                lastName = unicode(names.get(int(self.co.name_last), ''), 
+                                   'ISO-8859-1')
                 v['givenName'] = firstName
                 v['sn'] = lastName
                 v['displayName'] = "%s %s" % (firstName, lastName)
@@ -299,17 +309,17 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         # Set mail info
         #
-        self._fetch_mail_info(tmp_ret)
+        self._update_mail_info(tmp_ret)
         
         #
         # Set contact info: phonenumber and title
         #
-        self._get_contact_info(tmp_ret)
+        self._update_contact_info(tmp_ret)
 
         #
         # Assign derived attributes
         #
-        for v in tmp_ret.values():
+        for v in tmp_ret.itervalues():
             #TODO: derive domain part from LDAP DC components
             v['userPrincipalName'] = v['TEMPuname'] + "@uia.no"
             v['mailNickname'] =  v['TEMPuname']
@@ -317,10 +327,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['targetAddress'] = v['mail']
 
         #
-        # Sort dict on uname instead of accountid
+        # Index dict on uname instead of accountid
         #
         ret = {}
-        for k, v in tmp_ret.items():
+        for v in tmp_ret.itervalues():
             ret[v['TEMPuname']] = v
             del(v['TEMPuname'])
             del(v['TEMPownerId'])
@@ -329,9 +339,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     
     def find_Exchange_changes(self, cerebrumusers, adusers):
-        """
-        Check if any Exchange specific values have changed for 
-        account.
+        """Check for changes to Exchange values
+
+        Check if any values that is important for Exchange
+        have changed for the account.
 
         @param cerebrumusers: account_id -> account info mapping
         @type cerebrumusers: dict
@@ -341,17 +352,17 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @return: a list over users with changes i the Exchange values
         """
         exch_user = []
-        for usr, dta in cerebrumusers.items():
+        for usr, dta in cerebrumusers.iteritems():
             exch_change = False
             if cerebrumusers[usr]['Exchange']:
                 if adusers.has_key(usr):
                 #User is both places, we want to compare for changes
-                #TBD: Anymore changes values that must trigger Update-Recipient?
+                #TBD: Anymore changed values that must trigger Update-Recipient?
                     mail_attrs = ['homeMDB', 'mailNickname']
                     for mail_attr in mail_attrs:
                         if adusers[usr].has_key(mail_attr):
-                            if cerebrumusers[usr][mail_attr] != \
-                                    adusers[usr][mail_attr]:
+                            if (cerebrumusers[usr][mail_attr] != 
+                                adusers[usr][mail_attr]):
                                 exch_change = True
                         else:
                             exch_change = True
@@ -364,9 +375,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 
 
 
-    def store_sid(self, objtype, name, sid):
-        """
-        Store AD object SID to cerebrum database for given user
+    def store_sid(self, objtype, name, sid, dry_run):
+        """Store AD object SID to cerebrum database for given user
 
         @param objtype: type of AD object
         @type objtype: String
@@ -378,11 +388,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         # husk aa definere AD som kildesystem
         #TBD: Check if we create a new object for a entity that already
         #have a externalid_accountsid defined in the db and delete old?
-        if objtype == 'account':
+        if objtype == 'account' and not dry_run:
             self.ac.clear()
             self.ac.find_by_name(name)
-            self.ac.affect_external_id(self.co.system_ad, self.co.externalid_accountsid)
-            self.ac.populate_external_id(self.co.system_ad, self.co.externalid_accountsid, sid)
+            self.ac.affect_external_id(self.co.system_ad, 
+                                       self.co.externalid_accountsid)
+            self.ac.populate_external_id(self.co.system_ad, 
+                                         self.co.externalid_accountsid, sid)
             self.ac.write_db()
 
 
@@ -392,27 +404,23 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         @param chg: account_id -> account info mapping
         @type chg: dict
-        @param dry_run: Flag
+        @param dry_run: Flag to decide if changes arecommited to AD and Cerebrum
         """
-        if chg.has_key('OU'):
-            ou = chg['OU']
-        else:
-            ou = self.get_default_ou()
+        ou = chg.get("OU", self.get_default_ou())        
         ret = self.run_cmd('createObject', dry_run, 'User', ou,
-                              chg['sAMAccountName'])
+                           chg['sAMAccountName'])
         if not ret[0]:
-            self.logger.warning("create user %s failed: %r" % \
-                           (chg['sAMAccountName'], ret))
+            self.logger.warning("create user %s failed: %r",
+                                chg['sAMAccountName'], ret)
         else:
-            if not dry_run:
-                self.logger.info("created user %s" % ret)
-                self.store_sid('account',chg['sAMAccountName'],ret[2])
+            self.logger.info("created user %s" % ret)
+            self.store_sid('account',chg['sAMAccountName'],ret[2],dry_run)
             pw = unicode(self.ac.make_passwd(chg['sAMAccountName']),
                          'iso-8859-1')
             ret = self.run_cmd('setPassword', dry_run, pw)
             if not ret[0]:
-                self.logger.warning("setPassword on %s failed: %s" % \
-                               (chg['sAMAccountName'], ret))
+                self.logger.warning("setPassword on %s failed: %s",
+                                    chg['sAMAccountName'], ret)
             else:
                 #Important not to enable a new account if setPassword
                 #fail, it will have a blank password.
@@ -429,15 +437,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         chg[acc] = value                
                 ret = self.run_cmd('putProperties', dry_run, chg)
                 if not ret[0]:
-                    self.logger.warning("putproperties on %s failed: %r" % \
-                                   (uname, ret))
+                    self.logger.warning("putproperties on %s failed: %r",
+                                        uname, ret)
                 ret = self.run_cmd('setObject', dry_run)
                 if not ret[0]:
                     self.logger.warning("setObject on %s failed: %r",uname, ret)
 
 
     
-    def compare(self, delete_users,cerebrumusrs,adusrs):
+    def compare(self, delete_users, cerebrumusrs, adusrs):
         """
         Check if any values for account need be updated in AD
 
@@ -454,17 +462,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         changelist = []     
 
-        for usr, dta in adusrs.items():
+        for usr, dta in adusrs.iteritems():
             changes = {}        
             if cerebrumusrs.has_key(usr):
                 #User is both places, we want to check correct data.
 
                 #Checking for correct OU.
-                if cerebrumusrs[usr].has_key('OU'):
-                    ou = cerebrumusrs[usr]['OU']
-                else:
-                    tmp = self.get_default_ou()
-                    ou = tmp
+                ou = cerebrumusrs.get("OU", self.get_default_ou())
                 if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
                     changes['type'] = 'move_object'
                     changes['OU'] = ou
@@ -478,17 +482,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     #Catching special cases.
                     #Check against home drive.
                     if attr == 'homeDrive':
-                        home_drive = self.get_home_drive(cerebrumusrs[usr])         
+                        home_drive = self.get_home_drive(cerebrumusrs[usr])    
                         if adusrs[usr].has_key('homeDrive'):
                             if adusrs[usr]['homeDrive'] != home_drive:
                                 changes['homeDrive'] = home_drive
-                    # xmlrpclib appends chars [' and '] to this attribute for some reason
+                    # xmlrpclib appends chars [' and '] to 
+                    # this attribute for some reason
                     elif attr == 'msExchPoliciesExcluded':
                         if adusrs[usr].has_key('msExchPoliciesExcluded'):
-                            tempstring = str(adusrs[usr]\
-                                                 ['msExchPoliciesExcluded']).replace("['","")
+                            tempstring = str(adusrs[usr]
+                                             ['msExchPoliciesExcluded']).replace("['","")
                             tempstring = tempstring.replace("']","")
-                            if  tempstring == cerebrumusrs[usr]['msExchPoliciesExcluded']:
+                            if  (tempstring == cerebrumusrs[usr]
+                                 ['msExchPoliciesExcluded']):
                                 pass
                             else:
                                 changes['msExchPoliciesExcluded'] = \
@@ -507,8 +513,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                 # represented as a list.
                                 Mchange = False
                                                                 
-                                if isinstance(adusrs[usr][attr],(str,int,long,unicode)):
-                                    #Transform single-value to a list for comparison.
+                                if (isinstance(adusrs[usr][attr],
+                                               (str,int,long,unicode))):
+                                    #Transform single-value to a list for comp.
                                     val2list = []
                                     val2list.append(adusrs[usr][attr])
                                     adusrs[usr][attr] = val2list
@@ -560,7 +567,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if [s for s in cereconf.AD_DO_NOT_TOUCH if
                     adusrs[usr]['distinguishedName'].find(s) >= 0]:
                     pass
-                elif adusrs[usr]['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) >= 0:
+                elif (adusrs[usr]
+                      ['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) 
+                      >= 0):
                     #Account do not have AD_spread, but is in AD to 
                     #register password changes, do nothing.
                     pass
@@ -569,11 +578,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     #accounts created in AD, but that do not have AD_spread. 
                     if delete_users == True:
                         changes['type'] = 'delete_object'
-                        changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                        changes['distinguishedName'] = (adusrs[usr]
+                                                        ['distinguishedName'])
                     else:
                         #Disable account.
                         if adusrs[usr]['ACCOUNTDISABLE'] == False:
-                            changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                            changes['distinguishedName'] =(adusrs[usr]
+                                                           ['distinguishedName'])
                             changes['type'] = 'alter_object'
                             changes['ACCOUNTDISABLE'] = True
                             #commit changes
@@ -582,24 +593,28 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         #Hide Account from Exchange
                         hideAddr = False
                         if adusrs[usr].has_key('msExchHideFromAddressLists'):
-                            if adusrs[usr]['msExchHideFromAddressLists'] == False:
+                            if (adusrs[usr]['msExchHideFromAddressLists'] 
+                                == False):
                                 hideAddr = True
                         else:
                             hideAddr = True
                         if hideAddr:
-                            changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                            changes['distinguishedName'] =(adusrs[usr]
+                                                           ['distinguishedName'])
                             changes['type'] = 'alter_object'
                             changes['msExchHideFromAddressLists'] = True
                             #commit changes
                             changelist.append(changes)
                             changes = {}
                         #Moving account.
-                        if adusrs[usr]['distinguishedName'] != "CN=%s,OU=%s,%s" % \
-                               (usr, cereconf.AD_LOST_AND_FOUND,self.ad_ldap):
-                            changes['type'] = 'move_object'
-                            changes['distinguishedName'] = adusrs[usr]['distinguishedName']
-                            changes['OU'] = "OU=%s,%s" % \
-                                (cereconf.AD_LOST_AND_FOUND,self.ad_ldap)
+                            if (adusrs[usr]['distinguishedName'] != 
+                                "CN=%s,OU=%s,%s" % 
+                                (usr, cereconf.AD_LOST_AND_FOUND,self.ad_ldap)):
+                                changes['type'] = 'move_object'
+                                changes['distinguishedName'] =(adusrs[usr]
+                                                               ['distinguishedName'])
+                                changes['OU'] = ("OU=%s,%s" % 
+                                                 (cereconf.AD_LOST_AND_FOUND,self.ad_ldap))
 
             #Finished processing user, register changes if any.
             if len(changes):
@@ -650,11 +665,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         #updating Exchange
         for usr in exch_users:
-            self.logger.debug("Running Update-Recipient for user '%s' against Exchange" % usr)
+            self.logger.debug("Running Update-Recipient for user '%s'"
+                              " against Exchange" % usr)
             ret = self.run_cmd('run_UpdateRecipient', dry_run, usr)
             if not ret[0]:
-                self.logger.warning("run_UpdateRecipient on %s failed: %r" % (usr, ret))
-        self.logger.info("Ran Update-Recipient against Exchange for %i users" % len(exch_users))
+                self.logger.warning("run_UpdateRecipient on %s failed: %r", 
+                                    usr, ret)
+        self.logger.info("Ran Update-Recipient against Exchange for %i users", 
+                         len(exch_users))
 
         #Cleaning up.
         addump = None
@@ -707,9 +725,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         #Hvorfor maa jeg gjoere dette med constants og int?
         #Maa ikke gjoeres i andre AD sync..
         grp_dict = {}
-        spread_res = self.group.search(spread=int(self.co.Spread(spread)))
+        spread_res = list(self.group.search(spread=int(self.co.Spread(spread))))
         for row in spread_res:
-            gname = unicode(row[1], 'ISO-8859-1')
+            gname = unicode(row["name"], 'ISO-8859-1')
             grp_dict[cereconf.AD_GROUP_PREFIX + gname] = {
                 'groupType' : cereconf.AD_GROUP_TYPE,
                 'Exchange' : False,
@@ -719,15 +737,16 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 'grp_id' : row[0],
                 'msExchHideFromAddressLists' : False
                 }
-        self.logger.info("Fetched %i groups with spread %s" % (len(grp_dict),spread))
-        set1 = set([row[1] for row in spread_res])
-        set2 = set([row[1] for row in self.group.search(spread=int(self.co.Spread(exchange_spread)))])
+        self.logger.info("Fetched %i groups with spread %s", 
+                         len(grp_dict),spread)
+        set1 = set([row["name"] for row in spread_res])
+        set2 = set([row["name"] for row in list(self.group.search(
+                    spread=int(self.co.Spread(exchange_spread))))])
         set_res = set1.intersection(set2)
-        ij = 0
-        for row_set_res in set_res:
+        for count, row_set_res in enumerate(set_res):
             grp_dict[cereconf.AD_GROUP_PREFIX + row_set_res]['Exchange'] = True
-            ij += 1
-        self.logger.info("Fetched %i groups with both spread %s and %s" % (ij,spread,exchange_spread))
+        self.logger.info("Fetched %i groups with both spread %s and %s" % 
+                         (count,spread,exchange_spread))
 
         #
         # Assign derived attributes
@@ -739,7 +758,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             if v['description'] is None:
                 v['description'] = "Not available"
             if v['Exchange'] is True:
-                v['proxyAddresses'] = "SMTP:" + grp_name + "@" + cereconf.AD_GROUP_EMAIL_DOMAIN
+                v['proxyAddresses'] = ("SMTP:" + grp_name + "@" 
+                                       + cereconf.AD_GROUP_EMAIL_DOMAIN)
                 v['mailNickname'] = grp_name
                 v['mail'] = grp_name + "@" + cereconf.AD_GROUP_EMAIL_DOMAIN
                 
@@ -747,9 +767,13 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
     
     def fetch_ad_list(self):
-        """
-        Gets a list over groups in AD with distinguished names
+        """Gets a list over groups in AD with distinguished names
 
+        Returns this dict:
+        groupname : { 
+        'distinguishedName' : String  # AD distinguished name of object, 
+        'OU' : String                 # Full LDAP path to OU of object in AD
+        }
         @rtype: dict
         @return: dict over AD groups with OU info.
         """
@@ -766,7 +790,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
     
     def delete_and_filter(self, ad_dict, cerebrum_dict, dry_run, delete_groups):
-        """
+        """Filter out groups in AD that shall not be synced from cerebrum
+
         Goes through the dict of the groups in AD, and checks if it is 
         a group that shall be synced from cerebrum. If it is, but the group
         is not in our defult OU we will move it there. If it is not we remove
@@ -789,24 +814,38 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         if dont in ad_dict[grp_name]['OU']:
                             match = True
                             break
-                    #an unknown group in OUs under our control and not i DO_NOT_TOUCH -> delete
+                    # an unknown group in OUs under our control 
+                    # and not i DO_NOT_TOUCH -> delete
                     if not match:
                         if not delete_groups:
-                            self.logger.debug("delete is False. Don't delete group: %s", grp_name)
+                            self.logger.debug("delete is False."
+                                              "Don't delete group: %s", grp_name)
                         else:
-                            self.logger.debug("delete_groups = %s, deleting group %s",
+                            self.logger.debug("delete_groups = %s,"
+                                              " deleting group %s",
                                               delete_groups, grp_name)
                             self.run_cmd('bindObject', dry_run, 
                                          ad_dict[grp_name]['distinguishedName'])
                             self.delete_object(ad_dict[grp_name], dry_run)
                 #does not concern us (anymore), delete from dict.
-                del ad_dict[grp_name]
+                            del ad_dict[grp_name]
     
 
     def fetch_ad_data(self, ad_dict):
-        """
-        Get group attributes from AD and update dict
-
+        """Get group attributes from AD and update dict
+        
+        Update group dict with data from AD to be like this:
+        'displayName': String,          # gruppenavn
+        'mail': String,                 # default e-post adresse
+        'Exchange' : Bool,              # Flag - skal i Exchange eller ikke 
+        'msExchPoliciesExcluded' : int, # Exchange verdi
+        'msExchHideFromAddressLists' : Bool, # Exchange verdi
+        'mailNickname' : String         # gruppenavn
+        'proxyAddresses' : String       # default e-post adresse
+        'displayNamePrintable' : String # gruppenavn
+        'description' : String          # beskrivelse
+        'groupType' : Int               # type gruppe
+ 
         @param ad_dict : account_id -> account info mapping
         @type ad_dict : dict
         """
@@ -816,7 +855,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             retstring = self.server.bindObject(v['distinguishedName'])
             if retstring[0] is True:
                 #TBD: This is sloooooow!
-                grp_prop = self.server.getObjectProperties(cereconf.AD_GRP_ATTRIBUTES)[1]
+                grp_prop = self.server.getObjectProperties(
+                                    cereconf.AD_GRP_ATTRIBUTES)[1]
                 for element in grp_prop:
                     if grp_prop[element] != False:
                         ad_dict[grp_name][element] = grp_prop[element]
@@ -826,7 +866,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
                
     def sync_group_info(self, ad_dict, cerebrum_dict, dry_run):
-        """
+        """ Sync group info with AD
+
         Check if any values about groups other than group members
         should be updated in AD
 
@@ -846,10 +887,11 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 #group in both places, we want to check correct data
                 
                 #Checking for correct OU.
-                if cerebrum_dict[grp].has_key('OU'):
-                    ou = cerebrum_dict[grp]['OU']
-                else:
-                    ou = self.get_default_ou()
+                ou = cerebrum_dict[grp].get("OU", self.get_default_ou())
+                #if cerebrum_dict[grp].has_key('OU'):
+                #    ou = cerebrum_dict[grp]['OU']
+                #else:
+                #    ou = self.get_default_ou()
                 if ad_dict[grp]['OU'] != ou:
                     changes['type'] = 'move_object'
                     changes['OU'] = ou
@@ -862,12 +904,15 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 #Comparing group info 
                 for attr in cereconf.AD_GRP_ATTRIBUTES:            
                     #Catching special cases.
-                    # xmlrpclib appends chars [' and '] to this attribute for some reason
+                    # xmlrpclib appends chars [' and '] 
+                    # to this attribute for some reason
                     if attr == 'msExchPoliciesExcluded':
                         if ad_dict[grp].has_key('msExchPoliciesExcluded'):
-                            tempstring = str(ad_dict[grp]['msExchPoliciesExcluded']).replace("['","")
+                            tempstring = str(ad_dict[grp]
+                                             ['msExchPoliciesExcluded']).replace("['","")
                             tempstring = tempstring.replace("']","")
-                            if  tempstring == cerebrum_dict[grp]['msExchPoliciesExcluded']:
+                            if (tempstring == cerebrum_dict[grp]
+                                ['msExchPoliciesExcluded']):
                                 pass
                             else:
                                 changes['msExchPoliciesExcluded'] = cerebrum_dict[grp]['msExchPoliciesExcluded']
@@ -884,8 +929,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                 # represented as a list.
                                 Mchange = False
                                                                 
-                                if isinstance(ad_dict[grp][attr],(str,int,long,unicode)):
-                                    #Transform single-value to a list for comparison.
+                                if (isinstance(ad_dict[grp][attr],
+                                               (str,int,long,unicode))):
+                                    #Transform single-value to a list for comp.
                                     val2list = []
                                     val2list.append(ad_dict[grp][attr])
                                     ad_dict[grp][attr] = val2list
@@ -897,7 +943,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                 if Mchange:
                                     changes[attr] = cerebrum_dict[grp][attr]
                             else:
-                                if ad_dict[grp][attr] != cerebrum_dict[grp][attr]:
+                                if ad_dict[grp][attr] !=cerebrum_dict[grp][attr]:
                                     changes[attr] = cerebrum_dict[grp][attr] 
                         else:
                             if cerebrum_dict[grp].has_key(attr):
@@ -934,7 +980,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         return "OU=Group,%s" % self.ad_ldap
     
 
-    def store_sid(self, objtype, name, sid):
+    def store_sid(self, objtype, name, sid, dry_run):
         """
         Store AD object SID to cerebrum database for given group
 
@@ -948,12 +994,14 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         # husk aa definere AD som kildesystem
         #TBD: Check if we create a new object for a entity that already
         #have an externalid_groupsid defined in the db and delete old?
-        if objtype == 'group':
+        if objtype == 'group' and not dry_run:
             crbname = name.replace(cereconf.AD_GROUP_PREFIX,"")
             self.group.clear()
             self.group.find_by_name(crbname)
-            self.group.affect_external_id(self.co.system_ad, self.co.externalid_groupsid)
-            self.group.populate_external_id(self.co.system_ad, self.co.externalid_groupsid, sid)
+            self.group.affect_external_id(self.co.system_ad, 
+                                          self.co.externalid_groupsid)
+            self.group.populate_external_id(self.co.system_ad, 
+                                            self.co.externalid_groupsid, sid)
             self.group.write_db()
 
 
@@ -965,19 +1013,15 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @type chg: dict
         @param dry_run: Flag
         """
-        if chg.has_key('OU'):
-            ou = chg['OU']
-        else:
-            ou = self.get_default_ou()
-        
+        ou = chg.get("OU", self.get_default_ou())
         self.logger.debug('CREATE %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
                       chg['sAMAccountName'])
         if not ret[0]:
-            self.logger.warning("create group %s failed: %r" % \
-                                (chg['sAMAccountName'],ret[1]))
+            self.logger.warning("create group %s failed: %r",
+                                chg['sAMAccountName'],ret[1])
         elif not dry_run:
-            self.store_sid('group',chg['sAMAccountName'],ret[2])
+            self.store_sid('group',chg['sAMAccountName'],ret[2], dry_run)
             del chg['type']
             if chg.has_key('distinguishedName'):
                 del chg['distinguishedName']
@@ -985,13 +1029,13 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             #    del chg['sAMAccountName']               
             ret = self.server.putGroupProperties(chg)
             if not ret[0]:
-                self.logger.warning("putproperties on %s failed: %r" % \
-                                    (chg['sAMAccountName'], ret))
+                self.logger.warning("putproperties on %s failed: %r",
+                                    chg['sAMAccountName'], ret)
             else:
                 ret = self.run_cmd('setObject', dry_run)
                 if not ret[0]:
-                    self.logger.warning("setObject on %s failed: %r" % \
-                                        (chg['sAMAccountName'], ret))
+                    self.logger.warning("setObject on %s failed: %r",
+                                        chg['sAMAccountName'], ret)
             
 
 
@@ -1015,13 +1059,13 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         else:
             ret = (True, 'putGroupProperties')
         if not ret[0]:
-            self.logger.warning("putGroupProperties on %s failed: %r" % \
-                           (distName, ret))
+            self.logger.warning("putGroupProperties on %s failed: %r",
+                                distName, ret)
         else:
             ret = self.run_cmd('setObject', dry_run)
             if not ret[0]:
-                self.logger.warning("setObject on %s failed: %r" % \
-                               (distName, ret))         
+                self.logger.warning("setObject on %s failed: %r",
+                                    distName, ret)         
 
 
     def sync_group_members(self, cerebrum_dict, group_spread, user_spread, dry_run):
@@ -1042,7 +1086,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         entity2name = dict([(x["entity_id"], x["entity_name"]) for x in 
                            self.group.list_names(self.co.account_namespace)])
         entity2name.update([(x["entity_id"], x["entity_name"]) for x in
-                           self.group.list_names(self.co.group_namespace)])        
+                           self.group.list_names(self.co.group_namespace)])    
 
         for grp in cerebrum_dict:
             grp_name = grp.replace(cereconf.AD_GROUP_PREFIX,"")
@@ -1053,8 +1097,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             #others do not. They generate errors when not in AD. We still
             #want to update group membership if in AD.
             members = list()
-            for usr in self.group.search_members(group_id=grp_id,
-                                                 member_spread=int(self.co.Spread(user_spread))):
+            for usr in (self.group.search_members(
+                    group_id=grp_id, member_spread=
+                    int(self.co.Spread(user_spread)))):
                 user_id = usr["member_id"]
                 if user_id not in entity2name:
                     self.logger.debug("Missing name for account id=%s", user_id)
@@ -1063,14 +1108,15 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 self.logger.debug2("Try to sync member account id=%s, name=%s",
                                    user_id, entity2name[user_id])
 
-            for grp in self.group.search_members(group_id=grp_id,
-                                                 member_spread=int(self.co.Spread(group_spread))):
+            for grp in (self.group.search_members(
+                    group_id=grp_id,member_spread=int(
+                        self.co.Spread(group_spread)))):
                 group_id = grp["member_id"]
                 if group_id not in entity2name:
                     self.logger.debug("Missing name for group id=%s", group_id)
                     continue
                 members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
-                                         entity2name[group_id]))                          
+                                         entity2name[group_id]))            
                 self.logger.debug2("Try to sync member group id=%s, name=%s",
                                    group_id, entity2name[group_id])
                 
