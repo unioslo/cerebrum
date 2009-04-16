@@ -181,6 +181,18 @@ class Passwd(object):
         user_lines = self.generate_passwd()
         for l in user_lines:
             uname = l[0]
+            # TODO: Remove hack used in the UiO "NISSE"-project.
+            if uname == 'nisse1':
+                passwd = '*'
+            elif uname == 'nisse2':
+                try:
+                    posix_user.clear()
+                    posix_user.find_by_name(uname)
+                    passwd = posix_user.get_account_authentication(co.auth_type_md5_crypt)
+                except Errors.NotFoundError:
+                    logger.warn("Test user '%s' could not be found", uname)
+                    continue
+            # /hack
             passwd = l[1]
             rest = l[2:]
             if shadow_file:
