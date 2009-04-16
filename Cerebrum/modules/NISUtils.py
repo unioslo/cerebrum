@@ -181,6 +181,7 @@ class Passwd(object):
         user_lines = self.generate_passwd()
         for l in user_lines:
             uname = l[0]
+            passwd = l[1]
             # TODO: Remove hack used in the UiO "NISSE"-project.
             if uname == 'nisse1':
                 passwd = '*'
@@ -193,7 +194,6 @@ class Passwd(object):
                     logger.warn("Test user '%s' could not be found", uname)
                     continue
             # /hack
-            passwd = l[1]
             rest = l[2:]
             if shadow_file:
                 s.write("%s:%s:::\n" % (uname, passwd))
