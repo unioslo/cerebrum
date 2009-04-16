@@ -52,8 +52,8 @@ def usage(exitcode=0):
     --infile <file> : Mandatory. Contains data about quarantined accounts
     --studsplat-file <file> : Outfile containing splatted student accounts
     --remove-affiliation : remove student affiliation for splatted accounts?
-    --output-email-addr : Output email-addrs rather than account names
-                          for splatted accounts
+    --output-email-addr : Output email-addrs in addition to account
+                          names for splatted accounts
     --dryrun : don't perform any changes
     
 
@@ -128,15 +128,15 @@ def write_file(out_file, output_type, accounts):
     for acc_id in accounts:
         try:
             ac.clear()
-            ac.find(acc_id)            
+            ac.find(acc_id)
+            out_txt = ac.account_name
             if output_type == 'email-addrs':
-                outf.write(ac.get_primary_mailaddress() + os.linesep)
-            else:
-                outf.write(ac.account_name + os.linesep)
+                out_txt += ";" + ac.get_primary_mailaddress()
+            outf.write(out_txt + os.linesep)
         except Errors.NotFoundError:
             logger.warn("Couldn't find account " + acc_id)
     outf.close()
-    logger.info("Wrote %s to %s" % (output_type, out_file))
+    logger.info("Wrote splatted accounts to %s" % out_file)
 
 
 def main():
@@ -176,7 +176,7 @@ def main():
     except:
         usage(1)
 
-    # Cheack all splatted accounts
+    # Check all splatted accounts
     has_sap_aff, no_sap_aff = check_users(acc_fnrs)
     logger.info("Number of accounts to unsplat: %d " % len(has_sap_aff))
 
