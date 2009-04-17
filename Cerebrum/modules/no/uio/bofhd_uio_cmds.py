@@ -2456,7 +2456,13 @@ class BofhdExtension(object):
                  "description": list_description,
         }
         br = BofhdRequests(self.db, self.const)
-        br.add_request(operator.get_entity_id(), br.now,
+
+        # IVR 2009-04-17 +30 minute delay to allow changes to spread to
+        # LDAP. The postmasters are nagging for that delay. All questions
+        # should be directed to them (this is similar to delaying a delete
+        # request).
+        br.add_request(operator.get_entity_id(),
+                       DateTime.now() + DateTime.DateTimeDelta(0, 0, 30),
                        self.const.bofh_sympa_create, list_id, ea.entity_id,
                        state_data=pickle.dumps(state))
         return "OK, sympa list '%s' created" % listname
