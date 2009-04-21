@@ -5172,7 +5172,12 @@ class BofhdExtension(object):
     def misc_change_request(self, operator, request_id, date):
         date = self._parse_date(date)
         br = BofhdRequests(self.db, self.const)
-        old_req = br.get_requests(request_id=request_id)[0]
+        old_req = br.get_requests(request_id=request_id)
+        if not old_req:
+            raise CerebrumError("There is no request with id=%s" % request_id)
+        else:
+            # If there is anything, it's at most one
+            old_req = old_req[0]
         if old_req['requestee_id'] != operator.get_entity_id():
             raise PermissionDenied("You are not the requestee")
         br.delete_request(request_id=request_id)
