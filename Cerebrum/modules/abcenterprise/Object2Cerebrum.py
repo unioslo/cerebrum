@@ -296,7 +296,7 @@ class Object2Cerebrum(object):
         # In the latter case you get very serious side-effects that will wipe all
         # spreads on all entities due to entity.list_all_with_spread()'s way of
         # handling an empty argument.
-        if not hasattr(abcconf, TAG_REWRITE) or not abcconf.TAG_REWRITE:
+        if not hasattr(abcconf, "TAG_REWRITE") or not abcconf.TAG_REWRITE:
             return
         # Access Entity objects directly.
         from Cerebrum.Entity import EntitySpread
