@@ -2,6 +2,7 @@
 # -*- encoding: iso-8859-1 -*-
 import os
 import sys
+import time
 import getopt
 import mx
 
@@ -16,15 +17,16 @@ bufferSize = 16384
                
 class Export2Kjernen(object):
     
-    def __init__(self, outfile, verbose):
+    def __init__(self, outfile, verbose, doTiming):
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self._person = Factory.get('Person')(self.db)
         self._ou = Factory.get('OU')(self.db)
         self._account = Factory.get('Account')(self.db)
-        self._iso_format = '%Y.%m.%d'
+        self._iso_format = '%Y-%m-%d'
         self.outfile = outfile
         self.verbose = verbose
+        self.doTiming = doTiming
         self.affiliations = {
             self.co.affiliation_tilknyttet :    'tilknyttet',
             self.co.affiliation_ansatt:         'ansatt',
@@ -158,20 +160,55 @@ class Export2Kjernen(object):
             print 'Total persons written:',i
             print '================================================================================'
 
-       
+    def print_time(self, before):
+        print 'Time = %.2f secs' % (time.time() - before)
+
     def export_persons(self):
+        totalBefore = 0
+        before = 0
+        if self.doTiming:
+            totalBefore = time.time()
+            before = totalBefore
         self.stedkoder = self.get_stedkoder()
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+            before = time.time()
         self.birthdates = self.get_birthdates()
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+            before = time.time()
         self.nins = self.get_nins()
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+            before = time.time()
         self.emails = self.get_emails()
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+            before = time.time()
         (self.affs, self.ous, self.affs_status, self.created) = self.get_affiliations()
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+            before = time.time()
         self.lastnames = self.get_lastnames()
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+            before = time.time()
         self.firstnames = self.get_firstnames()
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+            before = time.time()
         self.accounts = self.get_accounts(self.get_entities())
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+            before = time.time()
         self.write_file()
+        if self.doTiming and self.verbose:
+            self.print_time(before)
+        if self.doTiming:
+            print 'Total time = %.2f secs' % (time.time() - totalBefore)
 
 def usage(p):
-    print '\nUsage: %s [OPTIONS]\n\n    OPTIONS\n\t-h, --help\t\tshow this help and exit.\n\t-o FILE, --output=FILE\twrite report to FILE.\n\t-v, --verbose\t\tshow status-messages to stdout.\n' % p
+    print '\nUsage: %s [OPTIONS]\n\n    OPTIONS\n\t-h, --help\t\tshow this help and exit.\n\t-o FILE, --output=FILE\twrite report to FILE.\n\t-t  --time\t\tcombination with verbose will show seconds\n\t\t\t\tper. operation and total; otherwise just\n\t\t\t\ttotal time.\n\t-v, --verbose\t\tshow status-messages to stdout.\n' % p
 
 
 def main(argv):
@@ -179,13 +216,14 @@ def main(argv):
     args = None
     prog = os.path.basename(argv[0])
     try:
-        opts, args = getopt.getopt(argv[1:], 'ho:v', ['help', 'output=', 'verbose'])
+        opts, args = getopt.getopt(argv[1:], 'ho:tv', ['help', 'output=', 'time', 'verbose'])
     except getopt.GetoptError, err:
         print str(err)
         usage(prog)
         sys.exit(1)
     output = None
     verbose = False
+    doTiming = False
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             usage(prog)
@@ -194,13 +232,15 @@ def main(argv):
             verbose = True
         elif opt in ('-o', '--output'):
             output = arg
+        elif opt in ('-t', '--time'):
+            doTiming = True
         else:
             assert False, "unhandled option"
             sys.exit(2)
     if not output:
         usage(prog)
         sys.exit(3)
-    export_kj = Export2Kjernen(output, verbose)
+    export_kj = Export2Kjernen(output, verbose, doTiming)
     export_kj.export_persons()
     
 
