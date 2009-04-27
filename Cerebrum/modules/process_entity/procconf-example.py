@@ -24,6 +24,9 @@ CLASS_BATCH = ['Cerebrum.modules.process_entity.ProcBatchRunner/ProcBatchRunner'
 CLASS_HANDLER = ['Cerebrum.modules.process_entity.ProcHandler/ProcHandler',]
 
 
+# authoritative source system for Cerebrum-data
+SOURCE={'source_system': 'EKSTENS'}
+
 # What methods should be called by the ProcBatchRunner
 # The four listed below are what's supported now
 PROC_METHODS= ('process_persons',
@@ -41,6 +44,9 @@ AC_TYPE_GROUP_SPREAD = ('group@ad')
 ACCOUNT_SPREADS = {'ANSATT': ('account@lms', 'account@oid'),
                    'ELEV': ('account@lms', 'account@oid'),
                    'AFFILIATE': () }
+# What trait should an external id of a given type result in for a
+# shadow group
+GRP_TYPE_TO_GRP_TRAIT = {'kl-ID': 'kls_group'}
 
 # Handle the name of shadow_groups. Shadow groups are groups created
 # from groups already present in Cerebrum, tagged with
