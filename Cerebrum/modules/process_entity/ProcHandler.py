@@ -289,10 +289,11 @@ class ProcHandler(object):
                 shdw_grp.write_db()
                 self.logger.info("prc_grp: Shadow group '%s' created." % shadow)
             change = False
-            if not shdw_grp.get_trait(int(self._co.EntityTrait(shdw_trait_str))):
-                shdw_grp.populate_trait(int(self._co.EntityTrait(shdw_trait_str)),
-                                        date=DateTime.now())
-                change = True
+            if shdw_trait_str != None:
+                if not shdw_grp.get_trait(int(self._co.EntityTrait(shdw_trait_str))):
+                    shdw_grp.populate_trait(int(self._co.EntityTrait(shdw_trait_str)),
+                                            date=DateTime.now())
+                    change = True
             for spread in procconf.SHADOW_GROUP_SPREAD:
                 if not shdw_grp.has_spread(int(self.str2const[spread])):    
                     shdw_grp.add_spread(int(self.str2const[spread]))
