@@ -259,7 +259,7 @@ class ProcHandler(object):
             self._group.clear()
             self._group.find_by_name(group_name)
             source_system_str = procconf.SOURCE['source_system']
-            for row in self._group.get_external_id(source_system=int(self._co.AuthoritativeSystem(source_system_str)):
+            for row in self._group.get_external_id(source_system=int(self._co.AuthoritativeSystem(source_system_str))):
                 grp_id_type = str(self._co.EntityExternalId(row['id_type']))
 
             shdw_trait_str = procconf.GRP_TYPE_TO_GRP_TRAIT[grp_id_type]
