@@ -29,6 +29,7 @@ import pickle
 import traceback
 import mx
 from time import localtime, strftime, time
+import pprint
 
 import cerebrum_path
 import cereconf
@@ -43,14 +44,12 @@ from Cerebrum.modules.no.uit import AutoStud
 from Cerebrum.modules.no.uit import DiskQuota
 from Cerebrum.modules.no.uit import PrinterQuotas
 from Cerebrum.modules.templates.letters import TemplateHandler
-#UIT:
-from Cerebrum.modules.no.uit import Email
-
 
 
 db = Factory.get('Database')()
 db.cl_init(change_program='process_students')
 const = Factory.get('Constants')(db)
+logger=Factory.get_logger('studauto')
 all_passwords = {}
 derived_person_affiliations = {}
 person_student_affiliations = {}
@@ -88,11 +87,14 @@ emne_info_file = None
 fast_test = False
 
 # Other globals (to make pychecker happy)
-autostud = logger = accounts = persons = None
+autostud = accounts = persons = None
 default_creator_id = default_expire_date = default_shell = None
 
 
 
+def pformat(obj):
+    return pformat.pp.pformat(obj)
+pformat.pp = pprint.PrettyPrinter(indent=4)
 
 class AccountUtil(object):
     """Collection of methods that operate on a single account to make
@@ -102,7 +104,7 @@ class AccountUtil(object):
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
         today = datetime.datetime.now()
-        logger.info2("CREATE")
+        logger.info("CREATE")
         person = Factory.get('Person')(db)
         logger.info("Trying to create user for person with fnr=%s" % fnr)
 
@@ -171,41 +173,6 @@ class AccountUtil(object):
     create_user=staticmethod(create_user)
 
 
-    def _update_email(account_obj):
-        em = Email.email_address(db)
-        ad_email = em.get_employee_email(account_obj.entity_id,db)
-        if (len(ad_email)>0):
-            ad_email = ad_email[account_obj.account_name]
-        else:
-            ad_email = "%s@%s" % (account_obj.account_name,"mailbox.uit.no")
-        
-        current_email = ""
-        try:
-            current_email = account_obj.get_primary_mailaddress()
-        except Errors.NotFoundError:
-            # no current primary mail.
-            pass
-    
-        if (current_email.lower() != ad_email.lower()):
-            # update email!
-            logger.debug("Email update needed old='%s', new='%s'" % ( current_email, ad_email))
-            try:
-                em.process_mail(account_obj.entity_id,"defaultmail",ad_email)
-            except Exception:
-                logger.critical("EMAIL UPDATE FAILED: account_id=%s , email=%s" % (account_obj.entity_id,ad_email))
-                sys.exit(2)
-        else:
-            logger.debug("Email update not needed old='%s', new='%s'" % ( current_email, ad_email))        
-    _update_email=staticmethod(_update_email)
-
-        
-        
-        
-        
-        
-    
-    
-    
     def _populate_account_affiliations(account_id, fnr):
         """Assert that the account has the same student affiliations as
         the person.  Will not remove the last student account affiliation
@@ -353,7 +320,8 @@ class AccountUtil(object):
             if((not already_member.has_key(g)) and(not expired)):
                 group_obj.clear()
                 group_obj.find(g)
-                group_obj.add_member(account_id)
+                group_obj.add_member(account_id, const.entity_account,
+                                 const.group_memberop_union)
                 changes.append(("g_add", group_obj.group_name))
             else:
                 if(not expired):
@@ -366,7 +334,7 @@ class AccountUtil(object):
                             account_id, g))
                     group_obj.clear()
                     group_obj.find(g)
-                    group_obj.remove_member(account_id)
+                    group_obj.remove_member(account_id, const.group_memberop_union)
                     changes.append(('g_rem', group_obj.group_name))
         return changes
     _update_group_memberships=staticmethod(_update_group_memberships)
@@ -374,7 +342,7 @@ class AccountUtil(object):
     def update_account(account_id, fnr, profile, as_posix):
         # First fill 'changes' with all needed modifications.  We will
         # only lookup databaseobjects if changes is non-empty.
-        logger.info2(" UPDATE:%s" % account_id)
+        logger.info(" UPDATE:%s" % account_id)
         processed_accounts[account_id] = True
         changes = []
         ac = accounts[account_id]
@@ -461,13 +429,6 @@ class AccountUtil(object):
             if with_quarantines and not int(q['quarantine']) in ac.get_quarantines():
                 changes.append(('add_quarantine', (q['quarantine'], q['start_at'])))
 
-        # Remove auto quarantines
-#        for q in (const.quarantine_auto_inaktiv,
-#                  const.quarantine_auto_emailonly):
-#            if (int(q) in ac.get_quarantines() and
-#                int(q) not in tmp):
-#                changes.append(("remove_autostud_quarantine", q))
-
         # Remove Tilbud quarantine for STUDENT\drgrad affs
         for aff in persons[fnr].get_affiliations():
             affil,ou,status=aff
@@ -485,17 +446,7 @@ class AccountUtil(object):
         if changes:
             AccountUtil._handle_user_changes(changes, account_id, as_posix)
 
-
-        # uit:Need to check for email updates here
-        my_user = account_obj
-        my_user.clear()
-        my_user.find(account_id)
-        #print "my_user.name:%s" % my_user.account_name
-        AccountUtil._update_email(my_user)
-        
         changes.extend(AccountUtil._update_group_memberships(account_id, profile))
-
-        
 
         if changes:
             logger.debug("Changes [%i/%s]: %s" % (
@@ -512,7 +463,7 @@ class RecalcQuota(object):
         logger.set_indent(0)
         logger.debug("Callback for %s" % fnr)
         logger.set_indent(3)
-        logger.debug(logger.pformat(_filter_person_info(person_info)))
+        logger.debug(pformat(_filter_person_info(person_info)))
         pq = PrinterQuotas.PrinterQuotas(db)
 
         for account_id in persons.get(fnr, {}).keys():
@@ -637,7 +588,7 @@ class BuildAccounts(object):
         if pinfo is None:
             logger.warn("Unknown person %s" % fnr)
             return
-        logger.debug(logger.pformat(_filter_person_info(person_info)))
+        logger.debug(pformat(_filter_person_info(person_info)))
         if not persons.has_key(fnr):
             logger.warn("(person) not found error for %s" % fnr)
             logger.set_indent(0)
@@ -1039,14 +990,12 @@ def get_existing_accounts():
     for group_id in autostud.pc.group_defs.keys():
         group_obj.clear()
         group_obj.find(group_id)
-        for row in group_obj.search_members(group_id=group_obj.entity_id,
-                                            member_type=const.entity_account):
-            tmp = tmp_ac.get(int(row["member_id"]), None)
+        for row in group_obj.list_members(filter_expired=False,member_type=const.entity_account)[0]:
+            tmp = tmp_ac.get(int(row[1]), None)    # Col 1 is member_id
             if tmp is not None:
                 tmp.append_group(group_id)
-        for row in group_obj.search_members(group_id=group_obj.entity_id,
-                                            member_type=const.entity_person):
-            tmp = tmp_persons.get(int(row["member_id"]), None)
+        for row in group_obj.list_members(member_type=const.entity_person)[0]:
+            tmp = tmp_persons.get(int(row[1]), None)    # Col 1 is member_id
             if tmp is not None:
                 tmp.append_group(group_id)
     # Affiliations
@@ -1328,14 +1277,10 @@ def main():
     recalc_pq = False
     validate = False
     _range = None
-    to_stdout = False
-    log_level = AutoStud.Util.ProgressReporter.DEBUG
     non_callback_fname = None
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
-            log_level += 1
-            to_stdout = True
         elif opt in ('-c', '--create-users'):
             create_users = True
         elif opt in ('-u', '--update-accounts'):
@@ -1371,9 +1316,7 @@ def main():
             dryrun = True
         elif opt in ('--validate',):
             validate = True
-            to_stdout = True
             workdir = '.'
-            log_level = AutoStud.Util.ProgressReporter.INFO
         elif opt in ('--with-lpr',):
             skip_lpr = False
         elif opt in ('--workdir',):
@@ -1382,7 +1325,6 @@ def main():
             _type = val
         elif opt in ('--reprint',):
             _range = val
-            to_stdout = True
         else:
             usage("Unimplemented option: " + opt)
 
@@ -1390,15 +1332,11 @@ def main():
         raise ValueError, "recalc-pq cannot be combined with other operations"
 
     if workdir is None:
-        workdir = "%s/ps-%s.%i" % (cereconf.AUTOADMIN_LOG_DIR,
-                                   strftime("%Y-%m-%d", localtime()),
-                                   os.getpid())
+        workdir = "%s/ps-%s" % (cereconf.AUTOADMIN_LOG_DIR,
+                                strftime("%Y-%m-%dT%H:%M:%S", localtime())
+                                )
         os.mkdir(workdir)
     os.chdir(workdir)
-    logger = AutoStud.Util.ProgressReporter("%s/process_students.log.%i"
-                                            % (workdir, os.getpid()),
-                                            stdout=to_stdout,
-                                            loglevel=log_level)
     bootstrap()
     if validate:
         validate_config()
@@ -1469,11 +1407,6 @@ To reprint letters of a given type:
     sys.exit(0)
 
 if __name__ == '__main__':
-    #logger = AutoStud.Util.ProgressReporter(
-    #    None, stdout=1, loglevel=AutoStud.Util.ProgressReporter.DEBUG)
-    #AutoStud.AutoStud(db, logger, debug=3,
-    #                  cfg_file="/home/runefro/usit/cerebrum/uiocerebrum/etc/config/studconfig.xml")
-
     if False:
         print "Profilerer..."
         prof = hotshot.Profile(proffile)
@@ -1482,4 +1415,3 @@ if __name__ == '__main__':
     else:
         main()
 
-# arch-tag: 99817548-9213-4dc3-8d03-002fc6a2f138
