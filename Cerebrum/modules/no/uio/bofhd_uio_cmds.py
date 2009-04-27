@@ -1533,12 +1533,15 @@ class BofhdExtension(object):
             raise CerebrumError, ("Address %s exists, but the list it points "
                                   "to, %s, does not") % (addr, listname)
         # now find all e-mail addresses
-        et.clear()
-        et.find(ea.email_addr_target_id)
-        addrs = self.__get_valid_email_addrs(et, sort=True)
-        ret += self._email_info_forwarding(et, addrs)
+        # NB! Do NOT overwrite et (it's used in email_info after calling
+        # _email_info_mailman)
+        et_mailman = Email.EmailTarget(self.db)
+        et_mailman.clear()
+        et_mailman.find(ea.email_addr_target_id)
+        addrs = self.__get_valid_email_addrs(et_mailman, sort=True)
+        ret += self._email_info_forwarding(et_mailman, addrs)
         aliases = []
-        for r in et.get_addresses():
+        for r in et_mailman.get_addresses():
             a = "%(local_part)s@%(domain)s" % r
             if a == listname:
                 continue
@@ -1550,10 +1553,11 @@ class BofhdExtension(object):
         # all administrative addresses
         for iface in ('mailcmd', 'mailowner'):
             try:
-                et.clear()
-                et.find_by_alias(self._mailman_pipe % { 'interface': iface,
-                                                        'listname': listname} )
-                addrs = et.get_addresses()
+                et_mailman.clear()
+                et_mailman.find_by_alias(self._mailman_pipe %
+                                         {'interface': iface,
+                                          'listname': listname})
+                addrs = et_mailman.get_addresses()
                 if addrs:
                     ret.append({'mailman_' + iface + '_1':
                                 '%(local_part)s@%(domain)s' % addrs[0]})
@@ -1599,12 +1603,14 @@ class BofhdExtension(object):
                 return result
 
             try:
-                et.clear()
-                et.find_by_alias(target_alias)
+                # Do NOT change et's (parameter's) state.
+                et_tmp = Email.EmailTarget(self.db)
+                et_tmp.clear()
+                et_tmp.find_by_alias(target_alias)
             except Errors.NotFoundError:
                 return result
 
-            addrs = et.get_addresses()
+            addrs = et_tmp.get_addresses()
             if not addrs:
                 return result
 
@@ -1634,20 +1640,21 @@ class BofhdExtension(object):
             raise CerebrumError, ("Address %s exists, but the list it points "
                                   "to, %s, does not") % (addr, listname)
         # now find all e-mail addresses
-        et.clear()
-        et.find(ea.email_addr_target_id)
-        addrs = self.__get_valid_email_addrs(et, sort=True)
+        et_sympa = Email.EmailTarget(self.db)
+        et_sympa.clear()
+        et_sympa.find(ea.email_addr_target_id)
+        addrs = self.__get_valid_email_addrs(et_sympa, sort=True)
         # IVR 2008-08-21 According to postmasters, only superusers should see
         # forwarding and delivery host information
         if self.ba.is_postmaster(operator.get_entity_id()):
-            if et.email_server_id is None:
+            if et_sympa.email_server_id is None:
                 delivery_host = "N/A (this is an error)"
             else:
-                delivery_host = self._get_email_server(et.email_server_id).name
+                delivery_host = self._get_email_server(et_sympa.email_server_id).name
             ret.append({"sympa_delivery_host": delivery_host})
-        ret += self._email_info_forwarding(et, addrs)
+        ret += self._email_info_forwarding(et_sympa, addrs)
         aliases = []
-        for row in et.get_addresses():
+        for row in et_sympa.get_addresses():
             a = "%(local_part)s@%(domain)s" % row
             if a == listname:
                 continue
