@@ -155,12 +155,12 @@ class AccountUtil(object):
         quarantine_check=False
         for aff in persons[fnr].get_affiliations():
             if aff[0] == const.affiliation_student and quarantine_check == False:
-                # This persons has a student affiliation. set quarantine on the account. (we do not set quarantine for employees or "fagpersoner" accounts)
+                # This person has a student affiliation. set quarantine on the account.
+                # we do not set quarantine for employees or "fagpersoner" accounts
                 quarantine_date = "%s" % today.date()
                 logger.debug("quarantine date =%s" % quarantine_date)
                 account.add_entity_quarantine(const.quarantine_tilbud,default_creator_id,start=quarantine_date)
                 quarantine_check=True
-        #sys.exit(1) # <- for debuging purposes. remove this once quarantene settings on new accounts has been verified.
         logger.debug("new Account, write_db=%s" % tmp)
         all_passwords[int(account.entity_id)] = [password, profile.get_brev()]
         as_posix = False
@@ -210,8 +210,11 @@ class AccountUtil(object):
         for ou in account_ous[remove_idx:]:
             changes.append(('del_ac_type', (ou, const.affiliation_student)))
 
-        for ou in tilknyttet_account_ous[tilknyttet_remove_idx:]:
-            changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
+        # UIT Cannot delete tilknyttet OUs, they may have been set by other
+        # source systems. This will be handled in a separate cleanup task
+        # after process_* scripts is finished.
+        #for ou in tilknyttet_account_ous[tilknyttet_remove_idx:]:
+        #    changes.append(('del_ac_type', (ou, const.affiliation_tilknyttet)))
 
 
         return changes
@@ -935,7 +938,7 @@ def get_existing_accounts():
     #
     logger.info("Listing accounts...")
     tmp_ac = {}
-    for row in account_obj.list(filter_expired=False,fetchall=False):
+    for row in account_obj.search(expire_start=None):
         if not row['owner_id'] or not pid2fnr.has_key(int(row['owner_id'])):
             continue
         tmp_ac[int(row['account_id'])] = ExistingAccount(pid2fnr[int(row['owner_id'])],
@@ -990,7 +993,8 @@ def get_existing_accounts():
     for group_id in autostud.pc.group_defs.keys():
         group_obj.clear()
         group_obj.find(group_id)
-        for row in group_obj.list_members(filter_expired=False,member_type=const.entity_account)[0]:
+        for row in group_obj.list_members(filter_expired=False,
+                                          member_type=const.entity_account)[0]:
             tmp = tmp_ac.get(int(row[1]), None)    # Col 1 is member_id
             if tmp is not None:
                 tmp.append_group(group_id)
@@ -1000,7 +1004,8 @@ def get_existing_accounts():
                 tmp.append_group(group_id)
     # Affiliations
     for row in account_obj.list_accounts_by_type(
-        affiliation=const.affiliation_student, fetchall=False):
+        affiliation=(const.affiliation_student,const.affiliation_tilknyttet),
+        fetchall=False):
         tmp = tmp_ac.get(int(row['account_id']), None)
         if tmp is not None:
             tmp.append_affiliation(int(row['affiliation']), int(row['ou_id']))
