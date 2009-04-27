@@ -258,6 +258,11 @@ class ProcHandler(object):
         try:
             self._group.clear()
             self._group.find_by_name(group_name)
+            for row in self._group.get_external_id(source_system=self._co.system_ekstens):
+                grp_id_type = str(self._co.EntityExternalId(row['id_type']))
+
+            shdw_trait_str = procconf.GRP_TYPE_TO_GRP_TRAIT[grp_id_type]
+
             self.logger.debug("prc_grp: Group '%s' found." % group_name)
             # We found a group that something potentially happened to.
             # Check if it is a shadow group. If it is, skip it.
@@ -283,6 +288,10 @@ class ProcHandler(object):
                 shdw_grp.write_db()
                 self.logger.info("prc_grp: Shadow group '%s' created." % shadow)
             change = False
+            if not shdw_grp.get_trait(int(self._co.EntityTrait(shdw_trait_str))):
+                shdw_grp.populate_trait(int(self._co.EntityTrait(shdw_trait_str)),
+                                        date=DateTime.now())
+                change = True
             for spread in procconf.SHADOW_GROUP_SPREAD:
                 if not shdw_grp.has_spread(int(self.str2const[spread])):    
                     shdw_grp.add_spread(int(self.str2const[spread]))
