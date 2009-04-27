@@ -171,9 +171,9 @@ class Constants(Constants.Constants):
     trait_shdw_undv = _EntityTraitCode(
         'undv_group', Constants.Constants.entity_group,
         'Tag groups created to represent "undervisningsgruppe".')
-    trait_shdw_fag = _EntityTraitCode(
-        'fag_group', Constants.Constants.entity_group,
-        'Tag groups created to represent "faggruppe".')
+    trait_shdw_kls = _EntityTraitCode(
+        'kls_group', Constants.Constants.entity_group,
+        'Tag groups created to represent "klassegruppe".')
     ## tag affiliation based auto-groups
     trait_auto_aff = _EntityTraitCode(
         'auto_group', Constants.Constants.entity_group,
