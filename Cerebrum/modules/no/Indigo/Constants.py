@@ -167,7 +167,17 @@ class Constants(Constants.Constants):
     trait_group_affiliation = _EntityTraitCode(
         'aff_group', Constants.Constants.entity_group,
         'Tag groups created to become affiliation groups.')
-
+    ## tag shadow groups as "undervisningsgruppe" and "klassegruppe"
+    trait_shdw_undv = _EntityTraitCode(
+        'undv_group', Constants.Constants.entity_group,
+        'Tag groups created to represent "undervisningsgruppe".')
+    trait_shdw_fag = _EntityTraitCode(
+        'fag_group', Constants.Constants.entity_group,
+        'Tag groups created to represent "faggruppe".')
+    ## tag affiliation based auto-groups
+    trait_auto_aff = _EntityTraitCode(
+        'auto_group', Constants.Constants.entity_group,
+        'Tag affiliations based automatic groups.')
 ## Guardianship-related traits
     trait_guardian_of = _EntityTraitCode(
         'guardian_of', Constants.Constants.entity_person,
