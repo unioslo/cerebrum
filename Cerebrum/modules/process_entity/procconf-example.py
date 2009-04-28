@@ -39,6 +39,10 @@ PERSON_SPREADS = ('person@ldap',)
 OU_SPREADS = ('ou@ad',)
 SHADOW_GROUP_SPREAD = ('group@ad', 'group@oid')
 AC_TYPE_GROUP_SPREAD = ('group@ad')
+
+# Spread handling. You have to select one of ACCOUNT_SPREADS or
+# OU2ACCOUNT_SPREADS. You cannot have both.
+
 # Dict of 'affiliation' -> 'spread' mappings. process_entity will
 # make a union if an account has two or more affiliations.
 ACCOUNT_SPREADS = {'ANSATT': ('account@lms', 'account@oid'),
@@ -47,6 +51,14 @@ ACCOUNT_SPREADS = {'ANSATT': ('account@lms', 'account@oid'),
 # What trait should an external id of a given type result in for a
 # shadow group
 GRP_TYPE_TO_GRP_TRAIT = {'kl-ID': 'kls_group'}
+
+# Enabling OU2ACCOUNT_SPREADS means that an account's spreads is
+# calculated from what spreads the OUs in account_types have. Three
+# OUs with three separate spreads and one account with account_type to
+# all three means the account gets all three spreads.
+OU2ACCOUNT_SPREADS = {'ou@ad' : 'account@ad',
+                      'ou@lms' : 'account@lms',
+                      'ou@ldap' : 'account@ldap'}
 
 # Handle the name of shadow_groups. Shadow groups are groups created
 # from groups already present in Cerebrum, tagged with

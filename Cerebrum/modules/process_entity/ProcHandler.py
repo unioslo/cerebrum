@@ -45,6 +45,7 @@ class ProcHandler(object):
         # Populated on demand
         self.str2const = None
         self.default_creator_id = None
+        self.ou2spread = None
 
     def _make_str2const(self):
         """Map Constant strings to actual objects."""
@@ -53,15 +54,28 @@ class ProcHandler(object):
         self.str2const = dict()
         for c in dir(self._co):
             tmp = getattr(self._co, c)
-            if isinstance(tmp, (_SpreadCode, _PersonAffiliationCode)):
-                self.str2const[str(tmp)] = tmp
+            self.str2const[str(tmp)] = tmp
+
+    def _populate_ou2spread(self):
+        """Make a dict with all OUs and their derived spread from
+        OU2ACCOUNT_SPREADS. Used for OU->account spread settings."""
+        if self.ou2spread:
+            return
+        self._make_str2const()
+        self.ou2spread = dict()
+        ou = Factory.get('OU')(self.db)
+        for row in ou.list_entity_spreads(self._co.entity_ou):
+            ou_spread_str = str(_SpreadCode(int(row['spread'])))
+            if not procconf.OU2ACCOUNT_SPREADS.has_key(ou_spread_str):
+                continue
+            acc_spread_str = procconf.OU2ACCOUNT_SPREADS[ou_spread_str]
+            self.ou2spread.setdefault(row['entity_id'], []).append(self.str2const[acc_spread_str])
 
     def _create_account(self, owner):
         """Create a standard account."""
 
         # str2const is something we need if we create new accounts.
-        if not self.str2const:
-            self._make_str2const()
+        self._make_str2const()
 
         if not self._ac:
             self._ac = Factory.get('Account')(self.db)
@@ -95,9 +109,8 @@ class ProcHandler(object):
     def process_person(self, person):
         """Sync spreads between a person and it's accounts."""
 
-       # str2const is something we need if we create new accounts.
-        if not self.str2const:
-            self._make_str2const()
+        # str2const is something we need if we create new accounts.
+        self._make_str2const()
   
         if not self._ac:
             self._ac = Factory.get('Account')(self.db)
@@ -172,27 +185,53 @@ class ProcHandler(object):
                 self.logger.info("Account '%s' added type '%s', '%s'." % (self._ac.account_name, a[0], a[1]))
             # TBD: set expire_date if no types remain?
 
-            # Update account spreads
-            acc_spreads = []
-            for i in person_affiliations:
-                aff_str = str(_PersonAffiliationCode(i[1]))
-                if aff_str not in procconf.ACCOUNT_SPREADS:
-                    continue
-                spreads = [int(self.str2const[s]) for s in procconf.ACCOUNT_SPREADS[aff_str]]
-                acc_spreads += [s for s in spreads if s not in acc_spreads]
-            for row in self._ac.get_spread():
-                # Annoying "feature". get_spread() return a tuple of one-element tuples.
-                if int(row[0]) not in acc_spreads:
-                    self._ac.delete_spread(row[0])
-                    self.logger.info("Account '%s' removed spread '%s'." % (self._ac.account_name,
-                                                                            str(_SpreadCode(int(row[0])))))
-                    change = True
-            for spread in acc_spreads:
-                if not self._ac.has_spread(spread):
-                    self._ac.add_spread(spread)
-                    self.logger.info("Account '%s' added spread '%s'." % (self._ac.account_name,
+            # TODO: Limit the removal of spreads to types known by proc_entity
+
+            # Update account spreads (if set in the config)
+            if hasattr(procconf, 'ACCOUNT_SPREADS') and hasattr(procconf, 'OU2ACCOUNT_SPREADS'):
+                raise Errors.ProgrammingError, "Both ACCOUNT_SPREADS and OU2ACCOUNT_SPREADS in procconf."
+            elif hasattr(procconf, 'ACCOUNT_SPREADS') and procconf.ACCOUNT_SPREADS:
+                acc_spreads = []
+                for i in person_affiliations:
+                    aff_str = str(_PersonAffiliationCode(i[1]))
+                    if aff_str not in procconf.ACCOUNT_SPREADS:
+                        continue
+                    spreads = [int(self.str2const[s]) for s in procconf.ACCOUNT_SPREADS[aff_str]]
+                    acc_spreads += [s for s in spreads if s not in acc_spreads]
+                for row in self._ac.get_spread():
+                    # Annoying "feature". get_spread() return a tuple of one-element tuples.
+                    if int(row[0]) not in acc_spreads:
+                        self._ac.delete_spread(row[0])
+                        self.logger.info("Account '%s' removed spread '%s'." % (self._ac.account_name,
+                                                                                str(_SpreadCode(int(row[0])))))
+                        change = True
+                for spread in acc_spreads:
+                    if not self._ac.has_spread(spread):
+                        self._ac.add_spread(spread)
+                        self.logger.info("Account '%s' added spread '%s'." % (self._ac.account_name,
                                                                           str(_SpreadCode(int(spread)))))
-                    change = True
+                        change = True
+            elif hasattr(procconf, 'OU2ACCOUNT_SPREADS') and procconf.OU2ACCOUNT_SPREADS:
+                self._populate_ou2spread()
+                acc_spreads = []
+                for ou,aff in person_affiliations:
+                    for s in self.ou2spread[ou]:
+                        if s not in acc_spreads:
+                            acc_spreads.append(s)
+                for row in self._ac.get_spread():
+                    # Annoying "feature". get_spread() return a tuple of one-element tuples.
+                    if int(row[0]) not in acc_spreads:
+                        self._ac.delete_spread(row[0])
+                        self.logger.info("Account '%s' removed spread '%s'." % (self._ac.account_name,
+                                                                                str(_SpreadCode(int(row[0])))))
+                        change = True
+                for spread in acc_spreads:
+                    if not self._ac.has_spread(spread):
+                        self._ac.add_spread(spread)
+                        self.logger.info("Account '%s' added spread '%s'." % (self._ac.account_name,
+                                                                          str(_SpreadCode(int(spread)))))
+                        change = True        
+            
             if change:
                 self._ac.write_db()   
                 # print self._ac.account_name, person_affiliations, self._ac.get_spread()
@@ -233,8 +272,7 @@ class ProcHandler(object):
     def process_group(self, group_name):
         """Check the group's `shadow group`."""
 
-        if not self.str2const:
-            self._make_str2const()
+        self._make_str2const()
         
         # Init the needed objects if not already done
         if not self._group:
@@ -327,10 +365,11 @@ class ProcHandler(object):
     def process_ou(self, ou):
         """Check the OU's data."""
 
-        if not self.str2const:
-            self._make_str2const()
+        self._make_str2const()
         
         change = False
+        if not hasattr(procconf, "OU_SPREADS"):
+            return
         for spread in procconf.OU_SPREADS:
             if not ou.has_spread(int(self.str2const[spread])):
                 ou.add_spread(int(self.str2const[spread]))
@@ -344,8 +383,7 @@ class ProcHandler(object):
         """Adds an account to special groups which represent an
         affiliation at an OU. Make the group if it's not present."""
 
-        if not self.str2const:
-            self._make_str2const()
+        self._make_str2const()
         
         if self._ac is None:
             self._ac = Factory.get('Account')(self.db)
