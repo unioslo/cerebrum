@@ -228,9 +228,9 @@ class AccountOfkMixin (Account.Account):
 
     def _autopick_homeMDB(self):
         affiliation = 'ELEV'
-        if self.is_employee():
+        if self.is_employee(self.account_name):
             affiliation = 'ANSATT'
-        elif self.is_affiliate():
+        elif self.is_affiliate(self.account_name):
             affiliation = 'TILKNYTTET'
         mdb_candidates = set(cereconf.EXCHANGE_HOMEMDB_PER_AFFILIATION[affiliation])
         mdb_count = dict()
