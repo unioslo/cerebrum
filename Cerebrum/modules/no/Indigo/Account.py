@@ -158,7 +158,22 @@ class AccountOfkMixin (Account.Account):
         ret = self.__super.add_spread(spread)
 
         return ret
-    
+
+     def delete_spread(self, spread):
+        #
+        # Pre-remove checks
+        #
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        if not spread in spreads:  # user doesn't have this spread
+            return
+        if spread == self.const.spread_ad_acc:
+            self.delete_trait(self.const.trait_homedb_info)
+            self.write_db()
+
+        # (Try to) perform the actual spread removal.
+        ret = self.__super.delete_spread(spread)
+        return ret
+   
     def make_passwd(self, uname):
         pot = string.ascii_letters + string.digits
         count = 0
@@ -241,7 +256,7 @@ class AccountOfkMixin (Account.Account):
         for m in mdb_candidates:
             m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[m]
             if m_weight < smallest_mdb_weight:
-                mdb_choice, least_used_mdb = m, m_weight
+                mdb_choice, smallest_mdb_weight = m, m_weight
         if mdb_choice is None:
             raise CerebrumError("Cannot assign mdb")
         return mdb_choice
