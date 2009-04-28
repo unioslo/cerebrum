@@ -1,24 +1,55 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
+#
+# Copyright 2009 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""
+Perform full notes sync
+
+Fetch accounts from Notes and accounts with notes spread from cerebrum
+and compare. This script will create new notes accounts, perform name
+or OU changes or delete notes accounts depending on the differences.
+"""
+
 
 import getopt
 import sys
 import cerebrum_path
 from Cerebrum.modules import NotesUtils
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 db = Factory.get('Database')()
 db.cl_init(change_program="notes_full")
-
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger("cronjob")
 dryrun = False
 
-def fetch_cerebrum_data(spread):
-    """For all accounts that has spread to Notes, returns a list of
-    dicts with the keys: uname, fullname, account_id, ou_path, person_id
 
+def fetch_cerebrum_data(spread):
+    """
+    Fetch relevant data for all accounts that has spread to Notes.
+
+    @param spread: notes spread
+    @type  spread: str
+    @rtype: list
+    @return: list of dicts with keys: uname, fullname, account_id,
+             ou_path, person_id
     """
     logger.debug('Fetching person names from Cerebrum')
     pid2name = {}
@@ -28,20 +59,14 @@ def fetch_cerebrum_data(spread):
                                         name_type=co.name_full):
         pid2name[int(row['person_id'])] = row['name']
 
-    # Fetch account-info.  Unfortunately the API doesn't provide all
-    # required info in one function, so we do this in steps.
+    # Fetch all accounts with Notes spread
     logger.debug('Fetching accounts from Cerebrum')
     aid2ainfo = {}
     for row in ac.search(spread=spread, owner_type=co.entity_person):
-        aid2ainfo[int(row['account_id'])] = { 'uname': row['name'] }
-
-    logger.debug('Fetching owners from Cerebrum')
-    for row in ac.list():
-        acc_id = int(row['account_id'])
-        if acc_id not in aid2ainfo:
-            continue
-        aid2ainfo[acc_id]['owner_id'] = int(row['owner_id'])
-
+        aid2ainfo[int(row['account_id'])] = {'uname': row['name'],
+                                             'owner_id': int(row['owner_id'])}
+    # Fetch OU information for accounts, that is the OU for the
+    # primary affiliation.
     ou_path = {}
     logger.debug('Fetching ous from Cerebrum')
     done_person = {}
@@ -52,8 +77,9 @@ def fetch_cerebrum_data(spread):
             # not a Notes user
             continue
         if 'ou_path' in aid2ainfo[account_id]:
-            # already did this account, this row is a secondary
-            # affiliation
+            # Already did this account, this row is a secondary
+            # affiliation (Result from ac.list_accounts_by_type is
+            # ordered by affiliations priority.)
             continue
         if person_id in done_person:
             logger.warn("User %s has more than one Notes user",
@@ -89,31 +115,47 @@ def fetch_cerebrum_data(spread):
 
 
 def read_from_notes():
+    """
+    Fetch data about Notes accounts
+
+    @rtype: dict
+    @return: uname -> '<Full name>/<OU path>' 
+    """
     sock = NotesUtils.SocketCom()
     userdict = {}
-
+    logger.debug("Reading users from notes...")
     resp, lines = notes_cmd(sock, 'LUSERS')
     for line in lines:
         userdata = line.split("&")
         user = userdata[1]
         fullname = userdata[3]
-        try:
-            if userdict[user] >= 0:
-                logger.warn("User exists multiple times in domino: %r " % user)
-        except KeyError:
+        if user in userdict:
+            logger.warn("User exists multiple times in domino: %r " % user)
+        else:
             userdict[user] = fullname
     sock.close()
+    logger.info("Got %d users from notes" % len(userdict))
     return userdict
 
 
 def compare_users(notesdata, cerebrumdata):
-    sock = NotesUtils.SocketCom()
+    """
+    Compare accounts from Notes and Cerebrum
 
+    @param notesdata: uname -> name and OU info 
+    @type  notesdata: dict 
+    @param cerebrumdata: 
+    @type  cerebrumdata: list of dicts with keys: uname, fullname,
+             account_id, ou_path, person_id
+    @rtype: None
+    """
+    
+    sock = NotesUtils.SocketCom()
     for user in cerebrumdata:
         if user['uname'] not in notesdata:
             # The user exists only in Cerebrum.
             logger.info("New user: " + user['uname'])
-            create_notes_user(sock, user['uname'])
+            create_notes_user(sock, user)
         else:
             notes_name, notes_ou_path = notesdata[user['uname']].split('/', 1)
             cere_ou_path = "%s/UIO" % user['ou_path'].upper()
@@ -128,7 +170,11 @@ def compare_users(notesdata, cerebrumdata):
             # Everything is OK or taken care of
             del notesdata[user['uname']]
     # The remaining entries in notesdata should not exist in Notes
-    delete_notes_users(sock, notesdata)
+    ##
+    ## TODO: Notes-dift vil ikke slette brukere inntil ting er testet
+    ## bedre. Kommenterer ut inntil videre.
+    ##
+    # delete_notes_users(sock, notesdata)
     sock.close()
 
 
@@ -137,15 +183,22 @@ class NotesException(Exception):
 
 
 def notes_cmd(sock, cmd, dryrun=False):
-    """Sends cmd over socket and reads response.  If the response code
-    is not 2xx, throw an exception.  The response is returned as a
-    tuple consisting of the response code and an array of the lines.
+    """Sends cmd over socket and reads response. If the response code
+    is not 2xx, throw an exception. Just print command and return
+    success if dryrun mode.
 
+    @param sock: Connection to Notes server
+    @type  sock: NotesUtils.SocketCom instance
+    @param cmd: Command to send to Notes server
+    @type  cmd: str, tuple or list
+    @rtype: tuple
+    @return: The response is returned as a tuple consisting of the
+    response code and an array of the lines.
     """
     if dryrun:
         logger.debug("Notes command: '%s'", cmd)
         return ("200", ["dryrun mode"])
-
+    
     if isinstance(cmd, (list, tuple)):
         cmd = "&".join(cmd)
     sock.send(cmd + "\n")
@@ -158,21 +211,53 @@ def notes_cmd(sock, cmd, dryrun=False):
     if resp_code[0] != '2':
         raise NotesException("Notes cmd '%s' returned %s (%s)" %
                              (cmd, resp_code, line))
+    logger.debug("Response from Notes server: " + str(line))
     return resp_code, lines
 
 
-def delete_notes_users(sock, usernames):
+def delete_notes_users(sock, usernames, status='Splatt'):
+    """
+    Delete the given notes users.  must be one of the
+    alternatives defined in the communication protocol.
+    
+    @param sock: Connection to Notes server
+    @type  sock: NotesUtils.SocketCom instance
+    @param usernames: list of usernames which should be deleted.
+    @type  usernames: list
+    @param status: must be one of the alternatives defined in the
+    communication protocol
+    @type  : str
+    """
     cmd = ['DELUNDELUSR',
            'ShortName', None,
-           'Status', 'Delete']
+           'Status', status]
     for user in usernames:
         logger.info('Deleting user: ' + user)
         cmd[2] = user
         notes_cmd(sock, cmd, dryrun=dryrun)
 
 
-def create_notes_user(sock, username):
-    notes_cmd(sock, ("CREATEUSR", "ShortName", username), dryrun=dryrun)
+def create_notes_user(sock, user):
+    """
+    Try to create the given account.
+
+    @param sock: Connection to Notes server
+    @type  sock: NotesUtils.SocketCom instance
+    @param user: account dict with the keys: uname, fullname,
+             account_id, ou_path, person_id
+    @type  user: dict
+    """
+    fname, lname = split_name(user['fullname'])
+    cmd = ["CREATEUSR", "ShortName", user['uname'],
+           "FirstName", fname, "LastName", lname]
+    # map ou_path to Notes format
+    ous = user['ou_path'].split("/")
+    ous.reverse()
+    i = 1
+    for ou in ous:
+        cmd.extend(["OU%d" % i, ou])
+        i += 1
+    notes_cmd(sock, cmd, dryrun=dryrun)
 
 
 def split_name(name):
@@ -182,6 +267,15 @@ def split_name(name):
 
 
 def rename_notes_user(sock, user):
+    """
+    Try to change name for the given account.
+
+    @param sock: Connection to Notes server
+    @type  sock: NotesUtils.SocketCom instance
+    @param user: account dict with the keys: uname, fullname,
+             account_id, ou_path, person_id
+    @type  user: dict
+    """
     fname, lname = split_name(user['fullname'])
     cmd = ['RENAMEUSR',
            'ShortName', user['uname'],
@@ -191,18 +285,30 @@ def rename_notes_user(sock, user):
 
 
 def move_notes_user(sock, user):
+    """
+    Try to alter OU for the given account.
+
+    @param sock: Connection to Notes server
+    @type  sock: NotesUtils.SocketCom instance
+    @param user: account dict with the keys: uname, fullname,
+             account_id, ou_path, person_id
+    @type  user: dict
+    """
     ous = user['ou_path'].split("/")
     ous.reverse()
     cmd = ['MOVEUSR',
            'ShortName', user['uname']]
     i = 1
     for ou in ous:
-        cmd.extend(("OU%d" % i, ou))
+        cmd.extend(["OU%d" % i, ou])
         i += 1
     notes_cmd(sock, cmd, dryrun=dryrun)
 
 
 def full_sync():
+    """
+    Run full Cerebrum -> Notes sync.
+    """
     notesdata = read_from_notes()
     cerebrumdata = fetch_cerebrum_data("Notes_user")
     logger.info("Fetched %i users" % len(cerebrumdata))
@@ -227,7 +333,9 @@ def main():
             do_full = True
     if not do_full:
         usage()
+
     full_sync()
+
 
 def usage(exitcode=64):
     print """Usage: [options]
@@ -237,6 +345,7 @@ def usage(exitcode=64):
     --logger-level  Which debug level to use
     """
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
