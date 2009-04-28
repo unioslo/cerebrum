@@ -159,7 +159,7 @@ class AccountOfkMixin (Account.Account):
 
         return ret
 
-     def delete_spread(self, spread):
+    def delete_spread(self, spread):
         #
         # Pre-remove checks
         #
