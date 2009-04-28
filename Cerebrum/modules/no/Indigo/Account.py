@@ -60,7 +60,7 @@ class AccountIndigoMixin(Account.Account):
                 return True
         return False
 
-        def is_employee(self, uname):
+    def is_employee(self, uname):
         db = Factory.get('Database')()
         person = Factory.get('Person')(db)
         account = Factory.get('Account')(db)
@@ -144,11 +144,11 @@ class AccountGiskeEmailMixin(Account.Account):
 
 
 class AccountOfkMixin (Account.Account):
+
     def add_spread(self, spread):
         #
         # Pre-add checks
         #
-        spreads = [int(r['spread']) for r in self.get_spread()]
         if spread == self.const.spread_ad_acc:
             self._autopick_homeMDB()
         #
@@ -242,8 +242,6 @@ class AccountOfkMixin (Account.Account):
                 mdb_choice, least_used_mdb = m, m_weight
         if mdb_choice is None:
         raise CerebrumError("Cannot assign mdb")
-        
-        return mdb_choice
         
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
