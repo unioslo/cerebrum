@@ -155,6 +155,10 @@ NIS_SPREADS = ()
 # become a posix-user
 POSIX_SPREAD_CODES = ()
 
+# if an account is given spread to a spesific target system, try to synchronize 
+# group memberships in that system (used by bofhd)
+GROUP_SYNC_SPREADS = ()
+
 # Spreads that are legal for entries in account_home
 HOME_SPREADS = ()
 
@@ -225,7 +229,16 @@ AD_DEFAULT_SYNC = ''
 AD_ACCOUNT_SPREADS = None
 AD_TRAIT_TYPES = None
 AD_DOMAIN_ADMIN_USER = 'cerebrum'
-
+# Exchange-related variables
+# list all valid homeMDBs for the given instance, max nr og users per MDB as follows:
+# EXCHANGE_HOMEMDB_VALID = {'homeMDB01': 200,
+#                           'homeMDB02': 800,
+#                           ...}
+EXCHANGE_HOMEMDB_VALID = {}
+# list homeMDBs per affiliation as follows:
+# EXCHANGE_HOMEMDB = {'ANSATT': (homeMDB01, homeMDB02...),
+#                     'MANUELL': (homeMDB03, homeMDB04...)}
+EXCHANGE_HOMEMDB_PER_AFFILIATION = {}
 # Novell eDirectory settings.
 NW_LDAPHOST = 'www.nldap.com'
 NW_LDAPPORT = 389
