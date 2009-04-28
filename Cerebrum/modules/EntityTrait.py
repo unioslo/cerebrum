@@ -298,7 +298,6 @@ class EntityTrait(Entity):
         if conditions:
             where = "WHERE " + " AND ".join(conditions)
 
-        # Return everything but entity_type, which is implied by code
         return self.query("""
         SELECT t.entity_id, t.entity_type, t.code, t.target_id,
                t.date, t.numval, t.strval %s
