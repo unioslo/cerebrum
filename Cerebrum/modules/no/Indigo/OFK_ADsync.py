@@ -138,30 +138,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 except Errors.NotFoundError:
                     continue
 
-                #For testing mot OFK AD foer exchange_mdb trait er klart:
-                user_MDB = "OFKEXDB01"
-                v['homeMDB'] = "CN=%s,CN=SG_%s,%s" % (user_MDB, user_MDB,
-                                                      cereconf.AD_EX_MDB_SERVER)
-
-                #mdb_trait = self.ac.get_trait(self.co.trait_exchange_mdb)
-                #if mdb_trait['exchange_mdb']:
-                #    v['homeMDB'] = "CN=%s,CN=SG_%s,%s" % (mdb_trait['exchange_mdb'],
-                #                                          mdb_trait['exchange_mdb'],
-                #                                          cereconf.AD_EX_MDB_SERVER)
-                #else:
-                #    v['homeMDB'] = ""
-                #    self.logger.warning("Error getting homeMDB"
-                #                        " for accountid: %i" % int(k))  
-
-                #For aa ha en gyldig mailbox store paa testmiljoet:
-                #v['homeMDB'] = ("CN=Mailbox Database,CN=First Storage Group,"
-                #                "CN=InformationStore,CN=CB-EX-SIS-TEST,"
-                #                "CN=Servers,CN=Exchange Administrative Group "
-                #                "(FYDIBOHF23SPDLT),CN=Administrative Groups,"
-                #                "CN=cb-sis-test,CN=Microsoft Exchange,"
-                #                "CN=Services,CN=Configuration,DC=cb-sis-test,"
-                #                "DC=intern")
-                
+                mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
+                if mdb_trait["strval"]:
+                    v['homeMDB'] = "CN=%s,CN=SG_%s,%s" % (mdb_trait["strval"],
+                                                          mdb_trait["strval"],
+                                                          cereconf.AD_EX_MDB_SERVER)
+                else:
+                    v['homeMDB'] = ""
+                    self.logger.error("Error getting homeMDB"
+                                      " for account %s (id: %i)" % (v['TEMPuname'],int(k)))  
 
     
     def _update_contact_info(self, user_dict):
