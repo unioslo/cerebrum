@@ -239,7 +239,7 @@ class AccountOfkMixin (Account.Account):
                                                         strval=candidate, fetchall=True))
         mdb_choice, smallest_mdb_weight = None, 1.0
         for m in mdb_candidates:
-            m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[mdb_choice]
+            m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[m]
             if m_weight < smallest_mdb_weight:
                 mdb_choice, least_used_mdb = m, m_weight
         if mdb_choice is None:
