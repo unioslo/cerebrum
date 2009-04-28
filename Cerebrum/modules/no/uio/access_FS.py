@@ -102,11 +102,10 @@ class UiOStudent(access_FS.Student):
            p.fodselsdato=sps.fodselsdato AND
            p.personnr=sps.personnr AND
            %s
-           (NVL(sps.dato_beregnet_slutt, sysdate) >= SYSDATE OR
-           NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
+           NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
            sps.status_privatist='N' AND
            sps.studieprogramkode=sp.studieprogramkode AND
-           sp.studienivakode >= 900 AND
+           sp.studienivakode in (900,980) AND
            %s""" % (extra, self._is_alive())
         return self.db.query(qry, locals())
 

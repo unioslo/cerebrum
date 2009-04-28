@@ -601,12 +601,11 @@ class Student(FSObject):
               p.personnr = sps.personnr AND
               p.fodselsdato = s.fodselsdato AND
               p.personnr = s.personnr AND
-              (NVL(sps.dato_beregnet_slutt, sysdate) >= SYSDATE OR
-              NVL(sps.dato_planlagt_slutt, sysdate) >= SYSDATE) AND
               NVL(sps.dato_studierett_gyldig_til, sysdate) >= SYSDATE AND
+              sps.status_privatist='N' AND
               sps.studieprogramkode = sp.studieprogramkode AND
               %s AND
-              sp.studienivakode >= 900""" % self._is_alive()
+              sp.studienivakode in (900,980)""" % self._is_alive()
         return self.db.query(qry)
 
     def list_privatist(self):
