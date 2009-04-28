@@ -157,6 +157,10 @@ class Constants(Constants.Constants):
     contact_private_mobile = _ContactInfoCode('PRIVATEMOBILE', 'PRIVATEMOBILE')
     contact_private_email = _ContactInfoCode('PRIVATEEMAIL', 'PRIVATEEMAIL')
 
+## Mail traits
+    trait_homedb_info = _EntityTraitCode(
+        'homeMDB', Constants.Constants.entity_account,
+        'Register Exchange homeMDB for e-mail accounts')
 ## Group traits
     trait_group_imported = _EntityTraitCode(
         'imported_group', Constants.Constants.entity_group,
