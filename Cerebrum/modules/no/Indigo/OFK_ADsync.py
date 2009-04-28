@@ -1081,50 +1081,54 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                            self.group.list_names(self.co.group_namespace)])    
 
         for grp in cerebrum_dict:
-            grp_name = grp.replace(cereconf.AD_GROUP_PREFIX,"")
-            grp_id = cerebrum_dict[grp]['grp_id']
-            self.logger.debug("Sync group %s" % grp_name)
+            if cerebrum_dict[grp].has_key('grp_id'):
+                grp_name = grp.replace(cereconf.AD_GROUP_PREFIX,"")
+                grp_id = cerebrum_dict[grp]['grp_id']
+                self.logger.debug("Sync group %s" % grp_name)
 
-            #TODO: How to treat quarantined users???, some exist in AD, 
-            #others do not. They generate errors when not in AD. We still
-            #want to update group membership if in AD.
-            members = list()
-            for usr in (self.group.search_members(
-                    group_id=grp_id, member_spread=
-                    int(self.co.Spread(user_spread)))):
-                user_id = usr["member_id"]
-                if user_id not in entity2name:
-                    self.logger.debug("Missing name for account id=%s", user_id)
-                    continue
-                members.append(entity2name[user_id])
-                self.logger.debug2("Try to sync member account id=%s, name=%s",
-                                   user_id, entity2name[user_id])
+                #TODO: How to treat quarantined users???, some exist in AD, 
+                #others do not. They generate errors when not in AD. We still
+                #want to update group membership if in AD.
+                members = list()
+                for usr in (self.group.search_members(
+                        group_id=grp_id, member_spread=
+                        int(self.co.Spread(user_spread)))):
+                    user_id = usr["member_id"]
+                    if user_id not in entity2name:
+                        self.logger.debug("Missing name for account id=%s", user_id)
+                        continue
+                    members.append(entity2name[user_id])
+                    self.logger.debug2("Try to sync member account id=%s, name=%s",
+                                       user_id, entity2name[user_id])
 
-            for grp in (self.group.search_members(
-                    group_id=grp_id,member_spread=int(
-                        self.co.Spread(group_spread)))):
-                group_id = grp["member_id"]
-                if group_id not in entity2name:
-                    self.logger.debug("Missing name for group id=%s", group_id)
-                    continue
-                members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
-                                         entity2name[group_id]))            
-                self.logger.debug2("Try to sync member group id=%s, name=%s",
-                                   group_id, entity2name[group_id])
-                
-            dn = self.server.findObject('%s%s' %
-                                        (cereconf.AD_GROUP_PREFIX,grp_name))
-            if not dn:
-                self.logger.debug("unknown group: %s%s",
-                                  cereconf.AD_GROUP_PREFIX,grp_name)
-            elif dry_run:
-                self.logger.debug("Dryrun: don't sync members")
+                for grp in (self.group.search_members(
+                        group_id=grp_id,member_spread=int(
+                            self.co.Spread(group_spread)))):
+                    group_id = grp["member_id"]
+                    if group_id not in entity2name:
+                        self.logger.debug("Missing name for group id=%s", group_id)
+                        continue
+                    members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
+                                             entity2name[group_id]))            
+                    self.logger.debug2("Try to sync member group id=%s, name=%s",
+                                       group_id, entity2name[group_id])
+
+                dn = self.server.findObject('%s%s' %
+                                            (cereconf.AD_GROUP_PREFIX,grp_name))
+                if not dn:
+                    self.logger.debug("unknown group: %s%s",
+                                      cereconf.AD_GROUP_PREFIX,grp_name)
+                elif dry_run:
+                    self.logger.debug("Dryrun: don't sync members")
+                else:
+                    self.server.bindObject(dn)
+                    res = self.server.syncMembers(members, False, False)
+                    if not res[0]:
+                        self.logger.warning("syncMembers %s failed for:%r" %
+                                          (dn, res[1:]))
             else:
-                self.server.bindObject(dn)
-                res = self.server.syncMembers(members, False, False)
-                if not res[0]:
-                    self.logger.warning("syncMembers %s failed for:%r" %
-                                      (dn, res[1:]))
+                self.logger.warning("Group %s has no group_id. Not syncing members." %
+                                          (grp))
              
   
 
