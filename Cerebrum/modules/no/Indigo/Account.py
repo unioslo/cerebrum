@@ -40,7 +40,27 @@ class AccountIndigoMixin(Account.Account):
     Cerebrum.Utils.Factory.get() provide functionality that reflects
     the policies as stated by the Indigo-project.
     """
-    def is_employee(self, uname):
+
+    def is_affiliate(self, uname):
+        db = Factory.get('Database')()
+        person = Factory.get('Person')(db)
+        account = Factory.get('Account')(db)
+        account.clear()
+        try:
+            account.find_by_name(uname)
+        except Errors.NotFoundError:
+            return False
+        person.clear()
+        try:
+            person.find(account.owner_id)
+        except Errors.NotFoundError:
+            return False
+        for r in person.get_affiliations():
+            if r['affiliation'] == self.const.affiliation_tilknyttet:
+                return True
+        return False
+
+        def is_employee(self, uname):
         db = Factory.get('Database')()
         person = Factory.get('Person')(db)
         account = Factory.get('Account')(db)
@@ -124,6 +144,19 @@ class AccountGiskeEmailMixin(Account.Account):
 
 
 class AccountOfkMixin (Account.Account):
+    def add_spread(self, spread):
+        #
+        # Pre-add checks
+        #
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        if spread == self.const.spread_ad_acc:
+            self._autopick_homeMDB()
+        #
+        # (Try to) perform the actual spread addition.
+        ret = self.__super.add_spread(spread)
+
+        return ret
+    
     def make_passwd(self, uname):
         pot = string.ascii_letters + string.digits
         count = 0
@@ -191,6 +224,27 @@ class AccountOfkMixin (Account.Account):
                 
         return potuname
 
+    def _autopick_homeMDB(self):
+        affiliation = 'ELEV'
+        if self.is_employee():
+            affiliation = 'ANSATT'
+        elif self.is_affiliate():
+            affiliation = 'TILKNYTTET'
+        mdb_candidates = set(cereconf.EXCHANGE_HOMEMDB_PER_AFFILIATION[affiliation])
+        mdb_count = dict()
+        for candidate in mdb_candidates:
+            mdb_count[candidate] = len(self.list_trait(code=self.const.trait_homedb_info,
+                                                       strval=candidate))
+        mdb_choice, smallest_mdb_weight = None, 1.0
+        for m in mdb_candidates:
+            m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[mdb_choice]
+            if m_weight < smallest_mdb_weight:
+                mdb_choice, least_used_mdb = m, m_weight
+        if mdb_choice is None:
+        raise CerebrumError("Cannot assign mdb")
+        
+        return mdb_choice
+        
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
         # account.
