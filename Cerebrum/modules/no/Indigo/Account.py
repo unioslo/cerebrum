@@ -236,7 +236,7 @@ class AccountOfkMixin (Account.Account):
         mdb_count = dict()
         for candidate in mdb_candidates:
             mdb_count[candidate] = len(self.list_traits(code=self.const.trait_homedb_info,
-                                                        strval=candidate))
+                                                        strval=candidate, fetchall=True))
         mdb_choice, smallest_mdb_weight = None, 1.0
         for m in mdb_candidates:
             m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[mdb_choice]
