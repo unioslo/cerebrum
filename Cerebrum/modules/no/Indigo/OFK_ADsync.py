@@ -739,22 +739,24 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         #
         # Assign OU to groups based on entity_traits
         #
-##         for k, v in grp_dict.iteritems():
-##             self.group.clear()
-##             try:
-##                 self.group.find(v['grp_id'])
-##             except Errors.NotFoundError:
-##                 continue
-##             if self.group.get_trait(self.co.trait_shdw_undv):
-##                 v['OU'] = "OU=UNDV,OU=Groups,%s" % self.ad_ldap
-##             elif self.group.get_trait(self.co.trait_shdw_kls):
-##                 v['OU'] = "OU=BASIS,OU=Groups,%s" % self.ad_ldap
-##             elif self.group.get_trait(self.co.trait_auto_aff):
-##                 v['OU'] = "OU=VIRK,OU=Groups,%s" % self.ad_ldap
-##             else:
-##                 self.logger.warning("Error getting group type"
-##                                     " for group: %s" % k)        
-
+        for k, v in grp_dict.items():
+            self.group.clear()
+            try:
+                self.group.find(v['grp_id'])
+            except Errors.NotFoundError:
+                continue
+            if self.group.get_trait(self.co.trait_shdw_undv):
+                v['OU'] = "OU=UNDV,OU=Groups,%s" % self.ad_ldap
+            elif self.group.get_trait(self.co.trait_shdw_kls):
+                v['OU'] = "OU=BASIS,OU=Groups,%s" % self.ad_ldap
+            elif self.group.get_trait(self.co.trait_auto_aff):
+                v['OU'] = "OU=VIRK,OU=Groups,%s" % self.ad_ldap
+            else:
+                del grp_dict[k]
+                self.logger.warning("Error getting group type for group: "
+                                    "%s (id:%s). Not syncing this group"
+                                    % (k,v['grp_id']))        
+                
         return grp_dict
         
     
@@ -936,7 +938,6 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = grp
                 del changes['grp_id']
-                del changes['OU']
                 changelist.append(changes)
             
         return changelist
@@ -1012,6 +1013,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             if store_sid:
                 self.write_sid('group',chg['sAMAccountName'],ret[2], dry_run)
             del chg['type']
+            del chg['OU']
             gname = ''
             if chg.has_key('distinguishedName'):
                 del chg['distinguishedName']
