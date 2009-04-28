@@ -151,7 +151,7 @@ class AccountOfkMixin (Account.Account):
         #
         if spread == self.const.spread_ad_acc:
             mdb = self._autopick_homeMDB()
-            self.populate_trait(selc.const.trait_homedb_info, strval=mdb)
+            self.populate_trait(self.const.trait_homedb_info, strval=mdb)
             self.write_db()
         #
         # (Try to) perform the actual spread addition.
