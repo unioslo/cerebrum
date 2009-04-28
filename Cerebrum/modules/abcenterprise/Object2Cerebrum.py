@@ -301,7 +301,7 @@ class Object2Cerebrum(object):
         # Access Entity objects directly.
         from Cerebrum.Entity import EntitySpread
         es = EntitySpread(self.db)
-        for row in es.list_all_with_spread(abcconf.TAG_REWRITE.values()):
+        for row in es.list_all_with_spread([int(s) for s in abcconf.TAG_REWRITE.values()]):
             if self._spreads.has_key(int(row['entity_id'])):
                 # Entity found, check spreads in database
                 if not int(row['spread']) in self._spreads[int(row['entity_id'])]:
