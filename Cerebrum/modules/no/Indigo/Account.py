@@ -150,7 +150,9 @@ class AccountOfkMixin (Account.Account):
         # Pre-add checks
         #
         if spread == self.const.spread_ad_acc:
-            self._autopick_homeMDB()
+            mdb = self._autopick_homeMDB()
+            self.populate_trait(selc.const.trait_homedb_info, strval=mdb)
+            self.write_db()
         #
         # (Try to) perform the actual spread addition.
         ret = self.__super.add_spread(spread)
@@ -241,7 +243,9 @@ class AccountOfkMixin (Account.Account):
             if m_weight < smallest_mdb_weight:
                 mdb_choice, least_used_mdb = m, m_weight
         if mdb_choice is None:
-        raise CerebrumError("Cannot assign mdb")
+            raise CerebrumError("Cannot assign mdb")
+        return mdb_choice
+    
         
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
