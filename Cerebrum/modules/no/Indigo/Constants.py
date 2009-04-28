@@ -103,6 +103,9 @@ class Constants(Constants.Constants):
                                  'Gruppen brukes av LMS-et.')
     spread_lms_per = _SpreadCode('person@lms', Constants.Constants.entity_person,
                                  'Person kjent i organisasjonens LMS')
+    spread_lms_ou  = _SpreadCode('ou@lms', Constants.Constants.entity_ou,
+                                 'Eksportere OU til LMS (f.eks. Classfronter).')
+
     ## OID
     spread_oid_acc = _SpreadCode('account@oid', Constants.Constants.entity_account,
                                  'Brukeren kan logge inn på webportalen (OCS).')
