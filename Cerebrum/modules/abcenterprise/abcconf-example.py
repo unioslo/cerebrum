@@ -48,6 +48,7 @@ TYPES={'addresstype'  : (("organization", "Postal", "ADDR_ORG_POSTAL"),
                          ("person", "Homephone", "CONT_PERS_HOMEPHONE"),
                          ("person", "Officephone", "CONT_PERS_OFFICEPHONE"),
                          ("person", "Mobile", "CONT_PERS_MOBIL"),),
+       'tagtype'      : (("ou", "visibility", "ADD_SPREAD"),),
        'orgidtype'    : (("Orgnr", "ORG_ID_ORGID"),),
        'orgnametype'  : (("Akronym", "ORG_NAME_ACRONYM"),
                          ("Navn", "ORG_NAME_NAME"),),
@@ -144,11 +145,19 @@ RELATIONS={'ou' : {'person' : {'Employee' : ('affiliation',
                                   }
                       }
            }
-
+# Person affiliations have a status. Map this here.
 AFF_STATUS={ co.affiliation_elev : co.affiliation_status_elev_ektiv,
              co.affiliation_ansatt : co.affiliation_status_ansatt_tekadm
              }
 
+# When inspecting the content of a 'tag' element, the following
+# rewrite rule shold be followed. Remove TAG_REWRITE from the config
+# fileif you don't want the functionality.
+TAG_REWRITE={ 'AD' : co.spread_ad_ou,
+              'Feide' : co.spread_ou_publishable,
+              'Fronter' : co.spread_lms_ou,
+              'OID' : co.spread_oid_ou
+            }
 
 
 # Example XML for this config:
