@@ -132,7 +132,9 @@ def read_from_notes():
         if user in userdict:
             logger.warn("User exists multiple times in domino: %r " % user)
         else:
-            userdict[user] = fullname
+            if fullname.startswith('CN='):
+                fullname = fullname[3:]
+            userdict[user] = fullname.strip()
     sock.close()
     logger.info("Got %d users from notes" % len(userdict))
     return userdict
