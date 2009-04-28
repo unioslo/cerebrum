@@ -105,12 +105,13 @@ class Constants(Constants.Constants):
                                  'Person kjent i organisasjonens LMS')
     spread_lms_ou  = _SpreadCode('ou@lms', Constants.Constants.entity_ou,
                                  'Eksportere OU til LMS (f.eks. Classfronter).')
-
     ## OID
     spread_oid_acc = _SpreadCode('account@oid', Constants.Constants.entity_account,
                                  'Brukeren kan logge inn på webportalen (OCS).')
     spread_oid_grp = _SpreadCode('group@oid', Constants.Constants.entity_group,
                                  'Gruppen brukes av webportalen (OCS).')
+    spread_oid_ou  = _SpreadCode('ou@oid', Constants.Constants.entity_ou,
+                                 'OU-en skal eksporteres til OID.')
     ## LDAP
     spread_ldap_per = _SpreadCode('person@ldap', Constants.Constants.entity_person,
                                   'Brukeren kan benytte seg av FEIDE-innlogging.')
