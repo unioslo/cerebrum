@@ -190,8 +190,8 @@ class AccountHiAMixin(Account.Account):
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
         if self.is_employee() or self.is_affiliate():
-            server_name = 'exchkrs01.uia.no'
-#            server_name = 'mail-imap1'
+            #server_name = 'exchkrs01.uia.no'
+            server_name = 'mail-imap1'
         else:
             server_name = 'mail-imap2'
         es.find_by_name(server_name)
