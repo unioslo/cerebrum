@@ -193,11 +193,11 @@ class DataEmployment(object):
 
 
     def is_active(self, date = Date(*time.localtime()[:3])):
-        # IVR 2009-02-16 jazz requested on 2009-02-16 that all
-        # employment-related info should be considered active 3 days prior to
-        # the actual start day.
+        # IVR 2009-04-29 Lars Gustav Gudbrandsen requested on 2009-04-22 that
+        # all employment-related info should be considered active 14 days
+        # prior to the actual start day. 
         if self.start:
-            return ((self.start - DateTimeDelta(3) <= date) and
+            return ((self.start - DateTimeDelta(14) <= date) and
                     ((not self.end) or (date <= self.end)))
 
         return ((not self.end) or (date <= self.end))
