@@ -23,8 +23,9 @@ import random
 import string
 import sys
 import os
-
 import re
+import time
+
 import cereconf
 from mx import DateTime
 from Cerebrum import Account
