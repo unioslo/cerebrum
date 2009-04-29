@@ -64,7 +64,7 @@ class AccountHiAMixin(Account.Account):
         mdb_candidates = set(cereconf.EXCHANGE_HOMEMDB_VALID.keys())
         mdb_count = dict()
         for candidate in mdb_candidates:
-            mdb_count[candidate] = len(self.list_traits(code=self.const.trait_homedb_info,
+            mdb_count[candidate] = len(self.list_traits(code=self.const.trait_exchange_mdb,
                                                         strval=candidate, fetchall=True))
         mdb_choice, smallest_mdb_weight = None, 1.0
         for m in mdb_candidates:
