@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004, 2005 University of Oslo, Norway
+# Copyright 2004, 2005, 2006, 2007, 2008, 2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -27,6 +27,54 @@ from Cerebrum import Errors
 from Cerebrum.modules import PasswordHistory
 
 class AccountHiAMixin(Account.Account):
+    def add_spread(self, spread):
+        if spread == self.const.spread_nis_user or spread == self.const.spread_ans_nis_user:
+            if self.illegal_name(self.account_name):
+                raise self._db.IntegrityError, \
+                      "Can't add NIS spread to an account with illegal name."
+            
+        if spread == self.const.spread_exchange_account:
+            if not self.has_spread(self.const.spread_hia_ad_account):
+                self.add_spread(self.const.spread_hia_ad_account)
+            mdb = self._autopick_homeMDB()
+            self.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
+            self.write_db()
+        #
+        # (Try to) perform the actual spread addition.
+        ret = self.__super.add_spread(spread)
+
+        return ret
+
+    def delete_spread(self, spread):
+        #
+        # Pre-remove checks
+        #
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        if not spread in spreads:  # user doesn't have this spread
+            return
+        if spread == self.const.spread_exchange_account:
+            self.delete_trait(self.const.trait_exchange_mdb)
+            self.write_db()
+
+        # (Try to) perform the actual spread removal.
+        ret = self.__super.delete_spread(spread)
+        return ret
+
+    def _autopick_homeMDB(self):
+        mdb_candidates = set(cereconf.EXCHANGE_HOMEMDB_VALID.keys())
+        mdb_count = dict()
+        for candidate in mdb_candidates:
+            mdb_count[candidate] = len(self.list_traits(code=self.const.trait_homedb_info,
+                                                        strval=candidate, fetchall=True))
+        mdb_choice, smallest_mdb_weight = None, 1.0
+        for m in mdb_candidates:
+            m_weight = (mdb_count.get(m, 0)*1.0)/cereconf.EXCHANGE_HOMEMDB_VALID[m]
+            if m_weight < smallest_mdb_weight:
+                mdb_choice, smallest_mdb_weight = m, m_weight
+        if mdb_choice is None:
+            raise CerebrumError("Cannot assign mdb")
+        return mdb_choice
+    
     def update_email_addresses(self, set_primary = False):
         # Find, create or update a proper EmailTarget for this
         # account.
@@ -142,7 +190,8 @@ class AccountHiAMixin(Account.Account):
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
         if self.is_employee() or self.is_affiliate():
-            server_name = 'mail-imap1'
+            server_name = 'exchkrs01.uia.no'
+#            server_name = 'mail-imap1'
         else:
             server_name = 'mail-imap2'
         es.find_by_name(server_name)
