@@ -453,7 +453,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             self.logger.warning("create user %s failed: %r",
                                 chg['sAMAccountName'], ret)
         else:
-            self.logger.info("created user %s" % ret)
+            if not dry_run:
+                self.logger.info("created user %s" % ret)
             if store_sid:
                 self.store_sid('account',chg['sAMAccountName'],ret[2],dry_run)
             pw = unicode(self.ac.make_passwd(chg['sAMAccountName']),
