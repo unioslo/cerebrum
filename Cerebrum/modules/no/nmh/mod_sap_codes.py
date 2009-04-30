@@ -132,6 +132,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1113_prosjektleder = SAPLonnsTittelKode(
+        "20001113",
+        "1113 Prosjektleder",
+        "ØVR"
+    )
+
     sap_1136_driftstekniker = SAPLonnsTittelKode(
         "20001136",
         "1136 Driftstekniker",
