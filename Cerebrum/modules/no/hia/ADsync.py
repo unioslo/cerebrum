@@ -563,13 +563,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                                                                 
                                 if Mchange:
                                     changes[attr] = cerebrumusrs[usr][attr]
-                                    if attr in cereconf.AD_EXCHANGE_RELATED_ATTRIBUTES:
-                                        exch_users.append(usr)
+
                             else:
                                 if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
                                     changes[attr] = cerebrumusrs[usr][attr]
-                                    if attr in cereconf.AD_EXCHANGE_RELATED_ATTRIBUTES:
-                                        exch_users.append(usr)
+
                         else:
                             if cerebrumusrs[usr].has_key(attr):
                                 # A blank value in cerebrum and <not
@@ -660,6 +658,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             #Finished processing user, register changes if any.
             if len(changes):
                 changelist.append(changes)
+                exchange_change = False
+                for attribute in changes:
+                    if attribute in cereconf.AD_EXCHANGE_RELATED_ATTRIBUTES:
+                        exchange_change = True
+                if exchange_change:
+                    exch_users.append(usr)
 
         #The remaining items in cerebrumusrs is not in AD, create user.
         for cusr, cdta in cerebrumusrs.items():
@@ -669,7 +673,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 #Quarantined, do not create.
                 pass    
             else:
-                exch_users.append(usr)
+                exch_users.append(cusr)
                 #New user, create.
                 changes = cdta
                 changes['type'] = 'create_object'
