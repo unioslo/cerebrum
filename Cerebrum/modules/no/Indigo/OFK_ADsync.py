@@ -436,7 +436,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
 
     
-    def compare(self, delete_users, cerebrumusrs, adusrs):
+    def compare(self, delete_users, cerebrumusrs, adusrs, exch_users):
         """
         Check if any values for account need be updated in AD
 
@@ -510,9 +510,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                                                                 
                                 if Mchange:
                                     changes[attr] = cerebrumusrs[usr][attr]
+                                  
                             else:
                                 if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
-                                    changes[attr] = cerebrumusrs[usr][attr] 
+                                    changes[attr] = cerebrumusrs[usr][attr]
+                                  
                         else:
                             if cerebrumusrs[usr].has_key(attr):
                                 # A blank value in cerebrum and <not
@@ -591,18 +593,25 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             changelist.append(changes)
                             changes = {}
                         #Moving account.
-                            if (adusrs[usr]['distinguishedName'] != 
-                                "CN=%s,OU=%s,%s" % 
-                                (usr, cereconf.AD_LOST_AND_FOUND,self.ad_ldap)):
-                                changes['type'] = 'move_object'
-                                changes['distinguishedName'] =(adusrs[usr]
-                                                               ['distinguishedName'])
-                                changes['OU'] = ("OU=%s,%s" % 
-                                                 (cereconf.AD_LOST_AND_FOUND,self.ad_ldap))
+                        if (adusrs[usr]['distinguishedName'] != 
+                            "CN=%s,OU=%s,%s" % 
+                            (usr, cereconf.AD_LOST_AND_FOUND,self.ad_ldap)):
+                            changes['type'] = 'move_object'
+                            changes['distinguishedName'] =(adusrs[usr]
+                                                           ['distinguishedName'])
+                            changes['OU'] = ("OU=%s,%s" % 
+                                             (cereconf.AD_LOST_AND_FOUND,self.ad_ldap))
 
             #Finished processing user, register changes if any.
             if len(changes):
                 changelist.append(changes)
+                exchange_change = False
+                for attribute in changes:
+                    if attribute in cereconf.AD_EXCHANGE_RELATED_ATTRIBUTES:
+                        exchange_change = True
+                if exchange_change:
+                    exch_users.append(usr)
+                    
 
         #The remaining items in cerebrumusrs is not in AD, create user.
         for cusr, cdta in cerebrumusrs.items():
@@ -610,9 +619,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             #TBD: Should quarantined users be created?
             if cerebrumusrs[cusr]['ACCOUNTDISABLE']:
                 #Quarantined, do not create.
-                pass    
+                pass
             else:
                 #New user, create.
+                exch_users.append(cusr)
                 changes = cdta
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = cusr
@@ -639,16 +649,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Fetched %i ad-users" % len(addump))
                 
         #Getting users that shall have Exchange mailbox
-        exch_users = self.find_Exchange_changes(cerebrumdump, addump)
+        #exch_users = self.find_Exchange_changes(cerebrumdump, addump)
 
         #compare cerebrum and ad-data.
-        changelist = self.compare(delete, cerebrumdump, addump)
+        exch_users = []
+        changelist = self.compare(delete, cerebrumdump, addump, exch_users)
         self.logger.info("Found %i number of changes" % len(changelist))
 
         #Perform changes.
         self.perform_changes(changelist, dry_run, store_sid)
 
         #updating Exchange
+        self.logger.info("Running Update-Recipient against Exchange for %i users", 
+                         len(exch_users))
         for usr in exch_users:
             self.logger.debug("Running Update-Recipient for user '%s'"
                               " against Exchange" % usr)
