@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2007 University of Oslo, Norway
+# Copyright 2003-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -320,7 +320,7 @@ class NISGroupUtil(object):
             f.write('E_O_F\n')
         f.close()
 
-    def _filter_illegal_usernames(self, unames):
+    def _filter_illegal_usernames(self, unames, group_name="?"):
         tmp_users = []
         for uname in unames:
             tmp = posix_user.illegal_name(uname)
@@ -399,7 +399,7 @@ class FileGroup(NISGroupUtil):
             except Errors.NotFoundError:
                 logger.warn("Group %s has no GID", group_id)
                 continue
-            tmp_users = self._filter_illegal_usernames(user_members)
+            tmp_users = self._filter_illegal_usernames(user_members, group_name)
 
             #logger.debug("%s -> g=%s, u=%s" % (
             #    group_id, group_members, tmp_users))
@@ -430,7 +430,7 @@ class UserNetGroup(NISGroupUtil):
             group_spread, member_spread)
 
     def _format_members(self, group_members, user_members, group_name):
-        tmp_users = self._filter_illegal_usernames(user_members)
+        tmp_users = self._filter_illegal_usernames(user_members, group_name)
 
         return " ".join((" ".join(group_members),
                          " ".join(["(,%s,)" % m for m in tmp_users])))
