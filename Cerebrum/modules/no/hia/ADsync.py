@@ -309,9 +309,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         self.logger.debug("..filtering quarantined users..")
         self._filter_quarantines(tmp_ret)
-        self.logger.info("%i accounts with spread %s after filter" 
-                         % (len(tmp_ret),spread))
-
+        
         #
         # Set person names
         #
@@ -597,6 +595,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if len(changes):
                     changes['distinguishedName'] = 'CN=%s,%s' % (usr,ou)
                     changes['type'] = 'alter_object'
+                    exchange_change = False
+                    for attribute in changes:
+                        if attribute in cereconf.AD_EXCHANGE_RELATED_ATTRIBUTES:
+                            exchange_change = True
+                    if exchange_change and (cerebrumusrs[usr]['Exchange']
+                                            or cerebrumusrs[usr]['imap']):
+                        exch_users.append(usr)
 
                 #after processing we delete from array.
                 del cerebrumusrs[usr]
@@ -646,43 +651,33 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             changelist.append(changes)
                             changes = {}
                         #Moving account.
-                            if (adusrs[usr]['distinguishedName'] != 
-                                "CN=%s,OU=%s,%s" % 
-                                (usr, cereconf.AD_LOST_AND_FOUND,self.ad_ldap)):
-                                changes['type'] = 'move_object'
-                                changes['distinguishedName'] =(adusrs[usr]
-                                                               ['distinguishedName'])
-                                changes['OU'] = ("OU=%s,%s" % 
-                                                 (cereconf.AD_LOST_AND_FOUND,self.ad_ldap))
+                        if (adusrs[usr]['distinguishedName'] != 
+                            "CN=%s,OU=%s,%s" % 
+                            (usr, cereconf.AD_LOST_AND_FOUND,self.ad_ldap)):
+                            changes['type'] = 'move_object'
+                            changes['distinguishedName'] =(adusrs[usr]
+                                                           ['distinguishedName'])
+                            changes['OU'] = ("OU=%s,%s" % 
+                                             (cereconf.AD_LOST_AND_FOUND,self.ad_ldap))
 
             #Finished processing user, register changes if any.
-            if len(changes):
+            if changes:
                 changelist.append(changes)
-                exchange_change = False
-                for attribute in changes:
-                    if attribute in cereconf.AD_EXCHANGE_RELATED_ATTRIBUTES:
-                        exchange_change = True
-                if exchange_change:
-                    exch_users.append(usr)
 
         #The remaining items in cerebrumusrs is not in AD, create user.
         for cusr, cdta in cerebrumusrs.items():
             changes={}
-            #TBD: Should quarantined users be created?
-            if cerebrumusrs[cusr]['ACCOUNTDISABLE']:
-                #Quarantined, do not create.
-                pass    
-            else:
+            if cerebrumusrs[cusr]['Exchange'] or cerebrumusrs[cusr]['imap']:
                 exch_users.append(cusr)
-                #New user, create.
-                changes = cdta
-                changes['type'] = 'create_object'
-                changes['sAMAccountName'] = cusr
-                if changes.has_key('Exchange'):
-                    del changes['Exchange']
-                if changes.has_key('imap'):
-                    del changes['imap']
-                changelist.append(changes)
+            #New user, create.
+            changes = cdta
+            changes['type'] = 'create_object'
+            changes['sAMAccountName'] = cusr
+            if changes.has_key('Exchange'):
+                del changes['Exchange']
+            if changes.has_key('imap'):
+                del changes['imap']
+            changelist.append(changes)
                 
         return changelist
 
@@ -726,14 +721,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         exch_users = []
         changelist = self.compare(delete, cerebrumdump, addump, exch_users)
         self.logger.info("Found %i number of changes" % len(changelist))
-        
+        self.logger.info("Will run Update-Recipient against Exchange for %i users", 
+                         len(exch_users))
 
         #Perform changes.
         self.perform_changes(changelist, dry_run, store_sid)
 
         #updating Exchange
-        self.logger.info("Running Update-Recipient against Exchange for %i users", 
-                         len(exch_users))
         for usr in exch_users:
             self.logger.debug("Running Update-Recipient for user '%s'"
                               " against Exchange" % usr)
