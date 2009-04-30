@@ -41,6 +41,12 @@ class SAPConstants(Constants.Constants):
     )
 
     # ----[ SAPLonnsTittelKode ]----------------------------------------
+    sap_1007_hogskolelaerer_ovings = SAPLonnsTittelKode(
+        "20001007",
+        "1007 Høgskolelærer/øvings",
+        "ØVR"
+    )
+
     sap_1009_universitetslektor = SAPLonnsTittelKode(
         "20001009",
         "1009 Universitetslektor",
