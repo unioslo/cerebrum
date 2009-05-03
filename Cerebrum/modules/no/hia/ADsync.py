@@ -37,8 +37,6 @@ from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
 
-import pprint
-
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def _filter_quarantines(self, user_dict):
@@ -164,13 +162,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                       " for account %s (id: %i)" % (v['TEMPuname'],int(k)))  
 
                 #For aa ha en gyldig mailbox store paa testmiljoet:
-                v['homeMDB'] = ("CN=Mailbox Database,CN=First Storage Group,"
-                                "CN=InformationStore,CN=CB-EX-SIS-TEST,"
-                                "CN=Servers,CN=Exchange Administrative Group "
-                                "(FYDIBOHF23SPDLT),CN=Administrative Groups,"
-                                "CN=cb-sis-test,CN=Microsoft Exchange,"
-                                "CN=Services,CN=Configuration,DC=cb-sis-test,"
-                                "DC=intern")
+                #v['homeMDB'] = ("CN=Mailbox Database,CN=First Storage Group,"
+                #                "CN=InformationStore,CN=CB-EX-SIS-TEST,"
+                #                "CN=Servers,CN=Exchange Administrative Group "
+                #                "(FYDIBOHF23SPDLT),CN=Administrative Groups,"
+                #                "CN=cb-sis-test,CN=Microsoft Exchange,"
+                #                "CN=Services,CN=Configuration,DC=cb-sis-test,"
+                #                "DC=intern")
 
                 equota.clear()
                 equota.find_by_target_entity(int(k))
