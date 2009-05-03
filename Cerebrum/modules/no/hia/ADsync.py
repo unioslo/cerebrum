@@ -37,6 +37,7 @@ from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
 
+import pprint
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
@@ -97,10 +98,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @param user_dict: account_id -> account information
         @type user_dict: dict
         """
-        from Cerebrum.modules.Email import EmailDomain, EmailTarget, EmailQuota
+        from Cerebrum.modules.Email import EmailDomain, EmailTarget, EmailQuota, EmailAddress
         etarget = EmailTarget(self.db)
         rewrite = EmailDomain(self.db).rewrite_special_domains
         equota = EmailQuota(self.db)
+        eaddr = EmailAddress(self.db)
 
         #find primary address and set mail attribute
         for row in etarget.list_email_target_primary_addresses(
@@ -115,26 +117,34 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             except TypeError:
                 pass  # Silently ignore
                 
-
-        #TODO: Try-cath for exceptions here?
-        #TODO: A little slow this    
         #Set proxyaddresses attribute
-        for k,v in user_dict.iteritems():
-            if (v['imap'] or v['Exchange']):
-                etarget.clear()
-                etarget.find_by_target_entity(int(k))
-                if not v.has_key('mail'):
-                    v['mail'] = ''
-                v['proxyAddresses'] = []
-                for r in etarget.get_addresses(special=False):
-                    addr = "@".join((r['local_part'], rewrite(r['domain'])))
+        target_id2target_entity_id = {}
+        for row in etarget.list_email_targets_ext():
+            if row['target_entity_id']:
+                target_id2target_entity_id[int(row['target_id'])]= {
+                    'target_ent_id' : int(row['target_entity_id']) }
+
+        for row in eaddr.search(fetchall=True):                
+            if target_id2target_entity_id.has_key(int(row['target_id'])):
+                te_id = target_id2target_entity_id[
+                    int(row['target_id'])]['target_ent_id']
+            else:
+                continue
+            v = user_dict.get(te_id)
+            if not v:
+                continue
+            try:
+                if (v['imap'] or v['Exchange']):
+                    addr= "@".join((row['local_part'], rewrite(row['domain'])))
                     if addr == v['mail']:
                         v['proxyAddresses'].insert(0,("SMTP:" + addr))
                     else:
                         v['proxyAddresses'].append(("smtp:" + addr))
-                        
+            except TypeError:
+                pass  # Silently ignore
 
         #Set homeMDB and Quota-info for Exchange users
+        #TBD: Will probably be slow with many Exchange users..
         for k,v in user_dict.iteritems():
             self.ac.clear()
             if v['Exchange']:
@@ -154,13 +164,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                       " for account %s (id: %i)" % (v['TEMPuname'],int(k)))  
 
                 #For aa ha en gyldig mailbox store paa testmiljoet:
-                #v['homeMDB'] = ("CN=Mailbox Database,CN=First Storage Group,"
-                #                "CN=InformationStore,CN=CB-EX-SIS-TEST,"
-                #                "CN=Servers,CN=Exchange Administrative Group "
-                #                "(FYDIBOHF23SPDLT),CN=Administrative Groups,"
-                #                "CN=cb-sis-test,CN=Microsoft Exchange,"
-                #                "CN=Services,CN=Configuration,DC=cb-sis-test,"
-                #                "DC=intern")
+                v['homeMDB'] = ("CN=Mailbox Database,CN=First Storage Group,"
+                                "CN=InformationStore,CN=CB-EX-SIS-TEST,"
+                                "CN=Servers,CN=Exchange Administrative Group "
+                                "(FYDIBOHF23SPDLT),CN=Administrative Groups,"
+                                "CN=cb-sis-test,CN=Microsoft Exchange,"
+                                "CN=Services,CN=Configuration,DC=cb-sis-test,"
+                                "DC=intern")
 
                 equota.clear()
                 equota.find_by_target_entity(int(k))
@@ -184,6 +194,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['mDBOverQuotaLimit'] = (v['mDBOverHardQuotaLimit'] 
                                           * q_soft // 100)
                 v['mDBStorageQuota'] = v['mDBOverQuotaLimit'] * 90 // 100
+                
 
     
     def _update_contact_info(self, user_dict):
@@ -370,47 +381,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         return ret
 
     
-    def find_Exchange_changes(self, cerebrumusers, adusers):
-        """Check for changes to Exchange values
-
-        Check if any values that is important for Exchange
-        have changed for the account.
-
-        @param cerebrumusers: account_id -> account info mapping
-        @type cerebrumusers: dict
-        @param adusers: account_id -> account info mapping
-        @type adusers: dict
-        @rtype: list
-        @return: a list over users with changes i the Exchange values
-        """
-        exch_user = []
-        for usr, dta in cerebrumusers.iteritems():
-            exch_change = False
-            if (cerebrumusers[usr]['Exchange'] or cerebrumusers[usr]['imap']):
-                if adusers.has_key(usr):
-                #User is both places, we want to compare for changes
-                    for mail_attr in cereconf.AD_EXCHANGE_RELATED_ATTRIBUTES:
-                        if adusers[usr].has_key(mail_attr) and cerebrumusers[usr].has_key(mail_attr):
-                            if (cerebrumusers[usr][mail_attr] != 
-                                adusers[usr][mail_attr]):
-                                exch_change = True
-                                break
-                        else:
-                            exch_change = True
-                else:
-                    #New user
-                    exch_change = True
-            if exch_change:
-                exch_user.append(usr)
-        return exch_user
-                
-    
     def fetch_ad_data(self, search_ou):
         #Setting the userattributes to be fetched.
         self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
                                       cereconf.AD_ACCOUNT_CONTROL)
         return self.server.listObjects('user', True, search_ou)
-
 
 
     def store_sid(self, objtype, name, sid, dry_run):
@@ -697,8 +672,25 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     exec('self.' + chg['type'] + '(chg, dry_run)')
 
 
+    
+    def update_Exchange(self, dry_run, exch_users):
+        for usr in exch_users:
+            self.logger.debug("Running Update-Recipient for user '%s'"
+                              " against Exchange" % usr)
+            if cereconf.AD_DC:
+                ret = self.run_cmd('run_UpdateRecipient', dry_run, usr, cereconf.AD_DC)
+            else:
+                ret = self.run_cmd('run_UpdateRecipient', dry_run, usr)
+            if not ret[0]:
+                self.logger.warning("run_UpdateRecipient on %s failed: %r", 
+                                    usr, ret)
+        self.logger.info("Ran Update-Recipient against Exchange for %i users", 
+                         len(exch_users))
+    
 
-    def full_sync(self, delete=False, spread=None, dry_run=True, store_sid=False, exchange_spread=None, imap_spread=None):
+
+    def full_sync(self, delete=False, spread=None, dry_run=True, 
+                  store_sid=False, exchange_spread=None, imap_spread=None):
 
         self.logger.info("Starting user-sync(delete = %s, dry_run = %s)" % \
                              (delete, dry_run))     
@@ -713,10 +705,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         addump = self.fetch_ad_data(self.ad_ldap)       
         self.logger.info("Fetched %i ad-users" % len(addump))
                 
-        #Getting users that shall have Exchange mailbox
-        #old_exch_users = self.find_Exchange_changes(cerebrumdump, addump)
-        #self.logger.info("Found %i number of old_exch_users" % len(old_exch_users))
-
         #compare cerebrum and ad-data.
         exch_users = []
         changelist = self.compare(delete, cerebrumdump, addump, exch_users)
@@ -728,15 +716,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.perform_changes(changelist, dry_run, store_sid)
 
         #updating Exchange
-        for usr in exch_users:
-            self.logger.debug("Running Update-Recipient for user '%s'"
-                              " against Exchange" % usr)
-            ret = self.run_cmd('run_UpdateRecipient', dry_run, usr, cereconf.AD_DC)
-            if not ret[0]:
-                self.logger.warning("run_UpdateRecipient on %s failed: %r", 
-                                    usr, ret)
-        self.logger.info("Ran Update-Recipient against Exchange for %i users", 
-                         len(exch_users))
+        self.update_Exchange(dry_run, exch_users)
 
         #Cleaning up.
         addump = None
