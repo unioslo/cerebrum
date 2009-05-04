@@ -352,25 +352,20 @@ class Object2Cerebrum(object):
     def _update_person_affiliations(self):
         """Run through the cache and remove people's affiliation if it hasn't
         been seen in this push."""
-        for row in self._person.list_affiliations(source_system=self.source_system,
-                                                  include_deleted=True):
+        for row in self._person.list_affiliations(source_system=self.source_system):
             p_id = int(row['person_id'])
             aff = row['affiliation']
             ou_id = row['ou_id']
-            if self._affiliations.has_key(p_id):
-                if not (aff, ou_id) in self._affiliations[p_id]:
-                    if not self._person.entity_id == p_id:
-                        self._person.clear()
-                        self._person.find(p_id)
-                    self._person.delete_affiliation(ou_id, aff, self.source_system)
-            else:
-                # Person no longer in the data file
-                if not hasattr(self._person, "entity_id") or \
-                    not self._person.entity_id == p_id:
-                    self._person.clear()
-                    self._person.find(p_id)
-                self._person.delete_affiliation(ou_id, aff, self.source_system)
+            # If we find an entry both in the database and the cache, continue
+            if self._affiliations.has_key(p_id) and (aff, ou_id) in self._affiliations[p_id]:
+                continue
 
+            if not hasattr(self._person, "entity_id") or not self._person.entity_id == p_id:
+                self._person.clear()
+                self._person.find(p_id)
+            self._person.delete_affiliation(ou_id, aff, self.source_system)
+            self.logger.info("Person '%d', removed affiliation '%d' from ou '%d'" % (p_id,aff,ou_id))
+            
 
     def commit(self):
         """Do some cleanups and call db.commit()"""
