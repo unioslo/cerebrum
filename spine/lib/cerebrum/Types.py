@@ -59,7 +59,6 @@ for name, table in [('AccountType', 'account_code'),
                     ('SourceSystem', 'authoritative_system_code'),
                     ('NameType', 'person_name_code'),
                     ('AuthenticationType', 'authentication_code'),
-                    ('Spread', 'spread_code'),
                     ('GroupMemberOperationType', 'group_membership_op_code'),
                     ('GroupVisibilityType', 'group_visibility_code'),
                     ('QuarantineType', 'quarantine_code'),
@@ -90,8 +89,27 @@ for name, table in [('AccountType', 'account_code'),
     registry.register_class(cls)
     __all__.append(name)
 
-# Add entity type slot to Spread
-Spread.slots += (DatabaseAttr('entity_type', 'spread_code', EntityType), )
+
+table = 'spread_code'
+class Spread(CodeType):
+    primary = (
+        DatabaseAttr('id', table, int),
+    )
+    slots = (
+        DatabaseAttr('name', table, str),
+        DatabaseAttr('description', table, str),
+        DatabaseAttr('entity_type', table, EntityType)
+    )
+    db_attr_aliases = {
+        table:{
+            'id':'code',
+            'name':'code_str'
+        }
+    }
+registry.register_class(Spread)
+__all__.append(Spread)
+   
+
 
 table = 'entity_external_id_code'
 class EntityExternalIdType(CodeType):
