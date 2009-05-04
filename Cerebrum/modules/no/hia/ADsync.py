@@ -785,6 +785,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 del ad_grps[grp_name]
         return ad_grps
 
+    def compare_forwarding(cerebrum_forwards, cerebrum_dist_grps,
+                           altRecipientUsers, ad_contacts,
+                           ad_dist_groups, exch_users):
+        return "resultat"
+
 
     def full_sync(self, delete=False, spread=None, dry_run=True, 
                   store_sid=False, exchange_spread=None, imap_spread=None, 
@@ -807,17 +812,22 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             #Fetch cerebrum forwarding data.
             self.logger.debug("Fetching forwardinfo from cerebrum...")
             cerebrum_forwards = self.fetch_forwardinfo_cerebrum_data(spread,exchange_spread)
+            print cerebrum_forwards
             #Make dict for distribution groups
-            cerebrum_dist_grps = sef.make_cerebrum_dist_grps_dict(cerebrum_forwards)
+            cerebrum_dist_grps = self.make_cerebrum_dist_grps_dict(cerebrum_forwards)
+            print cerebrum_dist_grps
 
             #Make list of users with altRecipient in AD
             altRecipientUsers = self.users_with_altRecipient(addump)
+            print altRecipientUsers
 
             #Fetch ad data
             self.logger.debug("Fetching ad data about contact objects...")
             ad_contacts = self.fetch_ad_data_contacts()
+            print ad_contacts
             self.logger.debug("Fetching ad data about distrubution groups...")
             ad_dist_groups = self.fetch_ad_data_distribution_groups()
+            print ad_dist_groups
 
         #compare cerebrum and ad-data for users.
         exch_users = []
@@ -1397,7 +1407,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         return ad_contacts
     
     
-    def compare_maillists(self, ad_contacts, cerebrum_maillists, dry_run):
+    def compare_maillists(self, ad_contacts, cerebrum_maillists, dry_run, up_rec):
         """ Sync maillists contact objects in AD
 
         @param ad_contacts : dict with contacts and attributes from AD
@@ -1484,6 +1494,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
                     changes['type'] = 'alter_object'
                     changelist.append(changes)
                     changes = {}
+                    up_rec.append(mlist)
 
                 del(ad_contacts[mlist])
 
@@ -1495,6 +1506,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
                 changes['name'] = mlist
                 changelist.append(changes)
                 changes = {}
+                up_rec.append(mlist)
             
         #Remaining objects in ad_contacts should not be in AD anymore
         for mlist in ad_contacts:
@@ -1570,6 +1582,21 @@ class ADFullContactSync(ADutilMixIn.ADutil):
                                     distName, ret)         
 
 
+    def update_Exchange(self, dry_run, up_rec):
+        for name in up_rec:
+            self.logger.debug("Running Update-Recipient for contact object '%s'"
+                              " against Exchange" % name)
+            if cereconf.AD_DC:
+                ret = self.run_cmd('run_UpdateRecipient', dry_run, name, cereconf.AD_DC)
+            else:
+                ret = self.run_cmd('run_UpdateRecipient', dry_run, name)
+            if not ret[0]:
+                self.logger.warning("run_UpdateRecipient on %s failed: %r", 
+                                    name, ret)
+        self.logger.info("Ran Update-Recipient against Exchange for %i contact objects", 
+                         len(up_rec))
+
+
     def full_sync(self, dry_run=True):
 
         self.logger.info("Starting contact-sync for maillists (dry_run = %s)" % \
@@ -1584,10 +1611,18 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         cerebrum_maillists = self.fetch_mail_lists_cerebrum_data()
         
         #Comparing
-        changelist = self.compare_maillists(ad_contacts, cerebrum_maillists, dry_run )
+        update_rec = []
+        changelist = self.compare_maillists(ad_contacts, cerebrum_maillists,
+                                            dry_run, update_rec)
+        self.logger.info("Found %i number of changes", len(changelist))
+        self.logger.info("Running Update-Recipient against Exchange for %i contact objects", 
+                         len(update_rec))
         
         #Perform changes
         self.perform_changes(changelist, dry_run)
+
+        #Running Update Recipient
+        self.update_Exchange(dry_run, update_rec)
 
         self.logger.info("Finished contact-sync for maillists.")
 
