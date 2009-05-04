@@ -37,6 +37,7 @@ from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
 
+
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def _filter_quarantines(self, user_dict):
@@ -162,13 +163,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                       " for account %s (id: %i)" % (v['TEMPuname'],int(k)))  
 
                 #For aa ha en gyldig mailbox store paa testmiljoet:
-                #v['homeMDB'] = ("CN=Mailbox Database,CN=First Storage Group,"
-                #                "CN=InformationStore,CN=CB-EX-SIS-TEST,"
-                #                "CN=Servers,CN=Exchange Administrative Group "
-                #                "(FYDIBOHF23SPDLT),CN=Administrative Groups,"
-                #                "CN=cb-sis-test,CN=Microsoft Exchange,"
-                #                "CN=Services,CN=Configuration,DC=cb-sis-test,"
-                #                "DC=intern")
+                v['homeMDB'] = ("CN=Mailbox Database,CN=First Storage Group,"
+                                "CN=InformationStore,CN=CB-EX-SIS-TEST,"
+                                "CN=Servers,CN=Exchange Administrative Group "
+                                "(FYDIBOHF23SPDLT),CN=Administrative Groups,"
+                                "CN=cb-sis-test,CN=Microsoft Exchange,"
+                                "CN=Services,CN=Configuration,DC=cb-sis-test,"
+                                "DC=intern")
 
                 equota.clear()
                 equota.find_by_target_entity(int(k))
@@ -362,6 +363,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             v['userPrincipalName'] = v['TEMPuname'] + "@uia.no"
             if (v['imap'] or v['Exchange']):
                 v['mailNickname'] =  v['TEMPuname']
+            else:
+                del(v['proxyAddresses'])
             if v['imap'] and not v['Exchange']:
                 v['targetAddress'] = v['mail']
             else:
@@ -684,11 +687,108 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                     usr, ret)
         self.logger.info("Ran Update-Recipient against Exchange for %i users", 
                          len(exch_users))
+
+    def fetch_forwardinfo_cerebrum_data(self, ad_spread, exchange_spread):    
+        exch_users = {}
+        #Getting entity_id and user name for all users with both spreads
+        set1 = set([(row['account_id'],row['name']) for row in 
+                    list(self.ac.search(spread=ad_spread))])
+        set2 = set([(row['account_id'],row['name']) for row in 
+                    list(self.ac.search(spread=exchange_spread))])
+        entity_id2uname = set1.intersection(set2)
+        for entity_id, username in entity_id2uname:
+            exch_users[entity_id] = {'uname' : username,
+                                   'forward_addresses' : []}
+        
+        #Getting alle forwards in database and the entity id they belong to
+        from Cerebrum.modules.Email import EmailDomain, EmailTarget, EmailForward
+        etarget = EmailTarget(self.db)
+        rewrite = EmailDomain(self.db).rewrite_special_domains
+        eforward = EmailForward(self.db)
+
+        target_id2target_entity_id = {}
+        for row in etarget.list_email_targets_ext():
+            if row['target_entity_id']:
+                target_id2target_entity_id[int(row['target_id'])]= {
+                    'target_ent_id' : int(row['target_entity_id']) }
+
+        for row in eforward.list_email_forwards():                
+            if target_id2target_entity_id.has_key(int(row['target_id'])):
+                te_id = target_id2target_entity_id[
+                    int(row['target_id'])]['target_ent_id']
+            else:
+                continue
+            exch_user = exch_users.get(te_id)
+            if not exch_user:
+                continue
+            if row['enable'] == 'T':
+                exch_user['forward_addresses'].append(row['forward_to'])
+
+        # Make dict with attributes for AD
+        forwards = {}
+        for values in exch_users.itervalues():
+            for fwrd_addr in values['forward_addresses']:
+                objectname = "Forward_for_%s(%s)" % (values['uname'], fwrd_addr)
+                forwards[objectname] = {
+                    "displayName" : "Forward for %s" % values['uname'],
+                    "targetAddress" : "SMTP:%s" % fwrd_addr,
+                    "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
+                    "msExchHideFromAddressLists" : True,
+                    "owner_uname" : values['uname']}   
+                    
+        return forwards
     
+    
+    def make_cerebrum_dist_grps_dict(self, forwards):
+        cerebrum_dist_grps_dict = {}
+        for key, value in forwards.items():
+            objectname = cereconf.AD_CONTACT_FORWARD_ATTRIBUTES + value['owner_name']
+            if cerebrum_dist_grps_dict.has_key(objectname):
+                continue
+            else:
+                cerebrum_dist_grps_dict[objectname] = {
+                    "displayName" : objectname,
+                    "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
+                    "msExchHideFromAddressLists" : True,
+                    "description" : "Samlegruppe for brukerens forwardadresser",
+                    "groupType" : cereconf.AD_DISTRIBUTION_GROUP_TYPE}
+        return cerebrum_dist_grps_dict
+        
+    
+    def users_with_altRecipient(self, addump):
+        users_altRecipient = {}
+        for user in addump:
+            if addump[user].has_key('altRecipient'):
+                users_altRecipient['user'] = addump[user]['altRecipient']
+        return users_altRecipient
+        
+    
+    def fetch_ad_data_contacts(self):
+        self.server.setContactAttributes(cereconf.AD_CONTACT_FORWARD_ATTRIBUTES)
+        search_ou = self.ad_ldap
+        ad_contacts = self.server.listObjects('contact', True, search_ou)
+        #Only deal with forwarding contact objects. 
+        #Contact sync deals with mailman objects.
+        for object_name, value in ad_contacts.items():
+            if not object_name.startswith("Forward_for_"):
+                del ad_contacts[object_name]
+        return ad_contacts
+    
+
+    def fetch_ad_data_distribution_groups(self):
+        self.server.setGroupAttributes(cereconf.AD_DIST_GRP_ATTRIBUTES)
+        search_ou = self.ad_ldap
+        ad_grps = self.server.listObjects('group', True, search_ou)
+        #Only deal with forwarding groups. Groupsync deals with other groups.
+        for grp_name, value in ad_grps.items():
+            if not grp_name.startswith(cereconf.AD_FORWARD_GROUP_PREFIX):
+                del ad_grps[grp_name]
+        return ad_grps
 
 
     def full_sync(self, delete=False, spread=None, dry_run=True, 
-                  store_sid=False, exchange_spread=None, imap_spread=None):
+                  store_sid=False, exchange_spread=None, imap_spread=None, 
+                  forwarding_sync=False):
 
         self.logger.info("Starting user-sync(delete = %s, dry_run = %s)" % \
                              (delete, dry_run))     
@@ -702,17 +802,42 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.debug("Fetching AD data...")
         addump = self.fetch_ad_data(self.ad_ldap)       
         self.logger.info("Fetched %i ad-users" % len(addump))
-                
-        #compare cerebrum and ad-data.
+               
+        if forwarding_sync:
+            #Fetch cerebrum forwarding data.
+            self.logger.debug("Fetching forwardinfo from cerebrum...")
+            cerebrum_forwards = self.fetch_forwardinfo_cerebrum_data(spread,exchange_spread)
+            #Make dict for distribution groups
+            cerebrum_dist_grps = sef.make_cerebrum_dist_grps_dict(cerebrum_forwards)
+
+            #Make list of users with altRecipient in AD
+            altRecipientUsers = self.users_with_altRecipient(addump)
+
+            #Fetch ad data
+            self.logger.debug("Fetching ad data about contact objects...")
+            ad_contacts = self.fetch_ad_data_contacts()
+            self.logger.debug("Fetching ad data about distrubution groups...")
+            ad_dist_groups = self.fetch_ad_data_distribution_groups()
+
+        #compare cerebrum and ad-data for users.
         exch_users = []
         changelist = self.compare(delete, cerebrumdump, addump, exch_users)
         self.logger.info("Found %i number of changes" % len(changelist))
-        self.logger.info("Will run Update-Recipient against Exchange for %i users", 
-                         len(exch_users))
+        #self.logger.info("Will run Update-Recipient against Exchange for %i users", 
+        #                 len(exch_users))
 
         #Perform changes.
         self.perform_changes(changelist, dry_run, store_sid)
 
+        if forwarding_sync:
+            #compare cerebrum and ad-date for forwarding
+            changelist2 = self.compare_forwarding(cerebrum_forwards, 
+                                                  cerebrum_dist_grps,
+                                                  altRecipientUsers, ad_contacts,
+                                                  ad_dist_groups, exch_users)
+        
+        self.logger.info("Will run Update-Recipient against Exchange for %i users", 
+                         len(exch_users))
         #updating Exchange
         self.update_Exchange(dry_run, exch_users)
 
@@ -828,8 +953,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @param dry_run: Flag
         """
         for grp_name, v in ad_dict.items():
-            #Leave distribution groups for contactsync to deal with
-            if ad_dict[grp_name]['groupType'] == cereconf.AD_DISTRIBUTION_GROUP_TYPE:
+            #Leave forwarding groups for contactsync to deal with
+            if grp_name.startswith(cereconf.AD_FORWARD_GROUP_PREFIX):
                 del ad_dict[grp_name]
             elif not cerebrum_dict.has_key(grp_name):
                 if self.ad_ldap in ad_dict[grp_name]['OU']:
@@ -1228,18 +1353,243 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
 class ADFullContactSync(ADutilMixIn.ADutil):
 
+
     def __init__(self, *args, **kwargs):
-        super(ADgroupUtil, self).__init__(*args, **kwargs)
+        super(ADFullContactSync, self).__init__(*args, **kwargs)
 
 
-    def fetch_cerebrum_data(self, spread):
-        return "DATA FRA CEREBRUM"
+    def fetch_mail_lists_cerebrum_data(self):
+        from Cerebrum.modules.Email import EmailDomain, EmailTarget
+        etarget = EmailTarget(self.db)
+        rewrite = EmailDomain(self.db).rewrite_special_domains
+        mail_lists = []
+        #find primary address for all Mailman lists
+        for row in etarget.list_email_target_primary_addresses(
+                target_type = self.co.email_target_Mailman):
+            try:
+                mail_lists.append("@".join(
+                    (row['local_part'], rewrite(row['domain']))))
+            except TypeError:
+                pass  # Silently ignore
+        
+        maillists_dict = {}
+        for liste in mail_lists:
+            objectname = "mailman:%s" % liste
+            maillists_dict[objectname] = {
+                "displayName" : "Epostliste - %s" % liste,
+                "targetAddress" : "SMTP:%s" % liste,
+                "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
+                "msExchHideFromAddressLists" : cereconf.AD_EX_HIDE_FROM_ADDRESS_LIST
+                }
+            
+        return maillists_dict
 
 
-    def fetch_ad_data(self):
-        return self.server.listObjects('contact', True)
+    def fetch_ad_data_contacts(self):
+        self.server.setContactAttributes(cereconf.AD_CONTACT_MAILMANLIST_ATTRIBUTES)
+        search_ou = self.ad_ldap
+        ad_contacts = self.server.listObjects('contact', True, search_ou)
+        #Only deal with mailman lists contact objects. 
+        #User sync deals with forward objects.
+        for object_name, value in ad_contacts.items():
+            if not object_name.startswith("mailman:"):
+                del ad_contacts[object_name]
+        return ad_contacts
+    
+    
+    def compare_maillists(self, ad_contacts, cerebrum_maillists, dry_run):
+        """ Sync maillists contact objects in AD
 
+        @param ad_contacts : dict with contacts and attributes from AD
+        @type ad_contacts : dict
+        @param cerebrum_maillists : dict with maillists and info from cerebrum
+        @type cerebrum_maillists : dict
+        @param dry_run: Flag
+        """
+        #Keys in dict from cerebrum must match fields to be populated in AD.
+        changelist = [] 
 
+        for mlist in cerebrum_maillists:
+            changes = {}   
+            if ad_contacts.has_key(mlist):
+                #group in both places, we want to check correct data
+                
+                #Checking for correct OU.
+                ou = self.get_default_ou()
+                if ad_contacts[mlist]['distinguishedName'] != 'CN=%s,%s' % (mlist,ou):
+                    changes['type'] = 'move_object'
+                    changes['OU'] = ou
+                    changes['distinguishedName'] = \
+                                ad_contacts[mlist]['distinguishedName']
+                    #Submit list and clean.
+                    changelist.append(changes)
+                    changes = {}
+
+                #Comparing group info 
+                for attr in cereconf.AD_CONTACT_MAILMANLIST_ATTRIBUTES:            
+                    #Catching special cases.
+                    # xmlrpclib appends chars [' and '] 
+                    # to this attribute for some reason
+                    if attr == 'msExchPoliciesExcluded':
+                        if ad_contacts[mlist].has_key('msExchPoliciesExcluded'):
+                            tempstring = str(ad_contacts[mlist]
+                                             ['msExchPoliciesExcluded']).replace("['","")
+                            tempstring = tempstring.replace("']","")
+                            if (tempstring == cerebrum_maillists[mlist]
+                                ['msExchPoliciesExcluded']):
+                                pass
+                            else:
+                                changes['msExchPoliciesExcluded'] = cerebrum_maillists[mlist]['msExchPoliciesExcluded']
+                        else:
+                            changes['msExchPoliciesExcluded'] = cerebrum_maillists[mlist]['msExchPoliciesExcluded']
+                    #Treating general cases
+                    else:
+                        if cerebrum_maillists[mlist].has_key(attr) and \
+                               ad_contacts[mlist].has_key(attr):
+                            if isinstance(cerebrum_maillists[mlist][attr], (list)):
+                                # Multivalued, it is assumed that a
+                                # multivalue in cerebrumusrs always is
+                                # represented as a list.
+                                Mchange = False
+                                                                
+                                if (isinstance(ad_contacts[mlist][attr],
+                                               (str,int,long,unicode))):
+                                    #Transform single-value to a list for comp.
+                                    val2list = []
+                                    val2list.append(ad_contacts[mlist][attr])
+                                    ad_contacts[mlist][attr] = val2list
+                                                                        
+                                for val in cerebrum_maillists[mlist][attr]:
+                                    if val not in ad_contacts[mlist][attr]:
+                                        Mchange = True
+                                                                                
+                                if Mchange:
+                                    changes[attr] = cerebrum_maillists[mlist][attr]
+                            else:
+                                if ad_contacts[mlist][attr] != cerebrum_maillists[mlist][attr]:
+                                    changes[attr] = cerebrum_maillists[mlist][attr] 
+                        else:
+                            if cerebrum_maillists[mlist].has_key(attr):
+                                # A blank value in cerebrum and <not
+                                # set> in AD -> do nothing.
+                                if cerebrum_maillists[mlist][attr] != "": 
+                                    changes[attr] = cerebrum_maillists[mlist][attr] 
+                            elif ad_contacts[mlist].has_key(attr):
+                                #Delete value
+                                changes[attr] = '' 
+
+                #Submit if any changes.
+                if changes:
+                    changes['distinguishedName'] = 'CN=%s,%s' % (mlist,ou)
+                    changes['type'] = 'alter_object'
+                    changelist.append(changes)
+                    changes = {}
+
+                del(ad_contacts[mlist])
+
+            else:
+                #The remaining items in cerebrum_dict is not in AD, create object
+                changes={}
+                changes = cerebrum_maillists[mlist]
+                changes['type'] = 'create_object'
+                changes['name'] = mlist
+                changelist.append(changes)
+                changes = {}
+            
+        #Remaining objects in ad_contacts should not be in AD anymore
+        for mlist in ad_contacts:
+            changes['type'] = 'delete_object'
+            changes['distinguishedName'] = (ad_contacts[mlist]
+                                            ['distinguishedName'])
+            changelist.append(changes)
+            changes = {}
+
+        return changelist
+
+         
     def get_default_ou(self, change=None):
         #Returns default OU in AD.
-        return "CN=Contacts,%s" % self.ad_ldap
+        return "OU=Contacts,%s" % self.ad_ldap
+
+
+    def create_object(self, chg, dry_run):
+        """
+        Creates AD contact object and populates given attributes
+
+        @param chg: object_name and attributes
+        @type chg: dict
+        @param dry_run: Flag
+        """
+        ou = chg.get("OU", self.get_default_ou())
+        self.logger.debug('CREATE %s', chg)
+        ret = self.run_cmd('createObject', dry_run, 'contact', ou, 
+                      chg['name'])
+        if not ret[0]:
+            self.logger.warning("create maillist contact %s failed: %r",
+                                chg['name'],ret[1])
+        elif not dry_run:
+            name = chg['name']
+            del chg['name']
+            if chg.has_key('distinguishedName'):
+                del chg['distinguishedName']
+            ret = self.server.putContactProperties(chg)
+            if not ret[0]:
+                self.logger.warning("putproperties on %s failed: %r",
+                                    name, ret)
+            else:
+                ret = self.run_cmd('setObject', dry_run)
+                if not ret[0]:
+                    self.logger.warning("setObject on %s failed: %r",
+                                        name, ret)
+            
+
+    def alter_object(self, chg, dry_run):
+        """
+        Binds to AD group objects and updates given attributes
+
+        @param chg: group_name -> group info mapping
+        @type chg: dict
+        @param dry_run: Flag
+        """
+        distName = chg['distinguishedName']                 
+        #Already binded
+        del chg['type']             
+        del chg['distinguishedName']
+
+        if not dry_run:
+            ret = self.server.putContactProperties(chg)
+        else:
+            ret = (True, 'putContactProperties')
+        if not ret[0]:
+            self.logger.warning("putContactProperties on %s failed: %r",
+                                distName, ret)
+        else:
+            ret = self.run_cmd('setObject', dry_run)
+            if not ret[0]:
+                self.logger.warning("setObject on %s failed: %r",
+                                    distName, ret)         
+
+
+    def full_sync(self, dry_run=True):
+
+        self.logger.info("Starting contact-sync for maillists (dry_run = %s)" % \
+                             (dry_run))   
+  
+        #Fetch ad data
+        self.logger.debug("Fetching ad data about contact objects...")
+        ad_contacts = self.fetch_ad_data_contacts()
+        
+        #Fetch cerebrum data
+        self.logger.debug("Fetching cerebrum data about mail lists...")
+        cerebrum_maillists = self.fetch_mail_lists_cerebrum_data()
+        
+        #Comparing
+        changelist = self.compare_maillists(ad_contacts, cerebrum_maillists, dry_run )
+        
+        #Perform changes
+        self.perform_changes(changelist, dry_run)
+
+        self.logger.info("Finished contact-sync for maillists.")
+
+
+        
