@@ -339,17 +339,18 @@ def valid_search(*args, **vargs):
 
 def get_tabs(current=None):
     tabs = [
+      ('Persons', '/person'),
+      ('Accounts', '/account'),
+      ('Groups', '/group'),
+      ('Organization units', '/ou'),
+      ('Hosts', '/host'),
+      ('Disks', '/disk'),
+      ('Email', '/email'),
+      ('Preferences', '/options'),
+      ('Logout', '/logout'),
       ('cereweb', '/index'),
-      ('person', '/person'),
-      ('account', '/account'),
-      ('group', '/group'),
-      ('ou', '/ou'),
-      ('host', '/host'),
-      ('disk', '/disk'),
-      ('email', '/email'),
-      ('options', '/options'),
-      ('logout', '/logout'),
     ]
+
     html = '<li%s><a href="%s"><em>%s</em></a></li>'
     res = []
     for (name, link) in tabs:
