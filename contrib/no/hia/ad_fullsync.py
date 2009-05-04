@@ -33,6 +33,12 @@ Usage: [options]
         
   -g, --group-sync
         sync groups to AD and Exchange
+
+  -m, --maillists-sync
+        sync mailing lists to AD and Exchange
+
+  -f, --forwarding-sync
+        sync forwarding rules to AD and Exchange
   
   --user_spread SPREAD
         overrides cereconf.AD_ACCOUNT_SPREAD
@@ -93,8 +99,9 @@ db.cl_init(change_program="hia_ad_sync")
 co = Utils.Factory.get('Constants')(db)
 ac = Utils.Factory.get('Account')(db)
 
-def fullsync(user_sync, group_sync, user_spread, user_exchange_spread,
-             user_imap_spread, group_spread, group_exchange_spread, dryrun,
+def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync, 
+             user_spread, user_exchange_spread, user_imap_spread, 
+             group_spread, group_exchange_spread, dryrun,
              delete_objects, store_sid, logger_name, logger_level):
         
     # initate logger
@@ -110,7 +117,7 @@ def fullsync(user_sync, group_sync, user_spread, user_exchange_spread,
             ADsync.ADFullUserSync(db, co, logger).full_sync(
                 delete=delete_objects, spread=user_spread, dry_run=dryrun,
                 store_sid=store_sid, exchange_spread=user_exchange_spread,
-                imap_spread=user_imap_spread)
+                imap_spread=user_imap_spread, forwarding_sync=forwarding_sync)
         except xmlrpclib.ProtocolError, xpe:
             logger.critical("Error connecting to AD service. Giving up!: %s %s" %
                             (xpe.errcode, xpe.errmsg))
@@ -130,14 +137,27 @@ def fullsync(user_sync, group_sync, user_spread, user_exchange_spread,
             logger.critical("Error connecting to AD service. Giving up!: %s %s" %
                             (xpe.errcode, xpe.errmsg))
 
+
+    # --- CONTACT OBJECTS SYNC ---
+    if maillists_sync or forwarding_sync:
+        # Catch protocolError to avoid that url containing password is
+        # written to log
+        try:
+            # instantiate sync_class and call full_sync
+            ADsync.ADFullContactSync(db, co, logger).full_sync(
+                dry_run=dryrun)
+        except xmlrpclib.ProtocolError, xpe:
+            logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                            (xpe.errcode, xpe.errmsg))
+
     
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'hug',  [
+        opts, args = getopt.getopt(sys.argv[1:], 'hugfm',  [
             'help', 'user-sync', 'group-sync', 'user_spread=', 
             'user_exchange_spread=','user_imap_spread=', 'dryrun', 'store-sid',
             'delete', 'group_spread=', 'logger-level=', 'logger-name=',
-            'group_exchange_spread='])
+            'group_exchange_spread=', 'maillists-sync', 'forwarding-sync'])
     except getopt.GetoptError:
         usage(1)
 
@@ -146,6 +166,8 @@ def main():
     delete_objects = False
     user_sync = False
     group_sync = False
+    maillists_sync = False
+    forwarding_sync = False
     user_spread = cereconf.AD_ACCOUNT_SPREAD
     user_exchange_spread = cereconf.AD_EXCHANGE_SPREAD
     user_imap_spread = cereconf.AD_IMAP_SPREAD
@@ -166,6 +188,10 @@ def main():
             user_sync = True
         elif opt in ('--group-sync','-g'):
             group_sync = True
+        elif opt in ('--maillists-sync','-m'):
+            maillists_sync = True
+        elif opt in ('--forwarding-sync','-f'):
+            forwarding_sync = True
         elif opt == '--user_spread':
             user_spread = val
         elif opt == '--user_exchange_spread':
@@ -181,8 +207,9 @@ def main():
         elif opt == '--logger-level':
             logger_level = val
         
-    fullsync(user_sync, group_sync, user_spread, user_exchange_spread,
-             user_imap_spread, group_spread, group_exchange_spread, dryrun,
+    fullsync(user_sync, group_sync, maillists_sync, forwarding_sync, 
+             user_spread, user_exchange_spread, user_imap_spread, 
+             group_spread, group_exchange_spread, dryrun,
              delete_objects, store_sid, logger_name, logger_level)
 
 def usage(exitcode=0):
