@@ -735,13 +735,17 @@ class GroupSearcher(Searcher):
         if gid:
             gid_option = self.form_values['gid_option']
             if gid_option == "exact":
-                self.searchers['main'].set_posix_gid(int(gid))
+                ## self.searchers['main'].set_posix_gid(int(gid))
+                main.set_posix_gid(int(gid))
             elif gid_option == "above":
-                self.searchers['main'].set_posix_gid_more_than(int(gid))
+                ## self.searchers['main'].set_posix_gid_more_than(int(gid))
+                main.set_posix_gid_more_than(int(gid))
             elif gid_option == "below":
-                self.searchers['main'].set_posix_gid_less_than(int(gid))
+                ## self.searchers['main'].set_posix_gid_less_than(int(gid))
+                main.set_posix_gid_less_than(int(gid))
             elif gid_option == "range":
-                self.searchers['main'].set_posix_gid_more_than(int(gid))
+                ## self.searchers['main'].set_posix_gid_more_than(int(gid))
+                main.set_posix_gid_more_than(int(gid))
                 
         spread = utils.web_to_spine(form.get('spread', '').strip())
         if spread:
