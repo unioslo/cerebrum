@@ -49,7 +49,10 @@ def get_person_contact():
 def get_account_info():
     global a_id2email, p_id2name, p_id2fnr, a_id2auth
     global a_id2p_id, p_id2a_id, ou_id2name, const2str
+    global acc_spreads, ou_spreads
 
+    acc_spreads = []
+    ou_spreads = []
     a_id2email = dict()
     for row in et.list_email_target_primary_addresses():
         a_id2email[int(row['target_entity_id'])] = "%s@%s" % (row['local_part'],
@@ -89,7 +92,12 @@ def get_account_info():
     const2str[int(co.affiliation_ansatt)] = "ANSATTE"
     const2str[int(co.affiliation_elev)] = "ELEVER"
     const2str[int(co.affiliation_tilknyttet)] = "TILKNYTTET"
-    
+
+    for row in ac.list_all_with_spread(co.spread_oid_acc):
+        acc_spreads.append(row['entity_id'])
+
+    for row in ou.list_all_with_spread(co.spread_oid_ou):
+        ou_spreads.append(row['entity_id'])
     
 def process_txt_file(file):
     users_ou = dict()
@@ -128,13 +136,15 @@ def process_txt_file(file):
         if not a_id2email.has_key(a_id):
             logger.warning("Mail-addr not found for '%s', '%s'" % (id, uname))
             continue
-        txt = '$'.join((p_id2fnr[id], uname, pwd,
-                        a_id2email[a_id],
-                        ou_id2name[ou_id], first, last)) + '\n'
-        file.write(txt)
+        if a_id in acc_spreads:
+            txt = '$'.join((p_id2fnr[id], uname, pwd,
+                            a_id2email[a_id],
+                            ou_id2name[ou_id], first, last)) + '\n'
+            file.write(txt)
         # Filter out co.affiliation_tilknyttet
         if aff in (int(co.affiliation_ansatt), int(co.affiliation_elev)):
-            users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
+            if ou_id in ou_spreads and a_id in acc_spreads:
+                users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
     return users_ou
         
 
@@ -181,7 +191,10 @@ def process_users(affiliation, file):
         if known_dns.has_key(uname):
             continue
         else:
-            known_dns[uname] = True
+            if id in acc_spreads:
+                known_dns[uname] = True
+            else:
+                continue
         
         u_uname = iso2utf(uname)
         dn = "cn=%s,cn=users,dc=ovgs,dc=no" % u_uname
@@ -203,12 +216,12 @@ def process_users(affiliation, file):
             entry['mail'] = (a_id2email[id],)
         if p_id2cont.has_key(a_id2p_id[id][1]):
             entry['mobile'] = (p_id2cont[a_id2p_id[id][1]],)
-        file.write(entry_string(dn, entry, False))
+        if id in acc_spreads:
+            file.write(entry_string(dn, entry, False))
     return known_dns.keys()
         
 
 def process_prof_group(name, users, file):
-
     file.write(entry_string(
         "cn=%s,cn=groups,dc=ovgs,dc=no" % name, {
         'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
