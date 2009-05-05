@@ -184,6 +184,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['mDBOverQuotaLimit'] = (v['mDBOverHardQuotaLimit'] 
                                           * q_soft // 100)
                 v['mDBStorageQuota'] = v['mDBOverQuotaLimit'] * 90 // 100
+                #We or Exchange shall decide quotas:
+                v['mDBUseDefaults'] = cereconf.AD_EX_MDB_USE_DEFAULTS,
                 
 
     
@@ -274,7 +276,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 'imap' : False,
                 'msExchPoliciesExcluded' : cereconf.AD_EX_POLICIES_EXCLUDED,
                 'deliverAndRedirect' : cereconf.AD_DELIVER_AND_REDIRECT,
-                'mDBUseDefaults' : cereconf.AD_EX_MDB_USE_DEFAULTS,
+                #'mDBUseDefaults' : cereconf.AD_EX_MDB_USE_DEFAULTS,
                 'msExchHideFromAddressLists' : cereconf.AD_EX_HIDE_FROM_ADDRESS_LIST,
                 'TEMPownerId': row['owner_id'],
                 'TEMPuname': row['name'],
@@ -1379,6 +1381,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
             maillists_dict[objectname] = {
                 "displayName" : "Epostliste - %s" % liste,
                 "targetAddress" : "SMTP:%s" % liste,
+                "mailNickname" : "mailman=%s" % liste.replace("@","."),
                 "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                 "msExchHideFromAddressLists" : cereconf.AD_EX_HIDE_FROM_ADDRESS_LIST
                 }
@@ -1602,18 +1605,18 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         cerebrum_maillists = self.fetch_mail_lists_cerebrum_data()
         
         #Comparing
-        update_rec = []
+        needs_updateRecipient = []
         changelist = self.compare_maillists(ad_contacts, cerebrum_maillists,
-                                            dry_run, update_rec)
+                                            dry_run, needs_updateRecipient)
         self.logger.info("Found %i number of changes", len(changelist))
-        self.logger.info("Running Update-Recipient against Exchange for %i contact objects", 
-                         len(update_rec))
+        self.logger.info("Will run Update-Recipient against Exchange for %i contact objects", 
+                         len(needs_updateRecipient))
         
         #Perform changes
         self.perform_changes(changelist, dry_run)
 
         #Running Update Recipient
-        self.update_Exchange(dry_run, update_rec)
+        self.update_Exchange(dry_run, needs_updateRecipient)
 
         self.logger.info("Finished contact-sync for maillists.")
 
