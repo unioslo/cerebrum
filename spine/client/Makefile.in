@@ -14,9 +14,9 @@ all:
 install: install-lib
 
 install-lib: $(sources)
-	$(INSTALL) -d $(pythondir)
-	$(INSTALL) -m 644 $(sources) $(pythondir)
-	$(INSTALL) -m 644 ../lib/server/idl/SpineCore.idl $(pythondir)
+	$(INSTALL) -d "$(pythondir)"
+	$(INSTALL) -m 644 $(sources) "$(pythondir)"
+	$(INSTALL) -m 644 ../lib/server/idl/SpineCore.idl "$(pythondir)"
 
 clean:
 
