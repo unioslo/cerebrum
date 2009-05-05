@@ -136,11 +136,10 @@ def process_txt_file(file):
         if not a_id2email.has_key(a_id):
             logger.warning("Mail-addr not found for '%s', '%s'" % (id, uname))
             continue
-        if a_id in acc_spreads:
-            txt = '$'.join((p_id2fnr[id], uname, pwd,
-                            a_id2email[a_id],
-                            ou_id2name[ou_id], first, last)) + '\n'
-            file.write(txt)
+        txt = '$'.join((p_id2fnr[id], uname, pwd,
+                        a_id2email[a_id],
+                        ou_id2name[ou_id], first, last)) + '\n'
+        file.write(txt)
         # Filter out co.affiliation_tilknyttet
         if aff in (int(co.affiliation_ansatt), int(co.affiliation_elev)):
             if ou_id in ou_spreads and a_id in acc_spreads:
