@@ -138,8 +138,8 @@ def fullsync(user_sync, group_sync, maillists_sync, forwarding_sync,
                             (xpe.errcode, xpe.errmsg))
 
 
-    # --- CONTACT OBJECTS SYNC ---
-    if maillists_sync or forwarding_sync:
+    # --- MAILLIST CONTACT OBJECTS SYNC ---
+    if maillists_sync:
         # Catch protocolError to avoid that url containing password is
         # written to log
         try:
