@@ -106,6 +106,7 @@ class Spread(CodeType):
             'name':'code_str'
         }
     }
+Spread.auth_str = auth_str
 registry.register_class(Spread)
 __all__.append(Spread)
    
