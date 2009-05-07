@@ -1,7 +1,6 @@
 from ceresync import config
 from ceresync import errors
 import SpineClient
-from popen2 import popen3
 import unittest
 import os
 import errno
@@ -167,9 +166,47 @@ class Sync:
         self.tr.commit()
         self.session.logout()
 
+# In windows, the only way to get both pipes and return value from a process is
+# with using subprocess. Subprocess is not available under Python 2.3, so to
+# also be able to support Python 2.3 (on Unix at least), we make a wrapper
+# class using either subprocess or popen.Popen3
+try:
+    import subprocess
+except ImportError:
+    try:
+        from popen2 import Popen3
+    except ImportError:
+        log.error("Neither subprocess nor a usable popen2 module was found.")
+        sys.exit(1)
+    class Process(object):
+        def __init__(self, cmd):
+            self.p= Popen3(cmd, capturestderr=True)
+        def write(self, message):
+            self.p.tochild.write(message)
+            self.p.tochild.close()
+        def read(self):
+            return self.p.fromchild.read()
+        def wait(self):
+            return self.p.wait()
+        def error(self):
+            return self.p.childerr.read()
+else:
+    class Process(object):
+        def __init__(self, cmd):
+            PIPE= subprocess.PIPE
+            self.p= subprocess.Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        def write(self, message):
+            self.p.stdin.write(message)
+            self.p.stdin.close()
+        def read(self):
+            return self.p.stdout.read()
+        def wait(self):
+            return self.p.wait()
+        def error(self):
+            return self.p.stderr.read()
+
 class Pgp:
     def __init__(self, pgp_prog=None, enc_opts='', dec_opts='', keyid=None):
-        # Handle NoOptionError?
         pgp_prog= pgp_prog or config.get('pgp', 'prog')
         enc_opts= enc_opts or config.get('pgp', 'encrypt_opts')
         dec_opts= dec_opts or config.get('pgp', 'decrypt_opts')
@@ -180,25 +217,33 @@ class Pgp:
             '--default-key', keyid,
         ] + enc_opts.split()
         self.pgp_dec_cmd= [pgp_prog] + dec_opts.split()
-    
     def decrypt(self, cryptstring):
-        message= cryptstring
-        if cryptstring:
-            fin,fout,ferr= popen3(' '.join(self.pgp_dec_cmd))
-            fout.write(cryptstring)
-            fout.close()
-            message= fin.read()
-            fin.close()
-            ferr.close()
+        if not cryptstring:
+            return None
+        p= Process(self.pgp_dec_cmd)
+        try:
+            p.write(cryptstring)
+        except IOError, e:
+            log.error(p.error())
+            sys.exit(1)
+        message= p.read()
+        if p.wait() != 0:
+            log.error(p.error())
+            sys.exit(1)
         return message
-
     def encrypt(self, message):
-        fin,fout,ferr= popen3(' '.join(self.pgp_enc_cmd))
-        fout.write(message)
-        fout.close()
-        cryptstring= fin.read()
-        fin.close()
-        ferr.close()
+        if not message:
+            return None
+        p= Process(self.pgp_enc_cmd)
+        try:
+            p.write(message)
+        except IOError, e:
+            log.error(p.error())
+            sys.exit(1)
+        cryptstring= p.read()
+        if p.wait() != 0:
+            log.error(p.error())
+            sys.exit(1)
         return cryptstring
 
 class PgpTestCase(unittest.TestCase):
