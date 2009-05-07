@@ -232,6 +232,11 @@ com_errors = (
     (0x800401E5L, None, "MK_E_NOOBJECT", "Object could not be found"),
 )
 
+other_errors = (
+    # http://msdn.microsoft.com/en-us/library/bb706748.aspx
+    (0x800708c5L, None, "NERR_PasswordTooShort", "The password does not meet the password policy requirements. Check the minimum password length, password complexity and password history requirements."),
+)
+
 class ADSIException(pythoncom.com_error):
     """Base exception for Active Directory errors.
        Required attributes:
@@ -262,7 +267,7 @@ def generate_unknown(err, msg="Unknown ADSI Error"):
         ldap = ""
         win32 = ""
         descr = msg
-    SomeException.__doc__ = msg      
+        __doc__ = msg
     SomeException.__name__ = "UnknownError"
     return SomeException
        
@@ -309,7 +314,7 @@ def win32_name_to_python(win_name):
 errors = {}      
 
 # Process error constants and generate Python exception classes
-for errno, ldap, win32, descr in adsi_errors+adsi20_errors+generic_errors+com_errors:
+for errno, ldap, win32, descr in adsi_errors+adsi20_errors+generic_errors+com_errors+other_errors:
     # Convert errno to 32-bit-signed-int
     errno = i32(errno)
     name = win32_name_to_python(win32)
