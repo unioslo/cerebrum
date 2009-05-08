@@ -140,18 +140,17 @@ def process_txt_file(file):
                         a_id2email[a_id],
                         ou_id2name[ou_id], first, last)) + '\n'
         file.write(txt)
-        # Filter out co.affiliation_tilknyttet
-        if aff in (int(co.affiliation_ansatt), int(co.affiliation_elev)):
-            if ou_id in ou_spreads and a_id in acc_spreads:
-                users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
+        if ou_id in ou_spreads and a_id in acc_spreads:
+            users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
     return users_ou
         
 
 def process_users(affiliation, file):    
     known_dns = dict()
     
-    for row in ac.list_accounts_by_type(affiliation=int(affiliation)):
+    for row in ac.list_accounts_by_type(affiliation=affiliation):
         id = row['account_id']
+        aff = row['affiliation']
         if not (a_id2auth.has_key(id) and a_id2auth[id][0]):
             # No username
             logger.warning("pu: No username found for account '%s'" % id)
@@ -200,7 +199,7 @@ def process_users(affiliation, file):
         entry = {
             'givenname': (iso2utf(first),),
             'orcldefaultprofilegroup': ("cn=%s,cn=groups,dc=ovgs,dc=no"
-                                        % const2str[int(affiliation)],),
+                                        % const2str[aff],),
             'orcltimezone': ("Europe/Oslo",),
             'objectclass': ("top", "person", "inetorgperson",
                             "organizationalperson", "orcluser", "orcluserv2"),
@@ -328,7 +327,7 @@ def main():
     # Dump info about users with co.affiliation_ansatt
     f = SimilarSizeWriter("%s/ans_user_oid.ldif" % oid_path, "w")
     f.set_size_change_limit(10)
-    users = process_users(co.affiliation_ansatt, f)
+    users = process_users((co.affiliation_ansatt,co.affiliation_tilknyttet), f)
     f.close()
 
     # Make a group out of these users
