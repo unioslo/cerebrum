@@ -262,6 +262,52 @@ class AccountOfkMixin (Account.Account):
             raise CerebrumError("Cannot assign mdb")
         return mdb_choice
     
+    #
+    # TBD: Should we change this method globally?
+    # see argum. below, Jazz 2009-05-10
+    def get_primary_maildomain(self):
+        """Return correct `domain_id' for account's primary address."""
+        dom = Email.EmailDomain(self._db)
+        dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        entdom = Email.EntityEmailDomain(self._db)
+        # Find OU and affiliation for this user's best-priority
+        # account_type entry.
+        for row in self.get_account_types():
+            ou, aff = row['ou_id'], row['affiliation']
+            # If a maildomain is associated with this (ou, aff)
+            # combination, then that is the user's default maildomain.
+            entdom.clear()
+            try:
+                entdom.find(ou, affiliation=aff)
+                #
+                # This if-test assumes that the cereconf.EMAIL_DEFAULT_DOMAIN
+                # cannot be considered as a primary domain if another
+                # valid domain is found for an account. The behaviour is wrong
+                # for ØFK as quite av few of the accounts should have primary
+                # addresses in default domain while they have other domains
+                # Jazz
+                #
+                # If the default domain is specified, ignore this
+                # affiliation.
+                ## if entdom.entity_email_domain_id == dom.entity_id:
+                ##     continue
+                return entdom.entity_email_domain_id
+            except Errors.NotFoundError:
+                pass
+            # Otherwise, try falling back to tha maildomain associated
+            # with (ou, None).
+            entdom.clear()
+            try:
+                entdom.find(ou)
+                if entdom.entity_email_domain_id == dom.entity_id:
+                    continue
+                return entdom.entity_email_domain_id
+            except Errors.NotFoundError:
+                pass
+        # Still no proper maildomain association has been found; fall
+        # back to default maildomain.
+        return dom.entity_id
+    
         
     def update_email_addresses(self):
         # Find, create or update a proper EmailTarget for this
