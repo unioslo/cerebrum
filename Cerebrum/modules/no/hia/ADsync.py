@@ -37,7 +37,6 @@ from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
 
-import pprint
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
@@ -1264,8 +1263,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         
             #Make list of users with altRecipient in AD
             altRecipientUsers = self.users_with_altRecipient(addump)
-            altRecipientUsers = {}
-
+          
             #Fetch ad data
             self.logger.debug("Fetching ad data about contact objects...")
             ad_contacts = self.fetch_ad_data_contacts()
@@ -1835,11 +1833,11 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         
         maillists_dict = {}
         for liste in mail_lists:
-            objectname = "mailman_%s" % liste
+            objectname = "mailman.%s" % liste
             maillists_dict[objectname] = {
                 "displayName" : "Epostliste - %s" % liste,
                 "targetAddress" : "SMTP:%s" % liste,
-                "mailNickname" : "mailman=%s" % liste.replace("@","."),
+                "mailNickname" : "mailman.%s" % liste.replace("@","."),
                 "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                 "msExchHideFromAddressLists" : False
                 }
@@ -1854,7 +1852,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         #Only deal with mailman lists contact objects. 
         #User sync deals with forward objects.
         for object_name, value in ad_contacts.items():
-            if not object_name.startswith("mailman_"):
+            if not object_name.startswith("mailman."):
                 del ad_contacts[object_name]
         return ad_contacts
     
