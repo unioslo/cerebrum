@@ -37,6 +37,7 @@ from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
 
+import pprint
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
@@ -217,7 +218,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             self.co.system_sap, title_type), 'ISO-8859-1')
                 except Errors.NotFoundError:
                     pass
-                        
+                
+
+    def _exchange_addresslist(self, user_dict):
+
+        primary_res = list(self.ac.list_accounts_by_type(primary_only=True))
+        for row in primary_res:
+            if user_dict.has_key(row['account_id']):
+                user_dict[row['account_id']]['msExchHideFromAddressLists'] = False
+        
 
     def get_default_ou(self):
         """
@@ -312,6 +321,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         self.logger.debug("..filtering quarantined users..")
         self._filter_quarantines(tmp_ret)
+
+        #
+        # Make primary users visible in Exchange address list
+        #
+        self.logger.debug("..setting address list visibility..")
+        self._exchange_addresslist(tmp_ret)
         
         #
         # Set person names
@@ -669,7 +684,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     
     def update_Exchange(self, dry_run, exch_users):
         for usr in exch_users:
-            self.logger.debug("Running Update-Recipient for user '%s'"
+            self.logger.debug("Running Update-Recipient for object '%s'"
                               " against Exchange" % usr)
             if cereconf.AD_DC:
                 ret = self.run_cmd('run_UpdateRecipient', dry_run, usr, cereconf.AD_DC)
@@ -678,7 +693,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if not ret[0]:
                 self.logger.warning("run_UpdateRecipient on %s failed: %r", 
                                     usr, ret)
-        self.logger.info("Ran Update-Recipient against Exchange for %i users", 
+        self.logger.info("Ran Update-Recipient against Exchange for %i objects", 
                          len(exch_users))
 
     def fetch_forwardinfo_cerebrum_data(self, ad_spread, exchange_spread):    
@@ -723,10 +738,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             for fwrd_addr in values['forward_addresses']:
                 objectname = "Forward_for_%s(%s)" % (values['uname'], fwrd_addr)
                 forwards[objectname] = {
-                    "displayName" : "Forward for %s" % values['uname'],
+                    "displayName" : "Forward for %s(%s)" % (values['uname'],fwrd_addr),
                     "targetAddress" : "SMTP:%s" % fwrd_addr,
                     "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                     "msExchHideFromAddressLists" : True,
+                    "mailNickname" : "%s_forward=%s" % (values['uname'],fwrd_addr.replace("@",".")),
                     "owner_uname" : values['uname']}   
                     
         return forwards
@@ -735,16 +751,18 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def make_cerebrum_dist_grps_dict(self, forwards):
         cerebrum_dist_grps_dict = {}
         for key, value in forwards.items():
-            objectname = cereconf.AD_CONTACT_FORWARD_ATTRIBUTES + value['owner_name']
+            objectname = cereconf.AD_FORWARD_GROUP_PREFIX + value['owner_uname']
             if cerebrum_dist_grps_dict.has_key(objectname):
-                continue
+                cerebrum_dist_grps_dict[objectname]['members'].append(key)
             else:
                 cerebrum_dist_grps_dict[objectname] = {
                     "displayName" : objectname,
                     "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                     "msExchHideFromAddressLists" : True,
                     "description" : "Samlegruppe for brukerens forwardadresser",
-                    "groupType" : cereconf.AD_DISTRIBUTION_GROUP_TYPE}
+                    "groupType" : cereconf.AD_DISTRIBUTION_GROUP_TYPE,
+                    "members" : [key]}
+    
         return cerebrum_dist_grps_dict
         
     
@@ -752,7 +770,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         users_altRecipient = {}
         for user in addump:
             if addump[user].has_key('altRecipient'):
-                users_altRecipient['user'] = addump[user]['altRecipient']
+                users_altRecipient['user'] = addump[user]['distinguishedName']
         return users_altRecipient
         
     
@@ -778,11 +796,447 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 del ad_grps[grp_name]
         return ad_grps
 
-    def compare_forwarding(cerebrum_forwards, cerebrum_dist_grps,
-                           altRecipientUsers, ad_contacts,
-                           ad_dist_groups, exch_users):
-        return "resultat"
 
+    def compare_forwards(self, cerebrum_forwards, ad_contacts,
+                         up_rec):
+        """ Sync forwarding contact objects in AD
+        
+        @param ad_contacts : dict with contacts and attributes from AD
+        @type ad_contacts : dict
+        @param cerebrum_maillists : dict with forwards and info from cerebrum
+        @type cerebrum_maillists : dict
+        @param dry_run: Flag
+        """
+        #Keys in dict from cerebrum must match fields to be populated in AD.
+        changelist = [] 
+        
+        for frwd in cerebrum_forwards:
+            changes = {}   
+            if ad_contacts.has_key(frwd):
+                #contact in both places, we want to check correct data
+                
+                #Checking for correct OU.
+                ou = "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap)
+                if ad_contacts[frwd]['distinguishedName'] != 'CN=%s,%s' % (frwd,ou):
+                    changes['type'] = 'move_object'
+                    changes['OU'] = ou
+                    changes['distinguishedName'] = \
+                                ad_contacts[frwd]['distinguishedName']
+                    #Submit list and clean.
+                    changelist.append(changes)
+                    changes = {}
+
+                #Comparing contact info 
+                for attr in cereconf.AD_CONTACT_FORWARD_ATTRIBUTES:            
+                    #Catching special cases.
+                    # xmlrpclib appends chars [' and '] 
+                    # to this attribute for some reason
+                    if attr == 'msExchPoliciesExcluded':
+                        if ad_contacts[frwd].has_key('msExchPoliciesExcluded'):
+                            tempstring = str(ad_contacts[frwd]
+                                             ['msExchPoliciesExcluded']).replace("['","")
+                            tempstring = tempstring.replace("']","")
+                            if (tempstring == cerebrum_forwards[frwd]
+                                ['msExchPoliciesExcluded']):
+                                pass
+                            else:
+                                changes['msExchPoliciesExcluded'] = cerebrum_forwards[frwd]['msExchPoliciesExcluded']
+                        else:
+                            changes['msExchPoliciesExcluded'] = cerebrum_forwards[frwd]['msExchPoliciesExcluded']
+                    #Treating general cases
+                    else:
+                        if cerebrum_forwards[frwd].has_key(attr) and \
+                               ad_contacts[frwd].has_key(attr):
+                            if isinstance(cerebrum_forwards[frwd][attr], (list)):
+                                # Multivalued, it is assumed that a
+                                # multivalue in cerebrumusrs always is
+                                # represented as a list.
+                                Mchange = False
+                                                                
+                                if (isinstance(ad_contacts[frwd][attr],
+                                               (str,int,long,unicode))):
+                                    #Transform single-value to a list for comp.
+                                    val2list = []
+                                    val2list.append(ad_contacts[frwd][attr])
+                                    ad_contacts[frwd][attr] = val2list
+                                                                        
+                                for val in cerebrum_forwards[frwd][attr]:
+                                    if val not in ad_contacts[frwd][attr]:
+                                        Mchange = True
+                                                                                
+                                if Mchange:
+                                    changes[attr] = cerebrum_forwards[frwd][attr]
+                            else:
+                                if ad_contacts[frwd][attr] != cerebrum_forwards[frwd][attr]:
+                                    changes[attr] = cerebrum_forwards[frwd][attr] 
+                        else:
+                            if cerebrum_forwards[frwd].has_key(attr):
+                                # A blank value in cerebrum and <not
+                                # set> in AD -> do nothing.
+                                if cerebrum_forwards[frwd][attr] != "": 
+                                    changes[attr] = cerebrum_forwards[frwd][attr] 
+                            elif ad_contacts[frwd].has_key(attr):
+                                #Delete value
+                                changes[attr] = '' 
+
+                #Submit if any changes.
+                if changes:
+                    changes['distinguishedName'] = 'CN=%s,%s' % (frwd,ou)
+                    changes['type'] = 'alter_forward_contact_object'
+                    changelist.append(changes)
+                    changes = {}
+                    up_rec.append(frwd)
+
+                del(ad_contacts[frwd])
+
+            else:
+                #The remaining items in cerebrum_dict is not in AD, create object
+                changes={}
+                changes = cerebrum_forwards[frwd]
+                changes['type'] = 'create_object'
+                changes['name'] = frwd
+                changelist.append(changes)
+                changes = {}
+                up_rec.append(frwd)
+            
+        #Remaining objects in ad_contacts should not be in AD anymore
+        for frwd in ad_contacts:
+            changes['type'] = 'delete_object'
+            changes['distinguishedName'] = (ad_contacts[frwd]
+                                            ['distinguishedName'])
+            changelist.append(changes)
+            changes = {}
+
+        return changelist
+
+
+    def compare_distgrps(self, cerebrum_dist_grps,altRecipientUsers,
+                         ad_dist_groups, up_rec):
+        """ Sync distribution groups used to contain a users forward
+        contact objects in AD
+        
+        @param ad_contacts : dict with dist groups and attributes from AD
+        @type ad_contacts : dict
+        @param cerebrum_maillists : dict with dist groups and info from cerebrum
+        @type cerebrum_maillists : dict
+        @param dry_run: Flag
+        """
+        #Keys in dict from cerebrum must match fields to be populated in AD.
+        changelist = [] 
+        
+        for distgrp in cerebrum_dist_grps:
+            changes = {}   
+            if ad_dist_groups.has_key(distgrp):
+                #group in both places, we want to check correct data
+                
+                #Checking for correct OU.
+                ou = "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap)
+                if ad_dist_groups[distgrp]['distinguishedName'] != 'CN=%s,%s' % (distgrp,ou):
+                    changes['type'] = 'move_object'
+                    changes['OU'] = ou
+                    changes['distinguishedName'] = \
+                                ad_dist_groups[distgrp]['distinguishedName']
+                    #Submit list and clean.
+                    changelist.append(changes)
+                    changes = {}
+
+                #Comparing group info 
+                for attr in cereconf.AD_CONTACT_FORWARD_ATTRIBUTES:            
+                    #Catching special cases.
+                    # xmlrpclib appends chars [' and '] 
+                    # to this attribute for some reason
+                    if attr == 'msExchPoliciesExcluded':
+                        if ad_dist_groups[distgrp].has_key('msExchPoliciesExcluded'):
+                            tempstring = str(ad_dist_groups[distgrp]
+                                             ['msExchPoliciesExcluded']).replace("['","")
+                            tempstring = tempstring.replace("']","")
+                            if (tempstring == cerebrum_dist_grps[distgrp]
+                                ['msExchPoliciesExcluded']):
+                                pass
+                            else:
+                                changes['msExchPoliciesExcluded'] = cerebrum_dist_grps[distgrp]['msExchPoliciesExcluded']
+                        else:
+                            changes['msExchPoliciesExcluded'] = cerebrum_dist_grps[distgrp]['msExchPoliciesExcluded']
+                    #Treating general cases
+                    else:
+                        if cerebrum_dist_grps[distgrp].has_key(attr) and \
+                               ad_dist_groups[distgrp].has_key(attr):
+                            if isinstance(cerebrum_dist_grps[distgrp][attr], (list)):
+                                # Multivalued, it is assumed that a
+                                # multivalue in cerebrumusrs always is
+                                # represented as a list.
+                                Mchange = False
+                                                                
+                                if (isinstance(ad_dist_groups[distgrp][attr],
+                                               (str,int,long,unicode))):
+                                    #Transform single-value to a list for comp.
+                                    val2list = []
+                                    val2list.append(ad_dist_groups[distgrp][attr])
+                                    ad_dist_groups[distgrp][attr] = val2list
+                                                                        
+                                for val in cerebrum_dist_grps[distgrp][attr]:
+                                    if val not in ad_dist_groups[distgrp][attr]:
+                                        Mchange = True
+                                                                                
+                                if Mchange:
+                                    changes[attr] = cerebrum_dist_grps[distgrp][attr]
+                            else:
+                                if ad_dist_groups[distgrp][attr] != cerebrum_dist_grps[distgrp][attr]:
+                                    changes[attr] = cerebrum_dist_grps[distgrp][attr] 
+                        else:
+                            if cerebrum_dist_grps[distgrp].has_key(attr):
+                                # A blank value in cerebrum and <not
+                                # set> in AD -> do nothing.
+                                if cerebrum_dist_grps[distgrp][attr] != "": 
+                                    changes[attr] = cerebrum_dist_grps[distgrp][attr] 
+                            elif ad_dist_groups[distgrp].has_key(attr):
+                                #Delete value
+                                changes[attr] = '' 
+
+                #Submit if any changes.
+                if changes:
+                    changes['distinguishedName'] = 'CN=%s,%s' % (distgrp,ou)
+                    changes['type'] = 'alter_forward_distgrp_object'
+                    changelist.append(changes)
+                    changes = {}
+                    up_rec.append(distgrp)
+                    #Must update user with altRecipient
+                    forwarding_user = distgrp.replace(cereconf.AD_FORWARD_GROUP_PREFIX,"")
+                    changes['distinguishedName'] = 'CN=%s,%s' % (forwarding_user,self.get_default_ou())
+                    changes['type'] = 'alter_object'
+                    changes['altRecipient'] = 'CN=%s,%s' % (distgrp, ou)
+                    changelist.append(changes)
+                    changes = {}
+                    if not forwarding_user in up_rec:
+                        up_rec.append(forwarding_user)
+
+                del(ad_dist_groups[distgrp])
+
+            else:
+                #The item in cerebrum_dict is not in AD, create object
+                changes={}
+                changes = cerebrum_dist_grps[distgrp]
+                changes['type'] = 'create_object'
+                changes['sAMAccountName'] = distgrp
+                changelist.append(changes)
+                changes = {}
+                #Shall run Update-Recipient
+                up_rec.append(distgrp)
+                #Must update user with altRecipient
+                forwarding_user = distgrp.replace(cereconf.AD_FORWARD_GROUP_PREFIX,"")
+                changes['distinguishedName'] = 'CN=%s,%s' % (forwarding_user,self.get_default_ou())
+                changes['type'] = 'alter_object'
+                ou = "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap)
+                changes['altRecipient'] = 'CN=%s,%s' % (distgrp, ou)
+                changelist.append(changes)
+                changes = {}
+                if not forwarding_user in up_rec:
+                    up_rec.append(forwarding_user)
+            
+        #Remaining objects in ad_dist_groups should not be in AD anymore
+        for distgrp in ad_dist_groups:
+            changes['type'] = 'delete_object'
+            changes['distinguishedName'] = (ad_dist_groups[distgrp]
+                                            ['distinguishedName'])
+            changelist.append(changes)
+            changes = {}
+
+        #Users with altRecipient that points to a (now) non-existing dist group
+        #shall have this attribute reset
+        for username, distname in altRecipientUsers.items():
+            key = cereconf.AD_FORWARD_GROUP_PREFIX + username
+            if not cerebrum_dist_grps.has_key(key):
+                changes['type'] = 'alter_object'
+                changes['distinguishedName'] = distname
+                changes['altRecipient'] = ""
+                changelist.append(changes)
+                changes={}
+                if not username in up_rec:
+                    up_rec.append(username)
+
+        return changelist
+
+      
+    def perform_forward_contact_changes(self, changelist, dry_run):
+        for chg in changelist:      
+            self.logger.debug("Process change: %s" % repr(chg))
+            if chg['type'] == 'create_object':
+                self.create_forward_contact_object(chg, dry_run)
+            else:
+                ret = self.run_cmd('bindObject', dry_run,
+                                   chg['distinguishedName'])
+                if not ret[0]:
+                    self.logger.warning("bindObject on %s failed: %r" % \
+                                            (chg['distinguishedName'], ret))
+                else:
+                    exec('self.' + chg['type'] + '(chg, dry_run)')
+
+                   
+
+    
+    def create_forward_contact_object(self, chg, dry_run):
+        """
+        Creates AD contact object and populates given attributes
+
+        @param chg: object_name and attributes
+        @type chg: dict
+        @param dry_run: Flag
+        """
+        ou = chg.get("OU", "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap))
+        self.logger.debug('CREATE %s', chg)
+        ret = self.run_cmd('createObject', dry_run, 'contact', ou, 
+                      chg['name'])
+        if not ret[0]:
+            self.logger.warning("create forward contact %s failed: %r",
+                                chg['name'],ret[1])
+        elif not dry_run:
+            name = chg['name']
+            del chg['name']
+            del chg['type']
+            if chg.has_key('distinguishedName'):
+                del chg['distinguishedName']
+            ret = self.server.putContactProperties(chg)
+            if not ret[0]:
+                self.logger.warning("putproperties on %s failed: %r",
+                                    name, ret)
+            else:
+                ret = self.run_cmd('setObject', dry_run)
+                if not ret[0]:
+                    self.logger.warning("setObject on %s failed: %r",
+                                        name, ret)
+            
+
+    def alter_forward_contact_object(self, chg, dry_run):
+        """
+        Binds to AD group objects and updates given attributes
+
+        @param chg: group_name -> group info mapping
+        @type chg: dict
+        @param dry_run: Flag
+        """
+        distName = chg['distinguishedName']                 
+        #Already binded
+        del chg['type']             
+        del chg['distinguishedName']
+
+        if not dry_run:
+            ret = self.server.putContactProperties(chg)
+        else:
+            ret = (True, 'putContactProperties')
+        if not ret[0]:
+            self.logger.warning("putContactProperties on %s failed: %r",
+                                distName, ret)
+        else:
+            ret = self.run_cmd('setObject', dry_run)
+            if not ret[0]:
+                self.logger.warning("setObject on %s failed: %r",
+                                    distName, ret)         
+
+
+    def perform_forward_distgrp_changes(self, changelist, dry_run):
+        for chg in changelist:      
+            self.logger.debug("Process change: %s" % repr(chg))
+            if chg['type'] == 'create_object':
+                self.create_forward_distgrp_object(chg, dry_run)
+            else:
+                ret = self.run_cmd('bindObject', dry_run,
+                                   chg['distinguishedName'])
+                if not ret[0]:
+                    self.logger.warning("bindObject on %s failed: %r" % \
+                                            (chg['distinguishedName'], ret))
+                else:
+                    exec('self.' + chg['type'] + '(chg, dry_run)')
+
+                    
+
+    def create_forward_distgrp_object(self, chg, dry_run):
+        """
+        Creates AD group object and populates given attributes
+
+        @param chg: group_name -> group info mapping
+        @type chg: dict
+        @param dry_run: Flag
+        """
+        ou = chg.get("OU", "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap))
+        self.logger.debug('CREATE %s', chg)
+        ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
+                      chg['sAMAccountName'])
+        if not ret[0]:
+            self.logger.warning("create dist_group %s failed: %r",
+                                chg['sAMAccountName'],ret[1])
+        elif not dry_run:
+            del chg['type']
+            if chg.has_key('distinguishedName'):
+                del chg['distinguishedName']
+            #if chg.has_key('sAMAccountName'):
+            #    del chg['sAMAccountName']               
+            ret = self.server.putGroupProperties(chg)
+            if not ret[0]:
+                self.logger.warning("putproperties on %s failed: %r",
+                                    chg['sAMAccountName'], ret)
+            else:
+                ret = self.run_cmd('setObject', dry_run)
+                if not ret[0]:
+                    self.logger.warning("setObject on %s failed: %r",
+                                        chg['sAMAccountName'], ret)
+            
+
+
+    def alter_forward_distgrp_object(self, chg, dry_run):
+        """
+        Binds to AD group objects and updates given attributes
+
+        @param chg: group_name -> group info mapping
+        @type chg: dict
+        @param dry_run: Flag
+        """
+        distName = chg['distinguishedName']                 
+        #Already binded
+        del chg['type']             
+        del chg['distinguishedName']
+
+        #ret = self.run_cmd('putGroupProperties', dry_run, chg)
+        #run_cmd in ADutilMixIn.py not written for group updates
+        if not dry_run:
+            ret = self.server.putGroupProperties(chg)
+        else:
+            ret = (True, 'putGroupProperties')
+        if not ret[0]:
+            self.logger.warning("putGroupProperties on %s failed: %r",
+                                distName, ret)
+        else:
+            ret = self.run_cmd('setObject', dry_run)
+            if not ret[0]:
+                self.logger.warning("setObject on %s failed: %r",
+                                    distName, ret)         
+
+    
+    def sync_members_forward_distgrp(self, cerebrum_dist_grps, dry_run):
+
+        for key, value in cerebrum_dist_grps.items():
+            if cerebrum_dist_grps[key].has_key('members'):
+                self.logger.debug2("Try to sync members for %s dist group", key)
+                dn = self.server.findObject(key)
+                if not dn:
+                    self.logger.debug("unknown dist group: %s", key)
+                elif dry_run:
+                    self.logger.debug("Dryrun: don't sync members")
+                else:
+                    self.server.bindObject(dn)
+                    #serverside find function does not support contact objects
+                    #so we provide full LDAP path to objects.
+                    LDAPmemebers = []
+                    for contact in value['members']:
+                        ldap_member = "CN=%s,OU=%s,%s" % (contact, cereconf.AD_CONTACT_OU, self.ad_ldap)
+                        LDAPmemebers.append(ldap_member)            
+                    res = self.server.syncMembers(LDAPmemebers, True, False)
+                    if not res[0]:
+                        self.logger.warning("syncMembers %s failed for:%r" %
+                                            (dn, res[1:]))
+            else:
+                self.logger.warning("Problems getting parentgroup for %s forward contact object" %
+                                    (key))
+            
 
     def full_sync(self, delete=False, spread=None, dry_run=True, 
                   store_sid=False, exchange_spread=None, imap_spread=None, 
@@ -805,43 +1259,47 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             #Fetch cerebrum forwarding data.
             self.logger.debug("Fetching forwardinfo from cerebrum...")
             cerebrum_forwards = self.fetch_forwardinfo_cerebrum_data(spread,exchange_spread)
-            print cerebrum_forwards
             #Make dict for distribution groups
             cerebrum_dist_grps = self.make_cerebrum_dist_grps_dict(cerebrum_forwards)
-            print cerebrum_dist_grps
-
+                        
             #Make list of users with altRecipient in AD
             altRecipientUsers = self.users_with_altRecipient(addump)
-            print altRecipientUsers
+            altRecipientUsers = {}
 
             #Fetch ad data
             self.logger.debug("Fetching ad data about contact objects...")
             ad_contacts = self.fetch_ad_data_contacts()
-            print ad_contacts
             self.logger.debug("Fetching ad data about distrubution groups...")
             ad_dist_groups = self.fetch_ad_data_distribution_groups()
-            print ad_dist_groups
-
+            
         #compare cerebrum and ad-data for users.
         exch_users = []
         changelist = self.compare(delete, cerebrumdump, addump, exch_users)
         self.logger.info("Found %i number of changes" % len(changelist))
-        #self.logger.info("Will run Update-Recipient against Exchange for %i users", 
-        #                 len(exch_users))
+        self.logger.info("Will run Update-Recipient against Exchange for %i users", 
+                         len(exch_users))
 
-        #Perform changes.
+        #Perform changes for users.
         self.perform_changes(changelist, dry_run, store_sid)
 
         if forwarding_sync:
-            #compare cerebrum and ad-date for forwarding
-            changelist2 = self.compare_forwarding(cerebrum_forwards, 
-                                                  cerebrum_dist_grps,
-                                                  altRecipientUsers, ad_contacts,
-                                                  ad_dist_groups, exch_users)
-        
-        self.logger.info("Will run Update-Recipient against Exchange for %i users", 
-                         len(exch_users))
+            #compare cerebrum and ad-data for forward-objects
+            changelist2 = self.compare_forwards(cerebrum_forwards, ad_contacts, exch_users)
+            self.logger.info("Found %i number of forward contact object changes" % len(changelist2))
+            #compare cerebrum and ad-data for dist-grp objects
+            changelist3 = self.compare_distgrps(cerebrum_dist_grps,altRecipientUsers,
+                                                ad_dist_groups, exch_users)
+            self.logger.info("Found %i number of forward dist_grp object changes" % len(changelist3))
+
+            #perform changes for forwarding things
+            self.perform_forward_contact_changes(changelist2, dry_run)
+            self.perform_forward_distgrp_changes(changelist3, dry_run)
+            self.sync_members_forward_distgrp(cerebrum_dist_grps, dry_run)
+            
+
         #updating Exchange
+        self.logger.info("Will run Update-Recipient against Exchange for %i objects", 
+                         len(exch_users))
         self.update_Exchange(dry_run, exch_users)
 
         #Cleaning up.
@@ -1377,13 +1835,13 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         
         maillists_dict = {}
         for liste in mail_lists:
-            objectname = "mailman:%s" % liste
+            objectname = "mailman_%s" % liste
             maillists_dict[objectname] = {
                 "displayName" : "Epostliste - %s" % liste,
                 "targetAddress" : "SMTP:%s" % liste,
                 "mailNickname" : "mailman=%s" % liste.replace("@","."),
                 "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
-                "msExchHideFromAddressLists" : cereconf.AD_EX_HIDE_FROM_ADDRESS_LIST
+                "msExchHideFromAddressLists" : False
                 }
             
         return maillists_dict
@@ -1396,7 +1854,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         #Only deal with mailman lists contact objects. 
         #User sync deals with forward objects.
         for object_name, value in ad_contacts.items():
-            if not object_name.startswith("mailman:"):
+            if not object_name.startswith("mailman_"):
                 del ad_contacts[object_name]
         return ad_contacts
     
@@ -1416,7 +1874,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         for mlist in cerebrum_maillists:
             changes = {}   
             if ad_contacts.has_key(mlist):
-                #group in both places, we want to check correct data
+                #conatct in both places, we want to check correct data
                 
                 #Checking for correct OU.
                 ou = self.get_default_ou()
@@ -1429,7 +1887,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
                     changelist.append(changes)
                     changes = {}
 
-                #Comparing group info 
+                #Comparing contact info 
                 for attr in cereconf.AD_CONTACT_MAILMANLIST_ATTRIBUTES:            
                     #Catching special cases.
                     # xmlrpclib appends chars [' and '] 
@@ -1536,6 +1994,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         elif not dry_run:
             name = chg['name']
             del chg['name']
+            del chg['type']
             if chg.has_key('distinguishedName'):
                 del chg['distinguishedName']
             ret = self.server.putContactProperties(chg)
