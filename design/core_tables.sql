@@ -426,7 +426,7 @@ CREATE TABLE entity_external_id
     UNIQUE (id_type, source_system, external_id),
   CONSTRAINT entity_external_id_entity_id FOREIGN KEY (entity_id, entity_type)
     REFERENCES entity_info(entity_id, entity_type),
-  CONSTRAINT entity_spread_spread FOREIGN KEY (id_type, entity_type)
+  CONSTRAINT entity_external_id_id_type FOREIGN KEY (id_type, entity_type)
     REFERENCES entity_external_id_code(code, entity_type)
 );
 category:main/Oracle;
