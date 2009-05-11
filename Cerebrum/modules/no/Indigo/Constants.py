@@ -165,6 +165,9 @@ class Constants(Constants.Constants):
     trait_homedb_info = _EntityTraitCode(
         'homeMDB', Constants.Constants.entity_account,
         'Register Exchange homeMDB for e-mail accounts')
+    trait_x400_addr = _EntityTraitCode(
+        'x400address', Constants.Constants.entity_account,
+        'Register old addresses for e-mail accounts')
 ## Group traits
     trait_group_imported = _EntityTraitCode(
         'imported_group', Constants.Constants.entity_group,
