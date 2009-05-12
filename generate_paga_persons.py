@@ -135,6 +135,8 @@ def parse_paga_csv(pagafile):
             'dato_til':detail[KEY_DATOTIL],
             'dbh_kat':detail[KEY_DBHKAT],
             'hovedarbeidsforhold':detail[KEY_HOVEDARBFORH],
+            'forhold_nr':detail[KEY_NR],
+            'forhold_av':detail[KEY_AV]
         }
         stedkode=detail[KEY_ORGSTED]
         # check if stedkode should be mapped to something else
@@ -171,11 +173,12 @@ def parse_paga_csv(pagafile):
             if tmp:
                 logger.warn("Several tilsettiger to same place for %s" % (ssn))
                 #several tilsettinger to same place. Decide which to keep.
-                # TODO: We can use standel or nr/av  fields. Which? 
-                # Use st.andel for now
-                if tils_data['stillingsandel']>tmp.get(tils_data['stillingsandel']):
-                    logger.info("New aff at same place, upgraded for %s" % (ssn))
+                #pers.dir says: Use lowest forhold_nr 
+                if tils_data['forhold_nr']<tmp.get(tils_data['forhold_nr']):
+                    logger.info("New aff at same place for %s, used new: %s" % (ssn,tils_data))
                     tilsettinger[ssn][stedkode]=tils_data
+                else:
+                    logger.info("Skipped aff at same place for %s, data: %s" % (ssn,tils_data))
             else:
                 logger.info("adding tilsetting for %s" % (ssn))
                 tilsettinger[ssn][stedkode]=tils_data
