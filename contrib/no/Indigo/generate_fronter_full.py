@@ -34,6 +34,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.modules.no.uio.fronter_lib import XMLWriter
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
 
@@ -112,7 +113,12 @@ class Fronter(object):
             tmp = {'title': 'Ansatte' + ' ' + s,
                    'group_id': s + 'Employees',
                    'parent_id': s + 'Groups'}
-            ret.append(tmp)            
+            ret.append(tmp)
+        for s in schools:
+            tmp = {'title': 'Tilknyttede' + ' ' + s,
+                   'group_id': s + 'Affiliates',
+                   'parent_id': s + 'Groups'}
+            ret.append(tmp)                        
         return ret
 
     def std_grp_nodes(self):
@@ -122,7 +128,7 @@ class Fronter(object):
                    'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
                    'STOL', 'BORGTF', 'BORGRESS')
         for s in schools:
-            tmp = {'title': s + ' vgs - standargrupper',
+            tmp = {'title': s + ' vgs - standardgrupper',
                    'group_id': s + 'Groups', 
                    'parent_id': s}
             ret.append(tmp)
@@ -466,6 +472,7 @@ def update_elev_ans_groups():
     sted = {}
     elever = {}
     ansatte = {}
+    tilknyttet = {}
     ret = []
     
     schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
@@ -478,8 +485,12 @@ def update_elev_ans_groups():
                                           ou_id=sted[0]['ou_id'])
         ansatte = person.list_affiliations(affiliation=const.affiliation_ansatt,
                                            ou_id=sted[0]['ou_id'])
+        tilknyttet = person.list_affiliations(
+            affiliation=const.affiliation_tilknyttet,
+            ou_id=sted[0]['ou_id'])
         elev_group_id = s + 'all_students'
         ans_group_id = s + 'Employees'
+        tilk_group_id = s + 'Affiliates'
         for e in elever:
             person.clear()
             person.find(e['person_id'])
@@ -494,6 +505,13 @@ def update_elev_ans_groups():
                                          id_type=const.externalid_fodselsnr)
             ret.append({'group_id': ans_group_id,
                         'member_id': fnr[0][2]})
+        for t in tilknyttet:
+            person.clear()
+            person.find(t['person_id'])
+            fnr = person.get_external_id(source_system=const.system_ekstens,
+                                         id_type=const.externalid_fodselsnr)
+            ret.append({'group_id': tilk_group_id,
+                        'member_id': fnr[0][2]})            
         
     return ret
             
@@ -588,7 +606,7 @@ def main():
     fxml.group_to_XML('All_users', fronter.STATUS_ADD, all_users_dat, 2)
 
     for gname, data in new_school_nodes.iteritems():
-        if re.search('all_students', gname) or re.search('Employees', gname):
+        if re.search('all_students', gname) or re.search('Employees', gname) or re.search('Affiliates', gname):
             fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 2)
         else:
             fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
