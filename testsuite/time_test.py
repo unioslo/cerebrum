@@ -3,7 +3,7 @@
 #
 # $Id$
 #
-# $Date$
+# $Date: 2009-05-08 14:11:12 +0200 (Fri, 08 May 2009) $
 #
 import sys
 import cookielib
@@ -339,7 +339,9 @@ email_view = (
 
 statreset()
 start_time = datetime.datetime.now()
-for i in range(50):
+for i in range(30):
+   cj = cookielib.CookieJar()
+   opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
    print 'Run number: %d' % (i + 1)
    run_login({'username': username,
              'password': password,
@@ -358,8 +360,8 @@ for i in range(50):
       run_acc_save('add_affil', aa)
 
 
-## remove spreads before adding, or else
-## the db will complain about already extisting.
+   ## remove spreads before adding, or else
+   ## the db will complain about already extisting.
    for i in range(2):
       for as in account_add_spread:
          stdout_write('Account remove = %s - ' % as)
