@@ -394,7 +394,7 @@ class BofhdExtension(object):
     # email migrate
     # will be used for migretion of mail accounts from IMAP to Exchange
     #
-    all_coomands['email_exchange_migrate'] = Command(
+    all_commands['email_exchange_migrate'] = Command(
         ("email", "exchange_migrate"),
         AccountName(help_ref="account_name", repeat=True),
         perm_filter='can_email_move')
