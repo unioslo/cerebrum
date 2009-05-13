@@ -141,7 +141,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 pass  # Silently ignore
 
 
-        #Set homeMDB for Exchange users
+        #get traits for x.400 address and homeMDB
         for k,v in user_dict.iteritems():
             self.ac.clear()
             if v['Exchange']:
@@ -150,6 +150,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 except Errors.NotFoundError:
                     continue
 
+                #Some accounts have an old X.400 address
+                x400_trait = self.ac.get_trait(self.co.trait_x400_addr)
+                if x400_trait:
+                    if x400_trait["strval"]:
+                        v['proxyAddresses'].append(x400_trait["strval"])
+
+                #Set homeMDB for Exchange users
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
                 if mdb_trait["strval"]:
                     v['homeMDB'] = "CN=%s,CN=SG_%s,%s" % (mdb_trait["strval"],
@@ -1143,10 +1150,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         cerebrumdump = None   
 
         #Commiting changes to DB (SID external ID) or not.
-        #if dry_run:
-            #self.db.rollback()
-        #else:
-            #self.db.commit()
+        if dry_run:
+            self.db.rollback()
+        else:
+            self.db.commit()
         
         
         self.logger.info("Finished group-sync")
