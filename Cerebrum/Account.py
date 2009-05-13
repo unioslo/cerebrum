@@ -37,7 +37,7 @@ import base64
 
 from Cerebrum import Utils, Disk
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
-     EntityContactInfo, EntitySpread
+     EntityContactInfo, EntityExternalId, EntitySpread
 from Cerebrum.modules import PasswordChecker
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
@@ -436,7 +436,7 @@ class AccountHome(object):
 
 Entity_class = Utils.Factory.get("Entity")
 class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
-              EntityContactInfo, EntitySpread, Entity_class):
+              EntityExternalId, EntityContactInfo, EntitySpread, Entity_class):
 
     __read_attr__ = ('__in_db', '__plaintext_password'
                      # TODO: Get rid of these.
