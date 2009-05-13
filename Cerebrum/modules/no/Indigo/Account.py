@@ -370,15 +370,15 @@ class AccountOfkMixin (Account.Account):
             if ed.email_domain_name <> domain:
                 ed.clear()
                 ed.find_by_domain(domain)
-            # Check for 'cnaddr' category before 'uidaddr', to prefer
-            # 'cnaddr'-style primary addresses for users in
+            # Check for 'uidaddr' category before 'cnaddr', to prefer
+            # 'uidaddr'-style primary addresses for users in
             # maildomains that have both categories.
             ctgs = [int(r['category']) for r in ed.get_categories()]
             local_parts = []
-            if int(self.const.email_domain_category_cnaddr) in ctgs:
-                local_parts.append(self.get_email_cn_local_part())
+            if int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
-            elif int(self.const.email_domain_category_uidaddr) in ctgs:
+            elif int(self.const.email_domain_category_cnaddr) in ctgs:
+                local_parts.append(self.get_email_cn_local_part())
                 local_parts.append(self.account_name)
             for lp in local_parts:
                 lp = self.wash_email_local_part(lp)
