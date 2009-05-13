@@ -40,6 +40,7 @@ from Cerebrum.modules.EntityTrait import \
 
 class ConstantsActiveDirectory(Constants.Constants):
     # FIXME: This Constants-class will eventually be moved to an AD-modul. Jazz, 2009-03-18
+    system_ad = _AuthoritativeSystemCode('AD', 'Information from Active Directory')
     externalid_groupsid = _EntityExternalIdCode('AD_GRPSID',
                                                 Constants.Constants.entity_group,
                                                 "Group's SID, fetched from Active Directory")
