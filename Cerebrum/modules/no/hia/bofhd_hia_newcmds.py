@@ -391,6 +391,38 @@ class BofhdExtension(object):
             pass
         return info
 
+    # email migrate
+    # will be used for migretion of mail accounts from IMAP to Exchange
+    #
+    all_coomands['email_exchange_migrate'] = Command(
+        ("email", "exchange_migrate"),
+        AccountName(help_ref="account_name", repeat=True),
+        perm_filter='can_email_move')
+    def email_exchange_migrate(self, operator, uname):
+        acc = self._get_account(uname)
+        self.ba.can_email_move(operator.get_entity_id(), acc)
+        # add exchange-spread
+        if not acc.has_spread(self.const.spread_exchange_account):
+            acc.add_spread(spread_exchange_account)
+            acc.write_db()
+        # raise error if no e-mail account exist in IMAP
+        if not acc.has_spread(self.const.spread_hia_email):
+            raise CerebrumError("Cannot migrate non-IMAP account %s", uname)
+        et = Email.EmailTarget(self.db)
+        et.find_by_target_entity(acc.entity_id)
+        # raise error if e-mail target is deleted
+        if et.email_target_type == self.const.email_target_deleted:
+            raise CerebrumError("Cannot migrate deleted e-mail target for account %s", uname)
+        # assign new e-mail server
+        es = Email.EmailServer(self.db)
+        # only one exchange server is in use at UiA
+        es.find_by_name('exchkrs01.uia.no')
+        et.email_server_id = es.entity_id
+        et.write_db()
+        # remove IMAP-spread
+        acc.delete_spread(self.const.spread_hia_email)
+        acc.write_db()
+        return "OK, migrating %s to Exchange" % (uname)        
     # email move
     #
     all_commands['email_move'] = Command(
