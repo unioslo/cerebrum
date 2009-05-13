@@ -135,7 +135,7 @@ class ProcHandler(object):
 
         # If the person in question doesn't have any affiliations, we
         # don't create any account.
-        accounts = person.get_accounts()
+        accounts = person.get_accounts(filter_expired=False)
         if len(accounts) == 0:
             if person_affiliations:
                 ac = self._create_account(person)
@@ -165,7 +165,7 @@ class ProcHandler(object):
             
         # Loop over the person's account(s) and correct affiliations
         # and spreads
-        for account in person.get_accounts():
+        for account in person.get_accounts(filter_expired=False):
             account_affiliations = []
             self._ac.clear()
             self._ac.find(account['account_id'])
@@ -183,7 +183,19 @@ class ProcHandler(object):
                 self._ac.set_account_type(a[0], a[1])
                 change = True
                 self.logger.info("Account '%s' added type '%s', '%s'." % (self._ac.account_name, a[0], a[1]))
-            # TBD: set expire_date if no types remain?
+            # Set expire_date if no account_types
+            if not person_affiliations:
+                # Don't reset expire_date on an already expired account
+                if not self._ac.expire_date:
+                    self._ac.expire_date = DateTime.now()
+                    change = True
+                    self.logger.info("Account '%s' set to expired." % self._ac.account_name)
+            else:
+                # The account is about to get account_types so we restore it by removing expire_date
+                if self._ac.expire_date:
+                    self._ac.expire_date = None
+                    change = True
+                    self.logger.info("Account '%s' is restored." % self._ac.account_name)
 
             # TODO: Limit the removal of spreads to types known by proc_entity
 
