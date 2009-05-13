@@ -154,7 +154,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 x400_trait = self.ac.get_trait(self.co.trait_x400_addr)
                 if x400_trait:
                     if x400_trait["strval"]:
-                        v['proxyAddresses'].append(x400_trait["strval"])
+                        v['proxyAddresses'].append(("X400:" + x400_trait["strval"]))
 
                 #Set homeMDB for Exchange users
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
