@@ -403,7 +403,7 @@ class BofhdExtension(object):
         self.ba.can_email_move(operator.get_entity_id(), acc)
         # add exchange-spread
         if not acc.has_spread(self.const.spread_exchange_account):
-            acc.add_spread(spread_exchange_account)
+            acc.add_spread(self.const.spread_exchange_account)
             acc.write_db()
         # raise error if no e-mail account exist in IMAP
         if not acc.has_spread(self.const.spread_hia_email):
