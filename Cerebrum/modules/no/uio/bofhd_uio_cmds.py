@@ -7942,6 +7942,9 @@ class BofhdExtension(object):
         for r in account.get_entity_quarantine():
             if int(r['quarantine_type']) == self.const.quarantine_autopassord:
                 account.delete_entity_quarantine(self.const.quarantine_autopassord)
+            
+            if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
+                account.delete_entity_quarantine(self.const.quarantine_svakt_passord)
 
         if account.get_entity_quarantine(only_active=True):
             return "OK.  Warning: user has an active quarantine"
