@@ -1073,23 +1073,25 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 #want to update group membership if in AD.
                 members = list()
                 for usr in (self.group.search_members(
-                        group_id=grp_id, member_spread=
-                        int(self.co.Spread(user_spread)))):
+                    group_id=grp_id,
+                    member_spread=int(self.co.Spread(user_spread)))):
                     user_id = usr["member_id"]
                     if user_id not in entity2name:
-                        self.logger.debug("Missing name for account id=%s", user_id)
+                        self.logger.debug("Missing name for account id=%s",
+                                          user_id)
                         continue
                     if sendDN_boost:
                         members.append(("CN=%s,OU=%s,%s" % (entity2name[user_id],
-                                                            cereconf.AD_USER_OU, self.ad_ldap)))
+                                                            cereconf.AD_USER_OU,
+                                                            self.ad_ldap)))
                     else:
                         members.append(entity2name[user_id])
-                    self.logger.debug2("Try to sync member account id=%s, name=%s",
-                                       user_id, entity2name[user_id])
+                    self.logger.debug("Try to sync member account id=%s, name=%s",
+                                      user_id, entity2name[user_id])
 
                 for grp in (self.group.search_members(
-                        group_id=grp_id,member_spread=int(
-                            self.co.Spread(group_spread)))):
+                        group_id=grp_id,
+                        member_spread=int(self.co.Spread(group_spread)))):
                     group_id = grp["member_id"]
                     if group_id not in entity2name:
                         self.logger.debug("Missing name for group id=%s", group_id)
@@ -1097,12 +1099,13 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     if sendDN_boost:
                         members.append(("CN=%s%s,OU=%s,%s" % (cereconf.AD_GROUP_PREFIX,
                                                               entity2name[group_id],
-                                                              cereconf.AD_GROUP_OU, self.ad_ldap)))
+                                                              cereconf.AD_GROUP_OU,
+                                                              self.ad_ldap)))
                     else:
                         members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
                                                  entity2name[group_id]))            
-                    self.logger.debug2("Try to sync member group id=%s, name=%s",
-                                       group_id, entity2name[group_id])
+                    self.logger.debug("Try to sync member group id=%s, name=%s",
+                                      group_id, entity2name[group_id])
 
                 dn = self.server.findObject('%s%s' %
                                             (cereconf.AD_GROUP_PREFIX,grp_name))
