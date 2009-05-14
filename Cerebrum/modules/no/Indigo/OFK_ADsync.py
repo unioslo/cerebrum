@@ -1042,7 +1042,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                     distName, ret)         
 
 
-    def sync_group_members(self, cerebrum_dict, group_spread, user_spread, dry_run):
+    def sync_group_members(self, cerebrum_dict, group_spread, user_spread, dry_run, sendDN_boost):
         """
         Update group memberships in AD
 
@@ -1079,7 +1079,11 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     if user_id not in entity2name:
                         self.logger.debug("Missing name for account id=%s", user_id)
                         continue
-                    members.append(entity2name[user_id])
+                    if sendDN_boost:
+                        members.append(("CN=%s,OU=%s,%s" % (entity2name[user_id],
+                                                            cereconf.AD_USER_OU, self.ad_ldap)))
+                    else:
+                        members.append(entity2name[user_id])
                     self.logger.debug2("Try to sync member account id=%s, name=%s",
                                        user_id, entity2name[user_id])
 
@@ -1090,8 +1094,13 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     if group_id not in entity2name:
                         self.logger.debug("Missing name for group id=%s", group_id)
                         continue
-                    members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
-                                             entity2name[group_id]))            
+                    if sendDN_boost:
+                        members.append(("CN=%s%s,OU=%s,%s" % (cereconf.AD_GROUP_PREFIX,
+                                                              entity2name[group_id],
+                                                              cereconf.AD_GROUP_OU, self.ad_ldap)))
+                    else:
+                        members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
+                                                 entity2name[group_id]))            
                     self.logger.debug2("Try to sync member group id=%s, name=%s",
                                        group_id, entity2name[group_id])
 
@@ -1104,7 +1113,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     self.logger.debug("Dryrun: don't sync members")
                 else:
                     self.server.bindObject(dn)
-                    res = self.server.syncMembers(members, False, False)
+                    if sendDN_boost:
+                        res = self.server.syncMembers(members, True, False)
+                    else:
+                        res = self.server.syncMembers(members, False, False)
                     if not res[0]:
                         self.logger.warning("syncMembers %s failed for:%r" %
                                           (dn, res[1:]))
@@ -1114,7 +1126,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
              
   
 
-    def full_sync(self, delete=False, dry_run=True, store_sid=False, user_spread=None, group_spread=None):
+    def full_sync(self, delete=False, dry_run=True, store_sid=False,
+                  user_spread=None, group_spread=None, sendDN_boost=False):
 
         self.logger.info("Starting group-sync(delete = %s, dry_run = %s)" % \
                              (delete, dry_run))     
@@ -1143,7 +1156,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
         #Syncing group members
         self.logger.info("Starting sync of group members")
-        self.sync_group_members(cerebrumdump,group_spread, user_spread, dry_run)
+        self.sync_group_members(cerebrumdump, group_spread, user_spread, dry_run, sendDN_boost)
 
         #Cleaning up.
         addump = None
