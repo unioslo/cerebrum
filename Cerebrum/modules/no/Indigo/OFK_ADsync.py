@@ -159,9 +159,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 #Set homeMDB for Exchange users
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
                 if mdb_trait["strval"]:
-                    v['homeMDB'] = "CN=%s,CN=SG_%s,%s" % (mdb_trait["strval"],
-                                                          mdb_trait["strval"],
-                                                          cereconf.AD_EX_MDB_SERVER)
+                    exchangeserver = ""
+                    for servername in cereconf.AD_EX_MDB_SERVER:
+                        if mdb_trait["strval"] in cereconf.AD_EX_MDB_SERVER[servername]:
+                            exchangeserver = servername
+                    v['homeMDB'] = "CN=%s,CN=SG_%s,CN=InformationStore,CN=%s,%s" % (mdb_trait["strval"],
+                                                                                    mdb_trait["strval"],
+                                                                                    exchangeserver,
+                                                                                    cereconf.AD_EX_MDB_DN)
                 else:
                     v['homeMDB'] = ""
                     self.logger.error("Error getting homeMDB"
