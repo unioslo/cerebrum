@@ -25,20 +25,47 @@ ad-sync script for OFK that uses ADsync.py module to sync users and groups
 to AD and Exchange.
 
 Usage: [options]
-  --user-sync (sync users to AD and Exchange)
-  --group-sync (sync groups to AD)
-  
-  --user_spread spread (overrides cereconf.AD_ACCOUNT_SPREAD)
-  --user_exchange_spread spread (overrides cereconf.AD_EXCHANGE_SPREAD)
-  --group_spread spread (overrides cereconf.AD_GROUP_SPREAD)
-  --store-sid (write sid of new AD objects to cerebrum databse as external ids.
-               default is not to write sid to database)
-  --dryrun (report changes that would have been done without --dryrun)
-  --delete (this option ensures deleting superfluous groups. default
-            is _not_ to delete groups)
-  --logger-level LEVEL (default is INFO)
-  --logger-name name (default is console)
-  
+
+  -h, --help
+        displays this text
+
+  -u, --user-sync
+        sync users to AD and Exchange
+        
+  -g, --group-sync
+        sync groups to AD and Exchange
+
+  --user_spread SPREAD
+        overrides cereconf.AD_ACCOUNT_SPREAD
+        
+  --user_exchange_spread SPREAD
+        overrides cereconf.AD_EXCHANGE_SPREAD
+
+  --group_spread SPREAD
+        overrides cereconf.AD_GROUP_SPREAD
+
+  --store-sid
+        write sid of new AD objects to cerebrum databse as external ids.
+        default is _not_ to write sid to database.
+        
+  --dryrun
+        report changes that would have been done without --dryrun.
+
+  --delete
+        this option ensures deleting superfluous groups. default
+        is _not_ to delete groups.
+
+  --sendDN_boost
+        this option tells the group sync to send full Distinguished
+        Names of group memebers to the AD service thus saving time
+        from looking up the user objects on the server.
+        
+  --logger-level LEVEL
+        default is INFO
+        
+  --logger-name NAME
+        default is console
+
 Example:
   ad_fullsync.py --user-sync --store-sid
 
@@ -69,7 +96,7 @@ ac = Utils.Factory.get('Account')(db)
 
 def fullsync(user_sync, group_sync, user_spread, user_exchange_spread,
              group_spread, dryrun, delete_objects, store_sid, logger_name,
-             logger_level):
+             logger_level, sendDN_boost):
         
     # initate logger
     logger = Utils.Factory.get_logger(logger_name)
@@ -97,7 +124,8 @@ def fullsync(user_sync, group_sync, user_spread, user_exchange_spread,
             # instantiate sync_class and call full_sync
             OFK_ADsync.ADFullGroupSync(db, co, logger).full_sync(
                 delete=delete_objects, dry_run=dryrun, store_sid=store_sid,
-                user_spread=user_spread, group_spread=group_spread)
+                user_spread=user_spread, group_spread=group_spread,
+                sendDN_boost=sendDN_boost)
         except xmlrpclib.ProtocolError, xpe:
             logger.critical("Error connecting to AD service. Giving up!: %s %s" %
                             (xpe.errcode, xpe.errmsg))
@@ -107,7 +135,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hug',  [
             'help', 'user-sync', 'group-sync', 'user_spread=',
-            'user_exchange_spread=', 'dryrun', 'store-sid',
+            'user_exchange_spread=', 'dryrun', 'store-sid', 'sendDN_boost', 
             'delete', 'group_spread=', 'logger-level=', 'logger-name='])
     except getopt.GetoptError:
         usage(1)
@@ -117,6 +145,7 @@ def main():
     delete_objects = False
     user_sync = False
     group_sync = False
+    sendDN_boost = False
     user_spread = cereconf.AD_ACCOUNT_SPREAD
     user_exchange_spread = cereconf.AD_EXCHANGE_SPREAD
     group_spread = cereconf.AD_GROUP_SPREAD
@@ -141,6 +170,8 @@ def main():
             user_exchange_spread = val
         elif opt == '--group_spread':
             group_spread = val
+        elif opt == '--sendDN_boost':
+            sendDN_boost = True
         elif opt == '--logger-name':
             logger_name = val
         elif opt == '--logger-level':
@@ -148,7 +179,7 @@ def main():
         
     fullsync(user_sync, group_sync, user_spread, user_exchange_spread,
              group_spread, dryrun, delete_objects, store_sid, logger_name,
-             logger_level)
+             logger_level, sendDN_boost)
 
 def usage(exitcode=0):
     print __doc__
