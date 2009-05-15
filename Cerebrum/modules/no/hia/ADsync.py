@@ -160,7 +160,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 else:
                     v['homeMDB'] = ""
                     self.logger.error("Error getting homeMDB"
-                                      " for account %s (id: %i)" % (v['TEMPuname'],int(k)))  
+                                      " for account %s (id: %i)" % (v['TEMPuname'],int(k)))
 
                 equota.clear()
                 equota.find_by_target_entity(int(k))
@@ -185,7 +185,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                           * q_soft // 100)
                 v['mDBStorageQuota'] = v['mDBOverQuotaLimit'] * 90 // 100
                 #We or Exchange shall decide quotas:
-                v['mDBUseDefaults'] = cereconf.AD_EX_MDB_USE_DEFAULTS,
+                v['mDBUseDefaults'] = cereconf.AD_EX_MDB_USE_DEFAULTS
                 
 
     
@@ -695,7 +695,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Ran Update-Recipient against Exchange for %i objects", 
                          len(exch_users))
 
-    def fetch_forwardinfo_cerebrum_data(self, ad_spread, exchange_spread):    
+    def fetch_forwardinfo_cerebrum_data(self, ad_spread, exchange_spread, cerebrumdump):    
         exch_users = {}
         #Getting entity_id and user name for all users with both spreads
         set1 = set([(row['account_id'],row['name']) for row in 
@@ -728,6 +728,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             exch_user = exch_users.get(te_id)
             if not exch_user:
                 continue
+            cerebrumdump[exch_user['uname']]['deliverAndRedirect'] = False
             if row['enable'] == 'T':
                 exch_user['forward_addresses'].append(row['forward_to'])
 
@@ -735,15 +736,21 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         forwards = {}
         for values in exch_users.itervalues():
             for fwrd_addr in values['forward_addresses']:
-                objectname = "Forward_for_%s(%s)" % (values['uname'], fwrd_addr)
-                forwards[objectname] = {
-                    "displayName" : "Forward for %s(%s)" % (values['uname'],fwrd_addr),
-                    "targetAddress" : "SMTP:%s" % fwrd_addr,
-                    "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
-                    "msExchHideFromAddressLists" : True,
-                    "mailNickname" : "%s_forward=%s" % (values['uname'],fwrd_addr.replace("@",".")),
-                    "owner_uname" : values['uname']}   
-                    
+                SMTP = "SMTP:%s" % fwrd_addr
+                smtp = "smtp:%s" % fwrd_addr
+                if (SMTP in cerebrumdump[values['uname']]['proxyAddresses']
+                    or smtp in cerebrumdump[values['uname']]['proxyAddresses']):
+                    cerebrumdump[values['uname']]['deliverAndRedirect'] = True
+                else:
+                    objectname = "Forward_for_%s(%s)" % (values['uname'], fwrd_addr)
+                    forwards[objectname] = {
+                        "displayName" : "Forward for %s(%s)" % (values['uname'],fwrd_addr),
+                        "targetAddress" : "SMTP:%s" % fwrd_addr,
+                        "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
+                        "msExchHideFromAddressLists" : True,
+                        "mailNickname" : "%s_forward=%s" % (values['uname'],fwrd_addr.replace("@",".")),
+                        "owner_uname" : values['uname']}   
+
         return forwards
     
     
@@ -900,12 +907,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             
         #Remaining objects in ad_contacts should not be in AD anymore
         for frwd in ad_contacts:
+            changes = {} 
             changes['type'] = 'delete_object'
             changes['distinguishedName'] = (ad_contacts[frwd]
                                             ['distinguishedName'])
             changelist.append(changes)
-            changes = {}
-
+            
         return changelist
 
 
@@ -1034,11 +1041,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             
         #Remaining objects in ad_dist_groups should not be in AD anymore
         for distgrp in ad_dist_groups:
+            changes = {}
             changes['type'] = 'delete_object'
             changes['distinguishedName'] = (ad_dist_groups[distgrp]
                                             ['distinguishedName'])
             changelist.append(changes)
-            changes = {}
+            
 
         #Users with altRecipient that points to a (now) non-existing dist group
         #shall have this attribute reset
@@ -1257,7 +1265,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         if forwarding_sync:
             #Fetch cerebrum forwarding data.
             self.logger.debug("Fetching forwardinfo from cerebrum...")
-            cerebrum_forwards = self.fetch_forwardinfo_cerebrum_data(spread,exchange_spread)
+            cerebrum_forwards = self.fetch_forwardinfo_cerebrum_data(spread,exchange_spread, cerebrumdump)
             #Make dict for distribution groups
             cerebrum_dist_grps = self.make_cerebrum_dist_grps_dict(cerebrum_forwards)
                         
