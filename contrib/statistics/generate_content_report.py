@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -66,6 +66,7 @@ const = Factory.get('Constants')(db)
 options = {"report_all": False,
            "report_entities": False,
            "report_numbers": False,
+           "report_names": False,
            "detailed_reports": False,
            "output": sys.stdout}
 
@@ -84,6 +85,32 @@ def present_entity_results(output_stream, result, topic):
         IDs = [str(row[0]) for row in result]
         output_stream.write("Entity IDs for these are: ")
         output_stream.write(", ".join(IDs) + "\n");
+    
+
+def present_multi_results(output_stream, result, topic, header=(),
+                          line_format=None, line_sep=" "*3):
+    """Generic method for presenting results about multiple data to
+    the user.
+
+    It expects that 'result' is the result of an SQL query, where the
+    first (only?) column contains the entity ID of entities that fit
+    the criterea of the particular test/search.
+
+    header is expected to be a list/tuple of strings of same length as
+    the result tuples.
+    """
+    output_stream.write("\n%s: %i\n" % (topic, len(result)))
+    if options["detailed_reports"]:
+        if header:
+            tmp = line_sep.join(header)
+            output_stream.write(tmp + "\n")
+            output_stream.write("-"*70 + "\n")
+        for row in result:
+            if line_format:
+                line = line_format % tuple(map(str, row))
+            else:
+                line = line_sep.join(map(str, row))
+            output_stream.write(line + "\n")
     
 
 def present_grouped_results(output_stream, result, topic):
@@ -200,6 +227,33 @@ def generate_person_statistics(output_stream):
                          """)
                       
     present_entity_results(output_stream, result, "Number of people with no affiliations")
+
+
+def generate_person_name_statistics(output_stream):
+    # Report people with to many white space characters in the name
+    result = db.query("""SELECT distinct pn.person_id, eei.external_id, pn.name
+                         FROM [:table schema=cerebrum name=person_name] pn,
+                              [:table schema=cerebrum name=entity_external_id] eei,
+                              [:table schema=cerebrum name=authoritative_system_code] ac,
+                              [:table schema=cerebrum name=person_affiliation] pa
+                         WHERE pn.name similar to '%%  +%%' AND
+                               pn.name_variant = :firstname AND
+                               eei.entity_id = pn.person_id AND
+                               eei.id_type = :sap_ansattnr AND
+                               ac.code = :system_sap AND
+                               ac.code = pn.source_system AND
+                               pa.person_id = pn.person_id AND
+                               pa.affiliation = :affiliation_ansatt
+                               order by pn.person_id
+                         """, {"firstname": int(const.name_first),
+                               "sap_ansattnr": int(const.externalid_sap_ansattnr),
+                               "system_sap": int(const.system_sap),
+                               "affiliation_ansatt": int(const.affiliation_ansatt)
+                               })
+    topic = "Number of persons from SAP with too many white spaces in first name"
+    header=("Person id", "SAP ansattnr", "Name")
+    line_format = "%%%ds   %%%ds   %%s" % (len(header[0]), len(header[1]))
+    present_multi_results(output_stream, result, topic, header, line_format)
 
 
 def generate_account_statistics(output_stream):
@@ -430,8 +484,9 @@ def main(argv=None):
         
     try:
         opts, args = getopt.getopt(argv[1:],
-                                   "haef:dn",
-                                   ["help", "all", "entities", "file", "details", "numbers"])
+                                   "haef:dns",
+                                   ["help", "all", "entities", "file",
+                                    "details", "numbers", "sap_names"])
     except getopt.GetoptError, error:
         usage(message=error.msg)
         return 1
@@ -448,6 +503,8 @@ def main(argv=None):
             options["report_numbers"] = True
         if opt in ('-d', '--details',):
             options["detailed_reports"] = True
+        if opt in ('-s', '--sap_names',):
+            options["report_names"] = True
         if opt in ('-f', '--file',):
             output_stream = open(val, "w")
 
@@ -463,6 +520,11 @@ def main(argv=None):
         generate_account_statistics(output_stream)
         generate_group_statistics(output_stream)
         generate_ou_statistics(output_stream)
+
+    if options["report_names"]:
+        output_stream.write("\nInformation about problematic person names\n")
+        output_stream.write("===============================================\n")
+        generate_person_name_statistics(output_stream)
 
     output_stream.write("\n")
     if output_stream != sys.stdout:
