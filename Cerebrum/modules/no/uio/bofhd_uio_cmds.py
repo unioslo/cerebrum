@@ -5185,8 +5185,8 @@ class BofhdExtension(object):
         else:
             # If there is anything, it's at most one
             old_req = old_req[0]
-        if old_req['requestee_id'] != operator.get_entity_id():
-            raise PermissionDenied("You are not the requestee")
+        # If you are allowed to cancel a request, you can change it :)
+        self.ba.can_cancel_request(operator.get_entity_id(), req_id)
         br.delete_request(request_id=request_id)
         br.add_request(operator.get_entity_id(), date,
                        old_req['operation'], old_req['entity_id'],
