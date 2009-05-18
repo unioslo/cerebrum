@@ -75,7 +75,8 @@ class GroupUiOMixin(Group.Group):
 
         # When adding a NIS-spread, assert that group is a PosixGroup
         if int(spread) in (self.const.spread_uio_nis_fg,
-                           self.const.spread_ifi_nis_fg):
+                           self.const.spread_ifi_nis_fg,
+                           self.const.spread_hpc_nis_fg):
             pg = PosixGroup.PosixGroup(self._db)
             try:
                 pg.clear()
