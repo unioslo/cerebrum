@@ -1160,8 +1160,9 @@ class FS(object):
         if db is None:
             user = user or cereconf.FS_USER
             database = database or cereconf.FS_DATABASE_NAME
+            DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
             db = Database.connect(user=user, service=database,
-                                  DB_driver = 'DCOracle2')
+                                  DB_driver=DB_driver)
         self.db = db
         self.person = Person(db)
         self.student = Student(db)
