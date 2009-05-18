@@ -24,7 +24,6 @@ import sys
 import cerebrum_path
 import cereconf
 import xmlrpclib
-import sre
 import re
 
 from Cerebrum import Entity
@@ -175,7 +174,7 @@ def compare(adusers,cerebrumusers):
     
     # picking correct ou requires use of 
     #    
-    exp = sre.compile('CN=[^,]+,OU=([^,]+)')
+    exp = re.compile('CN=[^,]+,OU=([^,]+)')
     logger.info("Checking %d accounts for Cerebrum/AD-membership and changes" % len(adusers))
             
     for usr, dta in adusers.items():
