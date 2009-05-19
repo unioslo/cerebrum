@@ -742,9 +742,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     or smtp in cerebrumdump[values['uname']]['proxyAddresses']):
                     cerebrumdump[values['uname']]['deliverAndRedirect'] = True
                 else:
-                    objectname = "Forward_for_%s(%s)" % (values['uname'], fwrd_addr)
+                    objectname = "Forward_for_%s#%s" % (values['uname'], fwrd_addr)
                     forwards[objectname] = {
-                        "displayName" : "Forward for %s(%s)" % (values['uname'],fwrd_addr),
+                        "displayName" : "Forward for %s#%s" % (values['uname'],fwrd_addr),
                         "targetAddress" : "SMTP:%s" % fwrd_addr,
                         "proxyAddresses" : "SMTP:%s" % fwrd_addr,
                         "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
@@ -1224,7 +1224,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         for key, value in cerebrum_dist_grps.items():
             if cerebrum_dist_grps[key].has_key('members'):
-                self.logger.debug2("Try to sync members for %s dist group", key)
+                self.logger.debug("Try to sync members for %s dist group", key)
                 dn = self.server.findObject(key)
                 if not dn:
                     self.logger.debug("unknown dist group: %s", key)
@@ -1741,7 +1741,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         self.logger.debug("Missing name for account id=%s", user_id)
                         continue
                     members.append(entity2name[user_id])
-                    self.logger.debug2("Try to sync member account id=%s, name=%s",
+                    self.logger.debug("Try to sync member account id=%s, name=%s",
                                        user_id, entity2name[user_id])
 
                 for grp in (self.group.search_members(
@@ -1753,7 +1753,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         continue
                     members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
                                              entity2name[group_id]))            
-                    self.logger.debug2("Try to sync member group id=%s, name=%s",
+                    self.logger.debug("Try to sync member group id=%s, name=%s",
                                        group_id, entity2name[group_id])
 
                 dn = self.server.findObject('%s%s' %
