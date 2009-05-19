@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007-2008 University of Oslo, Norway
+# Copyright 2007-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -61,7 +61,7 @@ class BofhdExtension(object):
         'email_remove_domain_affiliation',
         '_email_info_account', '__get_valid_email_addrs',
         '_email_info_spam', 'email_update',
-        '_email_info_detail', '_email_info_forwarding',
+        '_email_info_forwarding',
         '_email_info_mailman', '_email_info_multi',
         '_email_info_file', '_email_info_pipe',
         '_email_info_filters',
@@ -152,6 +152,57 @@ class BofhdExtension(object):
             info["server"] = "<none>"
             info["server_type"] = "N/A"
         return data
+
+    def _email_info_detail(self, acc):
+        info = []
+        eq = Email.EmailQuota(self.db)
+        try:
+            eq.find_by_target_entity(acc.entity_id)
+            et = Email.EmailTarget(self.db)
+            et.find_by_target_entity(acc.entity_id)
+            es = Email.EmailServer(self.db)
+            es.find(et.email_server_id)
+            if es.email_server_type == self.const.email_server_type_cyrus:
+                pw = self.db._read_password(cereconf.CYRUS_HOST,
+                                            cereconf.CYRUS_ADMIN)
+                used = 'N/A'; limit = None
+                try:
+                    cyrus = imaplib.IMAP4(es.name)
+                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
+                    # IVR 2007-08-29 If the server is too busy, we do not want
+                    # to lock the entire bofhd.
+                    # 5 seconds should be enough
+                    cyrus.socket().settimeout(5)
+                    res, quotas = cyrus.getquota("user." + acc.account_name)
+                    cyrus.socket().settimeout(None)
+                    if res == "OK":
+                        for line in quotas:
+                            try:
+                                folder, qtype, qused, qlimit = line.split()
+                                if qtype == "(STORAGE":
+                                    used = str(int(qused)/1024)
+                                    limit = int(qlimit.rstrip(")"))/1024
+                            except ValueError:
+                                # line.split fails e.g. because quota isn't set on server
+                                folder, junk = line.split()
+                                self.logger.warning("No IMAP quota set for '%s'" % acc.account_name)
+                                used = "N/A"
+                                limit = None
+                except (TimeoutException, socket.error):
+                    used = 'DOWN'
+                except ConnectException, e:
+                    used = str(e)
+                info.append({'quota_hard': eq.email_quota_hard,
+                             'quota_soft': eq.email_quota_soft,
+                             'quota_used': used})
+                if limit is not None and limit != eq.email_quota_hard:
+                    info.append({'quota_server': limit})
+            else:
+                info.append({'dis_quota_hard': eq.email_quota_hard,
+                             'dis_quota_soft': eq.email_quota_soft})
+        except Errors.NotFoundError:
+            pass
+        return info
 
     def __get_email_target_and_account(self, address):
         """Returns a tuple consisting of the email target associated
