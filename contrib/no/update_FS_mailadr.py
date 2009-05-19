@@ -223,7 +223,9 @@ def main():
         # fi
     # od
 
-    fs_db = Database.connect(user = user, service = service, DB_driver='DCOracle2')
+    DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
+    fs_db = Database.connect(user = user, service = service,
+                             DB_driver=DB_driver)
     fs = FS(fs_db)
 
     db = Factory.get('Database')()
