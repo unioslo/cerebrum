@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007-2008 University of Oslo, Norway
+# Copyright 2007-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -56,7 +56,7 @@ class BofhdExtension(object):
         '_find_persons', '_get_person', '_get_account', '_get_ou',
         '_format_ou_name', '_user_create_set_account_type','_get_group',
         '_get_constant', '_parse_date', '_get_entity_name',
-        'misc_list_requests', 'misc_cancel_request',
+        '_email_delivery_stopped', 'misc_list_requests', 'misc_cancel_request',
         )
         
     def __new__(cls, *arg, **karg):
