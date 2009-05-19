@@ -309,8 +309,8 @@ def usage(exitcode=0):
 def assert_connected(user="CEREBRUM", service="FSHIOF.uio.no"):
     global fs
     if fs is None:
-        db = Database.connect(user=user, service=service,
-                              DB_driver='Oracle')
+        DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
+        db = Database.connect(user=user, service=service, DB_driver=DB_driver)
         fs = FS(db)
 
 def main():
