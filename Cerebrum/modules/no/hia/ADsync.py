@@ -746,6 +746,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     forwards[objectname] = {
                         "displayName" : "Forward for %s(%s)" % (values['uname'],fwrd_addr),
                         "targetAddress" : "SMTP:%s" % fwrd_addr,
+                        "proxyAddresses" : "SMTP:%s" % fwrd_addr,
                         "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                         "msExchHideFromAddressLists" : True,
                         "mailNickname" : "%s_forward=%s" % (values['uname'],fwrd_addr.replace("@",".")),
@@ -763,6 +764,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 cerebrum_dist_grps_dict[objectname] = {
                     "displayName" : objectname,
+                    "mailNickname" : objectname,
                     "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                     "msExchHideFromAddressLists" : True,
                     "description" : "Samlegruppe for brukerens forwardadresser",
@@ -1845,6 +1847,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
             maillists_dict[objectname] = {
                 "displayName" : "Epostliste - %s" % liste,
                 "targetAddress" : "SMTP:%s" % liste,
+                "proxyAddresses" : "SMTP:%s" % liste,
                 "mailNickname" : "mailman.%s" % liste.replace("@","."),
                 "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                 "msExchHideFromAddressLists" : False
