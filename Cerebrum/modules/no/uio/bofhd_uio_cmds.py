@@ -3240,15 +3240,21 @@ class BofhdExtension(object):
     _sympa_addr2alias = (
         # The first one *is* the official/primary name. Don't reshuffle.
         ('%(local_part)s@%(domain)s', "|SYMPA_QUEUE %(listname)s"),
+        # Owner addresses...
         ('%(local_part)s-owner@%(domain)s', "|SYMPA_BOUNCEQUEUE %(listname)s"),
-        ('owner-%(local_part)s@%(domain)s', "|SYMPA_BOUNCEQUEUE %(listname)s"),
         ('%(local_part)s-admin@%(domain)s', "|SYMPA_BOUNCEQUEUE %(listname)s"),
+        # Request addresses... 
         ('%(local_part)s-request@%(domain)s',
              "|SYMPA_QUEUE %(local_part)s-request@%(domain)s"),
+        ('owner-%(local_part)s@%(domain)s',
+             "|SYMPA_QUEUE %(local_part)s-request@%(domain)s"),
+        # Editor address...
         ('%(local_part)s-editor@%(domain)s',
             "|SYMPA_QUEUE %(local_part)s-editor@%(domain)s"),
+        # Subscribe address...
         ('%(local_part)s-subscribe@%(domain)s',
             "|SYMPA_QUEUE %(local_part)s-subscribe@%(domain)s"),
+        # Unsubscribe address...
         ('%(local_part)s-unsubscribe@%(domain)s',
             "|SYMPA_QUEUE %(local_part)s-unsubscribe@%(domain)s"),
     )
