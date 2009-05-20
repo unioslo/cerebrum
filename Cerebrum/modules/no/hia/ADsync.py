@@ -519,7 +519,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         else:
                             changes['msExchPoliciesExcluded'] = \
                                 cerebrumusrs[usr]['msExchPoliciesExcluded']
-                    elif attr == 'Exchange' or attr == 'imap':
+                    elif attr == 'Exchange' or attr == 'imap' or attr == 'altRecipient':
                         pass
                     #Treating general cases
                     else:
@@ -742,9 +742,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     or smtp in cerebrumdump[values['uname']]['proxyAddresses']):
                     cerebrumdump[values['uname']]['deliverAndRedirect'] = True
                 else:
-                    objectname = "Forward_for_%s#%s" % (values['uname'], fwrd_addr)
+                    objectname = "Forward_for_%s__%s" % (values['uname'], fwrd_addr)
                     forwards[objectname] = {
-                        "displayName" : "Forward for %s#%s" % (values['uname'],fwrd_addr),
+                        "displayName" : "Forward for %s (%s)" % (values['uname'],fwrd_addr),
                         "targetAddress" : "SMTP:%s" % fwrd_addr,
                         "proxyAddresses" : "SMTP:%s" % fwrd_addr,
                         "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
@@ -778,7 +778,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         users_altRecipient = {}
         for user in addump:
             if addump[user].has_key('altRecipient'):
-                users_altRecipient['user'] = addump[user]['distinguishedName']
+                users_altRecipient[user] = addump[user]['distinguishedName']
         return users_altRecipient
         
     
@@ -903,6 +903,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 changes = cerebrum_forwards[frwd]
                 changes['type'] = 'create_object'
                 changes['name'] = frwd
+                if changes.has_key('owner_uname'):
+                    del changes['owner_uname']
                 changelist.append(changes)
                 changes = {}
                 up_rec.append(frwd)
