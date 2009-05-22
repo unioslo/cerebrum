@@ -3260,7 +3260,7 @@ class BofhdExtension(object):
     )
     _sympa_address_suffixes = ("-owner", "-admin", "-request", "-editor",
                                "-subscribe", "-unsubscribe",)
-    _sympa_address_prefixes = ("owner-")
+    _sympa_address_prefixes = ("owner-",)
 
     def _register_sympa_list_addresses(self, listname, local_part, domain,
                                        delivery_host):
