@@ -1017,8 +1017,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 changes = cerebrum_dist_grps[distgrp]
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = distgrp
-                if changes.has_key('members'):
-                    del changes['members']
                 changelist.append(changes)
                 changes = {}
                 #Shall run Update-Recipient
@@ -1147,6 +1145,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 del chg['distinguishedName']
             if chg.has_key('sAMAccountName'):
                 del chg['sAMAccountName']               
+            #if chg.has_key('members'):
+            #    del chg['members']               
             ret = self.server.putGroupProperties(chg)
             if not ret[0]:
                 self.logger.warning("putproperties on %s failed: %r",
@@ -1209,8 +1209,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         self.logger.warning("syncMembers %s failed for:%r" %
                                             (dn, res[1:]))
             else:
-                self.logger.warning("Problems getting parentgroup for %s forward contact object" %
-                                    (key))
+                self.logger.warning("Error: Group %s has no members key" % (key))
             
 
     def full_sync(self, delete=False, spread=None, dry_run=True, 
