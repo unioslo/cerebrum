@@ -655,7 +655,10 @@ kind2permissions = {
                         # 'larer': NOTIMPLEMENTED on purpose
                         # 'korridor': NOTIMPLEMENTED on purpose
                         'student': view_contacts},
-
+               'tilsyn': {'felles': Fronter.ROLE_READ,
+                          # 'larer': NOTIMPLEMENTED on purpose
+                          # 'korridor': NOTIMPLEMENTED on purpose
+                          'student': view_contacts},
     },
     #
     # Permissions for undakt/EVU-kursaktivitet
@@ -719,6 +722,11 @@ kind2permissions = {
                         'undakt': Fronter.ROLE_READ,
                         # 'korridor': NOTIMPLEMENTED on purpose
                         'student': view_contacts,},
+               'tilsyn': {'felles': Fronter.ROLE_READ,
+                          # 'larer': NOTIMPLEMENTED on purpose
+                          'undakt': Fronter.ROLE_READ,
+                          # 'korridor': NOTIMPLEMENTED on purpose
+                          'student': view_contacts,},
     },
     #
     # Permissions for kull.
@@ -746,6 +754,8 @@ kind2permissions = {
                             'korridor': admin_lite,},
              'tolk': {'kullrom': Fronter.ROLE_READ,},
                       # 'korridor': NOTIMPLEMENTED on purpose
+             'tilsyn': {'kullrom': Fronter.ROLE_READ,},
+                        # 'korridor': NOTIMPLEMENTED on purpose
     },
     'student': {'undakt': Fronter.ROLE_WRITE,
                 'undenh': Fronter.ROLE_WRITE,
