@@ -42,6 +42,7 @@
 #def activitylog: stub
 ##
 #def actions
+        #if len($action) > 0
         <div id="actions">
         <h3>Actions</h3>
         <ul>
@@ -50,6 +51,7 @@
             #end for
         </ul>
     </div>
+    #end if
 #end def
 #def get_links
     #for $link, $label in $links
@@ -135,6 +137,9 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
         #end for
     </head>
     <body>
+        <div class="ntnuimage">
+            <img src="/img/topplinje.gif" alt="NTNU" />
+        </div>
         <div id="container">
             #block tabview
             <div id="tabview" class="yui-navset">
@@ -162,19 +167,21 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
             </div>
             <div id="bottom">
             #block page_bottom
-                #set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
+                ## #set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
                 #set $al = $cherrypy.session['options'].getboolean('layout', 'display activitylog')
-                    
-                #if $wl or $al
+                 
+                ## remove comments for enabling worklist again
+                #if $al
+                ## #if $wl or $al
                     <div class="bottom_div">
-                    #if $wl
-                        <div id="worklist"></div>
-                    #end if
-                    #if $al
+                    ## #if $wl
+                    ##     <div id="worklist"></div>
+                    ## #end if
+                    ## #if $al
                         #block activitylog_block
                             $activitylog()
                         #end block
-                    #end if
+                     ## #end if
                     </div>
                 #end if
             #end block page_bottom
