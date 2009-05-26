@@ -397,9 +397,10 @@ class AccountSearcher(Searcher):
             owner = utils.object_link(elm.get_owner(), text=owner_name)
             cdate = utils.strftime(elm.get_create_date())
             edate = utils.strftime(elm.get_expire_date())
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
-            rows.append((utils.object_link(elm), owner, cdate, edate, str(edit)+str(remb)))
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
+            ## rows.append((utils.object_link(elm), owner, cdate, edate, str(edit)+str(remb)))
+            rows.append((utils.object_link(elm), owner, cdate, edate, ))
         return rows
 
 class PersonSearcher(Searcher):
@@ -569,10 +570,11 @@ class PersonSearcher(Searcher):
                 accs.append(utils.object_link(i, text=linktext))
             ## accs = [str(utils.object_link(i)) for i in pers.get_accounts()[:3]]
             accs = ', '.join(accs[:2]) + (len(accs) == 3 and '...' or '')
-            edit = utils.object_link(pers, text='edit', method='edit', _class='action')
+            ## edit = utils.object_link(pers, text='edit', method='edit', _class='action')
             linktext = utils.spine_to_web(utils.get_lastname_firstname(pers))
-            remb = utils.remember_link(pers, _class="action")
-            rows.append([utils.object_link(pers, text=linktext), date, accs, affs, str(edit)+str(remb)])
+            ## remb = utils.remember_link(pers, _class="action")
+            ## rows.append([utils.object_link(pers, text=linktext), date, accs, affs, str(edit)+str(remb)])
+            rows.append([utils.object_link(pers, text=linktext), date, accs, affs, ])
               
         return rows
 
@@ -599,10 +601,11 @@ class AllocationPeriodSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
             auth = utils.spine_to_web(elm.get_authority().get_name())
-            rows.append([utils.object_link(elm), auth, str(edit)+str(remb)])
+            ## rows.append([utils.object_link(elm), auth, str(edit)+str(remb)])
+            rows.append([utils.object_link(elm), auth, ])
         return rows
 
 class AllocationSearcher(Searcher):
@@ -631,14 +634,15 @@ class AllocationSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
             proj = utils.object_link(elm.get_allocation_name().get_project())
             period = utils.spine_to_web(elm.get_period().get_name())
             status = utils.spine_to_web(elm.get_status().get_name())
             machines = [utils.spine_to_web(m.get_name()) for m in elm.get_machines()]
             machines = "(%s)" % ",".join(machines)
-            rows.append([utils.object_link(elm), period, status, machines, str(edit)+str(remb)])
+            ## rows.append([utils.object_link(elm), period, status, machines, str(edit)+str(remb)])
+            rows.append([utils.object_link(elm), period, status, machines, ])
         return rows
 
 class DiskSearcher(Searcher):
@@ -670,9 +674,10 @@ class DiskSearcher(Searcher):
             ## should convert charset?
             path = utils.object_link(elm, text=elm.get_path())
             host = utils.object_link(elm.get_host())
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
-            rows.append([path, host, utils.spine_to_web(elm.get_description()), str(edit)+str(remb)])
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
+            ## rows.append([path, host, utils.spine_to_web(elm.get_description()), str(edit)+str(remb)])
+            rows.append([path, host, utils.spine_to_web(elm.get_description()), ])
         return rows
 
 class EmailDomainSearcher(Searcher):
@@ -702,9 +707,10 @@ class EmailDomainSearcher(Searcher):
             link = utils.object_link(elm)
             cats = [utils.spine_to_web(i.get_name()) for i in elm.get_categories()[:4]]
             cats = ", ".join(cats[:3]) + (len(cats) == 4 and '...' or '')
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
-            rows.append([link, utils.spine_to_web(elm.get_description()), cats, str(edit)+str(remb)])
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
+            ## rows.append([link, utils.spine_to_web(elm.get_description()), cats, str(edit)+str(remb)])
+            rows.append([link, utils.spine_to_web(elm.get_description()), cats, ])
         return rows
 
 class GroupSearcher(Searcher):
@@ -766,9 +772,10 @@ class GroupSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
-            rows.append([utils.object_link(elm), utils.spine_to_web(elm.get_description()), str(edit)+str(remb)])
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
+            ## rows.append([utils.object_link(elm), utils.spine_to_web(elm.get_description()), str(edit)+str(remb)])
+            rows.append([utils.object_link(elm), utils.spine_to_web(elm.get_description()), ])
         return rows
 
 class HostSearcher(Searcher):
@@ -791,12 +798,13 @@ class HostSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
             desc = elm.get_description()
             if desc:
                 desc = utils.spine_to_web(desc)
-            rows.append([utils.object_link(elm), desc, str(edit)+str(remb)])
+            ## rows.append([utils.object_link(elm), desc, str(edit)+str(remb)])
+            rows.append([utils.object_link(elm), desc, ])
         return rows
 
 class OUSearcher(Searcher):
@@ -849,11 +857,12 @@ class OUSearcher(Searcher):
         
             name = utils.spine_to_web(elm.get_display_name() or elm.get_name())
             link = utils.object_link(elm, text=name)
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
             acro = utils.spine_to_web(elm.get_acronym())
             short = utils.spine_to_web(elm.get_short_name())
-            rows.append([link, acro, short, str(edit)+str(remb)])
+            ## rows.append([link, acro, short, str(edit)+str(remb)])
+            rows.append([link, acro, short, ])
         return rows
 
 class ProjectSearcher(Searcher):
@@ -885,11 +894,12 @@ class ProjectSearcher(Searcher):
     def filter_rows(self, results):
         rows = []
         for elm in results:
-            edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(elm, _class='action')
+            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
+            ## remb = utils.remember_link(elm, _class='action')
             sci  = " " #elm.get_science().get_name()
             ownr = utils.object_link(elm.get_owner())
-            rows.append([utils.object_link(elm), sci, ownr, str(edit)+str(remb)])
+            ## rows.append([utils.object_link(elm), sci, ownr, str(edit)+str(remb)])
+            rows.append([utils.object_link(elm), sci, ownr, ])
         return rows
 
 class PersonAffiliationsSearcher(Searcher):
