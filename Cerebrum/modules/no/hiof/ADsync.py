@@ -329,7 +329,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if cerebrumusrs[usr].has_key('OU'):
                     ou = cerebrumusrs[usr]['OU']
                 else:
-                    logger.warn("No OU in cerebrum for this user %s" % usr)
+                    self.logger.warn("No OU in cerebrum for this user %s" % usr)
                     # This is ugly
                     ou = ''
                 if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
