@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2007-2008 University of Oslo, Norway
+# Copyright 2007-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,6 +50,7 @@ import getopt
 import sys
 import os.path
 import cerebrum_path
+import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hiof import ADMappingRules
 from Cerebrum.modules.xmlutils.GeneralXMLParser import GeneralXMLParser
@@ -186,8 +187,8 @@ class Job(object):
             else:
                 self.populate_ad_attrs(new_attrs)
                 ac.write_db()
-                logger.info("AD attributes %s populated for account %d",
-                            ', '.join(new_attrs.keys()), entity_id)
+                logger.info("AD attributes %s populated for account %s (id:%d)",
+                            new_attrs, ac.account_name, entity_id)
 
     def calc_ad_attrs(self):
         """
@@ -196,6 +197,9 @@ class Job(object):
         @rtype: dict
         @return: {attr_type : attr_value, ...}        
         """
+        # Non-personal accounts have their own rules
+        if int(ac.owner_type) == int(co.entity_group):
+            return self.calc_nonpersonal_ad_attrs()
         if self.spread == co.spread_ad_account_stud:
             return self.calc_stud_home()
         ret = {}
@@ -203,12 +207,27 @@ class Job(object):
         # av dens type.
         affs = ac.get_account_types()
         if not affs:
-            raise Job.CalcError("No affs for entity: %i" % ac.entity_id)
+            raise Job.CalcError("No affs for account: %s (id:%i)" % (
+                ac.account_name, ac.entity_id))
         sko = self._get_ou_sko(affs[0]['ou_id'])
-        cn = self.rules.getDN(sko, ac.account_name)
+        cn = self.rules.getDN(ac.account_name, sko)
         ret['ad_account_ou'] = cn[cn.find(",")+1:]
-        ret['ad_profile_path'] = self.rules.getProfilePath(sko, ac.account_name)
-        ret['ad_homedir'] = self.rules.getHome(sko, ac.account_name)
+        ret['ad_profile_path'] = self.rules.getProfilePath(ac.account_name, sko)
+        ret['ad_homedir'] = self.rules.getHome(ac.account_name, sko)
+        return ret
+
+    def calc_nonpersonal_ad_attrs(self):
+        """
+        Calculate and return AD attributes for an non personal
+        account.
+
+        @rtype: dict
+        @return: {attr_type : attr_value, ...}        
+        """
+        ret = {}
+        ret['ad_account_ou'] = cereconf.AD_DEFAULT_OU
+        ret['ad_profile_path'] = self.rules.getProfilePath(ac.account_name)
+        ret['ad_homedir'] = self.rules.getHome(ac.account_name)
         return ret
 
     def calc_stud_home(self):
@@ -218,9 +237,6 @@ class Job(object):
         @rtype: dict
         @return: {attr_type : attr_value, ...}        
         """
-        if int(ac.owner_type) != int(co.entity_person):
-            raise Job.CalcError("Cannot update non-personal account: %i" %
-                                ac.entity_id)
         person.clear()
         person.find(ac.owner_id)
         # Get FS fnr
@@ -251,10 +267,10 @@ class Job(object):
                             stprogs[0]['studieprogramkode'],
                             kkode)).lower()                           
         ret = {}
-        cn = self.rules.getDN(sko, studinfo, ac.account_name)
+        cn = self.rules.getDN(ac.account_name, sko, studinfo)
         ret['ad_account_ou'] = cn[cn.find(",")+1:]
-        ret['ad_profile_path'] = self.rules.getProfilePath(sko, ac.account_name)
-        ret['ad_homedir'] = self.rules.getHome(sko, ac.account_name)
+        ret['ad_profile_path'] = self.rules.getProfilePath(ac.account_name, sko)
+        ret['ad_homedir'] = self.rules.getHome(ac.account_name, sko)
         return ret
 
     def _get_ou_sko(self, ou_id):
@@ -279,7 +295,7 @@ class Job(object):
 
         spread = int(self.spread)
         for k in new_attrs.keys():
-            if not attr_eq(new_attrs[k], old_attrs[k]):
+            if not (old_attrs.get(k, None) and attr_eq(new_attrs[k], old_attrs[k])):
                 # New AD attrs are not equal the old ones
                 # Where attr differs, store as a 2d mapping:
                 # user <-> {spread <-> [(new attr, old attr)]}
@@ -288,7 +304,7 @@ class Job(object):
                 if not spread in user_diff_attrs[entity_id]:
                     user_diff_attrs[entity_id][spread] = []
                 user_diff_attrs[entity_id][spread].append(
-                    (new_attrs[k], old_attrs[k]))
+                    (new_attrs[k], old_attrs.get(k, None)))
 
     def populate_ad_attrs(self, new_attrs):
         """

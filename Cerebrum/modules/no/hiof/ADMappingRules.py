@@ -12,11 +12,10 @@ De fleste steder kan man finne avdeling/sted ved å kun se på deler av
 stedkoden, men ettersom det finnes en del unntak, har vi valgt å lage
 mapping-tabeller som tar utgangspunkt i hele stedkoden."""
 
-# Ser ikke noe stort poeng i å legge mappingene i cereconf ettersom
-# modulen uansett er veldig HIOF-spesifik
 
 class MappingError(Exception):
     pass
+
 
 class Adm(object):
     DOMAIN_NAME = "adm.hiof.no"
@@ -28,22 +27,32 @@ class Adm(object):
         '30': 'katta',
         '35': 'katta'
         }
+    # Server for non personal accounts
+    non_personal_serv = 'olivia'
 
-    def getDN(self, sko, uname):
-        serv = Adm.sted_mapping[sko[-2:]].capitalize()
-        return "CN=%s,OU=Ansatte %s%s" % (uname, serv, Adm.DOMAIN_DN)
-
-    def getProfilePath(self, sko, uname):
+    def getDN(self, uname, sko):
         serv = Adm.sted_mapping[sko[-2:]]
+        return "CN=%s,OU=Ansatte %s%s" % (uname, serv.capitalize(), Adm.DOMAIN_DN)
+
+    def getProfilePath(self, uname, sko=None):
+        if sko:
+            serv = Adm.sted_mapping[sko[-2:]]
+        else:
+            serv = Adm.non_personal_serv
         return r"\\%s\home\%s\profile" % (serv, uname)
 
-    def getHome(self, sko, uname):
-        serv = Adm.sted_mapping[sko[-2:]]
+    def getHome(self, uname, sko=None):
+        if sko:
+            serv = Adm.sted_mapping[sko[-2:]]
+        else:
+            serv = Adm.non_personal_serv
         return r"\\%s\home\%s" % (serv, uname)
+
 
 class Fag(object):
     DOMAIN_NAME = "fag.hiof.no"
     DOMAIN_DN = ""
+    non_personal_avdeling = 'LU'
     sted_mapping = {
         ('*', '*', '00'): 'Halden',
         ('*', '*', '10'): 'Halden',
@@ -129,66 +138,77 @@ class Fag(object):
     def _getAvdeling(self, sko):
         return self._findBestMatch(sko, Fag.avdeling_mapping)
     
-    def getDN(self, sko, uname):
+    def getDN(self, uname, sko):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Canon', tmp['All'])
         sted = self._getSted(sko)
         return "CN=%s,OU=%s,OU=%s,OU=Ansatte%s" % (uname, avdeling, sted, Fag.DOMAIN_DN)
 
-    def getProfilePath(self, sko, uname):
-        tmp = self._getAvdeling(sko)
-        avdeling = tmp.get('Profile', tmp['All'])
+    def getProfilePath(self, uname, sko=None):
+        avdeling = Fag.non_personal_avdeling
+        if sko:
+            tmp = self._getAvdeling(sko)
+            avdeling = tmp.get('Profile', tmp['All'])
         return r"\\%s\Profile\%s\%s" % (Fag.DOMAIN_NAME, avdeling, uname)
 
-    def getHome(self, sko, uname):
-        tmp = self._getAvdeling(sko)
-        avdeling = tmp.get('Profile', tmp['All'])
+    def getHome(self, uname, sko=None):
+        avdeling = Fag.non_personal_avdeling
+        if sko:
+            tmp = self._getAvdeling(sko)
+            avdeling = tmp.get('Profile', tmp['All'])
         return r"\\%s\Home\%s\%s" % (Fag.DOMAIN_NAME, avdeling, uname)
+
 
 class Student(Fag):
     DOMAIN_NAME = "stud.hiof.no"
     DOMAIN_DN = ""
-    def getDN(self, sko, studieprogram, uname):
+    non_personal_avdeling = 'LU'    
+
+    def getDN(self, uname, sko, studieprogram):
         tmp = self._getAvdeling(sko)
         avdeling = tmp.get('Profile', tmp['All'])
         return "CN=%s,OU=%s,OU=%s,OU=Studenter%s" % (uname, studieprogram, avdeling, Student.DOMAIN_DN)
 
-    def getProfilePath(self, sko, uname):
-        tmp = self._getAvdeling(sko)
-        avdeling = tmp.get('Profile', tmp['All'])
+    def getProfilePath(self, uname, sko=None):
+        avdeling = Student.non_personal_avdeling
+        if sko:
+            tmp = self._getAvdeling(sko)
+            avdeling = tmp.get('Profile', tmp['All'])
         return r"\\%s\Profile\%s\%s" % (Student.DOMAIN_NAME, avdeling, uname)
 
-    def getHome(self, sko, uname):
-        tmp = self._getAvdeling(sko)
-        avdeling = tmp.get('Profile', tmp['All'])
+    def getHome(self, uname, sko=None):
+        avdeling = Student.non_personal_avdeling
+        if sko:
+            tmp = self._getAvdeling(sko)
+            avdeling = tmp.get('Profile', tmp['All'])
         return r"\\%s\Home\%s\%s" % (Student.DOMAIN_NAME, avdeling, uname)
 
 class MappingTests(unittest.TestCase, object):
     def testFag(self):
         fag = Fag()
-        self.assertEqual(fag.getDN("260020", "uname"),
+        self.assertEqual(fag.getDN("uname", "260020"),
                          'CN=uname,CN=IR,CN=Sarp,CN=Ansatte,DC=fag,DC=hiof,DC=no')
-        self.assertEqual(fag.getProfilePath("260020", "uname"),
+        self.assertEqual(fag.getProfilePath("uname", "260020"),
                          r'\\fag.hiof.no\Profile\IR\uname')
-        self.assertEqual(fag.getHome("260020", "uname"),
+        self.assertEqual(fag.getHome("uname", "260020"),
                          r'\\fag.hiof.no\Home\IR\uname')
 
     def testStudent(self):
         s = Student()
-        self.assertEqual(s.getDN("260020", "stprog", "uname"),
+        self.assertEqual(s.getDN("uname", "stprog", "260020"),
                          'CN=uname,OU=stprog,OU=IR,OU=Studenter,DC=stud,DC=hiof,DC=no')
-        self.assertEqual(s.getProfilePath("260020", "uname"),
+        self.assertEqual(s.getProfilePath("uname", "260020"),
                          r'\\stud.hiof.no\Profile\IR\uname')
-        self.assertEqual(s.getHome("260020", "uname"),
+        self.assertEqual(s.getHome("uname", "260020"),
                          r'\\stud.hiof.no\Home\IR\uname')
 
     def testAdm(self):
         adm = Adm()
-        self.assertEqual(adm.getDN("983020", "uname"),
+        self.assertEqual(adm.getDN("uname", "983020"),
                          'CN=uname,CN=Ansatte Tora,DC=adm,DC=hiof,DC=no')
-        self.assertEqual(adm.getProfilePath("983020", "uname"),
+        self.assertEqual(adm.getProfilePath("uname", "983020"),
                          r'\\tora\uname\profile')
-        self.assertEqual(adm.getHome("983020", "uname"),
+        self.assertEqual(adm.getHome("uname", "983020"),
                          r'\\tora\uname')
 
 if __name__ == '__main__':

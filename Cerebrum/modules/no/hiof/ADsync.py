@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006-2008 University of Oslo, Norway
+# Copyright 2006-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -224,7 +224,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         """
         Return default OU for hiof.no
         """
-        return "OU=BOFH brukere,%s" % self.ad_ldap
+        return "%s,%s" % (cereconf.AD_DEFAULT_OU, self.ad_ldap)
 
 
     def perform_changes(self, changelist, dry_run):
@@ -236,7 +236,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @type  changelist: list
         """
         for chg in changelist:
-            if ('OU' in chg and chg['OU'] == self.get_default_ou() and 
+            if ('OU' in chg and chg['OU'] == '' and 
                 chg['type'] in ('create_object', 'move_object', 'alter_object')):
                 msg = "No OU was calculated for %s. Not syncing %s operation" % (
                     chg.get('distinguishedName', ''), chg.get('type', ''))
@@ -311,6 +311,156 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     ret = self.run_cmd('createDir', dry_run, 'profilePath')
                     if not ret[0]:
                         self.logger.error("createDir on %s failed: %r", uname, ret)
+
+    # Had to import this incredibly ugly method from ADutilMixin,
+    # because of one small change.
+    # FIXME: Rewrite this mess. This is just ... ugly :(
+    def compare(self, delete_users,cerebrumusrs,adusrs):
+        #Keys in dict from cerebrum must match fields to be populated in AD.
+
+        changelist = []     
+
+        for usr, dta in adusrs.items():
+            changes = {}        
+            if cerebrumusrs.has_key(usr):
+                #User is both places, we want to check correct data.
+
+                #Checking for correct OU.
+                if cerebrumusrs[usr].has_key('OU'):
+                    ou = cerebrumusrs[usr]['OU']
+                else:
+                    logger.warn("No OU in cerebrum for this user %s" % usr)
+                    # This is ugly
+                    ou = ''
+                if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
+                    changes['type'] = 'move_object'
+                    changes['OU'] = ou
+                    changes['distinguishedName'] = \
+                                adusrs[usr]['distinguishedName']
+                    #Submit list and clean.
+                    changelist.append(changes)
+                    changes = {}
+                    
+                for attr in cereconf.AD_ATTRIBUTES:            
+                    #Catching special cases.
+                    #Check against home drive.
+                    if attr == 'homeDrive':
+                        home_drive = self.get_home_drive(cerebrumusrs[usr])         
+                        if adusrs[usr].has_key('homeDrive'):
+                            if adusrs[usr]['homeDrive'] != home_drive:
+                                changes['homeDrive'] = home_drive
+                            
+                    #Treating general cases
+                    else:
+                        if cerebrumusrs[usr].has_key(attr) and \
+                               adusrs[usr].has_key(attr):
+                            if isinstance(cerebrumusrs[usr][attr], (list)):
+                                # Multivalued, it is assumed that a
+                                # multivalue in cerebrumusrs always is
+                                # represented as a list.
+                                Mchange = False
+                                                                
+                                if isinstance(adusrs[usr][attr],(str,int,long,unicode)):
+                                    #Transform single-value to a list for comparison.
+                                    val2list = []
+                                    val2list.append(adusrs[usr][attr])
+                                    adusrs[usr][attr] = val2list
+                                                                        
+                                for val in cerebrumusrs[usr][attr]:
+                                    if val not in adusrs[usr][attr]:
+                                        Mchange = True
+                                                                                
+                                if Mchange:
+                                    changes[attr] = cerebrumusrs[usr][attr]
+                            else:
+                                if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
+                                    changes[attr] = cerebrumusrs[usr][attr] 
+                        else:
+                            if cerebrumusrs[usr].has_key(attr):
+                                # A blank value in cerebrum and <not
+                                # set> in AD -> do nothing.
+                                if cerebrumusrs[usr][attr] != "": 
+                                    changes[attr] = cerebrumusrs[usr][attr] 
+                            elif adusrs[usr].has_key(attr):
+                                #Delete value
+                                changes[attr] = ''      
+
+                for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
+                    if cerebrumusrs[usr].has_key(acc):
+                        if adusrs[usr].has_key(acc) and \
+                               adusrs[usr][acc] == cerebrumusrs[usr][acc]:
+                            pass
+                        else:
+                            changes[acc] = cerebrumusrs[usr][acc]   
+
+                    else: 
+                        if adusrs[usr].has_key(acc) and adusrs[usr][acc] == \
+                               value:
+                            pass
+                        else:
+                            changes[acc] = value
+                        
+                #Submit if any changes.
+                if len(changes):
+                    changes['distinguishedName'] = 'CN=%s,%s' % (usr,ou)
+                    changes['type'] = 'alter_object'
+
+                #after processing we delete from array.
+                del cerebrumusrs[usr]
+
+            else:
+                #Account not in Cerebrum, but in AD.                
+                if [s for s in cereconf.AD_DO_NOT_TOUCH if
+                    adusrs[usr]['distinguishedName'].find(s) >= 0]:
+                    pass
+                elif adusrs[usr]['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) >= 0:
+                    #Account do not have AD_spread, but is in AD to 
+                    #register password changes, do nothing.
+                    pass
+                else:
+                    #ac.is_deleted() or ac.is_expired() pluss a small rest of 
+                    #accounts created in AD, but that do not have AD_spread. 
+                    if delete_users == True:
+                        changes['type'] = 'delete_object'
+                        changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                    else:
+                        #Disable account.
+                        if adusrs[usr]['ACCOUNTDISABLE'] == False:
+                            changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                            changes['type'] = 'alter_object'
+                            changes['ACCOUNTDISABLE'] = True
+                            #commit changes
+                            changelist.append(changes)
+                            changes = {} 
+                        #Moving account.
+                        if adusrs[usr]['distinguishedName'] != "CN=%s,OU=%s,%s" % \
+                               (usr, cereconf.AD_LOST_AND_FOUND, self.ad_ldap):
+                            changes['type'] = 'move_object'
+                            changes['distinguishedName'] = adusrs[usr]['distinguishedName']
+                            changes['OU'] = "OU=%s,%s" % \
+                                (cereconf.AD_LOST_AND_FOUND,self.ad_ldap)
+
+            #Finished processing user, register changes if any.
+            if len(changes):
+                changelist.append(changes)
+
+        #The remaining items in cerebrumusrs is not in AD, create user.
+        for cusr, cdta in cerebrumusrs.items():
+            changes={}
+            #TBD: Should quarantined users be created?
+            if cerebrumusrs[cusr]['ACCOUNTDISABLE']:
+                #Quarantined, do not create.
+                pass    
+            else:
+                #New user, create.
+                changes = cdta
+                changes['type'] = 'create_object'
+                changes['sAMAccountName'] = cusr
+                changelist.append(changes)
+                changes['homeDrive'] = self.get_home_drive(cdta)
+
+        return changelist
+
                      
 class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     """
