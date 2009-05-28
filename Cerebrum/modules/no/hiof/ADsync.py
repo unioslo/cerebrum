@@ -238,8 +238,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         for chg in changelist:
             if ('OU' in chg and chg['OU'] == '' and 
                 chg['type'] in ('create_object', 'move_object', 'alter_object')):
+                try:
+                    user = chg.get('distinguishedName').split(',')[0].split('=')[1]
+                except:
+                    user = ''
                 msg = "No OU was calculated for %s. Not syncing %s operation" % (
-                    chg.get('distinguishedName', ''), chg.get('type', ''))
+                    user, chg.get('type', ''))
                 self.logger.warn(msg)
                 continue
             self.logger.debug("Process change: %s" % repr(chg))
@@ -329,7 +333,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if cerebrumusrs[usr].has_key('OU'):
                     ou = cerebrumusrs[usr]['OU']
                 else:
-                    self.logger.warn("No OU in cerebrum for this user %s" % usr)
+                    self.logger.debug("No OU in cerebrum for user %s" % usr)
                     # This is ugly
                     ou = ''
                 if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
