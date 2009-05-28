@@ -170,7 +170,7 @@ class Fronter(object):
         for group in g_parser:
             nk = group._ids.values()[0]
             fk = group._ids.keys()[0]
-            school, year, tmp_name = nk.split(':', 3)
+            school, year, tmp_name = nk.split(':', 2)
             if tmp_name == "":
                 logger.warn("Invalid name for group (%s):%s" % (fk, school))
                 continue
