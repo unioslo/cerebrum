@@ -518,6 +518,17 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         else:
                             changes['msExchPoliciesExcluded'] = \
                                 cerebrumusrs[usr]['msExchPoliciesExcluded']
+                    #if cerebrumusers dict doesn't care about this we leave it
+                    elif attr in ('altRecipient', 'deliverAndRedirect'):
+                        if cerebrumusrs[usr].has_key(attr):
+                            if adusrs[usr].has_key(attr):
+                                if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
+                                    changes[attr] = cerebrumusrs[usr][attr]
+                            else:
+                                changes[attr] = cerebrumusrs[usr][attr]
+                        else:
+                            pass
+                            
                     #Treating general cases
                     else:
                         if cerebrumusrs[usr].has_key(attr) and \
@@ -756,10 +767,27 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     
     def make_cerebrum_dist_grps_dict(self, forwards, cerebrumdump):
         cerebrum_dist_grps_dict = {}
+        # make a dict with all addresses and owner user for faster search
+        addr2user = {}
+        for usr, val in cerebrumdump.items():
+            if val.has_key('proxyAddresses'):
+                for eaddr in val['proxyAddresses']:
+                    addr2user[eaddr.lower()] = usr
+
         for key, value in forwards.items():
             objectname = cereconf.AD_FORWARD_GROUP_PREFIX + value['owner_uname']
+            #check if the forward address belongs to a user in AD
+            if addr2user.has_key(value['targetAddress'].lower()):
+                #serverside find function does not support contact objects
+                #so we provide full LDAP path to member objects.
+                forwardobject_dn = "CN=%s,OU=%s,%s" % (addr2user[value['targetAddress'].lower()],
+                                                       cereconf.AD_USER_OU, self.ad_ldap)
+                del forwards[key]
+            else:
+                forwardobject_dn = "CN=%s,OU=%s,%s" % (key, cereconf.AD_CONTACT_OU, self.ad_ldap)
+
             if cerebrum_dist_grps_dict.has_key(objectname):
-                cerebrum_dist_grps_dict[objectname]['members'].append(key)
+                cerebrum_dist_grps_dict[objectname]['members'].append(forwardobject_dn)
             else:
                 cerebrum_dist_grps_dict[objectname] = {
                     "displayName" : objectname,
@@ -768,11 +796,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     "msExchHideFromAddressLists" : True,
                     "description" : "Samlegruppe for brukerens forwardadresser",
                     "groupType" : cereconf.AD_DISTRIBUTION_GROUP_TYPE,
-                    "members" : [key]}
+                    "proxyAddresses" : [("SMTP:%s@uia.no" % objectname)],
+                    "members" : [forwardobject_dn]
+                    }
                 ou = "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap)
                 cerebrumdump[value['owner_uname']]['altRecipient'] = \
                     'CN=%s,%s' % (objectname, ou)
-
+                
         return cerebrum_dist_grps_dict
         
     
@@ -1198,13 +1228,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     self.logger.debug("Dryrun: don't sync members")
                 else:
                     self.server.bindObject(dn)
-                    #serverside find function does not support contact objects
-                    #so we provide full LDAP path to objects.
-                    LDAPmemebers = []
-                    for contact in value['members']:
-                        ldap_member = "CN=%s,OU=%s,%s" % (contact, cereconf.AD_CONTACT_OU, self.ad_ldap)
-                        LDAPmemebers.append(ldap_member)            
-                    res = self.server.syncMembers(LDAPmemebers, True, False)
+                    res = self.server.syncMembers(value['members'], True, False)
                     if not res[0]:
                         self.logger.warning("syncMembers %s failed for:%r" %
                                             (dn, res[1:]))
