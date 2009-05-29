@@ -519,7 +519,7 @@ new_group = {}
 def register_group(type, title):
     """Adds info in new_group about group."""
     parent_id = group_id = ""
-    pid, rest = title.split(':')
+    pid, rest = title.split(':', 1)
     if type == 'GRP_ID_KLID':
         parent_id = pid + 'Students'
     elif type == 'GRP_ID_FGID':
@@ -594,7 +594,7 @@ def main():
             
             if fronter.uname2extid.has_key(member_name):
                 fnr = fronter.uname2extid[member_name]
-                tmp1, tmp2 = group.group_name.split(':')
+                tmp1, tmp2 = group.group_name.split(':', 1)
                 grp_name = tmp1 + tmp2
                 new_groupmembers.setdefault(grp_name,
                                             {})[fnr] = 1
