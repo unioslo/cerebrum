@@ -525,12 +525,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                    adusrs[usr].has_key(attr):
                                 if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
                                     changes[attr] = cerebrumusrs[usr][attr]
-                                else:
-                                    if cerebrumusrs[usr].has_key(attr):
-                                        if cerebrumusrs[usr][attr] != "": 
-                                            changes[attr] = cerebrumusrs[usr][attr] 
-                                    elif adusrs[usr].has_key(attr):
-                                        changes[attr] = ''      
+                            else:
+                                if cerebrumusrs[usr].has_key(attr):
+                                    if cerebrumusrs[usr][attr] != "": 
+                                        changes[attr] = cerebrumusrs[usr][attr] 
+                                elif adusrs[usr].has_key(attr):
+                                    changes[attr] = ''      
                             
                     #Treating general cases
                     else:
