@@ -283,7 +283,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 'Exchange' : False,
                 'imap' : False,
                 'msExchPoliciesExcluded' : cereconf.AD_EX_POLICIES_EXCLUDED,
-                'deliverAndRedirect' : cereconf.AD_DELIVER_AND_REDIRECT,
+                #'deliverAndRedirect' : cereconf.AD_DELIVER_AND_REDIRECT,
                 #'mDBUseDefaults' : cereconf.AD_EX_MDB_USE_DEFAULTS,
                 'msExchHideFromAddressLists' : cereconf.AD_EX_HIDE_FROM_ADDRESS_LIST,
                 'TEMPownerId': row['owner_id'],
@@ -467,7 +467,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
 
     
-    def compare(self, delete_users, cerebrumusrs, adusrs, exch_users):
+    def compare(self, delete_users, cerebrumusrs, adusrs, exch_users, forwarding_sync):
         """
         Check if any values for account need be updated in AD
 
@@ -518,16 +518,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         else:
                             changes['msExchPoliciesExcluded'] = \
                                 cerebrumusrs[usr]['msExchPoliciesExcluded']
-                    #if cerebrumusers dict doesn't care about this we leave it
+                    #only change these attributes if forward sync has been run
                     elif attr in ('altRecipient', 'deliverAndRedirect'):
-                        if cerebrumusrs[usr].has_key(attr):
-                            if adusrs[usr].has_key(attr):
+                        if forwarding_sync:
+                            if cerebrumusrs[usr].has_key(attr) and \
+                                   adusrs[usr].has_key(attr):
                                 if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
                                     changes[attr] = cerebrumusrs[usr][attr]
-                            else:
-                                changes[attr] = cerebrumusrs[usr][attr]
-                        else:
-                            pass
+                                else:
+                                    if cerebrumusrs[usr].has_key(attr):
+                                        if cerebrumusrs[usr][attr] != "": 
+                                            changes[attr] = cerebrumusrs[usr][attr] 
+                                    elif adusrs[usr].has_key(attr):
+                                        changes[attr] = ''      
                             
                     #Treating general cases
                     else:
@@ -797,6 +800,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     "description" : "Samlegruppe for brukerens forwardadresser",
                     "groupType" : cereconf.AD_DISTRIBUTION_GROUP_TYPE,
                     "proxyAddresses" : [("SMTP:%s@uia.no" % objectname)],
+                    "mail" : ("%s@uia.no" % objectname),
                     "members" : [forwardobject_dn]
                     }
                 ou = "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap)
@@ -1287,7 +1291,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
             
         #compare cerebrum and ad-data for users.
-        changelist = self.compare(delete, cerebrumdump, addump, exch_changes)
+        changelist = self.compare(delete, cerebrumdump, addump, exch_changes, forwarding_sync)
         self.logger.info("Found %i number of user changes" % len(changelist))
         self.logger.info("Will run Update-Recipient against Exchange for %i objects", 
                          len(exch_changes))
