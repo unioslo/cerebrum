@@ -283,7 +283,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 'Exchange' : False,
                 'imap' : False,
                 'msExchPoliciesExcluded' : cereconf.AD_EX_POLICIES_EXCLUDED,
-                #'deliverAndRedirect' : cereconf.AD_DELIVER_AND_REDIRECT,
+                'deliverAndRedirect' : cereconf.AD_DELIVER_AND_REDIRECT,
                 #'mDBUseDefaults' : cereconf.AD_EX_MDB_USE_DEFAULTS,
                 'msExchHideFromAddressLists' : cereconf.AD_EX_HIDE_FROM_ADDRESS_LIST,
                 'TEMPownerId': row['owner_id'],
