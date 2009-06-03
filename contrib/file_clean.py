@@ -57,6 +57,16 @@ be given.
 Postfix on archive files are '-%Y-%m-%d.tar.gz'
 """
 
+##
+## TODO: 
+##
+##  * tar command should not be hardwired into the code like this.
+##    It's a bit of a pain to fix, though.
+##
+##  * os.system should be replaced by something better. The new
+##    subprocess module (from 2.4) is preferrable, but we must wait
+##    til we no longer support version < 2.4.
+##
 
 import getopt
 import sys
@@ -70,12 +80,24 @@ import cereconf
 from Cerebrum.Utils import Factory
 
 logger = Factory.get_logger("cronjob")
+postfix_re = '-\d+-\d+-\d+.*\.tar\.gz'
 
 
-def find_files(name_pattern, dirname, min_age=0, file_type='file'):
+def find_files(name_pattern, dirname, file_type='file', min_age=0):
     """
     Find all files in dirname matching name_pattern that are older
-    than min_age. Return a list of relative paths.
+    than min_age. Note that search is not recursive.
+    Return as a list of relative paths.
+
+    @param name_pattern: name pattern (python regexp) of files to delete.
+    @type  name_pattern: string
+    @param dirname: Directory where to look for files matching name pattern.
+    @type  dirname: string
+    @param file_type: file_type must be file or directory.
+    @type  file_type: string 
+    @param min_age: Files to delete must be older than min_age.
+    @type  min_age: int
+    @return: Return files matching given criterias as a list of paths.
     """
     matches = []
     # min_age, in seconds
@@ -104,13 +126,25 @@ def find_files(name_pattern, dirname, min_age=0, file_type='file'):
 def delete_files(name_pattern='', dirname='', file_type='file',
                  min_age=0, dryrun=False):
     """
-    Delete all files matching name_pattern that are older than min_age
+    Delete all files of type file_type in dirname matching
+    name_pattern that are older than min_age. dirname must be an absolute path
+
+    @param name_pattern: name pattern (python regexp) of files to delete.
+    @type  name_pattern: string
+    @param dirname: Directory where to look for files matching name pattern.
+    @type  dirname: string
+    @param file_type: file_type must be file or directory.
+    @type  file_type: string 
+    @param min_age: Files to delete must be older than min_age.
+    @type  min_age: int
+    @param dryrun: delete or not?
+    @type  dryrun: bool
     """
     # Sanity checks
     assert os.path.isdir(dirname), "%s is not a directory" % dirname
     assert os.path.isabs(dirname), "%s is not an absolute path" % dirname
     # Find files matching pattern and age threashold
-    for name in find_files(name_pattern, dirname, min_age, file_type):
+    for name in find_files(name_pattern, dirname, file_type, min_age):
         if not dryrun:
             try:
                 file_path = os.path.join(dirname, name)
@@ -129,22 +163,41 @@ def archive_files(name_pattern='', dirname='', archive_name='',
     """
     Archive all files in dirname that match name_pattern and are
     older than archive_age. Any such files are tared and zipped into
-    one file with name archive_name+postfix.
+    one file with name archive_name+postfix. 
+
+    @param name_pattern: name pattern (python regexp) of files to delete.
+    @type  name_pattern: string
+    @param dirname: Directory where to look for files matching name pattern.
+    @type  dirname: string
+    @param archivename: name of archive file as a path
+    @type  archivename: string
+    @param file_type: file_type must be file or directory.
+    @type  file_type: string 
+    @param archive_age: Files to archive must be older than archive_age.
+    @type  archive_age: int
+    @param min_age: If no_delete is False delete archives older than min_age.
+    @type  min_age: int
+    @param no_delete: delete old archives or not?
+    @type  no_delete: bool
+    @param dryrun: delete or not?
+    @type  dryrun: bool
     """
-    if not (name_pattern or archive_name or dirname):
-        logger.warning("name_pattern, dirname and archive_name must be given")
+    # Sanity checks
+    assert os.path.isdir(dirname), "%s is not a directory" % dirname
+    assert os.path.isabs(dirname), "%s is not an absolute path" % dirname
+    if not (name_pattern or archive_name):
+        logger.warning("name_pattern and archive_name must be given")
         return
     
     # Check if old archives should be deleted
     if min_age > 0:
-        # FIXME: pattern is postfix dependent
-        archive_pattern = os.path.basename(archive_name) + '-\d+-\d+-\d+.*\.tar\.gz'
+        archive_pattern = os.path.basename(archive_name) + postfix_re
         logger.info("Delete archives of type %s older than %d days" % (
             archive_pattern, min_age))
         delete_files(archive_pattern, os.path.dirname(archive_name), file_type,
                      min_age, dryrun=dryrun)
     # Check if new files should be archived
-    files_to_archive = find_files(name_pattern, dirname, archive_age, file_type)
+    files_to_archive = find_files(name_pattern, dirname, file_type, archive_age)
     if not files_to_archive:
         return
     # Set tar command
@@ -188,10 +241,14 @@ def archive_files(name_pattern='', dirname='', archive_name='',
             ret = os.system(cmd)
             if ret != 0:
                 logger.error("tar failed (%s): %s" % (cmd, ret))
-            if file_type == 'dir':
+            if file_type == 'dir' and no_delete is False:
                 # tar won't delete directories used as argument
                 for f in files_to_archive:
-                    shutil.rmtree(os.path.join(dirname, f))
+                    try:
+                        old_dir = os.path.join(dirname, f)
+                        shutil.rmtree(old_dir)
+                    except:
+                        logger.exception("Couldn't delete %s" % old_dir)
     os.unlink(tmp_name)
 
 
@@ -253,13 +310,13 @@ def main():
     if read_config:
         if archive_mode:
             try:
-                archive_actions = getattr(cereconf, 'ARCHIVE_FILES') 
+                archive_actions = cereconf.ARCHIVE_FILES
                 logger.info("Archive mode, reading ARCHIVE_FILES from cereconf")
             except AttributeError:
                 usage(1)
         if delete_mode:
             try:
-                delete_actions = getattr(cereconf, 'DELETE_FILES') 
+                delete_actions = cereconf.DELETE_FILES
                 logger.info("Delete mode, reading DELETE_FILES from cereconf")
             except AttributeError:
                 usage(1)
