@@ -36,6 +36,7 @@ from Cerebrum import QuarantineHandler
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
+import copy
 
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
@@ -797,7 +798,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     "mailNickname" : objectname,
                     "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                     "msExchHideFromAddressLists" : True,
-                    "description" : "Samlegruppe for brukerens forwardadresser",
+                    "description" : ["Samlegruppe for brukerens forwardadresser"],
                     "groupType" : cereconf.AD_DISTRIBUTION_GROUP_TYPE,
                     "proxyAddresses" : [("SMTP:%s@uia.no" % objectname)],
                     "mail" : ("%s@uia.no" % objectname),
@@ -980,7 +981,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changes = {}
 
                 #Comparing group info 
-                for attr in cereconf.AD_CONTACT_FORWARD_ATTRIBUTES:            
+                for attr in cereconf.AD_DIST_GRP_ATTRIBUTES:            
                     #Catching special cases.
                     # xmlrpclib appends chars [' and '] 
                     # to this attribute for some reason
@@ -1048,7 +1049,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 #The item in cerebrum_dict is not in AD, create object
                 changes={}
-                changes = cerebrum_dist_grps[distgrp]
+                changes = copy.copy(cerebrum_dist_grps[distgrp])
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = distgrp
                 changelist.append(changes)
@@ -1165,31 +1166,33 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @type chg: dict
         @param dry_run: Flag
         """
+        groupname = chg.get('sAMAccountName', "Unknown!")
+        del chg['sAMAccountName']  
         ou = chg.get("OU", "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap))
+        if chg.has_key('OU'):
+            del chg['OU']
+        del chg['type']
+        if chg.has_key('members'):
+                del chg['members'] 
+        if chg.has_key('distinguishedName'):
+            del chg['distinguishedName']
+
         self.logger.debug('CREATE %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
-                      chg['sAMAccountName'])
+                      groupname)
         if not ret[0]:
             self.logger.warning("create dist_group %s failed: %r",
-                                chg['sAMAccountName'],ret[1])
+                                groupname,ret[1])
         elif not dry_run:
-            samaccountname = chg['sAMAccountName']
-            del chg['type']
-            if chg.has_key('distinguishedName'):
-                del chg['distinguishedName']
-            if chg.has_key('sAMAccountName'):
-                del chg['sAMAccountName']               
-            #if chg.has_key('members'):
-            #    del chg['members']               
             ret = self.server.putGroupProperties(chg)
             if not ret[0]:
                 self.logger.warning("putproperties on %s failed: %r",
-                                    samaccountname, ret)
+                                    groupname, ret)
             else:
                 ret = self.run_cmd('setObject', dry_run)
                 if not ret[0]:
                     self.logger.warning("setObject on %s failed: %r",
-                                        samaccountname, ret)            
+                                        groupname, ret)            
 
 
     def alter_forward_distgrp_object(self, chg, dry_run):
@@ -1575,7 +1578,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             else:
                 #The remaining items in cerebrum_dict is not in AD, create group.
                 changes={}
-                changes = cerebrum_dict[grp]
+                changes = copy.copy(cerebrum_dict[grp])
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = grp
                 if changes.has_key('Exchange'):
@@ -1640,30 +1643,33 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @type chg: dict
         @param dry_run: Flag
         """
+        groupname = chg.get('sAMAccountName', "Unknown!")
+        del chg['sAMAccountName'] 
         ou = chg.get("OU", self.get_default_ou())
+        del chg['OU']
+        del chg['type']
+        del chg['grp_id']
+        if chg.has_key('distinguishedName'):
+            del chg['distinguishedName']
+        
         self.logger.debug('CREATE %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
-                      chg['sAMAccountName'])
+                      groupname)
         if not ret[0]:
             self.logger.warning("create group %s failed: %r",
-                                chg['sAMAccountName'],ret[1])
+                                groupname,ret[1])
         elif not dry_run:
             if store_sid:
-                self.store_sid('group',chg['sAMAccountName'],ret[2], dry_run)
-            del chg['type']
-            if chg.has_key('distinguishedName'):
-                del chg['distinguishedName']
-            #if chg.has_key('sAMAccountName'):
-            #    del chg['sAMAccountName']               
+                self.store_sid('group',groupname,ret[2], dry_run)
             ret = self.server.putGroupProperties(chg)
             if not ret[0]:
                 self.logger.warning("putproperties on %s failed: %r",
-                                    chg['sAMAccountName'], ret)
+                                    groupname, ret)
             else:
                 ret = self.run_cmd('setObject', dry_run)
                 if not ret[0]:
                     self.logger.warning("setObject on %s failed: %r",
-                                        chg['sAMAccountName'], ret)
+                                        groupname, ret)
             
 
 
