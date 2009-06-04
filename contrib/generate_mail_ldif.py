@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003, 2004 University of Oslo, Norway
+# Copyright 2003-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -314,7 +314,7 @@ def write_ldif():
                 f.write("userPassword: {crypt}%s\n" % passwd)
             else:
                 txt = "No auth-data for user: %s\n" % (target or ei)
-                sys.stderr.write(txt)
+                logger.error(txt)
 
         misc = ldap.get_misc(row)
         if misc:
