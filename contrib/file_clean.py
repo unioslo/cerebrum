@@ -311,13 +311,13 @@ def main():
         if archive_mode:
             try:
                 archive_actions = file_clean_conf.ARCHIVE_FILES
-                logger.info("Archive mode, reading ARCHIVE_FILES from cereconf")
+                logger.info("Archive mode, reading ARCHIVE_FILES from config file")
             except AttributeError:
                 usage(1)
         if delete_mode:
             try:
                 delete_actions = file_clean_conf.DELETE_FILES
-                logger.info("Delete mode, reading DELETE_FILES from cereconf")
+                logger.info("Delete mode, reading DELETE_FILES from config file")
             except AttributeError:
                 usage(1)
     elif name_pattern and dirname and delete_mode:
