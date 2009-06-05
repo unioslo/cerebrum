@@ -6,13 +6,13 @@ Configurable cleaning and archiving script.
 
 The scripts have two main functions, archiving and deleting. Old
 archives can also be deleted. Options can be given as command line
-options or in cereconf.
+options or in a config file.
 
 Options:
 
 --archive      : archive mode
 --delete       : delete mode
---read-config  : read options from cereconf
+--read-config  : read options from config file.
 --dryrun       : just report what script would do
 --name-pattern : The given pattern is the pattern of the file that
                  should be archived or deleted. Format is a python
@@ -28,7 +28,7 @@ Options:
 --min-age      : If given, delete files older than the given number of days. 
 
 If --read-config and --archive is given, try to read the following
-data-structure from cereconf:
+data-structure from config file:
 
   ARCHIVE_FILES = [
       {'name_pattern' : <string>,   # mandatory
@@ -41,7 +41,7 @@ data-structure from cereconf:
       ...]
 
 If --read-config and --delete is given, try to read the following
-data-structure from cereconf:
+data-structure from config file:
 
   DELETE_FILES = [
       {'name_pattern' : <string>,   # mandatory
@@ -76,7 +76,6 @@ import re
 import tempfile
 import shutil
 import cerebrum_path
-import cereconf
 from Cerebrum.Utils import Factory
 
 logger = Factory.get_logger("cronjob")
@@ -306,17 +305,18 @@ def main():
         elif opt in ('--no-delete',):
             no_delete = True
 
-    # read options from cereconf or cmd line?
+    # read options from config file or cmd line?
     if read_config:
+        import file_clean_conf
         if archive_mode:
             try:
-                archive_actions = cereconf.ARCHIVE_FILES
+                archive_actions = file_clean_conf.ARCHIVE_FILES
                 logger.info("Archive mode, reading ARCHIVE_FILES from cereconf")
             except AttributeError:
                 usage(1)
         if delete_mode:
             try:
-                delete_actions = cereconf.DELETE_FILES
+                delete_actions = file_clean_conf.DELETE_FILES
                 logger.info("Delete mode, reading DELETE_FILES from cereconf")
             except AttributeError:
                 usage(1)
