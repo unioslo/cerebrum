@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
@@ -20,60 +19,45 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+
 """
 ad-sync script for OFK that uses ADsync.py module to sync users and groups
 to AD and Exchange.
-
 Usage: [options]
-
   -h, --help
         displays this text
-
   -u, --user-sync
         sync users to AD and Exchange
-        
   -g, --group-sync
         sync groups to AD and Exchange
-
   --user_spread SPREAD
         overrides cereconf.AD_ACCOUNT_SPREAD
-        
   --user_exchange_spread SPREAD
         overrides cereconf.AD_EXCHANGE_SPREAD
-
   --group_spread SPREAD
         overrides cereconf.AD_GROUP_SPREAD
-
   --store-sid
         write sid of new AD objects to cerebrum databse as external ids.
         default is _not_ to write sid to database.
-        
   --dryrun
         report changes that would have been done without --dryrun.
-
   --delete
         this option ensures deleting superfluous groups. default
         is _not_ to delete groups.
-
   --sendDN_boost
         this option tells the group sync to send full Distinguished
         Names of group memebers to the AD service thus saving time
         from looking up the user objects on the server.
-        
   --logger-level LEVEL
         default is INFO
-        
   --logger-name NAME
         default is console
-
 Example:
   ad_fullsync.py --user-sync --store-sid
 
-  ad_fullsync.py --user-sync --group-sync  --user_spread 'account@ad' \\
-    --user_exchange_spread 'account@exchange'--group_spread 'group@ad' \\
+  ad_fullsync.py --user-sync --group-sync  --user_spread 'account@ad' 
+    --user_exchange_spread 'account@exchange'--group_spread 'group@ad'
     --delete --store-sid --logger-level DEBUG --logger-name console
-
-
 """
 
 
@@ -149,7 +133,7 @@ def main():
     user_spread = cereconf.AD_ACCOUNT_SPREAD
     user_exchange_spread = cereconf.AD_EXCHANGE_SPREAD
     group_spread = cereconf.AD_GROUP_SPREAD
-    logger_name = 'console'
+    logger_name = 'cronjob'
     logger_level = 'INFO'
     for opt, val in opts:
         if opt in ('--help','-h'):
