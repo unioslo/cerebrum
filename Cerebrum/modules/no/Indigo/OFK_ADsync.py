@@ -36,6 +36,7 @@ from Cerebrum import QuarantineHandler
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
+import copy
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
@@ -740,7 +741,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 v['OU'] = "OU=VIRK,OU=Groups,%s" % self.ad_ldap
             else:
                 del grp_dict[k]
-                self.logger.warning("Error getting group type for group: "
+                self.logger.info("Error getting group type for group: "
                                     "%s (id:%s). Not syncing this group"
                                     % (k,v['grp_id']))        
                 
@@ -921,7 +922,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             else:
                 #The remaining items in cerebrum_dict is not in AD, create group.
                 changes={}
-                changes = cerebrum_dict[grp]
+                changes = copy.copy(cerebrum_dict[grp])
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = grp
                 del changes['grp_id']
