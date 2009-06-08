@@ -140,7 +140,7 @@ class LMSExport(object):
     def gather_faculty_information(self):
         logger.debug("gather_faculty_information start")
         person = Factory.get('Person')(db)
-        employees = person.list_affiliations(affiliation=constants.affiliation_tilknyttet)
+        employees = person.list_affiliations(affiliation=constants.affiliation_ansatt)
         for employee in employees:
             try:
                 employee_data =  self.gather_person_information(entity_id=employee["person_id"])

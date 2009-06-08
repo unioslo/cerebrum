@@ -73,7 +73,7 @@ def get_cerebrum_data():
     # Faculty (overrides information registered for students)
     #
     count = 0
-    for row in ac.list_accounts_by_type(affiliation=co.affiliation_tilknyttet):
+    for row in ac.list_accounts_by_type(affiliation=co.affiliation_ansatt):
         if aid2ainfo.has_key(int(row['account_id'])):
             logger.debug2("Faculty emp. %s at %s" % (row['account_id'], row['ou_id']))
             aid2ainfo[int(row['account_id'])]['affiliation'] = cereconf.AD_FAGANSATT_OU
