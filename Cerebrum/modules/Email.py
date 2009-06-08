@@ -1898,7 +1898,29 @@ class AccountEmailMixin(Account.Account):
         return (r['local_part'] + '@' +
                 ed.rewrite_special_domains(r['domain']))
 
-    def getdict_uname2mailaddr(self, filter_expired=True):
+
+    def getdict_uname2mailaddr(self, filter_expired=True, primary_only=True):
+        """Collect uname -> e-mail address mappings.
+
+        This method collects e-mail address information for all users in
+        Cerebrum. primary_only controls whether the method fetches just the
+        primary address or all of the addresses for each username.
+
+        @type filter_expired: bool
+        @param filter_expired:
+          When True, do NOT collect information about expired accounts.
+
+        @type primary_only: bool
+        @param primary_only:
+          When True, collect primary e-mail addresses only.
+
+        @rtype: dict (of basestring to basestring/sequence of basestring)
+        @return:
+          A dict mapping user names (all/non-expired) to e-mail
+          information. When primary_only is True, 'information' is a
+          basestring. When primary_only is False, 'information' is a sequence
+          (even when there is just one e-mail address for a user names)
+        """
         ret = {}
         target_type = int(self.const.email_target_account)
         namespace = int(self.const.account_namespace)
@@ -1906,6 +1928,20 @@ class AccountEmailMixin(Account.Account):
         where = "en.value_domain = :namespace"
         if filter_expired:
             where += " AND (ai.expire_date IS NULL OR ai.expire_date > [:now])"
+
+        if primary_only:
+            extra_join = """
+                JOIN [:table schema=cerebrum name=email_primary_address] epa
+                  ON epa.target_id = et.target_id
+                JOIN [:table schema=cerebrum name=email_address] ea
+                  ON ea.address_id = epa.address_id
+            """
+        else:
+            extra_join = """
+                 JOIN [:table schema=cerebrum name=email_address] ea
+                   ON ea.target_id = et.target_id
+            """
+
         for row in self.query("""
         SELECT en.entity_name, ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=account_info] ai
@@ -1914,18 +1950,22 @@ class AccountEmailMixin(Account.Account):
         JOIN [:table schema=cerebrum name=email_target] et
           ON et.target_type = :targ_type AND
              et.target_entity_id = ai.account_id
-        JOIN [:table schema=cerebrum name=email_primary_address] epa
-          ON epa.target_id = et.target_id
-        JOIN [:table schema=cerebrum name=email_address] ea
-          ON ea.address_id = epa.address_id
+
+        %s
+ 
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
-        WHERE """ + where,
-                              {'targ_type': target_type,
-                               'namespace': namespace}):
-            ret[row['entity_name']] = '@'.join((
-                row['local_part'],
-                ed.rewrite_special_domains(row['domain'])))
+
+        WHERE %s""" % (extra_join, where),
+                      {'targ_type': target_type,
+                       'namespace': namespace}):
+            uname = row['entity_name']
+            address = '@'.join((row['local_part'],
+                                ed.rewrite_special_domains(row['domain'])))
+            if primary_only:
+                ret[uname] = address
+            else:
+                ret.setdefault(uname, set()).add(address)
         return ret
 
     def wash_email_local_part(self, local_part):
