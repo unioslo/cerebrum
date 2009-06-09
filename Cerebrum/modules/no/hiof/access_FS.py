@@ -57,7 +57,6 @@ class HiOfStudent(access_FS.Student):
           sps.arstall_start = kks.arstall_start(+) AND
           %s AND
           %s
-          sps.status_privatist = 'N' AND
           sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID') AND
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
           """ % (self._is_alive(), extra)
