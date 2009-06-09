@@ -64,7 +64,7 @@ def parse_target(target_obj, t_id):
     }
     server_obj = target_obj.get_server()
     if server_obj:
-        target['server'] = server_obj.get_name()
+        target['server'] = object_link(server_obj)
     else:
         target['server'] = None
     try:
