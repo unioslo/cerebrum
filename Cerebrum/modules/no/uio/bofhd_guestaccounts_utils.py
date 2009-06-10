@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -124,10 +124,13 @@ class BofhdUtils(object):
         """
         ac = Factory.get('Account')(self.db)
         ret = []
+        quarantined_guests = [q['entity_id'] for q in ac.list_entity_quarantines(
+            quarantine_types=self.co.quarantine_guest_release)]
+
         for row in ac.list_traits(self.co.trait_guest_owner,
                                   target_id=owner_id, return_name=True):
             # Must check if guest is available. 
-            if owner_id is None and not self._guest_is_available(row['entity_id']):
+            if owner_id is None and row['entity_id'] in quarantined_guests:
                 continue
             tmp = [row['name'], None, None]
             if include_date:
@@ -212,15 +215,6 @@ class BofhdUtils(object):
                                   "names in %sXXX namespace" %
                                   (num_found, prefix))
         return ret            
-
-    def _guest_is_available(self, e_id):
-        "Check if guest is avaialable"
-        ac = Factory.get('Account')(self.db)
-        ac.find(e_id)
-        # If guest has a quarantine it is not available
-        if ac.get_entity_quarantine(self.co.quarantine_guest_release):
-            return False
-        return True
 
     def _get_end_date(self, e_id):
         "Return end date of request period for guest user"
