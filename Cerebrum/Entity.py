@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -757,9 +757,11 @@ class EntityQuarantine(Entity):
                             None, change_params={'q_type': int(type)})
 	
 
-    def list_entity_quarantines(self, entity_types=None, only_active=False):
+    def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
+                                only_active=False):
         sel = ""
-	where = ""
+        where = ""
+	conditions = []
         if entity_types:
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
@@ -768,12 +770,18 @@ class EntityQuarantine(Entity):
                 sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
             else:
                 sel += "= %d" % entity_types
+        if quarantine_types:
+            if isinstance(quarantine_types, (list, tuple)):
+                qtypes = "IN (%s)" % ", ".join(map(str, map(int, quarantine_types)))
+            else:
+                qtypes = "= %d" % quarantine_types
+            conditions.append("quarantine_type %s" % qtypes)
 	if only_active:
-	    where = """ 
-	    WHERE start_date <= [:now] AND  
+	    conditions.append("""start_date <= [:now] AND  
 	    (end_date IS NULL OR end_date > [:now]) AND 
-	    (disable_until IS NULL OR disable_until <= [:now])"""
-
+	    (disable_until IS NULL OR disable_until <= [:now])""")
+        if conditions:
+            where = " WHERE " + " AND ".join(conditions)
         return self.query("""
         SELECT eq.entity_id, eq.quarantine_type, eq.start_date,
                eq.disable_until, eq.end_date
