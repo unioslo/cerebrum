@@ -120,11 +120,11 @@ def process_delete_requests():
             if row['spread'] == const.spread_hia_ad_account:
                 try:
                     home = account.get_home(row['spread'])
+                    account.set_homedir(current_id=home['homedir_id'],
+                                        status=const.home_status_archived)
+                    account.clear_home(row['spread'])                    
                 except Errors.NotFoundError:
-                    continue
-                account.set_homedir(current_id=home['homedir_id'],
-                                    status=const.home_status_archived)
-                account.clear_home(row['spread'])
+                    logger.debug("No home in AD for %s, will remove spread to AD only.", account.account_name)
                 account.delete_spread(row['spread'])
                 logger.debug("Deleted account@ad spread for %s", account.account_name)
             ## student-accounts usually have account@ldap, remove this
@@ -143,6 +143,19 @@ def process_delete_requests():
                     es = Email.EmailServer(db)
                     es.find(et.email_server_id)
                     del_file.append('EMAIL:' + account.account_name + ':' + es.name)
+                    et.email_target_type = const.email_target_deleted
+                    et.write_db()
+                account.delete_spread(row['spread'])
+            elif row['spread'] == const.spread_exchange_account:
+                et = Email.EmailTarget(db)
+                try:
+                    et.find_by_target_entity(account.entity_id)
+                except Errors.NotFoundError:
+                    logger.warn('No email target for %s, will remove exchange spread.', account.account_name)
+                if et:
+                    et.email_target_type = const.email_target_deleted
+                    et.write_db()
+                    logger.info("Deleted e-mail target for %s", account.account_name)
                 account.delete_spread(row['spread'])
             ## Account is valid in nis@hia, remove account@nis spread, register nis-home delete
             elif row['spread'] == const.spread_nis_user:
