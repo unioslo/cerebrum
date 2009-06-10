@@ -430,15 +430,22 @@ class ADGroup(_ADAccount):
             # Ok, convert to nice ldap paths    
             domain = self._domain()
             # search in the whole domain, users only
-            add = [self._find(m, ou=domain, objectClass='user') 
-                   for m in add]
+            to_add= []
+            for m in add:
+                try:
+                    res= self._find(m, ou=domain, objectClass='user')
+                    if res:
+                        to_add.append(res.ADsPath)
+                except WrongClassError, e:
+                    log.warning("%s exists in AD, but is not a user.", m)
             # Skip None (not-existing users)
-            add = [m.ADsPath for m in add if m]
-            remove = [m.ADsPath for m in ad_members 
+            to_remove = [m.ADsPath for m in ad_members 
                       if m.saMAccountName in remove]
-            for user in remove:
+            for user in to_remove:
+                log.info("Removing %s from group '%s'", user, obj.name)
                 ad_obj.remove(user)
-            for user in add:
+            for user in to_add:
+                log.info("Adding %s to group '%s'", user, obj.name)
                 ad_obj.add(user)    
             ad_obj.setInfo()
         check_members()           
