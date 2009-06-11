@@ -1,7 +1,7 @@
 category:metainfo;
 name=dns;
 category:metainfo;
-version=1.1;
+version=1.0;
 
 category:drop;
 DROP TABLE dns_srv_record;

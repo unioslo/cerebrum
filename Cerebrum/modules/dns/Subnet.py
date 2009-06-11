@@ -32,6 +32,7 @@ from Cerebrum.Entity import Entity
 from Cerebrum.Utils import Factory, argument_to_sql
 
 from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns.IPUtils import IPCalc
 #from Cerebrum.modules.dns.bofhd_dns_cmds import DnsBofhdAuth
@@ -51,7 +52,9 @@ __version__ = "$Revision$"
 
 
 class SubnetError(DNSError):
+    """Subnet-specific errors."""
     pass
+
 
 
 class DnsBofhdAuth(BofhdAuth):
@@ -567,7 +570,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion([("Subnet:                 %s\n"+
                               "Entity ID:              %s\n" +
                               "Netmask:                %s\n" +
-                              "Description:            %s\n" +
+                              "Description:            '%s'\n" +
                               "Name-prefix:            '%s'\n" +
                               "VLAN:                   %s\n" +
                               "DNS delegated:          %s\n" + 
@@ -644,8 +647,8 @@ class BofhdExtension(object):
         except:
             raise CerebrumError("VLAN must be an integer; '%s' isn't" % new_vlan)
         s.find(identifier)
-        old_vlan = s.vlan
-        s.vlan = new_vlan
+        old_vlan = s.vlan_number
+        s.vlan_number = new_vlan
         s.write_db()
         subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
         return "OK; VLAN for subnet %s updated from '%s' to '%s'" % (subnet_id, old_vlan, new_vlan)

@@ -738,7 +738,7 @@ class BofhdExtension(object):
         fs=FormatSuggestion("%s", ('ip',), hdr="Ip"))
     def host_unused_list(self, operator, subnet):
         # TODO: Skal det være mulig å få listet ut ledige reserved IP?
-        subnet = self.dns_parser.parse_subnet_or_ip(subnet)
+        subnet = self.dns_parser.parse_subnet_or_ip(subnet)[0]
         if subnet is None:
             raise CerebrumError, "Unknown subnet"
         ret = []
@@ -976,5 +976,3 @@ class BofhdExtension(object):
 
 if __name__ == '__main__':
     pass
-
-# arch-tag: c8f44ecd-c4fb-464c-a871-e81768793319
