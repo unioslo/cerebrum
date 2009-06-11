@@ -135,7 +135,8 @@ class LdapBack:
         "Return decoded utf8-string"
         return unicode(str,"utf-8").encode("iso-8859-1")
 
-    def begin(self,incr=False,uri=None,binddn=None,bindpw=None):
+    def begin(self, encoding, incr=False, bulk_add=True, bulk_update=True,
+                    bulk_delete=True, uri=None, binddn=None, bindpw=None):
         """
         If incr is true, updates will be incremental, ie the 
         original content will be preserved, and can be updated by
@@ -145,12 +146,13 @@ class LdapBack:
         tries to authenticate
         """
         self.incr = incr
-        if uri == None:
-            self.uri = config.get("ldap","uri")
-        if binddn == None:
-            self.binddn = config.get("ldap","binddn")
-        if bindpw == None:
-            self.bindpw = config.get("ldap","bindpw")
+        self.do_add= incr or bulk_add
+        self.do_update= incr or bulk_update
+        self.do_delete= incr or bulk_delete
+        self.uri= uri or config.get("ldap", "uri")
+        self.binddn= binddn or config.get("ldap", "binddn")
+        self.bindpw= bindpw or config.get("ldap", "bindpw")
+
         try:
             self.l = ldap.initialize(self.uri)
             self.l.simple_bind_s(self.binddn,self.bindpw)
@@ -233,6 +235,12 @@ class LdapBack:
         Add object into LDAP. If the object exist, we update all attributes given.
         """
         dn=self.get_dn(obj)
+        if not self.incr and dn in self.indirectory:
+            self.update(obj)
+            return
+        if not self.do_add:
+            return
+
         attrs=self.get_attributes(obj)
         try:
             mod_attrs = modlist.addModlist(attrs,self.ignore_attr_types)
@@ -244,7 +252,7 @@ class LdapBack:
             self.l.add_s(dn,mod_attrs)
             self.insync.append(dn)
         except ldap.ALREADY_EXISTS,e:
-            if update_if_exists: self.update(obj)
+            self.update(obj)
         except ldap.LDAPError,e:
             log.exception("An error occured while adding %s: %s. mod_attrs: %s" % (dn,e.args, mod_attrs))
             sys.exit()
@@ -258,19 +266,20 @@ class LdapBack:
         """
         Update object in LDAP. If the object does not exist, we add the object. 
         """
+        if not self.do_update:
+            return
         dn=self.get_dn(obj)
-        attrs = old_attrs = None
         attrs=self.get_attributes(obj)
+        old_attrs = None
         ignore_attr_types = [] + self.ignore_attr_types
-        if old == None:
-            # Fetch old values from LDAP
-            res = self.search(base=dn) # using dn as base, and fetch first record
-            if not res:
-                self.add(obj)
-                return
-            old_attrs = res[0][1]
-        else:
-            old_attrs = old
+
+        # Fetch old values from LDAP
+        res = self.search(base=dn) # using dn as base, and fetch first record
+        if not res:
+            self.add(obj)
+            return
+        old_attrs = res[0][1]
+
         # Make shure we don't remove existing objectclasses, as long
         # as we get to add the ones we need to have
         missing_objectclasses = []
@@ -300,6 +309,8 @@ class LdapBack:
         """
         Delete object from LDAP. 
         """
+        if not self.do_delete:
+            return
         if obj:
             dn=self.get_dn(obj)
         try:

@@ -28,19 +28,44 @@ from sys import exit
 
 log = config.logger
 
-def main():
-    config.parse_args()
+spine_cache = config.get('spine','last_change') or \
+              "/var/lib/cerebrum/sync.last_change"
 
-    incr = False
-    id = -1
+def main():
+    config.parse_args(config.make_bulk_options())
+
+    incr   = config.getboolean('args', 'incremental', allow_none=True)
+    add    = config.getboolean('args', 'add')
+    update = config.getboolean('args', 'update')
+    delete = config.getboolean('args', 'delete')
+
+    if incr is None:
+        log.error("Invalid arguments. You must provide either the --bulk or the --incremental option")
+        exit(1)
+
+    local_id= 0
+    if os.path.isfile(spine_cache):
+        local_id= long( file(spine_cache).read() )
     try:
-        s = sync.Sync(incr,id)
+        log.info("Connecting to spine-server")
+        s = sync.Sync(incr,local_id)
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
         exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
         exit(1)
+    
+    server_id= s.cmd.get_last_changelog_id()
+    log.info("Local id: %ld, server id: %ld", local_id, server_id)
+    
+    if local_id > server_id:
+        log.warning("Local changelogid is larger than the server's!")
+
+    if incr and local_id == server_id:
+        log.info("Nothing to be done.")
+        s.close()
+        return
 
     systems =[ 
         ["ou=nav,ou=system,dc=ntnu,dc=no",
@@ -112,6 +137,9 @@ def main():
     s.close()
     log.info("Done")
 
+    if incr or ( not incr and add and update and delete ):
+        log.debug("Storing changelog-id %ld", server_id)
+        file(spine_cache, 'w').write( str(server_id) )
 
 if __name__ == "__main__":
     main()
