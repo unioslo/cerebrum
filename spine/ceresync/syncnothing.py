@@ -2,6 +2,9 @@
 # -*- coding: iso-8859-1 -*-
 
 from ceresync import sync
+from ceresync import config
+
+config.parse_args()
 
 def main():
     s= sync.Sync(incr=False)
