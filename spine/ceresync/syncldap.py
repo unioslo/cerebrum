@@ -25,14 +25,16 @@ from ceresync.backend import ldapbackend
 from ceresync import config
 import traceback
 from sys import exit
+import os
 
 log = config.logger
 
-spine_cache = config.get('spine','last_change') or \
-              "/var/lib/cerebrum/sync.last_change"
 
 def main():
     config.parse_args(config.make_bulk_options())
+
+    spine_cache = config.get('spine','last_change') or \
+                  "/var/lib/cerebrum/sync.last_change"
 
     incr   = config.getboolean('args', 'incremental', allow_none=True)
     add    = config.getboolean('args', 'add')
@@ -57,6 +59,7 @@ def main():
         exit(1)
     
     server_id= s.cmd.get_last_changelog_id()
+    encoding= s.session.get_encoding()
     log.info("Local id: %ld, server id: %ld", local_id, server_id)
     
     if local_id > server_id:
@@ -77,7 +80,7 @@ def main():
     for base, spread, backend in systems:
         log.info("Syncronizing %s, %s" % (base, spread))
         system = backend(base=base)
-        system.begin(incr)
+        system.begin(encoding, incr, add, update, delete)
 
         try:
             s.view.set_account_spread(s.tr.get_spread(spread))
@@ -97,7 +100,7 @@ def main():
     spread = config.get("sync", "account_spread")
     log.info("Syncronizing users, spread %s" % spread)
     s.view.set_account_spread(s.tr.get_spread(spread))
-    user.begin(incr)
+    user.begin(encoding, incr, add, update, delete)
     try:
         accounts = s.get_accounts()
         log.debug("Antall brukere i get_accounts: %d" % len(accounts))
@@ -112,7 +115,7 @@ def main():
 
     # Syncronize persons
     log.info("Syncronizing persons")
-    persons.begin(incr)
+    persons.begin(encoding, incr, add, update, delete)
     try:
         for person in [p for p in s.get_persons() if p.primary_account != -1]:
             persons.add(person)
@@ -123,7 +126,7 @@ def main():
 
     # Syncronize groups
     log.info("Syncronizing groups")
-    groups.begin(incr)
+    groups.begin(encoding, incr, add, update, delete)
     try:
         for group in s.get_groups():
             if group.posix_gid == None: continue
