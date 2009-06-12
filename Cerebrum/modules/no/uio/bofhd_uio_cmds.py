@@ -6528,7 +6528,9 @@ class BofhdExtension(object):
         ("Names:         %s[from %s]",
          ("names", "name_src")),
         ("Fnr:           %s [from %s]",
-         ("fnr", "fnr_src"))
+         ("fnr", "fnr_src")),
+        ("External id:   %s [from %s]",
+         ("extid", "extid_src"))
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -6587,10 +6589,18 @@ class BofhdExtension(object):
         if (self.ba.is_superuser(operator.get_entity_id()) or
             operator.get_entity_id() in account_ids or
             is_member_of_priviliged_group):
+            # Show fnr
             for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
                 data.append({'fnr': row['external_id'],
                              'fnr_src': str(
                     self.const.AuthoritativeSystem(row['source_system']))})
+            # Show external id from FS and SAP
+            for extid in (self.const.externalid_sap_ansattnr,
+                          self.const.externalid_studentnr):
+                for row in person.get_external_id(id_type=extid):
+                    data.append({'extid': row['external_id'],
+                                 'extid_src': str(
+                        self.const.AuthoritativeSystem(row['source_system']))})
         return data
 
     # person set_id
