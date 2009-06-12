@@ -762,7 +762,7 @@ class View(DatabaseTransactionClass):
         db = self.get_database()
         rows=db.query(person_search % person_search_cl +person_search_cl_o,
                       self.query_data)
-        return self.add_quarantines(self.extend_persons(rows))
+        return self.add_quarantines(self.extend_persons(db, rows))
     get_persons_cl.signature = [Struct(PersonView)]
 registry.register_class(View)
 
