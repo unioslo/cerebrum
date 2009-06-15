@@ -26,20 +26,12 @@
 ## List of strings wich describes the form.
 #attr $help = ["* Expire date: YYYY-MM-DD"] 
 
-## Creates the content on the group edit page.
-#def editGroup($transaction, $group)
-<div class="group">
-    $form($group, $transaction)
-</div>
-#end def
-
 ## Action to go to when the form is submitted.
 #def getAction
     #return '/group/save'
 #end def
 
 ## Creates the form for editing a groups main info.
-## #def form($group, $tr)
 #def editGroup($group, $tr)
             
 #set $visis = [($spine_to_web(i.get_name()), $spine_to_web(i.get_description())) for i in 

@@ -6,13 +6,18 @@ WEBROOT = @webroot@
 INSTALL = @INSTALL@
 
 .PHONY: all clean distclean
+data = $(wildcard data/*.py)
 sources = $(wildcard *.py)
 
 all: 
 	$(MAKE) -C templates $@
 
-install: install-lib
+install: install-lib install-data
 	$(MAKE) -C templates $@
+
+install-data: $(data)
+	$(INSTALL) -d ${WEBROOT}/lib/data
+	$(INSTALL) -m 644 $^ $(WEBROOT)/lib/data
 
 install-lib: $(sources)
 	$(INSTALL) -d ${WEBROOT}/lib

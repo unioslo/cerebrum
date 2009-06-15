@@ -1,0 +1,434 @@
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+#from lib.Main import Main
+#extends Main
+
+#from lib.utils import strftime
+#from lib.utils import quotedate
+#from lib.utils import quotetimestamp
+#from lib.utils import html_quote
+#from lib.utils import url_quote
+#from lib.utils import spine_to_web
+#from lib.utils import entity_link
+#from lib.utils import nl2br
+
+#from Widgets import Widgets
+#attr $widgets = Widgets()
+
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+#attr $page = "group"
+#attr $link = "view"
+
+#def title()
+    #return $_('Group %s') % $spine_to_web($group.name)
+#end def
+
+#def links()
+    #return (
+        ('search', $_('Search')),
+        ('create', $_('Create')),
+    )
+#end def
+
+#def actions()
+<div id="actions">
+    <h3>$_('Actions')</h3>
+    <ul>
+        <li><a href="/group/delete?id=$group.id">$_("Delete group")</a></li>
+        #if $group.is_posix
+        <li><a href="/group/posix_demote?id=$group.id">$_("Demote from posix")</a></li>
+        #else
+        <li><a href="/group/posix_promote?id=$group.id">$_("Promote to posix")</a></li>
+        #end if
+        <li><a href="/account/create?owner=$group.id">$_('Create group account')</a> </li>
+        <li><a href="/quarantine/add?entity=$group.id">$_('Add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$group.id">$_('View full history log')</a> </li>
+    </ul>
+</div>
+#end def
+
+#def content()
+    $editGroup()
+    $viewInfo()
+    $viewQuarantines($group)
+    $addNote($group)
+    $viewNotes($group)
+    $viewMembers()
+    $setEmail($group)
+    ##$email_template.view()
+    $viewTraits()
+    $addSpread($group)
+    $viewSpreads($group)
+    $joinGroup($group)
+    $addMember()
+    ## $derivedMembers()
+    $viewHistoryLog($group)
+#end def
+
+#def editGroup()
+    #set $visi = $spine_to_web($group.visibility_name)
+    #set $visis = [($spine_to_web($v.name), $spine_to_web($v.description)) for $v in $visibilities]
+
+    #set $date = $group.expire_date
+    #set $date = $date and $date.strftime("%Y-%m-%d") or ""
+
+    <div class="edit box">
+        <h3>$_('Edit group')</h3>
+        <div>
+        <form action="/group/save" method="post">
+            <div class="hidden">
+                <input type="hidden" name="id" value="$group.id" />
+            </div>
+            <div class="required">
+               $form_widgets.input("name", "Name", $spine_to_web($group.name))
+            </div>
+            #if $group.is_posix
+                <div class="required">
+                    $form_widgets.input("gid", "Gid", $html_quote($group.posix_gid))
+                </div>
+            #end if
+                
+            <div class="required">
+                <label for="description">$_('Description'):</label>
+                <textarea rows="3" cols="40" name="description">$spine_to_web($group.description)</textarea>
+            </div>
+                
+            <div class="required">
+                $form_widgets.generate_loption("visi", "Visibility", $visis, $visi)
+            </div>
+                
+            <div class="required">
+                $form_widgets.input("expire", "Expire date *", $html_quote($date))
+            </div>
+            $form_widgets.showHelp(["* Expire date: YYYY-MM-DD"])
+            <div class="buttons">
+                <input type="submit" value="$_('Add')" />
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+        </div>
+    </div>
+#end def
+
+#def viewInfo()
+    #set $info = []
+    #set $notice = []
+
+    $info.append(($_('Name'), $spine_to_web($group.name)))
+
+    #if $group.is_expired
+        $notice.append($_("This group has expired."))
+    #end if
+
+    #if $group.is_posix
+        $info.append(($_('Gid'), $html_quote($group.posix_gid)))
+    #end if
+
+    $info.append(($_('Created'), $html_quote($strftime($group.create_date))))
+    $info.append(($_('Expire date'), $html_quote($strftime($group.expire_date))))
+    $info.append(($_('Visibility'), $spine_to_web($group.visibility_name)))
+    $info.append(($_('Description'), $spine_to_web($group.description)))
+    $widgets.viewInfo($info, $notice)
+#end def
+
+#def viewQuarantines($entity)
+    #if not $entity.quarantines
+        #return
+    #end if
+
+    <div class="important box">
+        <h3>$_('Quarantines')</h3>
+        #for $q in $entity.quarantines
+            <div class="item">
+                #set $type = $url_quote($q.type_name)
+                #set $edit = '/quarantine/edit?entity=%s&amp;type=%s' % ($entity.id, $type)
+                #set $remove = '/quarantine/remove?entity=%s&amp;type=%s' % ($entity.id, $type)
+
+                <div class="actions">
+                    <a class="action" href="$edit">$_('edit')</a>
+                    <a class="action" href="$remove">$_('delete')</a>
+                </div>
+                <strong>$spine_to_web($q.type_description)</strong>&#x0020;
+                <em>-$_('by ')</em>$entity_link($q.creator) &#x0020;
+                <span class="date">$html_quote($strftime($q.create_date))</span>
+                <div class="description">$nl2br($spine_to_web($q.description))</div>
+                
+                <em>$_('Start'):</em>
+                <span class="date">$quotedate($q.start_date)</span>
+                #if $q.end_date
+                    <em> $_('End'):</em>
+                    <span class="date">$quotedate($q.end_date)</span>
+                #end if
+                #if $q.disable_until
+                    <em> $_('Postponed until'):</em>
+                    <span class="date">$quotedate($q.disable_until)</span>
+                #end if
+            </div>
+        #end for
+    </div>
+#end def
+
+#def viewMembers()
+    #if $group.members
+        <div class="list box">
+            <h3>$_('Members')</h3>
+
+            <div id="member-container">
+                <table id="member-table">
+                    <thead>
+                        <tr>
+                            <th>$_('Type')</th>
+                            <th>$_('Member')</th>
+                            <th>$_('Member owner')</th>
+                            <th>$_('Actions')</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        #for $member in $group.members
+                        <tr>
+                            <td>
+                                $member.type_name.capitalize()
+                            </td>
+                            <td>
+                                $entity_link($member, text=$spine_to_web($member.name))
+                            </td>
+                            <td>
+                                #if $member.has_owner
+                                    $entity_link($member.owner)
+                                #else
+                                    &#x0020;
+                                #end if
+                            </td>
+                            <td>
+                                <a href="/group/remove_member?groupid=$group.id&amp;memberid=$member.id">Remove member</a>
+                            </td>
+                        </tr>
+                        #end for
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    #end if
+#end def
+
+#def setEmail($entity)
+#set $targets = [($spine_to_web($t.name), $spine_to_web($t.name)) for $t in $email_target_types]
+#set $servers = [($s.id, $spine_to_web($s.name)) for $s in $email_servers]
+
+<div class="edit box" style="display:none;">
+    <h3>$_('Create a new email target')</h3>
+    <form action="/email/make_target" method="post">
+        <div class="hidden">
+            <input type="hidden" name="entity" value="$entity.id" />
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption('targettype', 'Target type', $targets)
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption('host', 'Host', $servers)
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Add')" />&#x0020;
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
+</div>
+#end def
+
+#def viewEmail($entity)
+    #if not $targets
+        #return
+    #end if
+
+    <div class="info box">
+        <h3>$_('Email targets')</h3>
+        #for $target in $targets
+            <div class="item">
+                $target.alias, $target.type, $target.address
+                <div class="actions">
+                    <a class="action" href="/emailtarget/view?id=$target.id">$_('Add email-address')</a> &#x0020;
+                    <a class="action" href="/email/remove_target?entity=$entity.id&amp;target=$target.id">$_('Delete')</a>
+                </div>
+            </div>
+        #end for
+    </div>
+#end def
+
+#def addMember()
+    #set $types = (('account', 'Account'), ('group', 'Group'))
+    <div class="edit box" style="display:none;">
+        <h3>$_('Add member')</h3>
+        <form action="add_member" method="post">
+            <div class="hidden">
+                <input type="hidden" name="id" value="$group.id" />
+            </div>
+            <div class="required">
+                $form_widgets.input('name', 'Member name', $klass="ac_account")
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption('type', 'Member type', $types, 'account')
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Add member')" />&#x0020;
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
+#end def
+
+
+#def addNote($entity)
+<div class="edit box" style="display:none;">
+    <h3>$_('Add a note')</h3>
+    <form action="/note/add" method="post">
+        <div class="hidden">
+            <input type="hidden" name="entity" value="$entity.id" />
+        </div>
+        <div class="required">
+            <label for="subject">$_('Subject'):</label>
+            <input type="text" size="40" name="subject" id="subject" />
+        </div>
+        <div class="required">
+            <label for="description">$_('Optional details'):</label>
+            <textarea cols="40" rows="4" name="description" id="description"></textarea>
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Add')" />
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
+</div>
+#end def
+
+#def viewNotes($entity)
+    #if not $entity.notes
+        #return
+    #end if
+
+    <div class="note box">
+        <h3>$_('Notes')</h3>
+        #for $note in $entity.notes
+            <div class="item">
+                <div class="actions">
+                    <a class="action" href="/note/delete?id=$note.id&amp;entity=$entity.id">$_('delete')</a>
+                </div>
+                <span class="name">$spine_to_web($note.subject)</span>&#x0020;
+                <span class="creator">-$_('by ') $entity_link($note.creator)</span>&#x0020;
+                <span class="date">$quotedate($note.create_date)</span>
+                <div class="description">$nl2br($spine_to_web($note.description))</div>
+            </div>
+        #end for
+    </div>
+#end def
+
+#def viewTraits()
+#end def
+
+#def addSpread($entity)
+    #set $spreads = [($s.name, $s.name) for $s in $spreads if $s not in $entity.spreads]
+
+    <div class="edit box" style="display:none;">
+        <h3>$_('Add a spread')</h3>
+        <form action="/entity/add_spread" method="post">
+            <div class="hidden">
+                <input type="hidden" name="id" value="$entity.id" />
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread")
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Add')" />&#x0020;
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
+#end def
+
+#def viewSpreads($entity)
+    #if not $entity.spreads
+        #return
+    #end if
+
+    <div class="info box">
+        <h3>$_('Spreads')</h3>
+        #for $spread in $entity.spreads
+            <div class="item">
+                <div class="actions">
+                    <a class="action" href="/entity/remove_spread?id=$entity.id&amp;spread=$url_quote($spread.name)">$_('remove')</a>
+                </div>
+                <span class="name">$spine_to_web($spread.name)</span> -
+                <span class="value">$spine_to_web($spread.description)</span>
+            </div>
+        #end for
+    </div>
+#end def
+
+#def joinGroup($entity)
+    <div id="joinGroupBox" class="edit box" style="display:none;">
+        <h3>$_('Join group')</h3>
+        <form action="/group/join_group" method="post">
+            <div class="hidden">
+                <input type="hidden" name="entity" value="$entity.id" />
+            </div>
+            <div class="required">
+                $form_widgets.input('name', 'Group name', $klass="ac_group")
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Join group')" />&#x0020;
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
+#end def
+
+#def viewHistoryLog($entity)
+    <div class="log box">
+        <h3><a href="/entity/full_historylog?id=$entity.id">$_('History log')</a></h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Type</th>
+                    <th>Changed by</th> 
+                    <th>Category</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                #for $event in $entity.history
+                    <tr>
+                        <td>$quotetimestamp($event.timestamp)</td>
+                        <td class="type $event.type"><span>$event.type</span></td>
+                        <td>
+                            #if $hasattr($event.creator, 'id')
+                                $entity_link($event.creator)
+                            #else
+                                $event.creator
+                            #end if
+                        </td>
+                        <td>$event.category</td>
+                        <td>$event.message</td>
+                    </tr>
+                #end for
+            </tbody>
+        </table>
+    </div>
+#end def

@@ -808,5 +808,32 @@ div.sub-nav ul li {
     width: auto;
 }
 
+/* HistoryLog styling */
+.log .type {
+    background-repeat:no-repeat;
+}
+.log .add {
+    background-image: url(/img/add.png);
+}
+.log .del {
+    background-image: url(/img/delete.png);
+}
+.log .rem {
+    background-image: url(/img/remove.png);
+}
+.log .create {
+    background-image: url(/img/create.png);
+}
+.log .mod {
+    background-image: url(/img/modify.png);
+}
+
+.log .add span,
+.log .del span,
+.log .rem span,
+.log .create span,
+.log .mod span {
+    display: none;
+}
 
 /* vim: sw=4 sts=4 expandtab */

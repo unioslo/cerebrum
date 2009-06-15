@@ -60,10 +60,8 @@
     #end for
 #end def
 
-## setting this just to be safe that the browser understand...
-##
-## the fucking MSIE do not accept application/xhml+xml... *sigh*
-##
+## Setting http headers.
+## MSIE does not accept application/xhtml+xml so it is served text/html instead.
 <%
 client_charset = cherrypy.session.get('client_encoding', 'utf-8')
 

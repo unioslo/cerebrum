@@ -314,7 +314,7 @@ def groups(transaction, account_id, leave=False, create=False, **checkboxes):
     """Performs action on groups this account is member of.
     
     If leave is true: removes 'account_id' from group checked in 'checkboxes'.
-    If crate is true: redirects to the create group page.
+    If create is true: redirects to the create group page.
     Only one should be true at the same time.
     """
     if create:

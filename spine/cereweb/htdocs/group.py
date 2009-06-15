@@ -23,17 +23,21 @@ import string
 
 from account import _get_links
 from gettext import gettext as _
-from lib.Main import Main
 from lib.utils import queue_message, redirect_object, commit
 from lib.utils import object_link, transaction_decorator, commit_url
 from lib.utils import rollback_url, legal_date, remember_link
-from lib.utils import spine_to_web, web_to_spine
+from lib.utils import spine_to_web, web_to_spine, session_required_decorator
 from lib.Searchers import GroupSearcher
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 from lib.templates.GroupViewTemplate import GroupViewTemplate
-from lib.templates.GroupEditTemplate import GroupEditTemplate
+from lib.templates.NewGroupViewTemplate import NewGroupViewTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 from SpineIDL.Errors import NotFoundError, AlreadyExistsError, ValueError
+
+from lib.data import GroupDAO
+from lib.data import HistoryDAO
+from lib.data import ConstantsDAO
+from lib.data import HostDAO
 
 def search_form(remembered):
     page = GroupSearchTemplate()
@@ -58,6 +62,20 @@ def search(transaction, **vargs):
 search = transaction_decorator(search)
 search.exposed = True
 index = search
+
+def view2(id, **vargs):
+    page = NewGroupViewTemplate()
+    page.group = GroupDAO.get(id)
+    page.group.history = HistoryDAO.get_entity_history(id)
+    page.visibilities = ConstantsDAO.get_group_visibilities()
+    page.spreads = ConstantsDAO.get_group_spreads()
+    page.email_target_types = ConstantsDAO.get_email_target_types()
+    page.email_servers = HostDAO.get_email_servers()
+    page.targets = HostDAO.get_email_targets(id)
+    
+    return page.respond()
+view2 = session_required_decorator(view2)
+view2.exposed = True
 
 def view(transaction, id, **vargs):
     """Creates a page with the view of the group with the given by."""
@@ -106,8 +124,6 @@ def remove_member(transaction, groupid, memberid):
     group = transaction.get_group(int(groupid))
     member = transaction.get_entity(int(memberid))
 
-    group_member = transaction.get_group_member(group, member, member.get_type())
-    ##group.remove_member(group_member)
     group.remove_member(member)
     member_name = spine_to_web(member.get_name())
     msg = _("%s removed from group.") % object_link(member, text=member_name)
@@ -115,33 +131,20 @@ def remove_member(transaction, groupid, memberid):
 remove_member = transaction_decorator(remove_member)
 remove_member.exposed = True
 
-def edit(transaction, id):
-    """Creates a page with the form for editing a person."""
-    group = transaction.get_group(int(id))
-    #page = Main()
-    page = FormTemplate()
-    grp_name = spine_to_web(group.get_name())
-    page.title = _("Edit ") + object_link(group, text=grp_name)
-    page.set_focus('group/edit')
-    page.links = _get_links()
-    page.tr = tramsaction
-    edit = GroupEditTemplate()
-    content = edit.editGroup(transaction, group)
-    page.content = lambda: content
-    return page
-edit = transaction_decorator(edit)
-edit.exposed = True
-
 def create(name="", expire="", description=""):
     """Creates a page with the form for creating a group."""
-    page = Main()
+    page = GroupCreateTemplate()
     page.title = _("Group")
     page.set_focus('group/create')
     page.links = _get_links()
+
+    page.data = {
+        'name': name,
+        'expire': expire,
+        'description': description,
+    }
     
-    content = GroupCreateTemplate().form(name, expire, description)
-    page.content = lambda :content
-    return page
+    return page.respond()
 create.exposed = True
 
 def save(transaction, id, name, expire="",

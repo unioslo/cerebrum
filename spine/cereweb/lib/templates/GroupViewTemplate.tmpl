@@ -32,7 +32,6 @@
 #def viewActions($group)
     #set $id = $url_quote($group.get_id())
     <ul>
-        ## <li><a href="/group/edit?id=$id">$_("edit info")</a></li>
         <li><a href="/group/delete?id=$id">$_("Delete group")</a></li>
         #if $group.is_posix()
         <li><a href="/group/posix_demote?id=$id">$_("Demote from posix")</a></li>
@@ -47,7 +46,6 @@
 #end def
 
 #def viewContent($tr, $group)
-#set $searcher = $tr.get_group_member_operation_type_searcher()
 #set $commands=$tr.get_commands()
     $groupTemplate.editGroup($group, $tr)
     $viewInfo($group)

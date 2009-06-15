@@ -33,9 +33,9 @@ class Main(FramesTemplate):
     and from the FramesTemplate, wich is a cheetah-template.
     """
     
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         """Creates all parts of the page beside the content."""
-        FramesTemplate.__init__(self)
+        super(Main, self).__init__(*args, **kwargs)
         self.prepare_page()
         self.prepare_messages()
         self.page, self.link = '', '#'

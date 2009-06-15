@@ -143,6 +143,33 @@ def remember_link(object, text='remember', _class=''):
     url = urllib.quote("/worklist/remember?id=%i" % obj_id)
     return '<a class="action jsonly %s" href="%s">%s</a>' % (_class, url, text)
 
+def entity_url(entity, method="view", **params):
+    """Return the full path to a page treating the entity.
+    
+    Method could be "view" (the default), "edit" and other things.
+    
+    Any additional keyword arguments will be appended to the query part.
+    """
+
+    params['id'] = entity.id
+    params = urllib.urlencode(params)
+    return cgi.escape("/%s/%s?%s" % (entity.type_name, method, params))
+
+def entity_link(entity, text=None, method="view", _class="", **params):
+    """Create a HTML anchor (a href=..) for the entity.
+
+    The text of the anchor will be entity.name - unless
+    the parameter text is given.
+
+    Any additional keyword arguments will be appended to the query part.
+    """
+    url = entity_url(entity, method, **params)
+    if text is None:
+        text = entity.name
+    if _class:
+        _class = ' class="%s"' % _class
+    return '<a href="%s"%s>%s</a>' % (url, _class, cgi.escape(text))
+
 def redirect(url, status=None):
     raise cherrypy.HTTPRedirect(url, status)
 
@@ -201,6 +228,17 @@ def has_valid_session():
     except (CORBA.COMM_FAILURE, CORBA.TRANSIENT, CORBA.OBJECT_NOT_EXIST, KeyError), e:
         return False
     return True
+
+def session_required_decorator(method):
+    def fn(*args, **vargs):
+        if not has_valid_session():
+            Messages.queue_message(
+                    title="Session Expired",
+                    message='Your session is no longer available.  Please log in again.',
+                    is_error=True)
+            redirect_to_login()
+        return method(*args, **vargs)
+    return fn
 
 def new_transaction():
     if not has_valid_session():
@@ -512,6 +550,7 @@ def get_client_encoding():
     return cherrypy.session['client_encoding']
 
 def spine_to_web(string):
+    if not string: return ""
     return to_web_encode(from_spine_decode(html_quote(string)))
 
 def web_to_spine(string):
@@ -575,3 +614,12 @@ def get_lastname_firstname(pers):
         found = firstname
     return found
 
+def nl2br(string):
+    string = string or ""
+    return string.replace('\n', '<br />')
+
+def quotedate(date):
+    return html_quote(strftime(date))
+
+def quotetimestamp(date):
+    return html_quote(strftime(date, "%Y-%m-%d %H:%M:%S"))
