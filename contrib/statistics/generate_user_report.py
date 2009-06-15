@@ -111,7 +111,7 @@ def generate_person_uname_report(stream, fnr_src_sys=None):
             status = "aktiv"
 
         # for all (unexpired) accounts owned by the person...
-        accounts = acc.search(owner_id = pid)
+        accounts = acc.search(owner_id=pid, expire_start=None)
         for entry in accounts:
             stream.write(":".join((fnr, entry["name"], status)))
             stream.write("\n")
