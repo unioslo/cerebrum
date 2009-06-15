@@ -286,8 +286,8 @@ contact_phone.contact_value AS phone,
 contact_fax.contact_value AS fax,
 contact_address.contact_value AS post_address,
 -- stedkode
-lpad(stedkode.landkode,3,'0')||lpad(stedkode.institusjon,5,'0')||lpad(stedkode.fakultet,2,'0')||lpad(stedkode.institutt,2,'0')||lpad(stedkode.avdeling,2,'0') AS stedkode,
-lpad(stedkode_parent.landkode,3,'0')||lpad(stedkode_parent.institusjon,5,'0')||lpad(stedkode_parent.fakultet,2,'0')||lpad(stedkode_parent.institutt,2,'0')||lpad(stedkode_parent.avdeling,2,'0') AS parent_stedkode
+to_char(stedkode.landkode,'000')||to_char(stedkode.institusjon,'00000')||to_char(stedkode.fakultet,'00')||to_char(stedkode.institutt,'00')||to_char(stedkode.avdeling,'00') AS stedkode,
+to_char(stedkode_parent.landkode,'000')||to_char(stedkode_parent.institusjon,'00000')||to_char(stedkode_parent.fakultet,'00')||to_char(stedkode_parent.institutt,'00')||to_char(stedkode_parent.avdeling,'00') AS parent_stedkode
 --
 FROM ou_info
 %s
