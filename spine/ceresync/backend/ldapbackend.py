@@ -239,11 +239,13 @@ class LdapBack:
             self.update(obj)
             return
         if not self.do_add:
+            self.insync.append(dn)
             return
 
         attrs=self.get_attributes(obj)
         try:
             mod_attrs = modlist.addModlist(attrs,self.ignore_attr_types)
+            log.info("Added '%s'", dn)
         except AttributeError,ae:
             log.exception("AttributeError caught from modlist.addModlist: %s" % ae.__str__)
             log.exception("attrs: %s, ignore_attr_types: %s" % (attrs, self.ignore_attr_types))
@@ -266,9 +268,10 @@ class LdapBack:
         """
         Update object in LDAP. If the object does not exist, we add the object. 
         """
-        if not self.do_update:
-            return
         dn=self.get_dn(obj)
+        if not self.do_update:
+            self.insync.append(dn)
+            return
         attrs=self.get_attributes(obj)
         old_attrs = None
         ignore_attr_types = [] + self.ignore_attr_types
@@ -300,7 +303,9 @@ class LdapBack:
         mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
         try:
             # Only update if there are changes. python_ldap seems to complain when given empty modlists
-            if (mod_attrs != []): self.l.modify_s(dn,mod_attrs)
+            if (mod_attrs != []): 
+                self.l.modify_s(dn,mod_attrs)
+                log.info("Updated '%s'", dn)
             self.insync.append(dn)
         except ldap.LDAPError,e:
             log.exception("An error occured while modifying %s" % (dn))
@@ -315,6 +320,7 @@ class LdapBack:
             dn=self.get_dn(obj)
         try:
             self.l.delete_s(dn)
+            log.info("Deleted '%s'", dn)
         except ldap.NO_SUCH_OBJECT,e:
             log.error("%s not found when trying to remove from database" % (dn))
         except ldap.LDAPError,e:
@@ -486,19 +492,19 @@ class Person(LdapBack):
         #s['userPassword']           = ["Ikkepassord"] #["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
         s['eduPersonOrgDn']         = ["dc=ntnu,dc=no"] #Should maybe be in config?
 
-	#must remove duplicate values
+        #must remove duplicate values
         affiliations = []
         for aff in obj.affiliations:
-		if aff == 'STUDENT':
-			affiliations.extend(['student','member'])
-                elif aff == 'ANSATT':
-			affiliations.extend(['employee','member'])
-		elif aff == 'TILKNYTTET':
-			affiliations.extend(['affiliate'])
-		elif aff == 'ALUMNI':
-			affiliations.extend(['alum'])
-                else:
-			log.warn("Unknown affiliation: %s" % aff)
+            if aff == 'STUDENT':
+                affiliations.extend(['student','member'])
+            elif aff == 'ANSATT':
+                affiliations.extend(['employee','member'])
+            elif aff == 'TILKNYTTET':
+                affiliations.extend(['affiliate'])
+            elif aff == 'ALUMNI':
+                affiliations.extend(['alum'])
+            else:
+                log.warn("Unknown affiliation: %s" % aff)
         s['eduPersonAffiliation']   = {}.fromkeys(affiliations).keys() 
 
         # Expecting birth_date from spine on the form "%Y-%m-%d 00:00:00.00"
@@ -509,15 +515,15 @@ class Person(LdapBack):
         s['norEduPersonNIN']        = ["%s"     %  obj.nin] # Norwegian "Birth number" / SSN 
         s['eduPersonPrincipalName'] = ["%s@%s"  %  (obj.primary_account_name, config.get('ldap','eduperson_realm'))]
         if 'ANSATT' in obj.affiliations:
-		s['title'] 	    = 'ansatt'
+            s['title'] = ['ansatt']
         elif 'STUDENT' in obj.affiliations:
-		s['title']          = 'student'
+            s['title'] = ['student']
         elif 'TILKNYTTET' in obj.affiliations:
- 		s['title']          = 'tilknyttet'
-	elif 'ALUMNI' in obj.affiliations:
-		s['title']          = 'alumnus'
+            s['title'] = ['tilknyttet']
+        elif 'ALUMNI' in obj.affiliations:
+            s['title'] = ['alumnus']
         else:
-		s['title']                  = ["Ikke title enno"] 
+            s['title'] = ["Ikke title enno"] 
         if obj.work_title != '':
             pass
             #print "%s"     %  obj.work_title
