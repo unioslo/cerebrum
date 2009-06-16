@@ -234,6 +234,13 @@ class SocketHandling(object):
                         conn, 'QUIT is now only entry in ready-to-run queue')
                     job_runner.quit()
                     break
+                elif data == 'KILL':
+                    job_runner.queue_paused_at = time.time()
+                    job_runner.ready_to_run = ()
+                    self.send_response(
+                        conn, 'Initiating shutdown')
+                    job_runner.quit()
+                    break
                 elif data == 'PAUSE':
                     job_runner.queue_paused_at = time.time()
                     self.send_response(conn, 'OK')
@@ -521,6 +528,15 @@ class JobQueue(object):
                            self._known_jobs[x[0]].call or None),
                   'started': self._started_at[x[0]]} for x in self._running_jobs ]
 
+    def kill_running_jobs(self, sig=signal.SIGTERM):
+        """Send signal to all running jobs"""
+        for i in self._running_jobs:
+            try:
+                os.kill(i[1], sig)
+            except OSError, e:
+                # Job have already quitted
+                pass
+
     def job_started(self, job_name, pid, force=False):
         self._running_jobs.append((job_name, pid))
         self._started_at[job_name] = time.time()
@@ -567,9 +583,9 @@ class JobQueue(object):
         return self._run_queue
         
     def get_next_job_time(self, append=False):
-        """find job that should be ran due to the current time, or
+        """find job that should be run due to the current time, or
         being a pre-requisit of a ready job.  Returns number of
-        seconds to next event, and stores the queue internaly."""
+        seconds to next event, and stores the queue internally."""
 
         global current_time
         jobs = self._known_jobs

@@ -349,6 +349,7 @@ def get_authorized_hosts(machine_list):
 def usage(exitcode=0):
     print """Usage: pq.py [options]
     --port port : run on alternative port
+    --bind adr  : run on alternative interface
 
 Sample session:
 HELO chrisege hermes.uio.no
@@ -364,21 +365,23 @@ SUBP foo 12
 
 if __name__ == '__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], '', ['help', 'port='])
+        opts, args = getopt.getopt(sys.argv[1:], '', ['help', 'port=', 'bind='])
     except getopt.GetoptError:
         usage(1)
 
     port = None
+    bind = ''
     for opt, val in opts:
         if opt in ('--help',):
             usage()
         elif opt in ('--port',):
             port = int(val)
+        elif opt in ('--bind',):
+            bind = val
     if not port:
         port = socket.getservbyname("prissquota", "tcp")
 
     authorized_hosts = get_authorized_hosts(cereconf.PQ_IP_SUBP)
-    server = MyServer(('', port), RequestHandler)
+    server = MyServer((bind, port), RequestHandler)
     server.serve_forever()
 
-# arch-tag: c035dd78-cf1f-4bcb-8689-75371f0d89e8

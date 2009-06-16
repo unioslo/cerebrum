@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003, 2004 University of Oslo, Norway
+# Copyright 2003-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -138,8 +138,10 @@ class JobRunner(object):
         signal.signal(signal.SIGUSR1, JobRunner.sig_general_handler)
         self.job_queue = JobQueue(scheduled_jobs, db, logger)
         self._should_quit = False
+        self._should_kill = False
         self.sleep_to = None
         self.queue_paused_at = 0
+        self.queue_killed_at = 0
         self._last_pause_warn = 0
 
     def sig_general_handler(signum, frame):
@@ -211,6 +213,7 @@ class JobRunner(object):
         os.kill(self.my_pid, signal.SIGUSR1)
 
     def quit(self):
+        self._should_kill = True
         self._should_quit = True
         self.wake_runner_signal()
 
@@ -327,6 +330,19 @@ class JobRunner(object):
             self.timer_wait = None
             runner_cw.release()
             logger.debug("resumed")
+        if self._should_kill:
+            logger.debug("Sending SIGTERM to running jobs")
+            self.job_queue.kill_running_jobs()
+            # ignore SIGCHLD from now on
+            signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+            logger.debug("Sleeping for 5 secs to let jobs handle signal")
+            time.sleep(5)
+            self.handle_completed_jobs()
+            logger.debug("Sending SIGKILL to running jobs")
+            self.job_queue.kill_running_jobs(signal.SIGKILL)
+            time.sleep(3)
+            self.handle_completed_jobs()
+
     
 def usage(exitcode=0):
     print """job_runner.py [options]:
@@ -337,6 +353,7 @@ def usage(exitcode=0):
 
       --reload: re-read the config file
       --quit : exit gracefully (allowing current job to complete)
+      --kill : exit, but kill jobs not finished after cereconf.HALT_PERIOD
       --quiet : exit silently if another server is already running
       --status : show status for a running job-runner
       --pause : pause the queue, won't start any new jobs
@@ -354,7 +371,7 @@ def main():
         opts, args = getopt.getopt(sys.argv[1:], '',
                                    ['reload', 'quit', 'status', 'config=',
                                     'dump=', 'run=', 'pause', 'quiet', 'resume',
-                                    'show-job=', 'with-deps'])
+                                    'show-job=', 'with-deps', 'kill'])
     except getopt.GetoptError:
         usage(1)
     #global scheduled_jobs
@@ -366,7 +383,7 @@ def main():
             quiet = True
     for opt, val in opts:
         if opt in('--reload', '--quit', '--status', '--run', '--pause',
-                  '--resume', '--show-job'):
+                  '--resume', '--show-job', '--kill'):
             if opt == '--reload':
                 cmd = 'RELOAD'
             elif opt == '--quit':
@@ -381,6 +398,8 @@ def main():
                 cmd = 'RUNJOB %s %i' % (val, with_deps)
             elif opt == '--show-job':
                 cmd = 'SHOWJOB %s' % val
+            elif opt == '--kill':
+                cmd = 'KILL'
             sock = SocketHandling(logger)
             try:
                 print "Response: %s" % sock.send_cmd(cmd)

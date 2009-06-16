@@ -58,6 +58,8 @@ class SocketCom(object):
             passwd = read_password("cerebrum", "AD", cereconf.AD_SERVER_HOST)
             
             self.sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            if hasattr(cereconf, 'CEREBRUM_SERVER_IP'):
+                self.sockobj.bind((cereconf.CEREBRUM_SERVER_IP, cereconf.AD_SERVER_PORT))
             self.sockobj.connect((cereconf.AD_SERVER_HOST, cereconf.AD_SERVER_PORT))
             logger.debug(">> %s" % self.sockobj.recv(8192).strip())
             

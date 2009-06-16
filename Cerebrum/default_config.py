@@ -29,6 +29,8 @@ CEREBRUM_DATABASE_NAME = None
 CEREBRUM_DATABASE_CONNECT_DATA = {'user': None,
                                   'table_owner': None,
                                   'host': None}
+# Default bind name for Cerebrum
+CEREBRUM_SERVER_IP = ""
 
 AUTH_CRYPT_METHODS = ("MD5-crypt",)
 
