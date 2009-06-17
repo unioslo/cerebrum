@@ -38,6 +38,7 @@ from Cerebrum import Errors
 import cPickle
 import copy
 
+import pprint
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
@@ -98,58 +99,36 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @param user_dict: account_id -> account information
         @type user_dict: dict
         """
-        from Cerebrum.modules.Email import EmailDomain, EmailTarget, EmailQuota, EmailAddress
-        etarget = EmailTarget(self.db)
-        rewrite = EmailDomain(self.db).rewrite_special_domains
+        from Cerebrum.modules.Email import EmailQuota
         equota = EmailQuota(self.db)
-        eaddr = EmailAddress(self.db)
 
-        #find primary address and set mail attribute
-        for row in etarget.list_email_target_primary_addresses(
-                target_type = self.co.email_target_account):
-            v = user_dict.get(int(row['target_entity_id']))
-            if not v:
-                continue
-            try:
-                if (v['imap'] or v['Exchange']):
-                    v['mail'] = "@".join(
-                        (row['local_part'], rewrite(row['domain'])))
-            except TypeError:
-                pass  # Silently ignore
-                
-        #Set proxyaddresses attribute
-        target_id2target_entity_id = {}
-        for row in etarget.list_email_targets_ext():
-            if row['target_entity_id']:
-                target_id2target_entity_id[int(row['target_id'])]= {
-                    'target_ent_id' : int(row['target_entity_id']) }
+        #Find primary addresses and set mail attribute
+        uname2primary_mail = self.ac.getdict_uname2mailaddr(filter_expired=True, primary_only=True)
+        for uname, prim_mail in uname2primary_mail.iteritems():
+            if user_dict.has_key(uname):
+                if (user_dict[uname]['imap'] or user_dict[uname]['Exchange']):
+                    user_dict[uname]['mail'] = prim_mail
 
-        for row in eaddr.search(fetchall=True):                
-            if target_id2target_entity_id.has_key(int(row['target_id'])):
-                te_id = target_id2target_entity_id[
-                    int(row['target_id'])]['target_ent_id']
-            else:
-                continue
-            v = user_dict.get(te_id)
-            if not v:
-                continue
-            try:
-                if (v['imap'] or v['Exchange']):
-                    addr= "@".join((row['local_part'], rewrite(row['domain'])))
-                    if addr == v['mail']:
-                        v['proxyAddresses'].insert(0,("SMTP:" + addr))
-                    else:
-                        v['proxyAddresses'].append(("smtp:" + addr))
-            except TypeError:
-                pass  # Silently ignore
-
+        #Find all valid addresses and set proxyaddresses attribute
+        uname2all_mail = self.ac.getdict_uname2mailaddr(filter_expired=True, primary_only=False)
+        for uname, all_mail in uname2all_mail.iteritems():
+            if user_dict.has_key(uname):
+                if (user_dict[uname]['imap'] or user_dict[uname]['Exchange']):
+                    user_dict[uname]['proxyAddresses'].insert(0,("SMTP:" + user_dict[uname]['mail']))
+                    for alias_addr in all_mail:
+                        if alias_addr == user_dict[uname]['mail']:
+                            pass
+                        else:
+                            user_dict[uname]['proxyAddresses'].append(("smtp:" + alias_addr))
+                        
+                        
         #Set homeMDB and Quota-info for Exchange users
         #TBD: Will probably be slow with many Exchange users..
         for k,v in user_dict.iteritems():
             self.ac.clear()
             if v['Exchange']:
                 try:
-                    self.ac.find_by_name(v['TEMPuname'])
+                    self.ac.find_by_name(k)
                 except Errors.NotFoundError:
                     continue
 
@@ -164,7 +143,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                       " for account %s (id: %i)" % (v['TEMPuname'],int(k)))
 
                 equota.clear()
-                equota.find_by_target_entity(int(k))
+                equota.find_by_target_entity(v['entity_id'])
                 try:
                     q_soft = equota.get_quota_soft()
                     q_hard = equota.get_quota_hard()
@@ -187,8 +166,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['mDBStorageQuota'] = v['mDBOverQuotaLimit'] * 90 // 100
                 #We or Exchange shall decide quotas:
                 v['mDBUseDefaults'] = cereconf.AD_EX_MDB_USE_DEFAULTS
-                
-
+            
     
     def _update_contact_info(self, user_dict):
         """
@@ -352,42 +330,42 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Fetched %i person names" % len(pid2names))
 
         #
-        # Set mail info
-        #
-        self.logger.debug("..setting mail info..")
-        self._update_mail_info(tmp_ret)
-        
-        #
         # Set contact info: phonenumber and title
         #
         self.logger.debug("..setting contact info..")
         self._update_contact_info(tmp_ret)
 
+        userdict_ret= {}
+        for k, v in tmp_ret.iteritems():
+            userdict_ret[v['TEMPuname']] = v
+            del(v['TEMPuname'])
+            del(v['TEMPownerId'])
+            v['entity_id'] = k
+
+        #
+        # Set mail info
+        #
+        self.logger.debug("..setting mail info..")
+        self._update_mail_info(userdict_ret)
+          
         #
         # Assign derived attributes
         #
-        for v in tmp_ret.itervalues():
+        for k, v in userdict_ret.iteritems():
             #TODO: derive domain part from LDAP DC components
-            v['userPrincipalName'] = v['TEMPuname'] + "@uia.no"
+            v['userPrincipalName'] = k + "@uia.no"
             if (v['imap'] or v['Exchange']):
-                v['mailNickname'] =  v['TEMPuname']
+                v['mailNickname'] =  k
             else:
                 del(v['proxyAddresses'])
             if v['imap'] and not v['Exchange']:
                 v['targetAddress'] = v['mail']
             else:
                 v['targetAddress'] = ""
-            
-        #
-        # Index dict on uname instead of accountid
-        #
-        ret = {}
-        for v in tmp_ret.itervalues():
-            ret[v['TEMPuname']] = v
-            del(v['TEMPuname'])
-            del(v['TEMPownerId'])
-          
-        return ret
+        
+
+        return userdict_ret
+
 
     
     def fetch_ad_data(self, search_ou):
@@ -451,6 +429,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 del chg['type']
                 if chg.has_key('distinguishedName'):
                     del chg['distinguishedName']
+                if chg.has_key('entity_id'):
+                    del chg['entity_id']
                 if chg.has_key('sAMAccountName'):
                     uname = chg['sAMAccountName']       
                     del chg['sAMAccountName']               
