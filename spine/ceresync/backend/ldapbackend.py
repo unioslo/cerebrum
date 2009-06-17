@@ -112,7 +112,7 @@ class LdifBack( object ):
             self.outfile.write(ldif.CreateLDIF(entry[0],entry[1],self.base64_attrs,self.cols))
         self.outfile.close()
         
-class LdapBack:
+class LdapBack(object):
     """
     All default values such as basedn for each type of object shall be fetch
     from a configuration file. If config is misconfigured, this module should
@@ -383,6 +383,14 @@ class PosixUser(LdapBack):
         self.obj_class = ['top','person','posixAccount','shadowAccount'] 
         self.ignore_attr_types = []
 
+    def add(self, obj):
+        if obj.posix_uid == -1 or obj.full_name == "":
+            log.debug("Ignoring %s with uid %d and full_name %s", obj.name,
+                      obj.posix_uid, obj.full_name)
+            return
+        super(PosixUser, self).add(obj)
+
+
     def get_attributes(self,obj):
         """Convert Account-object to map ldap-attributes"""
         s = {}
@@ -476,6 +484,13 @@ class Person(LdapBack):
         self.filter = config.get("ldap","peoplefilter")
         self.obj_class = ['top','person','organizationalPerson','inetOrgPerson','eduPerson','norEduPerson','ntnuPerson']
         self.ignore_attr_types = []
+
+    def add(self, obj):
+        if obj.primary_account == -1:
+            log.debug("Ignoring %s with primary_account=%d", obj.full_name, 
+                      obj.primary_account)
+            return
+        super(Person, self).add(obj)
 
     def get_dn(self,obj):
         return "uid=" + obj.primary_account_name + "," + self.base
