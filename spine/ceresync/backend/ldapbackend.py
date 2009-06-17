@@ -246,13 +246,13 @@ class LdapBack(object):
         attrs=self.get_attributes(obj)
         try:
             mod_attrs = modlist.addModlist(attrs,self.ignore_attr_types)
-            log.info("Added '%s'", dn)
         except AttributeError,ae:
             log.exception("AttributeError caught from modlist.addModlist: %s" % ae.__str__)
             log.exception("attrs: %s, ignore_attr_types: %s" % (attrs, self.ignore_attr_types))
             sys.exit(1)
         try:
             self.l.add_s(dn,mod_attrs)
+            log.info("Added '%s'", dn)
             self.insync.append(dn)
         except ldap.ALREADY_EXISTS,e:
             self.update(obj)
@@ -571,28 +571,40 @@ class OU(LdapBack):
         self.ou_dict = {}
         self.base = base
         self.filter = filter
-        self.obj_class = ['top','organizationalUnit']
+        self.obj_class = ['top','organizationalUnit', 'norEduOrgUnit']
+        self.processed= []
+
+    def add(self, obj):
+        dn= self.get_dn(obj)
+        if dn == self.base:
+            return
+        elif dn in self.processed:
+            log.warning("Entry with the same name already processed: %s", dn)
+            return
+        self.processed.append(dn)
+        super(OU, self).add(obj)
 
     def get_dn(self,obj):
         base = self.base
         filter = 'norEduOrgUnitUniqueNumber=%s' % obj.parent_id 
-        if (self.ou_dict.has_key[obj.parent_id]):
+        if self.ou_dict.has_key(obj.parent_id):
             parentdn = self.ou_dict[obj.parent_id]
+        elif obj.parent_id == -1:
+            self.ou_dict[obj.id]= self.base
+            return self.base
         else:
             parentdn = self.search(base=base,filterstr=filter)[0][0]
-        dn = "ou=" + obj.name + parentdn
+        dn = "ou=%s,%s" % (self.iso2utf(obj.short_name),parentdn,)
         self.ou_dict[obj.id] = dn # Local cache to speed things up.. 
         return dn
 
     def get_attributes(self,obj):
         #FIXME: add support for storing unit-id,parent-id and rootnode-id
         s = {}
-        s['objectClass']               = ['top','organizationalUnit','norEduOrgUnit']
-        s['ou']                        = ["%s" % obj.name]
-        s['cn']                        = ["%s" % obj.full_name]
-        s['description']               = ["%s" % obj.description]
-        s['norEduOrgUniqueNumber']     = ["%s" % config.get('ldap','norEduOrgUniqueNumber')]
-        s['norEduOrgUnitUniqueNumber'] = ["%s" % obj.id]
+        s['objectClass']               = self.obj_class
+        s['ou']                        = [self.iso2utf(obj.short_name)]
+        s['cn']                        = [self.iso2utf(obj.display_name)]
+        s['norEduOrgUnitUniqueIdentifier']= ["%d"%(int(obj.stedkode[-6:],10),)]
         #s['norEduOrgAcronym'] = obj.acronyms
         return s
 
