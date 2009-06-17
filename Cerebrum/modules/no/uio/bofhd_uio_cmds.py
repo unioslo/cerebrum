@@ -1760,7 +1760,7 @@ class BofhdExtension(object):
                 if len(res) != 1:
                     return False
             except ldap.LDAPError, e:
-                logger.error("LDAP search failed: %s", e)
+                self.logger.error("LDAP search failed: %s", e)
                 return False
 
         return True
