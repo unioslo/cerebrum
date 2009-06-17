@@ -154,6 +154,7 @@ class LdapBack(object):
         self.bindpw= bindpw or config.get("ldap", "bindpw")
 
         try:
+            log.debug("Connecting to %s", self.uri)
             self.l = ldap.initialize(self.uri)
             self.l.simple_bind_s(self.binddn,self.bindpw)
             self.insync = []
@@ -372,13 +373,10 @@ class LdapBack(object):
 
 class PosixUser(LdapBack):
     """Stub object for representation of an account."""
-    def __init__(self,conn=None,base=None):
+    def __init__(self,conn=None,base=None,filter='(objectClass=*)'):
         LdapBack.__init__(self)
-        if base == None:
-            self.base = config.get("ldap","user_base")
-        else:
-            self.base = base
-        self.filter = config.get("ldap","userfilter")
+        self.base = base
+        self.filter = filter
         # Need 'person' for structural-objectclass
         self.obj_class = ['top','person','posixAccount','shadowAccount'] 
         self.ignore_attr_types = []
@@ -428,13 +426,10 @@ class PosixUser(LdapBack):
 
 class PosixGroup(LdapBack):
     '''Abstraction of a group of accounts'''
-    def __init__(self,base=None):
+    def __init__(self, base=None, filter='(objectClass=*)'):
         LdapBack.__init__(self)
-        if base == None:
-            self.base = config.get("ldap","group_base")
-        else:
-            self.base = base
-        self.filter = config.get("ldap","groupfilter")
+        self.base = base
+        self.filter = filter
         self.obj_class = ['top','posixGroup']
         # posixGroup supports attribute memberUid, which is multivalued (i.e. can be a list, or string)
         self.ignore_attr_types = []
@@ -455,13 +450,10 @@ class PosixGroup(LdapBack):
 
 class NetGroup(LdapBack):
     ''' '''
-    def __init__(self,base=None):
+    def __init__(self, base=None, filter='(objectClass=*)'):
         LdapBack.__init__(self)
-        if base == None:
-            self.base = config.get("ldap","netgroup_base")
-        else:
-            self.base = base
-        self.filter = config.get("ldap","netgroupfilter")
+        self.base = base
+        self.filter = filter
         self.obj_class = ('top', 'nisNetGroup')
         self.ignore_attr_types = []
 
@@ -478,10 +470,10 @@ class NetGroup(LdapBack):
 
 
 class Person(LdapBack):
-    def __init__(self,base="ou=People,dc=ntnu,dc=no"):
+    def __init__(self, base="ou=People,dc=ntnu,dc=no", filter='(objectClass=*)'):
         LdapBack.__init__(self)
         self.base = base
-        self.filter = config.get("ldap","peoplefilter")
+        self.filter = filter
         self.obj_class = ['top','person','organizationalPerson','inetOrgPerson','eduPerson','norEduPerson','ntnuPerson']
         self.ignore_attr_types = []
 
@@ -554,12 +546,9 @@ class Alias:
     Decide which schema you want to follow, and change objectclass-chain and attribute-names.
     Some prefer to use attribute mailDrop, mailHost etc from ISPEnv2.schema
     """
-    def __init__(self,base=None):
-        if base == None:
-            self.base = config.get("ldap","mail_base")
-        else:
-            self.base = base
-        self.filter = config.get("ldap","mailfilter")
+    def __init__(self, base=None, filter='(objectClass=*)'):
+        self.base = base
+        self.filter = filter
         self.obj_class = ('top','nisMailAlias')
 
     def get_dn(self,obj):
@@ -577,14 +566,11 @@ class OU(LdapBack):
     Needs name,id and parent as minimum.
     """
 
-    def __init__(self,base=None):
+    def __init__(self, base=None, filter='(objectClass=*)'):
         LdapBack.__init__(self)
         self.ou_dict = {}
-        if base == None:
-            self.base = config.get("ldap","ou_base")
-        else:
-            self.base = base
-        self.filter = config.get("ldap","oufilter")
+        self.base = base
+        self.filter = filter
         self.obj_class = ['top','organizationalUnit']
 
     def get_dn(self,obj):
@@ -614,13 +600,13 @@ class OU(LdapBack):
 class OracleCalendar(LdapBack):
     """
     """
-    def __init__(self,base=None):
+    def __init__(self, base=None, filter='(objectClass=*)'):
         LdapBack.__init__(self)
         if base == None:
             self.base = config.get("ldap","calendar_base")
         else:
             self.base = base
-        self.filter = config.get("ldap","calendarfilter")
+        self.filter = filter
         self.obj_class = ('top','inetOrgPerson', 'shadowAccount', 'ctCalUser')
         self.obj_class = ('top','inetOrgPerson', 'shadowAccount')
 

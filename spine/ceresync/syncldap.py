@@ -41,6 +41,8 @@ def main():
     update = config.getboolean('args', 'update')
     delete = config.getboolean('args', 'delete')
 
+    systems= config.get('ldap', 'sync', default='').split()
+
     if incr is None:
         log.error("Invalid arguments. You must provide either the --bulk or the --incremental option")
         exit(1)
@@ -49,7 +51,7 @@ def main():
     if os.path.isfile(spine_cache):
         local_id= long( file(spine_cache).read() )
     try:
-        log.info("Connecting to spine-server")
+        log.debug("Connecting to spine-server")
         s = sync.Sync(incr,local_id)
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
@@ -60,85 +62,45 @@ def main():
     
     server_id= s.cmd.get_last_changelog_id()
     encoding= s.session.get_encoding()
-    log.info("Local id: %ld, server id: %ld", local_id, server_id)
+    log.debug("Local id: %ld, server id: %ld", local_id, server_id)
     
     if local_id > server_id:
-        log.warning("Local changelogid is larger than the server's!")
+        log.warning("Local changelogid is greater than the server's!")
 
     if incr and local_id == server_id:
-        log.info("Nothing to be done.")
+        log.debug("Nothing to be done.")
         s.close()
         return
 
-    systems =[ 
-        ["ou=nav,ou=system,dc=ntnu,dc=no",
-         "user@nav",ldapbackend.PosixUser],
-        ["ou=kalender,ou=system,dc=ntnu,dc=no",
-         "user@kalender", ldapbackend.OracleCalendar]
-    ]
-         
-    for base, spread, backend in systems:
-        log.info("Syncronizing %s, %s" % (base, spread))
-        system = backend(base=base)
-        system.begin(encoding, incr, add, update, delete)
+    for system in systems:
+        log.debug("System %s", system)
+        conf_section= 'ldap_%s' % (system,)
+        entity= config.get(conf_section, "entity")
+        spread= None
+        if entity == 'account':
+            spread= config.get(conf_section, "spread")
+        backend_class= config.get(conf_section, "backend")
+        base= config.get(conf_section, "base")
+        filter= config.get(conf_section, "filter", default="(objectClass='*')")
+        log.debug("filter: %s", filter)
 
-        try:
+        if spread:
+            log.debug("Setting account_spread to %s", spread)
             s.view.set_account_spread(s.tr.get_spread(spread))
-            for account in s.get_accounts():
-                system.add(account)
-        except IOError,e:
-            log.error("Exception %s occured, aborting" % e)
-        else:
-            system.close()
+        
+        log.debug("Initializing %s backend with base %s", backend_class, base)
+        backend= getattr(ldapbackend, backend_class)(base=base, filter=filter)
+        backend.begin(encoding, incr, add, update, delete)
 
-    # Defaults to fetch configuration from sync.conf
-    user = ldapbackend.PosixUser(base=config.get("ldap","user_base"))
-    groups = ldapbackend.PosixGroup(base=config.get("ldap","group_base"))
-    persons = ldapbackend.Person(base=config.get("ldap","people_base"))
+        log.debug("Adding objects")
+        for obj in getattr(s, "get_%ss" % (entity,))():
+            backend.add(obj)
 
-    # Syncronize users 
-    spread = config.get("sync", "account_spread")
-    log.info("Syncronizing users, spread %s" % spread)
-    s.view.set_account_spread(s.tr.get_spread(spread))
-    user.begin(encoding, incr, add, update, delete)
-    try:
-        accounts = s.get_accounts()
-        log.debug("Antall brukere i get_accounts: %d" % len(accounts))
-        for account in accounts:
-            if account.posix_uid == -1: continue # Possible at all?
-            if account.full_name == "": continue # Do not add system users to ou=users
-            user.add(account)
-    except IOError,e:
-        log.error("Exception %s occured, aborting" % e)
-    else:
-        user.close()
+        log.debug("Closing %s backend", backend_class)
+        backend.close()
 
-    # Syncronize persons
-    log.info("Syncronizing persons")
-    persons.begin(encoding, incr, add, update, delete)
-    try:
-        for person in [p for p in s.get_persons() if p.primary_account != -1]:
-            persons.add(person)
-    except IOError,e:
-        log.error("Exception %s occured, aborting" % e)
-    else:
-        persons.close()
-
-    # Syncronize groups
-    log.info("Syncronizing groups")
-    groups.begin(encoding, incr, add, update, delete)
-    try:
-        for group in s.get_groups():
-            if group.posix_gid == None: continue
-            groups.add(group)
-    except IOError,e:
-        log.error("Exception %s occured, aborting" % e)
-    else:
-        groups.close()
-
-    log.info("Final closing")
+    log.debug("Disconnecting cerebrum")
     s.close()
-    log.info("Done")
 
     if incr or ( not incr and add and update and delete ):
         log.debug("Storing changelog-id %ld", server_id)
