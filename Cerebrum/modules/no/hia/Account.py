@@ -35,7 +35,8 @@ class AccountHiAMixin(Account.Account):
             
         if spread == self.const.spread_exchange_account:
             if self.has_spread(self.const.spread_hia_email):
-                raise Errors.CerebrumError("Cannot add Exchange-spread to an IMAP-account, use 'email exchange_migrate'")
+                raise self._db.IntegrityError, \
+                          "Cannot add Exchange-spread to an IMAP-account, use email exchange_migrate"
             if not self.has_spread(self.const.spread_hia_ad_account):
                 self.add_spread(self.const.spread_hia_ad_account)
             mdb = self._autopick_homeMDB()
@@ -74,7 +75,8 @@ class AccountHiAMixin(Account.Account):
             if m_weight < smallest_mdb_weight:
                 mdb_choice, smallest_mdb_weight = m, m_weight
         if mdb_choice is None:
-            raise Errors.CerebrumError("Cannot assign mdb")
+            raise self._db.IntegrityError, \
+                  "Cannot assign mdb"
         return mdb_choice
     
     def update_email_addresses(self, set_primary = False):
