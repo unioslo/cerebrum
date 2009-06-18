@@ -439,7 +439,7 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
 
 
 
-def _populate_caches(selection_criteria, authoritative_system):
+def _populate_caches(selection_criteria, authoritative_system, email_cache):
     """This is a performance enhacing hack.
 
     Looking things up on per-person basis takes too much time (about a
@@ -452,6 +452,10 @@ def _populate_caches(selection_criteria, authoritative_system):
     @param selection_criteria: Cf. L{make_fs_updates}
 
     @param authoritative_system: Cf. L{make_fs_updates}.
+
+    @param email_cache:
+      Controls whether we want to cache e-mail addresses. Caching them relies
+      on the Email module, and some installations do not have it/use it.
     """
 
     # Pre-load fnrs for everyone
@@ -476,16 +480,19 @@ def _populate_caches(selection_criteria, authoritative_system):
     logger.debug("Done preloading fnrs (%d entries)", len(_person_id2fnr))
 
     # Preload primary e-mail addresses...
-    logger.debug("Preloading primary e-mail addresses")
-    _person_id2email = dict()
-    for entry in person.list_primary_email_address(constants.entity_person):
-        p_id, email = entry
-        if p_id in _person_id2fnr:
-            _person_id2email[p_id] = email
-    global find_primary_mail_address
-    find_primary_mail_address = lambda p: _person_id2email.get(p.entity_id)
-    logger.debug("Done preloading e-mail addresses (%d entries)",
-                 len(_person_id2email))
+    if email_cache:
+        logger.debug("Preloading primary e-mail addresses")
+        _person_id2email = dict()
+
+        for entry in person.list_primary_email_address(constants.entity_person):
+            p_id, email = entry
+            if p_id in _person_id2fnr:
+                _person_id2email[p_id] = email
+
+        global find_primary_mail_address
+        find_primary_mail_address = lambda p: _person_id2email.get(p.entity_id)
+        logger.debug("Done preloading e-mail addresses (%d entries)",
+                     len(_person_id2email))
 
     logger.debug("Preloading contact info")
     _person_id2contact = dict()
@@ -881,6 +888,7 @@ def main():
     fagperson_affiliations = list()
     dryrun = False
     authoritative_system = ou_perspective = None
+    email_cache = False
     for option, value in opts:
         if option in ('-p', '--person-affiliation',):
             append_affiliation(value, person_affiliations)
@@ -892,6 +900,8 @@ def main():
             authoritative_system = getattr(constants, value)
         elif option in ('-o', '--ou-perspective',):
             ou_perspective = getattr(constants, value)
+        elif option in ('--with-cache-email',):
+            email_cache = True
             
     assert authoritative_system is not None
     assert ou_perspective is not None
@@ -907,7 +917,8 @@ def main():
     # This is a performance improvement hack. It can be removed, if memory is
     # at a premium. The trade-off is 5x difference in execution speed.
     _populate_caches(person_affiliations + fagperson_affiliations,
-                     authoritative_system)
+                     authoritative_system,
+                     email_cache)
 
     make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective)
