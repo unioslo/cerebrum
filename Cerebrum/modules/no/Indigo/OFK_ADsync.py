@@ -149,7 +149,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     self.logger.error("Error getting homeMDB"
                                       " for account %s (id: %i)" % (k,int(k)))  
 
-
     
     def _update_contact_info(self, user_dict):
         """
@@ -270,8 +269,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                     'ISO-8859-1')
                 lastName = unicode(names.get(int(self.co.name_last), ''), 
                                    'ISO-8859-1')
-                v['givenName'] = firstName
-                v['sn'] = lastName
+                v['givenName'] = firstName.strip()
+                v['sn'] = lastName.strip()
                 v['displayName'] = "%s %s" % (firstName, lastName)
         self.logger.info("Fetched %i person names" % len(pid2names))
 
@@ -523,11 +522,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 #Account not in Cerebrum, but in AD.                
                 if [s for s in cereconf.AD_DO_NOT_TOUCH if
-                    adusrs[usr]['distinguishedName'].find(s) >= 0]:
+                    adusrs[usr]['distinguishedName'].upper().find(s.upper()) >= 0]:
                     pass
-                elif (adusrs[usr]
-                      ['distinguishedName'].find(cereconf.AD_PW_EXCEPTION_OU) 
-                      >= 0):
+                elif (adusrs[usr]['distinguishedName'].upper().find(
+                        cereconf.AD_PW_EXCEPTION_OU.upper()) >= 0):
                     #Account do not have AD_spread, but is in AD to 
                     #register password changes, do nothing.
                     pass
@@ -747,7 +745,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 if self.ad_ldap in ad_dict[grp_name]['OU']:
                     match = False
                     for dont in cereconf.AD_DO_NOT_TOUCH:
-                        if dont in ad_dict[grp_name]['OU']:
+                        if dont.upper() in ad_dict[grp_name]['OU'].upper():
                             match = True
                             break
                     # an unknown group in OUs under our control 
