@@ -97,57 +97,33 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @param user_dict: account_id -> account information
         @type user_dict: dict
         """
-        from Cerebrum.modules.Email import EmailDomain, EmailTarget, EmailQuota, EmailAddress
-        etarget = EmailTarget(self.db)
-        rewrite = EmailDomain(self.db).rewrite_special_domains
-        equota = EmailQuota(self.db)
-        eaddr = EmailAddress(self.db)
 
-        #find primary address and set mail attribute
-        for row in etarget.list_email_target_primary_addresses(
-                target_type = self.co.email_target_account):
-            v = user_dict.get(int(row['target_entity_id']))
-            if not v:
-                continue
-            try:
-                v['mail'] = "@".join(
-                    (row['local_part'], rewrite(row['domain'])))
-            except TypeError:
-                pass  # Silently ignore
+        #Find primary addresses and set mail attribute
+        uname2primary_mail = self.ac.getdict_uname2mailaddr(filter_expired=True, primary_only=True)
+        for uname, prim_mail in uname2primary_mail.iteritems():
+            if user_dict.has_key(uname):
+                if (user_dict[uname]['Exchange']):
+                    user_dict[uname]['mail'] = prim_mail
+
+        #Find all valid addresses and set proxyaddresses attribute
+        uname2all_mail = self.ac.getdict_uname2mailaddr(filter_expired=True, primary_only=False)
+        for uname, all_mail in uname2all_mail.iteritems():
+            if user_dict.has_key(uname):
+                if (user_dict[uname]['Exchange']):
+                    user_dict[uname]['proxyAddresses'].insert(0,("SMTP:" + user_dict[uname]['mail']))
+                    for alias_addr in all_mail:
+                        if alias_addr == user_dict[uname]['mail']:
+                            pass
+                        else:
+                            user_dict[uname]['proxyAddresses'].append(("smtp:" + alias_addr))
                         
-        #Set proxyaddresses attribute
-        target_id2target_entity_id = {}
-        for row in etarget.list_email_targets_ext():
-            if row['target_entity_id']:
-                target_id2target_entity_id[int(row['target_id'])]= {
-                    'target_ent_id' : int(row['target_entity_id']) }
-
-        for row in eaddr.search(fetchall=True):                
-            if target_id2target_entity_id.has_key(int(row['target_id'])):
-                te_id = target_id2target_entity_id[
-                    int(row['target_id'])]['target_ent_id']
-            else:
-                continue
-            v = user_dict.get(te_id)
-            if not v:
-                continue
-            try:
-                if (v['Exchange']):
-                    addr= "@".join((row['local_part'], rewrite(row['domain'])))
-                    if addr == v['mail']:
-                        v['proxyAddresses'].insert(0,("SMTP:" + addr))
-                    else:
-                        v['proxyAddresses'].append(("smtp:" + addr))
-            except TypeError:
-                pass  # Silently ignore
-
 
         #get traits for x.400 address and homeMDB
         for k,v in user_dict.iteritems():
             self.ac.clear()
             if v['Exchange']:
                 try:
-                    self.ac.find_by_name(v['TEMPuname'])
+                    self.ac.find_by_name(k)
                 except Errors.NotFoundError:
                     continue
 
@@ -171,7 +147,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 else:
                     v['homeMDB'] = ""
                     self.logger.error("Error getting homeMDB"
-                                      " for account %s (id: %i)" % (v['TEMPuname'],int(k)))  
+                                      " for account %s (id: %i)" % (k,int(k)))  
+
 
     
     def _update_contact_info(self, user_dict):
@@ -187,7 +164,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 self.person.find(v['TEMPownerId'])
             except Errors.NotFoundError:
                 self.logger.warning("Getting contact info: Skipping ownerid=%s,"
-                                    "no valid accoun found", v['TEMPownerId'])
+                                    "no valid account found", v['TEMPownerId'])
                 continue
             phones = self.person.get_contact_info(type=self.co.contact_phone)
             if not phones:
@@ -299,35 +276,35 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Fetched %i person names" % len(pid2names))
 
         #
-        # Set mail info
-        #
-        self.logger.debug("..setting mail info..")
-        self._update_mail_info(tmp_ret)
-        
-        #
         # Set contact info: phonenumber and title
         #
         self.logger.debug("..setting contact info..")
         self._update_contact_info(tmp_ret)
 
         #
-        # Assign derived attributes
+        # Indexing user dict on username instead of entity id
         #
-        for v in tmp_ret.itervalues():
-            #TODO: derive domain part from LDAP DC components
-            v['userPrincipalName'] = v['TEMPuname'] + "@ad.ostfoldfk.no"
-            v['mailNickname'] =  v['TEMPuname']
+        userdict_ret= {}
+        for k, v in tmp_ret.iteritems():
+            userdict_ret[v['TEMPuname']] = v
+            del(v['TEMPuname'])
+            del(v['TEMPownerId'])        
 
         #
-        # Index dict on uname instead of accountid
+        # Set mail info
         #
-        ret = {}
-        for v in tmp_ret.itervalues():
-            ret[v['TEMPuname']] = v
-            del(v['TEMPuname'])
-            del(v['TEMPownerId'])
+        self.logger.debug("..setting mail info..")
+        self._update_mail_info(userdict_ret)
           
-        return ret
+        #
+        # Assign derived attributes
+        #
+        for k, v in userdict_ret.iteritems():
+            #TODO: derive domain part from LDAP DC components
+            v['userPrincipalName'] = k + "@ad.ostfoldfk.no"
+            v['mailNickname'] = k
+ 
+        return userdict_ret
 
     
     def fetch_ad_data(self, search_ou):
