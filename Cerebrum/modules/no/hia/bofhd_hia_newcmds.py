@@ -401,10 +401,6 @@ class BofhdExtension(object):
     def email_exchange_migrate(self, operator, uname):
         acc = self._get_account(uname)
         self.ba.can_email_move(operator.get_entity_id(), acc)
-        # add exchange-spread
-        if not acc.has_spread(self.const.spread_exchange_account):
-            acc.add_spread(self.const.spread_exchange_account)
-            acc.write_db()
         # raise error if no e-mail account exist in IMAP
         if not acc.has_spread(self.const.spread_hia_email):
             raise CerebrumError("Cannot migrate non-IMAP account %s", uname)
@@ -422,6 +418,10 @@ class BofhdExtension(object):
         # remove IMAP-spread
         acc.delete_spread(self.const.spread_hia_email)
         acc.write_db()
+        # add exchange-spread
+        if not acc.has_spread(self.const.spread_exchange_account):
+            acc.add_spread(self.const.spread_exchange_account)
+            acc.write_db()
         return "OK, migrating %s to Exchange" % (uname)        
     # email move
     #
