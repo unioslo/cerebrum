@@ -79,11 +79,9 @@ def get_account_info():
 
     a_id2p_id = dict()
     p_id2a_id = dict()
-    for row in ac.list():
-        a_id2p_id[row['account_id']] = (int(row['owner_type']),
-                                         row['owner_id'])
-        if int(row['owner_type']) == int(co.entity_person):
-            p_id2a_id[int(row['owner_id'])] = int(row['account_id'])
+    for row in ac.list_accounts_by_type(primary_only=True):
+        a_id2p_id[int(row['account_id'])] = int(row['person_id'])
+        p_id2a_id[int(row['person_id'])] = int(row['account_id'])
     ou_id2name = dict()
     for row in ou.search():
         ou_id2name[int(row['ou_id'])] = str(row['acronym'])
@@ -165,24 +163,20 @@ def process_users(affiliation, file):
             ssha = a_id2auth[id][1][int(co.auth_type_ssha)]
         first = last = None
         if not a_id2p_id.has_key(id):
-            logger.warning("No owner-ID and type for '%s'" % id)
+            # User not a primary user so skipped.
             continue
-        if a_id2p_id[id][0] == int(co.entity_person):
-            if a_id2p_id[id][1] not in p_id2name:
-                logger.warning("No names found for account id='%s'", id)
-                continue
+        if a_id2p_id[id] not in p_id2name:
+            logger.warning("No names found for account id='%s'", id)
+            continue
 
-            p_names = p_id2name[a_id2p_id[id][1]]
-            if not (p_names.get(int(co.name_first)) or
-                    p_names.get(int(co.name_last))):
-                logger.warning("No names found for accound id='%s'" % id)
-                continue
-            first = p_names[int(co.name_first)]
-            last = p_names[int(co.name_last)]
-        else:
-            logger.warning("Wrong owner-type for '%s'" % id)
+        p_names = p_id2name[a_id2p_id[id]]
+        if not (p_names.get(int(co.name_first)) or
+                p_names.get(int(co.name_last))):
+            logger.warning("No names found for accound id='%s'" % id)
             continue
-        if not p_id2fnr.has_key(a_id2p_id[id][1]):
+        first = p_names[int(co.name_first)]
+        last = p_names[int(co.name_last)]
+        if not p_id2fnr.has_key(a_id2p_id[id]):
             logger.warning("Fnr not found for '%s'" % id)
             continue
         # Skip duplicates
@@ -209,11 +203,11 @@ def process_users(affiliation, file):
             'userpassword': ("{SSHA}%s" % ssha,),
             'ofkpassword': ("{MD4}%s" % md4,),
             'userpasswordct': (plain,),
-            'fnr': (p_id2fnr[a_id2p_id[id][1]],)}
+            'fnr': (p_id2fnr[a_id2p_id[id]],)}
         if a_id2email.has_key(id):
             entry['mail'] = (a_id2email[id],)
-        if p_id2cont.has_key(a_id2p_id[id][1]):
-            entry['mobile'] = (p_id2cont[a_id2p_id[id][1]],)
+        if p_id2cont.has_key(a_id2p_id[id]):
+            entry['mobile'] = (p_id2cont[a_id2p_id[id]],)
         if id in acc_spreads:
             file.write(entry_string(dn, entry, False))
     return known_dns.keys()
