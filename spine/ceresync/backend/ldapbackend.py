@@ -377,7 +377,7 @@ class PosixUser(LdapBack):
 
     def add(self, obj):
         if obj.posix_uid == -1 or obj.full_name == "":
-            log.debug("Ignoring %s with uid %d and full_name %s", obj.name,
+            log.debug("Ignoring %s with uid=%d and full_name='%s'", obj.name,
                       obj.posix_uid, obj.full_name)
             return
         super(PosixUser, self).add(obj)
