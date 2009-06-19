@@ -567,6 +567,7 @@ class OU(LdapBack):
         self.filter = filter
         self.obj_class = ['top','organizationalUnit', 'norEduOrgUnit']
         self.processed= []
+        self.on_hold= []
 
     def add(self, obj):
         dn= self.get_dn(obj)
@@ -575,21 +576,31 @@ class OU(LdapBack):
         elif dn in self.processed:
             log.warning("Entry with the same name already processed: %s", dn)
             return
+        elif dn == None:
+            log.debug("Parent of '%s' doesn't exist yet. On hold.",
+                      obj.short_name)
+            return
         self.processed.append(dn)
         super(OU, self).add(obj)
 
     def get_dn(self,obj):
         base = self.base
-        filter = 'norEduOrgUnitUniqueNumber=%s' % obj.parent_id 
-        if self.ou_dict.has_key(obj.parent_id):
-            parentdn = self.ou_dict[obj.parent_id]
-        elif obj.parent_id == -1:
-            self.ou_dict[obj.id]= self.base
+        filter = "(norEduOrgUnitUniqueIdentifier=%s)" % obj.parent_stedkode 
+        if self.ou_dict.has_key(obj.parent_stedkode):
+            parentdn = self.ou_dict[obj.parent_stedkode]
+        elif obj.parent_stedkode == '':           # root-node
+            self.ou_dict[obj.stedkode]= self.base
             return self.base
         else:
-            parentdn = self.search(base=base,filterstr=filter)[0][0]
+            found= self.search(base=base,filterstr=filter)
+            if found:
+                parentdn= found[0][0]
+            else:
+                self.on_hold.append(obj)
+                return None
+
         dn = "ou=%s,%s" % (self.iso2utf(obj.short_name),parentdn,)
-        self.ou_dict[obj.id] = dn # Local cache to speed things up.. 
+        self.ou_dict[obj.stedkode] = dn # Local cache to speed things up.. 
         return dn
 
     def get_attributes(self,obj):
@@ -598,9 +609,15 @@ class OU(LdapBack):
         s['objectClass']               = self.obj_class
         s['ou']                        = [self.iso2utf(obj.short_name)]
         s['cn']                        = [self.iso2utf(obj.display_name)]
-        s['norEduOrgUnitUniqueIdentifier']= ["%d"%(int(obj.stedkode[-6:],10),)]
+        s['norEduOrgUnitUniqueIdentifier']= [obj.stedkode]
         #s['norEduOrgAcronym'] = obj.acronyms
         return s
+
+    def close(self):
+        while self.on_hold:
+            obj= self.on_hold.pop(0)
+            self.add(obj)
+        super(OU,self).close()
 
 
 class OracleCalendar(LdapBack):
