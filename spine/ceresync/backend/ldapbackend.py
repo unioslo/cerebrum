@@ -286,20 +286,14 @@ class LdapBack(object):
 
         # Make shure we don't remove existing objectclasses, as long
         # as we get to add the ones we need to have
-        missing_objectclasses = []
-        try:
-            for attr in attrs['objectclass']:
-                if attr not in old_attrs['objectclass'] and attr.lower() not in old_attrs['objectclass']:
-                    missing_objectclasses.append(attr)
-        except KeyError:
-            pass
+        missing_objectclasses = set(attrs['objectClass']) - set(old_attrs['objectClass'])
         # If we have 0 missing values, ignore attr objectclass
         # If we have N misssing, fetch the old ones and add missing ones
         # into the  updated list of values for attr objectclass
         if len(missing_objectclasses) == 0:
-            ignore_attr_types.append('objectclass')
+            ignore_attr_types.append('objectClass')
         else:
-            attrs['objectclass'] = old_attrs['objectclass'] + missing_objectclasses
+            attrs['objectClass'] = old_attrs['objectClass'] + list(missing_objectclasses)
 
         mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
         try:
