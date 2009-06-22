@@ -1417,6 +1417,12 @@ class evukurs_xml_parser(non_nested_xml_parser):
 # end evukurs_xml_parser
 
 
+class emne_xml_parser(non_nested_xml_parser):
+    elements = { "data": False,
+                 "emne": True, }
+# end emne_xml_parser
+
+
 class deltaker_xml_parser(xml.sax.ContentHandler, object):
     "Parserklasse for å hente EVU kursdeltaker informasjon."
                           
