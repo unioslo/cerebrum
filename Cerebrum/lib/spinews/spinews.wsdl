@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+
+
+<wsdl:definitions
+ targetNamespace="http://bas.ntnu.no/spinews.wsdl"
+ xmlns="http://schemas.xmlsoap.org/wsdl/"
+ xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+ xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/"
+ xmlns:xs="http://www.w3.org/2001/XMLSchema"
+ xmlns:ns1="http://bas.ntnu.no/spinews.wsdl">
+
+<wsdl:types>
+
+<xs:schema targetNamespace="http://bas.ntnu.no/spinews.wsdl">
+
+<xs:complexType name="GroupType">
+  <xs:sequence>
+    <xs:element name="member" type="xs:string"
+                minOccurs="0" maxOccurs="unbounded"/>
+    <xs:element name="quarantine" type="xs:string"
+                minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence>
+  <xs:attribute name="name" type="xs:string"/>
+  <xs:attribute name="posix_gid" type="xs:integer"/>
+</xs:complexType>
+
+
+<xs:complexType name="AccountType">
+  <xs:sequence>
+    <xs:element name="quarantine" type="xs:string"
+                minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence>
+  <xs:attribute name="name" type="xs:string"/>
+  <xs:attribute name="passwd" type="xs:string"/>
+  <xs:attribute name="homedir" type="xs:string"/>
+  <xs:attribute name="home" type="xs:string"/>
+  <xs:attribute name="disk_path" type="xs:string"/>
+  <xs:attribute name="disk_host" type="xs:string"/>
+  <xs:attribute name="gecos" type="xs:string"/>
+  <xs:attribute name="shell" type="xs:string"/>
+  <xs:attribute name="shell_name" type="xs:string"/>
+  <xs:attribute name="posix_uid" type="xs:integer"/>
+  <xs:attribute name="posix_gid" type="xs:integer"/>
+  <xs:attribute name="primary_group" type="xs:string"/>
+  <xs:attribute name="owner_id" type="xs:integer"/>
+  <xs:attribute name="owner_group_name" type="xs:string"/>
+  <xs:attribute name="primary_affiliation" type="xs:string"/>
+  <xs:attribute name="primary_ou_id" type="xs:integer"/>
+</xs:complexType>
+
+
+
+
+<xs:element name="getGroupsResponse">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:GroupType" />
+    </xs:sequence>
+    </xs:complexType>
+</xs:element>
+
+<xs:element name="getAccountssResponse">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:AccountType" />
+    </xs:sequence>
+    </xs:complexType>
+</xs:element>
+ 
+<xs:element name="getGroupsRequest">
+<xs:complexType>
+    <xs:sequence>
+        <xs:element name="groupspread" type="xs:string" />
+        <xs:element name="userspread" type="xs:string" />
+	<xs:element name="incremental_from" type="xs:integer" />
+    </xs:sequence>
+</xs:complexType>
+</xs:element>
+
+<xs:element name="getAccountsRequest">
+<xs:complexType>
+    <xs:sequence>
+        <xs:element name="userspread" type="xs:string" />
+	<xs:element name="incremental_from" type="xs:integer" />
+    </xs:sequence>
+</xs:complexType>
+</xs:element>
+
+
+
+
+</xs:schema>
+</wsdl:types>
+
+<wsdl:message name="getGroupsRequest">
+    <wsdl:part element="ns1:getGroupsRequest" name="getGroupsRequest"/>
+</wsdl:message>
+
+<wsdl:message name="getGroupsResponse">
+    <wsdl:part element="ns1:getGroupsResponse" name="getGroupsResponse"/>
+</wsdl:message>
+
+<wsdl:message name="getAccountsRequest">
+    <wsdl:part element="ns1:getAccountsRequest" name="getAccountsRequest"/>
+</wsdl:message>
+
+<wsdl:message name="getAccountsResponse">
+    <wsdl:part element="ns1:getAccountsResponse" name="getAccountsResponse"/>
+</wsdl:message>
+
+<wsdl:portType name="spinePortType">
+<wsdl:operation name="get_groups">
+<wsdl:input message="ns1:getGroupsRequest"
+	    name="getGroupsRequest"/>
+<wsdl:output message="ns1:getGroupsResponse"
+	     name="getGroupsResponse"/>
+</wsdl:operation>
+
+<wsdl:operation name="get_accounts">
+<wsdl:input message="ns1:getAccountsRequest"
+	    name="getAccountsRequest"/>
+<wsdl:output message="ns1:getAccountsResponse"
+	     name="getAccountsResponse"/>
+</wsdl:operation>
+</wsdl:portType>
+
+
+<wsdl:binding name="spineBinding"
+	      type="ns1:spinePortType">
+<wsdlsoap:binding style="document"
+		  transport="http://schemas.xmlsoap.org/soap/http"/>
+<wsdl:operation name="get_groups">
+<wsdlsoap:operation soapAction=""/>
+<wsdl:input name="getGroupsRequest">
+<wsdlsoap:body use="literal"/>
+</wsdl:input>
+<wsdl:output name="getGroupsResponse">
+<wsdlsoap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+<wsdl:operation name="get_accounts">
+<wsdlsoap:operation soapAction=""/>
+<wsdl:input name="getAccountsRequest">
+<wsdlsoap:body use="literal"/>
+</wsdl:input>
+<wsdl:output name="getAccountsResponse">
+<wsdlsoap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+</wsdl:binding>
+
+<wsdl:service name="spinews">
+<wsdl:port binding="ns1:spineBinding" name="spinePort">
+<wsdlsoap:address location="http://ceredev.itea.ntnu.no:8666/"/>
+</wsdl:port>
+</wsdl:service>
+
+</wsdl:definitions>
