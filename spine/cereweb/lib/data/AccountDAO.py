@@ -8,12 +8,15 @@ Constants = Utils.Factory.get("Constants")
 Account = Utils.Factory.get("Account")
 
 def get(id):
-    db = Database()
-    dao = AccountDAO(db)
-    return dao.get(id)
+    return AccountDAO().get(id)
+
+def get_by_name(name):
+    return AccountDAO().get_by_name(name)
 
 class AccountDAO(MemberDAO):
-    def __init__(self, db):
+    def __init__(self, db=None):
+        if db is None:
+            db = Database()
         super(AccountDAO, self).__init__(db)
         self.member = Account(self.db)
 
@@ -29,6 +32,10 @@ class AccountDAO(MemberDAO):
         data.has_owner = data.owner is not None
 
         return data
+
+    def get_by_name(self, name):
+        self.member.find_by_name(name)
+        return MemberDTO(self.member, self.constants)
 
     def get_owner(self, member):
         member_id = member.owner_id

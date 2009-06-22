@@ -120,7 +120,7 @@ def search_group(transaction, query):
     result = {}
     searcher = transaction.get_group_searcher()
     searcher.set_search_limit(20, 0)
-    searcher.order_by(searcher, 'account')
+    searcher.order_by(searcher, 'name')
     searcher.set_name_like("%s*" % query)
     for group in searcher.search():
         group = get_group_info(group)

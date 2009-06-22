@@ -2,6 +2,16 @@ from mx.DateTime import DateTime
 from lib.data.MemberDTO import MemberDTO
 from lib.data.GroupDTO import GroupDTO
 
+account_cetest1 = 354991
+large_group_id = 149
+posix_group_id = 354983
+posix_group_name = "test_posix"
+expired_group_id = 354981
+nonposix_group_id = 354984
+quarantined_group_id = 354992
+notes_group_id = 354992
+spread_group_id = 354992
+
 def get_test_testesen():
     dto = MemberDTO()
     dto.id = 354985

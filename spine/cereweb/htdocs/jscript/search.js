@@ -50,6 +50,9 @@ cereweb.ac_group.prototype = {
     /** Do the neccessary changes around the input element we want
      *  to add autocomplete to. */
     build: function() {
+        this.selected_id = document.createElement('input');
+        this.selected_id.type = "hidden";
+        this.selected_id.name = "selected_id";
         this.dropdown = document.createElement('div');
         var container = this.input.parentNode;
         if (YD.hasClass(container, 'required'))
@@ -57,6 +60,7 @@ cereweb.ac_group.prototype = {
         else
             this.valid = true;
         container.appendChild(this.dropdown);
+        container.appendChild(this.selected_id);
         this.form = container;
         while (this.form.tagName.toLowerCase() !== 'form')
             this.form = this.form.parentNode;
@@ -73,6 +77,7 @@ cereweb.ac_group.prototype = {
     },
     textboxKey: function(event, args) {
         this.input.style.backgroundColor = "";
+        this.selected_id.value = "";
     },
     dataRequest: function(event, args) {
         cereweb.ajax.begin();
@@ -107,6 +112,8 @@ cereweb.ac_group.prototype = {
     },
     parseData: function(data) {
         this.valid = true;
+        var obj = data[1];
+        this.selected_id.value = obj.id;
     },
     widgetOptions: {
         minQueryLength: 3

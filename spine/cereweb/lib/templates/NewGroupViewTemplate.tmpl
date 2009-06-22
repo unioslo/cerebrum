@@ -218,7 +218,7 @@
                                 #end if
                             </td>
                             <td>
-                                <a href="/group/remove_member?groupid=$group.id&amp;memberid=$member.id">Remove member</a>
+                                <a href="/group/remove_member?group_id=$group.id&amp;member_id=$member.id">Remove member</a>
                             </td>
                         </tr>
                         #end for
@@ -278,13 +278,13 @@
         <h3>$_('Add member')</h3>
         <form action="add_member" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$group.id" />
+                <input type="hidden" name="group_id" value="$group.id" />
             </div>
             <div class="required">
-                $form_widgets.input('name', 'Member name', $klass="ac_account")
+                $form_widgets.input('member_name', 'Member name', $klass="ac_account")
             </div>
             <div class="required">
-                $form_widgets.generate_loption('type', 'Member type', $types, 'account')
+                $form_widgets.generate_loption('member_type', 'Member type', $types, 'account')
             </div>
             <div class="buttons">
                 <input type="submit" value="$_('Add member')" />&#x0020;
@@ -386,10 +386,10 @@
         <h3>$_('Join group')</h3>
         <form action="/group/join_group" method="post">
             <div class="hidden">
-                <input type="hidden" name="entity" value="$entity.id" />
+                <input type="hidden" name="entity_id" value="$entity.id" />
             </div>
             <div class="required">
-                $form_widgets.input('name', 'Group name', $klass="ac_group")
+                $form_widgets.input('group_name', 'Group name', $klass="ac_group")
             </div>
             <div class="buttons">
                 <input type="submit" value="$_('Join group')" />&#x0020;

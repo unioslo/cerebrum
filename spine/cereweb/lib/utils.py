@@ -31,6 +31,8 @@ from omniORB import CORBA
 from datetime import datetime
 import Messages
 
+from lib.data import EntityDAO 
+
 def clean_url(url):
     """Make sure the url doesn't point to a different server."""
     if not url:
@@ -150,6 +152,8 @@ def entity_url(entity, method="view", **params):
     
     Any additional keyword arguments will be appended to the query part.
     """
+    if not isentity(entity):
+        entity = EntityDAO.get(entity)
 
     params['id'] = entity.id
     params = urllib.urlencode(params)
@@ -163,6 +167,9 @@ def entity_link(entity, text=None, method="view", _class="", **params):
 
     Any additional keyword arguments will be appended to the query part.
     """
+    if not isentity(entity):
+        entity = EntityDAO.get(entity)
+
     url = entity_url(entity, method, **params)
     if text is None:
         text = entity.name
@@ -170,7 +177,14 @@ def entity_link(entity, text=None, method="view", _class="", **params):
         _class = ' class="%s"' % _class
     return '<a href="%s"%s>%s</a>' % (url, _class, cgi.escape(text))
 
+def isentity(entity):
+    return hasattr(entity, 'id')
+
 def redirect(url, status=None):
+    raise cherrypy.HTTPRedirect(url, status)
+
+def redirect_entity(entity, method="view", status=None):
+    url = entity_url(entity, method)
     raise cherrypy.HTTPRedirect(url, status)
 
 def redirect_object(object, method="view", status=None):
@@ -182,7 +196,7 @@ def redirect_object(object, method="view", status=None):
     url = object_url(object, method)
     raise cherrypy.HTTPRedirect(url, status)
 
-def queue_message(message=None, error=False, link=''):
+def queue_message(message=None, error=False, link='', title="No title"):
     """Queue a message.
     
     The message will be displayed next time a Main-page is showed.
@@ -193,7 +207,7 @@ def queue_message(message=None, error=False, link=''):
     """
 
     Messages.queue_message(
-        title='No title',
+        title=title,
         message=message,
         is_error=error,
         link=link
@@ -237,6 +251,8 @@ def session_required_decorator(method):
                     message='Your session is no longer available.  Please log in again.',
                     is_error=True)
             redirect_to_login()
+
+        cherrypy.session['timestamp'] = time.time()
         return method(*args, **vargs)
     return fn
 
