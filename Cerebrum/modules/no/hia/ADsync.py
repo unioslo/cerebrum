@@ -1460,7 +1460,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         return ad_dict
                 
                
-    def sync_group_info(self, ad_dict, cerebrum_dict, dry_run):
+    def sync_group_info(self, ad_dict, cerebrum_dict, dry_run, exch_changes):
         """ Sync group info with AD
 
         Check if any values about groups other than group members
@@ -1560,6 +1560,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = grp
                 if changes.has_key('Exchange'):
+                    exch_changes.append(grp)
                     del changes['Exchange']
                 changelist.append(changes)
             
@@ -1680,6 +1681,21 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                     distName, ret)         
 
 
+    def update_Exchange(self, dry_run, exch_grps):
+        for grp in exch_grps:
+            self.logger.debug("Running Update-Recipient for group object '%s'"
+                              " against Exchange" % grp)
+            if cereconf.AD_DC:
+                ret = self.run_cmd('run_UpdateRecipient', dry_run, grp, cereconf.AD_DC)
+            else:
+                ret = self.run_cmd('run_UpdateRecipient', dry_run, grp)
+            if not ret[0]:
+                self.logger.warning("run_UpdateRecipient on %s failed: %r", 
+                                    grp, ret)
+        self.logger.info("Ran Update-Recipient against Exchange for %i group objects", 
+                         len(exch_grps))
+
+
     def sync_group_members(self, cerebrum_dict, group_spread, user_spread, dry_run):
         """
         Update group memberships in AD
@@ -1757,6 +1773,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         self.logger.info("Starting group-sync(delete = %s, dry_run = %s)" % \
                              (delete, dry_run))     
 
+        exch_changes = []
         #Fetch cerebrum data.
         self.logger.debug("Fetching cerebrum data...")
         cerebrumdump = self.fetch_cerebrum_data(group_spread, exchange_spread)
@@ -1774,7 +1791,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
         #Compare groups and attributes (not members)
         self.logger.debug("Syncing group info...")
-        changelist = self.sync_group_info(addump, cerebrumdump, dry_run)
+        changelist = self.sync_group_info(addump, cerebrumdump, dry_run, exch_changes)
         self.logger.info("%i number of changes" % len(changelist))
 
         #Perform changes
@@ -1783,6 +1800,11 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         #Syncing group members
         self.logger.info("Starting sync of group members")
         self.sync_group_members(cerebrumdump,group_spread, user_spread, dry_run)
+
+        #updating Exchange
+        self.logger.info("Will run Update-Recipient against Exchange for %i group objects", 
+                         len(exch_changes))
+        self.update_Exchange(dry_run, exch_changes)
 
         #Cleaning up.
         addump = None
