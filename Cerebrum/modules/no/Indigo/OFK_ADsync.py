@@ -694,7 +694,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 'grp_id' : row["group_id"],
                 'displayName' : gname,
                 'displayNamePrintable' : gname,
-                'OU': self.get_default_ou()
+                'OU': self.get_default_ou(),
+                'crb_gname' : unicode(row["name"], 'ISO-8859-1')
                 }
         self.logger.info("Fetched %i groups with spread %s", 
                          len(grp_dict),spread)
@@ -915,7 +916,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     
     
 
-    def write_sid(self, objtype, name, sid, dry_run):
+    def write_sid(self, objtype, crbname, sid, dry_run):
         """
         Store AD object SID to cerebrum database for given group
 
@@ -926,12 +927,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @param sid: SID from AD
         @type sid: String
         """
-        # husk aa definere AD som kildesystem
         #TBD: Check if we create a new object for a entity that already
         #have an externalid_groupsid defined in the db and delete old?
-        self.logger.debug("Writing Sid for %s %s to database" % (objtype, name))
+        self.logger.debug("Writing Sid for %s %s to database" % (objtype, crbname))
         if objtype == 'group' and not dry_run:
-            crbname = name.replace(cereconf.AD_GROUP_PREFIX,"")
             self.group.clear()
             self.group.find_by_name(crbname)
             self.group.affect_external_id(self.co.system_ad, 
@@ -974,9 +973,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                 chg['sAMAccountName'],ret[1])
         elif not dry_run:
             if store_sid:
-                self.write_sid('group',chg['sAMAccountName'],ret[2], dry_run)
+                self.write_sid('group',chg['crb_gname'],ret[2], dry_run)
             del chg['type']
             del chg['OU']
+            del chg['crb_gname']
             gname = ''
             if chg.has_key('distinguishedName'):
                 del chg['distinguishedName']
