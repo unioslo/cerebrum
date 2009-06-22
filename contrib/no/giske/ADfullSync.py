@@ -177,8 +177,10 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                 elif retur[e_name]['title'] == 'Foresatt':
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 elif retur[e_name]['title'] == 'Tilsett':
-                    retur[e_name]['homeDrive'] = cereconf.AD_HOME_DRIVE                    
-                    retur[e_name]['profilePath'] = '\\\\spurv\\profiler\\%s' % e_name
+                    retur[e_name]['homeDrive'] = cereconf.AD_HOME_DRIVE
+                    # stop updating profile path for employees
+                    # requested by Magnus Dyrøy
+                    # retur[e_name]['profilePath'] = '\\\\spurv\\profiler\\%s' % e_name
                     retur[e_name]['homeDirectory'] = '\\\\spurv\\tilsette\\%s' % e_name
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 else:
