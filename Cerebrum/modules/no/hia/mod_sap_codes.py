@@ -1833,7 +1833,7 @@ class SAPConstants(Constants.Constants):
     )
 
     sap_ephorteutvalget = SAPUtvalgsKode(
-        "Ephorte",
+        "ePhorte",
         "K810 ePhorte"
     )
 # arch-tag: 450c388b-e05d-4e39-acc9-d2a4aa3a1833
