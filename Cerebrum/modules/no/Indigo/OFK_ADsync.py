@@ -146,7 +146,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                                                                     cereconf.AD_EX_MDB_DN)
                 else:
                     v['homeMDB'] = ""
-                    self.logger.error("Error getting homeMDB"
+                    self.logger.warning("Error getting homeMDB"
                                       " for account %s (id: %i)" % (k,int(k)))  
 
     
@@ -307,6 +307,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     
     def fetch_ad_data(self, search_ou):
+        """
+        Returns full LDAP path to AD objects of type 'user' in search_ou and 
+        child ous of this ou.
+        
+        @param search_ou: LDAP path to base ou for search
+        @type search_ou: String
+        """
         #Setting the userattributes to be fetched.
         self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
                                       cereconf.AD_ACCOUNT_CONTROL)
@@ -338,6 +345,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
 
     def perform_changes(self, changelist, dry_run, store_sid):
+        """
+        Binds to AD object and perform changes such as
+        updates to attributes or move and/or disabling.
+        
+        @param changelist: user name -> changes mapping
+        @type changelist: array of dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
         for chg in changelist:      
             self.logger.debug("Process change: %s" % repr(chg))
             if chg['type'] == 'create_object':
@@ -593,6 +609,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     
     def update_Exchange(self, dry_run, exch_users):
+        """
+        Telling the AD-service to start the Windows Power Shell command
+        Update-Recipient on object in order to prep them for Exchange.
+        
+        @param exch_users : user to run command on
+        @type  exch_users: list
+        @param dry_run : Flag
+        """
         for usr in exch_users:
             self.logger.debug("Running Update-Recipient for user '%s'"
                               " against Exchange" % usr)
@@ -610,8 +634,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def full_sync(self, delete=False, spread=None, dry_run=True, store_sid=False, exchange_spread=None):
 
-        self.logger.info("Starting user-sync(delete = %s, dry_run = %s)" % \
-                             (delete, dry_run))     
+        self.logger.info("Starting user-sync(spread = %s, exchange_spread = %s, delete = %s, dry_run = %s, store_sid = %s)" % \
+                             (spread, exchange_spread, delete, dry_run, store_sid))     
 
         #Fetch cerebrum data.
         self.logger.debug("Fetching cerebrum data...")
@@ -756,7 +780,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                             self.logger.debug("delete is False."
                                               "Don't delete group: %s", grp_name)
                         else:
-                            self.logger.debug("delete_groups = %s, deleting group %s",
+                            self.logger.info("delete_groups = %s, deleting group %s",
                                               delete_groups, grp_name)
                             self.run_cmd('bindObject', dry_run, 
                                          ad_dict[grp_name]['distinguishedName'])
@@ -941,7 +965,15 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
 
     def perform_changes(self, changelist, dry_run, store_sid):
-
+        """
+        Binds to AD object and perform changes such as
+        updates to attributes or move or deleting.
+        
+        @param changelist: group name -> changes mapping
+        @type changelist: array of dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
         for chg in changelist:      
             self.logger.debug("Process change: %s" % repr(chg))
             if chg['type'] == 'create_object':
@@ -963,9 +995,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @param chg: group_name -> group info mapping
         @type chg: dict
         @param dry_run: Flag
+        @param store_sid: Flag
         """
         ou = chg.get("OU", self.get_default_ou())
-        self.logger.debug('CREATE %s', chg)
+        self.logger.info('Create group %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
                       chg['sAMAccountName'])
         if not ret[0]:
@@ -1113,8 +1146,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     def full_sync(self, delete=False, dry_run=True, store_sid=False,
                   user_spread=None, group_spread=None, sendDN_boost=False):
 
-        self.logger.info("Starting group-sync(delete = %s, dry_run = %s)" % \
-                             (delete, dry_run))     
+        self.logger.info("Starting group-sync(group_spread = %s, user_spread = %s, delete = %s, dry_run = %s, store_sid = %s, sendDN_boost = %s)" % \
+                             (group_spread, user_spread, delete, dry_run, store_sid, sendDN_boost))     
 
         #Fetch cerebrum data.
         self.logger.debug("Fetching cerebrum data...")
@@ -1132,7 +1165,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         self.logger.info("Updating %i ad-groups after filtering" % len(addump))
 
         #Compare groups and attributes (not members)
-        self.logger.debug("Syncing group info...")
+        self.logger.info("Syncing group info...")
         changelist = self.sync_group_info(addump, cerebrumdump, dry_run)
 
         #Perform changes
