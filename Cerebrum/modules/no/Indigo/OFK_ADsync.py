@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
@@ -132,6 +131,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if x400_trait:
                     if x400_trait["strval"]:
                         v['proxyAddresses'].append(("X400:" + x400_trait["strval"]))
+                #Some accounts have an old X.400 address
+                x500_trait = self.ac.get_trait(self.co.trait_500_addr)
+                if x500_trait:
+                    if x500_trait["strval"]:
+                        v['proxyAddresses'].append(("X500:" + x500_trait["strval"]))                        
 
                 #Set homeMDB for Exchange users
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
