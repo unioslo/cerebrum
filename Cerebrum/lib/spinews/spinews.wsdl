@@ -59,7 +59,7 @@
     </xs:complexType>
 </xs:element>
 
-<xs:element name="getAccountssResponse">
+<xs:element name="getAccountsResponse">
   <xs:complexType>
     <xs:sequence>
       <xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:AccountType" />
