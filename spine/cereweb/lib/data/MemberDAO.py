@@ -9,12 +9,10 @@ class MemberDAO(object):
     def __init__(self, db):
         self.db = db
         self.constants = Constants(self.db)
-        self.needs_reset = False
 
     def _find(self, id):
         member = self.member
-        if self.needs_reset:
-            member.clear()
+        member.clear()
 
         member.find(id)
         self.needs_reset = True

@@ -22,6 +22,7 @@
 import unittest
 from mx.DateTime import DateTimeType
 from lib.data import GroupDAO
+from lib.data.GroupDTO import GroupDTO
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
@@ -99,41 +100,79 @@ class GroupDAOTest(unittest.TestCase):
     def test_get_nonexisting_throws_NotFoundException(self):
         self.assertRaises(NotFoundError, GroupDAO.get, -1)
 
+    def assertValidDate(self, date):
+        self.assert_(date is None or isinstance(date, DateTimeType))
+
+class GroupDaoWriteTest(unittest.TestCase):
+    def setUp(self):
+        self.db = Database()
+        self.db.change_program = "unit test"
+        self.db.change_by = 2
+        self.dao = GroupDAO.GroupDAO(self.db)
+
+    def tearDown(self):
+        self.db.rollback()
+
     def test_add_member(self):
         group_id = TestData.quarantined_group_id
-
-        db = Database()
-        db.change_program = "cereweb unit-test"
-
         found = self._group_has_member(group_id, TestData.account_cetest1)        
         self.assert_(not found, "should not be member before test is run")
 
-        try:
-            dao = GroupDAO.GroupDAO(db)
-            dao.add_member(TestData.account_cetest1, group_id)
-            members = GroupDAO.get(group_id).members
-            found = self._group_has_member(group_id, TestData.account_cetest1, db=db)        
-            self.assert_(found, "should be member")
-        finally:
-            db.rollback()
+        self.dao.add_member(TestData.account_cetest1, group_id)
+
+        found = self._group_has_member(group_id, TestData.account_cetest1, db=self.db)        
+        self.assert_(found, "should be member")
 
     def test_create(self):
-        pass # FIXME
+        data = self._create_group("gtest_create_tmp")
+
+        group = self._add(data)
+        
+        self.assert_(group.name == data.name)
 
     def test_delete(self):
-        pass # FIXME
+        data = self._create_group("gtest_del_tmp")
+        group = self._add(data)
+
+        self.dao.delete(group.id)
+
+        self.assertRaises(NotFoundError, self.dao.get, group.id)
 
     def test_promote_posix(self):
-        pass # FIXME
+        data = self._create_group("gtest_pro_tmp")
+        group = self._add(data)
+        self.assert_(not group.is_posix)
+
+        self.dao.promote_posix(group.id)
+
+        group = self.dao.get_by_name(data.name)
+        self.assert_(group.is_posix)
         
     def test_demote_posix(self):
-        pass # FIXME
+        data = self._create_group("gtest_pro_tmp")
+        group = self._add(data)
+        self.dao.promote_posix(group.id)
+        group = self.dao.get_by_name(data.name)
+        self.assert_(group.is_posix)
+
+        self.dao.demote_posix(group.id)
+        group = self.dao.get_by_name(data.name)
+
+        self.assert_(not group.is_posix)
 
     def test_edit(self):
-        pass # FIXME
+        data = self._create_group("gtest_pro_tmp")
+        group = self._add(data)
 
-    def assertValidDate(self, date):
-        self.assert_(date is None or isinstance(date, DateTimeType))
+        group.description = "I got changed."
+        self.dao.save(group)
+
+        result = self.dao.get(group.id)
+        self.assert_(group.description == result.description)
+
+    def _add(self, data):
+        self.dao.add(data)
+        return self.dao.get_by_name(data.name)
 
     def _group_has_member(self, group_id, account_id, db=None):
         if db is None:
@@ -145,6 +184,13 @@ class GroupDAOTest(unittest.TestCase):
             if member.id == account_id:
                 return True
         return False
+
+    def _create_group(self, name):
+        group = GroupDTO()
+        group.name = name
+        group.description = "please delete me, I'm not meant to exist"
+        return group
+
 
 if __name__ == '__main__':
     unittest.main()

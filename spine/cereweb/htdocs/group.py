@@ -32,7 +32,7 @@ from lib.utils import transaction_decorator, redirect
 from lib.utils import web_to_spine, session_required_decorator
 from lib.Searchers import GroupSearcher
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
-from lib.templates.NewGroupViewTemplate import NewGroupViewTemplate
+from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 from Cerebrum.Errors import NotFoundError
 
@@ -72,7 +72,7 @@ index = search
 @session_required_decorator
 def view(id, **vargs):
     """Creates a page with the view of the group with the given id."""
-    page = NewGroupViewTemplate()
+    page = GroupViewTemplate()
     page.group = GroupDAO.get(id, include_members=True)
     page.group.history = HistoryDAO.get_entity_history(id)
     page.visibilities = ConstantsDAO.get_group_visibilities()

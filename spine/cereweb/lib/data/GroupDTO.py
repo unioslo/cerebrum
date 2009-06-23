@@ -3,12 +3,15 @@ from lib.data.MemberDTO import MemberDTO
 
 class GroupDTO(DTO):
     def __init__(self):
+        self.name = ""
+        self.description = ""
         self.notes = []
         self.spreads = []
         self.quarantines = []
         self.members = []
         self.type_name = 'group'
         self.has_owner = False
+        self.expire_date = None
 
     __slots__ = [
         'id',
