@@ -316,6 +316,8 @@ class BofhdExtension(object):
         if not person.has_spread(self.const.spread_ephorte_person):
             raise CerebrumError("Person has no ephorte roles")
         ou = self._get_ou(stedkode=sko)
+        if not ou.has_spread(self.const.spread_ephorte_ou):
+            raise CerebrumError("Cannot assign permission to a non-ephorte OU")
         # This is a hack needed by the archivists.
         # If one of the new permissions, defined in
         # EPHORTE_NEW2OLD_PERMISSIONS.values() is to be added, the old
