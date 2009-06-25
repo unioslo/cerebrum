@@ -208,17 +208,18 @@ def process_delete_requests():
                     (ldap_object_dn, ldap_attrs) = ldap_objects[0]
                     ldap_handle.ldap_delete_object(ldap_object_dn)
                     ldap_handle.close_connection()
-
+                account.delete_spread(row['spread'])
                 try:
                     home = account.get_home(row['spread'])
                 except Errors.NotFoundError:
-                    pass
+                    logger.info("No homedir for %s, skipping homedir-removal", account.account_name)
+                    continue
                 account.set_homedir(current_id=home['homedir_id'],
                                     status=const.home_status_archived)
                 account.clear_home(row['spread'])
                 logger.debug("clear_home in %s", row['spread'])                
                 logger.debug("Set home to archived %s (%s)", home['homedir_id'], row['spread'])
-                account.delete_spread(row['spread'])                
+
         if posix_user:
             posix_user.delete_posixuser()
         ## Remove account from all groups (including eDir-server groups)
