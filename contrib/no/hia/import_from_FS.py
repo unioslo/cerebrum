@@ -310,15 +310,6 @@ def main():
         usage()
         sys.exit(2)
 
-    person_file = default_person_file
-    studprog_file = default_studieprogram_file
-    ou_file = default_ou_file
-    role_file = default_role_file
-    undervenh_file = default_undvenh_file
-    emne_info_file = default_emne_file
-    evu_kursinfo_file = default_evu_kursinfo_file
-    fnr_update_file = default_fnr_update_file
-    undenh_student_file = default_undenh_student_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
