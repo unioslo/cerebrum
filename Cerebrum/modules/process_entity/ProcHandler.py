@@ -89,8 +89,12 @@ class ProcHandler(object):
         self._ac.clear()
         ac = owner.get_primary_account()
         if not ac:
-            firstname = owner.get_name(self._co.system_cached, self._co.name_first)
-            lastname = owner.get_name(self._co.system_cached, self._co.name_last)
+            try:
+                firstname = owner.get_name(self._co.system_cached, self._co.name_first)
+                lastname = owner.get_name(self._co.system_cached, self._co.name_last)
+            except Errors.NotFoundError:
+                self.logger.warning("Person '%d' missing first- or lastname. User not built.", owner.entity_id)
+                return None
             unames = self._ac.suggest_unames(self._co.account_namespace,
                                              firstname, lastname)
             self._ac.populate(unames[0], owner.entity_type, owner.entity_id,
@@ -139,7 +143,8 @@ class ProcHandler(object):
         if len(accounts) == 0:
             if person_affiliations:
                 ac = self._create_account(person)
-                self.logger.info("Person '%d' got new account '%s'." % (person.entity_id, ac.account_name))
+                if ac:
+                    self.logger.info("Person '%d' got new account '%s'." % (person.entity_id, ac.account_name))
                 # Take care of person affiliations too
                 
             else:
