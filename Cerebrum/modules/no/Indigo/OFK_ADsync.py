@@ -535,6 +535,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             exchange_change = True
                     if exchange_change and cerebrumusrs[usr]['Exchange']:
                         exch_users.append(usr)
+                        self.logger.info("Added to run Update-Recipient list: %s" % usr)
 
                 #after processing we delete from array.
                 del cerebrumusrs[usr]
@@ -602,6 +603,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             #New user, create.
             if cerebrumusrs[cusr]['Exchange']:
                 exch_users.append(cusr)
+                self.logger.info("Added to run Update-Recipient list: %s" % cusr)
             changes = cdta
             changes['type'] = 'create_object'
             changes['sAMAccountName'] = cusr
@@ -622,7 +624,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @param dry_run : Flag
         """
         for usr in exch_users:
-            self.logger.debug("Running Update-Recipient for user '%s'"
+            self.logger.info("Running Update-Recipient for user '%s'"
                               " against Exchange" % usr)
             if cereconf.AD_DC:
                 ret = self.run_cmd('run_UpdateRecipient', dry_run, usr, cereconf.AD_DC)
@@ -663,6 +665,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.perform_changes(changelist, dry_run, store_sid)
 
         #updating Exchange
+        self.logger.info("Will run Update-Recipient against Exchange for %i users", 
+                         len(exch_users))
         self.update_Exchange(dry_run, exch_users)
 
         #Cleaning up.
