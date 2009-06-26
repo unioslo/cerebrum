@@ -22,7 +22,10 @@
 import getopt
 import pickle
 import sys
+import os
 import cerebrum_path
+import cereconf
+from mx import DateTime
 from Cerebrum import Errors
 from Cerebrum import Utils
 from Cerebrum.Utils import Factory, XMLHelper, SimilarSizeWriter
@@ -38,7 +41,9 @@ interface to push the data into ePhorte.  Currently little work has
 been put into 'standardizing' this XML format.
 
 Usage: %s [options]
+  -h: display this message
   -f fname : output filename
+  -m <email addr>: Send warnings to email addr
 
 """ % progname
 
@@ -54,6 +59,9 @@ cl = CLHandler.CLHandler(db)
 logger = Factory.get_logger("cronjob")
 sko_cache = {}
 feide_id_cache = {}
+uname_cache = {}
+primary_account_cache = {}
+missing_ou_spread = []
 
 
 class ExtXMLHelper(XMLHelper):
@@ -86,6 +94,7 @@ class ExtXMLHelper(XMLHelper):
             ret += "/>\n"
         return ret
 
+
 def _get_sko(ou_id):
     ret = sko_cache.get(ou_id)
     if ret is None:
@@ -95,18 +104,45 @@ def _get_sko(ou_id):
         sko_cache[ou_id] = ret
     return ret
 
-def _get_feide_id(operator_id):
-    ret = feide_id_cache.get(operator_id)
+
+def _get_uname(account_id):
+    ret = uname_cache.get(account_id)
     if ret is None:
         ac.clear()
         try:
-            ac.find(operator_id)
+            ac.find(account_id)
         except Errors.NotFoundError:
-            logger.warn("Could not find account %s" % (operator_id))
+            logger.warn("Could not find account %s" % (account_id))
+            return None
+        ret = ac.account_name
+        uname_cache[account_id] = ret
+    return ret
+
+
+def _get_feide_id(operator_id):
+    ret = feide_id_cache.get(operator_id)
+    if ret is None:
+        uname = _get_uname(operator_id)
+        if not uname:
             return ""
-        ret = ac.account_name.upper() + "@UIO.NO"
+        ret = uname.upper() + "@UIO.NO"
         feide_id_cache[operator_id] = ret
     return ret
+
+
+def _get_primary_account(person_id):
+    ret = primary_account_cache.get(person_id)
+    if ret is None:
+        pe.clear()
+        try:
+            pe.find(person_id)
+        except Errors.NotFoundError:
+            logger.warn("Could not find person %s" % (person_id))
+            return ""
+        account_id = pe.get_primary_account()
+        ret = _get_uname(account_id)
+    return ret
+
 
 def generate_export(fname, spread=co.spread_ephorte_person):
     f = SimilarSizeWriter(fname, "w")
@@ -238,16 +274,31 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             continue
         tmp['phone'] = row['contact_value']
 
+    # Get OU's with ephorte spread
+    has_ou_ephorte_spread = [row['entity_id'] for row in
+                             ou.list_all_with_spread(spreads=co.spread_ephorte_ou)]
+    
     logger.info("Fetching roles...")
     for row in ephorte_role.list_roles():
         tmp = persons.get(int(row['person_id']), None)
+        p_id = int(row['person_id'])
+        role_type = str(co.EphorteRole(row['role_type']))
+        sko = _get_sko(row['adm_enhet'])
         if tmp is None:
             logger.warn("Person %s has ephorte role, but not ephorte spread" %
-                        row['person_id'])
+                        p_id)
             continue
         if not tmp.has_key('roles'):
             logger.error("person dict has no key 'roles'. This shouldn't happen." +
-                         "Person: %s " % row['person_id'])
+                         "Person: %s " % p_id)
+            continue
+        # Check if role's adm_enhet has ephorte spread
+        if not row['adm_enhet'] in has_ou_ephorte_spread:
+            logger.warn("Person %s has role %s at non-ephorte ou %s" %
+                        (p_id, role_type, sko))
+            missing_ou_spread.append({'uname':_get_primary_account(p_id),
+                                      'role_type':role_type,
+                                      'sko':sko})
             continue
         try:
             arkivdel = str(co.EphorteArkivdel(row['arkivdel']))
@@ -257,9 +308,9 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             continue
 
         tmp['roles'].append({
-            'role_type': str(co.EphorteRole(row['role_type'])),
+            'role_type': role_type,
             'standard_rolle': row['standard_role'],
-            'adm_enhet': _get_sko(row['adm_enhet']),
+            'adm_enhet': sko,
             'arkivdel': arkivdel,
             'journalenhet': journalenhet,
             'rolletittel': row['rolletittel'],
@@ -317,23 +368,68 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     f.close()
     logger.info("%s written. All done" % fname)
 
+
+def mail_warnings(mailto, debug=False):
+    """
+    If warnings of certain types occur, send those as mail to address
+    specified in mailto. If cereconf.EPHORTE_MAIL_TIME is specified,
+    just send if time when script is run matches with specified time.
+    """
+
+    # Check if we should send mail today
+    mail_today = False
+    today = DateTime.today()
+    for day in getattr(cereconf, 'EPHORTE_MAIL_TIME', []):
+        if getattr(DateTime, day, None) == today.day_of_week:
+            mail_today = True
+    
+    if mail_today and missing_ou_spread:
+        mail_txt = os.linesep.join(['%-10s   %-9s   %s' % (
+            v['uname'], v['role_type'], v['sko']) for v in missing_ou_spread])
+        substitute = {'WARNINGS': mail_txt}
+        send_mail(mailto, cereconf.EPHORTE_MAIL_WARNINGS3, substitute,
+                  debug=debug)
+
+
+
+def send_mail(mailto, mail_template, substitute, debug=False):
+    ret = Utils.mail_template(mailto, mail_template, substitute=substitute,
+                              debug=debug)
+    if ret:
+        logger.debug("Not sending mail:\n%s" % ret)
+    else:
+        logger.debug("Sending mail to: %s" % mailto)
+
+
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'f:', ['help'])
+        opts, args = getopt.getopt(sys.argv[1:], 'hf:m:',
+                                   ['help', 'fname', 'mail-warnings-to='])
     except getopt.GetoptError:
         usage(1)
 
+    mail_warnings_to = None
+    fname = None
     for opt, val in opts:
-        if opt in ('--help',):
+        if opt in ('-h', '--help',):
             usage()
-        elif opt in ('-f',):
-            generate_export(val)
-    if not opts:
+        elif opt in ('-f', '--fname'):
+            fname = val
+        elif opt in ('-m', '--mail-warnings-to',):
+            mail_warnings_to = val
+    if not opts or not fname:
         usage(1)
+    
+    generate_export(fname)
+
+    if mail_warnings_to:
+        mail_warnings(mail_warnings_to)
+
 
 def usage(exitcode=0):
     print __doc__
     sys.exit(exitcode)
+
 
 if __name__ == '__main__':
     main()
