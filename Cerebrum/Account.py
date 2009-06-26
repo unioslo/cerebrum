@@ -817,16 +817,29 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             domain = int(self.const.account_namespace)
         EntityName.find_by_name(self, name, domain)
 
+    def get_account_authentications(self, method=None):
+        """Return a list of the authentication data for the account."""
+        where = ["account_id=:a_id"]
+        binds = {'a_id': self.entity_id}
+        if method:
+            where.append("method=:method")
+            binds['method'] = int(method)
+        
+        where = "WHERE %s" % " AND ".join(where)
+        
+        return self.query("""
+        SELECT auth_data, method
+        FROM [:table schema=cerebrum name=account_authentication]
+        %s""" % where, binds)
+
     def get_account_authentication(self, method):
         """Return the authentication data for the given method.  Raise
         an exception if missing."""
 
-        return self.query_1("""
-        SELECT auth_data
-        FROM [:table schema=cerebrum name=account_authentication]
-        WHERE account_id=:a_id AND method=:method""",
-                            {'a_id': self.entity_id,
-                             'method': int(method)})
+        auths = self.get_account_authentications(method)
+        if not auths:
+            raise Errors.NotFoundError, {'method': method, 'a_id': self.entity_id}
+        return auths[0]
 
     def get_account_expired(self):
         """Return expire_date if account expire date is overdue, else False"""
