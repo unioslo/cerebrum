@@ -49,6 +49,50 @@
 </xs:complexType>
 
 
+<xs:complexType name="OUType">
+  <xs:sequence>
+    <xs:element name="quarantine" type="xs:string"
+                minOccurs="0" maxOccurs="unbounded"/>
+  </xs:sequence>
+  <xs:attribute name="id" type="xs:integer"/>
+  <xs:attribute name="name" type="xs:string"/>
+  <xs:attribute name="acronym" type="xs:string"/>
+  <xs:attribute name="short_name" type="xs:string"/>
+  <xs:attribute name="display_name" type="xs:string"/>
+  <xs:attribute name="sort_name" type="xs:string"/>
+  <xs:attribute name="parent_id" type="xs:integer"/>
+  <xs:attribute name="email" type="xs:string"/>
+  <xs:attribute name="url" type="xs:string"/>
+  <xs:attribute name="phone" type="xs:string"/>
+  <xs:attribute name="post_address" type="xs:string"/>
+  <xs:attribute name="stedkode" type="xs:string"/>
+  <xs:attribute name="parent_stedkode" type="xs:string"/>
+</xs:complexType>
+
+
+
+<xs:complexType name="AliasType">
+  <xs:attribute name="local_part" type="xs:string"/>
+  <xs:attribute name="domain" type="xs:string"/>
+  <xs:attribute name="primary_address_local_part" type="xs:string"/>
+  <xs:attribute name="primary_address_domain" type="xs:string"/>
+  <xs:attribute name="address_id" type="xs:integer"/>
+  <xs:attribute name="primary_address_id" type="xs:integer"/>
+  <xs:attribute name="server_name" type="xs:string"/>
+  <xs:attribute name="account_id" type="xs:string"/>
+  <xs:attribute name="account_name" type="xs:string"/>
+</xs:complexType>
+
+<xs:complexType name="HomedirType">
+  <xs:attribute name="homedir_id" type="xs:integer"/>
+  <xs:attribute name="disk_path" type="xs:string"/>
+  <xs:attribute name="home" type="xs:string"/>
+  <xs:attribute name="homedir" type="xs:string"/>
+  <xs:attribute name="server_name" type="xs:string"/>
+  <xs:attribute name="status" type="xs:string"/>
+  <xs:attribute name="account_name" type="xs:string"/>
+</xs:complexType>
+
 
 
 <xs:element name="getGroupsResponse">
@@ -66,13 +110,33 @@
     </xs:sequence>
     </xs:complexType>
 </xs:element>
+
+<xs:element name="getOUsResponse">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:OUType" />
+    </xs:sequence>
+    </xs:complexType>
+</xs:element>
+
+<xs:element name="getHomedirsResponse">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:Homedir" />
+    </xs:sequence>
+    </xs:complexType>
+</xs:element>
+
+<xs:element name="setHomedirStatusResponse">
+</xs:element>
+
  
 <xs:element name="getGroupsRequest">
 <xs:complexType>
     <xs:sequence>
         <xs:element name="groupspread" type="xs:string" />
         <xs:element name="userspread" type="xs:string" />
-	<xs:element name="incremental_from" type="xs:integer" />
+	<xs:element name="incremental_from" type="xs:integer" minOccurs="0"/>
     </xs:sequence>
 </xs:complexType>
 </xs:element>
@@ -81,7 +145,33 @@
 <xs:complexType>
     <xs:sequence>
         <xs:element name="userspread" type="xs:string" />
-	<xs:element name="incremental_from" type="xs:integer" />
+	<xs:element name="incremental_from" type="xs:integer" minOccurs="0"/>
+    </xs:sequence>
+</xs:complexType>
+</xs:element>
+
+<xs:element name="getOUsRequest">
+<xs:complexType>
+    <xs:sequence>
+	<xs:element name="incremental_from" type="xs:integer" minOccurs="0"/>
+    </xs:sequence>
+</xs:complexType>
+</xs:element>
+
+
+<xs:element name="getHomedirsRequest">
+<xs:complexType>
+    <xs:sequence>
+	<xs:element name="status" type="xs:string"/>
+    </xs:sequence>
+</xs:complexType>
+</xs:element>
+
+<xs:element name="setHomedirStatusRequest">
+<xs:complexType>
+    <xs:sequence>
+	<xs:element name="homedir_id" type="xs:integer"/>
+	<xs:element name="status" type="xs:string"/>
     </xs:sequence>
 </xs:complexType>
 </xs:element>
@@ -92,21 +182,56 @@
 </xs:schema>
 </wsdl:types>
 
+<wsdl:message name="getAccountsRequest">
+    <wsdl:part element="ns1:getAccountsRequest" name="getAccountsRequest"/>
+</wsdl:message>
+
 <wsdl:message name="getGroupsRequest">
     <wsdl:part element="ns1:getGroupsRequest" name="getGroupsRequest"/>
+</wsdl:message>
+
+<wsdl:message name="getOUsRequest">
+    <wsdl:part element="ns1:getOUsRequest" name="getOUsRequest"/>
+</wsdl:message>
+
+<wsdl:message name="getAliasesRequest">
+    <wsdl:part element="ns1:getAliasesRequest" name="getAliasesRequest"/>
+</wsdl:message>
+
+<wsdl:message name="getHomedirsRequest">
+    <wsdl:part element="ns1:getHomedirsRequest" name="getHomedirsRequest"/>
+</wsdl:message>
+
+<wsdl:message name="setHomedirStatusRequest">
+    <wsdl:part element="ns1:setHomedirStatusRequest" name="setHomedirStatusRequest"/>
+</wsdl:message>
+
+
+
+<wsdl:message name="getAccountsResponse">
+    <wsdl:part element="ns1:getAccountsResponse" name="getAccountsResponse"/>
 </wsdl:message>
 
 <wsdl:message name="getGroupsResponse">
     <wsdl:part element="ns1:getGroupsResponse" name="getGroupsResponse"/>
 </wsdl:message>
 
-<wsdl:message name="getAccountsRequest">
-    <wsdl:part element="ns1:getAccountsRequest" name="getAccountsRequest"/>
+<wsdl:message name="getOUsResponse">
+    <wsdl:part element="ns1:getOUsResponse" name="getOUsResponse"/>
 </wsdl:message>
 
-<wsdl:message name="getAccountsResponse">
-    <wsdl:part element="ns1:getAccountsResponse" name="getAccountsResponse"/>
+<wsdl:message name="getAliasesResponse">
+    <wsdl:part element="ns1:getAliasesResponse" name="getAliasesResponse"/>
 </wsdl:message>
+
+<wsdl:message name="getHomedirsResponse">
+    <wsdl:part element="ns1:getHomedirsResponse" name="getGroupsResponse"/>
+</wsdl:message>
+
+<wsdl:message name="setHomedirStatusResponse">
+    <wsdl:part element="ns1:setHomedirStatusResponse" name="setHomedirStatusResponse"/>
+</wsdl:message>
+
 
 <wsdl:portType name="spinePortType">
 <wsdl:operation name="get_groups">
@@ -122,6 +247,35 @@
 <wsdl:output message="ns1:getAccountsResponse"
 	     name="getAccountsResponse"/>
 </wsdl:operation>
+
+<wsdl:operation name="get_ous">
+<wsdl:input message="ns1:getOUsRequest"
+	    name="getOUsRequest"/>
+<wsdl:output message="ns1:getOUsResponse"
+	     name="getOUsResponse"/>
+</wsdl:operation>
+
+<wsdl:operation name="get_aliases">
+<wsdl:input message="ns1:getAliasesRequest"
+	    name="getAliasesRequest"/>
+<wsdl:output message="ns1:getAliasesResponse"
+	     name="getAliasesResponse"/>
+</wsdl:operation>
+
+<wsdl:operation name="get_homedirs">
+<wsdl:input message="ns1:getHomedirsRequest"
+	    name="getHomedirsRequest"/>
+<wsdl:output message="ns1:getHomedirsResponse"
+	     name="getHomedirsResponse"/>
+</wsdl:operation>
+
+<wsdl:operation name="set_homedir_status">
+<wsdl:input message="ns1:setHomedirStatusRequest"
+	    name="setHomedirStatusRequest"/>
+<wsdl:output message="ns1:setHomedirStatusResponse"
+	     name="setHomedirStatusResponse"/>
+</wsdl:operation>
+
 </wsdl:portType>
 
 
@@ -129,6 +283,7 @@
 	      type="ns1:spinePortType">
 <wsdlsoap:binding style="document"
 		  transport="http://schemas.xmlsoap.org/soap/http"/>
+
 <wsdl:operation name="get_groups">
 <wsdlsoap:operation soapAction=""/>
 <wsdl:input name="getGroupsRequest">
@@ -138,6 +293,7 @@
 <wsdlsoap:body use="literal"/>
 </wsdl:output>
 </wsdl:operation>
+
 <wsdl:operation name="get_accounts">
 <wsdlsoap:operation soapAction=""/>
 <wsdl:input name="getAccountsRequest">
@@ -146,7 +302,48 @@
 <wsdl:output name="getAccountsResponse">
 <wsdlsoap:body use="literal"/>
 </wsdl:output>
+
 </wsdl:operation>
+<wsdl:operation name="get_ous">
+<wsdlsoap:operation soapAction=""/>
+<wsdl:input name="getOUsRequest">
+<wsdlsoap:body use="literal"/>
+</wsdl:input>
+<wsdl:output name="getOUsResponse">
+<wsdlsoap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+
+<wsdl:operation name="get_aliases">
+<wsdlsoap:operation soapAction=""/>
+<wsdl:input name="getAliasesRequest">
+<wsdlsoap:body use="literal"/>
+</wsdl:input>
+<wsdl:output name="getAliasesResponse">
+<wsdlsoap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+
+<wsdl:operation name="get_homedirs">
+<wsdlsoap:operation soapAction=""/>
+<wsdl:input name="getHomedirsRequest">
+<wsdlsoap:body use="literal"/>
+</wsdl:input>
+<wsdl:output name="getHomedirsResponse">
+<wsdlsoap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+
+<wsdl:operation name="set_homedir_status">
+<wsdlsoap:operation soapAction=""/>
+<wsdl:input name="setHomedirStatusRequest">
+<wsdlsoap:body use="literal"/>
+</wsdl:input>
+<wsdl:output name="setHomedirStatusResponse">
+<wsdlsoap:body use="literal"/>
+</wsdl:output>
+</wsdl:operation>
+
 </wsdl:binding>
 
 <wsdl:service name="spinews">
