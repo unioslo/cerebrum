@@ -147,7 +147,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     q_soft = equota.get_quota_soft()
                     q_hard = equota.get_quota_hard()
                 except Errors.NotFoundError:
-                    self.logger.warning("Error getting EmailQuota for "
+                    self.logger.warning("Error finding EmailQuota for "
                                         "accountid:%i. Setting default."% int(k))
                 #set a default quota
                 if (q_soft is None or q_hard is None):
@@ -198,6 +198,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 
 
     def _exchange_addresslist(self, user_dict):
+        """
+        Enabling Exchange address list visibility to only primary accounts
+
+        @param user_dict: account_id -> account info mapping
+        @type user_dict: dict
+        """
 
         primary_res = list(self.ac.list_accounts_by_type(primary_only=True))
         for row in primary_res:
@@ -368,6 +374,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     
     def fetch_ad_data(self, search_ou):
+        """
+        Returns full LDAP path to AD objects of type 'user' in search_ou and 
+        child ous of this ou.
+        
+        @param search_ou: LDAP path to base ou for search
+        @type search_ou: String
+        """
         #Setting the userattributes to be fetched.
         self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
                                       cereconf.AD_ACCOUNT_CONTROL)
@@ -449,7 +462,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     
     def compare(self, delete_users, cerebrumusrs, adusrs, exch_users, forwarding_sync):
         """
-        Check if any values for account need be updated in AD
+        Check if any values for account need be updated in AD by comparing
+        current values in AD and cerebrum. Also checks accounts for disabling
+        if they are noe longer supposed to be exported to AD, or checks for
+        accounts that need to be created in AD.
 
         @param cerebrumusers: account_id -> account info mapping
         @type cerebrumusers: dict
@@ -577,6 +593,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         and (cerebrumusrs[usr]['Exchange'] 
                              or cerebrumusrs[usr]['imap'])): 
                         exch_users.append(usr)
+                        self.logger.info("Added to run Update-Recipient list: %s" % usr)
 
                 #after processing we delete from array.
                 del cerebrumusrs[usr]
@@ -644,6 +661,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             if (not cusr in exch_users) and (cerebrumusrs[cusr]['Exchange'] 
                                              or cerebrumusrs[cusr]['imap']):
                 exch_users.append(cusr)
+                self.logger.info("Added to run Update-Recipient list: %s" % cusr)
             #New user, create.
             changes = cdta
             changes['type'] = 'create_object'
@@ -658,6 +676,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
 
     def perform_changes(self, changelist, dry_run, store_sid):
+        """
+        Binds to AD object and perform changes such as
+        updates to attributes or move and/or disabling.
+        
+        @param changelist: user name -> changes mapping
+        @type changelist: array of dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
         for chg in changelist:      
             self.logger.debug("Process change: %s" % repr(chg))
             if chg['type'] == 'create_object':
@@ -674,8 +701,16 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     
     def update_Exchange(self, dry_run, exch_users):
+        """
+        Telling the AD-service to start the Windows Power Shell command
+        Update-Recipient on object in order to prep them for Exchange.
+        
+        @param exch_users : user to run command on
+        @type  exch_users: list
+        @param dry_run : Flag
+        """
         for usr in exch_users:
-            self.logger.debug("Running Update-Recipient for object '%s'"
+            self.logger.info("Running Update-Recipient for object '%s'"
                               " against Exchange" % usr)
             if cereconf.AD_DC:
                 ret = self.run_cmd('run_UpdateRecipient', dry_run, usr, cereconf.AD_DC)
@@ -688,6 +723,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                          len(exch_users))
 
     def fetch_forwardinfo_cerebrum_data(self, ad_spread, exchange_spread, cerebrumdump):    
+        """
+        Getting information about forwarding from cerebrum, and updating the 
+        user dict from cerebrum to include forwarding info.
+
+        @param cerebrumdump: account_name -> account info mapping
+        @type cerebrumusers: dict
+        @param ad_spread: spread for ad users
+        @type ad_spread: string
+        @param exchange_spread: spread for exchange users
+        @type exchange_spread: string
+        @rtype: dict
+        @return: a dict with forwarding information
+        """
         exch_users = {}
         #Getting entity_id and user name for all users with both spreads
         set1 = set([(row['account_id'],row['name']) for row in 
@@ -723,7 +771,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             cerebrumdump[exch_user['uname']]['deliverAndRedirect'] = False
             if row['enable'] == 'T':
                 exch_user['forward_addresses'].append(row['forward_to'])
-
+                
         # Make dict with attributes for AD
         forwards = {}
         for values in exch_users.itervalues():
@@ -748,6 +796,17 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     
     
     def make_cerebrum_dist_grps_dict(self, forwards, cerebrumdump):
+        """
+        Constructing a dict for distribution groups in ad that will be used for 
+        holding all forwarding objects for a given user.
+
+        @param cerebrumdump: account_name -> account info mapping
+        @type cerebrumusers: dict
+        @param forwards: forwarding info from cerebrum
+        @type forwards: dict
+        @rtype: dict
+        @return: a dict with forward distribution group information
+        """
         cerebrum_dist_grps_dict = {}
         # make a dict with all addresses and owner user for faster search
         addr2user = {}
@@ -790,6 +849,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         
     
     def fetch_ad_data_contacts(self):
+        """
+        Returns full LDAP path to AD objects of type 'contact' and prefix
+        indicating it is used for forwarding.
+
+        @rtype: list
+        @return: a list with LDAP paths to found AD objects
+        """
         self.server.setContactAttributes(cereconf.AD_CONTACT_FORWARD_ATTRIBUTES)
         search_ou = self.ad_ldap
         ad_contacts = self.server.listObjects('contact', True, search_ou)
@@ -802,6 +868,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     
 
     def fetch_ad_data_distribution_groups(self):
+        """
+        Returns full LDAP path to AD objects of type 'group' and prefix
+        indicating it is to hold forward contact objects.
+
+        @rtype: list
+        @return: a list with LDAP paths to found AD objects
+        """
         self.server.setGroupAttributes(cereconf.AD_DIST_GRP_ATTRIBUTES)
         search_ou = self.ad_ldap
         ad_grps = self.server.listObjects('group', True, search_ou)
@@ -903,7 +976,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changelist.append(changes)
                     changes = {}
                     up_rec.append(frwd)
-
+                    self.logger.info("Added to run Update-Recipient list: %s" % frwd)
                 del(ad_contacts[frwd])
 
             else:
@@ -917,6 +990,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 changelist.append(changes)
                 changes = {}
                 up_rec.append(frwd)
+                self.logger.info("Added to run Update-Recipient list: %s" % frwd)
             
         #Remaining objects in ad_contacts should not be in AD anymore
         for frwd in ad_contacts:
@@ -1022,6 +1096,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changelist.append(changes)
                     changes = {}
                     up_rec.append(distgrp)
+                    self.logger.info("Added to run Update-Recipient list: %s" % distgrp)
+                    
                 del(ad_dist_groups[distgrp])
 
             else:
@@ -1034,6 +1110,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 changes = {}
                 #Shall run Update-Recipient
                 up_rec.append(distgrp)
+                self.logger.info("Added to run Update-Recipient list: %s" % distgrp)
             
         #Remaining objects in ad_dist_groups should not be in AD anymore
         for distgrp in ad_dist_groups:
@@ -1047,6 +1124,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
       
     def perform_forward_contact_changes(self, changelist, dry_run):
+        """
+        Binds to AD object and perform changes such as
+        updates to attributes or deleting.
+        
+        @param changelist: SAMAccountname -> changes mapping
+        @type changelist: array of dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
         for chg in changelist:      
             self.logger.debug("Process change: %s" % repr(chg))
             if chg['type'] == 'create_object':
@@ -1071,7 +1157,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @param dry_run: Flag
         """
         ou = chg.get("OU", "OU=%s,%s" % (cereconf.AD_CONTACT_OU, self.ad_ldap))
-        self.logger.debug('CREATE %s', chg)
+        self.logger.info('Create forward contact object %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'contact', ou, 
                       chg['name'])
         if not ret[0]:
@@ -1122,6 +1208,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
 
     def perform_forward_distgrp_changes(self, changelist, dry_run):
+        """
+        Binds to AD object and perform changes such as
+        updates to attributes or deleting.
+        
+        @param changelist: SAMAccountname -> changes mapping
+        @type changelist: array of dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
         for chg in changelist:      
             self.logger.debug("Process change: %s" % repr(chg))
             if chg['type'] == 'create_object':
@@ -1155,7 +1250,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         if chg.has_key('distinguishedName'):
             del chg['distinguishedName']
 
-        self.logger.debug('CREATE %s', chg)
+        self.logger.info('Create forward distgroup %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
                       groupname)
         if not ret[0]:
@@ -1202,7 +1297,14 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     
     def sync_members_forward_distgrp(self, cerebrum_dist_grps, dry_run):
+        """
+        Syncing forward conctact objects members of forward dist group.
 
+        @param cerebrum_dist_grps: dist group info
+        @type cerebrum_dist_grps: dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
         for key, value in cerebrum_dist_grps.items():
             if cerebrum_dist_grps[key].has_key('members'):
                 self.logger.debug("Syncing members for %s dist group", key)
@@ -1226,8 +1328,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                   forwarding_sync=False):
 
         exch_changes = []
-        self.logger.info("Starting user-sync(delete = %s, dry_run = %s)" % \
-                             (delete, dry_run))     
+        self.logger.info("Starting user-sync(forwarding_sync = %s, spread = %s, exchange_spread = %s, imap_spread = %s, delete = %s, dry_run = %s, store_sid = %s)" % \
+                             (forwarding_sync, spread, exchange_spread, imap_spread, delete, dry_run, store_sid))     
 
         #Fetch cerebrum data for users.
         self.logger.debug("Fetching cerebrum user data...")
@@ -1414,7 +1516,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                             self.logger.debug("delete is False."
                                               "Don't delete group: %s", grp_name)
                         else:
-                            self.logger.debug("delete_groups = %s, deleting group %s",
+                            self.logger.info("delete_groups = %s, deleting group %s",
                                               delete_groups, grp_name)
                             self.run_cmd('bindObject', dry_run, 
                                          ad_dict[grp_name]['distinguishedName'])
@@ -1561,6 +1663,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 changes['sAMAccountName'] = grp
                 if changes.has_key('Exchange'):
                     exch_changes.append(grp)
+                    self.logger.info("Added to run Update-Recipient list: %s" % grp)
                     del changes['Exchange']
                 changelist.append(changes)
             
@@ -1600,6 +1703,15 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
 
     def perform_changes(self, changelist, dry_run, store_sid):
+        """
+        Binds to AD object and perform changes such as
+        updates to attributes or deleting.
+        
+        @param changelist: user name -> changes mapping
+        @type changelist: array of dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
         for chg in changelist:      
             self.logger.debug("Process change: %s" % repr(chg))
             if chg['type'] == 'create_object':
@@ -1631,7 +1743,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         if chg.has_key('distinguishedName'):
             del chg['distinguishedName']
         
-        self.logger.debug('CREATE %s', chg)
+        self.logger.info('Create group %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
                       groupname)
         if not ret[0]:
@@ -1682,8 +1794,16 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
 
     def update_Exchange(self, dry_run, exch_grps):
+        """
+        Telling the AD-service to start the Windows Power Shell command
+        Update-Recipient on object in order to prep them for Exchange.
+        
+        @param exch_grps : user to run command on
+        @type  exch_grps: list
+        @param dry_run : Flag
+        """
         for grp in exch_grps:
-            self.logger.debug("Running Update-Recipient for group object '%s'"
+            self.logger.info("Running Update-Recipient for group object '%s'"
                               " against Exchange" % grp)
             if cereconf.AD_DC:
                 ret = self.run_cmd('run_UpdateRecipient', dry_run, grp, cereconf.AD_DC)
@@ -1731,7 +1851,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         int(self.co.Spread(user_spread)))):
                     user_id = usr["member_id"]
                     if user_id not in entity2name:
-                        self.logger.debug("Missing name for account id=%s", user_id)
+                        self.logger.warning("Missing name for account id=%s", user_id)
                         continue
                     members.append(entity2name[user_id])
                     self.logger.debug("Try to sync member account id=%s, name=%s",
@@ -1742,7 +1862,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                             self.co.Spread(group_spread)))):
                     group_id = grp["member_id"]
                     if group_id not in entity2name:
-                        self.logger.debug("Missing name for group id=%s", group_id)
+                        self.logger.warning("Missing name for group id=%s", group_id)
                         continue
                     members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
                                              entity2name[group_id]))            
@@ -1770,8 +1890,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
     def full_sync(self, delete=False, group_spread=None, dry_run=True, store_sid=False, user_spread=None, exchange_spread=None):
 
-        self.logger.info("Starting group-sync(delete = %s, dry_run = %s)" % \
-                             (delete, dry_run))     
+        self.logger.info("Starting group-sync(group_spread = %s, exchange_spread = %s, user_spread = %s, delete = %s, dry_run = %s, store_sid = %s)" % \
+                             (group_spread, exchange_spread, user_spread, delete, dry_run, store_sid))     
 
         exch_changes = []
         #Fetch cerebrum data.
@@ -1827,6 +1947,22 @@ class ADFullContactSync(ADutilMixIn.ADutil):
 
 
     def fetch_mail_lists_cerebrum_data(self):
+        """
+        Fetch relevant cerebrum data for mailmanlists. Only primary
+        address of the list is exported to AD/Exchange.
+
+        @rtype: dict
+        @return: a dict {name: {'adAttrib': 'value'}} for all maillists
+        Typical attributes::
+        
+          # canonicalName er et 'constructed attribute' (fra dn)
+          "displayName" : String,         #Epostliste - <listenavn>
+          "targetAddress" : String,       #SMTP: <listeadresse>
+          "proxyAddresses" : Array,       #SMTP: <listeadresse>
+          "mailNickname" : String,        #mailman.<listenavn uten @>
+          "msExchPoliciesExcluded" : Bool,
+          "msExchHideFromAddressLists" : Bool,
+        """
         from Cerebrum.modules.Email import EmailDomain, EmailTarget
         etarget = EmailTarget(self.db)
         rewrite = EmailDomain(self.db).rewrite_special_domains
@@ -1856,6 +1992,13 @@ class ADFullContactSync(ADutilMixIn.ADutil):
 
 
     def fetch_ad_data_contacts(self):
+        """
+        Returns full LDAP path to AD objects of type 'contact' and prefix
+        indicating it is used for mailman lists.
+
+        @rtype: list
+        @return: a list with LDAP paths to found AD objects
+        """
         self.server.setContactAttributes(cereconf.AD_CONTACT_MAILMANLIST_ATTRIBUTES)
         search_ou = self.ad_ldap
         ad_contacts = self.server.listObjects('contact', True, search_ou)
@@ -1955,6 +2098,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
                     changelist.append(changes)
                     changes = {}
                     up_rec.append(mlist)
+                    self.logger.info("Added to run Update-Recipient list: %s" % mlist)
 
                 del(ad_contacts[mlist])
 
@@ -1967,6 +2111,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
                 changelist.append(changes)
                 changes = {}
                 up_rec.append(mlist)
+                self.logger.info("Added to run Update-Recipient list: %s" % mlist)
             
         #Remaining objects in ad_contacts should not be in AD anymore
         for mlist in ad_contacts:
@@ -1980,7 +2125,9 @@ class ADFullContactSync(ADutilMixIn.ADutil):
 
          
     def get_default_ou(self, change=None):
-        #Returns default OU in AD.
+        """
+        Return default OU for mailman lists contact objects.
+        """
         return "OU=Contacts,%s" % self.ad_ldap
 
 
@@ -1993,7 +2140,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         @param dry_run: Flag
         """
         ou = chg.get("OU", self.get_default_ou())
-        self.logger.debug('CREATE %s', chg)
+        self.logger.info('Create maillist AD contact object %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'contact', ou, 
                       chg['name'])
         if not ret[0]:
@@ -2044,8 +2191,16 @@ class ADFullContactSync(ADutilMixIn.ADutil):
 
 
     def update_Exchange(self, dry_run, up_rec):
+        """
+        Telling the AD-service to start the Windows Power Shell command
+        Update-Recipient on object in order to prep them for Exchange.
+        
+        @param exch_users : user to run command on
+        @type  exch_users: list
+        @param dry_run : Flag
+        """
         for name in up_rec:
-            self.logger.debug("Running Update-Recipient for contact object '%s'"
+            self.logger.info("Running Update-Recipient for contact object '%s'"
                               " against Exchange" % name)
             if cereconf.AD_DC:
                 ret = self.run_cmd('run_UpdateRecipient', dry_run, name, cereconf.AD_DC)
@@ -2066,11 +2221,13 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         #Fetch ad data
         self.logger.debug("Fetching ad data about contact objects...")
         ad_contacts = self.fetch_ad_data_contacts()
-        
+        self.logger.info("Fetched %i ad contact objects" % len(ad_contacts))
+
         #Fetch cerebrum data
         self.logger.debug("Fetching cerebrum data about mail lists...")
         cerebrum_maillists = self.fetch_mail_lists_cerebrum_data()
-        
+        self.logger.info("Fetched %i cerebrum contact objects" % len(cerebrum_maillists))
+
         #Comparing
         needs_updateRecipient = []
         changelist = self.compare_maillists(ad_contacts, cerebrum_maillists,
