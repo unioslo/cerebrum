@@ -600,15 +600,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
             else:
                 #Account not in Cerebrum, but in AD.                
-                if [s for s in cereconf.AD_DO_NOT_TOUCH if
+                if [s for s in cereconf.AD_ALL_CEREBRUM_OU if
                     adusrs[usr]['distinguishedName'].upper().find(s.upper()) >= 0]:
-                    pass
-                elif (adusrs[usr]['distinguishedName'].upper().find(
-                        cereconf.AD_PW_EXCEPTION_OU.upper()) >= 0):
-                    #Account do not have AD_spread, but is in AD to 
-                    #register password changes, do nothing.
-                    pass
-                else:
                     #ac.is_deleted() or ac.is_expired() pluss a small rest of 
                     #accounts created in AD, but that do not have AD_spread. 
                     if delete_users == True:
@@ -1503,24 +1496,18 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             if grp_name.startswith(cereconf.AD_FORWARD_GROUP_PREFIX):
                 del ad_dict[grp_name]
             elif not cerebrum_dict.has_key(grp_name):
-                if self.ad_ldap in ad_dict[grp_name]['OU']:
-                    match = False
-                    for dont in cereconf.AD_DO_NOT_TOUCH:
-                        if dont.upper() in ad_dict[grp_name]['OU'].upper():
-                            match = True
-                            break
-                    # an unknown group in OUs under our control 
-                    # and not i DO_NOT_TOUCH -> delete
-                    if not match:
-                        if not delete_groups:
-                            self.logger.debug("delete is False."
-                                              "Don't delete group: %s", grp_name)
-                        else:
-                            self.logger.info("delete_groups = %s, deleting group %s",
-                                              delete_groups, grp_name)
-                            self.run_cmd('bindObject', dry_run, 
-                                         ad_dict[grp_name]['distinguishedName'])
-                            self.delete_object(ad_dict[grp_name], dry_run)
+                # an unknown group in OUs under our control -> delete
+                if [s for s in cereconf.AD_ALL_CEREBRUM_OU if
+                    ad_dict[grp_name]['OU'].upper().find(s.upper()) >= 0]:
+                    if not delete_groups:
+                        self.logger.debug("delete is False."
+                                          "Don't delete group: %s", grp_name)
+                    else:
+                        self.logger.info("delete_groups = %s, deleting group %s",
+                                         delete_groups, grp_name)
+                        self.run_cmd('bindObject', dry_run, 
+                                     ad_dict[grp_name]['distinguishedName'])
+                        self.delete_object(ad_dict[grp_name], dry_run)
                 #does not concern us (anymore), delete from dict.
                 del ad_dict[grp_name]
 
