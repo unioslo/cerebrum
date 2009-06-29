@@ -1100,6 +1100,7 @@ if __name__ == '__main__':
     else:
         db = Utils.Factory.get('Database')()
     if use_encryption:
+        logger.info("Server using encryption")
         # from echod_lib import init_context
         def init_context(protocol, certfile, cafile, verify, verify_depth=10):
             ctx = SSL.Context(protocol)
@@ -1135,6 +1136,7 @@ if __name__ == '__main__':
                 server = SSLBofhdServer(
                     (host, port), BofhdRequestHandler, db, conffile, ctx)
     else:
+        logger.warning("Server *NOT* using encryption")
         if multi_threaded:
             server = ThreadingBofhdServer(
                 (host, port), BofhdRequestHandler, db, conffile)
