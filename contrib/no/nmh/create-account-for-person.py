@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- encoding: iso-8859-1 -*-
 
 """This script creates (or reactivates) an account for a person with specified
 affiliation.
@@ -13,7 +13,8 @@ Thus, thus script scans for people who:
 
   - Have at least one specified affiliation (there may be several)
   - Do not have an account at all or
-    Have an expired account
+    Have an expired account or
+    Have an active account without the specified affiliations
 
 Having collected such people, the script either creates a new account (as if
 by bofh's user_create) or re-activates an expired one. Reactivation in this
@@ -25,6 +26,9 @@ case means:
 
 Whether an account has been created or re-activate, it gets a new password
 (this would be a password unknown to all not having access to change_log)
+
+Should an account already exist AND be active, it'd receive a copy of the
+affiliations from the person owner.
 
 Typical usage pattern would be to create/reactive accounts for SAP-employees:
 
@@ -271,6 +275,21 @@ def create_new_account(db, person_id):
 
 
 
+def amend_existing_account(db, account_id, person_id):
+    """Fixup account_id's affiliations"""
+
+    person = Factory.get("Person")(db)
+    person.find(person_id)
+    account = Factory.get("Account")(db)
+    account.find(account_id)
+
+    logger.debug("Amending uname=%s (id=%s) from person_id=%s",
+                 account.account_name, account.entity_id, person_id)
+    copy_owners_affiliations(person, account)
+# end amend_existing_account
+    
+
+
 def create_accounts(db, candidates):
     """Create or re-activate accounts for those candidates who need it.
 
@@ -282,18 +301,27 @@ def create_accounts(db, candidates):
 
     account = Factory.get("Account")(db)
     for person_id in candidates:
-        accounts = account.list_accounts_by_owner_id(person_id,
-                                                     filter_expired=False)
-        if not accounts:
-            create_new_account(db, person_id)
+        accounts = account.get_account_types(all_persons_types=True,
+                                             owner_id=person_id)
+        # There is an active account that is fully working, but it lacks the
+        # affiliation.
+        if accounts:
+            amend_existing_account(db, accounts[0]["account_id"], person_id)
         else:
-            reactivate_expired_accounts(db, person_id, accounts)
+            accounts = account.list_accounts_by_owner_id(person_id,
+                                                         filter_expired=False)
+            # No accounts exist at all
+            if not accounts:
+                create_new_account(db, person_id)
+            # There are expired accounts we can reactivate
+            else:
+                reactivate_expired_accounts(db, person_id, accounts)
     # end create_accounts
 # end create_accounts
 
 
 
-def collect_accountless_candidates(db, affiliations):
+def collect_candidates(db, affiliations):
     """Collect all people that have one of affiliations and do NOT have a
     non-expired account.
 
@@ -305,16 +333,23 @@ def collect_accountless_candidates(db, affiliations):
     """
 
     result = set()
+    const = Factory.get("Constants")()
     person = Factory.get("Person")(db)
     account = Factory.get("Account")(db)
     for row in person.list_affiliations(affiliation=affiliations):
         if not account.list_accounts_by_owner_id(row["person_id"]):
             logger.debug("Person id=%s is a candidate", row["person_id"])
             result.add(row["person_id"])
-
+        elif not account.list_accounts_by_type(person_id=row["person_id"],
+                                               affiliation=list(affiliations)):
+            logger.debug("Person id=%s is a candidate, since (s)he has "
+                         "active accounts without affs=%s",
+                         row["person_id"],
+                         [str(const.PersonAffiliation(x)) for x in affiliations])
+            result.add(row["person_id"])
     logger.debug("Collected %d candidate(s)", len(result))
     return result
-# end collect_accountless_candidates
+# end collect_candidates
 
 
 
@@ -376,7 +411,7 @@ def main():
 
     db = Factory.get("Database")()
     db.cl_init(change_program="create-account")
-    candidates = collect_accountless_candidates(db, affiliations)
+    candidates = collect_candidates(db, affiliations)
     create_accounts(db, candidates)
 
     if dryrun:
