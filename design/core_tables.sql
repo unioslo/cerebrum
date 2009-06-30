@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2008 University of Oslo, Norway
+ * Copyright 2002-2009 University of Oslo, Norway
  *
  * This file is part of Cerebrum.
  *
@@ -22,7 +22,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.13;
+version=0.9.14;
 
 /* Define role hierarchy used for granting access to various database
    objects.
