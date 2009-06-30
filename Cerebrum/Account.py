@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2006 University of Oslo, Norway
+# Copyright 2002-2006, 2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -836,10 +836,12 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """Return the authentication data for the given method.  Raise
         an exception if missing."""
 
-        auths = self.get_account_authentications(method)
-        if not auths:
-            raise Errors.NotFoundError, {'method': method, 'a_id': self.entity_id}
-        return auths[0]
+        return self.query_1("""
+        SELECT auth_data
+        FROM [:table schema=cerebrum name=account_authentication]
+        WHERE account_id=:a_id AND method=:method""",
+                            {'a_id': self.entity_id,
+                             'method': int(method)})
 
     def get_account_expired(self):
         """Return expire_date if account expire date is overdue, else False"""
