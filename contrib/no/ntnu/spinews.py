@@ -320,7 +320,7 @@ class group_members:
 
 
 def search_alias(changelog_id=None):
-    
+    pass
 
 
 
@@ -385,6 +385,7 @@ class AccountDTO:
 
 class OUDTO:
     def __init__(self, row, quarantines=[]):
+        self._attrs={}
         self._attrs["id"] = row["id"]
         self._attrs["name"] = row["name"]
         self._attrs["acronym"] = row["acronym"]
@@ -403,7 +404,16 @@ class OUDTO:
 
 class AliasDTO:
     def __init__(self, row):
-        
+        self._attrs={}
+        self._attrs["local_part"] = row["local_part"]
+        self._attrs["domain"] = row["domain"]
+        self._attrs["primary_address_local_part"] = row["primary_address_local_part"]
+        self._attrs["primary_address_domain"] = row["primary_address_domain"]
+        self._attrs["address_id"] = row["address_id"]
+        self._attrs["primary_address_id"] = row["primary_address_id"]
+        self._attrs["server_name"] = row["server_name"]
+        self._attrs["account_id"] = row["account_id"]
+        self._attrs["account_name"] = row["account_name"]
 
 
 class spinews(ServiceSOAPBinding):
@@ -472,8 +482,12 @@ class spinews(ServiceSOAPBinding):
             ous.append(o)
         return ous
 
-    def get_groups_impl2(self):
-        pass
+    def get_aliases_impl(self):
+        aliases=[]
+        for row in search_aliases():
+            a=AliasTO(row)
+            aliases.append(a)
+        return aliases
 
 def test_impl(fun):
     import time
@@ -484,6 +498,7 @@ def test_impl(fun):
     
 def test():
     sp=spinews()
+    #print test_impl(sp.get_aliases_impl)
     print test_impl(sp.get_ous_impl)
     print test_impl(sp.get_accounts_impl)
     print test_impl(sp.get_groups_impl)
