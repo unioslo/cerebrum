@@ -28,7 +28,10 @@ dpkg-buildpackage -rfakeroot
 
 popd > /dev/null 2>&1
 
-echo "Finished build of new package!"
+echo "Finished build of ceresync:"
+echo ""
+find $DIR -name \*.deb
+echo ""
 echo "You might want to enter $BUILDDIR and run ubuntu-mirror-add..."
 
 
