@@ -50,10 +50,11 @@ if [ "$REV" == "latest" ]; then
 echo "Downloading source for: $VER, latest revision"
     svn co -q $URL
     if [ "$TRUNK" == "1" ]; then
-        mv cerebrum/cerebrum trunk
-        rm -rf cerebrum
+        mv trunk/cerebrum cerebrum
+        rm -rf trunk
+    else
+        mv * cerebrum
     fi
-    mv * cerebrum
     pushd cerebrum >/dev/null 2>&1
     REV=`svn log --limit 1 | awk '/^r[0-9]+/ {print substr($1,2); exit}'`
     popd >/dev/null 2>&1
@@ -62,7 +63,7 @@ else
     echo "Downloadig source for $VER-$REV"
     svn co $URL -r $REV -q
 fi
-mv * ../cerebrum-ntnu-$VER-$REV
+mv * cerebrum-ntnu-$VER-$REV
 popd >/dev/null 2>&1
 echo "Source downloaded into $TEMPDIR/cerebrum-ntnu-$VER-$REV"
 
