@@ -49,6 +49,11 @@ pushd $TEMPDIR >/dev/null 2>&1
 if [ "$REV" == "latest" ]; then
 echo "Downloading source for: $VER, latest revision"
     svn co -q $URL
+    if [ "$TRUNK" == "1" ]; then
+        mv cerebrum/cerebrum trunk
+        rm -rf cerebrum
+    fi
+    mv * cerebrum
     pushd cerebrum >/dev/null 2>&1
     REV=`svn log --limit 1 | awk '/^r[0-9]+/ {print substr($1,2); exit}'`
     popd >/dev/null 2>&1
