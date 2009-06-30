@@ -1,7 +1,15 @@
 from mx.DateTime import DateTime
-from lib.data.MemberDTO import MemberDTO
+from lib.data.EntityDTO import EntityDTO
+from lib.data.AccountDTO import AccountDTO
 from lib.data.GroupDTO import GroupDTO
+from lib.data.DTO import DTO
 
+posix_account_id = 355252
+posix_account_primary_group_id = 354983
+nonposix_account_id = 354991
+nonposix_account_owner_id = 354985
+nonposix_account_creator_id = 2
+affiliated_account_id = 123397
 account_cetest1 = 354991
 large_group_id = 149
 posix_group_id = 354983
@@ -13,20 +21,72 @@ notes_group_id = 354992
 spread_group_id = 354992
 
 def get_test_testesen():
-    dto = MemberDTO()
+    dto = EntityDTO()
     dto.id = 354985
     dto.name = 'Test Testesen'
     dto.type_name = 'person'
-    dto.has_owner = False
     return dto
 
-def get_cetest1():
-    dto = MemberDTO()
-    dto.id = 354991
+def get_nonposix_account_dto():
+    dto = AccountDTO()
+    dto.id = nonposix_account_id
     dto.name = 'cetest1'
     dto.type_name = 'account'
-    dto.has_owner = True
-    dto.owner = get_test_testesen()
+    dto.expire_date = DateTime(3000, 1, 1)
+    dto.create_date = DateTime(2009, 6, 11)
+
+    return dto
+
+def get_posix_account_dto():
+    dto = AccountDTO()
+    dto.id = posix_account_id
+    dto.name = 'ctestpos'
+    dto.type_name = 'account'
+    dto.is_posix = True
+    dto.posix_uid = 1048736
+    dto.create_date = DateTime(2009, 6, 24)
+    dto.gecos = "Test Testesen"
+    dto.shell = "false"
+    return dto
+
+def get_affiliation_account_dto():
+    dto = DTO()
+    dto.priority = 312
+    dto.type_name = "STUDENT"
+
+    dto.ou = EntityDTO()
+    dto.ou.id = 60
+    dto.ou.name = "Institutt for elektronikk og telekommunikasjon"
+    dto.ou.type_name = "ou"
+    return dto
+
+def get_nonposix_account_owner_dto():
+    dto = EntityDTO()
+    dto.id = nonposix_account_owner_id
+    dto.name = 'Test Testesen'
+    dto.type_name = 'person'
+    return dto
+    
+def get_nonposix_account_creator_dto():
+    dto = EntityDTO()
+    dto.id = nonposix_account_creator_id
+    dto.name = 'bootstrap_account'
+    dto.type_name = 'account'
+    return dto
+
+def get_posix_account_primary_group_dto():
+    dto = EntityDTO()
+    dto.id = posix_account_primary_group_id
+    dto.name = 'test_posix'
+    dto.type_name = "group"
+    return dto
+    
+
+def get_cetest1():
+    dto = EntityDTO()
+    dto.id = account_cetest1
+    dto.name = 'cetest1'
+    dto.type_name = 'account'
     return dto
 
 def get_fake_posix_group():
@@ -36,7 +96,7 @@ def get_fake_posix_group():
     dto.description = 'Group used in cereweb-tests'
 
     dto.create_date = DateTime(2009, 6, 11)
-    dto.members = [get_cetest1()]
+    dto.members = []
 
     dto.posix_gid = 1002
     dto.is_posix = True

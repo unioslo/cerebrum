@@ -23,14 +23,14 @@ import unittest
 from mx.DateTime import DateTime
 import cerebrum_path
 from Cerebrum import Utils
-from lib.data import ConstantsDAO
+from lib.data.ConstantsDAO import ConstantsDAO
 Constants = Utils.Factory.get("Constants")
 
 class ConstantsDAOTest(unittest.TestCase):
     """We test against the test-database and we use the fabricated person Test Testesen to verify that we get the expected data."""
 
     def test_get_group_visibilities(self):
-        visibilities = ConstantsDAO.get_group_visibilities()
+        visibilities = ConstantsDAO().get_group_visibilities()
         
         self.assert_(visibilities)
         for v in visibilities:
@@ -38,11 +38,11 @@ class ConstantsDAOTest(unittest.TestCase):
             self.assert_(v.description)
 
     def test_get_group_spreads(self):
-        spreads = ConstantsDAO.get_group_spreads()
+        spreads = ConstantsDAO().get_group_spreads()
         self.assert_(spreads)
 
     def test_get_email_target_types(self):
-        types = ConstantsDAO.get_email_target_types()
+        types = ConstantsDAO().get_email_target_types()
         self.assert_(types)
 
 if __name__ == '__main__':

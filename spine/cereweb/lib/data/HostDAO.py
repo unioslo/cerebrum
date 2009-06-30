@@ -7,12 +7,6 @@ Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")
 from Cerebrum.modules import Email
 
-def get_email_servers():
-    return HostDAO().get_email_servers()
-
-def get_email_targets(entity_id):
-    return HostDAO().get_email_targets(entity_id)
-
 class HostDAO(object):
     def __init__(self, db=None):
         if db is None:

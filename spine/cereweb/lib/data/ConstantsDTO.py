@@ -7,8 +7,3 @@ class ConstantsDTO(DTO):
             self.name = constant.str
             self.description = constant.description
 
-    __slots__ = [
-        'id',
-        'name',
-        'description',
-    ]

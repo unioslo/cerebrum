@@ -23,15 +23,10 @@
 
 import unittest
 
-modules = [
-    'AccountDAOTest',
-    'ConstantsDAOTest',
-    'DiskDAOTest',
-    'EntityDAOTest',
-    'GroupDAOTest',
-    'HistoryDAOTest',
-    'HostDAOTest',
-    'PersonDAOTest',
+import Run
+
+modules = Run.modules + [
+    'SlowTest',
 ]
 
 # When this module is executed from the command-line, run all its tests

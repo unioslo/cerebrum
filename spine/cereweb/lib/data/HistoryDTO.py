@@ -10,12 +10,3 @@ class HistoryDTO(DTO):
         self.message = event_type.type
         self.category = event_type.category
         self.timestamp = event['tstamp']
-        
-    __slots__ = [
-        'id',
-        'type',
-        'creator',
-        'message',
-        'category',
-        'timestamp',
-    ]

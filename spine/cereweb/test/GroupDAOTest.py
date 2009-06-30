@@ -21,7 +21,7 @@
 
 import unittest
 from mx.DateTime import DateTimeType
-from lib.data import GroupDAO
+from lib.data.GroupDAO import GroupDAO
 from lib.data.GroupDTO import GroupDTO
 import cerebrum_path
 from Cerebrum import Utils
@@ -31,41 +31,50 @@ import TestData
 
 class GroupDAOTest(unittest.TestCase):
     """We test against the test-database and we use 4 fabricated groups with 4 fabricated members that have 1 fabricated owners."""
+    def setUp(self):
+        self.dao = GroupDAO()
 
-    def test_get_large_group_by_id(self):
-        """This was a bootstrap test, but is now used to get a feel for
-        the performance of the DAOs."""
-        group = GroupDAO.get(TestData.large_group_id, include_members=True)
-        self.assert_(group.id == TestData.large_group_id)
-
-    def test_get_shallow_large_group(self):
-        group = GroupDAO.GroupDAO().get_shallow(TestData.large_group_id)
+    def test_get_entity(self):
+        group = self.dao.get_entity(TestData.large_group_id)
         self.assert_(group.id == TestData.large_group_id)
 
     def test_get_group_by_name(self):
-        group = GroupDAO.get_by_name(TestData.posix_group_name)
+        group = self.dao.get_by_name(TestData.posix_group_name)
         self.assert_(group.id == TestData.posix_group_id)
 
     def test_posix_group_has_correct_data(self):
         expected = TestData.get_fake_posix_group()
 
-        group = GroupDAO.get(TestData.posix_group_id, include_members=True)
+        group = self.dao.get(TestData.posix_group_id, include_extra=True)
+        group.members = []
 
         self.assertEqual(expected, group)
 
+    def test_posix_group_has_cetest1_as_member(self):
+        expected = TestData.get_cetest1()
+        
+        group = self.dao.get(TestData.posix_group_id, include_extra=True)
+
+        found = False
+        for member in group.members:
+            found |= member == expected
+        
+        self.assert_(found)
+        
+
     def test_expired_posix_group_is_expired(self):
-        group = GroupDAO.get(TestData.expired_group_id)
+        group = self.dao.get(TestData.expired_group_id)
 
         self.assert_(group.is_expired)
 
     def test_non_posix_group_has_gid_neg1(self):
-        group = GroupDAO.get(TestData.nonposix_group_id)
+        group = self.dao.get(TestData.nonposix_group_id)
 
         self.assertEqual(-1, group.posix_gid)
         self.assertFalse(group.is_posix)
 
     def test_quarantines(self):
-        group = GroupDAO.get(TestData.quarantined_group_id)
+        group = self.dao.get(TestData.quarantined_group_id)
 
         for q in group.quarantines:
             self.assert_(q.type_name in ("sperret", "remote", "slutta", "svakt_passord"))
@@ -78,7 +87,7 @@ class GroupDAOTest(unittest.TestCase):
                 self.assertValidDate(date)
 
     def test_notes(self):
-        group = GroupDAO.get(TestData.notes_group_id)
+        group = self.dao.get(TestData.notes_group_id)
         
         for note in group.notes:
             self.assert_(note.id >= 0)
@@ -90,7 +99,7 @@ class GroupDAOTest(unittest.TestCase):
             self.assert_(note.description)
 
     def test_spreads(self):
-        group = GroupDAO.get(TestData.spread_group_id)
+        group = self.dao.get(TestData.spread_group_id, include_extra=True)
 
         self.assert_(len(group.spreads) == 1)
         for spread in group.spreads:
@@ -98,7 +107,18 @@ class GroupDAOTest(unittest.TestCase):
             self.assert_(spread.description)
 
     def test_get_nonexisting_throws_NotFoundException(self):
-        self.assertRaises(NotFoundError, GroupDAO.get, -1)
+        self.assertRaises(NotFoundError, self.dao.get, -1)
+
+    def test_get_entities_for_account(self):
+        expected = TestData.get_posix_account_primary_group_dto()
+        groups = self.dao.get_entities_for_account(TestData.posix_account_id)
+
+        found = False
+        for group in groups:
+            found |= group == expected
+        
+        self.assert_(found)
+        
 
     def assertValidDate(self, date):
         self.assert_(date is None or isinstance(date, DateTimeType))
@@ -108,7 +128,7 @@ class GroupDaoWriteTest(unittest.TestCase):
         self.db = Database()
         self.db.change_program = "unit test"
         self.db.change_by = 2
-        self.dao = GroupDAO.GroupDAO(self.db)
+        self.dao = GroupDAO(self.db)
 
     def tearDown(self):
         self.db.rollback()
@@ -176,9 +196,9 @@ class GroupDaoWriteTest(unittest.TestCase):
 
     def _group_has_member(self, group_id, account_id, db=None):
         if db is None:
-            group = GroupDAO.get(group_id, include_members=True)
+            group = GroupDAO().get(group_id, include_extra=True)
         else:
-            group = GroupDAO.GroupDAO(db).get(group_id, include_members=True)
+            group = GroupDAO(db).get(group_id, include_extra=True)
 
         for member in group.members:
             if member.id == account_id:

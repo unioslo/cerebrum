@@ -398,7 +398,7 @@
         <h3>$_('Join group')</h3>
         <form action="/group/join_group" method="post">
             <div class="hidden">
-                <input type="hidden" name="entity" value="$html_quote($entity.get_id())" />
+                <input type="hidden" name="entity_id" value="$html_quote($entity.get_id())" />
             </div>
             <div class="required">
                 $form_widgets.input('name', 'Group name', $klass="ac_group")

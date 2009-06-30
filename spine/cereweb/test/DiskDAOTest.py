@@ -20,31 +20,15 @@
 #
 
 import unittest
-from mx.DateTime import DateTime
-import cerebrum_path
-from lib.data.HistoryDAO import HistoryDAO
+from lib.data.DiskDAO import DiskDAO
 
-group_id = 149
-class HistoryDAOTest(unittest.TestCase):
-    def test_get_entity_history(self):
-        events = HistoryDAO().get_entity_history(group_id)
+class DiskDAOTest(unittest.TestCase):
+    def setUp(self):
+        self.dao = DiskDAO()
 
-        count = 0
-        for event in events:
-            count += 1
-            self.assert_(event.type in (
-                "add",
-                "del",
-                "delete",
-                "rem",
-                "mod",
-                "create",
-                "group-promote"), event.type)
-            self.assert_(event.creator != 'unknown')
-            self.assert_(event.message)
-            self.assert_(event.category)
-            self.assert_(event.timestamp)
-        self.assert_(count > 0)
+    def test_get_disks(self):
+        disks = DiskDAO().get_disks()
+        self.assert_(len(disks) == 12)
 
 if __name__ == '__main__':
     unittest.main()

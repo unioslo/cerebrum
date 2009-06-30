@@ -20,31 +20,15 @@
 #
 
 import unittest
-from mx.DateTime import DateTime
-import cerebrum_path
-from lib.data.HistoryDAO import HistoryDAO
+from lib.data.GroupDAO import GroupDAO
+import TestData
 
-group_id = 149
-class HistoryDAOTest(unittest.TestCase):
-    def test_get_entity_history(self):
-        events = HistoryDAO().get_entity_history(group_id)
-
-        count = 0
-        for event in events:
-            count += 1
-            self.assert_(event.type in (
-                "add",
-                "del",
-                "delete",
-                "rem",
-                "mod",
-                "create",
-                "group-promote"), event.type)
-            self.assert_(event.creator != 'unknown')
-            self.assert_(event.message)
-            self.assert_(event.category)
-            self.assert_(event.timestamp)
-        self.assert_(count > 0)
+class SlowTest(unittest.TestCase):
+    def test_get_large_group_by_id(self):
+        """This was a bootstrap test, but is now used to get a feel for
+        the performance of the DAOs."""
+        group = GroupDAO().get(TestData.large_group_id, include_extra=True)
+        self.assert_(group.id == TestData.large_group_id)
 
 if __name__ == '__main__':
     unittest.main()

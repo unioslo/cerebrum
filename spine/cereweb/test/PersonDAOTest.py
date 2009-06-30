@@ -23,7 +23,7 @@ import unittest
 from mx.DateTime import DateTime
 import cerebrum_path
 from Cerebrum import Utils
-from lib.data import PersonDAO
+from lib.data.PersonDAO import PersonDAO
 
 import TestData
 
@@ -31,10 +31,10 @@ class PersonDAOTest(unittest.TestCase):
     """We test against the test-database and we use the fabricated person Test Testesen to verify that we get the expected data."""
 
     def test_person_has_correct_data(self):
-        group = PersonDAO.get(354985)
+        entity = PersonDAO().get_entity(354985)
         expected = TestData.get_test_testesen()
 
-        self.assertEqual(expected, group)
+        self.assertEqual(expected, entity)
 
 if __name__ == '__main__':
     unittest.main()

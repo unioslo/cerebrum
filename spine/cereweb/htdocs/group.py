@@ -36,13 +36,13 @@ from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 from Cerebrum.Errors import NotFoundError
 
-from lib.data.MemberFactory import MemberFactory
-from lib.data import AccountDAO
-from lib.data import GroupDAO
-from lib.data import EntityDAO
-from lib.data import HistoryDAO
-from lib.data import ConstantsDAO
-from lib.data import HostDAO
+from lib.data.EntityFactory import EntityFactory
+from lib.data.AccountDAO import AccountDAO
+from lib.data.GroupDAO import GroupDAO
+from lib.data.EntityDAO import EntityDAO
+from lib.data.HistoryDAO import HistoryDAO
+from lib.data.ConstantsDAO import ConstantsDAO
+from lib.data.HostDAO import HostDAO
 from lib.data.GroupDTO import GroupDTO
 
 def search_form(remembered):
@@ -73,13 +73,14 @@ index = search
 def view(id, **vargs):
     """Creates a page with the view of the group with the given id."""
     page = GroupViewTemplate()
-    page.group = GroupDAO.get(id, include_members=True)
-    page.group.history = HistoryDAO.get_entity_history(id)
-    page.visibilities = ConstantsDAO.get_group_visibilities()
-    page.spreads = ConstantsDAO.get_group_spreads()
-    page.email_target_types = ConstantsDAO.get_email_target_types()
-    page.email_servers = HostDAO.get_email_servers()
-    page.targets = HostDAO.get_email_targets(id)
+    page.group = GroupDAO().get(id, include_extra=True)
+    page.group.traits = []
+    page.group.history = HistoryDAO().get_entity_history_tail(id)
+    page.visibilities = ConstantsDAO().get_group_visibilities()
+    page.spreads = ConstantsDAO().get_group_spreads()
+    page.email_target_types = ConstantsDAO().get_email_target_types()
+    page.email_servers = HostDAO().get_email_servers()
+    page.targets = HostDAO().get_email_targets(id)
     
     return page.respond()
 view.exposed = True
@@ -87,12 +88,12 @@ view.exposed = True
 @session_required_decorator
 def join_group(entity_id, group_name, selected_id=None, **kwargs):
     db = get_database()
-    dao = GroupDAO.GroupDAO(db)
+    dao = GroupDAO(db)
 
-    if not selected_id:
+    if selected_id is None:
         selected_id = get_selected_id(group_name, 'group')
 
-    if not selected_id:
+    if selected_id is None:
         msg = _("Group '%s' not found") % group_name
         queue_message(msg, True, entity_link(entity_id), title="Not Found")
         redirect_entity(entity_id)
@@ -118,7 +119,7 @@ def add_member(group_id, member_name, member_type, selected_id=None, **kwargs):
         queue_message(msg, True, entity_link(group_id), title="Not Found")
         redirect_entity(group_id)
 
-    GroupDAO.GroupDAO(db).add_member(selected_id, group_id)
+    GroupDAO(db).add_member(selected_id, group_id)
     db.commit()
 
     msg = _("%s added as a member to group.") % member_name
@@ -129,8 +130,8 @@ add_member.exposed = True
 @session_required_decorator
 def remove_member(group_id, member_id):
     db = get_database()
-    member = EntityDAO.get(member_id)
-    GroupDAO.GroupDAO(db).remove_member(group_id, member_id)
+    member = EntityDAO(db).get(member_id)
+    GroupDAO(db).remove_member(group_id, member_id)
     db.commit()
 
     msg = _("%s removed from group.") % member.name
@@ -141,7 +142,7 @@ remove_member.exposed = True
 def get_database():
     db = Database()
     user = cherrypy.session.get("username")
-    acc = AccountDAO.get_by_name(user)
+    acc = AccountDAO().get_by_name(user)
     db.change_by = acc.id
     return db
 
@@ -171,7 +172,7 @@ def save(id, name, expire, description, visi, gid=None):
         return redirect_entity(group.id)
 
     db = get_database()
-    dao = GroupDAO.GroupDAO(db)
+    dao = GroupDAO(db)
     group = dao.get_shallow(id)
     populate(group, name, description, expire, visibility=visi)
     populate_posix(group, gid)
@@ -198,7 +199,7 @@ def make(name, description, expire):
     populate(group, name, description, expire)
 
     db = get_database()
-    GroupDAO.GroupDAO(db).add(group)
+    GroupDAO(db).add(group)
     db.commit()
     
     if not valid:
@@ -213,7 +214,7 @@ make.exposed = True
 @session_required_decorator
 def posix_promote(id):
     db = get_database()
-    GroupDAO.GroupDAO(db).promote_posix(id)
+    GroupDAO(db).promote_posix(id)
     db.commit()
     
     msg = _("Group successfully promoted to posix.")
@@ -224,7 +225,7 @@ posix_promote.exposed = True
 @session_required_decorator
 def posix_demote(id):
     db = get_database()
-    GroupDAO.GroupDAO(db).demote_posix(id)
+    GroupDAO(db).demote_posix(id)
     db.commit()
 
     msg = _("Group successfully demoted from posix.")
@@ -236,8 +237,8 @@ posix_demote.exposed = True
 def delete(id):
     """Delete the group from the server."""
     db = get_database()
-    dao = GroupDAO.GroupDAO(db)
-    group = dao.get_shallow(id)
+    dao = GroupDAO(db)
+    group = dao.get_entity(id)
     dao.delete(id)
     db.commit()
 
@@ -281,12 +282,9 @@ def validate(name, description, expire):
     return True, ""
 
 def get_selected_id(entity_name, entity_type_name):
-    dao = MemberFactory().get_dao_by_name(entity_type_name)
-
     try:
-        entity = dao.get_by_name(entity_name)
+        entity = EntityFactory().create_by_name(entity_type_name, entity_name)
+        return entity.id
     except NotFoundError, e:
         return None
-
-    return entity.id
 

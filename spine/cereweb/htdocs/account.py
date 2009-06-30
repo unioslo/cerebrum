@@ -30,6 +30,14 @@ from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from SpineIDL.Errors import NotFoundError, IntegrityError, PasswordGoodEnoughException
 
+from lib.data.AccountDAO import AccountDAO
+from lib.data.ConstantsDAO import ConstantsDAO
+from lib.data.DiskDAO import DiskDAO
+from lib.data.GroupDAO import GroupDAO
+from lib.data.HistoryDAO import HistoryDAO
+from lib.data.HostDAO import HostDAO
+from lib.data.PersonDAO import PersonDAO
+
 def _get_links():
     return (
         ('search', _('Search')),
@@ -143,19 +151,22 @@ def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_da
             rollback_url(referer, 'Password is not strong enough. Account is not created.', err=True)
     commit(transaction, account, msg=_("Account successfully created."))
 
-def view(transaction, id, **vargs):
-    """Creates a page with a view of the account given by id."""
-    account = transaction.get_account(int(id))
+@session_required_decorator
+def view(id, **kwargs):
     page = AccountViewTemplate()
-    page.title = _("Account %s") % spine_to_web(account.get_name())
-    page.links = _get_links()
-    page.set_focus("account/view")
-    page.links = _get_links()
-    page.entity = account
-    page.entity_id = account.get_id()
-    page.tr = transaction
+    page.account = AccountDAO().get(id)
+    page.account.traits = []
+    page.account.history = HistoryDAO().get_entity_history_tail(id)
+    page.affiliations = PersonDAO().get_affiliations(page.account.owner.id)
+    page.shells = ConstantsDAO().get_shells()
+    page.groups = GroupDAO().get_entities_for_account(id)
+    page.disks = DiskDAO().get_disks()
+    page.email_target_types = ConstantsDAO().get_email_target_types()
+    page.email_servers = HostDAO().get_email_servers()
+    page.targets = HostDAO().get_email_targets(id)
+    page.spreads = ConstantsDAO().get_user_spreads()
+
     return page.respond()
-view = transaction_decorator(view)
 view.exposed = True
 
 def form_edit(form, message=None):
@@ -490,5 +501,3 @@ def print_contract(transaction, id, lang):
         rollback_url(referer, 'Could not make a contract.', err=True)
 print_contract = transaction_decorator(print_contract)
 print_contract.exposed = True
-    
-# arch-tag: 4e19718e-008b-4939-861a-12bd272048df

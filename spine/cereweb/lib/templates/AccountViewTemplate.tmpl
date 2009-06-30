@@ -16,153 +16,124 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, strftime, html_quote, url_quote
-#from lib.utils import remember_link, spine_to_web
-#from lib.utils import get_lastname_firstname
-#from EmailTargetTemplate import EmailTargetTemplate
-#from FormWidgets import FormWidgets
-#from Widgets import Widgets
-#extends EntityViewTemplate
+#extends NewEntityViewTemplate
 
-#attr $email_template = EmailTargetTemplate()
-#attr $form_widgets = FormWidgets()
+#from lib.utils import spine_to_web
+#from lib.utils import quotedate
+#from lib.utils import url_quote
+#from lib.utils import entity_link
+
+#from Widgets import Widgets
 #attr $widgets = Widgets()
 
-#def viewActions($account)
-    #set $id = $url_quote($account.get_id())
+#from FormWidgets import FormWidgets
+#attr $form_widgets = FormWidgets()
+
+#attr $page = "account"
+#attr $link = "view"
+
+#def title()
+    #return $_('Account %s') % $spine_to_web($account.name)
+#end def
+
+#def links()
+    #return (
+        ('search', $_('Search')),
+        ('create', $_('Create')),
+    )
+#end def
+
+#def actions()
+<div id="actions">
+    <h3>$_('Actions')</h3>
     <ul>
-        ##<li><a href="/account/edit?id=$id">$_("edit info")</a></li>
-        <li><a href="/confirm/account/delete?id=$id">$_("Delete account")</a></li>
-        #if $account.is_posix()
-        <li><a href="/account/posix_demote?id=$id">$_("Demote from posix")</a></li>
+        <li><a href="/confirm/account/delete?id=$account.id">$_("Delete account")</a></li>
+        #if $account.is_posix
+            <li><a href="/account/posix_demote?id=$account.id">$_("Demote from posix")</a></li>
         #else
-        <li><a href="/account/posix_promote?id=$id">$_("Promote to posix")</a></li>
+            <li><a href="/account/posix_promote?id=$account.id">$_("Promote to posix")</a></li>
         #end if
-        <li><a href="/quarantine/add?entity=$id">$_('Add quarantine')</a></li>
-        <li><a href="/entity/full_historylog?id=$id">$_('View full history log')</a> </li>
-        <li>$remember_link($account)</li>
+        <li><a href="/quarantine/add?entity=$account.id">$_('Add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$account.id">$_('View full history log')</a> </li>
     </ul>
-#end def
-
-## Main method for creating the view of accounts.
-#def content()
-    $editAccount($tr, $entity)
-    $viewInfo($entity)
-    ## $printDialog($entity)
-    $viewQuarantines($entity)
-    $addNote($entity)
-    $viewNotes($entity)
-    $viewGroups($entity)
-    $joinGroup($entity)
-    $viewAffiliation($entity)
-    $addAffiliation($entity, $tr)
-    #if $tr.get_commands().has_extention("email")
-        $email_template.set($entity, $tr)
-        $email_template.view($entity, $tr)
-    #end if
-    $viewPasswords($entity)
-    $viewTraits($entity)
-    $setHomeDirectory($entity, $tr)
-    $viewHomeDirectories($entity)
-    $addSpread($entity, $tr)
-    $viewSpreads($entity)
-    $viewHistoryLog($entity)
-#end def
-
-#def viewInfo($account)
-#set $info = []
-#set $notice = []
-#if $account.is_quarantined()
-    $notice.append($_("This account has been quaranteened"))
-#end if
-#if $account.is_expired()
-    $notice.append($_("This account has expired."))
-#end if
-
-$info.append(($_('Name'), $spine_to_web($account.get_name())))
-$info.append(($_('Owned by'), $object_link($account.get_owner())))
-
-$info.append(($_('Expire date'), $html_quote($strftime($account.get_expire_date()))))
-$info.append(($_('Date created'), $html_quote($strftime($account.get_create_date()))))
-#set $creator_name = spine_to_web(account.get_creator().get_name())
-$info.append(($_('Created by'), $object_link($account.get_creator(), text=creator_name)))
-#if $account.is_posix()
-    $info.append(($_('UID'), $html_quote($account.get_posix_uid())))
-    #set $group_name = $spine_to_web($account.get_primary_group().get_name())
-    $info.append(($_('Primary group'), $object_link($account.get_primary_group(), text=$group_name)))
-    $info.append(($_('Gecos'), $spine_to_web($account.get_gecos())))
-    $info.append(($_('Shell'), $spine_to_web(account.get_shell().get_name())))
-#end if
-$info.append(($_('Description'), $spine_to_web($account.get_description())))
-$widgets.viewInfo($info, $notice)
-#end def
-
-#def printDialog($account)
-#set $langs= [ ('no', 'Norwegian'),('en', 'English')]
-<div class="edit box">
-    <h3>$_('Print contract')</h3>
-        <form action="print_contract" method="post">
-            <div>
-            <input type="hidden" name="id" value="$html_quote($account.get_id())" />
-            <div>
-                $form_widgets.generate_loption("lang", "Language", $langs)
-            </div>
-            <div class="buttons">
-            <input type="submit" value="$_('Print')" />
-            <input type="button" value="$_('Cancel')" class="cancel" />
-            </div>
-            </div>
-        </form>
 </div>
 #end def
 
-#def editAccount($tr, $account)
+#def content()
+    $editAccount($account)
+    $viewInfo($account)
+    ## $printDialog($account)
+    $viewQuarantines($account)
+    $addNote($account)
+    $viewNotes($account)
+    $viewGroups($account)
+    $joinGroup($account)
+    $viewAffiliation($account)
+    $addAffiliation($account)
+    $setEmail($account)
+    $viewEmail($account)
+    $viewPasswords($account)
+    $setPassword($account)
+    $viewTraits($account)
+    $setHomeDirectory($account)
+    $viewHomeDirectories($account)
+    $addSpread($account)
+    $viewSpreads($account)
+    $viewHistoryLog($account)
+#end def
+
+#def viewInfo($account)
+    #set $info = []
+    #set $notice = []
+
+    #if $account.is_quarantined
+        $notice.append($_("This account has been quaranteened"))
+    #end if
+
+    #if $account.is_expired
+        $notice.append($_("This account has expired."))
+    #end if
+
+    $info.append(($_('Name'), $spine_to_web($account.name)))
+    $info.append(($_('Owned by'), $entity_link($account.owner)))
+    $info.append(($_('Expire date'), $quotedate($account.expire_date)))
+    $info.append(($_('Date created'), $quotedate($account.create_date)))
+    $info.append(($_('Created by'), $entity_link($account.creator)))
+
+    #if $account.is_posix
+        $info.append(($_('UID'), $account.posix_uid))
+        $info.append(($_('Primary group'), $entity_link($account.primary_group)))
+        $info.append(($_('Gecos'), $spine_to_web($account.gecos)))
+        $info.append(($_('Shell'), $spine_to_web($account.shell)))
+    #end if
+
+    $widgets.viewInfo($info, $notice)
+#end def
+
+#def editAccount($account)
     <div class="edit box" style="display:none;">
         <h3>$_('Edit info')</h3>
         <form action="/account/save" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$html_quote($account.get_id())" />
+                <input type="hidden" name="id" value="$account.id" />
             </div>
             <div class="optional">
-                #set $expire_date = $account.get_expire_date()
-                #if $expire_date
-                    #set $expire_date = $html_quote($expire_date.strftime('%Y-%m-%d'))
-                #else
-                    #set $expire_date = $_('')
-                #end if
                 <label for="expire_date">Expire date:</label>
-                <input  type="text" name="expire_date" id="expire_date" value="$expire_date" />
+                <input  type="text" name="expire_date" id="expire_date" value="$quotedate($account.expire_date)" />
             </div>
-            <div class="optional">
-                #set $description = $account.get_description()
-                #if $description
-                    #set $description = $spine_to_web($description)
-                #else
-                    #set $description = $_('')
-                #end if
-                <label for="description">Description:</label>
-                <input type="text" name="description" id="description" value="$description" />
-            </div>
-            #if $account.is_posix()
-                #set $group_id = $account.get_primary_group().get_id()
-                #set $gecos = $spine_to_web($account.get_gecos())
-                #set $shell = $account.get_shell().get_name()
-                #set $shells = [($i.get_name(), $i.get_name()) for $i in $tr.get_posix_shell_searcher().search()]
-                #set $groups = []
-                #for $g in $account.get_groups()
-                    #if $g.is_posix()
-                        $groups.append(($g.get_id(), $g.get_name))
-                    #end if
-                #end for
+            #if $account.is_posix
+                #set $shells = [($s.name, $s.name) for $s in $shells]
+                #set $groups = [($g.id, $g.name) for $g in $groups]
+
                 <div class="required">
-                 $form_widgets.generate_loption($_('group'), $_('Primary group'), $groups, $group_id)
+                     $form_widgets.generate_loption($_('group'), $_('Primary group'), $groups, $account.primary_group.id)
                 </div>
                 <div class="optional">
                     <label for="gecos">Gecos:</label>
-                    <input class="optional" type="text" name="gecos" id="gecos" value="$gecos"/>
+                    <input class="optional" type="text" name="gecos" id="gecos" value="$spine_to_web($account.gecos)"/>
                 </div>
                 <div class="required">
-                    $form_widgets.generate_loption($_('shell'), $_('Shell'), $shells, $shell)
+                    $form_widgets.generate_loption($_('shell'), $_('Shell'), $shells, $account.shell)
                 </div>
             #end if
             <div class="buttons">
@@ -173,180 +144,131 @@ $widgets.viewInfo($info, $notice)
     </div>
 #end def
 
-#def viewPasswords($account)
-#set $auths = $account.get_authentications()
-#if $auths
-<div class="info box">
-    <h3>$_('Current authentication types')</h3>
-    #for $auth in $auths
-    <div class="item">
-        $spine_to_web($auth.get_method().get_name())
+#def viewAffiliation($account)
+    #if $account.affiliations
+    <div class="info box">
+        <h3>$_('Affiliations')</h3>
+        <table>
+            <tr class="headers">
+                <th>$_('Affiliation')</th>
+                <th>$_('OU')</th>
+                <th>$_('Priority')</th>
+                <th>$_('Actions')</th>
+            </tr>
+            #for $affil in $account.affiliations
+                <tr class="item">
+                    <td>$spine_to_web($affil.type_name)</td>
+                    <td>$entity_link($affil.ou)</td>
+                    <td>$spine_to_web($affil.priority)</td>
+                    <td class="actions">
+                        #set $args = "id=%s&amp;ou=%s&amp;affil=%s" % (
+                            $account.id,
+                            $affil.ou.id,
+                            $url_quote($affil.type_name))
+                        <a class="action" href="/confirm/account/remove_affil?$args">$_('delete')</a>
+                    </td>
+                </tr>
+            #end for
+        </table>
     </div>
-    #end for
-</div>
-#end if
+    #end if
+#end def
+
+#def addAffiliation($account)
+    #if not $affiliations
+        #return
+    #end if
+
+    #set $aff_list = [($spine_to_web("%s:%s" % ($a.type_name, $a.ou.id)),
+                       $spine_to_web("%s:%s" % ($a.type_name, $a.ou.name))) for $a in $affiliations]
+
+    <div class="edit box" style="display:none;">
+        <h3 id="affil">$_('Add an affiliation')</h3>
+        <form action="add_affil" method="post">
+            <div class="hidden">
+                <input type="hidden" name="id" value="$account.id" />
+            </div>
+            <div class="required">
+                $form_widgets.generate_loption("aff_ou", "Affiliation", $aff_list)
+            </div>
+            <div class="required">
+                $form_widgets.input("priority", "Priority")
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Add')" />
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
+#end def
+
+#def viewPasswords($account)
+    #if not $account.authentications
+        #return
+    #end if
+
+    <div class="info box">
+        <h3>$_('Current authentication types')</h3>
+        #for $auth in $account.authentications
+        <div class="item">
+            $spine_to_web($auth.methodname)
+        </div>
+        #end for
+    </div>
 #end def
 
 #def setPassword($account)
 <div class="edit box">
     <h3>$_('Set Password')</h3>
-    $form_widgets.changePassword($html_quote($account.get_id()))
+    $form_widgets.changePassword($account.id)
 </div>
-#end def
-
-#def viewGroups($account)
-<div class="info box">
-    <h3>$_('Groups')</h3>
-    <form action="groups" method="post">
-        $listGroups($account)
-        <div>
-        <input type="hidden" name="account_id" value="$html_quote($account.get_id())" />
-        #if not $account.get_groups()
-        $_('Account is not member of any groups')<br />
-        #else
-        <input type="submit" name="leave" value="$_('Leave group(s)')" />&#x0020;
-        #end if
-        <input type="submit" name="create" value="$_('Create a group')" />
-        <a href="#joinGroupBox">Join existing group</a>
-        </div>
-    </form>
-</div>
-#end def
-
-#def viewAffiliation($account)
-#set $affils = $account.get_affiliations()
-#if $affils
-<div class="info box">
-    <h3>$_('Affiliations')</h3>
-    <table>
-    <tr class="headers">
-    <th>$_('Affiliation')</th>
-    <th>$_('OU')</th>
-    <th>$_('Priority')</th>
-    <th>$_('Actions')</th>
-    </tr>
-    #for $affil in $account.get_affiliations()
-        #set $ou = $affil.get_ou()
-        #set $ou_link_text = $spine_to_web($ou.get_name())
-        #set $affil_type = $affil.get_affiliation()
-        #set $priority = $affil.get_priority()
-        #set $affil_type_name = $spine_to_web($affil_type.get_name())
-        <tr class="item">
-        <td>$affil_type_name</td>
-        <td>$object_link($ou, text=$ou_link_text)</td>
-        <td>$spine_to_web($priority)</td>
-        <td class="actions">
-        #set $args = "id=%s&amp;ou=%s&amp;affil=%s" % (
-            $url_quote($account.get_id()),
-            $url_quote($ou.get_id()),
-            $url_quote($affil_type_name))
-        <a class="action" href="/confirm/account/remove_affil?$args">$_('delete')</a>
-        </td>
-        </tr>
-    #end for
-    </table>
-</div>
-#end if
-#end def
-
-#def addAffiliation($account, $tr)
-#set $owner = $account.get_owner()
-#if $owner and $owner.get_type() == $tr.get_entity_type("person")
-#set $searcher = $tr.get_person_affiliation_searcher()
-#set $foo = $searcher.set_person($owner)
-#set $affs = $searcher.search()
-
-#set $aff_list = []
-#for $i in $affs
-   #set $aff_name = $spine_to_web($i.get_affiliation().get_name())
-   #set $ou_id = $html_quote($i.get_ou().get_id())
-   #set $ou_name = $spine_to_web($i.get_ou().get_name())
-   $aff_list.append(($aff_name + ":" + $ou_id, $aff_name + ":" + $ou_name))
-#end for
-
-## #set $aff_list = [ ("%s:%d" % ($i.get_affiliation().get_name(), $i.get_ou().get_id()), 
-## "%s: %s" % ($i.get_affiliation().get_name(), $i.get_ou().get_name())) for $i in $affs ]
-
-<div class="edit box" style="display:none;">
-    <h3 id="affil">$_('Add an affiliation')</h3>
-    <form action="add_affil" method="post">
-        <div class="hidden">
-            <input type="hidden" name="id" value="$html_quote($account.get_id())" />
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption("aff_ou", "Affiliation", $aff_list)
-        </div>
-        <div class="required">
-            $form_widgets.input("priority", "Priority")
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Add')" />
-            <input type="button" value="$_('Cancel')" class="cancel" />
-        </div>
-    </form>
-    </div>
-#end if
 #end def
 
 #def viewHomeDirectories($account)
-    #set $homes = $account.get_homes()
-    #if $homes
-        #set $id = $account.get_id()
-        <div class="info box">
-            <h3>$_('Home Directories')</h3>
-            #for $home in $homes
-            <div class="item">
-                #set $spread = $home.get_spread()
-                #set $sname = $spread.get_name()
-                #set $remove = 'remove_home?id=%s&amp;spread=%s' % ($url_quote($id), $url_quote($sname))
-		#set $homedir = $home.get_homedir()         
-                
-                <div class="actions">
-                    <a class="action" href="$remove">$_('remove')</a>
-                </div>
-                <span class="name">$_("Spread"):</span> <span class="value">$spine_to_web($sname)</span><br />
-		#set $disk = $homedir.get_disk()
-		#if $disk
-                    #set $disk_and_path = $disk.get_host().get_name() + $_(':') + $disk.get_path()
-                <span class="name">$_("Disk"):</span> <span class="value">$spine_to_web($disk_and_path)</span><br />
-		#end if
-                <span class="name">$_("Home directory"):</span> <span class="value">$spine_to_web($account.get_homepath($spread))</span><br />
-                <span class="name">$_("Status"):</span> <span class="value">$spine_to_web($homedir.get_status().get_description())</span>
-            </div>
-            #end for
-        </div>
+    #if not $account.homes
+        #return
     #end if
+
+    <div class="info box">
+        <h3>$_('Home Directories')</h3>
+        #for $home in $account.homes
+            <div class="item">
+                <div class="actions">
+                    <a class="action" href="remove_home?id=$account.id&amp;spread=$url_quote($home.spread.name)">$_('remove')</a>
+                </div>
+
+                <span class="name">$_("Spread"):</span>
+                <span class="value">$spine_to_web($home.spread.name)</span>
+                <br />
+
+                #if $home.disk
+                    <span class="name">$_("Disk"):</span>
+                    <span class="value">$spine_to_web("%s:%s" % ($home.disk.hostname, $home.disk.path))</span>
+                    <br />
+                #end if
+                <span class="name">$_("Home directory"):</span> <span class="value">$spine_to_web($home.path)</span><br />
+                <span class="name">$_("Status"):</span> <span class="value">$spine_to_web($home.status.description)</span>
+            </div>
+        #end for
+    </div>
 #end def
 
-#def setHomeDirectory($entity, $tr)
-    #set $spreads = []
-    #for $spread in $entity.get_spreads()
-        #set $spread_name = $spine_to_web($spread.get_name())
-        $spreads.append(($spread_name, $spread_name))
-    #end for
-
-    #set $disks = []
-    #set $all_disks = $tr.get_disk_searcher().search()
-    #for $disk in $all_disks
-        #set $hostname = $spine_to_web($disk.get_host().get_name())
-        #set $path = $spine_to_web($disk.get_path())
-        #set $id = $disk.get_id()
-        $disks.append(($html_quote($id), "%s:%s" % ($hostname, $path)))
-    #end for
-            
+#def setHomeDirectory($entity)
     <div class="edit box" style="display:none;">
         <h3>$_('Set home directory')</h3>
         <form action="set_home" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$html_quote($entity.get_id())" />
+                <input type="hidden" name="id" value="$entity.id" />
             </div>
             <div class="required">
+                #set $spreads = [($spine_to_web($s.name), $spine_to_web($s.name)) for $s in $entity.spreads]
                 $form_widgets.generate_loption("spread", "Spread", $spreads, $id="set_spread")
             </div>
             <div class="required">
                 $form_widgets.input("home", "Home")
             </div>
             <div class="required">
+                #set $disks = [($d.id, $spine_to_web("%s:%s" % ($d.hostname, $d.path))) for d in $disks]
                 $form_widgets.generate_loption("disk", "Disk", $disks)
             </div>
             <div class="buttons">
@@ -356,3 +278,42 @@ $widgets.viewInfo($info, $notice)
         </form>
     </div>
 #end def
+
+#def viewGroups($account)
+<div class="info box">
+    <h3>$_('Groups')</h3>
+    <form action="groups" method="post">
+        $listGroups($account)
+        <div>
+        <input type="hidden" name="account_id" value="$account.id" />
+        #if not $account.groups
+            $_('Account is not member of any groups')<br />
+        #else
+            <input type="submit" name="leave" value="$_('Leave group(s)')" />&#x0020;
+        #end if
+        <input type="submit" name="create" value="$_('Create a group')" />
+            <a href="#joinGroupBox">Join existing group</a>
+        </div>
+    </form>
+</div>
+#end def
+
+
+## #def printDialog($account)
+## #set $langs= [ ('no', 'Norwegian'),('en', 'English')]
+## <div class="edit box">
+##     <h3>$_('Print contract')</h3>
+##         <form action="print_contract" method="post">
+##             <div>
+##             <input type="hidden" name="id" value="$html_quote($account.get_id())" />
+##             <div>
+##                 $form_widgets.generate_loption("lang", "Language", $langs)
+##             </div>
+##             <div class="buttons">
+##             <input type="submit" value="$_('Print')" />
+##             <input type="button" value="$_('Cancel')" class="cancel" />
+##             </div>
+##             </div>
+##         </form>
+## </div>
+## #end def

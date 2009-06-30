@@ -6,9 +6,3 @@ class HostDTO(DTO):
             self.id = host.server_id
             self.name = host.name
             self.server_type = host.server_type
-
-    __slots__ = [
-        'id',
-        'name',
-        'server_type',
-    ]

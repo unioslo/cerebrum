@@ -31,7 +31,7 @@ from omniORB import CORBA
 from datetime import datetime
 import Messages
 
-from lib.data import EntityDAO 
+from lib.data.EntityDAO import EntityDAO 
 
 def clean_url(url):
     """Make sure the url doesn't point to a different server."""
@@ -153,7 +153,7 @@ def entity_url(entity, method="view", **params):
     Any additional keyword arguments will be appended to the query part.
     """
     if not isentity(entity):
-        entity = EntityDAO.get(entity)
+        entity = EntityDAO().get(entity)
 
     params['id'] = entity.id
     params = urllib.urlencode(params)
@@ -168,7 +168,7 @@ def entity_link(entity, text=None, method="view", _class="", **params):
     Any additional keyword arguments will be appended to the query part.
     """
     if not isentity(entity):
-        entity = EntityDAO.get(entity)
+        entity = EntityDAO().get(entity)
 
     url = entity_url(entity, method, **params)
     if text is None:
