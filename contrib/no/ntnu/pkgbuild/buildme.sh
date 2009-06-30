@@ -62,13 +62,15 @@ popd >/dev/null 2>&1
 echo "Source downloaded into $TEMPDIR/cerebrum-ntnu-$VER-$REV"
 
 # Verify existance of platform-specific build infrastructure:
-PKGDIR="$TEMPDIR/cerebrum-ntnu-$VER-$REV/contrib/no/ntnu/pkgbuild/$TARGET/$PLATFORM"
-if [ ! -d "$PKGDIR" ]; then
-    echo "Unable to locate platform-specific build infrastructure. Looked for directory:"
-    echo "$PKGDIR"
+PKGSCRIPT="$TEMPDIR/cerebrum-ntnu-$VER-$REV/contrib/no/ntnu/pkgbuild/$TARGET/$PLATFORM/pkgbuild.sh"
+COMMAND="$PKGSCRIPT $TEMPDIR $VER $REV"
+if [ ! -f "$PKGSCRIPT" ]; then
+    echo "Could not find build script for next step:"
+    echo "$PKGSCRIPT"
+    echo "Wanted to run command:"
+    echo $COMMAND
+else
+    echo "Executing platform and target specific buid of $TARGET for $PLATFORM"
+    exec $COMMAND
 fi
-
-
-echo "Executing platform and target specific buid of $TARGET for $PLATFORM"
-exec $PKGDIR/pkgbuild.sh $TEMPDIR $VER $REV
 
