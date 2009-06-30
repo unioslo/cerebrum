@@ -106,7 +106,7 @@
 <xs:element name="getAccountsResponse">
   <xs:complexType>
     <xs:sequence>
-      <xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:AccountType" />
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="account" type="ns1:AccountType" />
     </xs:sequence>
     </xs:complexType>
 </xs:element>
@@ -114,7 +114,16 @@
 <xs:element name="getOUsResponse">
   <xs:complexType>
     <xs:sequence>
-      <xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:OUType" />
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="ou" type="ns1:OUType" />
+    </xs:sequence>
+    </xs:complexType>
+</xs:element>
+
+
+<xs:element name="getAliasesResponse">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="alias" type="ns1:AliasType" />
     </xs:sequence>
     </xs:complexType>
 </xs:element>
@@ -122,7 +131,7 @@
 <xs:element name="getHomedirsResponse">
   <xs:complexType>
     <xs:sequence>
-      <xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:Homedir" />
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="homedir" type="ns1:HomedirType" />
     </xs:sequence>
     </xs:complexType>
 </xs:element>
@@ -151,6 +160,15 @@
 </xs:element>
 
 <xs:element name="getOUsRequest">
+<xs:complexType>
+    <xs:sequence>
+	<xs:element name="incremental_from" type="xs:integer" minOccurs="0"/>
+    </xs:sequence>
+</xs:complexType>
+</xs:element>
+
+
+<xs:element name="getAliasesRequest">
 <xs:complexType>
     <xs:sequence>
 	<xs:element name="incremental_from" type="xs:integer" minOccurs="0"/>
