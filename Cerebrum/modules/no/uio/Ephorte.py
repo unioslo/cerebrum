@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007-2008 University of Oslo, Norway
+# Copyright 2007-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -52,6 +52,7 @@ class EphorteConstants(ConstantsBase):
     ephorte_role_ld = _EphorteRoleTypeCode('LD', 'Leder/saksfordeler')
     ephorte_role_ld_les = _EphorteRoleTypeCode('LD LES', 'Leserolle - leder')
     ephorte_role_sb = _EphorteRoleTypeCode('SB', 'Saksbehandler')
+    ephorte_role_sb2 = _EphorteRoleTypeCode('SB2', 'Consultant')
     ephorte_role_sy = _EphorteRoleTypeCode('SY', 'Systemansvarlig')
     ephorte_role_mal = _EphorteRoleTypeCode('MAL', 'Mal-ansvarlige')
     ephorte_role_sub = _EphorteRoleTypeCode('SUB', 'Superbruker')
