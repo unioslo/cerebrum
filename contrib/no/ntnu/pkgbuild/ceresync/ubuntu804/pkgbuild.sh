@@ -21,7 +21,7 @@ echo "Adding symlink to debian build infrastructure at base of source"
 ln -s $PKGPATH/debian debian
 
 echo "Adding default changelog entry..."
-dch --append "updated to $VERSION" --newversion $VERSION
+dch -b --newversion $VERSION "updated to $VERSION"
 
 echo "Building new package..."
 dpkg-buildpackage -rfakeroot
