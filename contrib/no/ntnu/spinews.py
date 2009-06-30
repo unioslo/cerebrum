@@ -325,9 +325,49 @@ class group_members:
         return d
 
 
-def search_alias(changelog_id=None):
-    pass
+def search_aliases(changelog_id=None):
+    select=["email_address.local_part AS local_part",
+            "email_domain.domain AS domain",
+            "email_target.target_id AS target_id",
+            "email_target.target_type AS target_type",
+            "email_address.address_id AS address_id",
+            "email_primary_address.address_id AS primary_address_id",
+            "primary_address.local_part AS primary_address_local_part",
+            "primary_address_domain.domain AS primary_address_domain",
+            "host_name.entity_name AS server_name",
+            "account_info.account_id AS account_id",
+            "account_name.entity_name AS account_name",
+            ]
+    tables=["""email_address
+JOIN email_domain
+  ON (email_domain.domain_id = email_address.domain_id)
+JOIN email_target
+  ON (email_address.target_id = email_target.target_id)
+LEFT JOIN email_primary_address
+  ON (email_primary_address.target_id = email_target.target_id)
+LEFT JOIN entity_name host_name
+  ON (host_name.entity_id = email_target.server_id
+      AND host_name.value_domain = :host_namespace)
+LEFT JOIN account_info
+  ON (account_info.account_id = email_target.target_entity_id)
+LEFT JOIN entity_name account_name
+  ON (account_name.entity_id = account_info.account_id
+      AND account_name.value_domain = :account_namespace)
+LEFT JOIN email_address primary_address
+  ON (primary_address.address_id = email_primary_address.address_id)
+LEFT JOIN email_domain primary_address_domain
+  ON (primary_address_domain.domain_id = primary_address.domain_id)
+"""]
+    binds={
+        'account_namespace': co.account_namespace,
+        'host_namespace': co.host_namespace,
+        }
+        
+    
+    sql = "SELECT " + ",\n".join(select)
+    sql += " FROM " + "\n".join(tables)
 
+    return db.query(sql, binds)
 
 
 class quarantines:    
@@ -392,13 +432,14 @@ class AccountDTO:
 class OUDTO:
     def __init__(self, row, quarantines=[]):
         self._attrs={}
-        self._attrs["id"] = row["id"]
+        self._attrs["id"] = int(row["id"])
         self._attrs["name"] = row["name"]
         self._attrs["acronym"] = row["acronym"]
         self._attrs["short_name"] = row["short_name"]
         self._attrs["display_name"] = row["display_name"]
         self._attrs["sort_name"] = row["sort_name"]
-        self._attrs["parent_id"] = row["parent_id"]
+        if row["parent_id"] is not None:
+            self._attrs["parent_id"] = row["parent_id"]
         self._attrs["stedkode"] = row["stedkode"]
         self._attrs["parent_stedkode"] = row["parent_stedkode"]
         self._attrs["email"] = row["email"]
@@ -411,15 +452,18 @@ class OUDTO:
 class AliasDTO:
     def __init__(self, row):
         self._attrs={}
+        self._attrs["address_id"] = row["address_id"]
         self._attrs["local_part"] = row["local_part"]
         self._attrs["domain"] = row["domain"]
-        self._attrs["primary_address_local_part"] = row["primary_address_local_part"]
-        self._attrs["primary_address_domain"] = row["primary_address_domain"]
-        self._attrs["address_id"] = row["address_id"]
-        self._attrs["primary_address_id"] = row["primary_address_id"]
+        if row["primary_address_id"] is not None:
+            self._attrs["primary_address_id"] = row["primary_address_id"]
+            self._attrs["primary_address_local_part"] = row["primary_address_local_part"]
+            self._attrs["primary_address_domain"] = row["primary_address_domain"]
+
         self._attrs["server_name"] = row["server_name"]
-        self._attrs["account_id"] = row["account_id"]
-        self._attrs["account_name"] = row["account_name"]
+        if row["account_id"] is not None:
+            self._attrs["account_id"] = row["account_id"]
+            self._attrs["account_name"] = row["account_name"]
 
 
 class spinews(ServiceSOAPBinding):
@@ -506,7 +550,7 @@ class spinews(ServiceSOAPBinding):
     def get_aliases_impl(self, changelog_id=None):
         aliases=[]
         for row in search_aliases(changelog_id):
-            a=AliasTO(row)
+            a=AliasDTO(row)
             aliases.append(a)
         return aliases
 
@@ -525,26 +569,28 @@ def test_soap(fun, cl, cattr, **kw):
     s=str(SoapWriter().serialize(o))
     ps=ParsedSoap(s)
     rps=fun(ps)
+    t1=time.time()-t
     l=len(getattr(rps, cattr))
     rs=str(SoapWriter().serialize(rps))
-    t=time.time()-t
-    return fun.__name__, l, t
+    t2=time.time()-t
+    return fun.__name__, l, t1, t2
     
 
 
 
 def test():
     sp=spinews()
-    #print test_soap(sp.get_ous, getOUsRequest, "_ou")
+    print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
+    print test_soap(sp.get_ous, getOUsRequest, "_ou")
     print test_soap(sp.get_accounts, getAccountsRequest, "_account",
                     accountspread="user@stud")
     print test_soap(sp.get_groups, getGroupsRequest, "_group",
                     accountspread="user@stud", groupspread="group@ntnu")
     
-    #print test_impl(sp.get_aliases_impl)
-    #print test_impl(sp.get_ous_impl)
-    #print test_impl(sp.get_accounts_impl, "user@stud")
-    #print test_impl(sp.get_groups_impl, "group@ntnu", "user@stud")
+    print test_impl(sp.get_aliases_impl)
+    print test_impl(sp.get_ous_impl)
+    print test_impl(sp.get_accounts_impl, "user@stud")
+    print test_impl(sp.get_groups_impl, "group@ntnu", "user@stud")
 
 test()
 print "starting"
