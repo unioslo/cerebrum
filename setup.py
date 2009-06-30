@@ -228,6 +228,28 @@ class my_sdist(sdist, object):
             raise RuntimeError, "Error running ant"
 
 
+def wsdl2py(name):
+    try:
+        from ZSI.generate.wsdl2python import WriteServiceModule
+        from ZSI.wstools import WSDLTools
+    except ImportError:
+        pass
+    else:
+        reader = WSDLTools.WSDLReader()
+        wsdl = reader.loadFromFile(name)
+        dir = os.path.dirname(name)
+        
+        wsm = WriteServiceModule(wsdl, addressing=True)
+        fd = open(os.path.join(dir, '%s.py' %wsm.getClientModuleName()), 'w+')
+        print os.path.join(dir, '%s.py' %wsm.getClientModuleName())
+        wsm.writeClient(fd)
+        fd.close()
+
+        fd = open(os.path.join(dir, '%s.py' %wsm.getTypesModuleName()), 'w+')
+        wsm.writeTypes(fd)
+        fd.close()
+
+
 # Ugly hack to get path names from configure
 # Please fix this if you see a better solution.
 vars = locals()
@@ -443,6 +465,9 @@ data_files = [
      []),
 ]
 
+wsdl2py('Cerebrum/lib/spinews/spinews.wsdl')
+
+
 setup (name = "Cerebrum", version = Cerebrum.__version__,
        url = "http://cerebrum.sourceforge.net",
        maintainer = "Cerebrum Developers",
@@ -483,6 +508,8 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/modules/process_entity',
                    'Cerebrum/modules/no/uit',
                    'Cerebrum/modules/no/uit/AutoStud',
+                   'Cerebrum/lib',
+                   'Cerebrum/lib/spinews',
                    'Cerebrum/client',
                    'Cerebrum/modules/LMS',
                    ],
