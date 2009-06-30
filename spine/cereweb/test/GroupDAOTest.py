@@ -20,14 +20,16 @@
 #
 
 import unittest
+
 from mx.DateTime import DateTimeType
 from lib.data.GroupDAO import GroupDAO
 from lib.data.GroupDTO import GroupDTO
+
 import cerebrum_path
-from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
-Database = Utils.Factory.get("Database")
+
 import TestData
+from WriteTestCase import WriteTestCase
 
 class GroupDAOTest(unittest.TestCase):
     """We test against the test-database and we use 4 fabricated groups with 4 fabricated members that have 1 fabricated owners."""
@@ -123,15 +125,10 @@ class GroupDAOTest(unittest.TestCase):
     def assertValidDate(self, date):
         self.assert_(date is None or isinstance(date, DateTimeType))
 
-class GroupDaoWriteTest(unittest.TestCase):
+class GroupDaoWriteTest(WriteTestCase):
     def setUp(self):
-        self.db = Database()
-        self.db.change_program = "unit test"
-        self.db.change_by = 2
+        super(GroupDaoWriteTest, self).setUp()
         self.dao = GroupDAO(self.db)
-
-    def tearDown(self):
-        self.db.rollback()
 
     def test_add_member(self):
         group_id = TestData.quarantined_group_id

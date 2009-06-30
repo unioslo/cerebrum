@@ -25,7 +25,6 @@ import mx.DateTime
 from Cerebrum import Utils
 Database = Utils.Factory.get("Database")
 
-from account import _get_links
 from gettext import gettext as _
 from lib.utils import queue_message, redirect_entity, entity_link
 from lib.utils import transaction_decorator, redirect
@@ -44,6 +43,13 @@ from lib.data.HistoryDAO import HistoryDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.GroupDTO import GroupDTO
+
+# FIXME: Dupe, should be inlined in the pages.
+def _get_links():
+    return (
+        ('search', _('Search')),
+        ('create', _('Create')),
+    )
 
 def search_form(remembered):
     page = GroupSearchTemplate()

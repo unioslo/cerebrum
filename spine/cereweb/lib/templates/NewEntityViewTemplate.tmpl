@@ -329,13 +329,17 @@
     $printPrimaryGroup($account, $account.primary_group)
 
     #for $group in $account.groups
-        #if not $group.id == $account.primary_group.id
+        #if $account.primary_group and $group.id != $account.primary_group.id
             $printGroup($account, $group)
         #end if
     #end for
 #end def
 
 #def printPrimaryGroup($account, $group)
+    #if not $group
+        #return
+    #end if
+
     <div class="item primary">
         #set $input_name = "member_%s_%s" % ($account.id, $group.id)
         <input type="checkbox" name="$input_name" disabled="disabled" />

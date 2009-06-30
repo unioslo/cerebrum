@@ -29,6 +29,16 @@ class AccountDAO(EntityDAO):
 
         return self._create_dto(account)
 
+    def set_password(self, account_id, new_password):
+        account = self._find(account_id)
+        account.set_password(new_password)
+        account.write_db()
+
+    def get_md5_password_hash(self, account_id):
+        account = self._find(account_id)
+        t = self.constants.auth_type_md5_crypt
+        return account.get_account_authentication(t)
+
     def _create_dto(self, account, include_extra=True):
         dto = AccountDTO()
         self._populate(dto, account)

@@ -38,6 +38,8 @@ from lib.data.HistoryDAO import HistoryDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.PersonDAO import PersonDAO
 
+from group import get_database
+
 def _get_links():
     return (
         ('search', _('Search')),
@@ -388,16 +390,19 @@ def remove_home(transaction, id, spread):
 remove_home = transaction_decorator(remove_home)
 remove_home.exposed = True
 
-def set_password(transaction, id, passwd1, passwd2):
-    account = transaction.get_account(int(id))
-
+def set_password(id, passwd1, passwd2):
     if passwd1 != passwd2:
-        queue_message(_("Passwords does not match."), error=True)
-        redirect_object(account)
-    else:
-        account.set_password(passwd1)
-        commit(transaction, account, msg=_("Password successfully set."))
-set_password = transaction_decorator(set_password)
+        queue_message(_("Passwords does not match."), title=_("Change failed"), error=True)
+        redirect_entity(id)
+        return
+
+    db = get_database()
+    dao = AccountDAO(db)
+    dao.set_password(id, passwd1)
+    db.commit()
+
+    queue_message(_("Password successfully set."), title=_("Change succeeded"))
+    redirect_entity(id)
 set_password.exposed = True
 
 def add_affil(transaction, id, aff_ou, priority):

@@ -20,6 +20,9 @@
 #
 
 import unittest
+import random
+import string
+
 from mx.DateTime import DateTime
 import cerebrum_path
 from Cerebrum import Utils
@@ -30,6 +33,7 @@ from lib.data.DTO import DTO
 from lib.templates.NewAccountViewTemplate import NewAccountViewTemplate
 
 import TestData
+from WriteTestCase import WriteTestCase
 
 class AccountDAOTest(unittest.TestCase):
     """We test against the test-database and we use account 173870 as our testaccount.
@@ -151,6 +155,29 @@ class AccountDAOTest(unittest.TestCase):
 
 
         self.assertEqual(expected, spreads)
+
+class AccountDAOWriteTest(WriteTestCase):
+    def setUp(self):
+        super(AccountDAOWriteTest, self).setUp()
+        self.dao = AccountDAO(self.db)
+
+    def test_that_we_can_set_password_for_account(self):
+        new_password = self._create_password()
+        current_hash = self._get_current_hash(TestData.posix_account_id)
         
+        self.dao.set_password(TestData.posix_account_id, new_password)
+
+        changed_hash = self._get_current_hash(TestData.posix_account_id)
+
+        self.assertNotEqual(changed_hash, current_hash, "Password should have changed.")
+
+    def _get_current_hash(self, account_id):
+        return self.dao.get_md5_password_hash(account_id)
+
+    def _create_password(self):
+        new_password = ''.join([random.choice(string.ascii_letters) for x in xrange(6)])
+        new_password += str(random.randint(10,99))
+        return new_password
+
 if __name__ == '__main__':
     unittest.main()
