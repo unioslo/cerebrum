@@ -47,9 +47,9 @@ def init_globals():
     const = Factory.get("Constants")(db)
     logger = Factory.get_logger("cronjob")
 
-    cf_dir = '/cerebrum/dumps/Fronter'
+    cf_dir = '/cerebrum/uia/dumps/Fronter'
     global fs_dir
-    fs_dir = '/cerebrum/dumps/FS'
+    fs_dir = '/cerebrum/uia/dumps/FS'
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
