@@ -1,12 +1,21 @@
-from ZSI.wstools import logging
-from ZSI.ServiceContainer import AsServer
+import os, sys, socket
+
 
 import cerebrum_path
 import Cerebrum.lib
 from Cerebrum.lib.spinews.spinews_services import *
+
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+
+from ZSI.wstools import logging
+from ZSI.ServiceContainer import AsServer
 from ZSI.ServiceContainer import ServiceSOAPBinding
+from ZSI.ServiceContainer import ServiceContainer
+from ZSI.dispatch import SOAPRequestHandler
 from ZSI import ParsedSoap, SoapWriter
 
+from M2Crypto import SSL
+from M2Crypto import X509
 
 
 import time
@@ -18,6 +27,8 @@ group=Factory.get("Group")(db)
 account=Factory.get("Account")(db)
 from Cerebrum.Entity import EntityQuarantine
 
+
+ca_cert = None
 
 def int_or_none(i):
     if i is None:
@@ -592,6 +603,65 @@ def test():
     print test_impl(sp.get_accounts_impl, "user@stud")
     print test_impl(sp.get_groups_impl, "group@ntnu", "user@stud")
 
-test()
+
+class SecureServiceContainer(ServiceContainer):
+    def _init__(self, server_address, services=[], RequestHandlerClass=SOAPRequestHandler):
+        ServiceContainer.__init__(self, server_address, services, RequestHandlerClass)
+
+    def server_bind(self):
+        ## override the default methid and make
+        ## a socket with SSL/TLS
+        ctx = init_ssl()
+        self.socket = SSL.Connection(ctx)
+        self.socket.set_client_CA_list_from_context()
+        if self.allow_reuse_address:
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(self.server_address)
+        host, port = self.socket.getsockname()[:2]
+        self.server_name = socket.getfqdn(host)
+        self.server_address = self.socket.getsockname()
+        self.server_port = port
+
+    def get_request(self):
+        (conn, addr ) = self.socket.accept()
+        ## check the peer's certificate
+        ## should we check certificates here?
+        client_cert = conn.get_peer_cert()
+        if client_cert:
+            client_subject  = client_cert.get_subject()
+            ## print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@', client_subject.CN
+            ## check if the certificate have been signed by CA
+            ## more checks?
+            if client_cert.verify(ca_cert.get_pubkey()):
+                return (conn, addr)
+        conn.clear()
+        return( conn, addr )
+
+def RunAsServer(port=80, services=()):
+    address = ('', port)
+    sc = SecureServiceContainer(address, services=services)
+    sc.serve_forever()
+
+
+def phrase_callback(v,prompt1='Enter passphrase:',prompt2='Verify passphrase:'):
+    ## print '************************ call_back'
+    return ''
+
+def init_ssl(debug=None):
+    ctx = SSL.Context('sslv23')
+    ## certificate and private-key in the same file
+    ctx.load_cert('/etc/cerebrum/ssl/spine.itea.ntnu.no.pem', callback=phrase_callback)
+    ctx.load_verify_info(cafile='/etc/ssl/certs/itea-ca.crt')
+    ctx.load_client_ca('/etc/ssl/certs/itea-ca.crt')
+    ## do not use sslv2
+    ctx_options = SSL.op_no_sslv2
+    ctx.set_options(ctx_options)
+    ## always verify the peer's certificate
+    ctx.set_verify(SSL.verify_peer, 9)
+    ctx.set_session_id_ctx('ceresync_srv')
+    return ctx
+
+#test()
 print "starting"
-AsServer(port=8669, services=[spinews(),])
+ca_cert = X509.load_cert('/etc/ssl/certs/itea-ca.crt')
+RunAsServer(port=8666, services=[spinews(),])
