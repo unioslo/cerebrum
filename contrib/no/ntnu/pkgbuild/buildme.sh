@@ -5,17 +5,17 @@
 
 if [ -z "$1" -o -z "$2" -o -z "$3" ]; then
         echo "Build cerebrum or ceresync packages for various platforms."
-	echo "usage: $0 PLATFORM TARGET TAG-VERSION [REVISION]"
-	echo "Ex: $0 ubuntu804 ceresync 1.10"
-	echo "Ex: $0 rhel5 cerebrum 1.09 10882"
-	echo "Ex: $0 ubuntu804 ceresync trunk"
+        echo "usage: $0 PLATFORM TARGET TAG-VERSION [REVISION]"
+        echo "Ex: $0 ubuntu804 ceresync 1.10"
+        echo "Ex: $0 rhel5 cerebrum 1.09 10882"
+        echo "Ex: $0 ubuntu804 ceresync trunk"
         exit 1
 elif [ -z "$4" ]; then
-	VER=$3
-	REV="latest"
+        VER=$3
+        REV="latest"
 else
-	VER=$3
-	REV=$4
+        VER=$3
+        REV=$4
 fi
 PLATFORM=$1
 TARGET=$2
@@ -33,6 +33,8 @@ esac
 
 if [ "$VER" == "trunk" ]; then
    URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk"
+   echo "Setting version to 0 for trunk."
+   VER=0
 else
    URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/tags/ntnu-prod-$VER"
 fi
@@ -44,7 +46,7 @@ echo $TEMPDIR
 pushd $TEMPDIR >/dev/null 2>&1
 if [ "$REV" == "latest" ]; then
 echo "Downloading source for: $VER, latest revision"
-    svn co -q $URL cerebrum 
+    svn co -q $URL cerebrum
     pushd cerebrum >/dev/null 2>&1
     REV=`svn log --limit 1 | awk '/^r[0-9]+/ {print substr($1,2); exit}'`
     popd >/dev/null 2>&1
@@ -64,9 +66,9 @@ PKGDIR="$TEMPDIR/cerebrum-ntnu-$VER-$REV/contrib/no/ntnu/pkgbuild/$TARGET/$PLATF
 if [ ! -d "$PKGDIR" ]; then
     echo "Unable to locate platform-specific build infrastructure. Looked for directory:"
     echo "$PKGDIR"
-    exit 1
 fi
 
 
 echo "Executing platform and target specific buid of $TARGET for $PLATFORM"
 exec $PKGDIR/pkgbuild.sh $TEMPDIR $VER $REV
+
