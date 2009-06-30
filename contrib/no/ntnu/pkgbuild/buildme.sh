@@ -19,6 +19,7 @@ else
 fi
 PLATFORM=$1
 TARGET=$2
+TRUNK=0
 # Qualified quess of correctness of PLATFORM argument:
 case "$PLATFORM" in
     ubuntu804)
@@ -35,6 +36,7 @@ if [ "$VER" == "trunk" ]; then
    URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk"
    echo "Setting version to 0 for trunk."
    VER=0
+   TRUNK=1
 else
    URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/tags/ntnu-prod-$VER"
 fi
@@ -46,18 +48,16 @@ echo $TEMPDIR
 pushd $TEMPDIR >/dev/null 2>&1
 if [ "$REV" == "latest" ]; then
 echo "Downloading source for: $VER, latest revision"
-    svn co -q $URL cerebrum
+    svn co -q $URL
     pushd cerebrum >/dev/null 2>&1
     REV=`svn log --limit 1 | awk '/^r[0-9]+/ {print substr($1,2); exit}'`
     popd >/dev/null 2>&1
     echo "Detected the following revision as latest for $VER: '$REV'"
 else
     echo "Downloadig source for $VER-$REV"
-    svn co $URL -r $REV -q cerebrum
+    svn co $URL -r $REV -q
 fi
-pushd cerebrum >/dev/null 2>&1
-mv cerebrum ../cerebrum-ntnu-$VER-$REV
-popd >/dev/null 2>&1
+mv * ../cerebrum-ntnu-$VER-$REV
 popd >/dev/null 2>&1
 echo "Source downloaded into $TEMPDIR/cerebrum-ntnu-$VER-$REV"
 
