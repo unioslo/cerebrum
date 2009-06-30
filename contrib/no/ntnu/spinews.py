@@ -100,7 +100,7 @@ def search_accounts(account_spread, changelog_id=None, auth_type="MD5-crypt"):
           ON (group_info.group_id = group_name.entity_id
             AND group_name.value_domain = :group_namespace)
         """)
-
+        
     if owner:
         select.append("""
         owner_group_name.entity_name AS owner_group_name,
@@ -124,7 +124,7 @@ def search_accounts(account_spread, changelog_id=None, auth_type="MD5-crypt"):
     sql += " FROM " + "\n".join(tables)
     sql += " WHERE " + " AND ".join(where)
     sql += order_by
-           
+
     return db.query(sql, binds)
 
 
@@ -168,6 +168,94 @@ def search_groups(group_spread, changelog_id=None):
     sql += order_by
     
     return db.query(sql, binds)
+
+
+
+def search_ous(changelog_id=None):
+    stedkode=True
+    contactinfo=True
+    select=["ou_info.ou_id AS id",
+            "ou_info.name AS name",
+            "ou_info.acronym AS acronym",
+            "ou_info.short_name AS short_name",
+            "ou_info.display_name AS display_name",
+            "ou_info.sort_name AS sort_name",
+            "ou_structure.parent_id AS parent_id",
+            ]
+    tables = ["ou_info"]
+    order_by=""
+    binds={"perspective": co.perspective_kjernen}
+
+    if changelog_id is not None:
+        tables.append("""JOIN change_log
+         ON (change_log.subject_entity = ou_info.ou_id
+           AND change_log.change_id > :changelog_id)""")
+        order_by="ORDER BY change_log.change_id"
+        
+
+    tables.append("""JOIN ou_structure
+      ON (ou_structure.ou_id = ou_info.ou_id
+        AND ou_structure.perspective = :perspective)""")
+                  
+
+    if stedkode:
+        tables.append("""LEFT JOIN stedkode
+          ON (stedkode.ou_id = ou_info.ou_id)
+        LEFT JOIN stedkode stedkode_parent
+          ON (stedkode_parent.ou_id = ou_structure.parent_id)""")
+
+        select.append("""to_char(stedkode.landkode,'FM000')||
+             to_char(stedkode.institusjon,'FM00000')||
+             to_char(stedkode.fakultet,'FM00')||
+             to_char(stedkode.institutt,'FM00')||
+             to_char(stedkode.avdeling,'FM00') AS stedkode""")
+        select.append("""to_char(stedkode_parent.landkode,'FM000')||
+             to_char(stedkode_parent.institusjon,'FM00000')||
+             to_char(stedkode_parent.fakultet,'FM00')||
+             to_char(stedkode_parent.institutt,'FM00')||
+             to_char(stedkode_parent.avdeling,'FM00') AS parent_stedkode""")
+             
+    if contactinfo:
+        select+=["contact_email.contact_value AS email",
+                 "contact_url.contact_value AS url",
+                 "contact_phone.contact_value AS phone",
+                 "contact_fax.contact_value AS fax",
+                 "contact_address.contact_value AS post_address",
+                 ]
+        tables.append("""LEFT JOIN entity_contact_info contact_email
+          ON (contact_email.entity_id = ou_info.ou_id
+            AND contact_email.source_system = :system_kjernen
+            AND contact_email.contact_type = :contact_email)
+        LEFT JOIN entity_contact_info contact_url
+          ON (contact_url.entity_id = ou_info.ou_id
+            AND contact_url.source_system = :system_kjernen
+            AND contact_url.contact_type = :contact_url)
+        LEFT JOIN entity_contact_info contact_phone
+          ON (contact_phone.entity_id = ou_info.ou_id
+            AND contact_phone.source_system = :system_kjernen 
+            AND contact_phone.contact_type = :contact_phone)
+        LEFT JOIN entity_contact_info contact_fax
+          ON (contact_fax.entity_id = ou_info.ou_id
+            AND contact_fax.source_system = :system_kjernen
+            AND contact_fax.contact_type = :contact_fax)
+        LEFT JOIN entity_contact_info contact_address
+          ON (contact_address.entity_id = ou_info.ou_id
+            AND contact_address.source_system = :system_kjernen
+            AND contact_address.contact_type = :contact_post_address)""")
+        binds["contact_url"]=co.contact_url
+        binds["contact_email"]=co.contact_email
+        binds["contact_phone"]=co.contact_phone
+        binds["contact_fax"]=co.contact_fax
+        binds["contact_post_address"]=co.address_post
+        binds["system_cached"]=co.system_cached
+        binds["system_kjernen"]=co.system_kjernen
+
+    sql = "SELECT " + ",\n".join(select)
+    sql += " FROM " + "\n".join(tables)
+    sql += order_by
+    
+    return db.query(sql, binds)
+
 
 
 
@@ -231,6 +319,11 @@ class group_members:
         return d
 
 
+def search_alias(changelog_id=None):
+    
+
+
+
 class quarantines:    
     def __init__(self):
         quarantines = {}
@@ -278,7 +371,7 @@ class AccountDTO:
             account_name=row['name'],
             disk_path=row['disk_path'],
             home=row['home'])
-        self._attrs["gecos"] = ""
+        # TDB: extend get_gecos() to do this job.
         if not row["gecos"]:
             if row["full_name"]:
                 self._attrs["gecos"] = row["full_name"]
@@ -288,6 +381,29 @@ class AccountDTO:
             else:
                 self._attrs["gecos"] = "%s user" % row["name"]
         self._quarantine = quarantines
+
+
+class OUDTO:
+    def __init__(self, row, quarantines=[]):
+        self._attrs["id"] = row["id"]
+        self._attrs["name"] = row["name"]
+        self._attrs["acronym"] = row["acronym"]
+        self._attrs["short_name"] = row["short_name"]
+        self._attrs["display_name"] = row["display_name"]
+        self._attrs["sort_name"] = row["sort_name"]
+        self._attrs["parent_id"] = row["parent_id"]
+        self._attrs["stedkode"] = row["stedkode"]
+        self._attrs["parent_stedkode"] = row["parent_stedkode"]
+        self._attrs["email"] = row["email"]
+        self._attrs["url"] = row["url"]
+        self._attrs["phone"] = row["phone"]
+        self._attrs["fax"] = row["fax"]
+        self._attrs["post_address"] = row["post_address"]
+        self._quarantine = quarantines
+
+class AliasDTO:
+    def __init__(self, row):
+        
 
 
 class spinews(ServiceSOAPBinding):
@@ -346,7 +462,15 @@ class spinews(ServiceSOAPBinding):
             groups.append(g)
         return groups
 
-    
+
+    def get_ous_impl(self):
+        ous=[]
+        q=quarantines()
+        for row in search_ous():
+            o=OUDTO(row)
+            o.quarantines = q.get_quarantines(row['id'])
+            ous.append(o)
+        return ous
 
     def get_groups_impl2(self):
         pass
@@ -360,6 +484,7 @@ def test_impl(fun):
     
 def test():
     sp=spinews()
+    print test_impl(sp.get_ous_impl)
     print test_impl(sp.get_accounts_impl)
     print test_impl(sp.get_groups_impl)
 
