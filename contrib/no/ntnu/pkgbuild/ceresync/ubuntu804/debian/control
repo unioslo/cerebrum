@@ -1,0 +1,11 @@
+Source: ceresync
+Section: unknown
+Priority: extra
+Maintainer: Christian Haugan Toldnes <christian.toldnes@ntnu.no>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.7.2
+
+Package: ceresync
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, python, python-omniorb, omniidl4-python, python-ldap
+Description: Cerebrum clients
