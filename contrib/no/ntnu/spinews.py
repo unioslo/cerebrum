@@ -5,6 +5,7 @@ import cerebrum_path
 import Cerebrum.lib
 from Cerebrum.lib.spinews.spinews_services import *
 from ZSI.ServiceContainer import ServiceSOAPBinding
+from ZSI import ParsedSoap, SoapWriter
 
 
 
@@ -18,6 +19,11 @@ account=Factory.get("Account")(db)
 from Cerebrum.Entity import EntityQuarantine
 
 
+def int_or_none(i):
+    if i is None:
+        return None
+    else:
+        return int(i)
 
 # Merge this with Account.search()....
 def search_accounts(account_spread, changelog_id=None, auth_type="MD5-crypt"):
@@ -424,84 +430,122 @@ class spinews(ServiceSOAPBinding):
     def __init__(self, post='/', **kw):
         ServiceSOAPBinding.__init__(self, post)
 
+    def get_aliases(self, ps):
+        request = ps.Parse(getAliasesRequest.typecode)
+        incremental_from = int_or_none(request._incremental_from)
+        response = getAliasesResponse()
+        response._alias = self.get_aliases_impl(incremental_from)
+        return response
+
+    def get_ous(self, ps):
+        request = ps.Parse(getOUsRequest.typecode)
+        incremental_from = int_or_none(request._incremental_from)
+        response = getOUsResponse()
+        response._ou = self.get_ous_impl(incremental_from)
+        return response
+        
 
     def get_groups(self, ps):
         request = ps.Parse(getGroupsRequest.typecode)
+        groupspread = str(request._groupspread)
+        accountspread = str(request._accountspread)
+        incremental_from = int_or_none(request._incremental_from)
         response = getGroupsResponse()
-        response._group = self.get_groups_impl()
+        response._group = self.get_groups_impl(groupspread,
+                                               accountspread,
+                                               incremental_from)
         return response
 
     def get_accounts(self, ps):
         request = ps.Parse(getAccountsRequest.typecode)
+        accountspread = str(request._accountspread)
+        incremental_from = int_or_none(request._incremental_from)
         response = getAccountsResponse()
-        response._account = self.get_accounts_impl()
+        response._account = self.get_accounts_impl(accountspread)
         return response
 
-    soapAction[''] = 'get_groups'
-    soapAction[''] = 'get_accounts'
     root[(getGroupsRequest.typecode.nspname,
           getGroupsRequest.typecode.pname)] = 'get_groups'
     root[(getAccountsRequest.typecode.nspname,
           getAccountsRequest.typecode.pname)] = 'get_accounts'
+    root[(getOUsRequest.typecode.nspname,
+          getOUsRequest.typecode.pname)] = 'get_ous'
+    root[(getAliasesRequest.typecode.nspname,
+          getAliasesRequest.typecode.pname)] = 'get_aliases'
 
-
-    def get_groups_foo(self):
-        return [GroupDTO("foo", 42),
-                GroupDTO("bar", 66,
-                      members=["steinarh", "laa"], 
-                      quarantines=["badboy"])]
-   
-    def get_accounts_impl(self):
+    def get_accounts_impl(self, accountspread, changelog_id=None):
         accounts=[]
         q=quarantines()
-        for row in search_accounts("user@stud"):
+        for row in search_accounts(accountspread, changelog_id):
             a=AccountDTO(row)
             a.quarantines = (q.get_quarantines(row['id']) +
                              q.get_quarantines(row['owner_id']))
             accounts.append(a)
         return accounts
 
-    def get_groups_impl(self): 
+    def get_groups_impl(self, groupspread, accountspread, changelog_id=None): 
         groups=[]
         members=group_members(db)
         q=quarantines()
-        for row in search_groups("group@ntnu"):
+        for row in search_groups(groupspread, changelog_id):
             g=GroupDTO(row)
             g.members = members.get_members_name(row['id'])
             g.quarantines = q.get_quarantines(row['id'])
             groups.append(g)
         return groups
 
-
-    def get_ous_impl(self):
+    def get_ous_impl(self, changelog_id=None):
         ous=[]
         q=quarantines()
-        for row in search_ous():
+        for row in search_ous(changelog_id):
             o=OUDTO(row)
             o.quarantines = q.get_quarantines(row['id'])
             ous.append(o)
         return ous
 
-    def get_aliases_impl(self):
+    def get_aliases_impl(self, changelog_id=None):
         aliases=[]
-        for row in search_aliases():
+        for row in search_aliases(changelog_id):
             a=AliasTO(row)
             aliases.append(a)
         return aliases
 
-def test_impl(fun):
+def test_impl(fun, *args):
     import time
     t=time.time()
-    l=len(fun())
+    l=len(fun(*args))
+    t=time.time()-t
+    return fun.__name__, l, t
+
+def test_soap(fun, cl, cattr, **kw):
+    o=cl()
+    for k,w in kw.items():
+        setattr(o,"_"+k,w)
+    t=time.time()
+    s=str(SoapWriter().serialize(o))
+    ps=ParsedSoap(s)
+    rps=fun(ps)
+    l=len(getattr(rps, cattr))
+    rs=str(SoapWriter().serialize(rps))
     t=time.time()-t
     return fun.__name__, l, t
     
+
+
+
 def test():
     sp=spinews()
+    #print test_soap(sp.get_ous, getOUsRequest, "_ou")
+    print test_soap(sp.get_accounts, getAccountsRequest, "_account",
+                    accountspread="user@stud")
+    print test_soap(sp.get_groups, getGroupsRequest, "_group",
+                    accountspread="user@stud", groupspread="group@ntnu")
+    
     #print test_impl(sp.get_aliases_impl)
-    print test_impl(sp.get_ous_impl)
-    print test_impl(sp.get_accounts_impl)
-    print test_impl(sp.get_groups_impl)
+    #print test_impl(sp.get_ous_impl)
+    #print test_impl(sp.get_accounts_impl, "user@stud")
+    #print test_impl(sp.get_groups_impl, "group@ntnu", "user@stud")
 
 test()
+print "starting"
 AsServer(port=8669, services=[spinews(),])
