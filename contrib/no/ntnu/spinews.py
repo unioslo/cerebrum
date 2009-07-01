@@ -413,7 +413,7 @@ class quarantines:
 
 class DTO(object):
     def __init__(self, row):
-        
+        pass
 
 class GroupDTO:
     def __init__(self, row, members=[], quarantines=[]):
