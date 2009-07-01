@@ -23,8 +23,20 @@ TRUNK=0
 # Qualified quess of correctness of PLATFORM argument:
 case "$PLATFORM" in
     ubuntu804)
+        if [ -z "`grep -i 'Ubuntu 8.04' /etc/issue`" ]; then
+            echo "/etc/issue did not identify this system as $PLATFORM"
+            exit 1
+        else
+            echo "System seems to qualify as '$PLATFORM'"
+        fi
         ;;
     rhel5)
+        if [ -z "`grep -i 'Red Hat Enterprise Linux Server release 5' /etc/issue`" ]; then
+            echo "/etc/issue did not identify this system as $PLATFORM"
+            exit 1
+        else
+            echo "System seems to qualify as '$PLATFORM'"
+        fi
         ;;
     *)
         echo "Unknown platform: $PLATFORM"
