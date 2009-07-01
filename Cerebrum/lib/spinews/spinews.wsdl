@@ -37,6 +37,7 @@
   <xs:attribute name="disk_path" type="xs:string"/>
   <xs:attribute name="disk_host" type="xs:string"/>
   <xs:attribute name="gecos" type="xs:string"/>
+  <xs:attribute name="full_name" type="xs:string"/>
   <xs:attribute name="shell" type="xs:string"/>
   <xs:attribute name="shell_name" type="xs:string"/>
   <xs:attribute name="posix_uid" type="xs:integer"/>
