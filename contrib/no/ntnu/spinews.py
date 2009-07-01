@@ -20,7 +20,7 @@ from M2Crypto import X509
 import time
 import cerebrum_path
 from Cerebrum.Utils import Factory
-db=Factory.get("Database")()
+db=Factory.get("Database")(client_encoding='UTF-8')
 co=Factory.get("Constants")()
 group=Factory.get("Group")(db)
 account=Factory.get("Account")(db)
@@ -380,6 +380,18 @@ LEFT JOIN email_domain primary_address_domain
     return db.query(sql, binds)
 
 
+def search_homedir(status):
+    """
+    SELECT count(*)
+    FROM homedir homedir
+    LEFT JOIN disk_info disk ON (homedir.disk_id = disk.disk_id)
+    WHERE homedir.status = :status
+    """
+
+
+
+
+
 class quarantines:    
     def __init__(self):
         quarantines = {}
@@ -398,6 +410,10 @@ class quarantines:
     def get_quarantines(self, id):
         return self.quarantines.get(id, [])
 
+
+class DTO(object):
+    def __init__(self, row):
+        
 
 class GroupDTO:
     def __init__(self, row, members=[], quarantines=[]):
@@ -450,13 +466,16 @@ class OUDTO:
         self._attrs["sort_name"] = row["sort_name"]
         if row["parent_id"] is not None:
             self._attrs["parent_id"] = row["parent_id"]
-        self._attrs["stedkode"] = row["stedkode"]
-        self._attrs["parent_stedkode"] = row["parent_stedkode"]
+        if row["stedkode"] is not None:
+            self._attrs["stedkode"] = row["stedkode"]
+        if row["parent_stedkode"] is not None:
+            self._attrs["parent_stedkode"] = row["parent_stedkode"]
         self._attrs["email"] = row["email"]
         self._attrs["url"] = row["url"]
         self._attrs["phone"] = row["phone"]
         self._attrs["fax"] = row["fax"]
-        self._attrs["post_address"] = row["post_address"]
+        if row["post_address"] is not None:
+            self._attrs["post_address"] = row["post_address"]
         self._quarantine = quarantines
 
 class AliasDTO:
@@ -590,13 +609,13 @@ def test_soap(fun, cl, cattr, **kw):
 
 def test():
     sp=spinews()
-    print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
     print test_soap(sp.get_ous, getOUsRequest, "_ou")
     print test_soap(sp.get_accounts, getAccountsRequest, "_account",
                     accountspread="user@stud")
+    print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
     print test_soap(sp.get_groups, getGroupsRequest, "_group",
                     accountspread="user@stud", groupspread="group@ntnu")
-    
+
     print test_impl(sp.get_aliases_impl)
     print test_impl(sp.get_ous_impl)
     print test_impl(sp.get_accounts_impl, "user@stud")
@@ -636,9 +655,11 @@ class SecureServiceContainer(ServiceContainer):
         conn.clear()
         return( conn, addr )
 
-def RunAsServer(port=80, services=()):
+def RunAsServer(port=80, services=(), fork=False):
     address = ('', port)
     sc = SecureServiceContainer(address, services=services)
+    if fork:
+        pass
     sc.serve_forever()
 
 
@@ -660,7 +681,7 @@ def init_ssl(debug=None):
     ctx.set_session_id_ctx('ceresync_srv')
     return ctx
 
-#test()
+test()
 print "starting..."
 ca_cert = X509.load_cert('/etc/ssl/certs/itea-ca.crt')
 RunAsServer(port=8666, services=[spinews(),])
