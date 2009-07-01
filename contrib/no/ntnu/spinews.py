@@ -1,6 +1,5 @@
 import os, sys, socket
 
-
 import cerebrum_path
 import Cerebrum.lib
 from Cerebrum.lib.spinews.spinews_services import *
@@ -662,6 +661,6 @@ def init_ssl(debug=None):
     return ctx
 
 #test()
-print "starting"
+print "starting..."
 ca_cert = X509.load_cert('/etc/ssl/certs/itea-ca.crt')
 RunAsServer(port=8666, services=[spinews(),])
