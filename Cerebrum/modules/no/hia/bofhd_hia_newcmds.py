@@ -1132,3 +1132,72 @@ class BofhdExtension(object):
 	    epat.populate(ea.entity_id, parent = et)
 	epat.write_db()
 	return "Registered %s as primary address for %s" % (address, uname)
+
+    # email find all list targets
+    #
+    def __get_all_related_maillist_targets(self, address):
+	"""This method locates and returns all ETs associated with the same ML.
+
+	Given any address associated with a ML, this method returns all the
+	ETs associated with that ML. E.g.: 'foo-subscribe@domain' for a Sympa
+	ML will result in returning the ETs for 'foo@domain',
+	'foo-owner@domain', 'foo-request@domain', 'foo-editor@domain',
+	'foo-subscribe@domain' and 'foo-unsubscribe@domain'
+
+	If address (EA) is not associated with a mailing list ET, this method
+	raises an exception. Otherwise a list of ET entity_ids is returned.
+
+        @type address: basestring
+        @param address:
+          One of the mail addresses associated with a mailing list.
+
+        @rtype: sequence (of ints)
+        @return:
+          A sequence with entity_ids of all ETs related to the ML that address
+          is related to.
+	"""
+
+        # step 1, find the ET, check its type.
+        et, ea = self.__get_email_target_and_address(address)
+        # Mapping from ML types to (x, y)-tuples, where x is a callable that
+        # fetches the ML's official/main address, and y is a set of patterns
+        # for EAs that are related to this ML.
+        ml2action = {
+            int(self.const.email_target_Mailman):
+                (self._get_mailman_list,
+                 [x[0] for x in self._interface2addrs.values()])
+            }
+
+        if int(et.email_target_type) not in ml2action:
+            raise CerebrumError("'%s' is not associated with a mailing list" %
+                                address)
+            
+        result = []
+        get_official_address, patterns = ml2action[int(et.email_target_type)]
+        # step 1, get official ML address (i.e. foo@domain)
+        official_ml_address = get_official_address(ea.get_address())
+        ea.clear()
+        ea.find_by_address(official_ml_address)
+        et.clear()
+        et.find(ea.get_target_id())
+
+        # step 2, get local_part and domain separated:
+        local_part, domain = self._split_email_address(official_ml_address)
+
+        # step 3, generate all 'derived'/'administrative' addresses, and
+        # locate their ETs.
+        result = set([et.entity_id,])
+        for pattern in patterns:
+            address = pattern % {"local_part": local_part, "domain": domain}
+
+            # some of the addresses may be missing. It is not an error.
+            try:
+                ea.clear()
+                ea.find_by_address(address)
+            except Errors.NotFoundError:
+                continue
+
+            result.add(ea.get_target_id())
+
+        return result
+    # end __get_all_related_maillist_targets
