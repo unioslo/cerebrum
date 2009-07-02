@@ -933,6 +933,9 @@ class BofhdExtension(object):
             if not all_args:
                 return {'prompt': "Novell disk", 'help_ref': 'disk'}
             ndisk = all_args.pop(0)
+            if not all_args:
+                return {'prompt': 'E-mail spread', 'help_ref': 'string_spread'}
+            email_spread = all_args.pop(0)
         if not all_args:
             ret = {'prompt': "Username", 'last_arg': True}
             posix_user = PosixUser.PosixUser(self.db)
@@ -970,16 +973,16 @@ class BofhdExtension(object):
         perm_filter='can_create_user')
     def user_create(self, operator, *args):
         if args[0].startswith('group:'):
-            group_id, np_type, filegroup, shell, home, novell_home, uname = args
+            group_id, np_type, filegroup, shell, home, novell_home, email_spread, uname = args
             owner_type = self.const.entity_group
             owner_id = self._get_group(group_id.split(":")[1]).entity_id
             np_type = self._get_constant(self.const.Account, np_type,
                                          "account type")
         else:
-            if len(args) == 8:
-                idtype, person_id, affiliation, filegroup, shell, home, novell_home, uname = args
+            if len(args) == 9:
+                idtype, person_id, affiliation, filegroup, shell, home, novell_home, email_spread, uname = args
             else:
-                idtype, person_id, yes_no, affiliation, filegroup, shell, home, novell_home, uname = args
+                idtype, person_id, yes_no, affiliation, filegroup, shell, home, novell_home, email_spread, uname = args
             owner_type = self.const.entity_person
             owner_id = self._get_person("entity_id", person_id).entity_id
             np_type = None
@@ -1009,7 +1012,7 @@ class BofhdExtension(object):
         else:
             if not self.ba.is_superuser(operator.get_entity_id()):
                 raise PermissionDenied("only superusers may use hardcoded path")
-            ndisk_id, novell_home = None, home[1:]            
+            ndisk_id, novell_home = None, home[1:]
         posix_user.clear()
         gecos = None
         expire_date = None
@@ -1038,6 +1041,15 @@ class BofhdExtension(object):
             # flawed, and should be fixed.
             passwd = posix_user.make_passwd(uname)
             posix_user.set_password(passwd)
+            if email_spread:
+                if not int(self.const.Spread(email_spread)) in \
+                   [int(self.const.spread_exchange_account),
+                    int(self.const.spread_hia_email)]:
+                    raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
+            try:
+                account.add_spread(self.const.Spread(email_spread))
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such spread %s" % spread                            
             # And, to write the new password to the database, we have
             # to .write_db() one more time...
             posix_user.write_db()
