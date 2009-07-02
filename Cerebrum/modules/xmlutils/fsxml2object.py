@@ -176,6 +176,19 @@ class EduDataGetter(XMLDataGetter):
         return self._make_iterator(element,
                        lambda iterator, logger:
                            EduKind2Object(iterator, logger, fields))
+
+
+    def iter_stprog(self):
+        return self.__fix_iterator("studprog",
+                                   ("studieprogramkode",
+                                    "status_utdplan",
+                                    "institusjonsnr_studieansv",
+                                    "faknr_studieansv",
+                                    "instituttnr_studieansv",
+                                    "gruppenr_studieansv",
+                                    "status_utgatt",
+                                    "studieprognavn",
+                                    "status_eksport_lms",))
             
     def iter_undenh(self):
         return self.__fix_iterator("enhet", ("institusjonsnr",
