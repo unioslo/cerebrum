@@ -21,9 +21,12 @@ import time
 import cerebrum_path
 from Cerebrum.Utils import Factory
 db=Factory.get("Database")(client_encoding='UTF-8')
+db.cl_init(change_program="spinews")
+
 co=Factory.get("Constants")()
 group=Factory.get("Group")(db)
 account=Factory.get("Account")(db)
+host=Factory.get("Host")(db)
 from Cerebrum.Entity import EntityQuarantine
 
 
@@ -380,17 +383,42 @@ LEFT JOIN email_domain primary_address_domain
     return db.query(sql, binds)
 
 
-def search_homedir(status):
-    """
-    SELECT count(*)
-    FROM homedir homedir
-    LEFT JOIN disk_info disk ON (homedir.disk_id = disk.disk_id)
-    WHERE homedir.status = :status
-    """
+def search_homedirs(hostname, status):
+    include_posix=True
 
+    binds={'account_namespace': co.account_namespace}
+    binds['status']=int(co.AccountHomeStatus(status))
 
+    host.clear()
+    host.find_by_name(hostname)
+    binds['host_id']=host.entity_id
 
+    select =["homedir.homedir_id AS homedir_id",
+             "homedir.home AS home",
+             "disk.path AS disk_path",
+             "account_name.entity_name AS account_name"]
+    tables=["""disk_info disk
+      JOIN homedir homedir ON (homedir.disk_id = disk.disk_id)
+      LEFT JOIN entity_name account_name
+        ON (account_name.entity_id = homedir.account_id
+          AND account_name.value_domain = :account_namespace)
+    """]
+    where=["homedir.status = :status", "disk.host_id = :host_id"]
 
+    if include_posix:
+        select+=["posix_user.posix_uid AS posix_uid",
+                 "posix_group.posix_gid AS posix_gid"]
+        tables.append("""
+          LEFT JOIN posix_user posix_user
+            ON (posix_user.account_id = homedir.account_id)
+          LEFT JOIN posix_group posix_group
+            ON (posix_group.group_id = posix_user.gid)
+        """)
+
+    sql = "SELECT " + ",\n".join(select)
+    sql += " FROM " + "\n".join(tables)
+    sql += " WHERE " + " AND ".join(where)
+    return db.query(sql, binds)
 
 class quarantines:    
     def __init__(self):
@@ -495,6 +523,21 @@ class AliasDTO:
             self._attrs["account_name"] = row["account_name"]
 
 
+class HomedirDTO:
+    def __init__(self, row):
+        self._attrs = {}
+        self._attrs["homedir_id"] = row["homedir_id"]
+        self._attrs["account_name"] = row["account_name"]
+        self._attrs["home"] = row["home"]
+        self._attrs["homedir"] = account.resolve_homedir(
+            account_name=row['account_name'],
+            disk_path=row['disk_path'],
+            home=row['home'])
+        self._attrs["disk_path"] = row["disk_path"]
+        self._attrs["posix_uid"] = row["posix_uid"]
+        self._attrs["posix_gid"] = row["posix_gid"]
+
+
 class spinews(ServiceSOAPBinding):
     #_wsdl = "".join(open("spinews.wsdl").readlines())
     soapAction = {}
@@ -502,6 +545,22 @@ class spinews(ServiceSOAPBinding):
 
     def __init__(self, post='/', **kw):
         ServiceSOAPBinding.__init__(self, post)
+
+    def set_homedir_status(self, ps):
+        request = ps.Parse(setHomedirStatusRequest.typecode)
+        status = str(request._status) 
+        homedir_id = str(request._homedir_id)
+        response = setHomedirStatusResponse()
+        self.set_homedir_status_impl(homedir_id, status)
+        return response
+
+    def get_homedirs(self, ps):
+        request = ps.Parse(getHomedirsRequest.typecode)
+        status = str(request._status) 
+        hostname = str(request._hostname)
+        response = getHomedirsResponse()
+        response._homedir = self.get_homedirs_impl(hostname, status)
+        return response
 
     def get_aliases(self, ps):
         request = ps.Parse(getAliasesRequest.typecode)
@@ -554,6 +613,7 @@ class spinews(ServiceSOAPBinding):
             a.quarantines = (q.get_quarantines(row['id']) +
                              q.get_quarantines(row['owner_id']))
             accounts.append(a)
+        db.rollback()
         return accounts
 
     def get_groups_impl(self, groupspread, accountspread, changelog_id=None): 
@@ -565,6 +625,7 @@ class spinews(ServiceSOAPBinding):
             g.members = members.get_members_name(row['id'])
             g.quarantines = q.get_quarantines(row['id'])
             groups.append(g)
+        db.rollback()
         return groups
 
     def get_ous_impl(self, changelog_id=None):
@@ -574,6 +635,7 @@ class spinews(ServiceSOAPBinding):
             o=OUDTO(row)
             o.quarantines = q.get_quarantines(row['id'])
             ous.append(o)
+        db.rollback()
         return ous
 
     def get_aliases_impl(self, changelog_id=None):
@@ -581,16 +643,39 @@ class spinews(ServiceSOAPBinding):
         for row in search_aliases(changelog_id):
             a=AliasDTO(row)
             aliases.append(a)
+        db.rollback()
         return aliases
+
+    def get_homedirs_impl(self, hostname, status):
+        homedirs=[]
+        for row in search_homedirs(hostname, status):
+            h=HomedirDTO(row)
+            homedirs.append(h)
+        db.rollback()
+        return homedirs
+
+    def set_homedir_status_impl(self, homedir_id, status):
+        status=int(co.AccountHomeStatus(status))
+        account.clear()
+        r=account.get_homedir(homedir_id)
+        account.find(r['account_id'])
+        account.set_homedir(current_id=homedir_id, status=status)
+        db.commit()
+
 
 def test_impl(fun, *args):
     import time
     t=time.time()
-    l=len(fun(*args))
+    r=fun(*args)
+    if r is not None:
+        l=len(r)
+    else:
+        l=None
     t=time.time()-t
     return fun.__name__, l, t
 
 def test_soap(fun, cl, cattr, **kw):
+    #fun=root[(cl.typecode.nspname, cl.typecode.pname)]
     o=cl()
     for k,w in kw.items():
         setattr(o,"_"+k,w)
@@ -599,8 +684,13 @@ def test_soap(fun, cl, cattr, **kw):
     ps=ParsedSoap(s)
     rps=fun(ps)
     t1=time.time()-t
-    l=len(getattr(rps, cattr))
+    if cattr is not None:
+        l=len(getattr(rps, cattr))
+    else:
+        l=None
     rs=str(SoapWriter().serialize(rps))
+    open("/tmp/log.%s" % fun.__name__, 'w').write(rs)
+    #rps=ParsedSoap(rs)
     t2=time.time()-t
     return fun.__name__, l, t1, t2
     
@@ -609,6 +699,10 @@ def test_soap(fun, cl, cattr, **kw):
 
 def test():
     sp=spinews()
+    print test_soap(sp.set_homedir_status, setHomedirStatusRequest, None,
+                    homedir_id=85752, status="not_created")
+    print test_soap(sp.get_homedirs, getHomedirsRequest, "_homedir",
+                    hostname="jak.itea.ntnu.no", status="not_created")
     print test_soap(sp.get_ous, getOUsRequest, "_ou")
     print test_soap(sp.get_accounts, getAccountsRequest, "_account",
                     accountspread="user@stud")
@@ -616,6 +710,8 @@ def test():
     print test_soap(sp.get_groups, getGroupsRequest, "_group",
                     accountspread="user@stud", groupspread="group@ntnu")
 
+    print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
+    print test_impl(sp.get_homedirs_impl, "jak.itea.ntnu.no", "not_created")
     print test_impl(sp.get_aliases_impl)
     print test_impl(sp.get_ous_impl)
     print test_impl(sp.get_accounts_impl, "user@stud")
