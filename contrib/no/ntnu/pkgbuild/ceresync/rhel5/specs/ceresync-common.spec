@@ -1,6 +1,7 @@
 %define _unpackaged_files_terminate_build 0
 %define python_ver %(%{__python} -c "import sys; print sys.version[:3]")%{nil}
-%define fakeroot %(if [ "`id -u`" -eq 0 ]; then echo -n ; else echo "fakeroot"; fi)
+%define fakeroot %(if [ "`id -u`" -eq 0 ]; then echo -n ; else echo -n "fakeroot"; fi)
+%define pythonssl %(if [ -n "`grep SUSE /etc/issue`" ]; then echo -n "python-openssl" ; else echo -n "pyOpenSSL"; fi )
 Name: ceresync-common
 Summary: Files needed for all ceresync clients
 Version: VERSION
@@ -12,7 +13,8 @@ Group: Applications/System
 BuildRequires: python-cheetah
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
-Requires: omniORB omniORBpy
+Requires: omniorb omniorbpy
+Requires: %{pythonssl}
 # omniORB pachages: http://www.fourpalms.org/pub/omniORB/SRPMS/
 
 
