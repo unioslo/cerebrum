@@ -126,6 +126,10 @@ class Constants(Constants.Constants):
         'ad_account_ou', Constants.Constants.entity_account,
         "AD OU for account")
 
+    trait_cf_group = _EntityTraitCode(
+        'cf_group', Constants.Constants.entity_group,
+        'Trait for tagging Fronter groups')
+
     # BofhdRequests constants
     bofh_ad_attrs_remove = _BofhdRequestOpCode("br_ad_attr_rem",
                                                "Remove AD attributes for a user")

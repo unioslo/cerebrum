@@ -107,15 +107,44 @@ class HiOfUndervisning(access_FS.Undervisning):
         SELECT DISTINCT
           r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
           e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
-          e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall
-          FROM fs.emne e, fs.undervisningsenhet r
-          WHERE r.emnekode = e.emnekode AND
+          e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall,
+          r.status_eksport_lms
+        FROM fs.emne e, fs.undervisningsenhet r
+        WHERE r.emnekode = e.emnekode AND
           r.versjonskode = e.versjonskode AND """ 
         if (sem=="current"):
 	    qry +="""%s""" % self._get_termin_aar(only_current=1)
         else: 
 	    qry +="""%s""" % self._get_next_termin_aar()
 	return self.db.query(qry)
+
+    
+    def list_aktiviteter(self):
+        """Hent alle undakt for dette og neste semestre.
+        """
+
+        query = """
+        SELECT  
+          r.institusjonsnr, r.emnekode, r.versjonskode,
+          r.terminkode, r.arstall, r.terminnr, r.aktivitetkode,
+          r.aktivitetsnavn, r.lmsrommalkode, r.status_eksport_lms,
+          e.institusjonsnr_kontroll, e.faknr_kontroll,
+          e.instituttnr_kontroll, e.gruppenr_kontroll
+        FROM
+          fs.undaktivitet r,
+          fs.emne e
+        WHERE
+          r.institusjonsnr = e.institusjonsnr AND
+          r.emnekode       = e.emnekode AND
+          r.versjonskode   = e.versjonskode AND
+          ( (%s) OR (%s) )
+        """ % (self._get_termin_aar(only_current=1),
+               self._get_next_termin_aar())
+        
+        return self.db.query(query)
+    # end list_aktiviteter
+
+
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
@@ -140,6 +169,66 @@ class HiOfUndervisning(access_FS.Undervisning):
                                    'terminkode': terminkode,
                                    'arstall': arstall}
                              )
+    # end list_studenter_underv_enhet
+
+    
+
+    def list_studenter_alle_undenh(self):
+        """Hent alle studenter på alle undenh.
+
+        Dette er potensielt *veldig* mange. Spørringen er primært myntet på
+        CF-utplukk og bør således ta minst alle studenter dette og neste
+        semester.
+        """
+
+        qry = """
+        SELECT
+          fodselsdato, personnr,
+          institusjonsnr, emnekode, versjonskode, terminkode, arstall, terminnr
+        FROM
+          fs.undervisningsmelding
+        WHERE
+          terminkode in ('VÅR', 'HØST') AND
+          arstall >= :aar
+        """
+
+        return self.db.query(qry, {"aar": self.year,}, fetchall=True)
+    # end list_studenter_underv_enhet
+
+
+
+    def list_studenter_alle_kullklasser(self):
+        """Hent alle studenter fordelt på kullklasser.
+        """
+
+        query = """
+        SELECT DISTINCT
+            kks.fodselsdato, kks.personnr,
+            kks.studieprogramkode, kks.terminkode, kks.arstall, kks.klassekode
+        FROM
+            fs.kullklassestudent kks,
+            fs.studieprogramstudent sps,
+            fs.kull k
+        WHERE
+            sps.fodselsdato = kks.fodselsdato AND
+            sps.personnr = kks.personnr AND
+            sps.studieprogramkode = kks.studieprogramkode AND
+            sps.terminkode_start = kks.terminkode_start AND
+            sps.arstall_start = kks.arstall_start AND
+            /*
+             * vi vil ha studenter knyttet til aktive kull. resten er
+             * uinteressant
+             */
+            kks.studieprogramkode = k.studieprogramkode AND
+            kks.terminkode = k.terminkode AND
+            kks.arstall = k.arstall AND
+            k.status_aktiv = 'J'
+        """
+
+        return self.db.query(query)
+    # end list_studenter_alle_kull
+        
+    
 
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
@@ -161,6 +250,28 @@ class HiOfUndervisning(access_FS.Undervisning):
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
 
+
+class HiOfStudieInfo(access_FS.StudieInfo):
+
+    def list_studieprogrammer(self): # GetStudieproginf
+        """For hvert definerte studieprogram henter vi 
+        informasjon om utd_plan og eier samt studieprogkode. Vi burde
+        her ha en sjekk på om studieprogrammet er utgått, men datagrunnalget
+        er for svakt. ( WHERE status_utgatt = 'N')"""
+        qry = """
+        SELECT studieprogramkode, status_utdplan,
+               institusjonsnr_studieansv, faknr_studieansv,
+               instituttnr_studieansv, gruppenr_studieansv,
+               studienivakode, status_utgatt, studieprognavn,
+               status_eksport_lms
+        FROM fs.studieprogram"""
+
+        return self.db.query(qry)
+    # end list_studieprogrammer
+
+
+    
+
 class FS(access_FS.FS):
 
     def __init__(self, db=None, user=None, database=None):
@@ -174,3 +285,6 @@ class FS(access_FS.FS):
         # Override with HiOf-spesific classes
         self.student = HiOfStudent(self.db)
         self.undervisning = HiOfUndervisning(self.db)
+        self.info = HiOfStudieInfo(self.db)
+    # end __init__
+# end FS
