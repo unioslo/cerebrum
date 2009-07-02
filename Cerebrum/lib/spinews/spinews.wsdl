@@ -89,9 +89,9 @@
   <xs:attribute name="disk_path" type="xs:string"/>
   <xs:attribute name="home" type="xs:string"/>
   <xs:attribute name="homedir" type="xs:string"/>
-  <xs:attribute name="server_name" type="xs:string"/>
-  <xs:attribute name="status" type="xs:string"/>
   <xs:attribute name="account_name" type="xs:string"/>
+  <xs:attribute name="posix_uid" type="xs:integer"/>
+  <xs:attribute name="posix_gid" type="xs:integer"/>
 </xs:complexType>
 
 
@@ -137,8 +137,8 @@
     </xs:complexType>
 </xs:element>
 
-<xs:element name="setHomedirStatusResponse">
-</xs:element>
+<xs:element name="setHomedirStatusResponse" type="xs:string"/>
+
 
  
 <xs:element name="getGroupsRequest">
@@ -182,6 +182,7 @@
 <xs:complexType>
     <xs:sequence>
 	<xs:element name="status" type="xs:string"/>
+	<xs:element name="hostname" type="xs:string"/>
     </xs:sequence>
 </xs:complexType>
 </xs:element>
