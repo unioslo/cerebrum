@@ -80,6 +80,11 @@ class AccountHiAMixin(Account.Account):
         return mdb_choice
     
     def update_email_addresses(self, set_primary = False):
+        # check if an e-mail spread is registered yet, if not don't
+        # update
+        if not (self.has_spread(self.const.spread_exchange_account) or \
+                self.has_spread(self.const.spread_hia_email)):
+            return
         # Find, create or update a proper EmailTarget for this
         # account.
         et = Email.EmailTarget(self._db)
@@ -111,10 +116,16 @@ class AccountHiAMixin(Account.Account):
                 ea.write_db()
             return
         # if an account email_target without email_server is found assign
-        # the appropriate server
+        # the appropriate server based on spread and account_type
+        spread = None
         if not et.email_server_id:
             if self.get_account_types() or self.owner_type == self.const.entity_group:
-                et = self._update_email_server()
+                for s in self.get_spread():
+                    if s['spread'] == int(self.const.spread_exchange_account):
+                        spread = s['spread']
+                    elif s['spread'] == int(self.const.spread_hia_mail):
+                        spread = s['spread']
+                et = self._update_email_server(spread)
             else:
                 # do not set email_server_target until account_type is registered
                 return
@@ -190,14 +201,16 @@ class AccountHiAMixin(Account.Account):
 		self.update_email_quota()
 
     # TODO: check this method, may probably be done better
-    def _update_email_server(self):
+    def _update_email_server(self, spread):
         es = Email.EmailServer(self._db)
         et = Email.EmailTarget(self._db)
-        if self.is_employee() or self.is_affiliate():
-            #server_name = 'exchkrs01.uia.no'
-            server_name = 'mail-imap1'
-        else:
-            server_name = 'mail-imap2'
+        if spread == int(self.const.spread_hia_email):
+            if self.is_employee() or self.is_affiliate():
+                server_name = 'mail-imap1'
+            else:
+                server_name = 'mail-imap2'
+        elif spread == int(self.const.spread_exchange_account):
+            server_name = 'exchkrs01.uia.no'
         es.find_by_name(server_name)
         try:
             et.find_by_email_target_attrs(target_entity_id = self.entity_id)
