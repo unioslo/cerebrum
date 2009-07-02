@@ -920,6 +920,40 @@ class Undervisning(FSObject):
             'termin': termin, 'arstall': arstall,
             'status_aktiv': status_aktiv, 'status_publiseres': status_publiseres})
 
+    
+
+    def list_studenter_alle_undakt(self):
+        """Hent alle studenter på alle undakt.
+
+        NB! Det kan være mange hundretusen rader i FSPROD i
+        student_pa_undervisningsparti. Det koster da en del minne.
+        """
+        
+        qry = """
+        SELECT
+          su.fodselsdato, su.personnr,
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode, ua.terminkode,
+          ua.arstall, ua.terminnr, ua.aktivitetkode
+        FROM
+          fs.student_pa_undervisningsparti su,
+          fs.undaktivitet ua
+        WHERE
+          su.terminnr       = ua.terminnr       AND
+          su.institusjonsnr = ua.institusjonsnr AND
+          su.emnekode       = ua.emnekode       AND
+          su.versjonskode   = ua.versjonskode   AND
+          su.terminkode     = ua.terminkode     AND
+          su.arstall        = ua.arstall        AND
+          su.undpartilopenr = ua.undpartilopenr AND
+          su.disiplinkode   = ua.disiplinkode   AND
+          su.undformkode    = ua.undformkode AND
+          su.arstall >= :aar
+        """
+
+        return self.db.query(qry, {"aar": self.year}, fetchall=False)
+    # end list_studenter_alle_undakt
+
+
 
 class EVU(FSObject):
     def list(self):  # GetDeltaker_50

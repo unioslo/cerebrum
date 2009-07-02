@@ -873,38 +873,6 @@ class UiOUndervisning(access_FS.Undervisning):
 
         return result
     # end list_studenter_underv_enhet
-    
-
-    def list_studenter_alle_undakt(self):
-        """Hent alle studenter på alle undakt.
-
-        NB! Det er ca. 500'000+ rader i FSPROD i student_pa_undervisningsparti.
-        Det kan koste en del minne.
-        """
-        
-        qry = """
-        SELECT
-          su.fodselsdato, su.personnr,
-          ua.institusjonsnr, ua.emnekode, ua.versjonskode, ua.terminkode,
-          ua.arstall, ua.terminnr, ua.aktivitetkode
-        FROM
-          fs.student_pa_undervisningsparti su,
-          fs.undaktivitet ua
-        WHERE
-          su.terminnr       = ua.terminnr       AND
-          su.institusjonsnr = ua.institusjonsnr AND
-          su.emnekode       = ua.emnekode       AND
-          su.versjonskode   = ua.versjonskode   AND
-          su.terminkode     = ua.terminkode     AND
-          su.arstall        = ua.arstall        AND
-          su.undpartilopenr = ua.undpartilopenr AND
-          su.disiplinkode   = ua.disiplinkode   AND
-          su.undformkode    = ua.undformkode AND
-          su.arstall >= :aar
-        """
-
-        return self.db.query(qry, {"aar": self.year}, fetchall=False)
-    # end list_studenter_alle_undakt
 
 
 class UiOEVU(access_FS.EVU):
