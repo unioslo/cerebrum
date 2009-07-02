@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
@@ -19,58 +18,28 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
 """
 ad-sync script for UiA that uses ADsync.py module to sync users and groups
 to AD and Exchange.
 
 Usage: [options]
-  -h, --help
-        displays this text
-
-  -u, --user-sync
-        sync users to AD and Exchange
-        
-  -g, --group-sync
-        sync groups to AD and Exchange
-
-  -m, --maillists-sync
-        sync mailing lists to AD and Exchange
-
-  -f, --forwarding-sync
-        sync forwarding rules to AD and Exchange
-  
-  --user_spread SPREAD
-        overrides cereconf.AD_ACCOUNT_SPREAD
-        
-  --user_exchange_spread SPREAD
-        overrides cereconf.AD_EXCHANGE_SPREAD
-
-  --user_imap_spread SPREAD
-        overrides cereconf.AD_IMAP_SPREAD
-        
-  --group_spread SPREAD
-        overrides cereconf.AD_GROUP_SPREAD
-
-  --group_exchange_spread SPREAD
-        overrides cereconf.AD_GROUP_EXCHANGE_SPREAD
-  
-  --store-sid
-        write sid of new AD objects to cerebrum databse as external ids.
-        default is _not_ to write sid to database.
-        
-  --dryrun
-        report changes that would have been done without --dryrun.
-        
-  --delete
-        this option ensures deleting superfluous groups. default
-        is _not_ to delete groups.
-        
-  --logger-level LEVEL
-        default is INFO
-        
-  --logger-name NAME
-        default is console
+  --help: displays this text
+  --user-sync: sync users to AD and Exchange
+  --group-sync: sync groups to AD and Exchange
+  --maillists-sync: sync mailing lists to AD and Exchange
+  --forwarding-sync: sync forwarding rules to AD and Exchange
+  --user_spread SPREAD: overrides cereconf.AD_ACCOUNT_SPREAD
+  --user_exchange_spread SPREAD: overrides cereconf.AD_EXCHANGE_SPREAD
+  --user_imap_spread SPREAD: overrides cereconf.AD_IMAP_SPREAD
+  --group_spread SPREAD: overrides cereconf.AD_GROUP_SPREAD
+  --group_exchange_spread SPREAD: overrides cereconf.AD_GROUP_EXCHANGE_SPREAD
+  --store-sid: write sid of new AD objects to cerebrum databse as external ids.
+               default is _not_ to write sid to database.
+  --dryrun: report changes that would have been done without --dryrun.
+  --delete: this option ensures deleting superfluous groups. default
+            is _not_ to delete groups.
+  --logger-level LEVEL: default is INFO
+  --logger-name NAME: default is console
   
 Example:
   ad_fullsync.py --user-sync --store-sid
@@ -79,10 +48,7 @@ Example:
     --user_exchange_spread 'account@exchange' --user_imap_spread 'account@imap'\\
     --group_spread 'group@ad' --group_exchange_spread 'group@exchange \\
     --delete --store-sid --logger-level DEBUG --logger-name console
-
-
 """
-
 
 import getopt
 import sys
