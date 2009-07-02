@@ -187,7 +187,10 @@ class Constants(Constants.Constants):
         'Exchange-enabled account')
     spread_hia_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
-        'group included in Active Directory')   
+        'group included in Active Directory')
+    spread_exchange_group = _SpreadCode(
+        'group@exchange', Constants.Constants.entity_group,
+        'Group exported to Exchange')       
     spread_hia_ezpublish = _SpreadCode(
         'group@ezpublish', Constants.Constants.entity_group,
         'Groups used by EZPublish')
