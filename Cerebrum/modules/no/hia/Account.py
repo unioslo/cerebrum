@@ -123,7 +123,7 @@ class AccountHiAMixin(Account.Account):
                 for s in self.get_spread():
                     if s['spread'] == int(self.const.spread_exchange_account):
                         spread = s['spread']
-                    elif s['spread'] == int(self.const.spread_hia_mail):
+                    elif s['spread'] == int(self.const.spread_hia_email):
                         spread = s['spread']
                 et = self._update_email_server(spread)
             else:
