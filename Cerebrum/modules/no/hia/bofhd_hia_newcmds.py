@@ -1047,7 +1047,7 @@ class BofhdExtension(object):
                     int(self.const.spread_hia_email)]:
                     raise CerebrumError, "Not an e-mail spread: %s!" % email_spread
             try:
-                account.add_spread(self.const.Spread(email_spread))
+                posix_user.add_spread(self.const.Spread(email_spread))
             except Errors.NotFoundError:
                 raise CerebrumError, "No such spread %s" % spread                            
             # And, to write the new password to the database, we have
