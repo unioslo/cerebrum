@@ -1438,7 +1438,8 @@ def argument_to_sql(argument, sql_attr_name, binds,
     # table foo (i.e. foo.bar) is named 'bar' in binds.
     binds_name = sql_attr_name.split(".")[-1]
 
-    if isinstance(argument, (tuple, set, list)) and argument:
+    if isinstance(argument, (tuple, set, list)):
+        assert len(argument) > 0, "List can not be empty."
         tmp = dict()
         for index, item in enumerate(argument):
             name = binds_name + str(index)
