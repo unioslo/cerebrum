@@ -506,6 +506,9 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             if indirect_members:
                 # NB! This can be a very large group set.
                 group_ids = search_transitive_closure(member_id)
+                if not group_ids:
+                    return []
+
                 where.append(argument_to_sql(group_ids, "gi.group_id", binds, int))
             else:
                 tables.append("[:table schema=cerebrum name=group_member] gm")
