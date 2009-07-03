@@ -17,7 +17,12 @@ FIXME: Write a few words about how the script is organised.
 FIXME: Flersemesteremnre are placed under the wrong node. The title is
 correct, though, albeit somewhat hackish.
 
-FIXME: 
+FIXME: typevalue distribution. which ones are 'nodes'? which ones are
+'corridors'?
+
+FIXME: view contactse
+
+FIXME: room templates
 """
 
 import getopt
@@ -240,6 +245,12 @@ class cf_group_interface(object):
     def cf_parent_id(self):
         raise NotImplementedError("N/A")
 
+    def cf_typevalue(self):
+        raise NotImplementedError("N/A")
+
+    def cf_template(self):
+        raise NotImplementedError("N/A")
+
     def cf_parent_title(self):
         # If the parent link already exists, we are done
         if self._parent:
@@ -312,6 +323,43 @@ class cf_structure_group(cf_group_interface):
         self._group_type = self._calculate_group_type()
     # end __init__
 
+
+    def cf_typevalue(self):
+        """Return a suitable text value for <typevalue> XML element.
+
+        The meaning of the code values is:
+
+          0 - node
+          1 - corridor
+          2 - group
+          4 - room.
+        """
+
+        # FIXME: this is so horribly hackish. There should be a general way of
+        # calculating the <typevalue>.
+        # FIXME: Which ones are nodes? Which ones are corridors?
+        if self.cf_id() in ("root",
+                            "STRUCTURE:hiof.no",
+                            "STRUCTURE:hiof.no:automatisk",
+                            "STRUCTURE:hiof.no:manuell",):
+            return "0"
+
+        if self.cf_group_type() == "STRUCTURE":
+            return "1"
+
+        if self.cf_group_type() == "ROOM":
+            return "4"
+
+        assert False, "This cannot happen"
+    # end cf_typevalue
+
+
+    def cf_template(self):
+        assert self.cf_group_type() in self.valid_types
+        if self.cf_group_type() == "ROOM":
+            return "Mal-rom OA 2"
+    # end cf_template
+    
 
     def cf_id(self):
         return self._cf_id
@@ -461,6 +509,22 @@ class cf_member_group(cf_group_interface):
                                                                         self._group_type)
     # end __init__
 
+
+    def cf_typevalue(self):
+        """Return a suitable text value for <typevalue> XML element.
+
+        The meaning of the code values is:
+
+          0 - node
+          1 - corridor
+          2 - group
+          4 - room.
+        """
+
+        # cf_member_group objects represent 'group' typevalues. Always.
+        return "2"
+    # end cf_typevalue
+    
 
     def cf_id(self):
         return self._cf_id
@@ -803,7 +867,6 @@ def build_cf_tree(db, db_groups):
             logger.debug("No node created for cf_member id=%s",
                          cf_member.cf_id())
 
-    # FIXME: debug output a few more statistics
     logger.debug("Built a CF tree")
     return tree
 # end build_cf_tree
@@ -910,8 +973,10 @@ def output_group_element(cf_group, printer):
     printer.startElement("group", {"recstatus": STATUS_ADD,})
     output_id(cf_group.cf_id(), printer)
 
-    # FIXME: <typevalue> here
-
+    printer.startElement("grouptype")
+    printer.dataElement("scheme", "FronterStructure1.0")
+    printer.emptyElement("typevalue", {"level": cf_group.cf_typevalue()})
+    printer.endElement("grouptype")
     printer.startElement("description")
     if len(cf_group.cf_title()) > 60:
         printer.emptyTag("short")
@@ -953,7 +1018,10 @@ def output_membership(group, members, printer):
         # 1 = person, 2 = group
         printer.dataElement("idtype", "1")
         printer.startElement("role", {"restatus": STATUS_UPDATE,
-                                      # FIXME: This should be expressed via cf_permission
+                                      # FIXME: This should be expressed via
+                                      # cf_permission, since a specific user
+                                      # within a group may have a different
+                                      # permission.
                                       "roletype": cf_permission.ROLE_WRITE})
         # 0 = inactive member, 1 = active member
         printer.dataElement("status", "1")
