@@ -80,7 +80,7 @@
   <xs:attribute name="address_id" type="xs:integer"/>
   <xs:attribute name="primary_address_id" type="xs:integer"/>
   <xs:attribute name="server_name" type="xs:string"/>
-  <xs:attribute name="account_id" type="xs:string"/>
+  <xs:attribute name="account_id" type="xs:integer"/>
   <xs:attribute name="account_name" type="xs:string"/>
 </xs:complexType>
 
