@@ -64,7 +64,7 @@ def search_accounts(account_spread, changelog_id=None, auth_type="MD5-crypt"):
        tables.append("""JOIN change_log
          ON (change_log.subject_entity = account_info.account_id
             AND change_log.change_id > :changelog_id)""")
-       order_by="ORDER BY change_log.change_id"
+       order_by=" ORDER BY change_log.change_id"
        binds['changelog_id'] = changelog_id
     
     tables.append("""
@@ -166,7 +166,7 @@ def search_groups(group_spread, changelog_id=None):
         tables.append("""JOIN change_log
           ON (change_log.subject_entity = group_info.group_id
             AND change_log.change_id > :changelog_id)""")
-        order_by="ORDER BY change_log.change_id"
+        order_by=" ORDER BY change_log.change_id"
         binds['changelog_id'] = changelog_id
 
     tables.append("""
@@ -209,7 +209,7 @@ def search_ous(changelog_id=None):
         tables.append("""JOIN change_log
          ON (change_log.subject_entity = ou_info.ou_id
            AND change_log.change_id > :changelog_id)""")
-        order_by="ORDER BY change_log.change_id"
+        order_by=" ORDER BY change_log.change_id"
         
 
     tables.append("""JOIN ou_structure
@@ -351,8 +351,18 @@ def search_aliases(changelog_id=None):
             "account_info.account_id AS account_id",
             "account_name.entity_name AS account_name",
             ]
-    tables=["""email_address
-JOIN email_domain
+    tables=["email_address"]
+    order_by=""
+    
+    if changelog_id is not None:
+        tables.append("""JOIN change_log
+        ON (change_log.subject_entity = email_address.address_id
+            AND change_log.change_id > :changelog_id)""")
+        order_by=" ORDER BY change_log.change_id"
+        binds["changelog_id"]=changelog_id
+        
+        
+    tables.append("""JOIN email_domain
   ON (email_domain.domain_id = email_address.domain_id)
 JOIN email_target
   ON (email_address.target_id = email_target.target_id)
@@ -370,7 +380,7 @@ LEFT JOIN email_address primary_address
   ON (primary_address.address_id = email_primary_address.address_id)
 LEFT JOIN email_domain primary_address_domain
   ON (primary_address_domain.domain_id = primary_address.domain_id)
-"""]
+""")
     binds={
         'account_namespace': co.account_namespace,
         'host_namespace': co.host_namespace,
@@ -379,6 +389,7 @@ LEFT JOIN email_domain primary_address_domain
     
     sql = "SELECT " + ",\n".join(select)
     sql += " FROM " + "\n".join(tables)
+    sql += order_by
 
     return db.query(sql, binds)
 
@@ -604,6 +615,10 @@ class spinews(ServiceSOAPBinding):
           getOUsRequest.typecode.pname)] = 'get_ous'
     root[(getAliasesRequest.typecode.nspname,
           getAliasesRequest.typecode.pname)] = 'get_aliases'
+    root[(getHomedirsRequest.typecode.nspname,
+          getHomedirsRequest.typecode.pname)] = 'get_homedirs'
+    root[(setHomedirStatusRequest.typecode.nspname,
+          setHomedirStatusRequest.typecode.pname)] = 'set_homedir_status'
 
     def get_accounts_impl(self, accountspread, changelog_id=None):
         accounts=[]
