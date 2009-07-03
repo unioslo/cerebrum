@@ -179,8 +179,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             try:
                 self.person.find(v['TEMPownerId'])
             except Errors.NotFoundError:
-                self.logger.warning("Getting contact info: Skipping ownerid=%s,"
-                                    "no valid account found", v['TEMPownerId'])
+                self.logger.info("Getting contact info: Skipping user=%s,"
+                                    "owner (id=%s) is not a person entity." 
+                                 % (v['TEMPuname'], v['TEMPownerId']))
                 continue
             phones = self.person.get_contact_info(type=self.co.contact_phone)
             if not phones:
@@ -340,6 +341,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.debug("..setting contact info..")
         self._update_contact_info(tmp_ret)
 
+        #
+        # Indexing dict on username instead of account id
+        #
         userdict_ret= {}
         for k, v in tmp_ret.iteritems():
             userdict_ret[v['TEMPuname']] = v
