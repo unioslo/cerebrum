@@ -52,7 +52,7 @@ class GroupDAOTest(unittest.TestCase):
 
         self.assertEqual(expected, group)
 
-    def test_posix_group_has_cetest1_as_member(self):
+    def test_that_posix_group_has_cetest1_as_member(self):
         expected = TestData.get_cetest1()
         
         group = self.dao.get(TestData.posix_group_id, include_extra=True)
@@ -113,6 +113,8 @@ class GroupDAOTest(unittest.TestCase):
 
     def test_get_entities_for_account(self):
         expected = TestData.get_posix_account_primary_group_dto()
+        expected.is_posix = True
+        expected.description = 'Group used in cereweb-tests'
         groups = self.dao.get_entities_for_account(TestData.posix_account_id)
 
         found = False
@@ -121,6 +123,11 @@ class GroupDAOTest(unittest.TestCase):
         
         self.assert_(found)
         
+    def test_that_get_groups_on_groupless_account_returns_empty_list(self):
+        groups = self.dao.get_groups_for(TestData.groupless_account_id)
+        
+        self.assert_(len(groups) == 0)
+        self.assert_(type(groups) == list)
 
     def assertValidDate(self, date):
         self.assert_(date is None or isinstance(date, DateTimeType))
@@ -150,6 +157,18 @@ class GroupDaoWriteTest(WriteTestCase):
     def test_delete(self):
         data = self._create_group("gtest_del_tmp")
         group = self._add(data)
+
+        self.dao.get(group.id)
+
+        self.dao.delete(group.id)
+
+        self.assertRaises(NotFoundError, self.dao.get, group.id)
+
+    def test_that_we_can_delete_a_posix_group(self):
+        data = self._create_group("gtest_del_tmp")
+        group = self._add(data)
+
+        self.dao.promote_posix(group.id)
 
         self.dao.delete(group.id)
 

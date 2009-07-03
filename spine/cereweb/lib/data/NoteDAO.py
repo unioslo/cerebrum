@@ -14,6 +14,13 @@ class NoteDAO(object):
         self.db = db
         self.dao = EntityDAO(self.db)
 
+    def create_from_entity(self, entity):
+        notes = []
+        for note in entity.get_notes():
+            dto = self.create_dto(note)
+            notes.append(dto)
+        return notes
+        
     def create_dto(self, note):
         dto = DTO()
 

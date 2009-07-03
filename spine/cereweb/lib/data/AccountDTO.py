@@ -5,6 +5,7 @@ class AccountDTO(DTO):
         self.id = -1
         self.name = ""
         self.type_name = 'account'
+        self.type_id = 17
 
         self.owner = None
         self.creator = None

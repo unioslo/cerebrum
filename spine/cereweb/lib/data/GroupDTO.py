@@ -10,5 +10,7 @@ class GroupDTO(DTO):
         self.quarantines = []
         self.members = []
         self.type_name = 'group'
+        self.type_id = 18
         self.has_owner = False
         self.expire_date = None
+        self.posix_gid = -1

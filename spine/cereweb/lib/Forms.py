@@ -22,7 +22,11 @@ from gettext import gettext as _
 import cgi
 import cherrypy
 from lib.utils import legal_date, html_quote, spine_to_web, object_link
-from lib.utils import randpasswd, get_lastname_firstname
+from lib.utils import randpasswd, get_lastname_firstname, entity_link
+
+from lib.data.AccountDAO import AccountDAO
+from lib.data.ConstantsDAO import ConstantsDAO
+from lib.data.EntityDAO import EntityDAO
 
 """
 Helper-module for search-pages and search-result-pages in cereweb.
@@ -279,12 +283,13 @@ class AccountCreateForm(Form):
         self.action = '/account/create'
 
         self.order = [
-            'owner', 'name', '_other', 'group', 'expire_date', 'description', 'password0', 'password1', 'randpasswd',
+            'owner_id', 'name', '_other', 'group', 'expire_date', 'password0', 'password1', 'randpasswd',
         ]
         self.fields = {
-            'owner': {
+            'owner_id': {
                 'required': True,
                 'type': 'hidden',
+                'label': _('Owner id'),
             },
             'name': {
                 'label': _('Select username'),
@@ -302,12 +307,6 @@ class AccountCreateForm(Form):
                 'required': False,
                 'type': 'text',
                 'help': _('Date must be in YYYY-MM-DD format.'),
-            },
-            'description': {
-                'label': _('Description'),
-                'required': False,
-                'type': 'text',
-                'quote': 'escape',
             },
             'group': {
                 'label': _('Primary group'),
@@ -331,18 +330,15 @@ class AccountCreateForm(Form):
                 'required': False,
                 'type': 'radio',
                 'name': 'randpwd',
-                'value': [randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(), randpasswd(),],
+                'value': [randpasswd() for i in range(10)],
             },
         }
 
-        self.owner = self.transaction.get_entity(int(self.values.get('owner')))
+        self.owner = self.values.get("owner_entity")
+        self.type = self.owner.type_name
+        self.name = self.owner.name
 
-        if self.owner.get_type().get_name() == 'person':
-            self.type = 'person'
-            self.name = spine_to_web(get_lastname_firstname(self.owner))
-        else:
-            self.type = self.owner.get_type()
-            self.name = spine_to_web(self.owner.get_name())
+        if self.type != 'person':
             self.fields['np_type'] = {
                 'label': _('Account type'),
                 'required': True,
@@ -357,23 +353,15 @@ class AccountCreateForm(Form):
             self.order.append('join')
 
     def get_name_options(self):
-        names = self.name.split(' ')
-        if len(names) == 1:
-            first = ''
-            last = names[0]
-        else:
-            first = names[0]
-            last = names[-1]
-
-        usernames = self.transaction.get_commands().suggest_usernames(first, last)
+        usernames = AccountDAO().suggest_usernames(self.owner)
         return [(username, username) for username in usernames]
 
     def get_np_type_options(self):
-        searcher = self.transaction.get_account_type_searcher()
-        return [(t.get_name(), t.get_description()) for t in searcher.search()]
+        account_types = ConstantsDAO().get_account_types()
+        return [(t.id, t.description) for t in account_types]
 
     def get_title(self):
-        return "%s %s" % (_('Owner is'), object_link(self.owner, self.name))
+        return "%s %s" % (_('Owner is'), entity_link(self.owner))
 
     def is_correct(self):
         correct = self.has_required()
@@ -412,7 +400,7 @@ class AccountEditForm(AccountCreateForm):
         self.action = '/account/edit'
         self.error_message = ''
         self.order = [
-            'id', 'expire_date', 'description',
+            'id', 'expire_date', 
         ]
         self.fields = {
             'id': {
@@ -425,12 +413,6 @@ class AccountEditForm(AccountCreateForm):
                 'required': False,
                 'type': 'text',
                 'help': _('Date must be in YYYY-MM-DD format.'),
-            },
-            'description': {
-                'label': _('Description'),
-                'required': False,
-                'type': 'text',
-                'quote': 'escape',
             },
         }
 

@@ -39,11 +39,7 @@ class GroupDAO(EntityDAO):
 
     def get_entities_for_account(self, account_id):
         for row in self.entity.search(member_id=account_id):
-            dto = EntityDTO()
-            dto.id = row.group_id
-            dto.name = row.name
-            dto.type_name = self._get_type_name()
-            yield dto
+            yield self._create_dto_from_search(row)
 
     def get_groups_for(self, member_id):
         groups = []
@@ -86,8 +82,11 @@ class GroupDAO(EntityDAO):
         self._save_posix(dto)
         group.write_db()
 
-    def delete(self, id):
-        group = self._find(id)
+    def delete(self, group_id):
+        if self._is_posix(group_id):
+            self.demote_posix(group_id)
+
+        group = self._find(group_id)
         group.delete()
 
     def add(self, dto):
@@ -103,6 +102,9 @@ class GroupDAO(EntityDAO):
 
     def _get_name(self, entity):
         return entity.get_name(self.constants.group_namespace)
+
+    def _get_type_id(self):
+         return int(self.constants.entity_group)
 
     def _get_type_name(self):
          return self.constants.entity_group.str
@@ -127,6 +129,7 @@ class GroupDAO(EntityDAO):
         dto.id = result.group_id
         dto.name = result.name
         dto.type_name = self._get_type_name()
+        dto.type_id = self._get_type_id()
         dto.description = result.description
         dto.is_posix = self._is_posix(result.group_id)
         
@@ -138,6 +141,7 @@ class GroupDAO(EntityDAO):
         dto.name = self._get_name(group)
         dto.description = group.description
         dto.type_name = self._get_type_name()
+        dto.type_id = self._get_type_id()
         dto.is_expired = group.is_expired()
         dto.create_date = group.create_date
         dto.expire_date = group.expire_date
@@ -148,7 +152,11 @@ class GroupDAO(EntityDAO):
     def _populate_posix(self, dto, group):
         pgroup = self._get_posix_group(group.entity_id)
         dto.is_posix = pgroup is not None
-        dto.posix_gid = pgroup and pgroup.posix_gid or -1
+        
+        if not dto.is_posix:
+            return
+
+        dto.posix_gid = pgroup.posix_gid
 
     def _populate_visibility(self, dto, group):
         code = self.constants.GroupVisibility(group.visibility)
@@ -187,20 +195,10 @@ class GroupDAO(EntityDAO):
         return EntityFactory(self.db).create(member_type, member_id)
 
     def _get_quarantines(self, group):
-        quarantine_dao = QuarantineDAO(self.db)
-        quarantines = []
-        for q in group.get_entity_quarantine():
-            dto = quarantine_dao.create_dto(q)
-            quarantines.append(dto)
-        return quarantines
+        return QuarantineDAO(self.db).create_from_entity(group)
 
     def _get_notes(self, group):
-        note_dao = NoteDAO(self.db)
-        notes = []
-        for note in group.get_notes():
-            dto = note_dao.create_dto(note)
-            notes.append(dto)
-        return notes
+        return NoteDAO(self.db).create_from_entity(group)
 
     def _get_spreads(self, group):
         spreads = []

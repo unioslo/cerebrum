@@ -39,5 +39,13 @@ class EntityDAOTest(unittest.TestCase):
         d = time.time() - t
         self.assert_(d < 0.1, "this test should completet in under 100ms")
 
+    def test_that_exists_returns_true_for_existing_id(self):
+        result = EntityDAO().exists(TestData.bootstrap_account_id)
+        self.assertTrue(result)
+
+    def test_that_exists_returns_false_for_nonexisting_id(self):
+        result = EntityDAO().exists(-2)
+        self.assertFalse(result)
+
 if __name__ == '__main__':
     unittest.main()

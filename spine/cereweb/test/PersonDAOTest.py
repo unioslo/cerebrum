@@ -31,10 +31,17 @@ class PersonDAOTest(unittest.TestCase):
     """We test against the test-database and we use the fabricated person Test Testesen to verify that we get the expected data."""
 
     def test_person_has_correct_data(self):
-        entity = PersonDAO().get_entity(354985)
+        entity = PersonDAO().get_entity(TestData.test_testesen_id)
         expected = TestData.get_test_testesen()
 
         self.assertEqual(expected, entity)
+    
+    def test_that_we_can_get_affiliations_from_person_id(self):
+        affiliations = PersonDAO().get_affiliations(TestData.test_testesen_id)
+        self.assert_(len(affiliations) == 1)
+        aff = affiliations[0]
+        self.assertEquals('ALUMNI', aff.type_name)
+        self.assertEquals('IT-avdelingen', aff.ou.name)
 
 if __name__ == '__main__':
     unittest.main()

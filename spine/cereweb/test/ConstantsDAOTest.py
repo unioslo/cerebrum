@@ -29,8 +29,11 @@ Constants = Utils.Factory.get("Constants")
 class ConstantsDAOTest(unittest.TestCase):
     """We test against the test-database and we use the fabricated person Test Testesen to verify that we get the expected data."""
 
+    def setUp(self):
+        self.dao = ConstantsDAO()
+
     def test_get_group_visibilities(self):
-        visibilities = ConstantsDAO().get_group_visibilities()
+        visibilities = self.dao.get_group_visibilities()
         
         self.assert_(visibilities)
         for v in visibilities:
@@ -38,12 +41,21 @@ class ConstantsDAOTest(unittest.TestCase):
             self.assert_(v.description)
 
     def test_get_group_spreads(self):
-        spreads = ConstantsDAO().get_group_spreads()
+        spreads = self.dao.get_group_spreads()
         self.assert_(spreads)
 
     def test_get_email_target_types(self):
-        types = ConstantsDAO().get_email_target_types()
+        types = self.dao.get_email_target_types()
         self.assert_(types)
+
+    def test_that_we_can_get_shells(self):
+        for shell in self.dao.get_shells():
+            self.assert_(shell.id is not None)
+
+    def test_that_we_can_get_account_types(self):
+        types = self.dao.get_account_types()
+        self.assert_(len(types) == 3)
+
 
 if __name__ == '__main__':
     unittest.main()

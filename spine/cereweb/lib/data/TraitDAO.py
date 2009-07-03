@@ -18,13 +18,17 @@ class TraitDAO(object):
 
     def create_from_entity(self, entity):
         traits = []
-        for key, value in entity.get_traits().items():
-            dto = DTO()
-            dto.name = key.str
-            target_id = value['target_id']
-            dto.target = EntityDAO.get(target_id)
-            dto.number = value['numval']
-            dto.string = value['strval']
-            dto.date = value['date']
+        for trait_type, data in entity.get_traits().items():
+            dto = self.create_dto(trait_type, data)
             traits.append(dto)
         return traits
+
+    def create_dto(self, trait_type, data):
+        dto = DTO()
+        dto.name = trait_type.str
+        target_id = data['target_id']
+        dto.target = EntityDAO.get(target_id)
+        dto.number = data['numval']
+        dto.string = data['strval']
+        dto.date = data['date']
+        return dto

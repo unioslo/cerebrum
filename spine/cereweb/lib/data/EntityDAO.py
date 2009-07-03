@@ -1,5 +1,6 @@
 import cerebrum_path
 from Cerebrum import Utils
+from Cerebrum.Errors import NotFoundError
 
 from lib.data.EntityDTO import EntityDTO
 
@@ -30,23 +31,36 @@ class EntityDAO(object):
     def get_by_name(self, name):
         raise NotImplementedError("This method should be overloaded.")
 
-    def get_entity(self, id):
-        entity = self._find(id)
+    def get_entity(self, entity_id):
+        entity = self._find(entity_id)
         return self._create_entity_dto(entity)
 
     def get_entity_by_name(self, name):
         entity = self._find_by_name(name)
         return self._create_entity_dto(entity)
 
+    def exists(self, entity_id):
+        try:
+            self.get(entity_id)
+        except NotFoundError, e:
+            return False
+        return True
+
+    def suggest_usernames(self, entity_id):
+        """FIXME: Where should I be?"""
+
     def _get_name(self, entity):
         return "Unknown"
+
+    def _get_type_id(self):
+        raise NotImplementedError, "This method must be overloaded."
 
     def _get_type_name(self):
         return 'entity'
 
-    def _find(self, id):
+    def _find(self, entity_id):
         self.entity.clear()
-        self.entity.find(id)
+        self.entity.find(entity_id)
         return self.entity
 
     def _find_by_name(self, name):
@@ -59,4 +73,5 @@ class EntityDAO(object):
         dto.id = entity.entity_id
         dto.name = self._get_name(entity)
         dto.type_name = self._get_type_name()
+        dto.type_id = self._get_type_id()
         return dto

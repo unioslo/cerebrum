@@ -25,6 +25,7 @@ class AffiliationDAO(object):
         affiliation = DTO()
         affiliation.priority = account_type.priority
         affiliation.type_name = self.constants.PersonAffiliation(account_type.affiliation).str
+        affiliation.type_id = account_type.affiliation
 
         affiliation.ou = OuDAO(self.db).get_entity(account_type.ou_id)
         return affiliation
@@ -39,5 +40,6 @@ class AffiliationDAO(object):
         affiliation = DTO()
         affiliation.priority = -1
         affiliation.type_name = self.constants.PersonAffiliation(person_affiliation.affiliation).str
+        affiliation.type_id = person_affiliation.affiliation
         affiliation.ou = OuDAO(self.db).get_entity(person_affiliation.ou_id)
         return affiliation

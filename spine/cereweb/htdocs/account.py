@@ -28,7 +28,9 @@ from lib.Forms import AccountCreateForm, AccountEditForm
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
-from SpineIDL.Errors import NotFoundError, IntegrityError, PasswordGoodEnoughException
+from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
+from Cerebrum.Errors import NotFoundError
+from Cerebrum.Database import IntegrityError
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.ConstantsDAO import ConstantsDAO
@@ -37,8 +39,14 @@ from lib.data.GroupDAO import GroupDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.PersonDAO import PersonDAO
+from lib.data.DTO import DTO
 
 from group import get_database
+
+class CreationFailedError(Exception):
+    def __init__(self, message, innerException=None):
+        self.message = message
+        self.innerException = innerException
 
 def _get_links():
     return (
@@ -68,90 +76,120 @@ def view_form(form, message=None):
     page.form_help = form.get_help()
     return page.respond()
     
-def create(transaction, **vargs):
-    owner = vargs.get('owner')
+@session_required_decorator
+def create(**kwargs):
+    owner_id = kwargs.get('owner_id', None)
+    if owner_id is None:
+        return fail_to_referer(_("Please create an account through a person or group."))
+
     try:
-        owner = transaction.get_entity(int(owner))
-    except (TypeError, NotFoundError):
-        owner = None
+        owner = EntityDAO().get(owner_id)
+    except NotFoundError, e:
+        return fail_to_referer(_("Please create an account through a person or group."))
 
-    if not owner:
-        client = cherrypy.session.get('client')
-        rollback_url(client, _("Please create an account through a person or group."), err=True)
+    if owner.type_name not in ('person', 'group'):
+        return fail_to_referer(_("Please create an account through a person or group."))
 
-    form = AccountCreateForm(transaction, **vargs)
-    if len(vargs) == 1:
+    form = AccountCreateForm(None, owner_entity=owner, **kwargs)
+    if len(kwargs.keys()) == 1:
         return view_form(form)
     elif not form.is_correct():
         return view_form(form, form.get_error_message())
-    
-    make(transaction, owner, 
-            vargs.get('name'),
-            vargs.get('password0'),
-            vargs.get('password1'),
-            vargs.get('randpwd'),
-            vargs.get('expire_date'),
-            vargs.get('np_type'),
-            vargs.get('_other'),
-            vargs.get('join'),
-            vargs.get('group'),
-            vargs.get('description'))
-create = transaction_decorator(create)
+        
+    try:
+        db = get_database()
+        account = make(db, owner, **kwargs)
+        db.commit()
+    except CreationFailedError, e:
+        queue_message(e.message, title=_("Creation failed"), error=True, tracebk=e)
+        db.rollback()
+        return view_form(form)
+
+    queue_message(_("Account successfully created."), title="Account created")
+    redirect_entity(account)
 create.exposed = True
 
-def make(transaction, owner, name, passwd0="", passwd1="", randpwd="", expire_date="", np_type=None,
-         _other=None, join=False, primary_group=None, desc=""):
-    commands = transaction.get_commands()
+def make(db, owner, **kwargs):
+    account = create_account(db, owner, **kwargs)
+    join_owner_group(db, owner, account)
+    join_primary_group(db, account, **kwargs)
+    set_account_password(db, account, **kwargs)
+    return account
+
+def create_account(db, owner, **kwargs):
+    username = web_to_spine(kwargs.get('_other') or kwargs.get('name'))
+    expire_date = kwargs.get('expire_date') or None
     
-    password = ''
-    if passwd0 and passwd1:
-        password = passwd0
-    else:
-        password = randpwd
+    np_type = None
+    if owner.type_name == 'group':
+        np_type = kwargs.get('np_type') or None
 
-    referer = cherrypy.request.headerMap.get('Referer', '')
-    id = owner.get_id()
-    if _other:
-        name = _other
-    if not expire_date:
-        expire_date = None
-    else:
-        expire_date = commands.strptime(expire_date, "%Y-%m-%d")
-    if np_type:
-        #assert owner.get_type().get_name() == 'group'
-        assert owner.get_typestr() == 'group'
-        np_type = transaction.get_account_type(np_type)
-        account = owner.create_account(web_to_spine(name), np_type, expire_date)
-    else:
-        try:
-            account = owner.create_account(web_to_spine(name), expire_date)
-        except IntegrityError, e:
-            rollback_url(referer, 'Could not create account,- possibly identical usernames.', err=True)
-    if join and owner.get_typestr() == "group":
-        operation = transaction.get_group_member_operation_type("union")
-        owner.add_member(account, operation)
+    account = DTO()
+    account.name = username
+    account.owner = owner
+    account.expire_date = expire_date
+    account.np_type = np_type
+    try:
+        return AccountDAO(db).create(account)
+    except IntegrityError, e:
+        msg = _("Account creation failed.  Please try a different username.")
+        raise CreationFailedError(msg, e)
 
-    if primary_group:
-        referer = cherrypy.request.headerMap.get('Referer', '')
-        try:
-            primary_group = commands.get_group_by_name(web_to_spine(primary_group))
-            operation = transaction.get_group_member_operation_type("union")
-            primary_group.add_member(account, operation)
-            if primary_group.is_posix():
-                _promote_posix(transaction, account, primary_group)
-        except NotFoundError, e:
-            rollback_url(referer, _("Could not find group %s.  Account is not created." % primary_group), err=True)
-    if desc:
-        account.set_description(web_to_spine(desc))
+def join_owner_group(db, owner, account, **kwargs):
+    if not owner.type_name == "group":
+        return
 
+    join = kwargs.get('join')
+    if join:
+        dao = GroupDAO(db)
+        dao.add_member(account.id, owner.id)
+
+def join_primary_group(db, account, **kwargs):
+    primary_group_name = kwargs.get('group')
+    
+    if not primary_group_name:
+        return
+
+    dao = GroupDAO(db)
+
+    try:
+        primary_group = dao.get_by_name(primary_group_name)
+    except NotFoundError, e:
+        msg = _("Account creation failed.  Specified primary group does not exist.")
+        raise CreationFailedError(msg, e)
+
+    dao.add_member(account.id, primary_group.id)
+        
+    if primary_group.is_posix:
+        AccountDAO(db).promote_posix(account.id, primary_group.id)
+
+def set_account_password(db, account, **kwargs):
+    # We've already verified that password0 == password1.
+    password = kwargs.get('password0') or kwargs.get('randpwd')
+    
     if not password:
-        rollback_url(referer, 'Password is empty. Account is not created.', err=True)
-    if password:
-        try :
-            account.set_password(password)
-        except PasswordGoodEnoughException, ex:
-            rollback_url(referer, 'Password is not strong enough. Account is not created.', err=True)
-    commit(transaction, account, msg=_("Account successfully created."))
+        msg = _('Account creation failed.  Password is empty.')
+        raise CreationFailedError(msg, e)
+
+    try:
+        dao = AccountDAO(db)
+        dao.set_password(account.id, password)
+    except PasswordGoodEnoughException, e:
+        msg = _('Account creation failed.  Password is not strong enough.')
+        raise CreationFailedError(msg, e)
+
+def fail_to_index(message):
+    fail('/index', message)
+
+def fail_to_referer(message):
+    referer = cherrypy.request.headerMap.get('Referer', '')
+    if not referer or referer == cherrypy.request.browser_url:
+        fail_to_index(message)
+    fail(referer, message)
+
+def fail(url, message):
+    queue_message(message, title=_("Operation failed"), error=True)
+    redirect(url)
 
 @session_required_decorator
 def view(id, **kwargs):
@@ -280,47 +318,54 @@ def save(transaction, **vargs):
 save = transaction_decorator(save)
 save.exposed = True
 
-def _promote_posix(transaction, account, primary_group):
-    searcher = transaction.get_posix_shell_searcher()
-    shell = searcher.search()[0]
-    uid = transaction.get_commands().get_free_uid()
-    account.promote_posix(uid, primary_group, shell)
+def get_primary_group_id(account_id):
+    posix_groups = AccountDAO().get_posix_groups(account_id)
+    for group in posix_groups: return group.id
+    return None
 
-def posix_promote(transaction, id, primary_group=None):
-    account = transaction.get_account(int(id))
-    if not primary_group:
-        for group in account.get_groups():
-            if group.is_posix():
-                primary_group = group
-                break
-    
-    if primary_group:
-        _promote_posix(transaction, account, primary_group)
-        msg = _("Account successfully promoted to posix.")
-        commit(transaction, account, msg=msg)
-    else:
+def promote_posix(account_id):
+    primary_group = get_primary_group_id(account_id)
+    if primary_group is None:
         #TODO: maybe we should rather create the posix-group
         msg = "Account is not member of any posix-groups, and cannot be promoted."
-        queue_message(_(msg), True, object_link(account))
-        redirect_object(account)
-posix_promote = transaction_decorator(posix_promote)
-posix_promote.exposed = True
+        queue_message(_(msg), True, title=_("Promote failed"))
+        redirect_entity(account_id)
+    else:
+        _promote_posix(account_id, primary_group)
+        msg = _("Account successfully promoted to posix.")
+        queue_message(_(msg), title=_("Promote succeeded"))
+        redirect_entity(account_id)
+promote_posix.exposed = True
 
-def posix_demote(transaction, id):
-    account = transaction.get_account(int(id))
-    account.demote_posix()
+def _promote_posix(account_id, primary_group_id):
+    db = get_database()
+    dao = AccountDAO(db)
+    dao.promote_posix(account_id, primary_group_id)
+    db.commit()
+
+def demote_posix(account_id):
+    _demote_posix(account_id)
     msg = _("Account successfully demoted from posix.")
-    commit(transaction, account, msg=msg)
-posix_demote = transaction_decorator(posix_demote)
-posix_demote.exposed = True
+    queue_message(_(msg), title=_("Demote succeeded"))
+    redirect_entity(account_id)
+demote_posix.exposed = True
 
-def delete(transaction, id):
+def _demote_posix(account_id):
+    db = get_database()
+    dao = AccountDAO(db)
+    dao.demote_posix(account_id)
+    db.commit()
+
+def delete(account_id):
     """Delete account in the database."""
-    account = transaction.get_account(int(id))
-    msg = _("Account '%s' successfully deleted.") % spine_to_web(account.get_name())
-    account.delete()
-    commit_url(transaction, 'index', msg=msg)
-delete = transaction_decorator(delete)
+    db = get_database()
+    dao = AccountDAO(db)
+    account = dao.get_entity(account_id)
+    dao.delete(account_id)
+    db.commit()
+    msg = _("Account '%s' successfully deleted.") % spine_to_web(account.name)
+    queue_message(_(msg), title=_("Delete succeeded"))
+    redirect('/account/index')
 delete.exposed = True
 
 def groups(transaction, account_id, leave=False, create=False, **checkboxes):

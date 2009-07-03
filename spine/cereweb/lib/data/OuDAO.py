@@ -14,5 +14,8 @@ class OuDAO(EntityDAO):
     def _get_type_name(self):
         return self.constants.entity_ou.str
 
+    def _get_type_id(self):
+        return int(self.constants.entity_ou)
+
     def _get_name(self, entity):
         return entity.name

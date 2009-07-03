@@ -50,106 +50,81 @@ class Client(object):
 
     def disconnect(self):
         self.spine = None
-
 Client = Client()
 
-def login(**vargs):
-    # Merge our session with the supplied info.  This way, we can remember
-    # what client the user used last time he logged in, etc.
-    username = vargs.get('username')
-    password = vargs.get('password')
-    client = utils.clean_url(vargs.get('client'))
-    vargs.update(cherrypy.session)
-
-    redirect = utils.clean_url(vargs.get('redirect'))
-
-    # Make sure the user has chosen a valid client.
-    # if not client in ['/user_client', '/index']:
-    #     client = '/user_client'
-
-    # IF the user is already logged in, send him to his client.
-    if utils.has_valid_session():
-        session = cherrypy.session['session']
-        # i am not sure if this especially smart... tk.
-        utils.redirect(client)
-
-    if vargs.get('msg'):
+def login(**kwargs):
+    if 'msg' in kwargs:
         Messages.queue_message(
             title='No Title',
-            message=vargs.get('msg'),
+            message=kwargs.get('msg'),
             is_error=True,
         )
 
-    if username and password:
-        cherrypy.session['username'] = username
-        cherrypy.session['client'] = client
-        Spine = Client()
-        
-        try:
-            if not Spine:
-                raise CORBA.TRANSIENT('Could not connect.')
+    logged_in = utils.has_valid_session() or try_login(**kwargs)
 
-            spine = Spine.connect()
-            session = spine.login(username, password)
-            #########################################################
-            #  this is supposed to be set by cereconf.py
-            #session.set_encoding('iso-8859-1')
-            #if not session.is_admin():
-            #    client = '/user_client'
-        except CORBA.TRANSIENT, e:
-            Messages.queue_message(
-                title="Connection Failed",
-                message="Could not connect to the Spine server.  Please contact Orakel.",
-                is_error=True,
-            )
-        except Exception, e:
-            Messages.queue_message(
-                title="Login Failed",
-                message="Incorrect username/password combination.  Please try again.",
-                is_error=True,
-            )
-        else:
-            cherrypy.session['session'] = session
-            cherrypy.session['timeout'] = session.get_timeout()
-            cherrypy.session['spine_encoding'] = session.get_encoding()
-            cherrypy.session['options'] = Options(session, username)
-
-
-            ## Try to find Accept-Charset from web-browser
-            default_charset = 'utf-8'
-            selected_charset = None
-            allowed_charsets = cherrypy.request.headerMap.get('Accept-Charset', '')
-            if allowed_charsets:
-                charsets = allowed_charsets.split(',')
-                for charset in charsets:
-                    if charset.strip().lower() == default_charset:
-                        selected_charset = default_charset
-                ## just pick one...
-                if not selected_charset and charsets:
-                    selected_charset = charsets[0].strip().lower()
-            if not selected_charset:
-                selected_charset = default_charset
-            cherrypy.session['client_encoding'] = selected_charset
-            
-            try:
-                next = cherrypy.session.pop('next')
-                redirect = utils.clean_url(next)
-            except KeyError, e:
-                pass
-
-            if not redirect or redirect == '/index':
-                redirect = client
-
-            utils.redirect(redirect)
-
-    namespace = {
-        'username': username,
-        'messages': utils.get_messages(),
-        'client': client,
-    }
-    template = Login(searchList=[namespace])
-    return template.respond()
+    if logged_in:
+        next = get_next(**kwargs)
+        utils.redirect(next)
+    else:
+        namespace = {
+            'username': kwargs.get('username', ''),
+            'messages': utils.get_messages(),
+        }
+        template = Login(searchList=[namespace])
+        return template.respond()
 login.exposed = True
+
+def try_login(username=None, password=None, **kwargs):
+    if not username or not password:
+        return False
+
+    Spine = Client()
+    
+    try:
+        if not Spine:
+            raise CORBA.TRANSIENT('Could not connect.')
+
+        spine = Spine.connect()
+    except CORBA.TRANSIENT, e:
+        Messages.queue_message(
+            title="Connection Failed",
+            message="Could not connect to the Spine server.  Please contact Orakel.",
+            is_error=True,
+        )
+        return False
+
+    try:
+        session = spine.login(username, password)
+    except Exception, e:
+        Messages.queue_message(
+            title="Login Failed",
+            message="Incorrect username/password combination.  Please try again.",
+            is_error=True,
+        )
+        return False
+
+    return create_cherrypy_session(session, username)
+
+def create_cherrypy_session(session, username):
+    cherrypy.session['username'] = username
+    cherrypy.session['session'] = session
+    cherrypy.session['timeout'] = session.get_timeout()
+    cherrypy.session['spine_encoding'] = session.get_encoding()
+    cherrypy.session['options'] = Options(session, username)
+    cherrypy.session['client_encoding'] = negotiate_encoding()
+    return True
+
+def negotiate_encoding():
+    prefered_charset = default_charset = 'utf-8'
+    allowed_charsets = cherrypy.request.headerMap.get('Accept-Charset', '')
+    
+    if not allowed_charsets:
+        return default_charset
+
+    charsets = [c.strip().lower() for c in allowed_charsets.split(',')]
+    if prefered_charset in charsets:
+        return prefered_charset
+    return charsets[0]
 
 def logout():
     session = cherrypy.session.get('session')
@@ -160,4 +135,11 @@ def logout():
 logout.exposed = True
 
 
+def get_next(redirect=None, **kwargs):
+    session_next = cherrypy.session.pop('next', None)
+    next = redirect or session_next
+    if next is not None:
+        return utils.clean_url(next)
+    return '/index'
+    
 # arch-tag: c1c42d44-1800-4608-b215-8a669cf10821

@@ -26,9 +26,12 @@ import string
 from mx.DateTime import DateTime
 import cerebrum_path
 from Cerebrum import Utils
+from Cerebrum.Errors import NotFoundError
 from lib.data.AccountDAO import AccountDAO
 from lib.data.AccountDTO import AccountDTO
+from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DTO import DTO
+from lib.data.EntityDAO import EntityDAO
 
 from lib.templates.NewAccountViewTemplate import NewAccountViewTemplate
 
@@ -70,6 +73,7 @@ class AccountDAOTest(unittest.TestCase):
         expected.direct = True
         expected.description ='Group used in cereweb-tests'
         expected.type_name = 'group'
+        expected.type_id = 18
         expected.id = TestData.posix_account_primary_group_id
         expected.name = 'test_posix'
         expected.is_posix = True
@@ -156,6 +160,48 @@ class AccountDAOTest(unittest.TestCase):
 
         self.assertEqual(expected, spreads)
 
+    def test_that_account_has_notes(self):
+        entity = self.dao.get(TestData.noted_account_id, include_extra=True)
+        self.assert_(len(entity.notes) == 1)
+
+    def test_that_account_has_quarantines(self):
+        entity = self.dao.get(TestData.quarantined_account_id, include_extra=True)
+        self.assert_(len(entity.quarantines) == 1)
+        
+    def test_that_we_can_get_posix_groups_from_account_with_posix_groups(self):
+        groups = self.dao.get_posix_groups(TestData.posix_account_id)
+        
+        self.assert_(len(groups) == 1)
+
+    def test_that_account_without_posix_groups_gives_empty_list(self):
+        groups = self.dao.get_posix_groups(TestData.account_without_posix_groups)
+
+        self.assert_(len(groups) == 0)
+
+    def test_that_we_can_get_available_uid(self):
+        uid = self.dao.get_free_uid()
+        
+        self.assertRaises(NotFoundError, EntityDAO().get, uid)
+
+    def test_that_we_can_get_default_shell(self):
+        shell = self.dao.get_default_shell()
+
+        self.assertEqual("bash", shell.name)
+        self.assert_(shell.id is not None)
+
+    def test_that_username_suggestions_works_for_one_word_name(self):
+        group = DTO()
+        group.name = "test"
+        names = self.dao.suggest_usernames(group)
+        self.assert_(group.name in names)
+        self.assert_(len(names) >= 15)
+
+    def test_that_username_suggestions_works_for_two_word_name(self):
+        group = DTO()
+        group.name = "test testesen"
+        names = self.dao.suggest_usernames(group)
+        self.assert_(len(names) >= 15)
+
 class AccountDAOWriteTest(WriteTestCase):
     def setUp(self):
         super(AccountDAOWriteTest, self).setUp()
@@ -171,13 +217,63 @@ class AccountDAOWriteTest(WriteTestCase):
 
         self.assertNotEqual(changed_hash, current_hash, "Password should have changed.")
 
+    def test_that_we_can_promote_account_to_posix(self):
+        account_before = self.dao.get(TestData.nonposix_account_id)
+        self.assertFalse(account_before.is_posix)
+
+        posix_group = self.dao.get_posix_groups(TestData.nonposix_account_id)[0]
+        
+        self.dao.promote_posix(
+            TestData.nonposix_account_id,
+            posix_group.id)
+        account_after = self.dao.get(TestData.nonposix_account_id)
+        self.assertTrue(account_after.is_posix)
+
+    def test_that_we_can_demote_account_from_posix(self):
+        account_before = self.dao.get(TestData.posix_account_id)
+        self.assertTrue(account_before.is_posix)
+        
+        self.dao.demote_posix(TestData.posix_account_id)
+
+        account_after = self.dao.get(TestData.posix_account_id)
+        self.assertFalse(account_after.is_posix)
+
+    def test_that_we_can_delete_a_posix_account(self):
+        account_before = self.dao.get(TestData.posix_account_id)
+        
+        self.dao.get(TestData.posix_account_id)
+        self.dao.delete(TestData.posix_account_id)
+        self.assertRaises(NotFoundError, self.dao.get, TestData.posix_account_id)
+        
+    def test_that_we_can_delete_a_non_posix_account(self):
+        account_before = self.dao.get(TestData.nonposix_account_id)
+        
+        self.dao.get(TestData.nonposix_account_id)
+        self.dao.delete(TestData.nonposix_account_id)
+        self.assertRaises(NotFoundError, self.dao.get, TestData.nonposix_account_id)
+
+    def test_that_we_can_create_an_account(self):
+        dto = DTO()
+        dto.name = 'xqxpqzaq'
+        dto.owner = DTO()
+        dto.owner = TestData.get_test_testesen()
+        dto.expire_date = None
+        dto.np_type = None
+
+        self.assertRaises(NotFoundError, self.dao.get_by_name, dto.name)
+        self.dao.create(dto)
+        
+        account = self.dao.get_by_name(dto.name)
+        self.assert_(account.id >= 0)
+        
     def _get_current_hash(self, account_id):
         return self.dao.get_md5_password_hash(account_id)
 
     def _create_password(self):
-        new_password = ''.join([random.choice(string.ascii_letters) for x in xrange(6)])
-        new_password += str(random.randint(10,99))
-        return new_password
+        new_password = [random.choice(string.ascii_lowercase) for x in xrange(3)]
+        new_password += [random.choice(string.ascii_uppercase) for x in xrange(3)]
+        new_password += [str(random.randint(10,99))]
+        return "".join(new_password)
 
 if __name__ == '__main__':
     unittest.main()

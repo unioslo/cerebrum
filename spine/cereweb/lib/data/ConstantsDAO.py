@@ -17,20 +17,30 @@ class ConstantsDAO(object):
         return self._get_constant_dtos(names, Constants.GroupVisibility)
 
     def get_user_spreads(self):
+        dtos = []
         names = self._get_names("spread_")
         for c in self._get_constants(names, Constants.Spread):
             if c.entity_type == self.constants.entity_account:
-                yield ConstantsDTO(c)
+                dto = ConstantsDTO(c)
+                dtos.append(dto)
+        return dtos
 
     def get_group_spreads(self):
+        dtos = []
         names = self._get_names("spread_")
         for c in self._get_constants(names, Constants.Spread):
             if c.entity_type == self.constants.entity_group:
-                yield ConstantsDTO(c)
+                dto = ConstantsDTO(c)
+                dtos.append(dto)
+        return dtos
 
     def get_email_target_types(self):
         names = self._get_names("email_target_")
         return self._get_constant_dtos(names, Constants.EmailTarget)
+
+    def get_account_types(self):
+        names = self._get_names("account_")
+        return self._get_constant_dtos(names, Constants.Account)
 
     def get_shell(self, id):
         q = self.constants.PosixShell(id)
@@ -45,13 +55,18 @@ class ConstantsDAO(object):
         return ConstantsDTO(q)
 
     def _get_constant_dtos(self, names, filter_type=None):
+        dtos = []
         for c in self._get_constants(names, filter_type):
-            yield ConstantsDTO(c)
+            dto = ConstantsDTO(c)
+            dtos.append(dto)
+        return dtos
 
     def _get_constants(self, names, filter_type=None):
+        constants = []
         for c in [getattr(self.constants, n) for n in names]:
             if filter_type is None or isinstance(c, filter_type):
-                yield c
+                constants.append(c)
+        return constants
 
     def _get_names(self, str):
         return [n for n in dir(self.constants) if n.startswith(str)]

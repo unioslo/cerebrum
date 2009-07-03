@@ -30,3 +30,6 @@ class PersonDAO(EntityDAO):
 
     def _get_type_name(self):
         return self.constants.entity_person.str
+
+    def _get_type_id(self):
+        return int(self.constants.entity_person)

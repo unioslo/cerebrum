@@ -16,6 +16,13 @@ class QuarantineDAO(object):
         self.co = ConstantsDAO(self.db)
         self.dao = EntityDAO(self.db)
 
+    def create_from_entity(self, entity):
+        quarantines = []
+        for q in entity.get_entity_quarantine():
+            dto = self.create_dto(q)
+            quarantines.append(dto)
+        return quarantines
+
     def create_dto(self, quarantine):
         cid = quarantine['creator_id']
         qid = quarantine['quarantine_type']
