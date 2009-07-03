@@ -1,0 +1,977 @@
+#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2006, 2007 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+"""Module with functions for cerebrum export to Active Directory at UiO
+
+Extends the functionality provided in the general AD-export module 
+ADutilMixIn.py to work with the AD setup at the University of Oslo.
+"""
+
+import cerebrum_path
+import sys
+import cereconf
+from Cerebrum.Constants import _SpreadCode
+from Cerebrum import Utils
+from Cerebrum import QuarantineHandler
+from Cerebrum.modules import ADutilMixIn
+from Cerebrum import Errors
+import copy
+
+class ADFullUserSync(ADutilMixIn.ADuserUtil):
+
+    def _filter_quarantines(self, user_dict):
+        """Filter quarantined accounts
+
+        Removes all accounts that are quarantined from export to AD
+
+        @param user_dict: account_id -> account info mapping
+        @type user_dict: dict
+        """
+        def apply_quarantines(entity_id, quarantines):
+            q_types = []
+            for q in quarantines:
+                q_types.append(q['quarantine_type'])
+            if not user_dict.has_key(entity_id):
+                return
+            qh = QuarantineHandler.QuarantineHandler(self.db, q_types)
+            if qh.should_skip():
+                del(user_dict[entity_id])
+            if qh.is_locked():
+                user_dict[entity_id]['ACCOUNTDISABLE'] = True
+
+        prev_user = None
+        user_rows = []
+        for row in self.ac.list_entity_quarantines(only_active=True):
+            if prev_user != row['entity_id'] and prev_user is not None:
+                apply_quarantines(prev_user, user_rows)
+                user_rows = [row]
+            else:
+                user_rows.append(row)
+            prev_user = row['entity_id']
+        else:
+            if user_rows:
+                apply_quarantines(prev_user, user_rows)
+
+
+    def _update_mail_info(self, user_dict):
+        """
+        Fetch primary email address for users in user_dict. 
+        
+        @param user_dict: account_id -> account information
+        @type user_dict: dict
+        """
+        uname2primary_mail = self.ac.getdict_uname2mailaddr(filter_expired=True, primary_only=True)
+        for uname, prim_mail in uname2primary_mail.iteritems():
+            if user_dict.has_key(uname):
+                user_dict[uname]['mail'] = prim_mail
+
+
+    def _update_home_drive_info(self, user_dict, spread):
+        """
+        Fetch host server for users homedrive and build homeDirectory attribute.
+        
+        @param user_dict: account_id -> account information
+        @type user_dict: dict
+        """
+        #Build dict of all valid hosts: host id -> host name
+        ho = Utils.Factory.get('Host')(db)
+        hid2hostname = {}
+        for ho_row in ho.search():
+            hid2hostname[ho_row["host_id"]] = ho_row["name"]
+
+        #Getting all homedrives for user with spread.
+        uname2hostname = {}
+        for u_row in self.ac.list_account_home(account_spread = spread):
+            if u_row[11]:
+                if hid2hostname.has_key(u_row["host_id"]):
+                    uname2hostname[u_row["entity_name"]] = hid2hostname[u_row["host_id"]]
+            
+        #Assigning homeDirectory to users
+        for k, v in user_dict.iteritems():
+            if uname2hostid.has_key(k):
+                home_srv = uname2hostname[k]
+                v['homeDirectory'] = "\\\\%s\\%s" % (home_srv, k)
+            else:
+                self.logger.warning("Can not find home server for %s" % k)
+                v['homeDirectory'] = ""
+
+    
+    def get_default_ou(self):
+        """
+        Return default OU for users.
+        """
+        return "OU=%s,%s" % (cereconf.AD_USER_OU, self.ad_ldap)
+
+            
+
+    def fetch_cerebrum_data(self, spread):
+        """
+        Fetch relevant cerebrum data for users with the given spread.
+
+        @param spread: ad account spread for a domain
+        @type spread: _SpreadCode
+        @rtype: dict
+        @return: a dict {uname: {'adAttrib': 'value'}} for all users
+        of relevant spread. Typical attributes::
+        
+          # canonicalName er et 'constructed attribute' (fra dn)
+          'displayName': String,          # Fullt navn
+          'givenName': String,            # fornavn
+          'sn': String,                   # etternavn
+          'userPrincipalName' : String    # brukernavn@domene
+          'mail' : String                 # epostadresse
+          'homeDrive': String             # Monteringspunkt for hjemmedisk
+          'homeDirectory' : String        # Full path til hjemmedisk
+          'userAccountControl' : Bitmap   # bruker settinger i AD
+          'ACCOUNTDISABLE'                # Flag, used by ADutilMixIn
+        """
+
+        self.person = Utils.Factory.get('Person')(self.db)
+
+        #
+        # Find all users with relevant spread
+        #
+        tmp_ret = {}
+        spread_res = list(self.ac.search(spread=spread))
+        for row in spread_res:
+            tmp_ret[int(row['account_id'])] = {
+                'TEMPownerId': row['owner_id'],
+                'TEMPuname': row['name'],
+                'ACCOUNTDISABLE': False,
+                }
+        self.logger.info("Fetched %i accounts with spread %s" 
+                         % (len(tmp_ret),spread))
+
+        #
+        # Remove/mark quarantined users
+        #
+        self.logger.debug("..filtering quarantined users..")
+        self._filter_quarantines(tmp_ret)
+        self.logger.info("%i accounts with spread %s after filter" 
+                         % (len(tmp_ret),spread))
+
+        #
+        # Set person names
+        #
+        self.logger.debug("..setting names..")
+        pid2names = {}
+        for row in self.person.list_persons_name(
+                source_system = self.co.system_cached,
+                name_type     = [self.co.name_first,
+                                 self.co.name_last]):
+            pid2names.setdefault(int(row['person_id']), {})[
+                int(row['name_variant'])] = row['name']
+        for v in tmp_ret.values():
+            names = pid2names.get(v['TEMPownerId'])
+            if names:
+                firstName = unicode(names.get(int(self.co.name_first), ''),
+                                    'ISO-8859-1')
+                lastName = unicode(names.get(int(self.co.name_last), ''), 
+                                   'ISO-8859-1')
+                v['givenName'] = firstName.strip()
+                v['sn'] = lastName.strip()
+                v['displayName'] = "%s %s" % (firstName, lastName)
+        self.logger.info("Fetched %i person names" % len(pid2names))
+
+        #
+        # Indexing user dict on username instead of entity id
+        #
+        userdict_ret= {}
+        for k, v in tmp_ret.iteritems():
+            userdict_ret[v['TEMPuname']] = v
+            del(v['TEMPuname'])
+            del(v['TEMPownerId'])        
+
+        #
+        # Set mail info
+        #
+        self.logger.debug("..setting mail info..")
+        self._update_mail_info(userdict_ret)
+
+        #
+        # Set home drive info
+        #
+        self.logger.debug("..setting home drive info..")
+        self._update_home_drive_info(userdict_ret, spread)
+            
+        #
+        # Assign derived attributes
+        #
+        for k, v in userdict_ret.iteritems():
+            #TODO: derive domain part from LDAP DC components
+            v['userPrincipalName'] = k + "@uio.no"
+ 
+        return userdict_ret
+
+    
+    def fetch_ad_data(self, search_ou):
+        """
+        Returns full LDAP path to AD objects of type 'user' in search_ou and 
+        child ous of this ou.
+        
+        @param search_ou: LDAP path to base ou for search
+        @type search_ou: String
+        """
+        #Setting the userattributes to be fetched.
+        self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
+                                      cereconf.AD_ACCOUNT_CONTROL)
+        return self.server.listObjects('user', True, search_ou)
+
+    
+    def write_sid(self, objtype, name, sid, dry_run):
+        """Store AD object SID to cerebrum database for given user
+
+        @param objtype: type of AD object
+        @type objtype: String
+        @param name: user name
+        @type name: String
+        @param sid: SID from AD
+        @type sid: String
+        """
+        # husk aa definere AD som kildesystem
+        #TBD: Check if we create a new object for a entity that already
+        #have a externalid_accountsid defined in the db and delete old?
+        self.logger.debug("Writing Sid for %s %s to database" % (objtype, name))
+        if objtype == 'account' and not dry_run:
+            self.ac.clear()
+            self.ac.find_by_name(name)
+            self.ac.affect_external_id(self.co.system_ad, 
+                                       self.co.externalid_accountsid)
+            self.ac.populate_external_id(self.co.system_ad, 
+                                         self.co.externalid_accountsid, sid)
+            self.ac.write_db()
+
+
+    def perform_changes(self, changelist, dry_run, store_sid):
+        """
+        Binds to AD object and perform changes such as
+        updates to attributes or move and/or disabling.
+        
+        @param changelist: user name -> changes mapping
+        @type changelist: array of dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
+        for chg in changelist:      
+            self.logger.debug("Process change: %s" % repr(chg))
+            if chg['type'] == 'create_object':
+                self.create_object(chg, dry_run, store_sid)
+            else:
+                ret = self.run_cmd('bindObject', dry_run,
+                                   chg['distinguishedName'])
+                if not ret[0]:
+                    self.logger.warning("bindObject on %s failed: %r" % \
+                                   (chg['distinguishedName'], ret))
+                else:
+                    exec('self.' + chg['type'] + '(chg, dry_run)')
+
+
+    def create_object(self, chg, dry_run, store_sid):
+        """
+        Creates AD account object and populates given attributes
+
+        @param chg: account_id -> account info mapping
+        @type chg: dict
+        @param dry_run: Flag to decide if changes arecommited to AD and Cerebrum
+        """
+        ou = chg.get("OU", self.get_default_ou())        
+        ret = self.run_cmd('createObject', dry_run, 'User', ou,
+                           chg['sAMAccountName'])
+        if not ret[0]:
+            self.logger.warning("create user %s failed: %r",
+                                chg['sAMAccountName'], ret)
+        else:
+            self.logger.info("created user %s" % ret)
+            if store_sid:
+                self.write_sid('account',chg['sAMAccountName'],ret[2],dry_run)
+            self.ac.clear()
+            self.ac.find_by_name(str(chg['sAMAccountName']))
+            pw = unicode(self.ac.get_account_authentication(self.co.auth_type_plaintext), 'iso-8859-1')
+            ret = self.run_cmd('setPassword', dry_run, pw)
+            if not ret[0]:
+                self.logger.warning("setPassword on %s failed: %s",
+                                    chg['sAMAccountName'], ret)
+            else:
+                #Important not to enable a new account if setPassword
+                #fail, it will have a blank password.
+                uname = ""
+                del chg['type']
+                if chg.has_key('distinguishedName'):
+                    del chg['distinguishedName']
+                if chg.has_key('sAMAccountName'):
+                    uname = chg['sAMAccountName']       
+                    del chg['sAMAccountName']               
+                #Setting default for undefined AD_ACCOUNT_CONTROL values.
+                for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
+                    if not chg.has_key(acc):
+                        chg[acc] = value                
+                ret = self.run_cmd('putProperties', dry_run, chg)
+                if not ret[0]:
+                    self.logger.warning("putproperties on %s failed: %r",
+                                        uname, ret)
+                ret = self.run_cmd('setObject', dry_run)
+                if not ret[0]:
+                    self.logger.warning("setObject on %s failed: %r",uname, ret)
+
+
+    
+    def compare(self, delete_users, cerebrumusrs, adusrs):
+        """
+        Check if any values for account need be updated in AD
+
+        @param cerebrumusers: account_id -> account info mapping
+        @type cerebrumusers: dict
+        @param adusers: account_id -> account info mapping
+        @type adusers: dict
+        @param delete_users: Delete or move unwanted users
+        @type delete_users: Flag
+        @rtype: list
+        @return: a list over dicts with changes to AD objects
+        """
+        #Keys in dict from cerebrum must match fields to be populated in AD.
+
+        changelist = []     
+
+        for usr, dta in adusrs.iteritems():
+            changes = {}        
+            if cerebrumusrs.has_key(usr):
+                #User is both places, we want to check correct data.
+
+                #Checking for correct OU.
+                ou = cerebrumusrs.get("OU", self.get_default_ou())
+                if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
+                    changes['type'] = 'move_object'
+                    changes['OU'] = ou
+                    changes['distinguishedName'] = \
+                                adusrs[usr]['distinguishedName']
+                    #Submit list and clean.
+                    changelist.append(changes)
+                    changes = {}
+
+                for attr in cereconf.AD_ATTRIBUTES:            
+                    #Catching special cases.
+                    #Check against home drive.
+                    if attr == 'homeDrive':
+                        home_drive = self.get_home_drive(cerebrumusrs[usr])         
+                        if adusrs[usr].has_key('homeDrive'):
+                            if adusrs[usr]['homeDrive'] != home_drive:
+                                changes['homeDrive'] = home_drive
+                    #Treating general cases
+                    else:
+                        if cerebrumusrs[usr].has_key(attr) and \
+                               adusrs[usr].has_key(attr):
+                            if isinstance(cerebrumusrs[usr][attr], (list)):
+                                # Multivalued, it is assumed that a
+                                # multivalue in cerebrumusrs always is
+                                # represented as a list.
+                                Mchange = False
+                                                                
+                                if (isinstance(adusrs[usr][attr],
+                                               (str,int,long,unicode))):
+                                    #Transform single-value to a list for comp.
+                                    val2list = []
+                                    val2list.append(adusrs[usr][attr])
+                                    adusrs[usr][attr] = val2list
+                                                                        
+                                for val in cerebrumusrs[usr][attr]:
+                                    if val not in adusrs[usr][attr]:
+                                        Mchange = True
+                                                                                
+                                if Mchange:
+                                    changes[attr] = cerebrumusrs[usr][attr]
+                                  
+                            else:
+                                if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
+                                    changes[attr] = cerebrumusrs[usr][attr]
+                                  
+                        else:
+                            if cerebrumusrs[usr].has_key(attr):
+                                # A blank value in cerebrum and <not
+                                # set> in AD -> do nothing.
+                                if cerebrumusrs[usr][attr] != "": 
+                                    changes[attr] = cerebrumusrs[usr][attr] 
+                            elif adusrs[usr].has_key(attr):
+                                #Delete value
+                                changes[attr] = ''      
+
+                for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():                    
+                    if cerebrumusrs[usr].has_key(acc):
+                        if adusrs[usr].has_key(acc) and \
+                               adusrs[usr][acc] == cerebrumusrs[usr][acc]:
+                            pass
+                        else:
+                            changes[acc] = cerebrumusrs[usr][acc]   
+                    else: 
+                        if adusrs[usr].has_key(acc) and adusrs[usr][acc] == \
+                               value:
+                            pass
+                        else:
+                            changes[acc] = value
+                                                
+                #Submit if any changes.
+                if changes:
+                    changes['distinguishedName'] = 'CN=%s,%s' % (usr,ou)
+                    changes['type'] = 'alter_object'
+                #after processing we delete from array.
+                del cerebrumusrs[usr]
+
+            else:
+                #Account not in Cerebrum, but in AD.                
+                if [s for s in cereconf.AD_DO_NOT_TOUCH if
+                    adusrs[usr]['distinguishedName'].upper().find(s.upper()) >= 0]:
+                    pass
+                elif (adusrs[usr]['distinguishedName'].upper().find(
+                        cereconf.AD_PW_EXCEPTION_OU.upper()) >= 0):
+                    #Account do not have AD_spread, but is in AD to 
+                    #register password changes, do nothing.
+                    pass
+                else:
+                    #ac.is_deleted() or ac.is_expired() pluss a small rest of 
+                    #accounts created in AD, but that do not have AD_spread. 
+                    if delete_users == True:
+                        changes['type'] = 'delete_object'
+                        changes['distinguishedName'] = (adusrs[usr]
+                                                        ['distinguishedName'])
+                    else:
+                        #Disable account.
+                        if adusrs[usr]['ACCOUNTDISABLE'] == False:
+                            changes['distinguishedName'] =(adusrs[usr]
+                                                           ['distinguishedName'])
+                            changes['type'] = 'alter_object'
+                            changes['ACCOUNTDISABLE'] = True
+                            #commit changes
+                            changelist.append(changes)
+                            changes = {}
+                        #Moving account.
+                        if (adusrs[usr]['distinguishedName'] != 
+                            "CN=%s,OU=%s,%s" % 
+                            (usr, cereconf.AD_LOST_AND_FOUND,self.ad_ldap)):
+                            changes['type'] = 'move_object'
+                            changes['distinguishedName'] =(adusrs[usr]
+                                                           ['distinguishedName'])
+                            changes['OU'] = ("OU=%s,%s" % 
+                                             (cereconf.AD_LOST_AND_FOUND,self.ad_ldap))
+
+            #Finished processing user, register changes if any.
+            if changes:
+                changelist.append(changes)
+               
+        #The remaining items in cerebrumusrs is not in AD, create user.
+        for cusr, cdta in cerebrumusrs.items():
+            changes={}
+            #New user, create.
+            changes = cdta
+            changes['type'] = 'create_object'
+            changes['sAMAccountName'] = cusr
+            changelist.append(changes)
+                
+        return changelist
+
+    
+    def full_sync(self, delete=False, spread=None, dry_run=True, store_sid=False):
+
+        self.logger.info("Starting user-sync(spread = %s, delete = %s, dry_run = %s, store_sid = %s)" % \
+                             (spread, delete, dry_run, store_sid))     
+
+        #Fetch cerebrum data.
+        self.logger.debug("Fetching cerebrum data...")
+        cerebrumdump = self.fetch_cerebrum_data(spread)
+        self.logger.info("Fetched %i cerebrum users" % len(cerebrumdump))
+
+        #Fetch AD-data.     
+        self.logger.debug("Fetching AD data...")
+        addump = self.fetch_ad_data(self.ad_ldap)       
+        self.logger.info("Fetched %i ad-users" % len(addump))
+                
+        #compare cerebrum and ad-data.
+        changelist = self.compare(delete, cerebrumdump, addump)
+        self.logger.info("Found %i number of changes" % len(changelist))
+
+        #Perform changes.
+        self.perform_changes(changelist, dry_run, store_sid)
+
+        #Cleaning up.
+        addump = None
+        cerebrumdump = None   
+
+        #Commiting changes to DB (SID external ID) or not.
+        if dry_run:
+            self.db.rollback()
+        else:
+            self.db.commit()
+
+        self.logger.info("Finished user-sync")
+
+
+              
+##################################################
+
+
+class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
+
+        
+    def fetch_cerebrum_data(self, spread):
+        """
+        Fetch relevant cerebrum data for groups of the three
+        group types that shall be exported to AD. They are
+        assigned OU according to group type.
+
+        @rtype: dict
+        @return: a dict {grpname: {'adAttrib': 'value'}} for all groups
+        of relevant spread. Typical attributes::
+        
+        'displayName': String,          # gruppenavn
+        'displayNamePrintable' : String # gruppenavn
+        'description' : String          # beskrivelse
+        'groupType' : Int               # type gruppe
+        """
+        #
+        # Get groups with spread
+        #
+        grp_dict = {}
+        spread_res = list(self.group.search(spread=int(self.co.Spread(spread))))
+        for row in spread_res:
+            gname = unicode(row["name"], 'ISO-8859-1')  + cereconf.AD_GROUP_POSTFIX
+            grp_dict[gname] = {
+                'groupType' : cereconf.AD_GROUP_TYPE,             
+                'description' : unicode(row["description"], 'ISO-8859-1'),
+                'grp_id' : row["group_id"],
+                'displayName' : gname,
+                'displayNamePrintable' : gname,
+                }
+        self.logger.info("Fetched %i groups with spread %s", 
+                         len(grp_dict),spread)
+                
+        return grp_dict
+        
+    
+    def delete_and_filter(self, ad_dict, cerebrum_dict, dry_run, delete_groups):
+        """Filter out groups in AD that shall not be synced from cerebrum
+
+        Goes through the dict of the groups in AD, and checks if it is 
+        a group that shall be synced from cerebrum. If it is not we remove
+        it from the dict so we will pay no attention to the group when we sync,
+        but only after checking if it is in our OU. If it is we delete it.
+
+        @param ad_dict : account_id -> account info mapping
+        @type ad_dict : dict
+        @param cerebrum_dict : account_id -> account info mapping
+        @type cerebrum_dict : dict
+        @param delete_users: Delete or not unwanted groups
+        @type delete_users: Flag
+        @param dry_run: Flag
+        """
+
+        for grp_name, v in ad_dict.items():
+            if not cerebrum_dict.has_key(grp_name):
+                if self.ad_ldap in ad_dict[grp_name]['OU']:
+                    match = False
+                    for dont in cereconf.AD_DO_NOT_TOUCH:
+                        if dont.upper() in ad_dict[grp_name]['OU'].upper():
+                            match = True
+                            break
+                    # an unknown group in OUs under our control 
+                    # and not i DO_NOT_TOUCH -> delete
+                    if not match:
+                        if not delete_groups:
+                            self.logger.debug("delete is False."
+                                              "Don't delete group: %s", grp_name)
+                        else:
+                            self.logger.info("delete_groups = %s, deleting group %s",
+                                              delete_groups, grp_name)
+                            self.run_cmd('bindObject', dry_run, 
+                                         ad_dict[grp_name]['distinguishedName'])
+                            self.delete_object(ad_dict[grp_name], dry_run)
+                #does not concern us (anymore), delete from dict.
+                del ad_dict[grp_name]
+    
+
+    def fetch_ad_data(self):
+        """Get list of groups with  attributes from AD 
+        
+        Dict with data from AD with sAMAccountName as index:
+        'displayName': String,          # gruppenavn
+        'displayNamePrintable' : String # gruppenavn
+        'description' : String          # beskrivelse
+        'groupType' : Int               # type gruppe
+        'distinguishedName' : String    # AD-LDAP path to object
+ 
+        @returm ad_dict : group name -> group info mapping
+        @type ad_dict : dict
+        """
+
+        self.server.setGroupAttributes(cereconf.AD_GRP_ATTRIBUTES)
+        search_ou = self.ad_ldap
+        ad_dict = self.server.listObjects('group', True, search_ou)
+        if ad_dict:
+            for grp in ad_dict:
+                #descritpion is list from AD. Only want to check first string with ours
+                if ad_dict[grp].has_key('description'):
+                    if isinstance(ad_dict[grp]['description'], (list)):
+                        ad_dict[grp]['description'] = ad_dict[grp]['description'][0]
+        else:
+            ad_dict = {}
+        return ad_dict
+
+               
+    def sync_group_info(self, ad_dict, cerebrum_dict, dry_run):
+        """ Sync group info with AD
+
+        Check if any values about groups other than group members
+        should be updated in AD
+
+        @param ad_dict : account_id -> account info mapping
+        @type ad_dict : dict
+        @param cerebrum_dict : account_id -> account info mapping
+        @type cerebrum_dict : dict
+        @param dry_run: Flag
+        """
+        #Keys in dict from cerebrum must match fields to be populated in AD.
+        #Already removed groups from ad_dict not i cerebrum_dict
+        changelist = [] 
+
+        for grp in cerebrum_dict:
+            changes = {}   
+            if ad_dict.has_key(grp):
+                #group in both places, we want to check correct data
+                
+                #Checking for correct OU.
+                if cerebrum_dict[grp].has_key('OU'):
+                    ou = cerebrum_dict[grp]['OU']
+                else:
+                    ou = self.get_default_ou()
+                if ad_dict[grp]['OU'] != ou:
+                    changes['type'] = 'move_object'
+                    changes['OU'] = ou
+                    changes['distinguishedName'] = \
+                                ad_dict[grp]['distinguishedName']
+                    #Submit list and clean.
+                    changelist.append(changes)
+                    changes = {}
+
+                #Comparing group info 
+                for attr in cereconf.AD_GRP_ATTRIBUTES:            
+                    if cerebrum_dict[grp].has_key(attr) and \
+                            ad_dict[grp].has_key(attr):
+                        if isinstance(cerebrum_dict[grp][attr], (list)):
+                            # Multivalued, it is assumed that a
+                            # multivalue in cerebrumusrs always is
+                            # represented as a list.
+                            Mchange = False
+                            
+                            if (isinstance(ad_dict[grp][attr],
+                                           (str,int,long,unicode))):
+                                #Transform single-value to a list for comp.
+                                val2list = []
+                                val2list.append(ad_dict[grp][attr])
+                                ad_dict[grp][attr] = val2list
+                                
+                            for val in cerebrum_dict[grp][attr]:
+                                if val not in ad_dict[grp][attr]:
+                                    Mchange = True
+                                                                                
+                            if Mchange:
+                                changes[attr] = cerebrum_dict[grp][attr]
+                        else:
+                            if ad_dict[grp][attr] !=cerebrum_dict[grp][attr]:
+                                changes[attr] = cerebrum_dict[grp][attr] 
+                    else:
+                        if cerebrum_dict[grp].has_key(attr):
+                            # A blank value in cerebrum and <not
+                            # set> in AD -> do nothing.
+                            if cerebrum_dict[grp][attr] != "": 
+                                changes[attr] = cerebrum_dict[grp][attr] 
+                        elif ad_dict[grp].has_key(attr):
+                            #Delete value
+                            changes[attr] = '' 
+
+                #Submit if any changes.
+                if len(changes):
+                    changes['distinguishedName'] = 'CN=%s,%s' % (grp,ou)
+                    changes['type'] = 'alter_object'
+                    changelist.append(changes)
+                    changes = {}
+            else:
+                #The remaining items in cerebrum_dict is not in AD, create group.
+                changes={}
+                changes = copy.copy(cerebrum_dict[grp])
+                changes['type'] = 'create_object'
+                changes['sAMAccountName'] = grp
+                changelist.append(changes)
+            
+        return changelist
+
+    
+
+    def get_default_ou(self):
+        """
+        Return default OU for groups.
+        """
+        return "OU=%s,%s" % (cereconf.AD_GROUP_OU, self.ad_ldap)
+    
+    
+
+    def write_sid(self, objtype, crbname, sid, dry_run):
+        """
+        Store AD object SID to cerebrum database for given group
+
+        @param objtype: type of AD object
+        @type objtype: String
+        @param name: group name
+        @type name: String
+        @param sid: SID from AD
+        @type sid: String
+        """
+        #TBD: Check if we create a new object for a entity that already
+        #have an externalid_groupsid defined in the db and delete old?
+        self.logger.debug("Writing Sid for %s %s to database" % (objtype, crbname))
+        if objtype == 'group' and not dry_run:
+            self.group.clear()
+            self.group.find_by_name(crbname)
+            self.group.affect_external_id(self.co.system_ad, 
+                                          self.co.externalid_groupsid)
+            self.group.populate_external_id(self.co.system_ad, 
+                                            self.co.externalid_groupsid, sid)
+            self.group.write_db()
+
+
+    def perform_changes(self, changelist, dry_run, store_sid):
+        """
+        Binds to AD object and perform changes such as
+        updates to attributes or move or deleting.
+        
+        @param changelist: group name -> changes mapping
+        @type changelist: array of dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
+        for chg in changelist:      
+            self.logger.debug("Process change: %s" % repr(chg))
+            if chg['type'] == 'create_object':
+                self.create_object(chg, dry_run, store_sid)
+            else:
+                ret = self.run_cmd('bindObject', dry_run,
+                                   chg['distinguishedName'])
+                if not ret[0]:
+                    self.logger.warning("bindObject on %s failed: %r" % \
+                                   (chg['distinguishedName'], ret))
+                else:
+                    exec('self.' + chg['type'] + '(chg, dry_run)')
+                        
+
+    def create_object(self, chg, dry_run, store_sid):
+        """
+        Creates AD group object and populates given attributes
+
+        @param chg: group_name -> group info mapping
+        @type chg: dict
+        @param dry_run: Flag
+        @param store_sid: Flag
+        """
+        ou = chg.get("OU", self.get_default_ou())
+        self.logger.info('Create group %s', chg)
+        ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
+                      chg['sAMAccountName'])
+        if not ret[0]:
+            self.logger.warning("create group %s failed: %r",
+                                chg['sAMAccountName'],ret[1])
+        elif not dry_run:
+            if store_sid:
+                self.write_sid('group',chg['crb_gname'],ret[2], dry_run)
+            del chg['type']
+            gname = ''
+            if chg.has_key('distinguishedName'):
+                del chg['distinguishedName']
+            if chg.has_key('sAMAccountName'):
+                gname = chg['sAMAccountName']
+                del chg['sAMAccountName']               
+            ret = self.server.putGroupProperties(chg)
+            if not ret[0]:
+                self.logger.warning("putproperties on %s failed: %r",
+                                    gname, ret)
+            else:
+                ret = self.run_cmd('setObject', dry_run)
+                if not ret[0]:
+                    self.logger.warning("setObject on %s failed: %r",
+                                        gname, ret)
+               
+
+    def alter_object(self, chg, dry_run):
+        """
+        Binds to AD group objects and updates given attributes
+
+        @param chg: group_name -> group info mapping
+        @type chg: dict
+        @param dry_run: Flag
+        """
+        distName = chg['distinguishedName']                 
+        #Already binded
+        del chg['type']             
+        del chg['distinguishedName']
+
+        #ret = self.run_cmd('putGroupProperties', dry_run, chg)
+        #run_cmd in ADutilMixIn.py not written for group updates
+        if not dry_run:
+            ret = self.server.putGroupProperties(chg)
+        else:
+            ret = (True, 'putGroupProperties')
+        if not ret[0]:
+            self.logger.warning("putGroupProperties on %s failed: %r",
+                                distName, ret)
+        else:
+            ret = self.run_cmd('setObject', dry_run)
+            if not ret[0]:
+                self.logger.warning("setObject on %s failed: %r",
+                                    distName, ret)         
+
+
+    def sync_group_members(self, cerebrum_dict, group_spread, user_spread, dry_run, sendDN_boost):
+        """
+        Update group memberships in AD
+
+        @param cerebrum_dict : group_name -> group info mapping
+        @type cerebrum_dict : dict
+        @param spread: ad group spread for a domain
+        @type spread: _SpreadCode
+        @param user_spread: ad account spread for a domain
+        @type user_spread: _SpreadCode
+        @param dry_run: Flag
+        """
+        #To reduce traffic, we send current list of groupmembers to AD, and the
+        #server ensures that each group have correct members.   
+
+        entity2name = dict([(x["entity_id"], x["entity_name"]) for x in 
+                           self.group.list_names(self.co.account_namespace)])
+        entity2name.update([(x["entity_id"], x["entity_name"]) for x in
+                           self.group.list_names(self.co.group_namespace)])    
+
+        for grp in cerebrum_dict:
+            if cerebrum_dict[grp].has_key('grp_id'):
+                grp_name = grp.replace(cereconf.AD_GROUP_PREFIX,"")
+                grp_id = cerebrum_dict[grp]['grp_id']
+                self.logger.debug("Sync group %s" % grp_name)
+
+                #TODO: How to treat quarantined users???, some exist in AD, 
+                #others do not. They generate errors when not in AD. We still
+                #want to update group membership if in AD.
+                members = list()
+                for usr in (self.group.search_members(
+                    group_id=grp_id,
+                    member_spread=int(self.co.Spread(user_spread)))):
+                    user_id = usr["member_id"]
+                    if user_id not in entity2name:
+                        self.logger.debug("Missing name for account id=%s",
+                                          user_id)
+                        continue
+                    if sendDN_boost:
+                        members.append(("CN=%s,OU=%s,%s" % (entity2name[user_id],
+                                                            cereconf.AD_USER_OU,
+                                                            self.ad_ldap)))
+                    else:
+                        members.append(entity2name[user_id])
+                    self.logger.debug("Try to sync member account id=%s, name=%s",
+                                      user_id, entity2name[user_id])
+
+                for grp in (self.group.search_members(
+                        group_id=grp_id,
+                        member_spread=int(self.co.Spread(group_spread)))):
+                    group_id = grp["member_id"]
+                    if group_id not in entity2name:
+                        self.logger.debug("Missing name for group id=%s", group_id)
+                        continue
+                    if sendDN_boost:
+                        members.append(("CN=%s%s,OU=%s,%s" % (cereconf.AD_GROUP_PREFIX,
+                                                              entity2name[group_id],
+                                                              cereconf.AD_GROUP_OU,
+                                                              self.ad_ldap)))
+                    else:
+                        members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
+                                                 entity2name[group_id]))            
+                    self.logger.debug("Try to sync member group id=%s, name=%s",
+                                      group_id, entity2name[group_id])
+
+                dn = self.server.findObject('%s%s' %
+                                            (cereconf.AD_GROUP_PREFIX,grp_name))
+                if not dn:
+                    self.logger.debug("unknown group: %s%s",
+                                      cereconf.AD_GROUP_PREFIX,grp_name)
+                elif dry_run:
+                    self.logger.debug("Dryrun: don't sync members")
+                else:
+                    self.server.bindObject(dn)
+                    if sendDN_boost:
+                        res = self.server.syncMembers(members, True, False)
+                    else:
+                        res = self.server.syncMembers(members, False, False)
+                    if not res[0]:
+                        self.logger.warning("syncMembers %s failed for:%r" %
+                                          (dn, res[1:]))
+            else:
+                self.logger.warning("Group %s has no group_id. Not syncing members." %
+                                          (grp))
+             
+  
+
+    def full_sync(self, delete=False, dry_run=True, store_sid=False,
+                  user_spread=None, group_spread=None, sendDN_boost=False):
+
+        self.logger.info("Starting group-sync(group_spread = %s, user_spread = %s, delete = %s, dry_run = %s, store_sid = %s, sendDN_boost = %s)" % \
+                             (group_spread, user_spread, delete, dry_run, store_sid, sendDN_boost))     
+
+        #Fetch cerebrum data.
+        self.logger.debug("Fetching cerebrum data...")
+        cerebrumdump = self.fetch_cerebrum_data(group_spread)
+        self.logger.info("Fetched %i cerebrum groups" % len(cerebrumdump))
+
+        #Fetch AD data
+        self.logger.debug("Fetching AD data...")
+        addump = self.fetch_ad_data()       
+        self.logger.info("Fetched %i ad-groups" % len(addump))
+
+        #Filter AD-list
+        self.logger.debug("Filtering list of AD groups...")
+        self.delete_and_filter(addump, cerebrumdump, dry_run, delete)
+        self.logger.info("Updating %i ad-groups after filtering" % len(addump))
+
+        #Compare groups and attributes (not members)
+        self.logger.info("Syncing group info...")
+        changelist = self.sync_group_info(addump, cerebrumdump, dry_run)
+
+        #Perform changes
+        self.perform_changes(changelist, dry_run, store_sid)
+
+        #Syncing group members
+        self.logger.info("Starting sync of group members")
+        self.sync_group_members(cerebrumdump, group_spread, user_spread, dry_run, sendDN_boost)
+
+        #Cleaning up.
+        addump = None
+        cerebrumdump = None   
+
+        #Commiting changes to DB (SID external ID) or not.
+        if dry_run:
+            self.db.rollback()
+        else:
+            self.db.commit()
+        
+        
+        self.logger.info("Finished group-sync")
+
