@@ -1,9 +1,13 @@
-import sys, os, re, time
+import sys, os, re, time, math
+from xml.dom import expatbuilder
 
 import cerebrum_path
 
+import cereconf
+
 from SignatureHandler import *
 from Cerebrum.lib.spinews.spinews_services import *
+from Cerebrum.lib.spinews.spinews_objects import *
 from Cerebrum.lib.spinews.spinews_services_types import *
 from ZSI.ServiceContainer import ServiceSOAPBinding
 
@@ -12,7 +16,15 @@ from httplib import HTTPConnection
 from M2Crypto import SSL
 from M2Crypto import X509
 
+
 ca_cert = None
+username = None
+password = None
+
+class ExpatReaderClass(object):
+    fromString = staticmethod(expatbuilder.parseString)
+    fromStream = staticmethod(expatbuilder.parse)
+
 class CeresyncHTTPSConnection(HTTPConnection):
     default_port = 443
 
@@ -50,7 +62,7 @@ class CeresyncHTTPSConnection(HTTPConnection):
             sys.exit(2)
 
 def phrase_callback(v, prompt1='p1', prompt2='p2'):
-    return ''
+    return cereconf.SSL_KEY_FILE_PASSWORD
 
 def init_ssl():
     ctx = SSL.Context('sslv23')
@@ -62,111 +74,358 @@ def init_ssl():
     ctx.set_verify((SSL.verify_fail_if_no_peer_cert|SSL.verify_peer), 9)
     return ctx
 
-kw = {'tracefile' : sys.stdout, 'transport' : CeresyncHTTPSConnection }
+## theTraceFile = open("soap_trace.log", 'wb', 16384)
+theTraceFile = open("soap_trace.log", 'wb', 1024)
+kw = {'readerclass': ExpatReaderClass, 'tracefile ': theTraceFile, 'transport' : CeresyncHTTPSConnection }
+
+samples = {}
+stat_max_min = {}
+def statreg(stat, t):
+    if not stat in samples:
+        samples[stat] = (0, 0.0, 0.0)
+    n, sum, ssum = samples[stat]
+    if not stat_max_min.get(stat):
+        stat_max_min[stat] = []
+    stat_max_min[stat].append(t)
+    samples[stat] = (n+1, sum+t, ssum+t*t)
+
+def statreset():
+    samples.clear()
+
+def statresult():
+   print '%-10s  %s\t%s\t\t%s\t\t%s\t\t%s' % ('Operation',
+                                             'Average',
+                                             'Varying',
+                                             'Max',
+                                             'Min',
+                                             'Runs')
+   print '-------------------------------------------------------------------------------'
+   for k,v in samples.items():
+       n, sum, ssum = v
+       mean=sum/n
+       sd=math.sqrt(ssum/n-mean*mean)
+       print "%-10s: %2.6f\t~%2.6f\t%2.6f\t%2.6f\t%d" % (k, mean,
+                                                            sd,
+                                                            max(stat_max_min[k]),
+                                                            min(stat_max_min[k]),
+                                                            n)
+   print ''
+
+def set_username_password(uname, pwd):
+    global username
+    global password
+    username = uname
+    password = pwd
+
+def get_ceresync_locator():
+    return spinewsLocator()
+
+def sign_request(port, username, password, useDigest=False):
+    sigHandler = SignatureHandler(username, password, useDigest)
+    port.binding.sig_handler = sigHandler
+    return port
 
 def get_ceresync_port():
-    locator = spinewsLocator()
-    return locator.getspinePortType(**kw)
-
-def sign_request(port, username, password):
-    sigHandler = SignatureHandler(username, password, False)
-    port.binding.sig_handler = sigHandler
- 
-def get_groups(username, password, groupspread, accountspread, inc_from=None):
-    port = get_ceresync_port()
+    locator = get_ceresync_locator()
+    port = locator.getspinePortType(**kw)
+    global username
+    global password
     sign_request(port, username, password)
+    return port
+ 
+def set_attributes(to_obj, from_obj):
+    for key, value in from_obj._attrs.items():
+        setattr(to_obj, key, value)
+    return to_obj
+    
+def get_groups(groupspread, accountspread, inc_from=None):
+    port = get_ceresync_port()
     request = getGroupsRequest()
     request._groupspread = groupspread
     request._accountspread = accountspread
     request._incremental_from = inc_from
-    return port.get_groups(request)
+    response = port.get_groups(request)
+    ret_groups = []
+    for group in response._group:
+        grp = set_attributes(Group(), group)
+        setattr(grp, 'members', group._member)
+        setattr(grp, 'quarantines', group._quarantine)
+        ret_groups.append(grp)
+    return ret_groups
+        
 
-def get_accounts(username, password, accountspread, inc_from=None):
+def get_accounts(accountspread, inc_from=None):
     port = get_ceresync_port()
-    sign_request(port, username, password)
     request = getAccountsRequest()
     request._accountspread = accountspread
     request._incremental_from = inc_from
-    return port.get_accounts(request)
+    response = port.get_accounts(request)
+    ret_accounts = []
+    for account in response._account:
+        acc = set_attributes(Account(), account)
+        if account._quarantine:
+            print 'account quarantine len: %s' % (len(account._quarantine))
+        setattr(acc, 'quarantines', account._quarantine)
+        ret_accounts.append(acc)
+    return ret_accounts
+        
 
-def get_ous(username, password, inc_from=None):
+def get_ous(inc_from=None):
     port = get_ceresync_port()
-    sign_request(port, username, password)
     request = getOUsRequest()
     request._incremental_from = inc_from
-    return port.get_ous(request)
+    response = port.get_ous(request)
+    ret_ous = []
+    for ou in response._ou:
+        the_ou = set_attributes(Ou(), ou)
+        setattr(the_ou, 'quarantines', ou._quarantine)
+        ret_ous.append(the_ou)
+    return ret_ous
 
-def get_aliases(username, password, inc_from=None):
+def get_aliases(inc_from=None):
     port = get_ceresync_port()
-    sign_request(port, username, password)
     request = getAliasesRequest()
     request.__incremental_from = inc_from
-    return port.get_aliases(request)
+    #import pdb;pdb.set_trace()
+    response = port.get_aliases(request)
+    ret_aliases = []
+    for alias in response._alias:
+        the_alias = set_attributes(Alias(), alias)
+        ret_aliases.append(the_alias)
+    return ret_aliases
 
-def get_homedirs(username, password, status):
+def get_homedirs(status, hostname):
     port = get_ceresync_port()
-    sign_request(port, username, password)
     request = getHomedirsRequest()
     request._status = status
-    return port.get_homedirs(request)
+    request._hostname = hostname
+    response = port.get_homedirs(request)
+    ret_homedirs = []
+    for homedir in response._homedir:
+        hdir = set_attributes(Homedir(), homedir)
+        homedir = None
+        ret_homedirs.append(hdir)
+    return ret_homedirs
 
 def test_groups():
     before = time.time()
-    response = get_groups('hjalla', 'gork', 'group@ntnu', 'user@ansatt', None)
-    print "Get groups time: %f" % (time.time() - before)
-    for group in response._group:
-        ## list
-        members = group._member
-        ## list
-        quarantines = group._quarantine
-        ## dict
-        grp_name = group._attrs.get('name', '')
-        grp_posix = group._attrs.get('posix_gid', '')
-        print "Groupname: ", grp_name
-        print "Groupposix: ", grp_posix
-        for mem in members:
-            print "\tmember: ", mem
-        for quar in quarantines:
-            print "\tquarantine: ", quar
+    grps = get_groups('group@ntnu', 'user@ansatt', None)
+    statreg('groups',(time.time() - before))
+    f = open('group.txt', 'wb', 16384)
+    for grp in grps:
+        f.write(grp.name)
+        f.write(':')
+        f.write(str(grp.posix_gid))
+        f.write(':')
+        i = 0
+        for quar in grp.quarantines:
+            if i > 0:
+                f.write(',')
+            i += 1
+            f.write(quar)
+        f.write(':')
+        i = 0
+        for member in grp.members:
+            if i > 0:
+                f.write(',')
+            i += 1
+            f.write(member)
+        f.write('\n')
+    f.flush()
+    f.close()
 
 def test_accounts():
     before = time.time()
-    response = get_accounts('hjalla', 'gork', 'user@ansatt', None)
-    print "Get accounts time: %f" % (time.time() - before)
-    for acc in response._account:
-        quarantine = acc._quarantine
-        for k in acc.attrs.keys():
-            print '%s: %s' % (k, acc._attrs.get(k, ''))
-        print 'quarantin', quarantine
+    accs = get_accounts('user@stud', None)
+    statreg('accounts', (time.time() - before))
+    f = open('accouns.txt', 'wb', 16384)
+    for acc in accs:
+        f.write( acc.name)
+        f.write(':')
+        f.write(acc.passwd )
+        f.write(':')
+        f.write(acc.homedir)
+        f.write(':')
+        f.write(acc.home)
+        f.write(':')
+        f.write(acc.disk_path)
+        f.write(':')
+        f.write(acc.disk_host)
+        f.write(':')
+        try:
+            f.write(acc.gecos)
+        except UnicodeEncodeError, e:
+            f.write('norwegian chars')
+        f.write(':')
+        f.write(acc.shell)
+        f.write(':')
+        f.write(acc.shell_name )
+        f.write(':')
+        f.write(str(acc.posix_uid))
+        f.write(':')
+        f.write(str(acc.posix_gid))
+        f.write(':')
+        f.write(acc.primary_group)
+        f.write(':')
+        f.write(str(acc.owner_id))
+        f.write(':')
+        f.write(acc.owner_group_name)
+        f.write(':')
+        p_aff = 'None'
+        if acc.primary_affiliation:
+            p_aff = acc.primary_affiliation
+        f.write(p_aff)
+        f.write(':')
+        f.write(str(acc.primary_ou_id))
+        f.write(':')
+        i = 0
+        for quar in acc.quarantines:
+            if i > 0:
+                f.write(';')
+            i += 1
+            f.write(quar)
+        f.write('\n')
+    f.flush()
+    f.close()
 
 def test_ous():
     before = time.time()
-    response = get_ous('hjalla', 'gork', None)
-    print "Get ous time: %f" % (time.time() - before)
-    for ou in response._ou:
-        quarantine = ou._quarantine
-        for k in ou._attrs.keys():
-            print '%s: %s' % (k, ou._attrs.get(k, ''))
-        print 'quarantine: %s', quarantine
+    ous = get_ous()
+    statreg('ous', (time.time() - before))
+    f = open('ous.txt', 'wb', 16384)
+    for ou in ous:
+        f.write(str(ou.id))
+        f.write(':')
+        try:
+            f.write(ou.name)
+        except UnicodeEncodeError, e:
+            f.write('Norwegia chars')
+        f.write(':')
+        try:
+            f.write(ou.acronym)
+        except UnicodeEncodeError, e:
+            f.write('Norwegia chars')
+        f.write(':')
+        try:
+            f.write(ou.short_name)
+        except UnicodeEncodeError, e:
+            f.write('Norwegia chars')
+        f.write(':')
+        try:
+            f.write(ou.display_name)
+        except UnicodeEncodeError, e:
+            f.write('Norwegian chars')
+        f.write(':')
+        try:
+            f.write(ou.sort_name)
+        except UnicodeEncodeError, e:
+            f.write('Norwegian chars')
+        f.write(':')
+        f.write(str(ou.parent_id))
+        f.write(':')
+        f.write(ou.email)
+        f.write(':')
+        f.write(ou.url)
+        f.write(':')
+        f.write(ou.phone)
+        f.write(':')
+        p_address = 'None'
+        if ou.post_address:
+            p_address = ou.post_address
+        f.write(p_address)
+        f.write(':')
+        f.write(ou.stedkode)
+        f.write(':')
+        p_stedkode = 'None'
+        if ou.parent_stedkode:
+            p_stedkode = ou.parent_stedkode
+        f.write(p_stedkode)
+        f.write(':')
+        i = 0
+        for quar in ou.quarantines:
+            if i > 0:
+                f.write(',')
+            i += 1
+            f.write(quar)
+        f.write('\n')
+    f.flush()
+    f.close()
 
 def test_aliases():
     before = time.time()
-    reponse = get_aliases('hjalla', 'gork', None)
-    print "Get alises time: %f" % (time.time() - before)
+    aliases = get_aliases(None)
+    statreg('aliases', (time.time() - before))
+    f = open('aliases.txt', 'wb', 16384)
+    for alias in aliases:
+        f.write(alias.local_part)
+        f.write(':')
+        f.write(alias.domain)
+        f.write(':')
+        p_addr_local_part = ''
+        if alias.primary_address_local_part:
+            p_addr_local_part = alias.primary_address_local_part
+        f.write(p_addr_local_part)
+        f.write(':')
+        p_addr_domain = ''
+        if alias.primary_address_domain:
+            p_addr_domain = alias.primary_address_domain
+        f.write(p_addr_domain)
+        f.write(':')
+        f.write(str(alias.address_id))
+        f.write(':')
+        f.write(alias.server_name)
+        f.write(':')
+        f.write(str(alias.account_id))
+        f.write(':')
+        f.write(alias.account_name)
+        f.write('\n')
+    f.flush()
+    f.close()       
  
 def test_homedirs():
     before = time.time()
-    response = get_homedirs('hjalla', 'gork', None)
-    print "Get homedirs time: %f" % (time.time() - before)
+    homedirs = get_homedirs('not_created', 'yeti.stud.ntnu.no')
+    statreg('homedirs', (time.time() - before))
+    f = open('homedirs.txt', 'wb', 16384)
+    for dir in homedirs:
+        f.write(str(dir.homedir_id))
+        f.write(':')
+        f.write(dir.disk_path)
+        f.write(':')
+        f.write(dir.home)
+        f.write(':')
+        f.write(dir.homedir)
+        f.write(':')
+        f.write(dir.account_name)
+        f.write(':')
+        f.write(str(dir.posix_uid))
+        f.write(':')
+        f.write(str(dir.posix_gid))
+        f.write('\n')
+    f.flush()
+    f.close()
+
+def test_clients(count):
+
+    set_username_password('hjalla', 'gork')
+    for i in range(count):
+        print 'groups'
+        test_groups()
+        print 'accounts'
+        test_accounts()
+        print 'ous'
+        test_ous()
+        print 'aliases'
+        test_aliases()
+        print 'homedirs'
+        test_homedirs()
+        sys.stderr.write('Run: %d\n' % (i+1))
+    statresult()
     
 def main(argv):
     global ca_cert
     ca_cert = X509.load_cert('/etc/ssl/certs/itea-ca.crt')
-    test_groups()
-    ## test_accounts()
-    ## test_ous()
-    test_aliases()
-    test_homedirs()
+    test_clients(1)
  
 if __name__ == '__main__':
     main(sys.argv)
