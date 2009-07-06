@@ -1,6 +1,9 @@
 import os, sys, socket
 
 import cerebrum_path
+
+import cereconf
+
 import Cerebrum.lib
 from Cerebrum.lib.spinews.spinews_services import *
 
@@ -775,8 +778,7 @@ def RunAsServer(port=80, services=(), fork=False):
 
 
 def phrase_callback(v,prompt1='Enter passphrase:',prompt2='Verify passphrase:'):
-    ## print '************************ call_back'
-    return ''
+    return cereconf.SSL_KEY_FILE_PASSWORD
 
 def init_ssl(debug=None):
     ctx = SSL.Context('sslv23')
