@@ -32,11 +32,11 @@ YAHOO.util.Event.addListener('perm_save', 'click', Perm_save);
 YAHOO.util.Event.addListener('perm_objects', 'change', Perm_objects_change);
 YAHOO.util.Event.addListener('perm_methods', 'change', Perm_methods_change);
 
-YAHOO.util.Event.onAvailable('perm_current', function(e, obj) {
+YAHOO.util.Event.onContentReady('perm_current', function(e, obj) {
     perm_original_current = obj.cloneNode(true);
 });
 
-YAHOO.util.Event.onAvailable(['perm_objects', 'perm_current', 'perm_methods'],
+YAHOO.util.Event.onContentReady(['perm_objects', 'perm_current', 'perm_methods'],
     Perm_methods_load);
 
 function Perm_methods_load() {

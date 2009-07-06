@@ -111,7 +111,7 @@ cereweb.callbacks.htmlSnippet.prototype = {
 //cereweb.debug = false;
 //cereweb.debug = true;
 if(cereweb.debug) {
-    YE.onAvailable("container", function(o) {
+    YE.onContentReady("container", function(o) {
         var logger = cereweb.createDiv('logger');
         var myLogReader = new YAHOO.widget.LogReader(logger);
     });
@@ -222,7 +222,7 @@ cereweb.createDiv = cereweb.utils.createDiv; // Backwards compatibility.
         }
     }
 
-    YE.onAvailable('messages', function() {
+    YE.onContentReady('messages', function() {
         cereweb.msg = new Messages(this);
     });
 })();
@@ -371,7 +371,7 @@ cereweb.editBox = {
             this.hide();
     }
 }
-YE.onAvailable('content', cereweb.editBox.init, cereweb.editBox, true);
+YE.onContentReady('content', cereweb.editBox.init, cereweb.editBox, true);
 
 cereweb.tooltip = {
     init: function() {
@@ -395,7 +395,7 @@ cereweb.javascript = {
         cereweb.tooltip.init();
     }
 }
-YE.onAvailable('container', cereweb.javascript.init);
+YE.onContentReady('container', cereweb.javascript.init);
 
 cereweb.tabs = new YAHOO.widget.TabView('tabview');
 cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };

@@ -20,7 +20,7 @@
 
 // Runs when the page is finished loading.
 YE.addListener('gid_option', 'change', GS_option_changed);
-YE.onAvailable('gid_option', GS_option_changed);
+YE.onContentReady('gid_option', GS_option_changed);
 
 // Disables gid_end unless option is range.
 function GS_option_changed() {

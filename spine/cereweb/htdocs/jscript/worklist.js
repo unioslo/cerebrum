@@ -326,7 +326,7 @@ cereweb.worklist.prototype = {
         this.updateActions();
     }
 }
-YE.onAvailable('worklist', function() { 
+YE.onContentReady('worklist', function() { 
     this.innerHTML = ''; // Disable old worklist.
     new cereweb.worklist('Worklist', 'worklist', {
         populate_url: '/worklist/get_all',

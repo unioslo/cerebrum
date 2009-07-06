@@ -270,7 +270,7 @@ cereweb.ac_quicksearch.prototype.dataSourceOptions = {
     queryMatchCase: true
 }
 
-YE.onAvailable('container', function () {
+YE.onContentReady('container', function () {
         cereweb.quicksearch = new cereweb.ac_quicksearch(this);
     }
 );
@@ -289,7 +289,7 @@ cereweb.autocomplete = {
             });
     }
 }
-YE.onAvailable('content', cereweb.autocomplete.init);
+YE.onContentReady('content', cereweb.autocomplete.init);
 
 if(cereweb.debug) {
     log('search is loaded');

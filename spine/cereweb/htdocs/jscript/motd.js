@@ -78,7 +78,7 @@ cereweb.motd = {
         }
     }
 }
-YE.onAvailable('editMotd', cereweb.motd.init, cereweb.motd, true);
+YE.onContentReady('editMotd', cereweb.motd.init, cereweb.motd, true);
 
 if(cereweb.debug) {
     log('motd is loaded');
