@@ -282,7 +282,7 @@
 #def viewGroups($account)
 <div class="info box">
     <h3>$_('Groups')</h3>
-    <form action="groups" method="post">
+    <form action="leave_groups" method="post">
         $listGroups($account)
         <div>
         <input type="hidden" name="account_id" value="$account.id" />
@@ -291,7 +291,7 @@
         #else
             <input type="submit" name="leave" value="$_('Leave group(s)')" />&#x0020;
         #end if
-        <input type="submit" name="create" value="$_('Create a group')" />
+            <a href="/group/create">$_('Create a group')</a>
             <a href="#joinGroupBox">Join existing group</a>
         </div>
     </form>

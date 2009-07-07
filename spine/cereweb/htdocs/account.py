@@ -301,41 +301,24 @@ def delete(account_id):
     redirect('/account/index')
 delete.exposed = True
 
-def groups(transaction, account_id, leave=False, create=False, **checkboxes):
-    """Performs action on groups this account is member of.
-    
-    If leave is true: removes 'account_id' from group checked in 'checkboxes'.
-    If create is true: redirects to the create group page.
-    Only one should be true at the same time.
-    """
-    if create:
-        redirect('/group/create')
+@session_required_decorator
+def leave_groups(account_id, **checkboxes):
+    """Removes 'account_id' from group checked in 'checkboxes'."""
+    db = get_database()
+    dao = GroupDAO(db)
 
-    elif leave:
-        account = transaction.get_account(int(account_id))
-        operation = transaction.get_group_member_operation_type("union")
-        count = 0
-        for arg, value in checkboxes.items():
-            if arg.startswith("member_"):
-                member_id, group_id = arg.split("_")[1:3]
-                member = transaction.get_account(int(member_id))
-                group = transaction.get_group(int(group_id))
-                group_member = transaction.get_group_member(group, 
-                            operation, member, member.get_type())
-                group.remove_member(group_member)
-                count += 1
-                
-        if count > 0:
-            commit(transaction, account, msg=_("Left %s group(s).") % count)
-        else:
-            msg = _("Left no groups since none were selected.")
-            queue_message(msg, True, object_link(account))
-            redirect_object(account)
-        
-    else:
-        raise "I dont know what you want to do"
-groups = transaction_decorator(groups)
-groups.exposed = True
+    count = 0
+    for arg, value in checkboxes.items():
+        if not arg.startswith("member_"): continue
+
+        member_id, group_id = arg.split("_")[1:3]
+        dao.remove_member(group_id, member_id)
+        count += 1
+            
+    db.commit()
+    queue_message(_("Left %s group(s)" % count), title=_("Operation succeded"))
+    redirect_entity(account_id)
+leave_groups.exposed = True
 
 def set_home(transaction, id, spread, home="", disk=""):
     account = transaction.get_account(int(id))
