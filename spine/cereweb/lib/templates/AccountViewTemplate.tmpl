@@ -161,10 +161,10 @@
                     <td>$entity_link($affil.ou)</td>
                     <td>$spine_to_web($affil.priority)</td>
                     <td class="actions">
-                        #set $args = "id=%s&amp;ou=%s&amp;affil=%s" % (
+                        #set $args = "account_id=%s&amp;ou_id=%s&amp;affil_id=%s" % (
                             $account.id,
                             $affil.ou.id,
-                            $url_quote($affil.type_name))
+                            $url_quote($affil.type_id))
                         <a class="action" href="/confirm/account/remove_affil?$args">$_('delete')</a>
                     </td>
                 </tr>
@@ -179,14 +179,14 @@
         #return
     #end if
 
-    #set $aff_list = [($spine_to_web("%s:%s" % ($a.type_name, $a.ou.id)),
+    #set $aff_list = [($spine_to_web("%s:%s" % ($a.type_id, $a.ou.id)),
                        $spine_to_web("%s:%s" % ($a.type_name, $a.ou.name))) for $a in $affiliations]
 
     <div class="edit box" style="display:none;">
         <h3 id="affil">$_('Add an affiliation')</h3>
         <form action="add_affil" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$account.id" />
+                <input type="hidden" name="account_id" value="$account.id" />
             </div>
             <div class="required">
                 $form_widgets.generate_loption("aff_ou", "Affiliation", $aff_list)

@@ -109,6 +109,16 @@ class AccountDAO(EntityDAO):
 
         account.write_db()
             
+    def add_affiliation(self, account_id, ou_id, affiliation_id, priority):
+        account = self._find(account_id)
+        account.set_account_type(ou_id, affiliation_id, priority)
+        account.write_db()
+
+    def remove_affiliation(self, account_id, ou_id, affiliation_id):
+        account = self._find(account_id)
+        account.del_account_type(ou_id, affiliation_id)
+        account.write_db()
+
     def _save_posix(self, dto):
         paccount = self._get_posix_account(dto.id)
         if paccount is None: return

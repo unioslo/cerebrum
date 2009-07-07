@@ -321,6 +321,25 @@ class AccountDAOWriteTest(WriteTestCase):
         result = self.dao.get(TestData.posix_account_id)
         self.assertEqual(dto.gecos, result.gecos)
 
+    def test_that_we_can_add_an_affiliation(self):
+        dto = self.dao.get(TestData.posix_account_id, include_extra=True)
+
+        self.assert_(not dto.affiliations)
+        affil = 95
+        ou_id = 23
+        self.dao.add_affiliation(TestData.posix_account_id, ou_id, affil, 100)
+        
+        new = self.dao.get(TestData.posix_account_id, include_extra=True)
+        self.assert_(new.affiliations)
+        self.assertEqual(affil, new.affiliations[0].type_id)
+        self.assertEqual(ou_id, new.affiliations[0].ou.id)
+
+    def test_that_we_can_remove_an_affiliation(self):
+        self.dao.add_affiliation(TestData.posix_account_id, 23, 95, 100)
+        self.dao.remove_affiliation(TestData.posix_account_id, 23, 95)
+        new = self.dao.get(TestData.posix_account_id, include_extra=True)
+        self.assert_(not new.affiliations)
+
     def _get_current_hash(self, account_id):
         return self.dao.get_md5_password_hash(account_id)
 

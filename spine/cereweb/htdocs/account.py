@@ -366,29 +366,28 @@ def set_password(id, passwd1, passwd2):
     redirect_entity(id)
 set_password.exposed = True
 
-def add_affil(transaction, id, aff_ou, priority):
-    account = transaction.get_account(int(id))
-    aff, ou = aff_ou.split(":", 2)
-    ou = transaction.get_ou(int(ou))
-    aff = transaction.get_person_affiliation_type(web_to_spine(aff))
-    priority = int(priority)
+@session_required_decorator
+def add_affil(account_id, aff_ou, priority):
+    aff_id, ou_id = aff_ou.split(":", 2)
 
-    account.set_affiliation(ou, aff, priority)
+    db = get_database()
+    dao = AccountDAO(db)
+    dao.add_affiliation(account_id, ou_id, aff_id, priority)
+    db.commit()
     
-    commit(transaction, account, msg=_("Affiliation successfully added."))
-add_affil = transaction_decorator(add_affil)
+    queue_message(_("Affiliation successfully added."), title=_("Change succeeded"))
+    redirect_entity(account_id)
 add_affil.exposed = True
 
+@session_required_decorator
+def remove_affil(account_id, ou_id, affil_id):
+    db = get_database()
+    dao = AccountDAO(db)
+    dao.remove_affiliation(account_id, ou_id, affil_id)
+    db.commit()
 
-def remove_affil(transaction, id, ou, affil):
-    account = transaction.get_account(int(id))
-    ou = transaction.get_ou(int(ou))
-    affil = transaction.get_person_affiliation_type(web_to_spine(affil))
-
-    account.remove_affiliation(ou, affil)
-
-    commit(transaction, account, msg=_("Affiliation successfully removed."))
-remove_affil = transaction_decorator(remove_affil)
+    queue_message(_("Affiliation successfully removed."), title=_("Change succeeded"))
+    redirect_entity(account_id)
 remove_affil.exposed = True
  
 def print_contract(transaction, id, lang):
