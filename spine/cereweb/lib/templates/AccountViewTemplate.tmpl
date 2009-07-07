@@ -123,7 +123,7 @@
             </div>
             #if $account.is_posix
                 #set $shells = [($s.name, $s.name) for $s in $shells]
-                #set $groups = [($g.id, $g.name) for $g in $groups]
+                #set $groups = [($g.id, $g.name) for $g in $account.groups if $g.is_posix]
 
                 <div class="required">
                      $form_widgets.generate_loption($_('group'), $_('Primary group'), $groups, $account.primary_group.id)

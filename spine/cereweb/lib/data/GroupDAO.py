@@ -38,8 +38,11 @@ class GroupDAO(EntityDAO):
         return dto
 
     def get_entities_for_account(self, account_id):
+        groups = []
         for row in self.entity.search(member_id=account_id):
-            yield self._create_dto_from_search(row)
+            dto = self._create_dto_from_search(row)
+            groups.append(dto)
+        return groups
 
     def get_groups_for(self, member_id):
         groups = []

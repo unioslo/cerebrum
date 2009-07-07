@@ -196,7 +196,7 @@ def redirect_object(object, method="view", status=None):
     url = object_url(object, method)
     raise cherrypy.HTTPRedirect(url, status)
 
-def queue_message(message=None, error=False, link='', title="No title"):
+def queue_message(message=None, error=False, link='', title="No title", tracebk=None):
     """Queue a message.
     
     The message will be displayed next time a Main-page is showed.
@@ -210,7 +210,8 @@ def queue_message(message=None, error=False, link='', title="No title"):
         title=title,
         message=message,
         is_error=error,
-        link=link
+        link=link,
+        tracebk=tracebk
     )
 
 def get_messages():
@@ -227,12 +228,15 @@ def strftime(date, format="%Y-%m-%d", default=''):
 def strptime(tr, date, format="%Y-%m-%d"):
     """Returns a Date obj for the date-string."""
     if date:
-        return tr.get_commands().strptime(date, format)
+        return mx.DateTime.strptime(date, format)
     else:
         return None
 
 def get_date(tr, sDate):
     return strptime(tr, sDate.strip(), "%Y-%m-%d")
+
+def parse_date(date):
+    return get_date(None, date)
 
 def has_valid_session():
     """Tries to ping the server.  Returns True if we've got
@@ -570,18 +574,23 @@ def spine_to_web(string):
     return to_web_encode(from_spine_decode(html_quote(string)))
 
 def web_to_spine(string):
+    if not string: return ''
     return to_spine_encode(from_web_decode(string))
 
 def from_spine_decode(string):
+    if not string: return ''
     return string.decode(get_spine_encoding())
 
 def to_spine_encode(string):
+    if not string: return ''
     return string.encode(get_spine_encoding())
 
 def from_web_decode(string):
+    if not string: return ''
     return string.decode(get_client_encoding())
 
 def to_web_encode(string):
+    if not string: return ''
     return string.encode(get_client_encoding())
 
 def encode_args(args):

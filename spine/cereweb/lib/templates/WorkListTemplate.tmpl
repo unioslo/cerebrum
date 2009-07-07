@@ -64,7 +64,7 @@
     #def PersonBox
         <ul>
             <li><a href="/account/search?owner=_id_">View all accounts</a></li>
-            <li><a href="/account/create?owner=_id_">Create new account</a></li>
+            <li><a href="/account/create?owner_id=_id_">Create new account</a></li>
         </ul>
     #end def
     $ActionTemplate("person", $PersonBox)
@@ -72,7 +72,7 @@
 
 #def GroupAction
     #def GroupBox
-        <a href="/account/create?owner=_id_">Create new account</a>
+        <a href="/account/create?owner_id=_id_">Create new account</a>
     #end def
     $ActionTemplate("group", $GroupBox)
 #end def

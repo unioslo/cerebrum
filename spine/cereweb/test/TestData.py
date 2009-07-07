@@ -8,6 +8,7 @@ bootstrap_account_id = 2
 account_without_posix_groups = bootstrap_account_id
 posix_account_id = 355252
 posix_account_primary_group_id = 354983
+posix_account_secondary_group_id = 356450
 noted_account_id = 355252
 quarantined_account_id = 355252
 nonposix_account_id = 354991
@@ -80,29 +81,40 @@ def get_nonposix_account_owner_dto():
     return dto
     
 def get_nonposix_account_creator_dto():
-    dto = EntityDTO()
-    dto.id = nonposix_account_creator_id
-    dto.name = 'bootstrap_account'
-    dto.type_name = 'account'
-    dto.type_id = 17
-    return dto
+    return create_account(
+        nonposix_account_creator_id,
+        'bootstrap_account')
 
 def get_posix_account_primary_group_dto():
+    return create_group(
+        posix_account_primary_group_id,
+        'test_posix')
+    
+def get_posix_account_secondary_group_dto():
+    return create_group(
+        posix_account_secondary_group_id,
+        'test_posix_2')
+
+def create_group(group_id, name):
     dto = EntityDTO()
-    dto.id = posix_account_primary_group_id
-    dto.name = 'test_posix'
+    dto.id = group_id
+    dto.name = name
     dto.type_name = "group"
     dto.type_id = 18
     return dto
-    
 
-def get_cetest1():
+def create_account(account_id, name):
     dto = EntityDTO()
-    dto.id = account_cetest1
-    dto.name = 'cetest1'
+    dto.id = account_id
+    dto.name = name
     dto.type_name = 'account'
     dto.type_id = 17
     return dto
+
+def get_cetest1():
+    return create_account(
+        account_cetest1,
+        'cetest1')
 
 def get_fake_posix_group():
     dto = GroupDTO()

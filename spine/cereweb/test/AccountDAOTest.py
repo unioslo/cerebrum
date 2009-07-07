@@ -24,6 +24,7 @@ import random
 import string
 
 from mx.DateTime import DateTime
+from mx.DateTime import strptime
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
@@ -32,8 +33,6 @@ from lib.data.AccountDTO import AccountDTO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DTO import DTO
 from lib.data.EntityDAO import EntityDAO
-
-from lib.templates.NewAccountViewTemplate import NewAccountViewTemplate
 
 import TestData
 from WriteTestCase import WriteTestCase
@@ -171,7 +170,7 @@ class AccountDAOTest(unittest.TestCase):
     def test_that_we_can_get_posix_groups_from_account_with_posix_groups(self):
         groups = self.dao.get_posix_groups(TestData.posix_account_id)
         
-        self.assert_(len(groups) == 1)
+        self.assert_(len(groups) > 1)
 
     def test_that_account_without_posix_groups_gives_empty_list(self):
         groups = self.dao.get_posix_groups(TestData.account_without_posix_groups)
@@ -265,7 +264,63 @@ class AccountDAOWriteTest(WriteTestCase):
         
         account = self.dao.get_by_name(dto.name)
         self.assert_(account.id >= 0)
+
+    def test_that_we_cant_change_the_name_of_an_account(self):
+        orig = TestData.get_nonposix_account_dto()
+        dto = self.dao.get(TestData.nonposix_account_id)
+        self.assertEqual(orig.name, dto.name)
         
+        dto.name = "xqxpqzaq"
+
+        self.dao.save(dto)
+        result = self.dao.get(TestData.nonposix_account_id)
+        self.assertEqual(orig.name, result.name)
+
+    def test_that_we_can_change_the_expire_date_of_an_account(self):
+        orig = TestData.get_nonposix_account_dto()
+        dto = self.dao.get(TestData.nonposix_account_id)
+        self.assertEqual(orig.expire_date, dto.expire_date)
+
+        dto.expire_date = strptime("1980-06-28", "%Y-%m-%d")
+
+        self.dao.save(dto)
+        result = self.dao.get(TestData.nonposix_account_id)
+        self.assertEqual(dto.expire_date, result.expire_date)
+        
+    def test_that_we_can_change_the_shell_of_an_account(self):
+        orig = TestData.get_posix_account_dto()
+        dto = self.dao.get(TestData.posix_account_id)
+        self.assertEqual(orig.shell, dto.shell) 
+        
+        dto.shell = "false"
+        
+        self.dao.save(dto)
+        result = self.dao.get(TestData.posix_account_id)
+        self.assertEqual(dto.shell, result.shell) 
+
+    def test_that_we_can_change_the_primary_group_of_a_posix_account(self):
+        orig = TestData.get_posix_account_primary_group_dto()
+        dto = self.dao.get(TestData.posix_account_id)
+        self.assertEqual(orig.id, dto.primary_group.id) 
+        new = TestData.get_posix_account_secondary_group_dto()
+
+        dto.primary_group = new
+        self.dao.save(dto)
+
+        result = self.dao.get(TestData.posix_account_id)
+        self.assertEqual(new.id, result.primary_group.id)
+
+    def test_that_we_can_change_the_gecos_of_a_posix_account(self):
+        orig = TestData.get_posix_account_dto()
+        dto = self.dao.get(TestData.posix_account_id)
+        self.assertEqual(orig.gecos, dto.gecos)
+
+        dto.gecos = "Changed For Test"
+        self.dao.save(dto)
+
+        result = self.dao.get(TestData.posix_account_id)
+        self.assertEqual(dto.gecos, result.gecos)
+
     def _get_current_hash(self, account_id):
         return self.dao.get_md5_password_hash(account_id)
 

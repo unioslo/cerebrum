@@ -100,7 +100,25 @@ class AccountDAO(EntityDAO):
         account.write_db()
 
         return self._create_dto(account)
+
+    def save(self, dto):
+        account = self._find(dto.id)
+        account.expire_date = dto.expire_date
+
+        self._save_posix(dto)
+
+        account.write_db()
             
+    def _save_posix(self, dto):
+        paccount = self._get_posix_account(dto.id)
+        if paccount is None: return
+
+        paccount.shell = self.constants.PosixShell(dto.shell)
+        paccount.gecos = dto.gecos
+        paccount.gid_id = dto.primary_group.id
+
+        paccount.write_db()
+
     def _split_name(self, name):
         names = name.split(" ", 1)
         if len(names) == 1:

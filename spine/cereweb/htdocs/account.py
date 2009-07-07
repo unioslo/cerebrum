@@ -24,7 +24,7 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import *
 from lib.Searchers import AccountSearcher
-from lib.Forms import AccountCreateForm, AccountEditForm
+from lib.Forms import AccountCreateForm
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
@@ -194,12 +194,10 @@ def fail(url, message):
 @session_required_decorator
 def view(id, **kwargs):
     page = AccountViewTemplate()
-    page.account = AccountDAO().get(id)
-    page.account.traits = []
+    page.account = AccountDAO().get(id, include_extra=True)
     page.account.history = HistoryDAO().get_entity_history_tail(id)
     page.affiliations = PersonDAO().get_affiliations(page.account.owner.id)
     page.shells = ConstantsDAO().get_shells()
-    page.groups = GroupDAO().get_entities_for_account(id)
     page.disks = DiskDAO().get_disks()
     page.email_target_types = ConstantsDAO().get_email_target_types()
     page.email_servers = HostDAO().get_email_servers()
@@ -209,114 +207,49 @@ def view(id, **kwargs):
     return page.respond()
 view.exposed = True
 
-def form_edit(form, message=None):
-    page = FormTemplate()
-    if message:
-        page.messages.append(message)
-    page.title = form.get_title()
-    page.set_focus("account/edit")
-    page.links = _get_links()
-    page.form_fields = form.get_fields()
-    page.form_action = form.get_action()
-    return page.respond()
-
-def edit(transaction, id, **vargs):
-    """Creates a page with the form for editing an account."""
-    account = transaction.get_account(int(id))
-    name = spine_to_web(account.get_name())
-    expire_date = account.get_expire_date()
-    description = account.get_description()
-    if expire_date:
-        expire_date = html_quote(expire_date.strftime('%Y-%m-%d'))
-    else:
-        expire_date = ''
-    if description:
-        description = spine_to_web(description.strip())
-    else:
-        description = ''
-    values = {
-        'id' : html_quote(id),
-        'expire_date': expire_date,
-        'description' : description,
-    } 
-    values.update(vargs)
-    form = AccountEditForm(transaction, **values)
-    form.title = 'Edit ' + object_link(account, text=name)
-    if not vargs:
-        print 'form_edit(form)'
-        return form_edit(form)
-    if not form.has_required() or not form.is_correct():
-        print 'form not correct'
-        return form_edit(form, message=form.get_error_message())
-    else:
-        vargs = form.get_values()
-        save(transaction, vargs)
-edit = transaction_decorator(edit)
-edit.exposed = True
-
-def save(transaction, **vargs):
-    id = vargs.get('id')
-    expire_date = vargs.get('expire_date')
-    uid = vargs.get('uid')
-    primary_group = vargs.get('group')
-    gecos = web_to_spine(vargs.get('gecos'))
-    shell = web_to_spine(vargs.get('shell'))
-    description = web_to_spine(vargs.get('description'))
-    submit = vargs.get('submit')
-
-    account = transaction.get_account(int(id))
-    c = transaction.get_commands()
-    error_msgs = []
-
-    if submit == "Cancel":
-        redirect_object(account)
-        return
-
-    if expire_date:
-        expire_date = c.strptime(expire_date, "%Y-%m-%d")
-    else:
-        expire_date = None
-
-    if shell is not None:
-        shell_searcher = transaction.get_posix_shell_searcher()
-        shell_searcher.set_name(shell)
-        shells = shell_searcher.search()
-
-        if len(shells) == 1:
-            shell = shells[0]
-        else:
-            error_msgs.append("Error, no such shell: %s" % shell)
-        
-    account.set_expire_date(expire_date)
-    account.set_description(description)
-
-    if account.is_posix():
-        if uid:
-            account.set_posix_uid(int(uid))
-
-        if shell:
-            account.set_shell(shell)
-
-        if primary_group:
-            for group in account.get_groups():
-                if group.get_id() == int(primary_group):
-                    account.set_primary_group(group)
-                    break
-            else:
-                error_msgs.append("Error, primary group not found.")
-        
-        account.set_gecos(gecos)
-
-    if error_msgs:
-        for msg in error_msgs:
-            queue_message(msg, True, object_link(account))
-        redirect_object(account)
-        transaction.rollback()
-    else:
-        msg = _("Account successfully updated.")
-        commit(transaction, account, msg=msg)
-save = transaction_decorator(save)
+def save(**kwargs):
+    account_id = kwargs.get('id')
+    db = get_database()
+    dao = AccountDAO(db)
+    dto = dao.get(account_id)
+    populate(dto, **kwargs)
+    populate_posix(dto, **kwargs)
+    dao.save(dto)
+    db.commit()
+    msg = _("Account successfully updated.")
+    queue_message(msg, title=_("Operation succeded"), error=False)
+    redirect_entity(dto)
 save.exposed = True
+
+def populate(dto, expire_date=None, **kwargs):
+    dto.expire_date = clean_expire_date(expire_date)
+
+def populate_posix(dto, uid=None, shell=None, gecos=None, group=None, **kwargs):
+    if not dto.is_posix: return
+
+    dto.posix_uid = clean_uid(uid)
+    dto.shell = clean_shell(shell)
+    dto.gecos = clean_gecos(gecos)
+    dto.primary_group.id = clean_primary_group(group)
+
+def clean_expire_date(expire_date):
+    if not expire_date: return None
+    return parse_date(expire_date)
+
+def clean_uid(uid):
+    if not uid: return None
+    return int(uid)
+
+def clean_shell(shell):
+    if not shell: return None
+    return web_to_spine(shell)
+
+def clean_gecos(gecos):
+    return web_to_spine(gecos)
+
+def clean_primary_group(group):
+    if not group: return None
+    return int(group)
 
 def get_primary_group_id(account_id):
     posix_groups = AccountDAO().get_posix_groups(account_id)
