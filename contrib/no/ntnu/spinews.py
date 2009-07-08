@@ -1,4 +1,4 @@
-import os, sys, socket
+import os, sys, socket, time, md5
 
 import cerebrum_path
 
@@ -15,6 +15,8 @@ from ZSI.ServiceContainer import ServiceSOAPBinding
 from ZSI.ServiceContainer import ServiceContainer
 from ZSI.dispatch import SOAPRequestHandler
 from ZSI import ParsedSoap, SoapWriter
+from ZSI import _get_element_nsuri_name
+from ZSI.wstools.Namespaces import OASIS, DSIG
 
 from M2Crypto import SSL
 from M2Crypto import X509
@@ -551,6 +553,81 @@ class HomedirDTO:
         self._attrs["posix_uid"] = row["posix_uid"]
         self._attrs["posix_gid"] = row["posix_gid"]
 
+def get_node_value(node):
+    if not node:
+        return None
+    value = None
+    valueNode = node._get_firstChild()
+    if valueNode:
+        value = valueNode._get_nodeValue()
+    if value:
+        value.strip()
+    return value
+ 
+def get_element(elements, namespace, localname):
+    for elt in elements:
+        ns, name = _get_element_nsuri_name(elt)
+        if ns == namespace and name == localname:
+            return elt
+    return None
+
+def get_auth_values(ps):
+
+    headerElements = ps.GetMyHeaderElements()
+    securityElement = get_element(headerElements, OASIS.WSSE, 'Security')
+    if not securityElement:
+        raise RuntimeError, 'Unauthorized, missing Security-element in header'
+
+    secChildren = securityElement._get_childNodes()
+    if len(secChildren) == 0:
+        raise RuntimeError, 'Unauthorized, Security-element has no children'
+    
+    usernameToken = get_element(secChildren, OASIS.WSSE, 'UsernameToken')
+    if not usernameToken:
+        raise RuntimeError, 'Unauthorized, UsernameToken not present'
+
+    tokenChildren = usernameToken._get_childNodes()
+    if len(tokenChildren) == 0:
+        raise RuntimeError,'Unauthorized, UsernameToken has no children'
+
+    username = get_node_value(get_element(tokenChildren, OASIS.WSSE,
+                                'Username'))
+    if not username:
+        raise RunTimeError, 'Unauthorized, Username not present'
+
+    password = get_node_value(get_element(tokenChildren, OASIS.WSSE,
+                                'Password'))
+    if not password:
+        raise RunTimeError, 'Unauthorized, Password not present'
+
+    created = get_node_value(get_element(tokenChildren, OASIS.UTILITY,
+                                'Created'))
+    if not created:
+        raise RunTimeError, 'Unauthorized, Created not present'
+    return username, password, created
+
+def check_created(created):
+    gmCreated= time.strptime(created, '%Y-%m-%dT%H:%M:%SZ')
+    ## allow timeout up to 10 secs.
+    gmNow = time.gmtime((time.time() - 10))
+    if gmCreated < gmNow:
+        raise RuntimeError,'Unauthorized, UsernameToken is expired'
+    
+def check_username_password(username, password):
+    debug = True
+    md5Password = md5.new(password).hexdigest()
+    if debug:
+        print md5Password
+
+def authorize(ps):
+    debug = True
+    username, password, created = get_auth_values(ps)
+    check_created(created)
+    if debug:
+        print 'username =', username
+        print 'password =', password
+        print 'created =', created
+    check_username_password(username, password)
 
 class spinews(ServiceSOAPBinding):
     #_wsdl = "".join(open("spinews.wsdl").readlines())
@@ -592,6 +669,7 @@ class spinews(ServiceSOAPBinding):
         
 
     def get_groups(self, ps):
+        authorize(ps)
         request = ps.Parse(getGroupsRequest.typecode)
         groupspread = str(request._groupspread)
         accountspread = str(request._accountspread)
@@ -794,7 +872,7 @@ def init_ssl(debug=None):
     ctx.set_session_id_ctx('ceresync_srv')
     return ctx
 
-test()
+## test()
 print "starting..."
 ca_cert = X509.load_cert('/etc/ssl/certs/itea-ca.crt')
 RunAsServer(port=8666, services=[spinews(),])
