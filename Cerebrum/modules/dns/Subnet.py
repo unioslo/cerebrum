@@ -35,7 +35,6 @@ from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns.IPUtils import IPCalc
-#from Cerebrum.modules.dns.bofhd_dns_cmds import DnsBofhdAuth
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 
 
@@ -54,6 +53,12 @@ __version__ = "$Revision$"
 class SubnetError(DNSError):
     """Subnet-specific errors."""
     pass
+
+
+
+class Force(Parameter):
+    _type = 'force'
+    _help_ref = 'force'
 
 
 
@@ -209,8 +214,9 @@ class Subnet(Entity):
         if (self.ip_min + self.no_of_reserved_adr - 1) > self.ip_max:
             raise SubnetError, ("Trying to reserve %i addresses in a subnet " %
                                 self.no_of_reserved_adr + 
-                                "that has %i addresses in total. No can do." %
-                                (self.ip_max - self.ip_min + 1))
+                                "that has %i addresses in total. " %
+                                (self.ip_max - self.ip_min + 1) +
+                                "You can't do that! Because it's *wrong*")
         
         # Designate the first X adresses in subnet as reserved, where
         # X equals the number specifically set as reserved addresses
@@ -269,9 +275,9 @@ class Subnet(Entity):
             
         if res_adr_in_use:
             res_adr_in_use.sort()
-            raise SubnetError, ("The following ip's are already in use " +
+            raise SubnetError, ("The following reserved ip's are already in use " +
                                 "on subnet %s/%s: " % (self.subnet_ip, self.subnet_mask) +
-                                "'%s'. Cannot reserve them." % (', '.join(res_adr_in_use)))
+                                "'%s'." % (', '.join(res_adr_in_use)))
 
             
 
@@ -379,6 +385,9 @@ class Subnet(Entity):
     def find(self, identifier):
         binds = {}
 
+        if identifier is None:
+            raise SubnetError("Unable to find subnet identified by '%s'" % identifier)
+            
         if identifier.find(':') > 0:
             # E.g. 'id:X' or 'entity_id:X'; we don't really care which
             where_param = "entity_id = :e_id"
@@ -410,7 +419,6 @@ class Subnet(Entity):
             self.calculate_reserved_addresses()
             
         except NotFoundError, nfe:
-            print nfe
             raise SubnetError("Unable to find subnet identified by '%s'" % identifier)
 
         self.__in_db = True
@@ -649,7 +657,7 @@ class BofhdExtension(object):
         s.find(identifier)
         old_vlan = s.vlan_number
         s.vlan_number = new_vlan
-        s.write_db()
+        s.write_db(perform_checks=False)
         subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
         return "OK; VLAN for subnet %s updated from '%s' to '%s'" % (subnet_id, old_vlan, new_vlan)
 
@@ -663,7 +671,7 @@ class BofhdExtension(object):
         s = Subnet(self.db)
         s.find(identifier)
         s.description = new_description
-        s.write_db()
+        s.write_db(perform_checks=False)
         subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
         return "OK; description for subnet %s updated to '%s'" % (subnet_id, new_description)
         
@@ -678,7 +686,7 @@ class BofhdExtension(object):
         s.find(identifier)
         old_prefix = s.name_prefix
         s.name_prefix = new_prefix
-        s.write_db()
+        s.write_db(perform_checks=False)
         subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
         return ("OK; name_prefix for subnet %s updated " % subnet_id +
                 "from '%s' to '%s'" % (old_prefix, new_prefix))
@@ -686,8 +694,8 @@ class BofhdExtension(object):
 
     all_commands['subnet_set_dns_delegated'] = Command(
         ("subnet", "set_dns_delegated"),
-        SubnetIdentifier())
-    def subnet_set_dns_delegated(self, operator, identifier):
+        SubnetIdentifier(), Force(optional=True))
+    def subnet_set_dns_delegated(self, operator, identifier, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         s = Subnet(self.db)
         s.find(identifier)
@@ -697,9 +705,16 @@ class BofhdExtension(object):
             return ("Subnet %s is already set as " % subnet_id +
                     "being delegated to external DNS server")
 
+        if s.has_adresses_in_use():
+            if force:
+                in_use = "\nNote! Subnet has addresses in use!"
+            else:
+                raise CerebrumError, ("Subnet '%s' has addresses " % subnet_id +
+                                      "in use; must force to delegate")
+
         s.dns_delegated = True
-        s.write_db()
-        return "Subnet %s set as delegated to external DNS server" % subnet_id
+        s.write_db(perform_checks=False)
+        return "Subnet %s set as delegated to external DNS server%s" % (subnet_id, in_use)
         
         
     all_commands['subnet_unset_dns_delegated'] = Command(
@@ -716,7 +731,7 @@ class BofhdExtension(object):
                     "being delegated to external DNS server" )
 
         s.dns_delegated = False
-        s.write_db()
+        s.write_db(perform_checks=False)
         return "Subnet %s no longer set as delegated to external DNS server" % subnet_id
     
 
@@ -742,14 +757,18 @@ class BofhdExtension(object):
 
         s.no_of_reserved_adr = int(new_res)
         s.calculate_reserved_addresses()
-        
-        if new_res > old_res:
-            s.check_reserved_addresses_in_use()
 
-        s.write_db()
+        in_use = ""
+        if new_res > old_res:
+            try:
+                s.check_reserved_addresses_in_use()
+            except SubnetError, se:
+                in_use = "\nFYI: %s" % se.message
+
+        s.write_db(perform_checks=False)
         subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
         return ("OK; Number of reserved addresses for subnet %s " % subnet_id +
-                "updated from '%s' to '%s'" % (old_res, new_res))
+                "updated from '%s' to '%s'%s" % (old_res, new_res, in_use))
 
 
 if __name__ == '__main__':

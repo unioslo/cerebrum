@@ -34,6 +34,7 @@ from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import Subnet
+from Cerebrum.modules.dns.Subnet import SubnetError
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Utils
@@ -406,13 +407,27 @@ class BofhdExtension(object):
         force = self.dns_parser.parse_force(force)
 
         s = Subnet.Subnet(self.db)
-        s.find(subnet_or_ip)
-        if s.dns_delegated and not force:
-            raise CerebrumError("Must force 'host a_add' for subnets " +
-                                "delegated to external DNS-server")
+        subnet_ip = None
+        free_ip_numbers = []
+        try:
+            s.find(subnet_or_ip)
+            subnet_ip = s.subnet_ip
+            if s.dns_delegated and not force:
+                raise CerebrumError("Must force 'host a_add' for subnets " +
+                                    "delegated to external DNS-server")
+            free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
+            
+        except SubnetError:
+            if not force:
+                raise SubnetError, "Unknown subnet; must force"
+            if subnet_or_ip.find('/') > 0:
+                raise SubnetError, "Unknown subnet; must use specific ip"
+            if subnet_or_ip.endswith(".0"):
+                raise CerebrumError, "Unknown subnet; cannot allocate .0-address"
+            free_ip_numbers = [ subnet_or_ip ]
+            
         
-        free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
-        ip = self.mb_utils.alloc_arecord(host_name, s.subnet_ip, free_ip_numbers[0], force)
+        ip = self.mb_utils.alloc_arecord(host_name, subnet_ip, free_ip_numbers[0], force)
         return "OK, ip=%s" % ip
 
     # host a_remove
@@ -438,15 +453,29 @@ class BofhdExtension(object):
         force = self.dns_parser.parse_force(force)
         hostnames = self.dns_parser.parse_hostname_repeat(hostname)
         hinfo = self._map_hinfo_code(hinfo)
-        free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
-        if len(free_ip_numbers) < len(hostnames):
-            raise CerebrumError("Not enough free ips")
         
         s = Subnet.Subnet(self.db)
-        s.find(subnet_or_ip)
-        if s.dns_delegated:
-            raise CerebrumError("Cannot add host to subnet zone " +
-                                "delegated to external DNS-server")
+        subnet_ip = None
+        free_ip_numbers = []
+        try:
+            s.find(subnet_or_ip)
+            subnet_ip = s.subnet_ip
+            if s.dns_delegated:
+                raise CerebrumError("Cannot add host to subnet zone " +
+                                    "delegated to external DNS-server")
+            free_ip_numbers = self.mb_utils.get_relevant_ips(subnet_or_ip, force)
+            
+        except SubnetError:
+            if not force:
+                raise SubnetError, "Unknown subnet; must force"
+            if subnet_or_ip.find('/') > 0:
+                raise SubnetError, "Unknown subnet; must use specific ip"
+            if subnet_or_ip.endswith(".0"):
+                raise CerebrumError, "Unknown subnet; cannot allocate .0-address"
+            free_ip_numbers = [ subnet_or_ip ]
+
+        if len(free_ip_numbers) < len(hostnames):
+            raise CerebrumError("Not enough free ips")
         
         # If user don't want mx_set, it must be removed with "ip mx_set"
         mx_set=self._find.find_mx_set(cereconf.DNS_DEFAULT_MX_SET)
@@ -455,7 +484,7 @@ class BofhdExtension(object):
             # TODO: bruk hinfo ++ for å se etter passende sekvens uten
             # hull (i en passende klasse)
             ip = self.mb_utils.alloc_arecord(
-                name, s.subnet_ip, free_ip_numbers.pop(0), force)
+                name, subnet_ip, free_ip_numbers.pop(0), force)
             self.mb_utils.alloc_host(
                 name, hinfo, mx_set.mx_set_id, comment, contact)
             ret.append({'name': name, 'ip': ip})

@@ -164,6 +164,7 @@ class DnsBofhdUtils(object):
         subnet, ip = self._parser.parse_subnet_or_ip(subnet_or_ip)
         if subnet is None and not force:
             raise CerebrumError, "Unknown subnet.  Must force"
+
         if not ip:
             first = subnet_or_ip.split('/')[0]
             if len(first.split('.')) == 4:
@@ -171,6 +172,7 @@ class DnsBofhdUtils(object):
             else:
                 first = None
             free_ip_numbers = self._find.find_free_ip(subnet, first=first)
+            
         else:
             free_ip_numbers = [ ip ]
                 

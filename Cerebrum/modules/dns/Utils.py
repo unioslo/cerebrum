@@ -6,6 +6,7 @@ from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import Subnet
+from Cerebrum.modules.dns.Subnet import SubnetError
 from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum import Errors
@@ -337,17 +338,20 @@ class Find(object):
         ip_number.clear()
         sub = Subnet.Subnet(self._db)
         sub.clear()
-        sub.find(subnet)
-        taken = {}
-        for row in ip_number.find_in_range(sub.ip_min, sub.ip_max):
-            taken[long(row['ipnr'])] = int(row['ip_number_id'])
-        ret = []
-        for n in range(0, (sub.ip_max-sub.ip_min)+1):
-            if (not taken.has_key(long(sub.ip_min+n)) and
-                n+sub.ip_min not in sub.reserved_adr):
-                ret.append(n+sub.ip_min)
-        return ret
-
+        try:
+            sub.find(subnet)
+            taken = {}
+            for row in ip_number.find_in_range(sub.ip_min, sub.ip_max):
+                taken[long(row['ipnr'])] = int(row['ip_number_id'])
+            ret = []
+            for n in range(0, (sub.ip_max-sub.ip_min)+1):
+                if (not taken.has_key(long(sub.ip_min+n)) and
+                    n+sub.ip_min not in sub.reserved_adr):
+                    ret.append(n+sub.ip_min)
+            return ret
+        except SubnetError:
+            # Unable to find subnet; therefore, no available ips to report
+            return []
 
     def find_used_ips(self, subnet):
         """Returns all ips that are taken on the given subnet in
