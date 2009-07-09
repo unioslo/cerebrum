@@ -303,51 +303,53 @@ class AccountHome(object):
                  'disk_id': disk_id,
                  'status': status
                  }
-        if current_id is NotSet:    # Allocate new id
+
+        if current_id is NotSet:
+            # Allocate new id
             binds['homedir_id'] = long(self.nextval('homedir_id_seq'))
-            for t in binds:
-                if binds[t] is NotSet:
-                    binds[t] = None
-            self.execute("""
+
+            # Specify None as default value for create
+            for key, value in binds.items():
+                if value is NotSet:
+                    binds[key] = None
+
+            sql = """
             INSERT INTO [:table schema=cerebrum name=homedir]
               (%s)
             VALUES (%s)""" % (
                 ", ".join(binds.keys()),
-                ", ".join([":%s" % t for t in binds])), binds)
-            if binds['disk_id'] or binds['home']:
-                tmp = {'home': self.resolve_homedir(disk_id=binds['disk_id'],
-                                                    home=binds['home'])}
-            else:
-                tmp = {}
-            tmp['homedir_id'] = binds['homedir_id']
-            if binds['status']:
-                tmp['status'] = binds['status']
-            self._db.log_change(self.entity_id, self.const.homedir_add,
-                                None, change_params=tmp)
+                ", ".join([":%s" % t for t in binds]))
+
+            change_type = self.const.homedir_add
         else:
-            for t in binds.keys():
-                if binds[t] is NotSet or binds[t] is None:
-                    del binds[t]
+            # Leave previous value alone if update
+            for key, value in binds.items():
+                if value is NotSet:
+                    del binds[key]
+
             binds['homedir_id'] = current_id
-            if 'home' in binds:
-                binds['disk_id'] = None
-            elif 'disk_id' in binds:
-                binds['home'] = None
-            self.execute("""
+
+            sql = """
             UPDATE [:table schema=cerebrum name=homedir]
               SET %s
             WHERE homedir_id=:homedir_id""" % (
-                ", ".join(["%s=:%s" % (t, t) for t in binds])), binds)
-            if binds.get('disk_id') or binds.get('home'):
-                tmp = {'home': self.resolve_homedir(disk_id=binds.get('disk_id'),
-                                                    home=binds.get('home'))}
-            else:
-                tmp = {}
-            tmp['homedir_id'] = binds['homedir_id']
-            if binds.has_key('status'):
-                tmp['status'] = binds['status']
-            self._db.log_change(self.entity_id, self.const.homedir_update,
-                                None, change_params=tmp)
+                ", ".join(["%s=:%s" % (t, t) for t in binds]))
+
+            change_type = self.const.homedir_update
+
+        self.execute(sql, binds)
+
+        if binds.get('disk_id') or binds.get('home'):
+            tmp = {'home': self.resolve_homedir(disk_id=binds.get('disk_id'),
+                                                home=binds.get('home'))}
+        else:
+            tmp = {}
+        tmp['homedir_id'] = binds['homedir_id']
+        if binds.has_key('status'):
+            tmp['status'] = binds['status']
+        self._db.log_change(self.entity_id, change_type,
+                            None, change_params=tmp)
+        
         return binds['homedir_id']
 
     def _clear_homedir(self, homedir_id):
