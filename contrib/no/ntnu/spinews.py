@@ -576,34 +576,34 @@ def get_auth_values(ps):
     headerElements = ps.GetMyHeaderElements()
     securityElement = get_element(headerElements, OASIS.WSSE, 'Security')
     if not securityElement:
-        raise RuntimeError, 'Unauthorized, missing Security-element in header'
+        raise RuntimeError('Unauthorized, missing Security-element in header')
 
     secChildren = securityElement._get_childNodes()
     if len(secChildren) == 0:
-        raise RuntimeError, 'Unauthorized, Security-element has no children'
+        raise RuntimeError('Unauthorized, Security-element has no children')
     
     usernameToken = get_element(secChildren, OASIS.WSSE, 'UsernameToken')
     if not usernameToken:
-        raise RuntimeError, 'Unauthorized, UsernameToken not present'
+        raise RuntimeError('Unauthorized, UsernameToken not present')
 
     tokenChildren = usernameToken._get_childNodes()
     if len(tokenChildren) == 0:
-        raise RuntimeError,'Unauthorized, UsernameToken has no children'
+        raise RuntimeError('Unauthorized, UsernameToken has no children')
 
     username = get_node_value(get_element(tokenChildren, OASIS.WSSE,
                                 'Username'))
     if not username:
-        raise RunTimeError, 'Unauthorized, Username not present'
+        raise RunTimeError('Unauthorized, Username not present')
 
     password = get_node_value(get_element(tokenChildren, OASIS.WSSE,
                                 'Password'))
     if not password:
-        raise RunTimeError, 'Unauthorized, Password not present'
+        raise RunTimeError('Unauthorized, Password not present')
 
     created = get_node_value(get_element(tokenChildren, OASIS.UTILITY,
                                 'Created'))
     if not created:
-        raise RunTimeError, 'Unauthorized, Created not present'
+        raise RunTimeError('Unauthorized, Created not present')
     return username, password, created
 
 def check_created(created):
@@ -611,15 +611,21 @@ def check_created(created):
     ## allow timeout up to 10 secs.
     gmNow = time.gmtime((time.time() - 10))
     if gmCreated < gmNow:
-        raise RuntimeError,'Unauthorized, UsernameToken is expired'
+        raise RuntimeError('Unauthorized, UsernameToken is expired')
     
 def check_username_password(username, password):
-    debug = True
-    md5Password = md5.new(password).hexdigest()
-    if debug:
-        print md5Password
+    account.clear()
+    try:
+        account.find_by_name("username")
+        crypt=a.get_account_authentication(user.co.auth_type_md5_crypt)
+    except NotFoundError:
+        raise AuthenticationError
+    if not a.verify_password(co.auth_type_md5_crypt,
+                             password, crypt):
+        raise AuthenticationError
 
-def authorize(ps):
+
+def authenticate(ps):
     debug = True
     username, password, created = get_auth_values(ps)
     check_created(created)
