@@ -121,13 +121,16 @@ class IPNumber(Entity.Entity):
             'stop': stop})
 
     def list(self, start=None, stop=None):
-        where = []
+        where_list = []
         if start is not None:
-            where.append("ipnr >= :start")
+            where_list.append("ipnr >= :start")
         if stop is not None:
-            where.append("ipnr <= :stop")
-        if where:
-            where = "WHERE " + " AND ".join(where)
+            where_list.append("ipnr <= :stop")
+        if where_list:
+            where = "WHERE " + " AND ".join(where_list)
+        else:
+            where = ""
+        
         return self.query("""
         SELECT ip_number_id, a_ip, ipnr, aaaa_ip
         FROM [:table schema=cerebrum name=dns_ip_number]
