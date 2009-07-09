@@ -62,7 +62,6 @@
 #def content()
     $editAccount($account)
     $viewInfo($account)
-    ## $printDialog($account)
     $viewQuarantines($account)
     $addNote($account)
     $viewNotes($account)
@@ -209,9 +208,9 @@
 
     <div class="info box">
         <h3>$_('Current authentication types')</h3>
-        #for $auth in $account.authentications
+        #for $method in $account.authentications
         <div class="item">
-            $spine_to_web($auth.methodname)
+            $spine_to_web($method.name)
         </div>
         #end for
     </div>
@@ -234,7 +233,7 @@
         #for $home in $account.homes
             <div class="item">
                 <div class="actions">
-                    <a class="action" href="remove_home?id=$account.id&amp;spread=$url_quote($home.spread.name)">$_('remove')</a>
+                    <a class="action" href="remove_home?account_id=$account.id&amp;spread_id=$home.spread.id">$_('remove')</a>
                 </div>
 
                 <span class="name">$_("Spread"):</span>
@@ -243,10 +242,10 @@
 
                 #if $home.disk
                     <span class="name">$_("Disk"):</span>
-                    <span class="value">$spine_to_web("%s:%s" % ($home.disk.hostname, $home.disk.path))</span>
+                    <span class="value">$spine_to_web("%s:%s" % ($home.disk.host.name, $home.disk.path))</span>
                     <br />
                 #end if
-                <span class="name">$_("Home directory"):</span> <span class="value">$spine_to_web($home.path)</span><br />
+                <span class="name">$_("Path"):</span> <span class="value">$spine_to_web($home.path)</span><br />
                 <span class="name">$_("Status"):</span> <span class="value">$spine_to_web($home.status.description)</span>
             </div>
         #end for
@@ -258,18 +257,19 @@
         <h3>$_('Set home directory')</h3>
         <form action="set_home" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$entity.id" />
+                <input type="hidden" name="account_id" value="$entity.id" />
             </div>
             <div class="required">
-                #set $spreads = [($spine_to_web($s.name), $spine_to_web($s.name)) for $s in $entity.spreads]
-                $form_widgets.generate_loption("spread", "Spread", $spreads, $id="set_spread")
+                #set $spreads = [($s.id, $spine_to_web($s.name)) for $s in $entity.spreads]
+                $form_widgets.generate_loption("spread_id", "Spread", $spreads, $id="set_spread")
             </div>
             <div class="required">
-                $form_widgets.input("home", "Home")
+                $form_widgets.input("path", "Path")
             </div>
             <div class="required">
-                #set $disks = [($d.id, $spine_to_web("%s:%s" % ($d.hostname, $d.path))) for d in $disks]
-                $form_widgets.generate_loption("disk", "Disk", $disks)
+                #set $disks = [($d.id, $spine_to_web("%s:%s" % ($d.host.name, $d.path))) for d in $disks]
+                $disks.insert(0, ("", $_("Not selected")))
+                $form_widgets.generate_loption("disk_id", "Disk", $disks)
             </div>
             <div class="buttons">
                 <input type="submit" value="$_('Set homedir')" />&#x0020;
@@ -297,23 +297,3 @@
     </form>
 </div>
 #end def
-
-
-## #def printDialog($account)
-## #set $langs= [ ('no', 'Norwegian'),('en', 'English')]
-## <div class="edit box">
-##     <h3>$_('Print contract')</h3>
-##         <form action="print_contract" method="post">
-##             <div>
-##             <input type="hidden" name="id" value="$html_quote($account.get_id())" />
-##             <div>
-##                 $form_widgets.generate_loption("lang", "Language", $langs)
-##             </div>
-##             <div class="buttons">
-##             <input type="submit" value="$_('Print')" />
-##             <input type="button" value="$_('Cancel')" class="cancel" />
-##             </div>
-##             </div>
-##         </form>
-## </div>
-## #end def

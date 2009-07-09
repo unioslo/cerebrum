@@ -123,10 +123,10 @@ class AccountDAOTest(unittest.TestCase):
             "MD4-NT",
             "PGP-win_ntnu_no"]
         
-        names = [a.methodname for a in entity.authentications]
+        names = [a.name for a in entity.authentications]
         self.assertEqual(expected, names)
 
-    def test_account_homes(self):
+    def test_that_account_can_have_homes_with_just_a_path(self):
         entity = self.dao.get(TestData.affiliated_account_id, include_extra=True)
         homes = entity.homes
         home = filter(lambda x: x.spread.name == "user@stud", homes)
@@ -136,8 +136,36 @@ class AccountDAOTest(unittest.TestCase):
         expected = DTO()
         expected.spread = DTO()
         expected.spread.name = "user@stud"
+        expected.spread.description = 'User on system "stud"'
+        expected.spread.id = 45
         expected.path = "/home/homeq/be/bertil"
         expected.disk = None
+        expected.status = DTO()
+        expected.status.description = "Not created"
+
+        self.assertEqual(expected, home)
+
+    def test_that_account_can_have_homes_with_just_a_disk(self):
+        entity = self.dao.get(TestData.affiliated_account_id, include_extra=True)
+        homes = entity.homes
+        home = filter(lambda x: x.spread.name == "user@kerberos", homes)
+        self.assert_(len(home) == 1, "Forventet ett treff")
+        home = home[0]
+
+        expected = DTO()
+        expected.spread = DTO()
+        expected.spread.name = "user@kerberos"
+        expected.spread.description = 'User on system "kerberos"'
+        expected.spread.id = 49
+        expected.path = None
+        expected.disk = DTO()
+        expected.disk.id = 346782L
+        expected.disk.path = '/home/ahomea'
+        expected.disk.description = 'Ansatthjemmekataloger, filsystem 1'
+        expected.disk.host = DTO()
+        expected.disk.host.id = 346781L
+        expected.disk.host.name = 'jak.itea.ntnu.no'
+        expected.disk.host.description = 'Filserver for ansatte'
         expected.status = DTO()
         expected.status.description = "Not created"
 
@@ -339,6 +367,62 @@ class AccountDAOWriteTest(WriteTestCase):
         self.dao.remove_affiliation(TestData.posix_account_id, 23, 95)
         new = self.dao.get(TestData.posix_account_id, include_extra=True)
         self.assert_(not new.affiliations)
+
+    def test_that_we_can_set_a_home_to_a_disk_without_specifying_a_path(self):
+        homes_before = self.dao.get(TestData.posix_account_id, include_extra=True).homes
+        self.assert_(not homes_before)
+
+        spread_id = 47
+        disk_id = 346782
+        
+        self.dao.set_home(TestData.posix_account_id, spread_id, disk_id=disk_id)
+        homes_after = self.dao.get(TestData.posix_account_id, include_extra=True).homes
+        home = homes_after[0]
+        
+        self.assertEqual(spread_id, home.spread.id)
+        self.assertEqual(disk_id, home.disk.id)
+
+    def test_that_we_can_set_a_home_to_a_path_without_specifying_a_disk(self):
+        homes_before = self.dao.get(TestData.posix_account_id, include_extra=True).homes
+        self.assert_(not homes_before)
+        
+        spread_id = 47
+        path = "/my/test/path"
+        
+        self.dao.set_home(TestData.posix_account_id, spread_id, path=path)
+        homes_after = self.dao.get(TestData.posix_account_id, include_extra=True).homes
+        home = homes_after[0]
+        
+        self.assertEqual(spread_id, home.spread.id)
+        self.assertEqual(path, home.path)
+
+    def test_that_we_can_set_a_home_to_a_disk_with_a_specified_path(self):
+        homes_before = self.dao.get(TestData.posix_account_id, include_extra=True).homes
+        self.assert_(not homes_before)
+        
+        spread_id = 47
+        disk_id = 346782
+        path = "/my/test/path"
+        
+        self.dao.set_home(TestData.posix_account_id, spread_id, disk_id=disk_id, path=path)
+        homes_after = self.dao.get(TestData.posix_account_id, include_extra=True).homes
+        home = homes_after[0]
+        
+        self.assertEqual(spread_id, home.spread.id)
+        self.assertEqual(path, home.path)
+        self.assertEqual(disk_id, home.disk.id)
+
+    def test_that_we_can_delete_a_home(self):
+        homes_before = self.dao.get(TestData.id_for_account_with_home, include_extra=True).homes
+        home = homes_before[0]
+
+        self.dao.remove_home(TestData.id_for_account_with_home, home.spread.id)
+
+        homes_after = self.dao.get(TestData.id_for_account_with_home, include_extra=True).homes
+        
+        count_before = len(homes_before)
+        count_after = len(homes_after)
+        self.assertEqual(count_before - 1, count_after)
 
     def _get_current_hash(self, account_id):
         return self.dao.get_md5_password_hash(account_id)

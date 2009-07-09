@@ -21,12 +21,10 @@
 import cherrypy
 
 from gettext import gettext as _
-from lib.Main import Main
 from lib.utils import *
 from lib.Searchers import AccountSearcher
 from lib.Forms import AccountCreateForm
 from lib.templates.FormTemplate import FormTemplate
-from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 from Cerebrum.Errors import NotFoundError
@@ -320,35 +318,31 @@ def leave_groups(account_id, **checkboxes):
     redirect_entity(account_id)
 leave_groups.exposed = True
 
-def set_home(transaction, id, spread, home="", disk=""):
-    account = transaction.get_account(int(id))
-    spread = transaction.get_spread(spread)
-    
-    if home:
-        disk = None
-    elif disk:
-        home = ""
-        disk = transaction.get_disk(int(disk))
-    else:
-        queue_message(_("Either set home or disk"), error=True)
-        redirect_object(account)
-        return
-    
-    account.set_homedir(spread, home, disk)
-    
-    msg = _("Home directory set successfully.")
-    commit(transaction, account, msg=msg)
-set_home = transaction_decorator(set_home)
+@session_required_decorator
+def set_home(account_id, spread_id, disk_id, path):
+    db = get_database()
+    dao = AccountDAO(db)
+
+    if not disk_id:
+        disk_id = None
+
+    if not path:
+        path = None
+
+    dao.set_home(account_id, spread_id, disk_id, path)
+    db.commit()
+    queue_message(_("Home directory set successfully."), title=_("Operation succeded"))
+    redirect_entity(account_id)
 set_home.exposed = True
 
-def remove_home(transaction, id, spread):
-    account = transaction.get_account(int(id))
-    spread = transaction.get_spread(web_to_spine(spread))
-    account.remove_homedir(spread)
-    
-    msg = _("Home directory successfully removed.")
-    commit(transaction, account, msg=msg)
-remove_home = transaction_decorator(remove_home)
+@session_required_decorator
+def remove_home(account_id, spread_id):
+    db = get_database()
+    dao = AccountDAO(db)
+    dao.remove_home(account_id, spread_id)
+    db.commit()
+    queue_message(_("Home directory successfully removed."), title=_("Operation succeded"))
+    redirect_entity(account_id)
 remove_home.exposed = True
 
 def set_password(id, passwd1, passwd2):
@@ -389,80 +383,3 @@ def remove_affil(account_id, ou_id, affil_id):
     queue_message(_("Affiliation successfully removed."), title=_("Change succeeded"))
     redirect_entity(account_id)
 remove_affil.exposed = True
- 
-def print_contract(transaction, id, lang):
-    from lib.CerebrumUserSchema import CerebrumUserSchema
-    tr = transaction
-    referer = cherrypy.request.headerMap.get('Referer', '')
-    account = tr.get_account(int(id))
-    owner = account.get_owner()
-    names = owner.get_names()
-    lastname = None
-    firstname = None
-    for name in names:
-        nameVariant = name.get_name_variant()
-        sourceSystem = name.get_source_system()
-        if sourceSystem.get_name() == 'Cached':
-            if nameVariant.get_name() == 'LAST':
-                lastname = from_spine_decode(name.get_name())
-            if nameVariant.get_name() == 'FIRST':
-                firstname = from_spine_decode(name.get_name())
-    targetSearcher = tr.get_email_target_searcher()
-    targetSearcher.set_target_entity(account)
-    emailTargets = targetSearcher.search()
-    emailAddress = None
-    if emailTargets:
-        ## which one to choose?
-        primaryEmail = emailTargets[0].get_primary_address()
-        if primaryEmail:
-            domain  = primaryEmail.get_domain().get_name()
-            emailAddress = from_spine_decode(primaryEmail.get_local_part()) + '@' +from_spine_decode(domain)
-    username = from_spine_decode(account.get_name())
-    passwd = None
-    birthdate = owner.get_birth_date().strftime('%d-%m-%Y')
-    studyprogram = None
-    year = None
-    affiliation = None
-    affiliations = owner.get_affiliations()
-    if affiliations:
-        for aff in affiliations:
-            if not aff.marked_for_deletion():
-                affiliation = aff
-    perspective  = transaction.get_ou_perspective_type('Kjernen')   
-    faculty = None
-    department = None
-    if affiliation:
-        faculty = from_spine_decode(affiliation.get_ou().get_parent(perspective).get_name())
-        department = from_spine_decode(affiliation.get_ou().get_name())
-    else:
-        rollback_url(referer, 'User has no affiliation.', err=True)
-    ## print 'lastename = ', lastname
-    ## print 'firstname = ', firstname
-    ## print 'email = ', emailAddress
-    ## print 'username = ', username
-    ## print 'passwd = ', passwd
-    ## print 'birthdate = ', birthdate
-    ## print 'studyprogram = ', studyprogram
-    ## print 'year = ', year
-    ## print 'faculty = ', faculty
-    ## print 'department = ', department
-    ## print 'lang = ', lang
-    pdfSchema= CerebrumUserSchema(lastname, firstname, emailAddress, username, passwd, birthdate, studyprogram, year, faculty, department, lang)
-    pdfContent = pdfSchema.build()
-    if pdfContent:
-        contentLength = len(pdfContent)
-        cherrypy.response.headers['Content-Type'] = 'application/pdf'
-        cherrypy.response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate, max-age=0'
-        cherrypy.response.headers['pragma'] = 'no-cache'
-        cherrypy.response.headers['Content-Disposition'] = 'inline; filename='+username+'-contract.pdf'
-        cherrypy.response.headers['Content-Transfer-Encoding'] = 'binary'
-        cherrypy.response.headers['Content-Length'] = str(contentLength)
-        ## outFile = open("/tmp/contract.pdf", "w")
-        ## outFile.write(pdfContent)
-        ## outFile.close()
-        tr.rollback()
-        return pdfContent
-    else:
-        rollback_url(referer, 'Could not make a contract.', err=True)
-print_contract = transaction_decorator(print_contract)
-print_contract.exposed = True

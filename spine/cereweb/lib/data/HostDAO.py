@@ -31,7 +31,11 @@ class HostDAO(object):
         except NotFoundError, e:
             return []
 
-        es.find(et.email_server_id)
+        try:
+            es.find(et.email_server_id)
+        except NotFoundError, e:
+            return []
+
         epa.find(et.entity_id)
         ea.find(epa.email_primaddr_id)
         target_type = self.co.EmailTarget(et.email_target_type)

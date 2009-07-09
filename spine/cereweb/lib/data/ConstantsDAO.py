@@ -25,6 +25,14 @@ class ConstantsDAO(object):
                 dtos.append(dto)
         return dtos
 
+    def get_spread(self, spread_id):
+        c = self.constants.Spread(spread_id)
+        return ConstantsDTO(c)
+
+    def get_authentication_method(self, method_id):
+        c = self.constants.Authentication(method_id)
+        return ConstantsDTO(c)
+
     def get_group_spreads(self):
         dtos = []
         names = self._get_names("spread_")

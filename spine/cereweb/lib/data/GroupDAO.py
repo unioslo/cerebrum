@@ -5,7 +5,7 @@ Database = Utils.Factory.get("Database")
 Group = Utils.Factory.get("Group")
 PosixGroup = Utils.Factory.get("PosixGroup")
 
-from lib.data.ConstantsDTO import ConstantsDTO
+from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DTO import DTO
 from lib.data.EntityDAO import EntityDAO
 from lib.data.EntityDTO import EntityDTO
@@ -205,11 +205,11 @@ class GroupDAO(EntityDAO):
 
     def _get_spreads(self, group):
         spreads = []
+        const_dao = ConstantsDAO(self.db)
         for data in group.get_spread():
             sid = data['spread']
-            spread_const = self.constants.Spread(sid)
-            spread = ConstantsDTO(spread_const)
-            spreads.append(spread)
+            dto = const_dao.get_spread(sid)
+            spreads.append(dto)
         return spreads
 
     def _get_traits(self, group):

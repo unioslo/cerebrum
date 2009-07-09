@@ -15,6 +15,7 @@ nonposix_account_id = 354991
 nonposix_account_owner_id = 354985
 nonposix_account_creator_id = 2
 affiliated_account_id = 123397
+id_for_account_with_home = 123397
 account_cetest1 = 354991
 groupless_account_id = 356047
 large_group_id = 149

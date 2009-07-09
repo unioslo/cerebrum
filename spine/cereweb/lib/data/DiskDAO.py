@@ -18,23 +18,35 @@ class DiskDAO(object):
         self.disk = Disk(self.db)
         self.host = Host(self.db)
 
+    def get_disk(self, disk_id):
+        self.disk.clear()
+        self.disk.find(disk_id)
+
+        dto = DTO()
+        dto.id = disk_id
+        dto.description = self.disk.description
+        dto.path = self.disk.path
+        dto.host = self._get_host(self.disk.host_id)
+        return dto
+
     def get_disks(self):
-        hosts = self._get_hosts()
         disks = []
         disk_obj = self.disk
         for disk in disk_obj.search():
-            disk_obj.clear()
-            disk_obj.find(disk.disk_id)
-            host = hosts[disk_obj.host_id]
-
-            dto = DTO()
-            dto.id = disk.disk_id
-            dto.description = disk.description
-            dto.path = disk.path
-            dto.hostname = host.name
+            dto = self.get_disk(disk.disk_id)
             disks.append(dto)
         return disks
 
+    def _get_host(self, host_id):
+        self.host.clear()
+        self.host.find(host_id)
+
+        dto = DTO()
+        dto.id = host_id
+        dto.name = self.host.name
+        dto.description = self.host.description
+        return dto
+        
     def _get_hosts(self):
         hosts = {}
         for host in self.host.search():

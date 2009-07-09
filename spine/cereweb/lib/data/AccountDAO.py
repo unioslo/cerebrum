@@ -6,6 +6,7 @@ from lib.data.AccountDTO import AccountDTO
 from lib.data.AffiliationDAO import AffiliationDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DTO import DTO
+from lib.data.DiskDAO import DiskDAO
 from lib.data.EntityDAO import EntityDAO
 from lib.data.GroupDAO import GroupDAO
 from lib.data.TraitDAO import TraitDAO
@@ -119,6 +120,39 @@ class AccountDAO(EntityDAO):
         account.del_account_type(ou_id, affiliation_id)
         account.write_db()
 
+    def set_home(self, account_id, spread_id, disk_id=-1, path=-1):
+        account = self._find(account_id)
+        kw = {
+            'status': self.constants.home_status_not_created
+        }
+
+        if disk_id != -1:
+            kw['disk_id'] = disk_id
+        
+        if path != -1:
+            kw['home'] = path
+
+        homedir_id = self.get_homedir_id_or_not_set(account, spread_id)
+        if homedir_id is not None:
+            kw['current_id'] = homedir_id
+
+        homedir_id = account.set_homedir(**kw)
+
+        account.set_home(spread_id, homedir_id)
+        account.write_db()
+
+    def remove_home(self, account_id, spread_id):
+        account = self._find(account_id)
+        account.clear_home(spread_id)
+        account.write_db()
+
+    def get_homedir_id_or_not_set(self, account, spread_id):
+        try:
+            home = account.get_home(spread_id)
+            return home.homedir_id
+        except NotFoundError, e:
+            return None
+    
     def _save_posix(self, dto):
         paccount = self._get_posix_account(dto.id)
         if paccount is None: return
@@ -196,10 +230,9 @@ class AccountDAO(EntityDAO):
 
     def _get_authentications(self, account):
         auths = []
+        auth_dao = ConstantsDAO(self.db)
         for auth in account.get_account_authentication_methods():
-            dto = DTO()
-            method = self.constants.Authentication(auth.method)
-            dto.methodname = method.str
+            dto = auth_dao.get_authentication_method(auth.method)
             auths.append(dto)
         return auths
 
@@ -207,25 +240,25 @@ class AccountDAO(EntityDAO):
         homes = []
 
         for home in account.get_homes():
-            dto = DTO()
-            dto.spread = DTO()
-            spread = self.constants.Spread(home.spread)
-            dto.spread.name = spread.str
-            dto.path = home.home
-            dto.disk = None
-            status = self.constants.AccountHomeStatus(home.status)
-            dto.status = DTO()
-            dto.status.description = status.description
+            dto = self._create_home_dto(home)
             homes.append(dto)
         return homes
 
+    def _create_home_dto(self, home):
+        dto = DTO()
+        dto.spread = ConstantsDAO(self.db).get_spread(home.spread)
+        dto.path = home.home
+        dto.disk = home.disk_id and DiskDAO(self.db).get_disk(home.disk_id)
+        status = self.constants.AccountHomeStatus(home.status)
+        dto.status = DTO()
+        dto.status.description = status.description
+        return dto
+
     def _get_spreads(self, account):
         spreads = []
+        spread_dao = ConstantsDAO(self.db)
         for (spread_id,) in account.get_spread():
-            spread = self.constants.Spread(spread_id)
-            dto = DTO()
-            dto.name = spread.str
-            dto.description = spread.description
+            dto = spread_dao.get_spread(spread_id)
             spreads.append(dto)
         return spreads
 
