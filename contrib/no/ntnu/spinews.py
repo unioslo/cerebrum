@@ -697,9 +697,12 @@ class spinews(ServiceSOAPBinding):
         username = authenticate(ps)
         request = ps.Parse(getAccountsRequest.typecode)
         accountspread = str(request._accountspread)
+        auth_type = str(request._auth_type)
         incremental_from = int_or_none(request._incremental_from)
         response = getAccountsResponse()
-        response._account = self.get_accounts_impl(accountspread)
+        response._account = self.get_accounts_impl(accountspread,
+                                                   auth_type,
+                                                   incremental_from)
         return response
 
     root[(getGroupsRequest.typecode.nspname,
@@ -715,10 +718,10 @@ class spinews(ServiceSOAPBinding):
     root[(setHomedirStatusRequest.typecode.nspname,
           setHomedirStatusRequest.typecode.pname)] = 'set_homedir_status'
 
-    def get_accounts_impl(self, accountspread, changelog_id=None):
+    def get_accounts_impl(self, accountspread, auth_type, changelog_id=None):
         accounts=[]
         q=quarantines()
-        for row in search_accounts(accountspread, changelog_id):
+        for row in search_accounts(accountspread, changelog_id, auth_type):
             a=AccountDTO(row)
             a.quarantines = (q.get_quarantines(row['id']) +
                              q.get_quarantines(row['owner_id']))
