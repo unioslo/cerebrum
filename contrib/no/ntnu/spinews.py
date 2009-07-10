@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
 import os, sys, socket, time, md5
 
 import cerebrum_path
@@ -6,6 +8,8 @@ import cereconf
 
 import Cerebrum.lib
 from Cerebrum.lib.spinews.spinews_services import *
+from Cerebrum import Errors
+from AuthenticationError import *
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
@@ -593,17 +597,17 @@ def get_auth_values(ps):
     username = get_node_value(get_element(tokenChildren, OASIS.WSSE,
                                 'Username'))
     if not username:
-        raise RunTimeError('Unauthorized, Username not present')
+        raise RuntimeError('Unauthorized, Username not present')
 
     password = get_node_value(get_element(tokenChildren, OASIS.WSSE,
                                 'Password'))
     if not password:
-        raise RunTimeError('Unauthorized, Password not present')
+        raise RuntimeError('Unauthorized, Password not present')
 
     created = get_node_value(get_element(tokenChildren, OASIS.UTILITY,
                                 'Created'))
     if not created:
-        raise RunTimeError('Unauthorized, Created not present')
+        raise RuntimeError('Unauthorized, Created not present')
     return username, password, created
 
 def check_created(created):
@@ -616,24 +620,23 @@ def check_created(created):
 def check_username_password(username, password):
     account.clear()
     try:
-        account.find_by_name("username")
-        crypt=a.get_account_authentication(user.co.auth_type_md5_crypt)
-    except NotFoundError:
-        raise AuthenticationError
-    if not a.verify_password(co.auth_type_md5_crypt,
-                             password, crypt):
-        raise AuthenticationError
+        account.find_by_name(str(username))
+    except Errors.NotFoundError:
+        raise AuthenticationError('Unauthorized, wrong username or password')
+    if not account.verify_auth(password):
+        raise AuthenticationError('Unauthorized, wrong username or password')
 
 
 def authenticate(ps):
-    debug = True
+    debug = False
     username, password, created = get_auth_values(ps)
     check_created(created)
     if debug:
         print 'username =', username
-        print 'password =', password
+        print 'password =', md5.new(password).hexdigest()
         print 'created =', created
     check_username_password(username, password)
+    return username
 
 class spinews(ServiceSOAPBinding):
     #_wsdl = "".join(open("spinews.wsdl").readlines())
@@ -644,6 +647,7 @@ class spinews(ServiceSOAPBinding):
         ServiceSOAPBinding.__init__(self, post)
 
     def set_homedir_status(self, ps):
+        username = authenticate(ps)
         request = ps.Parse(setHomedirStatusRequest.typecode)
         status = str(request._status) 
         homedir_id = str(request._homedir_id)
@@ -652,6 +656,7 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_homedirs(self, ps):
+        username = authenticate(ps)
         request = ps.Parse(getHomedirsRequest.typecode)
         status = str(request._status) 
         hostname = str(request._hostname)
@@ -660,6 +665,7 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_aliases(self, ps):
+        username = authenticate(ps)
         request = ps.Parse(getAliasesRequest.typecode)
         incremental_from = int_or_none(request._incremental_from)
         response = getAliasesResponse()
@@ -667,6 +673,7 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_ous(self, ps):
+        username = authenticate(ps)
         request = ps.Parse(getOUsRequest.typecode)
         incremental_from = int_or_none(request._incremental_from)
         response = getOUsResponse()
@@ -675,7 +682,7 @@ class spinews(ServiceSOAPBinding):
         
 
     def get_groups(self, ps):
-        authorize(ps)
+        username = authenticate(ps)
         request = ps.Parse(getGroupsRequest.typecode)
         groupspread = str(request._groupspread)
         accountspread = str(request._accountspread)
@@ -687,6 +694,7 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_accounts(self, ps):
+        username = authenticate(ps)
         request = ps.Parse(getAccountsRequest.typecode)
         accountspread = str(request._accountspread)
         incremental_from = int_or_none(request._incremental_from)
