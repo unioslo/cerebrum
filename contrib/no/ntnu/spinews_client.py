@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
 import sys, os, re, time, math
 from xml.dom import expatbuilder
 
@@ -127,7 +129,7 @@ def sign_request(port, username, password, useDigest=False):
 
 def get_ceresync_port():
     locator = get_ceresync_locator()
-    port = locator.getspinePortType(**kw)
+    port = locator.getspinePortType(readerclass=ExpatReaderClass, transport=CeresyncHTTPSConnection)
     global username
     global password
     sign_request(port, username, password)
