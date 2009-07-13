@@ -40,6 +40,9 @@ from Cerebrum.modules.no import access_FS
 from Cerebrum.Utils import simple_memoize
 from Cerebrum.modules.xmlutils.fsxml2object import EduGenericIterator
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
+from Cerebrum.modules.no.hiof.fronter_lib import lower
+from Cerebrum.modules.no.hiof.fronter_lib import count_back_semesters
+from Cerebrum.modules.no.hiof.fronter_lib import timeslot_is_valid
 
 
 
@@ -257,7 +260,7 @@ class FSAttributeHandler(object):
                               "undakt",)):
             logger.debug("Loading exportable %s", entry_kind)
             for entry in source():
-                attrs = self.lower(entry)
+                attrs = lower(entry)
                 key = self._attributes2exportable_key(entry_kind, attrs)
                 if attrs["status_eksport_lms"] == 'j':
                     result.add(key)
@@ -276,15 +279,15 @@ class FSAttributeHandler(object):
         """
         key = None
 
-        attrs = self.lower(attributes)
+        attrs = lower(attributes)
         
         if attr_kind == "undenh":
-            attrs = self._count_back_semesters(attrs)
+            attrs = count_back_semesters(attrs)
             key = ":".join((attrs[x] for x in
                             ("arstall", "terminkode",
                              "emnekode", "versjonskode", "terminnr")))
         elif attr_kind == "undakt":
-            attrs = self._count_back_semesters(attrs)
+            attrs = count_back_semesters(attrs)
             key = ":".join((attrs[x] for x in
                             ("arstall", "terminkode",
                              "emnekode", "versjonskode", "terminnr",
@@ -330,7 +333,7 @@ class FSAttributeHandler(object):
         """
 
         # easiest way to copy, since we modify these destructively
-        attrs = self.lower(attributes)
+        attrs = lower(attributes)
         
         if group_kind not in self.group_kind2required_keys:
             logger.warn("Don't know how to process attributes "
@@ -347,44 +350,12 @@ class FSAttributeHandler(object):
 
         # Now, those that have "terminnr" > 1 MUST be remapped.
         if "terminnr" in keys:
-            attrs = self._count_back_semesters(attrs)
+            attrs = count_back_semesters(attrs)
 
         result_id = self.group_kind2name_template[group_kind]
         result_id = result_id % attrs
         return result_id
     # attributes2key
-
-
-
-    def _count_back_semesters(self, attributes):
-        """Given a bunch of attributes for an FS entity with terminnr, figure
-        out the year and starting semester for that FS entity (i.e. the one
-        with terminnr=1).
-
-        This method assumes that there are spring and fall semesters only (it
-        is not true for all FS entities), but it's the best guess we can make!
-
-        L{attributes} is modified destructively!
-        """
-
-        terminnr = int(attributes["terminnr"])
-        terminkode = attributes["terminkode"]
-        year = int(attributes["arstall"])
-        # counting backwards
-        while terminnr > 1:
-            terminnr -= 1
-            if terminkode == "høst":
-                terminkode = "vår"
-            else:
-                year -= 1
-                terminkode = "høst"
-
-        attributes["terminnr"] = '1'
-        attributes["terminkode"] = terminkode
-        attributes["arstall"] = str(year)
-
-        return attributes
-    # end _count_back_semesters
 
 
 
@@ -397,42 +368,57 @@ class FSAttributeHandler(object):
 
         # TBD: clean up this mess!
         fields = group_key.split(":")
-        description = None
+        group_type = None
         # student group
         if "student" == fields[-1]:
             if "undakt" in fields:
-                description = self._calculate_description("student-undakt", attrs)
+                group_type = "student-undakt"
             elif "undenh" in fields:
-                description = self._calculate_description("student-undenh", attrs)
+                group_type = "student-undenh"
             elif "klasse" in fields:
-                description = self._calculate_description("student-kullklasse", attrs)
+                group_type = "student-kullklasse"
             else:
                 assert False, "This cannot happen: %s" % group_key
         # role group
         # NB! DO NOT RESHUFFLE THE TESTS!
         elif "rolle" == fields[-2]:
             if "undakt" in fields:
-                description = self._calculate_description("undakt", attrs)
+                group_type = "undakt"
             elif "undenh" in fields:
-                description = self._calculate_description("undenh", attrs)
+                group_type = "undenh"
             # Must be tested for AFTER undakt/undenh
             elif "emner" in fields:
-                description = self._calculate_description("emne", attrs)
+                group_type = "emne"
             elif "klasse" in fields:
-                description = self._calculate_description("kullklasse", attrs)
+                group_type = "kullklasse"
             # Must be tested for AFTER 'klasse'
             elif "kull" in fields:
-                description = self._calculate_description("kull", attrs)
+                group_type = "kull"
             # Must be tested for AFTER 'kull'
             elif "studieprogram" in fields:
-                description = self._calculate_description("stprog", attrs)
+                group_type = "stprog"
             else:
                 assert False, "This cannot happen: %s" % group_key
         else:
             assert False, "This cannot happen: %s" % group_key
 
-        self._group_name2description[group_key] = description
-        return description
+        if group_key in self._group_name2description:
+            # we've already registered a description for this id. The only
+            # interesting case here is if a group for the same entity but a
+            # different semester is registered in the FS data. In this case we
+            # grab the earliest of the entries. This multisemester hackery is
+            # the only reason we store tuples in _group_name2description.
+            if ("terminnr" not in attrs or "arstall" not in attrs):
+                return
+
+            logger.debug("Group key repeated: %s", group_key)
+            previous = self._group_name2description[group_key][1]
+            if (attrs["arstall"] < previous["arstall"] or 
+                (attrs["arstall"] == previous["arstall"] and
+                 attrs["terminnr"] < previous["terminnr"])):
+                self._group_name2description[group_key] = (group_type, attrs)
+        else:
+            self._group_name2description[group_key] = (group_type, attrs)
     # end register_description
 
 
@@ -451,42 +437,9 @@ class FSAttributeHandler(object):
         if group_name not in self._group_name2description:
             assert False, "No description for group_key %" % group_name
 
-        return self._group_name2description[group_name]
+        group_type, attrs = self._group_name2description[group_name]
+        return self._calculate_description(group_type, attrs)
     # end get_description
-
-
-
-    def lower(self, obj):
-        """Do a safe lowering on obj, whatever that may be.
-
-        The idea is to force certain string values (on their own, or parts of
-        a more complex data structure) to lowercase, so that we won't have to
-        deal with case sensitive keys/identifiers.
-
-        @type obj: a str, unicode, tuple, list, set, dict
-        @param obj:
-          The object to lowercase. str are lowercased directly, unicode
-          objects are encoded to latin-1 first, then
-          lowercased. tuple/list/set/dict are processed recursively with
-          lower() called on each member. All other types are returned as they
-          are.
-
-        @rtype: type of L{obj}
-        @return:
-          Lowercased version of obj, if possible, or obj itself.
-        """
-
-        if isinstance(obj, (tuple, list, set)):
-            return type(obj)([self.lower(x) for x in obj])
-        elif isinstance(obj, dict):
-            return dict((self.lower(x), self.lower(y)) for (x, y) in obj.iteritems())
-        elif isinstance(obj, str):
-            return obj.lower()
-        elif isinstance(obj, unicode):
-            return obj.encode("iso-8859-1").lower()
-        else:
-            return obj
-    # end lower
 
 
 
@@ -515,7 +468,7 @@ class FSAttributeHandler(object):
         """
 
         # Force lowercase, so we won't have to bother about this later.
-        attrs = self.lower(attributes)
+        attrs = lower(attributes)
         # Force-insert a few required attributes
         attrs = self._extend_attributes(attrs)
         return attrs
@@ -582,7 +535,7 @@ class FSAttributeHandler(object):
 
         result = dict()
         for entry in EduDataGetter(stprog_file, logger).iter_stprog():
-            attrs = self.lower(entry)
+            attrs = lower(entry)
             stprog = attrs["studieprogramkode"]
             result[stprog] = "%02d0000" % int(attrs["faknr_studieansv"])
 
@@ -602,7 +555,7 @@ class FSAttributeHandler(object):
         result = dict()
         def slurp_emne(element, attributes):
             if element == "emne":
-                emne = self.lower(attributes["emnekode"])
+                emne = lower(attributes["emnekode"])
                 result[emne] = "%02d0000" % int(attributes["faknr_reglement"])
 
         access_FS.emne_xml_parser(emne_file, slurp_emne)
@@ -654,6 +607,10 @@ def collect_roles(role_file, fs_handler):
             logger.debug("Ignoring '%s' role, role code %s: attrs=%s",
                          role_kind, attrs["rollekode"], attrs)
             return 
+        if not timeslot_is_valid(attrs):
+            logger.debug("Ignoring '%s' - data too old/in the future: "
+                         "attrs=%s", role_kind, attrs)
+            return
 
         logger.debug("Collecting role '%s' with %s",
                      role_kind, repr(attributes))
@@ -701,6 +658,11 @@ def collect_student_info(edu_info_file, fs_handler):
         logger.debug("Processing <%s> elements", xml_tag)
         for entry in EduGenericIterator(edu_info_file, xml_tag):
             attrs = fs_handler.fixup_attributes(entry)
+            if not timeslot_is_valid(attrs):
+                logger.debug("Ignoring '%s' - data too old/in the future: "
+                             "attrs=%s", xml_tag, attrs)
+                continue
+
             key = fs_handler.attributes2key(edu_info_type, attrs)
             if key is None:
                 continue
@@ -880,8 +842,8 @@ def create_fs_groups(db, fs_handler, fs_groups):
         if group.get_trait(const.trait_cf_group):
             continue
 
-        ou_id = fs_handler.group_name2ou_id(group_name)
-        group.populate_trait(const.trait_cf_group, target_id=ou_id)
+        # Mark the group as exportable to CF
+        group.populate_trait(const.trait_cf_group)
         group.write_db()
 # end create_fs_groups
 

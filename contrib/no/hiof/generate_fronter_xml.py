@@ -13,16 +13,6 @@ and they have a highly structured name. Additionally, each trait links a group
 with an ou (== avdeling) where such a group should be placed.
 
 FIXME: Write a few words about how the script is organised.
-
-FIXME: Flersemesteremnre are placed under the wrong node. The title is
-correct, though, albeit somewhat hackish.
-
-FIXME: typevalue distribution. which ones are 'nodes'? which ones are
-'corridors'?
-
-FIXME: view contactse
-
-FIXME: room templates
 """
 
 import getopt
@@ -38,6 +28,10 @@ from Cerebrum.Utils import Factory
 from Cerebrum.Utils import simple_memoize
 from Cerebrum.Utils import SimilarSizeWriter
 from Cerebrum.extlib import xmlprinter
+from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
+from Cerebrum.modules.no.hiof.fronter_lib import lower
+from Cerebrum.modules.no.hiof.fronter_lib import count_back_semesters
+from Cerebrum.modules.no.hiof.fronter_lib import timeslot_is_valid
 
 
 
@@ -144,7 +138,7 @@ class cf_tree(object):
     # end register_structure_group
 
 
-    def create_associated_structures(self, cf_group):
+    def create_associated_structures(self, cf_group, multisemester_map):
         """Given a cf_member/structure_group, create *ALL* the necessary
         associated groups upwards in the structure tree.
 
@@ -161,7 +155,13 @@ class cf_tree(object):
           with. I.e. cf_group's 'closest' node in the structure hierarchy
         """
 
-        structure_id = cf_group.cf_parent_id()
+        if cf_group.cf_id() in multisemester_map:
+            structure_id = multisemester_map[cf_group.cf_id()]
+            logger.debug("Selecting a remapped parent-id: %s -> %s",
+                         cf_group.cf_id(), structure_id)
+        else:
+            structure_id = cf_group.cf_parent_id()
+            
         if structure_id is None:
             logger.debug("No structure created for cf_group=%s", str(cf_group))
             return None
@@ -182,7 +182,8 @@ class cf_tree(object):
         new_node.add_child(cf_group)
         # This will eventually stop at a node that already exist, since we
         # have several static nodes in the tree.
-        grandparent_node = self.create_associated_structures(new_node)
+        grandparent_node = self.create_associated_structures(new_node,
+                                                             multisemester_map)
         # This will fix new_node's parent link as well.
         grandparent_node.add_child(new_node)
         return new_node
@@ -232,6 +233,12 @@ class cf_group_interface(object):
         cf_group_interface._acronym2avdeling = result
     # end load_acronyms
 
+
+    def __eq__(self, other):
+        return self.cf_id() == other.cf_id()
+
+    def __hash__(self):
+        return hash(self.cf_id())
 
     def cf_group_type(self):
         raise NotImplementedError("N/A")
@@ -337,13 +344,18 @@ class cf_structure_group(cf_group_interface):
 
         # FIXME: this is so horribly hackish. There should be a general way of
         # calculating the <typevalue>.
-        # FIXME: Which ones are nodes? Which ones are corridors?
         if self.cf_id() in ("root",
                             "STRUCTURE:hiof.no",
                             "STRUCTURE:hiof.no:automatisk",
                             "STRUCTURE:hiof.no:manuell",):
             return "0"
 
+        # avdeling -> node as per specification
+        components = self.cf_id().split(":")
+        if len(components) == 5 and components[-1].isdigit():
+            return "0"
+
+        # all other STRUCTURE entities are corridors
         if self.cf_group_type() == "STRUCTURE":
             return "1"
 
@@ -397,13 +409,13 @@ class cf_structure_group(cf_group_interface):
             # kullklasse
             if "klasse" in components:
                 result = ["STRUCTURE",] + components[1:-2]
+            # The guesswork below is potentially incorrect (i.e. it will be
+            # incorrect for multisemester undenh/undakt. However, the
+            # proper remapping happens elsewhere, and this just captures the
+            # general case).
             elif "undenh" in components:
-                # FIXME: flersemesteremner. The id refers to terminnnr=1. We
-                # need to count forward in time to calculate the proper
-                # structure node id.
                 result = ["STRUCTURE",] + components[1:-4]
             elif "undakt" in components:
-                # FIXME: flersemesteremner. Same as undenh
                 result = ["STRUCTURE",] + components[1:-5]
             else:
                 assert False, "This cannot happen: self.id=%s" % self.cf_id()
@@ -532,7 +544,6 @@ class cf_member_group(cf_group_interface):
 
     def cf_title(self):
         return self._title
-
 
     def cf_group_type(self):
         return self._group_type
@@ -837,7 +848,7 @@ def locate_db_group(db, group_id):
 
 
 
-def build_cf_tree(db, db_groups):
+def build_cf_tree(db, db_groups, multisemester_map):
     """Construct a complete CF tree with all groups and permissions.
 
     @param db:
@@ -858,7 +869,7 @@ def build_cf_tree(db, db_groups):
 
         # Now that we have the group node, we create the corresponding
         # structure nodes (all of them).
-        node = tree.create_associated_structures(cf_member)
+        node = tree.create_associated_structures(cf_member, multisemester_map)
         if node:
             logger.debug("Created assoc structures for cf_member id=%s. Parent "
                          "node is id=%s", cf_member.cf_id(), node.cf_id())
@@ -1007,7 +1018,7 @@ def output_member_groups(db, tree, printer):
 
 
 
-def output_membership(group, members, printer):
+def output_user_membership(group, members, printer):
     """Output XML subtree for the specific membership."""
 
     printer.startElement("membership")
@@ -1035,11 +1046,11 @@ def output_membership(group, members, printer):
         printer.endElement("member")
         
     printer.endElement("membership")
-# end output_membership
+# end output_user_membership
 
 
 
-def output_memberships(db, tree, printer):
+def output_user_memberships(db, tree, printer):
     """Output all user membership information."""
 
     account2uname = cf_members(db).account2uname()
@@ -1048,9 +1059,118 @@ def output_memberships(db, tree, printer):
         if not members:
             continue
 
-        output_membership(group, members, printer)
-# end output_memberships
+        output_user_membership(group, members, printer)
+# end output_user_memberships
+
+
+
+def output_viewcontacts(target, permission_holders, printer):
+    """Helper function to output viewContacts permissions"""
+
+    printer.startElement("membership")
+    output_id(target.cf_id(), printer)
+    for gm in permission_holders:
+        printer.startElement("member")
+        output_id(gm.cf_id(), printer)
+        # 1 = person, 2 = group
+        printer.dataElement("idtype", "2")
+        printer.startElement("role", {"recstatus": STATUS_UPDATE})
+        # 0 = inactive member, 1 = active member
+        printer.dataElement("status", "1")
+        printer.startElement("extension")
+        printer.emptyElement("groupaccess", {"roomAccess": "0",
+                                             "contactAccess": "100",})
+        printer.endElement("extension")
+        printer.endElement("role")
+        printer.endElement("member")
+    printer.endElement("membership")
+# end output_viewcontacts
+
+
+
+def process_viewcontacts_permissions(cf_group, local_permissions,
+                                     inherited_permissions, printer):
+    """Generate XML for represeting viewContacts permissions related to
+    cf_group. 
+
+    This is where it gets hairy.
+    """
+
+    assert isinstance(cf_group, cf_structure_group)
+    # This methods is called with cf_group == cf_structure_group. Always
+    #
+    # So, for each such cf_structure_group we need to locate the corresponding
+    # cf_member_groups. Some of them are direct children of cf_group. Other
+    # are permission holders in local_ or inherited_permissions. NB!
+    # isinstance(x.holder(), cf_member_group) for x in permissions MUST BE
+    # True. 
+    #
+    student_tags = ("student-undenh", "student-undakt", "student-kullklasse",)
+    local_member_groups = set(cf_group.iterate_children(cf_member_group))
+    local_nonstudents = set(x for x in local_member_groups
+                            if x.cf_group_type() not in student_tags)
+    local_permission_holders = set(x.holder() for x in
+                                   local_permissions
+                                   if isinstance(x.holder(), cf_member_group))
+    inherited_permission_holders = set(x.holder() for x in
+                                   inherited_permissions
+                                   if isinstance(x.holder(), cf_member_group))
+    all_at_this_level = set().union(
+                            local_member_groups).union(
+                                local_permission_holders).union(
+                                    inherited_permission_holders)
+    all_nonstudent = set(x for x in all_at_this_level
+                         if x.cf_group_type() not in student_tags)
     
+    logger.debug("ViewContacts at level %s: %d local (%d non-student); "
+                 "%d local perm holders, %d inherited perm holders "
+                 "%d total at this level",
+                 cf_group.cf_id(),
+                 len(local_member_groups),
+                 len(local_nonstudents),
+                 len(local_permission_holders),
+                 len(inherited_permission_holders),
+                 len(all_at_this_level))
+    
+    # If there are no /member/ groups at this level, then there are no
+    # viewContacts permissions to hand out. This means that our job is done.
+    if not local_member_groups:
+        return 
+    
+    student_member_group = [x for x in local_member_groups
+                            if x.cf_group_type() in student_tags]
+    assert len(student_member_group) <= 1
+    if student_member_group:
+        student_member_group = student_member_group[0]
+    else:
+        student_member_group = None
+
+    # This is just a precaution. This test is always True.
+    assert local_permission_holders.issubset(local_member_groups)
+    
+    # Case 1: *Everybody* has viewContacts on the student group
+    if student_member_group:
+        output_viewcontacts(student_member_group, all_at_this_level, printer)
+        logger.debug("%s is a student group and %s groups have viewContacts "
+                     "on it", student_member_group.cf_id(), len(all_at_this_level))
+
+    # Case 2: Every nonstudent group at this level has viewContacts on every
+    # local nonstudent group
+    for g in local_nonstudents:
+        output_viewcontacts(g, all_nonstudent, printer)
+        logger.debug("%s is local non-student group and %s groups have "
+                     "viewContact on it", g.cf_id(), len(all_nonstudent))
+
+    # Case 3: Finally, every local nonstudent group has viewContacts on
+    # inherited permission holders. (i.e. local "LÆRER" will have viewContacts
+    # on inherited "ADMIN")
+    for g in inherited_permission_holders:
+        output_viewcontacts(g, local_nonstudents)
+        logger.debug("%s is an inherited permission group and %s local groups"
+                     "have viewContact on it",
+                     g.cf_id(), len(local_nonstudents))
+# end process_viewcontacts_permissions
+
 
 
 def output_node_permissions(cf_group, local_permissions,
@@ -1084,20 +1204,15 @@ def output_node_permissions(cf_group, local_permissions,
         printer.startElement("role", {"recstatus": STATUS_UPDATE,
                                       "roletype": permission.access_type(),})
         # FIXME: what about <extension><memberof type="??"></extension> ?
-        # FIXME: what about
-        # <extension><groupaccess roomAccess="0" contactAccess="100"/></extension>
         # 0 = inactive, 1 = active member
         printer.dataElement("status", "1")
         printer.endElement("role")
         printer.endElement("member")
 
-    # FIXME: what about viewContacts for inherited_permissions.holder() on
-    # local_permissions().holder()? I.e. admin-group should be able to see the
-    # student group, no?
     printer.endElement("membership")
 # end output_node_permissions    
-    
 
+    
 
 def process_node_permissions(node, inherited_permissions, printer):
     """Output permissions for the CF subtree with root at node.
@@ -1126,6 +1241,8 @@ def process_node_permissions(node, inherited_permissions, printer):
     local_permissions = tuple(node.iterate_permissions())
     output_node_permissions(node, local_permissions, inherited_permissions,
                             printer)
+    process_viewcontacts_permissions(node, local_permissions,
+                                     inherited_permissions, printer)
     node_recursive_permissions = tuple(x for x in local_permissions
                                        if x.is_recursive())
 
@@ -1136,7 +1253,7 @@ def process_node_permissions(node, inherited_permissions, printer):
 
 
 
-def output_permissions(db, tree, printer):
+def output_permissions(tree, printer):
     """Output all permissions.
 
     Permissions are expressed in IMS enterprise through memberships, much like
@@ -1165,12 +1282,101 @@ def generate_xml_file(filename, db, tree):
     output_fixed_header(printer)
     output_people(db, tree, printer)
     output_member_groups(db, tree, printer)
-    output_memberships(db, tree, printer)
-    output_permissions(db, tree, printer)
+    output_user_memberships(db, tree, printer)
+    output_permissions(tree, printer)
     printer.endDocument()
     printer.fp.close()
 # end generate_xml_file
+
+
+
+def build_multisemester_mapping(undenh_file, undakt_file):
+    """Build a dict to remap multisemester (flersemester) entities.
+
+    This function helps to go from a group_name in Cerebrum for
+    undenh/undakt-related groups to the structure id of the node in the
+    Fronter tree. I.e. we want to assist remapping
+
+    hiof.no:fs:224:400000:emner:2008:vår:undakt:HSS40505:1:1:0
+
+    to 
+
+    STRUCTURE:hiof.no:fs:224:400000:emner:2009:vår
+
+    ... if the first one is the start semester for an undakt in its 3rd active
+    semester.
+
+    @rtype: dict of str to str
+    @return:
+      A mapping built for all multisemester entries in the files. Since both
+      undenh and undakt have the same structure parent, the mappings are built
+      like this:
+
+        'ROOM:hiof.no:fs:224:400000:emner:2008:vår:undakt:HSS40505:1:1:0' ->
+        'STRUCTURE:hiof.no:fs:224:400000:emner:2009:vår'
+
+      ... where 2008/vår-components are 'counted back' (see
+      populate_fronter_groups._count_back_semester) from the data in
+      undenh/undakt file.
+    """
+
+    prefix = "hiof.no:%s:" % (cereconf.DEFAULT_INSTITUSJONSNR,)
+    value_template = "STRUCTURE:" + prefix + "%02d0000:emner:%s:%s"
+    key_template = "ROOM:" + prefix + "%02d0000:emner:%s:%s:%s:%s:%s:%s"
     
+    result = dict()
+    for (source, 
+         entry_kind) in ((EduDataGetter(undenh_file, logger).iter_undenh,
+                          "undenh",),
+                         (EduDataGetter(undakt_file, logger).iter_undakt,
+                          "undakt",)):
+        logger.debug("Mapping multisemester %s", entry_kind)
+        for entry in source():
+            attrs = lower(entry)
+            if "terminnr" not in attrs:
+                continue
+
+            if not timeslot_is_valid(attrs):
+                logger.debug("Ignoring '%s' - data too old/in the future: "
+                             "attrs=%s", entry_kind, attrs)
+                continue
+
+            # Technically, this is cheating -- faknr_kontroll does not have to
+            # match whetever faculty info is in the emne-info.xml
+            structure = value_template % (int(attrs["faknr_kontroll"]),
+                                          attrs["arstall"],
+                                          attrs["terminkode"])
+            original = (attrs["arstall"], attrs["terminnr"])
+            attrs = count_back_semesters(attrs)
+            # remapped = (attrs["arstall"], attrs["terminnr"])
+            key = key_template % (int(attrs["faknr_kontroll"]),
+                                  attrs["arstall"],
+                                  attrs["terminkode"],
+                                  entry_kind,
+                                  attrs["emnekode"],
+                                  attrs["versjonskode"],
+                                  attrs["terminnr"])
+            if entry_kind == "undakt":
+                key = key + ":" + attrs["aktivitetkode"]
+
+            # Key may already be in result! This happens when terminnr=1 and
+            # terminnr=2 for the same undenh are in the file. The resulting
+            # IDs are the same, since we count back semesters, but the
+            # structure to which key is to be associated is NOT. Whichever is
+            # earliest must be used.
+            if key in result:
+                previous_year, previous_sem = result[key].split(":")[-2:]
+                if ((int(previous_year) > int(original[0])) or
+                    (int(previous_year) == int(original[0]) and 
+                     previous_sem == "høst")):
+                    result[key] = structure
+            else:
+                result[key] = structure
+
+            logger.debug("Connecting %s to %s", key, result[key])
+    return result
+# end build_multisemester_mapping
+
 
 
 def main(argv):
@@ -1183,18 +1389,25 @@ def main(argv):
 
 
     options, junk = getopt.getopt(argv[1:],
-                                  "f:",
-                                  ("file=",))
+                                  "x:",
+                                  ("xml-file=",
+                                   "undenh-file=",
+                                   "undakt-file=",))
 
-    filename = None
+    xml_file = undenh_file = undakt_file = None
     for option, value in options:
-        if option in ("-f", "--file",):
-            filename = value
+        if option in ("-x", "--xml-file",):
+            xml_file = value
+        elif option in ("--undenh-file",):
+            undenh_file = value
+        elif option in ("--undakt-file",):
+            undakt_file = value
 
     db = Factory.get("Database")()
     groups = collect_cf_groups(db)
-    tree = build_cf_tree(db, groups)
-    generate_xml_file(filename, db, tree)
+    multisemester_map = build_multisemester_mapping(undenh_file, undakt_file)
+    tree = build_cf_tree(db, groups, multisemester_map)
+    generate_xml_file(xml_file, db, tree)
 # end main
 
 
