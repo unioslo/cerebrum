@@ -5686,6 +5686,7 @@ class BofhdExtension(object):
                 address = None
                 for source, kind in ((self.const.system_sap, self.const.address_post),
                                      (self.const.system_fs, self.const.address_post),
+                                     (self.const.system_sap, self.const.address_post_private),
                                      (self.const.system_fs, self.const.address_post_private)):
                     address = person.get_entity_address(source = source, type = kind)
                     if address:
@@ -6606,14 +6607,19 @@ class BofhdExtension(object):
     # person set_id
     all_commands['person_set_id'] = Command(
         ("person", "set_id"), PersonId(help_ref="person_id:current"),
-        PersonId(help_ref="person_id:new"))
-    def person_set_id(self, operator, current_id, new_id):
+        PersonId(help_ref="person_id:new"), SourceSystem(help_ref="source_system", optional=True))
+    def person_set_id(self, operator, current_id, new_id, source_system):
+        if source_system and not self.ba.is_superuser(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to superusers")
         person = self._get_person(*self._map_person_id(current_id))
         idtype, id = self._map_person_id(new_id)
         self.ba.can_set_person_id(operator.get_entity_id(), person, idtype)
-        person.affect_external_id(self.const.system_manual, idtype)
-        person.populate_external_id(self.const.system_manual,
-                                    idtype, id)
+        if not source_system:
+            ss = self.const.system_manual
+        else:
+            ss = int(self.const.AuthoritativeSystem(source_system))
+        person.affect_external_id(ss, idtype)
+        person.populate_external_id(ss, idtype, id)
         person.write_db()
         return "OK, set '%s' as new id for '%s'" % (new_id, current_id)
 
