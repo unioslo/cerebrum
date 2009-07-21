@@ -36,6 +36,7 @@ from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
 import copy
+import time
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
@@ -623,6 +624,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @type  exch_users: list
         @param dry_run : Flag
         """
+        self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+        time.sleep(5)
         for usr in exch_users:
             self.logger.info("Running Update-Recipient for user '%s'"
                               " against Exchange" % usr)
