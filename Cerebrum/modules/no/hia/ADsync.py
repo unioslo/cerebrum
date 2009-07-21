@@ -37,6 +37,7 @@ from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
 import cPickle
 import copy
+import time
 
 
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
@@ -706,6 +707,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @type  exch_users: list
         @param dry_run : Flag
         """
+        self.logger.debug("Sleeping for 3 seconds to give ad-ldap time to update") 
+        time.sleep(3)
         for usr in exch_users:
             self.logger.info("Running Update-Recipient for object '%s'"
                               " against Exchange" % usr)
@@ -1793,6 +1796,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @type  exch_grps: list
         @param dry_run : Flag
         """
+        self.logger.debug("Sleeping for 3 seconds to give ad-ldap time to update") 
+        time.sleep(3)
         for grp in exch_grps:
             self.logger.info("Running Update-Recipient for group object '%s'"
                               " against Exchange" % grp)
@@ -2190,6 +2195,8 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         @type  exch_users: list
         @param dry_run : Flag
         """
+        self.logger.debug("Sleeping for 3 seconds to give ad-ldap time to update") 
+        time.sleep(3)
         for name in up_rec:
             self.logger.info("Running Update-Recipient for contact object '%s'"
                               " against Exchange" % name)
