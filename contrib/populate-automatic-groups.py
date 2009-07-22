@@ -42,21 +42,22 @@ A few salient points:
 * Some groups have people as members (person_ids); others have other automatic
   groups as members.
 
-* ansatt@<sko>, ansatt_vitenskapelig@<sko>, ansatt_tekadm@<sko>,
-  ansatt_bilag@<sko> have person_id as members. The contain the employees (of
+* ansatt-<sko>, ansatt_vitenskapelig-<sko>, ansatt_tekadm-<sko>,
+  ansatt_bilag-<sko> have person_id as members. The contain the employees (of
   the given type) at the specified OU. If a person_id is a member of
   ansatt_vitenskapelig, ansatt_tekadm or ansatt_bilag, (s)he is also a member
-  of ansatt@<sko>.
+  of ansatt-<sko>.
 
-* meta_ansatt@<sko1> are 'metagroups' in a sense. They contain other employee
-  groups (specifically ansatt@<sko2>, where sko2 is sko1 or its child in the
-  specified hierarchy). At the very least meta_ansatt@<sko1> will have one
-  member -- ansatt@<sko1>. Should sko1 have any child OUs with employees, the
-  for each such child OU sko2, meta_ansatt@<sko1> will have a member
-  ansatt@<sko2>.
+* meta_ansatt-<sko1> are 'metagroups' in a sense. They contain other employee
+  groups (specifically ansatt-<sko2>, where sko2 is sko1 or its child in the
+  specified hierarchy). At the very least meta_ansatt-<sko1> will have one
+  member -- ansatt-<sko1>. Should sko1 have any child OUs with employees, the
+  for each such child OU sko2, meta_ansatt-<sko1> will have a member
+  ansatt-<sko2>.
 """
 
 import getopt
+import re
 import sys
 
 import cerebrum_path
@@ -205,6 +206,17 @@ get_create_account_id = simple_memoize(get_create_account_id)
 
 
 
+def group_name_is_valid(group_name):
+    """Check whether a given name conforms to the auto group name format.
+
+    The format in question is <something>-<sko>, where <sko> is \d{6}.
+    """
+
+    return re.search("[a-zA-Z0-9_-]+-\d{6}", group_name) is not None
+# end group_name_is_valid
+
+
+
 def find_all_auto_groups():
     """Collect and return all groups that are administrered by this script.
 
@@ -290,140 +302,13 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
 
 
 
-def temporary_employee_hack(row, current_groups, perspective):
-    """Return groups that arise from the affilaition in row.
-
-    This function performs a similar task to L{employee2groups}. However,
-    given, for the time being (2008-01-25), we'll populate meta_ansatt@<sko>
-    groups differently. As of 2008-11-18, Group-API has saner support for
-    recursive membership lookups, and this function is probably no longer
-    necessary (use employee2groups instead).
-
-    Specifically, given an affiliation in row with ou_id B, we generate the
-    following groups and add row['person_id'] as member:
-
-      * ansatt@B
-      * ansatt_vitenskapelig@B or ansatt_tekadm@B, depending on aff status
-      * *IF* B has subordinate OUs, then:
-          meta_ansatt@B
-      * meta_ansatt@C1
-        meta_ansatt@C_n
-
-        ... where C1 is a parent of B and C_{i+1} is a parent of C_i. The
-        'chain' of OUs continues as long as possible in the specified
-        perspective.
-
-    IVR thinks this is weird, but JAZZ insists that this is what we want. In
-    any event, this is supposed to be a temporary replacement of
-    L{employee2groups}.
-
-    The parameters and the result values are identical to L{employee2groups}.
-    """
-
-    person_id = row["person_id"]
-    ou_id = row["ou_id"]
-    ou_info = ou_id2ou_info(ou_id)
-    if not ou_info:
-        logger.debug("Missing ou information for ou_id=%s "
-                     "(OU quarantined or missing); person_id=%s",
-                     ou_id, person_id)
-        return list()
-
-    affiliation = int(row["affiliation"])
-    status = int(row["status"])
-
-    prefix = "meta_ansatt"
-    suffix = "@%s" % ou_info["sko"]
-    result = list()
-    if status == constants.affiliation_status_ansatt_vitenskapelig:
-        group_name = "ansatt_vitenskapelig" + suffix
-        group_id = group_name2group_id(group_name,
-                               "Vitenskapelige tilsatte ved "+ou_info["name"],
-                               current_groups,
-                               constants.trait_auto_group)
-        result.append((person_id, constants.entity_person, group_id))
-        logger.debug("Adding person id=%s to group id=%s name=%s",
-                     person_id, group_id, group_name)
-    elif status == constants.affiliation_status_ansatt_tekadm:
-        group_name = "ansatt_tekadm" + suffix
-        group_id = group_name2group_id(group_name,
-                      "Teknisk-administrativt tilsatte ved " + ou_info["name"],
-                      current_groups,
-                      constants.trait_auto_group)
-        result.append((person_id, constants.entity_person, group_id))
-        logger.debug("Adding person id=%s to group id=%s name=%s",
-                     person_id, group_id, group_name)
-    elif status == constants.affiliation_status_ansatt_bil:
-        group_name = "ansatt_bilag" + suffix
-        group_id = group_name2group_id(group_name,
-                                       "Bilagslønnede ved " + ou_info["name"],
-                                       current_groups,
-                                       constants.trait_auto_group)
-        result.append((person_id, constants.entity_person, group_id))
-        logger.debug("Adding person id=%s to group id=%s name=%s",
-                     person_id, group_id, group_name)
-
-    # Now we create ansatt@<sko> and all the metagroups.
-    if affiliation == constants.affiliation_ansatt:
-        # First, person_id is a member of ansatt@sko.
-        employee_group_name = "ansatt" + suffix
-        employee_group_id = group_name2group_id(employee_group_name,
-                                                "Tilsatte ved "+ou_info["name"],
-                                                current_groups,
-                                                constants.trait_auto_group)
-        result.append((person_id, constants.entity_person, employee_group_id))
-        logger.debug("Adding person id=%s to group id=%s name=%s",
-                     person_id, employee_group_id, employee_group_name)
-
-        # If the OU is at the "bottom" of the hierarchy, we do NOT generate a
-        # meta_ansatt group for it. Ask JAZZ for an explanation.
-        if ou_has_children(ou_id, perspective):
-            meta_group_name = "meta_ansatt" + suffix
-            meta_group_id = group_name2group_id(
-                  meta_group_name,
-                  "Tilsatte ved %s og underordnede organisatoriske enheter" %
-                   ou_info["name"],
-                  current_groups,
-                  constants.trait_auto_meta_group)
-            result.append((person_id, constants.entity_person, meta_group_id))
-            logger.debug("Person id=%s added to meta group id=%s, name=%s",
-                         person_id, meta_group_id, meta_group_name)
-        else:
-            logger.debug("OU id=%s, name=%s, sko=%s has no children. "
-                         "No meta group will be created",
-                         ou_id, ou_info["name"], ou_info["sko"])
-
-        # Walk up the OU-hierarchy and generate an membership for each
-        # group. NB! meta_ansatt@<root OU> will have A LOT of members.
-        tmp_ou_id = ou_id
-        parent_info = ou_id2parent_info(tmp_ou_id, perspective)
-        while parent_info:
-            parent_name = "meta_ansatt@" + parent_info["sko"]
-            meta_parent_id = group_name2group_id(
-                parent_name,
-                ("Tilsatte ved %s og underordnede organisatoriske enheter" %
-                 parent_info["name"]),
-                current_groups,
-                constants.trait_auto_meta_group)
-            result.append((person_id, constants.entity_person, meta_parent_id))
-            logger.debug("Person id=%s added to meta group id=%s, name=%s",
-                         person_id, meta_parent_id, parent_name)
-            # Walk up 1 level
-            tmp_ou_id = parent_info["ou_id"]
-            parent_info = ou_id2parent_info(tmp_ou_id, perspective)
-
-    return result
-# end temporary_employee_hack
-
-
-
 def employee2groups(row, current_groups, perspective):
     """Return groups that arise from the affiliation in row.
 
     A person's affiliation, represented by a db row, decides which groups this
     person should be a member of. Additionally, some of these memberships
     could trigger additional memberships (check the documentation for
-    meta_ansatt@<sko>).
+    meta_ansatt-<sko>).
 
     @type row: A db_row instance
     @param row:
@@ -460,12 +345,12 @@ def employee2groups(row, current_groups, perspective):
 
     affiliation = int(row["affiliation"])
     status = int(row["status"])
-    suffix = "@%s" % ou_info["sko"]
+    suffix = "-%s" % ou_info["sko"]
     result = list()
 
     # First let's fix the simple cases -- group membership based on
     # affiliation status.
-    # VIT -> ansatt_vitenskapelig@<sko>
+    # VIT -> ansatt_vitenskapelig-<sko>
     if status == constants.affiliation_status_ansatt_vitenskapelig:
         result.append(
             (person_id,
@@ -474,7 +359,7 @@ def employee2groups(row, current_groups, perspective):
                                  "Vitenskapelige tilsatte ved "+ou_info["name"],
                                  current_groups,
                                  constants.trait_auto_group)))
-    # TEKADM -> ansatt_tekadm@<sko>
+    # TEKADM -> ansatt_tekadm-<sko>
     elif status == constants.affiliation_status_ansatt_tekadm:
         result.append(
             (person_id,
@@ -484,7 +369,7 @@ def employee2groups(row, current_groups, perspective):
                                  ou_info["name"],
                                  current_groups,
                                  constants.trait_auto_group)))
-    # BILAG -> ansatt_bilag@<sko>
+    # BILAG -> ansatt_bilag-<sko>
     elif status == constants.affiliation_status_ansatt_bil:
         result.append(
             (person_id,
@@ -497,9 +382,9 @@ def employee2groups(row, current_groups, perspective):
     # Now the fun begins. All employees are members of certain groups.
     # 
     # This affiliation (row) results in person_id being member of
-    # ansatt@<sko>.
+    # ansatt-<sko>.
     if affiliation == constants.affiliation_ansatt:
-        # First, person_id is a member of ansatt@sko.
+        # First, person_id is a member of ansatt-sko.
         group_name = "ansatt" + suffix
         employee_group_id = group_name2group_id(group_name,
                                                 "Tilsatte ved "+ou_info["name"],
@@ -511,13 +396,13 @@ def employee2groups(row, current_groups, perspective):
         # meta_ansatt group memberships.
         tmp_ou_id = ou_id
         # The first step is not really a parent -- it's the OU itself. I.e.
-        # ansatt@<sko> is a member of meta_ansatt@<sko>. It's like that by
+        # ansatt-<sko> is a member of meta_ansatt-<sko>. It's like that by
         # design (consider asking "who's an employee at <sko> or subordinate
-        # <sko>?". The answer is "meta_ansatt@<sko>" and it should obviously
-        # include ansatt@<sko>)
+        # <sko>?". The answer is "meta_ansatt-<sko>" and it should obviously
+        # include ansatt-<sko>)
         parent_info = ou_id2ou_info(tmp_ou_id)
         while parent_info:
-            parent_name = "meta_ansatt@" + parent_info["sko"]
+            parent_name = "meta_ansatt-" + parent_info["sko"]
             meta_parent_id = group_name2group_id(
                 parent_name,
                 "Tilsatte ved %s og underordnede organisatoriske enheter" %
@@ -601,7 +486,7 @@ def employee_role2groups(row, current_groups, perspective):
                     ou_id, person_id, trait_code)
         return list()
 
-    group_name = "%s@%s" % (description, ou_info["sko"])
+    group_name = "%s-%s" % (description, ou_info["sko"])
     group_id = group_name2group_id(group_name,
                                    "Alle %s ved %s" % (description,
                                                        ou_info["name"]),
@@ -876,22 +761,14 @@ def delete_defunct_groups(groups):
                         group_id, group_name)
             continue
 
-        if '@' not in group_name:
+        if not group_name_is_valid(group_name):
             logger.warn("Group id=%s, name=%s has trait %s and a "
                         "non-conformant name. This should be fixed.",
                         group_id, group_name, constants.trait_auto_group)
             # IVR 2007-12-23 FIXME: Should we attempt to delete this group?
             continue
 
-        name, sko = group_name.split("@")
-        if not sko.isdigit() or len(sko) != 6:
-            logger.warn("Group id=%s, name=%s has non-digit sko=%s."
-                        "This should not be an auto group, but it has the "
-                        "proper trait (%s)",
-                        group_id, group_name, sko, constants.trait_auto_group)
-            # IVR 2007-12-23 FIXME: Should we attempt to delete this group?
-            continue
-
+        name, sko = group_name.rsplit("-", 1)
         fak, inst, avd = [int(x) for x in (sko[:2], sko[2:4], sko[4:])]
         try:
             ou.clear()
@@ -990,13 +867,13 @@ def perform_sync(perspective, source_system):
     # callable.
     person = Factory.get("Person")(database)
     global_rules = [
-        # Employee rule: (ansatt@<ou>, ansatt_vitenskapelig@<ou>, etc.)
+        # Employee rule: (ansatt-<ou>, ansatt_vitenskapelig-<ou>, etc.)
         (lambda: person.list_affiliations(
                    affiliation=(constants.affiliation_ansatt,),
                    source_system=source_system),
          lambda *rest: employee2groups(perspective=perspective, *rest)),
 
-        # Employee rule: role holder groups (e.g. EF-STIP@<ou>)
+        # Employee rule: role holder groups (e.g. EF-STIP-<ou>)
         (lambda: person.list_traits(code=_locate_all_auto_traits()),
          lambda *rest: employee_role2groups(perspective=perspective, *rest)),
         
@@ -1061,19 +938,10 @@ def perform_delete():
                         group_id, group_name)
             continue
 
-        if '@' not in group_name:
+        if not group_name_is_valid(group_name):
             logger.warn("Group id=%s, name=%s has trait %s and a "
                         "non-conformant name. This should be fixed.",
                         group_id, group_name, constants.trait_auto_group)
-            # IVR 2007-12-23 FIXME: Should we attempt to delete this group?
-            continue
-
-        name, sko = group_name.split("@")
-        if not sko.isdigit() or len(sko) != 6:
-            logger.warn("Group id=%s, name=%s has non-digit sko=%s."
-                        "This should not be an auto group, but it has the "
-                        "proper trait (%s)",
-                        group_id, group_name, sko, constants.trait_auto_group)
             # IVR 2007-12-23 FIXME: Should we attempt to delete this group?
             continue
 
