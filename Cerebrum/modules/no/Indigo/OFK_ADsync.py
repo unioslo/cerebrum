@@ -38,6 +38,7 @@ import cPickle
 import copy
 import time
 
+
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def _filter_quarantines(self, user_dict):
@@ -888,6 +889,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                 changes['msExchPoliciesExcluded'] = cerebrum_dict[grp]['msExchPoliciesExcluded']
                         else:
                             changes['msExchPoliciesExcluded'] = cerebrum_dict[grp]['msExchPoliciesExcluded']
+                    elif attr == 'member':
+                        pass
                     #Treating general cases
                     else:
                         if cerebrum_dict[grp].has_key(attr) and \
@@ -997,7 +1000,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                    (chg['distinguishedName'], ret))
                 else:
                     exec('self.' + chg['type'] + '(chg, dry_run)')
-                        
+                    
 
     def create_object(self, chg, dry_run, store_sid):
         """
@@ -1066,7 +1069,96 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 self.logger.warning("setObject on %s failed: %r",
                                     distName, ret)         
 
+    
+    def compare_members(self, cerebrum_dict, ad_dict, group_spread, user_spread, dry_run, sendDN_boost):
+        """
+        Update group memberships in AD by comparing memberlists for groups 
+        in AD and Cerebrum.
 
+        @param cerebrum_dict : group_name -> group info mapping
+        @type cerebrum_dict : dict
+        @param ad_dict : group_name -> group info mapping
+        @type ad_dict : dict
+        @param spread: ad group spread for a domain
+        @type spread: _SpreadCode
+        @param user_spread: ad account spread for a domain
+        @type user_spread: _SpreadCode
+        @param dry_run: Flag
+        @param sendDN_boost: Flag to determine if we should use fully qualified 
+                             domain named for users
+        """
+        #sendDN_boost is always "on" for now, i.e. always using full dn names for members
+
+        entity2name = dict([(x["entity_id"], x["entity_name"]) for x in 
+                            self.group.list_names(self.co.account_namespace)])
+        entity2name.update([(x["entity_id"], x["entity_name"]) for x in
+                            self.group.list_names(self.co.group_namespace)])    
+
+        for grp in cerebrum_dict:
+            if cerebrum_dict[grp].has_key('grp_id'):
+                grp_id = cerebrum_dict[grp]['grp_id']
+                self.logger.debug("Comparing group %s" % grp)
+
+                #TODO: How to treat quarantined users???, some exist in AD, 
+                #others do not. They generate errors when not in AD. We still
+                #want to update group membership if in AD.
+                members = list()
+                for usr in (self.group.search_members(
+                    group_id=grp_id,
+                    member_spread=int(self.co.Spread(user_spread)))):
+                    user_id = usr["member_id"]
+                    if user_id not in entity2name:
+                        self.logger.debug("Missing name for account id=%s",
+                                          user_id)
+                        continue
+                    members.append(("CN=%s,OU=%s,%s" % (entity2name[user_id],
+                                                            cereconf.AD_USER_OU,
+                                                            self.ad_ldap)))
+                
+                for grp in (self.group.search_members(
+                        group_id=grp_id,
+                        member_spread=int(self.co.Spread(group_spread)))):
+                    group_id = grp["member_id"]
+                    if group_id not in entity2name:
+                        self.logger.debug("Missing name for group id=%s", group_id)
+                        continue
+                    members.append(("CN=%s%s,OU=%s,%s" % (cereconf.AD_GROUP_PREFIX,
+                                                          entity2name[group_id],
+                                                          cereconf.AD_GROUP_OU,
+                                                          self.ad_ldap)))
+                                                   
+                members_in_ad = ad_dict[grp].get("member", [])     
+                members_add = [userdn for userdn in members if userdn not in members_in_ad]
+                members_remove = [userdn for userdn in members_in_ad if userdn not in members]
+
+                if members_add or members_remove:
+                     dn = self.server.findObject(grp)
+                     if not dn:
+                         self.logger.warning("Not able to bind to group %s in AD", grp)
+                     elif dry_run:
+                         self.logger.debug("Dryrun: don't sync members")
+                     else:
+                         self.server.bindObject(dn)
+                         #True in these functions means sendDN_boost on.
+                         if members_add:
+                             self.logger.debug("Adding members to group %s (%s)",
+                                               grp, members_add)
+                             res = self.server.addMembers(members_add, True)
+                             if not res[0]:
+                                 self.logger.warning("Adding members for group %s failed: %r" %
+                                                     (dn, res[1:]))
+                         if members_remove:
+                             self.logger.debug("Removing members from group %s (%s)",
+                                               grp, members_remove)
+                             res = self.server.removeMembers(members_remove, True)
+                             if not res[0]:
+                                 self.logger.warning("Removing members for group %s failed: %r" %
+                                                     (dn, res[1:]))
+            else:
+                self.logger.warning("Group %s has no group_id. Not syncing members." %
+                                          (grp))
+
+                
     def sync_group_members(self, cerebrum_dict, group_spread, user_spread, dry_run, sendDN_boost):
         """
         Update group memberships in AD
@@ -1098,8 +1190,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 #want to update group membership if in AD.
                 members = list()
                 for usr in (self.group.search_members(
-                    group_id=grp_id,
-                    member_spread=int(self.co.Spread(user_spread)))):
+                        group_id=grp_id,
+                        member_spread=int(self.co.Spread(user_spread)))):
                     user_id = usr["member_id"]
                     if user_id not in entity2name:
                         self.logger.debug("Missing name for account id=%s",
@@ -1147,18 +1239,22 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         res = self.server.syncMembers(members, False, False)
                     if not res[0]:
                         self.logger.warning("syncMembers %s failed for:%r" %
-                                          (dn, res[1:]))
+                                            (dn, res[1:]))
             else:
                 self.logger.warning("Group %s has no group_id. Not syncing members." %
-                                          (grp))
-             
-  
+                                    (grp))
+
 
     def full_sync(self, delete=False, dry_run=True, store_sid=False,
-                  user_spread=None, group_spread=None, sendDN_boost=False):
+                  user_spread=None, group_spread=None, sendDN_boost=False, 
+                  full_membersync=False):
 
-        self.logger.info("Starting group-sync(group_spread = %s, user_spread = %s, delete = %s, dry_run = %s, store_sid = %s, sendDN_boost = %s)" % \
-                             (group_spread, user_spread, delete, dry_run, store_sid, sendDN_boost))     
+        self.logger.info("Starting group-sync(group_spread = %s, "
+                         "user_spread = %s, delete = %s, dry_run = %s, "
+                         "store_sid = %s, sendDN_boost = %s, " 
+                         "full_membersync = %s)" % 
+                         (group_spread, user_spread, delete, dry_run, 
+                          store_sid, sendDN_boost, full_membersync))     
 
         #Fetch cerebrum data.
         self.logger.debug("Fetching cerebrum data...")
@@ -1183,8 +1279,12 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         self.perform_changes(changelist, dry_run, store_sid)
 
         #Syncing group members
-        self.logger.info("Starting sync of group members")
-        self.sync_group_members(cerebrumdump, group_spread, user_spread, dry_run, sendDN_boost)
+        if full_membersync:
+             self.logger.info("Starting sync of group members using full member sync")
+             self.sync_group_members(cerebrumdump, group_spread, user_spread, dry_run, sendDN_boost)
+        else:
+            self.logger.info("Starting sync of group members using differential member sync")
+            self.compare_members(cerebrumdump, addump, group_spread, user_spread, dry_run, sendDN_boost)
 
         #Cleaning up.
         addump = None
