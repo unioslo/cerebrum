@@ -42,17 +42,17 @@ A few salient points:
 * Some groups have people as members (person_ids); others have other automatic
   groups as members.
 
-* ansatt-<sko>, ansatt_vitenskapelig-<sko>, ansatt_tekadm-<sko>,
-  ansatt_bilag-<sko> have person_id as members. The contain the employees (of
+* ansatt-<sko>, ansatt-vitenskapelig-<sko>, ansatt-tekadm-<sko>,
+  ansatt-bilag-<sko> have person_id as members. The contain the employees (of
   the given type) at the specified OU. If a person_id is a member of
-  ansatt_vitenskapelig, ansatt_tekadm or ansatt_bilag, (s)he is also a member
+  ansatt-vitenskapelig, ansatt-tekadm or ansatt-bilag, (s)he is also a member
   of ansatt-<sko>.
 
-* meta_ansatt-<sko1> are 'metagroups' in a sense. They contain other employee
+* meta-ansatt-<sko1> are 'metagroups' in a sense. They contain other employee
   groups (specifically ansatt-<sko2>, where sko2 is sko1 or its child in the
-  specified hierarchy). At the very least meta_ansatt-<sko1> will have one
+  specified hierarchy). At the very least meta-ansatt-<sko1> will have one
   member -- ansatt-<sko1>. Should sko1 have any child OUs with employees, the
-  for each such child OU sko2, meta_ansatt-<sko1> will have a member
+  for each such child OU sko2, meta-ansatt-<sko1> will have a member
   ansatt-<sko2>.
 """
 
@@ -308,7 +308,7 @@ def employee2groups(row, current_groups, perspective):
     A person's affiliation, represented by a db row, decides which groups this
     person should be a member of. Additionally, some of these memberships
     could trigger additional memberships (check the documentation for
-    meta_ansatt-<sko>).
+    meta-ansatt-<sko>).
 
     @type row: A db_row instance
     @param row:
@@ -350,31 +350,31 @@ def employee2groups(row, current_groups, perspective):
 
     # First let's fix the simple cases -- group membership based on
     # affiliation status.
-    # VIT -> ansatt_vitenskapelig-<sko>
+    # VIT -> ansatt-vitenskapelig-<sko>
     if status == constants.affiliation_status_ansatt_vitenskapelig:
         result.append(
             (person_id,
              constants.entity_person, 
-             group_name2group_id("ansatt_vitenskapelig" + suffix,
+             group_name2group_id("ansatt-vitenskapelig" + suffix,
                                  "Vitenskapelige tilsatte ved "+ou_info["name"],
                                  current_groups,
                                  constants.trait_auto_group)))
-    # TEKADM -> ansatt_tekadm-<sko>
+    # TEKADM -> ansatt-tekadm-<sko>
     elif status == constants.affiliation_status_ansatt_tekadm:
         result.append(
             (person_id,
              constants.entity_person,
-             group_name2group_id("ansatt_tekadm" + suffix,
+             group_name2group_id("ansatt-tekadm" + suffix,
                                  "Teknisk-administrativt tilsatte ved " +
                                  ou_info["name"],
                                  current_groups,
                                  constants.trait_auto_group)))
-    # BILAG -> ansatt_bilag-<sko>
+    # BILAG -> ansatt-bilag-<sko>
     elif status == constants.affiliation_status_ansatt_bil:
         result.append(
             (person_id,
              constants.entity_person,
-             group_name2group_id("ansatt_bilag" + suffix,
+             group_name2group_id("ansatt-bilag" + suffix,
                                  "Bilagslønnede ved " + ou_info["name"],
                                  current_groups,
                                  constants.trait_auto_group)))
@@ -393,16 +393,16 @@ def employee2groups(row, current_groups, perspective):
         result.append((person_id, constants.entity_person, employee_group_id))
 
         # Now it becomes difficult, since we have to create a chain of
-        # meta_ansatt group memberships.
+        # meta-ansatt group memberships.
         tmp_ou_id = ou_id
         # The first step is not really a parent -- it's the OU itself. I.e.
-        # ansatt-<sko> is a member of meta_ansatt-<sko>. It's like that by
+        # ansatt-<sko> is a member of meta-ansatt-<sko>. It's like that by
         # design (consider asking "who's an employee at <sko> or subordinate
-        # <sko>?". The answer is "meta_ansatt-<sko>" and it should obviously
+        # <sko>?". The answer is "meta-ansatt-<sko>" and it should obviously
         # include ansatt-<sko>)
         parent_info = ou_id2ou_info(tmp_ou_id)
         while parent_info:
-            parent_name = "meta_ansatt-" + parent_info["sko"]
+            parent_name = "meta-ansatt-" + parent_info["sko"]
             meta_parent_id = group_name2group_id(
                 parent_name,
                 "Tilsatte ved %s og underordnede organisatoriske enheter" %
@@ -867,7 +867,7 @@ def perform_sync(perspective, source_system):
     # callable.
     person = Factory.get("Person")(database)
     global_rules = [
-        # Employee rule: (ansatt-<ou>, ansatt_vitenskapelig-<ou>, etc.)
+        # Employee rule: (ansatt-<ou>, ansatt-vitenskapelig-<ou>, etc.)
         (lambda: person.list_affiliations(
                    affiliation=(constants.affiliation_ansatt,),
                    source_system=source_system),
