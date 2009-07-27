@@ -1127,7 +1127,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                                           cereconf.AD_GROUP_OU,
                                                           self.ad_ldap)))
                                                    
-                members_in_ad = ad_dict[grp].get("member", [])     
+                members_in_ad = ad_dict.get(grp, {}).get("member", [])
                 members_add = [userdn for userdn in members if userdn not in members_in_ad]
                 members_remove = [userdn for userdn in members_in_ad if userdn not in members]
 
