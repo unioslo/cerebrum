@@ -405,7 +405,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             changes[acc] = value
                         
                 #Submit if any changes.
-                if len(changes):
+                if len(changes) and ou:
                     changes['distinguishedName'] = 'CN=%s,%s' % (usr,ou)
                     changes['type'] = 'alter_object'
 
