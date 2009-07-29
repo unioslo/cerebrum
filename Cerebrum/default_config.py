@@ -722,7 +722,9 @@ DEFAULT_RESERVED_BY_NET_SIZE = {
     31: 0,
     32: 0,
     }
-
+# Location of documentation concerning import of subnets for DNS.
+# Added to mails sent when errors occur.
+DNS_SUBNETIMPORT_ERRORDOC_URL = None
 
 # STATISTICS
 # Various settings used by statistics-programs Lists most significant

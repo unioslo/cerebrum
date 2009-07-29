@@ -313,7 +313,14 @@ def main(argv=None):
     if errors:
         mail_to = options["error_recipients"]
         subject = "Errors from subnet-import"
-        mail_body = "The following errors were encountered during the import:\n\n"
+        mail_body = ""
+        
+        if cereconf.DNS_SUBNETIMPORT_ERRORDOC_URL is not None:
+            mail_body += ("For more information about what to do with the " +
+                          "errors reported, please direct your browser to " +
+                          "%s\n\n" % cereconf.DNS_SUBNETIMPORT_ERRORDOC_URL)
+            
+        mail_body += "The following errors were encountered during the import:\n\n"
         mail_body += "\n\n".join(errors)
         
         if options["force"]:
