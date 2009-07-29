@@ -563,17 +563,39 @@ class _QuarantineCode(_CerebrumCode):
 
 class ConstantsBase(DatabaseAccessor):
 
-    def map_const(self, num):
-        """Returns the Constant object as a reverse lookup on integer num"""
-        skip = list(dir(_CerebrumCode.sql.fget(None)))
-        skip.extend(("map_const", "initialize"))
-        for x in filter(lambda x: x[0] != '_' and not x in skip, dir(self)):
-            v = getattr(self, x)
-            if isinstance(v, type):
+    def __iterate_constants(self, const_type=None):
+        for name in dir(self):
+            attribute = getattr(self, name)
+            if not isinstance(attribute, _CerebrumCode):
                 continue
-            if int(v) == num:
-                return v
+
+            # The constant found is of the wrong type. 
+            if (const_type is not None and
+                not isinstance(attribute, const_type)):
+                continue
+                
+            yield attribute
+    # end __iterate_constants
+        
+
+    def map_const(self, code):
+        """Returns the Constant object as a reverse lookup on integer code.
+
+        @param code:
+          Constant's integer value.
+
+        @rtype: _CerebrumCode instance or None.
+        @return:
+          A _CerebrumCode instance (i.e. a constant object) the integer code
+          of which matches L{code}. If no match is found, return None.
+        """
+
+        for const_obj in self.__iterate_constants():
+            if int(const_obj) == code:
+                return const_obj
         return None
+    # end map_const
+            
 
     def initialize(self, update=True, delete=False):
         # {dependency1: {class: [object1, ...]},
@@ -650,18 +672,73 @@ class ConstantsBase(DatabaseAccessor):
         
         super(ConstantsBase, self).__init__(_CerebrumCode.sql.fget(None))
 
+
     def fetch_constants(self, wanted_class, prefix_match=""):
         """Return all constant instances of wanted_class.  The list is
         sorted by the name of the constants.  If prefix_match is set,
         only return constants whose string representation starts with
         the given substring."""
-        clist = []
-        for name in dir(self):
-            const = getattr(self, name)
-            if (isinstance(const, wanted_class) and
-                str(const).startswith(prefix_match)):
-                clist.append(const)
+
+        clist = list()
+        for const_obj in self.__iterate_constants(wanted_class):
+            if str(const_obj).startswith(prefix_match):
+                clist.append(const_obj)
+
         return clist
+    # end fetch_constants
+    
+
+    def human2constant(self, human_repr, const_type=None):
+        """Map human representation of a const to _CerebrumCode. 
+
+        This method maps a human representation of a constant to the proper
+        constant object (an instance of _CerebrumCode).
+
+        The following human representations are supported:
+
+          - A number, in which case it is interpreted as the int value of the
+            constant object.
+          - A string containing digits only (see above).
+          - A string containing the attribute that is a member of self. This
+            corresponds to referring to a constant by its symbolic name as
+            defined in a suitable Constants.py.
+          - A string containing the code_str. This corresponds to referring to
+            a constant by its code_str.
+
+        Beware! code_strs are NOT unique. If multiple constants match, it is
+        undefined which constant object is returned! The only way to ensure
+        sensible answer is to specify the specific constant type.
+
+        @type const_type:
+          One of the _CerebrumCode's subclasses or a sequence thereof.
+        @param const_type: 
+          Permissible constant types.
+
+        @rtype: an object that is a (sub)type of _CerebrumCode.
+        @return:
+          Suitable constant object, or None, if no object is found.
+        """
+
+        obj = None
+        if isinstance(human_repr, int):
+            obj = self.map_const(human_repr)
+        elif isinstance(human_repr, str) and human_repr.isdigit():
+            obj = self.map_const(int(human_repr))
+        elif isinstance(human_repr, str) and hasattr(self, human_repr):
+            obj = getattr(self, human_repr)
+        elif isinstance(human_repr, str):
+            for const_obj in self.__iterate_constants(const_type):
+                if str(const_obj) == human_repr:
+                    obj = const_obj
+
+        # Make sure it's of the right type...
+        if obj is not None and const_type is not None:
+            if not isinstance(obj, const_type):
+                obj = None
+
+        return obj
+    # end human2constant
+# end ConstantsBase
 
 
 class CoreConstants(ConstantsBase):
