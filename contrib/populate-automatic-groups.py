@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- coding: latin-1 -*-
 
 # Copyright 2007, 2008 University of Oslo, Norway
 #
@@ -78,6 +78,16 @@ logger = Factory.get_logger("cronjob")
 database = Factory.get("Database")()
 database.cl_init(change_program="pop-auto-groups")
 constants = Factory.get("Constants")(database)
+
+#
+# List of legal group prefixes and the corresponding human descriptions.
+# 
+legal_prefixes = {
+    "ansatt":               "Tilsatte ved %s",
+    "ansatt-vitenskapelig": "Vitenskapelige tilsatte ved %s",
+    "ansatt-tekadm":        "Teknisk-administrativt tilsatte ved %s",
+    "ansatt-bilag":         "Bilagslønnede ved %s",
+}
 
 
 
@@ -212,7 +222,7 @@ def group_name_is_valid(group_name):
     The format in question is <something>-<sko>, where <sko> is \d{6}.
     """
 
-    return re.search("[a-zA-Z0-9_-]+-\d{6}", group_name) is not None
+    return re.search("[a-zA-Z0-9_-]+-\d{6}$", group_name) is not None
 # end group_name_is_valid
 
 
@@ -302,11 +312,85 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
 
 
 
-def employee2groups(row, current_groups, perspective):
-    """Return groups that arise from the affiliation in row.
+def _load_selection_helper(iterable):
+    """Construct a data structure suitable for group membership selection.
 
-    A person's affiliation, represented by a db row, decides which groups this
-    person should be a member of. Additionally, some of these memberships
+    @type iterable: an iterator over tuples (str, str)
+    @param iterable:
+      An iterator over (human representation of aff/status, group
+      prefix). human representation may be whatever
+      L{ConstantsBase.human2constant} accepts. group prefix is the prefix for
+      a group an aff/status holder is to be a member of. L{legal_prefixes}
+      lists the permissible values.
+
+    @rtype: dict (PersonAffiliation/PersonAffStatus -> str)
+    @return:
+      A dictionary mapping person affiliations/aff statuses to group prefixes
+      where an affiliation/status holder is to be a member.
+    """
+
+    result = dict()
+    co = Factory.get("Constants")()
+    for human_repr, prefix in iterable:
+        if prefix not in legal_prefixes:
+            logger.warn("Prefix '%s' is illegal for automatic groups. Ignored",
+                        prefix)
+            continue
+
+        co_object = co.human2constant(human_repr, (co.PersonAffStatus,
+                                                   co.PersonAffiliation))
+        if co_object is None:
+            logger.warn("Failed to remap human representation <%s> to const",
+                                                   human_repr)
+        else:
+            result[co_object] = prefix
+
+    return result
+# end load_select_criteria_from_cereconf
+
+
+
+def load_registration_criteria(criteria):
+    """This function generates a data structure for selecting group members.
+
+    The script is driven by affiliations/statuses: a person with a certain
+    affiliation (or affiliation status) becomes a member of a certain
+    group. Specifically which affiliation/status results in which group
+    membership is determined in two ways:
+
+      1) There may be settings in cereconf.AUTOMATIC_GROUPS.
+      2) There may be settings specified on the command line.
+
+    Command line settings supersedes cereconf's settings.
+
+    The resulting data structure is a dict, mapping affiliation, or
+    affiliation status to a group prefix for an automatically administered
+    group. L{legal_prefixes} lists the valid prefixes. 'ansatt'-groups are
+    special: they are ALSO members of the corresponding 'meta-ansatt' groups.
+    """
+
+    logger.debug("AUTO_GROUPS=%s", cereconf.AUTOMATIC_GROUPS)
+    result = _load_selection_helper(cereconf.AUTOMATIC_GROUPS.iteritems())
+    result.update(_load_selection_helper(iter(criteria)))
+    logger.debug("The following affs/statuses will result in memberships")
+    logger.debug("Result is %s", result)
+    for aff_or_status in result:
+        prefix = result[aff_or_status]
+        logger.debug("%s %s -> membership in '%s'",
+                     isinstance(aff_or_status, constants.PersonAffStatus)
+                         and "Status" or "Affiliation",
+                     str(aff_or_status),
+                     prefix)
+    return result
+# end load_registration_criteria
+
+
+
+def affiliation2groups(row, current_groups, select_criteria, perspective):
+    """Return groups that arise from the affiliation/aff status in row.
+
+    A person's affiliation/status, represented by a db row, decides which
+    groups this person should be a member of. Also, some of these memberships
     could trigger additional memberships (check the documentation for
     meta-ansatt-<sko>).
 
@@ -317,6 +401,9 @@ def employee2groups(row, current_groups, perspective):
     @type current_groups: dict
     @param current_groups:
       Return value of L{find_all_auto_groups}.
+
+    @param select_criteria:
+      See L{perform_sync}.
 
     @type perspective: Cerebrum constant
     @param perspective:
@@ -348,50 +435,30 @@ def employee2groups(row, current_groups, perspective):
     suffix = "-%s" % ou_info["sko"]
     result = list()
 
-    # First let's fix the simple cases -- group membership based on
-    # affiliation status.
-    # VIT -> ansatt-vitenskapelig-<sko>
-    if status == constants.affiliation_status_ansatt_vitenskapelig:
-        result.append(
-            (person_id,
-             constants.entity_person, 
-             group_name2group_id("ansatt-vitenskapelig" + suffix,
-                                 "Vitenskapelige tilsatte ved "+ou_info["name"],
-                                 current_groups,
-                                 constants.trait_auto_group)))
-    # TEKADM -> ansatt-tekadm-<sko>
-    elif status == constants.affiliation_status_ansatt_tekadm:
-        result.append(
-            (person_id,
-             constants.entity_person,
-             group_name2group_id("ansatt-tekadm" + suffix,
-                                 "Teknisk-administrativt tilsatte ved " +
-                                 ou_info["name"],
-                                 current_groups,
-                                 constants.trait_auto_group)))
-    # BILAG -> ansatt-bilag-<sko>
-    elif status == constants.affiliation_status_ansatt_bil:
-        result.append(
-            (person_id,
-             constants.entity_person,
-             group_name2group_id("ansatt-bilag" + suffix,
-                                 "BilagslÃ¸nnede ved " + ou_info["name"],
-                                 current_groups,
-                                 constants.trait_auto_group)))
+    employee_group_id = None
+    for key in (status, affiliation):
+        if key not in select_criteria:
+            continue
+
+        group_prefix = select_criteria[key]
+        description = legal_prefixes[group_prefix] % ou_info["sko"]
+        group_name = group_prefix + suffix
+        group_id = group_name2group_id(group_name,
+                                       description,
+                                       current_groups,
+                                       constants.trait_auto_group)
+        if group_prefix == "ansatt":
+            employee_group_id = group_id
+
+        result.append((person_id, constants.entity_person, group_id))
+        logger.debug("Added person id=%s to group id=%s, name=%s",
+                     person_id, group_id, group_name)
+        
 
     # Now the fun begins. All employees are members of certain groups.
     # 
-    # This affiliation (row) results in person_id being member of
-    # ansatt-<sko>.
-    if affiliation == constants.affiliation_ansatt:
-        # First, person_id is a member of ansatt-sko.
-        group_name = "ansatt" + suffix
-        employee_group_id = group_name2group_id(group_name,
-                                                "Tilsatte ved "+ou_info["name"],
-                                                current_groups,
-                                                constants.trait_auto_group)
-        result.append((person_id, constants.entity_person, employee_group_id))
-
+    # This affiliation (row) results in person_id being member of ansatt-<sko>.
+    if employee_group_id is not None:
         # Now it becomes difficult, since we have to create a chain of
         # meta-ansatt group memberships.
         tmp_ou_id = ou_id
@@ -413,87 +480,14 @@ def employee2groups(row, current_groups, perspective):
                            meta_parent_id))
             logger.debug("Group name=%s (from person_id=%s) added to "
                          "meta group id=%s, name=%s",
-                         group_name, person_id, meta_parent_id, parent_name)
+                         "ansatt" + suffix, person_id,
+                         meta_parent_id, parent_name)
             parent_info = ou_id2parent_info(tmp_ou_id, perspective)
             if parent_info:
                 tmp_ou_id = parent_info["ou_id"]
 
     return result
-# end employee2groups
-
-
-
-def employee_role2groups(row, current_groups, perspective):
-    """Return groups that arise from roles in row.
-
-    All employees can have roles associated with them in HR data. After some
-    processing, these roles are stored in Cerebrum as person traits.
-    cereconf.EMPLOYEE_TRAITS has the specific mapping of which roles are
-    mapped to which traits.
-
-    Once these person traits are stored in Cerebrum, we can look people up by
-    these traits and register them as group members of certain groups. This
-    function calculates which groups a person_id should be a member of, based
-    on the information in L{row}.
-
-    @type row:
-    @param row:
-
-    @type current_groups: dict
-    @param current_groups:
-      Return value of L{find_all_auto_groups}.
-
-    @type perspective: Cerebrum constant
-    @param perspective:
-      Perspective for OU-hierarchy queries.
-
-    @rtype: sequence
-    @return:
-      A sequence of triples (x, y, z), where
-        - x is the member id (entity_id)
-        - y is the member type (entity_person, entity_group, etc.)
-        - z is the group id where x is to be member.
-
-      An empty sequence is returned if no memberships can be derived. This is
-      identical to L{employee2groups}' return value.
-    """
-
-    person_id = row["entity_id"]
-    ou_id = row["target_id"]
-    trait_code = row["code"]
-    description = row["strval"]
-    # Now, we need to have the text description of 'role'. It has been mapped
-    # to a trait_code by import_HR_person.py, and we need a reverse
-    # mapping. This can be accomplished by using trait's strval, but is this
-    # the right way?
-
-    if row["entity_type"] != constants.entity_person:
-        logger.warn("Entity with id=%s (type %s) is not a person entity, "
-                    "although trait <%s> is assignable to persons only",
-                    person_id, row["entity_type"], trait_code)
-        return list()
-
-    if not description.strip():
-        logger.warn("Person id=%s with trait code=%s has no associated "
-                    "description. No group can be created. Trait ignored",
-                    person_id, trait_code)
-        return list()
-
-    ou_info = ou_id2ou_info(ou_id)
-    if not ou_info:
-        logger.warn("Missing OU information for ou_id=%s (trait for "
-                    "person_id=%s trait code=%s",
-                    ou_id, person_id, trait_code)
-        return list()
-
-    group_name = "%s-%s" % (description, ou_info["sko"])
-    group_id = group_name2group_id(group_name,
-                                   "Alle %s ved %s" % (description,
-                                                       ou_info["name"]),
-                                   current_groups,
-                                   constants.trait_auto_group)
-    return ((person_id, constants.entity_person, group_id),)
-# end employee_role2groups
+# end affiliation2groups
 
 
 
@@ -518,7 +512,7 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
       Function that converts a row returned by L{person_generator} to a list
       of memberships. Calling row2groups on any row D returned by
       L{person_generator} returns a list of triples (x, y, z) (cf.
-      L{employee2groups} for the precise description of their meanings).
+      L{affiliation2groups} for the precise description of their meanings).
 
     @type current_groups: dict
     @param current_groups:
@@ -790,56 +784,13 @@ def delete_defunct_groups(groups):
 
 
 
-def _locate_all_auto_traits():
-    """Extract all automatically assigned traits from cereconf.
-
-    cereconf.AFFILIATE_TRAITS contains a mapping for translating role ids in
-    source data to trait descriptions for all automatically awarded
-    traits. This function processes this mapping and returns a sequence of all
-    auto traits.
-
-    @rtype: sequence
-    @return:
-      A sequence of trait codes for all automatically awarded traits. The
-      actual trait assignment (from role ids) happens in
-      L{import_HR_person.py}. This script takes the traits and assigns group
-      membersships based on them.
-    """
-
-    # IVR 2008-01-17 FIXME: This is a copy of a similar function from
-    # import_HR_person.py. Duplication is bad.
-    # Collect all known auto traits.
-    if not hasattr(cereconf, "AFFILIATE_TRAITS"):
-        return set()
-
-    auto_traits = set()
-    for trait_code_str in cereconf.AFFILIATE_TRAITS.itervalues():
-        try:
-            trait = constants.EntityTrait(trait_code_str)
-            int(trait)
-        except Errors.NotFoundError:
-            logger.error("Trait <%s> is defined in cereconf.AFFILIATE_TRAITS, "
-                         "but it is unknown i Cerebrum (code)", trait_code_str)
-            continue
-
-        # Check that the trait is actually associated with a person (and not
-        # something else. AFFILIATE_TRAITS is supposed to "cover" person
-        # objects ONLY!)
-        if trait.entity_type != constants.entity_person:
-            logger.error("Trait <%s> from AFFILIATE_TRAITS is associated with "
-                         "<%s>, but we allow person traits only",
-                         trait, trait.entity_type)
-            continue
-
-        auto_traits.add(int(trait))
-
-    return auto_traits
-# end _locate_all_auto_traits
-
-
-
-def perform_sync(perspective, source_system):
+def perform_sync(select_criteria, perspective, source_system):
     """Set up the environment for synchronisation and synch all groups.
+
+    @type select_criteria: a dict (aff/status constant -> str)
+    @param select_criteria:
+      A data structure representing selection criteria for selecting
+      individuals. 
 
     @type perspective: Cerebrum constant
     @param perspective:
@@ -858,25 +809,31 @@ def perform_sync(perspective, source_system):
     current_groups = find_all_auto_groups()
     new_groups = dict()
 
+    person = Factory.get("Person")(database)
+    selecting_affiliations = [x
+                              for x in select_criteria
+                              if isinstance(x, constants.PersonAffiliation)]
+
     # Rules that decide which groups to build.
     # Each rule is a tuple. The first object is a callable that generates a
     # sequence of db-rows that are candidates for group addition (typically
     # person_id and a few more attributes). The second object is a callable
-    # that yields a data structure indicating which group membership additions
-    # should be performed; based on the db-rows generated by the first
-    # callable.
-    person = Factory.get("Person")(database)
+    # that yields a data structure indicating which group membership are
+    # inferred from the db-rows returned by the first callable.
     global_rules = [
-        # Employee rule: (ansatt-<ou>, ansatt-vitenskapelig-<ou>, etc.)
+        # Affiliation-based rule, e.g. rules that populate ansatt-<ou>
         (lambda: person.list_affiliations(
-                   affiliation=(constants.affiliation_ansatt,),
+                   affiliation=selecting_affiliations,
                    source_system=source_system),
-         lambda *rest: employee2groups(perspective=perspective, *rest)),
+         lambda row, current_groups: affiliation2groups(row,
+                                                        current_groups,
+                                                        select_criteria,
+                                                        perspective)),
 
-        # Employee rule: role holder groups (e.g. EF-STIP-<ou>)
-        (lambda: person.list_traits(code=_locate_all_auto_traits()),
-         lambda *rest: employee_role2groups(perspective=perspective, *rest)),
-        
+        # Trait-based rules: a person with a trait -> membership in a group
+        # (lambda: person.list_traits(code=_locate_all_auto_traits()),
+        #  lambda *rest: <something-that-reads traits>),
+
         # Student rules
         # ...
         ]
@@ -919,10 +876,9 @@ def perform_delete():
     # ... empty all of them for members (otherwise deletion is not possible)
     empty_defunct_groups(existing_groups)
 
-    # ... and delete the group themselves
-    # We cannot use delete_defunct_groups, since it cares about the OUs'
-    # quarantine status. In *this* function, we want to delete all groups *no*
-    # matter what.
+    # ... and delete the group themselves We cannot use delete_defunct_groups,
+    # since it cares about the OUs' quarantine status. In *this* function, we
+    # want to delete *all* groups no matter what.
     group = Factory.get("Group")(database)
     logger.debug("Looking for groups to delete")
 
@@ -953,16 +909,18 @@ def perform_delete():
 
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:ds:",
+                                  "p:ds:c:",
                                   ("perspective=",
                                    "dryrun",
                                    "source_system=",
-                                   "remove-all-auto-groups",))
+                                   "remove-all-auto-groups",
+                                   "collect=",))
 
     dryrun = False
     perspective = None
     wipe_all = False
     source_system = constants.system_sap
+    select_criteria = list()
     for option, value in options:
         if option in ("-p", "--perspective",):
             perspective = int(constants.OUPerspective(value))
@@ -972,12 +930,15 @@ def main():
             source_system = getattr(constants, value)
         elif option in ("--remove-all-auto-groups",):
             wipe_all = True
+        elif option in ("-c", "--collect",):
+            aff_or_status, prefix = value.split(":")
+            select_criteria.append((aff_or_status, prefix))
 
     if wipe_all:
         perform_delete()
     else:
-        logger.debug("All auto traits: %s", _locate_all_auto_traits())
-        perform_sync(perspective, source_system)
+        select_criteria = load_registration_criteria(select_criteria)
+        perform_sync(select_criteria, perspective, source_system)
 
     if dryrun:
         database.rollback()
