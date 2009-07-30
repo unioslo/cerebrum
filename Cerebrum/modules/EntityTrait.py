@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2005-2006 University of Oslo, Norway
+# Copyright 2005-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -46,7 +46,11 @@ class TraitConstants(Constants):
                                  "target=%(entity:target_id)s"))
     trait_del = _ChangeTypeCode("trait", "del",
                                 "removed trait from %(subject)s",
-                                ("%(trait:code)s",))
+                                ("%(trait:code)s",
+                                 "numval=%(int:numval)s",
+                                 "strval=%(string:strval)s",
+                                 "date=%(string:date)s",
+                                 "target=%(entity:target_id)s"))
     trait_mod = _ChangeTypeCode("trait", "mod",
                                 "modified trait for %(subject)s",
                                 ("%(trait:code)s",
@@ -67,18 +71,19 @@ class EntityTrait(Entity):
         self.__traits = {}
         self.__trait_updates = {}
 
+    def _pickle_fixup(self, params):
+        """pickle can't handle datetime objects"""
+        if params.get('date'):
+            params = params.copy()
+            params['date'] = str(params['date'])
+        return params
+            
+
     def write_db(self):
         self.__super.write_db()
 
-        def pickle_fixup(params):
-            """pickle can't handle datetime objects"""
-            if params.get('date'):
-                params = params.copy()
-                params['date'] = str(params['date'])
-            return params
-            
         for code in self.__trait_updates:
-            params = pickle_fixup(self.__traits[code])
+            params = self._pickle_fixup(self.__traits[code])
             if self.__trait_updates[code] == 'UPDATE':
                 binds = ", ".join(["%s=:%s" % (c, c)
                                    for c in self.__traits[code]])
@@ -115,11 +120,13 @@ class EntityTrait(Entity):
                 del self.__traits[code]
                 return
             del self.__trait_updates[code]
+        params = self._pickle_fixup(self.__traits[code])
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_trait]
         WHERE entity_id=:entity_id AND code=:code
         """, {'entity_id': self.entity_id, 'code': int(code)})
-        self._db.log_change(self.entity_id, self.const.trait_del, None)
+        self._db.log_change(self.entity_id, self.const.trait_del, None,
+                            change_params=params)
         del self.__traits[code]
 
     def delete(self):
