@@ -564,17 +564,28 @@ class _QuarantineCode(_CerebrumCode):
 class ConstantsBase(DatabaseAccessor):
 
     def __iterate_constants(self, const_type=None):
+        """Iterate all of constants within this constants proxy object.
+
+        This is a convenience method for internal usage.
+
+        @type const_type: class or a sequence thereof
+        @param const_type:
+          Wanted constant types. This gives us a possibility to iterate, say,
+          only EntityType constant objects.
+
+        @rtype: generator
+        @return:
+          A generator yielding (in random order) constants of the specified
+          type. If no type is specified, all constants will be yielded.
+        """
+
+        if const_type is None:
+            const_type = _CerebrumCode
+        
         for name in dir(self):
             attribute = getattr(self, name)
-            if not isinstance(attribute, _CerebrumCode):
-                continue
-
-            # The constant found is of the wrong type. 
-            if (const_type is not None and
-                not isinstance(attribute, const_type)):
-                continue
-                
-            yield attribute
+            if isinstance(attribute, const_type):
+                yield attribute
     # end __iterate_constants
         
 
