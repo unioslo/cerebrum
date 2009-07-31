@@ -21,18 +21,16 @@
 
 import random
 import string
-import sys
-import os
-import re
 import time
+import pickle
 
 import cereconf
-from mx import DateTime
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules import Email
 from Cerebrum.Utils import Factory
+from Cerebrum.Utils import pgp_encrypt
 
 class AccountIndigoMixin(Account.Account):
     """Account mixin class providing functionality specific to Indigo.
@@ -242,7 +240,30 @@ class AccountOfkMixin (Account.Account):
                 
         return potuname
 
+    def _get_old_homeMDB(self):
+        """
+        If account once had homeMDB try to find the old value.
+        """
+        # homeMDB values are stored as EntityTraits. After 2009-08-XX
+        # the traits values are stored in ChangeLog when deleted. Try
+        # to fetch that value if it exists.
+        for row in self._db.get_log_events(subject_entity=self.entity_id,
+                                           types=(self.const.trait_del,)):
+            if row['change_params']:
+                try:
+                    tmp = pickle.loads(row['change_params'])
+                    val = tmp.get('strval', None)
+                    if val:
+                        return val
+                except:
+                    continue
+        return None
+
     def _autopick_homeMDB(self):
+        # Check if account had homeMDB earlier. If so use that
+        mdb_choice = self._get_old_homeMDB()
+        if mdb_choice:
+            return mdb_choice
         affiliation = 'ELEV'
         if self.is_employee(self.account_name):
             affiliation = 'ANSATT'
@@ -259,7 +280,7 @@ class AccountOfkMixin (Account.Account):
             if m_weight < smallest_mdb_weight:
                 mdb_choice, smallest_mdb_weight = m, m_weight
         if mdb_choice is None:
-            raise CerebrumError("Cannot assign mdb")
+            raise Errors.CerebrumError("Cannot assign mdb")
         return mdb_choice
     
     #
