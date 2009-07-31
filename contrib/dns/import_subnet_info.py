@@ -106,7 +106,7 @@ __version__ = "$Revision$"
 # $URL$
 
 
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 
 db = Factory.get('Database')()
 db.cl_init(change_program=progname[:16])
