@@ -27,6 +27,8 @@ from Cerebrum import Utils
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _EntityTypeCode
+from Cerebrum.Utils import argument_to_sql
+
 
 class Entity(DatabaseAccessor):
     """Class for generic access to Cerebrum entities.
@@ -501,27 +503,56 @@ class EntityContactInfo(Entity):
                                   'c_type': int(type),
                                   'pref': pref})
 
-    def list_contact_info(self, entity_id=None, source_system=None,\
+    def list_contact_info(self, entity_id=None, source_system=None,
                           contact_type=None, entity_type=None):
-        cols = {}
-        for t in ('entity_id', 'source_system', 'contact_type'):
-            if locals()[t] is not None:
-                cols[t] = int(locals()[t])
-        where = " AND ".join(["%s=:%s" % (x, x)
-                             for x in cols.keys() if cols[x] is not None])
+        """List entity contact information, constrained by specific filters.
+
+        Without any filters, this method will return the content of the entire
+        entity_contact_info table.
+
+        @type entity_id: None or (int or a sequence thereof).
+        @param entity_id:
+          Contact info 'holders' (entities for which contact data is sought)
+
+        @type source_system:
+          None or (int/AuthoritativeSystem or a sequence thereof).
+        @param source_system:
+          Filter contact information by source system.
+
+        @type contact_type: None or (int/ContactInfo or a sequence thereof)
+        @param contact_type:
+          Filter contact information by contact type (fax, phone, e-mail,
+          etc.)
+
+        @type entity_type: None or (int/EntityType or a sequence thereof)
+        @param entity_type:
+          Filter contact information by owning entity's type (i.e. all
+          persons' contact info, rather than OUs')
+        """
+
+        cols = dict()
+        where = list()
+        for name in ("entity_id", "source_system", "contact_type",):
+            if locals()[name] is not None:
+                where.append(argument_to_sql(locals()[name],
+                                             "ec." + name,
+                                             cols, int))
+        where = " AND ".join(where)
         join = ""
         if entity_type:
+            chunk = argument_to_sql(entity_type, "e.entity_type", cols, int)
             join = """
             JOIN [:table schema=cerebrum name=entity_info] e
               ON ec.entity_id = e.entity_id AND
-              e.entity_type = %d""" % int(entity_type)
+            """ + chunk
         if len(where) > 0:
             where = "WHERE %s" % where
         return self.query("""
         SELECT ec.entity_id, ec.contact_type, ec.contact_value, ec.contact_pref,
            ec.source_system
         FROM [:table schema=cerebrum name=entity_contact_info] ec
-        %s %s order by ec.contact_pref""" % (join, where), cols)
+        %s %s order by ec.entity_id, ec.contact_pref""" % (join, where), cols)
+    # end list_contact_info
 
 
 
