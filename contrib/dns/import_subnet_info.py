@@ -24,6 +24,7 @@
 import sys
 import getopt
 import re
+import time
 
 import cerebrum_path
 import cereconf
@@ -310,15 +311,18 @@ def main(argv=None):
 
     ######################################################################
     ### Feedback to interested parties
+    today = time.strftime("%Y-%m-%d")
+
+    doc_info = ""
+    if cereconf.DNS_SUBNETIMPORT_ERRORDOC_URL is not None:
+        doc_info = ("For more information concerning this import and any " +
+                    "errors that are reported, please direct your browser to " +
+                    "%s\n\n" % cereconf.DNS_SUBNETIMPORT_ERRORDOC_URL)
+    
     if errors:
         mail_to = options["error_recipients"]
-        subject = "Errors from subnet-import"
-        mail_body = ""
-        
-        if cereconf.DNS_SUBNETIMPORT_ERRORDOC_URL is not None:
-            mail_body += ("For more information about what to do with the " +
-                          "errors reported, please direct your browser to " +
-                          "%s\n\n" % cereconf.DNS_SUBNETIMPORT_ERRORDOC_URL)
+        subject = "Errors from subnet-import %s" % today
+        mail_body = doc_info        
             
         mail_body += "The following errors were encountered during the import:\n\n"
         mail_body += "\n\n".join(errors)
@@ -328,6 +332,7 @@ def main(argv=None):
             mail_body +=  "\nThe following changes were made:\n%s\n" % "\n".join(changes)
             
             logger.info("Force-committing non-erronous changes to database.")
+            logger.info("Sending mail to '%s' (CC: '%s')" % (mail_to, options["mail-cc"]))
             sendmail(mail_to, options["mail-from"], subject, mail_body, cc=options["mail-cc"])
             db.commit()            
             return 0
@@ -337,19 +342,25 @@ def main(argv=None):
             mail_body +=  "Fix the above problems, then rerun the import.\n"
             logger.error("Errors encountered. No changes made by import.")
             db.rollback()
+            logger.info("Sending mail to '%s' (CC: '%s')" % (mail_to, options["mail-cc"]))
             sendmail(mail_to, options["mail-from"], subject, mail_body, cc=options["mail-cc"])
             return 3
     else:
         mail_to = options["status_recipients"]
-        subject = "Status from subnet-import"
-        mail_body =  "Subnet-import completed without problems\n"
+        subject = "Status from subnet-import %s" % today
+        mail_body = doc_info
+        mail_body += "Subnet-import completed without problems\n"
         if changes:
-            mail_body +=  "The following changes were made:\n%s\n" % "\n".join(changes)
+            mail_body += "The following changes were made:\n%s\n" % "\n".join(changes)
             logger.info("Committing all changes to database.")
             db.commit()
         else:
-            mail_body +=  "No changes needed to be done\n"
+            # No changes => No need to send mail
+            #mail_body +=  "No changes needed to be done\n"
+            logger.info("No changes needed to be done during this run. No mail sent")
+            return 0
 
+        logger.info("Sending mail to '%s' (CC: '%s')" % (mail_to, options["mail-cc"]))
         sendmail(mail_to, options["mail-from"], subject, mail_body, cc=options["mail-cc"])
         return 0
             
