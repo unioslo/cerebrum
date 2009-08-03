@@ -242,22 +242,33 @@ class AccountOfkMixin (Account.Account):
 
     def _get_old_homeMDB(self):
         """
-        If account once had homeMDB try to find the old value.
+        If account once had homeMDB try to find the old value. If more
+        than one old value, return the most recent.
         """
         # homeMDB values are stored as EntityTraits. After 2009-08-XX
         # the traits values are stored in ChangeLog when deleted. Try
         # to fetch that value if it exists.
+        res = {}
         for row in self._db.get_log_events(subject_entity=self.entity_id,
                                            types=(self.const.trait_del,)):
             if row['change_params']:
                 try:
                     tmp = pickle.loads(row['change_params'])
+                    if int(tmp['code']) != int(self.const.trait_homedb_info):
+                        continue
                     val = tmp.get('strval', None)
                     if val:
-                        return val
+                        # There might be more than one hit.
+                        res[row['tstamp']] = val
                 except:
                     continue
-        return None
+        if res:
+            keys = res.keys()
+            # when sorting tstamps, most recent will be last in the list
+            keys.sort()
+            return res[keys[-1]]
+        else:
+            return None
 
     def _autopick_homeMDB(self):
         # Check if account had homeMDB earlier. If so use that
