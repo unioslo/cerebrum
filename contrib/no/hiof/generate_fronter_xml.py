@@ -808,7 +808,9 @@ class cf_members(object):
         person.find(person_id)
 
         def remap(x):
-            return str(x).strip() and str(x).strip() or None
+            if x is None:
+                return ""
+            return str(x).strip() and str(x).strip() or ""
 
         for source_system in (self.const.system_sap,
                               self.const.system_fs):
@@ -1046,6 +1048,10 @@ def output_person_address(data, printer):
         return
 
     address = data["address"]
+    # No non-empty address field. That happens sometimes.
+    if not [x for x in address.itervalues() if bool(x)]:
+        return
+    
     printer.startElement("adr")
     for key in address:
         value = address[key]
