@@ -161,9 +161,10 @@ def set_initial_spreads(account):
     
     const = Factory.get("Constants")()
     for spread in cereconf.BOFHD_NEW_USER_SPREADS:
-        account.add_spread(const.Spread(spread))
-        logger.debug("Assigned spread=%s to uname=%s",
-                     const.Spread(spread), account.account_name)
+        if not account.has_spread(const.Spread(spread)):
+            account.add_spread(const.Spread(spread))
+            logger.debug("Assigned spread=%s to uname=%s",
+                         const.Spread(spread), account.account_name)
 
     account.write_db()
 # end set_initial_spreads
@@ -353,45 +354,6 @@ def collect_candidates(db, affiliations):
 
 
 
-def text2affiliation(text):
-    """Guess the affiliation from text.
-
-    This is useful to allow some freedom when specifying affiliations on the
-    command line. The possibilities are:
-
-      - code_str
-      - attribute in Constants
-      - id
-
-    @type text: basestring
-    @param text:
-      A string holding some representation of an affiliation
-      (PersonAffiliation, to be specific). It can be its numeric code in the
-      db, its code_str or the name of the constant in the Constants-object.
-
-    @rtype: PersonAffiliation instance
-    @return:
-      The PersonAffiliation object matching the text specified.
-    """
-    constants = Factory.get("Constants")()
-    obj = None
-    
-    # it's an id
-    if text.isdigit():
-        obj = constants.PersonAffiliation(int(text))
-        int(obj)
-    elif hasattr(constants, text):
-        obj = getattr(constants, text)
-        assert isinstance(obj, constants.PersonAffiliation)
-    else:
-        obj = constants.PersonAffiliation(text)
-        int(obj)
-
-    return obj
-# end text2affiliation
-
-
-
 def main():
     global logger
     logger = Factory.get_logger("cronjob")
@@ -401,11 +363,14 @@ def main():
                                   ("affiliation=",
                                    "dryrun",))
 
+    const = Factory.get("Constants")()
     dryrun = False
     affiliations = set()
     for option, value in options:
         if option in ("-a", "--affiliation",):
-            affiliations.add(text2affiliation(value))
+            affiliation = const.human2constant(value, const.PersonAffiliation)
+            if affiliation is not None:
+                affiliations.add(affiliation)
         elif option in ("-d", "--dryrun",):
             dryrun = True
 
