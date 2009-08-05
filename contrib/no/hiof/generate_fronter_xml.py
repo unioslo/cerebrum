@@ -782,7 +782,7 @@ class cf_members(object):
         account = Factory.get("Account")(self.db)
         result = dict()
         for row in account.list_names(self.const.account_namespace):
-            result[row["entity_id"]] = row["entity_name"] + "@hiof.no"
+            result[row["entity_id"]] = row["entity_name"]
         return result
     # end account_mapping
 
@@ -842,7 +842,7 @@ class cf_members(object):
             - name        (account owner's name)
             - first       (account owner's first name)
             - email       (email address associated with account)
-            - user        (uname@hiof.no)
+            - user        (uname)
             - imap-server (imap server associated for email)
             - address     (a dict representing account owner's address)
             - mobile      (account owner's mobile phone number)
@@ -905,7 +905,7 @@ class cf_members(object):
                 "name": name,
                 "first": first_name,
                 "email": email_address,
-                "user": uname + "@hiof.no", 
+                "user": uname, 
                 "imap-server": self.email2mail_server(email_address),
                 "address": self.person2address(person_id),
                 "mobile": person_id2phone.get(person_id)
@@ -1023,6 +1023,13 @@ def output_id(id_data, printer):
 # end output_person_id
 
 
+def output_person_auth(data, printer):
+    # "ldap1:" - ldap authentication (1 is probably the server number)
+    printer.dataElement("userid", data["user"],
+                        {"password": "ldap1:", "pwencryptiontype": "1",})
+# end output_person_auth
+
+
 def output_person_names(data, printer):
     printer.startElement("name")
     printer.dataElement("fn", data["name"])
@@ -1077,6 +1084,7 @@ def output_person_element(data, printer):
 
     printer.startElement("person", {"recstatus": STATUS_ADD,})
     output_id(data["user"], printer)
+    output_person_auth(data, printer)
     printer.dataElement("email", data["email"])
     output_person_names(data, printer)
     output_email_server(data, printer)
