@@ -426,7 +426,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         ret = self.run_cmd('createObject', dry_run, 'User', ou,
                            chg['sAMAccountName'])
         if not ret[0]:
-            self.logger.warning("create user %s failed: %r",
+            self.logger.error("create user %s failed: %r",
                                 chg['sAMAccountName'], ret)
         else:
             if not dry_run:
@@ -717,7 +717,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 ret = self.run_cmd('run_UpdateRecipient', dry_run, usr)
             if not ret[0]:
-                self.logger.warning("run_UpdateRecipient on %s failed: %r", 
+                self.logger.error("run_UpdateRecipient on %s failed: %r", 
                                     usr, ret)
         self.logger.info("Ran Update-Recipient against Exchange for %i objects", 
                          len(exch_users))
@@ -1161,7 +1161,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         ret = self.run_cmd('createObject', dry_run, 'contact', ou, 
                       chg['name'])
         if not ret[0]:
-            self.logger.warning("create forward contact %s failed: %r",
+            self.logger.error("create forward contact %s failed: %r",
                                 chg['name'],ret[1])
         elif not dry_run:
             name = chg['name']
@@ -1254,7 +1254,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
                       groupname)
         if not ret[0]:
-            self.logger.warning("create dist_group %s failed: %r",
+            self.logger.error("create dist_group %s failed: %r",
                                 groupname,ret[1])
         elif not dry_run:
             ret = self.server.putGroupProperties(chg)
@@ -1741,7 +1741,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
                       groupname)
         if not ret[0]:
-            self.logger.warning("create group %s failed: %r",
+            self.logger.error("create group %s failed: %r",
                                 groupname,ret[1])
         elif not dry_run:
             if store_sid:
@@ -1806,7 +1806,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             else:
                 ret = self.run_cmd('run_UpdateRecipient', dry_run, grp)
             if not ret[0]:
-                self.logger.warning("run_UpdateRecipient on %s failed: %r", 
+                self.logger.error("run_UpdateRecipient on %s failed: %r", 
                                     grp, ret)
         self.logger.info("Ran Update-Recipient against Exchange for %i group objects", 
                          len(exch_grps))
@@ -1853,10 +1853,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     self.logger.debug("Try to sync member account id=%s, name=%s",
                                        user_id, entity2name[user_id])
 
-                for grp in (self.group.search_members(
+                for medlemgrp in (self.group.search_members(
                         group_id=grp_id,member_spread=int(
                             self.co.Spread(group_spread)))):
-                    group_id = grp["member_id"]
+                    group_id = medlemgrp["member_id"]
                     if group_id not in entity2name:
                         self.logger.warning("Missing name for group id=%s", group_id)
                         continue
@@ -2140,7 +2140,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         ret = self.run_cmd('createObject', dry_run, 'contact', ou, 
                       chg['name'])
         if not ret[0]:
-            self.logger.warning("create maillist contact %s failed: %r",
+            self.logger.error("create maillist contact %s failed: %r",
                                 chg['name'],ret[1])
         elif not dry_run:
             name = chg['name']
@@ -2205,7 +2205,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
             else:
                 ret = self.run_cmd('run_UpdateRecipient', dry_run, name)
             if not ret[0]:
-                self.logger.warning("run_UpdateRecipient on %s failed: %r", 
+                self.logger.error("run_UpdateRecipient on %s failed: %r", 
                                     name, ret)
         self.logger.info("Ran Update-Recipient against Exchange for %i contact objects", 
                          len(up_rec))
