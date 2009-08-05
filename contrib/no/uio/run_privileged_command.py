@@ -57,6 +57,8 @@ commands = {
     'imap_move': ["/local/bin/ssh", 21],
     # sync src from external servers
     'sync_files': ["/local/bin/rsync", 3],
+    # need to chown synced files
+    'chown': ["/bin/chown", 3],
     }
 
 def usage(exitcode=0):
