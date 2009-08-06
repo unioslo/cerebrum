@@ -839,8 +839,9 @@ class cf_members(object):
           A dictionary from account_ids to dicts with the corresponding
           information. The following keys are available:
 
-            - name        (account owner's name)
+            - full        (account owner's name)
             - first       (account owner's first name)
+            - family      (account owner's last name)
             - email       (email address associated with account)
             - user        (uname)
             - imap-server (imap server associated for email)
@@ -860,7 +861,7 @@ class cf_members(object):
         logger.debug("Caching member names")
         person_id2name = person.getdict_persons_names(
             source_system=const.system_cached,
-            name_types=[const.name_first, const.name_full])
+            name_types=[const.name_first, const.name_full, const.name_last])
         logger.debug("%d person_id -> name mappings", len(person_id2name))
 
         logger.debug("Caching primary accounts")
@@ -900,10 +901,12 @@ class cf_members(object):
                 continue
 
             first_name = person_id2name[person_id].get(const.name_first, "")
-            name = person_id2name[person_id].get(const.name_full, "")
+            full_name = person_id2name[person_id].get(const.name_full, "")
+            family_name = person_id2name[person_id].get(const.name_last, "")
             result[account_id] = {
-                "name": name,
+                "full": full_name,
                 "first": first_name,
+                "family": family_name,
                 "email": email_address,
                 "user": uname, 
                 "imap-server": self.email2mail_server(email_address),
@@ -1000,10 +1003,9 @@ def open_xml_stream(filename):
 
 
 def output_fixed_header(printer):
-
     printer.startElement("properties")
     printer.dataElement("datasource", "cerebrum@hiof.no")
-    printer.dataElement("datetime", mx.DateTime.now().strftime("%Y-%M-%d"))
+    printer.dataElement("datetime", mx.DateTime.now().strftime("%Y-%m-%d"))
     printer.endElement("properties")
 # end output_fixed_header
 
@@ -1032,9 +1034,12 @@ def output_person_auth(data, printer):
 
 def output_person_names(data, printer):
     printer.startElement("name")
-    printer.dataElement("fn", data["name"])
+    printer.dataElement("fn", data["full"])
     printer.startElement("n")
-    printer.dataElement("given", data["first"])
+    if data.get("first"):
+        printer.dataElement("given", data["first"])
+    if data.get("family"):
+        printer.dataElement("family", data["family"])
     printer.endElement("n")
     printer.endElement("name")
 # end output_person_names
@@ -1423,11 +1428,13 @@ def generate_xml_file(filename, db, tree):
 
     printer = open_xml_stream(filename)
     printer.startDocument("utf-8")
+    printer.startElement("enterprise")
     output_fixed_header(printer)
     output_people(db, tree, printer)
     output_member_groups(db, tree, printer)
     output_user_memberships(db, tree, printer)
     output_permissions(tree, printer)
+    printer.endElement("enterprise")
     printer.endDocument()
     printer.fp.close()
 # end generate_xml_file
