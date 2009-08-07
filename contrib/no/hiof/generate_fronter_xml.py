@@ -1177,7 +1177,7 @@ def output_user_membership(group, members, printer):
         output_id(member, printer)
         # 1 = person, 2 = group
         printer.dataElement("idtype", "1")
-        printer.startElement("role", {"restatus": STATUS_UPDATE,
+        printer.startElement("role", {"recstatus": STATUS_UPDATE,
                                       # FIXME: This should be expressed via
                                       # cf_permission, since a specific user
                                       # within a group may have a different
