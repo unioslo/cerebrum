@@ -33,7 +33,7 @@ import getopt
 import locale
 import mx.DateTime
 import sys
-
+from collections import deque
 
 import cerebrum_path
 import cereconf
@@ -230,6 +230,34 @@ class cf_tree(object):
                 isinstance(group, group_type)):
                 yield group
     # end iterate_groups
+
+
+    def iterate_groups_topologically(self, group_type=None):
+        """Create an iterator for the specific group type(s) that outputs
+        groups in topological order.
+
+        Fronter requires parent groups to be output before children, in order
+        for their import routines to function properly. 
+        """
+
+        if not self._root:
+            return
+
+        work_queue = deque((self._root,))
+        while work_queue:
+            current = work_queue.popleft()
+
+            if group_type is None or isinstance(current, group_type):
+                yield current
+
+            # Enqueue all the children (cf_member_group does not have
+            # structural children, which are of interest here)
+            if not isinstance(current, cf_structure_group):
+                continue
+
+            for child_group in current.iterate_children(group_type):
+                work_queue.append(child_group)
+    # end iterate_groups_topologically
 
 
     def get_root(self):
@@ -1161,7 +1189,7 @@ def output_member_groups(db, tree, printer):
     db is passed along for completeness. It's unused here.
     """
 
-    for cf_group in tree.iterate_groups():
+    for cf_group in tree.iterate_groups_topologically():
         output_group_element(cf_group, printer)
 # end output_member_groups
 
