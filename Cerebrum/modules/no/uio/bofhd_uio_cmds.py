@@ -1434,11 +1434,11 @@ class BofhdExtension(object):
                 used = 'N/A'; limit = None
                 try:
                     cyrus = imaplib.IMAP4(es.name)
-                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
                     # IVR 2007-08-29 If the server is too busy, we do not want
                     # to lock the entire bofhd.
                     # 5 seconds should be enough
                     cyrus.socket().settimeout(5)
+                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
                     res, quotas = cyrus.getquota("user." + acc.account_name)
                     cyrus.socket().settimeout(None)
                     if res == "OK":
@@ -1458,6 +1458,8 @@ class BofhdExtension(object):
                     used = 'DOWN'
                 except ConnectException, e:
                     used = str(e)
+                except imaplib.IMAP4.error, e:
+                    used = 'DOWN'
                 info.append({'quota_hard': eq.email_quota_hard,
                              'quota_soft': eq.email_quota_soft,
                              'quota_used': used})
