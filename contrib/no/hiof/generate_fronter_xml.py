@@ -122,6 +122,7 @@ class cf_tree(object):
     
     def __init__(self, db):
         self._root = None
+        self._person_group_holder = None
         self._cf_id2node = dict()
         self._db = db
 
@@ -144,6 +145,15 @@ class cf_tree(object):
         tmp = cf_structure_group("Manuell",
                                  "STRUCTURE:hiof.no:manuell", hiof)
         self.register_structure_group(tmp)
+
+        # It knows about root, but not the other way
+        # around. _person_group_holder is somewhat special -- it's a fake
+        # node: it does not have any members, really, it is only a container
+        # for all groups with members in them.
+        self._person_group_holder = cf_structure_group("Samlenode for persongruppene",
+                                                       "STRUCTURE:hiof.no:persongruppene",
+                                                       None)
+        self._person_group_holder._parent = self._root
     # end _build_static
 
 
@@ -221,14 +231,15 @@ class cf_tree(object):
         """Create an iterator for the specific group type in the CF-tree.
         """
 
-        for group in self._cf_id2node.itervalues():
-            if group.cf_group_type() == "emne":
-                logger.debug("Ignoring 'emne' CF group: %s", str(group))
-                continue
+        for seq in (self._cf_id2node.itervalues(), self._person_group_holder,):
+            for group in seq:
+                if group.cf_group_type() == "emne":
+                    logger.debug("Ignoring 'emne' CF group: %s", str(group))
+                    continue
             
-            if (group_type is None or
-                isinstance(group, group_type)):
-                yield group
+                if (group_type is None or
+                    isinstance(group, group_type)):
+                    yield group
     # end iterate_groups
 
 
@@ -243,7 +254,7 @@ class cf_tree(object):
         if not self._root:
             return
 
-        work_queue = deque((self._root,))
+        work_queue = deque((self._root, self._person_group_holder))
         while work_queue:
             current = work_queue.popleft()
 
@@ -359,6 +370,8 @@ class cf_group_interface(object):
         # for the sake of completeness
         elif "manuell" in parent_components:
             return "Manuell"
+        elif "persongruppene" in parent_components:
+            return "Samlenode for persongruppene"
         elif parent_id == "root":
             return "Oslofjordalliansen"
 
@@ -409,7 +422,8 @@ class cf_structure_group(cf_group_interface):
         if self.cf_id() in ("root",
                             "STRUCTURE:hiof.no",
                             "STRUCTURE:hiof.no:automatisk",
-                            "STRUCTURE:hiof.no:manuell",):
+                            "STRUCTURE:hiof.no:manuell",
+                            "STRUCTURE:hiof.no:persongruppene"):
             return "0"
 
         # avdeling -> node as per specification
@@ -1155,7 +1169,7 @@ def output_people(db, tree, printer):
 
 
 
-def output_group_element(cf_group, printer):
+def output_group_element(cf_group, printer, member_group_owner):
     """Output all info pertaining to the specific cf_group"""
 
     printer.startElement("group", {"recstatus": STATUS_ADD,})
@@ -1174,7 +1188,10 @@ def output_group_element(cf_group, printer):
     printer.endElement("description")
 
     printer.startElement("relationship", {"relation": "1"})
-    output_id(cf_group.cf_parent_id(), printer)
+    if isinstance(cf_group, cf_member_group):
+        output_id(member_group_owner, printer)
+    else:
+        output_id(cf_group.cf_parent_id(), printer)
     printer.emptyElement("label")
     printer.endElement("relationship")
     printer.endElement("group")
@@ -1189,8 +1206,9 @@ def output_member_groups(db, tree, printer):
     db is passed along for completeness. It's unused here.
     """
 
+    member_owner = tree._person_group_holder.cf_id()
     for cf_group in tree.iterate_groups_topologically():
-        output_group_element(cf_group, printer)
+        output_group_element(cf_group, printer, member_owner)
 # end output_member_groups
 
 
