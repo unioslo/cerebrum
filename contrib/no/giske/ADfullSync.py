@@ -280,7 +280,7 @@ class ADfgSync(ADutilMixIn.ADgroupUtil):
 
     def fetch_cerebrum_data(self, spread):		
         all_groups = []
-        for (grp_id, grp, description) in self.group.search(spread):
+        for (grp_id, grp, description) in self.group.search(spread=spread):
             all_groups.append((grp_id, grp.replace(':','_'), description))
         return all_groups
 
