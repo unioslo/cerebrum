@@ -6,8 +6,9 @@ import xmlrpclib
 import cerebrum_path
 import cereconf
 
-from Cerebrum.Utils import Factory
 from Cerebrum import Entity
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 from Cerebrum.modules import ADutilMixIn
 
 db = Factory.get('Database')()
