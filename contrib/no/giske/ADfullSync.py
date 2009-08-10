@@ -174,7 +174,6 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                     retur[e_name]['profilePath'] = '\\\\vipe\\profiler\\%s' % e_name
                     retur[e_name]['homeDirectory'] = '\\\\vipe\\elever\\%s' % e_name
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
-                 # uncomment after testing    
                 elif retur[e_name]['title'] == 'Foresatt':
                     retur[e_name]['msRTCSIP-PrimaryUserAddress'] = 'SIP:%s@skule.giske.no' % e_name
                 elif retur[e_name]['title'] == 'Tilsett':
@@ -229,7 +228,6 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
             if chg.has_key('sAMAccountName'):
                 uname = chg['sAMAccountName']       
                 del chg['sAMAccountName']               
-
             #Setting default for undefined AD_ACCOUNT_CONTROL values.
             for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
                 if not chg.has_key(acc):
@@ -281,8 +279,10 @@ class ADfgSync(ADutilMixIn.ADgroupUtil):
 
     def fetch_cerebrum_data(self, spread):		
         all_groups = []
-        for (grp_id, grp, description) in self.group.search(spread=spread):
-            all_groups.append((grp_id, grp.replace(':','_'), description))
+        for g in self.group.search(spread=spread):
+            all_groups.append((g['group_id'],
+                               g['name'].replace(':','_'),
+                               g['description']))
         return all_groups
 
 def usage(exitcode=0):
