@@ -430,8 +430,8 @@ def get_group_members(group_id):
             account = exporter.user_entity_id2account[user_entity_id]
             group_members.append(account)
         except KeyError:
-            logger.error("Couldn't find account for user_entity_id '%s'",
-                         user_entity_id)
+            logger.info("Person with entity_id '%s' " % user_entity_id +
+                        "does not have an account that is exported to LMS")
     return group_members
 
 
