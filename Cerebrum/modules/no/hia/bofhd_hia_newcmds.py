@@ -488,7 +488,7 @@ class BofhdExtension(object):
         har_opptak = {}
         ret = []
         db = Database.connect(user="cerebrum", service="FSUIA.uio.no",
-                              DB_driver='Oracle')
+                              DB_driver='cx_Oracle')
         fs = FS(db)
         for row in fs.student.get_studierett(fodselsdato, pnum):
             har_opptak["%s" % row['studieprogramkode']] = \
