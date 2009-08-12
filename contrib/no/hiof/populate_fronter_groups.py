@@ -74,7 +74,6 @@ class FSAttributeHandler(object):
         "kullklasse": ("institusjonsnr",
                        "studieprogramkode", "avdeling", "rollekode",
                        "terminkode", "arstall", "klassekode",),
-        "emne": ("institusjonsnr", "avdeling", "emnekode", "rollekode"),
         "undenh": ("institusjonsnr",
                    "emnekode", "versjonskode", "terminkode", "arstall",
                    "terminnr", "avdeling", "rollekode",),
@@ -110,9 +109,6 @@ class FSAttributeHandler(object):
                       "studieprogram:%(studieprogramkode)s:"
                       "kull:%(arstall)s:%(terminkode)s:"
                       "klasse:%(klassekode)s:rolle:%(rollekode)s",
-        "emne": "hiof.no:fs:"
-                "%(institusjonsnr)s:%(avdeling)s:"
-                "emner:%(emnekode)s:rolle:%(rollekode)s",
         "undenh": "hiof.no:fs:"
                   "%(institusjonsnr)s:%(avdeling)s:"
                   "emner:%(arstall)s:%(terminkode)s:"
@@ -162,7 +158,6 @@ class FSAttributeHandler(object):
                    ("rollekode", "emnekode", "versjonskode", "terminnr", "aktivitetkode")),
         "undenh": ("%s for %s (versjon %s, %s. termin)",
                    ("rollekode", "emnekode", "versjonskode", "terminnr")),
-        "emne": ("%s ved %s", ("rollekode", "emnekode")),
         "kullklasse": ("%s for %s %s %s, klasse %s",
                        ("rollekode", "studieprogramkode", "terminkode",
                         "arstall", "klassekode")),
@@ -175,7 +170,7 @@ class FSAttributeHandler(object):
 
 
     # Interesting roles from FS. We ignore the rest
-    valid_roles = ('undakt', 'undenh', 'stprog', 'kull', 'kullklasse', 'emne')
+    valid_roles = ('undakt', 'undenh', 'stprog', 'kull', 'kullklasse',)
 
     # Interesting role codes from FS. We ignore the rest. Each valid role (see
     # above) has a code associated with it. In addition to this list, hiof
@@ -254,9 +249,6 @@ class FSAttributeHandler(object):
         # is stprog exportable?
         if role_kind in ("stprog", "kull", "kullklasse", "undakt", "undenh"):
             key = self._attributes2exportable_key(role_kind, role_attrs)
-        elif role_kind in ("emne",):
-            # emne-roles are always exportable
-            return True 
 
         return key in self._exportable_keys
     # end role_is_exportable
@@ -393,7 +385,7 @@ class FSAttributeHandler(object):
           A tag that describes what kind of information is to be expected in
           L{attributes}. The ONLY legal values are:
 
-            - 'stprog', 'kull', 'kullklasse', 'undenh', 'undakt', 'emne'
+            - 'stprog', 'kull', 'kullklasse', 'undenh', 'undakt'
             - 'student-undenh', 'student-undakt', 'student-kullklasse'
 
           Each kind has a different set of keys in attributes that MUST be
@@ -462,9 +454,6 @@ class FSAttributeHandler(object):
                 group_type = "undakt"
             elif "undenh" in fields:
                 group_type = "undenh"
-            # Must be tested for AFTER undakt/undenh
-            elif "emner" in fields:
-                group_type = "emne"
             elif "klasse" in fields:
                 group_type = "kullklasse"
             # Must be tested for AFTER 'klasse'

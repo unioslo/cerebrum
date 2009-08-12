@@ -231,12 +231,8 @@ class cf_tree(object):
         """Create an iterator for the specific group type in the CF-tree.
         """
 
-        for seq in (self._cf_id2node.itervalues(), self._person_group_holder,):
+        for seq in (self._cf_id2node.itervalues(), (self._person_group_holder,)):
             for group in seq:
-                if group.cf_group_type() == "emne":
-                    logger.debug("Ignoring 'emne' CF group: %s", str(group))
-                    continue
-            
                 if (group_type is None or
                     isinstance(group, group_type)):
                     yield group
@@ -579,7 +575,7 @@ class cf_member_group(cf_group_interface):
     export to CF (unames, e-mails, etc)
     """
                    # FS role groups
-    valid_types = ("stprog", "kull", "kullklasse", "emne", "undenh", "undakt",
+    valid_types = ("stprog", "kull", "kullklasse", "undenh", "undakt",
                    # FS student groups
                    "student-undenh", "student-undakt", "student-kullklasse",)
 
@@ -640,7 +636,6 @@ class cf_member_group(cf_group_interface):
             "student-undenh":     ("ROOM", -1), 
             "student-undakt":     ("ROOM", -1),
             "student-kullklasse": ("ROOM", -1),
-            "emne":               (None, None),
             "undenh":             ("ROOM", -2),
             "undakt":             ("ROOM", -2),
             "kullklasse":         ("ROOM", -2),
@@ -649,12 +644,7 @@ class cf_member_group(cf_group_interface):
         }
 
         member_group_type = self.cf_group_type()
-        if member_group_type == "emne":
-            logger.debug("No cf structure group for cf_member group %s "
-                         "(type=%s is ignored)",
-                         self.cf_id(), member_group_type)
-            return None
-        elif member_group_type in group_type2cf_structure_fixup:
+        if member_group_type in group_type2cf_structure_fixup:
             prefix, last = group_type2cf_structure_fixup[member_group_type]
             components = self.cf_id().split(":")
             return ":".join([prefix,] + components[:last])
@@ -690,9 +680,7 @@ class cf_member_group(cf_group_interface):
         """Calculate permission for self on L{structure_group}.
 
         The calculations are a bit involved, since the permission in question
-        depends on both self AND structure_group. 'emne' groups do not result
-        in any permission assignment, since 'emne' groups have no associated
-        structure node.
+        depends on both self AND structure_group.
         """
 
         all_read = {
@@ -733,11 +721,6 @@ class cf_member_group(cf_group_interface):
             "admin":       all_delete,
         }
 
-        # emne roles are useless (there are no cf structures associated with
-        # them).
-        if self.cf_group_type() == "emne":
-            return None
-
         access_type = None
         recursive = False
         if self.cf_group_type() in ("stprog", "kull"):
@@ -770,7 +753,6 @@ class cf_member_group(cf_group_interface):
         suffix_map = {"undenh": "undenh",
                       "undakt": "undakt",
                       "klasse": "kullklasse",
-                      "emner": "emne",
                       "studieprogram": "stprog",
                       "kull": "kull",}
 
@@ -781,10 +763,12 @@ class cf_member_group(cf_group_interface):
                     return "student-" + suffix_map[marker]
             assert False, "This is impossible - no type for %s" % self.cf_id()
         elif "rolle" in components:
-            for marker in ("undakt", "undenh", "emner",
+            for marker in ("undakt", "undenh",
                            "klasse", "kull", "studieprogram"):
                 if marker in components:
                     return suffix_map[marker]
+
+        assert False, "NOTREACHED"
     # end _calculate_group_type
 
 
@@ -824,7 +808,7 @@ class cf_members(object):
         account = Factory.get("Account")(self.db)
         result = dict()
         for row in account.list_names(self.const.account_namespace):
-            result[row["entity_id"]] = row["entity_name"]
+            result[row["entity_id"]] = row["entity_name"] + "@hiof.no"
         return result
     # end account_mapping
 
@@ -862,14 +846,15 @@ class cf_members(object):
                                                  type=addr_type)
                 if len(addr) == 1:
                     addr = addr[0]
-                    return {"pobox": remap(addr["p_o_box"]),
+                    return {# "pobox": remap(addr["p_o_box"]),
                             # FIXME: IMS limits this field to 128 chars. This
                             # should be enforced and split into multiple <=128
                             # char chunks.
-                            "street": remap(addr["address_text"]),
-                            "locality": remap(addr["city"]),
-                            "pcode": remap(addr["postal_number"]),
-                            "country": remap(addr["country"])}
+                            # "street": remap(addr["address_text"]),
+                            # "pcode": remap(addr["postal_number"]),
+                            # "country": remap(addr["country"]),
+                            # hiof requests city part only.
+                            "locality": remap(addr["city"]),}
     # end person2address
 
 
@@ -885,7 +870,7 @@ class cf_members(object):
             - first       (account owner's first name)
             - family      (account owner's last name)
             - email       (email address associated with account)
-            - user        (uname)
+            - user        (uname@hiof.no)
             - imap-server (imap server associated for email)
             - address     (a dict representing account owner's address)
             - mobile      (account owner's mobile phone number)
@@ -950,7 +935,7 @@ class cf_members(object):
                 "first": first_name,
                 "family": family_name,
                 "email": email_address,
-                "user": uname, 
+                "user": uname + "@hiof.no",
                 "imap-server": self.email2mail_server(email_address),
                 "address": self.person2address(person_id),
                 "mobile": person_id2phone.get(person_id)
@@ -1069,8 +1054,10 @@ def output_id(id_data, printer):
 
 def output_person_auth(data, printer):
     # "ldap1:" - ldap authentication (1 is probably the server number)
+    # "1" for pwencryptiontype means md5
+    # "5"                      means authentication via ldap
     printer.dataElement("userid", data["user"],
-                        {"password": "ldap1:", "pwencryptiontype": "1",})
+                        {"password": "ldap1:", "pwencryptiontype": "5",})
 # end output_person_auth
 
 
@@ -1159,6 +1146,7 @@ def output_people(db, tree, printer):
             if member_id in processed:
                 continue
 
+            processed.add(member_id)
             xml_data = member_info.get(member_id)
             if xml_data is None:
                 logger.warn("No data about account_id=%s", member_id)
@@ -1223,7 +1211,7 @@ def output_user_membership(group, members, printer):
         output_id(member, printer)
         # 1 = person, 2 = group
         printer.dataElement("idtype", "1")
-        printer.startElement("role", {"recstatus": STATUS_UPDATE,
+        printer.startElement("role", {"recstatus": STATUS_ADD,
                                       # FIXME: This should be expressed via
                                       # cf_permission, since a specific user
                                       # within a group may have a different
@@ -1269,7 +1257,7 @@ def output_viewcontacts(target, permission_holders, printer):
         output_id(gm.cf_id(), printer)
         # 1 = person, 2 = group
         printer.dataElement("idtype", "2")
-        printer.startElement("role", {"recstatus": STATUS_UPDATE})
+        printer.startElement("role", {"recstatus": STATUS_ADD})
         # 0 = inactive member, 1 = active member
         printer.dataElement("status", "1")
         printer.startElement("extension")
@@ -1396,7 +1384,7 @@ def output_node_permissions(cf_group, local_permissions,
         output_id(permission.holder().cf_id(), printer)
         # 1 = person, 2 = group
         printer.dataElement("idtype", "2")
-        printer.startElement("role", {"recstatus": STATUS_UPDATE,
+        printer.startElement("role", {"recstatus": STATUS_ADD,
                                       "roletype": permission.access_type(),})
         # FIXME: what about <extension><memberof type="??"></extension> ?
         # 0 = inactive, 1 = active member
