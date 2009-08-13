@@ -250,6 +250,38 @@ class HiOfUndervisning(access_FS.Undervisning):
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
 
+    def list_studenter_alle_kull(self):
+        """Hent alle studenter fordelt på kull.
+
+        Dette er noe annet enn alle studenter fordelt på kullklasser. En
+        student kan gjerne være meldt opp i et kull, uten å være tilordnet en
+        kullklasse (hos hiof er mesteparten av kullstudentene ikke med i en
+        kullklasse).
+        """
+
+        query = """
+        SELECT DISTINCT
+            sps.fodselsdato, sps.personnr,
+            sps.studieprogramkode, sps.terminkode_kull as terminkode,
+            sps.arstall_kull as arstall
+        FROM
+            fs.studieprogramstudent sps,
+            fs.kull k
+        WHERE
+            /*
+             * vi vil ha studenter knyttet til aktive kull. resten er
+             * uinteressant.
+             */
+            sps.studieprogramkode = k.studieprogramkode AND
+            sps.terminkode_kull = k.terminkode AND
+            sps.arstall_kull = k.arstall AND
+            k.status_aktiv = 'J'
+        """
+
+        return self.db.query(query)
+    # end list_studenter_alle_kull
+    
+
 
 class HiOfStudieInfo(access_FS.StudieInfo):
 

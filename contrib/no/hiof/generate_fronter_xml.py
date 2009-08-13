@@ -335,14 +335,30 @@ class cf_group_interface(object):
         parent_components = parent_id.split(":")
 
         if "klasse" in parent_components:
-            return "Rom for kull %s %s, klasse %s" % (
+            return "Rom for kull %s %s %s, klasse %s" % (
+                    parent_components[-6],
                     parent_components[-3],
                     parent_components[-4],
                     parent_components[-1])
-        elif "kull" in parent_components:
+
+        if "kull" in parent_components:
+            # fellesrom is for student-kull group's parent only ...
+            if self.cf_group_type() == "student-kull":
+                return "Rom for kull %s %s %s" % (
+                    parent_components[-4],
+                    parent_components[-1],
+                    parent_components[-2],)
+
+            # 2 possibilities here -- self is either a ROOM or a group with a
+            # kull role holder. In all cases the parent is the same - kull
+            # corridor. In either case the parent's name is deduced similarily.
+            # 
             idx = parent_components.index("kull")
-            return "Kull %s %s" % (parent_components[idx+2],
-                                   parent_components[idx+1])
+            return "Kull %s %s %s" % (
+                parent_components[idx-1], # stprog
+                parent_components[idx+2], # terminkode
+                parent_components[idx+1]) # arstall
+
         elif "studieprogram" in parent_components:
             idx = parent_components.index("studieprogram")
             return "Studieprogram %s" % parent_components[idx+1].upper()
@@ -480,6 +496,9 @@ class cf_structure_group(cf_group_interface):
             # kullklasse
             if "klasse" in components:
                 result = ["STRUCTURE",] + components[1:-2]
+            # kull, fellesrom
+            elif "kull" in components:
+                result = ["STRUCTURE",] + components[1:]
             # The guesswork below is potentially incorrect (i.e. it will be
             # incorrect for multisemester undenh/undakt. However, the
             # proper remapping happens elsewhere, and this just captures the
@@ -577,7 +596,8 @@ class cf_member_group(cf_group_interface):
                    # FS role groups
     valid_types = ("stprog", "kull", "kullklasse", "undenh", "undakt",
                    # FS student groups
-                   "student-undenh", "student-undakt", "student-kullklasse",)
+                   "student-undenh", "student-undakt",
+                   "student-kull", "student-kullklasse",)
 
     def __init__(self, group):
         super(cf_member_group, self).__init__()
@@ -635,6 +655,7 @@ class cf_member_group(cf_group_interface):
         group_type2cf_structure_fixup = {
             "student-undenh":     ("ROOM", -1), 
             "student-undakt":     ("ROOM", -1),
+            "student-kull":       ("ROOM", -1),
             "student-kullklasse": ("ROOM", -1),
             "undenh":             ("ROOM", -2),
             "undakt":             ("ROOM", -2),
@@ -707,9 +728,17 @@ class cf_member_group(cf_group_interface):
             "undakt": cf_permission.ROLE_DELETE,
         }
 
+        all_change = {
+            "stprog": cf_permission.ROLE_CHANGE,
+            "kull": cf_permission.ROLE_CHANGE,
+            "kullklasse": cf_permission.ROLE_CHANGE,
+            "undenh": cf_permission.ROLE_CHANGE,
+            "undakt": cf_permission.ROLE_CHANGE,
+        }
+
         role_code2permission = {
             "assistent":   all_read,
-            "hovedlærer":  all_write,
+            "hovedlærer":  all_change,
             "kursansv":    all_write,
             "lærer":       all_write,
             "kontakt":     all_read,
@@ -727,7 +756,7 @@ class cf_member_group(cf_group_interface):
             recursive = True
 
         if self.cf_group_type() in ("student-undenh", "student-undakt",
-                                    "student-kullklasse",):
+                                    "student-kullklasse", "student-kull",):
             # students have WRITE
             access_type = cf_permission.ROLE_WRITE
         elif self.cf_group_type() in ("undenh", "undakt", "kullklasse",
@@ -758,7 +787,9 @@ class cf_member_group(cf_group_interface):
 
         components = self.cf_id().split(":")
         if "student" in components:
-            for marker in ("undenh", "undakt", "klasse",):
+            # don't reshuffle the list (the tests have to be performed in a
+            # specific order)
+            for marker in ("undenh", "undakt", "klasse", "kull",):
                 if marker in components:
                     return "student-" + suffix_map[marker]
             assert False, "This is impossible - no type for %s" % self.cf_id()
@@ -1169,7 +1200,7 @@ def output_group_element(cf_group, printer, member_group_owner):
     printer.endElement("grouptype")
     printer.startElement("description")
     if len(cf_group.cf_title()) > 60:
-        printer.emptyTag("short")
+        printer.emptyElement("short")
         printer.dataElement("long", cf_group.cf_title())
     else:
         printer.dataElement("short", cf_group.cf_title())
@@ -1288,7 +1319,8 @@ def process_viewcontacts_permissions(cf_group, local_permissions,
     # isinstance(x.holder(), cf_member_group) for x in permissions MUST BE
     # True. 
     #
-    student_tags = ("student-undenh", "student-undakt", "student-kullklasse",)
+    student_tags = ("student-undenh", "student-undakt",
+                    "student-kullklasse", "student-kull",)
     local_member_groups = set(cf_group.iterate_children(cf_member_group))
     local_nonstudents = set(x for x in local_member_groups
                             if x.cf_group_type() not in student_tags)
@@ -1348,7 +1380,7 @@ def process_viewcontacts_permissions(cf_group, local_permissions,
     # inherited permission holders. (i.e. local "LÆRER" will have viewContacts
     # on inherited "ADMIN")
     for g in inherited_permission_holders:
-        output_viewcontacts(g, local_nonstudents)
+        output_viewcontacts(g, local_nonstudents, printer)
         logger.debug("%s is an inherited permission group and %s local groups"
                      "have viewContact on it",
                      g.cf_id(), len(local_nonstudents))

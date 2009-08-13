@@ -86,6 +86,9 @@ class FSAttributeHandler(object):
         "student-undakt": ("institusjonsnr",
                            "emnekode", "versjonskode", "terminkode", "arstall",
                            "terminnr", "aktivitetkode", "avdeling",),
+        "student-kull": ("institusjonsnr",
+                         "studieprogramkode", "avdeling",
+                         "terminkode", "arstall",),
         "student-kullklasse": ("institusjonsnr",
                                "studieprogramkode", "avdeling",
                                "terminkode", "arstall", "klassekode",),
@@ -131,6 +134,11 @@ class FSAttributeHandler(object):
                           "undakt:%(emnekode)s:%(versjonskode)s:%(terminnr)s:"
                           "%(aktivitetkode)s:"
                           "student",
+        "student-kull":   "hiof.no:fs:"
+                          "%(institusjonsnr)s:%(avdeling)s:"
+                          "studieprogram:%(studieprogramkode)s:"
+                          "kull:%(arstall)s:%(terminkode)s:"
+                          "student",
         "student-kullklasse": "hiof.no:fs:"
                               "%(institusjonsnr)s:%(avdeling)s:"
                               "studieprogram:%(studieprogramkode)s:"
@@ -147,24 +155,45 @@ class FSAttributeHandler(object):
     # The integers are the indices from the key/group name that are
     # interpolated into the description.
     group_kind2description = {
-        "student-undakt": ("Studenter ved %s (versjon %s, %s. termin), aktivitet %s",
-                           ("emnekode", "versjonskode", "terminnr", "aktivitetkode")),
-        "student-undenh": ("Studenter ved %s (versjon %s, %s. termin)",
-                           ("emnekode", "versjonskode", "terminnr",)),
-        "student-kullklasse": ("Studenter på %s %s %s, klasse %s",
-                               ("studieprogramkode", "terminkode", "arstall", "klassekode")),
+        "student-undakt":
+          ("Studenter ved %s (%s %s, versjon %s, %s. termin), aktivitet %s",
+           ("emnekode", "terminkode", "arstall", "versjonskode", "terminnr",
+            "aktivitetkode")),
 
-        "undakt": ("%s for %s (versjon %s, %s. termin), aktivitet %s",
-                   ("rollekode", "emnekode", "versjonskode", "terminnr", "aktivitetkode")),
-        "undenh": ("%s for %s (versjon %s, %s. termin)",
-                   ("rollekode", "emnekode", "versjonskode", "terminnr")),
-        "kullklasse": ("%s for %s %s %s, klasse %s",
-                       ("rollekode", "studieprogramkode", "terminkode",
-                        "arstall", "klassekode")),
-        "kull": ("%s for %s %s %s",
-                 ("rollekode", "studieprogramkode", "terminkode", "arstall")),
-        "stprog": ("%s for %s",
-                   ("rollekode", "studieprogramkode",)),
+        "student-undenh":
+          ("Studenter ved %s (%s %s, versjon %s, %s. termin)",
+           ("emnekode", "terminkode", "arstall", "versjonskode", "terminnr",)),
+
+        "student-kull":
+          ("Studenter på %s %s %s",
+           ("studieprogramkode", "terminkode", "arstall",)),
+        
+        "student-kullklasse":
+          ("Studenter på %s %s %s, klasse %s",
+           ("studieprogramkode", "terminkode", "arstall", "klassekode")),
+        
+        "undakt":
+          ("%s for %s (%s %s, versjon %s, %s. termin), aktivitet %s",
+           ("rollekode", "emnekode", "terminkode", "arstall",
+            "versjonskode", "terminnr", "aktivitetkode")),
+        
+        "undenh":
+          ("%s for %s (%s %s, versjon %s, %s. termin)",
+           ("rollekode", "emnekode", "terminkode", "arstall",
+            "versjonskode", "terminnr")),
+        
+        "kullklasse":
+          ("%s for %s %s %s, klasse %s",
+           ("rollekode", "studieprogramkode", "terminkode", "arstall",
+            "klassekode")),
+        
+        "kull":
+          ("%s for %s %s %s",
+           ("rollekode", "studieprogramkode", "terminkode", "arstall")),
+        
+        "stprog":
+          ("%s for %s",
+           ("rollekode", "studieprogramkode",)),
     }
 
 
@@ -245,11 +274,7 @@ class FSAttributeHandler(object):
         """
 
         assert role_kind in self.valid_roles
-
-        # is stprog exportable?
-        if role_kind in ("stprog", "kull", "kullklasse", "undakt", "undenh"):
-            key = self._attributes2exportable_key(role_kind, role_attrs)
-
+        key = self._attributes2exportable_key(role_kind, role_attrs)
         return key in self._exportable_keys
     # end role_is_exportable
 
@@ -259,9 +284,9 @@ class FSAttributeHandler(object):
         """Much like L{role_is_exportable}, except this works for student info
         entries. 
 
-        Student info exists for undenh, undakt and kullklasse only. We don't
-        care about the rest (these are the student info tidbits that result in
-        room creation in CF).
+        Student info exists for undenh, undakt, kull and kullklasse only. We
+        don't care about the rest (these are the student info tidbits that
+        result in room creation in CF).
 
         @type edu_entry_kind: basestring
         @param edu_entry_kind:
@@ -274,7 +299,7 @@ class FSAttributeHandler(object):
           eligibility.
         """
 
-        valid_kinds = ("undenh", "undakt", "kullklasse")
+        valid_kinds = ("undenh", "undakt", "kull", "kullklasse")
         assert edu_entry_kind in valid_kinds
         key = self._attributes2exportable_key(edu_entry_kind, attrs)
         return key in self._exportable_keys
@@ -386,7 +411,8 @@ class FSAttributeHandler(object):
           L{attributes}. The ONLY legal values are:
 
             - 'stprog', 'kull', 'kullklasse', 'undenh', 'undakt'
-            - 'student-undenh', 'student-undakt', 'student-kullklasse'
+            - 'student-undenh', 'student-undakt', 'student-kullklasse',
+              'student-kull'
 
           Each kind has a different set of keys in attributes that MUST be
           present.
@@ -445,6 +471,8 @@ class FSAttributeHandler(object):
                 group_type = "student-undenh"
             elif "klasse" in fields:
                 group_type = "student-kullklasse"
+            elif "kull" in fields:
+                group_type = "student-kull"
             else:
                 assert False, "This cannot happen: %s" % group_key
         # role group
@@ -472,7 +500,7 @@ class FSAttributeHandler(object):
             # interesting case here is if a group for the same entity but a
             # different semester is registered in the FS data. In this case we
             # grab the earliest of the entries. This multisemester hackery is
-            # the only reason we store tuples in _group_name2description.
+            # the only reason we store *tuples* in _group_name2description.
             if ("terminnr" not in attrs or "arstall" not in attrs):
                 return
 
@@ -715,11 +743,12 @@ def collect_student_info(edu_info_file, fs_handler):
 
     result = dict()
     
-    # FIXME: it's silly to iterate the same file thrice.
+    # FIXME: it's silly to iterate the same file multiple times
     #
     for (xml_tag, edu_info_type) in (("undenh", "student-undenh"),
                                      ("undakt", "student-undakt"),
-                                     ("kullklasse", "student-kullklasse"),):
+                                     ("kullklasse", "student-kullklasse"),
+                                     ("kull", "student-kull")):
         logger.debug("Processing <%s> elements", xml_tag)
         for entry in EduGenericIterator(edu_info_file, xml_tag):
             attrs = fs_handler.fixup_attributes(entry)

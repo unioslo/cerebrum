@@ -57,6 +57,7 @@ def write_edu_info(outfile):
       - undenh
       - undakt
       - kullklasser
+      - kull
     """
 
     logger.info("Writing edu info for all students")
@@ -64,11 +65,11 @@ def write_edu_info(outfile):
     f.set_minimum_size_limit(0)
     f.write(xml.xml_hdr + "<data>\n")
 
-    for triple in (("undenh", None, fs.undervisning.list_studenter_alle_undenh),
-                   ("undakt", None, fs.undervisning.list_studenter_alle_undakt),
-                   ("kullklasse", None,
-                    fs.undervisning.list_studenter_alle_kullklasser),):
-        xml_tag, fields, generator = triple
+    for xml_tag, generator in (
+        ("undenh", fs.undervisning.list_studenter_alle_undenh),
+        ("undakt", fs.undervisning.list_studenter_alle_undakt),
+        ("kullklasse", fs.undervisning.list_studenter_alle_kullklasser),
+        ("kull", fs.undervisning.list_studenter_alle_kull)):
         logger.debug("Processing %s entries", xml_tag)
         for row in generator():
             keys = row.keys()
