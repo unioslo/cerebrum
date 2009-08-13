@@ -266,6 +266,7 @@ NOTES_SERVER_HOST = 'devel01.uio.no'
 NOTES_SERVER_PORT = 2000
 NOTES_PASSWORD = 'test\n'
 NOTES_DEFAULT_OU = 'andre'
+NOTES_OU_SUFFIX = []
 
 #UA spesific variables
 UA_FTP_HOST = 'uaftp.uio.no'

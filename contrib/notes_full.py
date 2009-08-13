@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 #
 # Copyright 2009 University of Oslo, Norway
 #
@@ -27,10 +27,10 @@ and compare. This script will create new notes accounts, perform name
 or OU changes or delete notes accounts depending on the differences.
 """
 
-
 import getopt
 import sys
 import cerebrum_path
+import cereconf
 from Cerebrum.modules import NotesUtils
 from Cerebrum.Utils import Factory
 
@@ -132,8 +132,6 @@ def read_from_notes():
         if user in userdict:
             logger.warn("User exists multiple times in domino: %r " % user)
         else:
-            if fullname.startswith('CN='):
-                fullname = fullname[3:]
             userdict[user] = fullname.strip()
     sock.close()
     logger.info("Got %d users from notes" % len(userdict))
@@ -160,15 +158,24 @@ def compare_users(notesdata, cerebrumdata):
             create_notes_user(sock, user)
         else:
             notes_name, notes_ou_path = notesdata[user['uname']].split('/', 1)
-            cere_ou_path = "%s/UIO" % user['ou_path'].upper()
+            # Compare name
             if notes_name != user['fullname']:
                 logger.info("%s: new name '%s', current '%s'",
                             user['uname'], user['fullname'], notes_name)
                 rename_notes_user(sock, user)
-            if notes_ou_path != cere_ou_path:
-                logger.info("%s: new OU path '%s', current '%s'",
-                            user['uname'], cere_ou_path, notes_ou_path)
-                move_notes_user(sock, user)
+            # Compare OU
+            cere_ou_path = user['ou_path'].rstrip('/')
+            notes_ou_path = ou_clean(notes_ou_path)
+            if not cere_ou_path == notes_ou_path:
+                # If only case differs don't move user
+                if cere_ou_path.upper() == notes_ou_path.upper():
+                    logger.warn("Only case differs. Not moving user. " +
+                                "Cerebrum OU: %s, Notes OU: %s" %
+                                (cere_ou_path, notes_ou_path))
+                else:
+                    logger.info("%s: new OU path '%s', current '%s'",
+                                user['uname'], cere_ou_path, notes_ou_path)
+                    move_notes_user(sock, user)
             # Everything is OK or taken care of
             del notesdata[user['uname']]
     # The remaining entries in notesdata should not exist in Notes
@@ -178,6 +185,20 @@ def compare_users(notesdata, cerebrumdata):
     ##
     # delete_notes_users(sock, notesdata)
     sock.close()
+
+
+def ou_clean(ou_path):
+    # Strip away trailing /
+    ou_path = ou_path.rstrip('/')
+    # Strip away any leading CN=
+    ou_path = ou_path.split("CN=")[-1]
+    # Strip ou suffix from notes_path
+    for ou_suffix in cereconf.NOTES_OU_SUFFIX:
+        ou_path = ou_path.rstrip('/')
+        if ou_path.endswith(ou_suffix):
+            ou_path = ou_path[:-len(ou_suffix)-1]
+            break
+    return ou_path
 
 
 class NotesException(Exception):
@@ -197,6 +218,8 @@ def notes_cmd(sock, cmd, dryrun=False):
     @return: The response is returned as a tuple consisting of the
     response code and an array of the lines.
     """
+    ## TODO: We send text encoded as utf-8, recieves cp850 and encode
+    ## that to latin-1. This needs to be sorted out.
     if dryrun:
         logger.debug("Notes command: '%s'", cmd)
         return ("200", ["dryrun mode"])
