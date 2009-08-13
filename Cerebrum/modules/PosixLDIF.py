@@ -402,7 +402,33 @@ class PosixLDIF(object):
                 memgrp.append(LDIFutils.iso2utf(name))
             else:
                 self.get_netgrp(triples, memgrp)
-    # end get_netgrp
 
-# end class PosixLDIF
 
+class PosixLDIFRadius(PosixLDIF):
+    """General mixin for Radius type attributes."""
+
+    def auth_methods(self, auth_meth= None):
+	# Also fetch NT password, for attribute sambaNTPassword.
+	meth = self.__super.auth_methods(auth_meth)
+	meth.append(int(self.const.auth_type_md4_nt))
+	return meth
+
+    def update_user_entry(self, account_id, entry, row):
+        # sambaNTPassword (used by FreeRadius)
+        try:
+            hash = self.auth_data[account_id][int(self.const.auth_type_md4_nt)]
+        except KeyError:
+            pass
+        else:
+            skip = False
+            if self.quarantines.has_key(account_id):
+                qh = QuarantineHandler(self.db, self.quarantines[account_id])
+                if qh.should_skip() or qh.is_locked():
+                    skip = True
+            if not skip:
+                entry['sambaNTPassword'] = (hash,)
+                # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
+                entry['objectClass'].append('sambaSamAccount')
+                entry['sambaSID'] = entry['uidNumber']
+                added = True
+        return self.__super.update_user_entry(account_id,entry, row)

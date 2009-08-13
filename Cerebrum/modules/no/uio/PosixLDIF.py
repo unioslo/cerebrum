@@ -40,12 +40,6 @@ class PosixLDIF_UiOMixin(PosixLDIF):
 	    else:
 		account_aff[account_id] = [val]
 
-    def auth_methods(self, auth_meth= None):
-	# Also fetch NT password, for attribute sambaNTPassword.
-	meth = self.__super.auth_methods(auth_meth)
-	meth.append(int(self.const.auth_type_md4_nt))
-	return meth
-
     def id2stedkode(self, ou_id):
 	try:
 	    return self.steder[ou_id]
@@ -80,24 +74,6 @@ class PosixLDIF_UiOMixin(PosixLDIF):
             entry['uioAffiliation'] = affs
             entry['uioPrimaryAffiliation'] = (affs[0],)
             added = True
-
-	# sambaNTPassword (used by FreeRadius)
-	try:
-	    hash = self.auth_data[account_id][int(self.const.auth_type_md4_nt)]
-	except KeyError:
-	    pass
-	else:
-            skip = False
-            if self.quarantines.has_key(account_id):
-                qh = QuarantineHandler(self.db, self.quarantines[account_id])
-                if qh.should_skip() or qh.is_locked():
-                    skip = True
-            if not skip:
-                entry['sambaNTPassword'] = (hash,)
-                # TODO: Remove sambaSamAccount and sambaSID after Radius-testing
-                entry['objectClass'].append('sambaSamAccount')
-                entry['sambaSID'] = entry['uidNumber']
-                added = True
 
 	# Object class which allows the additional attributes
 	if added:
