@@ -95,29 +95,34 @@ class Fronter(object):
                    'STOL', 'BORGTF', 'BORGRESS')
 
         for s in schools:
-            tmp = {'title': s + ' vgs - klasser samlet',
+            tmp = {'title': s + ' Kontaktlærere',
                    'group_id': s + 'Students',
-                   'parent_id': s + 'Groups'}
+                   'parent_id': s + 'Groups',
+                   'typeval': 'KONTAKTGRUPPER'}
             ret.append(tmp)
         for s in schools:
             tmp = {'title': s + ' Faggrupper',
                    'group_id': s + 'faggrupper',
-                   'parent_id': s + 'Groups'}
+                   'parent_id': s + 'Groups',
+                   'typeval': 'FAGGRUPPER'}
             ret.append(tmp)
         for s in schools:
             tmp = {'title': 'Alle elever' + ' ' + s,
                    'group_id': s + 'all_students',
-                   'parent_id': s + 'Groups'}
+                   'parent_id': s + 'Groups',
+                   'typeval': ''}
             ret.append(tmp)
         for s in schools:
             tmp = {'title': 'Ansatte' + ' ' + s,
                    'group_id': s + 'Employees',
-                   'parent_id': s + 'Groups'}
+                   'parent_id': s + 'Groups',
+                   'typeval': ''}
             ret.append(tmp)
         for s in schools:
             tmp = {'title': 'Tilknyttede' + ' ' + s,
                    'group_id': s + 'Affiliates',
-                   'parent_id': s + 'Groups'}
+                   'parent_id': s + 'Groups',
+                   'typeval': ''}
             ret.append(tmp)                        
         return ret
 
@@ -128,23 +133,35 @@ class Fronter(object):
                    'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
                    'STOL', 'BORGTF', 'BORGRESS')
         for s in schools:
-            tmp = {'title': s + ' vgs - standardgrupper',
+            tmp = {'title': '06 Importerte Grupper',
                    'group_id': s + 'Groups', 
-                   'parent_id': s}
+                   'parent_id': s,
+                   'typeval': ""}
             ret.append(tmp)
         return ret
     
     def std_school_nodes(self):
         ret = []
         title = group_id = parent_id = ""
-        schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
-                   'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-                   'STOL', 'BORGTF', 'BORGRESS')
+        schools = {'ASKI': 'Askim videregående skole',
+                   'BORG': 'Borg videregående skole',
+                   'FRED': 'Fredrik II videregående skole',
+                   'GLEM': 'Glemmen videregående skole',
+                   'GREA': 'Greåker videregående skole',
+                   'HALD': 'Halden videregående skole',
+                   'KALN': 'Kalnes videregående skole',
+                   'KIRK': 'Kirkeparken videregående skole',
+                   'MALA': 'Malakoff videregående skole',
+                   'MYSE': 'Mysen videregående skole',
+                   'STOL': 'St. Olav videregående skole',
+                   'BORGTF': 'Østfold fagskole',
+                   'BORGRESS': 'Sarpsborg ressurs, Borg videregående skole'}
 
-        for s in schools:
-            tmp = {'title': s + ' vgs',
+        for s in schools.keys():
+            tmp = {'title': schools[s],
                    'group_id': s,
-                   'parent_id': 'root'}
+                   'parent_id': 'root',
+                   'typeval': 'SKOLE'}
             ret.append(tmp)
         return ret    
     
@@ -173,6 +190,12 @@ class Fronter(object):
             school, year, tmp_name = nk.split(':', 2)
             if tmp_name == "":
                 logger.warn("Invalid name for group (%s):%s" % (fk, school))
+                continue
+            if fk == 'GRP_ID_FGOM':
+                logger.debug("Skipping, group %s not relevant for Fronter", tmp_name)
+                continue
+            if re.search('pupil', tmp_name) or re.search('employee', tmp_name):
+                logger.debug("Pupil/employee group (%s):%s, skipping", fk, school)
                 continue
             write_name = school + ':' + tmp_name
             tmp = {'g_type': fk,
@@ -249,6 +272,8 @@ class FronterXML(object):
         self.xml.emptyTag('systemrole',
                           {'systemroletype':
                            fronter.useraccess(data['USERACCESS'])})
+        self.xml.emptyTag('institutionrole',
+                          {'institutionroletype': data['INSTROLETYPE']})
         self.xml.endTag('person')
 
     def group_to_XML(self, id, recstatus, data, type):
@@ -260,7 +285,7 @@ class FronterXML(object):
         self.xml.endTag('sourcedid')
         self.xml.startTag('grouptype')
         self.xml.dataElement('scheme', 'FronterStructure1.0')
-        self.xml.emptyTag('typevalue', {'level': type})
+        self.xml.dataElement('typevalue', data['typeval'], {'level': type})
         self.xml.endTag('grouptype')
         self.xml.startTag('description')
         description = data.get("description", data["title"])
@@ -297,6 +322,7 @@ class FronterXML(object):
             self.xml.startTag('role', {'recstatus': recstatus,
                                        'roletype': Fronter.ROLE_READ})
             self.xml.dataElement('status', '1')
+            self.xml.dataElement('subrole', '0')
             self.xml.startTag('extension')
             # Member of group, not room.
             self.xml.emptyTag('memberof', {'type': 1})
@@ -414,7 +440,6 @@ def list_users_for_fronter_export():
     email_addr = ""
     account = Factory.get("Account")(db)
     person = Factory.get("Person")(db)
-    constants = Factory.get("Constants")(db)
     for row in account.list_all_with_spread(const.spread_lms_acc):
         account.clear()
         account.find(row['entity_id'])
@@ -425,10 +450,16 @@ def list_users_for_fronter_export():
             email_addr = "N/A"
         person.clear()
         person.find(account.owner_id)
-        pwd = account.get_account_authentication(constants.auth_type_md5_unsalt)
+        pwd = account.get_account_authentication(const.auth_type_md5_unsalt)
+        roletype = 'Student'
+        for a in person.get_affiliations():
+            if a['affiliation'] == int(const.affiliation_ansatt) or \
+               a['affiliation'] == int(const.affiliation_tilknyttet):
+                roletype = 'Staff'
         tmp = {'email': email_addr,
                'uname': account.account_name,
                'fullname': person.get_name(const.system_cached, const.name_full),
+               'roletype': roletype,
                'pwd': pwd}
         ret.append(tmp)
     return ret
@@ -446,7 +477,8 @@ def get_new_users():
                        'GIVEN': " ".join(names),
                        'EMAIL': user['email'],
                        'USERACCESS': 0,
-                       'PASSWORD': 'ldap:dummy' #% user['pwd'],
+                       'PASSWORD': 'ldap:dummy', #% user['pwd'],
+                       'INSTROLETYPE': user['roletype']
                        }
 
         if 'All_users' in fronter.export:
@@ -511,7 +543,7 @@ def update_elev_ans_groups():
             fnr = person.get_external_id(source_system=const.system_ekstens,
                                          id_type=const.externalid_fodselsnr)
             ret.append({'group_id': tilk_group_id,
-                        'member_id': fnr[0][2]})            
+                        'member_id': fnr[0][2]})
         
     return ret
             
@@ -520,21 +552,28 @@ def register_group(type, title):
     """Adds info in new_group about group."""
     parent_id = group_id = ""
     pid, rest = title.split(':', 1)
+    grp_type_val_lev = ""
     if type == 'GRP_ID_KLID':
         parent_id = pid + 'Students'
+        grp_type_val_lev = "KONTAKTGRUPPE"
     elif type == 'GRP_ID_FGID':
-        parent_id = pid + 'faggrupper'            
+        parent_id = pid + 'faggrupper'
+        grp_type_val_lev = "FAGGRUPPE"
+#    elif type == 'GRP_ID_FGOM':
+#        logger.debug("Skipping, group %s not relevant for Fronter", rest)
     group_id = pid + rest
     new_group[group_id] = {'title': rest,
                            'parent': parent_id,
                            # IVR 2008-10-24 At Jan Roar Skaar's request
                            'description': title,
+                           'typeval': grp_type_val_lev
                            }
 
 new_school_nodes = {}
-def register_school_nodes(title, group_id, parent_id):
+def register_school_nodes(title, group_id, parent_id, typeval):
     new_school_nodes[group_id] = {'title': title,
-                                  'parent': parent_id}
+                                  'parent': parent_id,
+                                  'typeval': typeval}
 def usage(exitcode):
     print "Usage: generate_fronter_full.py OUTPUT_FILENAME"
     sys.exit(exitcode)
@@ -562,11 +601,11 @@ def main():
             logger.warn("Could not find extid for %s", uname)
 
     for n in fronter.s_nodes:
-        register_school_nodes(n['title'], n['group_id'], n['parent_id'])
+        register_school_nodes(n['title'], n['group_id'], n['parent_id'], n['typeval'])
     for s in fronter.std_grp_nodes:
-        register_school_nodes(s['title'], s['group_id'], s['parent_id'])
+        register_school_nodes(s['title'], s['group_id'], s['parent_id'], s['typeval'])
     for k in fronter.std_f_e_nodes:
-        register_school_nodes(k['title'], k['group_id'], k['parent_id'])
+        register_school_nodes(k['title'], k['group_id'], k['parent_id'], k['typeval'])
 
     logger.debug("preloading entity names...")
     entity2name = dict((x["entity_id"], x["entity_name"]) for x in 
@@ -602,22 +641,38 @@ def main():
                 logger.warn("Could not find fnr for %s", member_name)
 
     all_users_dat = {'title': 'All_users',
-                     'parent': 'root'}
+                     'parent': 'root',
+                     'typeval': 'ALLE'}
     fxml.group_to_XML('All_users', fronter.STATUS_ADD, all_users_dat, 2)
 
+    # trying to sort the xml-file as the fronters import machinery requires sorted XML
+    for gname, data in new_school_nodes.iteritems():
+        if re.search('all_students', gname) or re.search('Employees', gname) or re.search('Affiliates', gname) \
+               or re.search("faggrupper", gname) or re.search("Students", gname) \
+               or re.search("Groups", gname):
+            continue
+        else:
+            fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
+
+    for gname, data in new_school_nodes.iteritems():
+        if re.search('Groups', gname):
+            fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
+
+    for gname, data in new_school_nodes.iteritems():
+        if re.search('Students', gname) or re.search('faggrupper', gname):
+            fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
+            
     for gname, data in new_school_nodes.iteritems():
         if re.search('all_students', gname) or re.search('Employees', gname) or re.search('Affiliates', gname):
             fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 2)
-        else:
-            fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
-        
+
     for gname, data in new_group.iteritems():
         fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 2)
 
     for e in elev_ans_grupper:
         new_groupmembers.setdefault(e['group_id'],
                                     {})[e['member_id']] = 1
-        
+
     for gname, members_as_dict in new_groupmembers.iteritems():
         fxml.personmembers_to_XML(gname, fronter.STATUS_UPDATE,
                                   members_as_dict.keys())
