@@ -42,7 +42,8 @@ from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
-from Cerebrum.modules.bofhd.auth import BofhdAuth
+from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet
+from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
 from mx import DateTime
@@ -59,6 +60,7 @@ class BofhdExtension(object):
     Group_class = Factory.get('Group')
     external_id_mappings = {}
     all_commands = {}
+    hidden_commands = {}
 
     copy_commands = (
         #
@@ -170,6 +172,17 @@ class BofhdExtension(object):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
             if func[0] != '_' and func not in non_all_cmds:
                 BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
+
+        #
+        # Importing hidden_commands for Brukerinfo. 
+        # TODO: This is quick, dirty, bad and ugly.
+        BofhdExtension.hidden_commands = UiOBofhdExtension.hidden_commands.copy()
+
+        for func in UiOBofhdExtension.hidden_commands:
+            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
+            BofhdExtension.hidden_commands[func] = UiOBofhdExtension.hidden_commands[func]
+        #print BofhdExtension.hidden_commands
+
         x = object.__new__(cls)
         return x
 
@@ -250,7 +263,7 @@ class BofhdExtension(object):
         # this is implemented below.
 
         op_set = BofhdAuthOpSet(self.db)
-        op_set.find_by_name('Group-owner')
+        op_set.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
 
         baot = BofhdAuthOpTarget(self.db)
         targets = baot.list(entity_id=group.entity_id)

@@ -664,7 +664,7 @@ class BofhdAuth(DatabaseAccessor):
         moderated/administered by L{operator}.
 
         'Moderated' in this context is equivalent with auth_operation_set
-        'Group-owner'. This is hardwired.
+        defined in cereconf: BOFHD_AUTH_GROUPMODERATOR.
 
         @param operator:
           The account on behalf of which the query is to be executed.
@@ -682,7 +682,8 @@ class BofhdAuth(DatabaseAccessor):
 
         operator_id = int(operator)
         opset = BofhdAuthOpSet(self._db)
-        opset.find_by_name("Group-owner")
+        opset.find_by_name(cereconf.BOFHD_AUTH_GROUPMODERATOR)
+                    #bofhd_auth_groupmoderator
 
         sql = """
         SELECT aot.entity_id
