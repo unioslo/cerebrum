@@ -12,7 +12,7 @@ def main():
     config.parse_args()
 
     try:
-        s = sync.Sync(incr=False)
+        s = sync.Sync()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
         exit(1)
@@ -20,13 +20,13 @@ def main():
         log.error(str(e))
         exit(1)
 
-    aliases = filebackend.AliasFile(filename=config.get("file", "aliases"))
+    aliases = filebackend.Alias()
     
     log.debug("Syncronizing aliases")
     aliases.begin(False)
 
     try:
-        for alias in s.view.get_aliases():
+        for alias in s.get_aliases():
             log.debug("Processing account '%s@%s'", alias.local_part, alias.domain)
             aliases.add(alias)
     except IOError,e:

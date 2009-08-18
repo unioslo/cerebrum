@@ -35,7 +35,6 @@ def main():
     log.debug("spread is: %s" , config.get("sync","account_spread"))
 
     incr = False
-    id = -1
 
     acclist = []
     grouplist = []
@@ -48,15 +47,12 @@ def main():
     log.debug("Creating sync object")
 
     try:
-        s = sync.Sync(incr, id, hashtypes[0])
+        s = sync.Sync()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
         sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
-        sys.exit(255)
-    except omniORB.CORBA.TRANSIENT, e:
-        log.error("Server seems down. Error: %s",e)
         sys.exit(255)
     except IOError, e:
         log.error("IOError, shutting down. Error: %s", e)
@@ -67,8 +63,7 @@ def main():
     log.info("Fetching hashes for all accounts")
 
     for hashtype in hashtypes:
-        s.set_authtype(hashtype)
-        for acc in s.get_accounts():
+        for acc in s.get_accounts(auth_type=hashtype):
             if acc.passwd == None or acc.passwd == '':
                 log.warning("account %s mangler passordtype %s", 
                                acc.name, hashtype)
@@ -78,7 +73,6 @@ def main():
                 acclist.append(acc)
                 pwdict[acc.name] = { }
             pwdict[acc.name][hashtype] = acc.passwd
-    s.close()
 
     log.debug("Parsing and creating files")
 
@@ -100,7 +94,7 @@ def main():
         userhashes = (lmhash, ntlmhash)
         smbfile.add(account, hashes=userhashes )
 
-        if account.posix_uid >= 0:
+        if account.posix_uid is not None:
             accounts.add(account)
 
     smbfile.close()
