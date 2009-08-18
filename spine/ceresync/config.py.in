@@ -124,17 +124,17 @@ def apply_quarantine(obj, typestr):
     """
     for q in obj.quarantines:
         try:
-            a=_conf.get('%s_quarantenes' % typestr, q)
+            a=_conf.get('%s_quarantines' % typestr, q)
         except ConfigParser.NoOptionError:
             try:
-                a=_conf.get('%s_quarantenes' % typestr, "DEFAULT")
+                a=_conf.get('%s_quarantines' % typestr, "DEFAULT")
             except ConfigParser.NoOptionError:
                 return
         try:
             (var, val) = a.split('=')
             val=eval(val)  # ouch! but needed for strings/ints/etc
         except ValueError:
-            logger.error("Bad quarantene action \"%s\"" % a)
+            logger.error("Bad quarantine action \"%s\"" % a)
         logger.debug("%s has quarantine %s. Setting %s= %s", obj.name, 
                      q, var, val)
         setattr(obj, var, val)
