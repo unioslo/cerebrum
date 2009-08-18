@@ -28,6 +28,7 @@ FIXME: A FAQ entry for all the warn()/error() statements.
 import getopt
 import locale
 import os
+import re
 import sys
 
 
@@ -66,6 +67,7 @@ class FSAttributeHandler(object):
     # present in attributes. There may be other keys, but AT LEAST the ones
     # listed below must be present.
     group_kind2required_keys = {
+        "avdeling": ("institusjonsnr", "avdeling", "rollekode",),
         "stprog": ("institusjonsnr",
                    "studieprogramkode", "avdeling", "rollekode",),
         "kull": ("institusjonsnr",
@@ -100,6 +102,9 @@ class FSAttributeHandler(object):
     # below. The interpolated names are taken from the keys listed in
     # group_kind2required_keys.
     group_kind2name_template = {
+        "avdeling": "hiof.no:fs:"
+                    "%(institusjonsnr)s:%(avdeling)s:"
+                    "rolle:%(rollekode)s",
         "stprog": "hiof.no:fs:"
                   "%(institusjonsnr)s:%(avdeling)s:"
                   "studieprogram:%(studieprogramkode)s:rolle:%(rollekode)s",
@@ -154,15 +159,21 @@ class FSAttributeHandler(object):
     #
     # The integers are the indices from the key/group name that are
     # interpolated into the description.
+    #
+    # FIXME: generate_fronter_xml.py depends on the naming structure below. Do
+    # not change the templates without adjusting the code there
+    # (cf_parent_title). 
+    # 
     group_kind2description = {
         "student-undakt":
-          ("Studenter ved %s (%s %s, versjon %s, %s. termin), aktivitet %s",
-           ("emnekode", "terminkode", "arstall", "versjonskode", "terminnr",
-            "aktivitetkode")),
+          ("Studenter ved %s %s (%s %s, versjon %s, %s. termin), aktivitet %s",
+           ("emnekode", "emnenavn",
+            "terminkode", "arstall", "versjonskode", "terminnr", "aktivitetkode")),
 
         "student-undenh":
-          ("Studenter ved %s (%s %s, versjon %s, %s. termin)",
-           ("emnekode", "terminkode", "arstall", "versjonskode", "terminnr",)),
+          ("Studenter ved %s %s (%s %s, versjon %s, %s. termin)",
+           ("emnekode", "emnenavn",
+            "terminkode", "arstall", "versjonskode", "terminnr",)),
 
         "student-kull":
           ("Studenter på %s %s %s",
@@ -173,13 +184,13 @@ class FSAttributeHandler(object):
            ("studieprogramkode", "terminkode", "arstall", "klassekode")),
         
         "undakt":
-          ("%s for %s (%s %s, versjon %s, %s. termin), aktivitet %s",
-           ("rollekode", "emnekode", "terminkode", "arstall",
+          ("%s for %s %s (%s %s, versjon %s, %s. termin), aktivitet %s",
+           ("rollekode", "emnekode", "emnenavn", "terminkode", "arstall",
             "versjonskode", "terminnr", "aktivitetkode")),
         
         "undenh":
-          ("%s for %s (%s %s, versjon %s, %s. termin)",
-           ("rollekode", "emnekode", "terminkode", "arstall",
+          ("%s for %s %s (%s %s, versjon %s, %s. termin)",
+           ("rollekode", "emnekode", "emnenavn", "terminkode", "arstall",
             "versjonskode", "terminnr")),
         
         "kullklasse":
@@ -194,12 +205,16 @@ class FSAttributeHandler(object):
         "stprog":
           ("%s for %s",
            ("rollekode", "studieprogramkode",)),
+
+        "avdeling":
+          ("%s for %s", ("rollekode", "avdeling")),
     }
 
 
 
     # Interesting roles from FS. We ignore the rest
-    valid_roles = ('undakt', 'undenh', 'stprog', 'kull', 'kullklasse',)
+    valid_roles = ('undakt', 'undenh', 'stprog', 'kull', 'kullklasse',
+                   'avdeling',)
 
     # Interesting role codes from FS. We ignore the rest. Each valid role (see
     # above) has a code associated with it. In addition to this list, hiof
@@ -251,8 +266,31 @@ class FSAttributeHandler(object):
         # group_name is later used to derive structure names in CF (room and
         # corridor names).
         self._group_name2description = dict()
+
+        #
+        # mapping to make more human friendly group names
+        self.emnekode2human  = self._load_emne_names(undenh_file)
     # end __init__
 
+
+
+    def _load_emne_names(self, undenh_file):
+        """Slurp in the human-friendly names from undenh_file.
+        """
+
+        result = dict()
+        for entry in EduDataGetter(undenh_file, logger).iter_undenh():
+            if "emnenavn_bokmal" in entry:
+                name = entry["emnenavn_bokmal"]
+            elif "emnenavnfork" in entry:
+                name = entry["emnenavnfork"]
+            else:
+                name = ""
+                
+            result[lower(entry["emnekode"])] = name
+        return result
+    # end _load_emne_names
+    
 
 
     def role_is_exportable(self, role_kind, role_attrs):
@@ -325,9 +363,10 @@ class FSAttributeHandler(object):
 
         @param undakt_file: See L{__init_-}
 
-        @rtype: set (of basestring)
+        @rtype: set (of str)
         @return:
-           A set containing the keys for all exportable stprog/undenh/undakt.
+           A dict containing the keys for all exportable stprog/undenh/undakt
+           and the corresponding names. The latter is useful for group naming.
         """
 
         result = set()
@@ -344,11 +383,12 @@ class FSAttributeHandler(object):
                 key = self._attributes2exportable_key(entry_kind, attrs)
                 if attrs["status_eksport_lms"] == 'j':
                     result.add(key)
+
                 logger.debug("%s=%s is%sexportable",
                              entry_kind, key,
                              key in result and " " or " not ")
         return result
-    # end _stprog2avdeling
+    # end _load_exportable_keys
 
 
 
@@ -490,6 +530,8 @@ class FSAttributeHandler(object):
             # Must be tested for AFTER 'kull'
             elif "studieprogram" in fields:
                 group_type = "stprog"
+            elif len(fields) == 6:
+                group_type = "avdeling"
             else:
                 assert False, "This cannot happen: %s" % group_key
         else:
@@ -504,7 +546,6 @@ class FSAttributeHandler(object):
             if ("terminnr" not in attrs or "arstall" not in attrs):
                 return
 
-            logger.debug("Group key repeated: %s", group_key)
             previous = self._group_name2description[group_key][1]
             if (attrs["arstall"] < previous["arstall"] or 
                 (attrs["arstall"] == previous["arstall"] and
@@ -518,9 +559,13 @@ class FSAttributeHandler(object):
 
     def _calculate_description(self, group_kind, attrs):
         """Calculate group name from attrs"""
-        
+
+        original_case = set(("emnenavn",))
         template, keys = self.group_kind2description[group_kind]
-        description = template % tuple(attrs[x].upper() for x in keys)
+        interpolated_values = [x in original_case and attrs[x] or
+                                                      attrs[x].upper()
+                               for x in keys]
+        description = template % tuple(interpolated_values)
         return description
     # end _calculate_description
 
@@ -579,15 +624,7 @@ class FSAttributeHandler(object):
         @param attrs:
           Dictionary with values generated from elements in an XML file. These are
           the values we are supplementing.
-    
-        @param stprog2avd:
-          A dictionary mapping stprog codes to the corresponding departments
-          (avdeling).
-    
-        @param emne2avd:
-          A dictionary mapping emner (emnekoder) to the corresponding departments
-          (avdeling).
-    
+
         @return:
           Modified L{attributes} with a few additional keys. attributes is
           modified in place (and returned as welle.)
@@ -611,6 +648,13 @@ class FSAttributeHandler(object):
                             attrs["emnekode"])
             else:
                 attrs["avdeling"] = avdeling
+
+            emnekode = attrs["emnekode"]
+            if emnekode in self.emnekode2human:
+                attrs["emnenavn"] = self.emnekode2human[emnekode]
+            else:
+                logger.debug("Emnekode %s is missing a human name")
+                attrs["emnenavn"] = ""
     
         # Everything gets institusjonsnr, since it's needed for all keys.
         attrs["institusjonsnr"] = cereconf.DEFAULT_INSTITUSJONSNR
@@ -989,6 +1033,30 @@ def synchronize_groups(db, fs_groups):
 
 
 
+def exempt_from_sync(group_name):
+    """Decide if a group should be left alone by the synchronisation.
+
+    Unfortunately hiof has a number of groups that are kept up to date on a
+    manual basis. These groups have no basis in the FS data, and they would be
+    deleted by this job, unless something is done.
+
+    Therefore, all groups matching 'hiof.no:fs:224:xx0000:rolle:admin' will be
+    exempt from synchronisation.
+    """
+
+    components = group_name.split(":")
+    prefix = 'hiof.no:fs:%s' % cereconf.DEFAULT_INSTITUSJONSNR
+    if (group_name.startswith(prefix) and
+        re.search(r"^\d\d0000$", components[3]) and
+        components[-1] == "admin"):
+        logger.debug("Group '%s' is exempt from synchronisation", group_name)
+        return True
+
+    return False
+# end exempt_from_sync
+    
+
+
 def sync_file_with_database(db, groups_in_cerebrum, groups_in_fs):
     """Compare the data structures and write the differences to the database.
 
@@ -1003,6 +1071,9 @@ def sync_file_with_database(db, groups_in_cerebrum, groups_in_fs):
     """
 
     for group_name in groups_in_fs:
+        if exempt_from_sync(group_name):
+            continue
+        
         current_fs_set = groups_in_fs[group_name]
         current_cerebrum_set = groups_in_cerebrum.get(group_name, set())
 
@@ -1013,7 +1084,8 @@ def sync_file_with_database(db, groups_in_cerebrum, groups_in_fs):
     # Whatever remains in groups_in_cerebrum at *this* point has to be
     # removed, because there is no data basis in FS for these groups to exist.
     for group_name in groups_in_cerebrum:
-        nuke_cf_group(db, group_name)
+        if not exempt_from_sync(group_name):
+            nuke_cf_group(db, group_name)
 # end sync_file_with_database
 
 

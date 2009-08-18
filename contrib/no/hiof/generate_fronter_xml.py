@@ -32,6 +32,7 @@ The script works like this:
 import getopt
 import locale
 import mx.DateTime
+import re
 import sys
 from collections import deque
 
@@ -454,6 +455,61 @@ class cf_structure_group(cf_group_interface):
     # end cf_typevalue
 
 
+    def cf_is_kull_fellesrom(self):
+        """Is self fellesrom for a kull?"""
+
+        components = self.cf_id().split(":")
+        return (self.cf_group_type() == "ROOM" and 
+                "kull" in components and
+                "klasse" not in components)
+    # end cf_is_kullrom
+
+
+    def cf_is_kull_corridor(self):
+        """Is self a kull corridor?"""
+
+        components = self.cf_id().split(":")
+        return (self.cf_group_type() == "STRUCTURE" and
+                "kull" in components)
+    # end cf_is_kull_corridor
+    
+
+    def fixup_sibling_permissions(self):
+        """Propagate permissions from kullklasse roles to fellesrom for kull.
+
+        Those holdning role permissions on kullklasse room have the same
+        permission # set on kull room (fellesrommet for kullet)
+        """
+
+        if not self.cf_is_kull_corridor():
+            return
+
+        # Does self have fellesrom at all? (it ought to, but let's pretend we
+        # need to check this)
+        holders = set()
+        fellesrom = None
+        for child in self.iterate_children(cf_structure_group):
+
+            for permission in child.iterate_permissions():
+                if not permission.holder().cf_is_student_group():
+                    holders.add(permission.holder())
+
+            if child.cf_is_kull_fellesrom():
+                fellesrom = child
+
+        # if we have fellesrom, every group in 'holders' gets a permission on
+        # fellesrom.
+        if fellesrom is None:
+            return
+
+        # let's go
+        for holder in holders:
+            logger.debug("%s receives additional permissions from sibling %s",
+                         str(fellesrom), str(holder))
+            fellesrom.register_permissions(holder)
+    # end fixup_sibling_permissions
+
+
     def cf_template(self):
         assert self.cf_group_type() in self.valid_types
         if self.cf_group_type() == "ROOM":
@@ -590,11 +646,16 @@ class cf_structure_group(cf_group_interface):
 class cf_member_group(cf_group_interface):
     """A group holding members of a Cerebrum group for CF.
 
+    All cf_member_groups are 'associated' with a cf_structure_group and
+    cf_member_groups are meant to capture user members, whereas
+    cf_structure_group captures the overall structure group.
+
     This class deals with member management and storing member attributes to
     export to CF (unames, e-mails, etc)
     """
                    # FS role groups
     valid_types = ("stprog", "kull", "kullklasse", "undenh", "undakt",
+                   "avdeling",
                    # FS student groups
                    "student-undenh", "student-undakt",
                    "student-kull", "student-kullklasse",)
@@ -640,6 +701,13 @@ class cf_member_group(cf_group_interface):
     def cf_group_type(self):
         return self._group_type
 
+    def cf_is_student_group(self):
+        return self.cf_group_type() in ("student-undenh",
+                                        "student-undakt",
+                                        "student-kull",
+                                        "student-kullklasse",)
+    # end cf_is_student_group
+
 
     def cf_parent_id(self):
         """Calculate which *structure* group this member group corresponds to.
@@ -662,6 +730,7 @@ class cf_member_group(cf_group_interface):
             "kullklasse":         ("ROOM", -2),
             "kull":               ("STRUCTURE", -2),
             "stprog":             ("STRUCTURE", -2),
+            "avdeling":           ("STRUCTURE", -2),
         }
 
         member_group_type = self.cf_group_type()
@@ -710,6 +779,7 @@ class cf_member_group(cf_group_interface):
             "kullklasse": cf_permission.ROLE_READ,
             "undenh": cf_permission.ROLE_READ,
             "undakt": cf_permission.ROLE_READ,
+            "avdeling": cf_permission.ROLE_READ,
         }
 
         all_write = {
@@ -718,6 +788,7 @@ class cf_member_group(cf_group_interface):
             "kullklasse": cf_permission.ROLE_WRITE,
             "undenh": cf_permission.ROLE_WRITE,
             "undakt": cf_permission.ROLE_WRITE,
+            "avdeling": cf_permission.ROLE_WRITE,
         }
 
         all_delete = {
@@ -726,6 +797,7 @@ class cf_member_group(cf_group_interface):
             "kullklasse": cf_permission.ROLE_DELETE,
             "undenh": cf_permission.ROLE_DELETE,
             "undakt": cf_permission.ROLE_DELETE,
+            "avdeling": cf_permission.ROLE_DELETE,
         }
 
         all_change = {
@@ -734,6 +806,7 @@ class cf_member_group(cf_group_interface):
             "kullklasse": cf_permission.ROLE_CHANGE,
             "undenh": cf_permission.ROLE_CHANGE,
             "undakt": cf_permission.ROLE_CHANGE,
+            "avdeling": cf_permission.ROLE_CHANGE,
         }
 
         role_code2permission = {
@@ -746,21 +819,26 @@ class cf_member_group(cf_group_interface):
                              "kull": cf_permission.ROLE_READ,
                              "kullklasse": cf_permission.ROLE_READ,
                              "undenh": cf_permission.ROLE_WRITE,
-                             "undakt": cf_permission.ROLE_WRITE,},
+                             "undakt": cf_permission.ROLE_WRITE,
+                             "avdeling": cf_permission.ROLE_READ,},
             "admin":       all_delete,
         }
 
         access_type = None
         recursive = False
-        if self.cf_group_type() in ("stprog", "kull"):
+        if self.cf_group_type() in ("stprog", "kull", "avdeling"):
             recursive = True
 
         if self.cf_group_type() in ("student-undenh", "student-undakt",
                                     "student-kullklasse", "student-kull",):
-            # students have WRITE
-            access_type = cf_permission.ROLE_WRITE
+            # students have READ on kull's fellesrom...
+            if structure_group.cf_is_kull_fellesrom():
+                access_type= cf_permission.ROLE_READ
+            # ... and WRITE on everything else
+            else:
+                access_type = cf_permission.ROLE_WRITE
         elif self.cf_group_type() in ("undenh", "undakt", "kullklasse",
-                                      "kull", "stprog"):
+                                      "kull", "stprog", "avdeling",):
             # These are the perms stemming from FS roles. We have to look at
             # the specific role
             role_code = self._role_code()
@@ -798,6 +876,10 @@ class cf_member_group(cf_group_interface):
                            "klasse", "kull", "studieprogram"):
                 if marker in components:
                     return suffix_map[marker]
+
+            if (len(components) == 6 and
+                re.search(r"^\d\d0000$", components[3])):
+                return "avdeling"
 
         assert False, "NOTREACHED"
     # end _calculate_group_type
@@ -881,11 +963,12 @@ class cf_members(object):
                             # FIXME: IMS limits this field to 128 chars. This
                             # should be enforced and split into multiple <=128
                             # char chunks.
-                            # "street": remap(addr["address_text"]),
-                            # "pcode": remap(addr["postal_number"]),
-                            # "country": remap(addr["country"]),
                             # hiof requests city part only.
-                            "locality": remap(addr["city"]),}
+                            # According to Fronter, 'locality' is not
+                            # supported yet (2009-08-18), and we are asked to
+                            # use "street", although city-part should be in
+                            # 'locality' if IMS Ent is followed
+                            "street": remap(addr["city"]),}
     # end person2address
 
 
@@ -1034,6 +1117,11 @@ def build_cf_tree(db, db_groups, multisemester_map):
             logger.debug("No node created for cf_member id=%s",
                          cf_member.cf_id())
 
+    # fixup additional permissions between the siblings of each node, since
+    # the permission assignment up to this point has been top-down.
+    for group in tree.iterate_groups(cf_structure_group):
+        group.fixup_sibling_permissions()
+
     logger.debug("Built a CF tree")
     return tree
 # end build_cf_tree
@@ -1084,11 +1172,11 @@ def output_id(id_data, printer):
 
 
 def output_person_auth(data, printer):
-    # "ldap1:" - ldap authentication (1 is probably the server number)
+    # "ldap3:" - ldap authentication (3 is probably the server number)
     # "1" for pwencryptiontype means md5
     # "5"                      means authentication via ldap
     printer.dataElement("userid", data["user"],
-                        {"password": "ldap1:", "pwencryptiontype": "5",})
+                        {"password": "ldap3:", "pwencryptiontype": "5",})
 # end output_person_auth
 
 
@@ -1319,11 +1407,9 @@ def process_viewcontacts_permissions(cf_group, local_permissions,
     # isinstance(x.holder(), cf_member_group) for x in permissions MUST BE
     # True. 
     #
-    student_tags = ("student-undenh", "student-undakt",
-                    "student-kullklasse", "student-kull",)
     local_member_groups = set(cf_group.iterate_children(cf_member_group))
     local_nonstudents = set(x for x in local_member_groups
-                            if x.cf_group_type() not in student_tags)
+                            if not x.cf_is_student_group())
     local_permission_holders = set(x.holder() for x in
                                    local_permissions
                                    if isinstance(x.holder(), cf_member_group))
@@ -1335,7 +1421,7 @@ def process_viewcontacts_permissions(cf_group, local_permissions,
                                 local_permission_holders).union(
                                     inherited_permission_holders)
     all_nonstudent = set(x for x in all_at_this_level
-                         if x.cf_group_type() not in student_tags)
+                         if not x.cf_is_student_group())
     
     logger.debug("ViewContacts at level %s: %d local (%d non-student); "
                  "%d local perm holders, %d inherited perm holders "
@@ -1353,16 +1439,13 @@ def process_viewcontacts_permissions(cf_group, local_permissions,
         return 
     
     student_member_group = [x for x in local_member_groups
-                            if x.cf_group_type() in student_tags]
+                            if x.cf_is_student_group()]
     assert len(student_member_group) <= 1
     if student_member_group:
         student_member_group = student_member_group[0]
     else:
         student_member_group = None
 
-    # This is just a precaution. This test is always True.
-    assert local_permission_holders.issubset(local_member_groups)
-    
     # Case 1: *Everybody* has viewContacts on the student group
     if student_member_group:
         output_viewcontacts(student_member_group, all_at_this_level, printer)
