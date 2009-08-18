@@ -1051,6 +1051,7 @@ class cf_members(object):
                 "email": email_address,
                 "user": uname + "@hiof.no",
                 "imap-server": self.email2mail_server(email_address),
+                "imap-user": uname,
                 "address": self.person2address(person_id),
                 "mobile": person_id2phone.get(person_id)
             }
@@ -1193,14 +1194,32 @@ def output_person_names(data, printer):
 # end output_person_names
 
 
-def output_email_server(data, printer):
-    if not data.get("imap-server"):
-        return
+def output_email_info(data, printer):
+    for required_key in ("imap-server", "imap-user",):
+        if not data.get(required_key):
+            return
     
     printer.startElement("extension")
-    printer.emptyElement("emailsettings", {"mailserver": data["imap-server"]})
+
+    # The magic keys/values below have been suggested by Fronter.
+    printer.emptyElement("emailsettings",
+                         {"description": "HiO e-post",
+                          "imap_serverdirectory": " ",
+                          "imap_sentfolder": "INBOX.Sent",
+                          "imap_draftfolder": "INBOX.Drafts",
+                          "imap_trashfolder": "INBOX.Trash",
+                          # According to Fronter, this value means use the same
+                          # password as for logging into fronter.
+                          "mail_password": "FRONTERLOGIN",
+                          "mail_username": data["imap-user"],
+                          "mailtype": "1",
+                          "use_ssl": "1",
+                          "defaultmailbox": "1",
+                          "on_delete_action": "trash",
+                          "is_primary": "1",
+                          "mailserver": data["imap-server"]})
     printer.endElement("extension")
-# end output_email_server
+# end output_email_info
 
 
 def output_person_address(data, printer):
@@ -1240,7 +1259,7 @@ def output_person_element(data, printer):
     output_person_auth(data, printer)
     printer.dataElement("email", data["email"])
     output_person_names(data, printer)
-    output_email_server(data, printer)
+    output_email_info(data, printer)
     output_person_address(data, printer)
     output_person_phone(data, printer)
     printer.endElement("person")
@@ -1288,7 +1307,7 @@ def output_group_element(cf_group, printer, member_group_owner):
     printer.endElement("grouptype")
     printer.startElement("description")
     if len(cf_group.cf_title()) > 60:
-        printer.emptyElement("short")
+        # printer.emptyElement("short")
         printer.dataElement("long", cf_group.cf_title())
     else:
         printer.dataElement("short", cf_group.cf_title())
