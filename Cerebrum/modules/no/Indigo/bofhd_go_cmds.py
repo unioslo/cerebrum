@@ -590,7 +590,7 @@ class BofhdExtension(object):
                 else:
                     self.ou.clear()
                     self.ou.find(entity.entity_id)
-                    name = ou.name
+                    name = self.ou.name
                 tmp['name'] = name
                 ret.append(tmp)
         return ret
