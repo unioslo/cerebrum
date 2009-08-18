@@ -19,7 +19,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import re
-import sys
 
 import cereconf
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
@@ -27,7 +26,6 @@ from Cerebrum import Constants
 from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum import Person
-from Cerebrum.modules import PosixGroup
 from Cerebrum.Utils import Factory, mark_update
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -560,6 +558,10 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_quarantine_disable)
+        # Special rule for guestusers. Only superuser are allowed to
+        # alter quarantines for these users.
+        if self._entity_is_guestuser(entity):
+            raise PermissionDenied("No access")            
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         return self.is_account_owner(
@@ -572,6 +574,10 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_quarantine_remove)
+        # Special rule for guestusers. Only superuser are allowed to
+        # alter quarantines for these users.
+        if self._entity_is_guestuser(entity):
+            raise PermissionDenied("No access")            
         if not(isinstance(entity, Factory.get('Account'))):
             raise PermissionDenied("No access")
         # this is a hack
@@ -765,7 +771,7 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_remove_spread(self, operator, entity=None, spread=None,
                           query_run_any=False):
-        return self.can_add_spread(self, operator, entity, spread,
+        return self.can_add_spread(operator, entity, spread,
                                    query_run_any=query_run_any)
     
     def can_add_account_type(self, operator, account=None, ou=None, aff=None,
@@ -1569,5 +1575,13 @@ class BofhdAuth(DatabaseAccessor):
         disk = Factory.get('Disk')(self._db)
         disk.find(disk_id)
         return disk
+
+    def _entity_is_guestuser(self, entity):
+        try:
+            if entity.get_trait(self.const.trait_guest_owner):
+                return True
+        except AttributeError:
+            pass
+        return None
 
 # end class BofhdAuth
