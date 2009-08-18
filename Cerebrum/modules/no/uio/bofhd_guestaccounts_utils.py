@@ -120,7 +120,7 @@ class BofhdUtils(object):
                          include_date=False):
         """List names of guest accounts owned by group with id=owner_id.
         If owner_id=None, return all available accounts.
-        If no owner_id is specified, return all guest accounts.
+        If owner_id=NotSet, return all guest accounts.
         """
         ac = Factory.get('Account')(self.db)
         ret = []
@@ -146,8 +146,8 @@ class BofhdUtils(object):
         """
         ret = []
         ownerid2name = {}
-        ac = Factory.get('Account')(self.db)    
-        group = Factory.get('Group')(self.db)    
+        ac = Factory.get('Account')(self.db)
+        group = Factory.get('Group')(self.db)
         for guest in self.list_guest_users():
             ac.clear()
             ac.find_by_name(guest[0])
@@ -169,7 +169,8 @@ class BofhdUtils(object):
                         qua[0]['start_date'].date)]
                 else:
                     # status == release_quarantine
-                    tmp = [guest[0], None, "in release_quarantine"]
+                    release_date = qua[0]['start_date'] + cereconf.GUESTS_QUARANTINE_PERIOD
+                    tmp = [guest[0], None, "in release_quarantine until %s" % release_date.date]
             ret.append(tmp)
         ret.sort()
         return ret
@@ -183,15 +184,11 @@ class BofhdUtils(object):
         ac = Factory.get('Account')(self.db)
         ret = []
         num2guestname = {}
-        unames = []
-        # make a list of used unames
-        for u in self.list_guest_users():
-            unames.append(u[0])
         # find all existing guests
-        for uname in unames:
+        for u in self.list_guest_users():
+            uname = u[0]
             if uname.startswith(prefix):
-                continue
-            num2guestname[int(uname[len(prefix):])] = uname
+                num2guestname[int(uname[len(prefix):])] = uname
         # Find last guestuser num
         lastnum = 0
         guest_nums = num2guestname.keys()

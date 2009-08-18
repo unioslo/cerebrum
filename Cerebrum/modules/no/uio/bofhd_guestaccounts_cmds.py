@@ -151,8 +151,13 @@ class BofhdExtension(object):
         shell = all_args.pop(0)
         # get disk
         if not all_args:
-            return {'prompt': "Disk", 'help_ref': 'disk', 'last_arg': True}
+            return {'prompt': "Disk", 'help_ref': 'disk'}
         disk = all_args.pop(0)
+        # get prefix
+        if not all_args:
+            return {'prompt': "Name prefix",
+                    'default': cereconf.GUESTS_NEW_NAME_PREFIX,
+                    'last_arg': True}
         return {'last_arg': True}
 
 
@@ -162,7 +167,7 @@ class BofhdExtension(object):
         perm_filter='can_create_guests')
     def user_create_guest(self, operator, *args):
         "Create <nr> new guest users"
-        nr, owner_group_name, filegroup, shell, home = args
+        nr, owner_group_name, filegroup, shell, home, prefix = args
         owner_type = self.const.entity_group
         owner_id = self.util.get_target(owner_group_name,
                                         default_lookup="group").entity_id
@@ -178,7 +183,7 @@ class BofhdExtension(object):
         ret = []
         ac = Factory.get('Account')(self.db)
         # Find the names of the next <nr> of guest users
-        for uname in self.bgu.find_new_guestusernames(int(nr)):
+        for uname in self.bgu.find_new_guestusernames(int(nr), prefix=prefix):
             posix_user.clear()
             # Create the guest_users
             uid = posix_user.get_free_uid()
