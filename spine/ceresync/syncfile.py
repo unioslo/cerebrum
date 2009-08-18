@@ -55,13 +55,11 @@ def main():
     # Parse command-line arguments
     config.parse_args()
 
-    log.debug("spread is: %s" , config.get("sync","account_spread"))
-
     incr = False
-    id = -1
+    id = None
 
     try:
-        s = sync.Sync(incr,id)
+        s = sync.Sync()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
         exit(1)
@@ -76,7 +74,7 @@ def main():
     log.debug("Syncronizing accounts")
     accounts.begin(incr)
     try:
-        for account in s.get_accounts():
+        for account in s.get_accounts(incr_from=id):
             log.debug("Processing account '%s'",account.name)
             primary_group[account.name]=account.primary_group
             fail = check_account(account)
@@ -93,7 +91,7 @@ def main():
     log.debug("Syncronizing groups")
     groups.begin(incr)
     try:
-        for group in s.get_groups():
+        for group in s.get_groups(incr_from=id):
             fail = check_group(group)
             group.members = [m for m in group.members
                              if (primary_group.get(m) is not None and
