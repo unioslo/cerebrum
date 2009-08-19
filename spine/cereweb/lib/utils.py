@@ -571,13 +571,16 @@ def getsalt(chars = string.letters + string.digits, length=16):
 def randpasswd(length=8):
     """ Returns a random password at a given length based on a character set. 
     """
+    charsets = [string.ascii_lowercase, string.ascii_uppercase, string.digits]
+
     result = ''
-    az = string.ascii_lowercase
-    AZ = string.ascii_uppercase
-    dig = string.digits
-    chars = az + AZ + dig
-    # FIXME: Make shure passwords are according to the passwd-regexp
     for i in range(length):
+        if i < len(charsets):
+            chars = charsets[i]
+        else:
+            choice = random.randint(0, 10) % len(charsets)
+            chars = charsets[choice]
+
         result += getsalt(chars,1)
     return result
 

@@ -32,7 +32,7 @@ from lib.Main import Main
 from lib.utils import strftime, strptime, commit_url, unlegal_name
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
-from lib.utils import legal_date, rollback_url, html_quote
+from lib.utils import legal_date, rollback_url, html_quote, randpasswd
 from lib.utils import spine_to_web, web_to_spine, get_lastname_firstname
 from lib.utils import from_spine_decode, session_required_decorator
 from lib.utils import get_database, parse_date, redirect_entity, entity_link
@@ -379,7 +379,15 @@ def get_affiliation(person):
 
 def get_faculty(ou):
     faculty = OuDAO().get_parent(ou.id, 'Kjernen')
-    return from_spine_decode(faculty.name)
+    return faculty and from_spine_decode(faculty.name) or ""
+
+def change_password(account):
+    new_password = randpasswd()
+    db = get_database()
+    dao = AccountDAO(db)
+    dao.set_password(account.id, new_password)
+    db.commit()
+    return new_password
 
 @session_required_decorator
 def print_contract(id, lang):
@@ -397,7 +405,7 @@ def print_contract(id, lang):
     firstname, lastname = get_names(person)
     email_address = get_email_address(prim_account)
 
-    passwd = None
+    passwd = change_password(prim_account)
     studyprogram = None
     year = None
     birthdate = person.birth_date.strftime('%d-%m-%Y')

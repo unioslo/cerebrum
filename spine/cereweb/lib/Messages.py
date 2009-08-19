@@ -85,6 +85,7 @@ class Message(object):
             data[k] = utils.html_quote(data[k])
 
         return """
+        <!-- RESULT: %(message)s -->
         <div%(css_class)s>
             <h3>%(title)s</h3>
             <div class="short">

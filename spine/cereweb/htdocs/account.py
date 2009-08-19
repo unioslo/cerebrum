@@ -345,6 +345,7 @@ def remove_home(account_id, spread_id):
     redirect_entity(account_id)
 remove_home.exposed = True
 
+@session_required_decorator
 def set_password(id, passwd1, passwd2):
     if passwd1 != passwd2:
         queue_message(_("Passwords does not match."), title=_("Change failed"), error=True)

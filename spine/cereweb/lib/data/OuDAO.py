@@ -55,6 +55,8 @@ class OuDAO(EntityDAO):
             perspective = ConstantsDAO(self.db).get_ou_perspective_type(perspective)
         child = self._find(child_id)
         parent_id = child.get_parent(perspective.id)
+        if parent_id is None:
+            return None
 
         return self._create_node(parent_id)
         
