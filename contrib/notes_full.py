@@ -169,9 +169,9 @@ def compare_users(notesdata, cerebrumdata):
             if not cere_ou_path == notes_ou_path:
                 # If only case differs don't move user
                 if cere_ou_path.upper() == notes_ou_path.upper():
-                    logger.warn("Only case differs. Not moving user. " +
-                                "Cerebrum OU: %s, Notes OU: %s" %
-                                (cere_ou_path, notes_ou_path))
+                    logger.debug("Only case differs. Not moving user. " +
+                                 "Cerebrum OU: %s, Notes OU: %s" %
+                                 (cere_ou_path, notes_ou_path))
                 else:
                     logger.info("%s: new OU path '%s', current '%s'",
                                 user['uname'], cere_ou_path, notes_ou_path)
