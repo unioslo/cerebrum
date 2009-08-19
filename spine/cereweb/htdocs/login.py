@@ -78,6 +78,13 @@ def try_login(username=None, password=None, **kwargs):
     if not username or not password:
         return False
 
+    if not is_allowed_login(username):
+        Messages.queue_message(
+            title="Login failed",
+            message="You're not allowed to login to the test/development server.",
+            is_error=True)
+        return False
+
     Spine = Client()
     
     try:
@@ -104,6 +111,9 @@ def try_login(username=None, password=None, **kwargs):
         return False
 
     return create_cherrypy_session(session, username)
+
+def is_allowed_login(username):
+    return username == "bootstrap_account"
 
 def create_cherrypy_session(session, username):
     cherrypy.session['username'] = username
