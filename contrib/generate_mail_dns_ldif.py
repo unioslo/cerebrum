@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003, 2004 University of Oslo, Norway
+# Copyright 2003-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -64,7 +64,7 @@ def get_hosts_and_cnames():
     """Return dicts host->[cnames, if any], cname->host, lowercase host->host.
 
     All keys are lowercase, as well as all values except in the 3rd dict."""
-    host_has_A_record = {}              # host  -> True if host has A record
+    host_has_A_record = {}              # host  -> True if host has A/AAAA record
     host2cnames       = {}              # host  -> {cname: True, ...}
     cname2host        = {}              # cname -> host
     host2mx           = {}              # host  -> {MX priority: MX name, ...}
@@ -89,7 +89,7 @@ def get_hosts_and_cnames():
             save = False
 
     # Read in the above variables from Dig
-    use_types = {"A": True, "MX": True, "CNAME": True}
+    use_types = {"A": True, "AAAA": True, "MX": True, "CNAME": True}
     for args in cereconf.LDAP_MAIL_DNS['dig_args']:
         cmd = cereconf.LDAP_MAIL_DNS['dig_cmd'] % args
         if save:
@@ -107,7 +107,7 @@ def get_hosts_and_cnames():
                 lname = name.lower()
                 info = info.lower()
                 lower2host[lname] = name
-                if type == 'A':
+                if type in ('A','AAAA',):
                     host_has_A_record[lname] = True
                 elif type == 'CNAME':
                     if not host2cnames.has_key(info):
@@ -146,42 +146,55 @@ def get_hosts_and_cnames():
     # Find hosts that both have an A record
     # and has its 'best' MX record in cereconf.LDAP_MAIL_DNS['mx_hosts'].
     hosts = {}
+    hosts_no_a = {}
     accept_mx = dict(zip(*((cereconf.LDAP_MAIL_DNS['mx_hosts'],) * 2))).has_key
     for host, mx_dict in host2mx.items():
-        if host in host_has_A_record:
-            prio = 99.0e9
-            mx = "-"
-            for p, m in mx_dict.items():
-                p = int(p)
-                if p < prio:
-                    prio = p
-                    mx = m
-            if accept_mx(mx):
+        prio = 99.0e9
+        mx = "-"
+        for p, m in mx_dict.items():
+            p = int(p)
+            if p < prio:
+                prio = p
+                mx = m
+        if accept_mx(mx):
+            if host in host_has_A_record:
                 if host2cnames.has_key(host):
                     hosts[host] = host2cnames[host].keys()
                     hosts[host].sort()
                 else:
                     hosts[host] = ()
+            else:
+                # no A/AAAA record, but MX
+                hosts_no_a[host] = True
+                
 
     # Remove cnames that do not appear in host2cnames ??? should be hosts[]?
     for cname in cname2host.keys():
         if not host2cnames.has_key(cname2host[cname]):
             del cname2host[cname]
 
-    return hosts, cname2host, lower2host
+    return hosts, cname2host, lower2host, hosts_no_a
 
 
 def write_mail_dns():
     f = ldif_outfile('MAIL_DNS')
 
-    hosts, cnames, lower2host = get_hosts_and_cnames()
+    hosts, cnames, lower2host, hosts_no_a = get_hosts_and_cnames()
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
+    logger = Factory.get_logger('cronjob')
     email = Email.EmailDomain(db)
     email_domain = {}
     for dom_entry in email.list_email_domains():
         email_domain[int(dom_entry['domain_id'])] = dom_entry['domain']
+        # Valid email domains require no A/AAAA record
+        if hosts_no_a.has_key(dom_entry['domain']):
+            del hosts_no_a[dom_entry['domain']]
+
+    for host in hosts_no_a:
+        logger.warn("MX defined but no A/AAAA record or valid email domain: %s" % host)
+            
     for no_exp_dom in email.list_email_domains_with_category(co.email_domain_category_noexport):
         del email_domain[int(no_exp_dom['domain_id'])]
     domains = email_domain.values()
