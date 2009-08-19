@@ -33,6 +33,7 @@
 #        for both nis and nisans, account@nis/nisans removed
 # ad   : account@ad spread removed
 # email: write file (<uname>:<email_server>), account@imap spread removed
+# other spreads: removed
 #
 # TODO: this script must be more robust and pretty (but first we make it work) :-)
 
@@ -220,6 +221,8 @@ def process_delete_requests():
                 account.clear_home(row['spread'])
                 logger.debug("clear_home in %s", row['spread'])                
                 logger.debug("Set home to archived %s (%s)", home['homedir_id'], row['spread'])
+                account.delete_spread(row['spread'])
+            else:
                 account.delete_spread(row['spread'])
         if posix_user:
             posix_user.delete_posixuser()
