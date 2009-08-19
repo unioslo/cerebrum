@@ -1098,7 +1098,7 @@ class BofhdExtension(object):
         grp.add_member(acc.entity_id)
         
     # helper func, set radius-ans spread for employees
-    def _add_radius_spread(self, acc_id, operator):
+    def _add_radiusans_spread(self, acc_id, operator):
         acc = Utils.Factory.get('Account')(self.db)
         acc.clear()
         acc.find(acc_id)
