@@ -50,6 +50,49 @@ class ConstantsDAO(object):
         names = self._get_names("account_")
         return self._get_constant_dtos(names, Constants.Account)
 
+    def get_name_types(self):
+        names = self._get_names("name_")
+        return self._get_constant_dtos(names, Constants.PersonName)
+
+    def get_name_type(self, type_id):
+        return ConstantsDTO(Constants.PersonName(type_id))    
+
+    def get_external_id_type(self, type_id):
+        return ConstantsDTO(Constants.EntityExternalId(type_id))
+
+    def get_address_type(self, type_id):
+        return ConstantsDTO(Constants.Address(type_id))
+
+    def get_contact_type(self, type_id):
+        return ConstantsDTO(Constants.ContactInfo(type_id))
+
+    def get_source_system(self, system_id):
+        q = self.constants.AuthoritativeSystem(system_id)
+        return ConstantsDTO(q)
+
+    def get_affiliation_statuses(self):
+        names = self._get_names("affiliation_status_")
+        dtos = {}
+        for c in self._get_constants(names, Constants.PersonAffStatus):
+            if c in dtos: continue
+
+            dto = ConstantsDTO(c)
+            dto.affiliation = ConstantsDTO(c.affiliation)
+            dtos[c] = dto
+        statuses = dtos.values()
+        statuses.sort(lambda x, y: cmp(
+            x.affiliation.name + x.name,
+            y.affiliation.name + y.name))
+        return statuses
+
+    def get_ou_perspective_type(self, type_id):
+        q = self.constants.OUPerspective(type_id)
+        return ConstantsDTO(q)
+
+    def get_ou_perspective_types(self):
+        names = self._get_names("perspective_")
+        return self._get_constant_dtos(names, Constants.OUPerspective)
+
     def get_shell(self, id):
         q = self.constants.PosixShell(id)
         return ConstantsDTO(q)
@@ -61,6 +104,18 @@ class ConstantsDAO(object):
     def get_quarantine(self, id):
         q = self.constants.Quarantine(id)
         return ConstantsDTO(q)
+
+    def get_gender_types(self):
+        names = self._get_names("gender_")
+        return self._get_constant_dtos(names, Constants.Gender)
+
+    def get_gender(self, id):
+        q = self.constants.Gender(id)
+        return ConstantsDTO(q)
+
+    def get_id_types(self):
+        names = self._get_names("externalid_")
+        return self._get_constant_dtos(names, Constants.EntityExternalId)
 
     def _get_constant_dtos(self, names, filter_type=None):
         dtos = []

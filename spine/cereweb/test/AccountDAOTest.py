@@ -46,6 +46,7 @@ class AccountDAOTest(unittest.TestCase):
 
     def test_noposix_account_has_correct_data(self):
         entity = self.dao.get(TestData.nonposix_account_id, include_extra=False)
+        entity.primary_group = None
         entity.groups = []
         expected = TestData.get_nonposix_account_dto()
 
@@ -53,6 +54,7 @@ class AccountDAOTest(unittest.TestCase):
 
     def test_posix_account_has_correct_data(self):
         entity = self.dao.get(TestData.posix_account_id, include_extra=False)
+        entity.primary_group = None
         entity.groups = []
         expected = TestData.get_posix_account_dto()
 
@@ -60,14 +62,13 @@ class AccountDAOTest(unittest.TestCase):
 
     def test_posix_account_has_primary_group(self):
         entity = self.dao.get(TestData.posix_account_id)
-        expected = TestData.get_posix_account_primary_group_dto()
+        expected = self._get_primary_group_dto()
+
         primary_group = entity.primary_group
 
         self.assertEqual(expected, primary_group)
 
-    def test_account_has_groups(self):
-        entity = self.dao.get(TestData.posix_account_id)
-
+    def _get_primary_group_dto(self):
         expected = DTO()
         expected.direct = True
         expected.description ='Group used in cereweb-tests'
@@ -76,6 +77,16 @@ class AccountDAOTest(unittest.TestCase):
         expected.id = TestData.posix_account_primary_group_id
         expected.name = 'test_posix'
         expected.is_posix = True
+        expected.is_primary = True
+        expected.is_expired = False
+        expected.expire_date = DateTime(3000, 1, 1)
+        expected.create_date = DateTime(2009, 6, 11)
+        return expected
+
+    def test_account_has_groups(self):
+        entity = self.dao.get(TestData.posix_account_id)
+
+        expected = self._get_primary_group_dto()
 
         actual = [g for g in entity.groups if g.id == expected.id][0]
         
@@ -105,11 +116,9 @@ class AccountDAOTest(unittest.TestCase):
     def test_account_affiliations(self):
         entity = self.dao.get(TestData.affiliated_account_id, include_extra=True)
         expected = TestData.get_affiliation_account_dto()
+        actual = (x for x in entity.affiliations if x.id == expected.id and x.ou.id == expected.ou.id).next()
 
-        found = False
-        for affil in entity.affiliations:
-            found |= affil == expected
-        self.assert_(found)
+        self.assertEqual(expected, actual)
 
     def test_account_passwords(self):
         entity = self.dao.get(TestData.posix_account_id, include_extra=True)
@@ -195,6 +204,17 @@ class AccountDAOTest(unittest.TestCase):
         entity = self.dao.get(TestData.quarantined_account_id, include_extra=True)
         self.assert_(len(entity.quarantines) == 1)
         
+    def test_that_get_groups_includes_primary_group(self):
+        groups = self.dao.get_groups(TestData.account_with_expired_groups)
+        found_primary = False
+
+        for group in groups:
+            if group.is_primary:
+                found_primary = True
+                break
+
+        self.assert_(found_primary, "Account should have primary group.")
+
     def test_that_we_can_get_posix_groups_from_account_with_posix_groups(self):
         groups = self.dao.get_posix_groups(TestData.posix_account_id)
         

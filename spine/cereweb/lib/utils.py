@@ -31,6 +31,10 @@ from omniORB import CORBA
 from datetime import datetime
 import Messages
 
+from Cerebrum import Utils
+Database = Utils.Factory.get("Database")
+
+from lib.data.AccountDAO import AccountDAO
 from lib.data.EntityDAO import EntityDAO 
 
 def clean_url(url):
@@ -236,6 +240,7 @@ def get_date(tr, sDate):
     return strptime(tr, sDate.strip(), "%Y-%m-%d")
 
 def parse_date(date):
+    if not date: return None
     return get_date(None, date)
 
 def has_valid_session():
@@ -431,6 +436,19 @@ def ou_selects(elem, perspective_type, indent=""):
        output += ou_selects(ou, perspective_type, "&nbsp;&nbsp;&nbsp;" + indent)
     return output
 
+def create_ou_selection_tree(elem, indent="", output=[]):
+    if isinstance(elem, list):
+        for root in elem:
+            create_ou_selection_tree(root, indent, output)
+        return output
+
+    name = indent + spine_to_web(elem.name)
+    output.append((elem.id, name))
+
+    indent = ("&nbsp;" * 3) + indent;
+    for child in elem.children:
+        create_ou_selection_tree(child, indent, output)
+    return output
 
 #
 # namelist does not really belong here...
@@ -517,7 +535,7 @@ def addresslist(entity):
         value = vstruct(address_text=address.get_address_text(),
                         p_o_box=address.get_p_o_box(),
                         postal_number=address.get_postal_number(),
-                        city=address.get_country(),
+                        city=address.get_city(),
                         country=address.get_country())
         if not variant in variants:
             variants[variant] = {}
@@ -607,7 +625,8 @@ def encode_args(args):
 def get_ou_structure(tr, perspective):
     ou_structure_searcher = tr.get_ou_structure_searcher()
     ou_structure_searcher.set_perspective(perspective)
-    return ou_structure_searcher.search()
+    r = ou_structure_searcher.search()
+    return r
 
 def find_ou_root(ou_structure, perspective):
     root = None
@@ -648,3 +667,10 @@ def quotedate(date):
 
 def quotetimestamp(date):
     return html_quote(strftime(date, "%Y-%m-%d %H:%M:%S"))
+
+def get_database():
+    db = Database()
+    user = cherrypy.session.get("username")
+    acc = AccountDAO(db).get_by_name(user)
+    db.change_by = acc.id
+    return db

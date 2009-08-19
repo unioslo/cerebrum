@@ -56,6 +56,27 @@ class ConstantsDAOTest(unittest.TestCase):
         types = self.dao.get_account_types()
         self.assert_(len(types) == 3)
 
+    def test_that_we_can_get_name_types(self):
+        types = self.dao.get_name_types()
+        self.assert_(len(types) == 6)
+
+    def test_that_we_can_get_affiliation_statuses(self):
+        statuses = self.dao.get_affiliation_statuses()
+        self.assert_(len(statuses) == 14)
+
+    def test_that_we_can_get_ou_perspective_types(self):
+        types = self.dao.get_ou_perspective_types()
+        self.assert_(len(types) == 5)
+
+    def test_that_we_can_get_ou_perspective_by_name(self):
+        kjernen = self.dao.get_ou_perspective_type("Kjernen")
+        self.assertEqual(150, kjernen.id)
+
+    def test_that_we_can_get_id_types(self):
+        id_types = self.dao.get_id_types()
+        self.assertEqual(14, len(id_types),
+            "Expected 14 external id types to be equivalent with spine result")
+
 
 if __name__ == '__main__':
     unittest.main()

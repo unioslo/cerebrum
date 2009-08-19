@@ -27,7 +27,7 @@ class TraitDAO(object):
         dto = DTO()
         dto.name = trait_type.str
         target_id = data['target_id']
-        dto.target = EntityDAO.get(target_id)
+        dto.target = EntityDAO().get(target_id)
         dto.number = data['numval']
         dto.string = data['strval']
         dto.date = data['date']

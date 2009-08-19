@@ -7,6 +7,7 @@ from lib.data.DTO import DTO
 bootstrap_account_id = 2
 account_without_posix_groups = bootstrap_account_id
 posix_account_id = 355252
+account_with_expired_groups = posix_account_id
 posix_account_primary_group_id = 354983
 posix_account_secondary_group_id = 356450
 noted_account_id = 355252
@@ -28,12 +29,28 @@ notes_group_id = 354992
 spread_group_id = 354992
 test_testesen_id = 354985
 
+def get_test_testesen_entity():
+    dto = EntityDTO()
+    dto.id = test_testesen_id
+    dto.name = 'Test Testesen'
+    dto.type_name = 'person'
+    dto.type_id = 19
+    return dto
+
 def get_test_testesen():
     dto = EntityDTO()
     dto.id = test_testesen_id
     dto.name = 'Test Testesen'
     dto.type_name = 'person'
     dto.type_id = 19
+    dto.is_deceased = False
+    dto.deceased_date = None
+    dto.birth_date = DateTime(1979, 10, 10)
+    dto.description = "Registerd by: bootstrap_account on 2009-06-11.  Testperson brukt i cereweb-testene"
+    dto.gender = DTO()
+    dto.gender.id = 155
+    dto.gender.name = 'M'
+    dto.gender.description = 'Male'
     return dto
 
 def get_nonposix_account_dto():
@@ -63,8 +80,11 @@ def get_posix_account_dto():
 def get_affiliation_account_dto():
     dto = DTO()
     dto.priority = 312
+    dto.name = "STUDENT"
+    dto.id = 96
     dto.type_name = "STUDENT"
     dto.type_id = 96
+    dto.description = 'Student'
 
     dto.ou = EntityDTO()
     dto.ou.id = 60

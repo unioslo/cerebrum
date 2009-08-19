@@ -22,12 +22,9 @@ import cherrypy
 import string
 import mx.DateTime
 
-from Cerebrum import Utils
-Database = Utils.Factory.get("Database")
-
 from gettext import gettext as _
 from lib.utils import queue_message, redirect_entity, entity_link
-from lib.utils import transaction_decorator, redirect
+from lib.utils import transaction_decorator, redirect, get_database
 from lib.utils import web_to_spine, session_required_decorator
 from lib.Searchers import GroupSearcher
 from lib.templates.GroupSearchTemplate import GroupSearchTemplate
@@ -36,7 +33,6 @@ from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 from Cerebrum.Errors import NotFoundError
 
 from lib.data.EntityFactory import EntityFactory
-from lib.data.AccountDAO import AccountDAO
 from lib.data.GroupDAO import GroupDAO
 from lib.data.EntityDAO import EntityDAO
 from lib.data.HistoryDAO import HistoryDAO
@@ -144,13 +140,6 @@ def remove_member(group_id, member_id):
     queue_message(msg, True, entity_link(member_id), title="Removed member")
     redirect_entity(group_id)
 remove_member.exposed = True
-
-def get_database():
-    db = Database()
-    user = cherrypy.session.get("username")
-    acc = AccountDAO().get_by_name(user)
-    db.change_by = acc.id
-    return db
 
 @session_required_decorator
 def create(name="", expire="", description=""):

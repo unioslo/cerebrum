@@ -22,6 +22,7 @@
 import unittest
 
 from mx.DateTime import DateTimeType
+from mx.DateTime import DateTime
 from lib.data.GroupDAO import GroupDAO
 from lib.data.GroupDTO import GroupDTO
 
@@ -111,23 +112,35 @@ class GroupDAOTest(unittest.TestCase):
     def test_get_nonexisting_throws_NotFoundException(self):
         self.assertRaises(NotFoundError, self.dao.get, -1)
 
-    def test_get_entities_for_account(self):
+    def test_get_groups_for_account(self):
         expected = TestData.get_posix_account_primary_group_dto()
         expected.is_posix = True
         expected.description = 'Group used in cereweb-tests'
-        groups = self.dao.get_entities_for_account(TestData.posix_account_id)
+        expected.expire_date = DateTime(3000, 1, 1)
+        expected.create_date = DateTime(2009, 6, 11)
+        expected.is_expired = False
+        expected.direct = True
 
-        found = False
-        for group in groups:
-            found |= group == expected
-        
-        self.assert_(found)
+        groups = self.dao.get_groups_for(TestData.posix_account_id)
+        found = (g for g in groups if g.id == expected.id).next()
+        self.assertEqual(expected, found)
         
     def test_that_get_groups_on_groupless_account_returns_empty_list(self):
         groups = self.dao.get_groups_for(TestData.groupless_account_id)
         
         self.assert_(len(groups) == 0)
         self.assert_(type(groups) == list)
+
+    def test_that_get_groups_for_account_includes_expired_groups(self):
+        groups = self.dao.get_groups_for(TestData.account_with_expired_groups)
+        found_expired = False
+
+        for group in groups:
+            if group.is_expired:
+                found_expired = True
+                break
+
+        self.assert_(found_expired, "Account should have expired groups.")
 
     def assertValidDate(self, date):
         self.assert_(date is None or isinstance(date, DateTimeType))

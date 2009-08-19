@@ -23,15 +23,28 @@ import re
 import string
 
 import SpineIDL
+from Cerebrum.Database import IntegrityError
+from Cerebrum.Errors import NotFoundError
 from account import _get_links
 from gettext import gettext as _
+from mx import DateTime
 from lib.Main import Main
 from lib.utils import strftime, strptime, commit_url, unlegal_name
 from lib.utils import queue_message, redirect, redirect_object
 from lib.utils import transaction_decorator, object_link, commit
 from lib.utils import legal_date, rollback_url, html_quote
 from lib.utils import spine_to_web, web_to_spine, get_lastname_firstname
-from lib.utils import from_spine_decode
+from lib.utils import from_spine_decode, session_required_decorator
+from lib.utils import get_database, parse_date, redirect_entity, entity_link
+from lib.data.DTO import DTO
+from lib.data.EntityDAO import EntityDAO
+from lib.data.PersonDAO import PersonDAO
+from lib.data.AccountDAO import AccountDAO
+from lib.data.GroupDAO import GroupDAO
+from lib.data.HistoryDAO import HistoryDAO
+from lib.data.OuDAO import OuDAO
+from lib.data.HostDAO import HostDAO
+from lib.data.ConstantsDAO import ConstantsDAO
 from lib.Searchers import PersonSearcher
 from lib.Forms import PersonCreateForm, PersonEditForm
 from lib.templates.SearchResultTemplate import SearchResultTemplate
@@ -66,43 +79,19 @@ search = transaction_decorator(search)
 search.exposed = True
 index = search
 
-def _primary_name(person):
-    """Returns the primary display name for the person."""
-    #until such an thing is set in the database, we just use this method.
-    names = {}
-    return get_lastname_firstname(person)
-##     for name in person.get_names():
-##         names[name.get_name_variant().get_name()] = name.get_name()
-##     for type in ["FULL", "LAST", "FIRST"]:
-##         if names.has_key(type):
-##             return names[type]
-##    return "unknown name"
-
-def _get_person(transaction, id):
-    """Returns a Person-object from the database with the specific id."""
-    try:
-        return transaction.get_person(int(id))
-    except Exception, e:
-        queue_message(_("Could not find person with id=%s") % id, True)
-        redirect('index')
-
-def view(transaction, id, **vargs):
+@session_required_decorator
+def view(id, **vargs):
     """Creates a page with a view of the person given by id."""
-    tr = transaction
-    person = transaction.get_person(int(id))
     page = PersonViewTemplate()
-    displayname = spine_to_web(_primary_name(person))
-    page.title = 'Person %s' % displayname
-    page.set_focus("person/view")
-    page.links = _get_links()
-    page.entity_id = int(id)
-    page.entity = person
-    page.tr = transaction
-    showBirthNo = vargs.get('birthno', '')
-    if showBirthNo:
-        page.viewBirthNo = True
+    page.person = PersonDAO().get(id, include_extra=True)
+    page.person.accounts = PersonDAO().get_accounts(id)
+    page.person.history = HistoryDAO().get_entity_history_tail(id)
+    page.affiliation_types = ConstantsDAO().get_affiliation_statuses()
+    page.ou_tree = OuDAO().get_tree("Kjernen")
+    page.id_types = ConstantsDAO().get_id_types()
+    page.name_types = ConstantsDAO().get_name_types()
+    page.viewBirthNo = vargs.get('birthno') and True or False
     return page.respond()
-view = transaction_decorator(view)
 view.exposed = True
 
 def edit_form(form, message=None):
@@ -117,39 +106,36 @@ def edit_form(form, message=None):
     page.form_action = "/person/edit"
     return page.respond()
 
-def edit(transaction, id, **vargs):
+@session_required_decorator
+def edit(id, **vargs):
     """Creates a page with the form for editing a person."""
-    person = transaction.get_person(int(id))
+    person = PersonDAO().get(id)
     get_date = lambda x: x and strftime(x, '%Y-%m-%d') or ''
     values = {
         'id': id,
-        'gender': person.get_gender().get_name(),
-        'birthdate': get_date(person.get_birth_date()),
-        'description': person.get_description(),
-        'deceased': get_date(person.get_deceased_date()),
+        'gender': person.gender.name,
+        'birthdate': get_date(person.birth_date),
+        'description': person.description,
+        'deceased': get_date(person.deceased_date),
     }
     values.update(vargs)
-    form = PersonEditForm(transaction, **values)
-    form.title = object_link(person)
+
+    form = PersonEditForm(None, **values)
+    form.title = entity_link(person)
+
     if not vargs:
         return edit_form(form)
     if not form.has_required() or not form.is_correct():
         return edit_form(form, message=form.get_error_message())
     else:
         vargs = form.get_values()
-        save(transaction,
-                id,
-                vargs.get('gender'),
-                vargs.get('birthdate'),
-                vargs.get('deceased'),
-                vargs.get('description'),
-                vargs.get('submit'))
-edit = transaction_decorator(edit)
+        save(**vargs)
 edit.exposed = True
 
-def create(transaction, **vargs):
+@session_required_decorator
+def create(**vargs):
     """Creates a page with the form for creating a person."""
-    form = PersonCreateForm(transaction, **vargs)
+    form = PersonCreateForm(None, **vargs)
 
     if not vargs:
         return create_form(form)
@@ -157,54 +143,56 @@ def create(transaction, **vargs):
     if not form.has_required() or not form.is_correct():
         return create_form(form, message=form.get_error_message())
 
-    extid = vargs.get('externalid', '').strip()
+    birth_no = vargs.get('externalid', '').strip()
     desc = vargs.get('description', '').strip()
 
-    if not extid and not desc:
-        mess = 'If NIN is empty the reason must be specified in description.'
-        return create_form(form, message=mess )
-        
-    else:
-        try:
-            affiliation, status = vargs.get('affiliation').split(':')
-            make(transaction,
-                vargs.get('ou'),
-                affiliation,
-                status,
-                vargs.get('firstname'),
-                vargs.get('lastname'),
-                vargs.get('gender'),
-                vargs.get('birthdate'),
-                vargs.get('externalid'),
-                vargs.get('description'))
-        except SpineIDL.Errors.ValueError, e:
-            message = (e.explanation, True)
-        except SpineIDL.Errors.AlreadyExistsError, e:
-            message = (e.explanation, True)
-        return create_form(form, message)
-create = transaction_decorator(create)
+    if not birth_no and not desc:
+        msg = 'If NIN is empty the reason must be specified in description.'
+        return create_form(form, message=msg)
+    elif not birth_no:
+        username = cherrypy.session.get('username')
+        create_date = DateTime.now().strftime("%Y-%m-%d")
+        desc = 'Registered by: %s on %s\n' % (username, create_date) + desc
+
+    try:
+        make(
+            vargs.get('ou'),
+            vargs.get('status'),
+            vargs.get('firstname'),
+            vargs.get('lastname'),
+            vargs.get('gender'),
+            vargs.get('birthdate'),
+            birth_no,
+            desc)
+    except ValueError, e:
+        message = (spine_to_web(e.message), True)
+    except IntegrityError, e:
+        message = ("The person can not be created because it violates the integrity of the database.  Try changing the NIN.",  True)
+    return create_form(form, message)
 create.exposed = True
 
-def make(transaction, ou, affiliation, status, firstname, lastname, gender, birthdate, externalid, description=""):
+def make(ou, status, firstname, lastname, gender, birthdate, birth_no, description):
     """Create a new person with the given values."""
-    birthdate = strptime(transaction, birthdate)
-    gender = transaction.get_gender_type(web_to_spine(gender))
-    source_system = transaction.get_source_system('Manual')
-    ou = transaction.get_ou(int(ou))
-    firstname = web_to_spine(firstname)
-    lastname = web_to_spine(lastname)
-    person = ou.create_person(
-           birthdate, gender, firstname, lastname, source_system, int(affiliation), int(status))
-    if not externalid:
-        description = 'Registerd by: %s on %s\n' % (cherrypy.session.get('username'),
-                cherrypy.datetime.date.strftime(cherrypy.datetime.date.today(), '%Y-%m-%d')) + description
-    else:
-        eidt = transaction.get_entity_external_id_type('NO_BIRTHNO')
-        person.set_external_id(externalid, eidt, source_system)
+    db = get_database()
+    dao = PersonDAO(db)
+    person = DTO()
+    populate(person, gender, birthdate, None, description)
+    populate_name(person, firstname, lastname)
 
-    if description:
-        person.set_description(web_to_spine(description.strip()))
-    commit_url(transaction, '/account/create?owner_id=%s' % person.get_id(), msg=_("Person successfully created.  Now he probably needs an account."))
+    dao.create(person)
+    dao.add_affiliation_status(person.id, ou, status)
+
+    if birth_no:
+        dao.add_birth_no(person.id, birth_no)
+
+    db.commit()
+
+    queue_message(_("Person successfully created.  Now he probably needs an account."), title="Person created")
+    redirect('/account/create?owner_id=%s' % person.id)
+
+def populate_name(person, firstname, lastname):
+    person.first_name = web_to_spine(firstname)
+    person.last_name = web_to_spine(lastname)
 
 def create_form(form, message=None):
     """Creates a page with the form for creating a person."""
@@ -220,209 +208,209 @@ def create_form(form, message=None):
 
     return page.respond()
 
-def save(transaction, id, gender, birthdate,
-         deceased="", description="", submit=None):
+def save(id, gender, birthdate, deceased='', description=''):
     """Store the form for editing a person into the database."""
-    person = transaction.get_person(int(id))
+    db = get_database()
+    dao = PersonDAO(db)
+    dto = dao.get(id)
+    populate(dto, gender, birthdate, deceased, description)
+    dao.save(dto)
+    db.commit()
 
-    if submit == "Cancel":
-        redirect_object(person)
-        return
-    
-    person.set_gender(transaction.get_gender_type(web_to_spine(gender)))
-    person.set_birth_date(strptime(transaction, birthdate))
-    if description:
-        description = web_to_spine(description.strip())
-    person.set_description(description or '')
-    person.set_deceased_date(strptime(transaction, deceased))
-    
-    commit(transaction, person, msg=_("Person successfully updated."))
+    msg = _("Person successfully updated.")
+    queue_message(msg, title=_("Operation succeded"), error=False)
+    redirect_entity(dto)
 
-def delete(transaction, id):
+def populate(dto, gender, birth_date, deceased, description):
+    dto.gender = DTO()
+    dto.gender.id = gender
+    dto.birth_date = parse_date(birth_date)
+    dto.description = web_to_spine(description.strip())
+    dto.deceased_date = parse_date(deceased)
+
+@session_required_decorator
+def delete(id):
     """Delete the person from the server."""
-    person = transaction.get_person(int(id))
-    msg = _("Person '%s' successfully deleted.") % spine_to_web(_primary_name(person))
-    person.delete()
-    commit_url(transaction, 'index', msg=msg)
-delete = transaction_decorator(delete)
+    db = get_database()
+    dao = PersonDAO(db)
+    person = dao.delete(id)
+    db.commit()
+
+    msg = _("Person '%s' successfully deleted.") % spine_to_web(person.name)
+    queue_message(msg, title=_("Operation succeded"), error=False)
+    redirect('index')
 delete.exposed = True
 
-def add_name(transaction, id, name, name_type):
+@session_required_decorator
+def add_name(id, name, name_type):
     """Add a new name to the person with the given id."""
-    person = transaction.get_person(int(id))
     msg = unlegal_name(name)
     if msg:
         queue_message(msg, error=True)
-        redirect_object(person)
-    name_type = transaction.get_name_type(web_to_spine(name_type))
-    source_system = transaction.get_source_system('Manual')
-    if name:
-        name = web_to_spine(name.strip())
-    person.set_name(name, name_type, source_system)
+        redirect_entity(id)
 
-    commit(transaction, person, msg=_("Name successfully added."))
-add_name = transaction_decorator(add_name)
+    db = get_database()
+    dao = PersonDAO(db)
+    dao.add_name(id, web_to_spine(name_type), web_to_spine(name.strip()))
+    db.commit()
+
+    msg = _("Name successfully added.")
+    queue_message(msg, title=_("Operation succeded"), error=False)
+    redirect_entity(id)
 add_name.exposed = True
 
-def remove_name(id, transaction, variant, ss):
+@session_required_decorator
+def remove_name(id, variant, ss):
     """Remove the name with the given values."""
-    person = transaction.get_person(int(id))
-    variant = transaction.get_name_type(web_to_spine(variant))
-    ss = transaction.get_source_system(web_to_spine(ss))
+    db = get_database()
+    dao = PersonDAO(db)
+    dao.remove_name(id, int(variant), int(ss))
+    db.commit()
 
-    person.remove_name(variant, ss)
-
-    commit(transaction, person, msg=_("Name successfully removed."))
-remove_name = transaction_decorator(remove_name)
+    msg=_("Name successfully removed.")
+    queue_message(msg, title=_("Operation succeded"), error=False)
+    redirect_entity(id)
 remove_name.exposed = True
 
-def accounts(owner, transaction, add=None, delete=None, **checkboxes):
-    if add:
-        redirect('/account/create?owner=%s' % owner)
+@session_required_decorator
+def add_affil(id, status, ou, description=""):
+    db = get_database()
+    dao = PersonDAO(db)
+    dao.add_affiliation_status(id, ou, status)
+    db.commit()
 
-    elif delete:
-        person = _get_person(transaction, owner)
-        operation = transaction.get_group_member_operation_type("union")
-        msgs = []
-        for arg, value in checkboxes.items():
-            if arg.startswith("account_"):
-                id = arg.replace("account_", "")
-                account = transaction.get_account(int(id))
-                date = transaction.get_commands().get_date_now()
-                account.set_expire_date(date)
-                msgs.append(_("Expired account %s.") % account.get_name())
-            elif arg.startswith("member_"):
-                member_id, group_id = arg.split("_")[1:3]
-                member = transaction.get_account(int(member_id))
-                group = transaction.get_group(int(group_id))
-                group_member = transaction.get_group_member(group, 
-                            operation, member, member.get_type())
-                group.remove_member(group_member)
-                msgs.append(_("Removed %s from group %s") % 
-                            (member.get_name(), group.get_name()))
-        if msgs:
-            olink = object_link(person)
-            for msg in msgs:
-                queue_message(msg, error=False, link=olink)
-            commit(transaction, person)
-        else:
-            msg = _("No changes done since no groups/accounts were selected.")
-            queue_message(msg, error=True)
-            redirect_object(person)
-        
-    else:
-        raise "I don't know what you want to do"
-accounts = transaction_decorator(accounts)
-accounts.exposed = True
-                
-def add_affil(transaction, id, status, ou, description=""):
-    person = transaction.get_person(int(id))
-    ou = transaction.get_ou(int(ou))
-    status = transaction.get_person_affiliation_status(int(status))
-    ss = transaction.get_source_system("Manual")
-
-    affil = person.add_affiliation(ou, status, ss)
-    
-    if description:
-        affil.set_description(web_to_spine(description))
-    
-    commit(transaction, person, msg=_("Affiliation successfully added."))
-add_affil = transaction_decorator(add_affil)
+    msg = _("Affiliation successfully added.")
+    queue_message(msg, title=_("Operation succeded"), error=False)
+    redirect_entity(id)
 add_affil.exposed = True
 
-def remove_affil(transaction, id, ou, affil, ss):
-    person = transaction.get_person(int(id))
-    ou = transaction.get_ou(int(ou))
-    ss = transaction.get_source_system(web_to_spine(ss))
-    affil = transaction.get_person_affiliation_type(web_to_spine(affil))
-    
-    searcher = transaction.get_person_affiliation_searcher()
-    searcher.set_person(person)
-    searcher.set_ou(ou)
-    searcher.set_source_system(ss)
-    searcher.set_affiliation(affil)
-    
-    affiliation, = searcher.search()
-    affiliation.delete()
-    
-    commit(transaction, person, msg=_("Affiliation successfully removed."))
-remove_affil = transaction_decorator(remove_affil)
+@session_required_decorator
+def remove_affil(id, ou, affil, ss):
+    db = get_database()
+    dao = PersonDAO(db)
+    dao.remove_affiliation_status(id, ou, affil, ss)
+    db.commit()
+
+    msg = _("Affiliation successfully removed.")
+    queue_message(msg, title=_("Operation succeded"), error=False)
+    redirect_entity(id)
 remove_affil.exposed = True
 
-def print_contract(transaction, id, lang):
-    from lib.CerebrumUserSchema import CerebrumUserSchema
-    tr = transaction
-    referer = cherrypy.request.headerMap.get('Referer', '')
-    person = tr.get_person(int(id))
-    prim_account = person.get_primary_account()
-    if not prim_account:
-        accounts = person.get_accounts()
-        if accounts:
-            ## just pick one
-            prim_account = accounts[0]
-    if not prim_account:
-        ## if the person has no accounts, she/he do not
-        ## need to sign a contract... ;)
-        rollback_url(referer, "The person must have an account.", err=True)
-    username = from_spine_decode(prim_account.get_name())
+@session_required_decorator
+def accounts(owner_id, **checkboxes):
+    msgs = []
+    for arg, value in checkboxes.items():
+        if arg.startswith("account_"):
+            msg = expire_account(arg)
+        elif arg.startswith("member_"):
+            msg = leave_group(arg)
+        else:
+            continue
 
-    names = person.get_names()
+        msgs.append(msg)
+
+    if not msgs:
+        msgs.append(_("No changes done since no groups/accounts were selected."))
+
+    for msg in msgs:
+        queue_message(msg, title="Success", error=False)
+    redirect_entity(owner_id)
+accounts.exposed = True
+
+def expire_account(arg):
+    id = arg.replace("account_", "")
+    db = get_database()
+    dao = AccountDAO(db)
+    account = dao.get(id)
+    account.expire_date = DateTime.now()
+    dao.save(account)
+    db.commit()
+
+    return _("Expired account %s.") % account.name
+
+def leave_group(arg):
+    member_id, group_id = arg.split("_")[1:3]
+    member_id = int(member_id)
+    group_id = int(group_id)
+
+    db = get_database()
+    group = GroupDAO(db).get_entity(group_id)
+    member = EntityDAO(db).get(member_id)
+
+    dao = GroupDAO(db)
+    dao.remove_member(group_id, member_id)
+    db.commit()
+
+    return _("Removed %s from group %s") % (member.name, group.name)
+
+def get_primary_account(owner_id):
+    accounts = PersonDAO().get_accounts(owner_id)
+    if not accounts:
+        raise NotFoundError("primary account")
+
+    prim_account = [x for x in accounts if x.is_primary]
+    if not prim_account:
+        prim_account = accounts
+    return prim_account[0]
+
+def get_names(person):
     lastname = None
     firstname = None
-    for name in names:
-        nameVariant = name.get_name_variant()
-        sourceSystem = name.get_source_system()
-        if sourceSystem.get_name() == 'Cached':
-            if nameVariant.get_name() == 'LAST':
-                lastname = from_spine_decode(name.get_name())
-            if nameVariant.get_name() == 'FIRST':
-                firstname = from_spine_decode(name.get_name())
+    for name in person.names:
+        source_systems = [x.name for x in name.source_systems]
+        if 'Cached' in source_systems:
+            if name.variant.name == 'LAST':
+                lastname = from_spine_decode(name.value)
+            if name.variant.name == 'FIRST':
+                firstname = from_spine_decode(name.value)
+    return firstname, lastname
 
-    emailaddress = None
-    targetSearcher = tr.get_email_target_searcher()
-    targetSearcher.set_target_entity(prim_account)
-    emailTargets = targetSearcher.search()
-    if emailTargets:
-        ## just pick one
-        primaryEmail = emailTargets[0].get_primary_address()
-        if primaryEmail:
-            domain = from_spine_decode(primaryEmail.get_domain().get_name())
-            localPart = from_spine_decode(primaryEmail.get_local_part())
-            emailaddress = localPart + '@' + domain
-    
+def get_email_address(account):
+    targets = HostDAO().get_email_targets(account.id)
+    for target in targets:
+        return target.address
+    return ""
+
+def get_affiliation(person):
+    affiliations = (x for x in person.affiliations if not x.is_deleted)
+    for aff in affiliations:
+        return aff
+    return None
+
+def get_faculty(ou):
+    faculty = OuDAO().get_parent(ou.id, 'Kjernen')
+    return from_spine_decode(faculty.name)
+
+@session_required_decorator
+def print_contract(id, lang):
+    from lib.CerebrumUserSchema import CerebrumUserSchema
+    referer = cherrypy.request.headerMap.get('Referer', '')
+    try:
+        prim_account = get_primary_account(id)
+    except NotFoundError, e:
+        msg = _("The person must have an account.")
+        queue_message(msg, title="Could not print contract", error=True)
+        redirect_entity(id)
+
+    person = PersonDAO().get(id, include_extra=True)
+    username = from_spine_decode(prim_account.name)
+    firstname, lastname = get_names(person)
+    email_address = get_email_address(prim_account)
+
     passwd = None
     studyprogram = None
     year = None
-    birthdate = person.get_birth_date().strftime('%d-%m-%Y')
-    affiliation = None
-    affiliations = person.get_affiliations()
-    if affiliations:
-        for aff in affiliations:
-            if not aff.marked_for_deletion():
-                ## just pick one that is not deleted
-                affiliation = aff
-                break
-    
-    faculty = None
-    department = None
-    perspective = tr.get_ou_perspective_type('Kjernen')
-    if affiliation:
-        faculty = from_spine_decode(affiliation.get_ou().get_parent(perspective).get_name())
-        department = from_spine_decode(affiliation.get_ou().get_name())
-    else:
-        rollback_url(referer, 'The person has no affiliation.', err=True)
-    ## print 'lastename = ', lastname
-    ## print 'firstname = ', firstname
-    ## print 'email = ', emailAddress
-    ## print 'username = ', username
-    ## print 'passwd = ', passwd
-    ## print 'birthdate = ', birthdate
-    ## print 'studyprogram = ', studyprogram
-    ## print 'year = ', year
-    ## print 'faculty = ', faculty
-    ## print 'department = ', department
-    ## print 'lang = ', lang
-    pdfSchema= CerebrumUserSchema(lastname, firstname, emailaddress, username, passwd, birthdate, studyprogram, year, faculty, department, lang)
+    birthdate = person.birth_date.strftime('%d-%m-%Y')
+    affiliation = get_affiliation(person)
+    if not affiliation:
+        msg = _('The person has no affiliation.')
+        queue_message(msg, title="Could not print contract", error=True)
+        redirect_entity(id)
+
+    faculty = get_faculty(affiliation.ou)
+    department = from_spine_decode(affiliation.ou.name)
+
+    pdfSchema= CerebrumUserSchema(lastname, firstname, email_address, username, passwd, birthdate, studyprogram, year, faculty, department, lang)
     pdfContent = pdfSchema.build()
     if pdfContent:
         contentLength = len(pdfContent)
@@ -435,12 +423,9 @@ def print_contract(transaction, id, lang):
         ## outFile = open("/tmp/contract.pdf", "w")
         ## outFile.write(pdfContent)
         ## outFile.close()
-        tr.rollback()
         return pdfContent
     else:
-        rollback_url(referer, 'Could not make a contract.', err=True)
-print_contract = transaction_decorator(print_contract)
+        msg = _('Could not generate pdf.')
+        queue_message(msg, title="Could not print contract", error=True)
+        redirect_entity(id)
 print_contract.exposed = True
-
-   
-# arch-tag: bef096b9-0d9d-4708-a620-32f0dbf42fe6

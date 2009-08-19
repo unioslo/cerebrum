@@ -1,4 +1,5 @@
 import cerebrum_path
+from mx import DateTime
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 Database = Utils.Factory.get("Database")
@@ -37,17 +38,10 @@ class GroupDAO(EntityDAO):
         self._populate_visibility(dto, group)
         return dto
 
-    def get_entities_for_account(self, account_id):
-        groups = []
-        for row in self.entity.search(member_id=account_id):
-            dto = self._create_dto_from_search(row)
-            groups.append(dto)
-        return groups
-
     def get_groups_for(self, member_id):
         groups = []
-        direct_groups = self.entity.search(member_id=member_id)
-        for group in self.entity.search(member_id=member_id, indirect_members=True):
+        direct_groups = self.entity.search(member_id=member_id, filter_expired=False)
+        for group in self.entity.search(member_id=member_id, indirect_members=True, filter_expired=False):
             dto = self._create_dto_from_search(group)
             dto.direct = group in direct_groups
             groups.append(dto)
@@ -135,12 +129,18 @@ class GroupDAO(EntityDAO):
         dto.type_id = self._get_type_id()
         dto.description = result.description
         dto.is_posix = self._is_posix(result.group_id)
-        
+        dto.create_date = result.create_date
+        dto.expire_date = result.expire_date
+        dto.is_expired = self._is_expired(dto.expire_date)
+
         return dto
+
+    def _is_expired(self, expire_date):
+        if not expire_date: return False
+        return expire_date < DateTime.now()
 
     def _populate(self, dto, group):
         dto.id = group.entity_id
-        dto.description = group.description
         dto.name = self._get_name(group)
         dto.description = group.description
         dto.type_name = self._get_type_name()

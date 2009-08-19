@@ -18,6 +18,11 @@ Account = Utils.Factory.get("Account")
 Person = Utils.Factory.get("Person")
 PosixUser = Utils.Factory.get("PosixUser")
 
+def first_or_none(fn, items):
+    for item in items:
+        if fn(item): return item
+    return None
+
 class AccountDAO(EntityDAO):
     def __init__(self, db=None):
         super(AccountDAO, self).__init__(db, Account)
@@ -31,6 +36,13 @@ class AccountDAO(EntityDAO):
         account = self._find_by_name(name)
 
         return self._create_dto(account)
+
+    def get_accounts(self, *account_ids):
+        dtos = []
+        for account_id in account_ids:
+            dto = self.get(account_id, False)
+            dtos.append(dto)
+        return dtos
 
     def set_password(self, account_id, new_password):
         account = self._find(account_id)
@@ -47,7 +59,15 @@ class AccountDAO(EntityDAO):
         return [g for g in groups if g.is_posix]
 
     def get_groups(self, account_id):
-        return GroupDAO(self.db).get_groups_for(account_id)
+        groups = GroupDAO(self.db).get_groups_for(account_id)
+
+        paccount = self._get_posix_account(account_id)
+        primary_group_id = paccount and paccount.gid_id
+
+        for group in groups:
+            group.is_primary = group.id == primary_group_id
+
+        return groups
 
     def suggest_usernames(self, entity):
         fname, lname = self._split_name(entity.name)
@@ -172,8 +192,9 @@ class AccountDAO(EntityDAO):
     def _create_dto(self, account, include_extra=True):
         dto = AccountDTO()
         self._populate(dto, account)
-        self._populate_posix(dto, account, include_extra)
         dto.groups = self.get_groups(account.entity_id)
+        dto.primary_group = first_or_none(lambda x: x.is_primary, dto.groups)
+        self._populate_posix(dto, account, include_extra)
 
         if include_extra:
             self._populate_owner(dto, account)
@@ -208,14 +229,6 @@ class AccountDAO(EntityDAO):
         shell = ConstantsDAO(self.db).get_shell(paccount.shell)
         dto.shell = shell.name
         
-        if include_extra:
-            self._populate_posix_group(dto, paccount)
-
-    def _populate_posix_group(self, dto, account):
-        group_id = account.gid_id
-        group_type = self.constants.entity_group
-        dto.primary_group = EntityDAO(self.db).get(group_id, group_type)
-
     def _populate_owner(self, dto, account):
         owner_id = account.owner_id
         owner_type = account.owner_type

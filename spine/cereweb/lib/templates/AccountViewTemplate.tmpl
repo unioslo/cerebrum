@@ -156,14 +156,14 @@
             </tr>
             #for $affil in $account.affiliations
                 <tr class="item">
-                    <td>$spine_to_web($affil.type_name)</td>
+                    <td>$spine_to_web($affil.name)</td>
                     <td>$entity_link($affil.ou)</td>
                     <td>$spine_to_web($affil.priority)</td>
                     <td class="actions">
                         #set $args = "account_id=%s&amp;ou_id=%s&amp;affil_id=%s" % (
                             $account.id,
                             $affil.ou.id,
-                            $url_quote($affil.type_id))
+                            $url_quote($affil.id))
                         <a class="action" href="/confirm/account/remove_affil?$args">$_('delete')</a>
                     </td>
                 </tr>
@@ -178,8 +178,8 @@
         #return
     #end if
 
-    #set $aff_list = [($spine_to_web("%s:%s" % ($a.type_id, $a.ou.id)),
-                       $spine_to_web("%s:%s" % ($a.type_name, $a.ou.name))) for $a in $affiliations]
+    #set $aff_list = [($spine_to_web("%s:%s" % ($a.id, $a.ou.id)),
+                       $spine_to_web("%s:%s" % ($a.name, $a.ou.name))) for $a in $affiliations]
 
     <div class="edit box" style="display:none;">
         <h3 id="affil">$_('Add an affiliation')</h3>

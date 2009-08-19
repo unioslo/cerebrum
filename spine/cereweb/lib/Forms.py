@@ -27,6 +27,7 @@ from lib.utils import randpasswd, get_lastname_firstname, entity_link
 from lib.data.AccountDAO import AccountDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.EntityDAO import EntityDAO
+from lib.data.OuDAO import OuDAO
 
 """
 Helper-module for search-pages and search-result-pages in cereweb.
@@ -139,7 +140,7 @@ class PersonCreateForm(Form):
     def init_form(self):
         self.order = [
             'ou',
-            'affiliation',
+            'status',
             'firstname',
             'lastname',
             'externalid',
@@ -154,7 +155,7 @@ class PersonCreateForm(Form):
                 'type': 'select',
                 'quote': 'reject',
             },
-            'affiliation': {
+            'status': {
                 'label': _('Affiliation Type'),
                 'required': True,
                 'type': 'select',
@@ -197,26 +198,23 @@ class PersonCreateForm(Form):
             }
         }
 
-    def get_affiliation_options(self):
-        options = [('%s:%s' % (t.get_affiliation().get_id(), t.get_id()), '%s: %s' % (t.get_affiliation().get_name(), t.get_name())) for t in
-            self.transaction.get_person_affiliation_status_searcher().search()]
-        options.sort()
+    def get_status_options(self):
+        options = [(t.id, t.name) for t in ConstantsDAO().get_affiliation_statuses()]
+        options.sort(lambda x,y: cmp(x[1], y[1]))
         return options
 
     def get_ou_options(self):
-        searcher = self.transaction.get_ou_searcher()
-        return [(t.get_id(), t.get_name()) for t in searcher.search()]
+        return [(t.id, t.name) for t in OuDAO().get_entities()]
 
     def get_gender_options(self):
-        return [(g.get_name(), g.get_description()) for g in 
-                   self.transaction.get_gender_type_searcher().search()]
+        return [(g.name, g.description) for g in 
+                   ConstantsDAO().get_gender_types()]
 
     def check_firstname(self, name):
         return self._check_short_string(name)
 
     def check_lastname(self, name):
         return self._check_short_string(name)
-
 
     def check_birthdate(self, date):
         is_correct = True

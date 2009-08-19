@@ -39,7 +39,7 @@ from lib.data.HostDAO import HostDAO
 from lib.data.PersonDAO import PersonDAO
 from lib.data.DTO import DTO
 
-from group import get_database
+from lib.utils import get_database
 
 class CreationFailedError(Exception):
     def __init__(self, message, innerException=None):

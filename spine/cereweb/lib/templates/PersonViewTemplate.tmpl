@@ -16,208 +16,185 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, strftime, html_quote
-#from lib.utils import url_quote, ou_selects
+#from lib.utils import entity_link, object_link, strftime, html_quote, quotedate
+#from lib.utils import url_quote, create_ou_selection_tree, nl2br
 #from lib.utils import remember_link, web_to_spine, spine_to_web
 #from lib.utils import get_ou_structure, find_ou_root, get_lastname_firstname
 #import operator
 #from Widgets import Widgets
-#extends EntityViewTemplate
+#extends NewEntityViewTemplate
 
 #attr $widgets = Widgets()
 #attr $names_width = 5
 #attr $viewBirthNo = False
 
-#def viewActions($person)
-    #set $id = $url_quote($person.get_id())
+#attr $page = "person"
+#attr $link = "view"
+
+#def title()
+    #return $_('Person %s') % $spine_to_web($person.name)
+#end def
+
+#def links()
+    #return (
+        ('search', $_('Search')),
+        ('create', $_('Create')),
+    )
+#end def
+
+#def actions()
+<div id="actions">
+    <h3>$_('Actions')</h3>
     <ul>
-        <li><a href="/person/edit?id=$id">$_("edit info")</a></li>
-        <li><a href="/confirm/person/delete?id=$id">$_("delete person")</a></li>
-        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
-        <li><a href="/account/create?owner_id=$id">$_('create new account')</a></li>
-        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a> </li>
-        <li>$remember_link($person)</li>
+        <li><a href="/person/edit?id=$person.id">$_("edit info")</a></li>
+        <li><a href="/confirm/person/delete?id=$person.id">$_("delete person")</a></li>
+        <li><a href="/quarantine/add?entity=$person.id">$_('add quarantine')</a></li>
+        <li><a href="/account/create?owner_id=$person.id">$_('create new account')</a></li>
+        <li><a href="/entity/full_historylog?id=$person.id">$_('view full history log')</a> </li>
     </ul>
+</div>
 #end def
 
 ## Page for viewing information about a person.
 #def content()
-    $viewInfo($entity)
-    $setName($entity, $tr)
-    $printDialog($entity)   
-    $viewNames($entity)
-    $viewQuarantines($entity)
-    $addNote($entity)
-    $viewNotes($entity)
-    $viewAccounts($entity)
-    $addAffiliation($entity, $tr)
-    $viewAffiliation($entity)
-    $viewTraits($entity)
-    $viewContactInfos($entity)
-    $viewAddresses($entity)
-    $setExternalId($entity, $tr)
-    $viewExternalIds($entity, $viewBirthNo)
-    $viewHistoryLog($entity)
+    $viewInfo($person)
+    $setName($person, $name_types)
+    $printDialog($person)
+    $viewNames($person)
+    $viewQuarantines($person)
+    $addNote($person)
+    $viewNotes($person)
+    $viewAccounts($person)
+    $addAffiliation($person)
+    $viewAffiliation($person)
+    $viewTraits($person)
+    $viewContactInfos($person)
+    $viewAddresses($person)
+    $setExternalId($person, $id_types)
+    $viewExternalIds($person, $viewBirthNo)
+    $viewHistoryLog($person)
 #end def
 
 #def viewInfo($person)
     #set $info = []
     #set $notice = []
-    #if $person.get_deceased_date()
+    #if $person.is_deceased
         $notice.append($_("Deceased"))
-        $info.append(($_("Deceased date"), $html_quote($strftime($person.get_deceased_date()))))
+        $info.append(($_("Deceased date"), $quotedate($person.deceased_date)))
     #end if
-    $info.append(($_("Name"), $spine_to_web(get_lastname_firstname($person))))
-    $info.append(($_("Gender"), $spine_to_web($person.get_gender().get_description())))
-    $info.append(($_("Date of birth"), $html_quote($strftime($person.get_birth_date()))))
-    $info.append(($_("Description"), $spine_to_web($person.get_description())))
+    $info.append(($_("Name"), $spine_to_web($person.name)))
+    $info.append(($_("Gender"), $spine_to_web($person.gender.description)))
+    $info.append(($_("Date of birth"), $quotedate($person.birth_date)))
+    $info.append(($_("Description"), $spine_to_web($person.description)))
     $widgets.viewInfo($info, $notice)
 #end def
 
 ## List accounts and groups the accounts are member of.
 #def viewAccounts($person)
-#set $allaccounts = $person.get_accounts()
-#set $primary = $person.get_primary_account()
-#if $primary
-    #set $primary = $primary.get_name()
-#end if
-#set $person_id = $html_quote($person.get_id())
-
 <div class="list box">
     <h3>$_('Accounts &amp; Groups')</h3>
     <form action="accounts" method="post">
-        <input type="hidden" value="$person_id" name="owner" />
-        #for $account in $allaccounts
-        #set $account_id = $html_quote($account.get_id())
+        <input type="hidden" value="$person.id" name="owner_id" />
+        #for $account in $person.accounts
 
-        ## need a copy for comparing against the primary
-        ##  which is not quoted.
-        #set $acc_name_cmp = $account.get_name()
-        #set $account_name = $spine_to_web($acc_name_cmp)
-        #if $acc_name_cmp == $primary
+        #if $account.is_primary
         <div class="item primary">
         #else
         <div class="item">
         #end if
-            <input type="checkbox" name="account_$account_id" />
-            <em>$_('Account'):</em>$account_name
-            $object_link($account, "view", _class="action")
-            $object_link($account, "edit", "edit", _class="action")
-            $remember_link($account, _class="action")
+            <input type="checkbox" name="account_$account.id" />
+            <em>$_('Account'):</em>$account.name
+            $entity_link($account, "view", _class="action")
             ## no point in checking unless we have a primary
-            #if $primary
-                #if $acc_name_cmp == $primary
-                    <span class="extra">(primary)</span>
-                #end if
+            #if $account.is_primary
+                <span class="extra">(primary)</span>
             #end if
-            #if $account.is_posix()
+            #if $account.is_posix
                 <span class="extra">(posix)</span>
             #end if
-            #if $account.is_expired()
+            #if $account.is_expired
                 <span class="extra">(expired)</span>
             #end if
         </div>
         $listGroups($account)
         #end for
         
-        #if $allaccounts
+        #if $person.accounts
         <input type="submit" value="$_('Delete')" name="delete" />&#x0020;
         #end if
-        <input type="submit" value="$_('Add new account')" name="add" />&#x0020;
+        <a href="/account/create?owner_id=$person.id">$_('create new account')</a>
     </form>
 </div>
 #end def
 
-#def writeAffiliations($affiliations)
-#for $aff in $affiliations
-#if $aff['deleted']:
-    <tr class="item deleted">
-#else    
-    <tr class="item">
-#end if
-        <td>$aff['affiliation']</td>
-        <td>$aff['status']</td>
-        <td>$aff['ou']</td>
-        <td>$aff.get('addinfo','')</td>
-        <td>$aff['source']</td>
-        <td>$aff.get('action', '')</td>
-    </tr>
-#end for
-#end def
-
 #def viewAffiliation($person)
-#set $affilitions= $person.get_all_affiliations()
-#if $affilitions
+#if not $person.affiliations
+    #return
+#end if
+
 <div class="info box">
     <h3>$_('Affiliations')</h3>
     <table>
         <tr class="headers">
         <th>$_('Affiliation')</th>
-        <th>$_('Status')</th>
         <th>$_('OU')</th>
         <th>$_('Additional Info')</th>
         <th>$_('Source')</th>
         <th>$_('Actions')</th>
         </tr>
-        #set $active = []
-        #set $deleted = []
-        #for $affil in $affilitions
-            #set $ou = $affil.get_ou()
-            #set $affil_type = $affil.get_affiliation()
-            #set $status = $affil.get_status()
-            #set $marked = $affil.marked_for_deletion()
-            #set $source = $affil.get_source_system()
-            #set $item = dict()
-            #set $item['affiliation'] = $spine_to_web($affil_type.get_name())
-            #set $item['status'] = $spine_to_web($status.get_name())
-            #set $item['source'] = $spine_to_web($source.get_name())
-            #set $ou_name = $spine_to_web($ou.get_name())
-            #set $item['ou'] = $object_link($ou, text=$ou_name)
-            #if $marked
-                #set $item['deleted'] = True
-                $deleted.append($item)
-            #else
-		#set $item['deleted'] = False
-                #set $item['addinfo'] = $_('active')
-                #set $person_id = $person.get_id()
-                #set $ou_id = $ou.get_id()
-                #set $type_aff = $spine_to_web($affil_type.get_name())
-                #set $source_name = $spine_to_web($source.get_name())
-                #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
-                            $url_quote($person_id),
-                            $url_quote($ou_id),
-                            $url_quote($type_aff),
-                            $url_quote($source_name))
-                #set $action = '<a class="action" href="/confirm/person/remove_affil?%s">delete</a>' % $args
-                #set $item['action'] = $action
-                $active.append($item)
-            #end if
-        #end for
-        $writeAffiliations($active)
-        $writeAffiliations($deleted)
+        #set $active = [x for x in $person.affiliations if not x.is_deleted]
+        #set $deleted = [x for x in $person.affiliations if x.is_deleted]
+
+        $writeAffiliations($person, $active)
+        $writeAffiliations($person, $deleted)
     </table>
 </div>
-#end if
 #end def
 
-#def addAffiliation($person, $tr)
-#set $searcher = $tr.get_person_affiliation_status_searcher()
-#set $status = [($i.get_id(), "%s: %s" % ($spine_to_web($i.get_affiliation().get_name()), $spine_to_web($i.get_name()))) for $i in $searcher.search()]
+#def writeAffiliations($person, $affiliations)
+#for $aff in $affiliations
+#if $aff.is_deleted
+    <tr class="item deleted">
+#else    
+    <tr class="item">
+#end if
+        <td>$spine_to_web($aff.name)</td>
+        <td>$entity_link($aff.ou)</td>
+        <td>
+        #if not $aff.is_deleted
+            $_('active')
+        #end if
+        </td>
+        <td>$spine_to_web($aff.source_system.name)</td>
+        <td>
+                #set $args = "id=%s&amp;ou=%s&amp;affil=%s&amp;ss=%s" % (
+                            $person.id,
+                            $aff.ou.id,
+                            $aff.id,
+                            $aff.source_system.id)
+                #if not $aff.is_deleted
+                    <a class="action" href="/confirm/person/remove_affil?$args">delete</a>
+                #end if
+        </td>
+    </tr>
+#end for
+#end def
 
-#set $perspective_type = $tr.get_ou_perspective_type('Kjernen')
-#set $root = $find_ou_root($get_ou_structure($tr, $perspective_type), $perspective_type)
+#def addAffiliation($person)
+#set $status = [($s.id, $spine_to_web($s.name)) for $s in $affiliation_types]
 
+#set $ou_options = $create_ou_selection_tree($ou_tree)
 <div class="edit box">
     <h3 id="affil">$_('Add an affiliation')</h3>
     <form action="add_affil" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$html_quote($person.get_id())" />
+            <input type="hidden" name="id" value="$person.id" />
         </div>
         <div class="required">
             $form_widgets.generate_loption("status", "Affiliation", $status)
         </div>
         <div class="required">
-            $form_widgets.generate_loption("ou", "Organization Unit", $ou_selects($root, $perspective_type), $quote=False)
+            $form_widgets.generate_loption("ou", "Organization Unit", $ou_options, $quote=False)
         </div>
         <div class="buttons">
             <input type="submit" value="$_('Add')" />&#x0020;
@@ -227,10 +204,8 @@
 </div>
 #end def
 
-#from lib.utils import namelist
 #def viewNames($person)
     <div class="info box">
-        #set $names = $namelist($person)
         <h3>$_('Names')</h3>
         <table>
             <tr>
@@ -238,32 +213,32 @@
               <th>$_('Name')</th>
               <th>$_('Sources')</th>
             </tr>
-            #for $name in $names
-            #set $sources = ",".join([$spine_to_web($s.get_name()) for $s in $name.sources])
+            #for $name in $person.names
             <tr>
-               <td>$spine_to_web($name.variant.get_name())</td>
+               <td>$spine_to_web($name.variant.name)</td>
                <td>$spine_to_web($name.value)</td>
-               <td>$sources</td>
+               <td>
+                   $spine_to_web(",".join([$s.name for $s in $name.source_systems]))
+               </td>
             </tr>
             #end for
         </table>
     </div>
 #end def
 
-#def setName($person, $tr)
+#def setName($person, $name_types)
 <div class="edit box">
     <h3>$_('Set a name')</h3>
     <form action="add_name" method="post">
-        #set $name_types = $tr.get_name_type_searcher().search()
-        #set $name_types = [($spine_to_web($i.get_name()), $spine_to_web($i.get_description())) for $i in $name_types]
         <div class="hidden">
-            <input type="hidden" name="id" value="$html_quote($person.get_id())" />
+            <input type="hidden" name="id" value="$person.id" />
         </div>
         <div class="required">
             $form_widgets.input("name", "Name")
         </div>
         <div class="required">
-            $form_widgets.generate_loption("name_type", "Name type", $name_types)
+            $form_widgets.generate_loption("name_type", "Name type",
+                    [($spine_to_web($i.name), $spine_to_web($i.description)) for $i in $name_types])
         </div>
         <div class="buttons">
             <input type="submit" value="$_('Set name')" />&#x0020;
@@ -279,7 +254,7 @@
     <h3>$_('Print contract')</h3>
         <form action="print_contract" method="post">
             <div>
-            <input type="hidden" name="id" value="$html_quote($person.get_id())" />
+            <input type="hidden" name="id" value="$person.id" />
             <div>
                 $form_widgets.generate_loption("lang", "Language", $langs)
             </div>
@@ -292,3 +267,122 @@
 </div>
 #end def
 
+## Code after this point in duplicated from EntityViewTemplate and should be moved to NewEntityViewTemplate when we inherit from that.
+
+#def setExternalId($entity, $id_types)
+#set $id_options = [($spine_to_web($t.name), $spine_to_web($t.description)) for $t in $id_types]
+
+<div class="edit box" style="display:none;">
+    <h3>$_('Set external identifier')</h3>
+    <form action="/entity/add_external_id" method="post">
+        <div class="hidden">
+            <input type="hidden" name="id" value="$entity.id" />
+        </div>
+        <div class="required">
+            $form_widgets.input("external_id", "External identifier")
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("id_type", "Type", $id_options)
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Set')" />&#x0020;
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
+</div>
+#end def
+
+#def viewExternalIds($entity, $viewBirthNo)
+#if not $entity.external_ids
+    #return
+#end if
+
+<div class="info box">
+    <h3>$_('External identifiers')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Value')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for $external_id in $entity.external_ids
+        <tr>
+            <td>$spine_to_web($external_id.variant.name)</td>
+            <td>
+            #if $external_id.variant.name == 'NO_BIRTHNO'
+                #if $viewBirthNo
+                    $html_quote($external_id.value)&#x0020;<a href="/person/view?id=$entity.id">[Hide value]</a>
+                #else
+                    <a href="/person/view?id=$entity.id&amp;birthno=True">[Show value]</a>
+                #end if
+            #else
+               $html_quote($external_id.value)
+            #end if
+            </td>
+           <td>
+               $spine_to_web(",".join([$s.name for $s in $external_id.source_systems]))
+           </td>
+        </tr>
+    #end for
+    </table>
+</div>
+#end def
+
+#def viewContactInfos($entity)
+#if not $entity.contacts
+    #return
+#end if
+
+<div class="info box">
+    <h3>$_('Contact info')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Value')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for $contact in $entity.contacts
+    <tr>
+       <td>$spine_to_web($contact.variant.name)</td>
+       <td>$spine_to_web($contact.value)</td>
+       <td>
+           $spine_to_web(",".join([$s.name for $s in $contact.source_systems]))
+       </td>
+    </tr>
+    #end for
+    </table>
+</div>
+#end def
+
+#def viewAddresses($entity)
+#if not $entity.addresses
+    #return
+#end if
+<div class="info box">
+    <h3>$_('Addresses')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Address')</th>
+      <th>$_('P O Box')</th>
+      <th>$_('P nr')</th>
+      <th>$_('City')</th>
+      <th>$_('Country')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for $address in $entity.addresses
+    <tr>
+       <td>$spine_to_web($address.variant.name)</td>
+       <td>$spine_to_web($address.value.address_text)</td>
+       <td>$spine_to_web($address.value.p_o_box)</td>
+       <td>$spine_to_web($address.value.postal_number)</td>
+       <td>$spine_to_web($address.value.city)</td>
+       <td>$spine_to_web($address.value.country)</td>
+       <td>
+           $spine_to_web(",".join([$s.name for $s in $address.source_systems]))
+       </td>
+    </tr>
+    #end for
+    </table>
+</div>
+#end def
