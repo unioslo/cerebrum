@@ -1074,13 +1074,14 @@ class BofhdExtension(object):
             raise CerebrumError, "Database error: %s" % m
         operator.store_state("new_account_passwd", {'account_id': int(posix_user.entity_id),
                                                     'password': passwd})
-        self._meld_inn_i_server_gruppe(int(posix_user.entity_id), operator)        
+        self._meld_inn_i_server_gruppe(int(posix_user.entity_id), operator)
+        self._add_radiusans_spread(int(posix_user.entity_id), operator)
+        
         return "Ok, create %s" % {'uid': uid}
 
     # helper func, let new account join appropriate server_group
     #
     def _meld_inn_i_server_gruppe(self, acc_id, operator):
-        # fikser innmelding i edir-servergrupper _midlertidig_. skal fikses i nye edir-sync
         acc = Utils.Factory.get('Account')(self.db)
         acc.clear()
         acc.find(acc_id)
@@ -1096,6 +1097,30 @@ class BofhdExtension(object):
         grp.find_by_name(grp_name)
         grp.add_member(acc.entity_id)
         
+    # helper func, set radius-ans spread for employees
+    def _add_radius_spread(self, acc_id, operator):
+        acc = Utils.Factory.get('Account')(self.db)
+        acc.clear()
+        acc.find(acc_id)
+        if acc.is_employee() or self._person_is_employee(acc.owner_id, operator):
+            if not acc.has_spread(self.const.spread_ans_radius_user):
+                acc.add_spread(self.const.spread_ans_radius_user)
+                acc.write_db()
+
+    # helper func, check if a person is a registered employee
+    def _person_is_employee(self, person_id, operator):
+        person = Utils.Factory.get('Person')(self.db)
+        person.clear()
+        try:
+            person.find(person_id)
+        except Errors.NotFoundError:
+            # non-personal accounts cannot be assigned radiusans spread
+            return False
+        for row in person.get_affiliations():
+            if int(row['affiliation']) == int(self.const.affiliation_ansatt):
+                return True
+        return False
+            
     # user move
     #
     all_commands['user_move_nofile'] = Command(
