@@ -1,5 +1,23 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- coding: iso-8859-1 -*-
+# Copyright 2009 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import os, sys, socket, time, md5
 
 import cerebrum_path
@@ -46,6 +64,115 @@ def int_or_none(i):
         return None
     else:
         return int(i)
+
+def search_persons(personspread=None, changelog_id=None):
+    select=["person_info.person_id AS id",
+            "person_info.export_id AS export_id",
+            "person_full_name.name AS full_name",
+            "person_first_name.name AS first_name",
+            "person_last_name.name AS last_name",
+            "person_work_title.name AS work_title",
+            
+            "contact_email.contact_value AS email",
+            "contact_url.contact_value AS url",
+            "contact_phone.contact_value AS phone",
+
+            "person_info.birth_date AS birth_date",
+            "person_nin.external_id AS nin",
+            "entity_address.address_text AS address_text",
+            "entity_address.postal_number AS postal_number",
+            "entity_address.city AS city"
+            ]
+    tables=["person_info"]
+    order_by=""
+    binds={ "externalid_nin": co.externalid_fodselsnr,
+            "nin_source": co.system_bdb,
+            "system_cached": co.system_cached,
+            "system_bdb": co.system_bdb,
+            "address_source": co.system_fs,
+            "name_first": co.name_first,
+            "name_last": co.name_last,
+            "name_full": co.name_full,
+            "name_display": co.name_display,
+            "name_personal_title": co.name_personal_title,
+            "name_work_title": co.name_work_title,
+            "contact_email": co.contact_email,
+            "contact_url": co.contact_url,
+            "contact_phone": co.contact_phone,
+            "contact_email": co.contact_email,
+            "contact_post_address": co.address_post,
+            }
+            
+        
+
+    if changelog_id is not None:
+        tables.append("""JOIN change_log
+                   ON (change_log.subject_entity = person_info.person_id
+                     AND change_log.change_id > :changelog_id)""")
+        binds["changelog_id"] = changelog_id
+        order_by="ORDER BY change_log.change_id"
+
+    if personspread is not None:
+        tables.append("""JOIN entity_spread person_spread
+        ON (account_spread.spread = :person_spread
+          AND account_spread.entity_id = account_info.account_id)""")
+        binds.append("person_spread", person_spread)
+
+    tables.append("""LEFT JOIN entity_external_id person_nin
+    ON (person_nin.entity_id = person_info.person_id
+      AND person_nin.id_type = :externalid_nin
+      AND person_nin.source_system = :nin_source )
+    LEFT JOIN person_name person_first_name
+      ON ((person_first_name.person_id = person_info.person_id)
+        AND (person_first_name.source_system = :system_cached)
+        AND (person_first_name.name_variant = :name_first))
+    LEFT JOIN person_name person_last_name
+    ON ((person_last_name.person_id = person_info.person_id)
+      AND (person_last_name.source_system = :system_cached)
+      AND (person_last_name.name_variant = :name_last))
+    LEFT JOIN person_name person_full_name
+    ON ((person_full_name.person_id = person_info.person_id)
+      AND (person_full_name.source_system = :system_cached)
+      AND (person_full_name.name_variant = :name_full))
+    LEFT JOIN person_name person_display_name
+    ON ((person_display_name.person_id = person_info.person_id)
+      AND (person_display_name.source_system = :system_cached)
+      AND (person_display_name.name_variant = :name_display))
+    LEFT JOIN person_name person_personal_title
+    ON ((person_personal_title.person_id = person_info.person_id)
+      AND (person_personal_title.source_system = :system_cached)
+      AND (person_personal_title.name_variant = :name_personal_title))
+    LEFT JOIN person_name person_work_title
+    ON ((person_work_title.person_id = person_info.person_id)
+      AND (person_work_title.source_system = :system_cached)
+      AND (person_work_title.name_variant = :name_work_title))
+    LEFT JOIN entity_contact_info contact_email
+    ON (contact_email.entity_id = person_info.person_id
+      AND contact_email.contact_type = :contact_email
+      AND contact_email.source_system = :system_bdb)
+    LEFT JOIN entity_contact_info contact_url
+    ON (contact_url.entity_id = person_info.person_id
+      AND contact_url.contact_type = :contact_url
+      AND contact_url.source_system = :system_cached) 
+    LEFT JOIN entity_contact_info contact_phone
+    ON (contact_phone.entity_id = person_info.person_id
+      AND contact_phone.contact_type = :contact_phone
+      AND contact_phone.source_system = :system_cached) 
+    LEFT JOIN entity_address entity_address
+    ON (entity_address.entity_id = person_info.person_id
+      AND entity_address.source_system = :address_source
+      AND entity_address.address_type = :contact_post_address)""")
+
+    where=["(person_info.deceased_date IS NULL)"]
+    sql = "SELECT " + ",\n".join(select)
+    sql += " FROM " + "\n".join(tables)
+    sql += " WHERE " + " AND ".join(where)
+    sql += order_by
+
+    return db.query(sql, binds)
+               
+
+
 
 # Merge this with Account.search()....
 def search_accounts(account_spread, changelog_id=None, auth_type="MD5-crypt"):
@@ -460,33 +587,21 @@ class quarantines:
 
 
 class DTO(object):
-    def __init__(self, row):
-        pass
-
-class GroupDTO:
-    def __init__(self, row, members=[], quarantines=[]):
+    def __init__(self, row, atypes):
         self._attrs = {}
-        self._attrs["name"] = row["name"]
-        self._attrs["posix_gid"] = row["posix_gid"]
-        self._member = members
-        self._quarantine = quarantines
+        for key, value in row.dict().items():
+            if key in atypes:
+                atype = atypes[key]
+                if value is not None:
+                    self._attrs[key] = value
 
-class AccountDTO:
-    def __init__(self, row, quarantines=[]):
-        self._attrs={}
-        self._attrs["name"] = row["name"]
-        self._attrs["passwd"] = row["passwd"]
-        self._attrs["home"] = row["home"]
-        self._attrs["disk_host"] = row["disk_host"]
-        self._attrs["disk_path"] = row["disk_path"]
-        self._attrs["gecos"] = row["gecos"]
-        self._attrs["shell"] = row["shell"]
-        self._attrs["shell_name"] = row["shell_name"]
-        self._attrs["posix_uid"] = row["posix_uid"]
-        self._attrs["posix_gid"] = row["posix_gid"]
-        self._attrs["primary_group"] = row["primary_group"]
-        self._attrs["full_name"] = row["full_name"]
-        self._attrs["owner_group_name"] = row["owner_group_name"]
+class GroupDTO(DTO):
+    def __init__(self, row, atypes):
+        super(GroupDTO, self).__init__(row, atypes)
+
+class AccountDTO(DTO):
+    def __init__(self, row, atypes):
+        super(AccountDTO, self).__init__(row, atypes)
         self._attrs["homedir"] = account.resolve_homedir(
             account_name=row['name'],
             disk_path=row['disk_path'],
@@ -503,59 +618,25 @@ class AccountDTO:
         self._quarantine = quarantines
 
 
-class OUDTO:
-    def __init__(self, row, quarantines=[]):
-        self._attrs={}
-        self._attrs["id"] = int(row["id"])
-        self._attrs["name"] = row["name"]
-        self._attrs["acronym"] = row["acronym"]
-        self._attrs["short_name"] = row["short_name"]
-        self._attrs["display_name"] = row["display_name"]
-        self._attrs["sort_name"] = row["sort_name"]
-        if row["parent_id"] is not None:
-            self._attrs["parent_id"] = row["parent_id"]
-        if row["stedkode"] is not None:
-            self._attrs["stedkode"] = row["stedkode"]
-        if row["parent_stedkode"] is not None:
-            self._attrs["parent_stedkode"] = row["parent_stedkode"]
-        self._attrs["email"] = row["email"]
-        self._attrs["url"] = row["url"]
-        self._attrs["phone"] = row["phone"]
-        self._attrs["fax"] = row["fax"]
-        if row["post_address"] is not None:
-            self._attrs["post_address"] = row["post_address"]
-        self._quarantine = quarantines
+class PersonDTO(DTO):
+    def __init__(self, row, atypes):
+        super(PersonDTO, self).__init__(row, atypes)
 
-class AliasDTO:
-    def __init__(self, row):
-        self._attrs={}
-        self._attrs["address_id"] = row["address_id"]
-        self._attrs["local_part"] = row["local_part"]
-        self._attrs["domain"] = row["domain"]
-        if row["primary_address_id"] is not None:
-            self._attrs["primary_address_id"] = row["primary_address_id"]
-            self._attrs["primary_address_local_part"] = row["primary_address_local_part"]
-            self._attrs["primary_address_domain"] = row["primary_address_domain"]
+class OUDTO(DTO):
+    def __init__(self, row, atypes):
+        super(OUDTO, self).__init__(row, atypes)
 
-        self._attrs["server_name"] = row["server_name"]
-        if row["account_id"] is not None:
-            self._attrs["account_id"] = row["account_id"]
-            self._attrs["account_name"] = row["account_name"]
+class AliasDTO(DTO):
+    def __init__(self, row, atypes):
+        super(AliasDTO, self).__init__(row, atypes)
 
-
-class HomedirDTO:
-    def __init__(self, row):
-        self._attrs = {}
-        self._attrs["homedir_id"] = row["homedir_id"]
-        self._attrs["account_name"] = row["account_name"]
-        self._attrs["home"] = row["home"]
+class HomedirDTO(DTO):
+    def __init__(self, row, atypes):
+        super(HomedirDTO, self).__init__(row, atypes)
         self._attrs["homedir"] = account.resolve_homedir(
             account_name=row['account_name'],
             disk_path=row['disk_path'],
             home=row['home'])
-        self._attrs["disk_path"] = row["disk_path"]
-        self._attrs["posix_uid"] = row["posix_uid"]
-        self._attrs["posix_gid"] = row["posix_gid"]
 
 def get_node_value(node):
     if not node:
@@ -661,7 +742,8 @@ class spinews(ServiceSOAPBinding):
         status = str(request._status) 
         hostname = str(request._hostname)
         response = getHomedirsResponse()
-        response._homedir = self.get_homedirs_impl(hostname, status)
+        atypes = response.typecode.ofwhat[0].attribute_typecode_dict
+        response._homedir = self.get_homedirs_impl(atypes, hostname, status)
         return response
 
     def get_aliases(self, ps):
@@ -669,7 +751,8 @@ class spinews(ServiceSOAPBinding):
         request = ps.Parse(getAliasesRequest.typecode)
         incremental_from = int_or_none(request._incremental_from)
         response = getAliasesResponse()
-        response._alias = self.get_aliases_impl(incremental_from)
+        atypes = response.typecode.ofwhat[0].attribute_typecode_dict
+        response._alias = self.get_aliases_impl(atypes, incremental_from)
         return response
 
     def get_ous(self, ps):
@@ -677,7 +760,8 @@ class spinews(ServiceSOAPBinding):
         request = ps.Parse(getOUsRequest.typecode)
         incremental_from = int_or_none(request._incremental_from)
         response = getOUsResponse()
-        response._ou = self.get_ous_impl(incremental_from)
+        atypes = response.typecode.ofwhat[0].attribute_typecode_dict
+        response._ou = self.get_ous_impl(atypes, incremental_from)
         return response
         
 
@@ -688,7 +772,9 @@ class spinews(ServiceSOAPBinding):
         accountspread = str(request._accountspread)
         incremental_from = int_or_none(request._incremental_from)
         response = getGroupsResponse()
-        response._group = self.get_groups_impl(groupspread,
+        atypes = response.typecode.ofwhat[0].attribute_typecode_dict
+        response._group = self.get_groups_impl(atypes,
+                                               groupspread,
                                                accountspread,
                                                incremental_from)
         return response
@@ -700,7 +786,9 @@ class spinews(ServiceSOAPBinding):
         auth_type = str(request._auth_type)
         incremental_from = int_or_none(request._incremental_from)
         response = getAccountsResponse()
-        response._account = self.get_accounts_impl(accountspread,
+        atypes = response.typecode.ofwhat[0].attribute_typecode_dict
+        response._account = self.get_accounts_impl(atypes,
+                                                   accountspread,
                                                    auth_type,
                                                    incremental_from)
         return response
@@ -718,51 +806,62 @@ class spinews(ServiceSOAPBinding):
     root[(setHomedirStatusRequest.typecode.nspname,
           setHomedirStatusRequest.typecode.pname)] = 'set_homedir_status'
 
-    def get_accounts_impl(self, accountspread, auth_type, changelog_id=None):
+    def get_persons_impl(self, atypes, personspread=None, changelog_id=None):
+        persons=[]
+        q=quarantines()
+        for row in search_persons(personspread, changelog_id):
+            p=PersonDTO(row, atypes)
+            p.quarantines = q.get_quarantines(row['id'])
+            persons.append(p)
+        db.rollback()
+        return persons
+        
+
+    def get_accounts_impl(self, atypes, accountspread, auth_type, changelog_id=None):
         accounts=[]
         q=quarantines()
         for row in search_accounts(accountspread, changelog_id, auth_type):
-            a=AccountDTO(row)
+            a=AccountDTO(row, atypes)
             a.quarantines = (q.get_quarantines(row['id']) +
                              q.get_quarantines(row['owner_id']))
             accounts.append(a)
         db.rollback()
         return accounts
 
-    def get_groups_impl(self, groupspread, accountspread, changelog_id=None): 
+    def get_groups_impl(self, atypes, groupspread, accountspread, changelog_id=None): 
         groups=[]
         members=group_members(db)
         q=quarantines()
         for row in search_groups(groupspread, changelog_id):
-            g=GroupDTO(row)
+            g=GroupDTO(row, atypes)
             g.members = members.get_members_name(row['id'])
             g.quarantines = q.get_quarantines(row['id'])
             groups.append(g)
         db.rollback()
         return groups
 
-    def get_ous_impl(self, changelog_id=None):
+    def get_ous_impl(self, atypes, changelog_id=None):
         ous=[]
         q=quarantines()
         for row in search_ous(changelog_id):
-            o=OUDTO(row)
+            o=OUDTO(row, atypes)
             o.quarantines = q.get_quarantines(row['id'])
             ous.append(o)
         db.rollback()
         return ous
 
-    def get_aliases_impl(self, changelog_id=None):
+    def get_aliases_impl(self, atypes, changelog_id=None):
         aliases=[]
         for row in search_aliases(changelog_id):
-            a=AliasDTO(row)
+            a=AliasDTO(row, atypes)
             aliases.append(a)
         db.rollback()
         return aliases
 
-    def get_homedirs_impl(self, hostname, status):
+    def get_homedirs_impl(self, atypes, hostname, status):
         homedirs=[]
         for row in search_homedirs(hostname, status):
-            h=HomedirDTO(row)
+            h=HomedirDTO(row, atypes)
             homedirs.append(h)
         db.rollback()
         return homedirs
@@ -812,23 +911,24 @@ def test_soap(fun, cl, cattr, **kw):
 
 def test():
     sp=spinews()
-    print test_soap(sp.set_homedir_status, setHomedirStatusRequest, None,
-                    homedir_id=85752, status="not_created")
-    print test_soap(sp.get_homedirs, getHomedirsRequest, "_homedir",
-                    hostname="jak.itea.ntnu.no", status="not_created")
-    print test_soap(sp.get_ous, getOUsRequest, "_ou")
-    print test_soap(sp.get_accounts, getAccountsRequest, "_account",
-                    accountspread="user@stud")
-    print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
-    print test_soap(sp.get_groups, getGroupsRequest, "_group",
-                    accountspread="user@stud", groupspread="group@ntnu")
+    #print test_soap(sp.set_homedir_status, setHomedirStatusRequest, None,
+    #                homedir_id=85752, status="not_created")
+    #print test_soap(sp.get_homedirs, getHomedirsRequest, "_homedir",
+    #                hostname="jak.itea.ntnu.no", status="not_created")
+    #print test_soap(sp.get_ous, getOUsRequest, "_ou")
+    #print test_soap(sp.get_accounts, getAccountsRequest, "_account",
+    #                accountspread="user@stud")
+    #print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
+    #print test_soap(sp.get_groups, getGroupsRequest, "_group",
+    #                accountspread="user@stud", groupspread="group@ntnu")
 
+    print test_impl(sp.get_persons_impl, {})
     print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
-    print test_impl(sp.get_homedirs_impl, "jak.itea.ntnu.no", "not_created")
-    print test_impl(sp.get_aliases_impl)
-    print test_impl(sp.get_ous_impl)
-    print test_impl(sp.get_accounts_impl, "user@stud")
-    print test_impl(sp.get_groups_impl, "group@ntnu", "user@stud")
+    print test_impl(sp.get_homedirs_impl, {}, "jak.itea.ntnu.no", "not_created")
+    print test_impl(sp.get_aliases_impl, {})
+    print test_impl(sp.get_ous_impl, {})
+    print test_impl(sp.get_accounts_impl, {}, "user@stud", "MD5-crypt")
+    print test_impl(sp.get_groups_impl, {}, "group@ntnu", "user@stud")
 
 
 class SecureServiceContainer(ServiceContainer):
@@ -889,7 +989,7 @@ def init_ssl(debug=None):
     ctx.set_session_id_ctx('ceresync_srv')
     return ctx
 
-## test()
+test()
 print "starting..."
 ca_cert = X509.load_cert(cereconf.SSL_CA_FILE)
 RunAsServer(port=cereconf.SPINEWS_PORT, services=[spinews(),])
