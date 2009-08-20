@@ -23,6 +23,12 @@ ca_cert = None
 username = None
 password = None
 
+numb_groups = 0
+numb_accounts = 0
+numb_ous = 0
+numb_aliases = 0
+numb_homedirs = 0
+
 class ExpatReaderClass(object):
     fromString = staticmethod(expatbuilder.parseString)
     fromStream = staticmethod(expatbuilder.parse)
@@ -77,8 +83,8 @@ def init_ssl():
     return ctx
 
 ## theTraceFile = open("soap_trace.log", 'wb', 16384)
-theTraceFile = open("soap_trace.log", 'wb', 1024)
-kw = {'readerclass': ExpatReaderClass, 'tracefile ': theTraceFile, 'transport' : CeresyncHTTPSConnection }
+theTraceFile = open("theTraceFile.log", 'wb', 1024)
+kw = {'readerclass': ExpatReaderClass, 'tracefile ': sys.stdout, 'transport' : CeresyncHTTPSConnection }
 
 samples = {}
 stat_max_min = {}
@@ -95,6 +101,7 @@ def statreset():
     samples.clear()
 
 def statresult():
+   global numb_groups, numb_accouts, numb_ous, numb_aliases, numb_homedirs
    print '%-10s  %s\t%s\t\t%s\t\t%s\t\t%s' % ('Operation',
                                              'Average',
                                              'Varying',
@@ -112,6 +119,13 @@ def statresult():
                                                             min(stat_max_min[k]),
                                                             n)
    print ''
+   print 'groups pr. run\t\t:\t', numb_groups
+   print 'accounts pr. run\t:\t', numb_accounts
+   print 'ous pr. run\t\t:\t', numb_ous
+   print 'aliases pr. run\t\t:\t', numb_aliases
+   print 'homedirs pr. run\t:\t', numb_homedirs
+   print ''
+
 
 def set_username_password(uname, pwd):
     global username
@@ -156,10 +170,11 @@ def get_groups(groupspread, accountspread, inc_from=None):
     return ret_groups
         
 
-def get_accounts(accountspread, inc_from=None):
+def get_accounts(accountspread, auth_type, inc_from=None):
     port = get_ceresync_port()
     request = getAccountsRequest()
     request._accountspread = accountspread
+    request._auth_type = auth_type
     request._incremental_from = inc_from
     response = port.get_accounts(request)
     ret_accounts = []
@@ -214,6 +229,9 @@ def test_groups():
     grps = get_groups('group@ntnu', 'user@ansatt', None)
     statreg('groups',(time.time() - before))
     f = open('group.txt', 'wb', 16384)
+    global numb_groups
+    if numb_groups == 0:
+        numb_groups = len(grps)
     for grp in grps:
         f.write(grp.name)
         f.write(':')
@@ -238,9 +256,12 @@ def test_groups():
 
 def test_accounts():
     before = time.time()
-    accs = get_accounts('user@stud', None)
+    accs = get_accounts('user@stud', 'MD5-crypt', None)
     statreg('accounts', (time.time() - before))
     f = open('accouns.txt', 'wb', 16384)
+    global numb_accounts
+    if numb_accounts == 0:
+        numb_accounts = len(accs)
     for acc in accs:
         f.write( acc.name)
         f.write(':')
@@ -295,6 +316,9 @@ def test_ous():
     ous = get_ous()
     statreg('ous', (time.time() - before))
     f = open('ous.txt', 'wb', 16384)
+    global numb_ous
+    if numb_ous == 0:
+        numb_ous = len(ous)
     for ou in ous:
         f.write(str(ou.id))
         f.write(':')
@@ -358,6 +382,9 @@ def test_aliases():
     aliases = get_aliases(None)
     statreg('aliases', (time.time() - before))
     f = open('aliases.txt', 'wb', 16384)
+    global numb_aliases
+    if numb_aliases == 0:
+        numb_aliases = len(aliases)
     for alias in aliases:
         f.write(alias.local_part)
         f.write(':')
@@ -389,6 +416,9 @@ def test_homedirs():
     homedirs = get_homedirs('not_created', 'yeti.stud.ntnu.no')
     statreg('homedirs', (time.time() - before))
     f = open('homedirs.txt', 'wb', 16384)
+    global numb_homedirs
+    if numb_homedirs == 0:
+        numb_homedirs = len(homedirs)
     for dir in homedirs:
         f.write(str(dir.homedir_id))
         f.write(':')
@@ -409,7 +439,7 @@ def test_homedirs():
 
 def test_clients(count):
 
-    set_username_password('hjalla', 'gork')
+    set_username_password('bootstrap_account', 'blippE10')
     for i in range(count):
         print 'groups'
         test_groups()
@@ -423,6 +453,7 @@ def test_clients(count):
         test_homedirs()
         sys.stderr.write('Run: %d\n' % (i+1))
     statresult()
+    
     
 def main(argv):
     global ca_cert

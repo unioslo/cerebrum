@@ -628,7 +628,7 @@ def check_username_password(username, password):
 
 
 def authenticate(ps):
-    debug = False
+    debug = True
     username, password, created = get_auth_values(ps)
     check_created(created)
     if debug:
@@ -878,9 +878,9 @@ def phrase_callback(v,prompt1='Enter passphrase:',prompt2='Verify passphrase:'):
 def init_ssl(debug=None):
     ctx = SSL.Context('sslv23')
     ## certificate and private-key in the same file
-    ctx.load_cert('/etc/cerebrum/ssl/spine.itea.ntnu.no.pem', callback=phrase_callback)
-    ctx.load_verify_info(cafile='/etc/ssl/certs/itea-ca.crt')
-    ctx.load_client_ca('/etc/ssl/certs/itea-ca.crt')
+    ctx.load_cert(cereconf.SSL_KEY_FILE, callback=phrase_callback)
+    ctx.load_verify_info(cafile=cereconf.SSL_CA_FILE)
+    ctx.load_client_ca(cereconf.SSL_CA_FILE)
     ## do not use sslv2
     ctx_options = SSL.op_no_sslv2
     ctx.set_options(ctx_options)
@@ -891,5 +891,5 @@ def init_ssl(debug=None):
 
 ## test()
 print "starting..."
-ca_cert = X509.load_cert('/etc/ssl/certs/itea-ca.crt')
-RunAsServer(port=8666, services=[spinews(),])
+ca_cert = X509.load_cert(cereconf.SSL_CA_FILE)
+RunAsServer(port=cereconf.SPINEWS_PORT, services=[spinews(),])

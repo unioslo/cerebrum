@@ -249,6 +249,29 @@ def wsdl2py(name):
         wsm.writeTypes(fd)
         fd.close()
 
+def wsdl2dispatch(name):
+    try:
+        from ZSI.wstools import WSDLTools
+        from ZSI.generate.wsdl2dispatch import ServiceModuleWriter as ServiceDescription
+        from ZSI.generate.wsdl2dispatch import DelAuthServiceModuleWriter as DelAuthServiceDescription
+        from ZSI.generate.wsdl2dispatch import WSAServiceModuleWriter as ServiceDescriptionWSA
+        from ZSI.generate.wsdl2dispatch import DelAuthWSAServiceModuleWriter as DelAuthServiceDescriptionWSA
+
+    except ImportError:
+        pass
+    else:
+        reader = WSDLTools.WSDLReader()
+        wsdl = reader.loadFromFile(name)
+
+        dir = os.path.dirname(name)
+
+        ss = ServiceDescription(do_extended=False)
+        ss.fromWSDL(wsdl)
+
+        fd = open(os.path.join(dir, ss.getServiceModuleName()+'.py'), 'w+')
+        print os.path.join(dir, ss.getServiceModuleName() + '.py')
+        ss.write(fd)
+        fd.close()
 
 # Ugly hack to get path names from configure
 # Please fix this if you see a better solution.
@@ -466,6 +489,7 @@ data_files = [
 ]
 
 wsdl2py('Cerebrum/lib/spinews/spinews.wsdl')
+wsdl2dispatch('Cerebrum/lib/spinews/spinews.wsdl')
 
 
 setup (name = "Cerebrum", version = Cerebrum.__version__,
