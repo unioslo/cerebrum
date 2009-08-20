@@ -114,7 +114,7 @@ tag is present, hdr and footer will be empty.
         return "".join(ret).rstrip()
 
     def spool_job(self, filename, type, printer, skip_lpr=False, logfile=None,
-                  lpr_user='unknown'):
+                  lpr_user='unknown', def_lpr_cmd=None):
         """Spools the job.  The spool command is executed in the
         directory where filename resides."""
         if logfile is None:
@@ -135,7 +135,10 @@ tag is present, hdr and footer will be empty.
             if not skip_lpr:
                 if re.search(r'[^a-z0-9\-_]', printer):
                     raise IOError("Bad printer name")
-                lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
+                if def_lpr_cmd:
+                    lpr_cmd = def_lpr_cmd.replace("<printer>", printer)
+                else:
+                    lpr_cmd = cereconf.PRINT_LPR_CMD.replace("<printer>", printer)
                 lpr_cmd = lpr_cmd.replace("<uname>", lpr_user)
                 lpr_cmd = lpr_cmd.replace("<hostname>", os.uname()[1])
                 status = os.system("%s %s.ps >> %s 2>&1" % (
