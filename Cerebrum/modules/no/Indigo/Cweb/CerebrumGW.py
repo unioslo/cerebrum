@@ -111,6 +111,9 @@ class CerebrumProxy(object):
     def get_default_email(self, entity_id):
         return self.run_command('get_default_email', 'id:%s' % entity_id)
 
+    def get_create_date(self, entity_id):
+        return self.run_command('get_create_date', 'id:%s' % entity_id)
+
     def user_get_pwd(self, id):
         return self.run_command('user_get_pwd', id)
     

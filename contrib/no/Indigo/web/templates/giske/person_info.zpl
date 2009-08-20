@@ -47,9 +47,14 @@
 
       <table border="0" tal:repeat="user userlist">
         <tr>
-	  <td>Brukernavn:</td> 
-	  <td tal:content="user/username">foo</td>
-	</tr>
+          <td>Brukernavn:</td>
+          <td tal:content="user/username">foo</td>
+        </tr>
+
+        <tr>
+          <td>Opprettet:</td>
+          <td tal:content="user/create_date">foo</td>
+        </tr>
 
         <tr>
           <td>E-post:</td>

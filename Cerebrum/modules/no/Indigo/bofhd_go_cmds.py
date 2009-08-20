@@ -227,6 +227,12 @@ class BofhdExtension(object):
             primary_email_address = "No e-mail addresse available for %s" % account.account_name
         return primary_email_address
 
+    all_commands['get_create_date'] = None
+    def get_create_date(self, operator, entity_id):
+        account = self._get_account(entity_id)
+        self.logger.debug(account.get_account_name())
+        return account.create_date
+
     all_commands['user_get_pwd'] = None
     def user_get_pwd(self, operator, id):
         account = self._get_account(int(id),'id')

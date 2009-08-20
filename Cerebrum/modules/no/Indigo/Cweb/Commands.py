@@ -298,6 +298,7 @@ class PersonCommands(VirtualCommands):
             except:
                 u['email'] = '<ukjent>'
             u['groups'] = self.cerebrum.group_user(entity_id=u['entity_id'])
+            u['create_date'] = self.cerebrum.get_create_date(entity_id=u['entity_id'])
 
         affiliations = list()
         for data in person.get("affiliations", []):
