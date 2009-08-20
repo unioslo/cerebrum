@@ -241,6 +241,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             # type before proceeding.
             if 'type' not in chg:
                 self.logger.warn("This shouldn't happen. chg = %s" % str(chg))
+                continue
             if ('OU' in chg and chg['OU'] == '' and 
                 chg['type'] in ('create_object', 'move_object', 'alter_object')):
                 try:
