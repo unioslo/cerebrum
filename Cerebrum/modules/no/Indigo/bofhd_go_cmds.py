@@ -230,7 +230,6 @@ class BofhdExtension(object):
     all_commands['get_create_date'] = None
     def get_create_date(self, operator, entity_id):
         account = self._get_account(entity_id)
-        self.logger.debug(account.get_account_name())
         return account.create_date
 
     all_commands['user_get_pwd'] = None
