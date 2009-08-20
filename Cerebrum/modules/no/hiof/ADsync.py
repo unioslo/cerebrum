@@ -236,6 +236,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @type  changelist: list
         """
         for chg in changelist:
+            # RH: There's a bug somewhere. How can that be, this code
+            # being som nice and all? So we'll check if change has a
+            # type before proceeding.
+            if 'type' not in chg:
+                self.logger.warn("This shouldn't happen. chg = %s" % str(chg))
             if ('OU' in chg and chg['OU'] == '' and 
                 chg['type'] in ('create_object', 'move_object', 'alter_object')):
                 try:
