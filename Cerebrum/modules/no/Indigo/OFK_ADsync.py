@@ -721,7 +721,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             #use '#' instead of ':'
             gname = gname.replace(':', '#')
             #use '_' for all other illegal chars
-            for char in ['/','\\','[',']',';','|','=',',','+','?','<','>','"']:
+            for char in ['/','\\','[',']',';','|','=',',','+','?','<','>','"','*']:
                 gname = gname.replace(char, '_')
             grp_dict[gname] = {
                 'groupType' : cereconf.AD_GROUP_TYPE,             
