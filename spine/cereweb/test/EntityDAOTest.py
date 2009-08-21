@@ -22,6 +22,10 @@
 import time
 import unittest
 from lib.data.EntityDAO import EntityDAO
+from lib.data.GroupDAO import GroupDAO
+from lib.data.AccountDAO import AccountDAO
+from lib.data.PersonDAO import PersonDAO
+from lib.data.EntityFactory import EntityFactory
 
 import TestData
 
@@ -47,5 +51,26 @@ class EntityDAOTest(unittest.TestCase):
         result = EntityDAO().exists(-2)
         self.assertFalse(result)
 
+    def test_that_we_can_get_an_account_dao_given_an_accounts_entity_id(self):
+        factory = EntityFactory()
+        dao = factory.get_dao_by_entity_id(TestData.bootstrap_account_id)
+        self.assertEqual(AccountDAO, dao.__class__)
+
+    def test_that_we_can_get_a_person_dao_given_a_persons_entity_id(self):
+        factory = EntityFactory()
+        dao = factory.get_dao_by_entity_id(TestData.test_testesen_id)
+        self.assertEqual(PersonDAO, dao.__class__)
+
+    def test_that_we_can_get_a_group_dao_given_a_groups_entity_id(self):
+        factory = EntityFactory()
+        dao = factory.get_dao_by_entity_id(TestData.large_group_id)
+        self.assertEqual(GroupDAO, dao.__class__)
+
+    def test_that_we_can_get_an_entity_by_name(self):
+        factory = EntityFactory()
+        entity = factory.create_by_name('group', TestData.posix_group_name)
+        self.assertEqual('group', entity.type_name)
+        self.assertEqual(TestData.posix_group_name, entity.name)
+        self.assertEqual(TestData.posix_group_id, entity.id)
 if __name__ == '__main__':
     unittest.main()
