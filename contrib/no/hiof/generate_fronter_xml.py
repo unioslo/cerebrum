@@ -1204,7 +1204,7 @@ def output_email_info(data, printer):
     # The magic keys/values below have been suggested by Fronter.
     printer.emptyElement("emailsettings",
                          {"description": "HiO e-post",
-                          "imap_serverdirectory": " ",
+                          "imap_serverdirectory": "mail/",
                           "imap_sentfolder": "INBOX.Sent",
                           "imap_draftfolder": "INBOX.Drafts",
                           "imap_trashfolder": "INBOX.Trash",
