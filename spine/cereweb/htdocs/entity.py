@@ -21,128 +21,100 @@
 import cherrypy
 
 from gettext import gettext as _
-from lib.Main import Main
-from lib.utils import transaction_decorator, commit
-from lib.utils import redirect_object, object_link, queue_message
+from lib.utils import redirect_entity
+from lib.utils import entity_link, queue_message
 from lib.utils import web_to_spine, spine_to_web
+from lib.utils import get_database, session_required_decorator
 from lib.HistoryLog import view_history, view_history_all
+from lib.templates.NewEntityViewTemplate import NewEntityViewTemplate
+from lib.data.EntityFactory import EntityFactory
+from lib.data.EntityDAO import EntityDAO
+from lib.data.HistoryDAO import HistoryDAO
+from lib.data.DTO import DTO
 
-def view(transaction, id):
-    entity = transaction.get_entity(int(id))
-    redirect_object(entity)
-view = transaction_decorator(view)
+def view(id):
+    redirect_entity(id)
 view.exposed = True
 
-def add_external_id(transaction, id, external_id, id_type):
-    entity = transaction.get_entity(int(id))
+@session_required_decorator
+def add_external_id(id, external_id, id_type):
     if not external_id:
         queue_message('External identifier is empty.  Identifier not set.', error=True)
-        redirect_object(entity)
+        redirect_entity(id)
     if not external_id.isdigit():
         queue_message('External identifier should contain only digits.', error=True)
-        redirect_object(entity)
-    id_type = transaction.get_entity_external_id_type(id_type)
-    source_system = transaction.get_source_system("Manual")
-    entity.set_external_id(external_id, id_type, source_system)
+        redirect_entity(id)
+
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(id)
+    dao.add_external_id(id, external_id, id_type)
+    db.commit()
 
     msg = _("External id successfully added.")
-    commit(transaction, entity, msg=msg)
-add_external_id = transaction_decorator(add_external_id)
+    queue_message(msg, title=_("Operation succeeded"))
+    redirect_entity(id)
 add_external_id.exposed = True
 
-def remove_external_id(transaction, id, external_id, id_type):
-    entity = transaction.get_entity(int(id))
-    id_type = transaction.get_entity_external_id_type(id_type)
-    source_system = transaction.get_source_system("Manual")
-    entity.remove_external_id(id_type, source_system)
+@session_required_decorator
+def remove_external_id(id, id_type):
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(id)
+    dao.remove_external_id(id, id_type)
+    db.commit()
 
     msg = _("External id successfully removed.")
-    commit(transaction, entity, msg=msg)
-remove_external_id = transaction_decorator(remove_external_id)
+    queue_message(msg, title=_("Operation succeeded"))
+    redirect_entity(id)
 remove_external_id.exposed = True
 
-def add_spread(transaction, id, spread):
-    entity = transaction.get_entity(int(id))
-    spread = transaction.get_spread(web_to_spine(spread))
-    entity.add_spread(spread)
+@session_required_decorator
+def add_spread(id, spread):
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(id)
+    dao.add_spread(id, spread)
+    db.commit()
 
     msg = _("Spread successfully added.")
-    commit(transaction, entity, msg=msg)
-add_spread = transaction_decorator(add_spread)
+    queue_message(msg, title=_("Operation succeeded"))
+    redirect_entity(id)
 add_spread.exposed = True
 
-def remove_spread(transaction, id, spread):
-    entity = transaction.get_entity(int(id))
-    spread = transaction.get_spread(web_to_spine(spread))
-    entity.delete_spread(spread)
+@session_required_decorator
+def remove_spread(id, spread):
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(id)
+    dao.remove_spread(id, spread)
+    db.commit()
 
     msg = _("Spread successfully removed.")
-    commit(transaction, entity, msg=msg)
-remove_spread = transaction_decorator(remove_spread)
+    queue_message(msg, title=_("Operation succeeded"))
+    redirect_entity(id)
 remove_spread.exposed = True
 
-def add_contact_info(transaction, id, type, value, pref, desc=""):
-    entity = transaction.get_entity(int(id))
-    source_system = transaction.get_source_system("Manual")
-    type = transaction.get_contact_info_type(web_to_spine(type))
-    if desc:
-        desc = web_to_spine(desc.strip())
-    entity.add_contact_info(source_system, type, value, int(pref), desc)
-
-    msg = _("Contact info successfully added.")
-    commit(transaction, entity, msg=msg)
-add_contact_info = transaction_decorator(add_contact_info)
-add_contact_info.exposed = True
-
-def remove_contact_info(transaction, id, ss, type, pref):
-    entity = transaction.get_entity(int(id))
-    source_system = transaction.get_source_system(web_to_spine(ss))
-    type = transaction.get_contact_info_type(type)
-    entity.remove_contact_info(source_system, type, int(pref))
-
-    msg = _("Contact info successfully removed.")
-    commit(transaction, entity, msg=msg)
-remove_contact_info = transaction_decorator(remove_contact_info)
-remove_contact_info.exposed = True
-
-def clear_search(url):
-    """Resets the lastsearch for cls."""
-    cls = url.split('/')[-2] # seccond last part should be the class.
-    lastsearch = cls + '_last_search'
-    if lastsearch in cherrypy.session:
-        del cherrypy.session[lastsearch]
-
-    page = ['<html><body><div>Search reseted</div>']
-    page.append("Search for class '%s' reseted." % cls)
-    page.append('</body></html>')
-    return ["".join(page)]
-clear_search.exposed = True
-
-def full_historylog(transaction, id):
+@session_required_decorator
+def full_historylog(id):
     """Creates a page with the full historylog for an entity."""
-    entity = transaction.get_entity(int(id))
-    type = entity.get_type().get_name()
+    entity = EntityDAO().get(id)
+    entity.history = HistoryDAO().get_entity_history(id)
 
-    page = Main()
+    page = NewEntityViewTemplate()
     page.links = ()
-    page.title = type.capitalize() + ': ' + object_link(entity)
-    page.set_focus('%s/view' % type)
-    content = view_history(entity)
-    page.content = lambda: content
+    page.title = entity.type_name.capitalize() + ': ' + entity_link(entity)
+    page.set_focus('%s/view' % entity.type_name)
+    page.content = lambda: page.viewHistoryLog(entity)
     return page
-full_historylog = transaction_decorator(full_historylog)
 full_historylog.exposed = True
 
-def global_historylog(transaction, n=50, offset=0):
+@session_required_decorator
+def global_historylog(n=50, offset=0):
     """Creates a page from the global historylog."""
+    dto = DTO()
+    dto.id = None
+    dto.history = HistoryDAO().get_history(n, offset)
 
-    page = Main()
+    page = NewEntityViewTemplate()
     page.links = ()
     page.title = "History"
-    content = view_history_all(transaction, n=int(n), offset=int(offset))
-    page.content = lambda: content
+    page.content = lambda: page.viewHistoryLog(dto)
     return page
-global_historylog = transaction_decorator(global_historylog)
 global_historylog.exposed = True
-
-# arch-tag: 4ae37776-e730-11d9-95c2-2a4ca292867e

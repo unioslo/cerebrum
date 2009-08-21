@@ -16,55 +16,56 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, remember_link, spine_to_web
-#extends EntityViewTemplate
+#from lib.utils import object_link, entity_link, remember_link, spine_to_web
+#from lib.Main import Main
+#extends Main
+
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
+#attr $page = "ou"
+#attr $link = "tree"
 
-## Overloaded by other pages to get the right url.
-#attr $page_url = "/ou/tree"
-#attr title = "OU tree view"
+#def title()
+    #return $_('OU tree view of perspective %s') % $spine_to_web($perspective.name)
+#end def
+
+#def links()
+    #return (
+        ('search', $_('Search')),
+        ('tree', $_('Tree')),
+        ('create', $_('Create')),
+    )
+#end def
+
+#def content()
+    $viewTree($tree, $perspective, $perspectives)
+#end def
 
 ## Main method for creating the ou tree page.
-#def viewTree($tr, $perspective=None)
-<h3>$title</h3>
+#def viewTree($tree, $perspective, $perspectives)
 <div class="tree">
     <form>
-        #set $perspectives = $tr.get_ou_perspective_type_searcher()
-        $form_widgets.code_selector("perspective", 
-                       $_("Perspective"),
-                       $perspectives, $perspective)
+        $form_widgets.generate_loption(
+            "perspective", $_("Perspective"),
+            [(x.id, x.name) for x in $perspectives],
+            $perspective.id)
         <input type="submit" value="View perspective tree" />
     </form>
     <br />
-    #if not $perspective
-        ## Just select the first one! 
-        ## (will non-elegantly fail if no perspectives exist)
-        ## FIXME: Give nice error if no perspectives defined
-        #set $perspective = $perspectives.search()[0]
-    #end if 
     
-    #set title = ($_("OU tree view of perspective %s") % 
-                  $spine_to_web($perspective.get_name()))
     ## find roots of perspective and show them
-    #set $roots = $perspective.get_roots()
-    #for $root in $roots 
-        $subtree($perspective, $root)
+    #for $ou in $tree 
+        $subtree($ou)
     #end for
 </div>
 #end def
 
-
-
-#def subtree($perspective, $ou)
+#def subtree($ou)
     <div class="tree">
-        $object_link($ou, text=$spine_to_web($ou.get_name()))
-        #for $child in $ou.get_children($perspective)
-            $subtree($perspective, $child)
+        $entity_link($ou, text=$spine_to_web($ou.name))
+        #for $child in $ou.children
+            $subtree($child)
         #end for    
     </div>
 #end def
-
-
-

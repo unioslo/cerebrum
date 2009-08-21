@@ -267,14 +267,6 @@ class AccountDAO(EntityDAO):
         dto.status.description = status.description
         return dto
 
-    def _get_spreads(self, account):
-        spreads = []
-        spread_dao = ConstantsDAO(self.db)
-        for (spread_id,) in account.get_spread():
-            dto = spread_dao.get_spread(spread_id)
-            spreads.append(dto)
-        return spreads
-
     def _get_traits(self, account):
         return TraitDAO(self.db).create_from_entity(account)
 

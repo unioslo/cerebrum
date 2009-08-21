@@ -86,13 +86,7 @@ class PersonDAO(EntityDAO):
         person.write_db()
 
     def add_birth_no(self, person_id, birth_no):
-        person = self._find(person_id)
-        source_system = self.constants.AuthoritativeSystem("Manual")
-        const = self.constants.EntityExternalId("NO_BIRTHNO")
-        person.affect_external_id(source_system, const)
-        person.populate_external_id(source_system, const, birth_no)
-
-        person.write_db()
+        self.add_external_id(person_id, birth_no, "NO_BIRTHNO")
 
     def add_name(self, person_id, name_type, name):
         entity = self._find(person_id)
@@ -143,72 +137,6 @@ class PersonDAO(EntityDAO):
             if not source_system in dto.source_systems:
                 dto.source_systems.append(source_system)
         return names.values()
-
-    def _get_external_ids(self, entity):
-        external_ids = {}
-
-        for external_id in entity.list_external_ids(entity_id=entity.entity_id):
-            key = "%s:%s" % (external_id.id_type, external_id.external_id)
-            if not key in external_ids:
-                dto = DTO()
-                dto.value = external_id.external_id
-                dto.variant = ConstantsDAO(self.db).get_external_id_type(external_id.id_type)
-                dto.source_systems = []
-                external_ids[key] = dto
-
-            dto = external_ids[key]
-            source_system = ConstantsDAO(self.db).get_source_system(external_id.source_system)
-            if not source_system in dto.source_systems:
-                dto.source_systems.append(source_system)
-        return external_ids.values()
-
-    def _get_contacts(self, entity):
-        contacts = {}
-
-        for contact in entity.get_contact_info():
-            key = "%s:%s" % (contact.contact_type, contact.contact_value)
-            if not key in contacts:
-                dto = DTO()
-                dto.value = contact.contact_value
-                dto.variant = ConstantsDAO(self.db).get_contact_type(contact.contact_type)
-                dto.source_systems = []
-                contacts[key] = dto
-
-            dto = contacts[key]
-            source_system = ConstantsDAO(self.db).get_source_system(contact.source_system)
-            source_system.preferance = contact.contact_pref
-            if not source_system in dto.source_systems:
-                dto.source_systems.append(source_system)
-        return contacts.values()
-
-    def _get_addresses(self, entity):
-        addresses = {}
-
-        for address in entity.get_entity_address():
-            key = "%s:%s.%s.%s.%s.%s" % (
-                address.address_type,
-                address.address_text,
-                address.p_o_box,
-                address.postal_number,
-                address.city,
-                address.country)
-            if not key in addresses:
-                dto = DTO()
-                dto.value = DTO()
-                dto.value.address_text = address.address_text
-                dto.value.p_o_box = address.p_o_box
-                dto.value.postal_number = address.postal_number
-                dto.value.city = address.city
-                dto.value.country = address.country
-                dto.variant = ConstantsDAO(self.db).get_address_type(address.address_type)
-                dto.source_systems = []
-                addresses[key] = dto
-
-            dto = addresses[key]
-            source_system = ConstantsDAO(self.db).get_source_system(address.source_system)
-            if not source_system in dto.source_systems:
-                dto.source_systems.append(source_system)
-        return addresses.values()
 
     def _get_type_name(self):
         return self.constants.entity_person.str

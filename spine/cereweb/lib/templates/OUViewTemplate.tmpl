@@ -16,128 +16,125 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#extends EntityViewTemplate
-#from lib.utils import object_link, html_quote, remember_link, html_quote
+#extends NewEntityViewTemplate
+#from lib.utils import object_link, entity_link, html_quote, html_quote
 #from lib.utils import url_quote, spine_to_web
 #from SpineIDL.Errors import NotFoundError
 #from Widgets import Widgets
 #from lib.templates.OUEditTemplate import OUEditTemplate
 
+#from lib.utils import remember_link
+
 #attr $widgets = Widgets()
 #attr $viewBirthNo = False
-#attr $ouTemplate = OUEditTemplate()
+#attr $editTemplate = OUEditTemplate()
 
-#def viewActions($ou)
-    #set $id = $url_quote($ou.get_id())
-    <ul>
-        ## <li><a href="edit?id=$id">$_("edit info")</a></li>
-        <li><a href="delete?id=$id">$_("delete ou")</a></li>
-        <li><a href="list_aff_persons?id=$id">$_("list affiliated persons")</a></li>
-        <li><a href="/quarantine/add?entity=$id">$_('add quarantine')</a></li>
-        <li><a href="/entity/full_historylog?id=$id">$_('view full history log')</a></li>
-        <li>$remember_link($ou)</li>
-    </ul>
+#attr $page = "person"
+#attr $link = "view"
+
+#def title()
+    #return $_('OU %s') % $spine_to_web($ou.name)
 #end def
 
-#def viewContent($tr, $ou)
-    $editOU($tr, $ou)
+#def links()
+    #return (
+        ('search', $_('Search')),
+        ('tree', $_('Tree')),
+        ('create', $_('Create')),
+    )
+#end def
+
+#def actions()
+<div id="actions">
+    <h3>$_('Actions')</h3>
+    <ul>
+        <li><a href="delete?id=$ou.id">$_("delete ou")</a></li>
+        <li><a href="list_aff_persons?id=$ou.id">$_("list affiliated persons")</a></li>
+        <li><a href="/quarantine/add?entity=$ou.id">$_('add quarantine')</a></li>
+        <li><a href="/entity/full_historylog?id=$ou.id">$_('view full history log')</a></li>
+    </ul>
+</div>
+#end def
+
+#def content()
+    $editOU($tr, $entity) ## Pending
     $viewInfo($ou)
     $viewQuarantines($ou)
     $addNote($ou)
     $viewNotes($ou)
-    $viewTraits($entity)
-    $viewFamily($tr, $ou)
+    $viewTraits($ou)
+    $viewFamily($ou)
     $viewContactInfos($ou)
     $viewAddresses($ou)
-    $addSpread($ou, $tr)
+    $addSpread($ou, $spreads)
     $viewSpreads($ou)
-    $setExternalId($ou, $tr)
+    $setExternalId($ou, $id_types)
     $viewExternalIds($ou, $viewBirthNo)
     $viewHistoryLog($ou)
-    $affiliatedPersons($tr, $ou)
+    $affiliatedPersons($ou, $perspectives, $affiliations)
 #end def
 
 #def editOU($tr, $ou)
-    $ouTemplate.form($tr, $ou)
+    $editTemplate.editBox($tr, $ou)
 #end def
 
 ## View information about OU.
 #def viewInfo($ou)
     #set $info = []
-    $info.append(($_('Name'), $spine_to_web($ou.get_name())))
-    $info.append(($_('Acronym'), $spine_to_web($ou.get_acronym())))
-    $info.append(($_('Short name'), $spine_to_web($ou.get_short_name())))
-    $info.append(($_('Display name'), $spine_to_web($ou.get_display_name())))
-    $info.append(($_('Sort name'), $spine_to_web($ou.get_sort_name())))
+    $info.append(($_('Name'), $spine_to_web($ou.name)))
+    $info.append(($_('Acronym'), $spine_to_web($ou.acronym)))
+    $info.append(($_('Short name'), $spine_to_web($ou.short_name)))
+    $info.append(($_('Display name'), $spine_to_web($ou.display_name)))
+    $info.append(($_('Sort name'), $spine_to_web($ou.sort_name)))
     ## removed after starting import of OUs in UNINETT ABC format.
     ## UNINET ABC does not have stedkode,- only kjerne-id.
     ## $info.append(($_('Stedkode'), $spine_to_web($ou.get_stedkode())))
     $widgets.viewInfo($info)
 #end def
 
-#def viewFamily($tr, $ou)
-    #set $perspectives = $tr.get_ou_perspective_type_searcher().search()
+#def viewFamily($ou)
     <div class="list box">
         <h3>$_('OU Family')</h3>
-        #for $perspective in $perspectives
-            ## parents
-            #try
-                #set $parent = $ou.get_parent($perspective)
-            #except NotFoundError
+        #for $perspective, $family in $ou.families.items()
+            #if not $family.parent and not $family.children
                 #continue
-            #end try
-            <h4>$_('Parent in perspective')
-	    	$spine_to_web($perspective.get_name())</h4>
-            #if $parent
-            #set $parent_name = $spine_to_web($parent.get_name())
-            <div>$object_link($parent, text=$parent_name)</div>
-            #else
-            <div>$_('(Root of perspective)')</div>
             #end if
 
-            ## children
-            #try
-                #set $children = $ou.get_children($perspective)
-            #except NotFoundError
-                #continue
-            #end try
-            #if $children
-                <h4>$_('Children in perspective')
-                    $spine_to_web($perspective.get_name())</h4>
-                #for $child in $children
-                #set $child_name = $spine_to_web($child.get_name())
-                <div>$object_link($child, text=$child_name)</div>
+            <h4>$_('Parent in perspective') $spine_to_web($perspective.name)</h4>
+            #if $family.parent
+                <div>$entity_link($family.parent)</div>
+            #else
+                <div>$_('(Root of perspective)')</div>
+            #end if
+
+            #if $family.children
+                <h4>$_('Children in perspective') $spine_to_web($perspective.name)</h4>
+                #for $child in $family.children
+                    <div>$entity_link($child)</div>
                 #end for
-            #end if     
+            #end if
         #end for
     </div>
 #end def
 
-#def affiliatedPersons($tr, $ou)
-    #set $all_affs = $tr.get_person_affiliation_type_searcher().search()
-    #set $all_sources = $tr.get_ou_perspective_type_searcher().search()
-    #set $sources = []
-    #for $source in $all_sources
-        #set $source_name = $spine_to_web($source.get_name())
-        $sources.append(($source_name, $source_name))
-    #end for
-    #set $affiliations = [('All','All')]
-    #for $aff in $all_affs
-        #set $aff_name = $spine_to_web($aff.get_name)
-        $affiliations.append(($aff_name, $aff_name))
-    #end for
-    ## <div class="edit box" style="display:none;">
+#def affiliatedPersons($ou, $perspectives, $affiliations)
     <div class="edit box">
         <h3 id="search">$_('Search affiliated persons')</h3>
         <form action="/ou/perform_search" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$html_quote($ou.get_id())" />
+                <input type="hidden" name="id" value="$ou.id" />
             </div>
             <div class="required">
-                $form_widgets.generate_loption("source", "Perspective", $sources)
+                $form_widgets.generate_loption(
+                    "source",
+                    "Perspective",
+                    [($p.name, $p.name) for $p in $perspectives])
             </div>
             <div class="required">
-                $form_widgets.generate_loption("affiliation", "Affiliation", $affiliations)
+                $form_widgets.generate_loption(
+                    "affiliation",
+                    "Affiliation",
+                    [($a.name, $a.name) for $a in $affiliations])
             </div>
             <div class="required">
                 <label for="recursive">Recursive search:</label>
@@ -149,6 +146,70 @@
             </div>
             <div class="buttons">
                 <input type="submit" value="$_('Search')" />
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
+        </form>
+    </div>
+#end def
+
+## Copied from EntityViewTemplate, will be deleted when we've converted to
+## NewEntityViewTemplate
+
+## Used by person and account view-templates to display groups an account has.
+#def listGroups($account)
+    #set $primary_group = ''
+    #if $account.is_posix()
+        #set $primary_group = $account.get_primary_group().get_name()
+    #end if
+
+    #set $direct_groups = $account.get_direct_groups()
+    #for $group in $account.get_groups()
+        #set $group_name_cmp = $group.get_name()
+        #set $group_name = $spine_to_web($group_name_cmp)
+        #if $group_name_cmp == $primary_group
+            <div class="item primary">
+        #else
+            <div class="item">
+        #end if
+            #set $disabled = ""
+            #set $header = "Group"
+            #if $group not in $direct_groups
+                #set $disabled = 'disabled="disabled" '
+                #set $header = "Indirect group"
+            #elif $group_name_cmp == $primary_group
+                #set $disabled = 'disabled="disabled" '
+            #end if
+
+            #set $name = "member_%s_%s" % ($html_quote($account.get_id()), $html_quote($group.get_id()))
+            <input type="checkbox" name="$name" $disabled/>
+            <em>$_($header):</em> $group_name
+            $object_link($group, text="view", _class="action")
+            $object_link($group, text="edit", method="edit", _class="action")
+            $remember_link($group, _class="action")
+            #if $group_name_cmp == $primary_group
+                <span class="extra">(primary)</span>
+            #end if
+            #if $group.is_posix()
+                <span class="extra">(posix)</span>
+            #end if
+        </div>
+    #end for
+#end def
+
+
+
+#def joinGroup($entity)
+    <div id="joinGroupBox" class="edit box" style="display:none;">
+        <h3>$_('Join group')</h3>
+        <form action="/group/join_group" method="post">
+            <div class="hidden">
+                <input type="hidden" name="entity_id" value="$html_quote($entity.get_id())" />
+            </div>
+            <div class="required">
+                $form_widgets.input('name', 'Group name', $klass="ac_group")
+            </div>
+            <div class="buttons">
+                <input type="submit" value="$_('Join group')" />&#x0020;
                 <input type="button" value="$_('Cancel')" class="cancel" />
             </div>
         </form>

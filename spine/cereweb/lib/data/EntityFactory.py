@@ -6,6 +6,7 @@ Entity = Utils.Factory.get("Entity")
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.GroupDAO import GroupDAO
+from lib.data.OuDAO import OuDAO
 from lib.data.PersonDAO import PersonDAO
 
 class EntityFactory(object):
@@ -26,6 +27,8 @@ class EntityFactory(object):
             return GroupDAO(self.db)
         if entity_type == self.c.entity_account:
             return AccountDAO(self.db)
+        if entity_type == self.c.entity_ou:
+            return OuDAO(self.db)
         if entity_type == self.c.entity_person:
             return PersonDAO(self.db)
         raise NotImplementedError("I do not know how to create DAO for type %s" % entity_type)

@@ -19,6 +19,20 @@ class HistoryDAO(object):
     def get_entity_history_tail(self, id):
         return self.get_entity_history(id)[-5:]
 
+    def get_history(self, n=50, offset=0):
+        last_id = self.db.get_last_changelog_id()
+
+        max_id = last_id - (n * offset)
+        start_id = max_id - n
+
+        events = []
+        for cerebrum_event in self.db.get_log_events(start_id=start_id, max_id=max_id):
+            event_type = self._get_event_type(cerebrum_event)
+            event = HistoryDTO(cerebrum_event, event_type)
+            event.creator = self._get_creator(cerebrum_event)
+            events.append(event)
+        return events
+
     def get_entity_history(self, id):
         events = []
         

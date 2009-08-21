@@ -158,7 +158,7 @@
     </div>
 #end def
 
-#def addSpread($entity)
+#def addSpread($entity, $spreads)
     #set $spreads = [($s.name, $s.name) for $s in $spreads if $s not in $entity.spreads]
 
     <div class="edit box" style="display:none;">
@@ -217,7 +217,14 @@
 
 #def viewHistoryLog($entity)
     <div class="log box">
-        <h3><a href="/entity/full_historylog?id=$entity.id">$_('History log')</a></h3>
+        <h3>
+            #if $entity.id is not None
+                <a href="/entity/full_historylog?id=$entity.id">$_('History log')</a>
+            #else
+                $_('History log')
+            #end if
+        </h3>
+
         <table>
             <thead>
                 <tr>
@@ -371,4 +378,122 @@
             <span class="extra">(posix)</span>
         #end if
     </div>
+#end def
+
+#def viewContactInfos($entity)
+#if not $entity.contacts
+    #return
+#end if
+
+<div class="info box">
+    <h3>$_('Contact info')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Value')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for $contact in $entity.contacts
+    <tr>
+       <td>$spine_to_web($contact.variant.name)</td>
+       <td>$spine_to_web($contact.value)</td>
+       <td>
+           $spine_to_web(",".join([$s.name for $s in $contact.source_systems]))
+       </td>
+    </tr>
+    #end for
+    </table>
+</div>
+#end def
+
+#def viewAddresses($entity)
+#if not $entity.addresses
+    #return
+#end if
+<div class="info box">
+    <h3>$_('Addresses')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Address')</th>
+      <th>$_('P O Box')</th>
+      <th>$_('P nr')</th>
+      <th>$_('City')</th>
+      <th>$_('Country')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for $address in $entity.addresses
+    <tr>
+       <td>$spine_to_web($address.variant.name)</td>
+       <td>$spine_to_web($address.value.address_text)</td>
+       <td>$spine_to_web($address.value.p_o_box)</td>
+       <td>$spine_to_web($address.value.postal_number)</td>
+       <td>$spine_to_web($address.value.city)</td>
+       <td>$spine_to_web($address.value.country)</td>
+       <td>
+           $spine_to_web(",".join([$s.name for $s in $address.source_systems]))
+       </td>
+    </tr>
+    #end for
+    </table>
+</div>
+#end def
+
+#def viewExternalIds($entity, $viewBirthNo)
+#if not $entity.external_ids
+    #return
+#end if
+
+<div class="info box">
+    <h3>$_('External identifiers')</h3>
+    <table>
+    <tr>
+      <th>$_('Type')</th>
+      <th>$_('Value')</th>
+      <th>$_('Sources')</th>
+    </tr>
+    #for $external_id in $entity.external_ids
+        <tr>
+            <td>$spine_to_web($external_id.variant.name)</td>
+            <td>
+            #if $external_id.variant.name == 'NO_BIRTHNO'
+                #if $viewBirthNo
+                    $html_quote($external_id.value)&#x0020;<a href="/person/view?id=$entity.id">[Hide value]</a>
+                #else
+                    <a href="/person/view?id=$entity.id&amp;birthno=True">[Show value]</a>
+                #end if
+            #else
+               $html_quote($external_id.value)
+            #end if
+            </td>
+           <td>
+               $spine_to_web(",".join([$s.name for $s in $external_id.source_systems]))
+           </td>
+        </tr>
+    #end for
+    </table>
+</div>
+#end def
+
+#def setExternalId($entity, $id_types)
+#set $id_options = [($spine_to_web($t.name), $spine_to_web($t.description)) for $t in $id_types]
+
+<div class="edit box" style="display:none;">
+    <h3>$_('Set external identifier')</h3>
+    <form action="/entity/add_external_id" method="post">
+        <div class="hidden">
+            <input type="hidden" name="id" value="$entity.id" />
+        </div>
+        <div class="required">
+            $form_widgets.input("external_id", "External identifier")
+        </div>
+        <div class="required">
+            $form_widgets.generate_loption("id_type", "Type", $id_options)
+        </div>
+        <div class="buttons">
+            <input type="submit" value="$_('Set')" />&#x0020;
+            <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+    </form>
+</div>
 #end def

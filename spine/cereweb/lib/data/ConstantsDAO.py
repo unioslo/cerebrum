@@ -16,6 +16,15 @@ class ConstantsDAO(object):
         names = self._get_names("group_visibility_")
         return self._get_constant_dtos(names, Constants.GroupVisibility)
 
+    def get_ou_spreads(self):
+        dtos = []
+        names = self._get_names("spread_")
+        for c in self._get_constants(names, Constants.Spread):
+            if c.entity_type == self.constants.entity_ou:
+                dto = ConstantsDTO(c)
+                dtos.append(dto)
+        return dtos
+
     def get_user_spreads(self):
         dtos = []
         names = self._get_names("spread_")
@@ -69,6 +78,10 @@ class ConstantsDAO(object):
     def get_source_system(self, system_id):
         q = self.constants.AuthoritativeSystem(system_id)
         return ConstantsDTO(q)
+
+    def get_affiliation_types(self):
+        names = self._get_names("affiliation_")
+        return self._get_constant_dtos(names, Constants.PersonAffiliation)
 
     def get_affiliation_statuses(self):
         names = self._get_names("affiliation_status_")

@@ -28,10 +28,14 @@
 ## Lines with info about the form, used with the function showHelp().
 #attr $help = []
 
+#def editBox($tr, $ou)
+<div class="edit box">
+    $form($tr, $ou)
+</div>
+#end def
+
 ## Creates the form for editing the main person info.
 #def form($tr, $ou)
-## <div class="view">
-<div class="edit box">
     <h3>$_('Edit general organization info')</h3>
     <div>
     <form action="save" method="post">
@@ -76,7 +80,6 @@
         </div>
     </form>
     </div>
-</div>
 #end def
 
 #def edit_perspectives($tr, $ou)

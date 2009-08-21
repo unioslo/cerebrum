@@ -24,6 +24,9 @@ from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib import utils
+from lib.data.ConstantsDAO import ConstantsDAO
+from lib.data.HistoryDAO import HistoryDAO
+from lib.data.OuDAO import OuDAO
 from lib.Searchers import OUSearcher, PersonAffiliationsSearcher
 from lib.Searchers import PersonAffiliationsOuSearcher
 from lib.templates.SearchTemplate import SearchTemplate
@@ -41,24 +44,21 @@ def _get_links():
         ('create', _('Create')),
     )
 
-
-def tree(transaction, perspective=None):
-    page = Main()
-    page.title = _("OU")
-    page.set_focus("ou/tree")
-    page.links = _get_links()
-    tree_template = OUTreeTemplate()
-    tree_template.title = _('OU perspective tree:')
+def get_perspective(perspective, perspectives):
     if not perspective:
-        perspective = cherrypy.session.get("ou_perspective", None)
-    else:    
-        cherrypy.session["ou_perspective"] = perspective    
-    if perspective:
-        perspective = transaction.get_ou_perspective_type(web_to_spine(perspective))
-    content = tree_template.viewTree(transaction, perspective)
-    page.content = lambda: content
-    return page
-tree = utils.transaction_decorator(tree)
+        return [x for x in perspectives if x.name == "Kjernen"][0]
+    else:
+        return [x for x in perspectives if x.id == int(perspective)][0]
+
+def tree(perspective=None):
+    perspectives = ConstantsDAO().get_ou_perspective_types()
+    perspective = get_perspective(perspective, perspectives)
+
+    page = OUTreeTemplate()
+    page.tree = OuDAO().get_tree(perspective)
+    page.perspective = perspective
+    page.perspectives = perspectives
+    return page.respond()
 tree.exposed = True
 
 def search_form(remembered):
@@ -88,8 +88,16 @@ search.exposed = True
 index = search
 
 def view(transaction, id):
+    dao = ConstantsDAO()
+
     ou = transaction.get_ou(int(id))
     page = OUViewTemplate()
+    page.ou = OuDAO().get(id)
+    page.ou.history = HistoryDAO().get_entity_history_tail(id)
+    page.perspectives = dao.get_ou_perspective_types()
+    page.affiliations = dao.get_affiliation_types()
+    page.spreads = dao.get_ou_spreads()
+    page.id_types = dao.get_id_types()
     page.tr = transaction
     page.title = _("OU %s") % _get_display_name(transaction, ou)
     page.set_focus("ou/view")
