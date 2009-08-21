@@ -89,6 +89,8 @@ def fetch_cerebrum_data(spread):
             path = NotesUtils.get_cerebrum_ou_path(ou_id)
             if not path:
                 # can be None or empty list
+                logger.debug("Didn't find a ou_path for user %s" %
+                             aid2ainfo[account_id]['uname'])
                 ou_path[ou_id] = 'ANDRE'
             else:
                 ou_path[ou_id] = "/".join(path)
