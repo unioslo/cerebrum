@@ -179,7 +179,7 @@ def entity_link(entity, text=None, method="view", _class="", **params):
         text = entity.name
     if _class:
         _class = ' class="%s"' % _class
-    return '<a href="%s"%s>%s</a>' % (url, _class, cgi.escape(text))
+    return '<a href="%s"%s>%s</a>' % (url, _class, spine_to_web(text))
 
 def isentity(entity):
     return hasattr(entity, 'id')
