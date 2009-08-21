@@ -623,8 +623,6 @@ class AccountDTO(DTO):
                     row["name"], row["owner_group_name"])
             else:
                 self._attrs["gecos"] = "%s user" % row["name"]
-        self._quarantine = quarantines
-
 
 class PersonDTO(DTO):
     def __init__(self, row, atypes):
@@ -717,7 +715,7 @@ def check_username_password(username, password):
 
 
 def authenticate(ps):
-    debug = True
+    debug = False
     username, password, created = get_auth_values(ps)
     check_created(created)
     if debug:
@@ -834,7 +832,7 @@ class spinews(ServiceSOAPBinding):
         q=quarantines()
         for row in search_persons(personspread, changelog_id):
             p=PersonDTO(row, atypes)
-            p.quarantines = q.get_quarantines(row['id'])
+            p._quarantines = q.get_quarantines(row['id'])
             persons.append(p)
         db.rollback()
         return persons
@@ -845,8 +843,8 @@ class spinews(ServiceSOAPBinding):
         q=quarantines()
         for row in search_accounts(accountspread, changelog_id, auth_type):
             a=AccountDTO(row, atypes)
-            a.quarantines = (q.get_quarantines(row['id']) +
-                             q.get_quarantines(row['owner_id']))
+            a._quarantines = (q.get_quarantines(row['id']) +
+                              q.get_quarantines(row['owner_id']))
             accounts.append(a)
         db.rollback()
         return accounts
@@ -857,8 +855,8 @@ class spinews(ServiceSOAPBinding):
         q=quarantines()
         for row in search_groups(groupspread, changelog_id):
             g=GroupDTO(row, atypes)
-            g.members = members.get_members_name(row['id'])
-            g.quarantines = q.get_quarantines(row['id'])
+            g._members = members.get_members_name(row['id'])
+            g._quarantines = q.get_quarantines(row['id'])
             groups.append(g)
         db.rollback()
         return groups
@@ -868,7 +866,7 @@ class spinews(ServiceSOAPBinding):
         q=quarantines()
         for row in search_ous(changelog_id):
             o=OUDTO(row, atypes)
-            o.quarantines = q.get_quarantines(row['id'])
+            o._quarantines = q.get_quarantines(row['id'])
             ous.append(o)
         db.rollback()
         return ous
@@ -915,9 +913,12 @@ def test_soap(fun, cl, cattr, **kw):
     for k,w in kw.items():
         setattr(o,"_"+k,w)
     t=time.time()
-    s=str(SoapWriter().serialize(o))
+    sw=SoapWriter()
+    sig=SignatureHandler(cereconf.TEST_USERNAME, cereconf.TEST_PASSWORD)
+    sw.serialize(o)
+    sig.sign(sw)
+    s=str(sw)
     ps=ParsedSoap(s)
-    print ps.GetMyHeaderElements()
     rps=fun(ps)
     t1=time.time()-t
     if cattr is not None:
@@ -935,13 +936,14 @@ def test_soap(fun, cl, cattr, **kw):
 
 def test():
     sp=spinews()
+    print test_soap(sp.get_persons, getPersonsRequest, "_person")
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest, None,
                     homedir_id=85752, status="not_created")
     print test_soap(sp.get_homedirs, getHomedirsRequest, "_homedir",
                     hostname="jak.itea.ntnu.no", status="not_created")
     print test_soap(sp.get_ous, getOUsRequest, "_ou")
     print test_soap(sp.get_accounts, getAccountsRequest, "_account",
-                    accountspread="user@stud")
+                    accountspread="user@stud", auth_type="MD5-crypt")
     print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
     print test_soap(sp.get_groups, getGroupsRequest, "_group",
                     accountspread="user@stud", groupspread="group@ntnu")
