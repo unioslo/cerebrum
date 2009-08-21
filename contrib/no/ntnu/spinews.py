@@ -26,8 +26,8 @@ import cereconf
 
 import Cerebrum.lib
 from Cerebrum.lib.spinews.spinews_services import *
+from Cerebrum.lib.spinews.SignatureHandler import SignatureHandler
 from Cerebrum import Errors
-from AuthenticationError import *
 
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
@@ -64,6 +64,14 @@ def int_or_none(i):
         return None
     else:
         return int(i)
+
+class AuthenticationError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+
 
 def search_persons(personspread=None, changelog_id=None):
     select=["person_info.person_id AS id",
@@ -793,8 +801,23 @@ class spinews(ServiceSOAPBinding):
                                                    incremental_from)
         return response
 
+
+    def get_persons(self, ps):
+        username = authenticate(ps)
+        request = ps.Parse(getPersonsRequest.typecode)
+        personspread = request._personspread
+        incremental_from = int_or_none(request._incremental_from)
+        response = getPersonsResponse()
+        atypes = response.typecode.ofwhat[0].attribute_typecode_dict
+        response._account = self.get_persons_impl(atypes,
+                                                  personspread,
+                                                  incremental_from)
+        return response
+
     root[(getGroupsRequest.typecode.nspname,
           getGroupsRequest.typecode.pname)] = 'get_groups'
+    root[(getPersonsRequest.typecode.nspname,
+          getPersonsRequest.typecode.pname)] = 'get_persons'
     root[(getAccountsRequest.typecode.nspname,
           getAccountsRequest.typecode.pname)] = 'get_accounts'
     root[(getOUsRequest.typecode.nspname,
@@ -894,6 +917,7 @@ def test_soap(fun, cl, cattr, **kw):
     t=time.time()
     s=str(SoapWriter().serialize(o))
     ps=ParsedSoap(s)
+    print ps.GetMyHeaderElements()
     rps=fun(ps)
     t1=time.time()-t
     if cattr is not None:
@@ -911,16 +935,16 @@ def test_soap(fun, cl, cattr, **kw):
 
 def test():
     sp=spinews()
-    #print test_soap(sp.set_homedir_status, setHomedirStatusRequest, None,
-    #                homedir_id=85752, status="not_created")
-    #print test_soap(sp.get_homedirs, getHomedirsRequest, "_homedir",
-    #                hostname="jak.itea.ntnu.no", status="not_created")
-    #print test_soap(sp.get_ous, getOUsRequest, "_ou")
-    #print test_soap(sp.get_accounts, getAccountsRequest, "_account",
-    #                accountspread="user@stud")
-    #print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
-    #print test_soap(sp.get_groups, getGroupsRequest, "_group",
-    #                accountspread="user@stud", groupspread="group@ntnu")
+    print test_soap(sp.set_homedir_status, setHomedirStatusRequest, None,
+                    homedir_id=85752, status="not_created")
+    print test_soap(sp.get_homedirs, getHomedirsRequest, "_homedir",
+                    hostname="jak.itea.ntnu.no", status="not_created")
+    print test_soap(sp.get_ous, getOUsRequest, "_ou")
+    print test_soap(sp.get_accounts, getAccountsRequest, "_account",
+                    accountspread="user@stud")
+    print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
+    print test_soap(sp.get_groups, getGroupsRequest, "_group",
+                    accountspread="user@stud", groupspread="group@ntnu")
 
     print test_impl(sp.get_persons_impl, {})
     print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
