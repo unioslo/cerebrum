@@ -48,24 +48,42 @@ class BofhdUtils(object):
         self.co = Factory.get('Constants')(self.db)
         self.logger = server.logger
 
+    # TODO: pydocify
     def request_guest_users(self, num, end_date, comment,
                             owner_type, owner_id, operator_id):
         """Reserve num guest users until they're manually released or
         until end_date. If the function fails because there are not
         enough guest users available, GuestAccountException is raised.
 
+        @param num: number of guest users to reserve
+        @ type num: int
+
         """
         if num > self.num_available_accounts():
             raise GuestAccountException, ("Not enough available guest users.\n"
                                           "Use 'user guests_status' to find "
                                           "the number of available guests.")
+        # Try to alloc guests with same prefix
+        prefix2num = {}
+        for p in cereconf.GUESTS_PREFIX:
+            tmp_num = self.num_available_accounts(prefix=p)
+            if tmp_num >= num:
+                # This is the only prefix and number we need
+                prefix2num = {p: num}
+                break
+            else:
+                if num < sum(prefix2num.values()) + tmp_num:
+                    tmp_num = num - sum(prefix2num.values())
+                prefix2num[p] = tmp_num
         ret = []
-        for guest in self._find_guests(num):
-            e_id, passwd = self._alloc_guest(guest, end_date, comment,
-                                             owner_type, owner_id, operator_id)
-            ret.append((guest, comment, e_id, passwd))
+        for p, n in prefix2num.items():
+            for guest in self._find_guests(n, prefix=p):
+                e_id, passwd = self._alloc_guest(guest, end_date, comment,
+                                                 owner_type, owner_id, operator_id)
+                ret.append((guest, comment, e_id, passwd))
         return ret
 
+    # TODO: pydocify
     def release_guest(self, guest, operator_id):
         """Release a guest account from temporary owner.
 
@@ -105,6 +123,7 @@ class BofhdUtils(object):
         self.logger.debug("Added archive_user request for %s" % guest)
         
 
+    # TODO: pydocify
     def get_owner(self, guestname):
         "Check that guestname is a guest account and that it has an owner."
         ac = Factory.get('Account')(self.db)    
@@ -116,11 +135,28 @@ class BofhdUtils(object):
             raise GuestAccountException("Already available.")
         return int(owner['target_id'])
 
+
     def list_guest_users(self, owner_id=NotSet, include_comment=False,
-                         include_date=False):
-        """List names of guest accounts owned by group with id=owner_id.
+                         include_date=False, prefix=None):
+        """List guest users according to the given criterias. Info
+        about the state of guest users are found from entity_trait and
+        entity_quarantine tables.
+
+        @param owner_id: return guest accounts with the given owner_id
+        @type owner_id: expect owner_id to be None, NotSet or entity_id.
         If owner_id=None, return all available accounts.
         If owner_id=NotSet, return all guest accounts.
+        If owner_id=<entity_id>, return all guests owned by that entity
+
+        @param include_comment: Return guest comment?
+        @type owner_id: bool
+        
+        @param include_date: Return end date?
+        @type owner_id: bool
+        
+        @param prefix: list guests users with given prefix. If prefix
+        is None, list users with any prefix.
+        
         """
         ac = Factory.get('Account')(self.db)
         ret = []
@@ -129,6 +165,9 @@ class BofhdUtils(object):
 
         for row in ac.list_traits(self.co.trait_guest_owner,
                                   target_id=owner_id, return_name=True):
+            # If prefix is given, only return guests with this prefix
+            if prefix and prefix != row['name'].rstrip("0123456789"):
+                continue
             # Must check if guest is available. 
             if owner_id is None and row['entity_id'] in quarantined_guests:
                 continue
@@ -140,6 +179,7 @@ class BofhdUtils(object):
             ret.append(tmp)
         return ret
 
+
     def list_guests_info(self):
         """Find status of all guest accounts.
         Status can be either allocated, free or release_quarantine.
@@ -148,36 +188,43 @@ class BofhdUtils(object):
         ownerid2name = {}
         ac = Factory.get('Account')(self.db)
         group = Factory.get('Group')(self.db)
-        for guest in self.list_guest_users():
-            ac.clear()
-            ac.find_by_name(guest[0])
-            qua = ac.get_entity_quarantine(self.co.quarantine_guest_release)
-            if not qua:
-                # Status == available
-                tmp = [guest[0], None, "available"]
-            else:                
-                owner = ac.get_trait(self.co.trait_guest_owner)
-                if owner['target_id']:
-                    # Status == allocated
-                    if not ownerid2name.has_key(int(owner['target_id'])):
-                        group.clear()
-                        group.find(owner['target_id'])
-                        ownerid2name[int(owner['target_id'])] = group.group_name
-                    tmp = [guest[0], None, "allocated by %s (%s) until %s" % (
-                        owner['target_id'],
-                        ownerid2name[int(owner['target_id'])],
-                        qua[0]['start_date'].date)]
-                else:
-                    # status == release_quarantine
-                    release_date = qua[0]['start_date'] + cereconf.GUESTS_QUARANTINE_PERIOD
-                    tmp = [guest[0], None, "in release_quarantine until %s" % release_date.date]
+
+        quarantined_guests = {}
+        for row in ac.list_entity_quarantines(
+            quarantine_types=self.co.quarantine_guest_release):
+            quarantined_guests[int(row['entity_id'])] = row['start_date']
+        
+        active_quarantines = set([int(q['entity_id']) for q in ac.list_entity_quarantines(
+            quarantine_types=self.co.quarantine_guest_release, only_active=True)])
+        pending_quarantines = set(quarantined_guests.keys()) - active_quarantines
+        
+        for row in ac.list_traits(self.co.trait_guest_owner, return_name=True):
+            e_id = int(row['entity_id'])
+            owner_id = row['target_id'] and int(row['target_id']) or None
+            uname = row['name']
+            if e_id in active_quarantines:
+                # guest is in release_quarantine
+                release_date = quarantined_guests[e_id] + cereconf.GUESTS_QUARANTINE_PERIOD
+                tmp = [uname, None, "in release_quarantine until %s" % release_date.date]
+            elif e_id in pending_quarantines:
+                # guest is allocated. Find owner
+                if not ownerid2name.has_key(owner_id):
+                    group.clear()
+                    group.find(owner_id)
+                    ownerid2name[owner_id] = group.group_name
+                tmp = [uname, None, "allocated by %s until %s" % (
+                    ownerid2name[owner_id], quarantined_guests[e_id].date)]
+            else:
+                # guest is available
+                tmp = [row['name'], None, "available"]
             ret.append(tmp)
-        ret.sort()
         return ret
 
-    def num_available_accounts(self):
+
+    def num_available_accounts(self, prefix=None):
         """Find num of available guest accounts."""
-        return len(self.list_guest_users(owner_id=None))
+        return len(self.list_guest_users(owner_id=None, prefix=prefix))
+
 
     def find_new_guestusernames(self, num_new_guests, prefix="guest"):
         """Find next free guest user names for user_create_guest."""
@@ -287,11 +334,12 @@ class BofhdUtils(object):
                 gr.find(row['group_id'])
                 gr.remove_member(account_id)
 
-    def _find_guests(self, num_requested):
+    def _find_guests(self, num_requested, prefix=None):
         ret = []
         num2guestname = {}
         # find all available guests
-        for uname, date, comment in self.list_guest_users(owner_id=None):
+        for uname, date, comment in self.list_guest_users(owner_id=None,
+                                                          prefix=prefix):
             try:
                 prefix = uname.rstrip("0123456789")
                 num = int(uname[len(prefix):])

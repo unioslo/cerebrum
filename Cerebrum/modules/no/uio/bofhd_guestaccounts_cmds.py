@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2008 University of Oslo, Norway
+# Copyright 2002-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
 from mx import DateTime
 
 import cereconf
@@ -156,7 +155,7 @@ class BofhdExtension(object):
         # get prefix
         if not all_args:
             return {'prompt': "Name prefix",
-                    'default': cereconf.GUESTS_NEW_NAME_PREFIX,
+                    'default': cereconf.GUESTS_PREFIX[-1], 
                     'last_arg': True}
         return {'last_arg': True}
 
@@ -181,7 +180,6 @@ class BofhdExtension(object):
         self.ba.can_create_user(operator.get_entity_id(), owner_id, disk_id)
 
         ret = []
-        ac = Factory.get('Account')(self.db)
         # Find the names of the next <nr> of guest users
         for uname in self.bgu.find_new_guestusernames(int(nr), prefix=prefix):
             posix_user.clear()
