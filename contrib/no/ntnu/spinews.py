@@ -807,9 +807,9 @@ class spinews(ServiceSOAPBinding):
         incremental_from = int_or_none(request._incremental_from)
         response = getPersonsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
-        response._account = self.get_persons_impl(atypes,
-                                                  personspread,
-                                                  incremental_from)
+        response._person = self.get_persons_impl(atypes,
+                                                 personspread,
+                                                 incremental_from)
         return response
 
     root[(getGroupsRequest.typecode.nspname,
@@ -832,7 +832,7 @@ class spinews(ServiceSOAPBinding):
         q=quarantines()
         for row in search_persons(personspread, changelog_id):
             p=PersonDTO(row, atypes)
-            p._quarantines = q.get_quarantines(row['id'])
+            p._quarantine = q.get_quarantines(row['id'])
             persons.append(p)
         db.rollback()
         return persons
@@ -843,7 +843,7 @@ class spinews(ServiceSOAPBinding):
         q=quarantines()
         for row in search_accounts(accountspread, changelog_id, auth_type):
             a=AccountDTO(row, atypes)
-            a._quarantines = (q.get_quarantines(row['id']) +
+            a._quarantine = (q.get_quarantines(row['id']) +
                               q.get_quarantines(row['owner_id']))
             accounts.append(a)
         db.rollback()
@@ -855,8 +855,8 @@ class spinews(ServiceSOAPBinding):
         q=quarantines()
         for row in search_groups(groupspread, changelog_id):
             g=GroupDTO(row, atypes)
-            g._members = members.get_members_name(row['id'])
-            g._quarantines = q.get_quarantines(row['id'])
+            g._member = members.get_members_name(row['id'])
+            g._quarantine = q.get_quarantines(row['id'])
             groups.append(g)
         db.rollback()
         return groups
@@ -866,7 +866,7 @@ class spinews(ServiceSOAPBinding):
         q=quarantines()
         for row in search_ous(changelog_id):
             o=OUDTO(row, atypes)
-            o._quarantines = q.get_quarantines(row['id'])
+            o._quarantine = q.get_quarantines(row['id'])
             ous.append(o)
         db.rollback()
         return ous
@@ -907,7 +907,7 @@ def test_impl(fun, *args):
     t=time.time()-t
     return fun.__name__, l, t
 
-def test_soap(fun, cl, cattr, **kw):
+def test_soap(fun, cl, cattr, extattr=(), **kw):
     #fun=root[(cl.typecode.nspname, cl.typecode.pname)]
     o=cl()
     for k,w in kw.items():
@@ -922,31 +922,37 @@ def test_soap(fun, cl, cattr, **kw):
     rps=fun(ps)
     t1=time.time()-t
     if cattr is not None:
-        l=len(getattr(rps, cattr))
+        rl=getattr(rps, cattr)
+        l=len(rl)
+        el=[sum([len(getattr(o, ea)) for o in rl]) for ea in extattr]
     else:
         l=None
+        el=None
     rs=str(SoapWriter().serialize(rps))
     open("/tmp/log.%s" % fun.__name__, 'w').write(rs)
     #rps=ParsedSoap(rs)
     t2=time.time()-t
-    return fun.__name__, l, t1, t2
+    return fun.__name__, l, el, t1, t2
     
 
 
 
 def test():
     sp=spinews()
-    print test_soap(sp.get_persons, getPersonsRequest, "_person")
-    print test_soap(sp.set_homedir_status, setHomedirStatusRequest, None,
+    print test_soap(sp.get_groups, getGroupsRequest, "_group",
+                    ("_member", "_quarantine"),
+                    accountspread="user@stud", groupspread="group@ntnu")
+    print test_soap(sp.get_persons, getPersonsRequest, "_person",
+                    ("_quarantine",))
+    print test_soap(sp.set_homedir_status, setHomedirStatusRequest, None, (),
                     homedir_id=85752, status="not_created")
-    print test_soap(sp.get_homedirs, getHomedirsRequest, "_homedir",
+    print test_soap(sp.get_homedirs, getHomedirsRequest, "_homedir", (),
                     hostname="jak.itea.ntnu.no", status="not_created")
-    print test_soap(sp.get_ous, getOUsRequest, "_ou")
+    print test_soap(sp.get_ous, getOUsRequest, "_ou", ("_quarantine",))
     print test_soap(sp.get_accounts, getAccountsRequest, "_account",
+                    ("_quarantine",),
                     accountspread="user@stud", auth_type="MD5-crypt")
     print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
-    print test_soap(sp.get_groups, getGroupsRequest, "_group",
-                    accountspread="user@stud", groupspread="group@ntnu")
 
     print test_impl(sp.get_persons_impl, {})
     print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
