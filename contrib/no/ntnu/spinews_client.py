@@ -7,7 +7,7 @@ import cerebrum_path
 
 import cereconf
 
-from SignatureHandler import *
+from Cerebrum.lib.spinews.SignatureHandler import SignatureHandler
 from Cerebrum.lib.spinews.spinews_services import *
 from Cerebrum.lib.spinews.spinews_objects import *
 from Cerebrum.lib.spinews.spinews_services_types import *
@@ -84,7 +84,6 @@ def init_ssl():
 
 ## theTraceFile = open("soap_trace.log", 'wb', 16384)
 theTraceFile = open("theTraceFile.log", 'wb', 1024)
-kw = {'readerclass': ExpatReaderClass, 'tracefile ': sys.stdout, 'transport' : CeresyncHTTPSConnection }
 
 samples = {}
 stat_max_min = {}
