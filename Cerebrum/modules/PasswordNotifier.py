@@ -166,9 +166,28 @@ class PasswordNotifier(object):
             return 0
     # end get_num_notifications
 
+    def rec_fail_notification(self, account):
+        """
+        If a notification fails, set a 0 value, and record a failed attempt.
+        If a trait already exists, log it, it should not be used that way.
+        """
+        traits = account.get_trait(self.config.trait)
+        if traits is None:
+            account.populate_trait(
+                    code=self.config.trait,
+                    target_id=None,
+                    date=self.now,
+                    numval=0,
+                    strval=self.today.strftime("Failed: %Y-%m-%d")
+                    )
+            account.write_db()
+        else:
+            self.logger.error("Notification has already succeeded (this should not happen)")
+    #end rec_fail_notification
+
     def inc_num_notifications(self, account):
         """
-        Increases the number for trait by one
+        Increases the number for trait by one, and sets other interesting fields.
         """
         traits = account.get_trait(self.config.trait)
         if traits is not None:
@@ -272,7 +291,14 @@ class PasswordNotifier(object):
 
             # now, I know the password should be old,
 
-            if self.get_num_notifications(account) == 0:
+            if self.get_deadline(account) <= self.today:
+                # Deadline given in notification is passed, splat.
+                if not self.dryrun:
+                    self.splat_user(account)
+                else:
+                    self.logger.info("Splat user %s", account.account_name)
+                num_splatted += 1
+            elif self.get_num_notifications(account) == 0:
                 # No previously notification/warning sent. Send first-mail
                 if self.notify(account):
                     if not self.dryrun:
@@ -281,14 +307,8 @@ class PasswordNotifier(object):
                         self.logger.info("First notify %s", account.account_name)
                     num_mailed += 1
                 else:
+                    self.rec_fail_notification(account)
                     self.logger.error("User %s not modified", account.account_name)
-            elif self.get_deadline(account) <= self.today:
-                # Deadline given in notification is passed, splat.
-                if not self.dryrun:
-                    self.splat_user(account)
-                else:
-                    self.logger.info("Splat user %s", account.account_name)
-                num_splatted += 1
             else:
                 num_previously_warned += 1
                 if self.remind_ok(account):
