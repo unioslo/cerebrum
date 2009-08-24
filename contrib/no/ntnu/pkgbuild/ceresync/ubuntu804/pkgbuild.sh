@@ -12,7 +12,7 @@ VERSION=$VER-$REV
 BUILDDIR=$DIR/cerebrum-ntnu-$VERSION
 
 echo "Checking build environment sanity"
-for i in python-cjson python-zsi; do
+for i in python-cjson python-zsi python-cheetah openjdk-6-jdk; do
     echo -n "Checking for package $i: "
     dpkg-query -W -f='${Status}' $i | grep -q "install ok installed" || exit 1
     echo "OK"
