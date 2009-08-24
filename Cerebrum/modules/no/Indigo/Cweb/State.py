@@ -25,11 +25,81 @@ import os
 import time
 import Cookie
 from random import Random
+import random
 import time
 import md5
 
 import cerebrum_path
 import cereconf
+
+
+
+
+
+def with_timeout(timeout, errors):
+    """Make a new callable failing after L{timeout} seconds.
+
+    Make a new callable out of L{function} (see L{inner_function}). This new
+    callable mimics the semantics of L{function}, except that any error listed
+    in L{errors} is ignored for the first L{timeout} seconds. Such an
+    arrangement permits us to make repeated calls that are allowed to fail for
+    a period of time.
+
+    The function nesting is necessary to be able to use L{with_waiting} as a
+    decorator. A typical usage will be::
+
+      waiting_function = with_waiting(10, gdbm.error)(gdbm.open)
+      db = waiting_function(filename, 'c')
+
+    ... or, as a decorator:
+
+      @with_timeout(20, RuntimeError)
+      def something(...):
+          # something
+
+    WARNING! It is the caller's responsibility to ensure that subsequent calls
+    to L{function} are idempotent. Do NOT use L{with_timeout}, if, despite of
+    failing, L{function} may alter (parts of) nonlocal state.
+
+    @type timeout: number (int or float)
+    @param timeout:
+      Maximum time period within which L{function} is allowed to fail. After
+      this many seconds have elapsed, L{function} either succeeds, or fails
+      with ValueError.
+
+    @type errors: class (or a tuple of classes)
+    @param errors:
+      Errors permissible within the specified period of time.
+    """
+    
+    def inner_function(function):
+        """
+        @type function: any callable
+        @param function:
+          A callable (function, method, etc) that we are wrapping.
+        """
+
+        def actual_callee(*rest, **kw):
+            backoff = 0.1
+            time_remaining = timeout
+            while time_remaining > 0:
+                try:
+                    return function(*rest, **kw)
+                except errors:
+                    time.sleep(backoff)
+                    backoff *= 1.0 + random.random()
+                    time_remaining -= backoff
+
+            raise ValueError("Failed to call %s within %s seconds" %
+                             (str(function), timeout))
+        # end actual_callee
+
+        return actual_callee
+    # end inner_function
+
+    return inner_function
+# end with_timeout
+
 
 
 class StateClass(object):
@@ -52,7 +122,9 @@ class StateClass(object):
                   )  
     
     def __init__(self, controller):
-        self._db = gdbm.open(cereconf.CWEB_STATE_FILE, 'c')
+        # Open a db with waiting, in case there is state file contention
+        waiting_function = with_timeout(15, gdbm.error)(gdbm.open)
+        self._db = waiting_function(cereconf.CWEB_STATE_FILE, 'c')
         self._session_id = None
         self.authuser = None
         self.controller = controller
