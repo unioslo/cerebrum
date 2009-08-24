@@ -11,8 +11,12 @@ REV=$3
 VERSION=$VER-$REV
 BUILDDIR=$DIR/cerebrum-ntnu-$VERSION
 
-echo "Installing build-dep and ceresync..."
-sudo apt-get build-dep ceresync || exit 1
+echo "Checking build environment sanity"
+for i in python-cjson python-zsi; do
+    echo -n "Checking for package $i: "
+    dpkg-query -W -f='${Status}' $i | grep -q "install ok installed" || exit 1
+    echo "OK"
+done
 
 echo "Building DEB packages for Ubuntu 8.04 of ceresync version $VER-$REL"
 pushd $BUILDDIR > /dev/null 2>&1
