@@ -57,7 +57,7 @@
 #end def
 
 #def content()
-    $editOU($tr, $entity) ## Pending
+    $editOU($ou, $trees)
     $viewInfo($ou)
     $viewQuarantines($ou)
     $addNote($ou)
@@ -74,8 +74,10 @@
     $affiliatedPersons($ou, $perspectives, $affiliations)
 #end def
 
-#def editOU($tr, $ou)
-    $editTemplate.editBox($tr, $ou)
+#def editOU($ou, $trees)
+<div class="edit box">
+    $editTemplate.form($ou, $trees)
+</div>
 #end def
 
 ## View information about OU.
@@ -96,15 +98,15 @@
     <div class="list box">
         <h3>$_('OU Family')</h3>
         #for $perspective, $family in $ou.families.items()
-            #if not $family.parent and not $family.children
+            #if not $family.in_perspective
                 #continue
             #end if
 
             <h4>$_('Parent in perspective') $spine_to_web($perspective.name)</h4>
-            #if $family.parent
-                <div>$entity_link($family.parent)</div>
-            #else
+            #if $family.is_root
                 <div>$_('(Root of perspective)')</div>
+            #else
+                <div>$entity_link($family.parent)</div>
             #end if
 
             #if $family.children

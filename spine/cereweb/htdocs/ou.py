@@ -73,7 +73,7 @@ def search_form(remembered):
                           ("spread", _("Spread name"))
                           ]
     page.search_action = '/ou/search'
-    
+
     page.search_title = _('OU(s)')
     page.form_values = remembered
     return page.respond()
@@ -88,16 +88,18 @@ search.exposed = True
 index = search
 
 def view(transaction, id):
-    dao = ConstantsDAO()
+    c_dao = ConstantsDAO()
+    ou_dao = OuDAO()
 
     ou = transaction.get_ou(int(id))
     page = OUViewTemplate()
-    page.ou = OuDAO().get(id)
+    page.ou = ou_dao.get(id)
     page.ou.history = HistoryDAO().get_entity_history_tail(id)
-    page.perspectives = dao.get_ou_perspective_types()
-    page.affiliations = dao.get_affiliation_types()
-    page.spreads = dao.get_ou_spreads()
-    page.id_types = dao.get_id_types()
+    page.perspectives = c_dao.get_ou_perspective_types()
+    page.affiliations = c_dao.get_affiliation_types()
+    page.spreads = c_dao.get_ou_spreads()
+    page.trees = ou_dao.get_trees()
+    page.id_types = c_dao.get_id_types()
     page.tr = transaction
     page.title = _("OU %s") % _get_display_name(transaction, ou)
     page.set_focus("ou/view")
@@ -109,14 +111,15 @@ view = utils.transaction_decorator(view)
 view.exposed = True
 
 def edit(transaction, id):
-    ou = transaction.get_ou(int(id))
+    ou_dao = OuDAO()
+    ou = ou_dao.get(id)
+    trees = ou_dao.get_trees()
+
     page = Main()
-    ou_name = utils.spine_to_web(ou.get_name())
-    page.title = _("OU ") + utils.object_link(ou, text=ou_name)
+    page.title = _("OU ") + utils.entity_link(ou)
     page.set_focus("ou/edit")
     page.links = _get_links()
-    content = OUEditTemplate().form(transaction, ou)
-    page.content = lambda: content
+    page.content = lambda: OUEditTemplate().form(ou, trees)
     return page
 edit = utils.transaction_decorator(edit)
 edit.exposed = True
@@ -137,7 +140,7 @@ def create(transaction, **vargs):
     create = OUCreateTemplate(searchList=[{'formvalues': values}])
     create.tr = transaction
     page.content = create.form
-    
+
     return page
 create = utils.transaction_decorator(create)
 create.exposed = True
@@ -173,7 +176,7 @@ def make(transaction, name, institution,
         name = utils.web_to_spine(name.strip())
         ou = transaction.get_commands().create_ou(name, institution,
                                         faculty, institute, department)
-    
+
         if acronym:
             ou.set_acronym(utils.web_to_spine(acronym))
         if short_name:
@@ -210,7 +213,7 @@ def save(transaction, id, name, submit=None, **vargs):
         'institute': ou.set_institutt,
         'department': ou.set_avdeling
     }
-        
+
     parents = {}
     for (key, value) in vargs.items():
         if key in stedkode_map:
@@ -221,17 +224,17 @@ def save(transaction, id, name, submit=None, **vargs):
                 # Could also be "root" and "not_in"
                 value = int(value)
             parents[parent] = value
-    
+
     for (perspective, parent) in parents.items():
-        perspective = transaction.get_ou_perspective_type(perspective)            
+        perspective = transaction.get_ou_perspective_type(perspective)
         if parent == "root":
             ou.set_parent(None, perspective)
         elif parent == "not_in":
             ou.unset_parent(perspective)
         else:
-            parent = transaction.get_ou(parent)     
+            parent = transaction.get_ou(parent)
             ou.set_parent(parent, perspective)
-   
+
     msg = _("Organization Unit successfully modified.")
     utils.commit(transaction, ou, msg=msg)
 save = utils.transaction_decorator(save)
@@ -251,7 +254,7 @@ def list_aff_persons(transaction, **vargs):
     return searcher.respond() or utils.redirect('/ou/')
 list_aff_persons = utils.transaction_decorator(list_aff_persons)
 list_aff_persons.exposed = True
-    
+
 
 def _get_display_name(transaction, ou):
     display_name = ou.get_display_name()

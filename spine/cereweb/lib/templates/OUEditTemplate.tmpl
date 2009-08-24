@@ -28,51 +28,45 @@
 ## Lines with info about the form, used with the function showHelp().
 #attr $help = []
 
-#def editBox($tr, $ou)
-<div class="edit box">
-    $form($tr, $ou)
-</div>
-#end def
-
 ## Creates the form for editing the main person info.
-#def form($tr, $ou)
+#def form($ou, $trees)
     <h3>$_('Edit general organization info')</h3>
     <div>
     <form action="save" method="post">
         <div class="hidden">
-            <input type="hidden" name="id" value="$html_quote($ou.get_id())" />
+            <input type="hidden" name="id" value="$html_quote($ou.id)" />
         </div>
         <div class="required">
-            $form_widgets.input("name", "Name", $spine_to_web($ou.get_name()))
+            $form_widgets.input("name", "Name", $spine_to_web($ou.name))
         </div>
         <div class="required">
-            $form_widgets.input("acronym", "Acronym", $spine_to_web($ou.get_acronym()))
+            $form_widgets.input("acronym", "Acronym", $spine_to_web($ou.acronym))
         </div>
         <div class="required">
-            $form_widgets.input("short_name", "Short name", $spine_to_web($ou.get_short_name()))
+            $form_widgets.input("short_name", "Short name", $spine_to_web($ou.short_name))
         </div>
         <div class="required">
-            $form_widgets.input("display_name", "Display name", $spine_to_web($ou.get_display_name()))
+            $form_widgets.input("display_name", "Display name", $spine_to_web($ou.display_name))
         </div>
         <div class="required">
-            $form_widgets.input("sort_name", "Sort name", $spine_to_web($ou.get_sort_name()))
+            $form_widgets.input("sort_name", "Sort name", $spine_to_web($ou.sort_name))
         </div>
         <div class="required">
-            $form_widgets.input("contrycode", "Country code", $html_quote($ou.get_landkode()))
+            $form_widgets.input("contrycode", "Country code", $html_quote($ou.landkode))
         </div>
         <div class="required">
-            $form_widgets.input("institution", "Institution", $html_quote($ou.get_institusjon()))
+            $form_widgets.input("institution", "Institution", $html_quote($ou.institusjon))
         </div>
         <div class="required">
-            $form_widgets.input("faculty", "Faculty", $html_quote($ou.get_fakultet()))
+            $form_widgets.input("faculty", "Faculty", $html_quote($ou.fakultet))
         </div>
         <div class="required">
-            $form_widgets.input("institute", "Institute", $html_quote($ou.get_institutt()))
+            $form_widgets.input("institute", "Institute", $html_quote($ou.institutt))
         </div>
         <div class="required">
-            $form_widgets.input("department", "Department", $html_quote($ou.get_avdeling()))
+            $form_widgets.input("department", "Department", $html_quote($ou.avdeling))
         </div>
-        $edit_perspectives($tr, $ou)
+        $edit_perspectives($ou, $trees)
         $form_widgets.showHelp($help)
         <div class="buttons">
             <input type="submit" value="$_('Add')" />
@@ -82,104 +76,66 @@
     </div>
 #end def
 
-#def edit_perspectives($tr, $ou)
-#set $extras = [ ("not_in", $_("(Not in perspective)")),
-                 ("root", $_("(Root node)")) ]
-#set $perspectives = $tr.get_ou_perspective_type_searcher()
-
+#def edit_perspectives($ou, $trees)
     <h3>$_('OU perspectives')</h3>
-    #for $perspective in $perspectives.search()
-        #try
-            #set $parent=$ou.get_parent($perspective)    
-        #except NotFoundError
-            #set $parent="not_in"
-        #else
-            #if $parent is None
-                #set $parent="root"
-            #end if
-        #end try    
-        
-       $select_ou($perspective, "parent_" + $perspective.get_name(),
-                  $_("Parent in %s:") % $perspective.get_name(),
-                   $parent, $ou, $extras) 
+    #for $perspective, $family in $ou.families.items()
+       $select_ou($perspective, $family, $ou, $trees)
     #end for
 #end def
 
-## Displays a select box for choosing an
-## OU in a given perspective.
-## --selected  ou_id or OU instance of current selection
-## --disabled  ou_id or OU instance of OU to be disabled 
-##             (Note that all this OUs children will also 
-##             be disabled)
-## --extras    List of tuples of constant choices to be
-##             appended at the top of the list. For 
-##             instance:
-##              [ ("not_in", "Not in perspective"),
-##                ("root", "Root node") ]
-##             The first part of the tuple is the value for
-##             the <option>, while the last part is the 
-##             displayed text for the option
-
-#def select_ou($perspective, $name, $label=None, $selected=None, $disabled=None, $extras=())
-    
-    #if $selected is not None and not isinstance($selected, StringTypes):
-        #set $selected = $selected.get_id()
-    #end if
-    #if $disabled is not None and not isinstance($disabled, StringTypes):
-        #set $disabled = $disabled.get_id()
-    #end if
+#def select_ou($perspective, $family, $ou, $trees)
+    ## Internal recursive function for printing an OU options
+    #def write_ou_option($value, $label, $selected, $disabled, $indent="")
+        #set $attribs = ""
+        #if $selected == $value
+            #set $attribs += " selected='selected'"
+        #end if
+        #if $disabled == $value
+            #set $attribs += " disabled='disabled'"
+        #end if
+        <option$attribs value="$html_quote($value)">
+            $indent $spine_to_web($label)
+        </option>
+    #end def
 
     ## Internal recursive function for printing an OU options
     ## and all it's children
-    #def ou_options($ou, $perspective, $indent="", $selected=None, $disable=None)
-        #set $name = $ou.get_id()
-        #set $descr = $ou.get_name()
-        #set $attribs = ''
-        #if $selected == $name
-            #set $attribs += " selected='selected'"
-        #end if    
-        #if $disable == $name
-            #set $attribs += " disabled='disabled'"
-        #end if
-        <option$attribs value="$html_quote($name)">
-            $indent $spine_to_web($descr)
-        </option>
-        #for $child in $ou.get_children($perspective)
-            #if $disable == $name
+    #def ou_options($ou, $perspective, $selected=None, $disabled=None, $indent="")
+        $write_ou_option($ou.id, $ou.name, $selected, $disabled, $indent)
+        #for $child in $ou.children
+            #if $disabled == $ou.id
                 ## All kids are disabled too
-                #set $dis = $child.get_id()
+                #set $dis = $child.id
             #else
-                #set $dis = $disable
+                #set $dis = $disabled
             #end if
-            $ou_options($child, $perspective, $indent+"--", $selected, $dis)
+            $ou_options($child, $perspective, $selected, $dis, $indent+"--")
         #end for
     #end def
-        
+
+    #if not $family.in_perspective
+        #set $selected="not_in"
+    #elif $family.is_root
+        #set $selected="root"
+    #else
+        #set $selected=$family.parent.id
+    #end if
+
     <div class="required">
-        #if $label
-            <label for="$name">
-                $label
-            </label>
-        #end if
+
+        #set $name = "parent_" + $perspective.name
+        <label for="$name">
+            #echo $_("Parent in %s:") % $perspective.name
+        </label>
         <select name="$name">
 
         ## First the extra options
-        #for $name, $descr in $extras
-            #set attribs=''
-            #if $selected == $name
-                #set $attribs += " selected='selected'"
-            #end if    
-            #if $disabled == $name
-                #set $attribs += " disabled='disabled'"
-            #end if
-            <option$attribs value="$html_quote($name)">
-                $spine_to_web($descr)
-            </option>
-        #end for
-        
+        $write_ou_option("not_in", $_("(Not in perspective)"), $selected, disabled=$ou.id)
+        $write_ou_option("root", $_("(Root node)"), $selected, disabled=$ou.id)
+
         ## Then recurse all roots
-        #for $root in $perspective.get_roots()
-            $ou_options($root, $perspective, selected=$selected, disable=$disabled)
+        #for $root in $trees[$perspective.id]
+            $ou_options($root, $perspective, $selected, disabled=$ou.id)
         #end for
         </select>
     </div>

@@ -26,14 +26,28 @@ class OuDAOTest(unittest.TestCase):
     def setUp(self):
         self.dao = OuDAO()
     
-    def test_that_get_tree_in_kjernen_gives_1_root(self):
+    def test_that_get_tree_in_kjernen_gives_8_roots(self):
         roots = self.dao.get_tree("Kjernen")
-        self.assertEqual(1, len(roots))
+        self.assertEqual(8, len(roots))
         self.assertEqual(3, roots[0].id)
 
     def test_that_get_entities_returns_x_ous(self):
         entities = self.dao.get_entities()
         self.assertEqual(138, len(entities))
+
+    def test_that_the_ou_contains_enough_information(self):
+        ou = self.dao.get(55)
+        self.assertEqual(55, ou.id)
+        self.assertEqual("NT Fakultetsadministrasjon", ou.name)
+        self.assertEqual("NT-ADM", ou.acronym)
+        self.assertEqual("NT-ADM", ou.short_name)
+        self.assertEqual("NT Fakultetsadministrasjon", ou.display_name)
+        self.assertEqual("NT Fakultetsadministrasjon", ou.sort_name)
+        self.assertEqual(0, ou.landkode)
+        self.assertEqual(194, ou.institusjon)
+        self.assertEqual(66, ou.fakultet)
+        self.assertEqual(1, ou.institutt)
+        self.assertEqual(0, ou.avdeling)
 
 if __name__ == '__main__':
     unittest.main()

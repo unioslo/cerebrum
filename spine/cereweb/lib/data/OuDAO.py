@@ -39,6 +39,11 @@ class OuDAO(EntityDAO):
         dto.short_name = ou.short_name
         dto.display_name = ou.display_name
         dto.sort_name = ou.sort_name
+        dto.landkode = ou.landkode
+        dto.institusjon = ou.institusjon
+        dto.fakultet = ou.fakultet
+        dto.institutt = ou.institutt
+        dto.avdeling = ou.avdeling
         dto.families = self._get_families(ou)
         dto.quarantines = QuarantineDAO(self.db).create_from_entity(ou)
         dto.notes = NoteDAO(self.db).create_from_entity(ou)
@@ -63,6 +68,9 @@ class OuDAO(EntityDAO):
 
             child_ids = ou.list_children(perspective.id, ou.entity_id)
             family.children = [s.get_entity(c.ou_id) for c in child_ids]
+
+            family.in_perspective = family.parent or family.children
+            family.is_root = family.in_perspective and family.parent is None
 
         return families
 
@@ -92,7 +100,14 @@ class OuDAO(EntityDAO):
                 parent = data[parent_id]
                 parent.children.append(node)
 
-        return [root for root in roots.values() if root.children]
+        return [root for root in roots.values()]
+
+    def get_trees(self):
+        perspectives = ConstantsDAO(self.db).get_ou_perspective_types()
+        roots = {}
+        for perspective in perspectives:
+            roots[perspective.id] = self.get_tree(perspective)
+        return roots
 
     def get_parent(self, child_id, perspective):
         if isinstance(perspective, str):
