@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002 University of Oslo, Norway
+# Copyright 2002-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -501,7 +501,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 else:
                     error_class = CerebrumError
                 response = xmlrpclib.dumps(
-                    xmlrpclib.Fault(1, "%s:%s" % (error_class, sys.exc_value))
+                    xmlrpclib.Fault(1, "%s.%s:%s" % 
+                        (error_class.__module__, error_class.__name__, sys.exc_value))
                     )                
             except:
                 logger.warn(
