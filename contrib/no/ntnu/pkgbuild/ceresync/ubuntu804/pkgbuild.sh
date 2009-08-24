@@ -12,11 +12,23 @@ VERSION=$VER-$REV
 BUILDDIR=$DIR/cerebrum-ntnu-$VERSION
 
 echo "Checking build environment sanity"
+broken=false
 for i in python-cjson python-zsi python-cheetah openjdk-6-jdk; do
     echo -n "Checking for package $i: "
-    dpkg-query -W -f='${Status}' $i | grep -q "install ok installed" || exit 1
-    echo "OK"
+    dpkg-query -W -f='${Status}' $i 2>&1| grep -q "install ok installed"
+    status=$?
+    if [ "$status" = "0" ]; then
+        echo "OK"
+    else
+        broken=true
+        echo "MISSING"
+    fi
 done
+if [ "$broken" == true ]; then
+    echo "Build dependencies are not met.."
+    exit 1
+fi
+
 
 echo "Building DEB packages for Ubuntu 8.04 of ceresync version $VER-$REL"
 pushd $BUILDDIR > /dev/null 2>&1
