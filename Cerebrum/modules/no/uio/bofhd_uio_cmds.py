@@ -2704,6 +2704,65 @@ class BofhdExtension(object):
     # end email_remove_list_alias
     
 
+
+    def _report_deleted_EA(self, deleted_EA):
+        """Send a message to postmasters informing them that a number of email
+        addresses are about to be deleted.
+
+        postmasters requested on 2009-08-19 that they want to be informed when
+        an e-mail list's aliases are being deleted (to have a record, in case
+        the operation is to be reversed). The simplest solution is to send an
+        e-mail informing them when something is deleted.
+        """
+
+        if not deleted_EA:
+            return
+
+        def email_info2string(EA):
+            """Map whatever email_info returns to something human-friendly"""
+
+            def dict2line(d):
+                filtered_keys = ("spam_action_desc", "spam_level_desc",)
+                return "\n".join("%s: %s" % (str(key), str(d[key]))
+                                 for key in d
+                                 if key not in filtered_keys)
+
+            result = list()
+            for item in EA:
+                if isinstance(item, dict):
+                    result.append(dict2line(item))
+                else:
+                    result.append(repr(item))
+
+            return "\n".join(result)
+        # end email_info2string
+
+        to_address = "postmaster-logs@usit.uio.no"
+        from_address = "cerebrum-logs@usit.uio.no"
+        try:
+            Utils.sendmail(toaddr=to_address,
+                           fromaddr=from_address,
+                           subject="Removal of e-mail addresses in Cerebrum",
+                           body="""
+This is an automatically generated e-mail.
+
+The following e-mail list addresses have just been removed from Cerebrum. Keep
+this message, in case a restore is requested later.
+
+Addresses and settings:
+
+%s
+                       """ % email_info2string(deleted_EA))
+
+        # We don't want this function ever interfering with bofhd's
+        # operation. If it fails -- screw it.
+        except:
+            self.logger.info("Failed to send e-mail to %s", to_address)
+            self.logger.info("Failed e-mail info: %s", repr(deleted_EA))
+    # end _report_deleted_EA
+
+
+
     # email remove_sympa_list_alias <alias>
     all_commands['email_remove_sympa_list_alias'] = Command(
         ('email', 'remove_sympa_list_alias'),
@@ -2765,6 +2824,7 @@ class BofhdExtension(object):
         et = Email.EmailTarget(self.db)
         epat = Email.EmailPrimaryAddressTarget(self.db)
         list_id = ea.entity_id
+        deleted_EA = self.email_info(operator, listname)
         for interface in self._interface2addrs.keys():
             alias = self._mailman_pipe % {'interface': interface,
                                           'listname': listname}
@@ -2788,14 +2848,19 @@ class BofhdExtension(object):
                 et.delete()
             except Errors.NotFoundError:
                 pass
-        br = BofhdRequests(self.db, self.const)
 
+        self._report_deleted_EA(deleted_EA)
+
+        br = BofhdRequests(self.db, self.const)
         # IVR 2008-08-04 +1 hour to allow changes to spread to LDAP. This way
         # we'll have a nice SMTP-error, rather than a confusing error burp
         # from mailman.
         br.add_request(op, DateTime.now() + DateTime.DateTimeDelta(0, 1),
-                       self.const.bofh_mailman_remove, list_id, None, listname)
+                       self.const.bofh_mailman_remove, list_id, None,
+                       listname)
+
         return result
+    # end _email_delete_list
 
 
     # email delete_sympa_list <run-host> <list-address>
@@ -2839,6 +2904,7 @@ class BofhdExtension(object):
         if not self._validate_sympa_list(listname):
             raise CerebrumError("Illegal sympa list name: '%s'", listname)
 
+        deleted_EA = self.email_info(operator, listname)
         # needed for pattern interpolation below (these are actually used)
         local_part, domain = self._split_email_address(listname)
         for pattern, pipe_destination in self._sympa_addr2alias:
@@ -2868,6 +2934,7 @@ class BofhdExtension(object):
             except Errors.NotFoundError:
                 pass
 
+        self._report_deleted_EA(deleted_EA)
         if not self._is_yes(force_request):
             return "OK, sympa list '%s' deleted (no bofhd request)" % listname
 
@@ -2881,6 +2948,7 @@ class BofhdExtension(object):
                        DateTime.now() + DateTime.DateTimeDelta(0, 1),
                        self.const.bofh_sympa_remove,
                        list_id, None, state_data=pickle.dumps(state))
+
         return "OK, sympa list '%s' deleted (bofhd request issued)" % listname
     # end email_delete_sympa_list
                 
