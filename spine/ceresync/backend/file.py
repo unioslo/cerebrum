@@ -65,14 +65,16 @@ class FileBack:
         self.incr = None
         self.tempname = None
         self.f = None
-        self.encoding="iso-8859-1" # FIXME: Read this from config
+        self.unicode = False
+        self.encoding="iso-8859-1"  # FIXME: Read from config
 
-    def begin(self, incr=False):
+    def begin(self, incr=False, unicode=False):
         """Begin operation on file. 
         If incr is true, updates will be incremental, ie. the
         original content will be preserved, and can be updated by
         update() and delete()."""
         self.incr=incr
+        self.unicode=unicode
         if self.incr: 
             self.readin(self.filename)
         # use tempfile or something    
@@ -145,7 +147,7 @@ class CLFileBack(FileBack):
         self.records={}
         for l in open(srcfile):
             key=l.split(":",1)[0]
-            self.records[key]=unicode(l,self.encoding)
+            self.records[key]=l
             
     def writeout(self):
         for l in self.records.values():
@@ -153,8 +155,12 @@ class CLFileBack(FileBack):
 
     word_illegal_char=re.compile("[:\n]")
     def wash(self, word):
-        if self.word_illegal_char.match(unicode(word)):
-            raise errors.FormatError
+        if self.unicode:
+            if self.word_illegal_char.match(unicode(word)):
+                raise errors.FormatError
+        else:
+            if self.word_illegal_char.match(str(word)):
+                raise errors.FormatError
         return word
 
 # classic: name:crypt:uid:gid:gcos:home:shell
@@ -165,25 +171,32 @@ class PasswdFile(CLFileBack):
     def format(self, account):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
-        return (u"%s:%s:%s:%s:%s:%s:%s\n" % (
+        res="%s:%s:%s:%s:%s:%s:%s\n" % (
             self.wash(account.name),
             "x",
             self.wash(account.posix_uid),
             self.wash(account.posix_gid),
             self.wash(account.gecos),
             self.wash(account.homedir),
-            self.wash(account.shell))).encode(self.encoding)
-
+            self.wash(account.shell))
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
 
 class GroupFile(CLFileBack):
     filename="/etc/ceresync/group"
     def format(self, group):
         if group.posix_gid is None:
             raise errors.NotPosixError, group.name
-        return (u"%s:*:%d:%s\n" % (
+        res="%s:*:%d:%s\n" % (
             self.wash(group.name),
             self.wash(group.posix_gid),
-            self.wash(",".join(group.members)))).encode(self.encoding)
+            self.wash(",".join(group.members)))
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
 
 
 class ShadowFile(CLFileBack):
@@ -191,22 +204,29 @@ class ShadowFile(CLFileBack):
     def format(self, account):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
-        return (u"%s:%s:::::::\n" % (
+        res="%s:%s:::::::\n" % (
             self.wash(account.name),
-            self.wash(account.passwd) )).encode(self.encoding)
+            self.wash(account.passwd) )
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
 
 class AliasFile(CLFileBack):
     filename="/etc/ceresync/aliases"
     def format(self, addr):
         if addr.address_id == addr.primary_address_id:
-            return (u"%s@%s: <> %s@%s\n" % (
+            res="%s@%s: <> %s@%s\n" % (
                 addr.local_part, addr.domain,
-                addr.account_name, addr.server_name )).encode(self.encoding)
+                addr.account_name, addr.server_name )
         else:
-            return (u"%s@%s: %s@%s\n" % (
+            res="%s@%s: %s@%s\n" % (
                 addr.local_part, addr.domain,
-                addr.primary_address_local_part, 
-                addr.primary_address_domain )).encode(self.encoding)
+                addr.primary_address_local_part, addr.primary_address_domain )
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
 
 class SambaFile(CLFileBack):
     """an entry in a samba passwordfile lookes like this:
@@ -234,13 +254,17 @@ class SambaFile(CLFileBack):
             lmhash = "*Missing_lmhash*"
             nthash = "*Missing_nthash*"
 
-        return (u"%s:%s:%s:%s:%s:%s\n" % (
+        res="%s:%s:%s:%s:%s:%s\n" % (
                 account.name,
                 account.posix_uid,
                 lmhash,
                 nthash,
                 "[UX         ]",
-                "LCT-%s" % hex(int( time.time() ))[2:] )).encode(self.encoding)
+                "LCT-%s" % hex(int( time.time() ))[2:] )
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
 
     def add(self, obj, hashes=None):
         # duplicated code, needed due to overridden interface. (ish)
@@ -253,12 +277,16 @@ class PasswdFileCryptHash(CLFileBack):
     def format(self, account):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
-        return (u"%s:%s:%s:%s:%s:%s:%s\n" % (
+        res="%s:%s:%s:%s:%s:%s:%s\n" % (
             account.name,
             account.passwd or "INVALID",
             account.posix_uid,
             account.posix_gid, account.gecos,
-            account.homedir, account.shell)).encode(self.encoding)
+            account.homedir, account.shell)
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
 
 
 def Group():

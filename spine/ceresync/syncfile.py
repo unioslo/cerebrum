@@ -72,7 +72,7 @@ def main():
     primary_group = {}
 
     log.debug("Syncronizing accounts")
-    accounts.begin(incr)
+    accounts.begin(incr, unicode=True)
     try:
         for account in s.get_accounts(incr_from=id):
             log.debug("Processing account '%s'",account.name)
@@ -89,7 +89,7 @@ def main():
         accounts.close()
 
     log.debug("Syncronizing groups")
-    groups.begin(incr)
+    groups.begin(incr, unicode=True)
     try:
         for group in s.get_groups(incr_from=id):
             fail = check_group(group)
