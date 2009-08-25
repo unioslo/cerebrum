@@ -176,7 +176,7 @@ def write_undenh_metainfo(outfile):
     for semester in ('current', 'next'):
         cols, undenh = _ext_cols(fs.undervisning.list_undervisningenheter(sem=semester))
         for u in undenh:
-            f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'enhet')
+            f.write(xml.xmlify_dbrow(u, xml.conv_colnames(cols), 'undenhet')
                     + "\n")
     f.write("</undervenhet>\n")
     f.close()

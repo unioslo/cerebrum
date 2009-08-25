@@ -178,8 +178,8 @@ class EduDataGetter(XMLDataGetter):
                            EduKind2Object(iterator, logger, fields))
 
 
-    def iter_stprog(self):
-        return self.__fix_iterator("studprog",
+    def iter_stprog(self, tag="studprog"):
+        return self.__fix_iterator(tag,
                                    ("studieprogramkode",
                                     "status_utdplan",
                                     "institusjonsnr_studieansv",
@@ -190,58 +190,58 @@ class EduDataGetter(XMLDataGetter):
                                     "studieprognavn",
                                     "status_eksport_lms",))
             
-    def iter_undenh(self):
-        return self.__fix_iterator("enhet", ("institusjonsnr",
-                                             "terminnr",
-                                             "terminkode",
-                                             "emnekode",
-                                             "arstall",
-                                             "versjonskode",
-                                             "status_eksport_lms",
-                                             "institusjonsnr_kontroll",
-                                             "faknr_kontroll",
-                                             "instituttnr_kontroll",
-                                             "gruppenr_kontroll",
-                                             "emnenavn_bokmal",
-                                             "emnenavnfork"))
-    def iter_undakt(self):
-        return self.__fix_iterator("aktivitet", ("institusjonsnr",
-                                                 "terminnr",
-                                                 "terminkode",
-                                                 "emnekode",
-                                                 "arstall",
-                                                 "versjonskode",
-                                                 "aktivitetkode",
-                                                 "status_eksport_lms",
-                                                 "aktivitetsnavn",
-                                                 "institusjonsnr_kontroll",
-                                                 "faknr_kontroll",
-                                                 "instituttnr_kontroll",
-                                                 "gruppenr_kontroll"))
-    def iter_evu(self):
-        return self.__fix_iterator("evu", ("kurstidsangivelsekode",
-                                           "etterutdkurskode",
-                                           "status_eksport_lms",
-                                           "institusjonsnr_adm_ansvar",
-                                           "faknr_adm_ansvar",
-                                           "instituttnr_adm_ansvar",
-                                           "gruppenr_adm_ansvar",
-                                           "etterutdkursnavn"))
-    def iter_kursakt(self):
-        return self.__fix_iterator("kursakt", ("kurstidsangivelsekode",
-                                               "etterutdkurskode",
-                                               "aktivitetskode",
-                                               "status_eksport_lms",
-                                               "aktivitetsnavn"))
-    def iter_kull(self):
-        return self.__fix_iterator("kull", ("arstall",
-                                            "studieprogramkode",
-                                            "terminkode",
-                                            "institusjonsnr_studieansv",
-                                            "faknr_studieansv",
-                                            "instituttnr_studieansv",
-                                            "gruppenr_studieansv",
-                                            "studiekullnavn"))
+    def iter_undenh(self, tag="enhet"):
+        return self.__fix_iterator(tag, ("institusjonsnr",
+                                         "terminnr",
+                                         "terminkode",
+                                         "emnekode",
+                                         "arstall",
+                                         "versjonskode",
+                                         "status_eksport_lms",
+                                         "institusjonsnr_kontroll",
+                                         "faknr_kontroll",
+                                         "instituttnr_kontroll",
+                                         "gruppenr_kontroll",
+                                         "emnenavn_bokmal",
+                                         "emnenavnfork"))
+    def iter_undakt(self, tag="aktivitet"):
+        return self.__fix_iterator(tag, ("institusjonsnr",
+                                         "terminnr",
+                                         "terminkode",
+                                         "emnekode",
+                                         "arstall",
+                                         "versjonskode",
+                                         "aktivitetkode",
+                                         "status_eksport_lms",
+                                         "aktivitetsnavn",
+                                         "institusjonsnr_kontroll",
+                                         "faknr_kontroll",
+                                         "instituttnr_kontroll",
+                                         "gruppenr_kontroll"))
+    def iter_evu(self, tag="evu"):
+        return self.__fix_iterator(tag, ("kurstidsangivelsekode",
+                                         "etterutdkurskode",
+                                         "status_eksport_lms",
+                                         "institusjonsnr_adm_ansvar",
+                                         "faknr_adm_ansvar",
+                                         "instituttnr_adm_ansvar",
+                                         "gruppenr_adm_ansvar",
+                                         "etterutdkursnavn"))
+    def iter_kursakt(self, tag="kursakt"):
+        return self.__fix_iterator(tag, ("kurstidsangivelsekode",
+                                         "etterutdkurskode",
+                                         "aktivitetskode",
+                                         "status_eksport_lms",
+                                         "aktivitetsnavn"))
+    def iter_kull(self, tag="kull"):
+        return self.__fix_iterator(tag, ("arstall",
+                                         "studieprogramkode",
+                                         "terminkode",
+                                         "institusjonsnr_studieansv",
+                                         "faknr_studieansv",
+                                         "instituttnr_studieansv",
+                                         "gruppenr_studieansv",
+                                         "studiekullnavn"))
 # end FSXMLDataGetter
 
 
