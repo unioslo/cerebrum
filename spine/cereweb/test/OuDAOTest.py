@@ -44,6 +44,7 @@ class OuDAOTest(unittest.TestCase):
         self.assertEqual("NT Fakultetsadministrasjon", ou.display_name)
         self.assertEqual("NT Fakultetsadministrasjon", ou.sort_name)
         self.assertEqual(0, ou.landkode)
+        self.assertEqual("00000194660100", ou.stedkode)
         self.assertEqual(194, ou.institusjon)
         self.assertEqual(66, ou.fakultet)
         self.assertEqual(1, ou.institutt)

@@ -88,9 +88,7 @@
     $info.append(($_('Short name'), $spine_to_web($ou.short_name)))
     $info.append(($_('Display name'), $spine_to_web($ou.display_name)))
     $info.append(($_('Sort name'), $spine_to_web($ou.sort_name)))
-    ## removed after starting import of OUs in UNINETT ABC format.
-    ## UNINET ABC does not have stedkode,- only kjerne-id.
-    ## $info.append(($_('Stedkode'), $spine_to_web($ou.get_stedkode())))
+    $info.append(($_('Stedkode'), $spine_to_web($ou.stedkode)))
     $widgets.viewInfo($info)
 #end def
 

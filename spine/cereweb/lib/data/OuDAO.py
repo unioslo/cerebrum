@@ -44,6 +44,7 @@ class OuDAO(EntityDAO):
         dto.fakultet = ou.fakultet
         dto.institutt = ou.institutt
         dto.avdeling = ou.avdeling
+        dto.stedkode = "%03d%05d%02d%02d%02d"  % (ou.landkode, ou.institusjon, ou.fakultet, ou.institutt, ou.avdeling)
         dto.families = self._get_families(ou)
         dto.quarantines = QuarantineDAO(self.db).create_from_entity(ou)
         dto.notes = NoteDAO(self.db).create_from_entity(ou)
