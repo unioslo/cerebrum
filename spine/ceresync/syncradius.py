@@ -21,7 +21,7 @@
 # Author: Lasse Karstensen <lasse.karstensen_aaaat_ntnu.no>
 #
 import sys
-from ceresync import sync
+from ceresync import syncws as sync
 from ceresync.backend.file import SambaFile,PasswdFileCryptHash
 
 from ceresync import config

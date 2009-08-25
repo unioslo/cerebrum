@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from ceresync import sync
+from ceresync import syncws as sync
 import ceresync.backend.file as filebackend
 from ceresync import config
 import re

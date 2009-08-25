@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-from ceresync import sync
+from ceresync import syncws as sync
 import ceresync.backend.file as filebackend
 from sys import exit
 
