@@ -279,7 +279,8 @@ class FSAttributeHandler(object):
         """
 
         result = dict()
-        for entry in EduDataGetter(undenh_file, logger).iter_undenh():
+        for entry in EduDataGetter(undenh_file,
+                                   logger).iter_undenh("undenhet"):
             if "emnenavn_bokmal" in entry:
                 name = entry["emnenavn_bokmal"]
             elif "emnenavnfork" in entry:
@@ -373,7 +374,9 @@ class FSAttributeHandler(object):
         for (source, 
              entry_kind) in ((EduDataGetter(stprog_file, logger).iter_stprog,
                               "stprog",),
-                             (EduDataGetter(undenh_file, logger).iter_undenh,
+                             (lambda :
+                                EduDataGetter(undenh_file,
+                                              logger).iter_undenh("undenhet"),
                               "undenh",),
                              (EduDataGetter(undakt_file, logger).iter_undakt,
                               "undakt",)):
