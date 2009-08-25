@@ -733,6 +733,12 @@ class spinews(ServiceSOAPBinding):
     def __init__(self, post='/', **kw):
         ServiceSOAPBinding.__init__(self, post)
 
+    def get_changelogid(self, ps):
+        username = authenticate(ps)
+        request = ps.Parse(getChangelogidRequest.typecode)
+        response = self.get_changelogid_impl()
+        return response
+
     def set_homedir_status(self, ps):
         username = authenticate(ps)
         request = ps.Parse(setHomedirStatusRequest.typecode)
@@ -895,17 +901,17 @@ class spinews(ServiceSOAPBinding):
         account.set_homedir(current_id=homedir_id, status=status)
         db.commit()
 
+    def get_changelogid_impl(self):
+        id=db.get_last_changelog_id()
+        db.rollback()
+        return id
 
-def test_impl(fun, *args):
+def test_impl(fun, summary=lambda x: x):
     import time
     t=time.time()
     r=fun(*args)
-    if r is not None:
-        l=len(r)
-    else:
-        l=None
     t=time.time()-t
-    return fun.__name__, l, t
+    return fun.__name__, summary(r), t
 
 def test_soap(fun, cl, cattr, extattr=(), **kw):
     #fun=root[(cl.typecode.nspname, cl.typecode.pname)]
@@ -939,6 +945,8 @@ def test_soap(fun, cl, cattr, extattr=(), **kw):
 
 def test():
     sp=spinews()
+    print test_impl(sp.get_changelogid_impl)
+    print test_soap(sp.get_changelogid)
     print test_soap(sp.get_groups, getGroupsRequest, "_group",
                     ("_member", "_quarantine"),
                     accountspread="user@stud", groupspread="group@ntnu")
@@ -954,13 +962,16 @@ def test():
                     accountspread="user@stud", auth_type="MD5-crypt")
     print test_soap(sp.get_aliases, getAliasesRequest, "_alias")
 
-    print test_impl(sp.get_persons_impl, {})
+    print test_impl(sp.get_persons_impl, {}, summary=len)
     print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
-    print test_impl(sp.get_homedirs_impl, {}, "jak.itea.ntnu.no", "not_created")
-    print test_impl(sp.get_aliases_impl, {})
-    print test_impl(sp.get_ous_impl, {})
-    print test_impl(sp.get_accounts_impl, {}, "user@stud", "MD5-crypt")
-    print test_impl(sp.get_groups_impl, {}, "group@ntnu", "user@stud")
+    print test_impl(sp.get_homedirs_impl, {}, "jak.itea.ntnu.no", "not_created",
+                    summary=len)
+    print test_impl(sp.get_aliases_impl, {}, summary=len)
+    print test_impl(sp.get_ous_impl, {}, summary=len)
+    print test_impl(sp.get_accounts_impl, {}, "user@stud", "MD5-crypt",
+                    summary=len)
+    print test_impl(sp.get_groups_impl, {}, "group@ntnu", "user@stud",
+                    summary=len)
 
 
 class SecureServiceContainer(ServiceContainer):
@@ -1021,7 +1032,7 @@ def init_ssl(debug=None):
     ctx.set_session_id_ctx('ceresync_srv')
     return ctx
 
-test()
+#test()
 print "starting..."
 ca_cert = X509.load_cert(cereconf.SSL_CA_FILE)
 RunAsServer(port=cereconf.SPINEWS_PORT, services=[spinews(),])
