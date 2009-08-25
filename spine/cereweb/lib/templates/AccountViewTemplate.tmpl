@@ -178,8 +178,10 @@
         #return
     #end if
 
-    #set $aff_list = [($spine_to_web("%s:%s" % ($a.id, $a.ou.id)),
-                       $spine_to_web("%s:%s" % ($a.name, $a.ou.name))) for $a in $affiliations]
+    #set $active_affiliations = $map(lambda x: (x.id, x.ou.id), $account.affiliations)
+    #set $valid_affiliations = [$x for $x in $affiliations if not ($x.affiliation.id, $x.ou.id) in $active_affiliations]
+    #set $aff_list = [($spine_to_web("%s:%s" % ($a.affiliation.id, $a.ou.id)),
+                       $spine_to_web("%s:%s" % ($a.name, $a.ou.name))) for $a in $valid_affiliations]
 
     <div class="edit box" style="display:none;">
         <h3 id="affil">$_('Add an affiliation')</h3>
