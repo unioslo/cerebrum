@@ -24,7 +24,7 @@ case means:
 - Assigning correct affiliations (copy from person)
 - Assigning proper spread (cereconf.BOFHD_NEW_USER_SPREADS)
 
-Whether an account has been created or re-activate, it gets a new password
+Whether an account has been created or re-activated, it gets a new password
 (this would be a password unknown to all not having access to change_log)
 
 Should an account already exist AND be active, it'd receive a copy of the
