@@ -80,7 +80,7 @@ class PersonDAO(EntityDAO):
 
     def remove_affiliation_status(self, person_id, ou, status, ss):
         person = self._find(person_id)
-        source = self.constants.AuthoritativeSystem(ss)
+        source = self.constants.AuthoritativeSystem(int(ss))
         status = self.constants.PersonAffStatus(status)
         person.delete_affiliation(ou, status.affiliation, source)
         person.write_db()

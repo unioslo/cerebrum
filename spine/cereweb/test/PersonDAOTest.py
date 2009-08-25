@@ -223,6 +223,16 @@ class PersonDAOWriteTest(WriteTestCase):
             self.assertEqual(to_delete.id, d.id)
             self.assertEqual(to_delete.ou.id, d.ou.id)
 
+    def test_that_we_can_remove_an_affiliation_with_string_arguments(self):
+        person = self.dao.get(TestData.test_testesen_id, include_extra=True)
+        affils_before = person.affiliations
+        to_delete = affils_before[0]
+
+        try:
+            self.dao.remove_affiliation_status(person.id, str(to_delete.ou.id), str(to_delete.id), str(to_delete.source_system.id))
+        except NotFoundError, e:
+            self.fail("Should not throw exception.")
+
     def test_that_we_can_add_birth_no(self):
         dto = self._create_person()
         person = self.dao.get(dto.id, include_extra=True)
