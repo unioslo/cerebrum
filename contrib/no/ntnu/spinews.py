@@ -906,12 +906,12 @@ class spinews(ServiceSOAPBinding):
         db.rollback()
         return id
 
-def test_impl(fun, summary=lambda x: x, *args):
+def test_impl(fun, *args):
     import time
     t=time.time()
     r=fun(*args)
     t=time.time()-t
-    return fun.__name__, summary(r), t
+    return fun.__name__, t
 
 def test_soap(fun, cl, **kw):
     #fun=root[(cl.typecode.nspname, cl.typecode.pname)]
@@ -935,7 +935,6 @@ def test_soap(fun, cl, **kw):
 
 def test():
     sp=spinews()
-    print test_impl(sp.get_changelogid_impl)
     print test_soap(sp.get_changelogid, getChangelogidRequest)
     print test_soap(sp.get_groups, getGroupsRequest, 
                     accountspread="user@stud", groupspread="group@ntnu")
@@ -954,6 +953,7 @@ def test():
     print test_soap(sp.get_aliases, getAliasesRequest)
                     #"_alias"
 
+    print test_impl(sp.get_changelogid_impl)
     print test_impl(sp.get_persons_impl, {})
     print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
     print test_impl(sp.get_homedirs_impl, {}, "jak.itea.ntnu.no", "not_created")
@@ -1021,7 +1021,7 @@ def init_ssl(debug=None):
     ctx.set_session_id_ctx('ceresync_srv')
     return ctx
 
-test()
+#test()
 print "starting..."
 ca_cert = X509.load_cert(cereconf.SSL_CA_FILE)
 RunAsServer(port=cereconf.SPINEWS_PORT, services=[spinews(),])
