@@ -1,6 +1,24 @@
 #!/usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
 
+# Copyright 2009 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 """This file contains the code to generate an XML file for import into
 Fronter, HiØf's LMS.
 
@@ -9,8 +27,7 @@ complement it -- p_f_g generates the necessary groups whereas g_f_x generates
 an XML file from these groups.
 
 All groups making the basis for XML output are tagged with a special trait,
-and they have a highly structured name. Additionally, each trait links a group
-with an ou (== avdeling) where such a group should be placed.
+and they have a highly structured name.
 
 The script works like this:
 
@@ -18,7 +35,7 @@ The script works like this:
     by a special trait) -- collect_cf_groups.
   - Parse undenh/undakt files are build a dict to remap multisemester
     entities -- build_multisemester_mapping.
-  - Build a tree, in memory, representing the class fronter tree
+  - Build a tree, in memory, representing the fronter tree
     (build_cf_tree). The tree is built by successively inserting a node for a
     cerebrum group (cf_member_group) into the tree
     (create_associated_structures). Permissions are registered as well.
@@ -975,6 +992,8 @@ class cf_members(object):
     def member_info(self):
         """Slurp i info about all members.
 
+        There is a bit of dict-building in this method. That takes time.
+
         @rtype: dict (int -> dict (str -> str))
         @return:
           A dictionary from account_ids to dicts with the corresponding
@@ -1005,40 +1024,30 @@ class cf_members(object):
             name_types=[const.name_first, const.name_full, const.name_last])
         logger.debug("%d person_id -> name mappings", len(person_id2name))
 
-        logger.debug("Caching primary accounts")
-        fnr2uname = person.getdict_external_id2primary_account(
-                        const.externalid_fodselsnr)
-        logger.debug("%d fnr -> uname mappings", len(fnr2uname))
-
         logger.debug("Caching mobile phone numbers")
         person_id2phone = dict((int(x["entity_id"]), x["contact_value"])
                                for x in person.list_contact_info(
                                    contact_type=(const.contact_mobile_phone,
                                                  const.contact_phone_cellular),
                                    entity_type=const.entity_person))
-        logger.debug("%d person_id -> mobile phone mappings", len(person_id2phone))
+
         logger.debug("Caching complete user records")
-        for row in person.list_persons_atype_extid(
-                       idtype=const.externalid_fodselsnr):
-            person_id = row["person_id"]
-            fnr = row["external_id"]
+        candidates = account.search(owner_type=const.entity_person)
+        logger.debug("%d candidates to consider", len(candidates))
+        for row in candidates:
+            person_id = row["owner_id"]
+            uname = row["name"]
             account_id = row["account_id"]
-
-            if fnr not in fnr2uname:
-                logger.debug("Ignoring person id=%s (no primary account)",
-                             person_id)
-                continue
-            uname = fnr2uname[fnr]
-
+            
             if uname not in uname2mail:
-                logger.debug("Ignoring person id=%s (account %s has no e-mail)",
-                             person_id, uname)
+                logger.debug("Ignoring id=%s/uname=%s (person_id=%s): no e-mail",
+                             account_id, uname, person_id)
                 continue
             email_address = uname2mail[uname]
 
             if person_id not in person_id2name:
-                logger.debug("Ignoring person id=%s (person has no name)",
-                             person_id)
+                logger.debug("Ignoring id=%s/uname=%s (person_id=%s): no name info",
+                             account_id, uname, person_id)
                 continue
 
             first_name = person_id2name[person_id].get(const.name_first, "")
