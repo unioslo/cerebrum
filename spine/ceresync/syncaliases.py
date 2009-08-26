@@ -23,7 +23,7 @@ def main():
     aliases = filebackend.Alias()
     
     log.debug("Syncronizing aliases")
-    aliases.begin(False)
+    aliases.begin(False, unicode=True)
 
     try:
         for alias in s.get_aliases():

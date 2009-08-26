@@ -147,6 +147,8 @@ class CLFileBack(FileBack):
         self.records={}
         for l in open(srcfile):
             key=l.split(":",1)[0]
+            if self.unicode:
+                key=unicode(key, self.encoding)
             self.records[key]=l
             
     def writeout(self):

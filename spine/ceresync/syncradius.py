@@ -77,10 +77,10 @@ def main():
     log.debug("Parsing and creating files")
 
     smbfile = SambaFile( config.get("file","smbpasswd" ) )
-    smbfile.begin(incr)
+    smbfile.begin(incr, unicode=True)
 
     accounts = PasswdFileCryptHash(filename=config.get("file","passwd") )
-    accounts.begin(incr)
+    accounts.begin(incr, unicode=True)
 
     for account in acclist:
         if len(account.quarantines) > 0:
