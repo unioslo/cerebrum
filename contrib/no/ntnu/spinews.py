@@ -700,7 +700,7 @@ def get_auth_values(ps):
 def check_created(created):
     gmCreated= time.strptime(created, '%Y-%m-%dT%H:%M:%SZ')
     ## allow timeout up to 10 secs.
-    gmNow = time.gmtime((time.time() - 10))
+    gmNow = time.gmtime((time.time() - 60))
     if gmCreated < gmNow:
         raise RuntimeError('Unauthorized, UsernameToken is expired')
     
