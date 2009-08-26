@@ -69,7 +69,7 @@ install: build
 	dh_testroot
 	dh_clean -k 
 	dh_installdirs
-l
+
 	$(MAKE) install
 	$(MAKE) -C spine install
 
