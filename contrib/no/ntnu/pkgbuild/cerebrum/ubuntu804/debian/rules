@@ -29,7 +29,15 @@ configure-stamp:
 
 	aclocal
 	autoconf
-        # Here comes ugly! :)
+ 	
+	# 
+	# setup.py is also broken, so we mess with that one as well..
+	#
+	patch -p1 < debian/setup.py_path.patch
+        
+	# 
+	# Here comes ugly! :)
+	#
 	./configure --prefix=$(PREFIX) --sysconfdir=$(CONFDIR) --localstatedir=$(LOCALSTATEDIR) --docdir=$(DOCDIR) --with-webroot=$(WEBROOT) --disable-bofh
 
 	touch configure-stamp
@@ -61,6 +69,7 @@ clean:
 	-find . -name Makefile -delete
 	-rm spine/ceresync/config.py spine/cereweb/config.py cerebrum_path.py aclocal.m4 config.log
 	-rm configure config.status Cerebrum/__init__.pyc
+ 	-patch -u -N -R -p1 < debian/setup.py_path.patch
 	-find . -name '*.rej' -exec rm {} +
 	dh_clean 
 
