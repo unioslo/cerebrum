@@ -69,7 +69,7 @@ clean:
 	-find . -name Makefile -delete
 	-rm spine/ceresync/config.py spine/cereweb/config.py cerebrum_path.py aclocal.m4 config.log
 	-rm configure config.status Cerebrum/__init__.pyc
- 	-patch -u -N -R -p1 < debian/setup.py_path.patch
+	-patch -u -N -R -p1 < debian/setup.py_path.patch
 	-find . -name '*.rej' -exec rm {} +
 	dh_clean 
 
