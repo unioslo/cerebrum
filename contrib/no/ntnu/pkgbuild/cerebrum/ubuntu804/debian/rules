@@ -9,13 +9,14 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-PREFIX=$(CURDIR)/debian/cerebrum-ntnu/usr
-CONFDIR=$(CURDIR)/debian/cerebrum-ntnu/etc
-WEBROOT=$(CURDIR)/debian/cerebrum-ntnu/usr/lib/cereweb
-LOCALSTATEDIR=$(CURDIR)/var
-DDLDIR=$(CURDIR)/debian/cerebrum-ntnu/usr/share/cerebrum/design
+DESTDIR=$(CURDIR)/debian/cerebrum-ntnu
+PREFIX=$(DESTDIR)/usr
+CONFDIR=$(DESTDIR)/etc
+WEBROOT=$(DESTDIR)/usr/lib/cereweb
+LOCALSTATEDIR=$(DESTDIR)/var
+DDLDIR=$(DESTDIR)/usr/share/cerebrum/design
 # Skulle vaert i cerebrum-ntnu, men configurescriptet ignorerer --docdir
-DOCDIR=$(PREFIX)/share/doc/cerebrum
+DOCDIR=$(DESTDIR)/usr/share/doc/cerebrum
 
 configure: configure-stamp
 configure-stamp:
@@ -42,13 +43,14 @@ build-stamp: configure-stamp
 	#docbook-to-man debian/cerebrum-ntnu.sgml > cerebrum-ntnu.1
 	$(MAKE) -C spine
 
-	# Denne er her fordi makefilene vaare suger og ikke stoetter DESTDIRT,
-	# saa vi herper alt ved aa bruke --prefix i steden. Saa maa vi rydde
-	# etter oss igjen her.
-	sed 's,/home/local/[^/]*/[^/]*/debian/cerebrum-ntnu,,' -i ./spine/cereweb/config.py
-
 	# Vekk med .pyc-filene, de genereres av postinst-scriptet
 	find . -name '*.pyc' -or -name '*.pyo' -delete
+	
+        # Denne er her fordi makefilene vaare suger og ikke stoetter DESTDIRT,
+	# saa vi herper alt ved aa bruke --prefix i steden. Saa maa vi rydde
+	# etter oss igjen her.
+	find . -type f | xargs sed 's,$(DESTDIR),/,' -i
+
 
 	touch $@
 
