@@ -9,13 +9,17 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+
+#
+# Makefile for cerebrum does not support DESTDIR.
+# This means we have to do ugly:
+# 
 DESTDIR=$(CURDIR)/debian/cerebrum-ntnu
 PREFIX=$(DESTDIR)/usr
 CONFDIR=$(DESTDIR)/etc
 WEBROOT=$(DESTDIR)/usr/lib/cereweb
 LOCALSTATEDIR=$(DESTDIR)/var
 DDLDIR=$(DESTDIR)/usr/share/cerebrum/design
-# Skulle vaert i cerebrum-ntnu, men configurescriptet ignorerer --docdir
 DOCDIR=$(DESTDIR)/usr/share/doc/cerebrum
 
 configure: configure-stamp
@@ -25,9 +29,7 @@ configure-stamp:
 
 	aclocal
 	autoconf
-	# setup.py har teite, hardkodede pather. Patcher inn quickfix
-	patch -p1 < debian/setup.py_path.patch
-	# makefila stoetter ikke DESTDIR :-(
+        # Here comes ugly! :)
 	./configure --prefix=$(PREFIX) --sysconfdir=$(CONFDIR) --localstatedir=$(LOCALSTATEDIR) --docdir=$(DOCDIR) --with-webroot=$(WEBROOT) --disable-bofh
 
 	touch configure-stamp
@@ -43,15 +45,9 @@ build-stamp: configure-stamp
 	#docbook-to-man debian/cerebrum-ntnu.sgml > cerebrum-ntnu.1
 	$(MAKE) -C spine
 
-	# Vekk med .pyc-filene, de genereres av postinst-scriptet
+	# Remove .pyc files, they are generated in postinst script
 	find . -name '*.pyc' -or -name '*.pyo' -delete
 	
-        # Denne er her fordi makefilene vaare suger og ikke stoetter DESTDIRT,
-	# saa vi herper alt ved aa bruke --prefix i steden. Saa maa vi rydde
-	# etter oss igjen her.
-	find . -type f | xargs sed 's,$(DESTDIR),/,' -i
-
-
 	touch $@
 
 clean:
@@ -65,8 +61,6 @@ clean:
 	-find . -name Makefile -delete
 	-rm spine/ceresync/config.py spine/cereweb/config.py cerebrum_path.py aclocal.m4 config.log
 	-rm configure config.status Cerebrum/__init__.pyc
-	# Fjern patchene som ble applyet rett foer configure
-	-patch -u -N -R -p1 < debian/setup.py_path.patch
 	-find . -name '*.rej' -exec rm {} +
 	dh_clean 
 
@@ -75,15 +69,17 @@ install: build
 	dh_testroot
 	dh_clean -k 
 	dh_installdirs
-
-	# Add here commands to install the package into debian/cerebrum-ntnu.
-	#$(MAKE) DESTDIR=$(CURDIR)/debian/cerebrum-ntnu install
+l
 	$(MAKE) install
 	$(MAKE) -C spine install
 
-	# Flytt design-katalogen til /usr/share/cerebrum
-	## mkdir -p `dirname $(DDLDIR)`
-	## mv $(DOCDIR)/design $(DDLDIR)
+        
+        # 
+        # This is to clean up after ugly has visited earlier...
+        #
+	find $(DESTDIR) -type f | xargs sed 's,$(DESTDIR),,' -i
+
+
 
 # Build architecture-independent files here.
 binary-indep: build install
