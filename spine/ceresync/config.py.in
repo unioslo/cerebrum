@@ -96,9 +96,9 @@ def options(section):
     return _conf.options(section)
 options.__doc__ = _conf.options.__doc__
 
-def get(section, option, default=None, **kwargs):
+def get(section, option, default=None, allow_none=False, **kwargs):
     """get the option from a section in the config, or use default if set"""
-    if not _conf.has_option(section, option) and default is not None:
+    if not _conf.has_option(section, option) and (allow_none or default is not None):
         return default
     return _conf.get(section, option, **kwargs)
 
