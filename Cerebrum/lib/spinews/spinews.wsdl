@@ -163,6 +163,9 @@
   </xs:element>
   
   <xs:element name="setHomedirStatusResponse" type="xs:string"/>
+
+  <xs:element name="getChangelogidRequest" type="xs:string"/>
+  <xs:element name="getChangelogidResponse" type="xs:integer"/>
   
   <xs:element name="getGroupsRequest">
     <xs:complexType>
@@ -292,6 +295,14 @@
 </wsdl:message>
 
 
+<wsdl:message name="getChangelogidRequest">
+  <wsdl:part element="ns1:getChangelogidRequest" name="getChangelogidRequest"/>
+</wsdl:message>
+
+<wsdl:message name="getChangelogidResponse">
+  <wsdl:part element="ns1:getChangelogidResponse" name="getChangelogidResponse"/>
+</wsdl:message>
+
 <wsdl:portType name="spinePortType">
 
 <wsdl:operation name="get_accounts">
@@ -328,6 +339,11 @@
 <wsdl:operation name="set_homedir_status">
 <wsdl:input message="ns1:setHomedirStatusRequest" name="setHomedirStatusRequest"/>
 <wsdl:output message="ns1:setHomedirStatusResponse" name="setHomedirStatusResponse"/>
+</wsdl:operation>
+
+<wsdl:operation name="get_changelogid">
+<wsdl:input message="ns1:getChangelogidRequest" name="getChangelogidRequest"/>
+<wsdl:output message="ns1:getChangelogidResponse" name="getChangelogidResponse"/>
 </wsdl:operation>
 
 </wsdl:portType>
@@ -404,6 +420,16 @@
       <wsdlsoap:body use="literal"/>
     </wsdl:input>
     <wsdl:output name="setHomedirStatusResponse">
+      <wsdlsoap:body use="literal"/>
+    </wsdl:output>
+  </wsdl:operation>
+  
+  <wsdl:operation name="get_changelogid">
+    <wsdlsoap:operation soapAction=""/>
+    <wsdl:input name="getChangelogidRequest">
+      <wsdlsoap:body use="literal"/>
+    </wsdl:input>
+    <wsdl:output name="getChangelogidResponse">
       <wsdlsoap:body use="literal"/>
     </wsdl:output>
   </wsdl:operation>

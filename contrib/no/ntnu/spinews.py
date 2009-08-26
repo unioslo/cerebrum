@@ -832,6 +832,8 @@ class spinews(ServiceSOAPBinding):
           getHomedirsRequest.typecode.pname)] = 'get_homedirs'
     root[(setHomedirStatusRequest.typecode.nspname,
           setHomedirStatusRequest.typecode.pname)] = 'set_homedir_status'
+    root[(getChangelogidRequest.typecode.nspname,
+          getChangelogidRequest.typecode.pname)] = 'get_changelogid_request'
 
     def get_persons_impl(self, atypes, personspread=None, changelog_id=None):
         persons=[]
