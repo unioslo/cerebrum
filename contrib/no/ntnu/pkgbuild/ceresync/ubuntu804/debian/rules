@@ -9,6 +9,13 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+#
+# Makefile for ceresync does not support DESTDIR.
+# This means we have to do ugly:
+# 
+DESTDIR=$(CURDIR)/debian/ceresync
+PREFIX=$(DESTDIR)/usr
+CONFDIR=$(DESTDIR)/etc
 
 
 
@@ -18,8 +25,11 @@ configure-stamp:
 	# Add here commands to configure the package.
 	aclocal
 	autoconf
-	# Her burde det imho bare stå /usr, og så burde man brukt DESTDIR nedenfor...
-	./configure --prefix=$(CURDIR)/debian/ceresync/usr --sysconfdir=/etc
+	
+	# 
+	# Here comes ugly! :)
+	#
+	./configure --prefix=$(PREFIX) --sysconfdir=$(CONFDIR)
 
 	touch configure-stamp
 
@@ -32,10 +42,13 @@ build-stamp: configure-stamp
 	# Add here commands to compile the package.
 	$(MAKE) -C spine/ceresync
 	$(MAKE) -C spine/client
-	#docbook-to-man debian/ceresync.sgml > ceresync.1
 
-	# Vekk med .pyc-filene, de genereres av postinst-scriptet
+	# 
+	# Remove .pyc files, they are generated in postinst script
+	#
 	find . -name '*.pyc' -or -name '*.pyo' -delete
+	
+	
 	touch $@
 
 clean:
@@ -59,10 +72,19 @@ install: build
 	dh_installdirs
 
 	# Add here commands to install the package into debian/ceresync.
-	#$(MAKE) DESTDIR=$(CURDIR)/debian/ceresync install
 	$(MAKE) -C spine/ceresync install
 	$(MAKE) -C spine/client install
+	
+	# 
+	# This is to skip the Windows AD client on ubuntu systems :)
+	#
 	find . -name 'ad_*.py' -delete
+        
+	# 
+        # This is to clean up after ugly has visited earlier...
+        #
+	find $(DESTDIR) -type f | xargs sed 's,$(DESTDIR),,' -i
+
 
 # Build architecture-independent files here.
 binary-indep: build install
