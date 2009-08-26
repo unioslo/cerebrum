@@ -171,6 +171,23 @@ class Homedir(Entity):
     def __init__(self,obj):
         Entity.__init__(self, obj)
 
+class Person(Entity):
+    type= "person"
+    attributes= [
+        "id", "export_id", "type", "birth_date", "nin", "first_name", 
+        "last_name", "full_name", "display_name", "work_title", 
+        "primary_account", "primary_account_name",
+        "primary_account_password", "email", "address_text", "city",
+        "postal_number", "phone", "url",
+    ]
+    lists= { 
+        "_quarantine": "quarantines", 
+        "_affiliation": "affiliations",
+        "_trait": "traits", 
+    }
+    def __init__(self, obj):
+        Entity.__init__(self, obj)
+
 class ExpatReaderClass(object):
     fromString = staticmethod(expatbuilder.parseString)
     fromStream = staticmethod(expatbuilder.parse)
@@ -265,6 +282,15 @@ class Sync(object):
                                                    useDigest)
         return port
 
+    def get_changelogid(self):
+        request=getChangelogidRequest()
+        port= self._get_ceresync_port()
+        try:
+            return port.get_changelogid(request)
+        except FaultException, e:
+            log.error("get_changelogid: %s", e.fault.detail[0].string)
+            sys.exit(1)
+
     def get_accounts(self, accountspread=None, auth_type=None, incr_from=None):
         try:
             accountspread= accountspread or config.get("sync","account_spread")
@@ -321,6 +347,20 @@ class Sync(object):
             log.error("get_accounts: %s", e.fault.detail[0].string)
             sys.exit(1)
         return [Ou(obj) for obj in response._ou]
+
+    def get_persons(self, personspread=None, incr_from=None):
+        personspread= personspread or 
+            config.get("sync", "person_spread", allow_none=True)
+        request= getPersonsRequest()
+        request._personspread= personspread
+        request._incremental_from= incr_from
+        port= self._get_ceresync_port()
+        try: 
+            response= port.get_persons(request)
+        except FaultException, e:
+            log.error("get_persons: %s", e.fault.detail[0].string)
+            sys.exit(1)
+        return [Person(obj) for obj in response._person]
 
     def get_aliases(self, incr_from=None):
         request= getAliasesRequest()
