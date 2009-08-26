@@ -225,7 +225,7 @@ def populate(dto, gender, birth_date, deceased, description):
     dto.gender = DTO()
     dto.gender.id = gender
     dto.birth_date = parse_date(birth_date)
-    dto.description = web_to_spine(description.strip())
+    dto.description = description and web_to_spine(description.strip())
     dto.deceased_date = parse_date(deceased)
 
 @session_required_decorator
