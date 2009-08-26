@@ -124,7 +124,7 @@ def search_persons(personspread=None, changelog_id=None):
         tables.append("""JOIN entity_spread person_spread
         ON (account_spread.spread = :person_spread
           AND account_spread.entity_id = account_info.account_id)""")
-        binds.append("person_spread", person_spread)
+        binds["person_spread"] = personspread
 
     tables.append("""LEFT JOIN entity_external_id person_nin
     ON (person_nin.entity_id = person_info.person_id
