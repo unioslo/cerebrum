@@ -4699,6 +4699,11 @@ Addresses and settings:
         body.append("Groupname: %s." % groupname)
         body.append("Description:  %s" % description)
         body.append("Requested by: %s" % fromaddr)
+        # checking if moderator exists
+        try:
+            self._get_group(moderator)
+        except CerebrumError, msg:
+            raise CerebrumError, "Moderator group %s not found" % (moderator)
         body.append("Moderator: %s" % moderator)
         body.append("")
         body.append("group create %s \"%s\"" % (groupname, description))
