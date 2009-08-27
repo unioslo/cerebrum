@@ -624,7 +624,11 @@ class ConstantsBase(DatabaseAccessor):
                 order[dep][cls][str(attr)]=attr
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
-        stats = {'total': 0, 'inserted': 0, 'updated': 0, 'deleted': 0}
+        stats = {'total': 0, 'inserted': 0, 'updated': 0}
+        if delete:
+            stats['deleted'] = 0
+        else:
+            stats['superfluous'] = 0
 
         def insert(root, update, stats=stats):
             for cls in order[root].keys():
@@ -648,21 +652,13 @@ class ConstantsBase(DatabaseAccessor):
                     code_vals = [int(x) for x in order[root][cls].values()]
                     table_vals.sort()
                     code_vals.sort()
-                    if delete:
-                        for c in table_vals:
-                            if c not in code_vals:
+                    for c in table_vals:
+                        if c not in code_vals:
+                            if delete:
                                 cls(c).delete()
                                 stats['deleted'] += 1
-                    else:
-                        raise RuntimeError, \
-                              ("Number of %s code attributes (%d)"
-                               " differs from number of %s rows (%d)\n"
-                               "In table: %s\n"
-                               "In class: %s\n") % \
-                              (cls.__name__, cls_code_count,
-                               cls._lookup_table, len(rows),
-                               ",".join([str(x) for x in table_vals]),
-                               ",".join([str(x) for x in code_vals]))
+                            else:
+                                stats['superfluous'] += 1
                 del order[root][cls]
                 if order.has_key(cls):
                     insert(cls, update)
@@ -671,8 +667,7 @@ class ConstantsBase(DatabaseAccessor):
         insert(None, update)
         if order:
             raise ValueError, "Some code values have circular dependencies."
-        return (stats['inserted'], stats['total'], stats['updated'],
-                stats['deleted'])
+        return stats
 
     def __init__(self, database=None):
         # The database parameter is deprecated.
