@@ -71,6 +71,8 @@ class AuthenticationError(Exception):
     def __str__(self):
         return repr(self.value)
 
+class IncrementalError(Errors.CerebrumError):
+    """Too large incremental range"""
 
 
 def search_persons(personspread=None, changelog_id=None):
@@ -119,11 +121,12 @@ def search_persons(personspread=None, changelog_id=None):
                      AND change_log.change_id > :changelog_id)""")
         binds["changelog_id"] = changelog_id
         order_by="ORDER BY change_log.change_id"
+        binds['changelog_id'] = changelog_id
 
     if personspread is not None:
         tables.append("""JOIN entity_spread person_spread
-        ON (account_spread.spread = :person_spread
-          AND account_spread.entity_id = account_info.account_id)""")
+        ON (person_spread.spread = :person_spread
+          AND person_spread.entity_id = person_info.person_id)""")
         binds["person_spread"] = personspread
 
     tables.append("""LEFT JOIN entity_external_id person_nin
@@ -354,7 +357,7 @@ def search_ous(changelog_id=None):
          ON (change_log.subject_entity = ou_info.ou_id
            AND change_log.change_id > :changelog_id)""")
         order_by=" ORDER BY change_log.change_id"
-        
+        binds["changelog_id"]=changelog_id
 
     tables.append("""JOIN ou_structure
       ON (ou_structure.ou_id = ou_info.ou_id
@@ -730,6 +733,14 @@ class spinews(ServiceSOAPBinding):
     soapAction = {}
     root = {}
 
+    def check_incremental(self, incremental_from):
+        if incremental_from is not None:
+            last = self.get_changelogid_impl()
+            if last - incremental_from > cereconf.SPINEWS_INCREMENTAL_MAX:
+                raise IncrementalError()
+            return last
+        return None
+
     def __init__(self, post='/', **kw):
         ServiceSOAPBinding.__init__(self, post)
 
@@ -762,6 +773,7 @@ class spinews(ServiceSOAPBinding):
         username = authenticate(ps)
         request = ps.Parse(getAliasesRequest.typecode)
         incremental_from = int_or_none(request._incremental_from)
+        self.check_incremental(incremental_from)
         response = getAliasesResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._alias = self.get_aliases_impl(atypes, incremental_from)
@@ -771,6 +783,7 @@ class spinews(ServiceSOAPBinding):
         username = authenticate(ps)
         request = ps.Parse(getOUsRequest.typecode)
         incremental_from = int_or_none(request._incremental_from)
+        self.check_incremental(incremental_from)
         response = getOUsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._ou = self.get_ous_impl(atypes, incremental_from)
@@ -783,6 +796,7 @@ class spinews(ServiceSOAPBinding):
         groupspread = str(request._groupspread)
         accountspread = str(request._accountspread)
         incremental_from = int_or_none(request._incremental_from)
+        self.check_incremental(incremental_from)
         response = getGroupsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._group = self.get_groups_impl(atypes,
@@ -797,6 +811,7 @@ class spinews(ServiceSOAPBinding):
         accountspread = str(request._accountspread)
         auth_type = str(request._auth_type)
         incremental_from = int_or_none(request._incremental_from)
+        self.check_incremental(incremental_from)
         response = getAccountsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._account = self.get_accounts_impl(atypes,
@@ -811,6 +826,7 @@ class spinews(ServiceSOAPBinding):
         request = ps.Parse(getPersonsRequest.typecode)
         personspread = request._personspread
         incremental_from = int_or_none(request._incremental_from)
+        self.check_incremental(incremental_from)
         response = getPersonsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._person = self.get_persons_impl(atypes,
@@ -937,10 +953,14 @@ def test_soap(fun, cl, **kw):
 
 def test():
     sp=spinews()
+    print test_soap(sp.get_ous, getOUsRequest,
+                    incremental_from=4743670)
     print test_soap(sp.get_changelogid, getChangelogidRequest)
     print test_soap(sp.get_groups, getGroupsRequest, 
                     accountspread="user@stud", groupspread="group@ntnu")
                     #"_group", ("_member", "_quarantine"),
+    print test_soap(sp.get_persons, getPersonsRequest,
+                    person_spread="group@ntnu")
     print test_soap(sp.get_persons, getPersonsRequest)
                     #"_person", ("_quarantine",)
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
