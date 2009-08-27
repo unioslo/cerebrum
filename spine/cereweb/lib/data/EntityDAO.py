@@ -1,6 +1,7 @@
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DTO import DTO
@@ -17,6 +18,7 @@ class EntityDAO(object):
 
         self.db = db
         self.constants = Constants(self.db)
+        self.auth = BofhdAuth(self.db)
         
         if EntityType is not None:
             self.entity = EntityType(self.db)

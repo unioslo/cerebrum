@@ -2,6 +2,7 @@ import cerebrum_path
 from mx import DateTime
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
+
 Database = Utils.Factory.get("Database")
 Group = Utils.Factory.get("Group")
 PosixGroup = Utils.Factory.get("PosixGroup")
@@ -49,14 +50,15 @@ class GroupDAO(EntityDAO):
 
     def add_member(self, member_id, group_id):
         group = self._find(group_id)
+        self.auth.can_alter_group(self.db.change_by, group)
         if not group.has_member(member_id):
             group.add_member(member_id)
 
     def remove_member(self, group_id, member_id):
         group = self._find(group_id)
+        self.auth.can_alter_group(self.db.change_by, group)
         if group.has_member(member_id):
             group.remove_member(member_id)
-
 
     def promote_posix(self, id):
         group = self._find(id)
