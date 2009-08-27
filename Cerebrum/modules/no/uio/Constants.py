@@ -427,3 +427,7 @@ automatically generated from FS.''')
         'auto_meta_group',
         Constants.Constants.entity_group,
         "Trait marking automatically administrated groups with group members.")
+
+    trait_student_disk = _EntityTraitCode(
+        'student_disk', Constants.Constants.entity_disk,
+        "When set, the disk in question is designated as hosting students' home areas")
