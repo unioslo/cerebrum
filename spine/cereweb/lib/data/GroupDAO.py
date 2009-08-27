@@ -62,16 +62,19 @@ class GroupDAO(EntityDAO):
 
     def promote_posix(self, id):
         group = self._find(id)
+        self.auth.can_alter_group(self.db.change_by, group)
         pgroup = PosixGroup(self.db)
         pgroup.populate(parent=group)
         pgroup.write_db()
 
     def demote_posix(self, id):
         pgroup = self._get_posix_group(id)
+        self.auth.can_alter_group(self.db.change_by, group)
         pgroup.delete()
 
     def save(self, dto):
         group = self._find(dto.id)
+        self.auth.can_alter_group(self.db.change_by, group)
 
         group.group_name = dto.name
         group.description = dto.description
@@ -82,13 +85,17 @@ class GroupDAO(EntityDAO):
         group.write_db()
 
     def delete(self, group_id):
+        group = self._find(group_id)
+        self.auth.can_delete_group(self.db.change_by, group)
+
         if self._is_posix(group_id):
             self.demote_posix(group_id)
 
-        group = self._find(group_id)
         group.delete()
 
     def add(self, dto):
+        self.auth.can_create_group(self.db.change_by)
+
         group = Group(self.db)
         group.populate(
             self.db.change_by,
