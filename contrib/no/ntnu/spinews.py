@@ -1046,4 +1046,4 @@ def init_ssl(debug=None):
 #test()
 print "starting..."
 ca_cert = X509.load_cert(cereconf.SSL_CA_FILE)
-RunAsServer(port=cereconf.SPINEWS_PORT, services=[spinews(),])
+RunAsServer(port=int(cereconf.SPINEWS_PORT), services=[spinews(),])

@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys, os, re, time, math
+import sys, os, re, time, math, datetime
 from xml.dom import expatbuilder
 
 import cerebrum_path
@@ -8,8 +8,9 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.lib.spinews.SignatureHandler import SignatureHandler
+
+
 from Cerebrum.lib.spinews.spinews_services import *
-from Cerebrum.lib.spinews.spinews_objects import *
 from Cerebrum.lib.spinews.spinews_services_types import *
 from ZSI.ServiceContainer import ServiceSOAPBinding
 
@@ -18,6 +19,9 @@ from httplib import HTTPConnection
 from M2Crypto import SSL
 from M2Crypto import X509
 
+from Cerebrum.lib.spinews.spinews_objects import Group, Account
+from Cerebrum.lib.spinews.spinews_objects import Ou, Alias
+from Cerebrum.lib.spinews.spinews_objects import Homedir, Person
 
 ca_cert = None
 username = None
@@ -28,6 +32,7 @@ numb_accounts = 0
 numb_ous = 0
 numb_aliases = 0
 numb_homedirs = 0
+numb_persons = 0
 
 class ExpatReaderClass(object):
     fromString = staticmethod(expatbuilder.parseString)
@@ -44,6 +49,8 @@ class CeresyncHTTPSConnection(HTTPConnection):
             tab = self.host.split(':')
             self.host = tab[0]
             self.port = int(tab[1])
+        if not self.port:
+            self.port = cereconf.SPINEWS_PORT
         if not self.port:
             self.port = self.default_port
 
@@ -74,8 +81,8 @@ def phrase_callback(v, prompt1='p1', prompt2='p2'):
 
 def init_ssl():
     ctx = SSL.Context('sslv23')
-    ctx.load_cert('/etc/cerebrum/ssl/spine.itea.ntnu.no.pem',callback=phrase_callback)
-    ctx.load_verify_info(cafile='/etc/ssl/certs/itea-ca.crt')
+    ctx.load_cert(cereconf.SSL_KEY_FILE,callback=phrase_callback)
+    ctx.load_verify_info(cafile=cereconf.SSL_CA_FILE)
     ## typical options for a client
     ctx_options = SSL.op_no_sslv2
     ctx.set_options(ctx_options)
@@ -83,7 +90,7 @@ def init_ssl():
     return ctx
 
 ## theTraceFile = open("soap_trace.log", 'wb', 16384)
-theTraceFile = open("theTraceFile.log", 'wb', 1024)
+theTraceFile = open("soap_trace.log", 'wb', 16384)
 
 samples = {}
 stat_max_min = {}
@@ -100,7 +107,7 @@ def statreset():
     samples.clear()
 
 def statresult():
-   global numb_groups, numb_accouts, numb_ous, numb_aliases, numb_homedirs
+   global numb_groups, numb_accouts, numb_ous, numb_aliases, numb_homedirs, numb_persons
    print '%-10s  %s\t%s\t\t%s\t\t%s\t\t%s' % ('Operation',
                                              'Average',
                                              'Varying',
@@ -123,6 +130,7 @@ def statresult():
    print 'ous pr. run\t\t:\t', numb_ous
    print 'aliases pr. run\t\t:\t', numb_aliases
    print 'homedirs pr. run\t:\t', numb_homedirs
+   print 'persons pr. run\t\t:\t', numb_persons
    print ''
 
 
@@ -141,8 +149,9 @@ def sign_request(port, username, password, useDigest=False):
     return port
 
 def get_ceresync_port():
+    global theTraceFile
     locator = get_ceresync_locator()
-    port = locator.getspinePortType(readerclass=ExpatReaderClass, transport=CeresyncHTTPSConnection)
+    port = locator.getspinePortType(tracefile=theTraceFile, readerclass=ExpatReaderClass, transport=CeresyncHTTPSConnection)
     global username
     global password
     sign_request(port, username, password)
@@ -179,8 +188,6 @@ def get_accounts(accountspread, auth_type, inc_from=None):
     ret_accounts = []
     for account in response._account:
         acc = set_attributes(Account(), account)
-        if account._quarantine:
-            print 'account quarantine len: %s' % (len(account._quarantine))
         setattr(acc, 'quarantines', account._quarantine)
         ret_accounts.append(acc)
     return ret_accounts
@@ -223,11 +230,136 @@ def get_homedirs(status, hostname):
         ret_homedirs.append(hdir)
     return ret_homedirs
 
+def get_persons(spread=None, inc_from=None):
+    port = get_ceresync_port()
+    request = getPersonsRequest()
+    request._spread = spread
+    request._incremental_from = inc_from
+    response = port.get_persons(request)
+    ret_persons = []
+    for pers in response._person:
+        thePerson = set_attributes(Person(), pers)
+        thePerson.affiliations = pers._affiliation
+        thePerson.quarantines = pers._quarantine
+        thePerson.traits = pers._trait
+        ret_persons.append(thePerson)
+    return ret_persons
+
+def get_changelogid():
+    port = get_ceresync_port()
+    request = getChangelogidRequest()
+    response = port.get_changelogid(request)
+    return response
+
+def test_persons():
+    global numb_persons
+    before = time.time()
+    persons = get_persons()
+    statreg('persons',(time.time() - before))
+    f = open('persons.txt', 'wb', 16384)
+    if numb_persons == 0:
+        numb_persons = len(persons)
+    for pers in persons:
+        f.write(str(pers.id))
+        f.write(':')
+        f.write(pers.export_id)
+        f.write(':')
+        if pers.type:
+            f.write(pers.type)
+        f.write(':')
+        if pers.birth_date:
+            f.write(pers.birth_date)
+        f.write(':')
+        if pers.nin:
+            f.write(pers.nin)
+        f.write(':')
+        if pers.first_name:
+            try:
+                f.write(pers.first_name)
+            except UnicodeEncodeError, e:
+                f.write('Norwegian chars')
+        f.write(':')
+        if pers.last_name:
+            try:
+                f.write(pers.last_name)
+            except UnicodeEncodeError, e:
+                f.write('Norwegian chars')
+        f.write(':')
+        if pers.full_name:
+            try:
+                f.write(pers.full_name)
+            except UnicodeEncodeError, e:
+                f.write('Norwegian chars')
+        f.write(':')
+        if pers.display_name:
+            try:
+                f.write(pers.display_name)
+            except UnicodeEncodeError, e:
+                f.write('Norwegian chars')
+        f.write(':')
+        if pers.work_title:
+            try:
+                f.write(pers.work_title)
+            except UnicodeEncodeError, e:
+                f.write('Norwegian chars')
+        f.write(':')
+        if pers.primary_account:
+            f.write(pers.primary_account)
+        f.write(':')
+        if pers.primary_account_name:
+            f.write(pers.primary_account_name)
+        f.write(':')
+        if pers.primary_account_password:
+            f.write(pers.primary_account_password)
+        f.write(':')
+        if pers.email:
+            f.write(pers.email)
+        f.write(':')
+        if pers.address_text:
+            f.write(pers.address_text)
+        f.write(':')
+        if pers.city:
+            f.write(pers.city)
+        f.write(':')
+        if pers.postal_number:
+            f.write(pers.postal_number)
+        f.write(':')
+        if pers.phone:
+            f.write(pers.phone)
+        f.write(':')
+        if pers.url:
+            f.write(pers.url)
+        f.write(':')
+        i = 0
+        for quar in pers.quarantines:
+            if i > 0:
+                f.write(',')
+            i += 1
+            f.write(quar)
+        f.write(':')
+        i = 0
+        for aff in pers.affiliations:
+            if i > 0:
+                f.write(',')
+            i += 1
+            f.write(aff)
+        f.write(':')
+        i = 0
+        for trait in pers.traits:
+            if i > 0:
+                f.write(',')
+            i += 1
+            f.write(quar)
+        f.write('\n')
+    f.flush()
+    f.close()
+
+    
 def test_groups():
     before = time.time()
-    grps = get_groups('group@ntnu', 'user@ansatt', None)
+    grps = get_groups('group@ntnu', 'user@stud', None)
     statreg('groups',(time.time() - before))
-    f = open('group.txt', 'wb', 16384)
+    f = open('groups.txt', 'wb', 16384)
     global numb_groups
     if numb_groups == 0:
         numb_groups = len(grps)
@@ -257,7 +389,7 @@ def test_accounts():
     before = time.time()
     accs = get_accounts('user@stud', 'MD5-crypt', None)
     statreg('accounts', (time.time() - before))
-    f = open('accouns.txt', 'wb', 16384)
+    f = open('accounts.txt', 'wb', 16384)
     global numb_accounts
     if numb_accounts == 0:
         numb_accounts = len(accs)
@@ -270,9 +402,14 @@ def test_accounts():
         f.write(':')
         f.write(acc.home)
         f.write(':')
-        f.write(acc.disk_path)
+        if acc.disk_path:
+            f.write(acc.disk_path)
         f.write(':')
-        f.write(acc.disk_host)
+        if acc.disk_host:
+            f.write(acc.disk_host)
+        f.write(':')
+        if acc.disk_host:
+            f.write(acc.disk_host)
         f.write(':')
         try:
             f.write(acc.gecos)
@@ -291,7 +428,8 @@ def test_accounts():
         f.write(':')
         f.write(str(acc.owner_id))
         f.write(':')
-        f.write(acc.owner_group_name)
+        if acc.owner_group_name:
+            f.write(acc.owner_group_name)
         f.write(':')
         p_aff = 'None'
         if acc.primary_affiliation:
@@ -348,11 +486,14 @@ def test_ous():
         f.write(':')
         f.write(str(ou.parent_id))
         f.write(':')
-        f.write(ou.email)
+        if ou.email:
+            f.write(ou.email)
         f.write(':')
-        f.write(ou.url)
+        if ou.url:
+            f.write(ou.url)
         f.write(':')
-        f.write(ou.phone)
+        if ou.phone:
+            f.write(ou.phone)
         f.write(':')
         p_address = 'None'
         if ou.post_address:
@@ -401,7 +542,8 @@ def test_aliases():
         f.write(':')
         f.write(str(alias.address_id))
         f.write(':')
-        f.write(alias.server_name)
+        if alias.server_name:
+            f.write(alias.server_name)
         f.write(':')
         f.write(str(alias.account_id))
         f.write(':')
@@ -436,10 +578,23 @@ def test_homedirs():
     f.flush()
     f.close()
 
+def test_changelogid():
+    before = time.time()
+    id = get_changelogid()
+    statreg('changelogid',(time.time() - before))
+    f = open('changelogid.txt', 'wb', 16384)
+    str = '%d' % id
+    f.write(str)
+    f.flush()
+    f.close()
+    
 def test_clients(count):
 
-    set_username_password('bootstrap_account', 'blippE10')
+    set_username_password(cereconf.TEST_USERNAME, cereconf.TEST_PASSWORD)
+    start_time = datetime.datetime.now()
     for i in range(count):
+        print 'changelogid'
+        test_changelogid()
         print 'groups'
         test_groups()
         print 'accounts'
@@ -450,14 +605,21 @@ def test_clients(count):
         test_aliases()
         print 'homedirs'
         test_homedirs()
+        print 'persons'
+        test_persons()
         sys.stderr.write('Run: %d\n' % (i+1))
     statresult()
-    
+    end_time = datetime.datetime.now()
+    print ''
+    print 'Start time = ', start_time.strftime('%Y-%m-%d %H:%M:%S')
+    print 'End time = ', end_time.strftime('%Y-%m-%d %H:%M:%S')
+    print ''
+
     
 def main(argv):
     global ca_cert
-    ca_cert = X509.load_cert('/etc/ssl/certs/itea-ca.crt')
-    test_clients(1)
+    ca_cert = X509.load_cert(cereconf.SSL_CA_FILE)
+    test_clients(10)
  
 if __name__ == '__main__':
     main(sys.argv)
