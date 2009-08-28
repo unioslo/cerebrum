@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2005 University of Oslo, Norway
+# Copyright 2003-2005, 2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -351,7 +351,7 @@ command_help = {
     'user_set_np_type': 'Set/remove np-type for an account (i.e. program, system etc)',
     'user_set_owner': 'Assign ownership for an account',
     'user_shell': 'Set login-shell for a POSIX user account',
-    'user_student_create': 'Create a user for a student'
+    #'user_student_create': 'Create a user for a student'
     },
     }
 
