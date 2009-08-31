@@ -97,7 +97,7 @@ def check_field_consistency(filename, field_count):
 def slurp_expired_employees(person_file):
     """Collect all employees who have resigned their commission.
 
-    SAP-SSØ solution mark each employee's resignation date in a separate
+    SAP-SSØ solution marks each employee's resignation date in a separate
     field. It is entirely possible that a person is marked as resigned, and
     still has valid and active employment entries in the employment file
     (feide_persti.txt).
@@ -108,7 +108,7 @@ def slurp_expired_employees(person_file):
 
     This function makes a set of employees from person_file that have resigned
     (i.e. have their resignation date (fratredelsesdato) in the past compared
-    to the moment of function call).
+    to the moment of this function call).
 
     @type person_file: basestring
     @param person_file:
