@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2008 University of Oslo, Norway
+# Copyright 2002-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,8 +32,6 @@ import cereconf
 from Cerebrum import Entity
 from Cerebrum import Errors
 from Cerebrum import Utils
-from Cerebrum.Constants import _SpreadCode
-from Cerebrum.modules import ChangeLog
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
 
 Factory = Utils.Factory
@@ -45,7 +43,6 @@ group = Factory.get('Group')(db)
 person = Factory.get('Person')(db)
 
 # TODO: Should have a cereconf variable for /cerebrum/var/log
-
 logger = Factory.get_logger("big_shortlived")
 
 """
@@ -68,6 +65,9 @@ ChangeLog ting
   - ephorte role_upd: skal ikke slettes (foreløbig)
   - ephorte perm_add: skal ikke slettes (foreløbig)
   - ephorte perm_rem: skal ikke slettes (foreløbig)
+  - subnet_create: skal ikke slettes (foreløbig)
+  - subnet_delete: skal ikke slettes (foreløbig)
+  - subnet_mod: skal ikke slettes (foreløbig)
 
 * Skal slettede entities ha kortere levetid?
 
@@ -155,7 +155,9 @@ class CleanChangeLog(object):
         int(co.ephorte_role_upd): AGE_FOREVER,
         int(co.ephorte_perm_add): AGE_FOREVER,
         int(co.ephorte_perm_rem): AGE_FOREVER,
-
+        int(co.subnet_create): AGE_FOREVER,
+        int(co.subnet_delete): AGE_FOREVER,
+        int(co.subnet_mod): AGE_FOREVER,
         # TODO: Once account_type changes are better logged, we don't need
         # this special case
         int(co.account_type_add): 3600*24*31,
@@ -316,33 +318,41 @@ class CleanChangeLog(object):
     if hasattr(co, 'a_record_add'):
         # dnsinfo changes
         keep_togglers.extend([
-             {'columns': ('subject_entity', ),
-              'triggers': (co.a_record_add, co.a_record_del, co.a_record_update)},
-             {'columns': ('subject_entity', ),
-              'triggers': (co.host_info_add, co.host_info_del, co.host_info_update)},
-             {'columns': ('subject_entity', ),
-              'triggers': (co.ip_number_add, co.ip_number_del, co.ip_number_update, )},
-             {'columns': ('subject_entity', ),
-              'triggers': (co.srv_record_add, co.srv_record_del)},
-             {'columns': ('subject_entity', ),
-              'triggers': (co.cname_add, co.cname_del, co.cname_update)},
-             {'columns': ('subject_entity', ),
-              'triggers': (co.dns_owner_add, co.dns_owner_update, co.dns_owner_del)},
-             {'columns': ('subject_entity', ),
-              'triggers': (co.general_dns_record_add, co.general_dns_record_update)}])
+            {'columns': ('subject_entity', ),
+             'triggers': (co.a_record_add, co.a_record_del, co.a_record_update)},
+            {'columns': ('subject_entity', ),
+             'triggers': (co.host_info_add, co.host_info_del, co.host_info_update)},
+            {'columns': ('subject_entity', ),
+             'triggers': (co.ip_number_add, co.ip_number_del, co.ip_number_update, )},
+            {'columns': ('subject_entity', ),
+             'triggers': (co.srv_record_add, co.srv_record_del)},
+            {'columns': ('subject_entity', ),
+             'triggers': (co.cname_add, co.cname_del, co.cname_update)},
+            {'columns': ('subject_entity', ),
+             'triggers': (co.dns_owner_add, co.dns_owner_update, co.dns_owner_del)},
+            {'columns': ('subject_entity', ),
+             'triggers': (co.general_dns_record_add, co.general_dns_record_update)}])
+
+    if hasattr(co, 'subnet_create'):
+        # subnet changes
+        keep_togglers.extend([
+            {'columns': ('subject_entity', ),
+             'toggleable': False,
+             'triggers': (co.subnet_create, co.subnet_delete, co.subnet_mod,)},
+            ])
 
     # Ephorte changes
     if hasattr(co, 'ephorte_role_add'):
         keep_togglers.extend([
-             {'columns': ('subject_entity', ),
-              'toggleable': False,
-              'triggers': (co.ephorte_role_add, co.ephorte_role_upd,
-                           co.ephorte_role_rem)}])
+            {'columns': ('subject_entity', ),
+             'toggleable': False,
+             'triggers': (co.ephorte_role_add, co.ephorte_role_upd,
+                          co.ephorte_role_rem)}])
     if hasattr(co, 'ephorte_perm_add'):
         keep_togglers.extend([
-             {'columns': ('subject_entity', ),
-              'toggleable': False,
-              'triggers': (co.ephorte_perm_add, co.ephorte_perm_rem)}])
+            {'columns': ('subject_entity', ),
+             'toggleable': False,
+             'triggers': (co.ephorte_perm_add, co.ephorte_perm_rem)}])
 
 
     def process_log(self):
