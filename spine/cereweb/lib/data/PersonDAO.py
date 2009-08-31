@@ -21,10 +21,10 @@ class PersonDAO(EntityDAO):
     def __init__(self, db=None):
         super(PersonDAO, self).__init__(db, Person)
 
-    def get(self, id, include_extra=False):
+    def get(self, id, include_extra=False, include_birth_no=False):
         person = self._find(id)
 
-        return self._create_dto(person, include_extra)
+        return self._create_dto(person, include_extra, include_birth_no)
 
     def search(self, name):
         name = name.rstrip("*") + '*'
@@ -156,20 +156,33 @@ class PersonDAO(EntityDAO):
     def _get_type_id(self):
         return int(self.constants.entity_person)
 
-    def _create_dto(self, person, include_extra):
+    def _create_dto(self, person, include_extra, include_birth_no=False):
         dto = DTO()
         self._populate(dto, person)
         if include_extra:
             dto.quarantines = QuarantineDAO(self.db).create_from_entity(person)
             dto.affiliations = self._get_affiliations(person)
             dto.names = self._get_names(person)
-            dto.external_ids = self._get_external_ids(person)
+            dto.external_ids = self._get_external_ids(person, include_birth_no)
             dto.contacts = self._get_contacts(person)
             dto.addresses = self._get_addresses(person)
             dto.notes = NoteDAO(self.db).create_from_entity(person)
             dto.traits = TraitDAO(self.db).create_from_entity(person)
 
         return dto
+
+    def _get_external_ids(self, entity, include_birth_no):
+        external_ids = super(PersonDAO, self)._get_external_ids(entity)
+        if not include_birth_no:
+            return map(self._hide_birth_no, external_ids)
+
+        # FIXME: Check if user is allowed to request this piece of information.
+        return external_ids
+
+    def _hide_birth_no(self, external_id):
+        if external_id.variant.name == "NO_BIRTHNO":
+            external_id.value = "XXXXXXXXXXX"
+        return external_id
 
     def _populate(self, dto, person):
         dto.id = person.entity_id

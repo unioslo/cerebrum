@@ -82,15 +82,16 @@ index = search
 @session_required_decorator
 def view(id, **vargs):
     """Creates a page with a view of the person given by id."""
+
     page = PersonViewTemplate()
-    page.person = PersonDAO().get(id, include_extra=True)
+    page.viewBirthNo = vargs.get('birthno') and True or False
+    page.person = PersonDAO().get(id, include_extra=True, include_birth_no=page.viewBirthNo)
     page.person.accounts = PersonDAO().get_accounts(id)
     page.person.history = HistoryDAO().get_entity_history_tail(id)
     page.affiliation_types = ConstantsDAO().get_affiliation_statuses()
     page.ou_tree = OuDAO().get_tree("Kjernen")
     page.id_types = ConstantsDAO().get_id_types()
     page.name_types = ConstantsDAO().get_name_types()
-    page.viewBirthNo = vargs.get('birthno') and True or False
     return page.respond()
 view.exposed = True
 

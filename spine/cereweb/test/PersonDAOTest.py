@@ -96,7 +96,7 @@ class PersonDAOTest(unittest.TestCase):
         self.assertEqual("Test Testesen", control.value)
 
     def test_that_person_has_list_of_external_ids(self):
-        person = self.dao.get(TestData.test_testesen_id, True)
+        person = self.dao.get(TestData.test_testesen_id, True, True)
         self.assert_(person.external_ids)
 
         control = (i for i in person.external_ids if i.variant.name == "NO_BIRTHNO").next()
@@ -235,13 +235,13 @@ class PersonDAOWriteTest(WriteTestCase):
 
     def test_that_we_can_add_birth_no(self):
         dto = self._create_person()
-        person = self.dao.get(dto.id, include_extra=True)
+        person = self.dao.get(dto.id, include_extra=True, include_birth_no=True)
 
         self.assertEqual(0, len(person.external_ids))
 
         self.dao.add_birth_no(person.id, "10107936934")
 
-        result = self.dao.get(person.id, include_extra=True)
+        result = self.dao.get(person.id, include_extra=True, include_birth_no=True)
         self.assertEqual(1, len(result.external_ids))
         extid = result.external_ids[0]
 
