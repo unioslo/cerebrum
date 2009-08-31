@@ -306,7 +306,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         for k, v in userdict_ret.iteritems():
             #TODO: derive domain part from LDAP DC components
-            v['userPrincipalName'] = k + "@ad.ostfoldfk.no"
+            v['userPrincipalName'] = k + "@ostfoldfk.no"
             v['mailNickname'] = k
  
         return userdict_ret
