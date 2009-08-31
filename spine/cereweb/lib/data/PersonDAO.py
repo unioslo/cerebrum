@@ -26,6 +26,18 @@ class PersonDAO(EntityDAO):
 
         return self._create_dto(person, include_extra)
 
+    def search(self, name):
+        name = name.rstrip("*") + '*'
+        name_variant = self.constants.PersonName("FULL")
+        results = []
+        for result in self.entity.list_persons_by_name(name=name, name_variant=name_variant, return_name=True):
+            dto = DTO()
+            dto.id = result.person_id
+            dto.type_name = self._get_type_name()
+            dto.name = result.name
+            results.append(dto)
+        return results
+
     def get_accounts(self, id):
         person = self._find(id)
         account_ids = [a.account_id for a in person.get_accounts()]

@@ -32,10 +32,25 @@ class AccountDAO(EntityDAO):
 
         return self._create_dto(account, include_extra)
 
+    def search(self, name):
+        name = name.strip("*") + '*'
+        results = []
+        for result in self.entity.search(name=name):
+            dto = DTO()
+            dto.id = result.account_id
+            dto.name = result.name
+            dto.type_name = self._get_type_name()
+            results.append(dto)
+        return results
+
     def get_by_name(self, name):
         account = self._find_by_name(name)
 
         return self._create_dto(account)
+
+    def get_owner(self, id):
+        account = self._find(id)
+        return EntityDAO(self.db).get(account.owner_id, int(account.owner_type))
 
     def get_accounts(self, *account_ids):
         dtos = []
@@ -43,16 +58,6 @@ class AccountDAO(EntityDAO):
             dto = self.get(account_id, False)
             dtos.append(dto)
         return dtos
-
-    def set_password(self, account_id, new_password):
-        account = self._find(account_id)
-        account.set_password(new_password)
-        account.write_db()
-
-    def get_md5_password_hash(self, account_id):
-        account = self._find(account_id)
-        t = self.constants.auth_type_md5_crypt
-        return account.get_account_authentication(t)
 
     def get_posix_groups(self, account_id):
         groups = self.get_groups(account_id)
@@ -69,6 +74,14 @@ class AccountDAO(EntityDAO):
 
         return groups
 
+    def get_free_uid(self):
+        paccount = PosixUser(self.db)
+        return paccount.get_free_uid()
+
+    def get_default_shell(self):
+        shells = ConstantsDAO(self.db).get_shells()
+        for shell in shells: return shell
+
     def suggest_usernames(self, entity):
         fname, lname = self._split_name(entity.name)
 
@@ -78,8 +91,27 @@ class AccountDAO(EntityDAO):
             lname,
             maxlen=8)
 
+    def get_md5_password_hash(self, account_id):
+        """This method is used for tests to verify that we have changed the
+        password."""
+        account = self._find(account_id)
+        self.auth.is_superuser(self.db.change_by)
+        
+
+        t = self.constants.auth_type_md5_crypt
+        return account.get_account_authentication(t)
+
+    def set_password(self, account_id, new_password):
+        account = self._find(account_id)
+        self.auth.can_set_password(self.db.change_by, account)
+
+        account.set_password(new_password)
+        account.write_db()
+
     def promote_posix(self, account_id, primary_group_id):
         account = self._find(account_id)
+        # FIXME: What rights are needed?
+
         paccount = PosixUser(self.db)
         paccount.populate(
             self.get_free_uid(),
@@ -91,25 +123,23 @@ class AccountDAO(EntityDAO):
 
     def demote_posix(self, account_id):
         paccount = PosixUser(self.db)
+        # FIXME: What rights are needed?
+
         paccount.find(account_id)
         paccount.delete_posixuser()
 
     def delete(self, account_id):
+        account = self._find(account_id)
+        self.auth.can_delete_user(self.db.change_by, account)
+
         if self._is_posix(account_id):
             self.demote_posix(account_id)
 
-        account = self._find(account_id)
         account.delete()
 
-    def get_free_uid(self):
-        paccount = PosixUser(self.db)
-        return paccount.get_free_uid()
-
-    def get_default_shell(self):
-        shells = ConstantsDAO(self.db).get_shells()
-        for shell in shells: return shell
-
     def create(self, dto):
+        # FIXME: We need to overload can_create_user to check group or person
+
         account = Account(self.db)
         account.populate(
             dto.name,
@@ -123,6 +153,7 @@ class AccountDAO(EntityDAO):
         return self._create_dto(account)
 
     def save(self, dto):
+        # FIXME: Finnes ingen can_alter_user
         account = self._find(dto.id)
         account.expire_date = dto.expire_date
 
@@ -131,11 +162,13 @@ class AccountDAO(EntityDAO):
         account.write_db()
             
     def add_affiliation(self, account_id, ou_id, affiliation_id, priority):
+        # FIXME: Finnes ingen can_add_user_affiliation
         account = self._find(account_id)
         account.set_account_type(ou_id, affiliation_id, priority)
         account.write_db()
 
     def remove_affiliation(self, account_id, ou_id, affiliation_id):
+        # FIXME: Finnes ingen can_remove _user_affiliation
         account = self._find(account_id)
         account.del_account_type(ou_id, affiliation_id)
         account.write_db()
@@ -152,7 +185,7 @@ class AccountDAO(EntityDAO):
         if path != -1:
             kw['home'] = path
 
-        homedir_id = self.get_homedir_id_or_not_set(account, spread_id)
+        homedir_id = self._get_homedir_id_or_not_set(account, spread_id)
         if homedir_id is not None:
             kw['current_id'] = homedir_id
 
@@ -166,7 +199,7 @@ class AccountDAO(EntityDAO):
         account.clear_home(spread_id)
         account.write_db()
 
-    def get_homedir_id_or_not_set(self, account, spread_id):
+    def _get_homedir_id_or_not_set(self, account, spread_id):
         try:
             home = account.get_home(spread_id)
             return home.homedir_id

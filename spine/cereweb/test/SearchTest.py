@@ -25,13 +25,22 @@ from turbogears import testutil
 from htdocs.ajax import *
 import cjson
 
+class FakeSession(object):
+    def ping(self):
+        return True
+    def new_transaction(self):
+        return None
+
 class SearchTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(SearchTest, self).__init__(*args, **kwargs)
 
         cherrypy.root = search
-        cherrypy.session = {'client_encoding': 'iso8859-1', 'spine_encoding': 'iso8859-1'}
-        cherrypy.config.update({'session_filter.on': True})
+        cherrypy.session = {
+            'client_encoding': 'iso8859-1',
+            'spine_encoding': 'iso8859-1',
+            'session': FakeSession(),
+        }
 
     def test_that_account_search_for_alf_contains_alfborge(self):
         expected = [{

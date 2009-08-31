@@ -25,6 +25,17 @@ class GroupDAO(EntityDAO):
 
         return self._create_dto(group, include_extra)
 
+    def search(self, name):
+        name = name.strip("*") + '*'
+        results = []
+        for result in self.entity.search(name=name):
+            dto = DTO()
+            dto.id = result.group_id
+            dto.name = result.name
+            dto.type_name = self._get_type_name()
+            results.append(dto)
+        return results
+
     def get_by_name(self, name, include_extra=False):
         group = self._find_by_name(name)
         
@@ -69,7 +80,7 @@ class GroupDAO(EntityDAO):
 
     def demote_posix(self, id):
         pgroup = self._get_posix_group(id)
-        self.auth.can_alter_group(self.db.change_by, group)
+        self.auth.can_alter_group(self.db.change_by, pgroup)
         pgroup.delete()
 
     def save(self, dto):

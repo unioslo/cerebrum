@@ -587,7 +587,11 @@ def randpasswd(length=8):
 def get_spine_encoding():
     return cherrypy.session['spine_encoding']
 
+def is_ajax_request():
+    return cherrypy.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
 def get_client_encoding():
+    if is_ajax_request(): return "utf-8"
     return cherrypy.session['client_encoding']
 
 def spine_to_web(string):
