@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
@@ -304,7 +303,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         for v in tmp_ret.itervalues():
             #TODO: derive domain part from LDAP DC components
-            v['userPrincipalName'] = v['TEMPuname'] + "@ad.ostfoldfk.no"
+            v['userPrincipalName'] = v['TEMPuname'] + "@ostfoldfk.no"
             v['mailNickname'] =  v['TEMPuname']
 
         #
