@@ -390,7 +390,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
                                       cereconf.AD_ACCOUNT_CONTROL)
         return self.server.listObjects('user', True, search_ou)
-
+        
 
     def store_sid(self, objtype, name, sid, dry_run):
         """Store AD object SID to cerebrum database for given user
@@ -707,8 +707,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @type  exch_users: list
         @param dry_run : Flag
         """
-        self.logger.debug("Sleeping for 3 seconds to give ad-ldap time to update") 
-        time.sleep(3)
+        self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+        time.sleep(5)
         for usr in exch_users:
             self.logger.info("Running Update-Recipient for object '%s'"
                               " against Exchange" % usr)
@@ -768,9 +768,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             exch_user = exch_users.get(te_id)
             if not exch_user:
                 continue
-            cerebrumdump[exch_user['uname']]['deliverAndRedirect'] = False
-            if row['enable'] == 'T':
-                exch_user['forward_addresses'].append(row['forward_to'])
+            if not cerebrumdump.has_key(exch_user['uname']):
+                del exch_users[te_id] 
+            else:
+                cerebrumdump[exch_user['uname']]['deliverAndRedirect'] = False
+                if row['enable'] == 'T':
+                    exch_user['forward_addresses'].append(row['forward_to'])
                 
         # Make dict with attributes for AD
         forwards = {}
@@ -1340,7 +1343,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.debug("Fetching AD user data...")
         addump = self.fetch_ad_data(self.ad_ldap)       
         self.logger.info("Fetched %i AD users" % len(addump))
-
                
         if forwarding_sync:
             #Fetch cerebrum forwarding data.
@@ -1796,8 +1798,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @type  exch_grps: list
         @param dry_run : Flag
         """
-        self.logger.debug("Sleeping for 3 seconds to give ad-ldap time to update") 
-        time.sleep(3)
+        self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+        time.sleep(5)
         for grp in exch_grps:
             self.logger.info("Running Update-Recipient for group object '%s'"
                               " against Exchange" % grp)
@@ -2195,8 +2197,8 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         @type  exch_users: list
         @param dry_run : Flag
         """
-        self.logger.debug("Sleeping for 3 seconds to give ad-ldap time to update") 
-        time.sleep(3)
+        self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+        time.sleep(5)
         for name in up_rec:
             self.logger.info("Running Update-Recipient for contact object '%s'"
                               " against Exchange" % name)
