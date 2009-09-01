@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import sys
+import time
 import cereconf
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import ADutilMixIn
@@ -208,8 +209,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                                              object_list=object_list,
                                              dryrun=dryrun)
                 name = name[name.find("=")+1:]
-                self.create_ou(parent_ou, name, dryrun)
                 self.logger.debug("Creating missing OU: %s" % ou)
+                self.create_ou(parent_ou, name, dryrun)
                 object_list.append(ou)
 
 
@@ -298,6 +299,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 #fail, it will have a blank password.
                 uname = ""
                 del chg['type']
+                # OU is not needed anymore. Delete from chg before sending dict
+                if chg.has_key('OU'):
+                    del chg['OU']
                 if chg.has_key('distinguishedName'):
                     del chg['distinguishedName']
                 if chg.has_key('sAMAccountName'):
@@ -315,6 +319,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     self.logger.warning("setObject on %s failed: %r", uname, ret)
                     return
                 if ret[0]:
+                    # Wait a few seconds before creating the homedir
+                    # for a a new account. AD needs to rest now and then...
+                    time.sleep(5)
                     ret = self.run_cmd('createDir', dry_run, 'homeDirectory')
                     if not ret[0]:
                         self.logger.error('createDir on %s failed: %r', uname, ret)
