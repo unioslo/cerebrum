@@ -742,15 +742,16 @@ def collect_roles(role_file, fs_handler):
                          role_kind, repr(attributes))
             return
 
+        if not timeslot_is_valid(lower(attributes)):
+            logger.debug("Ignoring '%s' - data too old/in the future: "
+                         "attrs=%s", role_kind, lower(attributes))
+            return
+
         attrs = fs_handler.fixup_attributes(attributes)
         if attrs["rollekode"] not in fs_handler.valid_role_codes:
             logger.debug("Ignoring '%s' role, role code %s: attrs=%s",
                          role_kind, attrs["rollekode"], attrs)
             return 
-        if not timeslot_is_valid(attrs):
-            logger.debug("Ignoring '%s' - data too old/in the future: "
-                         "attrs=%s", role_kind, attrs)
-            return
 
         logger.debug("Collecting role '%s' with %s",
                      role_kind, repr(attributes))
