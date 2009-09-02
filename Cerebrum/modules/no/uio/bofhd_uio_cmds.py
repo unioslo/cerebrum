@@ -4687,6 +4687,21 @@ Addresses and settings:
         opr = operator.get_entity_id()
         acc = self.Account_class(self.db)
         acc.find(opr)
+
+        # checking if group already exists
+        try:
+            self._get_group(groupname)
+        except CerebrumError:
+            pass
+        else:
+            raise CerebrumError("Group %s already exists" % (groupname))
+
+        # checking if moderator group exists
+        try:
+            self._get_group(moderator)
+        except CerebrumError:
+            raise CerebrumError("Moderator group %s not found" % (moderator))
+        
         fromaddr = acc.get_primary_mailaddress()
         toaddr = cereconf.GROUP_REQUESTS_SENDTO
         spreadstring = "(" + spread + ")"
@@ -4699,11 +4714,6 @@ Addresses and settings:
         body.append("Groupname: %s." % groupname)
         body.append("Description:  %s" % description)
         body.append("Requested by: %s" % fromaddr)
-        # checking if moderator exists
-        try:
-            self._get_group(moderator)
-        except CerebrumError, msg:
-            raise CerebrumError, "Moderator group %s not found" % (moderator)
         body.append("Moderator: %s" % moderator)
         body.append("")
         body.append("group create %s \"%s\"" % (groupname, description))
