@@ -24,7 +24,7 @@ get the actual database code/code_str representing a given Entity,
 Address, Gender etc. type."""
 
 from Cerebrum import Constants
-from Cerebrum.Constants import _AuthoritativeSystemCode,_OUPerspectiveCode, \
+from Cerebrum.Constants import _AuthoritativeSystemCode, _OUPerspectiveCode, \
      _SpreadCode, _QuarantineCode, _EntityExternalIdCode, \
      _PersonAffiliationCode, _PersonAffStatusCode, _AccountCode, \
      _AuthenticationCode, _PersonNameCode
@@ -33,6 +33,8 @@ from Cerebrum.modules.Email import \
      _EmailSpamLevelCode, _EmailSpamActionCode, _EmailDomainCategoryCode
 from Cerebrum.modules.EntityTrait import \
      _EntityTraitCode
+from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
+    
 
 class Constants(Constants.Constants):
 
@@ -312,5 +314,65 @@ class Constants(Constants.Constants):
     trait_group_imported = _EntityTraitCode(
         'imported_group', Constants.Constants.entity_group,
         'Register last_seen date for groups imported from by ABC')
+
+    auth_account_create = _AuthRoleOpCode(
+        'account_create', "Operation code for creating accounts")
+    auth_account_read = _AuthRoleOpCode(
+        'account_read', "Operation code for reading account information")
+    auth_account_edit = _AuthRoleOpCode(
+        'account_edit', "Operation code for editing account information")
+    auth_account_delete = _AuthRoleOpCode(
+        'account_delete', "Operation code for deleting accounts")
+
+    auth_person_create = _AuthRoleOpCode(
+        'person_create', "Operation code for creating a person")
+    auth_person_read = _AuthRoleOpCode(
+        'person_read', "Operation code for reading person information")
+    auth_person_edit = _AuthRoleOpCode(
+        'person_edit', "Operation code for editing person information")
+    auth_person_delete = _AuthRoleOpCode(
+        'person_delete', "Operation code for deleting a person")
+
+    auth_group_create = _AuthRoleOpCode(
+        'group_create', "Operation code for creating a group")
+    auth_group_read = _AuthRoleOpCode(
+        'group_read', "Operation code for reading group information")
+    auth_group_edit = _AuthRoleOpCode(
+        'group_edit', "Operation code for editing a group")
+    auth_group_edit_membership = _AuthRoleOpCode(
+        'group_edit_membership', "Operation code for adding/removing members to a group")
+    auth_group_delete = _AuthRoleOpCode(
+        'group_delete', "Operation code for deleting a group")
+
+    auth_note_read = _AuthRoleOpCode(
+        'note_read', "Operation code for reading a note")
+    auth_note_edit = _AuthRoleOpCode(
+        'note_edit', "Operation code for adding/removing notes")
+
+    auth_external_id_read = _AuthRoleOpCode(
+        'external_id_read', "Operation code for reading an external id")
+    auth_external_id_edit = _AuthRoleOpCode(
+        'external_id_edit', "Operation code for adding/removing external ids")
+
+    auth_affiliation_edit = _AuthRoleOpCode(
+        'affiliation_edit', "Operation code for adding/removing affiliations")
+
+    auth_spread_edit = _AuthRoleOpCode(
+        'spread_edit', "Operation code for adding/removing spreads")
+
+    auth_trait_edit = _AuthRoleOpCode(
+        'trait_edit', "Operation code for adding/removing traits")
+
+    auth_quarantine_edit = _AuthRoleOpCode(
+        'quarantine_edit', "Operation code for adding/removing quarantines")
+
+    auth_homedir_edit = _AuthRoleOpCode(
+        'homedir_edit', "Operation code for adding/removing homedirs")
+
+    auth_contact_edit = _AuthRoleOpCode(
+        'contact_edit', "Operation code for adding/removing contact information")
+
+    auth_address_edit = _AuthRoleOpCode(
+        'address_edit', "Operation code for adding/removing address information")
 
 # arch-tag: e25e35ae-30f6-11da-9180-bcf822108a14
