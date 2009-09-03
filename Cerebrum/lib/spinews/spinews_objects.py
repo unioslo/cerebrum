@@ -1,10 +1,10 @@
-class Group(object):
+class Group(object): 
     def __init__(self):
         self.quarantines = []
+        self.members = []
         self.name = None
         self.posix_gid = None
-        self.members = []
-        
+
 class Account(object):
     def __init__(self):
         self.quarantines = []
@@ -64,3 +64,29 @@ class Homedir(object):
         self.account_name = None
         self.posix_uid = None
         self.posix_gid = None
+
+class Person(object):
+    def __init__(self):
+        self.quarantines = []
+        self.affiliations = []
+        self.traits = []
+        self.id = None
+        self.export_id = None
+        self.type = None
+        self.birth_date = None
+        self.nin = None
+        self.first_name = None
+        self.last_name = None
+        self.full_name = None
+        self.display_name = None
+        self.work_title = None
+        self.primary_account = None
+        self.primary_account_name = None
+        self.primary_account_password = None
+        self.email = None
+        self.address_text = None
+        self.city = None
+        self.postal_number = None
+        self.phone = None
+        self.url = None
+
