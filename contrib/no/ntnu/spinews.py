@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 # Copyright 2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -58,6 +58,7 @@ from Cerebrum.Entity import EntityQuarantine
 
 
 ca_cert = None
+logger = None
 
 def int_or_none(i):
     if i is None:
@@ -1004,6 +1005,7 @@ class SecureServiceContainer(ServiceContainer):
         self.server_port = port
 
     def get_request(self):
+        global ca_cert
         (conn, addr ) = self.socket.accept()
         ## check the peer's certificate
         ## should we check certificates here?
@@ -1043,7 +1045,67 @@ def init_ssl(debug=None):
     ctx.set_session_id_ctx('ceresync_srv')
     return ctx
 
-#test()
-print "starting..."
-ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
-RunAsServer(port=int(cereconf.SPINEWS_PORT), services=[spinews(),])
+def daemonize():
+    import os
+    import sys
+    import resource
+
+    global logger
+    try:
+        pid=os.fork()
+        if pid > 0:
+            os._exit(0)
+        os.chdir("/")
+        os.setsid()
+        os.umask(022)
+        pid=os.fork()
+        if pid > 0:
+            os._exit(0)
+
+        os.close(0)
+        os.close(1)
+        os.close(2)
+        infd=os.open("/dev/null", os.O_RDONLY)
+        outfd=os.open("/dev/null", os.O_WRONLY)
+        ## redirect stdin to /dev/null
+        os.dup2(infd, 0)
+        ## redirect stdout and stderr to logfile.
+        os.dup2(outfd, 1)
+        os.dup2(outfd, 2)
+    except OSError, e:
+        logger.error("Demonize failed: %s" % e.strerror)
+
+def main(daemon=False):
+    global logger
+    global ca_cert
+    #test()
+    if daemon:
+        logger = Factory.get_logger("spine")
+        daemonize()
+    else:
+        logger = Factory.get_logger("console")
+    logger.debug("starting...")
+    ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
+    RunAsServer(port=int(cereconf.SPINEWS_PORT), services=[spinews(),])
+
+if __name__ == '__main__':
+    help = False
+    if len(sys.argv) == 2:
+        if sys.argv[1] == 'start' or sys.argv[1] == 'debug':
+            main()
+        elif sys.argv[1] == 'daemon':
+            main(daemon=True)
+        else:
+            help = True
+    else:
+        help = True
+
+    if help:
+        print >> sys.stderr, """spinews!
+
+Hello. Try one of these:
+
+%s daemon   start the spine server
+%s debug    start the spine server in the foreground
+%s start    start the spine server in the foreground
+""" % tuple(sys.argv[:1] * 3)
