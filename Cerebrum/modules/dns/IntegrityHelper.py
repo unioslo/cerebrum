@@ -67,16 +67,30 @@ class Validator(object):
                 return dns_owner.entity_id, True
         return dns_owner.entity_id, False
 
+
     def legal_dns_owner_name(self, name, record_type):
+        uber_hyphen = re.compile(r'--+')
+        uber_underscore = re.compile(r'__+')
         if record_type == dns.SRV_OWNER:
-            rexp = re.compile(r'^[0-9_]*[a-zA-Z]+[a-zA-Z\-0-9]*$')
+            valid_chars = re.compile(r'^[a-zA-Z\-_0-9]*$')
         else:
-            rexp = re.compile(r'^[0-9]*[a-zA-Z]+[a-zA-Z\-0-9]*$')
+            valid_chars = re.compile(r'^[a-zA-Z\-0-9]+$')
+
         if not name.endswith('.'):
             raise DNSError, "Name not fully qualified"
+
         for n in name[:-1].split("."):
-            if not rexp.search(n):
-                raise DNSError, "Illegal name: '%s'" % name
+            if n.startswith("-") or n.endswith("-"):
+                raise DNSError, "Illegal name: '%s'; Cannot start or end with '-'" % name
+            if uber_hyphen.search(n):
+                raise DNSError, "Illegal name: '%s'; More than one '-' in a row" % name
+            if not valid_chars.search(n):
+                raise DNSError, "Illegal name: '%s'; Invalid character(s)" % name
+            if record_type == dns.SRV_OWNER:
+                if uber_underscore.search(n):
+                    raise DNSError, "Illegal name: '%s'; More than one '_' in a row" % name
+                
+            
 
     def legal_mx_target(self, target_id):
         owner_types = self._find.find_dns_owners(target_id)
