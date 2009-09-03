@@ -1027,14 +1027,14 @@ def RunAsServer(port=80, services=(), fork=False):
 
 
 def phrase_callback(v,prompt1='Enter passphrase:',prompt2='Verify passphrase:'):
-    return cereconf.SSL_KEY_FILE_PASSWORD
+    return cereconf.SPINEWS_KEY_FILE_PASSWORD
 
 def init_ssl(debug=None):
     ctx = SSL.Context('sslv23')
     ## certificate and private-key in the same file
-    ctx.load_cert(cereconf.SSL_KEY_FILE, callback=phrase_callback)
-    ctx.load_verify_info(cafile=cereconf.SSL_CA_FILE)
-    ctx.load_client_ca(cereconf.SSL_CA_FILE)
+    ctx.load_cert(cereconf.SPINEWS_KEY_FILE, callback=phrase_callback)
+    ctx.load_verify_info(cafile=cereconf.SPINEWS_CA_FILE)
+    ctx.load_client_ca(cereconf.SPINEWS_CA_FILE)
     ## do not use sslv2
     ctx_options = SSL.op_no_sslv2
     ctx.set_options(ctx_options)
@@ -1045,5 +1045,5 @@ def init_ssl(debug=None):
 
 #test()
 print "starting..."
-ca_cert = X509.load_cert(cereconf.SSL_CA_FILE)
+ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
 RunAsServer(port=int(cereconf.SPINEWS_PORT), services=[spinews(),])

@@ -77,16 +77,17 @@ class CeresyncHTTPSConnection(HTTPConnection):
             sys.exit(2)
 
 def phrase_callback(v, prompt1='p1', prompt2='p2'):
-    return cereconf.SSL_KEY_FILE_PASSWORD
+    return cereconf.SPINEWS_KEY_FILE_PASSWORD
 
 def init_ssl():
     ctx = SSL.Context('sslv23')
-    ctx.load_cert(cereconf.SSL_KEY_FILE,callback=phrase_callback)
-    ctx.load_verify_info(cafile=cereconf.SSL_CA_FILE)
+    ctx.load_cert(cereconf.SPINEWS_KEY_FILE,callback=phrase_callback)
+    ctx.load_verify_info(cafile=cereconf.SPINEWS_CA_FILE)
     ## typical options for a client
     ctx_options = SSL.op_no_sslv2
     ctx.set_options(ctx_options)
-    ctx.set_verify((SSL.verify_fail_if_no_peer_cert|SSL.verify_peer), 9)
+    ## ctx.set_verify((SSL.verify_fail_if_no_peer_cert|SSL.verify_peer), 9)
+    ctx.set_verify((SSL.verify_peer), 1)
     return ctx
 
 ## theTraceFile = open("soap_trace.log", 'wb', 16384)
@@ -618,7 +619,7 @@ def test_clients(count):
     
 def main(argv):
     global ca_cert
-    ca_cert = X509.load_cert(cereconf.SSL_CA_FILE)
+    ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
     test_clients(10)
  
 if __name__ == '__main__':
