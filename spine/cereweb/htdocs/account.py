@@ -367,7 +367,7 @@ def add_affil(account_id, aff_ou, priority):
 
     db = get_database()
     dao = AccountDAO(db)
-    dao.add_affiliation(account_id, ou_id, aff_id, priority)
+    dao.add_affiliation(int(account_id), int(ou_id), int(aff_id), int(priority))
     db.commit()
     
     queue_message(_("Affiliation successfully added."), title=_("Change succeeded"))
