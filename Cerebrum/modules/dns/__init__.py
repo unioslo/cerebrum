@@ -2,7 +2,7 @@
 import cereconf
 
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 IP_NUMBER = 'IPNumber'
 DNS_OWNER='DnsOwner'
