@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-import getopt, sys
+import getopt, sys, time
 import xmlrpclib
 import cerebrum_path
 import cereconf
@@ -244,6 +244,8 @@ class ADfuSync(ADutilMixIn.ADuserUtil):
                 #Additonal lines below that overided create method in Adfusync class.
                 #So far so good, setObject worked, now create homedir, profileDir
                 #and exchangeaccount.
+                # Sleep befor createing homedir, to let AD-server catch up
+                time.sleep(5)
                 ret = self.run_cmd('createDir', dry_run)
                 if not ret[0]:
                     self.logger.warning("createDir on %s failed: %r", uname, ret)
