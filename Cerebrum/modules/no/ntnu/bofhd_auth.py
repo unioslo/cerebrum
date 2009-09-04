@@ -32,6 +32,23 @@ class BofhdAuth(auth.BofhdAuth):
 
     This class only contains special cases for NTNU.
     """
+    def can_set_password(self, operator, target):
+        return True
+
+    def can_create_account(self, operator):
+        return True
+
+    def can_edit_account(self, operator, target):
+        return True
+
+    def can_delete_user(self, operator, target):
+        return True
+
+    def can_edit_affiliation(self, operator, target, ou_id, affiliation_id):
+        return True
+
+    def can_edit_homedir(self, operator, target, spread_id):
+        return True
 
     def can_haz_cheezeburger(self, lol, cat):
         return True
@@ -74,4 +91,3 @@ class BofhdAuth(auth.BofhdAuth):
             return self._has_global_access(
                 operator, self.const.auth_account_syncread,
                 self.const.auth_target_type_global_person, None)
-
