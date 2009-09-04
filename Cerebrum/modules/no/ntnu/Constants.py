@@ -374,16 +374,16 @@ class Constants(Constants.Constants):
 
     auth_address_edit = _AuthRoleOpCode(
         'address_edit', "Operation code for adding/removing address information")
-    auth_account_syncread _AuthRoleOpCode(
+    auth_account_syncread = _AuthRoleOpCode(
         'syncread_account', "Operation code for bulk reading accounts")
 
-    auth_person_syncread _AuthRoleOpCode(
+    auth_person_syncread = _AuthRoleOpCode(
         'syncread_person', "Operation code for bulk reading persons")
 
-    auth_ou_syncread _AuthRoleOpCode(
+    auth_ou_syncread = _AuthRoleOpCode(
         'syncread_ou', "Operation code for bulk reading ous")
 
-    auth_group_syncread _AuthRoleOpCode(
+    auth_group_syncread = _AuthRoleOpCode(
         'syncread_group', "Operation code for bulk reading groups")
 
     auth_target_type_spread="spread"
