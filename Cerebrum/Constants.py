@@ -35,6 +35,26 @@ class CodeValuePresentError(RuntimeError):
     """Error raised when an already existing code value is inserted."""
     pass
 
+Database_class = Factory.get("Database")
+class SynchronizedDatabase(Database_class):
+    _db_proxy_lock = threading.Lock()
+
+    def __init__(self, *args, **kwargs):
+        super(SynchronizedDatabase, self).__init__(*args, **kwargs)
+
+    def execute(self, operation, parameters=()):
+        try:
+            SynchronizedDatabase._db_proxy_lock.acquire()
+            return super(SynchronizedDatabase, self).execute(operation, parameters)
+        finally:
+            SynchronizedDatabase._db_proxy_lock.release()
+
+    def query_1(self, query, params=()):
+        try:
+            SynchronizedDatabase._db_proxy_lock.acquire()
+            return super(SynchronizedDatabase, self).query_1(query, params)
+        finally:
+            SynchronizedDatabase._db_proxy_lock.release()
 
 class _CerebrumCode(DatabaseAccessor):
     """Abstract base class for accessing code tables in Cerebrum.
@@ -63,7 +83,7 @@ class _CerebrumCode(DatabaseAccessor):
             try:
                 _CerebrumCode._private_db_proxy.ping()
             except:
-                _CerebrumCode._private_db_proxy = Factory.get("Database")()
+                _CerebrumCode._private_db_proxy = SynchronizedDatabase()
             return _CerebrumCode._private_db_proxy
         finally:
             _CerebrumCode._db_proxy_lock.release()
@@ -75,7 +95,7 @@ class _CerebrumCode(DatabaseAccessor):
                 db.ping()
                 _CerebrumCode._private_db_proxy = db
             except:
-                _CerebrumCode._private_db_proxy = Factory.get("Database")()
+                _CerebrumCode._private_db_proxy = SynchronizedDatabase()
         finally:
             _CerebrumCode._db_proxy_lock.release()
     sql = property(get_sql, set_sql, doc="private db connection")
