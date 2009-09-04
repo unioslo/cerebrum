@@ -57,20 +57,18 @@ class BofhdAuth(auth.BofhdAuth):
         return self._query_target_permissions(
             operator, self.const.auth_account_syncread,
             self.const.auth_target_type_spread, int(spread), None,
-            operation_attr=auth_method)
+            operation_attr=str(auth_method))
     
     def can_syncread_group(self, operator, spread):
         return self._query_target_permissions(
             operator, self.const.auth_account_syncread,
-            self.const.auth_target_type_spread, int(spread), None,
-            operation_attr=auth_method)
+            self.const.auth_target_type_spread, int(spread), None)
     
     def can_syncread_ou(self, operator, spread=None):
         if spread is not None:
             return self._query_target_permissions(
                 operator, self.const.auth_account_syncread,
-                self.const.auth_target_type_spread, int(spread), None,
-                operation_attr=auth_method)
+                self.const.auth_target_type_spread, int(spread), None)
         else:
             return self._has_global_access(
                 operator, self.const.auth_account_syncread,
@@ -85,8 +83,7 @@ class BofhdAuth(auth.BofhdAuth):
         if spread is not None:
             return self._query_target_permissions(
                 operator, self.const.auth_account_syncread,
-                self.const.auth_target_type_spread, int(spread), None,
-                operation_attr=auth_method)
+                self.const.auth_target_type_spread, spread, None)
         else:
             return self._has_global_access(
                 operator, self.const.auth_account_syncread,
