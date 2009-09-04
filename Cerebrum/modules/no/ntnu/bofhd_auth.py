@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,3 +32,46 @@ class BofhdAuth(auth.BofhdAuth):
 
     This class only contains special cases for NTNU.
     """
+
+    def can_haz_cheezeburger(self, lol, cat):
+        return True
+
+    def can_syncread_account(self, operator, spread, auth_method):
+        return self._query_target_permissions(
+            operator, self.const.auth_account_syncread,
+            self.const.auth_target_type_spread, int(spread), None,
+            operation_attr=auth_method)
+    
+    def can_syncread_group(self, operator, spread):
+        return self._query_target_permissions(
+            operator, self.const.auth_account_syncread,
+            self.const.auth_target_type_spread, int(spread), None,
+            operation_attr=auth_method)
+    
+    def can_syncread_ou(self, operator, spread=None):
+        if spread is not None:
+            return self._query_target_permissions(
+                operator, self.const.auth_account_syncread,
+                self.const.auth_target_type_spread, int(spread), None,
+                operation_attr=auth_method)
+        else:
+            return self._has_global_access(
+                operator, self.const.auth_account_syncread,
+                self.const.auth_target_type_global_ou, None)
+
+    #def can_syncread_alias(self, operator, spread=None):
+    #    return self._has_global_access(
+    #        operator, self.const.auth_account_syncread,
+    #        self.const.auth_target_type_global_alias, None)
+    
+    def can_syncread_person(self, operator, spread=None):
+        if spread is not None:
+            return self._query_target_permissions(
+                operator, self.const.auth_account_syncread,
+                self.const.auth_target_type_spread, int(spread), None,
+                operation_attr=auth_method)
+        else:
+            return self._has_global_access(
+                operator, self.const.auth_account_syncread,
+                self.const.auth_target_type_global_person, None)
+

@@ -42,7 +42,7 @@ from ZSI.wstools.Namespaces import OASIS, DSIG
 
 from M2Crypto import SSL
 from M2Crypto import X509
-
+from Cerebrum.modules.no.ntnu import bofhd_auth
 
 import time
 import cerebrum_path
@@ -54,6 +54,8 @@ co=Factory.get("Constants")()
 group=Factory.get("Group")(db)
 account=Factory.get("Account")(db)
 host=Factory.get("Host")(db)
+auth=bofhd_auth.BofhdAuth(db)
+
 from Cerebrum.Entity import EntityQuarantine
 
 
@@ -187,7 +189,8 @@ def search_persons(personspread=None, changelog_id=None):
 
 
 # Merge this with Account.search()....
-def search_accounts(account_spread, changelog_id=None, auth_type="MD5-crypt"):
+def search_accounts(account_spread, changelog_id=None,
+                    auth_type=co.auth_type_md5_crypt):
     home=posix=owner=True
     
     select=["account_info.account_id AS id",
@@ -205,8 +208,8 @@ def search_accounts(account_spread, changelog_id=None, auth_type="MD5-crypt"):
            'name_display': co.name_display,
            'system_cached': co.system_cached,
            }
-    binds['authentication_method'] = co.Authentication(auth_type)
-    binds['account_spread'] = co.Spread(account_spread)
+    binds['authentication_method'] = auth_type
+    binds['account_spread'] = account_spread
 
     if changelog_id is not None:
        tables.append("""JOIN change_log
@@ -307,7 +310,7 @@ def search_groups(group_spread, changelog_id=None):
              "(group_info.visibility = :group_visibility_all))"]
 
     binds={'group_visibility_all': co.group_visibility_all}
-    binds['group_spread'] = co.Spread(group_spread)
+    binds['group_spread'] = group_spread
     order_by=""
     
     if changelog_id is not None:
@@ -716,6 +719,7 @@ def check_username_password(username, password):
         raise AuthenticationError('Unauthorized, wrong username or password')
     if not account.verify_auth(password):
         raise AuthenticationError('Unauthorized, wrong username or password')
+    return account.entity_id
 
 
 def authenticate(ps):
@@ -726,8 +730,8 @@ def authenticate(ps):
         print 'username =', username
         print 'password =', md5.new(password).hexdigest()
         print 'created =', created
-    check_username_password(username, password)
-    return username
+    operator_id = check_username_password(username, password)
+    return operator_id
 
 class spinews(ServiceSOAPBinding):
     #_wsdl = "".join(open("spinews.wsdl").readlines())
@@ -746,33 +750,36 @@ class spinews(ServiceSOAPBinding):
         ServiceSOAPBinding.__init__(self, post)
 
     def get_changelogid(self, ps):
-        username = authenticate(ps)
+        operator_id = authenticate(ps)
         request = ps.Parse(getChangelogidRequest.typecode)
         id = self.get_changelogid_impl()
         return getChangelogidResponse(id)
 
     def set_homedir_status(self, ps):
-        username = authenticate(ps)
+        operator_id = authenticate(ps)
         request = ps.Parse(setHomedirStatusRequest.typecode)
-        status = str(request._status) 
+        status = str(request._status)
         homedir_id = str(request._homedir_id)
+        #auth.can_set_homedir_status(operator_id, host)
         response = setHomedirStatusResponse()
         self.set_homedir_status_impl(homedir_id, status)
         return response
 
     def get_homedirs(self, ps):
-        username = authenticate(ps)
+        operator_id = authenticate(ps)
         request = ps.Parse(getHomedirsRequest.typecode)
         status = str(request._status) 
         hostname = str(request._hostname)
+        #auth.can_syncread_homedirs(operator_id, host)
         response = getHomedirsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._homedir = self.get_homedirs_impl(atypes, hostname, status)
         return response
 
     def get_aliases(self, ps):
-        username = authenticate(ps)
+        operator_id = authenticate(ps)
         request = ps.Parse(getAliasesRequest.typecode)
+        #auth.can_syncread_aliases(operator_id)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
         response = getAliasesResponse()
@@ -781,8 +788,9 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_ous(self, ps):
-        username = authenticate(ps)
+        operator_id = authenticate(ps)
         request = ps.Parse(getOUsRequest.typecode)
+        auth.can_syncread_ous(operator_id)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
         response = getOUsResponse()
@@ -792,10 +800,11 @@ class spinews(ServiceSOAPBinding):
         
 
     def get_groups(self, ps):
-        username = authenticate(ps)
+        operator_id = authenticate(ps)
         request = ps.Parse(getGroupsRequest.typecode)
-        groupspread = str(request._groupspread)
-        accountspread = str(request._accountspread)
+        groupspread = co.Spread(str(request._groupspread))
+        auth.can_syncread_groups(operator_id, groupspread)
+        accountspread = co.Spread(str(request._accountspread))
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
         response = getGroupsResponse()
@@ -807,10 +816,13 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_accounts(self, ps):
-        username = authenticate(ps)
+        operator_id = authenticate(ps)
         request = ps.Parse(getAccountsRequest.typecode)
-        accountspread = str(request._accountspread)
-        auth_type = str(request._auth_type)
+        accountspread = co.Spread(str(request._accountspread))
+        auth_type = co.Authentication(str(request._auth_type))
+        auth.can_syncread_accounts(operator_id,
+                                   accountspread,
+                                   auth_type)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
         response = getAccountsResponse()
@@ -823,9 +835,10 @@ class spinews(ServiceSOAPBinding):
 
 
     def get_persons(self, ps):
-        username = authenticate(ps)
+        operator_id = authenticate(ps)
         request = ps.Parse(getPersonsRequest.typecode)
-        personspread = request._personspread
+        personspread = co.Spread(str(request._personspread))
+        auth.can_syncread_persons(operator_id, personspread)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
         response = getPersonsResponse()
