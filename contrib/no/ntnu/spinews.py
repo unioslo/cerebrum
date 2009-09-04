@@ -770,7 +770,7 @@ class spinews(ServiceSOAPBinding):
         request = ps.Parse(getHomedirsRequest.typecode)
         status = str(request._status) 
         hostname = str(request._hostname)
-        #auth.can_syncread_homedirs(operator_id, host)
+        #auth.can_syncread_homedir(operator_id, host)
         response = getHomedirsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._homedir = self.get_homedirs_impl(atypes, hostname, status)
@@ -779,7 +779,7 @@ class spinews(ServiceSOAPBinding):
     def get_aliases(self, ps):
         operator_id = authenticate(ps)
         request = ps.Parse(getAliasesRequest.typecode)
-        #auth.can_syncread_aliases(operator_id)
+        #auth.can_syncread_alias(operator_id)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
         response = getAliasesResponse()
@@ -790,7 +790,7 @@ class spinews(ServiceSOAPBinding):
     def get_ous(self, ps):
         operator_id = authenticate(ps)
         request = ps.Parse(getOUsRequest.typecode)
-        auth.can_syncread_ous(operator_id)
+        auth.can_syncread_ou(operator_id)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
         response = getOUsResponse()
@@ -803,7 +803,7 @@ class spinews(ServiceSOAPBinding):
         operator_id = authenticate(ps)
         request = ps.Parse(getGroupsRequest.typecode)
         groupspread = co.Spread(str(request._groupspread))
-        auth.can_syncread_groups(operator_id, groupspread)
+        auth.can_syncread_group(operator_id, groupspread)
         accountspread = co.Spread(str(request._accountspread))
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
@@ -820,7 +820,7 @@ class spinews(ServiceSOAPBinding):
         request = ps.Parse(getAccountsRequest.typecode)
         accountspread = co.Spread(str(request._accountspread))
         auth_type = co.Authentication(str(request._auth_type))
-        auth.can_syncread_accounts(operator_id,
+        auth.can_syncread_account(operator_id,
                                    accountspread,
                                    auth_type)
         incremental_from = int_or_none(request._incremental_from)
@@ -837,8 +837,11 @@ class spinews(ServiceSOAPBinding):
     def get_persons(self, ps):
         operator_id = authenticate(ps)
         request = ps.Parse(getPersonsRequest.typecode)
-        personspread = co.Spread(str(request._personspread))
-        auth.can_syncread_persons(operator_id, personspread)
+        if request._personspread is not None:
+            personspread = int(co.Spread(str(request._personspread)))
+        else:
+            personspread = None
+        auth.can_syncread_person(operator_id, personspread)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
         response = getPersonsResponse()
