@@ -1,6 +1,7 @@
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 from lib.data.AccountDTO import AccountDTO
 from lib.data.AffiliationDAO import AffiliationDAO
@@ -95,22 +96,24 @@ class AccountDAO(EntityDAO):
         """This method is used for tests to verify that we have changed the
         password."""
         account = self._find(account_id)
-        self.auth.is_superuser(self.db.change_by)
-        
+        if not self.auth.is_superuser(self.db.change_by):
+            raise PermissionDenied("Not authorized to get password hash")
 
         t = self.constants.auth_type_md5_crypt
         return account.get_account_authentication(t)
 
     def set_password(self, account_id, new_password):
         account = self._find(account_id)
-        self.auth.can_set_password(self.db.change_by, account)
+        if not self.auth.can_set_password(self.db.change_by, account):
+            raise PermissionDenied("Not authorized to set password")
 
         account.set_password(new_password)
         account.write_db()
 
     def promote_posix(self, account_id, primary_group_id):
         account = self._find(account_id)
-        # FIXME: What rights are needed?
+        if not self.auth.can_edit_account(self.db.change_by, account):
+            raise PermissionDenied("Not authorized to edit account")
 
         paccount = PosixUser(self.db)
         paccount.populate(
@@ -123,14 +126,17 @@ class AccountDAO(EntityDAO):
 
     def demote_posix(self, account_id):
         paccount = PosixUser(self.db)
-        # FIXME: What rights are needed?
+        if not self.auth.can_edit_account(self.db.change_by, paccount):
+            raise PermissionDenied("Not authorized to edit account")
+
 
         paccount.find(account_id)
         paccount.delete_posixuser()
 
     def delete(self, account_id):
         account = self._find(account_id)
-        self.auth.can_delete_user(self.db.change_by, account)
+        if not self.auth.can_delete_user(self.db.change_by, account):
+            raise PermissionDenied("Not authorized to delete user")
 
         if self._is_posix(account_id):
             self.demote_posix(account_id)
@@ -138,7 +144,8 @@ class AccountDAO(EntityDAO):
         account.delete()
 
     def create(self, dto):
-        # FIXME: We need to overload can_create_user to check group or person
+        if not self.auth.can_create_account(self.db.change_by):
+            raise PermissionDenied("Not authorized to create account")
 
         account = Account(self.db)
         account.populate(
@@ -153,8 +160,10 @@ class AccountDAO(EntityDAO):
         return self._create_dto(account)
 
     def save(self, dto):
-        # FIXME: Finnes ingen can_alter_user
         account = self._find(dto.id)
+        if not self.auth.can_edit_account(self.db.change_by, account):
+            raise PermissionDenied("Not authorized to edit account")
+
         account.expire_date = dto.expire_date
 
         self._save_posix(dto)
@@ -162,19 +171,26 @@ class AccountDAO(EntityDAO):
         account.write_db()
             
     def add_affiliation(self, account_id, ou_id, affiliation_id, priority):
-        # FIXME: Finnes ingen can_add_user_affiliation
         account = self._find(account_id)
+        if not self.auth.can_edit_affiliation(self.db.change_by, account, ou_id, affiliation_id):
+            raise PermissionDenied("Not authorized to edit affiliation of account")
+
         account.set_account_type(ou_id, affiliation_id, priority)
         account.write_db()
 
     def remove_affiliation(self, account_id, ou_id, affiliation_id):
-        # FIXME: Finnes ingen can_remove _user_affiliation
         account = self._find(account_id)
+        if not self.auth.can_edit_affiliation(self.db.change_by, account, ou_id, affiliation_id):
+            raise PermissionDenied("Not authorized to edit affiliation of account")
+
         account.del_account_type(ou_id, affiliation_id)
         account.write_db()
 
     def set_home(self, account_id, spread_id, disk_id=-1, path=-1):
         account = self._find(account_id)
+        if not self.auth.can_edit_homedir(self.db.change_by, account, spread_id):
+            raise PermissionDenied("Not authorized to edit homedir of account")
+
         kw = {
             'status': self.constants.home_status_not_created
         }
@@ -196,6 +212,9 @@ class AccountDAO(EntityDAO):
 
     def remove_home(self, account_id, spread_id):
         account = self._find(account_id)
+        if not self.auth.can_edit_homedir(self.db.change_by, account, spread_id):
+            raise PermissionDenied("Not authorized to edit homedir of account")
+
         account.clear_home(spread_id)
         account.write_db()
 

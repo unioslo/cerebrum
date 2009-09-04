@@ -2,6 +2,7 @@ import cerebrum_path
 from mx import DateTime
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 Database = Utils.Factory.get("Database")
 Group = Utils.Factory.get("Group")
@@ -61,31 +62,39 @@ class GroupDAO(EntityDAO):
 
     def add_member(self, member_id, group_id):
         group = self._find(group_id)
-        self.auth.can_alter_group(self.db.change_by, group)
+        if not self.auth.can_alter_group(self.db.change_by, group):
+            raise PermissionDenied("No access to group")
+
         if not group.has_member(member_id):
             group.add_member(member_id)
 
     def remove_member(self, group_id, member_id):
         group = self._find(group_id)
-        self.auth.can_alter_group(self.db.change_by, group)
+        if not self.auth.can_alter_group(self.db.change_by, group):
+            raise PermissionDenied("No access to group")
         if group.has_member(member_id):
             group.remove_member(member_id)
 
     def promote_posix(self, id):
         group = self._find(id)
-        self.auth.can_alter_group(self.db.change_by, group)
+        if not self.auth.can_alter_group(self.db.change_by, group):
+            raise PermissionDenied("No access to group")
+
         pgroup = PosixGroup(self.db)
         pgroup.populate(parent=group)
         pgroup.write_db()
 
     def demote_posix(self, id):
         pgroup = self._get_posix_group(id)
-        self.auth.can_alter_group(self.db.change_by, pgroup)
+        if not self.auth.can_alter_group(self.db.change_by, pgroup):
+            raise PermissionDenied("No access to group")
+
         pgroup.delete()
 
     def save(self, dto):
         group = self._find(dto.id)
-        self.auth.can_alter_group(self.db.change_by, group)
+        if not self.auth.can_alter_group(self.db.change_by, group):
+            raise PermissionDenied("No access to group")
 
         group.group_name = dto.name
         group.description = dto.description
@@ -97,7 +106,8 @@ class GroupDAO(EntityDAO):
 
     def delete(self, group_id):
         group = self._find(group_id)
-        self.auth.can_delete_group(self.db.change_by, group)
+        if not self.auth.can_delete_group(self.db.change_by, group):
+            raise PermissionDenied("No access to group")
 
         if self._is_posix(group_id):
             self.demote_posix(group_id)
@@ -105,7 +115,8 @@ class GroupDAO(EntityDAO):
         group.delete()
 
     def add(self, dto):
-        self.auth.can_create_group(self.db.change_by)
+        if not self.auth.can_create_group(self.db.change_by):
+            raise PermissionDenied("No access to group")
 
         group = Group(self.db)
         group.populate(
