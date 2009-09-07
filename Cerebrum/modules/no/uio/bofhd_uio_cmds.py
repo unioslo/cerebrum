@@ -2828,7 +2828,7 @@ Addresses and settings:
         et = Email.EmailTarget(self.db)
         epat = Email.EmailPrimaryAddressTarget(self.db)
         list_id = ea.entity_id
-        deleted_EA = self.email_info(operator, listname)
+        deleted_EA = self.email_info(op, listname)
         for interface in self._interface2addrs.keys():
             alias = self._mailman_pipe % {'interface': interface,
                                           'listname': listname}
