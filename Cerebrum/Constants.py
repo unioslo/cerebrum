@@ -37,7 +37,7 @@ class CodeValuePresentError(RuntimeError):
 
 Database_class = Factory.get("Database")
 class SynchronizedDatabase(Database_class):
-    _db_proxy_lock = threading.Lock()
+    _db_proxy_lock = threading.RLock()
 
     def __init__(self, *args, **kwargs):
         super(SynchronizedDatabase, self).__init__(*args, **kwargs)
