@@ -30,12 +30,13 @@ import cerebrum_path
 from Cerebrum.Errors import NotFoundError
 
 import TestData
-from WriteTestCase import WriteTestCase
+from CerebrumTestCase import CerebrumTestCase
 
-class GroupDAOTest(unittest.TestCase):
+class GroupDAOTest(CerebrumTestCase):
     """We test against the test-database and we use 4 fabricated groups with 4 fabricated members that have 1 fabricated owners."""
     def setUp(self):
-        self.dao = GroupDAO()
+        super(GroupDAOTest, self).setUp()
+        self.dao = GroupDAO(self.db)
 
     def test_get_entity(self):
         group = self.dao.get_entity(TestData.large_group_id)
@@ -145,7 +146,7 @@ class GroupDAOTest(unittest.TestCase):
     def assertValidDate(self, date):
         self.assert_(date is None or isinstance(date, DateTimeType))
 
-class GroupDaoWriteTest(WriteTestCase):
+class GroupDaoWriteTest(CerebrumTestCase):
     def setUp(self):
         super(GroupDaoWriteTest, self).setUp()
         self.dao = GroupDAO(self.db)

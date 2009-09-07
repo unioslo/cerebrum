@@ -21,10 +21,12 @@
 
 import unittest
 from lib.data.OuDAO import OuDAO
+from CerebrumTestCase import CerebrumTestCase
 
-class OuDAOTest(unittest.TestCase):
+class OuDAOTest(CerebrumTestCase):
     def setUp(self):
-        self.dao = OuDAO()
+        super(OuDAOTest, self).setUp()
+        self.dao = OuDAO(self.db)
     
     def test_that_get_tree_in_kjernen_gives_8_roots(self):
         roots = self.dao.get_tree("Kjernen")

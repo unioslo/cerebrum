@@ -22,8 +22,9 @@
 import unittest
 from lib.data.GroupDAO import GroupDAO
 import TestData
+from CerebrumTestCase import CerebrumTestCase
 
-class SlowTest(unittest.TestCase):
+class SlowTest(CerebrumTestCase):
     def test_get_large_group_by_id(self):
         """This was a bootstrap test, but is now used to get a feel for
         the performance of the DAOs."""

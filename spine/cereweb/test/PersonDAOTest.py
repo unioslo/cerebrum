@@ -27,16 +27,17 @@ import cerebrum_path
 from Cerebrum import Utils
 from lib.data.DTO import DTO
 from lib.data.PersonDAO import PersonDAO
-from WriteTestCase import WriteTestCase
 from Cerebrum.Errors import NotFoundError
+from CerebrumTestCase import CerebrumTestCase
 
 import TestData
 
-class PersonDAOTest(unittest.TestCase):
+class PersonDAOTest(CerebrumTestCase):
     """We test against the test-database and we use the fabricated person Test Testesen to verify that we get the expected data."""
 
     def setUp(self):
-        self.dao = PersonDAO()
+        super(PersonDAOTest, self).setUp()
+        self.dao = PersonDAO(self.db)
 
     def test_person_entity_has_correct_data(self):
         entity = self.dao.get_entity(TestData.test_testesen_id)
@@ -96,7 +97,7 @@ class PersonDAOTest(unittest.TestCase):
         self.assertEqual("Test Testesen", control.value)
 
     def test_that_person_has_list_of_external_ids(self):
-        person = self.dao.get(TestData.test_testesen_id, True, True)
+        person = self.dao.get(TestData.test_testesen_id, True)
         self.assert_(person.external_ids)
 
         control = (i for i in person.external_ids if i.variant.name == "NO_BIRTHNO").next()
@@ -120,7 +121,7 @@ class PersonDAOTest(unittest.TestCase):
         aff = (x for x in affiliations if x.name == "ALUMNI/aktiv").next()
         self.assertEquals(3, aff.ou.id)
 
-class PersonDAOWriteTest(WriteTestCase):
+class PersonDAOWriteTest(CerebrumTestCase):
     def setUp(self):
         super(PersonDAOWriteTest, self).setUp()
         self.dao = PersonDAO(self.db)

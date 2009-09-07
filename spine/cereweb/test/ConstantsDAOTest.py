@@ -25,12 +25,14 @@ import cerebrum_path
 from Cerebrum import Utils
 from lib.data.ConstantsDAO import ConstantsDAO
 Constants = Utils.Factory.get("Constants")
+from CerebrumTestCase import CerebrumTestCase
 
-class ConstantsDAOTest(unittest.TestCase):
+class ConstantsDAOTest(CerebrumTestCase):
     """We test against the test-database and we use the fabricated person Test Testesen to verify that we get the expected data."""
 
     def setUp(self):
-        self.dao = ConstantsDAO()
+        super(ConstantsDAOTest, self).setUp()
+        self.dao = ConstantsDAO(self.db)
 
     def test_get_group_visibilities(self):
         visibilities = self.dao.get_group_visibilities()

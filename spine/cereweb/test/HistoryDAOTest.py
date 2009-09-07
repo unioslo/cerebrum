@@ -23,11 +23,16 @@ import unittest
 from mx.DateTime import DateTime
 import cerebrum_path
 from lib.data.HistoryDAO import HistoryDAO
+from CerebrumTestCase import CerebrumTestCase
 
 group_id = 149
-class HistoryDAOTest(unittest.TestCase):
+class HistoryDAOTest(CerebrumTestCase):
+    def setUp(self):
+        super(HistoryDAOTest, self).setUp()
+        self.dao = HistoryDAO(self.db)
+
     def test_get_entity_history(self):
-        events = HistoryDAO().get_entity_history(group_id)
+        events = self.dao.get_entity_history(group_id)
 
         count = 0
         for event in events:

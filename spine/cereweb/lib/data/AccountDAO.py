@@ -145,8 +145,21 @@ class AccountDAO(EntityDAO):
 
         account.delete()
 
+    def _get_owner(self, dto):
+        if dto.owner.type_id == self.constants.entity_person:
+            owner = Person(self.db)
+        elif dto.owner.type_id == self.constants.entity_group:
+            owner = Group(self.db)
+        else:
+            raise ProgrammingError(
+                "Can't get owner of unknown type (%s)" % dto.owner.type_id)
+
+        owner.find(dto.owner.id)
+        return owner
+
     def create(self, dto):
-        if not self.auth.can_create_account(self.db.change_by):
+        owner = self._get_owner(dto)
+        if not self.auth.can_create_account(self.db.change_by, owner):
             raise PermissionDenied("Not authorized to create account")
 
         account = Account(self.db)

@@ -21,10 +21,12 @@
 
 import unittest
 from lib.data.DiskDAO import DiskDAO
+from CerebrumTestCase import CerebrumTestCase
 
-class DiskDAOTest(unittest.TestCase):
+class DiskDAOTest(CerebrumTestCase):
     def setUp(self):
-        self.dao = DiskDAO()
+        super(DiskDAOTest, self).setUp()
+        self.dao = DiskDAO(self.db)
 
     def test_get_disks(self):
         disks = DiskDAO().get_disks()

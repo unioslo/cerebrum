@@ -35,14 +35,15 @@ from lib.data.DTO import DTO
 from lib.data.EntityDAO import EntityDAO
 
 import TestData
-from WriteTestCase import WriteTestCase
+from CerebrumTestCase import CerebrumTestCase
 
-class AccountDAOTest(unittest.TestCase):
+class AccountDAOTest(CerebrumTestCase):
     """We test against the test-database and we use account 173870 as our testaccount.
     This is the ad-account in the NTNU test database."""
 
     def setUp(self):
-        self.dao = AccountDAO()
+        super(AccountDAOTest, self).setUp()
+        self.dao = AccountDAO(self.db)
 
     def test_noposix_account_has_correct_data(self):
         entity = self.dao.get(TestData.nonposix_account_id, include_extra=False)
@@ -249,7 +250,7 @@ class AccountDAOTest(unittest.TestCase):
         names = self.dao.suggest_usernames(group)
         self.assert_(len(names) >= 15)
 
-class AccountDAOWriteTest(WriteTestCase):
+class AccountDAOWriteTest(CerebrumTestCase):
     def setUp(self):
         super(AccountDAOWriteTest, self).setUp()
         self.dao = AccountDAO(self.db)

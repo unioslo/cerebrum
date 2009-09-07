@@ -20,12 +20,17 @@
 #
 
 import unittest
+from CerebrumTestCase import CerebrumTestCase
 from lib.data.HostDAO import HostDAO
 
-class HostDAOTest(unittest.TestCase):
+class HostDAOTest(CerebrumTestCase):
+    def setUp(self):
+        super(HostDAOTest, self).setUp()
+        self.dao = HostDAO(self.db)
+
     def test_get_email_hosts(self):
         count = 0
-        hosts = HostDAO().get_email_servers()
+        hosts = self.dao.get_email_servers()
         for host in hosts:
             count += 1
             self.assert_(host.id)
@@ -35,7 +40,7 @@ class HostDAOTest(unittest.TestCase):
     def test_get_email_targets(self):
         count = 0
         entity_id = 173691
-        targets = HostDAO().get_email_targets(entity_id)
+        targets = self.dao.get_email_targets(entity_id)
         for target in targets:
             count += 1
             self.assert_(target.id == 217124)
@@ -46,7 +51,7 @@ class HostDAOTest(unittest.TestCase):
 
     def test_get_email_targets_not_found_gives_empty_list(self):
         entity_id = -1
-        targets = HostDAO().get_email_targets(entity_id)
+        targets = self.dao.get_email_targets(entity_id)
         self.assert_(len(targets) == 0)
 
 if __name__ == '__main__':

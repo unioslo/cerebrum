@@ -2,6 +2,7 @@ import cerebrum_path
 from mx import DateTime
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")
@@ -91,29 +92,34 @@ class PersonDAO(EntityDAO):
         person.delete()
         return dto
 
-    def add_affiliation_status(self, person_id, ou, status):
+    def add_affiliation_status(self, person_id, ou_id, status):
         person = self._find(person_id)
-        if not self.auth.can_edit_affiliation(self.db.change_by, account, ou_id, affiliation_id):
+        status = self.constants.PersonAffStatus(status)
+
+        if not self.auth.can_edit_affiliation(
+                self.db.change_by, person, ou_id, status.affiliation):
             raise PermissionDenied("Not authorized to edit affiliations")
 
         source = self.constants.AuthoritativeSystem("Manual")
-        status = self.constants.PersonAffStatus(status)
-        person.add_affiliation(ou, status.affiliation, source, status)
+        person.add_affiliation(ou_id, status.affiliation, source, status)
         person.write_db()
 
-    def remove_affiliation_status(self, person_id, ou, status, ss):
+    def remove_affiliation_status(self, person_id, ou_id, status_id, ss):
         person = self._find(person_id)
-        if not self.auth.can_edit_affiliation(self.db.change_by, account, ou_id, affiliation_id):
+        status = self.constants.PersonAffStatus(status_id)
+
+        if not self.auth.can_edit_affiliation(
+                self.db.change_by, person, ou_id, status.affiliation):
             raise PermissionDenied("Not authorized to edit affiliations")
 
         source = self.constants.AuthoritativeSystem(int(ss))
-        status = self.constants.PersonAffStatus(status)
-        person.delete_affiliation(ou, status.affiliation, source)
+        person.delete_affiliation(ou_id, status.affiliation, source)
         person.write_db()
 
     def add_birth_no(self, person_id, birth_no):
+        person = self._find(person_id)
         external_id_type = "NO_BIRTHNO"
-        if not self.auth.can_edit_external_id(self.db.change_by, person_id, external_id_type):
+        if not self.auth.can_edit_external_id(self.db.change_by, person, external_id_type):
             raise PermissionDenied("Not authorized to edit birth number")
 
         self.add_external_id(person_id, birth_no, "NO_BIRTHNO")

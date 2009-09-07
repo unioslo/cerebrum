@@ -27,7 +27,7 @@ from Cerebrum.Errors import NotFoundError
 
 Database = Utils.Factory.get("Database")
 
-class WriteTestCase(unittest.TestCase):
+class CerebrumTestCase(unittest.TestCase):
     def setUp(self):
         self.db = Database()
         self.db.change_program = "unit test"
