@@ -293,10 +293,22 @@ class EmailDomain(Entity_class):
 
 
     def _validate_domain_name(self, domainname):
+        """Utility method for checking that the given e-mail
+        domainname adheres to current standards.
+
+        @param domainname:
+          Domainname that is to be checked.
+        @type domainname:
+          String
+
+        @raise AttributeError:
+          If domainname fails any of the checks.
+      
+        """
         uber_hyphen = re.compile(r'--+')
         valid_chars = re.compile(r'^[a-zA-Z\-0-9]+$')
 
-        for element in domainname[:-1].split("."):
+        for element in domainname.split("."):
             if element.startswith("-") or element.endswith("-"):
                 raise AttributeError, ("Illegal name: '%s';" % domainname +
                                        " Element cannot start or end with '-'")
