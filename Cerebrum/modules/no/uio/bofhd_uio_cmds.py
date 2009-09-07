@@ -2041,16 +2041,20 @@ class BofhdExtension(object):
         """Create e-mail domain."""
         self.ba.can_email_archive_delete(operator.get_entity_id())
         ed = Email.EmailDomain(self.db)
+        # Domainnames need to be lowercase, both when creating as well
+        # as looking for them.
+        domainname = domainname.lower()
         try:
             ed.find_by_domain(domainname)
             raise CerebrumError, "%s: e-mail domain already exists" % domainname
         except Errors.NotFoundError:
             pass
-        if not re.match(r'[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+', domainname):
-            raise CerebrumError, "%s: illegal e-mail domain name" % domainname
         if len(desc) < 3:
             raise CerebrumError, "Please supply a better description"
-        ed.populate(domainname, desc)
+        try:
+            ed.populate(domainname, desc)
+        except AttributeError, ae:
+            raise CerebrumError(str(ae))
         ed.write_db()
         return "OK, domain '%s' created" % domainname
 

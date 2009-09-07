@@ -271,6 +271,8 @@ class EmailConstants(Constants.Constants):
 
 Entity_class = Utils.Factory.get("Entity")
 
+
+
 class EmailDomain(Entity_class):
     """Interface to the email domains your MTA should consider as 'local'.
 
@@ -289,6 +291,23 @@ class EmailDomain(Entity_class):
         self.clear_class(EmailDomain)
         self.__updated = []
 
+
+    def _validate_domain_name(self, domainname):
+        uber_hyphen = re.compile(r'--+')
+        valid_chars = re.compile(r'^[a-zA-Z\-0-9]+$')
+
+        for element in domainname[:-1].split("."):
+            if element.startswith("-") or element.endswith("-"):
+                raise AttributeError, ("Illegal name: '%s';" % domainname +
+                                       " Element cannot start or end with '-'")
+            if uber_hyphen.search(element):
+                raise AttributeError, ("Illegal name: '%s';" % domainname +
+                                       " More than one '-' in a row")
+            if not valid_chars.search(element):
+                raise AttributeError, ("Illegal name: '%s';" % domainname +
+                                       " Invalid character(s)")
+
+        
     def populate(self, domain, description, parent=None):
         # conv
         if parent is not None:
@@ -300,8 +319,11 @@ class EmailDomain(Entity_class):
                 raise RuntimeError, "populate() called multiple times."
         except AttributeError:
             self.__in_db = False
+            
+        self._validate_domain_name(domain)
         self.email_domain_name = domain
         self.email_domain_description = description
+        
 
     def write_db(self):
         self.__super.write_db()
