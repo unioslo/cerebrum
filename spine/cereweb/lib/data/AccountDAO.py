@@ -30,6 +30,8 @@ class AccountDAO(EntityDAO):
 
     def get(self, id, include_extra=True):
         account = self._find(id)
+        if not self.auth.can_read_account(self.db.change_by, account):
+            raise PermissionDenied("Not authorized to view account")
 
         return self._create_dto(account, include_extra)
 
@@ -135,8 +137,8 @@ class AccountDAO(EntityDAO):
 
     def delete(self, account_id):
         account = self._find(account_id)
-        if not self.auth.can_delete_user(self.db.change_by, account):
-            raise PermissionDenied("Not authorized to delete user")
+        if not self.auth.can_delete_account(self.db.change_by, account):
+            raise PermissionDenied("Not authorized to delete account")
 
         if self._is_posix(account_id):
             self.demote_posix(account_id)

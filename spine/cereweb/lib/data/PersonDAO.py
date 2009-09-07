@@ -21,10 +21,12 @@ class PersonDAO(EntityDAO):
     def __init__(self, db=None):
         super(PersonDAO, self).__init__(db, Person)
 
-    def get(self, id, include_extra=False, include_birth_no=False):
+    def get(self, id, include_extra=False):
         person = self._find(id)
+        if not self.auth.can_read_person(self.db.change_by, person):
+            raise PermissionDenied("Not authorized to view person")
 
-        return self._create_dto(person, include_extra, include_birth_no)
+        return self._create_dto(person, include_extra)
 
     def search(self, name):
         name = name.rstrip("*") + '*'
@@ -57,6 +59,9 @@ class PersonDAO(EntityDAO):
         return self._get_affiliations(person)
 
     def create(self, dto):
+        if not self.auth.can_create_person(self.db.change_by):
+            raise PermissionDenied("Not authorized to create person")
+
         entity = self.entity
         entity.clear()
         entity.populate(
@@ -76,15 +81,21 @@ class PersonDAO(EntityDAO):
         entity.write_db()
 
         dto.id = entity.entity_id
-           
+
     def delete(self, person_id):
         person = self._find(person_id)
+        if not self.auth.can_delete_person(self.db.change_by, person):
+            raise PermissionDenied("Not authorized to delete person")
+
         dto = self._create_dto(person, False)
         person.delete()
         return dto
 
     def add_affiliation_status(self, person_id, ou, status):
         person = self._find(person_id)
+        if not self.auth.can_edit_affiliation(self.db.change_by, account, ou_id, affiliation_id):
+            raise PermissionDenied("Not authorized to edit affiliations")
+
         source = self.constants.AuthoritativeSystem("Manual")
         status = self.constants.PersonAffStatus(status)
         person.add_affiliation(ou, status.affiliation, source, status)
@@ -92,16 +103,25 @@ class PersonDAO(EntityDAO):
 
     def remove_affiliation_status(self, person_id, ou, status, ss):
         person = self._find(person_id)
+        if not self.auth.can_edit_affiliation(self.db.change_by, account, ou_id, affiliation_id):
+            raise PermissionDenied("Not authorized to edit affiliations")
+
         source = self.constants.AuthoritativeSystem(int(ss))
         status = self.constants.PersonAffStatus(status)
         person.delete_affiliation(ou, status.affiliation, source)
         person.write_db()
 
     def add_birth_no(self, person_id, birth_no):
+        external_id_type = "NO_BIRTHNO"
+        if not self.auth.can_edit_external_id(self.db.change_by, person_id, external_id_type):
+            raise PermissionDenied("Not authorized to edit birth number")
+
         self.add_external_id(person_id, birth_no, "NO_BIRTHNO")
 
     def add_name(self, person_id, name_type, name):
         entity = self._find(person_id)
+        if not self.auth.can_edit_person(self.db.change_by, entity):
+            raise PermissionDenied("Not authorized to edit person")
 
         name_type = self.constants.PersonName(name_type)
 
@@ -111,14 +131,19 @@ class PersonDAO(EntityDAO):
 
     def remove_name(self, person_id, name_type, source_system):
         entity = self._find(person_id)
+        if not self.auth.can_edit_person(self.db.change_by, entity):
+            raise PermissionDenied("Not authorized to edit person")
 
         name_type = self.constants.PersonName(name_type)
         source = self.constants.AuthoritativeSystem(source_system)
 
         entity._delete_name(source, name_type)
-        
+
     def save(self, dto):
         entity = self._find(dto.id)
+        if not self.auth.can_edit_person(self.db.change_by, entity):
+            raise PermissionDenied("Not authorized to edit person")
+
         entity.gender = self.constants.Gender(dto.gender.id)
         entity.birth_date = dto.birth_date
         entity.description = dto.description
@@ -156,14 +181,14 @@ class PersonDAO(EntityDAO):
     def _get_type_id(self):
         return int(self.constants.entity_person)
 
-    def _create_dto(self, person, include_extra, include_birth_no=False):
+    def _create_dto(self, person, include_extra):
         dto = DTO()
         self._populate(dto, person)
         if include_extra:
             dto.quarantines = QuarantineDAO(self.db).create_from_entity(person)
             dto.affiliations = self._get_affiliations(person)
             dto.names = self._get_names(person)
-            dto.external_ids = self._get_external_ids(person, include_birth_no)
+            dto.external_ids = self._get_external_ids(person)
             dto.contacts = self._get_contacts(person)
             dto.addresses = self._get_addresses(person)
             dto.notes = NoteDAO(self.db).create_from_entity(person)
@@ -171,18 +196,13 @@ class PersonDAO(EntityDAO):
 
         return dto
 
-    def _get_external_ids(self, entity, include_birth_no):
+    def _get_external_ids(self, entity):
         external_ids = super(PersonDAO, self)._get_external_ids(entity)
-        if not include_birth_no:
-            return map(self._hide_birth_no, external_ids)
+        for external_id in external_ids:
+            if not self.auth.can_read_external_id(self.db.change_by, entity, external_id.variant.name):
+                external_id.value = "[No access]"
 
-        # FIXME: Check if user is allowed to request this piece of information.
         return external_ids
-
-    def _hide_birth_no(self, external_id):
-        if external_id.variant.name == "NO_BIRTHNO":
-            external_id.value = "XXXXXXXXXXX"
-        return external_id
 
     def _populate(self, dto, person):
         dto.id = person.entity_id

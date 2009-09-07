@@ -235,13 +235,13 @@ class PersonDAOWriteTest(WriteTestCase):
 
     def test_that_we_can_add_birth_no(self):
         dto = self._create_person()
-        person = self.dao.get(dto.id, include_extra=True, include_birth_no=True)
+        person = self.dao.get(dto.id, include_extra=True)
 
         self.assertEqual(0, len(person.external_ids))
 
         self.dao.add_birth_no(person.id, "10107936934")
 
-        result = self.dao.get(person.id, include_extra=True, include_birth_no=True)
+        result = self.dao.get(person.id, include_extra=True)
         self.assertEqual(1, len(result.external_ids))
         extid = result.external_ids[0]
 

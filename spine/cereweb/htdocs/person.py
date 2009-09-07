@@ -85,7 +85,7 @@ def view(id, **vargs):
 
     page = PersonViewTemplate()
     page.viewBirthNo = vargs.get('birthno') and True or False
-    page.person = PersonDAO().get(id, include_extra=True, include_birth_no=page.viewBirthNo)
+    page.person = PersonDAO().get(id, include_extra=True)
     page.person.accounts = PersonDAO().get_accounts(id)
     page.person.history = HistoryDAO().get_entity_history_tail(id)
     page.affiliation_types = ConstantsDAO().get_affiliation_statuses()

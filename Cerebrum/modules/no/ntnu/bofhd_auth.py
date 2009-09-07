@@ -35,19 +35,40 @@ class BofhdAuth(auth.BofhdAuth):
     def can_set_password(self, operator, target):
         return True
 
+    def can_read_account(self, operator, account):
+        return True
+
     def can_create_account(self, operator):
         return True
 
     def can_edit_account(self, operator, target):
         return True
 
-    def can_delete_user(self, operator, target):
+    def can_delete_account(self, operator, target):
         return True
 
     def can_edit_affiliation(self, operator, target, ou_id, affiliation_id):
         return True
 
+    def can_edit_external_id(self, operator, target, external_id_type):
+        return True
+
+    def can_read_external_id(self, operator, target, external_id_type):
+        return True
+
     def can_edit_homedir(self, operator, target, spread_id):
+        return True
+
+    def can_read_person(self, operator, person):
+        return True
+
+    def can_edit_person(self, operator, person):
+        return True
+
+    def can_create_person(self, operator):
+        return True
+
+    def can_delete_person(self, operator, person):
         return True
 
     def can_haz_cheezeburger(self, lol, cat):
