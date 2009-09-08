@@ -2,18 +2,19 @@ import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
 
 Database = Utils.Factory.get("Database")
 
 from lib.data.DTO import DTO
-from lib.data.EntityDAO import EntityDAO
+from lib.data.ConstantsDAO import ConstantsDAO
 
 class ExternalIdDAO(object):
     def __init__(self, db=None):
         if db is None:
             db = Database()
         self.db = db
-        self.dao = EntityDAO(self.db)
+        self.auth = BofhdAuth(self.db)
 
     def create_from_entity(self, entity):
         external_ids = {}
