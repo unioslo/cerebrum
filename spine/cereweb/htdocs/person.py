@@ -82,16 +82,17 @@ index = search
 @session_required_decorator
 def view(id, **vargs):
     """Creates a page with a view of the person given by id."""
+    db = get_database()
 
     page = PersonViewTemplate()
     page.viewBirthNo = vargs.get('birthno') and True or False
-    page.person = PersonDAO().get(id, include_extra=True)
-    page.person.accounts = PersonDAO().get_accounts(id)
-    page.person.history = HistoryDAO().get_entity_history_tail(id)
-    page.affiliation_types = ConstantsDAO().get_affiliation_statuses()
-    page.ou_tree = OuDAO().get_tree("Kjernen")
-    page.id_types = ConstantsDAO().get_id_types()
-    page.name_types = ConstantsDAO().get_name_types()
+    page.person = PersonDAO(db).get(id, include_extra=True)
+    page.person.accounts = PersonDAO(db).get_accounts(id)
+    page.person.history = HistoryDAO(db).get_entity_history_tail(id)
+    page.affiliation_types = ConstantsDAO(db).get_affiliation_statuses()
+    page.ou_tree = OuDAO(db).get_tree("Kjernen")
+    page.id_types = ConstantsDAO(db).get_id_types()
+    page.name_types = ConstantsDAO(db).get_name_types()
     return page.respond()
 view.exposed = True
 
@@ -110,7 +111,8 @@ def edit_form(form, message=None):
 @session_required_decorator
 def edit(id, **vargs):
     """Creates a page with the form for editing a person."""
-    person = PersonDAO().get(id)
+    db = get_database()
+    person = PersonDAO(db).get(id)
     get_date = lambda x: x and strftime(x, '%Y-%m-%d') or ''
     values = {
         'id': id,
@@ -345,7 +347,8 @@ def leave_group(arg):
     return _("Removed %s from group %s") % (member.name, group.name)
 
 def get_primary_account(owner_id):
-    accounts = PersonDAO().get_accounts(owner_id)
+    db = get_database()
+    accounts = PersonDAO(db).get_accounts(owner_id)
     if not accounts:
         raise NotFoundError("primary account")
 
@@ -367,7 +370,8 @@ def get_names(person):
     return firstname, lastname
 
 def get_email_address(account):
-    targets = HostDAO().get_email_targets(account.id)
+    db = get_database()
+    targets = HostDAO(db).get_email_targets(account.id)
     for target in targets:
         return target.address
     return ""
@@ -379,7 +383,8 @@ def get_affiliation(person):
     return None
 
 def get_faculty(ou):
-    faculty = OuDAO().get_parent(ou.id, 'Kjernen')
+    db = get_database()
+    faculty = OuDAO(db).get_parent(ou.id, 'Kjernen')
     return faculty and from_spine_decode(faculty.name) or ""
 
 def change_password(account):
@@ -401,7 +406,8 @@ def print_contract(id, lang):
         queue_message(msg, title="Could not print contract", error=True)
         redirect_entity(id)
 
-    person = PersonDAO().get(id, include_extra=True)
+    db = get_database()
+    person = PersonDAO(db).get(id, include_extra=True)
     username = from_spine_decode(prim_account.name)
     firstname, lastname = get_names(person)
     email_address = get_email_address(prim_account)

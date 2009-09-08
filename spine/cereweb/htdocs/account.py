@@ -80,8 +80,9 @@ def create(**kwargs):
     if owner_id is None:
         return fail_to_referer(_("Please create an account through a person or group."))
 
+    db = get_database()
     try:
-        owner = EntityDAO().get(owner_id)
+        owner = EntityDAO(db).get(owner_id)
     except NotFoundError, e:
         return fail_to_referer(_("Please create an account through a person or group."))
 
@@ -95,7 +96,6 @@ def create(**kwargs):
         return view_form(form, form.get_error_message())
         
     try:
-        db = get_database()
         account = make(db, owner, **kwargs)
         db.commit()
     except CreationFailedError, e:
@@ -191,16 +191,17 @@ def fail(url, message):
 
 @session_required_decorator
 def view(id, **kwargs):
+    db = get_database()
     page = AccountViewTemplate()
-    page.account = AccountDAO().get(id, include_extra=True)
-    page.account.history = HistoryDAO().get_entity_history_tail(id)
-    page.affiliations = PersonDAO().get_affiliations(page.account.owner.id)
-    page.shells = ConstantsDAO().get_shells()
-    page.disks = DiskDAO().get_disks()
-    page.email_target_types = ConstantsDAO().get_email_target_types()
-    page.email_servers = HostDAO().get_email_servers()
-    page.targets = HostDAO().get_email_targets(id)
-    page.spreads = ConstantsDAO().get_user_spreads()
+    page.account = AccountDAO(db).get(id, include_extra=True)
+    page.account.history = HistoryDAO(db).get_entity_history_tail(id)
+    page.affiliations = PersonDAO(db).get_affiliations(page.account.owner.id)
+    page.shells = ConstantsDAO(db).get_shells()
+    page.disks = DiskDAO(db).get_disks()
+    page.email_target_types = ConstantsDAO(db).get_email_target_types()
+    page.email_servers = HostDAO(db).get_email_servers()
+    page.targets = HostDAO(db).get_email_targets(id)
+    page.spreads = ConstantsDAO(db).get_user_spreads()
 
     return page.respond()
 view.exposed = True
@@ -250,7 +251,8 @@ def clean_primary_group(group):
     return int(group)
 
 def get_primary_group_id(account_id):
-    posix_groups = AccountDAO().get_posix_groups(account_id)
+    db = get_database()
+    posix_groups = AccountDAO(db).get_posix_groups(account_id)
     for group in posix_groups: return group.id
     return None
 

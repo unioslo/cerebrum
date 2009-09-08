@@ -94,8 +94,9 @@ remove_spread.exposed = True
 @session_required_decorator
 def full_historylog(id):
     """Creates a page with the full historylog for an entity."""
-    entity = EntityDAO().get(id)
-    entity.history = HistoryDAO().get_entity_history(id)
+    db = get_database()
+    entity = EntityDAO(db).get(id)
+    entity.history = HistoryDAO(db).get_entity_history(id)
 
     page = NewEntityViewTemplate()
     page.links = ()
@@ -108,9 +109,10 @@ full_historylog.exposed = True
 @session_required_decorator
 def global_historylog(n=50, offset=0):
     """Creates a page from the global historylog."""
+    db = get_database()
     dto = DTO()
     dto.id = None
-    dto.history = HistoryDAO().get_history(n, offset)
+    dto.history = HistoryDAO(db).get_history(n, offset)
 
     page = NewEntityViewTemplate()
     page.links = ()

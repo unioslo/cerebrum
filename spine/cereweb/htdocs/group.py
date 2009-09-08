@@ -74,15 +74,16 @@ index = search
 @session_required_decorator
 def view(id, **vargs):
     """Creates a page with the view of the group with the given id."""
+    db = get_database()
     page = GroupViewTemplate()
-    page.group = GroupDAO().get(id, include_extra=True)
+    page.group = GroupDAO(db).get(id, include_extra=True)
     page.group.traits = []
-    page.group.history = HistoryDAO().get_entity_history_tail(id)
-    page.visibilities = ConstantsDAO().get_group_visibilities()
-    page.spreads = ConstantsDAO().get_group_spreads()
-    page.email_target_types = ConstantsDAO().get_email_target_types()
-    page.email_servers = HostDAO().get_email_servers()
-    page.targets = HostDAO().get_email_targets(id)
+    page.group.history = HistoryDAO(db).get_entity_history_tail(id)
+    page.visibilities = ConstantsDAO(db).get_group_visibilities()
+    page.spreads = ConstantsDAO(db).get_group_spreads()
+    page.email_target_types = ConstantsDAO(db).get_email_target_types()
+    page.email_servers = HostDAO(db).get_email_servers()
+    page.targets = HostDAO(db).get_email_targets(id)
     
     return page.respond()
 view.exposed = True
