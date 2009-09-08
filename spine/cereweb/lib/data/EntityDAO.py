@@ -51,37 +51,46 @@ class EntityDAO(object):
         return True
 
     def add_external_id(self, entity_id, external_id, external_id_type):
+        entity = self._find(entity_id)
+        if not self.auth.can_edit_external_id(self.db.change_by, entity, external_id_type):
+            raise PermissionDenied("Not authorized to edit external id of entity (%s)" % entity_id)
+
         source = self.constants.AuthoritativeSystem("Manual")
         id_type = self.constants.EntityExternalId(external_id_type)
 
-        entity = self._find(entity_id)
         entity.affect_external_id(source, id_type)
         entity.populate_external_id(source, id_type, external_id)
         entity.write_db()
 
     def remove_external_id(self, entity_id, external_id_type):
+        entity = self._find(entity_id)
+        if not self.auth.can_edit_external_id(self.db.change_by, entity, external_id_type):
+            raise PermissionDenied("Not authorized to edit external id of entity (%s)" % entity_id)
+
         source = self.constants.AuthoritativeSystem("Manual")
         id_type = self.constants.EntityExternalId(external_id_type)
 
-        entity = self._find(entity_id)
         entity._delete_external_id(source, id_type)
 
     def add_spread(self, entity_id, spread):
+        entity = self._find(entity_id)
+        if not self.auth.can_edit_spread(self.db.change_by, entity, spread):
+            raise PermissionDenied("Not authorized to edit spread (%s) of entity (%s)" % (spread, entity_id))
+
         spread_type = self.constants.Spread(spread)
 
-        entity = self._find(entity_id)
         entity.add_spread(spread_type)
         entity.write_db()
 
     def remove_spread(self, entity_id, spread):
+        entity = self._find(entity_id)
+        if not self.auth.can_edit_external_id(self.db.change_by, entity, spread):
+            raise PermissionDenied("Not authorized to edit spread (%s) of entity (%s)" % (spread, entity_id))
+
         spread_type = self.constants.Spread(spread)
 
-        entity = self._find(entity_id)
         entity.delete_spread(spread_type)
         entity.write_db()
-
-    def suggest_usernames(self, entity_id):
-        """FIXME: Where should I be?"""
 
     def _get_name(self, entity):
         return "Unknown"
@@ -166,9 +175,15 @@ class EntityDAO(object):
 
         for external_id in entity.list_external_ids(entity_id=entity.entity_id):
             key = "%s:%s" % (external_id.id_type, external_id.external_id)
+
+            if self.auth.can_read_external_id(self.db.change_by, entity, external_id.id_type):
+                value = external_id.external_id
+            else:
+                value = "[No access]"
+
             if not key in external_ids:
                 dto = DTO()
-                dto.value = external_id.external_id
+                dto.value = value
                 dto.variant = ConstantsDAO(self.db).get_external_id_type(external_id.id_type)
                 dto.source_systems = []
                 external_ids[key] = dto
@@ -177,6 +192,7 @@ class EntityDAO(object):
             source_system = ConstantsDAO(self.db).get_source_system(external_id.source_system)
             if not source_system in dto.source_systems:
                 dto.source_systems.append(source_system)
+
         return external_ids.values()
 
     def _get_spreads(self, entity):

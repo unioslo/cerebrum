@@ -202,14 +202,6 @@ class PersonDAO(EntityDAO):
 
         return dto
 
-    def _get_external_ids(self, entity):
-        external_ids = super(PersonDAO, self)._get_external_ids(entity)
-        for external_id in external_ids:
-            if not self.auth.can_read_external_id(self.db.change_by, entity, external_id.variant.name):
-                external_id.value = "[No access]"
-
-        return external_ids
-
     def _populate(self, dto, person):
         dto.id = person.entity_id
         dto.name = self._get_name(person)
