@@ -421,6 +421,16 @@ class Subnet(Entity):
         except NotFoundError, nfe:
             raise SubnetError("Unable to find subnet identified by '%s'" % identifier)
 
+        # With some DB-interfaces (e.g. psycopg 1), DB-booleans may be
+        # returned as ints; make sure that dns_delegated truly is a
+        # boolean. This should probably be handled more generally
+        # than just here, but this is currently the only place
+        # DB-booleans are in use.
+        if self.dns_delegated:
+            self.dns_delegated = True
+        else:
+            self.dns_delegated = False
+
         self.__in_db = True
         self.__updated = []
 
