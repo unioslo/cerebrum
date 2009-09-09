@@ -763,7 +763,7 @@ class BofhdExtension(object):
             try:
                 s.check_reserved_addresses_in_use()
             except SubnetError, se:
-                in_use = "\nFYI: %s" % se.message
+                in_use = "\nFYI: %s" % str(se)
 
         s.write_db(perform_checks=False)
         subnet_id = "%s/%s" % (s.subnet_ip, s.subnet_mask)
