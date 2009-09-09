@@ -1,6 +1,70 @@
 #!/usr/bin/env python
 
+"""
+The op_sets dictionary contains operation sets with the operation set name as key and a list of tuples as value.
+
+The tuples are (op_code, op_attr) where op_attr can be None.
+"""
 op_sets = {
+    'cmodify_itea': [
+        ('spread_edit', 'user@ansatt'),
+        ('spread_edit', 'user@stud'),
+        ('spread_edit', 'group@ntnu'),
+        ('spread_edit', 'user@ntnu'),
+    ],
+    
+    'cmodify_idi': [
+        ('spread_edit', 'user@idi'),
+    ],
+    
+    'cmodify_user': [
+        ('account_delete', None),
+        ('account_edit', None),
+        ('address_edit', None),
+        ('affiliation_edit', None),
+        ('contact_edit', None),
+        ('external_id_edit', None),
+        ('group_delete', None),
+        ('group_edit', None),
+        ('homedir_edit', None),
+        ('note_edit', None),
+        ('person_delete', None),
+        ('person_edit', None),
+        ('quarantine_edit', "remote"),
+        ('quarantine_edit', "sluttet"),
+        ('quarantine_edit', "svakt_passord"),
+    ],
+    'ccreate_user': [
+        ('account_create', None),
+        ('group_create', None),
+        ('person_create', None),
+    ],
+    'cadmin_client': [
+        ('group_read', None),
+        ('person_read', None),
+        ('account_read', None),
+        ('note_read', None),
+        ('external_id_read', None),
+    ],
+
+    'cabuse': [
+        ('quarantine_edit', "sperret"),
+    ],
+
+    'csync_stud': [
+        ('syncread_account', None),
+        ('syncread_group', None),
+        ('spread_edit', 'user@stud'),
+        ('spread_edit', 'group@stud'),
+    ],
+
+    'csync_kerberos': [
+        ('syncread_account', None),
+        ('syncread_group', None),
+        ('spread_edit', 'user@kerberos'),
+        ('spread_edit', 'group@ntnu'),
+    ],
+    # Spine stuff, included for backwards compatibility
     'modify_itea': [
         ('Account.add_spread', 'user@ansatt'),
         ('Account.add_spread', 'user@stud'),
@@ -793,31 +857,30 @@ op_sets = {
         ],
 }
 
-# Entry syntax: (entity_type, entity_name, op_set, op_target)
-#       entity_type = 'group' | 'account'
-#       entity_name = group_name | account_name
-#       op_set as defined above
-#       op_target = (target_entity, target_id, target_value)
-#       target_entity = 'entity' | 'global'
-#
 
+"""
+op_roles = { (entity_type, entity_name, op_set, op_target), }
+entity_type = 'group' | 'account'
+entity_name = group_name | account_name
+op_set = name of an op_set as defined above
+op_target = (target_entity, target_id, target_value)
+target_entity = 'entity' | 'global'
+target_id = int
+target_value = None
+"""
 op_roles = [
-    # entity_type, entity_name,   op_set,          op_target
+    ('group', 'cereweb_orakel', 'cmodify_user', ('entity', None, None)),
+    ('group', 'cereweb_orakel', 'ccreate_user', ('global_person', None, None)),
+    ('group', 'cereweb_orakel', 'ccreate_user', ('global_group', None, None)),
+    ('group', 'cereweb_basic', 'ccreate_user', ('ou', 23, None)), # ou 23 er it-avdelingen
+    ('group', 'cereweb_orakel', 'cmodify_itea', ('global', None, None)),
+    ('group', 'cereweb_orakel', 'cadmin_client', ('global', None, None)),
+    ('group', 'cereweb_basic', 'cadmin_client', ('global', None, None)),
+
+    # Backwards compatibility with spine.
     ('group', 'cereweb_orakel', 'modify_user', ('entity', None, None)),
     ('group', 'cereweb_orakel', 'create_user', ('entity', None, None)),
     ('group', 'cereweb_orakel', 'modify_itea', ('global', None, None)),
     ('group', 'cereweb_orakel', 'admin_client', ('global', None, None)),
-
-    #('group', 'idi_drift', 'modify_user', ('entity', 15850, None)),
-    #('group', 'idi_drift', 'modify_idi', ('global', None, None)),
-    #('group', 'idi_drift', 'admin_client', ('global', None, None)),
-
-    #('group', 'cereweb_innsyn', 'read_all', ('global', None, None)),
-    #('group', 'cereweb_innsyn', 'admin_client', ('global', None, None)),
-
     ('group', 'cereweb_basic', 'admin_client', ('global', None, None)),
-
-    ('group', 'cereweb_self', 'my_self', ('self', None, None)),
-    ('group', 'cereweb_public', 'user_client', ('global', None, None)),
-    ('account', 'sync_kerberos', 'user_client', ('global', None, None)),
 ]

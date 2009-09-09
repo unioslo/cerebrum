@@ -5,20 +5,24 @@ from lib.data.GroupDTO import GroupDTO
 from lib.data.DTO import DTO
 
 bootstrap_account_id = 2
+superuser_account_id = bootstrap_account_id
 account_without_posix_groups = bootstrap_account_id
 posix_account_id = 355252
+nonposix_account_id = 354991
+groupless_account_id = 356047
+basic_account_id = nonposix_account_id
+orakel_account_id = posix_account_id
+unpriveleged_account_id = groupless_account_id
 account_with_expired_groups = posix_account_id
 posix_account_primary_group_id = 354983
 posix_account_secondary_group_id = 356450
 noted_account_id = 355252
 quarantined_account_id = 355252
-nonposix_account_id = 354991
 nonposix_account_owner_id = 354985
 nonposix_account_creator_id = 2
 affiliated_account_id = 123397
 id_for_account_with_home = 123397
 account_cetest1 = 354991
-groupless_account_id = 356047
 large_group_id = 149
 posix_group_id = 354983
 posix_group_name = "test_posix"

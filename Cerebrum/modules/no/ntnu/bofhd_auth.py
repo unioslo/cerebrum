@@ -43,36 +43,38 @@ class BofhdAuth(auth.BofhdAuth):
             raise ProgrammingError(
                 "Can't check person access on non-person (%s)" % target.entity_id)
 
-        if self.is_superuser(operator):
-            return True
-
-        if self._has_global_access(operator, operation,
-                                   self.const.auth_target_type_global_person,
-                                   target.entity_id, operation_attr=operation_attr):
-            return True
-
-        return self._has_access_to_entity_via_ou(operator, operation,
-                                                 target, operation_attr=operation_attr)
+        return self._has_access(
+            operator, target, self.const.auth_target_type_global_person,
+            operation, operation_attr)
 
     def _has_account_access(self, operator, target, operation, operation_attr=None):
         if not isinstance(target, Account_class):
             raise ProgrammingError(
                 "Can't check account access on non-account (%s)" % target.entity_id)
 
+        return self._has_access(
+            operator, target, self.const.auth_target_type_global_account,
+            operation, operation_attr)
+
+    def _has_group_access(self, operator, target, operation, operation_attr=None):
+        if not isinstance(target, Group_class):
+            raise ProgrammingError(
+                "Can't check group access on non-group (%s)" % target.entity_id)
+
+        return self._has_access(
+            operator, target, self.const.auth_target_type_global_group,
+            operation, operation_attr)
+
+    def _has_access(self, operator, target, target_type, operation, operation_attr=None):
         if self.is_superuser(operator):
             return True
 
-        if self._has_global_access(operator, operation,
-                                   self.const.auth_target_type_global_account,
+        if self._has_global_access(operator, operation, target_type,
                                    target.entity_id, operation_attr=operation_attr):
             return True
 
         return self._has_access_to_entity_via_ou(operator, operation,
                                                  target, operation_attr=operation_attr)
-
-    def _has_group_access(self, operator, target, operation, operation_attr=None):
-        """TODO: Decide what this is."""
-        return self.is_superuser(operator)
 
     def _has_ou_access(self, operator, ou, operation, operation_attr=None):
         return self.is_superuser(operator)
@@ -99,7 +101,7 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
         
-        return self.__super._has_global_access(
+        return super(BofhdAuth, self)._has_global_access(
             operator, operation, global_type, victim_id, operation_attr)
 
     def can_set_password(self, operator, target):
