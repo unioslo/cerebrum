@@ -77,7 +77,16 @@ class BofhdAuth(auth.BofhdAuth):
                                                  target, operation_attr=operation_attr)
 
     def _has_ou_access(self, operator, ou, operation, operation_attr=None):
-        return self.is_superuser(operator)
+        if self._has_global_access(operator,
+                                   operation,
+                                   self.const.auth_target_type_global_ou,
+                                   ou.entity_id,
+                                   operation_attr):
+            return True
+        
+        return self._query_target_permissions(
+            operator, operation, self.const.auth_target_type_ou, ou.entity_id, None,
+            operation_attr)
 
     def _has_entity_access(self, operator, target, operation, operation_attr=None):
         if isinstance(target, Person_class):
@@ -144,10 +153,13 @@ class BofhdAuth(auth.BofhdAuth):
         ou = self._get_ou(ou_id)
         affiliation = self.const.PersonAffiliation(affiliation_id)
 
-        if not self._has_ou_access(operator, ou, operation, operation_attr=affiliation):
+        if not self._has_ou_access(operator, ou, operation, operation_attr=str(affiliation)):
             return False
 
         if isinstance(target, Person_class):
+            if not target.get_affiliations():
+                return True
+
             return self._has_person_access(operator, target, operation)
         elif isinstance(target, Account_class):
             return self._has_account_access(operator, target, operation)

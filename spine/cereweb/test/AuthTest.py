@@ -39,84 +39,128 @@ class AuthTest(unittest.TestCase):
         self.db = Database()
         self.auth = BofhdAuth(self.db)
 
-    def test_that_superuser_can_create_person_account(self):
+    def test_that_superuser_can_create_account_from_person(self):
         owner = self._get_test_testesen()
-        self._assert_can_create_account(TestData.superuser_account_id, owner)
+        self._assert_that_user_can_create_account(TestData.superuser_account_id, owner)
 
-    def test_that_orakel_can_create_person_account_using_global_access(self):
+    def test_that_orakel_can_create_account_from_person(self):
         owner = self._get_test_testesen()
-        self._assert_can_create_account(TestData.orakel_account_id, owner)
+        self._assert_that_user_can_create_account(TestData.orakel_account_id, owner)
 
-    def test_that_basic_can_create_person_account_without_global_access(self):
+    def test_that_basic_can_create_account_from_person(self):
         owner = self._get_test_testesen()
-        self._assert_can_create_account(TestData.basic_account_id, owner)
+        self._assert_that_user_can_create_account(TestData.basic_account_id, owner)
 
-    def test_that_unpriveleged_can_not_create_person_account(self):
+    def test_that_unpriveleged_can_not_create_account_from_person(self):
         owner = self._get_test_testesen()
-        self._assert_can_not_create_account(TestData.unpriveleged_account_id, owner)
+        self._assert_that_user_can_not_create_account(TestData.unpriveleged_account_id, owner)
 
-    def test_that_superuser_can_create_group_account(self):
+    def test_that_superuser_can_create_account_from_group(self):
         owner = self._get_posix_group()
-        self._assert_can_create_account(TestData.superuser_account_id, owner)
+        self._assert_that_user_can_create_account(TestData.superuser_account_id, owner)
 
-    def test_that_orakel_can_create_group_account_using_global_access(self):
+    def test_that_orakel_can_create_account_from_group(self):
         owner = self._get_posix_group()
-        self._assert_can_create_account(TestData.orakel_account_id, owner)
+        self._assert_that_user_can_create_account(TestData.orakel_account_id, owner)
 
-    def test_that_basic_can_not_create_group_account_without_global_access(self):
+    def test_that_basic_can_not_create_account_from_group(self):
         owner = self._get_posix_group()
-        self._assert_can_not_create_account(TestData.basic_account_id, owner)
+        self._assert_that_user_can_not_create_account(TestData.basic_account_id, owner)
 
-    def test_that_unpriveleged_can_not_create_group_account(self):
+    def test_that_unpriveleged_can_not_create_account_from_group(self):
         owner = self._get_posix_group()
-        self._assert_can_not_create_account(TestData.unpriveleged_account_id, owner)
+        self._assert_that_user_can_not_create_account(TestData.unpriveleged_account_id, owner)
 
     def test_that_superuser_can_set_password(self):
         target = self._get_affiliated_account()
-        self._assert_can_set_password(TestData.superuser_account_id, target)
+        self._assert_that_user_can_set_password(TestData.superuser_account_id, target)
 
     def test_that_orakel_can_set_password(self):
         target = self._get_affiliated_account()
-        self._assert_can_set_password(TestData.orakel_account_id, target)
+        self._assert_that_user_can_set_password(TestData.orakel_account_id, target)
 
     def test_that_basic_can_not_set_password(self):
         target = self._get_affiliated_account()
-        self._assert_can_not_set_password(TestData.basic_account_id, target)
+        self._assert_that_user_can_not_set_password(TestData.basic_account_id, target)
 
     def test_that_unpriveleged_can_not_set_password(self):
         target = self._get_affiliated_account()
-        self._assert_can_not_set_password(TestData.unpriveleged_account_id, target)
+        self._assert_that_user_can_not_set_password(TestData.unpriveleged_account_id, target)
 
-    def _assert_can_set_password(self, operator_id, target):
-        self._assert_is_authorized(
-            self.auth.can_set_password,
-            operator_id,
-            target)
+    def test_that_superuser_can_create_person(self):
+        self._assert_that_user_can_create_person(TestData.superuser_account_id)
 
-    def _assert_can_not_set_password(self, operator_id, target):
-        self._assert_is_unauthorized(
-            self.auth.can_set_password,
-            operator_id,
-            target)
+    def test_that_orakel_can_create_person(self):
+        self._assert_that_user_can_create_person(TestData.orakel_account_id)
 
-    def _assert_can_not_create_account(self, operator_id, owner):
-        self._assert_is_unauthorized(
-            self.auth.can_create_account,
-            operator_id,
-            owner)
+    def test_that_basic_can_not_create_person(self):
+        self._assert_that_user_can_not_create_person(TestData.basic_account_id)
 
-    def _assert_can_create_account(self, operator_id, owner, expected=True):
-        self._assert_is_authorized(
-            self.auth.can_create_account,
-            operator_id,
-            owner)
+    def test_that_unpriveleged_can_create_person(self):
+        self._assert_that_user_can_not_create_person(TestData.unpriveleged_account_id)
 
-    def _assert_is_authorized(self, fn, *args, **kwargs):
-        authorized = fn(*args, **kwargs)
+    def test_that_superuser_can_edit_affiliation(self):
+        target = self._get_unaffiliated_person()
+        self._assert_that_user_can_edit_affiliation(
+            TestData.superuser_account_id,
+            target,
+            TestData.itavdeling_ou_id,
+            TestData.ansatt_affiliation_id)
+
+    def test_that_orakel_can_edit_affiliation(self):
+        target = self._get_unaffiliated_person()
+        self._assert_that_user_can_edit_affiliation(
+            TestData.orakel_account_id,
+            target,
+            TestData.itavdeling_ou_id,
+            TestData.ansatt_affiliation_id)
+
+    def test_that_basic_can_edit_affiliation_of_unaffiliated_person(self):
+        target = self._get_unaffiliated_person()
+        self._assert_that_user_can_edit_affiliation(
+            TestData.basic_account_id,
+            target,
+            TestData.itavdeling_ou_id,
+            TestData.ansatt_affiliation_id)
+
+    def test_that_basic_can_not_edit_affiliation_of_affiliated_person(self):
+        target = self._get_affiliated_person()
+        self._assert_that_user_can_not_edit_affiliation(
+            TestData.basic_account_id,
+            target,
+            TestData.itavdeling_ou_id,
+            TestData.ansatt_affiliation_id)
+
+    def _assert_that_user_can_edit_affiliation(self, *args):
+        return self._assert_is_authorized(self.auth.can_edit_affiliation, *args)
+
+    def _assert_that_user_can_not_edit_affiliation(self, *args):
+        return self._assert_is_unauthorized(self.auth.can_edit_affiliation, *args)
+
+    def _assert_that_user_can_create_person(self, *args):
+        return self._assert_is_authorized(self.auth.can_create_person, *args)
+
+    def _assert_that_user_can_not_create_person(self, *args):
+        return self._assert_is_unauthorized(self.auth.can_create_person, *args)
+
+    def _assert_that_user_can_set_password(self, *args):
+        self._assert_is_authorized(self.auth.can_set_password, *args)
+
+    def _assert_that_user_can_not_set_password(self, *args):
+        self._assert_is_unauthorized(self.auth.can_set_password, *args)
+
+    def _assert_that_user_can_not_create_account(self, *args):
+        self._assert_is_unauthorized(self.auth.can_create_account, *args)
+
+    def _assert_that_user_can_create_account(self, *args):
+        self._assert_is_authorized(self.auth.can_create_account, *args)
+
+    def _assert_is_authorized(self, fn, *args):
+        authorized = fn(*args)
         self.assertEqual(True, authorized)
 
-    def _assert_is_unauthorized(self, fn, *args, **kwargs):
-        authorized = fn(*args, **kwargs)
+    def _assert_is_unauthorized(self, fn, *args):
+        authorized = fn(*args)
         self.assertEqual(False, authorized)
 
     def _get_posix_group(self):
@@ -133,6 +177,16 @@ class AuthTest(unittest.TestCase):
         account = Account(self.db)
         account.find(TestData.affiliated_account_id)
         return account
+
+    def _get_affiliated_person(self):
+        person = Person(self.db)
+        person.find(TestData.affiliated_person_id)
+        return person
+
+    def _get_unaffiliated_person(self):
+        person = Person(self.db)
+        person.find(TestData.unaffiliated_person_id)
+        return person
 
 if __name__ == '__main__':
     unittest.main()

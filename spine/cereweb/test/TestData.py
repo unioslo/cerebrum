@@ -21,6 +21,8 @@ quarantined_account_id = 355252
 nonposix_account_owner_id = 354985
 nonposix_account_creator_id = 2
 affiliated_account_id = 123397
+affiliated_person_id = 365
+unaffiliated_person_id = 378
 id_for_account_with_home = 123397
 account_cetest1 = 354991
 large_group_id = 149
@@ -32,6 +34,9 @@ quarantined_group_id = 354992
 notes_group_id = 354992
 spread_group_id = 354992
 test_testesen_id = 354985
+itavdeling_ou_id = 23
+ansatt_affiliation_id = 94
+
 
 def get_test_testesen_entity():
     dto = EntityDTO()

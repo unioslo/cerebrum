@@ -870,12 +870,16 @@ target_id = int
 target_value = None
 """
 op_roles = [
+    ('group', 'cereweb_orakel', 'cmodify_user', ('global_ou', None, None)),
+    ('group', 'cereweb_orakel', 'cmodify_user', ('global_person', None, None)),
     ('group', 'cereweb_orakel', 'cmodify_user', ('global_account', None, None)),
     ('group', 'cereweb_orakel', 'ccreate_user', ('global_person', None, None)),
     ('group', 'cereweb_orakel', 'ccreate_user', ('global_group', None, None)),
-    ('group', 'cereweb_basic', 'ccreate_user', ('ou', 23, None)), # ou 23 er it-avdelingen
     ('group', 'cereweb_orakel', 'cmodify_itea', ('global', None, None)),
     ('group', 'cereweb_orakel', 'cadmin_client', ('global', None, None)),
+
+    ('group', 'cereweb_basic', 'ccreate_user', ('ou', 23, None)), # ou 23 er it-avdelingen
+    ('group', 'cereweb_basic', 'cmodify_user', ('ou', 23, None)),
     ('group', 'cereweb_basic', 'cadmin_client', ('global', None, None)),
 
     # Backwards compatibility with spine.
