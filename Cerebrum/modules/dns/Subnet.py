@@ -722,6 +722,7 @@ class BofhdExtension(object):
             return ("Subnet %s is already set as " % subnet_id +
                     "being delegated to external DNS server")
 
+        in_use = ""
         if s.has_adresses_in_use():
             if force:
                 in_use = "\nNote! Subnet has addresses in use!"
