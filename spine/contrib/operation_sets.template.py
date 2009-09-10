@@ -30,6 +30,7 @@ op_sets = {
         ('note_edit', None),
         ('person_delete', None),
         ('person_edit', None),
+        ('set_password', None),
         ('quarantine_edit', "remote"),
         ('quarantine_edit', "sluttet"),
         ('quarantine_edit', "svakt_passord"),
@@ -869,7 +870,7 @@ target_id = int
 target_value = None
 """
 op_roles = [
-    ('group', 'cereweb_orakel', 'cmodify_user', ('entity', None, None)),
+    ('group', 'cereweb_orakel', 'cmodify_user', ('global_account', None, None)),
     ('group', 'cereweb_orakel', 'ccreate_user', ('global_person', None, None)),
     ('group', 'cereweb_orakel', 'ccreate_user', ('global_group', None, None)),
     ('group', 'cereweb_basic', 'ccreate_user', ('ou', 23, None)), # ou 23 er it-avdelingen

@@ -32,6 +32,9 @@ modules = [
     'HistoryDAOTest',
     'HostDAOTest',
     'PersonDAOTest',
+    'AuthTest',
+    'SearchTest',
+    'OuDAOTest',
 ]
 
 # When this module is executed from the command-line, run all its tests
