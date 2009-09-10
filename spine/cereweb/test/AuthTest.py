@@ -131,6 +131,14 @@ class AuthTest(unittest.TestCase):
             TestData.itavdeling_ou_id,
             TestData.ansatt_affiliation_id)
 
+    def test_that_unpriveleged_can_not_edit_affiliation_of_unaffiliated_person(self):
+        target = self._get_unaffiliated_person()
+        self._assert_that_user_can_not_edit_affiliation(
+            TestData.unpriveleged_account_id,
+            target,
+            TestData.itavdeling_ou_id,
+            TestData.ansatt_affiliation_id)
+
     def _assert_that_user_can_edit_affiliation(self, *args):
         return self._assert_is_authorized(self.auth.can_edit_affiliation, *args)
 
