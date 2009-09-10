@@ -299,6 +299,23 @@ class Subnet(Entity):
  
         is_new = not self.__in_db
 
+        # With some DB-interfaces (e.g. psycopg 1), DB-booleans may be
+        # returned as ints; make sure that dns_delegated truly is a
+        # boolean. This should probably be handled more generally
+        # than just here, but this is currently the only place
+        # DB-booleans are in use.
+        
+        # Since self.dns_delegated often is an int when it arrives
+        # here, it will need to be "reset" to None before it can be
+        # set to a boolean value". Sometimes stuff just works in
+        # mysterious ways...
+        if self.dns_delegated:
+            self.dns_delegated = None
+            self.dns_delegated = True
+        else:
+            self.dns_delegated = None
+            self.dns_delegated = False
+
         if is_new:
             # Only need to check for overlaps when subnet is being
             # added, since a subnet's ip-range is never changed.
@@ -420,16 +437,6 @@ class Subnet(Entity):
             
         except NotFoundError, nfe:
             raise SubnetError("Unable to find subnet identified by '%s'" % identifier)
-
-        # With some DB-interfaces (e.g. psycopg 1), DB-booleans may be
-        # returned as ints; make sure that dns_delegated truly is a
-        # boolean. This should probably be handled more generally
-        # than just here, but this is currently the only place
-        # DB-booleans are in use.
-        if self.dns_delegated:
-            self.dns_delegated = True
-        else:
-            self.dns_delegated = False
 
         self.__in_db = True
         self.__updated = []
