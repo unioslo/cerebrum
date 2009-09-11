@@ -856,6 +856,9 @@ op_sets = {
         ('View.set_authentication_method', 'PGP-kerberos'),
         ('Commands.get_last_changelog_id', None),
         ],
+    'testset': [
+        ('syncread_group', None),
+        ],
 }
 
 
@@ -888,4 +891,5 @@ op_roles = [
     ('group', 'cereweb_orakel', 'modify_itea', ('global', None, None)),
     ('group', 'cereweb_orakel', 'admin_client', ('global', None, None)),
     ('group', 'cereweb_basic', 'admin_client', ('global', None, None)),
+    ('account', 'steinarh', 'testset', ('global_spread', None, None)),
 ]
