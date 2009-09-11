@@ -8564,12 +8564,6 @@ Addresses and settings:
         account.write_db()
         return "OK, set shell for %s to %s" % (accountname, shell)
 
-    # user student_create
-    all_commands['user_student_create'] = Command(
-        ('user', 'student_create'), PersonId())
-    def user_student_create(self, operator, person_id):
-        raise CerebrumError, "Not implemented"
-
     #
     # commands that are noe available in jbofh, but used by other clients
     #
