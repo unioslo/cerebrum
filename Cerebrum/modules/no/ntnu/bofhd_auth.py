@@ -219,7 +219,7 @@ class BofhdAuth(auth.BofhdAuth):
         import pdb
         pdb.set_trace()
         if self._query_target_permissions(
-            operator, self.const.auth_account_syncread,
+            operator, self.const.auth_group_syncread,
             self.const.auth_target_type_spread, int(spread), None):
             return True
         raise PermissionDenied("Can't bulk read groups")
@@ -228,12 +228,12 @@ class BofhdAuth(auth.BofhdAuth):
     def can_syncread_ou(self, operator, spread=None):
         if spread is not None:
             if self._query_target_permissions(
-                operator, self.const.auth_account_syncread,
+                operator, self.const.auth_ou_syncread,
                 self.const.auth_target_type_spread, int(spread), None):
                 return True
         else:
             if self._has_global_access(
-                operator, self.const.auth_account_syncread,
+                operator, self.const.auth_ou_syncread,
                 self.const.auth_target_type_global_ou, None):
                 return True
         raise PermissionDenied("Can't bulk read OUs")
@@ -246,12 +246,12 @@ class BofhdAuth(auth.BofhdAuth):
     def can_syncread_person(self, operator, spread=None):
         if spread is not None:
             if self._query_target_permissions(
-                operator, self.const.auth_account_syncread,
+                operator, self.const.auth_person_syncread,
                 self.const.auth_target_type_spread, spread, None):
                 return True
         else:
             if self._has_global_access(
-                operator, self.const.auth_account_syncread,
+                operator, self.const.auth_person_syncread,
                 self.const.auth_target_type_global_person, None):
                 return True
         raise PermissionDenied("Can't bulk read Persons")
