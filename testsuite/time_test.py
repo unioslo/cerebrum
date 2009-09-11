@@ -25,8 +25,8 @@ MODE = "test"
 
 username="bootstrap_account"
 
+password= sys.argv[1]
 if MODE == "test":
-   password="blappE10"
    server = "https://ceretest.itea.ntnu.no"
    idmap = {
        'ss_bdb' : 232,
@@ -77,7 +77,6 @@ if MODE == "test":
        'ansatt_tekadm': 44,
    }
 elif MODE == "utvikling":
-   password="blippE10"
    server="http://ceredev.itea.ntnu.no:8081"
    idmap = {
        'ss_bdb' : 16,
