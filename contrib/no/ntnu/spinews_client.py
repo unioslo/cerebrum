@@ -6,6 +6,7 @@ from xml.dom import expatbuilder
 import cerebrum_path
 
 import cereconf
+from optparse import OptionParser
 
 from Cerebrum.lib.spinews.SignatureHandler import SignatureHandler
 
@@ -86,8 +87,7 @@ def init_ssl():
     ## typical options for a client
     ctx_options = SSL.op_no_sslv2
     ctx.set_options(ctx_options)
-    ## ctx.set_verify((SSL.verify_fail_if_no_peer_cert|SSL.verify_peer), 9)
-    ctx.set_verify((SSL.verify_peer), 1)
+    ctx.set_verify((SSL.verify_fail_if_no_peer_cert|SSL.verify_peer), 9)
     return ctx
 
 ## theTraceFile = open("soap_trace.log", 'wb', 16384)
@@ -108,31 +108,37 @@ def statreset():
     samples.clear()
 
 def statresult():
-   global numb_groups, numb_accouts, numb_ous, numb_aliases, numb_homedirs, numb_persons
-   print '%-10s  %s\t%s\t\t%s\t\t%s\t\t%s' % ('Operation',
+    global numb_groups, numb_accouts, numb_ous, numb_aliases, numb_homedirs, numb_persons
+    print '%-10s  %s\t%s\t\t%s\t\t%s\t\t%s' % ('Operation',
                                              'Average',
                                              'Varying',
                                              'Max',
                                              'Min',
                                              'Runs')
-   print '-------------------------------------------------------------------------------'
-   for k,v in samples.items():
-       n, sum, ssum = v
-       mean=sum/n
-       sd=math.sqrt(ssum/n-mean*mean)
-       print "%-10s: %2.6f\t~%2.6f\t%2.6f\t%2.6f\t%d" % (k, mean,
+    print '-------------------------------------------------------------------------------'
+    for k,v in samples.items():
+        n, sum, ssum = v
+        mean=sum/n
+        sd=math.sqrt(ssum/n-mean*mean)
+        print "%-10s: %2.6f\t~%2.6f\t%2.6f\t%2.6f\t%d" % (k, mean,
                                                             sd,
                                                             max(stat_max_min[k]),
                                                             min(stat_max_min[k]),
                                                             n)
-   print ''
-   print 'groups pr. run\t\t:\t', numb_groups
-   print 'accounts pr. run\t:\t', numb_accounts
-   print 'ous pr. run\t\t:\t', numb_ous
-   print 'aliases pr. run\t\t:\t', numb_aliases
-   print 'homedirs pr. run\t:\t', numb_homedirs
-   print 'persons pr. run\t\t:\t', numb_persons
-   print ''
+    print ''
+    if numb_groups > 0:
+        print 'groups pr. run\t\t:\t', numb_groups
+    if numb_accounts > 0:
+        print 'accounts pr. run\t:\t', numb_accounts
+    if numb_ous > 0:
+        print 'ous pr. run\t\t:\t', numb_ous
+    if numb_aliases > 0:
+        print 'aliases pr. run\t\t:\t', numb_aliases
+    if numb_homedirs > 0:
+        print 'homedirs pr. run\t:\t', numb_homedirs
+    if numb_persons > 0:
+        print 'persons pr. run\t\t:\t', numb_persons
+    print ''
 
 
 def set_username_password(uname, pwd):
@@ -589,25 +595,31 @@ def test_changelogid():
     f.flush()
     f.close()
     
-def test_clients(count):
-
+def test_clients(count, changelog=False, groups=False, accs=False, ous=False, aliases=False, homedirs=False, persons=False):
     set_username_password(cereconf.TEST_USERNAME, cereconf.TEST_PASSWORD)
     start_time = datetime.datetime.now()
     for i in range(count):
-        print 'changelogid'
-        test_changelogid()
-        print 'groups'
-        test_groups()
-        print 'accounts'
-        test_accounts()
-        print 'ous'
-        test_ous()
-        print 'aliases'
-        test_aliases()
-        print 'homedirs'
-        test_homedirs()
-        print 'persons'
-        test_persons()
+        if changelog:
+            print 'changelogid'
+            test_changelogid()
+        if groups:
+            print 'groups'
+            test_groups()
+        if accs:
+            print 'accounts'
+            test_accounts()
+        if ous:
+            print 'ous'
+            test_ous()
+        if aliases:
+            print 'aliases'
+            test_aliases()
+        if homedirs:
+            print 'homedirs'
+            test_homedirs()
+        if persons:
+            print 'persons'
+            test_persons()
         sys.stderr.write('Run: %d\n' % (i+1))
     statresult()
     end_time = datetime.datetime.now()
@@ -617,10 +629,28 @@ def test_clients(count):
     print ''
 
     
-def main(argv):
+def main():
     global ca_cert
     ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
-    test_clients(10)
+    usage = "usage: %prog (-c COUNT | --count=COUNT) -lgaomdp"
+    parser = OptionParser(usage)
+    parser.add_option("-c", "--count", type="int", dest='count', help="number of runs")
+    parser.add_option("-l", "--changelogid", action="store_true", dest='changelog', help="get logid")
+    parser.add_option("-g", "--groups", action="store_true", dest='groups', help="get groups")
+    parser.add_option("-a", "--accounts", action="store_true", dest='accs', help="get accounts")
+    parser.add_option("-o", "--ous", action="store_true", dest='ous', help="get ous")
+    parser.add_option("-m", "--mail", action="store_true", dest='aliases', help="get mail-aliases")
+    parser.add_option("-d", "--dirs", action="store_true", dest='homedirs', help="get homedirs")
+    parser.add_option("-p", "--persons", action="store_true", dest='persons', help="get persons")
+    (options, args) = parser.parse_args()
+    if not options.count:
+        parser.error("number of runs is 0 or not specified.")
+    if options.count < 0:
+        parser.error("number of runs cannot be less than 0.")
+    if not options.changelog and not options.groups and not options.accs and not options.ous and not options.aliases and not options.homedirs and not options.persons:
+        parser.print_help()
+        parser.error("no test(s) is specified.")
+    test_clients(options.count, changelog=options.changelog, groups=options.groups, accs=options.accs, ous=options.ous, aliases=options.aliases, homedirs=options.homedirs, persons=options.persons)
  
 if __name__ == '__main__':
-    main(sys.argv)
+    main()
