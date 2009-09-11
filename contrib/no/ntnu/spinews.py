@@ -1051,8 +1051,8 @@ def init_ssl(debug=None):
     ctx = SSL.Context('sslv23')
     ## certificate and private-key in the same file
     ctx.load_cert(cereconf.SPINEWS_KEY_FILE, callback=phrase_callback)
-    ctx.load_verify_info(cafile=cereconf.SPINEWS_CA_FILE)
     ctx.load_client_ca(cereconf.SPINEWS_CA_FILE)
+    ctx.load_verify_info(cereconf.SPINEWS_CA_FILE)
     ## do not use sslv2
     ctx_options = SSL.op_no_sslv2
     ctx.set_options(ctx_options)
@@ -1117,7 +1117,8 @@ if __name__ == '__main__':
         help = True
 
     if help:
-        print >> sys.stderr, """spinews!
+        print >> sys.stderr, """
+spinews!
 
 Hello. Try one of these:
 
