@@ -24,6 +24,7 @@ Site specific auth.py for NTNU
 """
 
 from Cerebrum.modules.bofhd import auth
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 from Cerebrum.Utils import Factory
 Person_class = Factory.get("Person")
@@ -207,25 +208,35 @@ class BofhdAuth(auth.BofhdAuth):
         return self._has_person_access(operator, target, operation)
 
     def can_syncread_account(self, operator, spread, auth_method):
-        return self._query_target_permissions(
+        if self._query_target_permissions(
             operator, self.const.auth_account_syncread,
             self.const.auth_target_type_spread, int(spread), None,
-            operation_attr=str(auth_method))
+            operation_attr=str(auth_method)):
+            return True
+        raise PermissionDenied("Can't bulk read accounts")
     
     def can_syncread_group(self, operator, spread):
-        return self._query_target_permissions(
+        import pdb
+        pdb.set_trace()
+        if self._query_target_permissions(
             operator, self.const.auth_account_syncread,
-            self.const.auth_target_type_spread, int(spread), None)
+            self.const.auth_target_type_spread, int(spread), None):
+            return True
+        raise PermissionDenied("Can't bulk read groups")
+            
     
     def can_syncread_ou(self, operator, spread=None):
         if spread is not None:
-            return self._query_target_permissions(
+            if self._query_target_permissions(
                 operator, self.const.auth_account_syncread,
-                self.const.auth_target_type_spread, int(spread), None)
+                self.const.auth_target_type_spread, int(spread), None):
+                return True
         else:
-            return self._has_global_access(
+            if self._has_global_access(
                 operator, self.const.auth_account_syncread,
-                self.const.auth_target_type_global_ou, None)
+                self.const.auth_target_type_global_ou, None):
+                return True
+        raise PermissionDenied("Can't bulk read OUs")
 
     #def can_syncread_alias(self, operator, spread=None):
     #    return self._has_global_access(
@@ -234,10 +245,14 @@ class BofhdAuth(auth.BofhdAuth):
     
     def can_syncread_person(self, operator, spread=None):
         if spread is not None:
-            return self._query_target_permissions(
+            if self._query_target_permissions(
                 operator, self.const.auth_account_syncread,
-                self.const.auth_target_type_spread, spread, None)
+                self.const.auth_target_type_spread, spread, None):
+                return True
         else:
-            return self._has_global_access(
+            if self._has_global_access(
                 operator, self.const.auth_account_syncread,
-                self.const.auth_target_type_global_person, None)
+                self.const.auth_target_type_global_person, None):
+                return True
+        raise PermissionDenied("Can't bulk read Persons")
+            
