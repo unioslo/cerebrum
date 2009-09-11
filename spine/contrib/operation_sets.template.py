@@ -858,6 +858,9 @@ op_sets = {
         ],
     'testset': [
         ('syncread_group', None),
+        ('syncread_account', None),
+        ('syncread_person', None),
+        ('syncread_ou', None),
         ],
 }
 
@@ -891,5 +894,8 @@ op_roles = [
     ('group', 'cereweb_orakel', 'modify_itea', ('global', None, None)),
     ('group', 'cereweb_orakel', 'admin_client', ('global', None, None)),
     ('group', 'cereweb_basic', 'admin_client', ('global', None, None)),
+    ('account', 'steinarh', 'testset', ('global_ou', None, None)),
+    ('account', 'steinarh', 'testset', ('global_person', None, None)),
     ('account', 'steinarh', 'testset', ('global_group', None, None)),
+    ('account', 'steinarh', 'testset', ('spread', 45, None)),
 ]
