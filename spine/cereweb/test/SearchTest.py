@@ -40,6 +40,7 @@ class SearchTest(unittest.TestCase):
             'client_encoding': 'iso8859-1',
             'spine_encoding': 'iso8859-1',
             'session': FakeSession(),
+            'username': 'bootstrap_account',
         }
 
     def test_that_account_search_for_alf_contains_alfborge(self):

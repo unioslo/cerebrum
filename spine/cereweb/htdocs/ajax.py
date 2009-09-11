@@ -60,7 +60,8 @@ def search(query=None, type=None, output=None):
 search.exposed = True
 
 def search_account(query, output):
-    dao = AccountDAO()
+    db = get_database()
+    dao = AccountDAO(db)
     accounts = dao.search(query)
 
     result = {}
@@ -75,7 +76,8 @@ def search_account(query, output):
     return result.values()
 
 def search_person(query, output):
-    dao = PersonDAO()
+    db = get_database()
+    dao = PersonDAO(db)
     people = dao.search(query)
 
     result = {}
@@ -91,7 +93,8 @@ def search_person(query, output):
     return result.values()
 
 def search_group(query):
-    dao = GroupDAO()
+    db = get_database()
+    dao = GroupDAO(db)
     groups = dao.search(query)
 
     result = {}

@@ -40,8 +40,8 @@ class BofhdAuth(auth.BofhdAuth):
     """
     def _has_person_access(self, operator, target, operation, operation_attr=None):
         if not isinstance(target, Person_class):
-            raise ProgrammingError(
-                "Can't check person access on non-person (%s)" % target.entity_id)
+            raise TypeError(
+                "Can't handle target, expected type %s but got %s" % (Person_class, type(target)))
 
         return self._has_access(
             operator, target, self.const.auth_target_type_global_person,
@@ -49,8 +49,8 @@ class BofhdAuth(auth.BofhdAuth):
 
     def _has_account_access(self, operator, target, operation, operation_attr=None):
         if not isinstance(target, Account_class):
-            raise ProgrammingError(
-                "Can't check account access on non-account (%s)" % target.entity_id)
+            raise TypeError(
+                "Can't handle target, expected type %s but got %s" % (Account_class, type(target)))
 
         return self._has_access(
             operator, target, self.const.auth_target_type_global_account,
@@ -58,12 +58,28 @@ class BofhdAuth(auth.BofhdAuth):
 
     def _has_group_access(self, operator, target, operation, operation_attr=None):
         if not isinstance(target, Group_class):
-            raise ProgrammingError(
-                "Can't check group access on non-group (%s)" % target.entity_id)
+            raise TypeError(
+                "Can't handle target, expected type %s but got %s" % (Group_class, type(target)))
 
         return self._has_access(
             operator, target, self.const.auth_target_type_global_group,
             operation, operation_attr)
+
+    def _has_ou_access(self, operator, target, operation, operation_attr=None):
+        if not isinstance(target, OU_class):
+            raise TypeError(
+                "Can't handle target, expected type %s but got %s" % (OU_class, type(target)))
+
+        if self._has_global_access(operator,
+                                   operation,
+                                   self.const.auth_target_type_global_ou,
+                                   target.entity_id,
+                                   operation_attr):
+            return True
+        
+        return self._query_target_permissions(
+            operator, operation, self.const.auth_target_type_ou, target.entity_id, None,
+            operation_attr)
 
     def _has_access(self, operator, target, target_type, operation, operation_attr=None):
         if self.is_superuser(operator):
@@ -75,18 +91,6 @@ class BofhdAuth(auth.BofhdAuth):
 
         return self._has_access_to_entity_via_ou(operator, operation,
                                                  target, operation_attr=operation_attr)
-
-    def _has_ou_access(self, operator, ou, operation, operation_attr=None):
-        if self._has_global_access(operator,
-                                   operation,
-                                   self.const.auth_target_type_global_ou,
-                                   ou.entity_id,
-                                   operation_attr):
-            return True
-        
-        return self._query_target_permissions(
-            operator, operation, self.const.auth_target_type_ou, ou.entity_id, None,
-            operation_attr)
 
     def _has_entity_access(self, operator, target, operation, operation_attr=None):
         if isinstance(target, Person_class):
@@ -102,8 +106,8 @@ class BofhdAuth(auth.BofhdAuth):
             return self._has_group_access(
                 operator, target, operation, operator_attr=operation_attr)
         else:
-            raise ProgrammingError(
-                "Can't check entity access on invalid target (%s)" % target.entity_id)
+            raise TypeError(
+                "Can't handle target of type %s" % type(target))
 
     def _has_global_access(self, operator, operation, global_type, victim_id,
                            operation_attr=None):
@@ -129,8 +133,8 @@ class BofhdAuth(auth.BofhdAuth):
         elif isinstance(target, Group_class):
             return self._has_group_access(operator, target, operation)
         else:
-            raise ProgrammingError(
-                "Can't check create_account access on invalid target (%s)" % target.entity_id)
+            raise TypeError(
+                "Can't handle target of type %s" % type(target))
 
     def can_edit_account(self, operator, target):
         operation = self.const.auth_account_edit
@@ -142,7 +146,10 @@ class BofhdAuth(auth.BofhdAuth):
 
     def _get_ou(self, ou_id):
         ou = ou_id
-        if isinstance(ou_id, int):
+        if isinstance(ou_id, str):
+            ou_id = int(ou_id)
+
+        if isinstance(ou_id, (int,long)):
             ou = OU_class(self._db)
             ou.find(ou_id)
         return ou
@@ -164,8 +171,8 @@ class BofhdAuth(auth.BofhdAuth):
         elif isinstance(target, Account_class):
             return self._has_account_access(operator, target, operation)
         else:
-            raise ProgrammingError(
-                "Can't check edit_affiliation access on invalid target (%s)" % target.entity_id)
+            raise TypeError(
+                "Can't handle target of unknown type (%s)" % type(target))
 
     def can_edit_external_id(self, operator, target, external_id_type):
         operation = self.const.auth_external_id_edit
