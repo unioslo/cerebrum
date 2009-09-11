@@ -20,8 +20,8 @@ opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 
 stat_max_min = {}
 
-## MODE = "test"
-MODE = "utvikling"
+MODE = "test"
+## MODE = "utvikling"
 
 username="bootstrap_account"
 
@@ -29,9 +29,9 @@ if MODE == "test":
    password="blappE10"
    server = "https://ceretest.itea.ntnu.no"
    idmap = {
-       'ss_bdb' : 'BDB',
-       'ss_manual' : 'Manual',
-       'ansatt': 94,
+       'ss_bdb' : 232,
+       'ss_manual' : 231,
+       'ansatt': 30,
        'nits': 3625,
        'vitp': 3619,
        'hmvi': 3707,
@@ -332,14 +332,16 @@ account_view = (
 account_add_affil = (
   {'account_id' : idmap['kandal'], 'aff_ou' : '%d:%s' % (idmap['ansatt'], idmap['ivt-adm']), 'priority' : '300'},
   {'account_id' : idmap['kandal'],'aff_ou' : '%d:%s' % (idmap['ansatt'], idmap['oi-stab']), 'priority' : '400'},
-  {'account_id' : idmap['kandal'], 'aff_ou' : '%d:%s' % (idmap['ansatt'], idmap['ivt-adm']), 'priority' : '500'},
   )
 
+##  {'account_id' : idmap['kandal'], 'aff_ou' : '%d:%s' % (idmap['ansatt'], idmap['ivt-adm']), 'priority' : '500'},
+
 account_rm_affil = (
-    {'account_id' : idmap['kandal'], 'ou_id' : idmap['ivt-adm'], 'affil_id' : idmap['ansatt_tekadm']},
-    {'account_id' : idmap['kandal'], 'ou_id' : idmap['oi-stab'], 'affil_id' : idmap['ansatt_ansatt']},
-    {'account_id' : idmap['kandal'], 'ou_id' : idmap['ivt-adm'], 'affil_id' : idmap['ansatt_tekadm']},
+    {'account_id' : idmap['kandal'], 'ou_id' : idmap['ivt-adm'], 'affil_id' : idmap['ansatt']},
+    {'account_id' : idmap['kandal'], 'ou_id' : idmap['oi-stab'], 'affil_id' : idmap['ansatt']},
 )
+
+## {'account_id' : idmap['kandal'], 'ou_id' : idmap['ivt-adm'], 'affil_id' : idmap['ansatt_tekadm']},
 
 account_add_spread = (
   {'id' : idmap['bertelli'], 'spread': 'user@kybernetikk'},
@@ -463,7 +465,7 @@ email_view = (
 
 statreset()
 start_time = datetime.datetime.now()
-for i in range(2):
+for i in range(10):
   cj = cookielib.CookieJar()
   opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
   print 'Run number: %d' % (i + 1)
