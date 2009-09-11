@@ -92,7 +92,7 @@ class Fronter(object):
         title = group_id = parent_id = ""
         schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
                    'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-                   'STOL', 'BORGTF', 'BORGRESS')
+                   'OSTFAG', 'STOL', 'BORGTF', 'BORGRESS')
 
         for s in schools:
             tmp = {'title': s + ' Kontaktlærere',
@@ -131,7 +131,7 @@ class Fronter(object):
         title = group_id = parent_id = ""
         schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
                    'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-                   'STOL', 'BORGTF', 'BORGRESS')
+                   'OSTFAG', 'STOL', 'BORGTF', 'BORGRESS')
         for s in schools:
             tmp = {'title': '06 Importerte Grupper',
                    'group_id': s + 'Groups', 
@@ -153,6 +153,7 @@ class Fronter(object):
                    'KIRK': 'Kirkeparken videregående skole',
                    'MALA': 'Malakoff videregående skole',
                    'MYSE': 'Mysen videregående skole',
+                   'OSTFAG': 'Østfold fagskole',
                    'STOL': 'St. Olav videregående skole',
                    'BORGTF': 'Østfold fagskole',
                    'BORGRESS': 'Sarpsborg ressurs, Borg videregående skole'}
@@ -311,7 +312,7 @@ class FronterXML(object):
         self.xml.dataElement('source', self.DataSource)
         self.xml.dataElement('id', gid)
         self.xml.endTag('sourcedid')
-        for fnr in members:
+        for fnr in members.keys():
             self.xml.startTag('member')
             self.xml.startTag('sourcedid')
             self.xml.dataElement('source', self.DataSource)
@@ -322,7 +323,7 @@ class FronterXML(object):
             self.xml.startTag('role', {'recstatus': recstatus,
                                        'roletype': Fronter.ROLE_READ})
             self.xml.dataElement('status', '1')
-            self.xml.dataElement('subrole', '0')
+            self.xml.dataElement('subrole', members[fnr])
             self.xml.startTag('extension')
             # Member of group, not room.
             self.xml.emptyTag('memberof', {'type': 1})
@@ -381,10 +382,12 @@ class IMSv1_0_object(IMS_object):
 
 
 def init_globals():
-    global db, const, logger, group, users_only
+    global db, const, logger, group, users_only, ou, person
     db = Factory.get("Database")()
     const = Factory.get("Constants")(db)
     group = Factory.get("Group")(db)
+    person = Factory.get("Person")(db)
+    ou = Factory.get("OU")(db)
     logger = Factory.get_logger("cronjob")
 
     cf_dir = '/cerebrum/dumps/Fronter'
@@ -509,7 +512,7 @@ def update_elev_ans_groups():
     
     schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
                'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-               'STOL', 'BORGTF', 'BORGRESS')
+               'OSTFAG', 'STOL', 'BORGTF', 'BORGRESS')
     for s in schools:
         ou.clear()
         sted = ou.search(acronym=s)
@@ -578,6 +581,15 @@ def usage(exitcode):
     print "Usage: generate_fronter_full.py OUTPUT_FILENAME"
     sys.exit(exitcode)
 
+def find_sko_by_groupname(gname):
+    schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
+               'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
+               'OSTFAG', 'STOL', 'BORGTF', 'BORGRESS')
+    for s in schools:
+        if re.search(s, gname):
+            return s
+    return None
+        
 
 def main():
     # Håndter upper- og lowercasing av strenger som inneholder norske
@@ -672,10 +684,37 @@ def main():
     for e in elev_ans_grupper:
         new_groupmembers.setdefault(e['group_id'],
                                     {})[e['member_id']] = 1
-
     for gname, members_as_dict in new_groupmembers.iteritems():
+        members = {}
+        group_sko_akr = find_sko_by_groupname(gname)
+        if group_sko_akr:
+            try:
+                ouid = ou.search(acronym=group_sko_akr)
+                ou.clear()
+                ou.find(int(ouid[0]['ou_id']))
+            except Errors.NotFoundError:
+                logger.error("Cannot find OU with acronym %s, skipping group %s",
+                             group_sko_akr,
+                             gname)
+                continue
+            for m in members_as_dict:
+                person.clear()
+                try:
+                    person.find_by_external_id(const.externalid_fodselsnr,
+                                               m,
+                                               source_system=const.system_ekstens)
+                except Errors.NotFoundError:
+                    logger.error("Could not find person %s, skipping membership in %s",
+                                 m, gname)
+                    continue
+                subrole = "LÆRER"
+                for row in person.get_affiliations():
+                    if int(row['ou_id']) == int(ou.ou_id):
+                        if row['affiliation'] == const.affiliation_elev:
+                            subrole = 'ELEV'
+                    members[m] = subrole
         fxml.personmembers_to_XML(gname, fronter.STATUS_UPDATE,
-                                  members_as_dict.keys())
+                                  members)
     fxml.end()
 
 
