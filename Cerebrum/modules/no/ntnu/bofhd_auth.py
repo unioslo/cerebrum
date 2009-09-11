@@ -216,11 +216,13 @@ class BofhdAuth(auth.BofhdAuth):
         raise PermissionDenied("Can't bulk read accounts")
     
     def can_syncread_group(self, operator, spread):
-        import pdb
-        pdb.set_trace()
         if self._query_target_permissions(
             operator, self.const.auth_group_syncread,
             self.const.auth_target_type_spread, int(spread), None):
+            return True
+        if self._has_global_access(
+            operator, self.const.auth_group_syncread,
+            self.const.auth_target_type_global_group, None):
             return True
         raise PermissionDenied("Can't bulk read groups")
             
@@ -231,11 +233,10 @@ class BofhdAuth(auth.BofhdAuth):
                 operator, self.const.auth_ou_syncread,
                 self.const.auth_target_type_spread, int(spread), None):
                 return True
-        else:
-            if self._has_global_access(
-                operator, self.const.auth_ou_syncread,
-                self.const.auth_target_type_global_ou, None):
-                return True
+        if self._has_global_access(
+            operator, self.const.auth_ou_syncread,
+            self.const.auth_target_type_global_ou, None):
+            return True
         raise PermissionDenied("Can't bulk read OUs")
 
     #def can_syncread_alias(self, operator, spread=None):
@@ -247,12 +248,11 @@ class BofhdAuth(auth.BofhdAuth):
         if spread is not None:
             if self._query_target_permissions(
                 operator, self.const.auth_person_syncread,
-                self.const.auth_target_type_spread, spread, None):
+                self.const.auth_target_type_spread, int(spread), None):
                 return True
-        else:
-            if self._has_global_access(
-                operator, self.const.auth_person_syncread,
-                self.const.auth_target_type_global_person, None):
-                return True
+        if self._has_global_access(
+            operator, self.const.auth_person_syncread,
+            self.const.auth_target_type_global_person, None):
+            return True
         raise PermissionDenied("Can't bulk read Persons")
             
