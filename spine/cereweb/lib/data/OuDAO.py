@@ -61,17 +61,27 @@ class OuDAO(EntityDAO):
         families = {}
         for perspective in ConstantsDAO(self.db).get_ou_perspective_types():
             families[perspective] = family = DTO()
+
+            try:
+                ou.structure_path(perspective.id)
+                family.in_perspective = True
+            except NotFoundError, e:
+                family.in_perspective = False
+                family.parent = None
+                family.is_root = False
+                family.children = []
+                continue
+
             try:
                 parent_id = ou.get_parent(perspective.id)
                 family.parent = s.get_entity(parent_id)
             except NotFoundError, e:
                 family.parent = None
 
+            family.is_root = family.parent is None
+
             child_ids = ou.list_children(perspective.id, ou.entity_id)
             family.children = [s.get_entity(c.ou_id) for c in child_ids]
-
-            family.in_perspective = family.parent or family.children
-            family.is_root = family.in_perspective and family.parent is None
 
         return families
 
@@ -133,7 +143,31 @@ class OuDAO(EntityDAO):
         ou.write_db()
 
         return ou.entity_id
-        
+
+    def save(self, dto):
+        ou = self._find(dto.id)
+        ou.name = dto.name
+        ou.acronym = dto.acronym
+        ou.short_name = dto.short_name
+        ou.display_name = dto.display_name
+        ou.sort_name = dto.sort_name
+        ou.landkode = dto.landkode
+        ou.institusjon = dto.institusjon
+        ou.fakultet = dto.fakultet
+        ou.institutt = dto.institutt
+        ou.avdeling = dto.avdeling
+        ou.write_db()
+
+    def set_parent(self, entity_id, perspective, parent):
+        ou = self._find(entity_id)
+        perspective = self.constants.OUPerspective(perspective)
+        ou.set_parent(perspective, parent)
+
+    def unset_parent(self, entity_id, perspective):
+        ou = self._find(entity_id)
+        perspective = self.constants.OUPerspective(perspective)
+        ou.unset_parent(perspective)
+
     def _create_node(self, node_id):
         node = self.get_entity(node_id)
         node.children = []

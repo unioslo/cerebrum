@@ -194,51 +194,51 @@ def _create_ou(
 
     return entity_id
 
-def save(transaction, id, name, submit=None, **vargs):
-    ou = transaction.get_ou(int(id))
+@utils.session_required_decorator
+def save(id, name, **vargs):
+    db = utils.get_database()
+    dao = OuDAO(db)
 
-    if submit == "Cancel":
-        utils.redirect_object(ou)
-        return
-
-    ou.set_name(web_to_spine(name))
-    ou.set_acronym(web_to_spine(vargs.get("acronym", "")))
-    ou.set_short_name(web_to_spine(vargs.get("short_name", "")))
-    ou.set_display_name(web_to_spine(vargs.get("display_name", "")))
-    ou.set_sort_name(web_to_spine(vargs.get("sort_name", "")))
+    ou = dao.get(id)
+    ou.name = utils.web_to_spine(name)
+    ou.acronym = utils.web_to_spine(vargs.get("acronym", ""))
+    ou.short_name = utils.web_to_spine(vargs.get("short_name", ""))
+    ou.display_name = utils.web_to_spine(vargs.get("display_name", ""))
+    ou.sort_name = utils.web_to_spine(vargs.get("sort_name", ""))
 
     stedkode_map = {
-        'countrycode': ou.set_landkode,
-        'institution': ou.set_institusjon,
-        'faculty': ou.set_fakultet,
-        'institute': ou.set_institutt,
-        'department': ou.set_avdeling
+        'contrycode': 'landkode',
+        'institution': 'institusjon',
+        'faculty': 'fakultet',
+        'institute': 'institutt',
+        'department': 'avdeling',
     }
 
     parents = {}
     for (key, value) in vargs.items():
         if key in stedkode_map:
-            stedkode_map[key](int(value))
+            attr = stedkode_map[key]
+            setattr(ou, attr, int(value))
         elif key.startswith("parent_"):
             parent = key.replace("parent_", "")
             if value.isdigit():
-                # Could also be "root" and "not_in"
                 value = int(value)
+            elif value == "root":
+                value = None
+            # Else it is not in and should be unset
             parents[parent] = value
 
     for (perspective, parent) in parents.items():
-        perspective = transaction.get_ou_perspective_type(perspective)
-        if parent == "root":
-            ou.set_parent(None, perspective)
-        elif parent == "not_in":
-            ou.unset_parent(perspective)
+        if parent == "not_in":
+            dao.unset_parent(ou.id, perspective)
         else:
-            parent = transaction.get_ou(parent)
-            ou.set_parent(parent, perspective)
+            dao.set_parent(ou.id, perspective, parent)
 
-    msg = _("Organization Unit successfully modified.")
-    utils.commit(transaction, ou, msg=msg)
-save = utils.transaction_decorator(save)
+    dao.save(ou)
+    db.commit()
+
+    utils.queue_message(_("Organization Unit successfully modified."), title="OU changed")
+    utils.redirect_entity(ou)
 save.exposed = True
 
 def delete(transaction, id):
