@@ -99,13 +99,13 @@ class BofhdAuth(auth.BofhdAuth):
                 operator, target, operation, operation_attr=operation_attr)
         elif isinstance(target, Account_class):
             return self._has_account_access(
-                operator, target, operation, operator_attr=operation_attr)
+                operator, target, operation, operation_attr=operation_attr)
         elif isinstance(target, OU_class):
             return self._has_ou_access(
-                operator, target, operation, operator_attr=operation_attr)
+                operator, target, operation, operation_attr=operation_attr)
         elif isinstance(target, Group_class):
             return self._has_group_access(
-                operator, target, operation, operator_attr=operation_attr)
+                operator, target, operation, operation_attr=operation_attr)
         else:
             raise TypeError(
                 "Can't handle target of type %s" % type(target))

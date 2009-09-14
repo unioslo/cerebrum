@@ -37,25 +37,20 @@ from lib.templates.OUEditTemplate import OUEditTemplate
 from lib.templates.OUViewTemplate import OUViewTemplate
 import SpineIDL.Errors
 
-def _get_links():
-    return (
-        ('search', _('Search')),
-        ('tree',   _('Tree')),
-        ('create', _('Create')),
-    )
-
 def get_perspective(perspective, perspectives):
     if not perspective:
         return [x for x in perspectives if x.name == "Kjernen"][0]
     else:
         return [x for x in perspectives if x.id == int(perspective)][0]
 
+@utils.session_required_decorator
 def tree(perspective=None):
-    perspectives = ConstantsDAO().get_ou_perspective_types()
+    db = utils.get_database()
+    perspectives = ConstantsDAO(db).get_ou_perspective_types()
     perspective = get_perspective(perspective, perspectives)
 
     page = OUTreeTemplate()
-    page.tree = OuDAO().get_tree(perspective)
+    page.tree = OuDAO(db).get_tree(perspective)
     page.perspective = perspective
     page.perspectives = perspectives
     return page.respond()
@@ -87,31 +82,27 @@ search = utils.transaction_decorator(search)
 search.exposed = True
 index = search
 
-def view(transaction, id):
-    c_dao = ConstantsDAO()
-    ou_dao = OuDAO()
+@utils.session_required_decorator
+def view(id):
+    db = utils.get_database()
+    c_dao = ConstantsDAO(db)
+    ou_dao = OuDAO(db)
 
-    ou = transaction.get_ou(int(id))
     page = OUViewTemplate()
     page.ou = ou_dao.get(id)
-    page.ou.history = HistoryDAO().get_entity_history_tail(id)
+    page.ou.history = HistoryDAO(db).get_entity_history_tail(id)
     page.perspectives = c_dao.get_ou_perspective_types()
     page.affiliations = c_dao.get_affiliation_types()
     page.spreads = c_dao.get_ou_spreads()
     page.trees = ou_dao.get_trees()
     page.id_types = c_dao.get_id_types()
-    page.tr = transaction
-    page.title = _("OU %s") % _get_display_name(transaction, ou)
-    page.set_focus("ou/view")
-    page.links = _get_links()
-    page.entity_id = int(id)
-    page.entity = ou
     return page.respond()
-view = utils.transaction_decorator(view)
 view.exposed = True
 
-def edit(transaction, id):
-    ou_dao = OuDAO()
+@utils.session_required_decorator
+def edit(id):
+    db = utils.get_database()
+    ou_dao = OuDAO(db)
     ou = ou_dao.get(id)
     trees = ou_dao.get_trees()
 
@@ -121,10 +112,10 @@ def edit(transaction, id):
     page.links = _get_links()
     page.content = lambda: OUEditTemplate().form(ou, trees)
     return page
-edit = utils.transaction_decorator(edit)
 edit.exposed = True
 
-def create(transaction, **vargs):
+@utils.session_required_decorator
+def create(**vargs):
     page = Main()
     page.title = _("OU")
     page.set_focus("ou/create")
@@ -138,25 +129,24 @@ def create(transaction, **vargs):
     values['sort_name'] = vargs.get("sort_name", "")
 
     create = OUCreateTemplate(searchList=[{'formvalues': values}])
-    create.tr = transaction
     page.content = create.form
 
     return page
-create = utils.transaction_decorator(create)
 create.exposed = True
 
-def make(transaction, name, institution,
-         faculty, institute, department, **vargs):
-    acronym = vargs.get("acronym", "")
-    short_name = vargs.get("short_name", "")
-    display_name = vargs.get("display_name", "")
-    sort_name = vargs.get("sort_name", "")
+@utils.session_required_decorator
+def make(name, institution, faculty, institute, department, **vargs):
+    clean = lambda x: x and utils.web_to_spine(x) or None
+    acronym = clean(vargs.get("acronym", ""))
+    short_name = clean(vargs.get("short_name", ""))
+    display_name = clean(vargs.get("display_name", ""))
+    sort_name = clean(vargs.get("sort_name", ""))
 
     msg=''
     if not name:
         msg=_('Name is empty.')
 
-    if not msg and not instituion:
+    if not msg and not institution:
         msg=_('Institution is empty.')
 
     if not msg and not faculty:
@@ -174,24 +164,35 @@ def make(transaction, name, institution,
         institute = int(institute)
         department = int(department)
         name = utils.web_to_spine(name.strip())
-        ou = transaction.get_commands().create_ou(name, institution,
-                                        faculty, institute, department)
 
-        if acronym:
-            ou.set_acronym(utils.web_to_spine(acronym))
-        if short_name:
-            ou.set_short_name(utils.web_to_spine(short_name))
-        if display_name:
-            ou.set_display_name(utils.web_to_spine(display_name))
-        if sort_name:
-            ou.set_sort_name(utils.web_to_spine(sort_name))
+        entity_id = _create_ou(name, institution, faculty, institute, department,
+                   acronym, short_name, display_name, sort_name)
 
-        msg = _("Organization Unit successfully created.")
-        utils.commit(transaction, ou, msg=msg)
+        utils.queue_message(_("Organization Unit successfully created."), title="OU created")
+        utils.redirect_entity(entity_id)
     else:
         utils.rollback_url('/ou/create', msg, err=True)
-make = utils.transaction_decorator(make)
 make.exposed = True
+
+def _create_ou(
+        name, institution, faculty, institute, department,
+        acronym, short_name, display_name, sort_name):
+
+    db = utils.get_database()
+    dao = OuDAO(db)
+    entity_id = dao.create(
+        name,
+        institution,
+        faculty,
+        institute,
+        department,
+        acronym,
+        short_name,
+        display_name,
+        sort_name)
+    db.commit()
+
+    return entity_id
 
 def save(transaction, id, name, submit=None, **vargs):
     ou = transaction.get_ou(int(id))

@@ -52,6 +52,22 @@ class OuDAOTest(CerebrumTestCase):
         self.assertEqual(1, ou.institutt)
         self.assertEqual(0, ou.avdeling)
 
+    def test_that_we_can_create_an_ou(self):
+        name = "test"
+        institution, faculty, institute, department = 1, 2, 3, 4
+        acronym, short_name, display_name, sort_name = "A", "B", "C", "D"
+        ou_id = self.dao.create(name, institution, faculty, institute, department, acronym, short_name, display_name, sort_name)
+
+        ou = self.dao.get(ou_id)
+        self.assertEqual(institution, ou.institusjon)
+        self.assertEqual(faculty, ou.fakultet)
+        self.assertEqual(institute, ou.institutt)
+        self.assertEqual(department, ou.avdeling)
+        self.assertEqual(acronym, ou.acronym)
+        self.assertEqual(short_name, ou.short_name)
+        self.assertEqual(display_name, ou.display_name)
+        self.assertEqual(sort_name, ou.sort_name)
+
 if __name__ == '__main__':
     unittest.main()
 

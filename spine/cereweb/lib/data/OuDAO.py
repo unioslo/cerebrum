@@ -3,7 +3,7 @@ from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 
 Database = Utils.Factory.get("Database")
-OU = Utils.Factory.get("OU")
+OU_class = Utils.Factory.get("OU")
 
 from lib.data.DTO import DTO
 from lib.data.EntityDAO import EntityDAO
@@ -14,7 +14,7 @@ from lib.data.TraitDAO import TraitDAO
 
 class OuDAO(EntityDAO):
     def __init__(self, db=None):
-        super(OuDAO, self).__init__(db, OU)
+        super(OuDAO, self).__init__(db, OU_class)
 
     def _get_type_name(self):
         return self.constants.entity_ou.str
@@ -119,6 +119,20 @@ class OuDAO(EntityDAO):
             return None
 
         return self._create_node(parent_id)
+
+    def create(self,
+            name, institution, faculty, institute, department,
+            acronym, short_name, display_name, sort_name):
+        ou = OU_class(self.db)
+        ou.populate(
+            name, faculty, institute, department, institution,
+            acronym = acronym,
+            short_name = short_name,
+            display_name = display_name,
+            sort_name = sort_name)
+        ou.write_db()
+
+        return ou.entity_id
         
     def _create_node(self, node_id):
         node = self.get_entity(node_id)
