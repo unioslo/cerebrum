@@ -1125,14 +1125,16 @@ if __name__ == '__main__':
             # way to detect this patch is the following look-up:
             if hasattr(SSL.Connection, "set_default_client_timeout"):
                 server = ThreadingSSLBofhdServer(
-                    (host, port), BofhdRequestHandler, db, conffile, ctx, SSL.timeout(sec=4))
+                    (host, port), BofhdRequestHandler, db, conffile, ctx,
+                    default_timeout=SSL.timeout(sec=4))
             else:
                 server = ThreadingSSLBofhdServer(
                     (host, port), BofhdRequestHandler, db, conffile, ctx)
         else:
             if hasattr(SSL.Connection, "set_default_client_timeout"):
                 server = SSLBofhdServer(
-                    (host, port), BofhdRequestHandler, db, conffile, ctx, SSL.timeout(sec=4))
+                    (host, port), BofhdRequestHandler, db, conffile, ctx,
+                    default_timeout=SSL.timeout(sec=4))
             else:
                 server = SSLBofhdServer(
                     (host, port), BofhdRequestHandler, db, conffile, ctx)
