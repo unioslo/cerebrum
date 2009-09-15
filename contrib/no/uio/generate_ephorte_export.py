@@ -272,7 +272,9 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         tmp = persons.get(int(row['entity_id']), None)
         if tmp is None or not row['contact_value']:
             continue
-        tmp['phone'] = row['contact_value']
+        # Get the highest priority phone number
+        if not tmp.get('phone', None):
+            tmp['phone'] = row['contact_value']
 
     # Get OU's with ephorte spread
     has_ou_ephorte_spread = [row['entity_id'] for row in
