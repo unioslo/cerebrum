@@ -311,7 +311,6 @@ def main():
     role_file = None
     undervenh_file = None
     emne_info_file = None
-    evu_kursinfo_file = None
     fnr_update_file = None
     edu_info_file = None
     
@@ -322,8 +321,6 @@ def main():
             emne_info_file = val
         elif o in ('--personinfo-file',):
             person_file = val
-        elif o in ('--evukursinfo-file',):
-            evu_kursinfo_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
         elif o in ('--roleinfo-file',):
