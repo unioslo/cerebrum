@@ -158,6 +158,10 @@ class OuDAO(EntityDAO):
         ou.avdeling = dto.avdeling
         ou.write_db()
 
+    def delete(self, entity_id):
+        ou = self._find(entity_id)
+        ou.delete()
+
     def set_parent(self, entity_id, perspective, parent):
         ou = self._find(entity_id)
         perspective = self.constants.OUPerspective(perspective)

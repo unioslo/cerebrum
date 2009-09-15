@@ -241,12 +241,15 @@ def save(id, name, **vargs):
     utils.redirect_entity(ou)
 save.exposed = True
 
-def delete(transaction, id):
-    ou = transaction.get_ou(int(id))
-    msg =_("OU '%s' successfully deleted.") % _get_display_name(transaction, ou)
-    ou.delete()
-    utils.commit_url(transaction, 'index', msg=msg)
-delete = utils.transaction_decorator(delete)
+@utils.session_required_decorator
+def delete(id):
+    db = utils.get_database()
+    dao = OuDAO(db)
+    ou = dao.get(id)
+    dao.delete(id)
+    db.commit()
+    utils.queue_message(_("OU '%s' successfully deleted.") % ou.name)
+    utils.redirect('/ou/')
 delete.exposed = True
 
 def list_aff_persons(transaction, **vargs):

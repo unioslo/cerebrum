@@ -20,8 +20,13 @@
 #
 
 import unittest
+from Cerebrum.Errors import NotFoundError
 from lib.data.OuDAO import OuDAO
+from lib.data.ConstantsDAO import ConstantsDAO
 from CerebrumTestCase import CerebrumTestCase
+
+fakultetsadministrasjon_id = 55
+empty_ou_id = 359242
 
 class OuDAOTest(CerebrumTestCase):
     def setUp(self):
@@ -33,24 +38,24 @@ class OuDAOTest(CerebrumTestCase):
         self.assertEqual(8, len(roots))
         self.assertEqual(3, roots[0].id)
 
-    def test_that_get_entities_returns_x_ous(self):
+    def test_that_get_entities_returns_more_than_100_ous(self):
         entities = self.dao.get_entities()
-        self.assertEqual(138, len(entities))
+        self.assert_(len(entities) > 100)
 
     def test_that_the_ou_contains_enough_information(self):
-        ou = self.dao.get(55)
-        self.assertEqual(55, ou.id)
+        ou = self.dao.get(fakultetsadministrasjon_id)
+        self.assertEqual(fakultetsadministrasjon_id, ou.id)
         self.assertEqual("NT Fakultetsadministrasjon", ou.name)
         self.assertEqual("NT-ADM", ou.acronym)
         self.assertEqual("NT-ADM", ou.short_name)
         self.assertEqual("NT Fakultetsadministrasjon", ou.display_name)
         self.assertEqual("NT Fakultetsadministrasjon", ou.sort_name)
         self.assertEqual(0, ou.landkode)
-        self.assertEqual("00000194660100", ou.stedkode)
         self.assertEqual(194, ou.institusjon)
         self.assertEqual(66, ou.fakultet)
         self.assertEqual(1, ou.institutt)
         self.assertEqual(0, ou.avdeling)
+        self.assertEqual("00000194660100", ou.stedkode)
 
     def test_that_we_can_create_an_ou(self):
         name = "test"
@@ -67,6 +72,77 @@ class OuDAOTest(CerebrumTestCase):
         self.assertEqual(short_name, ou.short_name)
         self.assertEqual(display_name, ou.display_name)
         self.assertEqual(sort_name, ou.sort_name)
+
+    def test_that_we_can_change_an_ou(self):
+        ou = self.dao.get(fakultetsadministrasjon_id)
+
+        new_data = {
+            'name': "Changed",
+            'acronym': "Changed",
+            'short_name': "Changed",
+            'display_name': "Changed",
+            'sort_name': "Changed",
+            'landkode': -1,
+            'institusjon': -1,
+            'institutt': -1,
+            'fakultet': -1,
+            'avdeling': -1,
+        }
+
+        for key, value in new_data.items():
+            self.assertNotEqual(value, getattr(ou, key))
+            setattr(ou, key, value)
+
+        self.dao.save(ou)
+
+        ou = self.dao.get(fakultetsadministrasjon_id)
+        for key, value in new_data.items():
+            self.assertEqual(value, getattr(ou, key))
+
+    def test_that_we_can_remove_ou_from_perspective(self):
+        ou = self.dao.get(fakultetsadministrasjon_id)
+        self._assertOuInPerspective(ou, "Kjernen")
+
+        self.dao.unset_parent(ou.id, "Kjernen")
+
+        ou = self.dao.get(fakultetsadministrasjon_id)
+        self._assertOuNotInPerspective(ou, "Kjernen")
+
+    def test_that_we_can_set_ou_as_root_in_perspective(self):
+        ou = self.dao.get(fakultetsadministrasjon_id)
+        self._assertNotRootInPerspective(ou, "Kjernen")
+
+        self.dao.set_parent(ou.id, "Kjernen", None)
+
+        ou = self.dao.get(fakultetsadministrasjon_id)
+        self._assertRootInPerspective(ou, "Kjernen")
+
+    def test_that_we_can_delete_ou(self):
+        ou = self.dao.get(empty_ou_id)
+
+        self.dao.delete(ou.id)
+
+        self.assertRaises(NotFoundError, self.dao.get, empty_ou_id)
+
+    def _assertRootInPerspective(self, ou, perspective):
+        perspective = ConstantsDAO(self.db).get_ou_perspective_type(perspective)
+        family = ou.families[perspective]
+        self.assert_(family.is_root)
+
+    def _assertNotRootInPerspective(self, ou, perspective):
+        perspective = ConstantsDAO(self.db).get_ou_perspective_type(perspective)
+        family = ou.families[perspective]
+        self.assert_(not family.is_root)
+
+    def _assertOuInPerspective(self, ou, perspective):
+        perspective = ConstantsDAO(self.db).get_ou_perspective_type(perspective)
+        family = ou.families[perspective]
+        self.assert_(family.in_perspective)
+
+    def _assertOuNotInPerspective(self, ou, perspective):
+        perspective = ConstantsDAO(self.db).get_ou_perspective_type(perspective)
+        family = ou.families[perspective]
+        self.assert_(not family.in_perspective)
 
 if __name__ == '__main__':
     unittest.main()
