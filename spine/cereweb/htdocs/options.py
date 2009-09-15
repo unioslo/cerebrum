@@ -33,7 +33,7 @@ def index(transaction):
     """Creates form for editing user-specific options for cereweb."""
     page = OptionsTemplate()
     page.title = _('Options for cereweb')
-    page.set_focus = 'options/'
+    page.set_focus('options/')
     page.links = _get_links()
     page.options = cherrypy.session['options']
     return page.respond()

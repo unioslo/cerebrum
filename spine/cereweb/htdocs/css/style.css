@@ -118,7 +118,7 @@ img.upperRight {
     min-height: 270px;
     float:left;
     width: 625px;
-    padding: 0pt 0.5em 0.5em 0.5em;
+    padding: 0px 0.5em 0.5em 0.5em;
 }
 
 #bottom {
@@ -742,7 +742,7 @@ div#tabview {
 
 div#tabview ul.yui-nav {
     clear: left;
-    margin: 0px 0pt 0pt 15px;
+    margin: 0px 0px 0px 3px;
     overflow: hidden;
     padding-top: 17px;
 }
@@ -753,7 +753,17 @@ div#tabview ul.yui-nav li {
     list-style-image: none;
     list-style-position: outside;
     list-style-type: none;
-    padding: 0pt;
+    padding: 0px;
+    margin: 0px 1px -3px 0px;
+}
+
+div#tabview ul.yui-nav li a {
+    border-bottom-width: 0px;
+}
+
+div#tabview ul.yui-nav li em {
+    padding-left: 3px;
+    padding-right: 3px;
 }
 
 div#tabview div.yui-content {
@@ -770,7 +780,7 @@ div#tabview div.yui-content {
 div.sub-nav {
     border-bottom: 1px solid #000;
     background-color: #d9e2ef;
-    border-width: 1px 0pt 0pt;
+    border-width: 1px 0px 0px;
     overflow: hidden;
     padding: 3px 0px;
     float: left;

@@ -402,22 +402,22 @@ def valid_search(*args, **vargs):
 
 def get_tabs(current=None):
     tabs = [
-      ('Persons', '/person'),
-      ('Accounts', '/account'),
-      ('Groups', '/group'),
-      ('Organization units', '/ou'),
-      ('Hosts', '/host'),
-      ('Disks', '/disk'),
-      ('Email', '/email'),
-      ('Preferences', '/options'),
-      ('Logout', '/logout'),
-      ('cereweb', '/index'),
+      ('Cereweb', 'cereweb', '/index'),
+      ('Persons', 'person', '/person'),
+      ('Accounts', 'account', '/account'),
+      ('Groups', 'group', '/group'),
+      ('Organization units', 'ou', '/ou'),
+      ('Hosts', 'host', '/host'),
+      ('Disks', 'disk', '/disk'),
+      ('Email', 'email', '/email'),
+      ('Preferences', 'options', '/options'),
+      ('Logout', 'logout', '/logout'),
     ]
 
     html = '<li%s><a href="%s"><em>%s</em></a></li>'
     res = []
-    for (name, link) in tabs:
-        selected = name == current and ' class="selected"' or ''
+    for (name, page, link) in tabs:
+        selected = page == current and ' class="selected"' or ''
         res.append(html % (selected, link, name))
     return "\n".join(res)
 

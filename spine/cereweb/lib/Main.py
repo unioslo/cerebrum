@@ -38,7 +38,12 @@ class Main(FramesTemplate):
         super(Main, self).__init__(*args, **kwargs)
         self.prepare_page()
         self.prepare_messages()
-        self.page, self.link = '', '#'
+
+        if not hasattr(self, 'page'):
+            self.page = ''
+
+        if not hasattr(self, 'link'):
+            self.link = '#'
         ## cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset='+FramesTemplate.charset
 
     def prepare_page(self):
