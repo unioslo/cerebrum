@@ -38,7 +38,6 @@
 
 #def links()
     #return (
-        ('search', $_('Search')),
         ('tree', $_('Tree')),
         ('create', $_('Create')),
     )
@@ -49,7 +48,6 @@
     <h3>$_('Actions')</h3>
     <ul>
         <li><a href="delete?id=$ou.id">$_("delete ou")</a></li>
-        <li><a href="list_aff_persons?id=$ou.id">$_("list affiliated persons")</a></li>
         <li><a href="/quarantine/add?entity=$ou.id">$_('add quarantine')</a></li>
         <li><a href="/entity/full_historylog?id=$ou.id">$_('view full history log')</a></li>
     </ul>

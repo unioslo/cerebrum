@@ -55,32 +55,7 @@ def tree(perspective=None):
     page.perspectives = perspectives
     return page.respond()
 tree.exposed = True
-
-def search_form(remembered):
-    page = SearchTemplate()
-    page.title = _("OU")
-    page.set_focus("ou/search")
-    page.links = _get_links()
-
-    page.search_fields = [("name", _("Name")),
-                          ("acronym", _("Acronym")),
-                          ("short", _("Short name")),
-                          ("spread", _("Spread name"))
-                          ]
-    page.search_action = '/ou/search'
-
-    page.search_title = _('OU(s)')
-    page.form_values = remembered
-    return page.respond()
-
-def search(transaction, **vargs):
-    """Search for ous and displays result and/or searchform."""
-    args = ('name', 'acronym', 'short', 'spread')
-    searcher = OUSearcher(transaction, *args, **vargs)
-    return searcher.respond() or search_form(searcher.get_remembered())
-search = utils.transaction_decorator(search)
-search.exposed = True
-index = search
+index = tree
 
 @utils.session_required_decorator
 def view(id):
@@ -98,6 +73,12 @@ def view(id):
     page.id_types = c_dao.get_id_types()
     return page.respond()
 view.exposed = True
+
+def _get_links():
+    return (
+        ('tree', _('Tree')),
+        ('create', _('Create')),
+    )
 
 @utils.session_required_decorator
 def edit(id):
@@ -252,14 +233,6 @@ def delete(id):
     utils.redirect('/ou/')
 delete.exposed = True
 
-def list_aff_persons(transaction, **vargs):
-    args = ('id','source')
-    searcher = PersonAffiliationsSearcher(transaction, *args, **vargs)
-    return searcher.respond() or utils.redirect('/ou/')
-list_aff_persons = utils.transaction_decorator(list_aff_persons)
-list_aff_persons.exposed = True
-
-
 def _get_display_name(transaction, ou):
     display_name = ou.get_display_name()
     if display_name:
@@ -274,4 +247,19 @@ def perform_search(transaction, **vargs):
 perform_search = utils.transaction_decorator(perform_search)
 perform_search.exposed = True
 
-# arch-tag: 6a071cd0-f0bc-11d9-90c5-0c57c7893102
+def search_form(remembered):
+    page = SearchTemplate()
+    page.title = _("OU")
+    page.set_focus("ou/search")
+    page.links = _get_links()
+
+    page.search_fields = [("name", _("Name")),
+                          ("acronym", _("Acronym")),
+                          ("short", _("Short name")),
+                          ("spread", _("Spread name"))
+                          ]
+    page.search_action = '/ou/search'
+
+    page.search_title = _('OU(s)')
+    page.form_values = remembered
+    return page.respond()
