@@ -465,7 +465,10 @@ class XMLPerson2Object(XMLEntity2Object):
                                    value)
             
             elif sub.tag == "reserv_publish":
-                result.reserv_publish = value.lower()
+                if value:
+                    result.reserv_publish = value.lower()
+                else:
+                    result.reserv_publish = 'no'
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return result
