@@ -659,19 +659,34 @@ div.options td.buttons {
  */
 #quicksearch {
     position: absolute;
-    top: 20px;
-    left: 650px;
-    right: auto;
+    top: 7px;
+    right: 0;
     bottom: auto;
+    padding: 10px;
 }
+
+#quicksearch.open {
+    width: 200px;
+    background-color: #fff;
+    border: 1px solid black;
+    margin: 3px;
+    padding: 7px;
+}
+
 #quicksearch form {
     position: relative;
 }
+
 #quicksearch div.autocomplete_container {
-    float: left;
 }
-#quicksearch input {
+
+#quicksearch #qs_query {
     width: 9.5em;
+    float: right;
+}
+#quicksearch #qs_submit {
+    float: right;
+    margin: 0 0 0 1em;
 }
 #quicksearch label {
     position: absolute;
@@ -683,6 +698,31 @@ div.options td.buttons {
     font-style: normal;
     font-weight: normal;
 }
+#quicksearch.open label {
+    color: #000;
+    left: 5px;
+}
+
+#quicksearch .required {
+    clear: both;
+    height: 2em;
+}
+
+#quicksearch .optional {
+    display: none;
+}
+
+#quicksearch .help li {
+    list-style-image: none;
+    list-style-position: outside;
+    list-style-type: circle;
+    margin-left: 10px;
+}
+
+#quicksearch.open .optional {
+    display: block;
+}
+
 #quicksearch div.buttons {
     display: none;
 }

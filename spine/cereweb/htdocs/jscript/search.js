@@ -169,43 +169,74 @@ cereweb.ac_account.prototype.dataSourceOptions = {
 }
 
 cereweb.ac_quicksearch = function(container) {
-    var qdiv = cereweb.createDiv('quicksearch', 'tabview');
-    this.form = document.createElement('form');
-    this.form.setAttribute('id', 'qs_form');
-    qdiv.appendChild(this.form);
-    var dForm = cereweb.createDiv('qs_dform', 'qs_form');
-    this.input = document.createElement('input');
-    this.label = document.createElement('label');
-    this.id = document.createElement('input');
-    this.input.setAttribute('name', 'query');
-    this.input.setAttribute('type', 'text'),
-    this.label.setAttribute('for', 'query');
-    this.id.setAttribute('name', 'id');
-    this.id.setAttribute('type', 'hidden');
-    
-    dForm.appendChild(this.id);
-    dForm.appendChild(this.label);
-    dForm.appendChild(this.input);
-    YD.addClass(dForm, 'required');
-
+    YD.get("tabview").innerHTML += '\
+            <div id="quicksearch"> \
+                <form id="qs_form"> \
+                    <div id="qs_dform" class="required"> \
+                        <input name="id" type="hidden" /> \
+                        <label id="qs_query_label" for="qs_query">Search</label> \
+                        <input id="qs_query" name="query" type="text" /> \
+                    </div> \
+                    <div class="optional"> \
+                        <input id="qs_submit" type="submit" value="Search" /> \
+                    </div> \
+                    <ul class="help optional"> \
+                        <li>Search for accounts by using only small letters or by prepending the search text with a:</li> \
+                        <li>Search for people by writing the first character in uppercase or by prepending the search text with p:</li> \
+                        <li>Search for groups by prepending the search text with g:</li> \
+                    </ul> \
+                </form> \
+            </div>';
+    this.qs = YD.get("quicksearch");
+    this.form = YD.get("qs_form");
+    this.input = YD.get("qs_query");
+    this.label = YD.get("qs_query_label");
+    this.submit = YD.get("qs_submit");
 
     cereweb.ac_quicksearch.superclass.constructor.call(this, this.input);
-
     this.widget.itemSelectEvent.subscribe(this.itemSelect, this, true);
+
     container.style.display = "";
-    this.updateLabel();
-    YE.addListener(this.input, 'focus', this.updateLabel, this, true);
-    YE.addListener(this.input, 'blur', this.updateLabel, this, true);
+    YE.addListener(this.input, 'focus', this.openSearch, this, true);
+    YE.addListener(this.input, 'blur', this.closeSearch, this, true);
+    YE.addListener(this.submit, 'click', this.submitClicked, this, true);
+
+    this.updateLabel("close");
 }
 YAHOO.lang.extend(cereweb.ac_quicksearch, cereweb.ac_account);
 
-cereweb.ac_quicksearch.prototype.updateLabel = function(args) {
-    if (args && args.type === 'focus')
-        this.label.style.textIndent = '-1000px';
-    else if (this.input.value !== '')
-        this.label.style.textIndent = '-1000px';
+cereweb.ac_quicksearch.prototype.submitClicked = function(e) {
+    e.preventDefault();
+    clearTimeout(this.closeTimer);
+    this.input.focus();
+    this.widget.sendQuery(this.input.value);
+}
+
+cereweb.ac_quicksearch.prototype.openSearch = function(args) {
+    YD.addClass(this.qs, "open");
+    this.updateLabel("open");
+}
+
+cereweb.ac_quicksearch.prototype.closeSearch = function(args) {
+    var self = this;
+    this.closeTimer = setTimeout(function() {
+        YD.removeClass(self.qs, "open");
+        self.updateLabel("close");
+    }, 500);
+}
+
+cereweb.ac_quicksearch.prototype.updateLabel = function(state) {
+    if (state === "close" && this.input.value !== '')
+        this.label.style.textIndent = '-10000px';
     else
         this.label.style.textIndent = '0px';
+}
+
+
+cereweb.ac_quicksearch.prototype.handleSessionError = function() {
+    this.disable();
+    this.input.value = "Session error.";
+    this.label.style.textIndent = '-10000px';
 }
 
 cereweb.ac_quicksearch.prototype.formatResult = function(aResultItem, sQuery) {
