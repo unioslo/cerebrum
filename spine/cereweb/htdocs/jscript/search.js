@@ -176,15 +176,12 @@ cereweb.ac_quicksearch = function(container) {
                         <input name="id" type="hidden" /> \
                         <label id="qs_query_label" for="qs_query">Search</label> \
                         <input id="qs_query" name="query" type="text" /> \
+                        <img id="qs_qmark" alt="Help" src="/img/q.gif" />  \
                     </div> \
                     <div class="optional"> \
+                        <span>+ <a id="qs_advanced_search" href="#">Advanced search</a></span> \
                         <input id="qs_submit" type="submit" value="Search" /> \
                     </div> \
-                    <ul class="help optional"> \
-                        <li>Search for accounts by using only small letters or by prepending the search text with a:</li> \
-                        <li>Search for people by writing the first character in uppercase or by prepending the search text with p:</li> \
-                        <li>Search for groups by prepending the search text with g:</li> \
-                    </ul> \
                 </form> \
             </div>';
     this.qs = YD.get("quicksearch");
@@ -192,6 +189,7 @@ cereweb.ac_quicksearch = function(container) {
     this.input = YD.get("qs_query");
     this.label = YD.get("qs_query_label");
     this.submit = YD.get("qs_submit");
+    this.initTooltip("qs_qmark");
 
     cereweb.ac_quicksearch.superclass.constructor.call(this, this.input);
     this.widget.itemSelectEvent.subscribe(this.itemSelect, this, true);
@@ -201,9 +199,24 @@ cereweb.ac_quicksearch = function(container) {
     YE.addListener(this.input, 'blur', this.closeSearch, this, true);
     YE.addListener(this.submit, 'click', this.submitClicked, this, true);
 
+    var as = YD.get("qs_advanced_search");
+    YE.addListener(as, 'click', this.openAdvancedSearch, this, true);
+
     this.updateLabel("close");
 }
 YAHOO.lang.extend(cereweb.ac_quicksearch, cereweb.ac_account);
+
+cereweb.ac_quicksearch.prototype.initTooltip = function(el) {
+    new YAHOO.widget.Tooltip("tt1", {context: el, text: '\
+                        <ul class="help"> \
+                            <li>Search for accounts by using only small letters or by prepending the search text with <em>a:</em></li> \
+                            <li>Search for people by writing the first character in uppercase or by prepending the search text with <em>p:</em></li> \
+                            <li>Search for groups by prepending the search text with <em>g:</em></li> \
+                        </ul>'});
+}
+
+cereweb.ac_quicksearch.prototype.openAdvancedSearch = function(e) {
+}
 
 cereweb.ac_quicksearch.prototype.submitClicked = function(e) {
     e.preventDefault();
@@ -213,6 +226,11 @@ cereweb.ac_quicksearch.prototype.submitClicked = function(e) {
 }
 
 cereweb.ac_quicksearch.prototype.openSearch = function(args) {
+    if (this.closeTimer >= 0) {
+        clearTimeout(this.closeTimer);
+        this.closeTimer = -1;
+    }
+
     YD.addClass(this.qs, "open");
     this.updateLabel("open");
 }
@@ -222,6 +240,7 @@ cereweb.ac_quicksearch.prototype.closeSearch = function(args) {
     this.closeTimer = setTimeout(function() {
         YD.removeClass(self.qs, "open");
         self.updateLabel("close");
+        self.closeTimer = -1;
     }, 500);
 }
 

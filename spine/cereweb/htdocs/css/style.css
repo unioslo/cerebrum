@@ -666,7 +666,7 @@ div.options td.buttons {
 }
 
 #quicksearch.open {
-    width: 200px;
+    width: 250px;
     background-color: #fff;
     border: 1px solid black;
     margin: 3px;
@@ -680,10 +680,16 @@ div.options td.buttons {
 #quicksearch div.autocomplete_container {
 }
 
-#quicksearch #qs_query {
-    width: 9.5em;
+#quicksearch #qs_dform {
     float: right;
 }
+#quicksearch #qs_qmark {
+    width:16px;
+    height:16px;
+    position: relative;
+    top: 2px;
+}
+
 #quicksearch #qs_submit {
     float: right;
     margin: 0 0 0 1em;
@@ -700,7 +706,7 @@ div.options td.buttons {
 }
 #quicksearch.open label {
     color: #000;
-    left: 5px;
+    left: -50px;
 }
 
 #quicksearch .required {
@@ -712,15 +718,17 @@ div.options td.buttons {
     display: none;
 }
 
-#quicksearch .help li {
+.help li {
     list-style-image: none;
     list-style-position: outside;
     list-style-type: circle;
-    margin-left: 10px;
+    margin-left: 15px;
+    text-align: left;
 }
 
 #quicksearch.open .optional {
     display: block;
+    clear: both;
 }
 
 #quicksearch div.buttons {
