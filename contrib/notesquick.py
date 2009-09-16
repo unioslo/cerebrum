@@ -138,7 +138,7 @@ def change_pw(account_id,pw_params):
         logger.error('Could not change password for %s!', user)
         
 
-def add_user(account_id):               
+def add_user(account_id):
     account_name =id_to_name(account_id)        
     pri_ou = NotesUtils.get_primary_ou(account_id)
     if not pri_ou:
@@ -168,8 +168,11 @@ def add_user(account_id):
 def delundel_user(account_id,status):
     account_name = id_to_name(account_id)
     name=get_names(account_id)
-    if name:                    
-        if sock.send('DELUNDELUSR&ShortName&%s&FirstName&%s&LastName&%s&Status&%s\n' % (account_name,name[0],name[1],status)):
+    if name:
+        cmd = 'DELUNDELUSR&ShortName&%s&FirstName&%s&LastName&%s&Status&%s' % (
+            account_name, name[0], name[1], status)
+        logger.debug("Sending command: %s" % cmd)
+        if sock.send('%s\n' % cmd):
             sock.read()
         else:
             logger.warn('Could not remove user %s!', account_name)
