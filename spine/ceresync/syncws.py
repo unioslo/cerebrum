@@ -395,7 +395,6 @@ class Sync(object):
         except FaultException, e:
             log.error("set_homedir_status: %s", e.fault.detail[0].string)
             sys.exit(1)
-        print "setHomedirStatusResponse:",repr(response)
 
 
 # In windows, the only way to get stdout, stdin and return value from a process
