@@ -259,7 +259,7 @@ class Sync(object):
 
         self.zsi_options= {
                 "readerclass": ExpatReaderClass,
-                "tracefile": file("/tmp/geirha.log","w"),
+                #"tracefile": file("/var/log/cerebrum/spinewstrace.log","w"),
                 "transport": CeresyncHTTPSConnection,
                 #"auth": (AUTH.none,),
                 #"host": "localhost",
@@ -349,7 +349,7 @@ class Sync(object):
         return [Ou(obj) for obj in response._ou]
 
     def get_persons(self, personspread=None, incr_from=None):
-        personspread= personspread or 
+        personspread= personspread or \
             config.get("sync", "person_spread", allow_none=True)
         request= getPersonsRequest()
         request._personspread= personspread
@@ -381,9 +381,21 @@ class Sync(object):
         try:
             response= port.get_homedirs(request)
         except FaultException, e:
-            log.error("get_accounts: %s", e.fault.detail[0].string)
+            log.error("get_homedirs: %s", e.fault.detail[0].string)
             sys.exit(1)
         return [Homedir(obj) for obj in response._homedir]
+
+    def set_homedir_status(self, homedir_id, status):
+        request= setHomedirStatusRequest()
+        request._homedir_id= homedir_id
+        request._status= status
+        port= self._get_ceresync_port()
+        try:
+            response= port.set_homedir_status(request)
+        except FaultException, e:
+            log.error("set_homedir_status: %s", e.fault.detail[0].string)
+            sys.exit(1)
+        print "setHomedirStatusResponse:",repr(response)
 
 
 # In windows, the only way to get stdout, stdin and return value from a process
