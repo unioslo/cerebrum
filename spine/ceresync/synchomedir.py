@@ -20,116 +20,77 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-from ceresync import sync
 from ceresync import config 
-import SpineClient
+from ceresync import syncws as sync
 import os, sys
 log = config.logger
 
-def setup_home(path, uid, gid):
+statuses= ['archived','create_failed','not_created','on_disk','pending_restore']
+
+def setup_home(path, uid, gid, dryrun):
     if not os.path.isdir(path):
         parent= os.path.dirname(path)
         if not os.path.isdir(parent):
-            os.mkdir(parent, 0755)
-        os.mkdir(path, 0700)
-        os.chown(path, uid, gid)
+            log.debug("Creating parent dir: %s",parent)
+            if not dryrun:
+                os.mkdir(parent, 0755)
+        log.debug("Creating dir: %s", path)
+        if not dryrun:        
+            os.mkdir(path, 0700)
+            os.chown(path, uid, gid)
         return True
     else:
         return False
 
-def get_path(hd):
-    disk = hd.get_disk()
-    home = hd.get_home()
-    if disk:
-        path = disk.get_path()
-        if home:
-            return path + "/" + home
-        else:
-            return path + "/" + hd.get_account().get_name()
-    else:
-        return home
-
-def make_disk_searcher(sync, hostname, status):
-    tr = sync.tr
-    cmd = sync.cmd 
-
-    ds = tr.get_disk_searcher()
-    ds.set_host(cmd.get_host_by_name(hostname))
-
-    hds = tr.get_home_directory_searcher()
-    hds.add_join("disk", ds, "")
-
-    if status:
-        hds.set_status(status)
-
-    return hds
-
-def get_status_constants(s):
-    # Create a little struct for holding status value constants
-    class status_values(object): pass
-    status_constants = status_values()
-
-    status_constants.CREATE_FAILED = s.tr.get_home_status("create_failed")
-    status_constants.ON_DISK = s.tr.get_home_status("on_disk")
-    status_constants.NOT_CREATED = s.tr.get_home_status("not_created")
-    return status_constants
-
-def make_homedir(hd, setup_script, status_constants, dryrun):
-    #path = hd.get_path() XXX
-    path = get_path(hd)
-    account = hd.get_account()
-    username = account.get_name()
-    log.info("Creating homedir for %s: %s", username, path)
+def make_homedir(sync, homedir, setup_script, dryrun=False, no_report=False):
+    path= homedir.homedir
+    username= homedir.account_name
+    uid= homedir.posix_uid
+    gid= homedir.posix_gid
+    result_status= 'on_disk'
+    log.debug("Creating homedir for %s: %s", username, path)
+    if dryrun:
+        return
 
     try:
-        uid = account.get_posix_uid()
-        gid = account.get_primary_group().get_posix_gid()
-        if not dryrun:
-            if setup_home(path, uid, gid):
-                r = os.system("%s %d %d %s %s" % (setup_script,
+        if setup_home(path, uid, gid, dryrun):
+            log.info("Running setup script: %s", setup_script)
+            if not dryrun:
+                r = os.system("echo %s %d %d %s %s" % (setup_script,
                                               uid, gid, path, username))
                 if r != 0:
                     raise Exception("\"%s\" failed" % setup_script)
 
-                log.info("Created homedir %s for %s" % (path, username))
-            else:
-                log.debug("Homedir %s for %s is ok" % (path, username))
+            log.info("Created homedir %s for %s" % (path, username))
+        else:
+            log.debug("Homedir %s for %s is ok" % (path, username))
     except Exception, e:
         log.warn("Failed creating homedir for %s: %s" % (username, e))
-        hd.set_status(status_constants.CREATE_FAILED)
-    else:
-        hd.set_status(status_constants.ON_DISK)
+        result_status= 'create_failed'
 
-def make_homedirs(s, hostname, setup_script, retry_failed, no_report, dryrun):
-    status_constants = get_status_constants(s)
-    if retry_failed:
-        hds = make_disk_searcher(s, hostname, status_constants.CREATE_FAILED)
-    else:
-        hds = make_disk_searcher(s, hostname, status_constants.NOT_CREATED)
-
-    for hd in hds.search():
-        make_homedir(hd, setup_script, status_constants, dryrun)
-
-    if no_report or dryrun:
-        s.tr.rollback()
-    else:
-        s.tr.commit()
+    if not no_report and not dryrun:
+        sync.set_homedir_status(homedir.homedir_id, result_status)
 
 def show_homedirs(s, hostname):
-    hds = make_disk_searcher(s, hostname, None)
-    for hd in hds.search():
-        print "%-9s %s:\t%s" % (hd.get_account().get_name(), hd.get_status().get_name(), get_path(hd))
+    for status in statuses:
+        print "Status: %s" % (status,)
+        for homedir in s.get_homedirs(status, hostname):
+            print "  %-9s %s" % (homedir.account_name, homedir.homedir)
 
 def lint_homedirs(s, hostname):
-    status_constants = get_status_constants(s)
-    hds = make_disk_searcher(s, hostname, status_constants.ON_DISK)
-    for hd in hds.search():
-        path = get_path(hd)
-        if not os.path.exists(path):
-            print >>sys.stderr, "%s has status ON_DISK in Cerebrum, but does not exist" % path
+    status='on_disk'
+    print "Status %s in cerebrum, but does not exist on disk:" % (status,)
+    for homedir in s.get_homedirs(status, hostname):
+        if not os.path.isdir(homedir.homedir):
+            print homedir.homedir
+
+    status='not_created'
+    print "Status %s in cerebrum, but does exist on disk:" % (status,)
+    for homedir in s.get_homedirs(status, hostname):
+        if os.path.isdir(homedir.homedir):
+            print homedir.homedir
 
 def main():
-    # Parse command-line arguments. -v, --verbose and -c, --config are handled by default.
     config.parse_args([
         config.make_option("-H", "--hostname", action="store", type="string", metavar="HOSTNAME",
                             help="pretend to be file server HOSTNAME"),
@@ -139,35 +100,33 @@ def main():
                             help="don't create directories, and don't report back to cerebrum (implies --no-report)"),
         config.make_option("-r", "--retry-failed", action="store_true", default=False,
                             help="retry homedirs with creation failed status"),
-        config.make_option("-s", "--show-db", action="store_true", default=False,
+        config.make_option("-s", "--show-db", action="store_true", default=False,                           
                             help="only show database contents"),
         config.make_option("-l", "--lint", action="store_true", default=False,
                             help="only warn about inconsistencies between Cerebrum and the filesystem"),
+
     ])
     dryrun          = config.getboolean('args', 'dryrun')
     no_report       = config.getboolean('args', 'no_report')
     retry_failed    = config.getboolean('args', 'retry_failed')
+    show_db         = config.getboolean('args', 'show_db')
+    lint            = config.getboolean('args', 'lint')
     hostname        = config.get('homedir', 'hostname', default=os.uname()[1])
     hostname        = config.get('args', 'hostname', default=hostname) # Allow command-line override
     setup_script    = config.get('homedir', 'setup_script', default="/local/skel/bdb-setup")
-    show_db         = config.getboolean('args', 'show_db')
-    lint            = config.getboolean('args', 'lint')
+    
+    home_status='not_created'
+    if retry_failed:
+        home_status='create_failed'
 
-    # --dryrun implies --no-report
-    if dryrun:
-        no_report = True
-
-    log.debug("hostname is: %s" , hostname)
-    log.debug("setupscript is: %s" , setup_script)
-
-    s = sync.Sync()
-
+    s= sync.Sync()
     if lint:
         lint_homedirs(s, hostname)
     elif show_db:
         show_homedirs(s, hostname)
     else:
-        make_homedirs(s, hostname, setup_script, retry_failed, no_report, dryrun)
+        for homedir in s.get_homedirs(home_status, hostname):
+            make_homedir(s, homedir, setup_script, dryrun, no_report)
 
 if __name__ == "__main__":
     main()
