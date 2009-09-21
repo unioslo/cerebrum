@@ -743,7 +743,8 @@ class spinews(ServiceSOAPBinding):
 
     def check_incremental(self, incremental_from):
         if incremental_from is not None:
-            last = self.get_changelogid_impl()
+            last=db.get_last_changelog_id()
+            db.rollback()
             if last - incremental_from > cereconf.SPINEWS_INCREMENTAL_MAX:
                 raise IncrementalError()
             return last
@@ -950,27 +951,6 @@ class spinews(ServiceSOAPBinding):
           getChangelogidRequest.typecode.pname)] = 'get_changelogid'
 
         
-
-    def set_homedir_status_impl(self, homedir_id, status):
-        status=int(co.AccountHomeStatus(status))
-        account.clear()
-        r=account.get_homedir(homedir_id)
-        account.find(r['account_id'])
-        account.set_homedir(current_id=homedir_id, status=status)
-        db.commit()
-
-    def get_changelogid_impl(self):
-        id=db.get_last_changelog_id()
-        db.rollback()
-        return id
-
-def test_impl(fun, *args):
-    import time
-    t=time.time()
-    r=fun(*args)
-    t=time.time()-t
-    return fun.__name__, t
-
 def test_soap(fun, cl, **kw):
     #fun=root[(cl.typecode.nspname, cl.typecode.pname)]
     o=cl()
@@ -1015,15 +995,6 @@ def test():
                     #"_account", ("_quarantine",),
     print test_soap(sp.get_aliases, getAliasesRequest)
                     #"_alias"
-
-    #print test_impl(sp.get_changelogid_impl)
-    #print test_impl(sp.get_persons_impl, {})
-    #print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
-    #print test_impl(sp.get_homedirs_impl, {}, "jak.itea.ntnu.no", "not_created")
-    #print test_impl(sp.get_aliases_impl, {})
-    #print test_impl(sp.get_ous_impl, {})
-    #print test_impl(sp.get_accounts_impl, {}, "user@stud", "MD5-crypt")
-    #print test_impl(sp.get_groups_impl, {}, "group@ntnu", "user@stud")
 
 
 class SecureServiceContainer(ServiceContainer):
