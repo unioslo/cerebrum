@@ -5281,7 +5281,7 @@ Addresses and settings:
             # If there is anything, it's at most one
             old_req = old_req[0]
         # If you are allowed to cancel a request, you can change it :)
-        self.ba.can_cancel_request(operator.get_entity_id(), req_id)
+        self.ba.can_cancel_request(operator.get_entity_id(), request_id)
         br.delete_request(request_id=request_id)
         br.add_request(operator.get_entity_id(), date,
                        old_req['operation'], old_req['entity_id'],
