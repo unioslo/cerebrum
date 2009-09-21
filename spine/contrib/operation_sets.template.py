@@ -861,6 +861,9 @@ op_sets = {
         ('syncread_account', None),
         ('syncread_person', None),
         ('syncread_ou', None),
+        ('syncread_alias', None),
+        ('syncread_homedir', None),
+        ('homedir_set_status', 'not_created'),
         ],
 }
 
@@ -897,5 +900,7 @@ op_roles = [
     ('account', 'steinarh', 'testset', ('global_ou', None, None)),
     ('account', 'steinarh', 'testset', ('global_person', None, None)),
     ('account', 'steinarh', 'testset', ('global_group', None, None)),
+    ('account', 'steinarh', 'testset', ('global_account', None, None)),
+    ('account', 'steinarh', 'testset', ('host', 346781, None)),
     ('account', 'steinarh', 'testset', ('spread', 45, None)),
 ]

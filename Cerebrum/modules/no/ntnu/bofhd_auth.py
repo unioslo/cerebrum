@@ -239,10 +239,12 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         raise PermissionDenied("Can't bulk read OUs")
 
-    #def can_syncread_alias(self, operator, spread=None):
-    #    return self._has_global_access(
-    #        operator, self.const.auth_account_syncread,
-    #        self.const.auth_target_type_global_alias, None)
+    def can_syncread_alias(self, operator):
+        if self._has_global_access(
+            operator, self.const.auth_alias_syncread,
+            self.const.auth_target_type_global_account, None):
+            return True
+        raise PermissionDenied("Can't bulk read Aliases")
     
     def can_syncread_person(self, operator, spread=None):
         if spread is not None:
@@ -255,4 +257,29 @@ class BofhdAuth(auth.BofhdAuth):
             self.const.auth_target_type_global_person, None):
             return True
         raise PermissionDenied("Can't bulk read Persons")
+
+    def can_syncread_homedir(self, operator, host_id):
+        if self._query_target_permissions(
+            operator, self.const.auth_homedir_syncread,
+            self.const.auth_target_type_host, host_id, None):
+            return True
+        if self._has_global_access(
+            operator, self.const.auth_homedir_syncread,
+            self.const.auth_target_type_global_host, None):
+            return True
+        raise PermissionDenied("Can't bulk read home directories")
+
+
+    def can_set_homedir_status(self, operator, host_id, status):
+        if self._query_target_permissions(
+            operator, self.const.auth_homedir_set_status,
+            self.const.auth_target_type_host, host_id, None,
+            operation_attr=status):
+            return True
+        if self._has_global_access(
+            operator, self.const.auth_homedir_set_status,
+            self.const.auth_target_type_global_host, None,
+            operation_attr=status):
+            return True
+        raise PermissionDenied("Can't set homedir status")
             

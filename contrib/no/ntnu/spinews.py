@@ -29,6 +29,8 @@ from Cerebrum.lib.spinews.spinews_services import *
 from Cerebrum.lib.spinews.SignatureHandler import SignatureHandler
 from Cerebrum import Errors
 
+from SocketServer import ForkingMixIn
+
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 
 from ZSI.wstools import logging
@@ -54,6 +56,7 @@ co=Factory.get("Constants")()
 group=Factory.get("Group")(db)
 account=Factory.get("Account")(db)
 host=Factory.get("Host")(db)
+disk=Factory.get("Disk")(db)
 auth=bofhd_auth.BofhdAuth(db)
 
 from Cerebrum.Entity import EntityQuarantine
@@ -752,103 +755,181 @@ class spinews(ServiceSOAPBinding):
     def get_changelogid(self, ps):
         operator_id = authenticate(ps)
         request = ps.Parse(getChangelogidRequest.typecode)
-        id = self.get_changelogid_impl()
+        id = db.get_last_changelog_id()
+        db.rollback()
         return getChangelogidResponse(id)
 
     def set_homedir_status(self, ps):
         operator_id = authenticate(ps)
+
         request = ps.Parse(setHomedirStatusRequest.typecode)
-        status = str(request._status)
-        homedir_id = str(request._homedir_id)
-        #auth.can_set_homedir_status(operator_id, host)
+        status_str = str(request._status)
+        homedir_id = int(request._homedir_id)
+
         response = setHomedirStatusResponse()
-        self.set_homedir_status_impl(homedir_id, status)
+
+        status=int(co.AccountHomeStatus(status_str))
+        account.clear()
+        r=account.get_homedir(homedir_id)
+        
+        if r["disk_id"] is None:
+            host_id = None
+        else:
+            disk.clear()
+            disk.find(r["disk_id"])
+            host_id = disk.host_id
+
+        auth.can_set_homedir_status(operator_id, host_id, status_str)
+
+        account.find(r['account_id'])
+        account.set_homedir(current_id=homedir_id, status=status)
+        db.commit()
+
         return response
 
     def get_homedirs(self, ps):
         operator_id = authenticate(ps)
+
         request = ps.Parse(getHomedirsRequest.typecode)
         status = str(request._status) 
         hostname = str(request._hostname)
-        #auth.can_syncread_homedir(operator_id, host)
+
+        host.clear()
+        host.find_by_name(hostname)
+        auth.can_syncread_homedir(operator_id, host.entity_id)
+
         response = getHomedirsResponse()
+
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
-        response._homedir = self.get_homedirs_impl(atypes, hostname, status)
+        
+        response._homedir = []
+        for row in search_homedirs(hostname, status):
+            h=HomedirDTO(row, atypes)
+            response._homedir.append(h)
+        db.rollback()
+        
         return response
 
     def get_aliases(self, ps):
         operator_id = authenticate(ps)
+
         request = ps.Parse(getAliasesRequest.typecode)
-        #auth.can_syncread_alias(operator_id)
         incremental_from = int_or_none(request._incremental_from)
+
+        auth.can_syncread_alias(operator_id)
+
         self.check_incremental(incremental_from)
+
         response = getAliasesResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
-        response._alias = self.get_aliases_impl(atypes, incremental_from)
+
+        response._alias = []
+        for row in search_aliases(incremental_from):
+            a=AliasDTO(row, atypes)
+            response._alias.append(a)
+        db.rollback()
+
         return response
 
     def get_ous(self, ps):
         operator_id = authenticate(ps)
+
         request = ps.Parse(getOUsRequest.typecode)
         auth.can_syncread_ou(operator_id)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
+
         response = getOUsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
-        response._ou = self.get_ous_impl(atypes, incremental_from)
+
+        response._ou=[]
+        q=quarantines()
+        for row in search_ous(incremental_from):
+            o=OUDTO(row, atypes)
+            o._quarantine = q.get_quarantines(row['id'])
+            response._ou.append(o)
+        db.rollback()
+
         return response
         
 
     def get_groups(self, ps):
         operator_id = authenticate(ps)
+
         request = ps.Parse(getGroupsRequest.typecode)
         groupspread = co.Spread(str(request._groupspread))
-        auth.can_syncread_group(operator_id, groupspread)
         accountspread = co.Spread(str(request._accountspread))
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
+
+        auth.can_syncread_group(operator_id, groupspread)
+
         response = getGroupsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
-        response._group = self.get_groups_impl(atypes,
-                                               groupspread,
-                                               accountspread,
-                                               incremental_from)
+        
+        response._group=[]
+        members=group_members(db)
+        q=quarantines()
+        for row in search_groups(groupspread, incremental_from):
+            g=GroupDTO(row, atypes)
+            g._member = members.get_members_name(row['id'])
+            g._quarantine = q.get_quarantines(row['id'])
+            response._group.append(g)
+        db.rollback()
+
         return response
 
     def get_accounts(self, ps):
         operator_id = authenticate(ps)
+
         request = ps.Parse(getAccountsRequest.typecode)
         accountspread = co.Spread(str(request._accountspread))
         auth_type = co.Authentication(str(request._auth_type))
-        auth.can_syncread_account(operator_id,
-                                   accountspread,
-                                   auth_type)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
+
+        auth.can_syncread_account(operator_id,
+                                  accountspread,
+                                  auth_type)
+
         response = getAccountsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
-        response._account = self.get_accounts_impl(atypes,
-                                                   accountspread,
-                                                   auth_type,
-                                                   incremental_from)
-        return response
+        
+        response._account = []
+        q=quarantines()
+        for row in search_accounts(accountspread, incremental_from, auth_type):
+            a=AccountDTO(row, atypes)
+            a._quarantine = (q.get_quarantines(row['id']) +
+                              q.get_quarantines(row['owner_id']))
+            response._account.append(a)
+        db.rollback()
 
+        return response
 
     def get_persons(self, ps):
         operator_id = authenticate(ps)
+
         request = ps.Parse(getPersonsRequest.typecode)
         if request._personspread is not None:
             personspread = int(co.Spread(str(request._personspread)))
         else:
             personspread = None
-        auth.can_syncread_person(operator_id, personspread)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(incremental_from)
+
+        auth.can_syncread_person(operator_id, personspread)
+
         response = getPersonsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
-        response._person = self.get_persons_impl(atypes,
-                                                 personspread,
-                                                 incremental_from)
+        response._person = []
+        
+        q=quarantines()
+        for row in search_persons(personspread, incremental_from):
+            p=PersonDTO(row, atypes)
+            p._quarantine = q.get_quarantines(row['id'])
+            response._person.append(p)
+        db.rollback()
+
         return response
 
     root[(getGroupsRequest.typecode.nspname,
@@ -868,65 +949,7 @@ class spinews(ServiceSOAPBinding):
     root[(getChangelogidRequest.typecode.nspname,
           getChangelogidRequest.typecode.pname)] = 'get_changelogid'
 
-    def get_persons_impl(self, atypes, personspread=None, changelog_id=None):
-        persons=[]
-        q=quarantines()
-        for row in search_persons(personspread, changelog_id):
-            p=PersonDTO(row, atypes)
-            p._quarantine = q.get_quarantines(row['id'])
-            persons.append(p)
-        db.rollback()
-        return persons
         
-
-    def get_accounts_impl(self, atypes, accountspread, auth_type, changelog_id=None):
-        accounts=[]
-        q=quarantines()
-        for row in search_accounts(accountspread, changelog_id, auth_type):
-            a=AccountDTO(row, atypes)
-            a._quarantine = (q.get_quarantines(row['id']) +
-                              q.get_quarantines(row['owner_id']))
-            accounts.append(a)
-        db.rollback()
-        return accounts
-
-    def get_groups_impl(self, atypes, groupspread, accountspread, changelog_id=None): 
-        groups=[]
-        members=group_members(db)
-        q=quarantines()
-        for row in search_groups(groupspread, changelog_id):
-            g=GroupDTO(row, atypes)
-            g._member = members.get_members_name(row['id'])
-            g._quarantine = q.get_quarantines(row['id'])
-            groups.append(g)
-        db.rollback()
-        return groups
-
-    def get_ous_impl(self, atypes, changelog_id=None):
-        ous=[]
-        q=quarantines()
-        for row in search_ous(changelog_id):
-            o=OUDTO(row, atypes)
-            o._quarantine = q.get_quarantines(row['id'])
-            ous.append(o)
-        db.rollback()
-        return ous
-
-    def get_aliases_impl(self, atypes, changelog_id=None):
-        aliases=[]
-        for row in search_aliases(changelog_id):
-            a=AliasDTO(row, atypes)
-            aliases.append(a)
-        db.rollback()
-        return aliases
-
-    def get_homedirs_impl(self, atypes, hostname, status):
-        homedirs=[]
-        for row in search_homedirs(hostname, status):
-            h=HomedirDTO(row, atypes)
-            homedirs.append(h)
-        db.rollback()
-        return homedirs
 
     def set_homedir_status_impl(self, homedir_id, status):
         status=int(co.AccountHomeStatus(status))
@@ -970,8 +993,9 @@ def test_soap(fun, cl, **kw):
 
 def test():
     sp=spinews()
-    print test_soap(sp.get_ous, getOUsRequest,
-                    incremental_from=4743670)
+    print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
+                    homedir_id=85752, status="not_created")
+    print test_soap(sp.get_ous, getOUsRequest)
     print test_soap(sp.get_changelogid, getChangelogidRequest)
     print test_soap(sp.get_groups, getGroupsRequest, 
                     accountspread="user@stud", groupspread="group@ntnu")
@@ -992,19 +1016,20 @@ def test():
     print test_soap(sp.get_aliases, getAliasesRequest)
                     #"_alias"
 
-    print test_impl(sp.get_changelogid_impl)
-    print test_impl(sp.get_persons_impl, {})
-    print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
-    print test_impl(sp.get_homedirs_impl, {}, "jak.itea.ntnu.no", "not_created")
-    print test_impl(sp.get_aliases_impl, {})
-    print test_impl(sp.get_ous_impl, {})
-    print test_impl(sp.get_accounts_impl, {}, "user@stud", "MD5-crypt")
-    print test_impl(sp.get_groups_impl, {}, "group@ntnu", "user@stud")
+    #print test_impl(sp.get_changelogid_impl)
+    #print test_impl(sp.get_persons_impl, {})
+    #print test_impl(sp.set_homedir_status_impl, 85752L, "not_created")
+    #print test_impl(sp.get_homedirs_impl, {}, "jak.itea.ntnu.no", "not_created")
+    #print test_impl(sp.get_aliases_impl, {})
+    #print test_impl(sp.get_ous_impl, {})
+    #print test_impl(sp.get_accounts_impl, {}, "user@stud", "MD5-crypt")
+    #print test_impl(sp.get_groups_impl, {}, "group@ntnu", "user@stud")
 
 
 class SecureServiceContainer(ServiceContainer):
     def _init__(self, server_address, services=[], RequestHandlerClass=SOAPRequestHandler):
         ServiceContainer.__init__(self, server_address, services, RequestHandlerClass)
+        self.max_children = 5
 
     def server_bind(self):
         ## override the default methid and make
@@ -1103,6 +1128,9 @@ def main(daemon=False):
     logger.debug("starting...")
     ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
     RunAsServer(port=int(cereconf.SPINEWS_PORT), services=[spinews(),])
+
+
+test()
 
 if __name__ == '__main__':
     help = False

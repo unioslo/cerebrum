@@ -386,6 +386,14 @@ class Constants(Constants.Constants):
     auth_group_syncread = _AuthRoleOpCode(
         'syncread_group', "Operation code for bulk reading groups")
 
+    auth_alias_syncread = _AuthRoleOpCode(
+        'syncread_alias', "Operation code for bulk reading mail aliases")
+
+    auth_homedir_syncread = _AuthRoleOpCode(
+        'syncread_homedir', "Operation code for bulk reading home directories")
+
+    auth_homedir_set_status = _AuthRoleOpCode(
+        'homedir_set_status', "Operation code for changing home directory status")
     auth_target_type_spread="spread"
 
 
