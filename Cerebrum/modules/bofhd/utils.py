@@ -83,6 +83,8 @@ class Constants(Constants.Constants):
         'create_user', 'Create user')
     auth_remove_user = _AuthRoleOpCode(
         'remove_user', 'Remove user')
+    auth_search_user = _AuthRoleOpCode(
+        'search_user', 'Search for accounts')
     auth_view_history = _AuthRoleOpCode(
         'view_history', 'View history')
     auth_set_password = _AuthRoleOpCode(
