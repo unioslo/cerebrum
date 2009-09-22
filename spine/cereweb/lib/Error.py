@@ -42,6 +42,12 @@ class CustomError(Exception):
     seccond should be its message. Both must be included.
     """
 
+class CreationFailedError(Exception):
+    """An attempt to create an entity has failed."""
+    def __init__(self, message, innerException=None):
+        self.message = message
+        self.innerException = innerException
+
 class Redirected(Exception):
     pass # presentere en side for browsere som ikke støtter redirect?
 

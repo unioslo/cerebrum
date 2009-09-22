@@ -179,7 +179,7 @@ cereweb.ac_quicksearch = function(container) {
                         <img id="qs_qmark" alt="Help" src="/img/q.gif" />  \
                     </div> \
                     <div class="optional"> \
-                        <span>+ <a id="qs_advanced_search" href="#">Advanced search</a></span> \
+                        <span>+ <a id="qs_advanced_search" href="/search/">Advanced search</a></span> \
                         <input id="qs_submit" type="submit" value="Search" /> \
                     </div> \
                 </form> \

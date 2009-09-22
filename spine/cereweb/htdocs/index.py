@@ -51,6 +51,7 @@ import permissions
 import user_client
 import activation
 import ajax
+from search import search
 
 def _get_links():
     return (

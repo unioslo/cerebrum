@@ -45,36 +45,17 @@ from lib.data.HistoryDAO import HistoryDAO
 from lib.data.OuDAO import OuDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.ConstantsDAO import ConstantsDAO
-from lib.Searchers import PersonSearcher
+from lib.PersonSearcher import PersonSearcher
 from lib.Forms import PersonCreateForm, PersonEditForm
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 
-def search_form(remembered):
-    page = SearchTemplate()
-    page.title = _("Person")
-    page.set_focus("person/search")
-    page.links = _get_links()
-    page.search_title = _('A person')
-    page.search_fields = [("name", _("Name")),
-                          ("accountname", _("Account name")),
-                          ("birthdate", _("Date of birth *")),
-                          ("ou", _("Affiliated to Organizational Unit")),
-                          ("aff", _("Affiliation Type"))
-                        ]
-    page.search_help = [_("* Date of birth: (YYYY-MM-DD), exact match"),
-                        _("A person may have several types of names, and therefor a search for a name will be testet on all the nametypes.")]
-    page.search_action = '/person/search'
-    page.form_values = remembered
-    return page.respond()
-
 def search(transaction, **vargs):
     """Search after hosts and displays result and/or searchform."""
-    args = ( 'name', 'accountname', 'birthdate', 'spread', 'ou', 'aff')
-    searcher = PersonSearcher(transaction, *args, **vargs)
-    return searcher.respond() or search_form(searcher.get_remembered())
+    searcher = PersonSearcher(transaction, **vargs)
+    return searcher.respond() or searcher.render_search_form()
 search = transaction_decorator(search)
 search.exposed = True
 index = search
@@ -123,7 +104,7 @@ def edit(id, **vargs):
     }
     values.update(vargs)
 
-    form = PersonEditForm(None, **values)
+    form = PersonEditForm(**values)
     form.title = entity_link(person)
 
     if not vargs:
@@ -138,7 +119,7 @@ edit.exposed = True
 @session_required_decorator
 def create(**vargs):
     """Creates a page with the form for creating a person."""
-    form = PersonCreateForm(None, **vargs)
+    form = PersonCreateForm(**vargs)
 
     if not vargs:
         return create_form(form)

@@ -33,11 +33,12 @@
 ## Overloaded by search-pages like person search, should
 ## contain the url for where to go when the form is submittet.
 #attr $form_action = '/some/where'
+#attr $form_method = 'POST'
 
 #def content()
     <div>
         <h3>$form_title</h3>
-        <form action="$form_action" method="post">
+        <form action="$form_action" method="$form_method">
             #for $field in $form_fields
                 #set $cls = $field['required'] and 'required' or 'optional'
                 <div class="$cls">

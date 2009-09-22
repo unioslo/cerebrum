@@ -40,11 +40,7 @@ from lib.data.PersonDAO import PersonDAO
 from lib.data.DTO import DTO
 
 from lib.utils import get_database
-
-class CreationFailedError(Exception):
-    def __init__(self, message, innerException=None):
-        self.message = message
-        self.innerException = innerException
+from lib.Error import CreationFailedError
 
 def _get_links():
     return (
@@ -52,28 +48,14 @@ def _get_links():
         ('create', _('Create')),
     )
 
-def search(transaction, **vargs):
+def search(transaction, **kwargs):
     """Search for accounts and display results and/or searchform.""" 
-    args = ('name', 'spread', 'create_date', 'expire_date', 'description')
-    searcher = AccountSearcher(transaction, *args, **vargs)
-    return searcher.respond() or view_form(searcher.get_form())
+    searcher = AccountSearcher(transaction, **kwargs)
+    return searcher.respond() or searcher.render_search_form()
 search = transaction_decorator(search)
 search.exposed = True
 index = search
 
-def view_form(form, message=None):
-    page = FormTemplate()
-    if message:
-        page.messages.append(message)
-    page.title = _("Account")
-    page.set_focus("account/")
-    page.links = _get_links()
-    page.form_title = form.get_title()
-    page.form_action = form.get_action()
-    page.form_fields = form.get_fields()
-    page.form_help = form.get_help()
-    return page.respond()
-    
 @session_required_decorator
 def create(**kwargs):
     owner_id = kwargs.get('owner_id', None)
@@ -89,7 +71,7 @@ def create(**kwargs):
     if owner.type_name not in ('person', 'group'):
         return fail_to_referer(_("Please create an account through a person or group."))
 
-    form = AccountCreateForm(None, owner_entity=owner, **kwargs)
+    form = AccountCreateForm(owner_entity=owner, **kwargs)
     if len(kwargs.keys()) == 1:
         return view_form(form)
     elif not form.is_correct():

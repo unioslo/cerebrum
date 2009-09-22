@@ -17,19 +17,37 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-#
 
-class DTO(object):
-    def __repr__(self):
-        return str(self.__dict__)
+from gettext import gettext as _
+from lib.Forms import Form
 
-    def __eq__(self, other):
-        if other is None: return False
-        return self.__dict__ == other.__dict__
+class PersonSearchForm(Form):
+    title = _('Search for Person')
+    action = '/search/person/'
+    method = 'GET'
 
-    @classmethod
-    def from_row(cls, row):
-        dto = cls()
-        for key, value in row.items():
-            setattr(dto, key, value)
-        return dto
+    Order = [
+        'name',
+        'birth_date',
+    ]
+
+    Fields = {
+        'name': {
+            'label': _('Name'),
+            'required': False,
+            'type': 'text',
+            'quote': 'reject',
+        },
+        'birth_date': {
+            'label': _('Birth date'),
+            'required': False,
+            'type': 'text',
+            'help': _('Date must be in YYYY-MM-DD or DD/MM/YYYY format.'),
+        },
+    }
+
+    check_birth_date = Form._check_date
+
+    def check(self):
+        values = self.get_values()
+        return values['name'] is not None or values['birth_date'] is not None

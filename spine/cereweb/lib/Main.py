@@ -39,11 +39,16 @@ class Main(FramesTemplate):
         self.prepare_page()
         self.prepare_messages()
 
+        try:
+            page, link = cherrypy.request.path.split('/', 2)[1:]
+        except ValueError, e:
+            page, link = "", "#"
+
         if not hasattr(self, 'page'):
-            self.page = ''
+            self.page = page
 
         if not hasattr(self, 'link'):
-            self.link = '#'
+            self.link = link
         ## cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset='+FramesTemplate.charset
 
     def prepare_page(self):

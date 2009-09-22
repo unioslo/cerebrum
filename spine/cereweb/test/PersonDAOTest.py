@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #
 
+import time
 import unittest
 from copy import deepcopy
 from mx.DateTime import DateTime
@@ -120,6 +121,12 @@ class PersonDAOTest(CerebrumTestCase):
         self.assert_(len(affiliations) == 4)
         aff = (x for x in affiliations if x.name == "ALUMNI/aktiv").next()
         self.assertEquals(3, aff.ou.id)
+
+    def test_that_search_returns_correct_data(self):
+        t = time.time()
+        result = self.dao.search("Al")
+        r = time.time() - t
+        self.assert_(r < 2.0, "Test should run in under 2 seconds.  Ran in %s seconds." % r)
 
 class PersonDAOWriteTest(CerebrumTestCase):
     def setUp(self):

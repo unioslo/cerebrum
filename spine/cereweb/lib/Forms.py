@@ -23,6 +23,7 @@ import cgi
 import cherrypy
 from lib.utils import legal_date, html_quote, spine_to_web, object_link
 from lib.utils import randpasswd, get_lastname_firstname, entity_link
+from lib.templates.FormTemplate import FormTemplate
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.ConstantsDAO import ConstantsDAO
@@ -34,28 +35,30 @@ Helper-module for search-pages and search-result-pages in cereweb.
 """
 
 class Form(object):
-    def __init__(self, transaction, **values):
-        self.ajax = cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest"
-        self.values = values
-        self.transaction = transaction
+    Order = []
+    Fields = {}
 
+    def __init__(self, **values):
+        self.fields = self.Fields.copy()
+        self.order = self.Order[:]
+
+        self.values = values
         self.init_form()
 
-        ## print '**************** Form:: init:  init called......'
+        self._is_quoted = False
+        self._is_quoted_correctly = True
 
         for key, field in self.fields.items():
-            value = self.values.get(key) or field.get('value')
+            value = self.values.get(key)
             name = field.get('name', '')
             if not name:
                field['name'] = key
             field['value'] = value
 
     def init_form(self):
-        self.order = []
-        self.fields = {}
+        pass
 
     def get_fields(self):
-        ## print '================== Form:: get_fields:   called...'
         res = []
         for key in self.order:
             field = self.fields[key]
@@ -66,23 +69,30 @@ class Form(object):
         return res
 
     def get_values(self):
+        self.quote_all()
+
         values = {} 
         for key, field in self.fields.items():
             values[key] = field['value']
         return values
 
     def quote_all(self):
-        for field in self.fields.values():
-            if field['value']:
-                if 'reject' == field.get('quote'):
-                    if field['value'] != cgi.escape(field['value']):
-                        self.error_message = _("Field '%s' is unsafe.") % field ['label']
-                        return False
+        if self._is_quoted:
+            return self._is_quoted_correctly
+
+        self._is_quoted = True
+
         for key, field in self.fields.items():
             if field['value']:
                 if 'escape' == field.get('quote'):
                     self.fields[key]['value'] = cgi.escape(field['value'])
-        return True
+                if 'reject' == field.get('quote'):
+                    if field['value'] != cgi.escape(field['value']):
+                        self.error_message = _("Field '%s' is unsafe.") % field ['label']
+                        self._is_quoted_correctly = False
+                        break
+
+        return self._is_quoted_correctly
 
     def has_required(self):
         res = True
@@ -94,109 +104,187 @@ class Form(object):
         return res
 
     def is_correct(self):
-        correct = self.has_required()
-        if correct:
-            correct = self.quote_all()
+        if not self.has_required():
+            return False
 
-        if correct:
-            for field in self.fields.values():
-                if field['value']:
-                    func = getattr(self, 'check_%s' % field['name'], None)
-                    if func and not func(field['value']):
-                        correct = False
-                        message = "Field '%s' " % field['label']
-                        self.error_message = message + self.error_message
-                        break
-        return correct
+        if not self.quote_all():
+            return False
+
+        correct = True
+        for field in self.fields.values():
+            if field['value']:
+                func = getattr(self, 'check_%s' % field['name'], None)
+                if func and not func(field['value']):
+                    correct = False
+                    message = "Field '%s' " % field['label']
+                    self.error_message = message + self.error_message
+                    break
+
+        return correct and self.check()
 
     def get_error_message(self):
         message = getattr(self, 'error_message', False)
         return message and (message, True) or ''
 
-    def _check_short_string(self, name):
-        is_correct = True
-        if len(name) > 256:
-            is_correct = False
-            self.error_message = 'too long (max. 256 characters).'
-        return is_correct
+    def check(self):
+        """This method should be overloaded and used to handle form-level validation."""
+        return True
 
-    def check_expire_date(self, date):
-        is_correct = True
-        if not legal_date(date):
-            self.error_message = 'not a legal date.'
-            is_correct = False
-        return is_correct
+    def _check_short_string(self, name):
+        if len(name) <= 256:
+            return True
+
+        self.error_message = 'too long (max. 256 characters).'
+        return False
+
+    def _check_date(self, date):
+        if legal_date(date):
+            return True
+
+        self.error_message = 'not a legal date.'
+        return False
 
     def get_action(self):
         return getattr(self, 'action', '/index')
+
+    def get_method(self):
+        return getattr(self, 'action', 'POST')
 
     def get_title(self):
         return getattr(self, 'title', 'No Title')
 
     def get_help(self):
         return getattr(self, 'help', [])
+
+    def _get_page(self):
+        page = FormTemplate()
+        page.form_title = self.get_title()
+        page.form_action = self.get_action()
+        page.form_method = self.get_method()
+        page.form_fields = self.get_fields()
+        page.form_help = self.get_help()
+        return page
+
+    def render(self):
+        page = self._get_page()
+        return page.content()
+
+    def respond(self):
+        page = self._get_page()
+        return page.respond()
             
+class AccountSearchForm(Form):
+    title = "Search for Account"
+    action = '/account/search'
+
+    Order = [
+        'name',
+        'spread',
+        'create_date',
+        'expire_date',
+        'description',
+    ]
+
+    Fields = {
+        'name': {
+            'label': _('Account name'),
+            'required': False,
+            'type': 'text',
+        },
+        'spread': {
+            'label': _('Spread name'),
+            'required': False,
+            'type': 'text',
+        },
+        'create_date': {
+            'label': _('Create date'),
+            'required': False,
+            'type': 'text',
+            'help': "YYYY-MM-DD, exact match.",
+        },
+        'expire_date': {
+            'label': _('Expire date'),
+            'required': False,
+            'type': 'text',
+            'help': "YYYY-MM-DD, exact match.",
+        },
+        'description': {
+            'label': _('Description'),
+            'required': False,
+            'type': 'text',
+        },
+    }
+
+    check_name = Form._check_short_string
+    check_expire_date = Form._check_date
+    check_create_date = Form._check_date
+
+    help = [
+        'Use wildcards * and ? to extend the search.',
+        'Supply several search parameters to limit the search.',
+    ]
+
 class PersonCreateForm(Form):
-    def init_form(self):
-        self.order = [
-            'ou',
-            'status',
-            'firstname',
-            'lastname',
-            'externalid',
-            'gender',
-            'birthdate',
-            'description',
-        ]
-        self.fields = {
-            'ou': {
-                'label': _('OU'),
-                'required': True,
-                'type': 'select',
-                'quote': 'reject',
-            },
-            'status': {
-                'label': _('Affiliation Type'),
-                'required': True,
-                'type': 'select',
-                'quote': 'reject',
-            },
-            'firstname': {
-                'label': _('First name'),
-                'required': True,
-                'type': 'text',
-                'quote': 'reject',
-            },
-            'lastname': {
-                'label': _('Last name'),
-                'required': True,
-                'type': 'text',
-                'quote': 'reject',
-            },
-            'gender': {
-                'label': _('Gender'),
-                'required': True,
-                'type': 'select',
-            },
-            'birthdate': {
-                'label': _('Birth date'),
-                'required': True,
-                'type': 'text',
-                'help': _('Date must be in YYYY-MM-DD format.'),
-            },
-            'externalid': {
-                'label': '<abbr title="%s">%s</abbr>' % (_('National Identity Number'), _('NIN')),
-                'required': False,
-                'type': 'text',
-                'help': _('Norwegian "Fødselsnummer", 11 digits'),
-            },
-            'description': {
-                'label': _('Description'),
-                'required': False,
-                'type': 'text',
-                'quote': 'escape',
-            }
+    Order = [
+        'ou',
+        'status',
+        'firstname',
+        'lastname',
+        'externalid',
+        'gender',
+        'birthdate',
+        'description',
+    ]
+
+    Fields = {
+        'ou': {
+            'label': _('OU'),
+            'required': True,
+            'type': 'select',
+            'quote': 'reject',
+        },
+        'status': {
+            'label': _('Affiliation Type'),
+            'required': True,
+            'type': 'select',
+            'quote': 'reject',
+        },
+        'firstname': {
+            'label': _('First name'),
+            'required': True,
+            'type': 'text',
+            'quote': 'reject',
+        },
+        'lastname': {
+            'label': _('Last name'),
+            'required': True,
+            'type': 'text',
+            'quote': 'reject',
+        },
+        'gender': {
+            'label': _('Gender'),
+            'required': True,
+            'type': 'select',
+        },
+        'birthdate': {
+            'label': _('Birth date'),
+            'required': True,
+            'type': 'text',
+            'help': _('Date must be in YYYY-MM-DD format.'),
+        },
+        'externalid': {
+            'label': '<abbr title="%s">%s</abbr>' % (_('National Identity Number'), _('NIN')),
+            'required': False,
+            'type': 'text',
+            'help': _('Norwegian "Fødselsnummer", 11 digits'),
+        },
+        'description': {
+            'label': _('Description'),
+            'required': False,
+            'type': 'text',
+            'quote': 'escape',
         }
+    }
 
     def get_status_options(self):
         options = [(t.id, t.name) for t in ConstantsDAO().get_affiliation_statuses()]
@@ -216,183 +304,180 @@ class PersonCreateForm(Form):
     def check_lastname(self, name):
         return self._check_short_string(name)
 
-    def check_birthdate(self, date):
-        is_correct = True
-        if not legal_date(date):
-            self.error_message = 'not a legal date.'
-            is_correct = False
-        return is_correct
+    check_birthdate = Form._check_date
 
     def check_externalid(self, ssn):
-        is_correct = True
         if len(ssn) <> 11 or not ssn.isdigit():
             self.error_message = 'SSN should be an 11 digit Norwegian Social Security Number'
-            is_correct = False
-        return is_correct
+            return False
+
+        return True
 
 class PersonEditForm(PersonCreateForm):
-    def init_form(self):
-        self.order = [
-            'id', 'gender', 'birthdate', 'description', 'deceased'
-        ]
-        self.fields = {
-            'id': {
-                'label': 'id',
-                'required': True,
-                'type': 'hidden',
-            },
-            'gender': {
-                'label': _('Gender'),
-                'required': True,
-                'type': 'select',
-            },
-            'birthdate': {
-                'label': _('Birth date'),
-                'required': True,
-                'type': 'text',
-                'help': 'YYYY-MM-DD',
-            },
-            'description': {
-                'label': _('Description'),
-                'required': False,
-                'type': 'text',
-                'quote': 'escape',
-            },
-            'deceased': {
-                'label': _('Deceased date'),
-                'required': False,
-                'type': 'text',
-                'help': 'YYYY-MM-DD',
-            },
-        }
+    Order = [
+        'id', 'gender', 'birthdate', 'description', 'deceased'
+    ]
 
-    def check_deceased(self, date):
-        is_correct = True
-        if not legal_date(date):
-            self.error_message = 'not a legal date.'
-            is_correct = False
-        return is_correct
+    Fields = {
+        'id': {
+            'label': 'id',
+            'required': True,
+            'type': 'hidden',
+        },
+        'gender': {
+            'label': _('Gender'),
+            'required': True,
+            'type': 'select',
+        },
+        'birthdate': {
+            'label': _('Birth date'),
+            'required': True,
+            'type': 'text',
+            'help': 'YYYY-MM-DD',
+        },
+        'description': {
+            'label': _('Description'),
+            'required': False,
+            'type': 'text',
+            'quote': 'escape',
+        },
+        'deceased': {
+            'label': _('Deceased date'),
+            'required': False,
+            'type': 'text',
+            'help': 'YYYY-MM-DD',
+        },
+    }
+
+    check_deceased = Form._check_date
 
     def get_title(self):
         return 'Edit ' + getattr(self, 'title', 'person')
 
 class AccountCreateForm(Form):
+    def __init__(self, transaction, **values):
+        self.transaction = transaction
+        super(AccountCreateForm, self).__init__(**values)
+
+    action = '/account/create'
+
+    Order = [
+        'owner_id',
+        'name',
+        '_other',
+        'group',
+        'expire_date',
+        'password0',
+        'password1',
+        'randpasswd',
+    ]
+
+    Fields = {
+        'owner_id': {
+            'required': True,
+            'type': 'hidden',
+            'label': _('Owner id'),
+        },
+        'name': {
+            'label': _('Select username'),
+            'required': True,
+            'type': 'select',
+        },
+        '_other': {
+            'label': _('Enter username'),
+            'required': False,
+            'type': 'text',
+            'quote': 'reject',
+        },
+        'expire_date': {
+            'label': _('Expire date'),
+            'required': False,
+            'type': 'text',
+            'help': _('Date must be in YYYY-MM-DD format.'),
+        },
+        'group': {
+            'label': _('Primary group'),
+            'required': False,
+            'cls': 'ac_group',
+            'type': 'text',
+            'quote': 'reject',
+        },
+        'password0': {
+            'label': _('Enter password'),
+            'required': False,
+            'type': 'password',
+        },
+        'password1': {
+            'label': _('Re-type password'),
+            'required': False,
+            'type': 'password',
+        },
+        'randpasswd': {
+            'label': _('Random password'),
+            'required': False,
+            'type': 'radio',
+            'name': 'randpwd',
+            'value': [randpasswd() for i in range(10)],
+        },
+    }
+
     def init_form(self):
-        self.action = '/account/create'
-
-        self.order = [
-            'owner_id', 'name', '_other', 'group', 'expire_date', 'password0', 'password1', 'randpasswd',
-        ]
-        self.fields = {
-            'owner_id': {
-                'required': True,
-                'type': 'hidden',
-                'label': _('Owner id'),
-            },
-            'name': {
-                'label': _('Select username'),
-                'required': True,
-                'type': 'select',
-            },
-            '_other': {
-                'label': _('Enter username'),
-                'required': False,
-                'type': 'text',
-                'quote': 'reject',
-            },
-            'expire_date': {
-                'label': _('Expire date'),
-                'required': False,
-                'type': 'text',
-                'help': _('Date must be in YYYY-MM-DD format.'),
-            },
-            'group': {
-                'label': _('Primary group'),
-                'required': False,
-                'cls': 'ac_group',
-                'type': 'text',
-                'quote': 'reject',
-            },
-            'password0': {
-                'label': _('Enter password'),
-                'required': False,
-                'type': 'password',
-            },
-            'password1': {
-                'label': _('Re-type password'),
-                'required': False,
-                'type': 'password',
-            },
-            'randpasswd': {
-                'label': _('Random password'),
-                'required': False,
-                'type': 'radio',
-                'name': 'randpwd',
-                'value': [randpasswd() for i in range(10)],
-            },
-        }
-
         self.owner = self.values.get("owner_entity")
         self.type = self.owner.type_name
         self.name = self.owner.name
-
-        if self.type != 'person':
-            self.fields['np_type'] = {
-                'label': _('Account type'),
-                'required': True,
-                'type': 'select',
-            }
-            self.fields['join'] = {
-                'label': _('Join %s') % self.name,
-                'type': 'checkbox',
-                'required': False,
-            }
-            self.order.append('np_type')
-            self.order.append('join')
 
     def get_name_options(self):
         usernames = AccountDAO().suggest_usernames(self.owner)
         return [(username, username) for username in usernames]
 
+    def get_title(self):
+        return "%s %s" % (_('Owner is'), entity_link(self.owner))
+
+    check_expire_date = Form._check_date
+
+    def check(self):
+        pwd0 = self.fields['password0'].get('value', '')
+        pwd1 = self.fields['password1'].get('value', '')
+            
+        if (pwd0 and pwd1) and (pwd0 == pwd1) and (len(pwd0) < 8):
+            self.error_message = 'The password must be 8 chars long.'
+            return False
+
+        msg = 'The two passwords differ.'
+        if (pwd0 and pwd1) and (pwd0 != pwd1):
+            self.error_message = msg
+            return False
+
+        if (pwd0 and not pwd1) or (not pwd0 and pwd1):
+            self.error_message = msg
+            return False
+
+        return True
+
+class NonPersonalAccountCreateForm(AccountCreateForm):
+    Fields = AccountCreateForm.Fields.copy()
+    Fields['np_type'] = {
+        'label': _('Account type'),
+        'required': True,
+        'type': 'select',
+    }
+    Fields['join'] = {
+        'label': _('Join %s'),
+        'type': 'checkbox',
+        'required': False,
+    }
+
+    def init_form(self):
+        fields['join']['label'] = fields['join']['label'] % self.name
+
+    Order = AccountCreateForm.Order[:]
+    Order.append('np_type')
+    Order.append('join')
+        
     def get_np_type_options(self):
         account_types = ConstantsDAO().get_account_types()
         return [(t.id, t.description) for t in account_types]
 
-    def get_title(self):
-        return "%s %s" % (_('Owner is'), entity_link(self.owner))
-
-    def is_correct(self):
-        correct = self.has_required()
-        if correct:
-            correct = self.quote_all()
-
-        if correct:
-            for field in self.fields.values():
-                if field['value'] and field['name'] != 'password0' and field['name'] != 'password1':
-                    func = getattr(self, 'check_%s' % field['name'], None)
-                    if func and not func(field['value']):
-                        correct = False
-                        message = "Field '%s' " % field['label']
-                        self.error_message = message + self.error_message
-                        break
-        if correct:
-            pwd0 = self.fields['password0'].get('value', '')
-            pwd1 = self.fields['password1'].get('value', '')
-            
-            msg = 'The two passwords differ.'
-            if (pwd0 and pwd1) and (pwd0 != pwd1):
-                self.error_message = msg
-                correct = False
-            if correct:
-                if (pwd0 and pwd1) and (pwd0 == pwd1) and (len(pwd0) < 8):
-                    self.error_message = 'The password must be 8 chars long.'
-                    correct = False
-            if correct:
-                if (pwd0 and not pwd1) or (not pwd0 and pwd1):
-                    self.error_message = msg
-                    correct = False
-        return correct
-        
 class RoleCreateForm(Form):
     def init_form(self):
         self.order = [

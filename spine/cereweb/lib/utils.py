@@ -588,7 +588,7 @@ def get_spine_encoding():
     return cherrypy.session['spine_encoding']
 
 def is_ajax_request():
-    return cherrypy.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    return cherrypy.request.headerMap.get('X-Requested-With', "") == "XMLHttpRequest"
 
 def get_client_encoding():
     if is_ajax_request(): return "utf-8"
