@@ -32,7 +32,7 @@ from Cerebrum.Entity import Entity
 from Cerebrum.Utils import Factory, argument_to_sql
 
 from Cerebrum.modules.bofhd.cmd_param import *
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns.IPUtils import IPCalc
 from Cerebrum.modules.bofhd.auth import BofhdAuth
