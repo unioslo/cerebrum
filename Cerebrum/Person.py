@@ -899,21 +899,47 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
           """ % locals(), {'spread': spread,'idtype': idtype}, fetchall=False)
 
 
-    def search(self, spread=None, name=None, description=None,
-               exclude_deceased=False):
-        """Retrieves a list over Persons filtered by the given criterias.
+    def search(self, spread=None, name=None, description=None, birth_date=None,
+               exclude_deceased=False, name_variants=[], orderby='',
+               orderby_dir='asc'):
+        """
+        Retrieves a list over Persons filtered by the given criterias.
+
+        If no criteria is given, all persons are returned. ``name``,
+        ``description`` and ``birth_date`` should be strings if given.
+        ``spread`` can be either string or int.
         
+        Wildcards * and ? are expanded for "any chars" and "one char".
+
         Returns a list of tuples with the info (person_id, name, description).
-        If no criteria is given, all persons are returned. ``name`` and
-        ``description`` should be strings if given. ``spread`` can be either
-        string or int. Wildcards * and ? are expanded for "any chars" and
-        "one char"."""
+
+        ``name_variants`` is a list of name_variant constants.  If given, the
+        returned rows will include these names instead of name.  The column
+        names will be the name of the variant lowercased with _name appended.
+        Examples: first_name, last_name, full_name.
+
+        ``orderby`` is the name of the column that the result should be ordered by.  If not specified, the database default ordering will be used.
+
+        ``orderby_dir`` should be the string 'asc' or 'desc' and specifies if the result should be sorted ascending or descending.  Default is 'asc'.
+        """
 
         tables = []
         where = []
+        selects = []
         tables.append("[:table schema=cerebrum name=person_info] pi")
         tables.append("[:table schema=cerebrum name=person_name] pn")
         where.append("pi.person_id=pn.person_id")
+
+        if not name_variants:
+            selects.append("pn.name AS name")
+        else:
+            for v in name_variants:
+                vid = int(v)
+                vname = "%s_name" % str(v).lower()
+                selects.append("pn_%s.name AS %s" % (vid, vname))
+                tables.append("[:table schema=cerebrum name=person_name] pn_%s" % vid)
+                where.append("pn_%s.name_variant = %i" % (vid, vid))
+                where.append("pi.person_id=pn_%s.person_id" % vid)
 
         if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
@@ -933,22 +959,37 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             name = prepare_sql_pattern(name)
             where.append("LOWER(pn.name) LIKE :name")
 
+        if birth_date is not None:
+            birth_date = prepare_sql_pattern(birth_date)
+            where.append("birth_date = :birth_date")
+
         if description is not None:
             description = prepare_sql_pattern(description)
             where.append("LOWER(pi.description) LIKE :description")
         
         if exclude_deceased:
-            where.append("pi.deceased_date IS NOT NULL")
+            where.append("pi.deceased_date IS NULL")
 
         where_str = ""
         if where:
             where_str = "WHERE " + " AND ".join(where)
 
-        return self.query("""
+        if orderby:
+            direction = orderby_dir == "desc" and "DESC" or "ASC"
+            orderby = "ORDER BY %s %s" % (orderby, direction)
+
+        selects.insert(0, """
         SELECT DISTINCT pi.person_id AS person_id,
-                pn.name AS name, pi.description AS description
-        FROM %s %s""" % (','.join(tables), where_str),
+                pi.description AS description,
+                pi.birth_date AS birth_date,
+                pi.gender AS gender
+                """)
+
+        select_str = ", ".join(selects)
+        return self.query(
+            select_str + " FROM %s %s %s" % (
+                ','.join(tables), where_str, orderby),
             {'spread': spread, 'entity_type': int(self.const.entity_person),
-             'name': name, 'description': description})
+             'name': name, 'description': description, 'birth_date': birth_date})
 
 # arch-tag: 10f7dbc0-0edf-466d-ab33-ba0c84c5a2b3
