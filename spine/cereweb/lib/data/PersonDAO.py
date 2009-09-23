@@ -51,7 +51,12 @@ class PersonDAO(EntityDAO):
             results.append(dto)
         return results
 
-    def get_accounts(self, id):
+    def get_accounts(self, *ids):
+        if len(ids) > 1:
+            return AccountDAO(self.db).get_by_owner_ids(*ids)
+
+        id = ids[0]
+
         person = self._find(id)
         account_ids = [a.account_id for a in person.get_accounts()]
         account_dtos = AccountDAO(self.db).get_accounts(*account_ids)

@@ -33,7 +33,6 @@ modules = [
     'HostDAOTest',
     'PersonDAOTest',
     'AuthTest',
-    'SearchTest',
     'OuDAOTest',
 ]
 

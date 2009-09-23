@@ -68,6 +68,8 @@ def get_nonposix_account_dto():
     dto.name = 'cetest1'
     dto.type_name = 'account'
     dto.type_id = 17
+    dto.owner_id = 354985L
+    dto.owner_type = 19L
     dto.expire_date = DateTime(3000, 1, 1)
     dto.create_date = DateTime(2009, 6, 11)
 
@@ -79,6 +81,8 @@ def get_posix_account_dto():
     dto.name = 'ctestpos'
     dto.type_name = 'account'
     dto.type_id = 17
+    dto.owner_id = 354985L
+    dto.owner_type = 19L
     dto.is_posix = True
     dto.posix_uid = 1048796
     dto.create_date = DateTime(2009, 6, 24)

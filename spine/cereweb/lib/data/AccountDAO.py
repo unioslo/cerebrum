@@ -37,14 +37,10 @@ class AccountDAO(EntityDAO):
 
     def search(self, name):
         name = name.strip("*") + '*'
-        results = []
-        for result in self.entity.search(name=name):
-            dto = DTO()
-            dto.id = result.account_id
-            dto.name = result.name
-            dto.type_name = self._get_type_name()
-            results.append(dto)
-        return results
+        return [self._create_from_search(r) for r in self.entity.search(name=name)]
+
+    def get_by_owner_ids(self, *owner_ids):
+        return [self._create_from_search(r) for r in self.entity.search(owner_ids=owner_ids)]
 
     def get_by_name(self, name):
         account = self._find_by_name(name)
@@ -144,6 +140,16 @@ class AccountDAO(EntityDAO):
             self.demote_posix(account_id)
 
         account.delete()
+
+    def _create_from_search(self, result):
+        dto = DTO()
+        dto.id = result.account_id
+        dto.name = result.name
+        dto.type = self._get_type()
+        dto.type_name = self._get_type_name()
+        dto.owner_id = result.owner_id
+        dto.owner_type = self.constants.EntityType(result.owner_type)
+        return dto
 
     def _get_owner(self, dto):
         if dto.owner.type_id == self.constants.entity_person:
@@ -279,6 +285,8 @@ class AccountDAO(EntityDAO):
     def _populate(self, dto, account):
         dto.id = account.entity_id
         dto.name = self._get_name(account)
+        dto.owner_id = account.owner_id
+        dto.owner_type = account.owner_type
         dto.type_name = self._get_type_name()
         dto.type_id = self._get_type_id()
         dto.expire_date = account.expire_date
@@ -364,3 +372,7 @@ class AccountDAO(EntityDAO):
 
     def _get_type_id(self):
         return int(self.constants.entity_account)
+
+    def _get_type(self):
+        return self.constants.entity_account
+

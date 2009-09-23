@@ -27,6 +27,7 @@ import Run
 
 modules = Run.modules + [
     'SlowTest',
+    'SearchTest',
 ]
 
 # When this module is executed from the command-line, run all its tests

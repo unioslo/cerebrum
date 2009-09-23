@@ -32,6 +32,7 @@ class PersonSearcher(CoreSearcher):
         'last_name',
         'birth_date',
         'gender',
+        'accounts',
     )
 
     headers = [
@@ -40,7 +41,6 @@ class PersonSearcher(CoreSearcher):
         ('Date of birth', 'birth_date'),
         ('Gender', ''),
         ('Account(s)', ''),
-        ('Affiliation(s)', ''),
     ]
 
     defaults = CoreSearcher.defaults.copy()
@@ -61,10 +61,40 @@ class PersonSearcher(CoreSearcher):
                 orderby_dir=self.orderby_dir)
         return self.__results
 
-    format_first_name = CoreSearcher._create_link
-    format_last_name = CoreSearcher._create_link
+    def _extend_search_result(self, results):
+        owner_ids = [r.id for r in results]
+
+        accounts = self.dao.get_accounts(*owner_ids)
+        account_map = {}
+        for account in accounts:
+            l = account_map.setdefault(account.owner_id, [])
+            l.append(account)
+
+        for r in results:
+            r.accounts = account_map.get(r.id, [])
+
+        return results
+
+    def _create_view_link(self, entity, name, row):
+        target_id = row.id
+        return '<a href="/%s/view?id=%s">%s</a>' % (entity, target_id, name)
+
+    def _create_person_link(self, name, row):
+        return self._create_view_link("person", name, row)
+
+    def _create_account_link(self, name, row):
+        return self._create_view_link("account", name, row)
+
+    format_first_name = _create_person_link
+    format_last_name = _create_person_link
     format_birth_date = CoreSearcher._format_date
 
     def format_gender(self, gender, row):
         return str(gender) == "M" and _("Male") or _("Female")
 
+    def format_accounts(self, accounts, row):
+        links = []
+        for account in accounts:
+            link = self._create_account_link(account.name, account)
+            links.append(link)
+        return ", ".join(links) or "&nbsp;"

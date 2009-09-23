@@ -289,7 +289,7 @@ class CoreSearcher(Searcher):
     Overload _get_results to return the actual search results.
 
     Create format_%s methods where %s is the column name you want to format.
-    See _create_link and _format_date for examples.
+    See _format_date for an example.
 
     See PersonSearcher for an example of correct usage of this base class.
     """
@@ -304,12 +304,16 @@ class CoreSearcher(Searcher):
     def _get_results(self):
         raise NotImplementedError("This method must be overloaded.")
 
+    def _extend_search_result(self, results):
+        return results
+
     def get_results(self):
         if not self.is_valid():
             return
 
         start, end = self.offset, self.last_on_page
-        for result in self._get_results()[start:end]:
+        window = self._get_results()[start:end]
+        for result in self._extend_search_result(window):
             yield self.format_row(result)
 
     def count(self):
@@ -321,10 +325,6 @@ class CoreSearcher(Searcher):
 
             formatter = getattr(self, 'format_%s' % col, None)
             yield formatter and formatter(column, row) or column
-
-    def _create_link(self, name, row):
-        target_id = row.id
-        return '<a href="/person/view?id=%s">%s</a>' % (target_id, name)
 
     def _format_date(self, date, row):
         return date.strftime("%Y-%m-%d")

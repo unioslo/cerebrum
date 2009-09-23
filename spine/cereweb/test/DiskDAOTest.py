@@ -30,7 +30,7 @@ class DiskDAOTest(CerebrumTestCase):
 
     def test_get_disks(self):
         disks = DiskDAO().get_disks()
-        self.assert_(len(disks) == 12)
+        self.assertEqual(13, len(disks))
 
 if __name__ == '__main__':
     unittest.main()
