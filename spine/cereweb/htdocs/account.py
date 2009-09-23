@@ -22,7 +22,7 @@ import cherrypy
 
 from gettext import gettext as _
 from lib.utils import *
-from lib.Searchers import AccountSearcher
+from lib.AccountSearcher import AccountSearcher
 from lib.Forms import AccountCreateForm
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
@@ -48,11 +48,11 @@ def _get_links():
         ('create', _('Create')),
     )
 
-def search(transaction, **kwargs):
+@session_required_decorator
+def search(**kwargs):
     """Search for accounts and display results and/or searchform.""" 
-    searcher = AccountSearcher(transaction, **kwargs)
-    return searcher.respond() or searcher.render_search_form()
-search = transaction_decorator(search)
+    searcher = AccountSearcher(**kwargs)
+    return searcher.respond()
 search.exposed = True
 index = search
 

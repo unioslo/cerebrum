@@ -32,11 +32,11 @@ import cereconf
 import utils
 import Messages
 from gettext import gettext as _
-from Forms import AccountSearchForm
 from templates.SearchResultTemplate import SearchResultTemplate
 import SpineIDL.Errors
 
 from lib.utils import get_database
+
 class Searcher(object):
     """
     Searcher class that should be subclassed by the respective search
@@ -329,6 +329,16 @@ class CoreSearcher(Searcher):
     def _format_date(self, date, row):
         return date.strftime("%Y-%m-%d")
 
+    def _create_view_link(self, entity, name, row):
+        target_id = row.id
+        return '<a href="/%s/view?id=%s">%s</a>' % (entity, target_id, name)
+
+    def _create_person_link(self, name, row):
+        return self._create_view_link("person", name, row)
+
+    def _create_account_link(self, name, row):
+        return self._create_view_link("account", name, row)
+
 class SpineSearcher(Searcher):
     """
     A spine-specific searcher module that should be subclassed by the
@@ -423,73 +433,6 @@ class SpineSearcher(Searcher):
             return super(SpineSearcher, self).respond()
         except SpineIDL.Errors.AccessDeniedError, e:
             return self._get_fail_response('403 Forbidden', [("No access", True)])
-
-class AccountSearcher(SpineSearcher):
-    SearchForm = AccountSearchForm
-
-    headers = [
-            ('Name', 'name'),
-            ('Owner', 'owner'),
-            ('Create date', 'create_date'),
-            ('Expire date', 'expire_date'),
-            ('Actions', '')
-        ]
-
-    def get_searchers(self):
-        form = self.form_values
-
-        main = self.transaction.get_account_searcher()
-        main.join_name = ''
-        searchers = {'main': main}
-
-        name = utils.web_to_spine(form.get('name', '').strip())
-        if name:
-            main.set_name_like(name)
-
-        description = utils.web_to_spine(form.get('description', '').strip())
-        if description:
-            main.set_description_like(description)
-
-        expire_date = form.get('expire_date', '').strip()
-        if expire_date:
-            date = utils.get_date(self.transaction, expire_date)
-            main.set_expire_date(date)
-
-        create_date = form.get('create_date', '').strip()
-        if create_date:
-            date = utils.get_date(self.transaction, create_date)
-            main.set_create_date(date)
-
-        spread = utils.web_to_spine(form.get('spread', '').strip())
-        if spread:
-            spreadsearcher = self.transaction.get_spread_searcher()
-            account_type = self.transaction.get_entity_type('account')
-            spreadsearcher.set_entity_type(account_type)
-            spreadsearcher.set_name_like(spread)
-            spreadsearcher.join_name = ''
-
-            searcher = self.transaction.get_entity_spread_searcher()
-            searcher.set_entity_type(account_type)
-            searcher.join_name = 'entity'
-            searchers['spread'] = searcher
-
-            searcher.add_join('spread', spreadsearcher, spreadsearcher.join_name)
-            main.add_intersection(main.join_name, searcher, searcher.join_name)
-
-        return searchers
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            owner_name = utils.spine_to_web(utils.get_lastname_firstname(elm.get_owner()))
-            owner = utils.object_link(elm.get_owner(), text=owner_name)
-            cdate = utils.strftime(elm.get_create_date())
-            edate = utils.strftime(elm.get_expire_date())
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
-            ## rows.append((utils.object_link(elm), owner, cdate, edate, str(edit)+str(remb)))
-            rows.append((utils.object_link(elm), owner, cdate, edate, ))
-        return rows
 
 class AllocationPeriodSearcher(SpineSearcher):
     headers = (('Name', 'name'),

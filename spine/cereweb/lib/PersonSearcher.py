@@ -36,11 +36,11 @@ class PersonSearcher(CoreSearcher):
     )
 
     headers = [
-        ('First name', 'first_name'),
-        ('Last name', 'last_name'),
-        ('Date of birth', 'birth_date'),
-        ('Gender', ''),
-        ('Account(s)', ''),
+        (_('First name'), 'first_name'),
+        (_('Last name'), 'last_name'),
+        (_('Date of birth'), 'birth_date'),
+        (_('Gender'), ''),
+        (_('Account(s)'), ''),
     ]
 
     defaults = CoreSearcher.defaults.copy()
@@ -75,18 +75,8 @@ class PersonSearcher(CoreSearcher):
 
         return results
 
-    def _create_view_link(self, entity, name, row):
-        target_id = row.id
-        return '<a href="/%s/view?id=%s">%s</a>' % (entity, target_id, name)
-
-    def _create_person_link(self, name, row):
-        return self._create_view_link("person", name, row)
-
-    def _create_account_link(self, name, row):
-        return self._create_view_link("account", name, row)
-
-    format_first_name = _create_person_link
-    format_last_name = _create_person_link
+    format_first_name = CoreSearcher._create_person_link
+    format_last_name = CoreSearcher._create_person_link
     format_birth_date = CoreSearcher._format_date
 
     def format_gender(self, gender, row):

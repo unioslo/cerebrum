@@ -35,12 +35,12 @@ class AccountDAO(EntityDAO):
 
         return self._create_dto(account, include_extra)
 
-    def search(self, name):
+    def search(self, name, orderby=None, orderby_dir='asc'):
         name = name.strip("*") + '*'
         return [self._create_from_search(r) for r in self.entity.search(name=name)]
 
     def get_by_owner_ids(self, *owner_ids):
-        return [self._create_from_search(r) for r in self.entity.search(owner_ids=owner_ids)]
+        return [self._create_from_search(r) for r in self.entity.search(owner_id=owner_ids)]
 
     def get_by_name(self, name):
         account = self._find_by_name(name)

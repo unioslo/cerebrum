@@ -22,7 +22,7 @@ import cherrypy
 from gettext import gettext as _
 
 from lib import utils
-from lib.PersonSearchForm import PersonSearchForm
+from lib.AccountSearcher import AccountSearcher
 from lib.PersonSearcher import PersonSearcher
 
 from lib.templates.NewSearchTemplate import NewSearchTemplate
@@ -32,11 +32,21 @@ class Search(object):
     def index(self):
         page = NewSearchTemplate()
         page.forms = [
-            PersonSearchForm(),
+            PersonSearcher.SearchForm(),
+            AccountSearcher.SearchForm(),
         ]
 
         return page.respond()
     index.exposed = True
+
+class AccountSearch(object):
+    @utils.session_required_decorator
+    def search(self, **vargs):
+        """Search after hosts and displays result and/or searchform."""
+        searcher = AccountSearcher(**vargs)
+        return searcher.respond()
+    search.exposed = True
+    index = search
 
 class PersonSearch(object):
     @utils.session_required_decorator
@@ -49,3 +59,4 @@ class PersonSearch(object):
 
 search = Search()
 search.person = PersonSearch()
+search.account = AccountSearch()

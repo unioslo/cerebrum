@@ -31,7 +31,7 @@ class EntityDAO(object):
             entity.find(entity_id)
             entity_type = entity.entity_type
         
-        from lib.data.EntityFactory  import EntityFactory
+        from lib.data.EntityFactory import EntityFactory
         return EntityFactory(self.db).create(entity_type, entity_id)
 
     def get_by_name(self, name):

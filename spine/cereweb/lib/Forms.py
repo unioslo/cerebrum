@@ -173,57 +173,6 @@ class Form(object):
         page = self._get_page()
         return page.respond()
             
-class AccountSearchForm(Form):
-    title = "Search for Account"
-    action = '/account/search'
-
-    Order = [
-        'name',
-        'spread',
-        'create_date',
-        'expire_date',
-        'description',
-    ]
-
-    Fields = {
-        'name': {
-            'label': _('Account name'),
-            'required': False,
-            'type': 'text',
-        },
-        'spread': {
-            'label': _('Spread name'),
-            'required': False,
-            'type': 'text',
-        },
-        'create_date': {
-            'label': _('Create date'),
-            'required': False,
-            'type': 'text',
-            'help': "YYYY-MM-DD, exact match.",
-        },
-        'expire_date': {
-            'label': _('Expire date'),
-            'required': False,
-            'type': 'text',
-            'help': "YYYY-MM-DD, exact match.",
-        },
-        'description': {
-            'label': _('Description'),
-            'required': False,
-            'type': 'text',
-        },
-    }
-
-    check_name = Form._check_short_string
-    check_expire_date = Form._check_date
-    check_create_date = Form._check_date
-
-    help = [
-        'Use wildcards * and ? to extend the search.',
-        'Supply several search parameters to limit the search.',
-    ]
-
 class PersonCreateForm(Form):
     Order = [
         'ou',
