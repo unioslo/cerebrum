@@ -918,9 +918,11 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         names will be the name of the variant lowercased with _name appended.
         Examples: first_name, last_name, full_name.
 
-        ``orderby`` is the name of the column that the result should be ordered by.  If not specified, the database default ordering will be used.
+        ``orderby`` is the name of the column that the result should be ordered
+        by.  If not specified, the database default ordering will be used.
 
-        ``orderby_dir`` should be the string 'asc' or 'desc' and specifies if the result should be sorted ascending or descending.  Default is 'asc'.
+        ``orderby_dir`` should be the string 'asc' or 'desc' and specifies if
+        the result should be sorted ascending or descending.  Default is 'asc'.
         """
 
         tables = []
@@ -974,9 +976,10 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         if where:
             where_str = "WHERE " + " AND ".join(where)
 
+        orderby_str = ""
         if orderby:
             direction = orderby_dir == "desc" and "DESC" or "ASC"
-            orderby = "ORDER BY %s %s" % (orderby, direction)
+            orderby_str = "ORDER BY %s %s" % (orderby, direction)
 
         selects.insert(0, """
         SELECT DISTINCT pi.person_id AS person_id,
@@ -988,7 +991,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         select_str = ", ".join(selects)
         return self.query(
             select_str + " FROM %s %s %s" % (
-                ','.join(tables), where_str, orderby),
+                ','.join(tables), where_str, orderby_str),
             {'spread': spread, 'entity_type': int(self.const.entity_person),
              'name': name, 'description': description, 'birth_date': birth_date})
 
