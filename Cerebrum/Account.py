@@ -41,6 +41,7 @@ from Cerebrum.Entity import EntityName, EntityQuarantine, \
 from Cerebrum.modules import PasswordChecker
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
+from Cerebrum.Utils import argument_to_sql
 import cereconf
 
 class AccountType(object):
@@ -1216,7 +1217,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return xlated
 
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
-               owner_ids=None, expire_start='[:now]', expire_stop=None):
+               expire_start='[:now]', expire_stop=None):
         """Retrieves a list of Accounts filtered by the given criterias.
         If no criteria is given, all non-expired accounts are returned.
         
@@ -1234,9 +1235,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         @param owner_id: Return entities that is owned by this owner_id
         @type owner_id: Integer
 
-        @param owner_ids: Return entities that is owned by these owner_ids
-        @type owner_ids: Iterable
-        
         @param owner_type: Return entities where owners type is of owner_type
         @type owner_type: Integer
         
@@ -1268,6 +1266,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         tables.append("[:table schema=cerebrum name=entity_name] en")
         where.append("en.entity_id=ai.account_id")
         where.append("en.value_domain=:vdomain")
+        binds = {"vdomain": int(self.const.account_namespace)}
 
         if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")
@@ -1282,28 +1281,31 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                 where.append("LOWER(sc.code_str) LIKE :spread")
             else:
                 where.append("es.spread=:spread")
+            binds['spread'] = spread
+            binds['entity_type'] = int(self.const.entity_account)
 
         if name is not None:
             name = prepare_string(name)
             where.append("LOWER(en.entity_name) LIKE :name")
+            binds['name'] = name
 
         if owner_id is not None:
-            where.append("ai.owner_id=:owner_id")
-
-        if owner_ids is not None:
-            owner = "ai.owner_id IN (%s)"
-            owner = owner % ", ".join(map(str, map(int, owner_ids)))
-            where.append(owner)
+            where.append(argument_to_sql(owner_id, "ai.owner_id", binds, int))
 
         if owner_type is not None:
             where.append("ai.owner_type=:owner_type")
+            binds['owner_type'] = owner_type
 
         if expire_start and expire_stop:
             where.append("(ai.expire_date>=:expire_start and ai.expire_date<:expire_stop)")
+            binds['expire_start'] = expire_start
+            binds['expire_stop'] = expire_stop
         elif expire_start and expire_stop is None:
             where.append("(ai.expire_date>=:expire_start or ai.expire_date IS NULL)")
+            binds['expire_start'] = expire_start
         elif expire_start is None and expire_stop:
             where.append("ai.expire_date<:expire_stop")
+            binds['expire_stop'] = expire_stop
   
         where_str = ""
         if where:
@@ -1313,10 +1315,4 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name,
                         ai.owner_id AS owner_id, ai.owner_type AS owner_type,
                         ai.expire_date AS expire_date
-        FROM %s %s""" % (','.join(tables), where_str),
-            {'spread': spread, 'entity_type': int(self.const.entity_account),
-             'name': name, 'owner_id': owner_id, 'owner_type': owner_type,
-             'vdomain': int(self.const.account_namespace),
-             'expire_start': expire_start, 'expire_stop': expire_stop})
-
-# arch-tag: 680912b6-ae4f-4915-bbec-4e71ffc302be
+        FROM %s %s""" % (','.join(tables), where_str), binds)
