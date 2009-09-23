@@ -1216,7 +1216,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return xlated
 
     def search(self, spread=None, name=None, owner_id=None, owner_type=None,
-               expire_start='[:now]', expire_stop=None):
+               owner_ids=None, expire_start='[:now]', expire_stop=None):
         """Retrieves a list of Accounts filtered by the given criterias.
         If no criteria is given, all non-expired accounts are returned.
         
@@ -1233,6 +1233,9 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         
         @param owner_id: Return entities that is owned by this owner_id
         @type owner_id: Integer
+
+        @param owner_ids: Return entities that is owned by these owner_ids
+        @type owner_ids: Iterable
         
         @param owner_type: Return entities where owners type is of owner_type
         @type owner_type: Integer
@@ -1287,6 +1290,11 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         if owner_id is not None:
             where.append("ai.owner_id=:owner_id")
 
+        if owner_ids is not None:
+            owner = "ai.owner_id IN (%s)"
+            owner = owner % ", ".join(map(str, map(int, owner_ids)))
+            where.append(owner)
+
         if owner_type is not None:
             where.append("ai.owner_type=:owner_type")
 
@@ -1308,7 +1316,7 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         FROM %s %s""" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_account),
              'name': name, 'owner_id': owner_id, 'owner_type': owner_type,
-             'vdomain': int(self.const.account_namespace), 
+             'vdomain': int(self.const.account_namespace),
              'expire_start': expire_start, 'expire_stop': expire_stop})
 
 # arch-tag: 680912b6-ae4f-4915-bbec-4e71ffc302be
