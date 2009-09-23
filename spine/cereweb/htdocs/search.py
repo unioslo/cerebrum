@@ -28,6 +28,7 @@ from lib.PersonSearcher import PersonSearcher
 from lib.templates.NewSearchTemplate import NewSearchTemplate
 
 class Search(object):
+    @utils.session_required_decorator
     def index(self):
         page = NewSearchTemplate()
         page.forms = [
@@ -38,6 +39,7 @@ class Search(object):
     index.exposed = True
 
 class PersonSearch(object):
+    @utils.session_required_decorator
     def search(self, **vargs):
         """Search after hosts and displays result and/or searchform."""
         searcher = PersonSearcher(**vargs)

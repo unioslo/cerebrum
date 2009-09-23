@@ -31,6 +31,11 @@ from lib.data.AccountDAO import AccountDAO
 from lib.data.PersonDAO import PersonDAO
 from lib.data.GroupDAO import GroupDAO
 
+max_results = 20
+def limit_result(results):
+    limit = min(max_results, len(results))
+    return results[:limit]
+
 @session_required_decorator
 def search(query=None, type=None, output=None):
     query = from_web_decode(query).strip()
@@ -65,7 +70,7 @@ def search_account(query, output):
     accounts = dao.search(query)
 
     result = {}
-    for account in accounts:
+    for account in limit_result(accounts):
         data = dto_to_dict(account)
         if output == "account":
             owner = dao.get_owner(account.id)
@@ -81,15 +86,28 @@ def search_person(query, output):
     people = dao.search(query)
 
     result = {}
-    for person in people:
+
+    people = limit_result(people)
+
+    if output != "account":
+        for p in people:
+            result[p.id] = dto_to_dict(p)
+        return result.values()
+
+    owner_ids = [p.id for p in people]
+    accounts = {}
+
+    for account in dao.get_accounts(*owner_ids):
+        l = accounts.setdefault(account.owner_id, [])
+        l.append(account)
+
+    for p in people:
         if output == "account":
-            owner = dto_to_dict(person)
-            for account in dao.get_accounts(person.id):
+            owner = dto_to_dict(p)
+            for account in accounts.get(p.id, []):
                 data = dto_to_dict(account)
                 data['owner'] = owner
                 result[account.id] = data
-        else:
-            result[person.id] = dto_to_dict(person)
     return result.values()
 
 def search_group(query):
@@ -98,7 +116,7 @@ def search_group(query):
     groups = dao.search(query)
 
     result = {}
-    for group in groups:
+    for group in limit_result(groups):
         result[group.id] = dto_to_dict(group)
     return result.values()
 

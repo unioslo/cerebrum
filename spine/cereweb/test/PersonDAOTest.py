@@ -124,7 +124,7 @@ class PersonDAOTest(CerebrumTestCase):
 
     def test_that_search_returns_correct_data(self):
         t = time.time()
-        result = self.dao.search("Al", birth_date=None)
+        result = self.dao.search("Al")
         r = time.time() - t
         self.assert_(r < 2.0, "Test should run in under 2 seconds.  Ran in %s seconds." % r)
 

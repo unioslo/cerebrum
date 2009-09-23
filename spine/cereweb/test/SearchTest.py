@@ -46,17 +46,17 @@ class SearchTest(unittest.TestCase):
     def test_that_account_search_for_alf_contains_alfborge(self):
         expected = [{
             'type': 'account',
-            'name': 'alfborge',
-            'id': 173809
+            'name': 'alfe',
+            'id': 105645
         }]
 
         self._do_search("/?query=a:alf", expected)
 
     def test_that_person_search_for_alf_contains_alf_lervag(self):
         expected = [{
-            'name': 'Alf Børge Bjørdal Lervåg'.decode('utf8'),
+            'name': 'Alf Albrigtsen',
             'type': 'person',
-            'id': 13830,
+            'id': 8113,
         }]
 
         self._do_search("/?query=p:Alf", expected)
@@ -73,12 +73,12 @@ class SearchTest(unittest.TestCase):
     def test_that_account_search_with_output_account_returns_owner(self):
         expected = [{
             'type': 'account',
-            'name': 'alfborge',
-            'id': 173809,
+            'name': 'alfe',
+            'id': 105645,
             'owner': {
-                'name': 'Alf Børge Bjørdal Lervåg'.decode('utf8'),
+                'name': 'Alf Jørgen Eriksen'.decode('utf8'),
                 'type': 'person',
-                'id': 13830,
+                'id': 3646,
             },
         }]
 
@@ -87,12 +87,12 @@ class SearchTest(unittest.TestCase):
     def test_that_person_search_with_output_account_returns_accounts_with_owner(self):
         expected = [{
             'type': 'account',
-            'name': 'alfborge',
-            'id': 173809,
+            'name': 'alfarnes',
+            'id': 194356,
             'owner': {
-                'name': 'Alf Børge Bjørdal Lervåg'.decode('utf8'),
+                'name': 'Kjetil Boye Alfarnes',
                 'type': 'person',
-                'id': 13830,
+                'id': 86709,
             },
         }]
 
