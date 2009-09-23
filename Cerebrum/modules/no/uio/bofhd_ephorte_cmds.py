@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2008 University of Oslo, Norway
+# Copyright 2003-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -202,11 +202,12 @@ class BofhdExtension(object):
         ou = self._get_ou(stedkode=sko)
         arkivdel = self._get_arkivdel(arkivdel)
         journalenhet = self._get_journalenhet(journalenhet)
-        if self.ephorte_role.is_standard_role(person.entity_id,
-                                              self._get_role(role),
-                                              ou.entity_id,
-                                              arkivdel,
-                                              journalenhet):
+        if (self.ephorte_role.is_standard_role(person.entity_id,
+                                               self._get_role(role),
+                                               ou.entity_id,
+                                               arkivdel,
+                                               journalenhet) and
+            len(self.ephorte_role.list_roles(person_id=person.entity_id)) > 1):
             raise CerebrumError("Cannot delete standard role.")
         self.ephorte_role.remove_role(person.entity_id, self._get_role(role), ou.entity_id,
                                    arkivdel, journalenhet)
