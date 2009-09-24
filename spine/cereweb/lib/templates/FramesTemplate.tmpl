@@ -19,7 +19,7 @@
 #encoding UTF-8
 #import cherrypy
 #from lib.InitTemplate import InitTemplate
-#from lib.utils import strip_html, get_tabs, html_quote
+#from lib.utils import strip_html, get_tabs, get_links, html_quote
 #extends InitTemplate
 #implements respond
 ##
@@ -52,8 +52,9 @@
     </div>
     #end if
 #end def
-#def get_links
-    #for $link, $label in $links
+
+#def render_links($page)
+    #for $link, $label in $get_links($page)
         #set $curr = $link == $self.link and ' class="current"' or ''
         <li><a$curr href="$link">$label</a></li>
     #end for
@@ -147,7 +148,7 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
             #end block
             <div id="sub-nav" class="sub-nav">
                 <ul class="sub-nav">
-                    $get_links()
+                    $render_links($page)
                 </ul>
             </div>
             <div id="messages">

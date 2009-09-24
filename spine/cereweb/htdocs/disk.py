@@ -20,7 +20,6 @@
 
 import cherrypy
 
-from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, object_link, remember_link
@@ -36,7 +35,6 @@ def search_form(remembered):
     page = SearchTemplate()
     page.title = _("Disk")
     page.set_focus("disk/search")
-    page.links = _get_links()
     page.search_title = _('disk(s)')
     page.search_fields = [("path", _("Path")),
                           ("description", _("Description"))
@@ -61,7 +59,6 @@ def view(transaction, id):
     page = DiskViewTemplate()
     page.title = _('Disk %s') % spine_to_web(disk.get_path())
     page.set_focus('disk/view')
-    page.links = _get_links()
     page.entity_id = int(id)
     page.entity = disk
     page.tr = transaction
@@ -77,7 +74,6 @@ def edit(transaction, id):
     disk_name = spine_to_web(disk.get_name())
     page.title = _("Edit ") + object_link(disk, text=disk_name)
     page.set_focus("disk/edit")
-    page.links = _get_links()
 
     edit = DiskEditTemplate()
     content = edit.editDisk(disk)
@@ -109,7 +105,6 @@ def create(transaction, host=""):
     page = Main()
     page.title = _("Disk")
     page.set_focus("disk/create")
-    page.links = _get_links()
 
     hosts = [(html_quote(i.get_id()), spine_to_web(i.get_name())) for i in
                     transaction.get_host_searcher().search()]

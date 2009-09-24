@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from gettext import gettext as _
 import time
 import urllib
 import urlparse
@@ -420,6 +421,44 @@ def get_tabs(current=None):
         selected = page == current and ' class="selected"' or ''
         res.append(html % (selected, link, name))
     return "\n".join(res)
+
+def get_links(page):
+    map = {
+        'cereweb': (
+            ('/index', _('Index')),
+            ('/all_motds', _('View all messages')),
+            ('/entity/global_historylog', _('View recent changes')),
+        ),
+        'person': (
+            ('search', _('Search')),
+            ('create', _('Create')),
+        ),
+        'account': (
+            ('search', _('Search')),
+        ),
+        'group': (
+            ('search', _('Search')),
+            ('create', _('Create')),
+        ),
+        'ou': (
+            ('tree', _('Tree')),
+            ('create', _('Create')),
+        ),
+        'host': (
+            ('search', _('Search')),
+            ('create', _('Create')),
+        ),
+        'disk': (
+            ('search', _('Search')),
+            ('create', _('Create')),
+        ),
+        'email': (
+            ('search', _('Search')),
+            ('create', _('Create')),
+            ('categories', _('Categories')),
+        ),
+    }
+    return map.get(page, ())
 
 def flatten(elem, perspective_type):
     output = [elem]

@@ -20,7 +20,6 @@
 
 import cherrypy
 
-from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
@@ -38,7 +37,6 @@ def search_form(remembered):
     page.title = _("Host")
     page.search_title = _('host(s)')
     page.set_focus("host/search")
-    page.links = _get_links()
 
     page.search_fields = [("name", _("Name")),
                           ("description", _("Description"))
@@ -62,7 +60,6 @@ def view(transaction, id):
     page = HostViewTemplate()
     page.title = _('Host %s') % spine_to_web(host.get_name())
     page.set_focus('host/view')
-    page.links = _get_links()
     page.tr = transaction
 
     server_type_searcher = transaction.get_email_server_type_searcher()
@@ -84,7 +81,6 @@ def edit(transaction, id):
     host_name = spine_to_web(host.get_name())
     page.title = _("Edit ") + object_link(host, text=host_name)
     page.set_focus("host/edit")
-    page.links = _get_links()
     
     edit = HostEditTemplate()
     edit.title = _('Edit ') + object_link(host, text=host_name) + _(':')
@@ -114,7 +110,6 @@ def create(transaction, name="", description=""):
     page = Main()
     page.title = _("Host")
     page.set_focus("host/create")
-    page.links = _get_links()
 
     # Store given create parameters in create-form
     values = {}

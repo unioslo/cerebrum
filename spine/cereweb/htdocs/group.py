@@ -41,13 +41,6 @@ from lib.data.GroupDTO import GroupDTO
 
 from lib.GroupSearchForm import GroupSearchForm
 
-# FIXME: Dupe, should be inlined in the pages.
-def _get_links():
-    return (
-        ('search', _('Search')),
-        ('create', _('Create')),
-    )
-
 @session_required_decorator
 def search(**vargs):
     """Search for groups and displays results and/or searchform."""
@@ -133,7 +126,6 @@ def create(name="", expire="", description=""):
     page = GroupCreateTemplate()
     page.title = _("Group")
     page.set_focus('group/create')
-    page.links = _get_links()
 
     page.data = {
         'name': name,

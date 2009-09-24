@@ -25,7 +25,6 @@ import string
 import SpineIDL
 from Cerebrum.Database import IntegrityError
 from Cerebrum.Errors import NotFoundError
-from account import _get_links
 from gettext import gettext as _
 from mx import DateTime
 from lib.Main import Main
@@ -84,7 +83,6 @@ def edit_form(form, message=None):
     page.title = form.get_title()
     page.form_title = form.get_title()
     page.set_focus("person/edit")
-    page.links = _get_links()
     page.form_fields = form.get_fields()
     page.form_action = "/person/edit"
     return page.respond()
@@ -185,7 +183,6 @@ def create_form(form, message=None):
         page.messages.append(message)
     page.title = _("Person")
     page.set_focus("person/create")
-    page.links = _get_links()
     page.form_title = _("Create new person")
     page.form_action = "/person/create"
     page.form_fields = form.get_fields()

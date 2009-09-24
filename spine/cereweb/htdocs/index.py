@@ -53,19 +53,11 @@ import activation
 import ajax
 from search import search
 
-def _get_links():
-    return (
-        ('/index', _('Index')),
-        ('/all_motds', _('View all messages')),
-        ('/entity/global_historylog', _('View recent changes')),
-    )
-
 def index(transaction):
     page = MotdTemplate()
     page.title = _("Welcome to Cereweb")
     page.add_jscript("motd.js")
     page.set_focus('cereweb/index')
-    page.links = _get_links()
     page.tr = transaction
     
     motd_search = transaction.get_cereweb_motd_searcher()
@@ -81,7 +73,6 @@ def all_motds(transaction):
     page.title = _("Messages of the day")
     page.add_jscript("motd.js")
     page.set_focus('cereweb/all_motds')
-    page.links = _get_links()
     page.tr = transaction
     
     motd_search = transaction.get_cereweb_motd_searcher()
@@ -153,7 +144,6 @@ def full_activitylog():
     messages = cherrypy.session.get('al_messages', [])
     page = Main()
     page.title = _("Activity log")
-    page.links = _get_links()
     log = ActivityLogTemplate()
     content = log.full_activitylog(messages[::-1])
     page.content = lambda: content

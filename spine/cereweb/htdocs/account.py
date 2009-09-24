@@ -42,12 +42,6 @@ from lib.data.DTO import DTO
 from lib.utils import get_database
 from lib.Error import CreationFailedError
 
-def _get_links():
-    return (
-        ('search', _('Search')),
-        ('create', _('Create')),
-    )
-
 @session_required_decorator
 def search(**kwargs):
     """Search for accounts and display results and/or searchform.""" 

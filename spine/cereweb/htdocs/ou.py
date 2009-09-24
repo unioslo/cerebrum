@@ -20,7 +20,6 @@
 
 import cherrypy
 
-from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib import utils
@@ -74,12 +73,6 @@ def view(id):
     return page.respond()
 view.exposed = True
 
-def _get_links():
-    return (
-        ('tree', _('Tree')),
-        ('create', _('Create')),
-    )
-
 @utils.session_required_decorator
 def edit(id):
     db = utils.get_database()
@@ -90,7 +83,6 @@ def edit(id):
     page = Main()
     page.title = _("OU ") + utils.entity_link(ou)
     page.set_focus("ou/edit")
-    page.links = _get_links()
     page.content = lambda: OUEditTemplate().form(ou, trees)
     return page
 edit.exposed = True
@@ -100,7 +92,6 @@ def create(**vargs):
     page = Main()
     page.title = _("OU")
     page.set_focus("ou/create")
-    page.links = _get_links()
 
     # Store given parameters for the create-form
     values = {}
@@ -251,7 +242,6 @@ def search_form(remembered):
     page = SearchTemplate()
     page.title = _("OU")
     page.set_focus("ou/search")
-    page.links = _get_links()
 
     page.search_fields = [("name", _("Name")),
                           ("acronym", _("Acronym")),

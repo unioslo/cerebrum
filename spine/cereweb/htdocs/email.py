@@ -34,18 +34,10 @@ from lib.templates.EmailDomainSearchTemplate import EmailDomainSearchTemplate
 from lib.templates.EmailTargetTemplate import EmailTargetTemplate
 from lib.templates.EmailDomainTemplate import EmailDomainTemplate
 
-def _get_links():
-    return (
-        ('search', _('Search')),
-        ('create', _('Create')),
-        ('categories', _('Categories')),
-    )
-
 def search_form(transaction, remembered):
     page = EmailDomainSearchTemplate()
     page.title = _("Email")
     page.set_focus("email/search")
-    page.links = _get_links()
     page.search_title = _('email')
     page.search_fields = [
         ("name", _("Name")),
@@ -72,7 +64,6 @@ def create(transaction):
     page = Main()
     page.title = _("Email domains")
     page.set_focus("email/create")
-    page.links = _get_links()
     content = EmailDomainTemplate().create(transaction)
     page.content = lambda: content
     return page
@@ -83,7 +74,6 @@ def categories(transaction):
     page = Main()
     page.title = _("Email domain categories")
     page.set_focus("email/categories")
-    page.links = _get_links()
     content = EmailDomainTemplate().categories(transaction)
     page.content = lambda: content
     return page
@@ -99,7 +89,6 @@ def view(transaction, id):
     domain_name = spine_to_web(domain.get_name())
     page.title = _("Email domain %s") % domain_name
     page.set_focus("email/view")
-    page.links = _get_links()
     return page.respond()
 view = transaction_decorator(view)
 view.exposed = True
@@ -111,7 +100,6 @@ def addresses(transaction, id):
     domain_name = spine_to_web(domain.get_name())
     page.title = _("Addresses in ") + object_link(domain, text=domain_name)
     page.set_focus("email/addresses")
-    page.links = _get_links()
     template = EmailDomainTemplate()
     content = template.list_addresses(transaction, domain)
     print 'domain = ', domain.get_id()
@@ -126,7 +114,6 @@ def edit(transaction, id):
     domain_name = spine_to_web(domain.get_name())
     page.title = _("Edit ") + object_link(domain, text=domain_name)
     page.set_focus("email/edit")
-    page.links = _get_links()
     template = EmailDomainTemplate()
     content = template.edit_domain(domain)
     page.content = lambda: content
