@@ -458,71 +458,6 @@ class SpineSearcher(Searcher):
         except SpineIDL.Errors.AccessDeniedError, e:
             return self._get_fail_response('403 Forbidden', [("No access", True)])
 
-class AllocationPeriodSearcher(SpineSearcher):
-    headers = (('Name', 'name'),
-               ('Allocation Authority', 'allocationauthority'),
-               ('Actions', ''),
-    )
-
-    def get_searchers(self):
-        form = self.form_values
-        main = self.transaction.get_allocation_period_searcher()
-        searchers = {'main': main}
-
-        name = utils.web_to_spine(form.get('name', '').strip())
-        if name:
-            main.set_name_like(name)
-
-        authority = utils.web_to_spine(form.get('allocationauthority', '').strip())
-        if authority:
-            main.set_allocationauthority_like(authority)
-        return searchers
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            auth = utils.spine_to_web(elm.get_authority().get_name())
-            ## rows.append([utils.object_link(elm), auth, str(edit)])
-            rows.append([utils.object_link(elm), auth, ])
-        return rows
-
-class AllocationSearcher(SpineSearcher):
-    headers = (
-        ('Allocation name', 'allocation_name'),
-        ('Period', 'period'),
-        ('Status', 'status'),
-        ('Machines', 'machines'),
-        ('Actions', '')
-    )
-
-    def get_searchers(self):
-        form = self.form_values
-        main = self.transaction.get_allocation_searcher()
-        searchers = {'main': main}
-
-        allocation_name = utils.web_to_spine(form.get('allocation_name', '').strip())
-        if allocation_name:
-            an_searcher = self.transaction.get_project_allocation_name_searcher()
-            an_searcher.set_name_like(allocation_name)
-            self.searchers['allocation_name'] = an_searcher
-            self.searchers['main'].add_join('allocation_name', an_searcher, '')
-
-        return searchers
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            proj = utils.object_link(elm.get_allocation_name().get_project())
-            period = utils.spine_to_web(elm.get_period().get_name())
-            status = utils.spine_to_web(elm.get_status().get_name())
-            machines = [utils.spine_to_web(m.get_name()) for m in elm.get_machines()]
-            machines = "(%s)" % ",".join(machines)
-            ## rows.append([utils.object_link(elm), period, status, machines, str(edit)])
-            rows.append([utils.object_link(elm), period, status, machines, ])
-        return rows
-
 class DiskSearcher(SpineSearcher):
     headers = (
         ('Path', 'path'),
@@ -672,42 +607,6 @@ class OUSearcher(SpineSearcher):
             short = utils.spine_to_web(elm.get_short_name())
             ## rows.append([link, acro, short, str(edit)])
             rows.append([link, acro, short, ])
-        return rows
-
-class ProjectSearcher(SpineSearcher):
-    headers = (
-        ('Title', 'title'),
-        ('Science', 'science'),
-        ('Owner', 'owner'),
-        ('Actions', '')
-    )
-
-    def get_searchers(self):
-        main = self.transaction.get_project_searcher()
-        form = self.form_values
-
-        name = utils.web_to_spine(form.get('name', '').strip())
-        if name:
-            main.set_name_like(name)
-
-        description = utils.web_to_spine(form.get('description', '').strip())
-        if description:
-            main.set_description_like(description)
-
-        title = utils.web_to_spine(forrm.get('title', '').strip())
-        if title:
-            main.set_title_like(title)
-
-        return {'main': main}
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            sci  = " " #elm.get_science().get_name()
-            ownr = utils.object_link(elm.get_owner())
-            ## rows.append([utils.object_link(elm), sci, ownr, str(edit)])
-            rows.append([utils.object_link(elm), sci, ownr, ])
         return rows
 
 class PersonAffiliationsSearcher(SpineSearcher):

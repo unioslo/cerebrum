@@ -92,11 +92,6 @@ def object_name(object):
                 text = "No primary address" + " (%s)" % object.get_target_type()
     elif type == 'disk':
         text = object.get_path()
-    elif type == 'project':
-        text = object.get_title() or \
-                "(untitled %d)" % (object_id(object),)
-    elif type == 'allocation':
-        text = object.get_allocation_name().get_name()
     elif hasattr(object, "get_name"):
         text = object.get_name()   
     elif type == 'account':
