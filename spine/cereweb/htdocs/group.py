@@ -49,7 +49,7 @@ def _get_links():
     )
 
 @session_required_decorator
-def search(transaction, **vargs):
+def search(**vargs):
     """Search for groups and displays results and/or searchform."""
     searcher = GroupSearcher(**vargs)
     return searcher.respond()

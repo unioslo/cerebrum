@@ -19,37 +19,22 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from lib.Forms import Form
-from lib.templates.GroupSearchTemplate import GroupSearchTemplate
+from lib.Forms import SearchForm
 
-class GroupSearchForm(Form):
-    Template = GroupSearchTemplate
+class GroupSearchForm(SearchForm):
     title = _("Search for Groups")
     action = '/search/group'
-    scripts = ["groupsearch.js"]
 
     Order = [
         'name',
-        'description',
-        'spread',
     ]
 
     Fields = {
         'name': {
             'label': _('Group name'),
-            'required': False,
-            'type': 'text',
-        },
-        'description': {
-            'label': _('Description'),
-            'required': False,
-            'type': 'text',
-        },
-        'spread': {
-            'label': _("Spread name"),
-            'required': False,
+            'required': True,
             'type': 'text',
         },
     }
 
-    check_name = Form._check_short_string
+    check_name = SearchForm._check_short_string
