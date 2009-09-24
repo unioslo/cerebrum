@@ -186,9 +186,10 @@ cereweb.ac_quicksearch = function(container) {
             </div>';
     this.qs = YD.get("quicksearch");
     this.form = YD.get("qs_form");
+    this.id = this.form['id'];
     this.input = YD.get("qs_query");
     this.label = YD.get("qs_query_label");
-    this.submit = YD.get("qs_submit");
+    this.qs_submit = YD.get("qs_submit");
     this.initTooltip("qs_qmark");
 
     cereweb.ac_quicksearch.superclass.constructor.call(this, this.input);
@@ -197,7 +198,7 @@ cereweb.ac_quicksearch = function(container) {
     container.style.display = "";
     YE.addListener(this.input, 'focus', this.openSearch, this, true);
     YE.addListener(this.input, 'blur', this.closeSearch, this, true);
-    YE.addListener(this.submit, 'click', this.submitClicked, this, true);
+    YE.addListener(this.qs_submit, 'click', this.submitClicked, this, true);
 
     var as = YD.get("qs_advanced_search");
     YE.addListener(as, 'click', this.openAdvancedSearch, this, true);
@@ -219,6 +220,9 @@ cereweb.ac_quicksearch.prototype.openAdvancedSearch = function(e) {
 }
 
 cereweb.ac_quicksearch.prototype.submitClicked = function(e) {
+    if (this.valid) {
+        return true;
+    }
     e.preventDefault();
     clearTimeout(this.closeTimer);
     this.input.focus();
@@ -309,7 +313,6 @@ cereweb.ac_quicksearch.prototype.itemSelect = function(event, args) {
 }
 
 cereweb.ac_quicksearch.prototype.parseData = function(data) {
-    this.valid = true;
     if (!data)
         var data = this.data[0][1];
     else
@@ -318,6 +321,7 @@ cereweb.ac_quicksearch.prototype.parseData = function(data) {
     var type = data.type;
     this.form.action = '/' + type + '/view';
     this.id.value = data.id;
+    this.valid = true;
 }
 
 cereweb.ac_quicksearch.prototype.dataSourceOptions = {
