@@ -70,8 +70,8 @@ class PersonSearcher(CoreSearcher):
 
         return results
 
-    format_first_name = CoreSearcher._create_person_link
-    format_last_name = CoreSearcher._create_person_link
+    format_first_name = CoreSearcher._create_link
+    format_last_name = CoreSearcher._create_link
     format_birth_date = CoreSearcher._format_date
 
     def format_gender(self, gender, row):
@@ -80,6 +80,6 @@ class PersonSearcher(CoreSearcher):
     def format_accounts(self, accounts, row):
         links = []
         for account in accounts:
-            link = self._create_account_link(account.name, account)
+            link = self._create_link(account.name, account)
             links.append(link)
         return ", ".join(links) or "&nbsp;"

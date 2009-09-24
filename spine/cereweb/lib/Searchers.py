@@ -356,15 +356,13 @@ class CoreSearcher(Searcher):
     def _format_date(self, date, row):
         return date.strftime("%Y-%m-%d")
 
-    def _create_view_link(self, entity, name, row):
+    def _create_view_link(self, name, target_type, target_id):
+        return '<a href="/%s/view?id=%s">%s</a>' % (target_type, target_id, name)
+
+    def _create_link(self, name, row):
         target_id = row.id
-        return '<a href="/%s/view?id=%s">%s</a>' % (entity, target_id, name)
-
-    def _create_person_link(self, name, row):
-        return self._create_view_link("person", name, row)
-
-    def _create_account_link(self, name, row):
-        return self._create_view_link("account", name, row)
+        target_type = row.type_name
+        return self._create_view_link(name, target_type, target_id)
 
 class SpineSearcher(Searcher):
     """
@@ -594,71 +592,6 @@ class EmailDomainSearcher(SpineSearcher):
             ## remb = utils.remember_link(elm, _class='action')
             ## rows.append([link, utils.spine_to_web(elm.get_description()), cats, str(edit)+str(remb)])
             rows.append([link, utils.spine_to_web(elm.get_description()), cats, ])
-        return rows
-
-class GroupSearcher(SpineSearcher):
-    headers = (
-        ('Group name', 'name'),
-        ('Description', 'description'),
-        ('Actions', '')
-    )
-
-    def get_searchers(self):
-        form = self.form_values
-        main = self.transaction.get_group_searcher()
-
-        name = utils.web_to_spine(form.get('name', '').strip())
-        if name:
-            main.set_name_like(name)
-
-        description = utils.web_to_spine(form.get('description', '').strip())
-        if description:
-            main.set_description_like(description)
-
-        gid_end = utils.web_to_spine(form.get('gid_end', '').strip())
-        if gid_end:
-            if gid_end:
-                main.set_posix_gid_less_than(int(gid_end))
-
-        gid = form.get('gid', '').strip()
-        if gid:
-            gid_option = self.form_values['gid_option']
-            if gid_option == "exact":
-                ## self.searchers['main'].set_posix_gid(int(gid))
-                main.set_posix_gid(int(gid))
-            elif gid_option == "above":
-                ## self.searchers['main'].set_posix_gid_more_than(int(gid))
-                main.set_posix_gid_more_than(int(gid))
-            elif gid_option == "below":
-                ## self.searchers['main'].set_posix_gid_less_than(int(gid))
-                main.set_posix_gid_less_than(int(gid))
-            elif gid_option == "range":
-                ## self.searchers['main'].set_posix_gid_more_than(int(gid))
-                main.set_posix_gid_more_than(int(gid))
-
-        spread = utils.web_to_spine(form.get('spread', '').strip())
-        if spread:
-            group_type = self.transaction.get_entity_type('group')
-
-            searcher = self.transaction.get_entity_spread_searcher()
-            searcher.set_entity_type(group_type)
-
-            spreadsearcher = self.transaction.get_spread_searcher()
-            spreadsearcher.set_entity_type(group_type)
-            spreadsearcher.set_name_like(spread) 
-
-            searcher.add_join('spread', spreadsearcher, '')
-            main.add_intersection('', searcher, 'entity')
-
-        return {'main': main}
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
-            ## rows.append([utils.object_link(elm), utils.spine_to_web(elm.get_description()), str(edit)+str(remb)])
-            rows.append([utils.object_link(elm), utils.spine_to_web(elm.get_description()), ])
         return rows
 
 class HostSearcher(SpineSearcher):

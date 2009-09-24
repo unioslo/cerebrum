@@ -16,64 +16,7 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.Main import Main
-#extends Main
-
-#from FormWidgets import FormWidgets
-#attr $form_widgets = FormWidgets()
-#attr $form_values = {}
-
-## fields should contain a list of tuples with (name, label)
-#attr $search_fields = []
-
-## help is a list with more lines to print, with help about the search
-#attr $search_help = []
-
-#attr $search_title = ''
-
-## Overloaded by search-pages like person search, should
-## contain the url for where to go when the form is submittet.
-#attr $search_action = '/some/where'
-
-## Overloaded by search-pages which needs search-fields which arent inputs.
-## vargs is a dict with the values the user provided in the field in the
-## last search.
-#def getExtra($vargs)
-#end def
-
-## Creates the form for searching.
-#def search_form($vargs={})
-    #set $myHelp = [$_("Use wildcards * and ? to extend the search."),
-                    $_("Supply several search parameters to limit the search.")]
-    #for $i in $myHelp
-        #if not $i in $search_help
-            $search_help.append($i)
-        #end if
-    #end for
-    #set $redirect = $vargs.get('redirect', None)
-    <div id="searchbox" class="view">
-    <h3>$_('Search for ' + $title + ':' )</h3>
-        <form action="$search_action" method="post" id="search_form">
-            #if $redirect
-                <div class="hidden">
-                    <input type="hidden" name="redirect" value="$redirect" />
-                </div>
-            #end if
-            #for $name, $label in $search_fields
-                <div class="required">
-                    $form_widgets.input($name, $label, $vargs.get($name, None))
-                </div>
-            #end for
-            $getExtra($vargs)
-            $form_widgets.showHelp($search_help)
-            <div class="buttons">
-                <input id="search_submit" type="submit" value="$_('Search')" />
-                <input id="search_clear" type="reset" value="$_('Clear')" />
-            </div>
-        </form>
-    </div>
-#end def
-
-#def content($vargs={})
-    $search_form($vargs or $form_values)
-#end def
+#extends FormTemplate
+#attr $submit_value = "Search"
+#attr $reset_value = "Clear"
+#attr $form_class = "view"

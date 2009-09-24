@@ -19,35 +19,37 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from lib.Forms import SearchForm
+from lib.Forms import Form
+from lib.templates.GroupSearchTemplate import GroupSearchTemplate
 
-class PersonSearchForm(SearchForm):
-    title = _('Search for Person')
-    action = '/search/person/'
-    method = 'GET'
+class GroupSearchForm(Form):
+    Template = GroupSearchTemplate
+    title = _("Search for Groups")
+    action = '/search/group'
+    scripts = ["groupsearch.js"]
 
     Order = [
         'name',
-        'birth_date',
+        'description',
+        'spread',
     ]
 
     Fields = {
         'name': {
-            'label': _('Name'),
+            'label': _('Group name'),
             'required': False,
             'type': 'text',
-            'quote': 'reject',
         },
-        'birth_date': {
-            'label': _('Birth date'),
+        'description': {
+            'label': _('Description'),
             'required': False,
             'type': 'text',
-            'help': _('Date must be in YYYY-MM-DD or DD/MM/YYYY format.'),
+        },
+        'spread': {
+            'label': _("Spread name"),
+            'required': False,
+            'type': 'text',
         },
     }
 
-    check_birth_date = SearchForm._check_date
-
-    def check(self):
-        values = self.get_values()
-        return values['name'] is not None or values['birth_date'] is not None
+    check_name = Form._check_short_string

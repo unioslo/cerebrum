@@ -19,25 +19,24 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from lib.Searchers import CoreSearcher
-from lib.AccountSearchForm import AccountSearchForm
-from lib.data.AccountDAO import AccountDAO
-from lib.data.EntityFactory import EntityFactory
+from lib.GroupSearchForm import GroupSearchForm
+from lib.data.GroupDAO import GroupDAO
 from gettext import gettext as _
 
-class AccountSearcher(CoreSearcher):
+class GroupSearcher(CoreSearcher):
     url = ''
-    DAO = AccountDAO
-    SearchForm = AccountSearchForm
+    DAO = GroupDAO
+    SearchForm = GroupSearchForm
 
     columns = (
         'name',
-        'owner.name',
+        'description',
     )
 
-    headers = [
-            (_('Name'), 'name'),
-            (_('Owner'), 'owner.name'),
-        ]
+    headers = (
+        (_('Group name'), 'name'),
+        (_('Description'), 'description'),
+    )
 
     defaults = CoreSearcher.defaults.copy()
     defaults.update({
@@ -51,17 +50,5 @@ class AccountSearcher(CoreSearcher):
 
         return self.__results
 
-    def _add_owners(self, results):
-        factory = EntityFactory(self.db)
-        for result in results:
-            result.owner = factory.create(result.owner_type, result.owner_id)
-        return results
-
-    def _extend_complete_results(self, results):
-        return self._add_owners(results)
-
     def format_name(self, column, row):
         return self._create_link(column, row)
-
-    def format_owner_name(self, column, row):
-        return self._create_link(column, row.owner)

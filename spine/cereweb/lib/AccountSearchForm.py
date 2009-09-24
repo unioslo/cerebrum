@@ -19,9 +19,9 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from lib.Forms import Form
+from lib.Forms import SearchForm
 
-class AccountSearchForm(Form):
+class AccountSearchForm(SearchForm):
     title = _("Search for Account")
     action = '/search/account'
 
@@ -37,7 +37,7 @@ class AccountSearchForm(Form):
         },
     }
 
-    check_name = Form._check_short_string
+    check_name = SearchForm._check_short_string
 
     help = [
         'Use wildcards * and ? to extend the search.',

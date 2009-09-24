@@ -29,78 +29,109 @@
 #attr $form_fields = []
 #attr $form_help = []
 #attr $form_title = ''
+#attr $form_values = {}
 
 ## Overloaded by search-pages like person search, should
 ## contain the url for where to go when the form is submittet.
 #attr $form_action = '/some/where'
+#attr $form_class = ""
 #attr $form_method = 'POST'
+#attr $submit_value = "Submit"
+#attr $reset_value = "Reset"
+
+## Overloaded by search-pages which needs search-fields which arent inputs.
+## vargs is a dict with the values the user provided in the field in the
+## last search.
+#def getExtra($vargs)
+#end def
 
 #def content()
-    <div>
+    <div class="$form_class">
         <h3>$form_title</h3>
         <form action="$form_action" method="$form_method">
             #for $field in $form_fields
                 #set $cls = $field['required'] and 'required' or 'optional'
                 <div class="$cls">
                     #if $field['type'] == 'select'
-                        $form_widgets.generate_loption($field['name'],
-                            $field['label'], $field['options'], $field['value'])
+                        $render_select($field, $cls)
                     #elif $field['type'] == 'hidden'
-                        <input class="$cls" type="hidden" name="$field['name']" id="$field['name']" value="$field['value']" />
+                        $render_hidden($field, $cls)
                     #elif $field['type'] == 'checkbox'
-                        <label for="$field['name']">$field['label']:</label>
-                        <input type="checkbox" name="$field['name']" id="$field['name']" value="$field['value']" />
+                        $render_checkbox($field, $cls)
                     #elif $field['type'] == 'radio'
-                        #set $i = 0
-                        <div class="randpassword">
-                        <table>
-                        <tr>
-                        <th colspan="2">
-                        <label for="$field['name']$i$_('00')">$field['label']:</label>
-                        </th>
-                        </tr>
-                        #for $val in $field['value']
-                            #set $col = $i + 1
-                            #if $col % 2 == 0
-                                <td>
-                                <input type="radio" name="$field['name']" id="$field['name']$i$_('00')" value="$val" />$val
-                                </td>
-                                </tr>
-                            #else
-                                <tr>
-                                <td>
-                            <input type="radio" name="$field['name']" id="$field['name']$i$_('00')" value="$val" 
-                                #if $i == 0
-                                    checked="checked"
-                                #end if
-                                    />$val
-                                </td>
-                            #end if
-                            #set $i = $i+1
-                        #end for
-                        </table>
-                        </div>
+                        $render_radio($field, $cls)
                     #else
-                        <label for="$field['name']">$field['label']:</label>
-                        <input class="$cls" type="$field['type']" value="$field['value']" name="$field['name']" id="$field['name']" />
-                        $field['value']
+                        $render_text($field, $cls)
                     #end if
+
                     #if $field.get('help')
                         <img alt="?" class="tt" src='/yui/container/assets/hlp16_1.gif' /><span class="nojs">$field['help']</span>
                     #end if
                 </div>
             #end for
+
+            $getExtra($form_values)
+
             <div class="buttons">
-                <input class="submit" type="submit" value="$_('Submit')" />
-                <input class="reset" type="reset" value="$_('Reset')" />
+                <input class="submit" type="submit" value="$_($submit_value)" />
+                <input class="reset" type="reset" value="$_($reset_value)" />
             </div>
         </form>
+
         #if $form_help
-            <div class="help">
-            #for $item in $form_help
-                <div class="item">$item</div>
-            #end for
-            </div>
+            $form_widgets.showHelp($form_help)
         #end if
     </div>
+#end def
+
+#def render_select($field, $cls)
+    $form_widgets.generate_loption($field['name'],
+            $field['label'], $field['options'], $field['value'])
+#end def
+
+#def render_hidden($field, $cls)
+    <input class="$cls" type="hidden" name="$field['name']" id="$field['name']" value="$field['value']" />
+#end def
+
+#def render_checkbox($field, $cls)
+    <label for="$field['name']">$field['label']:</label>
+    <input type="checkbox" name="$field['name']" id="$field['name']" value="$field['value']" />
+#end def
+
+#def render_radio($field, $cls)
+    #set $i = 0
+    <div class="randpassword">
+        <table>
+            <tr>
+                <th colspan="2">
+                <label for="$field['name']$i$_('00')">$field['label']:</label>
+                </th>
+            </tr>
+            #for $val in $field['value']
+                #set $col = $i + 1
+                #if $col % 2 != 0
+                    <tr>
+                        <td>
+                            <input type="radio" name="$field['name']" id="$field['name']$i$_('00')" value="$val" 
+                                #if $i == 0
+                                    checked="checked"
+                                #end if
+                                    />$val
+                        </td>
+                #else
+                        <td>
+                            <input type="radio" name="$field['name']" id="$field['name']$i$_('00')" value="$val" />$val
+                        </td>
+                    </tr>
+                #end if
+                #set $i = $i+1
+            #end for
+        </table>
+    </div>
+#end def
+
+#def render_text($field, $cls)
+    <label for="$field['name']">$field['label']:</label>
+    <input class="$cls" type="$field['type']" value="$field['value']" name="$field['name']" id="$field['name']" />
+    $field['value']
 #end def

@@ -24,6 +24,7 @@ import cherrypy
 from lib.utils import legal_date, html_quote, spine_to_web, object_link
 from lib.utils import randpasswd, get_lastname_firstname, entity_link
 from lib.templates.FormTemplate import FormTemplate
+from lib.templates.SearchTemplate import SearchTemplate
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.ConstantsDAO import ConstantsDAO
@@ -35,6 +36,7 @@ Helper-module for search-pages and search-result-pages in cereweb.
 """
 
 class Form(object):
+    Template = FormTemplate
     Order = []
     Fields = {}
 
@@ -156,12 +158,19 @@ class Form(object):
     def get_help(self):
         return getattr(self, 'help', [])
 
+    def get_scripts(self):
+        return getattr(self, 'scripts', [])
+
     def _get_page(self):
-        page = FormTemplate()
+        scripts = self.get_scripts()
+
+        page = self.Template()
+        page.jscripts.extend(scripts)
         page.form_title = self.get_title()
         page.form_action = self.get_action()
         page.form_method = self.get_method()
         page.form_fields = self.get_fields()
+        page.form_values = self.get_values()
         page.form_help = self.get_help()
         return page
 
@@ -173,6 +182,9 @@ class Form(object):
         page = self._get_page()
         return page.respond()
             
+class SearchForm(Form):
+    Template = SearchTemplate
+
 class PersonCreateForm(Form):
     Order = [
         'ou',

@@ -23,6 +23,7 @@ from gettext import gettext as _
 
 from lib import utils
 from lib.AccountSearcher import AccountSearcher
+from lib.GroupSearcher import GroupSearcher
 from lib.PersonSearcher import PersonSearcher
 
 from lib.templates.NewSearchTemplate import NewSearchTemplate
@@ -34,29 +35,24 @@ class Search(object):
         page.forms = [
             PersonSearcher.SearchForm(),
             AccountSearcher.SearchForm(),
+            GroupSearcher.SearchForm(),
         ]
 
         return page.respond()
     index.exposed = True
 
-class AccountSearch(object):
-    @utils.session_required_decorator
-    def search(self, **vargs):
-        """Search after hosts and displays result and/or searchform."""
-        searcher = AccountSearcher(**vargs)
-        return searcher.respond()
-    search.exposed = True
-    index = search
+class SearchWrapper(object):
+    def __init__(self, Searcher):
+        self.Searcher = Searcher
 
-class PersonSearch(object):
     @utils.session_required_decorator
     def search(self, **vargs):
-        """Search after hosts and displays result and/or searchform."""
-        searcher = PersonSearcher(**vargs)
+        searcher = self.Searcher(**vargs)
         return searcher.respond()
     search.exposed = True
     index = search
 
 search = Search()
-search.person = PersonSearch()
-search.account = AccountSearch()
+search.person = SearchWrapper(PersonSearcher)
+search.account = SearchWrapper(AccountSearcher)
+search.group = SearchWrapper(GroupSearcher)

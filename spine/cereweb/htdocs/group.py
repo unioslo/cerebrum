@@ -26,8 +26,7 @@ from gettext import gettext as _
 from lib.utils import queue_message, redirect_entity, entity_link
 from lib.utils import transaction_decorator, redirect, get_database
 from lib.utils import web_to_spine, session_required_decorator
-from lib.Searchers import GroupSearcher
-from lib.templates.GroupSearchTemplate import GroupSearchTemplate
+from lib.GroupSearcher import GroupSearcher
 from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 from Cerebrum.Errors import NotFoundError
@@ -40,6 +39,8 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.GroupDTO import GroupDTO
 
+from lib.GroupSearchForm import GroupSearchForm
+
 # FIXME: Dupe, should be inlined in the pages.
 def _get_links():
     return (
@@ -47,27 +48,11 @@ def _get_links():
         ('create', _('Create')),
     )
 
-def search_form(remembered):
-    page = GroupSearchTemplate()
-    page.title = _("Group")
-    page.search_title = _('group(s)')   
-    page.set_focus("group/search")
-    page.links = _get_links()
-    page.jscripts.append("groupsearch.js")
-    page.search_fields = [("name", _("Name")),
-                          ("description", _("Description")),
-                          ("spread", _("Spread name")),
-                          ]
-    page.search_action = '/group/search'
-    page.form_values = remembered
-    return page.respond()
-
+@session_required_decorator
 def search(transaction, **vargs):
     """Search for groups and displays results and/or searchform."""
-    args = ('name', 'description', 'spread', 'gid', 'gid_end', 'gid_option')
-    searcher = GroupSearcher(transaction, *args, **vargs)
-    return searcher.respond() or search_form(searcher.get_remembered())
-search = transaction_decorator(search)
+    searcher = GroupSearcher(**vargs)
+    return searcher.respond()
 search.exposed = True
 index = search
 
