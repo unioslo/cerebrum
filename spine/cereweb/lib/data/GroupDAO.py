@@ -30,9 +30,8 @@ class GroupDAO(EntityDAO):
         name = name.strip("*") + '*'
         results = []
         for result in self.entity.search(name=name):
-            dto = DTO()
+            dto = DTO.from_row(result)
             dto.id = result.group_id
-            dto.name = result.name
             dto.type_name = self._get_type_name()
             results.append(dto)
         return results
