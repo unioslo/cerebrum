@@ -900,8 +900,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
 
     def search(self, spread=None, name=None, description=None, birth_date=None,
-               exclude_deceased=False, name_variants=[], orderby='',
-               orderby_dir='asc'):
+               exclude_deceased=False, name_variants=[]):
         """
         Retrieves a list over Persons filtered by the given criterias.
 
@@ -917,12 +916,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         returned rows will include these names instead of name.  The column
         names will be the name of the variant lowercased with _name appended.
         Examples: first_name, last_name, full_name.
-
-        ``orderby`` is the name of the column that the result should be ordered
-        by.  If not specified, the database default ordering will be used.
-
-        ``orderby_dir`` should be the string 'asc' or 'desc' and specifies if
-        the result should be sorted ascending or descending.  Default is 'asc'.
         """
 
         tables = []
@@ -976,11 +969,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         if where:
             where_str = "WHERE " + " AND ".join(where)
 
-        orderby_str = ""
-        if orderby:
-            direction = orderby_dir == "desc" and "DESC" or "ASC"
-            orderby_str = "ORDER BY %s %s" % (orderby, direction)
-
         selects.insert(0, """
         SELECT DISTINCT pi.person_id AS person_id,
                 pi.description AS description,
@@ -990,9 +978,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
         select_str = ", ".join(selects)
         return self.query(
-            select_str + " FROM %s %s %s" % (
-                ','.join(tables), where_str, orderby_str),
+            select_str + " FROM %s %s" % (','.join(tables), where_str),
             {'spread': spread, 'entity_type': int(self.const.entity_person),
              'name': name, 'description': description, 'birth_date': birth_date})
-
-# arch-tag: 10f7dbc0-0edf-466d-ab33-ba0c84c5a2b3
