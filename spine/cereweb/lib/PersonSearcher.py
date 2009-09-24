@@ -48,17 +48,12 @@ class PersonSearcher(CoreSearcher):
         'orderby': 'last_name',
     })
 
-
     def _get_results(self):
         if not hasattr(self, '__results'):
             name = (self.form_values.get('name') or '').strip()
             birth_date = (self.form_values.get('birth_date') or '').strip()
 
-            self.__results = self.dao.search(
-                name,
-                birth_date,
-                orderby=self.orderby,
-                orderby_dir=self.orderby_dir)
+            self.__results = self.dao.search(name, birth_date)
         return self.__results
 
     def _extend_limited_result(self, results):

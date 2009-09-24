@@ -29,8 +29,7 @@ class PersonDAO(EntityDAO):
 
         return self._create_dto(person, include_extra)
 
-    def search(self, name, birth_date=None, orderby='last_name',
-                orderby_dir='asc'):
+    def search(self, name, birth_date=None):
         name = name or None
         birth_date = birth_date or None
 
@@ -43,8 +42,6 @@ class PersonDAO(EntityDAO):
                                         name=name,
                                         birth_date=birth_date,
                                         name_variants=name_variants,
-                                        orderby=orderby,
-                                        orderby_dir=orderby_dir,
                                         exclude_deceased=True):
             dto = DTO.from_row(result)
             dto.id = dto.person_id

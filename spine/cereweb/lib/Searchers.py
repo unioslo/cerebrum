@@ -319,10 +319,15 @@ class CoreSearcher(Searcher):
 
     def _noop(self, results):
         return results
-
     _extend_complete_results = _noop
-    _sort_results = _noop
     _extend_limited_result = _noop
+
+    def _sort_results(self, results):
+        reverse = self.orderby_dir == 'desc'
+        key = lambda x: self._get_column_value(x, self.orderby)
+
+        results.sort(key=key, reverse=reverse)
+        return results
 
     def _limit_results(self, result):
         start, end = self.offset, self.last_on_page

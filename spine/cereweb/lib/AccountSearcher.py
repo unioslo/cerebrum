@@ -60,13 +60,6 @@ class AccountSearcher(CoreSearcher):
     def _extend_complete_results(self, results):
         return self._add_owners(results)
 
-    def _sort_results(self, results):
-        reverse = self.orderby_dir == 'desc'
-        key = lambda x: self._get_column_value(x, self.orderby)
-
-        results.sort(key=key, reverse=reverse)
-        return results
-
     def format_name(self, column, row):
         return self._create_account_link(column, row)
 
