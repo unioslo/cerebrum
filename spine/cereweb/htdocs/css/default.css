@@ -24,61 +24,11 @@ div.bottom_div {
     height: 9em;
 }
 
-div.worklist h2, div.activitylog h2 {
+div.activitylog h2 {
     font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
     font-size: 90%;
     margin: 0;
     padding: 0 0 0 4px;
-}
-
-div.worklist {
-    float: left;
-    vertical-align: top;
-    margin: 0;
-    padding: 0;
-    height: auto;
-    width: 400px;
-}
-
-div.worklist h2 {
-    background: #66CCFF;
-    border: 1px solid #0066CC;
-    margin-bottom: 4px;
-    margin-left: 5px;
-}
-
-div.worklist form {
-    margin: 0; /* Ie and opera adds a small margin.*/
-    padding: 0;
-}
-
-div.worklist form div.buttons {
-    float: left;
-    width: 60px;
-    margin-left: 5px;
-    padding-right: 3px;
-    padding-top: 1px;
-    padding-bottom: 1px;
-}
-
-
-div.worklist form div.buttons button {
-    width: 100%;
-    text-align: left;
-    margin-bottom: 4px;
-}
-
-div.worklist form div.list {
-    margin: 0; 
-    padding: 0;
-    float: left;
-    width: 160px;
-}
-
-div.worklist form div.actions {
-    float: left;
-    width: 160px;
-    padding-left: 5px;
 }
 
 div.activitylog {

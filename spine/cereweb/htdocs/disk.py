@@ -22,7 +22,7 @@ import cherrypy
 
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import commit, commit_url, object_link, remember_link
+from lib.utils import commit, commit_url, object_link
 from lib.utils import transaction_decorator, redirect_object
 from lib.utils import spine_to_web, web_to_spine
 from lib.Searchers import DiskSearcher

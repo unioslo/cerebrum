@@ -145,11 +145,6 @@ def object_link(object, text=None, method="view", _class="", **params):
         _class = ' class="%s"' % _class
     return '<a href="%s"%s>%s</a>' % (url, _class, cgi.escape(text))
 
-def remember_link(object, text='remember', _class=''):
-    obj_id = object_id(object)
-    url = urllib.quote("/worklist/remember?id=%i" % obj_id)
-    return '<a class="action jsonly %s" href="%s">%s</a>' % (_class, url, text)
-
 def entity_url(entity, method="view", **params):
     """Return the full path to a page treating the entity.
     

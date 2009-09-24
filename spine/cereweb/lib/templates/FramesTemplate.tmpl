@@ -25,21 +25,19 @@
 ##
 #attr $title = "Cereweb"
 #attr $messages = []
-#attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'worklist.js', 'error.js']
+#attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'error.js']
 ## #attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'error.js']
 #attr $links = ()
 #attr $action = []
 
 ## Content is usually replaced with a lambda function from the view.
 #def content: stub
-## The worklist is in general a list of objects the user is working on.
-## Should be specific to the current active transaction, when finished.
-#def worklist: stub
+
 ## The activitylog is a log over what the user has done, like adding a member
 ## to a group. Should be specific to the current active transaction, when
 ## finished.
 #def activitylog: stub
-##
+
 #def actions
         #if len($action) > 0
         <div id="actions">
@@ -165,21 +163,13 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
             </div>
             <div id="bottom">
             #block page_bottom
-                ## #set $wl = $cherrypy.session['options'].getboolean('layout', 'display worklist')
                 #set $al = $cherrypy.session['options'].getboolean('layout', 'display activitylog')
                  
-                ## remove comments for enabling worklist again
                 #if $al
-                ## #if $wl or $al
                     <div class="bottom_div">
-                    ## #if $wl
-                    ##     <div id="worklist"></div>
-                    ## #end if
-                    ## #if $al
                         #block activitylog_block
                             $activitylog()
                         #end block
-                     ## #end if
                     </div>
                 #end if
             #end block page_bottom

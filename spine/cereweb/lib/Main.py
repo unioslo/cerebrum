@@ -26,11 +26,12 @@ from ActivityLog import ActivityLog
 from templates.FramesTemplate import FramesTemplate
 
 class Main(FramesTemplate):
-    """Creates the main page without any content.
+    """
+    Creates the main page without any content.
     
-    Creates the "static" part of all the webpages like: menu, transaction-box,
-    worklist with links and activitylog. The design of the page comes from css
-    and from the FramesTemplate, wich is a cheetah-template.
+    Creates the "static" part of all the webpages like: menu, transaction-box
+    and activitylog. The design of the page comes from css and from the
+    FramesTemplate, wich is a cheetah-template.
     """
     
     def __init__(self, *args, **kwargs):
@@ -54,7 +55,7 @@ class Main(FramesTemplate):
     def prepare_page(self):
         """Makes sure parts of the page is created only once.
         
-        Creates worklist, and activitylog.
+        Creates the activitylog.
         """
         self.activitylog = ActivityLog()
         self.action = []

@@ -19,7 +19,7 @@
 #from lib.Main import Main
 #from lib import HistoryLog
 #from lib.utils import object_link, strftime, html_quote, shownumber
-#from lib.utils import spine_to_web, url_quote, remember_link
+#from lib.utils import spine_to_web, url_quote
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 #extends Main
@@ -380,7 +380,6 @@
             <em>$_($header):</em> $group_name
             $object_link($group, text="view", _class="action")
             $object_link($group, text="edit", method="edit", _class="action")
-            $remember_link($group, _class="action")
             #if $group_name_cmp == $primary_group
                 <span class="extra">(primary)</span>
             #end if

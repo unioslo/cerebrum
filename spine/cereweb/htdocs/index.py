@@ -46,7 +46,6 @@ import options
 import ou
 import person
 import quarantine
-import worklist
 import permissions
 import user_client
 import activation

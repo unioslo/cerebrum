@@ -18,7 +18,7 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  */
 
-## Styles for the bottom frame, wich contains worklist, transactions and activitylog.
+## Styles for the bottom frame, wich contains transactions and activitylog.
 ## IE doesnt support inline-block on divs, so I had to use spans instead, and then
 ## i had to use vertical-align: top, to make it look just like in opera.
 div.bottom_div {
@@ -27,62 +27,11 @@ div.bottom_div {
     height: 9em;
 }
 
-div.worklist h2, div.activitylog h2 {
+div.activitylog h2 {
     font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
     font-size: 90%;
     margin: 0;
     padding: 0 0 0 4px;
-}
-
-## Styles for the worklist.
-div.worklist {
-    float: left;
-    vertical-align: top;
-    margin: 0;
-    padding: 0;
-    height: auto;
-    width: 400px;
-}
-
-div.worklist h2 {
-    background: #66CCFF;
-    border: 1px solid #0066CC;
-    margin-bottom: 4px;
-    margin-left: 5px;
-}
-
-div.worklist form {
-    margin: 0; // Ie and opera adds a small margin.
-    padding: 0;
-}
-
-div.worklist form div.buttons {
-    float: left;
-    width: 60px;
-    margin-left: 5px;
-    padding-right: 3px;
-    padding-top: 1px;
-    padding-bottom: 1px;
-}
-
-
-div.worklist form div.buttons button {
-    width: 100%;
-    text-align: left;
-    margin-bottom: 4px;
-}
-
-div.worklist form div.list {
-    margin: 0; 
-    padding: 0;
-    float: left;
-    width: 160px;
-}
-
-div.worklist form div.actions {
-    float: left;
-    width: 165px;
-    padding-left: 5px;
 }
 
 ## Styles for the Activity log.

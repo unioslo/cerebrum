@@ -406,8 +406,7 @@ class SpineSearcher(Searcher):
             cdate = utils.strftime(obj.get_create_date())
             edate = utils.strftime(obj.get_expire_date())
             edit = utils.object_link(obj, text='edit', method='edit', _class='action')
-            remb = utils.remember_link(obj, _class='action')
-            rows.append((utils.object_link(obj), owner, cdate, edate, str(edit)+str(remb)))
+            rows.append((utils.object_link(obj), owner, cdate, edate, str(edit)))
         return rows
 
 
@@ -483,9 +482,8 @@ class AllocationPeriodSearcher(SpineSearcher):
         rows = []
         for elm in results:
             ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
             auth = utils.spine_to_web(elm.get_authority().get_name())
-            ## rows.append([utils.object_link(elm), auth, str(edit)+str(remb)])
+            ## rows.append([utils.object_link(elm), auth, str(edit)])
             rows.append([utils.object_link(elm), auth, ])
         return rows
 
@@ -516,13 +514,12 @@ class AllocationSearcher(SpineSearcher):
         rows = []
         for elm in results:
             ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
             proj = utils.object_link(elm.get_allocation_name().get_project())
             period = utils.spine_to_web(elm.get_period().get_name())
             status = utils.spine_to_web(elm.get_status().get_name())
             machines = [utils.spine_to_web(m.get_name()) for m in elm.get_machines()]
             machines = "(%s)" % ",".join(machines)
-            ## rows.append([utils.object_link(elm), period, status, machines, str(edit)+str(remb)])
+            ## rows.append([utils.object_link(elm), period, status, machines, str(edit)])
             rows.append([utils.object_link(elm), period, status, machines, ])
         return rows
 
@@ -556,8 +553,7 @@ class DiskSearcher(SpineSearcher):
             path = utils.object_link(elm, text=elm.get_path())
             host = utils.object_link(elm.get_host())
             ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
-            ## rows.append([path, host, utils.spine_to_web(elm.get_description()), str(edit)+str(remb)])
+            ## rows.append([path, host, utils.spine_to_web(elm.get_description()), str(edit)])
             rows.append([path, host, utils.spine_to_web(elm.get_description()), ])
         return rows
 
@@ -589,8 +585,7 @@ class EmailDomainSearcher(SpineSearcher):
             cats = [utils.spine_to_web(i.get_name()) for i in elm.get_categories()[:4]]
             cats = ", ".join(cats[:3]) + (len(cats) == 4 and '...' or '')
             ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
-            ## rows.append([link, utils.spine_to_web(elm.get_description()), cats, str(edit)+str(remb)])
+            ## rows.append([link, utils.spine_to_web(elm.get_description()), cats, str(edit)])
             rows.append([link, utils.spine_to_web(elm.get_description()), cats, ])
         return rows
 
@@ -615,11 +610,10 @@ class HostSearcher(SpineSearcher):
         rows = []
         for elm in results:
             ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
             desc = elm.get_description()
             if desc:
                 desc = utils.spine_to_web(desc)
-            ## rows.append([utils.object_link(elm), desc, str(edit)+str(remb)])
+            ## rows.append([utils.object_link(elm), desc, str(edit)])
             rows.append([utils.object_link(elm), desc, ])
         return rows
 
@@ -674,10 +668,9 @@ class OUSearcher(SpineSearcher):
             name = utils.spine_to_web(elm.get_display_name() or elm.get_name())
             link = utils.object_link(elm, text=name)
             ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
             acro = utils.spine_to_web(elm.get_acronym())
             short = utils.spine_to_web(elm.get_short_name())
-            ## rows.append([link, acro, short, str(edit)+str(remb)])
+            ## rows.append([link, acro, short, str(edit)])
             rows.append([link, acro, short, ])
         return rows
 
@@ -711,10 +704,9 @@ class ProjectSearcher(SpineSearcher):
         rows = []
         for elm in results:
             ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## remb = utils.remember_link(elm, _class='action')
             sci  = " " #elm.get_science().get_name()
             ownr = utils.object_link(elm.get_owner())
-            ## rows.append([utils.object_link(elm), sci, ownr, str(edit)+str(remb)])
+            ## rows.append([utils.object_link(elm), sci, ownr, str(edit)])
             rows.append([utils.object_link(elm), sci, ownr, ])
         return rows
 

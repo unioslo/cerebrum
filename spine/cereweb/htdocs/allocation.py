@@ -24,7 +24,7 @@ from account import _get_links
 from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message
-from lib.utils import object_link, remember_link, spine_to_web
+from lib.utils import object_link, spine_to_web
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.Searchers import AllocationSearcher
 from lib.templates.SearchTemplate import SearchTemplate
