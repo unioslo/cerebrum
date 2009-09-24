@@ -32,7 +32,7 @@ class AccountSearchForm(Form):
     Fields = {
         'name': {
             'label': _('Account name'),
-            'required': False,
+            'required': True,
             'type': 'text',
         },
     }
