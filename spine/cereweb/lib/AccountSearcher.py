@@ -31,27 +31,23 @@ class AccountSearcher(CoreSearcher):
 
     columns = (
         'name',
-        'owner',
+        'owner.name',
     )
 
     headers = [
             (_('Name'), 'name'),
-            (_('Owner'), 'owner'),
+            (_('Owner'), 'owner.name'),
         ]
 
     defaults = CoreSearcher.defaults.copy()
     defaults.update({
-        'orderby': 'account_name',
+        'orderby': 'name',
     })
 
     def _get_results(self):
         if not hasattr(self, '__results'):
             name = (self.form_values.get('name') or '').strip()
-
-            self.__results = self.dao.search(
-                name,
-                orderby=self.orderby,
-                orderby_dir=self.orderby_dir)
+            self.__results = self.dao.search(name)
 
         return self.__results
 
@@ -59,13 +55,20 @@ class AccountSearcher(CoreSearcher):
         factory = EntityFactory(self.db)
         for result in results:
             result.owner = factory.create(result.owner_type, result.owner_id)
+        return results
 
-    def _extend_search_result(self, results):
-        self._add_owners(results)
+    def _extend_complete_results(self, results):
+        return self._add_owners(results)
+
+    def _sort_results(self, results):
+        reverse = self.orderby_dir == 'desc'
+        key = lambda x: self._get_column_value(x, self.orderby)
+
+        results.sort(key=key, reverse=reverse)
         return results
 
     def format_name(self, column, row):
         return self._create_account_link(column, row)
 
-    def format_owner(self, column, row):
-        return self._create_view_link(column.type_name, column.name, column)
+    def format_owner_name(self, column, row):
+        return self._create_view_link(row.owner.type_name, column, row.owner)

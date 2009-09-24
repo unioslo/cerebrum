@@ -304,27 +304,49 @@ class CoreSearcher(Searcher):
     def _get_results(self):
         raise NotImplementedError("This method must be overloaded.")
 
-    def _extend_search_result(self, results):
-        return results
-
     def get_results(self):
         if not self.is_valid():
             return
 
-        start, end = self.offset, self.last_on_page
-        window = self._get_results()[start:end]
-        for result in self._extend_search_result(window):
+        results = self._get_results()
+        results = self._extend_complete_results(results)
+        results = self._sort_results(results)
+        results = self._limit_results(results)
+        results = self._extend_limited_result(results)
+
+        for result in results:
             yield self.format_row(result)
+
+    def _noop(self, results):
+        return results
+
+    _extend_complete_results = _noop
+    _sort_results = _noop
+    _extend_limited_result = _noop
+
+    def _limit_results(self, result):
+        start, end = self.offset, self.last_on_page
+        return result[start:end]
 
     def count(self):
         return len(self._get_results())
 
     def format_row(self, row):
-        for col in self.columns:
-            column = getattr(row, col, '')
+        for column in self.columns:
+            value = self._get_column_value(row, column)
+            formatter = self._get_formatter(column)
 
-            formatter = getattr(self, 'format_%s' % col, None)
-            yield formatter and formatter(column, row) or column
+            yield formatter and formatter(value, row) or value
+
+    def _get_formatter(self, name):
+        fname = 'format_%s' % name.replace('.', '_')
+        return getattr(self, fname, None)
+
+    def _get_column_value(self, row, name):
+        column = row
+        for el in name.split('.'):
+            column = getattr(column, el, '')
+        return column
 
     def _format_date(self, date, row):
         return date.strftime("%Y-%m-%d")

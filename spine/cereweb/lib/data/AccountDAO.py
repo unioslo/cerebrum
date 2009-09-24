@@ -35,7 +35,7 @@ class AccountDAO(EntityDAO):
 
         return self._create_dto(account, include_extra)
 
-    def search(self, name, orderby=None, orderby_dir='asc'):
+    def search(self, name):
         name = name.strip("*") + '*'
         return [self._create_from_search(r) for r in self.entity.search(name=name)]
 

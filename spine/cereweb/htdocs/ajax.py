@@ -32,9 +32,6 @@ from lib.data.PersonDAO import PersonDAO
 from lib.data.GroupDAO import GroupDAO
 
 max_results = 20
-def limit_result(results):
-    limit = min(max_results, len(results))
-    return results[:limit]
 
 @session_required_decorator
 def search(query=None, type=None, output=None):
@@ -70,7 +67,7 @@ def search_account(query, output):
     accounts = dao.search(query)
 
     result = {}
-    for account in limit_result(accounts):
+    for account in accounts[:max_results]:
         data = dto_to_dict(account)
         if output == "account":
             owner = dao.get_owner(account.id)
@@ -87,7 +84,7 @@ def search_person(query, output):
 
     result = {}
 
-    people = limit_result(people)
+    people = people[:max_results]
 
     if output != "account":
         for p in people:
@@ -116,7 +113,7 @@ def search_group(query):
     groups = dao.search(query)
 
     result = {}
-    for group in limit_result(groups):
+    for group in groups[:max_results]:
         result[group.id] = dto_to_dict(group)
     return result.values()
 

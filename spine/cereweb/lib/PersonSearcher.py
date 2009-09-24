@@ -61,7 +61,7 @@ class PersonSearcher(CoreSearcher):
                 orderby_dir=self.orderby_dir)
         return self.__results
 
-    def _extend_search_result(self, results):
+    def _extend_limited_result(self, results):
         owner_ids = [r.id for r in results]
 
         accounts = self.dao.get_accounts(*owner_ids)
