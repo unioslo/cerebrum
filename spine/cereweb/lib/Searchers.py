@@ -458,40 +458,6 @@ class SpineSearcher(Searcher):
         except SpineIDL.Errors.AccessDeniedError, e:
             return self._get_fail_response('403 Forbidden', [("No access", True)])
 
-class DiskSearcher(SpineSearcher):
-    headers = (
-        ('Path', 'path'),
-        ('Host', ''),
-        ('Description', 'description'),
-        ('Actions', '')
-    )
-
-    def get_searchers(self):
-        form = self.form_values
-        main = self.transaction.get_disk_searcher()
-
-        path = utils.web_to_spine(form.get('path', '').strip())
-        if path:
-            main.set_path_like(path)
-
-        description = utils.web_to_spine(form.get('description', '').strip())
-        if description:
-            main.set_description_like(description)
-
-        return {'main': main}
-
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            ## should convert charset?
-            path = utils.object_link(elm, text=elm.get_path())
-            host = utils.object_link(elm.get_host())
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## rows.append([path, host, utils.spine_to_web(elm.get_description()), str(edit)])
-            rows.append([path, host, utils.spine_to_web(elm.get_description()), ])
-        return rows
-
 class EmailDomainSearcher(SpineSearcher):
     headers = (
         ('Name', 'name'),

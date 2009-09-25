@@ -23,6 +23,7 @@ from gettext import gettext as _
 
 from lib import utils
 from lib.AccountSearcher import AccountSearcher
+from lib.DiskSearcher import DiskSearcher
 from lib.GroupSearcher import GroupSearcher
 from lib.PersonSearcher import PersonSearcher
 
@@ -56,3 +57,4 @@ search = Search()
 search.person = SearchWrapper(PersonSearcher)
 search.account = SearchWrapper(AccountSearcher)
 search.group = SearchWrapper(GroupSearcher)
+search.disk = SearchWrapper(DiskSearcher)

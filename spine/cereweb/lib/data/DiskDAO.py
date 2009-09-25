@@ -17,6 +17,7 @@ class DiskDAO(object):
         self.db = db
         self.disk = Disk(self.db)
         self.host = Host(self.db)
+        self.constants = Constants(self.db)
 
     def get_disk(self, disk_id):
         self.disk.clear()
@@ -24,15 +25,29 @@ class DiskDAO(object):
 
         dto = DTO()
         dto.id = disk_id
+        dto.type_name = str(self.constants.entity_disk)
         dto.description = self.disk.description
         dto.path = self.disk.path
         dto.host = self._get_host(self.disk.host_id)
         return dto
 
     def get_disks(self):
+        return self.search()
+
+    def search(self, path=None, description=None):
+        # The data set is small enough that we search within the strings.
+        if path:
+            path = "*" + path.strip("*") + "*"
+        if description:
+            description = "*" + description.strip("*") + "*"
+
+        kwargs = {
+            'path': path or None,
+            'description': description or None,
+        }
+
         disks = []
-        disk_obj = self.disk
-        for disk in disk_obj.search():
+        for disk in self.disk.search(**kwargs):
             dto = self.get_disk(disk.disk_id)
             disks.append(dto)
         return disks
@@ -44,6 +59,7 @@ class DiskDAO(object):
         dto = DTO()
         dto.id = host_id
         dto.name = self.host.name
+        dto.type_name = str(self.constants.entity_host)
         dto.description = self.host.description
         return dto
         
@@ -53,3 +69,5 @@ class DiskDAO(object):
             hosts[host.host_id] = host
         return hosts
 
+    def _get_type_name(self):
+         return self.constants.entity_disk.str

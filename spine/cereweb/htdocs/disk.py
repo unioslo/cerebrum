@@ -24,32 +24,17 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, object_link
 from lib.utils import transaction_decorator, redirect_object
-from lib.utils import spine_to_web, web_to_spine
-from lib.Searchers import DiskSearcher
-from lib.templates.SearchTemplate import SearchTemplate
+from lib.utils import spine_to_web, web_to_spine, session_required_decorator
+from lib.DiskSearcher import DiskSearcher
 from lib.templates.DiskViewTemplate import DiskViewTemplate
 from lib.templates.DiskEditTemplate import DiskEditTemplate
 from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 
-def search_form(remembered):
-    page = SearchTemplate()
-    page.title = _("Disk")
-    page.set_focus("disk/search")
-    page.search_title = _('disk(s)')
-    page.search_fields = [("path", _("Path")),
-                          ("description", _("Description"))
-                        ]
-    page.search_action = '/disk/search'
-    page.form_values = remembered
-    return page.respond()
-    
-def search(transaction, **vargs):
+@session_required_decorator
+def search(**vargs):
     """Search after disks and displays result and/or searchform."""
-    args = ('path', 'description')
-    searcher = DiskSearcher(transaction, *args, **vargs)
-    return searcher.respond() or search_form(searcher.get_remembered())
-
-search = transaction_decorator(search)
+    searcher = DiskSearcher(**vargs)
+    return searcher.respond()
 search.exposed = True
 index = search
 
