@@ -17,7 +17,7 @@
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #from FormWidgets import FormWidgets
-#from lib.utils import strftime, url_quote, spine_to_web, html_quote
+#from lib.utils import quotetimestamp, url_quote, spine_to_web, html_quote
 #from lib.Main import Main
 #extends Main
 
@@ -38,20 +38,17 @@
 <div class="view_content">
     <div id="motds">
     #for $motd in $motds
-        #set $id = $url_quote($motd.get_id())
-        #set $subject = $motd.get_subject()
-        #set $message = $motd.get_message()
         <div class="motd box">
             <div class="actions">
-                <a class="action" href="/edit_motd?id=$id">$_('edit')</a>
-                <a class="action" href="/delete_motd?id=$id">$_('delete')</a>
+                <a class="action" href="/edit_motd?id=$motd.id">$_('edit')</a>
+                <a class="action" href="/delete_motd?id=$motd.id">$_('delete')</a>
             </div>
-            <div class="subject">$spine_to_web($subject)</div>
-            $spine_to_web($message).replace('\n', '<br />')
+            <div class="subject">$spine_to_web($motd.subject)</div>
+            $spine_to_web($motd.message).replace('\n', '<br />')
             <br />
-            <span class="by">-$_('by')$spine_to_web($motd.get_creator().get_name())</span>
+            <span class="by">-$_('by') $spine_to_web($motd.creator.name)</span>
             <span class="when">
-                $html_quote($strftime($motd.get_create_date(), '%y-%m-%d  %H:%M'))
+                $quotetimestamp($motd.create_date)
             </span>
         </div>
     #end for

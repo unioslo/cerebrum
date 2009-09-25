@@ -24,6 +24,8 @@ import cereconf
 
 from gettext import gettext as _
 
+from lib.data.MotdDAO import MotdDAO
+
 from lib.Main import Main
 from lib.utils import transaction_decorator, commit_url, redirect
 from lib import utils 
@@ -53,33 +55,26 @@ import activation
 import ajax
 from search import search
 
-def index(transaction):
+def index():
+    db = utils.get_database()
+
     page = MotdTemplate()
     page.title = _("Welcome to Cereweb")
     page.add_jscript("motd.js")
-    page.set_focus('cereweb/index')
-    page.tr = transaction
     
-    motd_search = transaction.get_cereweb_motd_searcher()
-    motd_search.order_by_desc(motd_search, 'create_date')
-    motd_search.set_search_limit(3, 0)
-    page.motds = motd_search.search()
+    page.motds = MotdDAO(db).get_latest(3)
     return page.respond()
-index = transaction_decorator(index)
 index.exposed = True
 
-def all_motds(transaction):
+def all_motds():
+    db = utils.get_database()
+
     page = MotdTemplate()
     page.title = _("Messages of the day")
     page.add_jscript("motd.js")
-    page.set_focus('cereweb/all_motds')
-    page.tr = transaction
     
-    motd_search = transaction.get_cereweb_motd_searcher()
-    motd_search.order_by_desc(motd_search, 'create_date')
-    page.motds = motd_search.search()
+    page.motds = MotdDAO(db).get_latest()
     return page.respond()
-all_motds = transaction_decorator(all_motds)
 all_motds.exposed = True
 
 def save_motd(transaction, id=None, subject=None, message=None):

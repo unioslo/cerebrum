@@ -33,3 +33,14 @@ class DTO(object):
         for key, value in row.items():
             setattr(dto, key, value)
         return dto
+
+    @classmethod
+    def from_obj(cls, obj):
+        dto = cls()
+        for attr in obj.__read_attr__ + obj.__write_attr__:
+            if attr.startswith("_"):
+                continue
+
+            value = getattr(obj, attr, '')
+            setattr(dto, attr, value)
+        return dto
