@@ -24,33 +24,18 @@ from gettext import gettext as _
 from lib.Main import Main
 from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
-from lib.utils import rollback_url
+from lib.utils import rollback_url, session_required_decorator
 from lib.utils import spine_to_web, web_to_spine, url_quote
-from lib.Searchers import HostSearcher
-from lib.templates.SearchTemplate import SearchTemplate
+from lib.HostSearcher import HostSearcher
 from lib.templates.HostViewTemplate import HostViewTemplate
 from lib.templates.HostEditTemplate import HostEditTemplate
 from lib.templates.HostCreateTemplate import HostCreateTemplate
 
-def search_form(remembered):
-    page = SearchTemplate()
-    page.title = _("Host")
-    page.search_title = _('host(s)')
-    page.set_focus("host/search")
-
-    page.search_fields = [("name", _("Name")),
-                          ("description", _("Description"))
-                        ]
-    page.search_action = '/host/search'
-    page.form_values = remembered
-    return page.respond()
-
-def search(transaction, **vargs):
+@session_required_decorator
+def search(**vargs):
     """Search for hosts and displays result and/or searchform."""
-    args = ('name', 'description')
-    searcher = HostSearcher(transaction, *args, **vargs)
-    return searcher.respond() or search_form(searcher.get_remembered())
-search = transaction_decorator(search)
+    searcher = HostSearcher(**vargs)
+    return searcher.respond()
 search.exposed = True
 index = search
 

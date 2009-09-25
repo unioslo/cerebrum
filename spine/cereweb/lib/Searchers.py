@@ -490,34 +490,6 @@ class EmailDomainSearcher(SpineSearcher):
             rows.append([link, utils.spine_to_web(elm.get_description()), cats, ])
         return rows
 
-class HostSearcher(SpineSearcher):
-    def get_searchers(self):
-        main = self.transaction.get_host_searcher()
-        form = self.form_values
-
-        name = form.get('name', '')
-        if name:
-            name = utils.web_to_spine(name)
-            main.set_name_like(name)
-
-        description = form.get('description', '')
-        if description:
-            description = utils.web_to_spine(description)
-            main.set_description_like(description)
-
-        return {'main': main}
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            desc = elm.get_description()
-            if desc:
-                desc = utils.spine_to_web(desc)
-            ## rows.append([utils.object_link(elm), desc, str(edit)])
-            rows.append([utils.object_link(elm), desc, ])
-        return rows
-
 class OUSearcher(SpineSearcher):
     headers = (
         ('Name', 'name'),

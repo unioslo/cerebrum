@@ -25,6 +25,7 @@ from lib import utils
 from lib.AccountSearcher import AccountSearcher
 from lib.DiskSearcher import DiskSearcher
 from lib.GroupSearcher import GroupSearcher
+from lib.HostSearcher import HostSearcher
 from lib.PersonSearcher import PersonSearcher
 
 from lib.templates.NewSearchTemplate import NewSearchTemplate
@@ -58,3 +59,4 @@ search.person = SearchWrapper(PersonSearcher)
 search.account = SearchWrapper(AccountSearcher)
 search.group = SearchWrapper(GroupSearcher)
 search.disk = SearchWrapper(DiskSearcher)
+search.host = SearchWrapper(HostSearcher)

@@ -3,11 +3,11 @@ from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 
 from lib.data.DTO import DTO
+from lib.data.HostDAO import HostDAO
 
 Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")
 Disk = Utils.Factory.get("Disk")
-Host = Utils.Factory.get("Host")
 
 class DiskDAO(object):
     def __init__(self, db=None):
@@ -16,7 +16,7 @@ class DiskDAO(object):
 
         self.db = db
         self.disk = Disk(self.db)
-        self.host = Host(self.db)
+        self.host_dao = HostDAO(self.db)
         self.constants = Constants(self.db)
 
     def get_disk(self, disk_id):
@@ -25,10 +25,10 @@ class DiskDAO(object):
 
         dto = DTO()
         dto.id = disk_id
-        dto.type_name = str(self.constants.entity_disk)
+        dto.type_name = self._get_type_name()
         dto.description = self.disk.description
         dto.path = self.disk.path
-        dto.host = self._get_host(self.disk.host_id)
+        dto.host = self.host_dao.get_host(self.disk.host_id)
         return dto
 
     def get_disks(self):
@@ -51,23 +51,6 @@ class DiskDAO(object):
             dto = self.get_disk(disk.disk_id)
             disks.append(dto)
         return disks
-
-    def _get_host(self, host_id):
-        self.host.clear()
-        self.host.find(host_id)
-
-        dto = DTO()
-        dto.id = host_id
-        dto.name = self.host.name
-        dto.type_name = str(self.constants.entity_host)
-        dto.description = self.host.description
-        return dto
         
-    def _get_hosts(self):
-        hosts = {}
-        for host in self.host.search():
-            hosts[host.host_id] = host
-        return hosts
-
     def _get_type_name(self):
-         return self.constants.entity_disk.str
+         return str(self.constants.entity_disk)
