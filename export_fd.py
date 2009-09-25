@@ -64,11 +64,6 @@ from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules.no.uit import Email
 
-try:
-    set()
-except NameError:
-    from sets import Set as set
-
 #from Cerebrum.modules import ADAccount
 #from Cerebrum.modules import ADObject
 
@@ -81,6 +76,10 @@ logger = Factory.get_logger('console')
 default_user_file = os.path.join(cereconf.DUMPDIR,'FD','fd_export_user_%s.txt' % (time.strftime("%Y%m%d")))
 default_group_file = os.path.join(cereconf.DUMPDIR,'FD','fd_export_group_%s.txt' % (time.strftime("%Y%m%d")))
 
+db = Factory.get('Database')()
+co = Factory.get('Constants')(db)
+person = Factory.get('Person')(db)
+
 
 class ad_export:
 
@@ -88,23 +87,24 @@ class ad_export:
         self.userfile = userfile
         self.groupfile = groupfile        
         self.userlist = {}
-        self.db = Factory.get('Database')()
-        self.co = Factory.get('Constants')(self.db)
-        self.ou = Factory.get('OU')(self.db)
-        self.ent_name = Entity.EntityName(self.db)
-        self.ent_sprd = Entity.EntitySpread(self.db)
-        self.group = Factory.get('Group')(self.db)
-        self.account = Factory.get('Account')(self.db)
-        self.person = Factory.get('Person')(self.db)
-        self.posixuser = pu = PosixUser.PosixUser(self.db)
+        self.ou = Factory.get('OU')(db)
+        self.ent_name = Entity.EntityName(db)
+        self.ent_sprd = Entity.EntitySpread(db)
+        self.group = Factory.get('Group')(db)
+        self.account = Factory.get('Account')(db)
+        self.posixuser = pu = PosixUser.PosixUser(db)
         self.dont_touch_filter = ['users']
 
-        logger.info("Start caching of names")
-        self.name_cache = self.person.getdict_persons_names( name_types=(self.co.name_first,self.co.name_last,self.co.name_work_title))
-        logger.info("Start caching of names done")
+        logger.info("Cache person names")
+        self.cached_names=person.getdict_persons_names( source_system=co.system_cached,
+                                                        name_types=(co.name_first,co.name_last))
+        logger.info("Cache worktitles")
+        self.cached_worktitle=person.getdict_persons_names( source_system=co.system_paga,
+                                                              name_types=(co.name_work_title,))
+        logger.info("Caching of names done")
 
     def get_group(self,id):
-        gr = PosixGroup.PosixGroup(self.db)
+        gr = PosixGroup.PosixGroup(db)
         if isinstance(id, int):
             gr.find(id)
         else:
@@ -173,17 +173,20 @@ class ad_export:
             profilepath = self.calculate_profilepath(uname)
             tsprofilepath = self.calculate_tsprofilepath(uname)
 
-            namelist = self.name_cache.get(self.posixuser.owner_id,None)
-            if namelist:
-                first_name = namelist.get(int(self.co.name_first),"")
-                last_name = namelist.get(int(self.co.name_last),"")
-                worktitle = namelist.get(int(self.co.name_work_title),"")
+            namelist = self.cached_names.get(self.posixuser.owner_id, None)
+            titlelist =self.cached_worktitle.get(self.posixuser.owner_id, dict())
+            
+            first_name=last_name=worktitle=""
+            if self.posixuser.owner_type==int(co.entity_person):
+               try:
+                   first_name = namelist.get(int(co.name_first))
+                   last_name = namelist.get(int(co.name_last))
+               except AttributeError:
+                   logger.error("Failed to get name for a_id/o_id=%s/%s"  % (acc_id,self.posixuser.owner_id))
+                   sys.exit(1)
+               worktitle = titlelist.get(int(co.name_work_title)) or ""
             else:
-                # fall back to username
-                logger.debug("No names in cache for account=%s, owner=%s :%s" %\
-                    (self.posixuser.account_name,self.posixuser.owner_id,namelist))
-                last_name = uname
-                first_name = worktitle = ""               
+               lastname=uname
 
             # Check quarantines, and set to True if exists
             qu = self.posixuser.get_entity_quarantine()
@@ -219,8 +222,6 @@ class ad_export:
         logger.info("Retreiving %s info..." % (type))
         count = 0
         dellist = []
-        account2name = dict((x["entity_id"], x["entity_name"]) for x in 
-                            self.group.list_names(self.co.account_namespace))
         for gname in self.userlist[type]:
             if gname in self.dont_touch_filter:
                 logger.error("Reserved AD group name '%s', skip" % (gname))
@@ -243,17 +244,10 @@ class ad_export:
                 logger.info("Processed %d %s" % (count,type))
             ou = entry['ou']
             logger.info("Get %s info: %s -> %s:: %s" % (type,gid,ou,gr.group_name))
+            member_tuple_list = gr.get_members(get_entity_name=True)
             members=[]
-            for item in gr.search_members(group_id=gr.entity_id,
-                                          indirect_members=True,
-                                          member_type=self.co.entity_account):
-                member_id = int(item["member_id"])
-                if member_id not in account2name:
-                    continue
-                name = account2name[member_id]
-                members.append(name)
-
-            members = list(set(members))
+            for item in member_tuple_list:
+                members.append(item[1])
             memberstr = ','.join(members)
             entry['description']= gr.description
             entry['members']=memberstr
@@ -336,20 +330,20 @@ class ad_export:
         grp_postfix = ''
         logger.info("Start retrival of %s objects from Cerebrum" % (entity_type))
         if entity_type == 'user':
-            namespace = int(self.co.account_namespace)
-            spreadlist = [int(self.co.spread_uit_fd)]
+            namespace = int(co.account_namespace)
+            spreadlist = [int(co.spread_uit_fd)]
             cbou = cereconf.OMNI_USEROU
         elif entity_type=='adminuser':
-            namespace = int(self.co.account_namespace)
-            spreadlist = [int(self.co.spread_uit_ad_lit_admin)]
+            namespace = int(co.account_namespace)
+            spreadlist = [int(co.spread_uit_ad_lit_admin)]
             cbou = cereconf.OMNI_ADMINOU
         elif entity_type=='group':
-            namespace = int(self.co.group_namespace)
-            spreadlist = [int(self.co.spread_uit_ad_group)]
+            namespace = int(co.group_namespace)
+            spreadlist = [int(co.spread_uit_ad_group)]
             cbou = cereconf.OMNI_GROUPOU
         elif entity_type=='admingroup':
-            namespace = int(self.co.group_namespace)
-            spreadlist = [int(self.co.spread_uit_ad_lit_admingroup)]
+            namespace = int(co.group_namespace)
+            spreadlist = [int(co.spread_uit_ad_lit_admingroup)]
             cbou = cereconf.OMNI_ADMINOU
         else:
             logger.error("Invalid type to get_objects(): %s" % (entity_type))
@@ -419,6 +413,7 @@ def main():
         elif opt in ['-w', '--what']:
             what=val
 
+    start=time.strftime("%Y%m%d %H:%M:%S")
     what = what.split(',')
     worker = ad_export(default_user_file,default_group_file)
     for item in what:
@@ -426,6 +421,7 @@ def main():
         worker.build_export(item)
 
     worker.write_export()
+    logger.debug("Started %s ended %s" %  (start,time.strftime("%Y%m%d %H:%M:%S")))
 
 
 if __name__ == '__main__':
