@@ -45,3 +45,7 @@ class HostSearchForm(SearchForm):
     }
 
     check_name = SearchForm._check_short_string
+
+    help = [
+        _('Use wildcards * and ? to extend the search.'),
+    ]

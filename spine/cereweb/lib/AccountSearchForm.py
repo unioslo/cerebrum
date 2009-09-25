@@ -40,5 +40,5 @@ class AccountSearchForm(SearchForm):
     check_name = SearchForm._check_short_string
 
     help = [
-        'Use wildcards * and ? to extend the search.',
+        _('Use wildcards * and ? to extend the search.'),
     ]

@@ -51,3 +51,7 @@ class PersonSearchForm(SearchForm):
     def check(self):
         values = self.get_values()
         return values['name'] is not None or values['birth_date'] is not None
+
+    help = [
+        _('Use wildcards * and ? to extend the search.'),
+    ]

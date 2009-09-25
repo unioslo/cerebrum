@@ -39,17 +39,7 @@ class AccountSearcher(CoreSearcher):
             (_('Owner'), 'owner.name'),
         ]
 
-    defaults = CoreSearcher.defaults.copy()
-    defaults.update({
-        'orderby': 'name',
-    })
-
-    def _get_results(self):
-        if not hasattr(self, '__results'):
-            name = (self.form_values.get('name') or '').strip()
-            self.__results = self.dao.search(name)
-
-        return self.__results
+    orderby_default = 'name'
 
     def _add_owners(self, results):
         factory = EntityFactory(self.db)

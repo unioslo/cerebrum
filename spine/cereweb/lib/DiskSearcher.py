@@ -40,18 +40,7 @@ class DiskSearcher(CoreSearcher):
         'description',
     )
 
-    defaults = CoreSearcher.defaults.copy()
-    defaults.update({
-        'orderby': 'path',
-    })
-
-    def _get_results(self):
-        if not hasattr(self, '__results'):
-            path = (self.form_values.get('path') or '').strip()
-            description = (self.form_values.get('description') or '').strip()
-            self.__results = self.dao.search(path, description)
-        
-        return self.__results
+    orderby_default = 'path'
 
     def format_path(self, column, row):
         return self._create_link(column, row)

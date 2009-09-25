@@ -45,3 +45,7 @@ class DiskSearchForm(SearchForm):
     }
 
     check_path = SearchForm._check_short_string
+
+    help = [
+        _('Use wildcards * and ? to extend the search.'),
+    ]

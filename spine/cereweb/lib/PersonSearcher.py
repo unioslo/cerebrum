@@ -27,14 +27,6 @@ class PersonSearcher(CoreSearcher):
     DAO = PersonDAO
     SearchForm = PersonSearchForm
 
-    columns = (
-        'first_name',
-        'last_name',
-        'birth_date',
-        'gender',
-        'accounts',
-    )
-
     headers = [
         (_('First name'), 'first_name'),
         (_('Last name'), 'last_name'),
@@ -43,18 +35,15 @@ class PersonSearcher(CoreSearcher):
         (_('Account(s)'), ''),
     ]
 
-    defaults = CoreSearcher.defaults.copy()
-    defaults.update({
-        'orderby': 'last_name',
-    })
+    columns = (
+        'first_name',
+        'last_name',
+        'birth_date',
+        'gender',
+        'accounts',
+    )
 
-    def _get_results(self):
-        if not hasattr(self, '__results'):
-            name = (self.form_values.get('name') or '').strip()
-            birth_date = (self.form_values.get('birth_date') or '').strip()
-
-            self.__results = self.dao.search(name, birth_date)
-        return self.__results
+    orderby_default = 'last_name'
 
     def _extend_limited_result(self, results):
         owner_ids = [r.id for r in results]

@@ -78,9 +78,15 @@ class Searcher(object):
         'redirect': '',
     }
 
+    orderby_default = ''
+
     def __init__(self, *args, **kwargs):
         if self.SearchForm:
             self.form = self.SearchForm(**kwargs)
+
+        self.defaults.update({
+            'orderby': self.orderby_default
+        })
 
         self.is_ajax = utils.is_ajax_request()
         self.form_values = self.__init_values(*args, **kwargs)
@@ -280,20 +286,37 @@ class Searcher(object):
 
 class CoreSearcher(Searcher):
     """
-    An abstract base class for cerebrum core searchers that creates a
-    db-connection and a DAO.  Inheritors can set the DAO class attribute to
-    the a DAO class and this class will be instatiated as dao.
+    An abstract base class for cerebrum core searchers.
+    
+    Inheritors _must_ set the DAO class attribute to a class that takes a
+    Database object as an argument and that has a search-method that returns a
+    list of DTO objects that matches the search.
 
-    The database connection is available as db.
+    Inheritors _must_ set the SearchForm class attribute to a SearchForm class
+    that honors the Forms interface.  CoreSearcher uses SearchForm.Fields to
+    retrieve the search values which are then sent to the DAO.search method.
 
-    Overload _get_results to return the actual search results.
+    The headers class attribute should contain a tuple of tuples containing the
+    header title and optionally the name of the field that should be sorted on.
+    If this name is given, the header will be rendered as a link that returns
+    the search sorted by the specified field.
+
+    The columns class attribute should contain a tuple of fields that can be
+    extracted from the search result DTOs.  The order of the columns tuple
+    should match the order of the headers tuple, otherwise chaos ensues.
+
+    The orderby_default class attribute can be set to the name of the field
+    that should be ordered by if the orderby-argument is not provided by the
+    user.
 
     Create format_%s methods where %s is the column name you want to format.
     See _format_date for an example.
 
-    See PersonSearcher for an example of correct usage of this base class.
+    See PersonSearcher for an example of correct usage.
     """
     DAO = None
+    headers = ()
+    columns = ()
 
     def __init__(self, *args, **kwargs):
         super(CoreSearcher, self).__init__(*args, **kwargs)
@@ -301,8 +324,21 @@ class CoreSearcher(Searcher):
         self.db = get_database()
         self.dao = self.DAO and self.DAO(self.db)
 
+    def _get_search_args(self):
+        kwargs = {}
+        for name in self.SearchForm.Fields.keys():
+            kwargs[name] = self._get_search_arg(name)
+        return ([], kwargs)
+
+    def _get_search_arg(self, name):
+        return (self.form_values.get(name, '') or '').strip()
+
     def _get_results(self):
-        raise NotImplementedError("This method must be overloaded.")
+        if not hasattr(self, '__results'):
+            args, kwargs = self._get_search_args()
+            self.__results = self.dao.search(*args, **kwargs)
+
+        return self.__results
 
     def get_results(self):
         if not self.is_valid():
