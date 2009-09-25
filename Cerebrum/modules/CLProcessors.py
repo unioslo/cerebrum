@@ -546,7 +546,7 @@ class ModifyAccountProcessor(EventProcessor):
             account_names.append("%-15s (Current expire: %s)" %
                                  (account.account_name, account.expire_date))
         if account_names:
-            print "Username and current expire-date:"
+            print "Usernames and current expire-dates:"
             print "\n".join(account_names)
         else:
             print "No re-activated accounts, therefore no re-activated usernames."
