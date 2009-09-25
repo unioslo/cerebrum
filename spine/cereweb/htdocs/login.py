@@ -30,6 +30,7 @@ from lib.templates.Login import Login
 import config
 
 import SpineClient
+import cereconf
 
 class Client(object):
     def __init__(self):
@@ -117,11 +118,12 @@ def is_allowed_login(username):
 
 def create_cherrypy_session(session, username):
     cherrypy.session['username'] = username
+    cherrypy.session['timeout'] = get_timeout()
+    cherrypy.session['client_encoding'] = negotiate_encoding()
+
     cherrypy.session['session'] = session
-    cherrypy.session['timeout'] = session.get_timeout()
     cherrypy.session['spine_encoding'] = session.get_encoding()
     cherrypy.session['options'] = Options(session, username)
-    cherrypy.session['client_encoding'] = negotiate_encoding()
     return True
 
 def negotiate_encoding():
@@ -151,5 +153,7 @@ def get_next(redirect=None, **kwargs):
     if next is not None:
         return utils.clean_url(next)
     return '/index'
-    
-# arch-tag: c1c42d44-1800-4608-b215-8a669cf10821
+
+def get_timeout():
+    """Returns the time it takes in seconds for _a_ session to time out."""
+    return getattr(cereconf, 'SPINE_SESSION_TIMEOUT', 900)

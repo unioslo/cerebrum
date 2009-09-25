@@ -20,6 +20,7 @@
 
 import time
 import cherrypy
+import cereconf
 
 from gettext import gettext as _
 
@@ -175,11 +176,11 @@ def session_keep_alive(nocache=None):
     'nocache' allows the client to create unique request URIs
     so that the request doesn't get cached by IE or opera.
     """
-    try:
-        cherrypy.session['session'].get_timeout()
-        cherrypy.session['timestamp'] = time.time()
-    except Exception, e:
+    time_left = int(session_time_left())
+    if time_left <= 0:
         return 'false'
+
+    cherrypy.session['timestamp'] = time.time()
     return 'true'
 session_keep_alive.exposed = True
 
