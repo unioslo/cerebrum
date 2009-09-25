@@ -44,7 +44,7 @@ cereweb.motd = {
                 document.getElementById('editMotdForm_subject').value = subject;
                 document.getElementById('editMotdForm_message').value = message;
         }
-        cereweb.action.add('edit_motd', this.edit, this);
+        cereweb.action.add('motd/edit', this.edit, this);
     },
     edit: function(name, args) {
         var event = args[0];
@@ -71,7 +71,7 @@ cereweb.motd = {
         };
         if (arg)
             var cObj = YC.asyncRequest('POST',
-                '/ajax/get_motd', callback, 'id=' + arg);
+                '/motd/get', callback, 'id=' + arg);
         else {
             this.dialog.content("", "");
             this.dialog.show();

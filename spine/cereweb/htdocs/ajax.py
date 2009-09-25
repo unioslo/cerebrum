@@ -158,17 +158,3 @@ def is_valid_query(query, type):
         return False
 
     return True
-
-def get_motd(transaction, id):
-    message, subject = "",""
-    try:
-        motd = transaction.get_cereweb_motd(int(id))
-        message, subject = motd.get_message(), motd.get_subject()
-        ## just decode from spine cjson vil do the rest
-        ##message = to_web_encode(message)
-        ##subject = to_web_encode(subject)
-    except NotFoundError, e:
-        pass
-    return cjson.encode({'message': message, 'subject': subject})
-get_motd = transaction_decorator(get_motd)
-get_motd.exposed = True

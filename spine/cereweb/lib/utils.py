@@ -416,7 +416,7 @@ def get_links(page):
     map = {
         'cereweb': (
             ('/index', _('Index')),
-            ('/all_motds', _('View all messages')),
+            ('/motd/all', _('View all messages')),
             ('/entity/global_historylog', _('View recent changes')),
         ),
         'person': (

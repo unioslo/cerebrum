@@ -20,16 +20,12 @@
 
 import time
 import cherrypy
-import cereconf
 
 from gettext import gettext as _
-
-from lib.data.MotdDAO import MotdDAO
 
 from lib.Main import Main
 from lib.utils import transaction_decorator, commit_url, redirect
 from lib import utils 
-from lib.templates.MotdTemplate import MotdTemplate
 from lib.templates.ActivityLogTemplate import ActivityLogTemplate
 from lib.templates.Confirm import Confirm
 
@@ -53,83 +49,17 @@ import permissions
 import user_client
 import activation
 import ajax
+import motd
 from search import search
 
 def index():
     db = utils.get_database()
 
-    page = MotdTemplate()
+    page = motd.get_page(3)
     page.title = _("Welcome to Cereweb")
     page.add_jscript("motd.js")
-    
-    page.motds = MotdDAO(db).get_latest(3)
     return page.respond()
 index.exposed = True
-
-def all_motds():
-    db = utils.get_database()
-
-    page = MotdTemplate()
-    page.title = _("Messages of the day")
-    page.add_jscript("motd.js")
-    
-    page.motds = MotdDAO(db).get_latest()
-    return page.respond()
-all_motds.exposed = True
-
-def save_motd(transaction, id=None, subject=None, message=None):
-    if id: # Delete the old
-        try:
-            motd = transaction.get_cereweb_motd(int(id))
-            motd.delete()
-        except NotFoundError, e:
-            msg = _("Couldn't find existing motd.");
-            utils.rollback_url('/index', msg, err=True)
-        except AccessDeniedError, e:
-            msg = _("You do not have permission to delete.");
-            utils.rollback_url('/index', msg, err=True)
-        except ValueError, e:
-            pass
-    try: # Create the new
-        subj = utils.web_to_spine(subject)
-        mess = utils.web_to_spine(message)
-        transaction.get_commands().create_cereweb_motd(subj, mess)
-    except AccessDeniedError, e:
-        msg = _("You do not have permission to create.");
-        utils.rollback_url('/index', msg, err=True)
-    msg = _('Motd successfully created.')
-    commit_url(transaction, 'index', msg=msg)
-save_motd = transaction_decorator(save_motd)
-save_motd.exposed = True
-
-def edit_motd(transaction, id=None):
-    if not id:
-        subject, message = '',''
-    else:
-        try: 
-            motd = transaction.get_cereweb_motd(int(id))
-            subject = motd.get_subject()
-            message = motd.get_message()
-        except NotFoundError, e:
-            redirect('/index')
-    page = Main()
-    page.title = _("Edit Message")
-    page.tr = transaction
-    tmpl = MotdTemplate()
-    content = tmpl.editMotd('/save_motd', id, subject, message, main=True)
-    page.content = lambda: content
-    return page
-edit_motd = transaction_decorator(edit_motd)
-edit_motd.exposed = True
-
-def delete_motd(transaction, id):
-    """Delete the Motd from the server."""
-    motd = transaction.get_cereweb_motd(int(id))
-    msg = _("Motd '%s' successfully deleted.") % utils.spine_to_web(motd.get_subject())
-    motd.delete()
-    commit_url(transaction, 'index', msg=msg)
-delete_motd = transaction_decorator(delete_motd)
-delete_motd.exposed = True
 
 def full_activitylog():
     # No transaction decorator, so we need to check if the session is valid.
