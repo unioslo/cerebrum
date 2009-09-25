@@ -35,6 +35,7 @@ from Cerebrum.modules.CLConstants import _ChangeTypeCode
 Currently it reports the following:
 * 'Create person'-events
 * 'Create account'-events
+* 'Modify account'-events (reactivation only)
 * 'Create group'-events
 
 Where such information can be found, it also breaks the event-counts
@@ -56,7 +57,7 @@ options = {"affiliations": False,
            "source_system": None,
            "details": False,
            "header": None,
-           "events": "person_create,account_create,group_create",
+           "events": "person_create,account_create,account_mod,group_create",
            "from": now() + RelativeDateTime(days=-7,weekday=(Monday,0)),
            "to": now() + RelativeDateTime(weekday=(Monday,0))}
 

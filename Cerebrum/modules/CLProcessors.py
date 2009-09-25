@@ -20,6 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import textwrap
+import pickle
+import mx
 
 import cereconf
 from Cerebrum.Utils import Factory
@@ -126,6 +128,8 @@ class EventProcessor(object):
             return CreatePersonProcessor()
         elif event_type == getattr(constants, "account_create"):
             return CreateAccountProcessor()
+        elif event_type == getattr(constants, "account_mod"):
+            return ModifyAccountProcessor()
         elif event_type == getattr(constants, "group_create"):
             return CreateGroupProcessor()
         else:
@@ -433,7 +437,7 @@ class CreateAccountProcessor(EventProcessor):
     def calculate_count_by_affiliation(self):
         """Implementations of superclass' abstract function."""
         for current_entity in self._entity_ids:
-            logger.debug("Checking affiliations for person entity '%s'", current_entity)
+            logger.debug("Checking affiliations for account entity '%s'", current_entity)
 
             account.clear()
             account.find(current_entity)
@@ -454,6 +458,98 @@ class CreateAccountProcessor(EventProcessor):
             print textwrap.fill(" ".join(account_names), 76)
         else:
             print "No new accounts, therefore no new usernames."
+
+
+
+class ModifyAccountProcessor(EventProcessor):
+    
+    """Handles 'modify account'-events.
+
+    Currently, the events handled are filtered down to only include
+    those that modify expire_date by setting it to None, or to a
+    time/date in the future (when compared to when the report is being
+    generated."""
+
+    def __init__(self):
+        EventProcessor.__init__(self)
+        self._log_event = int(constants.account_mod)
+        self._description = "Modify Account"
+
+        
+    def process_events(self, start_date=0, end_date=0):
+        """Main 'counting' function.
+
+        Extracts desired events from database and places entity IDs
+        into 'self._entity_ids', where they later can be counted and
+        extracted for further purposes.
+
+        We are (at this point) only interested in accounts that have
+        been modified so that their expire_date has been changed to a
+        time in the future, so we override the super-class'es method.
+
+        @param start_date: Earliest date for events to include
+        @type start_date: mx.DateTime
+
+        @param end_date: Latest date for events to include
+        @type end_date: mx.DateTime
+
+        """
+        event_rows = db.get_log_events_date(sdate=start_date, edate=end_date,
+                                            type=self._log_event)
+
+        for row in event_rows:
+            params = pickle.loads(row["change_params"])
+            
+            if "expire_date" in params:
+                if params["expire_date"] is None:
+                    # Expire_date unset; include it!
+                    self._entity_ids.append(row["subject_entity"])
+                    
+                else:
+                    account.clear()
+                    account.find(row["subject_entity"])
+                    
+                    if (account.expire_date is None or
+                        account.expire_date > mx.DateTime.now()):
+                        # Account set to expire at some point in the
+                        # future or not at all; include it!
+                        self._entity_ids.append(row["subject_entity"])
+                        
+                    else:
+                        # Account (already? still?) expired; no need to include
+                        logger.debug("%s: is expired; skipping" % account.account_name)
+                        continue
+                    
+            else:
+                # Event does not modify expire_date; ignore.
+                continue
+
+        logger.info("Number of events dealing with valid expire_dates for '%s' is %i" %
+                    (self._description, self._get_total()))
+
+
+    def calculate_count_by_affiliation(self):
+        """Override of super-class'es 'abstract' method. Not currently
+        of interest.
+
+        """
+        pass
+
+
+    def _print_details(self):
+        """Provides the usernames of the accounts modified."""
+        account_names = []
+        
+        for entity_id in self._entity_ids:
+            account.clear()
+            account.find(entity_id)
+            account_names.append("%-15s (Current expire: %s)" %
+                                 (account.account_name, account.expire_date))
+        if account_names:
+            print "Username and current expire-date:"
+            print "\n".join(account_names)
+        else:
+            print "No re-activated accounts, therefore no re-activated usernames."
 
 
 
