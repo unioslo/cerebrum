@@ -42,7 +42,7 @@ class PersonSearchForm(SearchForm):
             'label': _('Birth date'),
             'required': False,
             'type': 'text',
-            'help': _('Date must be in YYYY-MM-DD or DD/MM/YYYY format.'),
+            'help': _('Date must be in YYYY-MM-DD'),
         },
     }
 
