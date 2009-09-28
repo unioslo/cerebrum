@@ -401,7 +401,6 @@ def get_tabs(current=None):
       ('Hosts', 'host', '/host'),
       ('Disks', 'disk', '/disk'),
       ('Email', 'email', '/email'),
-      ('Preferences', 'options', '/options'),
       ('Logout', 'logout', '/logout'),
     ]
 

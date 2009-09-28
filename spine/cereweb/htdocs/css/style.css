@@ -619,33 +619,6 @@ div.motd label {
 }
 
 /**
- * Styles for options-page.
- * FIXME: Still using tables for this one, should be
- * converted to CSS formated form.
- */
-div.options form {
-    margin: 0;
-}
-
-div.options th {
-    border-bottom: 1px solid black;
-    padding-left: 10px;
-    font-size: 125%;
-}
-div.options td {
-    padding-right: 5px;
-}
-div.options td.shelp {
-    font-style: italic;
-    font-size: 95%;
-    padding: 1px 0 5px 5px;
-}
-div.options td.buttons {
-    padding-top: 0.8em;
-}
-
-
-/**
  * Classes used for styling the Account Create Form.
  */
 .usernamechoice { float: left; }

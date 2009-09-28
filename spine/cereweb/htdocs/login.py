@@ -123,7 +123,7 @@ def create_cherrypy_session(session, username):
 
     cherrypy.session['session'] = session
     cherrypy.session['spine_encoding'] = session.get_encoding()
-    cherrypy.session['options'] = Options(session, username)
+    cherrypy.session['options'] = Options(username)
     return True
 
 def negotiate_encoding():

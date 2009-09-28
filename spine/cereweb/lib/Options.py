@@ -37,63 +37,12 @@ class Options(ConfigParser.ConfigParser):
     types are, but not limited to, checkbox, int, boolean.
     """
     
-    def __init__(self, session, user):
+    def __init__(self, user):
         ConfigParser.ConfigParser.__init__(self)
-        self.session = session
         self.user = user
-        tr = session.new_transaction()
-        try:
-            self.load(tr)
-        finally:
-            tr.rollback()
-            
-    
-    def _get_user(self, tr):
-        """Finds the user by the name."""
-        return tr.get_commands().get_account_by_name(self.user)
-    
-    def _read_from_db(self, tr):
-        """Returns structs with options set in the db."""
-        searcher = tr.get_cereweb_option_searcher()
-        searcher.set_entity(self._get_user(tr))
-        return searcher.dump()
-    
-    def _get_changes_from_default(self):
-        """Returns options which have changed from the default options."""
-        changes = []
-        for s in self.sections():
-            changes.extend([(s, k, v) for k, v in self.items(s)
-                            if config.default_options.get(s, k) != v])
-        return changes
-    
-    def save(self, transaction):
-        """Save changes to the database.
-        
-        Write options which differ from the default config to the database.
-        """
-        commands = transaction.get_commands()
-        user = self._get_user(transaction)
-        
-        changes = self._get_changes_from_default()
-        structs = self._read_from_db(transaction)
+        self.load()
 
-        # update changes not already in db
-        for s, k, v in changes:
-            tmp = [i for i in structs if i.section == s and i.key == k]
-            if not tmp:
-                commands.create_cereweb_option(user, s, k, v)
-            elif tmp[0].value != v:
-                option = transaction.get_cereweb_option(int(tmp[0].id))
-                option.set_value(v)
-
-        # remove changes from db which equals default-values
-        for s in structs:
-            tmp = [i for i in changes if i[0] == s.section and i[1] == s.key]
-            if not tmp:
-                option = transaction.get_cereweb_option(int(s.id))
-                option.delete()
-
-    def load(self, transaction):
+    def load(self):
         """Read options from file and database.
 
         Default options are stored on file, and options which differ from
@@ -102,22 +51,8 @@ class Options(ConfigParser.ConfigParser):
         ConfigParser.ConfigParser.read(self, config.option_template)
         ConfigParser.ConfigParser.read(self, config.option_config)
         
-        result = self._read_from_db(transaction)
-        for struct in result:
-            self.set(struct.section, struct.key, struct.value)
-
     def read():
         raise Exception('Use load to read from file and db.')
         
     def write():
         raise Exception('Default-values are readonly, use save to write to db.')
-
-
-def restore_to_default(transaction, entity):
-    """Deletes all options for entity in the database."""
-    search = transaction.get_cereweb_option_searcher()
-    search.set_entity(entity)
-    for option in search.search():
-        option.delete()
-
-# arch-tag: cd23c5b4-4f37-11da-8118-34958c2b9815

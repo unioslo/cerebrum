@@ -24,7 +24,7 @@ import cherrypy
 from gettext import gettext as _
 
 from lib.Main import Main
-from lib.utils import transaction_decorator, commit_url, redirect
+from lib.utils import commit_url, redirect
 from lib import utils 
 from lib.templates.ActivityLogTemplate import ActivityLogTemplate
 from lib.templates.Confirm import Confirm
@@ -41,7 +41,6 @@ import error
 import group
 import host
 import note
-import options
 import ou
 import person
 import quarantine
