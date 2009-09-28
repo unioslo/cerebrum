@@ -282,4 +282,6 @@ class BofhdAuth(auth.BofhdAuth):
             operation_attr=status):
             return True
         raise PermissionDenied("Can't set homedir status")
-            
+
+    def can_edit_motd(self, operator):
+        return self.is_superuser(operator)
