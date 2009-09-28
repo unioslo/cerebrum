@@ -39,11 +39,6 @@ cereweb.motd = {
         this.dialog.render();
         this.dialog.hide();
         myDiv.style.display = '';
-        this.dialog.content = function(subject, message, id) {
-                document.getElementById('editMotdForm_id').value = id;
-                document.getElementById('editMotdForm_subject').value = subject;
-                document.getElementById('editMotdForm_message').value = message;
-        }
         cereweb.action.add('motd/edit', this.edit, this);
     },
     edit: function(name, args) {
@@ -59,12 +54,12 @@ cereweb.motd = {
             success: function(o) {
                 res = o.responseText;
                 eval('var data = ' + res);
-                this.dialog.content(data.subject,
+                this.content(data.subject,
                     data.message, arg);
                 this.dialog.show();
             },
             failure: function(o) {
-                this.dialog.content("", "");
+                this.content("", "");
             },
             timeout: 2000,
             scope: this
@@ -73,9 +68,14 @@ cereweb.motd = {
             var cObj = YC.asyncRequest('POST',
                 '/motd/get', callback, 'id=' + arg);
         else {
-            this.dialog.content("", "");
+            this.content("", "");
             this.dialog.show();
         }
+    },
+    content: function(subject, message, id) {
+        document.getElementById('editMotdForm_id').value = id || "";
+        document.getElementById('editMotdForm_subject').value = subject || "";
+        document.getElementById('editMotdForm_message').value = message || "";
     }
 }
 YE.onContentReady('editMotd', cereweb.motd.init, cereweb.motd, true);
