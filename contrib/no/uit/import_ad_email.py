@@ -101,8 +101,12 @@ class ad_email_import:
             if ((line[0] != '\n') or (line[0] != "#")):
                 line = line.rstrip()
                 uname,email_address = line.split(",")
-                local_part,domain = email_address.split("@")
-                self.infile[uname] = [local_part,domain]
+                try:
+                    local_part,domain = email_address.split("@")
+                    self.infile[uname] = [local_part,domain]
+                except:
+                    logger.error("Invalid email address: %s" % email_address)
+                    continue
                 #self.insert(uname,local_part,domain)
 
 

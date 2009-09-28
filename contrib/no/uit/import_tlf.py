@@ -61,17 +61,17 @@ from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 
 
 # CSV field positions
-FNAME=1
-LNAME=11
-PHONE=18
-FAX=33
-MOB=34
-PHONE_2=35
-MAIL=36
-USERID=37
-ROOM=38
-BUILDING=39
-RESERVATION=40
+FNAME=0
+LNAME=1
+PHONE=2
+FAX=3
+MOB=4
+PHONE_2=5
+MAIL=6
+USERID=7
+ROOM=8
+BUILDING=9
+RESERVATION=10
 
 db=Factory.get('Database')()
 db.cl_init(change_program='import_tlf')
@@ -229,7 +229,7 @@ def process_contact(userid,data,checknames,checkmail):
     processed.append(ownerid)
 
 def process_telefoni(filename,checknames,checkmail):
-    reader=csv.reader(open(filename,'r'))
+    reader=csv.reader(open(filename,'r'), delimiter=';')
     phonedata=dict()
     for row in reader:
         if row[RESERVATION].lower()=='kat' and row[USERID]:

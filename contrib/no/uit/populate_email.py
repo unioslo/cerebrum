@@ -59,7 +59,7 @@ ou = Factory.get('OU')(db)
 co = Factory.get('Constants')(db)
 db.cl_init(change_program=progname)
 
-logger=Factory.get_logger('console')
+logger=Factory.get_logger('cronjob')
 
 
 def _get_alternatives(account_name):
@@ -109,10 +109,26 @@ def is_cnaddr_free(local_part,domain_part):
 
 def get_cn_addr(username):
 
+    # Check if user already has an email address we can re-use
+    if uname2mailinfo.has_key(username):
+        short_leng = -1
+        short_addr = ''
+        
+        for mailinfo in uname2mailinfo[username]:
+            if mailinfo['domain'] == cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES:
+                if short_leng == -1 or len(mailinfo['local_part']) < short_leng:
+                    short_leng = len(mailinfo['local_part'])
+                    short_addr = mailinfo['local_part']
+
+        if short_addr != '':
+            return (short_addr,cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES)
+
+    # If we get here - we have to try and generate a new address
     alternatives=_get_alternatives(username)
     if try_only_first:
        logger.info("Trying only first alternative!")
        alternatives = alternatives[:1]
+    
     for em_addr in alternatives:
         if is_cnaddr_free(em_addr, cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES):
            return (em_addr,cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES)
@@ -235,6 +251,7 @@ except getopt.GetoptError,m:
 try_only_first=True
 username=None
 dryrun=False
+uname2mailinfo = ac.getdict_uname2mailinfo() 
 
 for opt,val in opts:
    if opt in('-u','--user'):
@@ -249,10 +266,10 @@ for opt,val in opts:
 process_mail()
 
 if dryrun:
-    print "dryrun"
+    logger.info("dryrun")
     db.rollback()
 else:
-    print "commit"
+    logger.info("commit")
     db.commit()
 
 sys.exit()

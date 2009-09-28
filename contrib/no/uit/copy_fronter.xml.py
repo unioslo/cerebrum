@@ -1,6 +1,7 @@
 #! /bin/env python
 
 import os
+import time
 import sys
 import ftplib
 import cerebrum_path
@@ -12,7 +13,7 @@ logger = Factory.get_logger("cronjob")
 def main():
     # filenames
     path = os.path.join(cereconf.DUMPDIR,"Fronter")
-    filename="uit_import%s.xml" % cereconf._TODAY
+    filename="uit_import%s.xml" % time.strftime("%Y%m%d")
     ftp_file=os.path.join(path,filename)
     export_file=os.path.join(path,"test.xml")
     logger.info("Export file %s, ftp file %s" % (export_file, ftp_file))

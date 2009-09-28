@@ -57,7 +57,10 @@ def set_mail(account, localpart, domain, is_primary):
 
    # Validate domain part
    if domain not in valid_exchange_domains:
-       logger.warn('Email address for user %s not in valid domain %s' % (account, domain))
+       if domain == 'uit.no':
+          logger.warn('Invalid domain (%s) for user %s. BAS controls this domain.' % (domain, account))
+       else:
+          logger.errir('Email address for user %s not in valid domain: %s' % (account, domain))
        return False
 
    # Find account

@@ -203,6 +203,7 @@ class ExistingPerson(object):
         self._primary_accountid=None
         self._personid=person_id
         self._fullname=None
+        self._deceased_date=None
 
     def append_account(self,acc_id):
         self._accounts.append(acc_id)
@@ -263,6 +264,13 @@ class ExistingPerson(object):
     def set_fullname(self,full_name):
         self._fullname=full_name
 
+    def set_deceased_date(self,deceased_date):
+        self._deceased_date = deceased_date
+
+    def get_deceased_date(self):
+        return self._deceased_date
+
+
 def is_ou_expired(ou_id):
     ou.clear()
     try:
@@ -312,12 +320,20 @@ def get_existing_accounts():
     tmp_persons={}
     pid2fnr = {}
     person_obj=Factory.get('Person')(db)
+
+
+    # getting deceased persons
+    deceased = person_obj.list_deceased()
+
     for row in person_obj.list_external_ids(id_type=const.externalid_fodselsnr, 
                                             source_system=const.system_paga):
         if (not pid2fnr.has_key(int(row['entity_id']))):
             pid2fnr[int(row['entity_id'])] = row['external_id']
             tmp_persons[row['external_id']] = \
                 ExistingPerson(person_id=int(row['entity_id']))
+
+        if deceased.has_key(int(row['entity_id'])):
+            tmp_persons[row['external_id']].set_deceased_date(deceased[int(row['entity_id'])])
 
     logger.info("Loading person affiliations...")
     for row in person.list_affiliations(source_system=const.system_paga,
@@ -608,8 +624,17 @@ class Build:
         # Update expire if needed
         current_expire= str(acc_obj.get_expire_date())
         new_expire = str(get_expire_date())
+
+        # expire account if person is deceased
+        new_deceased = False
+        if p_obj.get_deceased_date() is not None:
+            new_expire = str(p_obj.get_deceased_date())
+            if current_expire != new_expire:
+                logger.warn("Account owner deceased: %s" % (acc_obj.get_uname()))
+                new_deceased = True
+
         logger.debug("Current expire %s, new expire %s" % (current_expire,new_expire))
-        if (new_expire > current_expire):
+        if (new_expire > current_expire) or new_deceased:
             changes.append(('expire_date',"%s" % new_expire))
  
         #check account affiliation and status        
@@ -627,6 +652,12 @@ class Build:
             to_add=def_spreads - cb_spreads
             if to_add:
                 changes.append(('spreads_add',to_add))
+
+            # Set spread expire date
+            # Always use new expire to avoid PAGA specific spreads to be
+            # extended because of mixed student / employee accounts
+            for ds in def_spreads:
+                account.set_spread_expire(spread=ds, expire_date=new_expire, entity_id=acc_id)
 
         #check quarantines
         for qt in acc_obj.get_quarantines():

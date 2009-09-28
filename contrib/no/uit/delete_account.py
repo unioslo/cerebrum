@@ -42,6 +42,7 @@ class delete:
         
 
         delete_tables=[]
+        delete_tables.append({'change_log': 'change_by'})
         delete_tables.append({'entity_name':'entity_id'})
         delete_tables.append({'account_home':'account_id'})
         delete_tables.append({'account_type':'account_id'})
@@ -50,6 +51,7 @@ class delete:
         delete_tables.append({'homedir':'account_id'})
         delete_tables.append({'group_member':'member_id'})
         delete_tables.append({'account_info':'account_id'})
+        delete_tables.append({'spread_expire':'entity_id'})
         delete_tables.append({'entity_spread':'entity_id'})
         delete_tables.append({'entity_quarantine':'entity_id'})
         delete_tables.append({'entity_trait':'entity_id'})
@@ -114,7 +116,7 @@ class delete:
             
             Utils.sendmail('sut@rt.uit.no', #TO
                            'bas-admin@cc.uit.no', #SENDER
-                           'Brukernavn slettet', #TITLE
+                           'Brukernavn slettet (%s erstattes av %s)' % (legacy_info['user_name'], ac.account_name), #TITLE
                            'Brukernavnet %s skal erstattes av %s. Videresend e-post, flytt filer, e-post, osv. fra %s til %s.%s' %
                               (legacy_info['user_name'], ac.account_name, legacy_info['user_name'], ac.account_name, account_expired), #BODY
                            cc=None,
@@ -132,7 +134,7 @@ class delete:
 
             Utils.sendmail('vevportal@rt.uit.no', #TO
                            'bas-admin@cc.uit.no', #SENDER
-                           'Brukernavn slettet', #TITLE
+                           'Brukernavn slettet (%s erstattes av %s)' % (legacy_info['user_name'], ac.account_name), #TITLE
                            'Brukernavnet %s skal erstattes av %s.' %
                               (legacy_info['user_name'], ac.account_name), #BODY
                            cc=None,
@@ -174,42 +176,51 @@ def main():
     db = Factory.get("Database")()
     execute = delete()
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'f:d',['file=','dryrun'])
+        opts,args = getopt.getopt(sys.argv[1:],'f:a:d',['file=', 'account=','dryrun'])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
     
     account_file=0
+    account_id = None
     dryrun = False
     for opt,val in opts:
         if opt in('-f','--file'):
             account_file = val
+        elif opt in('-a','--account'):
+            account_id = val
         elif opt in('-d', '--dryrun'):
             dryrun = True
 
-    if account_file == 0:
+    if account_file == 0 and account_id is None:
         usage()
         sys.exit(1)
-    else:
-        print "account_file = %s" % account_file
-        file_handle = open(account_file,"r")
-        for line in file_handle:
-            if(line[0] != '\n'):
-                foo=line.split(",")
-                #print "foo=%s" % foo
-                account_id = foo[0]
-                print "ac=%s" % account_id
-                query ="select target_id from email_target where target_entity_id=%s" % account_id
-                print "query =%s " % query
-                try:
-                    db_row=db.query_1(query)
-                except:
-                    print "error collecting target_id for account_id:%s. only deleting account info" % account_id
-                    res = execute.delete_account(db, account_id=account_id, dryrun=dryrun)
-                    continue
 
-                target_id = db_row
-                res = execute.delete_account(db, account_id, target_id, dryrun)
+    if account_id is not None:
+        print "processing single account %s" % account_id
+        accounts = [account_id, ]
+    else:
+       print "account_file = %s" % account_file
+       accounts = open(account_file,"r")
+
+
+    for line in accounts:
+        if(line[0] != '\n'):
+            foo=line.split(",")
+            #print "foo=%s" % foo
+            account_id = foo[0]
+            print "ac=%s" % account_id
+            query ="select target_id from email_target where target_entity_id=%s" % account_id
+            print "query =%s " % query
+            try:
+                db_row=db.query_1(query)
+            except:
+                print "error collecting target_id for account_id:%s. only deleting account info" % account_id
+                res = execute.delete_account(db, account_id=account_id, dryrun=dryrun)
+                continue
+
+            target_id = db_row
+            res = execute.delete_account(db, account_id, target_id, dryrun)
 
     
     if dryrun:

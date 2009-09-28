@@ -248,6 +248,14 @@ class Constants(Constants.Constants):
         'AD_group_litadmn',
         Constants.Constants.entity_group,
         'AD admingroup for local IT')
+    spread_uit_exchange = _SpreadCode(
+        'exchange_mailbox',
+        Constants.Constants.entity_account,
+        'Accounts with exchange mailbox')
+    spread_uit_sutmail = _SpreadCode(
+        'sut_mailbox',
+        Constants.Constants.entity_account,
+        'Accounts with sut mailbox')
 
     # Email constants
     spread_uit_imap = _SpreadCode(
@@ -310,3 +318,8 @@ class Constants(Constants.Constants):
         "Trait set on account after account created mail is sent to user"
         )
 
+    # ePhorte codes
+    spread_ephorte_person = _SpreadCode('ePhorte_person',
+                                        Constants.Constants.entity_person,
+                                        'Person included in ePhorte export')
+                                        

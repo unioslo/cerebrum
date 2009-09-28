@@ -117,7 +117,7 @@ def scan_person_affs(person):
             hovedarbeidsforhold = t['hovedarbeidsforhold']
         
         aux_key = (fnr, stedkode, str(tilknytning))
-        aux_val = {'stillingskode': stillingskode, 'stillingstittel': stillingstittel, 'prosent': pros, 'dbh_kat': dbh_kat, 'hovedarbeidsforhold':hovedarbeidsforhold}
+        aux_val = {'stillingskode': stillingskode, 'stillingstittel_paga': t['tittel'], 'stillingstittel': stillingstittel, 'prosent': pros, 'dbh_kat': dbh_kat, 'hovedarbeidsforhold':hovedarbeidsforhold}
 
         aff_to_stilling_map[aux_key] = aux_val
 
@@ -153,17 +153,17 @@ def load_cache():
             except KeyError:
                 logger.error("Mapping FROM failed: %s %s" % (stedkode_from, stedkode_to))
                 raise KeyError
-
-            if stedkode_to == 'SKIP':
-                ou_to = stedkode_to
-            else:
-                try:
-                   ou_to = stedkode_ou_mapping[stedkode_to]
-                except KeyError:
-                   logger.error("Mapping TO failed: %s %s" % (stedkode_from, stedkode_to))
-                   raise KeyError
+            #
+            #if stedkode_to == 'SKIP':
+            #    ou_to = stedkode_to
+            #else:
+            #    try:
+            #       ou_to = stedkode_ou_mapping[stedkode_to]
+            #    except KeyError:
+            #       logger.error("Mapping TO failed: %s %s" % (stedkode_from, stedkode_to))
+            #       raise KeyError
             
-            bas_portal_mapping[ou_from] = ou_to
+            bas_portal_mapping[ou_from] = stedkode_to
             logger.info('Mapping OK: %s to %s' % (stedkode_from, stedkode_to))
         except KeyError:
             pass
@@ -244,21 +244,22 @@ def load_cb_data():
             continue
 
         # Needs to keep original ou id in order to be able to look up persons BAS specific affiliation/stillingskode
-        original_ou_id = ou_id = aff['ou_id']
-
+        #original_ou_id = ou_id = aff['ou_id']
+        #
         # Do mapping to "PORTAL specific" ou
-        try:
-            ou_id_ = bas_portal_mapping[ou_id]
+        #try:
+        #    ou_id_ = bas_portal_mapping[ou_id]
+        #
+        #    if ou_id_ == 'SKIP':
+        #        logger.info('Skipped affiliation to ou=%s due to bas to portal mapping rule saying to do so' % (ou_id))
+        #        continue
+        #    
+        #    logger.info('Mapped %s to %s' % (ou_id, ou_id_))
+        #    ou_id = ou_id_
+        #except KeyError:
+        #    pass
 
-            if ou_id_ == 'SKIP':
-                logger.info('Skipped affiliation to ou=%s due to bas to portal mapping rule saying to do so' % (ou_id))
-                continue
-            
-            logger.info('Mapped %s to %s' % (ou_id, ou_id_))
-            ou_id = ou_id_
-        except KeyError:
-            pass
-
+        ou_id = aff['ou_id']
         
         last_date=aff['last_date'].strftime("%Y-%m-%d")
         
@@ -270,13 +271,25 @@ def load_cb_data():
             except EntityExpiredError:
                 logger.warn('Expired ou (%s) for person: %s' % (aff['ou_id'], aff['person_id']))
                 continue
-            
+           
+            ou_name = ou.name
+ 
             stedkode.clear()
             stedkode.find(ou_id)
             sko="%02d%02d%02d"  % ( stedkode.fakultet,stedkode.institutt,
                 stedkode.avdeling)
 
-            ou_cache[ou_id]=(ou.name,sko)
+            if bas_portal_mapping.has_key(ou_id):
+
+                if bas_portal_mapping[ou_id] == 'SKIP':
+                    logger.info('Skipped affiliation to ou=%s due to bas to portal mapping rule saying to do so' % (sko))
+                    continue
+
+                logger.info('Mapped %s to %s' % (sko, bas_portal_mapping[ou_id]))
+                sko = bas_portal_mapping[ou_id]
+                ou_name = "%s - MAPPED" % (ou_name)
+
+            ou_cache[ou_id]=(ou_name,sko)
             
         sko_name,sko=ou_cache[ou_id]
 
@@ -303,13 +316,13 @@ def load_cb_data():
 
 
         try:
-            original_stedkode = ou_stedkode_mapping[original_ou_id]
+            original_stedkode = ou_stedkode_mapping[ou_id]
             aux_key = (pid_fnr_dict[p_id], original_stedkode, str(aff_stat))
             tils_info = aff_to_stilling_map[aux_key]
         except KeyError:
             affstr = "%s::%s::%s::%s::::::::::" % (str(aff_stat),sko,sko_name,last_date)
         else:
-            affstr = "%s::%s::%s::%s::%s::%s::%s::%s::%s" % (str(aff_stat), sko, sko_name, last_date, tils_info['stillingskode'], tils_info['stillingstittel'], tils_info['prosent'], tils_info['dbh_kat'], tils_info['hovedarbeidsforhold'])
+            affstr = "%s::%s::%s::%s::%s::%s::%s::%s::%s" % (str(aff_stat), sko, sko_name, last_date, tils_info['stillingskode'], tils_info['stillingstittel_paga'], tils_info['prosent'], tils_info['dbh_kat'], tils_info['hovedarbeidsforhold'])
 
 
         

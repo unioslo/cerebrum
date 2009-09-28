@@ -101,21 +101,21 @@ class UiTFS(FS):
         til tilbudet. """
 	qry = """
 SELECT DISTINCT
-      p.fodselsdato, p.personnr, p.etternavn, p.fornavn, 
+      p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
       p.adrlin1_hjemsted, p.adrlin2_hjemsted,
       p.postnr_hjemsted, p.adrlin3_hjemsted, p.adresseland_hjemsted,
       p.sprakkode_malform, osp.studieprogramkode, p.kjonn,
       p.status_reserv_nettpubl, p.telefonnr_mobil
-FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
-     fs.studieprogram sp
+FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogramtermin osp,
+fs.studieprogram sp
 WHERE p.fodselsdato=sa.fodselsdato AND
       p.personnr=sa.personnr AND
-      sa.institusjonsnr='%s' AND 
+      sa.institusjonsnr='%s' AND
       sa.dato_opprettet > (sysdate - 30) AND
       sa.tilbudstatkode IN ('I', 'S') AND
       sa.svarstatkode_svar_pa_tilbud='J' AND
       sa.studietypenr = osp.studietypenr AND
-      osp.studieprogramkode = sp.studieprogramkode 
+      osp.studieprogramkode = sp.studieprogramkode
       AND %s
       """ % (institusjonsnr, self.is_alive())
         return (self._get_cols(qry),self.db.query(qry))
@@ -335,13 +335,22 @@ WHERE status_aktiv = 'J' """
 # La til 180 i dato_til for å tillate at lærere blir i rom 180 dager fra de har sluttet undervisningen
         qry = """
 SELECT DISTINCT
-   fodselsdato, personnr, rollenr, rollekode, dato_fra, dato_til,
-   institusjonsnr, faknr, gruppenr, studieprogramkode, emnekode, 
-   versjonskode, terminkode, arstall, terminnr,
-   etterutdkurskode, kurstidsangivelsekode
-FROM fs.personrolle 
+   pr.fodselsdato, pr.personnr, pr.rollenr, pr.rollekode, pr.dato_fra, pr.dato_til,
+   pr.institusjonsnr, pr.faknr, pr.gruppenr, pr.studieprogramkode, pr.emnekode, 
+   pr.versjonskode, pr.terminkode, pr.arstall, pr.terminnr,
+   pr.etterutdkurskode, pr.kurstidsangivelsekode, CASE WHEN ua.undpartilopenr is NULL THEN NULL ELSE pr.aktivitetkode END as aktivitetkode
+FROM fs.personrolle pr
+LEFT OUTER JOIN
+   fs.undaktivitet ua
+ON (pr.institusjonsnr = ua.institusjonsnr AND 
+    pr.emnekode = ua.emnekode AND 
+    pr.versjonskode = ua.versjonskode AND 
+    pr.terminkode = ua.terminkode AND 
+    pr.arstall = ua.arstall AND 
+    pr.terminnr = ua.terminnr AND 
+    pr.aktivitetkode = ua.aktivitetkode)
 WHERE dato_fra < SYSDATE + 180 AND
-      NVL(dato_til,SYSDATE) >= sysdate - 180"""
+    NVL(dato_til,SYSDATE) >= sysdate - 180"""
         return (self._get_cols(qry), self.db.query(qry))
 
     def GetUndervEnhet(self, sem="current"):

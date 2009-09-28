@@ -239,7 +239,11 @@ def type_is_active(entry_type):
 def process_person(person):
     fnr = person['fnr']
 
-    paga_nr = int(person['ansattnr'])
+    try:
+       paga_nr = int(person['ansattnr'])
+    except:
+       logger.error("Invalid ansattnr %s. Person not processed." % person['ansattnr'])
+       return
     gender = person['kjonn']
     fodselsdato = person['fodselsdato']
     year = int(fodselsdato[0:4])
@@ -306,8 +310,6 @@ def process_person(person):
         new_person.populate_name(const.name_personal_title, person['tittel_personlig'])
 
     if fnr != '':
-       print fnr
-
        new_person.populate_external_id(const.system_paga, const.externalid_fodselsnr, fnr)
     new_person.populate_external_id(const.system_paga, const.externalid_paga_ansattnr, paga_nr)
 

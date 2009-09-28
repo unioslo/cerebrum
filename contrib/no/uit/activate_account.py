@@ -134,6 +134,8 @@ def activate_account(account, expire_date=None, spreads=None):
             logger.info("Adding spread %s and setting homedir for it" % spread)
             pu.add_spread(spread_id)
             pu.set_home_dir(spread_id)
+        ac.set_spread_expire(spread=spread_id, expire_date=expire_date)
+ 
 
     # Updating Email:
     em = Email.email_address(db)
@@ -141,7 +143,7 @@ def activate_account(account, expire_date=None, spreads=None):
     if (len(ad_email)>0):
         ad_email = ad_email[ac.account_name]
     else:
-        ad_email = "%s@%s" % (ac.account_name, "mailbox.uit.no")
+        ad_email = "%s@%s" % (ac.account_name, cereconf.NO_MAILBOX_DOMAIN)
         
     current_email = ""
     try:
@@ -154,7 +156,7 @@ def activate_account(account, expire_date=None, spreads=None):
         # update email!
         logger.info("Email update needed old='%s', new='%s'" % (current_email, ad_email))
         try:
-            em.process_mail(ac.entity_id, "defaultmail", ad_email)
+            em.process_mail(ac.entity_id, ad_email)
         except Exception:
             logger.critical("Email update failed: account_id=%s , email=%s" % (ac.entity_id, ad_email))
             sys.exit(2)

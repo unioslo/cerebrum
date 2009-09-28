@@ -290,6 +290,63 @@ class AccountUiTMixin(Account.Account):
         return username
 
 
+
+    def get_uit_uname_old(self,fnr,name,Regime=None):
+        ssn = fnr
+        step=1
+        if Regime == None:
+            cstart=22
+            query = "select user_name from legacy_users where ssn='%s' and source <>'AD' and type='P'" % (ssn)
+        elif Regime == "ONE":
+            cstart=0
+            query = "select user_name from legacy_users where ssn='%s' and type='P'" % (ssn)
+        elif Regime == "ADMIN":
+            cstart=999
+            step = -1
+            query = "select user_name from legacy_users where ssn='%s' and type='SYS'" % (ssn)
+        else:
+            cstart=0
+            query = "select user_name from legacy_users where ssn='%s' and source ='AD' and type='P'" % (ssn)
+        #print "%s" % query
+        db = self._db
+        db_row = db.query(query)
+        for row in db_row:
+            # lets see if this person already has an account in cerebrum with this username (From legacy_user)
+            username= row['user_name']
+            query = "select e.entity_id from entity_name e, account_info ai, entity_external_id eei \
+            where e.entity_name='%s' and e.entity_id = ai.account_id and ai.owner_id = eei.entity_id \
+            and eei.external_id='%s'" % (username,ssn)
+            
+            db_row2 = db.query(query)
+            if(len(db_row2)>0):
+                #This user already has an account in cerebrum with the username from the legacy table
+                #Returning existing account_name
+                #print "%s already has an account with user_name %s. returning this. " % (ssn,username)
+                raise Errors.IntegrityError, "ssn:%s already has an account=%s. Error trying to create a new account" % (ssn,username)
+
+            # was unable to find any existing accounts in cerebrum for this person with the
+            # username from the legacy table.
+            # lets return the first user_name in legacy_users for this person, that no one alrady has.
+            for row3 in db_row:
+                username = row3['user_name']
+                query = "select entity_id from entity_name where entity_name='%s'" % (username)
+                db_row2 = db.query(query)
+                if((len(db_row2) ==0) and (not username.isalpha())):
+                    #print "registered username %s for %s is free. returning this" % (ssn,username)
+                    return username
+
+        # getting here means either that:
+        # 1. the person does not have a previous account
+        # 2. the persons username is already taken, and a new has to be created
+        inits = self.get_uit_inits(name)
+        if inits == 0:
+            return inits
+        new_username = self.get_serial(inits,cstart,step=step)
+        #print "no legacy usernames for %s were free. created new %s" % (ssn,new_username)
+        return new_username
+
+
+
     def get_serial(self,inits,cstart,step=1):
 
         found = False
@@ -413,6 +470,27 @@ class AccountUiTMixin(Account.Account):
                 ed.rewrite_special_domains(row['domain'])))
         return ret
 
+
+    # TODO: check this method, may probably be done better
+    def _update_email_server(self):
+        es = Email.EmailServer(self._db)
+        et = Email.EmailTarget(self._db)
+        if self.is_employee():
+            server_name = 'postboks'
+        else:
+            server_name = 'student_placeholder'
+        es.find_by_name(server_name)
+        try:
+            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+        except Errors.NotFoundError:
+            et.populate(self.const.email_target_account,
+                        self.entity_id,
+                        self.const.entity_account)
+            et.write_db()
+        if not et.email_server_id:
+            et.email_server_id = es.entity_id
+            et.write_db()
+        return et
 
     def write_db(self):
         try:

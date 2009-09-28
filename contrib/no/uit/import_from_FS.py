@@ -106,11 +106,6 @@ def write_uit_person_info(outfile):
     for e in uitevu:
         f.write(xml.xmlify_dbrow(e,xml.conv_colnames(cols),'evu') + "\n")
 
-    # Inject HITOS person file
-    hitos = open(outfile + ".HITOS")
-    f.write("\n" + hitos.read() + "\n")
-    hitos.close()
-    
     f.write("</data>\n")
     f.close()
 
@@ -209,7 +204,7 @@ def write_undenh_student(outfile):
     semester."""
     f = MinimumSizeWriter(outfile)
 
-    f.set_minimum_size_limit(800*KiB)
+    f.set_minimum_size_limit(600*KiB)
     f.write(xml.xml_hdr + "<data>\n")
     
     for semester in access_FS.get_semester(uppercase=True):
@@ -230,11 +225,6 @@ def write_undenh_student(outfile):
                                          extra_attr=s_attr)
                         + "\n")
 
-    # Inject HITOS person file
-    hitos = open(outfile + ".HITOS")
-    f.write("\n" + hitos.read() + "\n")
-    hitos.close()
-                
     f.write("</data>\n")
     f.close()
     
@@ -287,6 +277,7 @@ def write_studprog_info(outfile):
     for t in dta:
         f.write(xml.xmlify_dbrow(t, xml.conv_colnames(cols), 'studprog')
                 + "\n")
+
     f.write("</data>\n")
     f.close()
 

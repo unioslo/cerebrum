@@ -58,15 +58,17 @@ class ou:
                 sys.exit(1)
         self.ou_files = ou_files
         # BAS
+	logger.info("Connecting to BAS DB")
         self.db = Factory.get('Database')()
 
         # FS 
         user="fsbas"
         service="fsprod"
+        logger.info("Connecting to FS db")
         self.fs_db = Database.connect(user=user,service=service,DB_driver='Oracle')
         self.fs = FS(self.fs_db)
         self.fs_data=dict()
-
+	logger.info("Connections ok")
 
     # lets collect data about all active ou's from FS.
     def get_fs_ou(self):

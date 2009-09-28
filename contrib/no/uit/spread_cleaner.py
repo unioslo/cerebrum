@@ -46,13 +46,14 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.Constants import _SpreadCode
 
-DAYS_TO_WAIT=30
-CUTOFF_DATE=mx.DateTime.today()- mx.DateTime.DateTimeDelta(DAYS_TO_WAIT)
+DAYS_TO_WAIT=0
+DELETE_FROM=mx.DateTime.today()- mx.DateTime.DateTimeDelta(DAYS_TO_WAIT)
 
 db=Factory.get('Database')()
 db.cl_init(change_program=__filename__)
 co=Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
+
 
 
 def process_spread(spread):
@@ -67,11 +68,29 @@ def process_spread(spread):
     else:
         logger.info("Cleaning spread %s (%s)" % (spread, spread_txt))
         ac=Factory.get('Account')(db)
+
+        #logger.info("Caching spreads to be kept")
+        #spreads_to_keep = ac.search_spread_expire(spread=spread, expire_date=CUTOFF_DATE)
+
+        logger.info("Caching spread expire table")
+        spread_expire_table = ac.search_spread_expire(spread=spread)
+
+        keep_cache = {}
+        for sd in spread_expire_table:
+            if mx.DateTime.DateFrom(sd['expire_date']) >= DELETE_FROM:
+                keep_cache[(sd['entity_id'], sd['spread'])] = sd['expire_date']
+                ac.notify_spread_expire(**dict(sd))
+
         count=0
-        for i in ac.search(spread=spread, expire_start=None,
-                           expire_stop=CUTOFF_DATE):
+        for i in ac.search(spread=spread, expire_start=None):
             ac.clear()
+
+            # Don't clean if the spread has been seen within defined cutoff
+            if keep_cache.has_key((i['account_id'], spread)):
+                continue
+
             ac.find(i['account_id'])
+            logger.info("Cleaning spread %s (%s) on account %s" % (spread_txt, spread, ac.account_name))
             try:
                 ac.clear_home(spread)
             except Errors.NotFoundError:
@@ -79,9 +98,9 @@ def process_spread(spread):
                 logger.warn("%s had no homedir on spread %s" % \
                             (ac.account_name,spread_txt))
             ac.delete_spread(spread)
-            ac.write_db()
+            #ac.write_db()
             count+=1
-        logger.info("Finish cleaning spread %s, deleted %d" % (spread,count))
+        logger.info("Finished cleaning spread %s, deleted %d" % (spread,count))
 
 
 def usage(exit_code=0,m=None):
@@ -117,7 +136,7 @@ def main():
                 spread_list.append(str(tmp))
         spread_list = ','.join(spread_list)
 
-    logger.debug("cutoff date is %s" % (CUTOFF_DATE,))
+    logger.debug("deleting spreads expired before %s" % (DELETE_FROM,))
     for s in spread_list.split(','):
         process_spread(s)
 

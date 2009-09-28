@@ -134,7 +134,7 @@ def change_pw(account_id,pw_params):
         if entries_found == 0:
             logger.info("Account %s NOT FOUND in %s" % (account.account_name, ldap_active))
         elif entries_found > 1:
-            logger.info("Account %s FOUND % TIMES AND UPDATED %s TIMES  in %s" %
+            logger.info("Account %s FOUND %s TIMES AND UPDATED %s TIMES  in %s" %
                         (account.account_name, entries_found, entries_modified, ldap_active))
         return True
     
