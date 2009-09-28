@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: iso-8859-1 -*-
+
+
 import getopt
 import string
 import cerebrum_path
@@ -45,10 +49,13 @@ class process:
 
 
 def main():
+
+    opts = args = None
+ 
     try:
         opts,args = getopt.getopt(sys.argv[1:], 's:n:t:',['ssn=','name=','type='])
     except getopt.GetoptError, e:
-        usage(str(e))
+        usage()
 
     ssn = ''
     name = ''

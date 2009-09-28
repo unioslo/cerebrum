@@ -18,6 +18,8 @@ from sgmllib import SGMLParser
 import getopt
 import sys
 import os
+import mx
+import re
 
 import cerebrum_path
 import cereconf
@@ -30,6 +32,10 @@ db.cl_init(change_program=progname)
 const=Factory.get('Constants')(db)
 account=Factory.get('Account')(db)
 person=Factory.get('Person')(db)
+
+TODAY=mx.DateTime.today().strftime("%Y-%m-%d")
+default_filename='name_updates_%s.csv' % (TODAY,)
+default_outfile = os.path.join(cereconf.DUMPDIR, 'name_updates', default_filename)
 
 logger=Factory.get_logger(cereconf.DEFAULT_LOGGER_TARGET)
 
@@ -58,6 +64,7 @@ class ExtractContent(SGMLParser):
 def get_changes(filename, url):
 
     changes = {}
+    invalid_chars = re.compile('[,;"=\+\\\\<>]')
 
     # Load file
     logger.info("Copying changelog HTML page from Portal to local file")
@@ -83,17 +90,23 @@ def get_changes(filename, url):
 
        # Parse each line
        aux = line.split(';')
-       if len(aux) >= 3:
+       if len(aux) == 4:
            username = aux[0].strip()
            firstname = aux[1].strip()
            lastname = aux[2].strip()
+       elif len(aux) > 4:
+           logger.error("Illegal use of semicolon! Line: %s." % line)
+           continue
 
        # Check for repeated usernames
        if username in changes:
            logger.warn("Repeated username in changelog. Only last entry is considered! Username: %s." % username)
 
        if username and firstname and lastname:
-           changes[username] = (unicode(firstname, 'UTF-8').encode('iso-8859-1'), unicode(lastname, 'UTF-8').encode('iso-8859-1'))
+           if len(invalid_chars.findall(firstname)) > 0 or len(invalid_chars.findall(lastname)):
+               logger.error("Skipped line because of invalid characters. Username: %s. Firstname: %s. Lastname %s." % (username, firstname, lastname))
+           else:
+               changes[username] = (unicode(firstname, 'UTF-8').encode('iso-8859-1'), unicode(lastname, 'UTF-8').encode('iso-8859-1'))
        else:
            logger.info("Skipped line because of missing data. Username: %s. Firstname: %s. Lastname %s." % (username, firstname, lastname))
 
@@ -101,7 +114,10 @@ def get_changes(filename, url):
 
 
 # Change names in Portal HTML (if changed)
-def change_names(changes):
+def change_names(changes, outfile):
+
+    fp = open(outfile, 'w')
+    fp.write('#username,old_first_name,new_first_name,old_last_name,new_last_name\n')
 
     logger.info("Creating dict person_id -> cached names")
     registered_changes = 0
@@ -173,6 +189,7 @@ def change_names(changes):
                         continue
 
                     logger.info("Name changed for user %s. First name: \"%s\" -> \"%s\". Last name: \"%s\" -> \"%s\"." % (accountname, cached_name.get(int(const.name_first)), firstname, cached_name.get(int(const.name_last)), lastname))
+                    fp.write('%s,%s,%s,%s,%s\n' % (accountname, cached_name.get(int(const.name_first)), firstname, cached_name.get(int(const.name_last)), lastname))
                     registered_changes = registered_changes + 1
 
                 # Do nothing if names are equal
@@ -188,30 +205,33 @@ def change_names(changes):
             continue
 
     logger.info("Registered %s changes" % (registered_changes))
-
+    fp.close()
 
 def main():
 
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'d',
-            ['dryrun','help'])
+        opts,args = getopt.getopt(sys.argv[1:],'do:',
+            ['dryrun','help','outfile='])
     except getopt.GetoptError,m:
         usage(1,m)
 
     dryrun = False
     tmpfile = '/tmp/last_portal_dump'
     url = 'http://www2.uit.no/portal/page/portal/UiT%20Administrator%20verktoy/navnalias'
+    outfile = default_outfile
 
     for opt,val in opts:
         if opt in('-d','--dryrun'):
             dryrun = True
+        elif opt in ('-o','--outfile'):
+            outfile = val
         elif opt in ('-h','--help'):
             usage()
 
     changes = get_changes(tmpfile, url)
     # Test data
     # changes = {'rmi000':('Romulus','Mikalsen'), 'bto001':('Bjarne','Betjent')}
-    change_names(changes)
+    change_names(changes, outfile)
 
     if (dryrun):
       db.rollback()

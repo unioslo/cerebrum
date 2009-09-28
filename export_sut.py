@@ -40,6 +40,7 @@ import cerebrum_path
 import cereconf
 from Cerebrum import Errors
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules.no.uit import Email
 from Cerebrum.Utils import Factory
 
 db=Factory.get('Database')()
@@ -50,6 +51,33 @@ def build_data_cache():
     ac = Factory.get('Account')(db)
     p = Factory.get('Person')(db)
     posix = PosixUser.PosixUser(db)
+    
+    # Build email export
+    email_dict = {}
+    logger.info("Retrieving email lists from db")
+    emails_list = {}
+    emails_list = ac.getdict_uname2mailinfo()
+    acc2primary = ac.getdict_uname2mailaddr()
+    sut = cereconf.NO_MAILBOX_DOMAIN
+    exchange = cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES
+
+    logger.info("Processing email list")
+    for user in emails_list.keys():
+        export_info = {}
+        export_info['sut_mailbox'] = ''
+        export_info['exchange_mailbox'] = ''
+        export_info['exchange_mailbox_created'] = ''
+
+        for email in emails_list[user]:
+            address = '@'.join([email['local_part'], email['domain']])
+            if email['domain'] == sut:
+                export_info['sut_mailbox'] = address
+            elif email['domain'] == exchange and address == acc2primary.get(user):
+                export_info['exchange_mailbox'] = address
+                export_info['exchange_mailbox_created'] = str(email['create_date'])[0:10]
+
+        email_dict[user] = export_info
+
 
     exp_spread=[co.spread_uit_fd, co.spread_uit_sut_user]
     accounts=dict()
@@ -101,7 +129,7 @@ def build_data_cache():
             quarantines[q['entity_id']]=True
     
     logger.info("DataCaching finished")
-    return (accounts,posix_info,quarantines,auth_list,person_names,person_affs)
+    return (accounts,posix_info,quarantines,auth_list,person_names,person_affs, email_dict)
 
 def usage():
     print """This program exports SUT account to a file
@@ -140,7 +168,7 @@ def main():
     logger = Factory.get_logger(logger_name)
   
     start_time=mx.DateTime.now()
-    accounts, posix, quarantines, auth, names, affs =  build_data_cache()
+    accounts, posix, quarantines, auth, names, affs, emails =  build_data_cache()
     export = []
     logger.info("Building export data from cache")
     for acc_id in accounts.keys():
@@ -173,11 +201,22 @@ def main():
         if acc_auth == None:
             acc_auth = '*****'
             logger.error('Account %s has no password set.' % (acc_name))
+
+        mail_info = emails.get(acc_name)
+        sut_mailbox = ''
+        exchange_mailbox = ''
+        exchange_created = ''
+        if mail_info is not None:
+            sut_mailbox = mail_info['sut_mailbox']
+            exchange_mailbox = mail_info['exchange_mailbox']
+            exchange_created = mail_info['exchange_mailbox_created']
+
+
         
         entry = [acc_name,acc_auth,
                 str(pos_uid),str(pos_gid),
                 person_name,acc_home,shell,
-                str(quarantine),aff_str,'\n']
+                str(quarantine),aff_str,sut_mailbox,exchange_mailbox,exchange_created,'\n']
         #logger.info(entry)
         export.append(":".join(entry))
     fh=open(sut_file,'w')

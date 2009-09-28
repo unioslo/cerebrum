@@ -59,6 +59,7 @@ processed_accounts = {}
 keep_account_home = {}
 paid_paper_money = {}
 account_id2fnr = {}
+deceased = {}
 
 posix_user_obj = PosixUser.PosixUser(db)
 account_obj = Factory.get('Account')(db)
@@ -368,17 +369,24 @@ class AccountUtil(object):
                     has_person_spreads.append(int(spread))
 
 
-        ## MAY BE WRONG! What if another sourcesys has set another date (further out)?
-        #if ac.get_expire_date() != default_expire_date:
-        #    changes.append(('expire', default_expire_date))
-        ## new update expire method
+        # update expire if needed
         current_expire = mx.DateTime.DateFrom(ac.get_expire_date())
         new_expire = mx.DateTime.DateFrom(default_expire_date)
         today = mx.DateTime.today()
-        if ((new_expire > today) and (new_expire > current_expire)):
-            # If account is expired in cerebrum => update expire
-            # or if our expire is further out than current expire => update
+
+        if deceased.has_key(fnr):
+            logger.warn("Person deceased: %s" % (fnr))
+            if current_expire != str(deceased[fnr]):
+                changes.append(('expire', str(deceased[fnr])))
+        elif ((new_expire > today) and (new_expire > current_expire)):
             changes.append(('expire', default_expire_date))
+
+        # Set/change homedir
+        user_spreads = [int(s) for s in profile.get_spreads()]
+
+        # Set spread expire dates
+        for us in user_spreads:
+            account_obj.set_spread_expire(spread=us, expire_date=new_expire, entity_id=account_id)
 
         # Set/change homedir
         user_spreads = [int(s) for s in profile.get_spreads()]
@@ -836,6 +844,7 @@ def start_process_students(recalc_pq=False, update_create=False):
     global autostud, accounts, persons
 
     logger.info("process_students started")
+
     autostud = AutoStud.AutoStud(db, logger, debug=debug, cfg_file=studconfig_file,
                                  studieprogs_file=studieprogs_file,
                                  emne_info_file=emne_info_file,
@@ -1277,7 +1286,7 @@ def main():
     global debug, fast_test, create_users, update_accounts, logger, skip_lpr
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            dryrun, emne_info_file, move_users, remove_groupmembers, \
-           workdir, paper_money_file, ou_perspective, with_quarantines
+           workdir, paper_money_file, ou_perspective, with_quarantines, deceased
 
     recalc_pq = False
     validate = False
@@ -1354,6 +1363,14 @@ def main():
     if not (recalc_pq or update_accounts or create_users or
             non_callback_fname):
         usage("No action selected")
+
+   
+    logger.info("Loading deceased persons...")
+    person_obj=Factory.get('Person')(db)
+    pid_deceased = person_obj.list_deceased()
+    for row in person_obj.list_external_ids(id_type=const.externalid_fodselsnr):
+        if pid_deceased.has_key(int(row['entity_id'])):
+            deceased[row['external_id']] = pid_deceased[int(row['entity_id'])]
 
     start_process_students(recalc_pq=recalc_pq,
                            update_create=(create_users or non_callback_fname))

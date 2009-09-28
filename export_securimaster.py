@@ -48,10 +48,10 @@ logger=Factory.get_logger("console")
 
 CHARSEP=";"
 
-pid2fnr=pnr2account=sysx2accountid=account2name=owner2account=num2const=None
+pid2fnr=pnr2account=sysx2accountid=account2name=owner2account=num2const=owner2email=worktitle_cache=None
 
 def load_cache():
-    global pid2fnr,pnr2account,sysx2accountid,account2name,owner2account
+    global pid2fnr,pnr2account,sysx2accountid,account2name,owner2account, owner2email, worktitle_cache
     global name_cache,num2const
 
     
@@ -60,8 +60,9 @@ def load_cache():
     logger.info("Start pnr->acc")
     pnr2account=p.getdict_external_id2primary_account(co.externalid_fodselsnr)
     logger.info("Start get names")
-    name_cache = p.getdict_persons_names( source_system=co.system_cached, name_types=(co.name_first, \
-        co.name_last,co.name_work_title))
+    name_cache = p.getdict_persons_names( source_system=co.system_cached, name_types=(co.name_first, co.name_last))
+
+    worktitle_cache = p.getdict_persons_names(source_system=co.system_paga, name_types=(co.name_work_title))
 
     logger.info("Start get account names")
     account2name=dict()
@@ -71,8 +72,12 @@ def load_cache():
 
     logger.info("Start get account owners")
     for a in ac.list(filter_expired=False):
-        owner2account[a['owner_id']]=a['account_id']
-    
+        owner2account[a['owner_id']]=a['account_id']    
+
+    logger.info("Start get primary email")
+    owner2email = {}
+    for entity_id, email in p.list_primary_email_address(co.entity_person):
+        owner2email[entity_id] = email
 
     logger.info("Start get constants")
     num2const=dict()
@@ -124,12 +129,16 @@ def load_cb_data():
             acc_id=owner2account.get(p_id,None)
             acc_name=account2name.get(acc_id,None)        
 
+        primary_mail = owner2email.get(p_id, '')
+
         namelist = name_cache.get(p_id,None)
         first_name=last_name=worktitle=""
         if namelist:
             first_name = namelist.get(int(co.name_first),"")
             last_name = namelist.get(int(co.name_last),"")
-            worktitle = namelist.get(int(co.name_work_title),"")
+        worktitlelist = worktitle_cache.get(p_id, None)
+        if worktitlelist:
+            worktitle = worktitlelist.get(int(co.name_work_title),"")
     
         if not acc_name:
             logger.warn("No account for %s %s (fnr=%s)(pid=%s)" % \
@@ -145,6 +154,7 @@ def load_cb_data():
         attrs.append(first_name)
         attrs.append(last_name)
         attrs.append(worktitle)
+        attrs.append(primary_mail)
         if not export_attrs.get(acc_name,None):
             export_attrs[p_id]=attrs
     return export_attrs,person_affs
@@ -152,7 +162,7 @@ def load_cb_data():
 def build_export(outfile):
     logger.info("Start building export, writing to %s" % outfile)
     export=list()
-    export.append(CHARSEP.join(("#username","fnr","firstname","lastname","worktitle","affiliation")))
+    export.append(CHARSEP.join(("#username","fnr","firstname","lastname","worktitle","primary_mail","affiliation")))
     for person_id in export_attrs:
         attrs=export_attrs[person_id]
         affs = person_affs.get(person_id)

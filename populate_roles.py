@@ -54,7 +54,7 @@ account = Factory.get('Account')(db)
 person = Factory.get('Person')(db)
 const = Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
-account2name = dict((x["entity_id"], x["entity_name"]) for x in 
+account2name = dict((x["entity_id"], x["entity_name"]) for x in
                  Factory.get("Group")(db).list_names(const.account_namespace))
 
 
@@ -208,9 +208,15 @@ class ITRole(object):
             new_ac.add_spread(const.spread_uit_ad_lit_admin)
             new_ac.set_home_dir(const.spread_uit_ad_lit_admin)
 
+            # Set spread expire date
+            new_ac.set_spread_expire(spread=const.spread_uit_ad_lit_admin, expire_date=default_expire_date)
+
             # also add SUT spread
             new_ac.add_spread(const.spread_uit_sut_user)
             new_ac.set_home_dir(const.spread_uit_sut_user)
+
+            # Set spread expire date
+            new_ac.set_spread_expire(spread=const.spread_uit_sut_user, expire_date=default_expire_date)
 
             password = new_ac.make_passwd(new_username)
             new_ac.set_password(password)
@@ -231,6 +237,11 @@ class ITRole(object):
                 new_ac.set_home_dir(const.spread_uit_sut_user)
                 logger.info("Added %s spread to account %s" % \
                     (const.spread_uit_sut_user,accounts[0]['name']))
+
+            # Set spread expire date
+            new_ac.set_spread_expire(spread=const.spread_uit_ad_lit_admin, expire_date=default_expire_date)
+            new_ac.set_spread_expire(spread=const.spread_uit_sut_user, expire_date=default_expire_date)
+
             new_ac.write_db()            
             return accounts[0]['name']
         else:

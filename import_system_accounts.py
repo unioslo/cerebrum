@@ -336,6 +336,8 @@ def process_account(account_data):
             logger.error("Skipping invalid spread (%s)." % spread)
             continue
 
+        ac.set_spread_expire(spread=spread_id, expire_date=expire_date, entity_id=ac.entity_id)
+
         if (not pu.has_spread(spread_id)):
             logger.info("Adding spread %s and setting homedir for it" % spread)
             pu.add_spread(spread_id)

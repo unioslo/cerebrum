@@ -41,6 +41,8 @@ from Cerebrum.modules.no.uit import uit_fronter_lib
 from Cerebrum.extlib import logging
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.uit.Email import email_address
+from Cerebrum.modules.no.uit.access_FS import undakt_xml_parser
+
 
 # Define default file locations
 dumpdir = os.path.join(cereconf.DUMPDIR,"Fronter")
@@ -49,6 +51,7 @@ default_debug_file = "x-import.log"
 default_export_file = 'test.xml'
 default_studieprog_file = os.path.join(cereconf.DUMPDIR, 'FS', 'studieprog.xml')
 default_underv_enhet_file = os.path.join(cereconf.DUMPDIR, 'FS', 'underv_enhet.xml')
+default_undakt_file = os.path.join(cereconf.DUMPDIR, 'FS', 'undakt.xml')
 
 db = const = logger = None
 fxml = None
@@ -88,8 +91,8 @@ def init_globals():
         else:
             raise ValueError, "Invalid argument: %r", (opt,)
 
-    host_profiles = {'uit': {'emnerom': 128, # old value 1520
-                             'studieprogram': 128},# old value 1521
+    host_profiles = {'uit': {'emnerom': 1924, # old value 128
+                             'studieprogram': 1924},# old value 128
                      'uit2': {'emnerom': 42,
                               'studieprogram': 42},
                      'uit3': {'emnerom': 128, # old value 1520
@@ -218,12 +221,126 @@ def get_ans_fak(fak_list, ent2uname):
     return fak_res
 
 
-def register_spread_groups(emne_info, stprog_info):
+def register_spread_groups(emne_info, stprog_info, undakt_info):
     group = Factory.get('Group')(db)
     for r in group.search(spread=const.spread_uit_fronter):
         gname = r['name']
         gname_el = gname.split(':')
-        if gname_el[4] == 'undenh':
+
+        print gname_el
+
+        if len(gname_el) > 10 and gname_el[10] == 'undakt':
+        # undakt branch added by rmi000 2009-05-25
+
+            #print '####'
+            #print gname_el
+
+
+            #
+            # Creating UNDAKT ROOM
+            #
+            instnr = gname_el[3]
+            ar, term, emnekode, versjon, terminnr, undakt, undaktkode = gname_el[5:12]
+            if int(ar) < 2006:
+                continue
+            fak_sko = "%02d0000" % emne_info[emnekode]['fak']
+
+
+            undakt_room_title = '%s - %s (%s. Sem) - %s (%s%s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
+            undakt_room_id = 'ROOM:%s:fs:emner:%s:%s:%s:%s:undenh:%s:%s:%s:undakt:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, instnr, fak_sko, emnekode, versjon, terminnr, undaktkode)
+            print "UNDAKT ROOM", undakt_room_id
+            undakt_room_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:emnerom:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, instnr, fak_sko)
+            print "UNDAKT ROOM PARENT", undakt_room_parent_id
+            undakt_room_profile = romprofil_id['emnerom']
+
+            register_room(undakt_room_title, undakt_room_id, undakt_room_parent_id, undakt_room_profile)
+
+
+            #
+            # Adding Members to UNDAKT ROOM
+            #
+            group.clear()
+            group.find(r['group_id'])
+            user_members = [
+                    row[2]  # username
+                    for row in group.list_members(None,
+                                                  const.entity_account,
+                                                  get_entity_name=True)[0]]
+
+            if user_members:
+
+                if gname_el[0] == 'internal':
+                    gname_el.pop(0)
+                undakt_group_id = ':'.join(gname_el)
+
+                #undakt_group_title = '%s - %s (%s. Sem) - %s (Påmeldte) - (%s %s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term, ar)
+                undakt_group_title = 'Studenter på %s - %s (%s. Sem) - %s (%s%s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
+                print "UNDAKT GROUP", undakt_group_title
+                undakt_group_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, 'undakt')
+                rettighet = uit_fronter_lib.Fronter.ROLE_WRITE
+
+                register_group(undakt_group_title, undakt_group_id, undakt_group_parent_id, allow_contact=True)
+                register_members(undakt_group_id, user_members)
+                register_room_acl(undakt_room_id, undakt_group_id, rettighet)
+
+        elif len(gname_el) > 10 and gname_el[10] == 'gruppelære':
+        # gruppelære branch added by rmi000 2009-06-17
+
+            print '##-##'
+            print gname_el
+
+
+            #
+            # Creating UNDAKT ROOM
+            #
+            instnr = gname_el[3]
+            ar, term, emnekode, versjon, terminnr, undakt, undaktkode = gname_el[5:12]
+            if int(ar) < 2006:
+                continue
+            fak_sko = "%02d0000" % emne_info[emnekode]['fak']
+
+
+            #undakt_room_title = '%s - %s (%s. Sem) - %s' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'])
+            undakt_room_id = 'ROOM:%s:fs:emner:%s:%s:%s:%s:undenh:%s:%s:%s:undakt:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, instnr, fak_sko, emnekode, versjon, terminnr, undaktkode)
+            print "UNDAKT ROOM", undakt_room_id
+            #undakt_room_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:emnerom:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, instnr, fak_sko)
+            #print "UNDAKT ROOM PARENT", undakt_room_parent_id
+            #undakt_room_profile = romprofil_id['emnerom']
+
+            # Dont register room here, the room will be registered in the previous confitional statement branch
+            # register_room(undakt_room_title, undakt_room_id, undakt_room_parent_id, undakt_room_profile)
+
+
+            #
+            # Adding Members to UNDAKT ROOM
+            #
+            group.clear()
+            group.find(r['group_id'])
+            user_members = [
+                    row[2]  # username
+                    for row in group.list_members(None,
+                                                  const.entity_account,
+                                                  get_entity_name=True)[0]]
+
+            if user_members:
+                print "###-###"
+                if gname_el[0] == 'internal':
+                    gname_el.pop(0)
+                undakt_group_id = ':'.join(gname_el)
+
+                #undakt_group_title = 'Gruppelærere på %s - %s (%s. Sem) - %s (%s %s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term, ar)
+                undakt_group_title = 'Gruppelærere på %s - %s (%s. Sem) - %s (%s%s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
+ 
+                print "GRUPPELÆRE GROUP", undakt_group_title
+                undakt_group_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, 'gruppelære')
+                rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
+
+                register_group(undakt_group_title, undakt_group_id, undakt_group_parent_id, allow_contact=True)
+                register_members(undakt_group_id, user_members)
+                register_room_acl(undakt_room_id, undakt_group_id, rettighet)
+
+        elif gname_el[4] == 'undenh':
+            print "##UNDENH##", gname_el
             # Nivå 3: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
             #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
             #
@@ -264,16 +381,10 @@ def register_spread_groups(emne_info, stprog_info):
 
             #UIT register_room with versjon and int(terminnr) substituted with emne_info[emnekode]['emnenavnfork']
             termin_representation = "%s. Sem" % terminnr
-            register_room('%s - %s (%s)' %
-                          (emnekode.upper(), emne_info[emnekode]['emnenavnfork'],termin_representation),
+            register_room('%s - %s - %s (%s%s)' %
+                          (emnekode.upper(), emne_info[emnekode]['emnenavnfork'],termin_representation, term[0].upper(), ar),
                           emne_rom_id, emne_sted_id,
                           profile=romprofil_id['emnerom'])
-
-            #register_room('%s (ver %s, %d. termin)' %
-            #              (emnekode.upper(), versjon, int(terminnr)),
-            #              emne_rom_id, emne_sted_id,
-            #              profile=romprofil_id['emnerom'])
-
 
             # Grupper for studenter, forelesere og studieveileder på
             # undervisningsenheten.
@@ -301,9 +412,13 @@ def register_spread_groups(emne_info, stprog_info):
                 elif kategori == 'foreleser':
                     title = 'Forelesere på '
                     rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
-                elif kategori == 'studieleder':
-                    title = 'Studieledere for '
-                    rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
+                elif kategori == 'fagansvarlig':
+                    title = 'Fagansvarlige på '
+                    rettighet = uit_fronter_lib.Fronter.ROLE_CHANGE
+                elif kategori == 'gruppelære':
+                    continue
+                    #title = 'Gruppelærere på '
+                    #rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
                 elif kategori == 'undakt':
                     title = ''
                     rettighet = uit_fronter_lib.Fronter.ROLE_WRITE
@@ -314,10 +429,12 @@ def register_spread_groups(emne_info, stprog_info):
                 #    subg_name_el[7],    # VERSJONSKODE
                 #    int(subg_name_el[8])) # TERMINNR
                 # UIT TITLE:
-                if kategori == 'undakt':
+                if kategori in ['undakt', ]:
                     title += '%s, %s' % (subg_name_el[6].upper(), subg_name_el[10].upper()) # EMNEKODE, UNDAKT
                 else:
                     title += '%s' % (subg_name_el[6].upper()) # EMNEKODE
+
+                title += ' (%s%s)' % (term[0].upper(), ar)
 
                 fronter_gname = ':'.join(subg_name_el)
                 register_group(title, fronter_gname, parent_id,
@@ -397,19 +514,82 @@ def register_spread_groups(emne_info, stprog_info):
                     # studieprogrammets fellesrom.
                     register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
                                       uit_fronter_lib.Fronter.ROLE_WRITE)
-                elif subg_name_el[-1] == 'studieleder':
-                    fellesrom_studieledere_id = fellesrom_sted_id + \
-                                                ':studieledere'
-                    register_group("Studieledere", fellesrom_studieledere_id,
-                                   fellesrom_sted_id)
+
+
+
+                    # Registrere rom for kullet
+                    kullrom_title = "%s (Kull %s %s)" % (stprog.upper(), kull, sem)
+                    kullrom_id = fellesrom_stprog_rom_id + ":%s:%s" % (kull, sem)
+                    register_room(kullrom_title, kullrom_id,
+                              fellesrom_sted_id,
+                              profile=romprofil_id['studieprogram'])
+
+                    # Gi studiekullgruppen rettigheter i kullrommet
+                    register_room_acl(kullrom_id, fronter_gname,
+                                      uit_fronter_lib.Fronter.ROLE_WRITE)
+
+                elif subg_name_el[-1] == 'studieleder-program':
+                    fellesrom_rolle_id = fellesrom_sted_id + ':studieleder-program'
+                    register_group("Studieledere for program", fellesrom_rolle_id, fellesrom_sted_id)
                     register_group(
                         "Studieledere for program %s" % stprog.upper(),
-                        fronter_gname, fellesrom_studieledere_id,
+                        fronter_gname, fellesrom_rolle_id,
                         allow_contact=True)
-                    # Gi studieleder-gruppen 'slette'-rettighet i
-                    # studieprogrammets fellesrom.
+                    # Gi studieleder-gruppen 'slette'-rettighet i studieprogrammets fellesrom.
                     register_room_acl(fellesrom_stprog_rom_id, fronter_gname,
-                                       uit_fronter_lib.Fronter.ROLE_DELETE)
+                                       uit_fronter_lib.Fronter.ROLE_CHANGE)
+
+                elif subg_name_el[-1] == 'lærer-kull':
+                    fellesrom_rolle_id = fellesrom_sted_id + \
+                                                ':lærer-kull'
+                    register_group("Lærere for kullprogram", fellesrom_rolle_id,
+                                   fellesrom_sted_id)
+
+                    kull =  subg_name_el[-3]
+                    sem =  subg_name_el[-2]
+                    register_group(
+                        "Lærere på %s (Kull %s %s)" %
+                        (stprog.upper(),kull,sem),
+                        fronter_gname, fellesrom_rolle_id,
+                        allow_contact=True)
+
+                    # Registrere rom for kullet
+                    kullrom_title = "%s (Kull %s %s)" % (stprog.upper(), kull, sem)
+                    kullrom_id = fellesrom_stprog_rom_id + ":%s:%s" % (kull, sem)
+                    register_room(kullrom_title, kullrom_id,
+                              fellesrom_sted_id,
+                              profile=romprofil_id['studieprogram'])
+
+                    # Gi lærere rettigheter i kullrommet
+                    register_room_acl(kullrom_id, fronter_gname,
+                                      uit_fronter_lib.Fronter.ROLE_DELETE)
+
+                elif subg_name_el[-1] == 'studieleder-kull':
+                    fellesrom_rolle_id = fellesrom_sted_id + \
+                                                ':studieleder-kull'
+                    register_group("Studieledere for kullprogram", fellesrom_rolle_id,
+                                   fellesrom_sted_id)
+
+                    kull =  subg_name_el[-3]
+                    sem =  subg_name_el[-2]
+                    register_group(
+                        "Studieledere på %s (Kull %s %s)" %
+                        (stprog.upper(),kull,sem),
+                        fronter_gname, fellesrom_rolle_id,
+                        allow_contact=True)
+
+                    # Registrere rom for kullet
+                    kullrom_title = "%s (Kull %s %s)" % (stprog.upper(), kull, sem)
+                    kullrom_id = fellesrom_stprog_rom_id + ":%s:%s" % (kull, sem)
+                    register_room(kullrom_title, kullrom_id,
+                              fellesrom_sted_id,
+                              profile=romprofil_id['studieprogram'])
+
+                    # Gi studieledere rettigheter i kullrommet
+                    register_room_acl(kullrom_id, fronter_gname,
+                                      uit_fronter_lib.Fronter.ROLE_CHANGE)
+
+
                 else:
                     raise RuntimeError, \
                           "Ukjent studieprogram-gruppe: %r" % (gname,)
@@ -547,18 +727,23 @@ def main():
                                              sem[0])),
             ('foreleser', 'Forelesere %s %s' % (sem[1].upper(),
                                                 sem[0])),
+            ('fagansvarlig', 'Fagansvarlige %s %s' % (sem[1].upper(),
+                                                sem[0])),
+            ('gruppelære', 'Gruppelærere %s %s' % (sem[1].upper(),
+                                                sem[0])),
             #('studieleder', 'Studieledere %s %s' % (sem[1].upper(),
             #                                        sem[0]))
             ):
             node_id = sem_node_id + ':' + suffix
             register_group(title, node_id, sem_node_id)
+            print "GROUP_REG", node_id
 
     brukere_id= 'STRUCTURE:%s:fs:brukere' % cereconf.INSTITUTION_DOMAIN_NAME
     register_group('Brukere', brukere_id, root_node_id)
 
     fellesrom_id = 'STRUCTURE:%s:fs:fellesrom' % \
                    cereconf.INSTITUTION_DOMAIN_NAME
-    register_group('Fellesrom', fellesrom_id, root_node_id)
+    register_group('Studieprogram', fellesrom_id, root_node_id)
 
     # Populer dicter for "emnekode -> emnenavn" og "fakultet ->
     # [emnekode ...]".
@@ -588,6 +773,34 @@ def main():
             stprog_info[stprog] = {'fak': faknr}
     access_FS.studieprog_xml_parser(default_studieprog_file,
                                     finn_stprog_info)
+
+
+    undakt_info = {}
+    # cache undervisningsaktiviteter
+    # <undakt institusjonsnr="186" emnekode="BIO-2300" versjonskode="1" terminkode="HØST" arstall="2009" terminnr="1" aktivitetkode="2-2" undpartilopenr="2" disiplinkode="TEORI" undformkode="KOL" aktivitetsnavn="Kollokvier gr. 2 (Farmasi)"/>
+
+    def cache_UA_helper(el_name, attrs):
+        if el_name == 'undakt':
+
+            emnekode = attrs['emnekode'].lower()
+            aktivitetkode = attrs['aktivitetkode']
+            aktivitetsnavn = attrs['aktivitetsnavn']
+
+            emne_undakt = undakt_info.get(emnekode, None)
+            if emne_undakt is None:
+                emne_undakt = {}
+
+            emne_undakt[aktivitetkode] = {'aktivitetsnavn': aktivitetsnavn}
+
+            undakt_info[emnekode] = emne_undakt
+
+    logger.info("Leser XML-fil: %s",  default_undakt_file)
+    undakt_xml_parser(
+        default_undakt_file,
+        cache_UA_helper)
+
+    print undakt_info
+
     # Henter ut ansatte per fakultet
     fak_temp = fak_emner.keys() # UIT
     fak_temp.append(74) # UIT. We add 74 (which is UVETT)
@@ -650,10 +863,14 @@ def main():
     register_group("Avdeling for kunstfag", "STRUCTURE:uit.no:fs:fellesrom:186:840000", "STRUCTURE:uit.no:fs:fellesrom", allow_room=True)
 
 
-    register_spread_groups(emne_info, stprog_info)
+    #print "##BEFORE##"
+
+    register_spread_groups(emne_info, stprog_info, undakt_info)
 
     output_group_xml()
+    #print "##ROOMS##"
     for room, data in new_rooms.iteritems():
+        #print room
         fxml.room_to_XML(data['CFid'], uit_fronter_lib.Fronter.STATUS_ADD, data)
 
     for node, data in new_acl.iteritems():
@@ -664,7 +881,9 @@ def main():
     ##for gname,member in new_groupmembers.iteritems():
     ##    print "gname = %s,member = %s" %(gname,member)
 
+    #print "##GNAMES##"
     for gname, members in new_groupmembers.iteritems():
+        #print gname
         fxml.personmembers_to_XML(gname, uit_fronter_lib.Fronter.STATUS_ADD,
                                   members)
     fxml.end()

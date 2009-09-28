@@ -55,7 +55,12 @@ skipped=added=updated=unchanged=deletedaff=0
 db=Factory.get('Database')()
 db.cl_init(change_program='process_systemx')
 co=Factory.get('Constants')(db)
+#Used for touching spreads
+s_acc = Factory.get('Account')(db)
 logger=Factory.get_logger("cronjob")
+
+# Used for getting OU names
+name_ou = Factory.get('OU')(db)
 
 sys_x_affs = {}
 
@@ -68,12 +73,13 @@ def get_existing_accounts():
     ou_stedkode_mapping = {}
     for stedkode in stedkoder:
         ou_stedkode_mapping[stedkode['ou_id']] = str(stedkode['fakultet']).zfill(2) + str(stedkode['institutt']).zfill(2) + str(stedkode['avdeling']).zfill(2)
-
-
-
-        
+    
     #get persons that comes from sysX and their accounts
     pers=Factory.get("Person")(db)
+
+    # getting deceased persons
+    deceased = pers.list_deceased()
+
     tmp_persons={}
     logger.info("Loading persons...")
     pid2sysxid={}
@@ -84,6 +90,9 @@ def get_existing_accounts():
             pid2sysxid[int(row['entity_id'])]=int(row['external_id'])
             sysx2pid[int(row['external_id'])]=int(row['entity_id'])
             tmp_persons[int(row['external_id'])]=ExistingPerson()
+
+            if deceased.has_key(int(row['entity_id'])):
+               tmp_persons[int(row['external_id'])].set_deceased_date(deceased[int(row['entity_id'])])
 
     for row in pers.list_affiliations(
         source_system=co.system_x,
@@ -226,7 +235,7 @@ def send_mail(type, person_info, account_id):
         recipient=person_info.get('ansvarlig_epost')
         person_info['AD_MSG']=""
         if 'AD_account' in person_info.get('spreads'):
-            person_info['AD_MSG']="Merk: Personen har ikke fått generert AD konto enda. Dette må gjøres i samarbeid med den lokale IT-avdelingen."
+            person_info['AD_MSG']="Merk: Personen har ikke fått ferdigstilt AD konto enda. Dette må gjøres i samarbeid med den lokale IT-avdelingen."
     elif type=='bruker':
         recipient=person_info.get('bruker_epost',None)
         if recipient in (None,""):
@@ -258,6 +267,10 @@ def send_mail(type, person_info, account_id):
     debug=dryrun
     ret=Utils.mail_template(recipient, template, sender=sender, cc=cc,
                 substitute=person_info, charset='utf-8', debug=debug)
+    if type=='ansvarlig':
+        ret2=Utils.mail_template(cereconf.ORAKEL_RECIPIENT, template, sender=sender, cc=None,
+                    substitute=person_info, charset='utf-8', debug=debug)
+
     if debug:
         print "DRYRUN: mailmsg=\n%s" % ret
         
@@ -386,6 +399,8 @@ def _update_email(acc_id,bruker_epost):
         logger.debug("Email update not needed old=new='%s'" % (current_email))
 
 
+import htmlentitydefs
+import re
 
 class Build(object):
 
@@ -399,6 +414,32 @@ class Build(object):
         self.posix_group=gr.entity_id
         self.num_expired=0
         
+
+    # RMI000 2009-05-07
+    # convert_entity and unquote_html should be utility functions. 
+    # They are placed here because I need them NOW, but I can't say
+    # if they will work well enough to be available for general use.
+    # This is a good place to test them over time before moving them
+    # to a more suitable location - if they prove useful and robust
+    # enough.
+    def convert_entity(self, chunk):
+        """Convert a HTML entity into ISO character"""
+        if chunk.group(1)=='#':
+            try:
+                return chr(int(chunk.group(2)))
+            except ValueError:
+                return '&#%s;' % chunk.group(2)
+        try:
+            return htmlentitydefs.entitydefs[chunk.group(2)]
+        except KeyError:
+            return '&%s;' % chunk.group(2)
+
+    def unquote_html(self, string):
+        """Convert a HTML quoted string into ISO string
+
+        Works with &#XX; and with &nbsp; &gt; etc."""
+        return re.sub(r'&(#?)(.+?);',self.convert_entity, string)
+
 
     def process_all(self):
         for item in sysx.sysxids.items():
@@ -502,7 +543,18 @@ class Build(object):
         current_expire= acc_obj.get_expire_date()
         new_expire=mx.DateTime.DateFrom(person_info['expire_date'])
         today= mx.DateTime.today()
-        if ((new_expire > today) and (new_expire > current_expire)):
+
+
+        # expire account if person is deceased
+        new_deceased = False
+        if p_obj.get_deceased_date() is not None:
+            new_expire = str(p_obj.get_deceased_date())
+            if current_expire != new_expire:
+                print person_info
+                logger.warn("Person deceased: %s" % ('TEST'))
+                new_deceased = True
+
+        if (((new_expire > today) and (new_expire > current_expire)) or new_deceased):
             # If new expire is later than current expire 
             # then update expire            
             changes.append(('expire_date',"%s" % new_expire))
@@ -515,6 +567,7 @@ class Build(object):
         # Check if at the affiliation from SystemX could qualify for exchange_mailbox spread
         could_have_exchange = False
         got_exchange = False
+        got_sut = False
         person_sko = sys_x_affs[sysx_id]
 
         # No external codes should have exchange spread, except GENØK (999510)
@@ -532,16 +585,26 @@ class Build(object):
         tmp_spread=[int(co.Spread('ldap@uit'))]
         for s in person_info.get('spreads'):
             tmp_spread.append(int(co.Spread(s)))
+
             if s=='SUT@uit':
+                got_sut = True
                 tmp_spread.append(int(co.Spread('fd@uit')))
             elif s=="AD_account" and could_have_exchange:
                 got_exchange = True
                 tmp_spread.append(int(co.Spread('exchange_mailbox')))
         if not got_exchange:
-            tmp_spread.append(int(co.Spread('sut_mailbox')))        
+            tmp_spread.append(int(co.Spread('sut_mailbox')))
+            if not got_sut:
+                tmp_spread.append(int(co.Spread('SUT@uit')))
 
 
         sysX_spreads=Set(tmp_spread)
+
+        # Set spread expire date
+        # Use new_expire in order to guarantee that SystemX specific spreads get SystemX specific expiry_dates
+        for ss in sysX_spreads:
+            s_acc.set_spread_expire(spread=ss, expire_date=new_expire, entity_id=acc_id)
+
         cb_spreads=Set(acc_obj.get_spreads())
         to_add=sysX_spreads - cb_spreads
 
@@ -560,12 +623,30 @@ class Build(object):
             if co.quarantine_sys_x_approved not in acc_obj.get_quarantines():
                 changes.append(('quarantine_add',co.quarantine_sys_x_approved))
 
+
         if changes:
+
             logger.debug("Changes [%i/%s]: %s" % (
                 acc_id, 
                 sysx_id, 
                 repr(changes)))
             _handle_changes(acc_id,changes)
+
+
+            # Add info for template and obfuscate fnr
+            if person_info['personnr'] != '':
+                person_info['personnr'] = person_info['personnr'][0:6] + "xxxxx"
+            person_info['ou_navn'] = 'N/A'
+
+            name_ou.clear()
+            try:
+                name_ou.find_stedkode(int(person_info['ou'][0:2]), int(person_info['ou'][2:4]), int(person_info['ou'][4:6]), cereconf.DEFAULT_INSTITUSJONSNR)
+                person_info['ou_navn'] = name_ou.name
+            except Exception, m:
+                logger.warn('OU not found from stedkode: %s. Error was: %s' % (person_info['ou'], m))
+
+            person_info['kontaktinfo'] = self.unquote_html(person_info['kontaktinfo']).replace('<br/>', '\n')
+
             mailq.append( {
                 'account_id': acc_id,
                 'person_info': person_info, 
@@ -653,6 +734,7 @@ class ExistingPerson(object):
         self._groups=[]
         self._spreads=[]
         self._accounts=[]
+        self._deceased_date = None
 
     def append_affiliation(self, affiliation, ou_id, status):
         self._affs.append((affiliation, ou_id, status))
@@ -681,6 +763,11 @@ class ExistingPerson(object):
     def get_account(self):
         return self._accounts[0]
 
+    def set_deceased_date(self,deceased_date):
+        self._deceased_date = deceased_date
+
+    def get_deceased_date(self):
+        return self._deceased_date
 
 def main():
     global sysx

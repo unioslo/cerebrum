@@ -249,6 +249,7 @@ class group_tree(object):
         pass
 
     def list_matches(self, gtype, data, category):
+
         if self.users:
             raise RuntimeError, \
                   "list_matches() not overriden for user-containing group."
@@ -259,6 +260,7 @@ class group_tree(object):
                 #logger.debug("match")
                 yield match
     def list_matches_1(self, *args, **kws):
+
         ret = [x for x in self.list_matches(*args, **kws)]
         if len(ret) == 1:
             return ret
@@ -311,8 +313,10 @@ class group_tree(object):
                 del sub_ids[member_id]
             else:
                 db_group.remove_member(member_id)
+
                 if member_type == const.entity_group:
                     destroy_group(member_id, self.max_recurse)
+
         for member_id in sub_ids.iterkeys():
             db_group.add_member(member_id)
         # Synkroniser gruppens spreads med lista angitt i
@@ -427,7 +431,7 @@ class fs_undenh_1(fs_undenh_group):
             return ()
         if access_FS.roles_xml_parser.target_key in data:
             target = data[access_FS.roles_xml_parser.target_key]
-            if not (len(target) == 1 and target[0] == 'undenh'):
+            if not (len(target) == 1 and (target[0] == 'undenh' or (target[0] == 'undakt' and category == 'gruppelære'))):
                 return ()
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
             return ()
@@ -440,8 +444,13 @@ class fs_undenh_2(fs_undenh_group):
 
     def __init__(self, parent, ue):
         super(fs_undenh_2, self).__init__(parent)
+
         self._prefix = (ue['arstall'], ue['terminkode'])
         self.child_class = fs_undenh_3
+
+        #if not ue.has_key('status_eksport_lms') or ue['status_eksport_lms'] == 'J':
+        #    self.spreads = (const.spread_uit_fronter,)
+
 
     def description(self):
         return ("Supergruppe for alle %s sine FS-undervisningsenhet-grupper"
@@ -463,6 +472,7 @@ class fs_undenh_3(fs_undenh_group):
     max_recurse = 1
 
     def __init__(self, parent, ue):
+
         super(fs_undenh_3, self).__init__(parent)
         self._prefix = (ue['emnekode'], ue['versjonskode'], ue['terminnr'])
         multi_id = ":".join([str(x)
@@ -471,7 +481,8 @@ class fs_undenh_3(fs_undenh_group):
         self.ue_versjon.setdefault(multi_id, {})[ue['versjonskode']] = 1
         self.ue_termin.setdefault(multi_id, {})[ue['terminnr']] = 1
         self._multi_id = multi_id
-        self.spreads = (const.spread_uit_fronter,)
+        if not ue.has_key('status_eksport_lms') or ue['status_eksport_lms'] == 'J':
+            self.spreads = (const.spread_uit_fronter,)
 
     def multi_suffix(self):
         multi_suffix = []
@@ -499,23 +510,33 @@ class fs_undenh_3(fs_undenh_group):
 
     def add(self, ue):
         children = self.subnodes
-        #for category in ('student', 'foreleser', 'studieleder'):
-        for category in ('student', 'foreleser'):
+        for category in ('student', 'foreleser', 'fagansvarlig'):
             gr = fs_undenh_users(self, ue, category)
             if gr in children:
-                logger.warn('Undervisningsenhet %r forekommer flere ganger.',
-                            ue)
+                logger.warn('Undervisningsenhet %r forekommer flere ganger.', ue)
                 continue
             children[gr] = gr
-        
-        if 'aktivitetkode' in ue:
-            gr = fs_undakt_users(self, ue, 'undakt')
-            if gr in children:
-                logger.warn('Undervisningsaktivitet %r forekommer flere ganger.',
-                            ue)
-            else:
-                children[gr] = gr
 
+        #if (ue.get('aktivitetkode', '') != ''):
+        #    gr = fs_undenh_users(self, ue, 'gruppelære')
+        #    if gr in children:
+        #        logger.warn('Undervisningsenhet %r forekommer flere ganger.', ue)
+        #        continue
+        #    children[gr] = gr
+
+
+        if 'aktivitetkode' in ue:
+            gr1 = fs_undakt_users(self, ue, 'undakt')
+            if gr1 in children:
+                logger.warn('Undervisningsaktivitet %r forekommer flere ganger.', ue)
+            else:
+                children[gr1] = gr1
+
+            gr2 = fs_undakt_users(self, ue, 'gruppelære')
+            if gr2 in children:
+                logger.warn('Undervisningsaktivitet (gruppelærer) %r forekommer flere ganger.', ue)
+            else:
+                children[gr2] = gr2
 
 class fs_undenh_users(fs_undenh_group):
 
@@ -533,8 +554,10 @@ class fs_undenh_users(fs_undenh_group):
             return "Studenter på %s" % (emne,)
         elif ctg == 'foreleser':
             return "Forelesere på %s" % (emne,)
-        #elif ctg == 'studieleder':
-        #    return "Studieledere på %s" % (emne,)
+        elif ctg == 'fagansvarlig':
+            return "Fagansvarlige på %s" % (emne,)
+        elif ctg == 'gruppelære':
+            return "Gruppelærere på %s" % (emne,)
         else:
             raise ValueError, "Ukjent UE-bruker-gruppe: %r" % (ctg,)
 
@@ -554,17 +577,21 @@ class fs_undenh_users(fs_undenh_group):
 
 class fs_undakt_users(fs_undenh_group):
 
-    def __init__(self, parent, ue, category):        
+    def __init__(self, parent, ue, category):
         super(fs_undakt_users, self).__init__(parent)
         self._aktivitetkode=ue['aktivitetkode']
         self._name=(category,self._aktivitetkode)
         self._emnekode = ue['emnekode']
+        if ue['status_eksport_lms'] == 'J':
+            self.spreads = (const.spread_uit_fronter,)
 
     def description(self):
         ctg = self._name[0]
         emne = self._emnekode + self.parent.multi_suffix()
         if ctg == 'undakt':
-            return "Personer på %s (%s)" % (emne,self._aktivitetkode)
+            return "Personer på %s (%s)" % (emne, self._aktivitetkode)
+        elif ctg == 'gruppelære':
+            return "Gruppelærere på %s (%s)" % (emne, self._aktivitetkode)
         else:
             raise ValueError, "Ukjent UA-bruker-gruppe: %r" % (ctg,)
 
@@ -582,6 +609,8 @@ class fs_undakt_users(fs_undenh_group):
                         fnr, self.name(), user)
             return
         self.users[fnr] = user
+
+
 
 class fs_stprog_group(group_tree):
 
@@ -623,7 +652,7 @@ class fs_stprog_1(fs_stprog_group):
             return ()
         if access_FS.roles_xml_parser.target_key in data:
             target = data[access_FS.roles_xml_parser.target_key]
-            if not (len(target) == 1 and target[0] == 'stprog'):
+            if not (len(target) == 1 and (target[0] == 'stprog' or target[0] == 'kull')):
                 return ()
         if data.get('institusjonsnr', self._prefix[0]) <> self._prefix[0]:
             return ()
@@ -648,7 +677,7 @@ class fs_stprog_2(fs_stprog_group):
         # Det skal lages to grener under hver gruppe på dette nivået.
         old = self.child_class
         try:
-            for child_class in (fs_stprog_3_kull, fs_stprog_3_rolle):
+            for child_class in (fs_stprog_3_kull, fs_stprog_3_roller_program, fs_stprog_3_roller_kull):
                 self.child_class = child_class
                 super(fs_stprog_2, self).add(stprog)
         finally:
@@ -669,7 +698,8 @@ class fs_stprog_3_kull(fs_stprog_group):
         self._prefix = ('studiekull',)
         self._studieprog = stprog['studieprogramkode']
         self.child_class = fs_stprog_kull_users
-        self.spreads = (const.spread_uit_fronter,)
+        if stprog['status_eksport_lms'] == 'J':
+            self.spreads = (const.spread_uit_fronter,)
 
     def description(self):
         return ("Supergruppe for studiekull-grupper knyttet til"
@@ -680,8 +710,15 @@ class fs_stprog_3_kull(fs_stprog_group):
         # list_matches()-metodene, da den også gjør opprettelse av
         # kullkode-spesifikke subgrupper når det er nødvendig.
         ret = []
+
+        #if data.has_key('arstall') and not data.has_key('arstall_kull'):
+        #    data['arstall_kull'] = data['arstall']
+        #if data.has_key('terminkode') and not data.has_key('terminkode_kull'):
+        #    data['terminkode_kull'] = data['terminkode']
+
         for subg in self.subnodes.itervalues():
             ret.extend([m for m in subg.list_matches(gtype, data, category)])
+
         if (not ret) and (data.has_key('arstall_kull')
                           and data.has_key('terminkode_kull')):
             ret.extend(self.add(data))
@@ -748,16 +785,17 @@ class fs_stprog_kull_users(fs_stprog_group):
         self.users[fnr] = user
 
 
-class fs_stprog_3_rolle(fs_stprog_group):
+class fs_stprog_3_roller_program(fs_stprog_group):
 
     max_recurse = 1
 
     def __init__(self, parent, stprog):
-        super(fs_stprog_3_rolle, self).__init__(parent)
-        self._prefix = ('rolle',)
+        super(fs_stprog_3_roller_program, self).__init__(parent)
+        self._prefix = ('rolle-program',)
         self._studieprog = stprog['studieprogramkode']
-        self.child_class = fs_stprog_rolle_users
-        self.spreads = (const.spread_uit_fronter,)
+        self.child_class = fs_stprog_roller_program_users
+        if stprog['status_eksport_lms'] == 'J':
+            self.spreads = (const.spread_uit_fronter,)
 
     def description(self):
         return ("Supergruppe for personrolle-grupper knyttet til"
@@ -765,7 +803,7 @@ class fs_stprog_3_rolle(fs_stprog_group):
 
     def add(self, stprog):
         children = self.subnodes
-        for category in ('studieleder',):
+        for category in ('studieleder-program', ):
             gr = self.child_class(self, stprog, category)
             if gr in children:
                 logger.warn('Studieprogram %r forekommer flere ganger.',
@@ -774,19 +812,21 @@ class fs_stprog_3_rolle(fs_stprog_group):
             children[gr] = gr
 
 
-class fs_stprog_rolle_users(fs_stprog_group):
+class fs_stprog_roller_program_users(fs_stprog_group):
 
     max_recurse = 0
 
     def __init__(self, parent, stprog, category):
-        super(fs_stprog_rolle_users, self).__init__(parent)
+        super(fs_stprog_roller_program_users, self).__init__(parent)
         self._studieprog = stprog['studieprogramkode']
         self._name = (category,)
 
     def description(self):
         category = self._name[0]
-        if category == 'studieleder':
-            return ("Studieledere på studieprogrammet %r" % self._studieprog)
+        if category == 'lærer-program':
+            return ("Lærere på studieprogrammet %r" % self._studieprog)
+        elif category == 'studieleder-program':
+            return ("Studieleder på studieprogrammet %r" % self._studieprog)
         raise ValueError("Ugyldig kategori: %r" % category)
 
     def list_matches(self, gtype, data, category):
@@ -796,6 +836,102 @@ class fs_stprog_rolle_users(fs_stprog_group):
     def add(self, user):
         fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         # TBD: Key on account_id (of primary user) instead?
+        if fnr in self.users:
+            logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
+                        " flere ganger (XML = %r).",
+                        fnr, self.name(), user)
+            return
+        self.users[fnr] = user
+
+
+
+class fs_stprog_3_roller_kull(fs_stprog_group):
+
+    max_recurse = 1
+
+    def __init__(self, parent, stprog):
+        super(fs_stprog_3_roller_kull, self).__init__(parent)
+        self._prefix = ('rolle-kull',)
+        self._studieprog = stprog['studieprogramkode']
+        self.child_class = fs_stprog_roller_kull_users
+        if stprog['status_eksport_lms'] == 'J':
+            self.spreads = (const.spread_uit_fronter,)
+
+    def description(self):
+        return ("Supergruppe for personrolle-grupper knyttet til"
+                " studieprogrammet %r" % (self._studieprog,))
+
+    def list_matches(self, gtype, data, category):
+        # Denne metoden er litt annerledes enn de andre
+        # list_matches()-metodene, da den også gjør opprettelse av
+        # kullkode-spesifikke subgrupper når det er nødvendig.
+        ret = []
+        for subg in self.subnodes.itervalues():
+            ret.extend([m for m in subg.list_matches(gtype, data, category)])
+        #if category in ('studieleder-kull', 'lærer-kull'):
+        if (not ret) and (data.has_key('arstall')
+                          and data.has_key('terminkode')):
+            ret.extend(self.add(data))
+        return ret
+
+    def add(self, stprog):
+        children = self.subnodes
+        ret = []
+        for category in ('studieleder-kull', 'lærer-kull'):
+            # Fila studieprog.xml inneholder ikke noen angivelse av
+            # hvilke studiekull som finnes; den lister bare opp
+            # studieprogrammene.
+            #
+            # Opprettelse av grupper for de enkelte studiekullene
+            # utsettes derfor til senere (i.e. ved parsing av
+            # roles.xml); se metoden list_matches over.
+            if (stprog.has_key('arstall')
+                and stprog.has_key('terminkode')):
+                gr = self.child_class(self, stprog, category)
+                if gr in children:
+                    logger.warn("Kull for studieprogram %r forekommer flere ganger.", stprog)
+                    continue
+                children[gr] = gr
+                ret.append(gr)
+        # TBD: Bør, bl.a. for konsistensens skyld, alle .add()-metoden
+        # returnere noe?  Denne .add()-metodens returverdi brukes av
+        # .list_matches()-metoden like over.
+        return ret
+
+
+class fs_stprog_roller_kull_users(fs_stprog_group):
+
+    max_recurse = 0
+
+    def __init__(self, parent, stprog, category):
+        super(fs_stprog_roller_kull_users, self).__init__(parent)
+        self._name = (category,)
+        self._prefix = (stprog['arstall'], stprog['terminkode'])
+        self._studieprog = stprog['studieprogramkode']
+
+    def description(self):
+        category = self._name[0]
+        if category == 'studieleder-kull':
+            return ("Studieledere på kull %s %s i"
+                    " studieprogrammet %r" % (self._prefix[1],
+                                              self._prefix[0],
+                                              self._studieprog))
+        elif category == 'lærer-kull':
+            return ("Lærere på kull %s %s i"
+                    " studieprogrammet %r" % (self._prefix[1],
+                                              self._prefix[0],
+                                              self._studieprog))
+        raise ValueError("Ugyldig kategori: %r" % category)
+
+    def list_matches(self, gtype, data, category):
+        if (data.get('arstall', self._prefix[0]) == self._prefix[0]
+            and data.get('terminkode', self._prefix[1]) == self._prefix[1]
+            and category == self._name[0]):
+            yield self
+
+
+    def add(self, user):
+        fnr = "%06d%05d" % (int(user['fodselsdato']), int(user['personnr']))
         if fnr in self.users:
             logger.warn("Bruker %r forsøkt meldt inn i gruppe %r"
                         " flere ganger (XML = %r).",
@@ -927,7 +1063,6 @@ def prefetch_primaryusers():
         p_id = int(row['entity_id'])
         fnr = row['external_id']
         src_sys = int(row['source_system'])
-        #print "LOADED: p_id: %s, fnr: '%s', src_sys: %s" % (row['entity_id'],row['external_id'],row['source_system'])
         if fnr_source.has_key(fnr) and fnr_source[fnr][0] <> p_id:
             # Multiple person_info rows have the same fnr (presumably
             # the different fnrs come from different source systems).
@@ -945,20 +1080,16 @@ def prefetch_primaryusers():
             # if the old row has an entry in fnr2account_id, delete
             # it.
             if fnr2account_id.has_key(fnr):
-                #print "deleting fnr=%s"
                 del fnr2account_id[fnr]
         fnr_source[fnr] = (p_id, src_sys)
         if personid2accountid.has_key(p_id):
             account_ids = personid2accountid[p_id]
 ##             for acc in account_ids:
 ##                 account_id2fnr[acc] = fnr
-            #print "adding fnr=%s: %s" % (fnr,account_ids)
             fnr2account_id[fnr] = account_ids
         else:
             pass
-            #print "dropping fnr=%s, not in personis2accountid" % (fnr)
     del fnr_source
-    #print fnr2account_id
     logger.debug("Ferdig: prefetch_primaryusers()")
 
 def init_globals():
@@ -1068,35 +1199,61 @@ def main():
             return
         rolle = attrs['rollekode']
         target = attrs[access_FS.roles_xml_parser.target_key]
+
         if len(target) != 1:
             return
         target = target[0]
-        if target in ('undenh', 'stprog'):
-            #UIT: endret denne linja: if rolle == 'FORELESER':
-            if rolle in ['ANSVLEDER','ASSISTENT','FAGANSVARL','FORELESER',
-                         'GRUPPELÆRE','HOVEDLÆRER','KONTAKT','LÆRER',
-                         'SENSOR','VEILEDER']:
-                logger.debug("1.rolle_helper: rolle=%s, sjekker list_matches(undenh,attrs,foreleser)" % rolle)
 
-                for ue_foreleser in fs_super.list_matches('undenh', attrs,
-                                                          'foreleser'):
+        if target == 'undenh':
+            # Gruppe for fagansvarlige i emnerom
+            if rolle in ['DLO', 'FAGANSVARL','HOVEDLÆRER','STUDIEKONS']:
+                logger.debug("1.rolle_helper: rolle=%s, sjekker list_matches(undenh,attrs,fagansvarlig)" % rolle)
+                for ue_fagansvarlig in fs_super.list_matches('undenh', attrs, 'fagansvarlig'):
                     logger.debug("1.1.adding: %s" % attrs)
-                    ue_foreleser.add(attrs)
-                #for und_foreleser in fs_super.list_matches('undakt', attrs,'foreleser'):#uit
-                #    logger.debug("1.2.adding: %s" % attrs)
-                #    und_foreleser.add(attrs) # uit
-                    
-            if rolle in ['ANSVLEDER',]:
+                    ue_fagansvarlig.add(attrs)
+            # Gruppe for forelesere i emnerom
+            if rolle in ['LÆRER', 'FORELESER', 'GJESTEFOR', 'GRUPPELÆRE']:
                 logger.debug("2.rolle_helper: rolle=%s, sjekker list_matches(undenh,attrs,foreleser)" % rolle)
-                #for ue_studieleder in fs_super.list_matches('undenh', attrs,
-                #                                            'studieleder'):
-                #    logger.debug("2.1 adding: %s" % attrs)
-                #    ue_studieleder.add(attrs)
-                for stpr_studieleder in fs_super.list_matches('studieprogram',
-                                                              attrs,
-                                                              'studieleder'):
-                    logger.debug("2.2.adding: %s" % attrs)
+                for ue_foreleser in fs_super.list_matches('undenh', attrs, 'foreleser'):
+                    logger.debug("2.1.adding: %s" % attrs)
+                    ue_foreleser.add(attrs)
+
+            # Gruppe for gruppelærere
+            #if rolle in ['GRUPPELÆRE', ]:
+            #    logger.debug("7.rolle_helper: rolle=%s, sjekker list_matches(undenh,attrs,gruppelære)" % rolle)
+            #    for ue_gruppelarer in fs_super.list_matches('undenh', attrs, 'gruppelære'):
+            #        logger.debug("7.1.adding: %s" % attrs)
+            #        ue_gruppelarer.add(attrs)
+
+        elif target == 'stprog' or target == 'kull':
+            # Gruppe for studieledere i fellesrom for studieprogram
+            if rolle in ['DLO', 'FAGANSVARL','HOVEDLÆRER','STUDIEKONS']:
+                logger.debug("3.rolle_helper: rolle=%s, sjekker list_matches(studieprogram,attrs,studieleder-program)" % rolle)
+                for stpr_studieleder in fs_super.list_matches('studieprogram', attrs, 'studieleder-program'):
+                    logger.debug("3.1.adding: %s" % attrs)
                     stpr_studieleder.add(attrs)
+                    
+            # Gruppe for lærere i kullrom for studieprogram
+            if rolle in ['LÆRER', 'FORELESER', 'GJESTEFOR', 'GRUPPELÆRE']:
+                logger.debug("4.rolle_helper: rolle=%s, sjekker list_matches(studieprogram,attrs,lærer-kull)" % rolle)
+                for stpr_laerer in fs_super.list_matches('studieprogram', attrs, 'lærer-kull'):
+                    logger.debug("4.1.adding: %s" % attrs)
+                    stpr_laerer.add(attrs)
+            # Gruppe for studieledere i kullrom for studieprogram
+            elif rolle in ['DLO', 'FAGANSVARL','HOVEDLÆRER','STUDIEKONS']:
+                logger.debug("5.rolle_helper: rolle=%s, sjekker list_matches(studieprogram,attrs,studieleder-kull)" % rolle)
+                for stpr_studieleder in fs_super.list_matches('studieprogram', attrs, 'studieleder-kull'):
+                    logger.debug("5.1.adding: %s" % attrs)
+                    stpr_studieleder.add(attrs)
+
+        elif target == 'undakt':
+            # Gruppe for gruppelærere på undervisningsaktiviteter
+            if rolle in ['LÆRER', 'FORELESER', 'GJESTEFOR', 'GRUPPELÆRE']:
+                logger.debug("6.rolle_helper: rolle=%s, sjekker list_matches(undenh,attrs,gruppelære)" % rolle)
+                for ue_gruppelarer in fs_super.list_matches('undenh', attrs, 'gruppelære'):
+                    logger.debug("6.1.adding: %s" % attrs)
+                    ue_gruppelarer.add(attrs)
+
         elif target in ('evu',):
             logger.info("target=%s" % target)
             if rolle == 'FORELESER':
@@ -1105,6 +1262,7 @@ def main():
                 for evu_foreleser in fs_super.list_matches('evu', attrs,
                                                            "foreleser"):
                     evu_foreleser.add(attrs)
+
     
     logger.info("Leser XML-fil: %s", default_role_file)
     access_FS.roles_xml_parser(os.path.join(dump_dir, default_role_file),
