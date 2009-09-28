@@ -393,7 +393,7 @@ def valid_search(*args, **vargs):
 
 def get_tabs(current=None):
     tabs = [
-      ('Cereweb', 'cereweb', '/index'),
+      ('Cereweb', 'index', '/index'),
       ('Persons', 'person', '/person'),
       ('Accounts', 'account', '/account'),
       ('Groups', 'group', '/group'),
@@ -413,7 +413,7 @@ def get_tabs(current=None):
 
 def get_links(page):
     map = {
-        'cereweb': (
+        'index': (
             ('/index', _('Index')),
             ('/motd/all', _('View all messages')),
             ('/entity/global_historylog', _('View recent changes')),

@@ -40,17 +40,26 @@ class Main(FramesTemplate):
         self.prepare_page()
         self.prepare_messages()
 
-        try:
-            page, link = cherrypy.request.path.split('/', 2)[1:]
-        except ValueError, e:
-            page, link = "", "#"
-
+        page, link = self._get_page_and_link()
         if not hasattr(self, 'page'):
             self.page = page
 
         if not hasattr(self, 'link'):
             self.link = link
         ## cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset='+FramesTemplate.charset
+
+    def _get_page_and_link(self):
+        parts = cherrypy.request.path.split('/', 2)[1:]
+
+        page, link = "", "#"
+        if not parts:
+            return page, link
+
+        page = parts[0]
+        if len(parts) > 1:
+            link = parts[1]
+        return page, link
+
 
     def prepare_page(self):
         """Makes sure parts of the page is created only once.
