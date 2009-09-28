@@ -34,6 +34,19 @@ class UiTPersonMixin(Person.Person):
   This class provides an UiT-specific extension to the core Person class.
   """
 
+
+  def list_deceased(self):
+        ret = {}
+        for row in self.query("""
+        SELECT pi.person_id, pi.deceased_date
+        FROM [:table schema=cerebrum name=person_info] pi
+        WHERE pi.deceased_date IS NOT NULL """):
+            ret[int(row['person_id'])] = row['deceased_date']
+        return ret
+
+
+
+
   def get_primary_account(self,filter_expired=True):
     """Returns the account_id of SELF.entity_id's primary account"""
     acc = Utils.Factory.get("Account")(self._db)

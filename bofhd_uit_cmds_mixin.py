@@ -207,11 +207,14 @@ class BofhdUiTExtension(BofhdExtension):
         ("user", "history"), AccountName()) 
     def user_history(self, operator, accountname):
         account = self._get_account(accountname)
-        self._check_group_membership(operator.get_entity_id(),cereconf.ORAKEL_GROUP)
-        ret = []
-        for r in self.db.get_log_events(0, subject_entity=account.entity_id):
-            ret.append(self._format_changelog_entry(r))
-        return "\n".join(ret)
+        groups = cereconf.ORAKEL_GROUPS
+        if self._check_group_membership(operator.get_entity_id(), groups):
+            ret = []
+            for r in self.db.get_log_events(0, subject_entity=account.entity_id):
+                ret.append(self._format_changelog_entry(r))
+            return "\n".join(ret)
+        else:
+            return "Access denied"
 
 
     all_commands['user_set_expire'] = Command(
@@ -219,17 +222,27 @@ class BofhdUiTExtension(BofhdExtension):
         perm_filter='can_delete_user')
     def user_set_expire(self, operator, accountname, date):
         account = self._get_account(accountname)
-        self._check_group_membership(operator.get_entity_id(),cereconf.ORAKEL_GROUP)
-        account.expire_date = self._parse_date(date)
-        account.write_db()
-        return "OK, set expire-date for %s to %s" % (accountname, date)
 
-
-    def _check_group_membership(self,entity_id,gname):
-        if self.ba.is_group_member(entity_id,gname):
-            return True        
+        groups = cereconf.ORAKEL_GROUPS
+        if self._check_group_membership(operator.get_entity_id(), groups):
+            account.expire_date = self._parse_date(date)
+            account.write_db()
+            return "OK, set expire-date for %s to %s" % (accountname, date)
         else:
-            raise  PermissionDenied("Access denied")
-        
+            return "Access denied"
 
-# arch-tag: 85db404e-b4f2-11da-8c86-8173ccfa4bd5
+
+    def _check_group_membership(self, entity_id, gnames):
+        for gname in gnames:
+           self.logger.warning("Test if %s is member of %s" % (entity_id, gname))
+           try:
+               res = self.ba.is_group_member(entity_id, gname)
+               self.logger.warning("Result of test was: %s" % res)
+               if res:
+                   return True 
+           except Exception, e:
+               self.logger.warning("Test failed: %s" % e)
+               pass
+        return False
+        #raise  PermissionDenied("Access denied")
+ 

@@ -128,7 +128,8 @@ class SYSX:
                     'ansvarlig_epost':ansvarlig_epost,
                     'bruker_epost':bruker_epost,
                     'national_id': national_id,
-                    'approved':approved }
+                    'approved':approved,
+                    'kontaktinfo': kontaktinfo }
 
 
     def _update(self):

@@ -276,7 +276,7 @@ class UiTUndervisning(access_FS.Undervisning):
         SELECT DISTINCT
            r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
            e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll,
-           e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall
+           e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall, r.status_eksport_lms
         FROM
            fs.emne e, fs.undervisningsenhet r, fs.undaktivitet u
         WHERE
@@ -380,6 +380,33 @@ class UiTUndervisning(access_FS.Undervisning):
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
     # end list_studenter_kull
+
+
+    def list_aktiviteter(self, start_aar=time.localtime()[0],
+                         start_semester=None):
+        if start_semester is None:
+            start_semester = self.semester
+        return self.db.query("""
+        SELECT
+          ua.institusjonsnr, ua.emnekode, ua.versjonskode,
+          ua.terminkode, ua.arstall, ua.terminnr, ua.aktivitetkode,
+          ua.undpartilopenr, ua.disiplinkode, ua.undformkode, ua.aktivitetsnavn, ua.status_eksport_lms
+        FROM
+          fs.undaktivitet ua,
+          fs.arstermin t
+        WHERE
+          ua.undpartilopenr IS NOT NULL AND
+          ua.disiplinkode IS NOT NULL AND
+          ua.undformkode IS NOT NULL AND
+          ua.terminkode IN ('VÅR', 'HØST') AND
+          ua.terminkode = t.terminkode AND
+          ((ua.arstall = :aar AND
+            EXISTS (SELECT 'x' FROM fs.arstermin tt
+                    WHERE tt.terminkode = :semester AND
+                          t.sorteringsnokkel >= tt.sorteringsnokkel)) OR
+           ua.arstall > :aar)""",
+                             {'aar': start_aar,
+                              'semester': start_semester})
 
 
 class UiTEVU(access_FS.EVU):
