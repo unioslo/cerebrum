@@ -26,10 +26,7 @@ from lib import utils
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.OuDAO import OuDAO
-from lib.Searchers import OUSearcher, PersonAffiliationsSearcher
-from lib.Searchers import PersonAffiliationsOuSearcher
-from lib.templates.SearchTemplate import SearchTemplate
-from lib.templates.SearchResultTemplate import SearchResultTemplate
+from lib.AffiliatedPersonSearcher import AffiliatedPersonSearcher
 from lib.templates.OUCreateTemplate import OUCreateTemplate
 from lib.templates.OUTreeTemplate import OUTreeTemplate
 from lib.templates.OUEditTemplate import OUEditTemplate
@@ -231,25 +228,11 @@ def _get_display_name(transaction, ou):
     else:
         return utils.spine_to_web(ou.get_name())
 
-def perform_search(transaction, **vargs):
-    args = ('id', 'source', 'affiliation', 'recursive','withoutssn')
-    searcher = PersonAffiliationsOuSearcher(transaction, *args, **vargs)
-    return searcher.respond() or search_form(searcher.get_remembered())
-perform_search = utils.transaction_decorator(perform_search)
+@utils.session_required_decorator
+def perform_search(**vargs):
+    searcher = AffiliatedPersonSearcher(**vargs)
+    if not searcher.has_prerequisite():
+        utils.redirect('/ou')
+
+    return searcher.respond()
 perform_search.exposed = True
-
-def search_form(remembered):
-    page = SearchTemplate()
-    page.title = _("OU")
-    page.set_focus("ou/search")
-
-    page.search_fields = [("name", _("Name")),
-                          ("acronym", _("Acronym")),
-                          ("short", _("Short name")),
-                          ("spread", _("Spread name"))
-                          ]
-    page.search_action = '/ou/search'
-
-    page.search_title = _('OU(s)')
-    page.form_values = remembered
-    return page.respond()

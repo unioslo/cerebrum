@@ -147,8 +147,12 @@ class Searcher(object):
             self.offset + self.max_hits)
 
     def get_form(self):
-        if self.SearchForm:
-            return self.SearchForm(**self.__get_remembered())
+        if not self.SearchForm:
+            return None
+
+        values = self.__get_remembered()
+        values.update(self.form_values)
+        return self.SearchForm(**values)
 
     def render_search_form(self):
         if not self.SearchForm:
@@ -315,8 +319,10 @@ class CoreSearcher(Searcher):
     See PersonSearcher for an example of correct usage.
     """
     DAO = None
+    search_method = 'search'
     headers = ()
     columns = ()
+    __results = None
 
     def __init__(self, *args, **kwargs):
         super(CoreSearcher, self).__init__(*args, **kwargs)
@@ -334,11 +340,15 @@ class CoreSearcher(Searcher):
         return (self.form_values.get(name, '') or '').strip()
 
     def _get_results(self):
-        if not hasattr(self, '__results'):
+        if self.__results is None:
             args, kwargs = self._get_search_args()
-            self.__results = self.dao.search(*args, **kwargs)
+            fn = getattr(self.dao, self.search_method)
+            self.__results = fn(*args, **kwargs)
 
         return self.__results
+
+    def has_prerequisite(self):
+        return self.form.has_prerequisite()
 
     def get_results(self):
         if not self.is_valid():

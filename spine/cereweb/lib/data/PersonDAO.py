@@ -51,7 +51,13 @@ class PersonDAO(EntityDAO):
             results.append(dto)
         return results
 
+    def search_affiliated(self, ou_id, perspective_type, affiliation_type, recursive=False):
+        return []
+
     def get_accounts(self, *ids):
+        if not ids:
+            return []
+
         if len(ids) > 1:
             return AccountDAO(self.db).get_by_owner_ids(*ids)
 

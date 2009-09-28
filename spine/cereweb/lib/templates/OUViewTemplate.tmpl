@@ -118,27 +118,26 @@
         <h3 id="search">$_('Search affiliated persons')</h3>
         <form action="/ou/perform_search" method="post">
             <div class="hidden">
-                <input type="hidden" name="id" value="$ou.id" />
+                <input type="hidden" name="ou_id" value="$ou.id" />
             </div>
             <div class="required">
                 $form_widgets.generate_loption(
-                    "source",
+                    "perspective_type",
                     "Perspective",
-                    [($p.name, $p.name) for $p in $perspectives])
+                    [($p.id, $p.name) for $p in $perspectives])
             </div>
             <div class="required">
+                #set $affiliation_types = [($a.id, $a.name) for $a in $affiliations]
+                $affiliation_types.insert(0, ("", " - All affiliation types -"))
                 $form_widgets.generate_loption(
-                    "affiliation",
+                    "affiliation_type",
                     "Affiliation",
-                    [($a.name, $a.name) for $a in $affiliations])
+                    $affiliation_types
+                    )
             </div>
             <div class="required">
                 <label for="recursive">Recursive search:</label>
                 <input type="checkbox" name="recursive" />
-            </div>
-            <div class="required">
-                <label for="withoutssn">Without SSN:</label>
-                <input type="checkbox" name="withoutssn" id="withoutssn" />
             </div>
             <div class="buttons">
                 <input type="submit" value="$_('Search')" />

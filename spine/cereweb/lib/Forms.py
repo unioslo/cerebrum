@@ -96,6 +96,13 @@ class Form(object):
 
         return self._is_quoted_correctly
 
+    def has_prerequisite(self):
+        for field in self.fields.values():
+            if field['type'] == 'hidden' and not field['value']:
+                return False
+
+        return True
+
     def has_required(self):
         res = True
         for field in self.fields.values():
