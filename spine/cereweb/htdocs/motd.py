@@ -19,9 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from Cerebrum.Errors import NotFoundError
+from gettext import gettext as _
 
 import cjson
 from lib import utils 
+from lib.utils import transaction_decorator
 from lib.data.MotdDAO import MotdDAO
 from lib.templates.MotdTemplate import MotdTemplate
 
