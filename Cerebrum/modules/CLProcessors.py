@@ -350,9 +350,11 @@ class CreatePersonProcessor(EventProcessor):
                 logger.debug("Unable to find person with entity-id '%s'" % current_entity)
                 continue
 
-            event_rows = person.get_external_id()
-            source_as_num = event_rows[0]['source_system']
+            
+            external_id_rows = person.get_external_id()
+            source_as_num = external_id_rows[0]['source_system']
             source = str(constants.AuthoritativeSystem(source_as_num))
+                
             if source == source_system:
                 logger.debug("Source system for person '%s' is %s " % (
                     current_entity, source))
@@ -382,9 +384,13 @@ class CreatePersonProcessor(EventProcessor):
                 self._process_affiliation_rows(affiliation_rows)
             else:
                 # Need to quantify with source, since no affiliation is known.
-                event_rows = person.get_external_id()
-                source_as_num = event_rows[0]['source_system']
-                source = str(constants.AuthoritativeSystem(source_as_num))
+                try:
+                    external_id_rows = person.get_external_id()
+                    source_as_num = external_id_rows[0]['source_system']
+                    source = str(constants.AuthoritativeSystem(source_as_num))
+                except IndexError:
+                    # Person has no external IDs, so we can't find any source; ignore
+                    logger.debug("Unable to source for person with entity-id '%s'" % current_entity)
             
                 logger.debug("Source for entity '%s' determined to be %s " % (current_entity, source))
                 self._add_to_affiliation(no_affiliation + " (source: " + source + ")")
@@ -395,7 +401,11 @@ class CreatePersonProcessor(EventProcessor):
         p_ids = []
         for entity_id in self._entity_ids:
             person.clear()
-            person.find(entity_id)
+            try:
+                person.find(entity_id)
+            except NotFoundError:
+                # Entity no longer exists in database; ignore
+                continue
             p_ids.append(entity_id)
         if p_ids:
             print "Enitity ids for created persons:"
