@@ -7,6 +7,7 @@ from Cerebrum.modules.bofhd.errors import PermissionDenied
 Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")
 Person = Utils.Factory.get("Person")
+OU_class = Utils.Factory.get("OU")
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.AffiliationDAO import AffiliationDAO
@@ -17,6 +18,7 @@ from lib.data.NoteDAO import NoteDAO
 from lib.data.TraitDAO import TraitDAO
 from lib.data.EntityDTO import EntityDTO
 from lib.data.DTO import DTO
+from lib.utils import timer_decorator
 
 class PersonDAO(EntityDAO):
     def __init__(self, db=None):
@@ -29,9 +31,10 @@ class PersonDAO(EntityDAO):
 
         return self._create_dto(person, include_extra)
 
-    def search(self, name, birth_date=None):
+    def search(self, name, birth_date=None, person_id=None):
         name = name or None
         birth_date = birth_date or None
+        person_id = person_id or None
 
         if name:
             name = name.rstrip("*") + '*'
@@ -42,6 +45,7 @@ class PersonDAO(EntityDAO):
                                         name=name,
                                         birth_date=birth_date,
                                         name_variants=name_variants,
+                                        entity_id=person_id,
                                         exclude_deceased=True):
             dto = DTO.from_row(result)
             dto.id = dto.person_id
@@ -52,7 +56,29 @@ class PersonDAO(EntityDAO):
         return results
 
     def search_affiliated(self, ou_id, perspective_type, affiliation_type, recursive=False):
-        return []
+        p = Person(self.db)
+        affiliation_type = affiliation_type and int(affiliation_type) or None
+
+        ous = [int(ou_id)]
+        if recursive:
+            ou = OU_class(self.db)
+            children = ou.list_children(int(perspective_type), entity_id=ou_id, recursive=True)
+            ous.extend([c.ou_id for c in children])
+
+        rows = p.list_affiliations(
+                        affiliation=affiliation_type,
+                        ou_id=ous)
+
+        pids = [p.person_id for p in rows]
+        people = dict(
+            [(r.person_id, r) for r in self.search(name=None, person_id=pids)]
+        )
+
+        for row in rows:
+            person = people[row.person_id]
+            person.status = self.constants.PersonAffStatus(row.status)
+
+        return people.values()
 
     def get_accounts(self, *ids):
         if not ids:
