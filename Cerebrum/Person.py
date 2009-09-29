@@ -26,6 +26,7 @@ from Cerebrum.Entity import \
      EntityContactInfo, EntityAddress, EntityQuarantine, \
      EntityExternalId, EntitySpread
 from Cerebrum import Utils
+from Cerebrum.Utils import argument_to_sql
 from Cerebrum import Errors
 
 try:
@@ -900,13 +901,14 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
 
     def search(self, spread=None, name=None, description=None, birth_date=None,
-               exclude_deceased=False, name_variants=[]):
+               entity_id=None, exclude_deceased=False, name_variants=[]):
         """
         Retrieves a list over Persons filtered by the given criterias.
 
         If no criteria is given, all persons are returned. ``name``,
         ``description`` and ``birth_date`` should be strings if given.
-        ``spread`` can be either string or int.
+        ``spread`` can be either string or int, ``entity_id`` can be an int or
+        a list of ints.
         
         Wildcards * and ? are expanded for "any chars" and "one char".
 
@@ -924,6 +926,10 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         tables.append("[:table schema=cerebrum name=person_info] pi")
         tables.append("[:table schema=cerebrum name=person_name] pn")
         where.append("pi.person_id=pn.person_id")
+
+        binds = {
+            'entity_type': int(self.const.entity_person),
+        }
 
         if not name_variants:
             selects.append("pn.name AS name")
@@ -949,25 +955,32 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 where.append("LOWER(sc.code_str) LIKE :spread")
             else:
                 where.append("es.spread=:spread")
+            binds['spread'] = spread
 
         if name is not None:
             name = prepare_sql_pattern(name)
             where.append("LOWER(pn.name) LIKE :name")
+            binds['name'] = name
 
         if birth_date is not None:
             birth_date = prepare_sql_pattern(birth_date)
             where.append("birth_date = :birth_date")
+            binds['birth_date'] = birth_date
 
         if description is not None:
             description = prepare_sql_pattern(description)
             where.append("LOWER(pi.description) LIKE :description")
+            binds['description'] = description
         
         if exclude_deceased:
             where.append("pi.deceased_date IS NULL")
 
+        if entity_id is not None:
+            where.append(argument_to_sql(entity_id, "pi.person_id", binds, int))
+
         where_str = ""
         if where:
-            where_str = "WHERE " + " AND ".join(where)
+            where_str = "WHERE %s" % " AND ".join(where)
 
         selects.insert(0, """
         SELECT DISTINCT pi.person_id AS person_id,
@@ -975,9 +988,6 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 pi.birth_date AS birth_date,
                 pi.gender AS gender
                 """)
-
         select_str = ", ".join(selects)
-        return self.query(
-            select_str + " FROM %s %s" % (','.join(tables), where_str),
-            {'spread': spread, 'entity_type': int(self.const.entity_person),
-             'name': name, 'description': description, 'birth_date': birth_date})
+        from_str = "FROM %s" % ", ".join(tables)
+        return self.query("%s %s %s" % (select_str, from_str, where_str), binds)
