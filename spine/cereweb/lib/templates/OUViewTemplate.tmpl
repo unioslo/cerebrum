@@ -116,7 +116,7 @@
 #def affiliatedPersons($ou, $perspectives, $affiliations)
     <div class="edit box">
         <h3 id="search">$_('Search affiliated persons')</h3>
-        <form action="/ou/perform_search" method="post">
+        <form action="/ou/perform_search" method="get">
             <div class="hidden">
                 <input type="hidden" name="ou_id" value="$ou.id" />
             </div>
