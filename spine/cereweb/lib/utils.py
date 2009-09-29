@@ -274,6 +274,7 @@ def redirect_to_login():
         redirect('/login')
 
 def transaction_decorator(method):
+    print "DEPRECATION WARNING: %s.%s is using spine transactions." % (method.__module__, method.__name__)
     def transaction_decorator(*args, **vargs):
         cherrypy.session['timestamp'] = time.time()
         tr = new_transaction()
@@ -709,3 +710,12 @@ def get_database():
     acc = AccountDAO(db).get_by_name(user)
     db.change_by = acc.id
     return db
+
+def timer_decorator(fn):
+    def func(*args, **kwargs):
+        t = time.time()
+        retval = fn(*args, **kwargs)
+        delta = time.time() - t
+        print "%s used %s seconds." % (fn.__name__, delta)
+        return retval
+    return func
