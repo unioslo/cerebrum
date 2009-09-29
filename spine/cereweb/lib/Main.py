@@ -51,11 +51,11 @@ class Main(FramesTemplate):
     def _get_page_and_link(self):
         parts = cherrypy.request.path.split('/', 2)[1:]
 
-        page, link = "", "#"
+        page, link = "index", "#"
         if not parts:
             return page, link
 
-        page = parts[0]
+        page = parts[0] or page
         if len(parts) > 1:
             link = parts[1]
         return page, link
