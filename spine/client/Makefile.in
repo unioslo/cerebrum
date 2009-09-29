@@ -5,20 +5,37 @@
 INSTALL = @INSTALL@
 pythondir = @PYTHONDIR@
 
-.PHONY: all install install-lib clean distclean
+.PHONY: all install install-lib install-spinews clean distclean
 
 sources = $(wildcard *.py)
+spinews = spinews_services.py spinews_services_types.py
 
-all: 
 
-install: install-lib
+all: $(spinews)
+
+$(spinews): ../../Cerebrum/lib/spinews/spinews.wsdl
+	wsdl2py -f $<
+
+install: install-lib install-spinews
 
 install-lib: $(sources)
 	$(INSTALL) -d "$(pythondir)"
 	$(INSTALL) -m 644 $(sources) "$(pythondir)"
 	$(INSTALL) -m 644 ../lib/server/idl/SpineCore.idl "$(pythondir)"
 
+install-spinews: $(spinews)
+	$(INSTALL) -d "$(pythondir)/Cerebrum"
+	$(INSTALL) -m 664 ../../Cerebrum/__init__.py "$(pythondir)/Cerebrum"
+	$(INSTALL) -d "$(pythondir)/Cerebrum/lib"
+	$(INSTALL) -m 664 ../../Cerebrum/lib/__init__.py "$(pythondir)/Cerebrum/lib"
+	$(INSTALL) -d "$(pythondir)/Cerebrum/lib/spinews"
+	$(INSTALL) -m 664 ../../Cerebrum/lib/spinews/__init__.py "$(pythondir)/Cerebrum/lib/spinews"
+	$(INSTALL) -m 644 $(spinews) "$(pythondir)/Cerebrum/lib/spinews"
+	$(INSTALL) -m 644 ../../Cerebrum/lib/spinews/SignatureHandler.py "$(pythondir)"
+
+
 clean:
+	-rm $(spinews)
 
 distclean: clean
 
