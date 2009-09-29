@@ -24,7 +24,7 @@ import cherrypy
 from gettext import gettext as _
 
 from lib.Main import Main
-from lib.utils import commit_url, redirect
+from lib.utils import commit_url, redirect, session_required_decorator
 from lib import utils 
 from lib.templates.ActivityLogTemplate import ActivityLogTemplate
 from lib.templates.Confirm import Confirm
@@ -51,6 +51,7 @@ import ajax
 import motd
 from search import search
 
+@session_required_decorator
 def index():
     db = utils.get_database()
 
@@ -60,6 +61,7 @@ def index():
     return page.respond()
 index.exposed = True
 
+@session_required_decorator
 def full_activitylog():
     # No transaction decorator, so we need to check if the session is valid.
     if not utils.has_valid_session():
