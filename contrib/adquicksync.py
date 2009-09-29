@@ -64,7 +64,7 @@ def quick_user_sync():
     
     answer = cl.get_events('ad', (constants.group_add,
                                   constants.group_rem,
-                                  constants.account_password,
+#                                  constants.account_password,
                                   constants.spread_add,
                                   constants.spread_del,
                                   constants.quarantine_add,
