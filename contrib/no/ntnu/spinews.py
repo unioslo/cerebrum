@@ -1018,7 +1018,14 @@ class SecureServiceContainer(ServiceContainer):
 
     def get_request(self):
         global ca_cert
-        (conn, addr ) = self.socket.accept()
+        conn = None
+        addr = None
+        try:
+            (conn, addr ) = self.socket.accept()
+        except Exception, e:
+            if conn:
+                conn.clear
+            raise socket.error(e)
         ## check the peer's certificate
         ## should we check certificates here?
         client_cert = conn.get_peer_cert()
@@ -1029,8 +1036,10 @@ class SecureServiceContainer(ServiceContainer):
             ## more checks?
             if client_cert.verify(ca_cert.get_pubkey()):
                 return (conn, addr)
-        conn.clear()
-        return( conn, addr )
+        else:
+            if conn:
+                conn.clear()
+            raise socker.error('No client certificate found.')
 
 def RunAsServer(port=80, services=(), fork=False):
     address = ('', port)
