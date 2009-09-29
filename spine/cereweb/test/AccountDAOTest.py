@@ -171,10 +171,12 @@ class AccountDAOTest(CerebrumTestCase):
         expected.disk = DTO()
         expected.disk.id = 346782L
         expected.disk.path = '/home/ahomea'
+        expected.disk.type_name = 'disk'
         expected.disk.description = 'Ansatthjemmekataloger, filsystem 1'
         expected.disk.host = DTO()
         expected.disk.host.id = 346781L
         expected.disk.host.name = 'jak.itea.ntnu.no'
+        expected.disk.host.type_name = 'host'
         expected.disk.host.description = 'Filserver for ansatte'
         expected.status = DTO()
         expected.status.description = "Not created"

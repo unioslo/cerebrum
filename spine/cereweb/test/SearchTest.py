@@ -87,12 +87,12 @@ class SearchTest(unittest.TestCase):
     def test_that_person_search_with_output_account_returns_accounts_with_owner(self):
         expected = [{
             'type': 'account',
-            'name': 'alfarnes',
-            'id': 194356,
+            'id': 112256,
+            'name': 'aio',
             'owner': {
-                'name': 'Kjetil Boye Alfarnes',
                 'type': 'person',
-                'id': 86709,
+                'id': 3664,
+                'name': 'Alf-Ivar Oterholm'
             },
         }]
 
@@ -116,7 +116,7 @@ class SearchTest(unittest.TestCase):
 
     def _assert_that_search_is_fast_enough(self, start_time, end_time):
         delta = end_time - start_time
-        self.assert_(delta < 0.3, "Test should run in less than 0.3 seconds.  Used %s" % delta)
+        self.assert_(delta < 0.5, "Test should run in less than 0.5 seconds.  Used %s" % delta)
 
 if __name__ == '__main__':
     unittest.main()
