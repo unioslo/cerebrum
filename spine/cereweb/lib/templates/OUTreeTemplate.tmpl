@@ -62,7 +62,7 @@
 
 #def subtree($ou)
     <div class="tree">
-        $entity_link($ou, text=$spine_to_web($ou.name))
+        $entity_link($ou, text=$ou.name)
         #for $child in $ou.children
             $subtree($child)
         #end for    

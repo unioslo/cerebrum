@@ -387,6 +387,9 @@ class CoreSearcher(Searcher):
             value = self._get_column_value(row, column)
             formatter = self._get_formatter(column)
 
+            if type(value) == str:
+                value = utils.spine_to_web(value)
+
             yield formatter and formatter(value, row) or value
 
     def _get_formatter(self, name):
