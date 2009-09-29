@@ -221,13 +221,6 @@ def delete(id):
     utils.redirect('/ou/')
 delete.exposed = True
 
-def _get_display_name(transaction, ou):
-    display_name = ou.get_display_name()
-    if display_name:
-        return utils.spine_to_web(display_name)
-    else:
-        return utils.spine_to_web(ou.get_name())
-
 @utils.session_required_decorator
 def perform_search(**vargs):
     searcher = AffiliatedPersonSearcher(**vargs)
