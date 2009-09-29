@@ -1024,7 +1024,7 @@ class SecureServiceContainer(ServiceContainer):
             (conn, addr ) = self.socket.accept()
         except Exception, e:
             if conn:
-                conn.clear
+                conn.clear()
             raise socket.error(e)
         ## check the peer's certificate
         ## should we check certificates here?
