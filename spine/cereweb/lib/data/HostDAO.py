@@ -15,18 +15,29 @@ class HostDAO(object):
     def __init__(self, db=None):
         self.db = db or Database()
         self.constants = Constants(self.db)
-        self.host = Host(self.db)
 
-    def get_host(self, host_id):
-        self.host.clear()
-        self.host.find(host_id)
+    def get(self, host_id):
+        host = Host(self.db)
+        host.find(host_id)
 
         dto = DTO()
         dto.id = host_id
-        dto.name = self.host.name
+        dto.name = host.name
         dto.type_name = self._get_type_name()
-        dto.description = self.host.description
+        dto.description = host.description
+
+        self.populate_email_server(host_id, dto)
+
         return dto
+
+    def populate_email_server(self, entity_id, dto):
+        email = Email.EmailServer(self.db)
+        try:
+            email.find(entity_id)
+            dto.is_email_server = True
+            dto.email_server_type = self.constants.EmailServerType(email.email_server_type)
+        except NotFoundError, e:
+            dto.is_email_server = False
 
     def get_email_servers(self):
         email = Email.EmailServer(self.db)
@@ -57,9 +68,6 @@ class HostDAO(object):
         target.address = ea.get_address()
         return [target]
 
-    def get_hosts(self):
-        return self.search()
-
     def search(self, name=None, description=None):
         # The data set is small enough that we search within the strings.
         if name:
@@ -72,7 +80,7 @@ class HostDAO(object):
         }
 
         hosts = []
-        for host in self.host.search(**kwargs):
+        for host in Host(self.db).search(**kwargs):
             dto = DTO.from_row(host)
             dto.id = dto.host_id
             dto.type_name = self._get_type_name()

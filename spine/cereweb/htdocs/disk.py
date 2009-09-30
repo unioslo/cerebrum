@@ -22,9 +22,14 @@ import cherrypy
 
 from gettext import gettext as _
 from lib.Main import Main
-from lib.utils import commit, commit_url, object_link
-from lib.utils import transaction_decorator, redirect_object
+from lib.utils import commit, commit_url, entity_link, object_link
+from lib.utils import transaction_decorator, redirect_object, html_quote
 from lib.utils import spine_to_web, web_to_spine, session_required_decorator
+from lib.utils import get_database
+from lib.data.DiskDAO import DiskDAO
+from lib.data.TraitDAO import TraitDAO
+from lib.data.NoteDAO import NoteDAO
+from lib.data.HistoryDAO import HistoryDAO
 from lib.DiskSearcher import DiskSearcher
 from lib.templates.DiskViewTemplate import DiskViewTemplate
 from lib.templates.DiskEditTemplate import DiskEditTemplate
@@ -32,24 +37,31 @@ from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 
 @session_required_decorator
 def search(**vargs):
-    """Search after disks and displays result and/or searchform."""
+    """
+    Search after disks and displays result and/or searchform.
+
+    Will always perform a search with no arguments, returning all rows since
+    the DiskSearcher has no required fields.
+    """
     searcher = DiskSearcher(**vargs)
     return searcher.respond()
 search.exposed = True
 index = search
 
-def view(transaction, id):
+@session_required_decorator
+def view(id):
     """Creates a page with a view of the disk given by id."""
-    disk = transaction.get_disk(int(id))
+    db = get_database()
+    dao = DiskDAO(db)
+    disk = dao.get(id)
+    disk.traits = TraitDAO(db).get(id)
+    disk.notes = NoteDAO(db).get(id)
+    disk.history = HistoryDAO(db).get_entity_history_tail(id)
+
     page = DiskViewTemplate()
-    page.title = _('Disk %s') % spine_to_web(disk.get_path())
-    page.set_focus('disk/view')
-    page.entity_id = int(id)
-    page.entity = disk
-    page.tr = transaction
+    page.disk = disk
 
     return page.respond()
-view = transaction_decorator(view)
 view.exposed = True
 
 def edit(transaction, id):

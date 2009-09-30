@@ -170,3 +170,17 @@ def get_fake_posix_group():
 
     dto.expire_date = DateTime(3000, 1, 1)
     return dto
+
+ahomea = DTO()
+ahomea.id = 346782
+ahomea.path = "/home/ahomea"
+ahomea.name = "/home/ahomea"
+ahomea.description = "Ansatthjemmekataloger, filsystem 1"
+ahomea.type_name = "disk"
+ahomea.host = DTO()
+ahomea.host.id = 346781
+ahomea.host.name = "jak.itea.ntnu.no"
+ahomea.host.type_name = "host"
+ahomea.host.description = "Filserver for ansatte"
+ahomea.host.is_email_server = False
+

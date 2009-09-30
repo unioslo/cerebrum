@@ -3,6 +3,7 @@ from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 
 Database = Utils.Factory.get("Database")
+Entity = Utils.Factory.get("Entity")
 
 from lib.data.DTO import DTO
 from lib.data.EntityDAO import EntityDAO
@@ -13,6 +14,11 @@ class NoteDAO(object):
             db = Database()
         self.db = db
         self.dao = EntityDAO(self.db)
+
+    def get(self, entity_id):
+        entity = Entity(self.db)
+        entity.find(entity_id)
+        return self.create_from_entity(entity)
 
     def create_from_entity(self, entity):
         notes = []

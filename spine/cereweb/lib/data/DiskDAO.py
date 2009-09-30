@@ -27,10 +27,12 @@ class DiskDAO(object):
         dto.type_name = self._get_type_name()
         dto.description = disk.description
         dto.path = disk.path
-        dto.host = self.host_dao.get_host(disk.host_id)
+        dto.name = disk.path
+        dto.host = self.host_dao.get(disk.host_id)
+
         return dto
 
-    def search(self, path=None, description=None):
+    def search(self, path=None, description=None, host_id=None):
         # The data set is small enough that we search within the strings.
         if path:
             path = "*" + path.strip("*") + "*"
@@ -40,6 +42,7 @@ class DiskDAO(object):
         kwargs = {
             'path': path or None,
             'description': description or None,
+            'host_id': host_id or None,
         }
 
         disks = []

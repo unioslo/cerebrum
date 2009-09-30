@@ -4,6 +4,7 @@ from Cerebrum.Errors import NotFoundError
 
 Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")
+Entity = Utils.Factory.get("Entity")
 
 from lib.data.DTO import DTO
 from lib.data.EntityDAO import EntityDAO
@@ -16,6 +17,11 @@ class TraitDAO(object):
         self.constants = Constants(self.db)
         self.dao = EntityDAO(self.db)
 
+    def get(self, entity_id):
+        entity = Entity(self.db)
+        entity.find(entity_id)
+        return self.create_from_entity(entity)
+
     def create_from_entity(self, entity):
         traits = []
         for trait_type, data in entity.get_traits().items():
@@ -27,7 +33,7 @@ class TraitDAO(object):
         dto = DTO()
         dto.name = trait_type.str
         target_id = data['target_id']
-        dto.target = EntityDAO().get(target_id)
+        dto.target = self.dao.get(target_id)
         dto.number = data['numval']
         dto.string = data['strval']
         dto.date = data['date']

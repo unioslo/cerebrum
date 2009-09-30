@@ -26,6 +26,13 @@ from lib.utils import commit, commit_url, queue_message, object_link
 from lib.utils import transaction_decorator, redirect, redirect_object
 from lib.utils import rollback_url, session_required_decorator
 from lib.utils import spine_to_web, web_to_spine, url_quote
+from lib.utils import get_database
+from lib.data.ConstantsDAO import ConstantsDAO
+from lib.data.DiskDAO import DiskDAO
+from lib.data.HistoryDAO import HistoryDAO
+from lib.data.HostDAO import HostDAO
+from lib.data.NoteDAO import NoteDAO
+from lib.data.TraitDAO import TraitDAO
 from lib.HostSearcher import HostSearcher
 from lib.templates.HostViewTemplate import HostViewTemplate
 from lib.templates.HostEditTemplate import HostEditTemplate
@@ -33,30 +40,33 @@ from lib.templates.HostCreateTemplate import HostCreateTemplate
 
 @session_required_decorator
 def search(**vargs):
-    """Search for hosts and displays result and/or searchform."""
+    """
+    Search for hosts and displays result and/or searchform.
+
+    Will always perform a search with no arguments, returning all rows since
+    the HostSearcher has no required fields.
+    """
     searcher = HostSearcher(**vargs)
     return searcher.respond()
 search.exposed = True
 index = search
 
-def view(transaction, id):
+@session_required_decorator
+def view(id):
     """Creates a page with a view of the host given by id."""
-    host = transaction.get_host(int(id))
-    page = HostViewTemplate()
-    page.title = _('Host %s') % spine_to_web(host.get_name())
-    page.set_focus('host/view')
-    page.tr = transaction
+    db = get_database()
+    dao = HostDAO(db)
+    host = dao.get(id)
+    host.disks = DiskDAO(db).search(host_id=id)
+    host.traits = TraitDAO(db).get(id)
+    host.notes = NoteDAO(db).get(id)
+    host.history = HistoryDAO(db).get_entity_history_tail(id)
 
-    server_type_searcher = transaction.get_email_server_type_searcher()
-    type_names = []
-    for type in server_type_searcher.search():
-        type_name = spine_to_web(type.get_name())
-        type_names.append((type_name, type_name))
-    page.email_server_types = type_names
-    page.entity = host
-    page.entity_id = int(id)
+    page = HostViewTemplate()
+    page.host = host
+    page.email_server_types = ConstantsDAO(db).get_email_server_types()
+
     return page.respond()
-view = transaction_decorator(view)
 view.exposed = True
 
 def edit(transaction, id):
@@ -163,8 +173,8 @@ def disks(transaction, host, add=None, delete=None, **checkboxes):
 disks = transaction_decorator(disks)
 disks.exposed = True
 
-def promote_mailhost(transaction, id, type, promote=None):
-    host_type = transaction.get_email_server_type(type)
+def promote_mailhost(transaction, id, type_id, promote=None):
+    host_type = transaction.get_email_server_type(type_id)
     host = transaction.get_host(int(id))
     host.promote_email_server(host_type)
     msg = _('Host promoted to mailhost.')
