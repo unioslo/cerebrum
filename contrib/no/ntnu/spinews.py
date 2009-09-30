@@ -49,18 +49,9 @@ from Cerebrum.modules.no.ntnu import bofhd_auth
 import time
 import cerebrum_path
 from Cerebrum.Utils import Factory
-db=Factory.get("Database")(client_encoding='UTF-8')
-db.cl_init(change_program="spinews")
 
-co=Factory.get("Constants")()
-group=Factory.get("Group")(db)
-account=Factory.get("Account")(db)
-host=Factory.get("Host")(db)
-disk=Factory.get("Disk")(db)
-auth=bofhd_auth.BofhdAuth(db)
 
 from Cerebrum.Entity import EntityQuarantine
-
 
 ca_cert = None
 logger = None
@@ -81,7 +72,7 @@ class IncrementalError(Errors.CerebrumError):
     """Too large incremental range"""
 
 
-def search_persons(personspread=None, changelog_id=None):
+def search_persons(db, co, personspread=None, changelog_id=None):
     select=["person_info.person_id AS id",
             "person_info.export_id AS export_id",
             "person_full_name.name AS full_name",
@@ -192,8 +183,14 @@ def search_persons(personspread=None, changelog_id=None):
 
 
 # Merge this with Account.search()....
-def search_accounts(account_spread, changelog_id=None,
-                    auth_type=co.auth_type_md5_crypt):
+def search_accounts(account, account_spread, changelog_id=None,
+                    auth_type=None):
+    co=account.const
+    db=account._db
+
+    if auth_type is None:
+        auth_type = co.auth_type_md5_crypt
+        
     home=posix=owner=True
     
     select=["account_info.account_id AS id",
@@ -303,7 +300,10 @@ def search_accounts(account_spread, changelog_id=None,
 
 
 # Groups -- merge into Group.search()
-def search_groups(group_spread, changelog_id=None):
+def search_groups(group, group_spread, changelog_id=None):
+    co=group.const
+    db=group._db
+    
     posix=True
 
     select=["group_info.group_id AS id",
@@ -344,7 +344,7 @@ def search_groups(group_spread, changelog_id=None):
 
 
 
-def search_ous(changelog_id=None):
+def search_ous(db, co, changelog_id=None):
     stedkode=True
     contactinfo=True
     select=["ou_info.ou_id AS id",
@@ -433,10 +433,16 @@ def search_ous(changelog_id=None):
 
 
 class group_members:
-    def __init__(self, db, types=[int(co.entity_account)]):
-        self.types=types
+    def __init__(self, group, types=None):
+        self.co=group.const
+        self.db=group._db
         
-        memberships=db.query("""
+        if types is not None:
+            self.types=types
+        else:
+            self.types=[int(self.co.entity_account)]
+        
+        memberships=self.db.query("""
         SELECT gm.group_id AS group_id,
         gm.member_type AS member_type,
         gm.member_id AS member_id,
@@ -450,12 +456,12 @@ class group_members:
         WHEN gm.member_type=:entity_group   THEN :group_namespace
         WHEN gm.member_type=:entity_host    THEN :host_namespace
         END
-        """, { 'entity_account': int(co.entity_account),
-               'entity_group': int(co.entity_group),
-               'entity_host': int(co.entity_host),
-               'account_namespace': int(co.account_namespace),
-               'group_namespace': int(co.group_namespace),
-               'host_namespace': int(co.host_namespace),
+        """, { 'entity_account': int(self.co.entity_account),
+               'entity_group': int(self.co.entity_group),
+               'entity_host': int(self.co.entity_host),
+               'account_namespace': int(self.co.account_namespace),
+               'group_namespace': int(self.co.group_namespace),
+               'host_namespace': int(self.co.host_namespace),
                })
         
         self.group_members={}
@@ -468,7 +474,7 @@ class group_members:
             self.member_names[m['member_id']]=m['member_name']
 
     def _get_members(self, id, groups, members, type, types):
-        if type==None or type==co.entity_group:
+        if type==None or type==self.co.entity_group:
             if not id in self.group_members:
                 return 
             for t, i in self.group_members[id]:
@@ -492,7 +498,7 @@ class group_members:
         return d
 
 
-def search_aliases(changelog_id=None):
+def search_aliases(db, co, changelog_id=None):
     select=["email_address.local_part AS local_part",
             "email_domain.domain AS domain",
             "email_target.target_id AS target_id",
@@ -548,14 +554,14 @@ LEFT JOIN email_domain primary_address_domain
     return db.query(sql, binds)
 
 
-def search_homedirs(hostname, status):
+def search_homedirs(host, status):
     include_posix=True
+    co=host.const
+    db=host._db
 
     binds={'account_namespace': co.account_namespace}
     binds['status']=int(co.AccountHomeStatus(status))
 
-    host.clear()
-    host.find_by_name(hostname)
     binds['host_id']=host.entity_id
 
     select =["homedir.homedir_id AS homedir_id",
@@ -586,7 +592,7 @@ def search_homedirs(hostname, status):
     return db.query(sql, binds)
 
 class quarantines:    
-    def __init__(self):
+    def __init__(self, db, co):
         quarantines = {}
         quarantines_has = quarantines.has_key
         eq = EntityQuarantine(db)
@@ -618,7 +624,7 @@ class GroupDTO(DTO):
         super(GroupDTO, self).__init__(row, atypes)
 
 class AccountDTO(DTO):
-    def __init__(self, row, atypes):
+    def __init__(self, row, atypes, account):
         super(AccountDTO, self).__init__(row, atypes)
         self._attrs["homedir"] = account.resolve_homedir(
             account_name=row['name'],
@@ -647,7 +653,7 @@ class AliasDTO(DTO):
         super(AliasDTO, self).__init__(row, atypes)
 
 class HomedirDTO(DTO):
-    def __init__(self, row, atypes):
+    def __init__(self, row, atypes, account):
         super(HomedirDTO, self).__init__(row, atypes)
         self._attrs["homedir"] = account.resolve_homedir(
             account_name=row['account_name'],
@@ -714,8 +720,8 @@ def check_created(created):
     if gmCreated < gmNow:
         raise RuntimeError('Unauthorized, UsernameToken is expired')
     
-def check_username_password(username, password):
-    account.clear()
+def check_username_password(db, username, password):
+    account=Factory.get("Account")(db)
     try:
         account.find_by_name(str(username))
     except Errors.NotFoundError:
@@ -725,7 +731,7 @@ def check_username_password(username, password):
     return account.entity_id
 
 
-def authenticate(ps):
+def authenticate(db, ps):
     debug = False
     username, password, created = get_auth_values(ps)
     check_created(created)
@@ -733,7 +739,7 @@ def authenticate(ps):
         print 'username =', username
         print 'password =', md5.new(password).hexdigest()
         print 'created =', created
-    operator_id = check_username_password(username, password)
+    operator_id = check_username_password(db, username, password)
     return operator_id
 
 class spinews(ServiceSOAPBinding):
@@ -754,14 +760,24 @@ class spinews(ServiceSOAPBinding):
         ServiceSOAPBinding.__init__(self, post)
 
     def get_changelogid(self, ps):
-        operator_id = authenticate(ps)
+        db=Factory.get("Database")(client_encoding='UTF-8')
+        
+        operator_id = authenticate(db, ps)
         request = ps.Parse(getChangelogidRequest.typecode)
+
         id = db.get_last_changelog_id()
         db.rollback()
         return getChangelogidResponse(id)
 
     def set_homedir_status(self, ps):
-        operator_id = authenticate(ps)
+        db=Factory.get("Database")(client_encoding='UTF-8')
+        db.cl_init(change_program="spinews")
+        co=Factory.get("Constants")()
+        account=Factory.get("Account")(db)
+        disk=Factory.get("Disk")(db)
+        auth=bofhd_auth.BofhdAuth(db)
+
+        operator_id = authenticate(db, ps)
 
         request = ps.Parse(setHomedirStatusRequest.typecode)
         status_str = str(request._status)
@@ -789,7 +805,13 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_homedirs(self, ps):
-        operator_id = authenticate(ps)
+        db=Factory.get("Database")(client_encoding='UTF-8')
+        co=Factory.get("Constants")()
+        host=Factory.get("Host")(db)
+        account=Factory.get("Account")(db)
+        auth=bofhd_auth.BofhdAuth(db)
+        
+        operator_id = authenticate(db, ps)
 
         request = ps.Parse(getHomedirsRequest.typecode)
         status = str(request._status) 
@@ -804,15 +826,19 @@ class spinews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         
         response._homedir = []
-        for row in search_homedirs(hostname, status):
-            h=HomedirDTO(row, atypes)
+        for row in search_homedirs(host, status):
+            h=HomedirDTO(row, atypes, account)
             response._homedir.append(h)
         db.rollback()
         
         return response
 
     def get_aliases(self, ps):
-        operator_id = authenticate(ps)
+        db=Factory.get("Database")(client_encoding='UTF-8')
+        co=Factory.get("Constants")()
+        auth=bofhd_auth.BofhdAuth(db)
+
+        operator_id = authenticate(db, ps)
 
         request = ps.Parse(getAliasesRequest.typecode)
         incremental_from = int_or_none(request._incremental_from)
@@ -825,7 +851,7 @@ class spinews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
 
         response._alias = []
-        for row in search_aliases(incremental_from):
+        for row in search_aliases(db, co, incremental_from):
             a=AliasDTO(row, atypes)
             response._alias.append(a)
         db.rollback()
@@ -833,7 +859,11 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_ous(self, ps):
-        operator_id = authenticate(ps)
+        db=Factory.get("Database")(client_encoding='UTF-8')
+        co=Factory.get("Constants")()
+
+        auth=bofhd_auth.BofhdAuth(db)
+        operator_id = authenticate(db, ps)
 
         request = ps.Parse(getOUsRequest.typecode)
         auth.can_syncread_ou(operator_id)
@@ -844,8 +874,8 @@ class spinews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
 
         response._ou=[]
-        q=quarantines()
-        for row in search_ous(incremental_from):
+        q=quarantines(db, co)
+        for row in search_ous(db, co, incremental_from):
             o=OUDTO(row, atypes)
             o._quarantine = q.get_quarantines(row['id'])
             response._ou.append(o)
@@ -855,7 +885,12 @@ class spinews(ServiceSOAPBinding):
         
 
     def get_groups(self, ps):
-        operator_id = authenticate(ps)
+        db=Factory.get("Database")(client_encoding='UTF-8')
+        co=Factory.get("Constants")()
+        group=Factory.get("Group")(db)
+        auth=bofhd_auth.BofhdAuth(db)
+
+        operator_id = authenticate(db, ps)
 
         request = ps.Parse(getGroupsRequest.typecode)
         groupspread = co.Spread(str(request._groupspread))
@@ -869,9 +904,9 @@ class spinews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         
         response._group=[]
-        members=group_members(db)
-        q=quarantines()
-        for row in search_groups(groupspread, incremental_from):
+        members=group_members(group)
+        q=quarantines(db, co)
+        for row in search_groups(group, groupspread, incremental_from):
             g=GroupDTO(row, atypes)
             g._member = members.get_members_name(row['id'])
             g._quarantine = q.get_quarantines(row['id'])
@@ -881,7 +916,12 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_accounts(self, ps):
-        operator_id = authenticate(ps)
+        db=Factory.get("Database")(client_encoding='UTF-8')
+        co=Factory.get("Constants")()
+        account=Factory.get("Account")(db)
+        auth=bofhd_auth.BofhdAuth(db)
+
+        operator_id = authenticate(db, ps)
 
         request = ps.Parse(getAccountsRequest.typecode)
         accountspread = co.Spread(str(request._accountspread))
@@ -897,9 +937,9 @@ class spinews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         
         response._account = []
-        q=quarantines()
-        for row in search_accounts(accountspread, incremental_from, auth_type):
-            a=AccountDTO(row, atypes)
+        q=quarantines(db, co)
+        for row in search_accounts(account, accountspread, incremental_from, auth_type):
+            a=AccountDTO(row, atypes, account)
             a._quarantine = (q.get_quarantines(row['id']) +
                               q.get_quarantines(row['owner_id']))
             response._account.append(a)
@@ -908,7 +948,12 @@ class spinews(ServiceSOAPBinding):
         return response
 
     def get_persons(self, ps):
-        operator_id = authenticate(ps)
+        db=Factory.get("Database")(client_encoding='UTF-8')
+        db.cl_init(change_program="spinews")
+        co=Factory.get("Constants")()
+        auth=bofhd_auth.BofhdAuth(db)
+
+        operator_id = authenticate(db, ps)
 
         request = ps.Parse(getPersonsRequest.typecode)
         if request._personspread is not None:
@@ -924,8 +969,8 @@ class spinews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._person = []
         
-        q=quarantines()
-        for row in search_persons(personspread, incremental_from):
+        q=quarantines(db, co)
+        for row in search_persons(db, co, personspread, incremental_from):
             p=PersonDTO(row, atypes)
             p._quarantine = q.get_quarantines(row['id'])
             response._person.append(p)
@@ -966,7 +1011,7 @@ def test_soap(fun, cl, **kw):
     rps=fun(ps)
     t1=time.time()-t
     rs=str(SoapWriter().serialize(rps))
-    open("/tmp/log.%s" % fun.__name__, 'w').write(rs)
+    #open("/tmp/log.%s" % fun.__name__, 'w').write(rs)
     #rps=ParsedSoap(rs)
     t2=time.time()-t
     return fun.__name__, t1, t2
@@ -976,25 +1021,19 @@ def test():
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
                     homedir_id=85752, status="not_created")
     print test_soap(sp.get_ous, getOUsRequest)
-    print test_soap(sp.get_changelogid, getChangelogidRequest)
+    print test_soap(sp.get_aliases, getAliasesRequest)
+    print test_soap(sp.get_accounts, getAccountsRequest,
+                    accountspread="user@stud", auth_type="MD5-crypt")
     print test_soap(sp.get_groups, getGroupsRequest, 
                     accountspread="user@stud", groupspread="group@ntnu")
-                    #"_group", ("_member", "_quarantine"),
+    print test_soap(sp.get_homedirs, getHomedirsRequest,
+                    hostname="jak.itea.ntnu.no", status="not_created")
     print test_soap(sp.get_persons, getPersonsRequest,
                     person_spread="group@ntnu")
     print test_soap(sp.get_persons, getPersonsRequest)
-                    #"_person", ("_quarantine",)
-    print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
-                    homedir_id=85752, status="not_created")
-    print test_soap(sp.get_homedirs, getHomedirsRequest,
-                    hostname="jak.itea.ntnu.no", status="not_created")
-                    #"_homedir", (),
-    print test_soap(sp.get_ous, getOUsRequest) #, "_ou", ("_quarantine",))
-    print test_soap(sp.get_accounts, getAccountsRequest,
-                    accountspread="user@stud", auth_type="MD5-crypt")
-                    #"_account", ("_quarantine",),
-    print test_soap(sp.get_aliases, getAliasesRequest)
-                    #"_alias"
+    print test_soap(sp.get_changelogid, getChangelogidRequest)
+    print test_soap(sp.get_ous, getOUsRequest)
+
 
 class SecureServiceContainer(SSL.SSLServer, ServiceContainer):
     def __init__(self, server_address, ssl_context, services=[], RequestHandlerClass=SOAPRequestHandler):
@@ -1074,6 +1113,8 @@ if __name__ == '__main__':
             main()
         elif sys.argv[1] == 'daemon':
             main(daemon=True)
+        elif sys.argv[1] == 'test':
+            test()
         else:
             help = True
     else:
@@ -1085,7 +1126,8 @@ spinews!
 
 Hello. Try one of these:
 
-%s daemon   start the spine server
-%s debug    start the spine server in the foreground
-%s start    start the spine server in the foreground
-""" % tuple(sys.argv[:1] * 3)
+%(prog)s daemon   start the spine server
+%(prog)s debug    start the spine server in the foreground
+%(prog)s start    start the spine server in the foreground
+%(prog)s test     run internal tests
+""" % {'prog': sys.argv[:1]}
