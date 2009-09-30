@@ -7,5 +7,5 @@ Standards-Version: 3.7.2
 
 Package: ceresync
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, python, python-omniorb, omniidl4-python, python-ldap, python-m2crypto
+Depends: ${shlibs:Depends}, ${misc:Depends}, python, python-omniorb, omniidl4-python, python-ldap, python-m2crypto, python-zsi
 Description: Cerebrum clients
