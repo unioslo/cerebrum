@@ -1062,7 +1062,6 @@ class SSLForkingMixIn(ForkingMixIn):
                     os._exit(1)
 
 class SecureServiceContainer(SSLForkingMixIn, SSL.SSLServer, ServiceContainer):
-    active_children = None
     max_children = 5
 
     def __init__(self, server_address, ssl_context, services=[], RequestHandlerClass=SOAPRequestHandler):
