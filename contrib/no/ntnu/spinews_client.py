@@ -51,7 +51,7 @@ class CeresyncHTTPSConnection(HTTPConnection):
             self.host = tab[0]
             self.port = int(tab[1])
         if hasattr(cereconf, "SPINEWS_PORT"):
-            self.port = cereconf.SPINEWS_PORT
+            self.port = cereconf.SPINEWS_PORT + 2
         if not self.port:
             self.port = self.default_port
 

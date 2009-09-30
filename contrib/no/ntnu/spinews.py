@@ -53,7 +53,6 @@ from Cerebrum.Utils import Factory
 
 from Cerebrum.Entity import EntityQuarantine
 
-ca_cert = None
 logger = None
 
 def int_or_none(i):
@@ -1034,8 +1033,38 @@ def test():
     print test_soap(sp.get_changelogid, getChangelogidRequest)
     print test_soap(sp.get_ous, getOUsRequest)
 
+class SSLForkingMixIn(ForkingMixIn):
+    def process_request(self, request, client_address):
+        """
+        Override ForkingMixIn.process_request to replace close_request with
+        request.clear.  This is needed to handle SSL-connections.
+        """
 
-class SecureServiceContainer(SSL.SSLServer, ServiceContainer):
+        self.collect_children()
+        pid = os.fork()
+        if pid:
+            # Parent process
+            if self.active_children is None:
+                self.active_children = []
+            self.active_children.append(pid)
+            request.clear()
+            return
+        else:
+            # Child process.
+            # This must never return, hence os._exit()!
+            try:
+                self.finish_request(request, client_address)
+                os._exit(0)
+            except:
+                try:
+                    self.handle_error(request, client_address)
+                finally:
+                    os._exit(1)
+
+class SecureServiceContainer(SSLForkingMixIn, SSL.SSLServer, ServiceContainer):
+    active_children = None
+    max_children = 5
+
     def __init__(self, server_address, ssl_context, services=[], RequestHandlerClass=SOAPRequestHandler):
         ServiceContainer.__init__(self, server_address, services, RequestHandlerClass)
         SSL.SSLServer.__init__(self, server_address, RequestHandlerClass, ssl_context)
@@ -1069,7 +1098,6 @@ def daemonize():
     import sys
     import resource
 
-    global logger
     try:
         pid=os.fork()
         if pid > 0:
@@ -1092,18 +1120,17 @@ def daemonize():
         os.dup2(outfd, 1)
         os.dup2(outfd, 2)
     except OSError, e:
+        global logger
         logger.error("Demonize failed: %s" % e.strerror)
 
 def main(daemon=False):
     global logger
-    global ca_cert
     if daemon:
         logger = Factory.get_logger("spine")
         daemonize()
     else:
         logger = Factory.get_logger("console")
-    logger.debug("starting...")
-    ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
+    logger.info("starting...")
     RunAsServer(port=int(cereconf.SPINEWS_PORT), services=[spinews(),])
 
 if __name__ == '__main__':
