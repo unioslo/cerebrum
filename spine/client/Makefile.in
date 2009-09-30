@@ -7,7 +7,7 @@ pythondir = @PYTHONDIR@
 
 .PHONY: all install install-lib install-spinews clean distclean
 
-sources = $(wildcard *.py)
+sources = SpineClient.py
 spinews = spinews_services.py spinews_services_types.py
 
 
