@@ -336,7 +336,7 @@ class AccountDAO(EntityDAO):
         dto = DTO()
         dto.spread = ConstantsDAO(self.db).get_spread(home.spread)
         dto.path = home.home
-        dto.disk = home.disk_id and DiskDAO(self.db).get_disk(home.disk_id)
+        dto.disk = home.disk_id and DiskDAO(self.db).get(home.disk_id)
         status = self.constants.AccountHomeStatus(home.status)
         dto.status = DTO()
         dto.status.description = status.description

@@ -15,24 +15,20 @@ class DiskDAO(object):
             db = Database()
 
         self.db = db
-        self.disk = Disk(self.db)
         self.host_dao = HostDAO(self.db)
         self.constants = Constants(self.db)
 
-    def get_disk(self, disk_id):
-        self.disk.clear()
-        self.disk.find(disk_id)
+    def get(self, disk_id):
+        disk = Disk(self.db)
+        disk.find(disk_id)
 
         dto = DTO()
         dto.id = disk_id
         dto.type_name = self._get_type_name()
-        dto.description = self.disk.description
-        dto.path = self.disk.path
-        dto.host = self.host_dao.get_host(self.disk.host_id)
+        dto.description = disk.description
+        dto.path = disk.path
+        dto.host = self.host_dao.get_host(disk.host_id)
         return dto
-
-    def get_disks(self):
-        return self.search()
 
     def search(self, path=None, description=None):
         # The data set is small enough that we search within the strings.
@@ -47,8 +43,8 @@ class DiskDAO(object):
         }
 
         disks = []
-        for disk in self.disk.search(**kwargs):
-            dto = self.get_disk(disk.disk_id)
+        for disk in Disk(self.db).search(**kwargs):
+            dto = self.get(disk.fields.disk_id)
             disks.append(dto)
         return disks
         

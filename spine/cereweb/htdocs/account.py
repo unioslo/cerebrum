@@ -173,7 +173,7 @@ def view(id, **kwargs):
     page.account.history = HistoryDAO(db).get_entity_history_tail(id)
     page.affiliations = PersonDAO(db).get_affiliations(page.account.owner.id)
     page.shells = ConstantsDAO(db).get_shells()
-    page.disks = DiskDAO(db).get_disks()
+    page.disks = DiskDAO(db).search()
     page.email_target_types = ConstantsDAO(db).get_email_target_types()
     page.email_servers = HostDAO(db).get_email_servers()
     page.targets = HostDAO(db).get_email_targets(id)

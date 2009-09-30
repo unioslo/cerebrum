@@ -20,6 +20,7 @@
 #
 
 import unittest
+from lib.data.DTO import DTO
 from lib.data.DiskDAO import DiskDAO
 from CerebrumTestCase import CerebrumTestCase
 
@@ -28,9 +29,24 @@ class DiskDAOTest(CerebrumTestCase):
         super(DiskDAOTest, self).setUp()
         self.dao = DiskDAO(self.db)
 
-    def test_get_disks(self):
-        disks = DiskDAO().get_disks()
+    def test_search(self):
+        disks = DiskDAO().search()
         self.assertEqual(13, len(disks))
+
+    def test_get(self):
+        expected = DTO()
+        expected.id = 346782
+        expected.path = "/home/ahomea"
+        expected.description = "Ansatthjemmekataloger, filsystem 1"
+        expected.type_name = "disk"
+        expected.host = DTO()
+        expected.host.id = 346781
+        expected.host.name = "jak.itea.ntnu.no"
+        expected.host.type_name = "host"
+        expected.host.description = "Filserver for ansatte"
+
+        disk = self.dao.get(expected.id)
+        self.assertEqual(expected, disk)
 
 if __name__ == '__main__':
     unittest.main()
