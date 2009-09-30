@@ -81,6 +81,7 @@ class BofhdExtension(object):
         # not contain \n
         command_help = {
             'user': {
+            'user_create_guest': 'Create a number of guest users for a certain time',
             'user_request_guest': 'Request a number of guest users for a certain time',
             'user_release_guest': 'Manually release guest users that was requested earlier',
             'user_guests': 'Show the guest users that are owned by a group',
