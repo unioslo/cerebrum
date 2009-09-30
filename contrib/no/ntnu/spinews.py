@@ -37,7 +37,7 @@ from ZSI.wstools import logging
 from ZSI.ServiceContainer import AsServer
 from ZSI.ServiceContainer import ServiceSOAPBinding
 from ZSI.ServiceContainer import ServiceContainer
-from ZSI.dispatch import SOAPRequestHandler
+from ZSI.ServiceContainer import SOAPRequestHandler
 from ZSI import ParsedSoap, SoapWriter
 from ZSI import _get_element_nsuri_name
 from ZSI.wstools.Namespaces import OASIS, DSIG
@@ -996,58 +996,17 @@ def test():
     print test_soap(sp.get_aliases, getAliasesRequest)
                     #"_alias"
 
-
-class SecureServiceContainer(ServiceContainer):
-    def _init__(self, server_address, services=[], RequestHandlerClass=SOAPRequestHandler):
+class SecureServiceContainer(SSL.SSLServer, ServiceContainer):
+    def __init__(self, server_address, ssl_context, services=[], RequestHandlerClass=SOAPRequestHandler):
         ServiceContainer.__init__(self, server_address, services, RequestHandlerClass)
-        self.max_children = 5
-
-    def server_bind(self):
-        ## override the default methid and make
-        ## a socket with SSL/TLS
-        ctx = init_ssl()
-        self.socket = SSL.Connection(ctx)
-        self.socket.set_client_CA_list_from_context()
-        if self.allow_reuse_address:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(self.server_address)
-        host, port = self.socket.getsockname()[:2]
-        self.server_name = socket.getfqdn(host)
-        self.server_address = self.socket.getsockname()
-        self.server_port = port
-
-    def get_request(self):
-        global ca_cert
-        conn = None
-        addr = None
-        try:
-            (conn, addr ) = self.socket.accept()
-        except Exception, e:
-            if conn:
-                conn.clear()
-            raise socket.error(e)
-        ## check the peer's certificate
-        ## should we check certificates here?
-        client_cert = conn.get_peer_cert()
-        if client_cert:
-            client_subject  = client_cert.get_subject()
-            ## print '@@@@@@@@@@@@@@@@@@@@@@@@@@@@@', client_subject.CN
-            ## check if the certificate have been signed by CA
-            ## more checks?
-            if client_cert.verify(ca_cert.get_pubkey()):
-                return (conn, addr)
-        else:
-            if conn:
-                conn.clear()
-            raise socker.error('No client certificate found.')
+        SSL.SSLServer.__init__(self, server_address, RequestHandlerClass, ssl_context)
+        self.server_name, self.server_port = server_address
 
 def RunAsServer(port=80, services=(), fork=False):
     address = ('', port)
-    sc = SecureServiceContainer(address, services=services)
-    if fork:
-        pass
+    ctx = init_ssl()
+    sc = SecureServiceContainer(address, ssl_context=ctx, services=services)
     sc.serve_forever()
-
 
 def phrase_callback(v,prompt1='Enter passphrase:',prompt2='Verify passphrase:'):
     return cereconf.SPINEWS_KEY_FILE_PASSWORD
@@ -1099,7 +1058,6 @@ def daemonize():
 def main(daemon=False):
     global logger
     global ca_cert
-    #test()
     if daemon:
         logger = Factory.get_logger("spine")
         daemonize()
@@ -1108,9 +1066,6 @@ def main(daemon=False):
     logger.debug("starting...")
     ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
     RunAsServer(port=int(cereconf.SPINEWS_PORT), services=[spinews(),])
-
-
-test()
 
 if __name__ == '__main__':
     help = False
