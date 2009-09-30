@@ -208,6 +208,8 @@ class BofhdAuth(auth.BofhdAuth):
         return self._has_person_access(operator, target, operation)
 
     def can_syncread_account(self, operator, spread, auth_method):
+        if self.is_superuser(operator):
+            return True
         if self._query_target_permissions(
             operator, self.const.auth_account_syncread,
             self.const.auth_target_type_spread, int(spread), None,
@@ -216,6 +218,8 @@ class BofhdAuth(auth.BofhdAuth):
         raise PermissionDenied("Can't bulk read accounts")
     
     def can_syncread_group(self, operator, spread):
+        if self.is_superuser(operator):
+            return True
         if self._query_target_permissions(
             operator, self.const.auth_group_syncread,
             self.const.auth_target_type_spread, int(spread), None):
@@ -228,6 +232,8 @@ class BofhdAuth(auth.BofhdAuth):
             
     
     def can_syncread_ou(self, operator, spread=None):
+        if self.is_superuser(operator):
+            return True
         if spread is not None:
             if self._query_target_permissions(
                 operator, self.const.auth_ou_syncread,
@@ -240,6 +246,8 @@ class BofhdAuth(auth.BofhdAuth):
         raise PermissionDenied("Can't bulk read OUs")
 
     def can_syncread_alias(self, operator):
+        if self.is_superuser(operator):
+            return True
         if self._has_global_access(
             operator, self.const.auth_alias_syncread,
             self.const.auth_target_type_global_account, None):
@@ -247,6 +255,8 @@ class BofhdAuth(auth.BofhdAuth):
         raise PermissionDenied("Can't bulk read Aliases")
     
     def can_syncread_person(self, operator, spread=None):
+        if self.is_superuser(operator):
+            return True
         if spread is not None:
             if self._query_target_permissions(
                 operator, self.const.auth_person_syncread,
@@ -259,6 +269,8 @@ class BofhdAuth(auth.BofhdAuth):
         raise PermissionDenied("Can't bulk read Persons")
 
     def can_syncread_homedir(self, operator, host_id):
+        if self.is_superuser(operator):
+            return True
         if self._query_target_permissions(
             operator, self.const.auth_homedir_syncread,
             self.const.auth_target_type_host, host_id, None):
