@@ -337,6 +337,17 @@ class EmailDomain(Entity_class):
         self.email_domain_description = description
         
 
+    def delete(self):
+        # Need to clean up categories first
+        for category_row in self.get_categories():
+            self.remove_category(category_row['category'])
+        
+        self.execute("""
+        DELETE FROM [:table schema=cerebrum name=email_domain]
+        WHERE domain_id=:e_id""", {'e_id': self.entity_id})
+        self.__super.delete()
+        
+
     def write_db(self):
         self.__super.write_db()
         if not self.__updated:

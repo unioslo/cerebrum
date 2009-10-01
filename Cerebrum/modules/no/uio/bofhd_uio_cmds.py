@@ -2031,6 +2031,7 @@ class BofhdExtension(object):
         et.write_db()
         return "OK, edited %s" % addr
 
+
     # email create_domain <domainname> <description>
     all_commands['email_create_domain'] = Command(
         ("email", "create_domain"),
@@ -2057,6 +2058,37 @@ class BofhdExtension(object):
             raise CerebrumError(str(ae))
         ed.write_db()
         return "OK, domain '%s' created" % domainname
+
+
+    # email delete_domain <domainname>
+    all_commands['email_delete_domain'] = Command(
+        ("email", "delete_domain"),
+        SimpleString(help_ref="email_domain"),
+        perm_filter="can_email_domain_create")
+    def email_delete_domain(self, operator, domainname):
+        """Delete an e-mail domain."""
+        self.ba.can_email_archive_delete(operator.get_entity_id())
+
+        domainname = domainname.lower()
+        ed = Email.EmailDomain(self.db)
+        try:
+            ed.find_by_domain(domainname)
+        except Errors.NotFoundError:
+            raise CerebrumError, "%s: No e-mail domain by that name" % domainname
+
+        ea = Email.EmailAddress(self.db)
+        if ea.search(domain_id=ed.entity_id, fetchall=True):
+            raise CerebrumError, "E-mail-domain '%s' has addresses; cannot delete" % domainname
+
+        eed = Email.EntityEmailDomain(self.db)
+        if eed.list_affiliations(domain_id=ed.entity_id):
+            raise CerebrumError, "E-mail-domain '%s' associated with OUs; cannot delete" % domainname
+
+        ed.delete()
+        ed.write_db()
+        
+        return "OK, domain '%s' deleted" % domainname
+
 
     # email domain_configuration on|off <domain> <category>+
     all_commands['email_domain_configuration'] = Command(

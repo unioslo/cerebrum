@@ -96,6 +96,8 @@ command_help = {
         "Update default address and aliases associated with account",
     "email_create_domain":
         "Create a new e-mail domain",
+    "email_delete_domain":
+        "Delete an e-mail domain",
     "email_create_forward":
         "Create a new e-mail forward target",
     "email_domain_info":
