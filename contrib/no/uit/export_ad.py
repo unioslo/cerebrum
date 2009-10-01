@@ -84,13 +84,17 @@ class ad_export:
         self.account = Factory.get('Account')(db)
         self.posixuser = pu = PosixUser.PosixUser(db)
 
-
         self.dont_touch_filter = ['users']
         self.OU2name = dict()
 
         logger.info("Cache person names")
         self.cached_names=person.getdict_persons_names( source_system=co.system_cached,
                                                         name_types=(co.name_first,co.name_last))
+
+        self.cached_accs = {}
+        for name in self.ent_name.list_names(co.account_namespace):
+            self.cached_accs[name['entity_id']] = name['entity_name']
+
         logger.info("Cache worktitles")
         self.cached_worktitle=person.getdict_persons_names( source_system=co.system_paga,
                                                               name_types=(co.name_work_title,))
@@ -307,10 +311,10 @@ class ad_export:
                 logger.info("Processed %d %s" % (count,type))
             ou = entry['ou']
             logger.info("Get %s info: %s -> %s:: %s" % (type,gid,ou,gr.group_name))
-            member_tuple_list = gr.get_members(get_entity_name=True)
+            member_tuple_list = gr.search_members(group_id=gr.entity_id, member_type=co.entity_account)
             members=[]
             for item in member_tuple_list:
-                members.append(item[1])
+                members.append(self.cached_accs[item['member_id']])
             memberstr = ','.join(members)
             entry['description']= gr.description
             entry['members']=memberstr
