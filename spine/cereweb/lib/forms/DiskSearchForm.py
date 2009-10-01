@@ -19,38 +19,32 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from lib.Forms import SearchForm
+from lib.forms.FormBase import SearchForm
 
-class PersonSearchForm(SearchForm):
-    title = _('Search for Person')
-    action = '/search/person/'
+class DiskSearchForm(SearchForm):
+    title = _("Search for Disk")
+    action = '/search/disk'
     method = 'GET'
 
     Order = [
-        'name',
-        'birth_date',
+        'path',
+        'description',
     ]
 
     Fields = {
-        'name': {
-            'label': _('Name'),
+        'path': {
+            'label': _("Path"),
             'required': False,
             'type': 'text',
-            'quote': 'reject',
         },
-        'birth_date': {
-            'label': _('Birth date'),
+        'description': {
+            'label': _("Description"),
             'required': False,
             'type': 'text',
-            'help': _('Date must be in YYYY-MM-DD'),
         },
     }
 
-    check_birth_date = SearchForm._check_date
-
-    def check(self):
-        values = self.get_values()
-        return values['name'] is not None or values['birth_date'] is not None
+    check_path = SearchForm._check_short_string
 
     help = [
         _('Use wildcards * and ? to extend the search.'),

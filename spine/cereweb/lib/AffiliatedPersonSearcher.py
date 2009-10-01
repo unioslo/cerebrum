@@ -19,7 +19,7 @@
 
 from lib.data.EntityFactory import EntityFactory
 from lib.PersonSearcher import PersonSearcher
-from lib.AffiliatedPersonSearchForm import AffiliatedPersonSearchForm
+from lib.forms import AffiliatedPersonSearchForm
 from gettext import gettext as _
 
 class AffiliatedPersonSearcher(PersonSearcher):

@@ -39,7 +39,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.GroupDTO import GroupDTO
 
-from lib.GroupSearchForm import GroupSearchForm
+from lib.forms import GroupSearchForm
 
 @session_required_decorator
 def search(**vargs):

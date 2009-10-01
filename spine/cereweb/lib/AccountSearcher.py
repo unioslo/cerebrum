@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from lib.Searchers import CoreSearcher
-from lib.AccountSearchForm import AccountSearchForm
+from lib.forms import AccountSearchForm
 from lib.data.AccountDAO import AccountDAO
 from lib.data.EntityFactory import EntityFactory
 from gettext import gettext as _

@@ -7,13 +7,18 @@ INSTALL = @INSTALL@
 
 .PHONY: all clean distclean
 data = $(wildcard data/*.py)
+forms = $(wildcard forms/*.py)
 sources = $(wildcard *.py)
 
 all: 
 	$(MAKE) -C templates $@
 
-install: install-lib install-data
+install: install-lib install-data install-forms
 	$(MAKE) -C templates $@
+
+install-forms: $(forms)
+	$(INSTALL) -d ${WEBROOT}/lib/forms
+	$(INSTALL) -m 644 $^ $(WEBROOT)/lib/forms
 
 install-data: $(data)
 	$(INSTALL) -d ${WEBROOT}/lib/data

@@ -45,17 +45,16 @@ from lib.data.OuDAO import OuDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.PersonSearcher import PersonSearcher
-from lib.Forms import PersonCreateForm, PersonEditForm
+from lib.forms import PersonCreateForm, PersonEditForm
 from lib.templates.SearchResultTemplate import SearchResultTemplate
 from lib.templates.SearchTemplate import SearchTemplate
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 
-def search(transaction, **vargs):
+def search(**vargs):
     """Search after hosts and displays result and/or searchform."""
-    searcher = PersonSearcher(transaction, **vargs)
-    return searcher.respond() or searcher.render_search_form()
-search = transaction_decorator(search)
+    searcher = PersonSearcher(**vargs)
+    return searcher.respond()
 search.exposed = True
 index = search
 

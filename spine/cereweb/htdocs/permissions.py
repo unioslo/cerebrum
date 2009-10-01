@@ -22,7 +22,7 @@ import cherrypy
 
 from gettext import gettext as _
 from lib.Main import Main
-from lib.Forms import RoleCreateForm
+from lib.forms import RoleCreateForm
 from lib.utils import transaction_decorator, commit_url
 from lib.utils import queue_message, redirect
 from lib.utils import spine_to_web, web_to_spine, url_quote

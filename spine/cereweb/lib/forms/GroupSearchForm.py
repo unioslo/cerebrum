@@ -19,32 +19,25 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from lib.Forms import SearchForm
+from lib.forms.FormBase import SearchForm
 
-class DiskSearchForm(SearchForm):
-    title = _("Search for Disk")
-    action = '/search/disk'
-    method = 'GET'
+class GroupSearchForm(SearchForm):
+    title = _("Search for Groups")
+    action = '/search/group'
 
     Order = [
-        'path',
-        'description',
+        'name',
     ]
 
     Fields = {
-        'path': {
-            'label': _("Path"),
-            'required': False,
-            'type': 'text',
-        },
-        'description': {
-            'label': _("Description"),
-            'required': False,
+        'name': {
+            'label': _('Group name'),
+            'required': True,
             'type': 'text',
         },
     }
 
-    check_path = SearchForm._check_short_string
+    check_name = SearchForm._check_short_string
 
     help = [
         _('Use wildcards * and ? to extend the search.'),

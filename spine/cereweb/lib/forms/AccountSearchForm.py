@@ -19,11 +19,11 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from lib.Forms import SearchForm
+from lib.forms.FormBase import SearchForm
 
-class GroupSearchForm(SearchForm):
-    title = _("Search for Groups")
-    action = '/search/group'
+class AccountSearchForm(SearchForm):
+    title = _("Search for Account")
+    action = '/search/account'
 
     Order = [
         'name',
@@ -31,7 +31,7 @@ class GroupSearchForm(SearchForm):
 
     Fields = {
         'name': {
-            'label': _('Group name'),
+            'label': _('Account name'),
             'required': True,
             'type': 'text',
         },

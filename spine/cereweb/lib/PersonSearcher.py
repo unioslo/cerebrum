@@ -18,7 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from lib.Searchers import CoreSearcher
-from lib.PersonSearchForm import PersonSearchForm
+from lib.forms import PersonSearchForm
 from lib.data.PersonDAO import PersonDAO
 from gettext import gettext as _
 

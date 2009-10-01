@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from lib.Forms import SearchForm
+from lib.forms.FormBase import SearchForm
 from lib.utils import get_database
 from lib.data.ConstantsDAO import ConstantsDAO
 

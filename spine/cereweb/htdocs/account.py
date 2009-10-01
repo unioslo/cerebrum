@@ -23,7 +23,7 @@ import cherrypy
 from gettext import gettext as _
 from lib.utils import *
 from lib.AccountSearcher import AccountSearcher
-from lib.Forms import AccountCreateForm
+from lib.forms import AccountCreateForm
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException

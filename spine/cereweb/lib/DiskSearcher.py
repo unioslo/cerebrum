@@ -19,7 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from lib.Searchers import CoreSearcher
-from lib.DiskSearchForm import DiskSearchForm
+from lib.forms import DiskSearchForm
 from lib.data.DiskDAO import DiskDAO
 from gettext import gettext as _
 
