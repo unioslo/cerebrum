@@ -207,6 +207,24 @@ class BofhdAuth(auth.BofhdAuth):
         operation = self.const.auth_person_delete
         return self._has_person_access(operator, target, operation)
 
+    def can_create_disk(self, operator):
+        return self.is_superuser(operator)
+
+    def can_edit_disk(self, operator, target):
+        return self.is_superuser(operator)
+
+    def can_delete_disk(self, operator, target):
+        return self.is_superuser(operator)
+
+    def can_create_host(self, operator):
+        return self.is_superuser(operator)
+
+    def can_edit_host(self, operator, target):
+        return self.is_superuser(operator)
+
+    def can_delete_host(self, operator, target):
+        return self.is_superuser(operator)
+
     def can_syncread_account(self, operator, spread, auth_method):
         if self.is_superuser(operator):
             return True
