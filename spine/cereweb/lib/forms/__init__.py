@@ -21,6 +21,7 @@
 from AccountForms import AccountCreateForm, NonPersonalAccountCreateForm
 from AccountSearchForm import AccountSearchForm
 from DiskSearchForm import DiskSearchForm
+from DiskForms import DiskCreateForm, DiskEditForm
 from GroupSearchForm import GroupSearchForm
 from HostSearchForm import HostSearchForm
 from PersonForms import PersonCreateForm, PersonEditForm

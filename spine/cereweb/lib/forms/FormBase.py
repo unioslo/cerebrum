@@ -37,19 +37,10 @@ class Form(object):
     def __init__(self, **values):
         self.fields = self.Fields.copy()
         self.order = self.Order[:]
-
-        self.values = values
         self.init_form()
 
-        self._is_quoted = False
-        self._is_quoted_correctly = True
-
-        for key, field in self.fields.items():
-            value = self.values.get(key)
-            name = field.get('name', '')
-            if not name:
-               field['name'] = key
-            field['value'] = value
+        self.__request_values = values
+        self.set_values(values)
 
     def init_form(self):
         pass
@@ -71,6 +62,15 @@ class Form(object):
         for key, field in self.fields.items():
             values[key] = field['value']
         return values
+
+    def set_values(self, values):
+        self._is_quoted = False
+        self._is_quoted_correctly = True
+
+        for key, field in self.fields.items():
+            field.setdefault('name', key)
+            value = values.get(key)
+            field['value'] = value
 
     def quote_all(self):
         if self._is_quoted:
@@ -105,6 +105,9 @@ class Form(object):
                 self.error_message = _("Required field '%s' is empty.") % field['label']
                 break
         return res
+
+    def is_postback(self):
+        return self.__request_values and True or False
 
     def is_correct(self):
         if not self.has_required():

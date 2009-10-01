@@ -30,10 +30,9 @@ from lib.data.DiskDAO import DiskDAO
 from lib.data.TraitDAO import TraitDAO
 from lib.data.NoteDAO import NoteDAO
 from lib.data.HistoryDAO import HistoryDAO
+from lib.forms import DiskCreateForm, DiskEditForm
 from lib.DiskSearcher import DiskSearcher
 from lib.templates.DiskViewTemplate import DiskViewTemplate
-from lib.templates.DiskEditTemplate import DiskEditTemplate
-from lib.templates.DiskCreateTemplate import DiskCreateTemplate
 
 @session_required_decorator
 def search(**vargs):
@@ -64,20 +63,25 @@ def view(id):
     return page.respond()
 view.exposed = True
 
-def edit(transaction, id):
-    """Creates a page with the form for editing a disk."""
-    disk = transaction.get_disk(int(id))
-    page = Main()
-    disk_name = spine_to_web(disk.get_name())
-    page.title = _("Edit ") + object_link(disk, text=disk_name)
-    page.set_focus("disk/edit")
-
-    edit = DiskEditTemplate()
-    content = edit.editDisk(disk)
-    page.content = lambda: content
-    return page
-edit = transaction_decorator(edit)
+@session_required_decorator
+def edit(*args, **kwargs):
+    """
+    Creates a page with the form for editing a disk.
+    """
+    form = DiskEditForm(*args, **kwargs)
+    if form.is_correct():
+        return save(*args, **kwargs)
+    return form.respond()
 edit.exposed = True
+
+@session_required_decorator
+def create(*args, **kwargs):
+    """Creates a page with the form for creating a disk."""
+    form = DiskCreateForm(*args, **kwargs)
+    if form.is_correct():
+        return make(*args, **kwargs)
+    return form.respond()
+create.exposed = True
 
 def save(transaction, id, path="", description="", submit=None):
     """Saves the information for the disk."""
@@ -95,25 +99,6 @@ def save(transaction, id, path="", description="", submit=None):
     
     commit(transaction, disk, msg=_("Disk successfully updated."))
 save = transaction_decorator(save)
-save.exposed = True
-
-def create(transaction, host=""):
-    """Creates a page with the form for creating a disk."""
-    page = Main()
-    page.title = _("Disk")
-    page.set_focus("disk/create")
-
-    hosts = [(html_quote(i.get_id()), spine_to_web(i.get_name())) for i in
-                    transaction.get_host_searcher().search()]
-
-    create = DiskCreateTemplate()
-    if host:
-        create.formvalues = {'host': int(host)}
-    content = create.form(hosts)
-    page.content = lambda: content
-    return page
-create = transaction_decorator(create)
-create.exposed = True
 
 def make(transaction, host, path="", description=""):
     """Creates the host."""
@@ -123,7 +108,6 @@ def make(transaction, host, path="", description=""):
     disk = transaction.get_commands().create_disk(host, thePath, desc)
     commit(transaction, disk, msg=_("Disk successfully created."))
 make = transaction_decorator(make)
-make.exposed = True
 
 def delete(transaction, id):
     """Delete the disk from the server."""
@@ -134,4 +118,3 @@ def delete(transaction, id):
 delete = transaction_decorator(delete)
 delete.exposed = True
 
-# arch-tag: 6cf3413e-3bf4-11da-9d43-c8c980cc74d7
