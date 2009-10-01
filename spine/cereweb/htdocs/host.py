@@ -21,12 +21,11 @@
 import cherrypy
 
 from gettext import gettext as _
-from lib.Main import Main
-from lib.utils import commit, commit_url, queue_message, object_link
-from lib.utils import transaction_decorator, redirect, redirect_object
-from lib.utils import rollback_url, session_required_decorator
-from lib.utils import spine_to_web, web_to_spine, url_quote
-from lib.utils import get_database
+from lib.utils import redirect_entity, redirect
+from lib.utils import spine_to_web, web_to_spine
+from lib.utils import session_required_decorator
+from lib.utils import get_database, queue_message
+from lib.utils import url_quote
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DiskDAO import DiskDAO
 from lib.data.HistoryDAO import HistoryDAO
@@ -88,46 +87,45 @@ def create(*args, **kwargs):
     return form.respond()
 create.exposed = True
 
-def save(transaction, id, name, description="", submit=None):
+def save(id, name, description):
     """Saves the information for the host."""
-    host = transaction.get_host(int(id))
-    if submit == 'Cancel':
-        redirect_object(host)
-    if name:
-        name = web_to_spine(name.strip())
-    host.set_name(name)
-    if description:
-        description = web_to_spine(description.strip())
-    host.set_description(description)
-    commit(transaction, host, msg=_("Host successfully updated."))
-save = transaction_decorator(save)
+    db = get_database()
+    dao = HostDAO(db)
+    host = dao.get(id)
+    host.name = web_to_spine(name).strip()
+    host.description = web_to_spine(description).strip()
+    dao.save(host)
+    db.commit()
 
-def make(transaction, name, description=""):
+    queue_message(_("Host successfully updated."), title=_("Change succeeded"))
+    redirect_entity(host)
+
+def make(name, description):
     """Creates the host."""
-    msg=''
-    if not name:
-        msg=_('Hostname is empty.')
-    if not msg:
-        if name:
-            name = web_to_spine(name.strip())
-        if description:
-            description = web_to_spine(description.strip())
-    if not msg:
-        host = transaction.get_commands().create_host(name, description)
-        commit(transaction, host, msg=_("Host successfully created."))
-    else:
-        rollback_url('/host/create', msg, err=True)
-make = transaction_decorator(make)
+    db = get_database()
+    dao = HostDAO(db)
+    host = dao.create(
+        web_to_spine(name).strip(),
+        web_to_spine(description).strip())
+    db.commit()
 
-def delete(transaction, id):
+    queue_message(_("Host successfully created."), title=_("Change succeeded"))
+    redirect_entity(host)
+
+def delete(id):
     """Delete the host from the server."""
-    host = transaction.get_host(int(id))
-    hostname = spine_to_web(host.get_name())
-    msg = _("Host '%s' successfully deleted.") % hostname
-    host.delete()
-    commit_url(transaction, 'index', msg=msg)
-delete = transaction_decorator(delete)
+    db = get_database()
+    dao = HostDAO(db)
+    host = dao.get(id)
+    dao.delete(id)
+    db.commit()
+
+    msg = _("Host '%s' successfully deleted.") % spine_to_web(host.name)
+    redirect('/host/')
 delete.exposed = True
+
+from lib.utils import commit, object_link
+from lib.utils import transaction_decorator, redirect_object
 
 def disks(transaction, host, add=None, delete=None, **checkboxes):
     if add:

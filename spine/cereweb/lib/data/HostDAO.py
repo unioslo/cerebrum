@@ -1,7 +1,28 @@
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2004, 2005 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules import Email
+from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
 
 from lib.data.DTO import DTO
 from lib.data.HostDTO import HostDTO
@@ -14,6 +35,7 @@ Host = Utils.Factory.get("Host")
 class HostDAO(object):
     def __init__(self, db=None):
         self.db = db or Database()
+        self.auth = BofhdAuth(self.db)
         self.constants = Constants(self.db)
 
     def get(self, host_id):
@@ -86,6 +108,36 @@ class HostDAO(object):
             dto.type_name = self._get_type_name()
             hosts.append(dto)
         return hosts
+
+    def save(self, dto):
+        host = Host(self.db)
+        host.find(dto.id)
+
+        if not self.auth.can_edit_host(self.db.change_by, host):
+            raise PermissionDenied("Not authorized to edit host")
+
+        host.name = dto.name
+        host.description = dto.description
+        host.write_db()
+
+    def create(self, name, description):
+        if not self.auth.can_create_host(self.db.change_by):
+            raise PermissionDenied("Not authorized to edit host")
+
+        host = Host(self.db)
+        host.populate(name, description)
+        host.write_db()
+
+        return self.get(host.entity_id)
+
+    def delete(self, host_id):
+        host = Host(self.db)
+        host.find(host_id)
+
+        if not self.auth.can_delete_host(self.db.change_by, host):
+            raise PermissionDenied("Not authorized to view account")
+
+        host.delete()
 
     def _get_type_name(self):
          return str(self.constants.entity_host)

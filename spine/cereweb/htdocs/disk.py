@@ -21,9 +21,10 @@
 import cherrypy
 
 from gettext import gettext as _
-from lib.utils import redirect_entity
-from lib.utils import spine_to_web, web_to_spine, session_required_decorator
-from lib.utils import get_database, queue_message, redirect
+from lib.utils import redirect_entity, redirect
+from lib.utils import spine_to_web, web_to_spine
+from lib.utils import session_required_decorator
+from lib.utils import get_database, queue_message
 from lib.data.DiskDAO import DiskDAO
 from lib.data.TraitDAO import TraitDAO
 from lib.data.NoteDAO import NoteDAO
@@ -95,7 +96,7 @@ def save(id, path, description):
     redirect_entity(disk)
 
 def make(host_id, path, description):
-    """Creates the host."""
+    """Creates the disk."""
     db = get_database()
     dao = DiskDAO(db)
     disk = dao.create(

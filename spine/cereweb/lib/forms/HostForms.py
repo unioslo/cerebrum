@@ -56,7 +56,6 @@ class HostEditForm(HostCreateForm):
 
         db = get_database()
         self.host = HostDAO(db).get(id)
-
         values = self.get_values()
         values.update({'id': self.host.id})
 
@@ -72,7 +71,7 @@ class HostEditForm(HostCreateForm):
 
     Order = [
         'id',
-        'path',
+        'name',
         'description',
     ]
 
@@ -82,8 +81,8 @@ class HostEditForm(HostCreateForm):
             'type': 'hidden',
             'required': True,
         },
-        'path': {
-            'label': _('Path'),
+        'name': {
+            'label': _('Name'),
             'required': True,
             'type': 'text',
             'quote': 'reject',
