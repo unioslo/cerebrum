@@ -1,6 +1,7 @@
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
 
 from lib.data.DTO import DTO
 from lib.data.HostDAO import HostDAO
@@ -15,6 +16,7 @@ class DiskDAO(object):
             db = Database()
 
         self.db = db
+        self.auth = BofhdAuth(self.db)
         self.host_dao = HostDAO(self.db)
         self.constants = Constants(self.db)
 
@@ -50,6 +52,36 @@ class DiskDAO(object):
             dto = self.get(disk.fields.disk_id)
             disks.append(dto)
         return disks
+
+    def save(self, dto):
+        disk = Disk(self.db)
+        disk.find(dto.id)
+
+        if not self.auth.can_edit_disk(self.db.change_by, disk):
+            raise PermissionDenied("Not authorized to edit disk")
+
+        disk.path = dto.path
+        disk.description = dto.description
+        disk.write_db()
+
+    def create(self, host_id, path, description):
+        if not self.auth.can_create_disk(self.db.change_by):
+            raise PermissionDenied("Not authorized to edit disk")
+
+        disk = Disk(self.db)
+        disk.populate(host_id, path, description)
+        disk.write_db()
+
+        return self.get(disk.entity_id)
+
+    def delete(self, disk_id):
+        disk = Disk(self.db)
+        disk.find(disk_id)
+
+        if not self.auth.can_delete_disk(self.db.change_by, disk):
+            raise PermissionDenied("Not authorized to view account")
+
+        disk.delete()
         
     def _get_type_name(self):
          return str(self.constants.entity_disk)

@@ -30,13 +30,13 @@ class DiskCreateForm(Form):
     action = '/disk/create'
 
     Order = [
-        'host',
+        'host_id',
         'path',
         'description',
     ]
 
     Fields = {
-        'host': {
+        'host_id': {
             'label': _('Host'),
             'required': True,
             'type': 'select',
@@ -58,7 +58,7 @@ class DiskCreateForm(Form):
     def get_title(self):
         return _('Create a new disk')
 
-    def get_host_options(self):
+    def get_host_id_options(self):
         db = get_database()
         return [(h.id, spine_to_web(h.name)) for h in
             HostDAO(db).search()]

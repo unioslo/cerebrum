@@ -21,11 +21,9 @@
 import cherrypy
 
 from gettext import gettext as _
-from lib.Main import Main
-from lib.utils import commit, commit_url, entity_link, object_link
-from lib.utils import transaction_decorator, redirect_object, html_quote
+from lib.utils import redirect_entity
 from lib.utils import spine_to_web, web_to_spine, session_required_decorator
-from lib.utils import get_database
+from lib.utils import get_database, queue_message, redirect
 from lib.data.DiskDAO import DiskDAO
 from lib.data.TraitDAO import TraitDAO
 from lib.data.NoteDAO import NoteDAO
@@ -83,38 +81,42 @@ def create(*args, **kwargs):
     return form.respond()
 create.exposed = True
 
-def save(transaction, id, path="", description="", submit=None):
+def save(id, path, description):
     """Saves the information for the disk."""
-    disk = transaction.get_disk(int(id))
+    db = get_database()
+    dao = DiskDAO(db)
+    disk = dao.get(id)
+    disk.path = web_to_spine(path).strip()
+    disk.description = web_to_spine(description).strip()
+    dao.save(disk)
+    db.commit()
 
-    if submit == 'Cancel':
-        redirect_object(disk)
-        return
-    if path:
-        path = web_to_spine(path.strip())
-    disk.set_path(path)
-    if description:
-        description = web_to_spine(description.strip())
-    disk.set_description(description)
-    
-    commit(transaction, disk, msg=_("Disk successfully updated."))
-save = transaction_decorator(save)
+    queue_message(_("Disk successfully updated."), title=_("Change succeeded"))
+    redirect_entity(disk)
 
-def make(transaction, host, path="", description=""):
+def make(host_id, path, description):
     """Creates the host."""
-    host = transaction.get_host(int(host))
-    thePath = web_to_spine(path.strip())
-    desc = web_to_spine(description.strip())
-    disk = transaction.get_commands().create_disk(host, thePath, desc)
-    commit(transaction, disk, msg=_("Disk successfully created."))
-make = transaction_decorator(make)
+    db = get_database()
+    dao = DiskDAO(db)
+    disk = dao.create(
+        int(host_id),
+        web_to_spine(path).strip(),
+        web_to_spine(description).strip())
+    db.commit()
 
-def delete(transaction, id):
+    queue_message(_("Disk successfully created."), title=_("Change succeeded"))
+    redirect_entity(disk)
+
+@session_required_decorator
+def delete(id):
     """Delete the disk from the server."""
-    disk = transaction.get_disk(int(id))
-    msg = _("Disk '%s' successfully deleted.") % spine_to_web(disk.get_path())
-    disk.delete()
-    commit_url(transaction, 'index', msg=msg)
-delete = transaction_decorator(delete)
+    db = get_database()
+    dao = DiskDAO(db)
+    disk = dao.get(id)
+    dao.delete(id)
+    db.commit()
+
+    msg = _("Disk '%s' successfully deleted.") % spine_to_web(disk.path)
+    redirect('/disk/')
 delete.exposed = True
 
