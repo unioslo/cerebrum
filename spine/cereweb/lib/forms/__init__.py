@@ -23,6 +23,7 @@ from AccountSearchForm import AccountSearchForm
 from DiskSearchForm import DiskSearchForm
 from DiskForms import DiskCreateForm, DiskEditForm
 from GroupSearchForm import GroupSearchForm
+from HostForms import HostCreateForm, HostEditForm
 from HostSearchForm import HostSearchForm
 from PersonForms import PersonCreateForm, PersonEditForm
 from PersonSearchForm import PersonSearchForm

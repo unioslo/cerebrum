@@ -35,8 +35,7 @@ from lib.data.NoteDAO import NoteDAO
 from lib.data.TraitDAO import TraitDAO
 from lib.HostSearcher import HostSearcher
 from lib.templates.HostViewTemplate import HostViewTemplate
-from lib.templates.HostEditTemplate import HostEditTemplate
-from lib.templates.HostCreateTemplate import HostCreateTemplate
+from lib.forms import HostCreateForm, HostEditForm
 
 @session_required_decorator
 def search(**vargs):
@@ -69,21 +68,25 @@ def view(id):
     return page.respond()
 view.exposed = True
 
-def edit(transaction, id):
-    """Creates a page with the form for editing a host."""
-    host = transaction.get_host(int(id))
-    page = Main()
-    host_name = spine_to_web(host.get_name())
-    page.title = _("Edit ") + object_link(host, text=host_name)
-    page.set_focus("host/edit")
-    
-    edit = HostEditTemplate()
-    edit.title = _('Edit ') + object_link(host, text=host_name) + _(':')
-    content = edit.editHost(transaction, host)
-    page.content = lambda: content
-    return page
-edit = transaction_decorator(edit)
+@session_required_decorator
+def edit(*args, **kwargs):
+    """
+    Creates a page with the form for editing a host.
+    """
+    form = HostEditForm(*args, **kwargs)
+    if form.is_correct():
+        return save(*args, **kwargs)
+    return form.respond()
 edit.exposed = True
+
+@session_required_decorator
+def create(*args, **kwargs):
+    """Creates a page with the form for creating a host."""
+    form = HostCreateForm(*args, **kwargs)
+    if form.is_correct():
+        return make(*args, **kwargs)
+    return form.respond()
+create.exposed = True
 
 def save(transaction, id, name, description="", submit=None):
     """Saves the information for the host."""
@@ -98,29 +101,6 @@ def save(transaction, id, name, description="", submit=None):
     host.set_description(description)
     commit(transaction, host, msg=_("Host successfully updated."))
 save = transaction_decorator(save)
-save.exposed = True
-
-def create(transaction, name="", description=""):
-    """Creates a page with the form for creating a host."""
-    page = Main()
-    page.title = _("Host")
-    page.set_focus("host/create")
-
-    # Store given create parameters in create-form
-    values = {}
-    if name:
-        name = web_to_spine(name.strip())
-    values['name'] = name
-    if description:
-        description = web_to_spine(description.strip())
-    values['description'] = description
-
-    create = HostCreateTemplate(searchList=[{'formvalues': values}])
-    content = create.form()
-    page.content = lambda: content
-    return page
-create = transaction_decorator(create)
-create.exposed = True
 
 def make(transaction, name, description=""):
     """Creates the host."""
@@ -138,7 +118,6 @@ def make(transaction, name, description=""):
     else:
         rollback_url('/host/create', msg, err=True)
 make = transaction_decorator(make)
-make.exposed = True
 
 def delete(transaction, id):
     """Delete the host from the server."""
