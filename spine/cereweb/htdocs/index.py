@@ -24,13 +24,12 @@ import cherrypy
 from gettext import gettext as _
 
 from lib.Main import Main
-from lib.utils import commit_url, redirect, session_required_decorator
-from lib import utils 
+from lib.utils import session_required_decorator
+from lib import utils
 from lib.templates.ActivityLogTemplate import ActivityLogTemplate
 from lib.templates.Confirm import Confirm
 
 from login import login, logout
-from SpineIDL.Errors import NotFoundError, AccessDeniedError
 
 import account
 import disk
