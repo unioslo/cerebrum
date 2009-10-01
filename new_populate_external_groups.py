@@ -204,7 +204,7 @@ def destroy_group(group_id, max_recurse):
     group_members = [int(x["member_id"]) for x in
                      gr.search_members(group_id=gr.entity_id,
                                        member_type=const.entity_group)]
-    logger.debug("destroy_group() subgroups: %r", u)
+    logger.debug("destroy_group() subgroups: %r", group_members)
     # Remove any spreads the group has
     for row in gr.get_spread():
         gr.delete_spread(row['spread'])

@@ -1002,13 +1002,14 @@ def get_existing_accounts():
     for group_id in autostud.pc.group_defs.keys():
         group_obj.clear()
         group_obj.find(group_id)
-        for row in group_obj.list_members(filter_expired=False,
-                                          member_type=const.entity_account)[0]:
-            tmp = tmp_ac.get(int(row[1]), None)    # Col 1 is member_id
+        for row in group_obj.search_members(group_id=group_obj.entity_id,
+                                            member_type=const.entity_account):
+            tmp = tmp_ac.get(int(row['member_id']), None)    # Col 1 is member_id
             if tmp is not None:
                 tmp.append_group(group_id)
-        for row in group_obj.list_members(member_type=const.entity_person)[0]:
-            tmp = tmp_persons.get(int(row[1]), None)    # Col 1 is member_id
+        for row in group_obj.search_members(group_id=group_obj.entity_id,
+                                            member_type=const.entity_person):
+            tmp = tmp_persons.get(int(row['member_id']), None)    # Col 1 is member_id
             if tmp is not None:
                 tmp.append_group(group_id)
     # Affiliations

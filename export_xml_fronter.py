@@ -34,6 +34,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uit import access_FS as access_FSUiT
 from Cerebrum.modules.no import access_FS
 from Cerebrum import Database
+from Cerebrum import Entity
 from Cerebrum import Person
 from Cerebrum import Group
 from Cerebrum.modules.no import Stedkode
@@ -57,6 +58,8 @@ db = const = logger = None
 fxml = None
 romprofil_id = {}
 
+accid2accname = {}
+groupid2groupname = {}
 
 def init_globals():
     global db, const, logger, use_emailclient
@@ -66,6 +69,13 @@ def init_globals():
     cf_dir = dumpdir
     log_dir = default_log_dir
     use_emailclient = 1
+
+    ent_name = Entity.EntityName(db)
+    for name in ent_name.list_names(const.account_namespace):
+        accid2accname[name['entity_id']] = name['entity_name']
+
+    for name in ent_name.list_names(const.group_namespace):
+        groupid2groupname[name['entity_id']] = name['entity_name']
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'h:',
@@ -227,7 +237,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
         gname = r['name']
         gname_el = gname.split(':')
 
-        print gname_el
+        #print "###---###", gname_el
 
         if len(gname_el) > 10 and gname_el[10] == 'undakt':
         # undakt branch added by rmi000 2009-05-25
@@ -248,9 +258,9 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
 
             undakt_room_title = '%s - %s (%s. Sem) - %s (%s%s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
             undakt_room_id = 'ROOM:%s:fs:emner:%s:%s:%s:%s:undenh:%s:%s:%s:undakt:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, instnr, fak_sko, emnekode, versjon, terminnr, undaktkode)
-            print "UNDAKT ROOM", undakt_room_id
+            #print "UNDAKT ROOM", undakt_room_id
             undakt_room_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:emnerom:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, instnr, fak_sko)
-            print "UNDAKT ROOM PARENT", undakt_room_parent_id
+            #print "UNDAKT ROOM PARENT", undakt_room_parent_id
             undakt_room_profile = romprofil_id['emnerom']
 
             register_room(undakt_room_title, undakt_room_id, undakt_room_parent_id, undakt_room_profile)
@@ -262,10 +272,9 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
             group.clear()
             group.find(r['group_id'])
             user_members = [
-                    row[2]  # username
-                    for row in group.list_members(None,
-                                                  const.entity_account,
-                                                  get_entity_name=True)[0]]
+                    accid2accname[row['member_id']]  # username
+                    for row in group.search_members(group_id=group.entity_id,
+                                                    member_type=const.entity_account)]
 
             if user_members:
 
@@ -275,7 +284,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
 
                 #undakt_group_title = '%s - %s (%s. Sem) - %s (Påmeldte) - (%s %s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term, ar)
                 undakt_group_title = 'Studenter på %s - %s (%s. Sem) - %s (%s%s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
-                print "UNDAKT GROUP", undakt_group_title
+                #print "UNDAKT GROUP", undakt_group_title
                 undakt_group_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, 'undakt')
                 rettighet = uit_fronter_lib.Fronter.ROLE_WRITE
 
@@ -286,8 +295,8 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
         elif len(gname_el) > 10 and gname_el[10] == 'gruppelære':
         # gruppelære branch added by rmi000 2009-06-17
 
-            print '##-##'
-            print gname_el
+            #print '##-##'
+            #print gname_el
 
 
             #
@@ -302,7 +311,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
 
             #undakt_room_title = '%s - %s (%s. Sem) - %s' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'])
             undakt_room_id = 'ROOM:%s:fs:emner:%s:%s:%s:%s:undenh:%s:%s:%s:undakt:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, instnr, fak_sko, emnekode, versjon, terminnr, undaktkode)
-            print "UNDAKT ROOM", undakt_room_id
+            #print "UNDAKT ROOM", undakt_room_id
             #undakt_room_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:emnerom:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, instnr, fak_sko)
             #print "UNDAKT ROOM PARENT", undakt_room_parent_id
             #undakt_room_profile = romprofil_id['emnerom']
@@ -317,13 +326,13 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
             group.clear()
             group.find(r['group_id'])
             user_members = [
-                    row[2]  # username
-                    for row in group.list_members(None,
-                                                  const.entity_account,
-                                                  get_entity_name=True)[0]]
+                    accid2accname[row['member_id']]  # username
+                    for row in group.search_members(group_id=group.entity_id,
+                                                    member_type=const.entity_account)]
 
             if user_members:
-                print "###-###"
+                #print "###-###"
+
                 if gname_el[0] == 'internal':
                     gname_el.pop(0)
                 undakt_group_id = ':'.join(gname_el)
@@ -331,7 +340,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                 #undakt_group_title = 'Gruppelærere på %s - %s (%s. Sem) - %s (%s %s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term, ar)
                 undakt_group_title = 'Gruppelærere på %s - %s (%s. Sem) - %s (%s%s)' %(emnekode.upper(), emne_info[emnekode]['emnenavnfork'], terminnr, undakt_info[emnekode][undaktkode]['aktivitetsnavn'], term[0].upper(), ar)
  
-                print "GRUPPELÆRE GROUP", undakt_group_title
+                #print "GRUPPELÆRE GROUP", undakt_group_title
                 undakt_group_parent_id = 'STRUCTURE:%s:fs:emner:%s:%s:%s' % (cereconf.INSTITUTION_DOMAIN_NAME, ar, term, 'gruppelære')
                 rettighet = uit_fronter_lib.Fronter.ROLE_DELETE
 
@@ -340,7 +349,7 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                 register_room_acl(undakt_room_id, undakt_group_id, rettighet)
 
         elif gname_el[4] == 'undenh':
-            print "##UNDENH##", gname_el
+            #print "##UNDENH##", gname_el
             # Nivå 3: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
             #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR
             #
@@ -390,9 +399,10 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
             # undervisningsenheten.
             group.clear()
             group.find(r['group_id'])
-	    for op, subg_id, subg_name in \
-                    group.list_members(None, int(const.entity_group),
-                                       get_entity_name=True)[0]:
+
+            for mrow in group.search_members(group_id=group.entity_id, member_type=int(const.entity_group)):
+                subg_name = groupid2groupname[mrow['member_id']]
+                subg_id = mrow['member_id']
                 # Nivå 4: internal:DOMAIN:fs:INSTITUSJONSNR:undenh:ARSTALL:
                 #           TERMINKODE:EMNEKODE:VERSJONSKODE:TERMINNR:KATEGORI
                 subg_name_el = subg_name.split(':')
@@ -442,13 +452,9 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                 group.clear()
                 group.find(subg_id)
                 user_members = [
-                    row[2]  # username
-                    for row in group.list_members(None,
-                                                  const.entity_account,
-                                                  get_entity_name=True)[0]]
-                ##print "2.group_name = %s"% fronter_gname
-                ##for i in user_members:
-                ##    print"members: %s" % (i)
+                    accid2accname[row['member_id']]  # username
+                    for row in group.search_members(group_id=group.entity_id,
+                                                    member_type=const.entity_account)]
 
                 if user_members:
                     register_members(fronter_gname, user_members)
@@ -461,9 +467,12 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
             group.clear()
             group.find(r['group_id'])
 	    # Legges inn new group hvis den ikke er opprettet            
-            for op, subg_id, subg_name in \
-                    group.list_members(None, int(const.entity_group),
-                                       get_entity_name=True)[0]:
+            for mrow in group.search_members(group_id=group.entity_id, member_type=int(const.entity_group)):
+                subg_name = groupid2groupname[mrow['member_id']]
+                subg_id = mrow['member_id']
+
+                #print "####----####", gname, subg_name, subg_id
+
                 subg_name_el = subg_name.split(':')
                 # Fjern "internal:"-prefiks.
                 if subg_name_el[0] == 'internal':
@@ -483,6 +492,8 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                 register_room(stprog.upper(), fellesrom_stprog_rom_id,
                               fellesrom_sted_id,
                               profile=romprofil_id['studieprogram'])
+
+                #print subg_name_el
 
                 if subg_name_el[-1] == 'student':
                     #brukere_studenter_id = ':'.join((
@@ -598,13 +609,10 @@ def register_spread_groups(emne_info, stprog_info, undakt_info):
                 group.clear()
                 group.find(subg_id)
                 user_members = [
-                    row[2]  # username
-                    for row in group.list_members(None,
-                                                  const.entity_account,
-                                                  get_entity_name=True)[0]]
-                #print "1.group_name = %s" % fronter_gname
-                ##for i in user_members:
-                    ##print"members: %s" % (i)
+                    accid2accname[row['member_id']]  # username
+                    for row in group.search_members(group_id=group.entity_id,
+                                                    member_type=const.entity_account)]
+
                 if user_members:
                     register_members(fronter_gname, user_members)
         else:
@@ -736,7 +744,7 @@ def main():
             ):
             node_id = sem_node_id + ':' + suffix
             register_group(title, node_id, sem_node_id)
-            print "GROUP_REG", node_id
+            #print "GROUP_REG", node_id
 
     brukere_id= 'STRUCTURE:%s:fs:brukere' % cereconf.INSTITUTION_DOMAIN_NAME
     register_group('Brukere', brukere_id, root_node_id)
@@ -799,7 +807,7 @@ def main():
         default_undakt_file,
         cache_UA_helper)
 
-    print undakt_info
+    #print undakt_info
 
     # Henter ut ansatte per fakultet
     fak_temp = fak_emner.keys() # UIT
