@@ -1075,20 +1075,15 @@ def RunAsServer(port=80, services=(), fork=False):
     sc = SecureServiceContainer(address, ssl_context=ctx, services=services)
     sc.serve_forever()
 
-def phrase_callback(v,prompt1='Enter passphrase:',prompt2='Verify passphrase:'):
+def passphrase_callback(v):
     return cereconf.SPINEWS_KEY_FILE_PASSWORD
 
 def init_ssl(debug=None):
     ctx = SSL.Context('sslv23')
     ## certificate and private-key in the same file
-    ctx.load_cert(cereconf.SPINEWS_KEY_FILE, callback=phrase_callback)
-    ctx.load_client_ca(cereconf.SPINEWS_CA_FILE)
-    ctx.load_verify_info(cereconf.SPINEWS_CA_FILE)
+    ctx.load_cert(cereconf.SPINEWS_KEY_FILE, callback=passphrase_callback)
     ## do not use sslv2
-    ctx_options = SSL.op_no_sslv2
-    ctx.set_options(ctx_options)
-    ## always verify the peer's certificate
-    ctx.set_verify(SSL.verify_peer, 9)
+    ctx.set_options(SSL.op_no_sslv2)
     ctx.set_session_id_ctx('ceresync_srv')
     return ctx
 

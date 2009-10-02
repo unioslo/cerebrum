@@ -197,10 +197,11 @@ class CeresyncHTTPSConnection(HTTPConnection):
         HTTPConnection.__init__(self, host, port, strict)
         self.ctx= None
         self.sock= None
-        self.ca_file= config.get("SpineClient", "ca_file")
-        self.ca_cert= X509.load_cert(self.ca_file)
-        self.key_file= config.get("SpineClient", "key_file")
-        self.key_password= config.get("SpineClient", "key_password")
+        self.ca_path= config.get("spinews", "ca_path", allow_none=True)
+        self.ca_file= config.get("spinews", "ca_file", allow_none=True)
+        if self.ca_path is None and self.ca_file is None:
+            log.error("Missing path to CA certificates. Add ca_path or ca_file under [spinews]")
+            exit(1)
         self.host = host
         self.port = port
         if ':' in self.host:
@@ -212,31 +213,15 @@ class CeresyncHTTPSConnection(HTTPConnection):
         self._init_ssl()
         sock = SSL.Connection(self.ctx)
         sock.connect((self.host, self.port))
-        server_cert = sock.get_peer_cert()
-        if server_cert:
-            if not server_cert.verify(self.ca_cert.get_pubkey()):
-                log.error("Unknown CA: %s", server_cert.get_issuer())
-                sock.clear()
-                sock.close()
-                sys.exit(1)
-            else:
-                self.sock = sock
-        else:
-            sys.stderr.write('No certificae from server\n')
-            sock.clear()
-            sock.close()
-            sys.exit(2)
+        #server_cert = sock.get_peer_cert()
+        self.sock= sock
     def _init_ssl(self):
         ctx = SSL.Context('sslv23')
-        ctx.load_cert(self.key_file,callback=self.phrase_callback)
-        ctx.load_verify_info(cafile=self.ca_file)
+        ctx.load_verify_info(cafile=self.ca_file, capath=self.ca_path)
         ## typical options for a client
-        ctx_options = SSL.op_no_sslv2
-        ctx.set_options(ctx_options)
+        ctx.set_options(SSL.op_no_sslv2)
         ctx.set_verify((SSL.verify_fail_if_no_peer_cert|SSL.verify_peer), 9)
         self.ctx= ctx
-    def phrase_callback(self, v, prompt1='p1', prompt2='p2'):
-        return self.key_password
 
 class Sync(object):
     def __init__(self):
