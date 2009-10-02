@@ -1240,6 +1240,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1532_dosent = SAPLonnsTittelKode(
+        "20001532",
+        "1532 Dosent",
+        "ØVR"
+    )
+
     sap_9105_departementsrad_utenriksrad_ = SAPLonnsTittelKode(
         "20009105",
         "9105 Departementsråd (utenriksråd)",
