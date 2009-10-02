@@ -43,7 +43,7 @@ A few salient points:
   groups as members.
 
 * ansatt-<sko>, ansatt-vitenskapelig-<sko>, ansatt-tekadm-<sko>,
-  ansatt-bilag-<sko> have person_id as members. The contain the employees (of
+  ansatt-bilag-<sko> have person_id as members. They contain the employees (of
   the given type) at the specified OU. If a person_id is a member of
   ansatt-vitenskapelig, ansatt-tekadm or ansatt-bilag, (s)he is also a member
   of ansatt-<sko>.
@@ -54,6 +54,22 @@ A few salient points:
   member -- ansatt-<sko1>. Should sko1 have any child OUs with employees, the
   for each such child OU sko2, meta-ansatt-<sko1> will have a member
   ansatt-<sko2>.
+
+A typical run for UiO would be something like this:
+
+populate-automatic-groups.py --dryrun -s system_sap -p SAP \
+        -c affiliation_status_ansatt_vitenskapelig:ansatt-vitenskapelig \
+        -c affiliation_status_ansatt_tekadm:ansatt-tekadm \
+        -c affiliation_status_ansatt_bil:ansatt-bilag \
+        -c affiliation_ansatt:ansatt
+
+FIXME: We need a possibility for assigning spreads to groups. The most
+flexible solution is probably spreads based on names in some configuration
+variable. Something like this, perhaps:
+
+{'ansatt': (NIS_uio@ng, group@ldap),
+ 'ansatt-tekadm-33': (NIS_ifi@ng),
+}
 """
 
 import getopt
@@ -65,10 +81,6 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory, NotSet, simple_memoize
-try:
-    set()
-except NameError:
-    from Cerebrum.extlib.sets import Set as set
 
 
 
@@ -346,7 +358,7 @@ def _load_selection_helper(iterable):
             result[co_object] = prefix
 
     return result
-# end load_select_criteria_from_cereconf
+# end load_selection_helper
 
 
 
@@ -369,8 +381,8 @@ def load_registration_criteria(criteria):
     special: they are ALSO members of the corresponding 'meta-ansatt' groups.
     """
 
-    logger.debug("AUTO_GROUPS=%s", cereconf.AUTOMATIC_GROUPS)
-    result = _load_selection_helper(cereconf.AUTOMATIC_GROUPS.iteritems())
+    logger.debug("AUTO_GROUPS=%s", getattr(cereconf, "AUTOMATIC_GROUPS", ()))
+    result = _load_selection_helper(getattr(cereconf, "AUTOMATIC_GROUPS", ()))
     result.update(_load_selection_helper(iter(criteria)))
     logger.debug("The following affs/statuses will result in memberships")
     logger.debug("Result is %s", result)
@@ -411,10 +423,9 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
 
     @rtype: sequence
     @return:
-      A sequence of triples (x, y, z), where
+      A sequence of triples (x, y), where
         - x is the member id (entity_id)
-        - y is the member type (entity_person, entity_group, etc.)
-        - z is the group id where x is to be member.
+        - y is the group id where x is to be member.
 
       An empty sequence is returned if no memberships can be derived. The
       reason for this complexity is that an 'employment' represented by a row
@@ -450,7 +461,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
         if group_prefix == "ansatt":
             employee_group_id = group_id
 
-        result.append((person_id, constants.entity_person, group_id))
+        result.append((person_id, group_id))
         logger.debug("Added person id=%s to group id=%s, name=%s",
                      person_id, group_id, group_name)
         
@@ -476,8 +487,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
                 parent_info["name"],
                 current_groups,
                 constants.trait_auto_meta_group)
-            result.append((employee_group_id, constants.entity_group,
-                           meta_parent_id))
+            result.append((employee_group_id, meta_parent_id))
             logger.debug("Group name=%s (from person_id=%s) added to "
                          "meta group id=%s, name=%s",
                          "ansatt" + suffix, person_id,
@@ -511,7 +521,7 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
     @param row2groups:
       Function that converts a row returned by L{person_generator} to a list
       of memberships. Calling row2groups on any row D returned by
-      L{person_generator} returns a list of triples (x, y, z) (cf.
+      L{person_generator} returns a list of tuples (x, y) (cf.
       L{affiliation2groups} for the precise description of their meanings).
 
     @type current_groups: dict
@@ -541,15 +551,9 @@ def populate_groups_from_rule(person_generator, row2groups, current_groups,
     for person in person_generator():
         memberships = row2groups(person, current_groups)
 
-        for member_id, member_type, group_id in memberships:
+        for member_id, group_id in memberships:
             # all known memberships for group_id
-            d = new_groups.setdefault(group_id, dict())
-            member_type = int(member_type)
-
-            # Add the member to the membership set of the right type.
-            # Typically, any given group would have either all members as
-            # people or as groups.
-            d.setdefault(member_type, set()).add(member_id)
+            new_groups.setdefault(group_id, set()).add(member_id)
             count += 1
 
     logger.debug("After processing rule, we have %d groups", len(new_groups))
@@ -627,7 +631,7 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data):
 
     group = Factory.get("Group")(database)
     
-    for group_id, membership_info in groups_from_data.iteritems():
+    for group_id, members_from_data in groups_from_data.iteritems():
         try:
             group.clear()
             group.find(group_id)
@@ -643,18 +647,12 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data):
         # members of group are exactly the ones in memberset.
 
         # those that are not in 'group_members', should be added
-        add_count = 0
-        to_add = list()
-        for member_type, members in membership_info.iteritems():
-            to_add = members.difference(group_members)
-            add_count += len(to_add)
-            add_members(group, to_add)
+        to_add = members_from_data.difference(group_members)
+        add_members(group, to_add)
 
-        # those that are in 'group_members', but not in membership_info,
+        # those that are in 'group_members', but not in members_from_data,
         # should be removed.
-        to_remove = group_members.copy()
-        for member_type, members in membership_info.iteritems():
-            to_remove = to_remove.difference(members)
+        to_remove = group_members.difference(members_from_data)
         remove_members(group, to_remove)
 
         if gname not in groups_from_cerebrum:
@@ -665,7 +663,7 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data):
 
         if to_remove or to_add:
             logger.debug("Updated group id=%s, name=%s; added=%d, removed=%d",
-                         group_id, gname, add_count, len(to_remove))
+                         group_id, gname, len(to_add), len(to_remove))
         else:
             logger.debug("No changes to group id=%s, name=%s", group_id, gname)
 
@@ -907,20 +905,169 @@ def perform_delete():
     
 
 
+class gnode(object):
+    """Class to facilitate group tree output.
+    """
+
+    def __init__(self, gid, gname):
+        self._gid = gid
+        self._gname = gname
+        self._group_children = dict()
+        self._non_group_children = set()
+        self._parent = None
+    # end __init__
+
+    def __hash__(self):
+        return hash(self._gid)
+
+    def __str__(self):
+        components = [str(self._gname),
+                      str(self._gid),
+                      "%d human(s)" % len(self._non_group_children),
+                      "%d subgroup(s)" % len(self._group_children)]
+        
+        return "group %s" % ", ".join(components)
+    # end __str__
+
+    def add_group_child(self, gnode_other):
+        if gnode_other._gid in self._group_children:
+            return
+
+        self._group_children[gnode_other._gid] = gnode_other
+    # end add_child
+
+    def add_nongroup_child(self, key):
+        self._non_group_children.add(key)
+    # end add_nongroup_child
+
+
+    def add_parent(self, node):
+        self._parent = node
+    # end add_parent
+
+    def get_parent(self):
+        return self._parent
+    # end get_parent
+
+    def matches_filters(self, *filters):
+        # Any node matches an empty filter set
+        if not filters:
+            return True
+        
+        for name_filter in filters:
+            if name_filter.search(self._gname):
+                return True
+
+        return False
+    # end matches_filters
+
+    def output(self, stream, indent=0):
+        stream.write(" "*indent)
+        stream.write(str(self))
+        stream.write("\n")
+        for child in self._group_children.itervalues():
+            child.output(stream, indent+2)
+    # end output
+# end gnode
+
+
+
+def output_group_forest(filters):
+    """Construct a forest of auto groups.
+
+    We want to be able to output a forest (i.e. a collection of group trees)
+    of automatic groups for statistical purposes. This function constructs
+    such a tree and returns it as a dict. 
+    """
+
+    forest = build_complete_forest()
+    filters = [re.compile(pattern) for pattern in filters]
+    logger.debug("%d nodes in the root set; filters=%s",
+                 len(forest), filters)
+
+    for root in [x for x in forest
+                 if x.matches_filters(*filters)]:
+        root.output(sys.stdout, 0)
+# end output_group_forest
+
+
+
+def build_complete_forest():
+    """Build a complete forest of all auto groups.
+
+    Returns a sequence of root nodes.
+    """
+
+    logger.debug("Building complete node forest")
+    
+    #
+    # map all groups to nodes.
+    scratch = dict()
+    existing_groups = find_all_auto_groups()
+    for gname in existing_groups:
+        gid = existing_groups[gname]
+        node = gnode(gid, gname)
+        scratch[gid] = node
+
+    logger.debug("%d auto group nodes. linking up children", len(scratch))
+
+    #
+    # Calculate children relationships and link the nodes together
+    #
+    # Nodes are taken out of the work queue - scratch - and inserted into
+    # forest, once processed.
+    group = Factory.get("Group")(database)
+    for gid in scratch:
+        node = scratch[gid]
+        children = list(group.search_members(group_id=gid,
+                                             indirect_members=False))
+        group_children = [x for x in children
+                          if x["member_type"] == constants.entity_group]
+        non_group_children = [x for x in children
+                              if x["member_type"] != constants.entity_group]
+
+        for x in non_group_children:
+            node.add_nongroup_child(x["member_id"])
+
+        for x in group_children:
+            child_id = x["member_id"]
+            if child_id in scratch:
+                child_node = scratch[child_id]
+            else:
+                assert False, "%s is not in scratch buffer" % child_id
+
+            node.add_group_child(child_node)
+            child_node.add_parent(node)
+
+    #
+    # Collect the forest roots
+    forest = list(x for x in scratch.itervalues()
+                  if x.get_parent() is None)
+
+    logger.debug("Built auto group tree. %d node(s) in the root set", len(forest))
+    return forest
+# end build_complete_forest
+
+
+
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:ds:c:",
+                                  "p:ds:c:of:",
                                   ("perspective=",
                                    "dryrun",
                                    "source_system=",
                                    "remove-all-auto-groups",
-                                   "collect=",))
+                                   "collect=",
+                                   "output-groups",
+                                   "filters=",))
 
     dryrun = False
     perspective = None
     wipe_all = False
     source_system = constants.system_sap
     select_criteria = list()
+    output_groups = False
+    output_filters = list()
     for option, value in options:
         if option in ("-p", "--perspective",):
             perspective = int(constants.OUPerspective(value))
@@ -933,8 +1080,15 @@ def main():
         elif option in ("-c", "--collect",):
             aff_or_status, prefix = value.split(":")
             select_criteria.append((aff_or_status, prefix))
+        elif option in ("-f", "--filters",):
+            output_filters.append(value)
+        elif option in ("-o", "--output-groups",):
+            output_groups = True
 
-    if wipe_all:
+    if output_groups:
+        output_group_forest(output_filters)
+        sys.exit(0)
+    elif wipe_all:
         perform_delete()
     else:
         select_criteria = load_registration_criteria(select_criteria)
@@ -950,6 +1104,7 @@ def main():
 
 
 
+
+
 if __name__ == "__main__":
     main()
-
