@@ -24,7 +24,6 @@ from Cerebrum.lib.spinews.spinews_objects import Group, Account
 from Cerebrum.lib.spinews.spinews_objects import Ou, Alias
 from Cerebrum.lib.spinews.spinews_objects import Homedir, Person
 
-ca_cert = None
 username = None
 password = None
 
@@ -58,32 +57,22 @@ class CeresyncHTTPSConnection(HTTPConnection):
     def connect(self):
         "Connect to a host on a given (SSL) port."
         ctx = init_ssl()
-        sock = SSL.Connection(ctx)
-        sock.connect((self.host, self.port))
-        server_cert = sock.get_peer_cert()
-        if server_cert:
-            if not server_cert.verify(ca_cert.get_pubkey()):
-                server_cert_issuer = server_cert.get_issuer()
-                mess = 'Unknown CA: %s\n' % server_cert_issuer
-                sys.stderr.write(mess)
-                sock.clear()
-                sock.close()
-                sys.exit(1)
-            else:
-                self.sock = sock
-        else:
-            sys.stderr.write('No certificae from server\n')
-            sock.clear()
-            sock.close()
-            sys.exit(2)
+        self.sock = SSL.Connection(ctx)
+        self.sock.connect((self.host, self.port))
 
 def phrase_callback(v, prompt1='p1', prompt2='p2'):
     return cereconf.SPINEWS_KEY_FILE_PASSWORD
 
 def init_ssl():
     ctx = SSL.Context('sslv23')
-    ctx.load_cert(cereconf.SPINEWS_KEY_FILE,callback=phrase_callback)
-    ctx.load_verify_info(cafile=cereconf.SPINEWS_CA_FILE)
+    if hasattr(cereconf, "SPINEWS_CA_PATH"):
+        ctx.load_verify_info(capath=cereconf.SPINEWS_CA_PATH)
+    elif hasattr(cereconf, "SPINEWS_CA_FILE"):
+        ctx.load_verify_info(cafile=cereconf.SPINEWS_CA_FILE)
+    else:
+        ## logging and axit maybe?
+        print >> sys.stderr, 'could not load ca-certificates'
+        sys.exit(1)
     ## typical options for a client
     ctx_options = SSL.op_no_sslv2
     ctx.set_options(ctx_options)
@@ -158,7 +147,7 @@ def sign_request(port, username, password, useDigest=False):
 def get_ceresync_port():
     global theTraceFile
     locator = get_ceresync_locator()
-    port = locator.getspinePortType(tracefile=theTraceFile, readerclass=ExpatReaderClass, transport=CeresyncHTTPSConnection)
+    port = locator.getspinePortType(tracefile=theTraceFile, readerclass=ExpatReaderClass, transport=CeresyncHTTPSConnection, scheme="https")
     global username
     global password
     sign_request(port, username, password)
@@ -394,6 +383,7 @@ def test_groups():
 
 def test_accounts():
     before = time.time()
+    ## accs = get_accounts('user@kerberos', 'PGP-kerberos', None)
     accs = get_accounts('user@stud', 'MD5-crypt', None)
     statreg('accounts', (time.time() - before))
     f = open('accounts.txt', 'wb', 16384)
@@ -561,6 +551,7 @@ def test_aliases():
  
 def test_homedirs():
     before = time.time()
+    ## homedirs = get_homedirs('not_created', 'mammut.stud.ntnu.no')
     homedirs = get_homedirs('not_created', 'yeti.stud.ntnu.no')
     statreg('homedirs', (time.time() - before))
     f = open('homedirs.txt', 'wb', 16384)
@@ -595,32 +586,40 @@ def test_changelogid():
     f.flush()
     f.close()
     
-def test_clients(count, changelog=False, groups=False, accs=False, ous=False, aliases=False, homedirs=False, persons=False):
+def test_clients(count, verify=False, changelog=False, groups=False, accs=False, ous=False, aliases=False, homedirs=False, persons=False):
     set_username_password(cereconf.TEST_USERNAME, cereconf.TEST_PASSWORD)
     start_time = datetime.datetime.now()
     for i in range(count):
         if changelog:
-            print 'changelogid'
+            if verify:
+                print >> sys.stderr, 'changelogid'
             test_changelogid()
         if groups:
-            print 'groups'
+            if verify:
+                print >> sys.stderr, 'groups'
             test_groups()
         if accs:
-            print 'accounts'
+            if verify:
+                print >> sys.stderr, 'accounts'
             test_accounts()
         if ous:
-            print 'ous'
+            if verify:
+                print >> sys.stderr, 'ous'
             test_ous()
         if aliases:
-            print 'aliases'
+            if verify:
+                print >> sys.stderr, 'aliases'
             test_aliases()
         if homedirs:
-            print 'homedirs'
+            if verify:
+                print >> sys.stderr, 'homedirs'
             test_homedirs()
         if persons:
-            print 'persons'
+            if verify:
+                print >> sys.stderr, 'persons'
             test_persons()
-        sys.stderr.write('Run: %d\n' % (i+1))
+        if verify:
+            print >> sys.stderr, 'Run: %d\n' % (i+1)
     statresult()
     end_time = datetime.datetime.now()
     print ''
@@ -630,9 +629,7 @@ def test_clients(count, changelog=False, groups=False, accs=False, ous=False, al
 
     
 def main():
-    global ca_cert
-    ca_cert = X509.load_cert(cereconf.SPINEWS_CA_FILE)
-    usage = "usage: %prog (-c COUNT | --count=COUNT) -lgaomdp"
+    usage = "usage: %prog (-c COUNT | --count=COUNT) [-v|--verify] -lgaomdp"
     parser = OptionParser(usage)
     parser.add_option("-c", "--count", type="int", dest='count', help="number of runs")
     parser.add_option("-l", "--changelogid", action="store_true", dest='changelog', help="get logid")
@@ -642,6 +639,8 @@ def main():
     parser.add_option("-m", "--mail", action="store_true", dest='aliases', help="get mail-aliases")
     parser.add_option("-d", "--dirs", action="store_true", dest='homedirs', help="get homedirs")
     parser.add_option("-p", "--persons", action="store_true", dest='persons', help="get persons")
+    parser.add_option("-v", "--verify", action="store_true", dest='verify', help="show progress")
+    
     (options, args) = parser.parse_args()
     if not options.count:
         parser.error("number of runs is 0 or not specified.")
@@ -650,7 +649,7 @@ def main():
     if not options.changelog and not options.groups and not options.accs and not options.ous and not options.aliases and not options.homedirs and not options.persons:
         parser.print_help()
         parser.error("no test(s) is specified.")
-    test_clients(options.count, changelog=options.changelog, groups=options.groups, accs=options.accs, ous=options.ous, aliases=options.aliases, homedirs=options.homedirs, persons=options.persons)
+    test_clients(options.count, verify=options.verify, changelog=options.changelog, groups=options.groups, accs=options.accs, ous=options.ous, aliases=options.aliases, homedirs=options.homedirs, persons=options.persons)
  
 if __name__ == '__main__':
     main()
