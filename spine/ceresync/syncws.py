@@ -232,11 +232,9 @@ class Sync(object):
                 config.get("sync","pid_file","/var/run/cerebrum/ceresync.pid"))
 
         try:
-            #FIXME: login and password might as well be in sync section
-            self.username= config.get("spine","login")
-            self.password= config.get("spine","password")
-            #FIXME: Should use different section
-            self.url= config.get("SpineClient","url")
+            self.username= config.get("spinews","login")
+            self.password= config.get("spinews","password")
+            self.url= config.get("spinews","url")
         except ConfigParser.Error, e:
             log.error("Missing url, login or password: %s",e)
             sys.exit(1)
