@@ -1122,6 +1122,8 @@ def main(daemon=False):
     if daemon:
         logger = Factory.get_logger("spine")
         daemonize()
+        if hasattr(cereconf, "SPINEWS_PIDFILE"):
+            open(cereconf.SPINEWS_PIDFILE, "w").write(str(os.getpid())+"\n")
     else:
         logger = Factory.get_logger("console")
     logger.info("starting...")
