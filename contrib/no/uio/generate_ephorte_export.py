@@ -141,6 +141,8 @@ def _get_primary_account(person_id):
             return ""
         account_id = pe.get_primary_account()
         ret = _get_uname(account_id)
+        if ret is None:
+            logger.warn("Could not find account for person %s" % (person_id))
     return ret
 
 
