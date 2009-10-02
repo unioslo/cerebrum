@@ -425,13 +425,12 @@ class XMLPerson2Object(XMLEntity2Object):
             value = None
             if sub.text:
                 value = sub.text.strip().encode("latin1")
-
             if sub.tag == "personid":
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in personid: %s" % value
                 type = sub.attrib.get("personidtype")
                 if type == "fnr_closed":
-                    result.fnr_old.append(value)
+                    result.fnr_closed.append(value)
                 else:
                     result.add_id(ABCTypes.get_type("personidtype",(type,)),
                               value)
@@ -446,6 +445,10 @@ class XMLPerson2Object(XMLEntity2Object):
                     if len(value) == 6:
                         value = "19%s-%s-%s" % (value[4:6], value[2:4], value[0:2])
                     result.birth_date = self._make_mxdate(value)
+                if not result.birth_date:
+                    for k in result._ids.keys():
+                        print k, result._ids[k]
+                    print 'None'
             elif sub.tag == "gender":
                 result.gender = value.lower()
             elif sub.tag == "address":
@@ -467,8 +470,6 @@ class XMLPerson2Object(XMLEntity2Object):
             elif sub.tag == "reserv_publish":
                 if value:
                     result.reserv_publish = value.lower()
-                else:
-                    result.reserv_publish = 'no'
         # NB! This is crucial to save memory on XML elements
         element.clear()
         return result
