@@ -1062,9 +1062,9 @@ class SSLForkingMixIn(ForkingMixIn):
                     os._exit(1)
 
 class SecureServiceContainer(SSLForkingMixIn, SSL.SSLServer, ServiceContainer):
-    max_children = 5
 
     def __init__(self, server_address, ssl_context, services=[], RequestHandlerClass=SOAPRequestHandler):
+        self.max_children = getattr(cereconf, "SPINEWS_MAX_CHILDREN", 5)
         ServiceContainer.__init__(self, server_address, services, RequestHandlerClass)
         SSL.SSLServer.__init__(self, server_address, RequestHandlerClass, ssl_context)
         self.server_name, self.server_port = server_address
