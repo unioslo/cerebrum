@@ -4986,10 +4986,14 @@ Addresses and settings:
         group = self._get_group(groupname)
         ret = []
         now = DateTime.now()
-        for x in self._fetch_member_names(
-                       group.search_members(group_id=group.entity_id,
+        members = list(group.search_members(group_id=group.entity_id,
                                             indirect_members=False,
-                                            member_filter_expired=False)):
+                                            member_filter_expired=False))
+        if len(members) > cereconf.BOFHD_MAX_MATCHES:
+            raise CerebrumError("More than %d (%d) matches. Cowardly refusing "
+                                "to return result." %
+                                (cereconf.BOFHD_MAX_MATCHES, len(members)))
+        for x in self._fetch_member_names(members):
             tmp = {'id': x['member_id'],
                    'type': str(self.const.EntityType(x['member_type'])),
                    'name': x['member_name'],
