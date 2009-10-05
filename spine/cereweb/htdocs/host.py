@@ -87,6 +87,7 @@ def create(*args, **kwargs):
     return form.respond()
 create.exposed = True
 
+@session_required_decorator
 def save(id, name, description):
     """Saves the information for the host."""
     db = get_database()
@@ -100,6 +101,7 @@ def save(id, name, description):
     queue_message(_("Host successfully updated."), title=_("Change succeeded"))
     redirect_entity(host)
 
+@session_required_decorator
 def make(name, description):
     """Creates the host."""
     db = get_database()
@@ -112,6 +114,7 @@ def make(name, description):
     queue_message(_("Host successfully created."), title=_("Change succeeded"))
     redirect_entity(host)
 
+@session_required_decorator
 def delete(id):
     """Delete the host from the server."""
     db = get_database()
