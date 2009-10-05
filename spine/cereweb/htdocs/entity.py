@@ -28,7 +28,6 @@ from lib.utils import get_database, session_required_decorator
 from lib.HistoryLog import view_history, view_history_all
 from lib.templates.NewEntityViewTemplate import NewEntityViewTemplate
 from lib.data.EntityFactory import EntityFactory
-from lib.data.EntityDAO import EntityDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.DTO import DTO
 
@@ -95,7 +94,7 @@ remove_spread.exposed = True
 def full_historylog(id):
     """Creates a page with the full historylog for an entity."""
     db = get_database()
-    entity = EntityDAO(db).get(id)
+    entity = EntityFactory(db).get_entity(id)
     entity.history = HistoryDAO(db).get_entity_history(id)
 
     page = NewEntityViewTemplate()

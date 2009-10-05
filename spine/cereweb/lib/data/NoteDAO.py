@@ -6,14 +6,12 @@ Database = Utils.Factory.get("Database")
 Entity = Utils.Factory.get("Entity")
 
 from lib.data.DTO import DTO
-from lib.data.EntityDAO import EntityDAO
 
 class NoteDAO(object):
     def __init__(self, db=None):
-        if db is None:
-            db = Database()
-        self.db = db
-        self.dao = EntityDAO(self.db)
+        self.db = db or Database()
+        from lib.data.EntityFactory import EntityFactory
+        self.factory = EntityFactory(self.db)
 
     def get(self, entity_id):
         entity = Entity(self.db)
@@ -31,7 +29,7 @@ class NoteDAO(object):
         dto = DTO()
 
         cid = note['creator_id']
-        creator = self.dao.get(cid, 'account')
+        creator = self.factory.get_entity(cid, 'account')
 
         dto.creator = creator
 

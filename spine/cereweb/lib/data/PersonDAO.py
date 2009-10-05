@@ -18,11 +18,9 @@ from lib.data.NoteDAO import NoteDAO
 from lib.data.TraitDAO import TraitDAO
 from lib.data.EntityDTO import EntityDTO
 from lib.data.DTO import DTO
-from lib.utils import timer_decorator
 
 class PersonDAO(EntityDAO):
-    def __init__(self, db=None):
-        super(PersonDAO, self).__init__(db, Person)
+    EntityType = Person
 
     def get(self, id, include_extra=False):
         person = self._find(id)
@@ -41,7 +39,8 @@ class PersonDAO(EntityDAO):
 
         results = []
         name_variants = [self.constants.name_last, self.constants.name_first, self.constants.name_full]
-        for result in self.entity.search(
+        entity = self._get_cerebrum_obj()
+        for result in entity.search(
                                         name=name,
                                         birth_date=birth_date,
                                         name_variants=name_variants,
@@ -110,8 +109,7 @@ class PersonDAO(EntityDAO):
         if not self.auth.can_create_person(self.db.change_by):
             raise PermissionDenied("Not authorized to create person")
 
-        entity = self.entity
-        entity.clear()
+        entity = self._get_cerebrum_obj()
         entity.populate(
             dto.birth_date,
             self.constants.Gender(dto.gender.id),
@@ -228,11 +226,8 @@ class PersonDAO(EntityDAO):
                 dto.source_systems.append(source_system)
         return names.values()
 
-    def _get_type_name(self):
-        return self.constants.entity_person.str
-
-    def _get_type_id(self):
-        return int(self.constants.entity_person)
+    def _get_type(self):
+        return self.constants.entity_person
 
     def _create_dto(self, person, include_extra):
         dto = DTO()

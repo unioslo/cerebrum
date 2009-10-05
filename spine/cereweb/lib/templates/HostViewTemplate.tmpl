@@ -73,7 +73,7 @@
         <h3>$_('Disks')</h3>
         <form action="disks" method="post">
             <div>
-                <input type="hidden" name="host" value="$host.id" />
+                <input type="hidden" name="host_id" value="$host.id" />
 
                 #for $disk in $host.disks
                     <div class="item">
@@ -85,7 +85,7 @@
                 #if $host.disks
                     <input type="submit" name="delete" value="$_('Delete disks')" />&#x0020;
                 #end if
-                <input type="submit" name="add" value="$_('Add a disk')" />
+                <a href="/disk/create?host_id=$host.id">$_('Add a disk')</a>
             </div>
         </form>
     </div>

@@ -13,14 +13,10 @@ from lib.data.NoteDAO import NoteDAO
 from lib.data.TraitDAO import TraitDAO
 
 class OuDAO(EntityDAO):
-    def __init__(self, db=None):
-        super(OuDAO, self).__init__(db, OU_class)
+    EntityType = OU_class
 
-    def _get_type_name(self):
-        return self.constants.entity_ou.str
-
-    def _get_type_id(self):
-        return int(self.constants.entity_ou)
+    def _get_type(self):
+        return self.constants.entity_ou
 
     def _get_name(self, entity):
         return entity.name
@@ -86,8 +82,10 @@ class OuDAO(EntityDAO):
         return families
 
     def get_entities(self):
+        entity = self._get_cerebrum_obj()
+
         dtos = []
-        for entity in self.entity.list_all():
+        for entity in entity.list_all():
             dto = DTO()
             dto.name = entity.name
             dto.id = entity.ou_id
@@ -95,9 +93,10 @@ class OuDAO(EntityDAO):
         return dtos
 
     def get_tree(self, perspective):
+        entity = self._get_cerebrum_obj()
         if isinstance(perspective, (str, int)):
             perspective = ConstantsDAO(self.db).get_ou_perspective_type(perspective)
-        structure_mappings = self.entity.get_structure_mappings(perspective.id)
+        structure_mappings = entity.get_structure_mappings(perspective.id)
         roots = {}
         data = {}
         for node_id, parent_id in structure_mappings:

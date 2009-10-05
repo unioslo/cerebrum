@@ -31,8 +31,8 @@ from Cerebrum.Errors import NotFoundError
 from lib.data.AccountDAO import AccountDAO
 from lib.data.AccountDTO import AccountDTO
 from lib.data.ConstantsDAO import ConstantsDAO
-from lib.data.DTO import DTO
 from lib.data.EntityDAO import EntityDAO
+from lib.data.DTO import DTO
 
 import TestData
 from CerebrumTestCase import CerebrumTestCase
@@ -222,7 +222,8 @@ class AccountDAOTest(CerebrumTestCase):
     def test_that_we_can_get_available_uid(self):
         uid = self.dao.get_free_uid()
         
-        self.assertRaises(NotFoundError, EntityDAO().get, uid)
+        exists = EntityDAO().exists(uid)
+        self.assertEqual(False, exists)
 
     def test_that_we_can_get_default_shell(self):
         shell = self.dao.get_default_shell()

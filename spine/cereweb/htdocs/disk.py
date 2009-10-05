@@ -63,22 +63,22 @@ def view(id):
 view.exposed = True
 
 @session_required_decorator
-def edit(*args, **kwargs):
+def edit(host_id, **kwargs):
     """
     Creates a page with the form for editing a disk.
     """
-    form = DiskEditForm(*args, **kwargs)
+    form = DiskEditForm(host_id=int(host_id), **kwargs)
     if form.is_correct():
-        return save(*args, **kwargs)
+        return save(**form.get_values())
     return form.respond()
 edit.exposed = True
 
 @session_required_decorator
-def create(*args, **kwargs):
+def create(host_id, **kwargs):
     """Creates a page with the form for creating a disk."""
-    form = DiskCreateForm(*args, **kwargs)
+    form = DiskCreateForm(host_id=int(host_id), **kwargs)
     if form.is_correct():
-        return make(*args, **kwargs)
+        return make(**form.get_values())
     return form.respond()
 create.exposed = True
 

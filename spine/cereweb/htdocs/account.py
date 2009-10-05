@@ -38,6 +38,7 @@ from lib.data.HistoryDAO import HistoryDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.PersonDAO import PersonDAO
 from lib.data.DTO import DTO
+from lib.data.EntityFactory import EntityFactory
 
 from lib.utils import get_database
 from lib.Error import CreationFailedError
@@ -58,7 +59,7 @@ def create(**kwargs):
 
     db = get_database()
     try:
-        owner = EntityDAO(db).get(owner_id)
+        owner = EntityFactory(db).get_entity(owner_id)
     except NotFoundError, e:
         return fail_to_referer(_("Please create an account through a person or group."))
 

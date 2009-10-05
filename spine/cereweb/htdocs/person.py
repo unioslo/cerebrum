@@ -36,7 +36,7 @@ from lib.utils import spine_to_web, web_to_spine, get_lastname_firstname
 from lib.utils import from_spine_decode, session_required_decorator
 from lib.utils import get_database, parse_date, redirect_entity, entity_link
 from lib.data.DTO import DTO
-from lib.data.EntityDAO import EntityDAO
+from lib.data.EntityFactory import EntityFactory
 from lib.data.PersonDAO import PersonDAO
 from lib.data.AccountDAO import AccountDAO
 from lib.data.GroupDAO import GroupDAO
@@ -315,7 +315,7 @@ def leave_group(arg):
 
     db = get_database()
     group = GroupDAO(db).get_entity(group_id)
-    member = EntityDAO(db).get(member_id)
+    member = EntityFactory(db).get_entity(member_id)
 
     dao = GroupDAO(db)
     dao.remove_member(group_id, member_id)

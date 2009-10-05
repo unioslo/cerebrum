@@ -34,25 +34,15 @@ Constants = Utils.Factory.get("Constants")
 Entity = Utils.Factory.get("Entity")
 
 class EntityDAO(object):
-    def __init__(self, db=None, EntityType=None):
-        if db is None:
-            db = Database()
+    EntityType = None
 
-        self.db = db
+    def __init__(self, db=None):
+        self.db = db or Database()
         self.constants = Constants(self.db)
         self.auth = BofhdAuth(self.db)
-        
-        if EntityType is not None:
-            self.entity = EntityType(self.db)
 
-    def get(self, entity_id, entity_type=None):
-        if entity_type is None:
-            entity = Entity(self.db)
-            entity.find(entity_id)
-            entity_type = entity.entity_type
-        
-        from lib.data.EntityFactory import EntityFactory
-        return EntityFactory(self.db).create(entity_type, entity_id)
+    def get(self, entity_id):
+        raise NotImplementedError("This method should be overloaded.")
 
     def get_by_name(self, name):
         raise NotImplementedError("This method should be overloaded.")
@@ -67,7 +57,8 @@ class EntityDAO(object):
 
     def exists(self, entity_id):
         try:
-            self.get(entity_id)
+            entity = Entity(self.db)
+            entity.find(entity_id)
         except NotFoundError, e:
             return False
         return True
@@ -117,24 +108,40 @@ class EntityDAO(object):
     def _get_name(self, entity):
         return "Unknown"
 
+    def _get_type(self):
+        """
+        Overload to return the Cerebrum Core Type of the Entity.
+        """
+        return None
+
     def _get_type_id(self):
-        raise NotImplementedError, "This method must be overloaded."
+        core_type = self._get_type()
+        if core_type is None:
+            raise NotImplementedError, "This method or _get_type must be overloaded."
+        return int(core_type)
 
     def _get_type_name(self):
-        return 'entity'
+        core_type = self._get_type()
+        if core_type is None:
+            raise NotImplementedError, "This method or _get_type must be overloaded."
+        return str(core_type)
 
+    def _get_cerebrum_obj(self):
+        if self.EntityType is None:
+            raise NotImplementedError(
+                "EntityType not set.  Most likely you're not using a valid subclass of EntityDAO.")
+        entity = self.EntityType(self.db)
+        return entity
+        
     def _find(self, entity_id):
-        if not hasattr(self, 'entity'):
-            raise ProgrammingException(
-                "Can't access entity attribute.  Most likely you're not using a valid subclass of EntityDAO.")
-        self.entity.clear()
-        self.entity.find(entity_id)
-        return self.entity
+        entity = self._get_cerebrum_obj()
+        entity.find(entity_id)
+        return entity
 
     def _find_by_name(self, name):
-        self.entity.clear()
-        self.entity.find_by_name(name)
-        return self.entity
+        entity = self._get_cerebrum_obj()
+        entity.find_by_name(name)
+        return entity
 
     def _create_entity_dto(self, entity):
         dto = EntityDTO()

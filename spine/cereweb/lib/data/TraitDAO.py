@@ -7,7 +7,6 @@ Constants = Utils.Factory.get("Constants")
 Entity = Utils.Factory.get("Entity")
 
 from lib.data.DTO import DTO
-from lib.data.EntityDAO import EntityDAO
 
 class TraitDAO(object):
     def __init__(self, db=None):
@@ -15,7 +14,8 @@ class TraitDAO(object):
             db = Database()
         self.db = db
         self.constants = Constants(self.db)
-        self.dao = EntityDAO(self.db)
+        from lib.data.EntityFactory import EntityFactory
+        self.factory = EntityFactory(self.db)
 
     def get(self, entity_id):
         entity = Entity(self.db)
@@ -33,7 +33,7 @@ class TraitDAO(object):
         dto = DTO()
         dto.name = trait_type.str
         target_id = data['target_id']
-        dto.target = self.dao.get(target_id)
+        dto.target = self.factory.get_entity(target_id)
         dto.number = data['numval']
         dto.string = data['strval']
         dto.date = data['date']

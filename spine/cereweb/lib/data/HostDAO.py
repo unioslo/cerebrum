@@ -25,30 +25,29 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
 
 from lib.data.DTO import DTO
-from lib.data.HostDTO import HostDTO
 from lib.data.EmailTargetDTO import EmailTargetDTO
+
+from lib.data.EntityDAO import EntityDAO
 
 Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")
 Host = Utils.Factory.get("Host")
 
-class HostDAO(object):
-    def __init__(self, db=None):
-        self.db = db or Database()
-        self.auth = BofhdAuth(self.db)
-        self.constants = Constants(self.db)
+class HostDAO(EntityDAO):
+    EntityType = Host
 
     def get(self, host_id):
-        host = Host(self.db)
-        host.find(host_id)
+        host = self._find(host_id)
+        return self._create_dto(host)
 
+    def _create_dto(self, host):
         dto = DTO()
-        dto.id = host_id
+        dto.id = host.entity_id
         dto.name = host.name
         dto.type_name = self._get_type_name()
         dto.description = host.description
 
-        self.populate_email_server(host_id, dto)
+        self.populate_email_server(dto.id, dto)
 
         return dto
 
@@ -64,7 +63,13 @@ class HostDAO(object):
     def get_email_servers(self):
         email = Email.EmailServer(self.db)
         for server in email.list_email_server_ext():
-            yield HostDTO(server)
+            dto = DTO.from_row(server)
+            dto.id = dto.server_id
+            dto.type_name = self._get_type_name()
+            dto.is_email_server = True
+            dto.email_server_type = self.constants.EmailServerType(dto.server_type)
+
+            yield dto
     
     def get_email_targets(self, entity_id):
         et = Email.EmailTarget(self.db)
@@ -139,5 +144,8 @@ class HostDAO(object):
 
         host.delete()
 
-    def _get_type_name(self):
-         return str(self.constants.entity_host)
+    def _get_type(self):
+        return self.constants.entity_host
+
+    def _get_name(self, entity):
+        return entity.name

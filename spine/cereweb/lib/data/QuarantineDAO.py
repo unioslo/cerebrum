@@ -5,7 +5,6 @@ from Cerebrum.Errors import NotFoundError
 Database = Utils.Factory.get("Database")
 
 from lib.data.DTO import DTO
-from lib.data.EntityDAO import EntityDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 
 class QuarantineDAO(object):
@@ -14,7 +13,8 @@ class QuarantineDAO(object):
             db = Database()
         self.db = db
         self.co = ConstantsDAO(self.db)
-        self.dao = EntityDAO(self.db)
+        from lib.data.EntityFactory import EntityFactory
+        self.factory = EntityFactory(self.db)
 
     def create_from_entity(self, entity):
         quarantines = []
@@ -27,7 +27,7 @@ class QuarantineDAO(object):
         cid = quarantine['creator_id']
         qid = quarantine['quarantine_type']
     
-        creator = self.dao.get(cid, "account")
+        creator = self.factory.get_entity(cid, "account")
         quarantine_type = self.co.get_quarantine(qid)
 
         dto = DTO()

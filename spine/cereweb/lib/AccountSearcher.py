@@ -44,7 +44,7 @@ class AccountSearcher(CoreSearcher):
     def _add_owners(self, results):
         factory = EntityFactory(self.db)
         for result in results:
-            result.owner = factory.create(result.owner_type, result.owner_id)
+            result.owner = factory.get_entity(result.owner_id, result.owner_type)
         return results
 
     def _extend_complete_results(self, results):

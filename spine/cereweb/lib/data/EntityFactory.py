@@ -8,16 +8,15 @@ from lib.data.AccountDAO import AccountDAO
 from lib.data.GroupDAO import GroupDAO
 from lib.data.OuDAO import OuDAO
 from lib.data.PersonDAO import PersonDAO
+from lib.data.HostDAO import HostDAO
+from lib.data.DiskDAO import DiskDAO
 
 class EntityFactory(object):
     def __init__(self, db=None):
-        if db is None:
-            db = Database()
+        self.db = db or Database()
+        self.c = Constants(self.db)
 
-        self.db = db
-        self.c = Constants(db)
-
-    def get(self, type_id):
+    def get_dao(self, type_id):
         if isinstance(type_id, self.c.EntityType):
             entity_type = type_id
         else:
@@ -31,26 +30,30 @@ class EntityFactory(object):
             return OuDAO(self.db)
         if entity_type == self.c.entity_person:
             return PersonDAO(self.db)
+        if entity_type == self.c.entity_host:
+            return HostDAO(self.db)
+        if entity_type == self.c.entity_disk:
+            return DiskDAO(self.db)
         raise NotImplementedError("I do not know how to create DAO for type %s" % entity_type)
 
     def get_dao_by_entity_id(self, entity_id):
-        entity_type = self.get_type(entity_id)
-        return self.get(entity_type)
+        entity_type = self._get_type(entity_id)
+        return self.get_dao(entity_type)
 
-    def get_type(self, entity_id):
+    def get_entity(self, entity_id, type_id=None):
+        if type_id:
+            dao = self.get_dao(type_id)
+        else:
+            dao = self.get_dao_by_entity_id(entity_id)
+
+        return dao.get_entity(entity_id)
+
+    def get_entity_by_name(self, type_name, entity_name):
+        dao = self.get_dao(type_name)
+        return dao.get_entity_by_name(entity_name)
+
+    def _get_type(self, entity_id):
         entity = Entity(self.db)
         entity.find(entity_id)
         return entity.entity_type
-
-    def create(self, type_id, entity_id):
-        dao = self.get(type_id)
-        return dao.get_entity(entity_id)
-
-    def create_by_name(self, type_name, entity_name):
-        dao = self._create_dao_by_name(type_name)
-        return dao.get_entity_by_name(entity_name)
-
-    def _create_dao_by_name(self, type_name):
-        type = self.c.EntityType(type_name)
-        return self.get(type)
 

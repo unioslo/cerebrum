@@ -25,24 +25,26 @@ from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
 
 from lib.data.DTO import DTO
 from lib.data.HostDAO import HostDAO
+from lib.data.EntityDAO import EntityDAO
 
 Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")
 Disk = Utils.Factory.get("Disk")
 
-class DiskDAO(object):
-    def __init__(self, db=None):
-        self.db = db or Database()
-        self.auth = BofhdAuth(self.db)
+class DiskDAO(EntityDAO):
+    EntityType = Disk
+
+    def __init__(self, *args, **kwargs):
+        super(DiskDAO, self).__init__(*args, **kwargs)
         self.host_dao = HostDAO(self.db)
-        self.constants = Constants(self.db)
 
     def get(self, disk_id):
-        disk = Disk(self.db)
-        disk.find(disk_id)
+        disk = self._find(disk_id)
+        return self._create_dto(disk)
 
+    def _create_dto(self, disk):
         dto = DTO()
-        dto.id = disk_id
+        dto.id = disk.entity_id
         dto.type_name = self._get_type_name()
         dto.description = disk.description
         dto.path = disk.path
@@ -100,5 +102,5 @@ class DiskDAO(object):
 
         disk.delete()
         
-    def _get_type_name(self):
-         return str(self.constants.entity_disk)
+    def _get_type(self):
+         return self.constants.entity_disk

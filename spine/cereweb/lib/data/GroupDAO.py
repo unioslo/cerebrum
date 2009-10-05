@@ -11,15 +11,13 @@ PosixGroup = Utils.Factory.get("PosixGroup")
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DTO import DTO
 from lib.data.EntityDAO import EntityDAO
-from lib.data.EntityDTO import EntityDTO
 from lib.data.GroupDTO import GroupDTO
 from lib.data.NoteDAO import NoteDAO
 from lib.data.QuarantineDAO import QuarantineDAO
 from lib.data.TraitDAO import TraitDAO
 
 class GroupDAO(EntityDAO):
-    def __init__(self, db=None):
-        super(GroupDAO, self).__init__(db, Group)
+    EntityType = Group
 
     def get(self, id, include_extra=False):
         group = self._find(id)
@@ -27,9 +25,10 @@ class GroupDAO(EntityDAO):
         return self._create_dto(group, include_extra)
 
     def search(self, name):
+        group = self._get_cerebrum_obj()
         name = name.strip("*") + '*'
         results = []
-        for result in self.entity.search(name=name):
+        for result in group.search(name=name):
             dto = DTO.from_row(result)
             dto.id = result.group_id
             dto.type_name = self._get_type_name()
@@ -52,8 +51,10 @@ class GroupDAO(EntityDAO):
 
     def get_groups_for(self, member_id):
         groups = []
-        direct_groups = self.entity.search(member_id=member_id, filter_expired=False)
-        for group in self.entity.search(member_id=member_id, indirect_members=True, filter_expired=False):
+
+        entity = self._get_cerebrum_obj()
+        direct_groups = entity.search(member_id=member_id, filter_expired=False)
+        for group in entity.search(member_id=member_id, indirect_members=True, filter_expired=False):
             dto = self._create_dto_from_search(group)
             dto.direct = group in direct_groups
             groups.append(dto)
@@ -130,11 +131,8 @@ class GroupDAO(EntityDAO):
     def _get_name(self, entity):
         return entity.get_name(self.constants.group_namespace)
 
-    def _get_type_id(self):
-         return int(self.constants.entity_group)
-
-    def _get_type_name(self):
-         return self.constants.entity_group.str
+    def _get_type(self):
+         return self.constants.entity_group
 
     def _create_dto(self, group, include_extra=False):
         dto = GroupDTO()
@@ -225,7 +223,7 @@ class GroupDAO(EntityDAO):
         member_id = cerebrum_member['member_id']
         member_type = cerebrum_member['member_type']
         from lib.data.EntityFactory  import EntityFactory
-        return EntityFactory(self.db).create(member_type, member_id)
+        return EntityFactory(self.db).get_entity(member_id, member_type)
 
     def _get_quarantines(self, group):
         return QuarantineDAO(self.db).create_from_entity(group)

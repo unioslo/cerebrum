@@ -33,7 +33,6 @@ from Cerebrum.Errors import NotFoundError
 
 from lib.data.EntityFactory import EntityFactory
 from lib.data.GroupDAO import GroupDAO
-from lib.data.EntityDAO import EntityDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.HostDAO import HostDAO
@@ -111,7 +110,7 @@ add_member.exposed = True
 @session_required_decorator
 def remove_member(group_id, member_id):
     db = get_database()
-    member = EntityDAO(db).get(member_id)
+    member = EntityFactory(db).get_entity(member_id)
     GroupDAO(db).remove_member(group_id, member_id)
     db.commit()
 
@@ -255,8 +254,9 @@ def validate(name, description, expire):
     return True, ""
 
 def get_selected_id(entity_name, entity_type_name):
+    db = get_database()
     try:
-        entity = EntityFactory().create_by_name(entity_type_name, entity_name)
+        entity = EntityFactory(db).get_entity_by_name(entity_type_name, entity_name)
         return entity.id
     except NotFoundError, e:
         return None

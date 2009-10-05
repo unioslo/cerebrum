@@ -25,9 +25,8 @@ def first_or_none(fn, items):
     return None
 
 class AccountDAO(EntityDAO):
-    def __init__(self, db=None):
-        super(AccountDAO, self).__init__(db, Account)
-
+    EntityType = Account
+    
     def get(self, id, include_extra=True):
         account = self._find(id)
         if not self.auth.can_read_account(self.db.change_by, account):
@@ -37,19 +36,23 @@ class AccountDAO(EntityDAO):
 
     def search(self, name):
         name = name.strip("*") + '*'
-        return [self._create_from_search(r) for r in self.entity.search(name=name)]
+        account = self._get_cerebrum_obj()
+        return [self._create_from_search(r) for r in account.search(name=name)]
 
     def get_by_owner_ids(self, *owner_ids):
-        return [self._create_from_search(r) for r in self.entity.search(owner_id=owner_ids)]
+        account = self._get_cerebrum_obj()
+        return [self._create_from_search(r) for r in account.search(owner_id=owner_ids)]
 
     def get_by_name(self, name):
         account = self._find_by_name(name)
 
         return self._create_dto(account)
 
-    def get_owner(self, id):
-        account = self._find(id)
-        return EntityDAO(self.db).get(account.owner_id, int(account.owner_type))
+    def get_owner(self, account_id):
+        dto = DTO()
+        account = self._find(account_id)
+        self._populate_owner(dto, account)
+        return dto.owner
 
     def get_accounts(self, *account_ids):
         dtos = []
@@ -84,7 +87,8 @@ class AccountDAO(EntityDAO):
     def suggest_usernames(self, entity):
         fname, lname = self._split_name(entity.name)
 
-        return self.entity.suggest_unames(
+        account = self._get_cerebrum_obj()
+        return account.suggest_unames(
             self.constants.account_namespace,
             fname,
             lname,
@@ -307,11 +311,13 @@ class AccountDAO(EntityDAO):
     def _populate_owner(self, dto, account):
         owner_id = account.owner_id
         owner_type = account.owner_type
-        dto.owner = EntityDAO(self.db).get(owner_id, owner_type)
+        from lib.data.EntityFactory import EntityFactory
+        dto.owner = EntityFactory(self.db).get_entity(owner_id, account.owner_type)
         
     def _populate_creator(self, dto, account):
         creator_id = account.creator_id
-        dto.creator = EntityDAO(self.db).get(creator_id)
+        from lib.data.EntityFactory import EntityFactory
+        dto.creator = EntityFactory(self.db).get_entity(creator_id)
         
     def _get_affiliations(self, account):
         return AffiliationDAO(self.db).create_from_account_types(account.get_account_types())
@@ -366,12 +372,6 @@ class AccountDAO(EntityDAO):
 
     def _get_name(self, entity):
         return entity.get_name(self.constants.account_namespace)
-
-    def _get_type_name(self):
-        return self.constants.entity_account.str
-
-    def _get_type_id(self):
-        return int(self.constants.entity_account)
 
     def _get_type(self):
         return self.constants.entity_account

@@ -25,7 +25,7 @@ from lib.utils import redirect_entity, redirect
 from lib.utils import spine_to_web, web_to_spine
 from lib.utils import session_required_decorator
 from lib.utils import get_database, queue_message
-from lib.utils import url_quote
+from lib.utils import url_quote, entity_link
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DiskDAO import DiskDAO
 from lib.data.HistoryDAO import HistoryDAO
@@ -130,28 +130,28 @@ delete.exposed = True
 from lib.utils import commit, object_link
 from lib.utils import transaction_decorator, redirect_object
 
-def disks(transaction, host, add=None, delete=None, **checkboxes):
-    if add:
-        redirect('/disk/create?host=%s' % url_quote(host))
-        
-    elif delete:
-        host = transaction.get_host(int(host))
-        for arg, value in checkboxes.items():
-            disk = transaction.get_disk(int(arg))
-            disk.delete()
-        
-        if len(checkboxes) > 0:
-            msg = _("Disk(s) successfully deleted.")
-            commit(transaction, host, msg=msg)
-        else:
-            msg = _("No disk(s) selected for deletion")
-            hostname = spine_to_web(host.get_name())
-            queue_message(msg, error=True, link=object_link(host, text=hostname))
-            redirect_object(host)
+def disks(host_id, delete=None, **checkboxes):
+    if delete:
+        return delete_disks(host_id, **checkboxes)
     else:
-        raise "I don't know what you want me to do"
-disks = transaction_decorator(disks)
+        queue_message(_("Unknown operation."), title=_("Change failed"), error=True)
+        redirect_entity(host_id)
 disks.exposed = True
+
+@session_required_decorator
+def delete_disks(host_id, **checkboxes):
+    db = get_database()
+    dao = DiskDAO(db)
+
+    for disk_id, value in checkboxes.items():
+        dao.delete(disk_id)
+
+    if len(checkboxes) > 0:
+        queue_message(_("Disk(s) successfully deleted."), title=_("Change succeeded"))
+        db.commit()
+    else:
+        queue_message(_("No disk(s) selected for deletion"), title=_("Change failed"), error=True)
+    redirect_entity(host_id)
 
 def promote_mailhost(transaction, id, type_id, promote=None):
     host_type = transaction.get_email_server_type(type_id)
@@ -169,5 +169,3 @@ def demote_mailhost(transaction, id):
     commit(transaction, host, msg=msg)
 demote_mailhost = transaction_decorator(demote_mailhost)
 demote_mailhost.exposed = True
-
-# arch-tag: 6d5f8060-3bf4-11da-96a8-c359dfc6e774

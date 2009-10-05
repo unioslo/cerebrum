@@ -30,13 +30,13 @@ from CerebrumTestCase import CerebrumTestCase
 
 import TestData
 
-class EntityDAOTest(CerebrumTestCase):
+class EntityFactoryTest(CerebrumTestCase):
     def setUp(self):
-        super(EntityDAOTest, self).setUp()
-        self.dao = EntityDAO(self.db)
+        super(EntityFactoryTest, self).setUp()
+        self.factory = EntityFactory(self.db)
 
     def test_get_group(self):
-        entity = self.dao.get(TestData.posix_group_id)
+        entity = self.factory.get_entity(TestData.posix_group_id)
 
         self.assertEquals(TestData.posix_group_id, entity.id)
         self.assertEquals(TestData.posix_group_name, entity.name)
@@ -44,16 +44,18 @@ class EntityDAOTest(CerebrumTestCase):
 
     def test_group_speed(self):
         t = time.time()
-        entity = self.dao.get(TestData.large_group_id)
+        entity = self.factory.get_entity(TestData.large_group_id)
         d = time.time() - t
         self.assert_(d < 0.1, "this test should completet in under 100ms")
 
     def test_that_exists_returns_true_for_existing_id(self):
-        result = self.dao.exists(TestData.bootstrap_account_id)
+        dao = EntityDAO()
+        result = dao.exists(TestData.bootstrap_account_id)
         self.assertTrue(result)
 
     def test_that_exists_returns_false_for_nonexisting_id(self):
-        result = self.dao.exists(-2)
+        dao = EntityDAO()
+        result = dao.exists(-2)
         self.assertFalse(result)
 
     def test_that_we_can_get_an_account_dao_given_an_accounts_entity_id(self):
@@ -73,7 +75,7 @@ class EntityDAOTest(CerebrumTestCase):
 
     def test_that_we_can_get_an_entity_by_name(self):
         factory = EntityFactory()
-        entity = factory.create_by_name('group', TestData.posix_group_name)
+        entity = factory.get_entity_by_name('group', TestData.posix_group_name)
         self.assertEqual('group', entity.type_name)
         self.assertEqual(TestData.posix_group_name, entity.name)
         self.assertEqual(TestData.posix_group_id, entity.id)
