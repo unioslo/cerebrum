@@ -60,6 +60,25 @@ class HostDAO(EntityDAO):
         except NotFoundError, e:
             dto.is_email_server = False
 
+    def promote_mailhost(self, host_id, server_type_id):
+        host = self._find(host_id)
+
+        if not self.auth.can_edit_host(self.db.change_by, host):
+            raise PermissionDenied("Not authorized to edit host")
+
+        email = Email.EmailServer(self.db)
+        email.populate(server_type_id, parent=host)
+        email.write_db()
+
+    def demote_mailhost(self, host_id):
+        email = Email.EmailServer(self.db)
+        email.find(host_id)
+
+        if not self.auth.can_edit_host(self.db.change_by, host):
+            raise PermissionDenied("Not authorized to edit host")
+
+        email.delete()
+
     def get_email_servers(self):
         email = Email.EmailServer(self.db)
         for server in email.list_email_server_ext():

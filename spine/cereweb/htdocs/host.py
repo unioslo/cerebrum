@@ -127,9 +127,7 @@ def delete(id):
     redirect('/host/')
 delete.exposed = True
 
-from lib.utils import commit, object_link
-from lib.utils import transaction_decorator, redirect_object
-
+@session_required_decorator
 def disks(host_id, delete=None, **checkboxes):
     if delete:
         return delete_disks(host_id, **checkboxes)
@@ -138,7 +136,6 @@ def disks(host_id, delete=None, **checkboxes):
         redirect_entity(host_id)
 disks.exposed = True
 
-@session_required_decorator
 def delete_disks(host_id, **checkboxes):
     db = get_database()
     dao = DiskDAO(db)
@@ -153,19 +150,24 @@ def delete_disks(host_id, **checkboxes):
         queue_message(_("No disk(s) selected for deletion"), title=_("Change failed"), error=True)
     redirect_entity(host_id)
 
-def promote_mailhost(transaction, id, type_id, promote=None):
-    host_type = transaction.get_email_server_type(type_id)
-    host = transaction.get_host(int(id))
-    host.promote_email_server(host_type)
-    msg = _('Host promoted to mailhost.')
-    commit(transaction, host, msg=msg)
-promote_mailhost = transaction_decorator(promote_mailhost)
+@session_required_decorator
+def promote_mailhost(host_id, type_id, promote=None):
+    db = get_database()
+    dao = HostDAO(db)
+    dao.promote_mailhost(host_id, type_id)
+    db.commit()
+
+    queue_message(_('Host promoted to mailhost.'), title=_("Change succeeded"))
+    redirect_entity(host_id)
 promote_mailhost.exposed = True
 
-def demote_mailhost(transaction, id):
-    host = transaction.get_host(int(id))
-    host.demote_email_server()
-    msg = _('Host is no longer a mailhost.')
-    commit(transaction, host, msg=msg)
-demote_mailhost = transaction_decorator(demote_mailhost)
+@session_required_decorator
+def demote_mailhost(host_id):
+    db = get_database()
+    dao = HostDAO(db)
+    dao.demote_mailhost(host_id)
+    db.commit()
+
+    queue_message(_('Host is no longer a mailhost.'), title=_("Change succeeded"))
+    redirect_entity(host_id)
 demote_mailhost.exposed = True

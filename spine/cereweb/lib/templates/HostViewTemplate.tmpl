@@ -38,7 +38,7 @@
         <li><a href="delete?id=$host.id">$_("delete host")</a></li>
         <li><a href="/entity/full_historylog?id=$host.id">$_('view full history log')</a></li>
         #if $host.is_email_server
-            <li><a href="/host/demote_mailhost?id=$host.id">$_('Demote as mailhost')</a></li>
+            <li><a href="/host/demote_mailhost?host_id=$host.id">$_('Demote as mailhost')</a></li>
         #end if
     </ul>
 </div>
@@ -97,10 +97,10 @@
         <form action="promote_mailhost" method="post">
         <p>
             <div class="hidden">
-                <input type="hidden" name="id" value="$host.id" />
+                <input type="hidden" name="host_id" value="$host.id" />
             </div>
             <div class="required">
-                $form_widgets.generate_loption("type", 'Server type',
+                $form_widgets.generate_loption("type_id", 'Server type',
                         [($x.id, $x.name) for $x in $email_server_types])
             </div>
             <div class="buttons">
