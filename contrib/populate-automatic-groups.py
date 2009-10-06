@@ -72,6 +72,7 @@ variable. Something like this, perhaps:
 }
 """
 
+import collections
 import getopt
 import re
 import sys
@@ -90,6 +91,7 @@ logger = Factory.get_logger("cronjob")
 database = Factory.get("Database")()
 database.cl_init(change_program="pop-auto-groups")
 constants = Factory.get("Constants")(database)
+INDENT_STEP = 2
 
 #
 # List of legal group prefixes and the corresponding human descriptions.
@@ -99,6 +101,7 @@ legal_prefixes = {
     "ansatt-vitenskapelig": "Vitenskapelige tilsatte ved %s",
     "ansatt-tekadm":        "Teknisk-administrativt tilsatte ved %s",
     "ansatt-bilag":         "Bilagslønnede ved %s",
+    "meta-ansatt":          "Tilsatte ved %s og underordnede organisatoriske enheter",
 }
 
 
@@ -182,7 +185,7 @@ ou_id2parent_info = simple_memoize(ou_id2parent_info)
 
 
 
-def ou_has_children(ou_id, perspective):
+def ou_get_children(ou_id, perspective):
     """Check if ou_id has any subordinate OUs in perspective.
 
     @type ou_id: basestring
@@ -193,23 +196,24 @@ def ou_has_children(ou_id, perspective):
     @param perspective:
       Perspective for parent information.
 
-    @rtype: bool
+    @rtype: sequence of int
     @return:
-      True if ou_id has any children in perspective, False otherwise.
+      A sequence of children's ou_ids in the specified perspective.
     """
 
     ou = Factory.get("OU")(database)
     try:
         ou.find(ou_id)
-        return bool(ou.list_children(perspective, entity_id=ou_id))
+        return [x["ou_id"]
+                for x in ou.list_children(perspective, entity_id=ou_id)]
     except Errors.NotFoundError:
         # If we can't find the OU, it does not have a parent :)
         return False
 
     # NOTREACHED
     assert False
-# end ou_has_children
-ou_has_children = simple_memoize(ou_has_children)
+# end ou_get_children
+ou_get_children = simple_memoize(ou_get_children)
 
 
 
@@ -479,12 +483,12 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
         # <sko>?". The answer is "meta-ansatt-<sko>" and it should obviously
         # include ansatt-<sko>)
         parent_info = ou_id2ou_info(tmp_ou_id)
+        prefix = "meta-ansatt"
         while parent_info:
-            parent_name = "meta-ansatt-" + parent_info["sko"]
+            parent_name = prefix + "-" + parent_info["sko"]
             meta_parent_id = group_name2group_id(
                 parent_name,
-                "Tilsatte ved %s og underordnede organisatoriske enheter" %
-                parent_info["name"],
+                legal_prefixes[prefix] % parent_info["name"],
                 current_groups,
                 constants.trait_auto_meta_group)
             result.append((employee_group_id, meta_parent_id))
@@ -921,13 +925,20 @@ class gnode(object):
         return hash(self._gid)
 
     def __str__(self):
-        components = [str(self._gname),
-                      str(self._gid),
-                      "%d human(s)" % len(self._non_group_children),
-                      "%d subgroup(s)" % len(self._group_children)]
+        return self.prepare_output(0)
+
+    def prepare_output(self, indent=0):
+        humans = "%d humans" % len(self._non_group_children)
+        if 0 < len(self._non_group_children) <= 15:
+            humans = "\n" + " "*indent + ", ".join(str(x) for x in
+                                                   self._non_group_children)
         
+        components = [str(self._gname),
+                      "(id=%s)" % self._gid,
+                      humans]
+
         return "group %s" % ", ".join(components)
-    # end __str__
+    # end prepare_output
 
     def add_group_child(self, gnode_other):
         if gnode_other._gid in self._group_children:
@@ -939,7 +950,6 @@ class gnode(object):
     def add_nongroup_child(self, key):
         self._non_group_children.add(key)
     # end add_nongroup_child
-
 
     def add_parent(self, node):
         self._parent = node
@@ -963,16 +973,56 @@ class gnode(object):
 
     def output(self, stream, indent=0):
         stream.write(" "*indent)
-        stream.write(str(self))
+        stream.write(self.prepare_output(indent+INDENT_STEP))
         stream.write("\n")
         for child in self._group_children.itervalues():
-            child.output(stream, indent+2)
+            child.output(stream, indent+INDENT_STEP)
     # end output
 # end gnode
 
 
 
-def output_group_forest(filters):
+def build_ou_roots(filters, perspective):
+    """Construct a collection of OUs whose sko match any of the filters.
+
+    @rtype: dict (int -> dict)
+    @return:
+      A dict mapping ou_ids to ou information blocks (small dicts with sko,
+      ou_id and name)
+    """
+
+    logger.debug("Calculating OU root set, %d filter(s)", len(filters))
+
+    # Now the only sensible plan of attack is to do this by OU-tree.
+    ou = Factory.get("OU")(database)
+    # ou_id -> ou_info block
+    ou_set = dict((x["ou_id"], ou_id2ou_info(x["ou_id"]))
+                  for x in ou.list_all(filter_quarantined=True))
+
+    logger.debug("Starting with %d OUs in total", len(ou_set))
+    # Choose only the nodes that match at least one regular expression
+    filtered_set = dict((ou_id, ou_set[ou_id])
+                        for ou_id in ou_set
+                        if any(pattern.search(ou_set[ou_id]["sko"])
+                               for pattern in filters))
+            
+    # From these nodes, select those that are parentless IN THE filtered set.
+    # These are the nodes that we can start output from (they represent a
+    # logical root of the OU-tree matching a given regex. E.g. if the user
+    # specifies '15', the topmost matching node is '150000' (it's parent is
+    # probably some bogus proforma OU not matched by '15')).
+    ou_roots = dict()
+    for ou_id in filtered_set:
+        parent = ou_id2parent_info(ou_id, perspective)
+        if not parent or parent["ou_id"] not in filtered_set:
+            ou_roots[ou_id] = filtered_set[ou_id]
+
+    return ou_roots
+# end build_ou_roots
+
+
+
+def output_group_forest(filters, perspective):
     """Construct a forest of auto groups.
 
     We want to be able to output a forest (i.e. a collection of group trees)
@@ -980,22 +1030,63 @@ def output_group_forest(filters):
     such a tree and returns it as a dict. 
     """
 
-    forest = build_complete_forest()
+    group_forest = build_complete_group_forest()
+    # If none are specified -- match all
+    if not filters:
+        filters = [".*",]
+    logger.debug("%d nodes in the root set", len(group_forest))
+    logger.debug("%d filters: %s", len(filters), filters)
     filters = [re.compile(pattern) for pattern in filters]
-    logger.debug("%d nodes in the root set; filters=%s",
-                 len(forest), filters)
 
-    for root in [x for x in forest
-                 if x.matches_filters(*filters)]:
-        root.output(sys.stdout, 0)
+    ou_roots = build_ou_roots(filters, perspective)
+    # Now that we have a root set matching the filters, we can output
+    # everything recursively
+    work_queue = collections.deque((0, ou_roots[ou_id])
+                                   for ou_id in ou_roots)
+    while work_queue:
+        # right end removal
+        indent, current_ou = work_queue.pop()
+        sko = current_ou["sko"]
+        # Output all groups for this sko (recursively)
+        existing_groups = list()
+        for prefix in legal_prefixes:
+            gname = prefix + "-" + sko
+            if gname not in group_forest:
+                continue
+            existing_groups.append(group_forest[gname])
+
+        if not existing_groups:
+            continue
+
+        output_ou(current_ou, indent, sys.stdout)
+        for tmp in existing_groups:
+            tmp.output(sys.stdout, indent+INDENT_STEP)
+
+        # Enqueue all the children of current_ou
+        work_queue.extend((indent+INDENT_STEP, ou_id2ou_info(child_id))
+                          for child_id in
+                              ou_get_children(current_ou["ou_id"],
+                                              perspective)
+                          if ou_id2ou_info(child_id))
 # end output_group_forest
 
 
+def output_ou(ou_info, indent, stream):
 
-def build_complete_forest():
+    indent = " "*indent
+    if indent > 0:
+        indent = "*" + indent[1:]
+
+    stream.write(indent)
+    stream.write("OU %s (id=%s)" % (ou_info["sko"], ou_info["ou_id"]))
+    stream.write("\n")
+# end output_ou
+
+
+def build_complete_group_forest():
     """Build a complete forest of all auto groups.
 
-    Returns a sequence of root nodes.
+    Returns such a forest as a dictionary mapping gname to gnode instance.
     """
 
     logger.debug("Building complete node forest")
@@ -1039,13 +1130,14 @@ def build_complete_forest():
             node.add_group_child(child_node)
             child_node.add_parent(node)
 
-    #
-    # Collect the forest roots
-    forest = list(x for x in scratch.itervalues()
-                  if x.get_parent() is None)
-
-    logger.debug("Built auto group tree. %d node(s) in the root set", len(forest))
-    return forest
+    logger.debug("Built auto group tree -- %d node(s)", len(scratch))
+    # gname -> node (rather than gid -> node)
+    result = dict()
+    for gid in scratch:
+        node = scratch[gid]
+        result[node._gname] = node
+    
+    return result
 # end build_complete_forest
 
 
@@ -1086,7 +1178,7 @@ def main():
             output_groups = True
 
     if output_groups:
-        output_group_forest(output_filters)
+        output_group_forest(output_filters, perspective)
         sys.exit(0)
     elif wipe_all:
         perform_delete()
