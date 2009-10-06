@@ -147,12 +147,12 @@ class AccountDAO(EntityDAO):
 
     def _create_from_search(self, result):
         dto = DTO()
-        dto.id = result.account_id
-        dto.name = result.name
+        dto.id = result.fields.account_id
+        dto.name = result.fields.name
         dto.type = self._get_type()
         dto.type_name = self._get_type_name()
-        dto.owner_id = result.owner_id
-        dto.owner_type = self.constants.EntityType(result.owner_type)
+        dto.owner_id = result.fields.owner_id
+        dto.owner_type = self.constants.EntityType(result.fields.owner_type)
         return dto
 
     def _get_owner(self, dto):

@@ -30,7 +30,7 @@ class GroupDAO(EntityDAO):
         results = []
         for result in group.search(name=name):
             dto = DTO.from_row(result)
-            dto.id = result.group_id
+            dto.id = result.fields.group_id
             dto.type_name = self._get_type_name()
             results.append(dto)
         return results
@@ -151,14 +151,14 @@ class GroupDAO(EntityDAO):
 
     def _create_dto_from_search(self, result):
         dto = DTO()
-        dto.id = result.group_id
-        dto.name = result.name
+        dto.id = result.fields.group_id
+        dto.name = result.fields.name
         dto.type_name = self._get_type_name()
         dto.type_id = self._get_type_id()
-        dto.description = result.description
-        dto.is_posix = self._is_posix(result.group_id)
-        dto.create_date = result.create_date
-        dto.expire_date = result.expire_date
+        dto.description = result.fields.description
+        dto.is_posix = self._is_posix(result.fields.group_id)
+        dto.create_date = result.fields.create_date
+        dto.expire_date = result.fields.expire_date
         dto.is_expired = self._is_expired(dto.expire_date)
 
         return dto
