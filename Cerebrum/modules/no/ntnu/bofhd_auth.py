@@ -145,6 +145,9 @@ class BofhdAuth(auth.BofhdAuth):
         operation = self.const.auth_account_delete
         return self._has_account_access(operator, target, operation)
 
+    def can_edit_spread(self, operator, entity, spread):
+        return self.is_superuser(operator)
+
     def _get_ou(self, ou_id):
         ou = ou_id
         if isinstance(ou_id, str):
