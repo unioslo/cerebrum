@@ -70,6 +70,9 @@ variable. Something like this, perhaps:
 {'ansatt': (NIS_uio@ng, group@ldap),
  'ansatt-tekadm-33': (NIS_ifi@ng),
 }
+
+FIXME: don't need a deque -- a list would do quite nicely
+FIXME: Profile this baby.
 """
 
 import collections
@@ -912,6 +915,7 @@ def perform_delete():
 class gnode(object):
     """Class to facilitate group tree output.
     """
+    person_id2uname = dict()
 
     def __init__(self, gid, gname):
         self._gid = gid
@@ -930,8 +934,10 @@ class gnode(object):
     def prepare_output(self, indent=0):
         humans = "%d humans" % len(self._non_group_children)
         if 0 < len(self._non_group_children) <= 15:
-            humans = "\n" + " "*indent + ", ".join(str(x) for x in
-                                                   self._non_group_children)
+            humans = ("\n" +
+                      " "*indent +
+                      ", ".join(str(self.person_id2uname.get(x, x))
+                                for x in self._non_group_children))
         
         components = [str(self._gname),
                       "(id=%s)" % self._gid,
@@ -979,6 +985,23 @@ class gnode(object):
             child.output(stream, indent+INDENT_STEP)
     # end output
 # end gnode
+
+
+
+def person_id2uname():
+    """Construct a dict mapping person_id to primary uname.
+    """
+    
+    logger.debug("Caching humans->accounts...")
+    acc = Factory.get("Account")(database)
+    acc_id2name = dict((x["entity_id"], x["entity_name"])
+                       for x in acc.list_names(constants.account_namespace))
+    pid2uname = dict((x["person_id"], acc_id2name[x["account_id"]])
+                     for x in acc.list_accounts_by_type(primary_only=True))
+
+    logger.debug("%d entries in the cache", len(pid2uname))
+    return pid2uname
+# end person_id2uname
 
 
 
@@ -1088,6 +1111,8 @@ def build_complete_group_forest():
 
     Returns such a forest as a dictionary mapping gname to gnode instance.
     """
+
+    gnode.person_id2uname = person_id2uname()
 
     logger.debug("Building complete node forest")
     
