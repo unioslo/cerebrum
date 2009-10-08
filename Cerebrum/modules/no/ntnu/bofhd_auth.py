@@ -145,7 +145,88 @@ class BofhdAuth(auth.BofhdAuth):
         operation = self.const.auth_account_delete
         return self._has_account_access(operator, target, operation)
 
+    def can_create_disk(self, operator):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_edit_disk(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_delete_disk(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_create_host(self, operator):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_edit_host(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_delete_host(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_edit_motd(self, operator):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_create_email_target(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_edit_email_target(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_delete_email_target(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_create_email_address(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_edit_email_address(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_delete_email_address(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
     def can_edit_spread(self, operator, entity, spread):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
         return self.is_superuser(operator)
 
     def _get_ou(self, ou_id):
@@ -209,24 +290,6 @@ class BofhdAuth(auth.BofhdAuth):
     def can_delete_person(self, operator, target):
         operation = self.const.auth_person_delete
         return self._has_person_access(operator, target, operation)
-
-    def can_create_disk(self, operator):
-        return self.is_superuser(operator)
-
-    def can_edit_disk(self, operator, target):
-        return self.is_superuser(operator)
-
-    def can_delete_disk(self, operator, target):
-        return self.is_superuser(operator)
-
-    def can_create_host(self, operator):
-        return self.is_superuser(operator)
-
-    def can_edit_host(self, operator, target):
-        return self.is_superuser(operator)
-
-    def can_delete_host(self, operator, target):
-        return self.is_superuser(operator)
 
     def can_syncread_account(self, operator, spread, auth_method):
         if self.is_superuser(operator):
@@ -302,7 +365,6 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         raise PermissionDenied("Can't bulk read home directories")
 
-
     def can_set_homedir_status(self, operator, host_id, status):
         if self._query_target_permissions(
             operator, self.const.auth_homedir_set_status,
@@ -315,6 +377,3 @@ class BofhdAuth(auth.BofhdAuth):
             operation_attr=status):
             return True
         raise PermissionDenied("Can't set homedir status")
-
-    def can_edit_motd(self, operator):
-        return self.is_superuser(operator)
