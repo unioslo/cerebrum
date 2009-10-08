@@ -1456,3 +1456,23 @@ def argument_to_sql(argument, sql_attr_name, binds,
 
     return ""
 # end argument_to_sql
+
+def prepare_string(value, transform=str.lower):
+    """
+    @type value: basestring
+    @param value:
+      The value we want to transform from regular glob search syntax to
+      the special SQL92 glob syntax.
+
+    @type transform: a callable or None
+    @param transform
+      By default we lowercase the search string so we can compare with
+      LOWER(column) to get case insensitive comparison.
+
+      Send in None or some other callable to override this behaviour.
+    """
+    value = value.replace("*", "%")
+    value = value.replace("?", "_")
+    if transform is not None:
+        value = transform(value)
+    return value

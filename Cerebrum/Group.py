@@ -33,7 +33,7 @@ from Cerebrum import Utils
 from Cerebrum import Errors
 from Cerebrum.Entity import EntityName, EntityQuarantine, \
      EntityExternalId, EntitySpread
-from Cerebrum.Utils import argument_to_sql
+from Cerebrum.Utils import argument_to_sql, prepare_string
 try:
     set()
 except NameError:
@@ -41,14 +41,6 @@ except NameError:
         from sets import Set as set
     except ImportError:    
         from Cerebrum.extlib.sets import Set as set
-
-
-def prepare_string(value):
-    value = value.replace("*", "%")
-    value = value.replace("?", "_")
-    value = value.lower()
-    return value
-# end prepare_string
 
 
 Entity_class = Utils.Factory.get("Entity")

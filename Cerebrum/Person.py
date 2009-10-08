@@ -26,7 +26,7 @@ from Cerebrum.Entity import \
      EntityContactInfo, EntityAddress, EntityQuarantine, \
      EntityExternalId, EntitySpread
 from Cerebrum import Utils
-from Cerebrum.Utils import argument_to_sql
+from Cerebrum.Utils import argument_to_sql, prepare_string
 from Cerebrum import Errors
 
 try:
@@ -39,13 +39,6 @@ except NameError:
 
 class MissingOtherException(Exception): pass
 class MissingSelfException(Exception): pass
-
-def prepare_sql_pattern(value, transform=str.lower):
-    value = value.replace("*", "%")
-    value = value.replace("?", "_")
-    if transform is not None:
-        value = transform(value)
-    return value
 
 Entity_class = Utils.Factory.get("Entity")
 class Person(EntityContactInfo, EntityExternalId, EntityAddress,
@@ -322,10 +315,10 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
         occur more than once if return_name is True and he/she has
         several matching names."""
         if case_sensitive:
-            name = prepare_sql_pattern(name, transform=None)
+            name = prepare_string(name, transform=None)
             where = "name LIKE :name"
         else:
-            name = prepare_sql_pattern(name)
+            name = prepare_string(name)
             where = "LOWER(name) LIKE :name"
         if name_variant is not None:
             name_variant = int(name_variant)
@@ -949,7 +942,7 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             try:
                 spread = int(spread)
             except (TypeError, ValueError):
-                spread = prepare_sql_pattern(spread)
+                spread = prepare_string(spread)
                 tables.append("[:table schema=cerebrum name=spread_code] sc")
                 where.append("es.spread=sc.code")
                 where.append("LOWER(sc.code_str) LIKE :spread")
@@ -958,17 +951,17 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
             binds['spread'] = spread
 
         if name is not None:
-            name = prepare_sql_pattern(name)
+            name = prepare_string(name)
             where.append("LOWER(pn.name) LIKE :name")
             binds['name'] = name
 
         if birth_date is not None:
-            birth_date = prepare_sql_pattern(birth_date)
+            birth_date = prepare_string(birth_date)
             where.append("birth_date = :birth_date")
             binds['birth_date'] = birth_date
 
         if description is not None:
-            description = prepare_sql_pattern(description)
+            description = prepare_string(description)
             where.append("LOWER(pi.description) LIKE :description")
             binds['description'] = description
         

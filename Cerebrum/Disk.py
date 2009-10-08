@@ -22,7 +22,7 @@
 """
 
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, prepare_string
 from Cerebrum.Entity import EntityName, EntitySpread
 
 Entity_class = Factory.get("Entity")
@@ -190,12 +190,6 @@ class Disk(EntitySpread, Entity_class):
         ``description`` should be strings if given. ``host_id`` should be int.
         ``spread`` can be either string or int. Wildcards * and ? are expanded
         for "any chars" and "one char"."""
-
-        def prepare_string(value):
-            value = value.replace("*", "%")
-            value = value.replace("?", "_")
-            value = value.lower()
-            return value
 
         tables = []
         where = []
@@ -371,12 +365,6 @@ class Host(EntityName, EntitySpread, Entity_class):
         If no criteria is given, all hosts are returned. ``name`` and
         ``description`` should be strings if given. Wildcards * and ? are
         expanded for "any chars" and "one char"."""
-
-        def prepare_string(value):
-            value = value.replace("*", "%")
-            value = value.replace("?", "_")
-            value = value.lower()
-            return value
 
         where = []
 

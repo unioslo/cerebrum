@@ -23,6 +23,7 @@
 
 import cereconf
 from Cerebrum import Utils
+from Cerebrum.Utils import prepare_string
 from Cerebrum import Errors
 from Cerebrum.Entity import \
      EntityContactInfo, EntityAddress, EntityQuarantine, \
@@ -371,12 +372,6 @@ class OU(EntityContactInfo, EntityExternalId, EntityAddress,
         ``short_name``, ``display_name`` and ``sort_name`` should be string if
         given. ``spread`` can be either string or int. Wildcards * and ? are
         expanded for "any chars" and "one char"."""
-
-        def prepare_string(value):
-            value = value.replace("*", "%")
-            value = value.replace("?", "_")
-            value = value.lower()
-            return value
 
         tables = []
         where = []

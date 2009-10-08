@@ -41,7 +41,8 @@ from Cerebrum.Entity import EntityName, EntityQuarantine, \
 from Cerebrum.modules import PasswordChecker
 from Cerebrum import Errors
 from Cerebrum.Utils import NotSet
-from Cerebrum.Utils import argument_to_sql
+from Cerebrum.Utils import argument_to_sql, prepare_string
+
 import cereconf
 
 class AccountType(object):
@@ -1253,12 +1254,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         @return a list of tuples with the info (account_id,name,owner_id,
         owner_type,expire_date).        
         """
-
-        def prepare_string(value):
-            value = value.replace("*", "%")
-            value = value.replace("?", "_")
-            value = value.lower()
-            return value
 
         tables = []
         where = []
