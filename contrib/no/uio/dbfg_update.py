@@ -29,6 +29,7 @@ External db	table/source				Cerebrum group
 ----------------------------------------------------------------------
 OFPROD		select user_name FROM applsys.fnd_user	ofprod
 FSPROD		select username FROM all_users		fsprod
+FSSBKURS	select username FROM all_users		fssbkurs
 AJPROD		select username FROM all_users		ajprod
 OAPRD		select user_name FROM applsys.fnd_user	oaprd
 OEPATST		[1], [2], [3], [4], [5]
@@ -467,7 +468,7 @@ def report_users(stream_name, external_dbs):
         
     #
     # Report NIS spread / owner's work record
-    for dbname in ("ofprod", "oaprd", "fsprod",
+    for dbname in ("ofprod", "oaprd", "fsprod", "fssbkurs",
                    "basware-users", "basware-masters"):
         logger.debug("Accessing db %s", dbname)
         item = external_dbs[dbname]
@@ -544,6 +545,7 @@ information about certain kind of expired accounts
 
 --ofprod		   update ofprod group
 --fsprod		   update fsprod group
+--fssbkurs                 update fssbkurs group
 --ajprod		   update ajprod group
 --oaprd			   update oaprd group
 --basware-users            update basware-users group
@@ -579,6 +581,12 @@ def main():
                                   "sync_accessor"  : "list_dbfg_usernames",
                                   "report_accessor" : "list_dba_usernames",
                                   "ceregroup" : "fsprod" },
+                     "fssbkurs" : { "dbname"    : "FSSBKURS.uio.no",
+                                    "dbuser"    : "ureg2000",
+                                    "class"     : FS,
+                                    "sync_accessor"  : "list_dbfg_usernames",
+                                    "report_accessor" : "list_dba_usernames",
+                                    "ceregroup" : "fssbkurs" },                     
                      "ajprod" : { "dbname"    : "AJPROD.uio.no",
                                   "dbuser"    : "ureg2000",
                                   "class"     : AJ,
