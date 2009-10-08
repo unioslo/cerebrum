@@ -21,6 +21,7 @@
 UiT implementation of OU
 """
 from Cerebrum import Utils
+from Cerebrum.Utils import prepare_string
 from Cerebrum import Errors
 
 import cereconf
@@ -293,12 +294,6 @@ class OUEntityExpireMixin(EntityExpire, OU):
        
         """
         
-        def prepare_string(value):
-            value = value.replace("*", "%")
-            value = value.replace("?", "_")
-            value = value.lower()
-            return value
-
         tables = []
         where = []
         tables.append("""[:table schema=cerebrum name=ou_info] oi 

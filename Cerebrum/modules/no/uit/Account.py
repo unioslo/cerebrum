@@ -46,7 +46,7 @@ from Cerebrum.Utils import NotSet
 from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules.bofhd.utils import BofhdRequests
-from Cerebrum.Utils import pgp_encrypt, Factory
+from Cerebrum.Utils import pgp_encrypt, Factory, prepare_string
 from Cerebrum.modules.no.uit.Email import email_address
 
 #from Cerebrum.modules.no.uit.Email import email_address
@@ -640,13 +640,11 @@ class AccountUiTMixin(Account.Account):
             filter.append('type=:type')
             params['type']=type
         if comment:
-            comment = comment.replace("*", "%")
-            comment = comment.replace("?", "_")
+            comment = prepare_string(comment, None)
             filter.append('comment like :comment')
             params['comment']=comment
         if name:
-            name = name.replace("*", "%")
-            name = name.replace("?", "_")
+            name = prepare_string(name, None)
             filter.append('name like :name')
             params['name']=name
     
