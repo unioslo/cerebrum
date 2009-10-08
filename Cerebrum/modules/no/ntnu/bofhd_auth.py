@@ -205,7 +205,7 @@ class BofhdAuth(auth.BofhdAuth):
         """
         return self.is_superuser(operator)
 
-    def can_create_email_address(self, operator, target):
+    def can_create_email_address(self, operator, target, domain):
         """
         FIXME: Not implemented since the business logic is unclear.
         """
