@@ -63,6 +63,11 @@ populate-automatic-groups.py --dryrun -s system_sap -p SAP \
         -c affiliation_status_ansatt_bil:ansatt-bilag \
         -c affiliation_ansatt:ansatt
 
+Or, if you want to see which groups exist for sko 13-xx-xx and 33-15-xx and
+how they are structured:
+
+populate-automatic-groups.py -p SAP -o -f '^13' -f '^3315'
+
 FIXME: We need a possibility for assigning spreads to groups. The most
 flexible solution is probably spreads based on names in some configuration
 variable. Something like this, perhaps:
@@ -923,7 +928,15 @@ class gnode(object):
         self._group_children = dict()
         self._non_group_children = set()
         self._parent = None
+        self._description = self._fetch_description()
     # end __init__
+
+
+    def _fetch_description(self):
+        group = Factory.get("Group")(database)
+        group.find(self._gid)
+        return group.description
+    # end _fetch_description
 
     def __hash__(self):
         return hash(self._gid)
@@ -939,7 +952,8 @@ class gnode(object):
                       ", ".join(str(self.person_id2uname.get(x, x))
                                 for x in self._non_group_children))
         
-        components = [str(self._gname),
+        components = [self._description,
+                      "(name=%s)" % str(self._gname),
                       "(id=%s)" % self._gid,
                       humans]
 
