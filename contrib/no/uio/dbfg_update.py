@@ -352,6 +352,7 @@ def perform_synchronization(services):
         accessor_name = item["sync_accessor"]
         cerebrum_group = item["ceregroup"]
         user = item["dbuser"]
+        db_charset = item.get("db_charset")
 
         logger.debug("Synchronizing against source %s (user: %s)",
                      service, user)
@@ -359,7 +360,10 @@ def perform_synchronization(services):
         try:
             db = Database.connect(user = user, service = service,
                                   DB_driver = "Oracle")
-            obj = klass(db)
+            if db_charset:
+                obj = klass(db, db_charset)
+            else:
+                obj = klass(db)
             accessor = getattr(obj, accessor_name)
         except:
             type, value, tb = sys.exc_info()
@@ -370,8 +374,6 @@ def perform_synchronization(services):
             
         else:
             synchronize_group(accessor, cerebrum_group)
-        # yrt
-    # od
 # end perform_synchronization
 
 
@@ -603,13 +605,15 @@ def main():
                                          "class"         : OEP,
                                          "sync_accessor" : "list_dbfg_users",
                                          "report_accessor" : "list_dbfg_users",
-                                         "ceregroup"     : "basware-users", },
+                                         "ceregroup"     : "basware-users",
+                                         "db_charset"    : "utf-16-be", },
                      "basware-masters" : { "dbname"        : "OEPAPRD.uio.no",
                                            "dbuser"        : "ureg2000",
                                            "class"         : OEP,
                                            "sync_accessor" : "list_dbfg_masters",
                                            "report_accessor" : "list_dbfg_masters",
-                                           "ceregroup"     : "basware-masters", },                     
+                                           "ceregroup"     : "basware-masters",
+                                           "db_charset"    : "utf-16-be", },
                      "basware-users-test" : { "dbname"        : "OEPATST.uio.no",
                                               "dbuser"        : "ureg2000",
                                               "class"         : OEP,
@@ -645,19 +649,22 @@ def main():
                                            "class"         : OEP,
                                            "sync_accessor" : "list_dbfg_monitor",
                                            "report_accessor" : "list_dbfg_monitor",
-                                           "ceregroup"     : "basware-monitor", },
+                                           "ceregroup"     : "basware-monitor",
+                                           "db_charset"    : "utf-16-be", },
                      "basware-readsoft" : { "dbname"        : "OEPAPRD.uio.no",
                                             "dbuser"        : "ureg2000",
                                             "class"         : OEP,
                                             "sync_accessor" : "list_dbfg_readsoft",
                                             "report_accessor" : "list_dbfg_readsoft",
-                                            "ceregroup"     : "basware-readsoft", },
+                                            "ceregroup"     : "basware-readsoft",
+                                            "db_charset"    : "utf-16-be", },
                      "basware-useradmin" : { "dbname"        : "OEPAPRD.uio.no",
                                              "dbuser"        : "ureg2000",
                                              "class"         : OEP,
                                              "sync_accessor" : "list_dbfg_useradmin",
                                              "report_accessor" : "list_dbfg_useradmin",
-                                             "ceregroup"     : "basware-useradmin", },                     
+                                             "ceregroup"     : "basware-useradmin",
+                                             "db_charset"    : "utf-16-be", },
                      }
     try:
         options, rest = getopt.getopt(sys.argv[1:],

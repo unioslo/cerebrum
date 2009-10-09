@@ -31,10 +31,10 @@ class OEP(object):
     """
 
 
-    def __init__(self, db):
+    def __init__(self, db, db_charset=None):
         self.db = db
-        self._from_charset = "utf-16-be"
         self._to_charset = "iso-8859-1"
+        self._from_charset = db_charset and db_charset or self._to_charset
     # end __init__
 
 
