@@ -40,7 +40,7 @@ class UiaPasswordNotifier(PasswordNotifier):
         @type dryrun: boolean
         @keyword dryrun: Refrain from side effects?
         """
-        super(PasswordNotifier, self).__init__(db, logger, dryrun, *rest, **kw)       
+        super(UiaPasswordNotifier, self).__init__(db, logger, dryrun, *rest, **kw)       
         self.reminded_users = list()
 
     # end __init__
@@ -52,11 +52,11 @@ class UiaPasswordNotifier(PasswordNotifier):
         traits = account.get_trait(self.config.trait)
         if traits is not None:
             self.reminded_users.append(account.account_name)
-        super(PasswordNotifier, self).inc_num_notifications(account)
+        super(UiaPasswordNotifier, self).inc_num_notifications(account)
     # end inc_num_notifications
 
     def process_accounts(self):
-        super(PasswordNotifier, self).process_accounts()
+        super(UiaPasswordNotifier, self).process_accounts()
         if not self.dryrun and self.config.summary_to and self.config.summary_from:
             self.splatted_users.sort()
             self.reminded_users.sort()
