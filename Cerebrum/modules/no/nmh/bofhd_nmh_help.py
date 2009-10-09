@@ -94,6 +94,8 @@ command_help = {
         'Add an affiliation to a person',
     'person_affiliation_remove':
         'Remove an affiliation from a person',
+    'person_clear_id':
+        'Remove specific external id type from a source system from a person',
     'person_create':
         'Register a new person in Cerebrum',
     'person_find':
@@ -204,6 +206,9 @@ affiliation status codes"""],
     'entity_id':
         ['id', 'Enter entity ID',
          "Numeric ID of the entity you wish to process."],
+    'external_id_type':
+        ['external_id_type', 'Enter external id type',
+         'The external id type, i.e. NO_BIRTHNO/NO_STUDNO etc'],
     'group_name':
         ['gname', 'Enter groupname'],
     'group_name_dest':
