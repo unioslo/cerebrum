@@ -92,7 +92,7 @@ class Fronter(object):
         title = group_id = parent_id = ""
         schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
                    'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-                   'OSTFAG', 'STOL', 'BORGTF', 'BORGRESS')
+                   'OSTFAG', 'STOL', 'BORGRESS')
 
         for s in schools:
             tmp = {'title': s + ' Kontaktlærere',
@@ -131,7 +131,7 @@ class Fronter(object):
         title = group_id = parent_id = ""
         schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
                    'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-                   'OSTFAG', 'STOL', 'BORGTF', 'BORGRESS')
+                   'OSTFAG', 'STOL', 'BORGRESS')
         for s in schools:
             tmp = {'title': '06 Importerte Grupper',
                    'group_id': s + 'Groups', 
@@ -155,7 +155,6 @@ class Fronter(object):
                    'MYSE': 'Mysen videregående skole',
                    'OSTFAG': 'Østfold fagskole',
                    'STOL': 'St. Olav videregående skole',
-                   'BORGTF': 'Østfold fagskole',
                    'BORGRESS': 'Sarpsborg ressurs, Borg videregående skole'}
 
         for s in schools.keys():
@@ -512,7 +511,7 @@ def update_elev_ans_groups():
     
     schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
                'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-               'OSTFAG', 'STOL', 'BORGTF', 'BORGRESS')
+               'OSTFAG', 'STOL', 'BORGRESS')
     for s in schools:
         ou.clear()
         sted = ou.search(acronym=s)
@@ -584,7 +583,7 @@ def usage(exitcode):
 def find_sko_by_groupname(gname):
     schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
                'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-               'OSTFAG', 'STOL', 'BORGTF', 'BORGRESS')
+               'OSTFAG', 'STOL', 'BORGRESS')
     for s in schools:
         if re.search(s, gname):
             return s
