@@ -57,7 +57,7 @@ class MultiHandler:
             except:
                 pass #This is abort, so it's ok.
 
-class FileBack:
+class FileBack(object):
     def __init__(self, filename=None, mode=0644):
         if filename: 
             self.filename=filename
@@ -216,11 +216,21 @@ class ShadowFile(CLFileBack):
 
 class AliasFile(CLFileBack):
     filename="/etc/ceresync/aliases"
+    def add(self, obj):
+        if obj.primary_address_id is None:
+            return
+        else:
+            super(AliasFile, self).add(obj)
     def format(self, addr):
         if addr.address_id == addr.primary_address_id:
-            res="%s@%s: <> %s@%s\n" % (
-                addr.local_part, addr.domain,
-                addr.account_name, addr.server_name )
+            if addr.server_name is None:
+                res="%s@%s: <> %s@\n" % (
+                    addr.local_part, addr.domain,
+                    addr.account_name)
+            else:
+                res="%s@%s: <> %s@%s\n" % (
+                    addr.local_part, addr.domain,
+                    addr.account_name, addr.server_name )
         else:
             res="%s@%s: %s@%s\n" % (
                 addr.local_part, addr.domain,
