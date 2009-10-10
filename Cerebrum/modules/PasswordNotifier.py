@@ -182,7 +182,8 @@ class PasswordNotifier(object):
                     )
             account.write_db()
         else:
-            self.logger.error("Notification has already succeeded (this should not happen)")
+            if int(traits['numval']) != 0:
+                self.logger.error("Notification has already succeeded (this should not happen)")
     #end rec_fail_notification
 
     def inc_num_notifications(self, account):
