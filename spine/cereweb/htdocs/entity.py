@@ -91,6 +91,51 @@ def remove_spread(id, spread):
 remove_spread.exposed = True
 
 @session_required_decorator
+def add_quarantine(id, quarantine, why="", start="", end="", disable_until=""):
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(id)
+
+    if why="": why=None
+    if start="": start=None
+    if end="": end=None
+    if disable_until="": disable_until=None
+    
+    dao.add_quarantine(id, quarantine, why, start, end, disable_until)
+    db.commit()
+
+    msg = _("Quarantine successfully added.")
+    queue_message(msg, title=_("Operation succeeded"))
+    redirect_entity(id)
+add_quarantine.exposed = True
+
+@session_required_decorator
+def disable_quarantine(id, quarantine, disable_until=""):
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(id)
+
+    if disable_until="": disable_until=None
+    
+    dao.disable_quarantine(id, quarantine, disable_until)
+    db.commit()
+
+    msg = _("Quarantine successfully updated.")
+    queue_message(msg, title=_("Operation succeeded"))
+    redirect_entity(id)
+disable_quarantine.exposed = True
+
+@session_required_decorator
+def remove_quarantine(id, quarantine):
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(id)
+    dao.remove_quarantine(id, quarantine)
+    db.commit()
+
+    msg = _("Quarantine successfully removed.")
+    queue_message(msg, title=_("Operation succeeded"))
+    redirect_entity(id)
+remove_quarantine.exposed = True
+
+@session_required_decorator
 def full_historylog(id):
     """Creates a page with the full historylog for an entity."""
     db = get_database()

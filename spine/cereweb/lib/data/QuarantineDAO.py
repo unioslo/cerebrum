@@ -32,6 +32,8 @@ class QuarantineDAO(object):
 
         dto = DTO()
         dto.creator = creator
+        dto.entity_id = quarantine['entity_id']
+        dto.type_id = qid
         dto.type_name = quarantine_type.name
         dto.type_description = quarantine_type.description
 
