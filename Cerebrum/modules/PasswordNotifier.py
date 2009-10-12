@@ -344,8 +344,8 @@ Users with new passwords: %d
                     "Statistics from password notifier", body, self.logger,
                     self.config.summary_cc)
             
+        if not self.dryrun:
             self.db.commit()
-        # fi self.dryrun
     # end process_accounts
 
     def except_user(self, account):
