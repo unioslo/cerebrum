@@ -74,7 +74,7 @@ class HostDAO(EntityDAO):
         email = Email.EmailServer(self.db)
         email.find(host_id)
 
-        if not self.auth.can_edit_host(self.db.change_by, host):
+        if not self.auth.can_edit_host(self.db.change_by, email):
             raise PermissionDenied("Not authorized to edit host")
 
         email.delete()
