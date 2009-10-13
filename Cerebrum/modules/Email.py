@@ -60,6 +60,7 @@ import string
 import time
 
 from Cerebrum import Utils
+from Cerebrum.Utils import prepare_string, argument_to_sql
 from Cerebrum import Constants
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Entity import Entity
@@ -450,6 +451,50 @@ class EmailDomain(Entity_class):
         SELECT domain_id, domain
         FROM [:table schema=cerebrum name=email_domain]""")
 
+    def search(self, name=None, description=None, category=None):
+        """
+        Retrieves a list of EmailDomains filtered by the given criterias.
+
+        If no criteria is given, all domains are returned. ``name`` and
+        ``description`` should be strings if given.
+        ``category`` must be an int or a list of ints.
+
+        Wildcards * and ? are expanded for "any chars" and "one char".
+        """
+
+        where = []
+        binds = {}
+        joins = []
+
+        if name is not None:
+            name = prepare_string(name)
+            where.append("LOWER(ed.domain) LIKE :name")
+            binds['name'] = name
+
+        if description is not None:
+            description = prepare_string(description)
+            where.append("LOWER(ed.description) LIKE :desc")
+            binds['desc'] = description
+
+        if category is not None:
+            where.append(argument_to_sql(category, "edc.category", binds, int))
+            joins.append("""
+                JOIN [:table schema=cerebrum name=email_domain_category] edc
+                  ON edc.domain_id = ed.domain_id
+            """)
+
+        where_str = ""
+        if where:
+            where_str = " WHERE %s" % " AND ".join(where)
+
+        join_str = ""
+        if joins:
+            join_str = " ".join(joins)
+
+        return self.query("""
+        SELECT ed.domain_id, ed.domain, ed.description
+        FROM [:table schema=cerebrum name=email_domain] ed %s %s
+        """ % (join_str, where_str), binds)
 
 class EmailTarget(Entity_class):
     """Interface for registering valid email delivery targets.
