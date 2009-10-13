@@ -457,7 +457,8 @@ class EmailDomain(Entity_class):
 
         If no criteria is given, all domains are returned. ``name`` and
         ``description`` should be strings if given.
-        ``category`` must be an int or a list of ints.
+        ``category`` must be an int, a constant or a string that can be
+        int()-ed, or it can be a list of such values.
 
         Wildcards * and ? are expanded for "any chars" and "one char".
         """
@@ -485,7 +486,8 @@ class EmailDomain(Entity_class):
 
         where_str = ""
         if where:
-            where_str = " WHERE %s" % " AND ".join(where)
+            where_with_precedence = ["(%s)" % x for x in where]
+            where_str = " WHERE %s" % " AND ".join(where_with_precedence)
 
         join_str = ""
         if joins:
