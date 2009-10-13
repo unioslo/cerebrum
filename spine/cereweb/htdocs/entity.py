@@ -95,10 +95,10 @@ def add_quarantine(id, quarantine, why="", start="", end="", disable_until=""):
     db = get_database()
     dao = EntityFactory(db).get_dao_by_entity_id(id)
 
-    if why="": why=None
-    if start="": start=None
-    if end="": end=None
-    if disable_until="": disable_until=None
+    why = why or None
+    start = start or None
+    end = end or None
+    disable_until = disable_until or None
     
     dao.add_quarantine(id, quarantine, why, start, end, disable_until)
     db.commit()
@@ -113,7 +113,7 @@ def disable_quarantine(id, quarantine, disable_until=""):
     db = get_database()
     dao = EntityFactory(db).get_dao_by_entity_id(id)
 
-    if disable_until="": disable_until=None
+    disable_until = disable_until or None
     
     dao.disable_quarantine(id, quarantine, disable_until)
     db.commit()
