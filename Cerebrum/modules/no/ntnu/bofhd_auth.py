@@ -223,6 +223,24 @@ class BofhdAuth(auth.BofhdAuth):
         """
         return self.is_superuser(operator)
 
+    def can_create_email_domain(self, operator):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_edit_email_domain(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_delete_email_domain(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
     def can_edit_spread(self, operator, entity, spread):
         """
         FIXME: Not implemented since the business logic is unclear.
