@@ -49,12 +49,43 @@ class SynchronizedDatabase(Database_class):
         finally:
             SynchronizedDatabase._db_proxy_lock.release()
 
+    # 2009-10-12 IVR This is a bit awkward.  A few of our daemons have a
+    # constant object each (actually all of them do). The constant objects
+    # have their own private DB connection (cf. get_sql() below). That db
+    # connection exists parallel to the connection used by the code (legacy
+    # issues. This should be reviewed once spine is gone).
+    #
+    # The problem with such a connection is that constants are used in a
+    # read-only fashion. Futhermore a constants object never commits
+    # explicitly, which in the end results in a transaction in the database
+    # that has been started but has not (ever) been committed. The transaction
+    # persists until the Constants object is deleted, which may be many weeks
+    # apart for a daemon. That, in turn, stops vacuum analyze and the like
+    # from deleting outdated rows.
+    #
+    # For now we force commit() for every query* operation. It is safe, since
+    # the db connection is private. If we abandon this policy, the commits
+    # must be yanked out (but then outstanding idle transactions won't be a
+    # problem either).
     def query_1(self, query, params=()):
         try:
             SynchronizedDatabase._db_proxy_lock.acquire()
             return super(SynchronizedDatabase, self).query_1(query, params)
         finally:
+            self.commit()
             SynchronizedDatabase._db_proxy_lock.release()
+
+    def query(self, query, params=()):
+        try:
+            SynchronizedDatabase._db_proxy_lock.acquire()
+            return super(SynchronizedDatabase, self).query(query, params)
+        finally:
+            self.commit()
+            SynchronizedDatabase._db_proxy_lock.release()
+    # end query
+# end SynchronizedDatabase
+
+
 
 class _CerebrumCode(DatabaseAccessor):
     """Abstract base class for accessing code tables in Cerebrum.
@@ -297,7 +328,7 @@ class _CerebrumCode(DatabaseAccessor):
         # Force fetching the description from the database
         self._desc = None
         db_desc = self._get_description()
-        if new_desc <> db_desc:
+        if new_desc != db_desc:
             self._desc = new_desc
             stats['updated'] += 1
             self.sql.execute("UPDATE %s SET %s=:desc WHERE %s=:code" %
@@ -667,7 +698,7 @@ class ConstantsBase(DatabaseAccessor):
                     stats['inserted'] += 1
                 rows = self._db.query(
                     """SELECT * FROM %s""" % cls._lookup_table)
-                if cls_code_count <> len(rows):
+                if cls_code_count != len(rows):
                     table_vals = [int(r[cls._lookup_code_column]) for r in rows]
                     code_vals = [int(x) for x in order[root][cls].values()]
                     table_vals.sort()
