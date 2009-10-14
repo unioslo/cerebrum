@@ -344,7 +344,7 @@ cereweb.editBox = {
 
         var actions = YD.get('actions');
         var list = actions.getElementsByTagName('ul');
-        if (list) {
+        if (list.length > 0) {
             list = list[0];
             var li = document.createElement('li');
             li.appendChild(link);
