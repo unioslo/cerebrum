@@ -421,6 +421,14 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
         return url;
     };
 
+    var get_header = function(el) {
+        var elements = el.getElementsByTagName('h3');
+        for (var i = 0; i < elements.length; i++) {
+            var el = elements[i];
+            return el;
+        }
+    };
+
     var get_cancel_button = function(el) {
         var elements = el.getElementsByTagName('input');
         for (var i = 0; i < elements.length; i++) {
@@ -450,6 +458,10 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
         myBox.update = function(r) {
             myBox.setBody(r);
+            var header = get_header(myBox.element)
+            header.parentNode.removeChild(header);
+            myBox.setHeader(header);
+
             var cancelButton = get_cancel_button(myBox.element);
             YE.on(cancelButton, 'click', function(e) {
                 YE.preventDefault(e);
