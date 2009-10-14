@@ -327,22 +327,12 @@ cereweb.editBox = {
      * actions div that, when clicked, shows the dialog
      */
     add: function(el) {
-        if (!el.id)
-            YD.generateId(el, 'editBox_');
-
-        var id = el.id;
-        var header = el.getElementsByTagName('h3')[0];
-
-        el.removeChild(header);
-
-        var editBox = this.create(el, header.innerHTML);
-        el.style.display = "";
-
         var link = document.createElement('a');
-        link.href = "#" + el.id;
-        link.innerHTML = header.innerHTML;
-
         var actions = YD.get('actions');
+        if (actions === null) {
+            return;
+        }
+
         var list = actions.getElementsByTagName('ul');
         if (list.length > 0) {
             list = list[0];
@@ -353,6 +343,19 @@ cereweb.editBox = {
             actions.appendChild(link);
             actions.appendChild(document.createElement('br'));
         }
+
+        if (!el.id)
+            YD.generateId(el, 'editBox_');
+
+        var id = el.id;
+        var header = el.getElementsByTagName('h3')[0];
+        link.href = "#" + el.id;
+        link.innerHTML = header.innerHTML;
+
+        el.removeChild(header);
+
+        var editBox = this.create(el, header.innerHTML);
+        el.style.display = "";
 
         cereweb.action.add(id, this.toggle, editBox);
         var cancel_links = YD.getElementsByClassName("cancel", null, el);
