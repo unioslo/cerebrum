@@ -48,7 +48,6 @@
     <ul>
         <li><a href="/person/edit?id=$person.id">$_("edit info")</a></li>
         <li><a href="/confirm/person/delete?id=$person.id">$_("delete person")</a></li>
-        <li><a href="/quarantine/add?entity=$person.id">$_('add quarantine')</a></li>
         <li><a href="/account/create?owner_id=$person.id">$_('create new account')</a></li>
         <li><a href="/entity/full_historylog?id=$person.id">$_('view full history log')</a> </li>
     </ul>
@@ -62,6 +61,7 @@
     $printDialog($person)
     $viewNames($person)
     $viewQuarantines($person)
+    $addQuarantine($person, $quarantines)
     $addNote($person)
     $viewNotes($person)
     $viewAccounts($person)

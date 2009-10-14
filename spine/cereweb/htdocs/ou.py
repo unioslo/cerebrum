@@ -65,6 +65,7 @@ def view(id):
     page.perspectives = c_dao.get_ou_perspective_types()
     page.affiliations = c_dao.get_affiliation_types()
     page.spreads = c_dao.get_ou_spreads()
+    page.quarantines = c_dao.get_quarantines()
     page.trees = ou_dao.get_trees()
     page.id_types = c_dao.get_id_types()
     return page.respond()

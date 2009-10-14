@@ -43,7 +43,6 @@
         #else
             <li><a href="/account/promote_posix?account_id=$account.id">$_("Promote to posix")</a></li>
         #end if
-        <li><a href="/quarantine/add?entity=$account.id">$_('Add quarantine')</a></li>
         <li><a href="/entity/full_historylog?id=$account.id">$_('View full history log')</a> </li>
     </ul>
 </div>
@@ -53,6 +52,7 @@
     $editAccount($account)
     $viewInfo($account)
     $viewQuarantines($account)
+    $addQuarantine($account, $quarantines)
     $addNote($account)
     $viewNotes($account)
     $viewGroups($account)

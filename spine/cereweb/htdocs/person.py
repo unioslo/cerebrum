@@ -72,6 +72,7 @@ def view(id, **vargs):
     page.ou_tree = OuDAO(db).get_tree("Kjernen")
     page.id_types = ConstantsDAO(db).get_id_types()
     page.name_types = ConstantsDAO(db).get_name_types()
+    page.quarantines = ConstantsDAO(db).get_quarantines()
     return page.respond()
 view.exposed = True
 

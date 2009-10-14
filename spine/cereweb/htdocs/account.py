@@ -179,6 +179,7 @@ def view(id, **kwargs):
     page.email_servers = HostDAO(db).get_email_servers()
     page.targets = HostDAO(db).get_email_targets(id)
     page.spreads = ConstantsDAO(db).get_user_spreads()
+    page.quarantines = ConstantsDAO(db).get_quarantines()
 
     return page.respond()
 view.exposed = True

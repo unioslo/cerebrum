@@ -58,6 +58,7 @@ def view(id, **vargs):
     page.group.history = HistoryDAO(db).get_entity_history_tail(id)
     page.visibilities = ConstantsDAO(db).get_group_visibilities()
     page.spreads = ConstantsDAO(db).get_group_spreads()
+    page.quarantines = ConstantsDAO(db).get_quarantines()
     page.email_target_types = ConstantsDAO(db).get_email_target_types()
     page.email_servers = HostDAO(db).get_email_servers()
     page.targets = HostDAO(db).get_email_targets(id)

@@ -122,6 +122,10 @@ class ConstantsDAO(object):
         q = self.constants.Quarantine(id)
         return ConstantsDTO(q)
 
+    def get_quarantines(self):
+        names = self._get_names("quarantine_")
+        return self._get_constant_dtos(names, Constants.Quarantine)
+
     def get_gender_types(self):
         names = self._get_names("gender_")
         return self._get_constant_dtos(names, Constants.Gender)

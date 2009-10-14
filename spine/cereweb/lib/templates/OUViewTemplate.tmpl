@@ -46,7 +46,6 @@
     <h3>$_('Actions')</h3>
     <ul>
         <li><a href="delete?id=$ou.id">$_("delete ou")</a></li>
-        <li><a href="/quarantine/add?entity=$ou.id">$_('add quarantine')</a></li>
         <li><a href="/entity/full_historylog?id=$ou.id">$_('view full history log')</a></li>
     </ul>
 </div>
@@ -56,6 +55,7 @@
     $editOU($ou, $trees)
     $viewInfo($ou)
     $viewQuarantines($ou)
+    $addQuarantine($ou, $quarantines)
     $addNote($ou)
     $viewNotes($ou)
     $viewTraits($ou)

@@ -109,13 +109,13 @@ def add_quarantine(id, quarantine, why="", start="", end="", disable_until=""):
 add_quarantine.exposed = True
 
 @session_required_decorator
-def disable_quarantine(id, quarantine, disable_until=""):
+def disable_quarantine(id, type, disable_until=""):
     db = get_database()
     dao = EntityFactory(db).get_dao_by_entity_id(id)
 
     disable_until = disable_until or None
     
-    dao.disable_quarantine(id, quarantine, disable_until)
+    dao.disable_quarantine(id, type, disable_until)
     db.commit()
 
     msg = _("Quarantine successfully updated.")
@@ -124,10 +124,10 @@ def disable_quarantine(id, quarantine, disable_until=""):
 disable_quarantine.exposed = True
 
 @session_required_decorator
-def remove_quarantine(id, quarantine):
+def remove_quarantine(id, type):
     db = get_database()
     dao = EntityFactory(db).get_dao_by_entity_id(id)
-    dao.remove_quarantine(id, quarantine)
+    dao.remove_quarantine(id, type)
     db.commit()
 
     msg = _("Quarantine successfully removed.")

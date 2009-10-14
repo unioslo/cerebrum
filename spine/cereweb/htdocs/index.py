@@ -42,7 +42,6 @@ import host
 import note
 import ou
 import person
-import quarantine
 import permissions
 import user_client
 import activation

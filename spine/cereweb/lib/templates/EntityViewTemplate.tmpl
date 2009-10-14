@@ -86,60 +86,6 @@
 </div>
 #end def
 
-#def viewQuarantines($entity)
-#set $quarantines = $entity.get_quarantines()
-#if $quarantines
-#set $id = $entity.get_id()
-<div class="important box">
-    <h3>$_('Quarantines')</h3>
-    #for $q in $quarantines
-    <div class="item">
-        #set $type = $q.get_type().get_name()
-        #set $edit = '/quarantine/edit?entity=%s&amp;type=%s' % ($url_quote($id), $url_quote($type))
-        #set $remove = '/quarantine/remove?entity=%s&amp;type=%s' % ($url_quote($id), $url_quote($type))
-        #set $description = $q.get_description()
-        #if $description
-            #set $description = $spine_to_web($description).replace('\n', '<br />')
-        #end if
-        <div class="actions">
-            <a class="action" href="$edit">$_('edit')</a>
-            <a class="action" href="$remove">$_('delete')</a>
-        </div>
-        #set $type_desc = $q.get_type().get_description()
-        #if $type_desc
-            #set $type_desc = $spine_to_web($type_desc)
-        #end if
-        <strong>$type_desc</strong>&#x0020;
-        <em>-$_('by ')</em>
-        #set $creator_name = $q.get_creator().get_name()
-        #if $creator_name
-            #set $creator_name = $spine_to_web($creator_name)
-            $object_link($q.get_creator(), text=$creator_name)
-        #else
-            $object_link($q.get_creator())
-        #end if
-        &#x0020;
-        <span class="date">$html_quote($strftime($q.get_create_date()))</span>
-        <div class="description">$description</div>
-        
-        #set $end = $q.get_end_date()
-        #set $until = $q.get_disable_until()
-        
-        <em>$_('Start'):</em>
-        <span class="date">$html_quote($strftime($q.get_start_date()))</span>
-        #if $end
-        <em> $_('End'):</em>
-        <span class="date">$html_quote($strftime($end))</span>
-        #end if
-        #if $until
-        <em> $_('Postponed until'):</em>
-        <span class="date">$html_quote($strftime($until))</span>
-        #end if
-    </div>
-    #end for
-</div>
-#end if
-#end def
 
 #from lib.utils import extidlist
 #def viewExternalIds($entity, $viewBirthNo)

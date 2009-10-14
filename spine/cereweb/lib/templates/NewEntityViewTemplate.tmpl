@@ -34,43 +34,6 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-#def viewQuarantines($entity)
-    #if not $entity.quarantines
-        #return
-    #end if
-
-    <div class="important box">
-        <h3>$_('Quarantines')</h3>
-        #for $q in $entity.quarantines
-            <div class="item">
-                #set $type = $url_quote($q.type_name)
-                #set $edit = '/quarantine/edit?entity=%s&amp;type=%s' % ($entity.id, $type)
-                #set $remove = '/quarantine/remove?entity=%s&amp;type=%s' % ($entity.id, $type)
-
-                <div class="actions">
-                    <a class="action" href="$edit">$_('edit')</a>
-                    <a class="action" href="$remove">$_('delete')</a>
-                </div>
-                <strong>$spine_to_web($q.type_description)</strong>&#x0020;
-                <em>-$_('by ')</em>$entity_link($q.creator) &#x0020;
-                <span class="date">$quotedate($q.create_date)</span>
-                <div class="description">$nl2br($spine_to_web($q.description))</div>
-                
-                <em>$_('Start'):</em>
-                <span class="date">$quotedate($q.start_date)</span>
-                #if $q.end_date
-                    <em> $_('End'):</em>
-                    <span class="date">$quotedate($q.end_date)</span>
-                #end if
-                #if $q.disable_until
-                    <em> $_('Postponed until'):</em>
-                    <span class="date">$quotedate($q.disable_until)</span>
-                #end if
-            </div>
-        #end for
-    </div>
-#end def
-
 #def viewEmail($entity)
     #if not $targets
         #return
@@ -304,11 +267,10 @@
         #for $q in $entity.quarantines
             <div class="item">
                 #set $type = $url_quote($q.type_name)
-                #set $edit = '/quarantine/edit?entity=%s&amp;type=%s' % ($entity.id, $type)
-                #set $remove = '/quarantine/remove?entity=%s&amp;type=%s' % ($entity.id, $type)
+                #set $remove = '/confirm/entity/remove_quarantine?id=%s&amp;type=%s' % ($entity.id, $type)
 
                 <div class="actions">
-                    <a class="action" href="$edit">$_('edit')</a>
+                    <a class="action" href="#editQuarantineBox_${type}">$_('disable')</a>
                     <a class="action" href="$remove">$_('delete')</a>
                 </div>
                 <strong>$spine_to_web($q.type_description)</strong>&#x0020;
@@ -328,6 +290,60 @@
                 #end if
             </div>
         #end for
+    </div>
+
+    #for $q in $entity.quarantines
+        #set $type = $url_quote($q.type_name)
+        $disableQuarantine($entity.id, $type)
+    #end for
+#end def
+
+#def disableQuarantine($entity_id, $quarantine_type)
+    <div class="edit box" style="display:none;" id="editQuarantineBox_${quarantine_type}">
+      <h3>Disable quarantine</h3>
+      <form action="/entity/disable_quarantine" method="post">
+	<div class="hidden">
+	  <input type="hidden" name="id" value="$entity_id" />
+	  <input type="hidden" name="type" value="$quarantine_type" />
+	</div>
+	<div class="required">
+	  <label for="disable_until">$_('Disable Until'):</label>
+	  <input class="date" type="text" name="disable_until" size="10" />
+	</div>
+      </form>
+    </div>
+#end def
+
+#def addQuarantine($entity, $quarantines)
+    #set all_quarantinenames = [$q.name for $q in $quarantines]
+    #set entity_quarantinenames = [$q.type_name for $q in $entity.quarantines]
+    #set $quarantines = [($qn, $qn) for $qn in $all_quarantinenames if $qn not in $entity_quarantinenames]
+    <div class="edit box">
+      <h3>$_('Add quarantine')</h3>
+      <form action="/entity/add_quarantine" method="post">
+	<div class="hidden">
+	  <input type="hidden" name="id" value="$entity.id" />
+	</div>
+	<div class="required">
+          $form_widgets.generate_loption("quarantine", "Quarantine", quarantines, $id="add_quarantine")
+        </div>
+	<div class="optional">
+	  <label for="why">$_('Description'):</label>
+          <textarea name="why" rows="5" cols="40" />
+	</div>
+	<div class="optional">
+	  <label for="start">$_('Start date'):</label>
+	  <input class="date" type="text" name="start" size="10" />
+	</div>
+	<div class="optional">
+	  <label for="end">$_('End date'):</label>
+	  <input class="date" type="text" name="end" size="10" />
+	</div>
+	<div class="buttons">
+          <input type="submit" value="$_('Add')" />&#x0020;
+          <input type="button" value="$_('Cancel')" class="cancel" />
+        </div>
+      </form>
     </div>
 #end def
 

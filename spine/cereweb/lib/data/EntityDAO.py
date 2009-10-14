@@ -28,6 +28,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DTO import DTO
 from lib.data.EntityDTO import EntityDTO
 from lib.data.ExternalIdDAO import ExternalIdDAO
+import mx.DateTime
 
 Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")
@@ -105,11 +106,13 @@ class EntityDAO(object):
         entity.delete_spread(spread_type)
         entity.write_db()
 
-    def add_qurantine(self, entity_id, quarantine_type, description=None,
+    def add_quarantine(self, entity_id, quarantine_type, description=None,
                       start_date=None, end_date=None, disable_until=None):
         entity = self._find(entity_id)
-        if not self.auth.can_edit_quarantine(self.db.change_by, entity, quarantine):
+        if not self.auth.can_edit_quarantine(self.db.change_by, entity, quarantine_type):
             raise PermissionDenied("Not authorized to edit quarantine (%s) of entity (%s)" % (quarantine_type, entity_id))
+        if start_date is None:
+            start_date=mx.DateTime.now()
         quarantine_type_id = self.constants.Quarantine(quarantine_type)
         entity.add_entity_quarantine(quarantine_type_id, self.db.change_by,
                                      description, start_date, end_date)
@@ -118,17 +121,17 @@ class EntityDAO(object):
 
     def remove_quarantine(self, entity_id, quarantine_type):
         entity = self._find(entity_id)
-        if not self.auth.can_edit_quarantine(self.db.change_by, entity, quarantine):
+        if not self.auth.can_edit_quarantine(self.db.change_by, entity, quarantine_type):
             raise PermissionDenied("Not authorized to edit quarantine (%s) of entity (%s)" % (quarantine_type, entity_id))
         quarantine_type_id = self.constants.Quarantine(quarantine_type)
-        entity.delete_entity_quarantine(self, quarantine_type_id)
+        entity.delete_entity_quarantine(quarantine_type_id)
 
     def disable_quarantine(self, entity_id, quarantine_type, disable_until):
         # Disabling of quarantines can be available to admins not allowed to
         # set or remove the quarantine. This should really be constrained by
         # a time limit.
         entity = self._find(entity_id)
-        if not self.auth.can_disable_quarantine(self.db.change_by, entity, quarantine):
+        if not self.auth.can_disable_quarantine(self.db.change_by, entity, quarantine_type):
             raise PermissionDenied("Not authorized to edit quarantine (%s) of entity (%s)" % (quarantine_type, entity_id))
         quarantine_type_id = self.constants.Quarantine(quarantine_type)
         entity.disable_entity_quarantine(quarantine_type_id, disable_until)
