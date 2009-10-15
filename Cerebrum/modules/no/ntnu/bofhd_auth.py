@@ -187,7 +187,7 @@ class BofhdAuth(auth.BofhdAuth):
         """
         return self.is_superuser(operator)
 
-    def can_create_email_target(self, operator, target):
+    def can_create_email_target(self, operator, entity_id, target_type, host_id):
         """
         FIXME: Not implemented since the business logic is unclear.
         """
