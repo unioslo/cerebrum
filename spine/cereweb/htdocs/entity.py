@@ -26,7 +26,7 @@ from lib.utils import entity_link, queue_message
 from lib.utils import web_to_spine, spine_to_web
 from lib.utils import get_database, session_required_decorator
 from lib.HistoryLog import view_history, view_history_all
-from lib.templates.NewEntityViewTemplate import NewEntityViewTemplate
+from lib.templates.EntityViewTemplate import EntityViewTemplate
 from lib.data.EntityFactory import EntityFactory
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.DTO import DTO
@@ -142,7 +142,7 @@ def full_historylog(id):
     entity = EntityFactory(db).get_entity(id)
     entity.history = HistoryDAO(db).get_entity_history(id)
 
-    page = NewEntityViewTemplate()
+    page = EntityViewTemplate()
     page.links = ()
     page.title = entity.type_name.capitalize() + ': ' + entity_link(entity)
     page.set_focus('%s/view' % entity.type_name)
@@ -158,7 +158,7 @@ def global_historylog(n=50, offset=0):
     dto.id = None
     dto.history = HistoryDAO(db).get_history(n, offset)
 
-    page = NewEntityViewTemplate()
+    page = EntityViewTemplate()
     page.links = ()
     page.title = "History"
     page.content = lambda: page.viewHistoryLog(dto)
