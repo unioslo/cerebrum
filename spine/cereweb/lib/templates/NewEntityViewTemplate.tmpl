@@ -28,6 +28,8 @@
 #from lib.utils import entity_link
 #from lib.utils import nl2br
 
+#from lib.forms import EmailTargetCreateForm
+
 #from Widgets import Widgets
 #attr $widgets = Widgets()
 
@@ -35,46 +37,28 @@
 #attr $form_widgets = FormWidgets()
 
 #def viewEmail($entity)
-    #if not $targets
+    #if not $target
         #return
     #end if
 
     <div class="info box">
         <h3>$_('Email targets')</h3>
-        #for $target in $targets
             <div class="item">
-                $target.alias, $target.type, $target.address
+                <em>$_("Name"):</em> <a href="/emailtarget/view?id=$target.id">$target.name</a><br />
+                #if $target.alias
+                    <em>$_("Alias"):</em> $target.alias <br />
+                #end if
+                <em>$_("Primary address"):</em> $target.primary.address
                 <div class="actions">
                     <a class="action" href="/emailtarget/view?id=$target.id">$_('Add email-address')</a> &#x0020;
-                    <a class="action" href="/email/remove_target?entity=$entity.id&amp;target=$target.id">$_('Delete')</a>
+                    <a class="action" href="/confirm/emailtarget/delete?id=$target.id&amp;entity_id=$entity.id">$_('Delete')</a>
                 </div>
             </div>
-        #end for
     </div>
 #end def
 
 #def setEmail($entity)
-#set $targets = [($spine_to_web($t.name), $spine_to_web($t.name)) for $t in $email_target_types]
-#set $servers = [($s.id, $spine_to_web($s.name)) for $s in $email_servers]
-
-<div class="edit box" style="display:none;">
-    <h3>$_('Create a new email target')</h3>
-    <form action="/email/make_target" method="post">
-        <div class="hidden">
-            <input type="hidden" name="entity" value="$entity.id" />
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption('targettype', 'Target type', $targets)
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption('host', 'Host', $servers)
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Add')" />&#x0020;
-            <input type="button" value="$_('Cancel')" class="cancel" />
-        </div>
-    </form>
-</div>
+    $EmailTargetCreateForm($entity.id).render()
 #end def
 
 #def addNote($entity)

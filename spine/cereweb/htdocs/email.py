@@ -18,243 +18,85 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import cherrypy
-import sys
-
-from SpineIDL.Errors import NotFoundError
 from gettext import gettext as _
-from lib.Main import Main
-from lib.utils import queue_message, redirect, redirect_object, object_link
-from lib.utils import transaction_decorator, commit, commit_url
-from lib.utils import rollback_url, legal_domain_format
-from lib.utils import legal_domain_chars
-from lib.utils import spine_to_web, web_to_spine
-from lib.Searchers import EmailDomainSearcher
-from lib.templates.EmailDomainSearchTemplate import EmailDomainSearchTemplate
-from lib.templates.EmailTargetTemplate import EmailTargetTemplate
+from lib.utils import queue_message, redirect
+from lib.utils import session_required_decorator
+from lib.utils import web_to_spine, get_database
+from lib.utils import redirect_entity
+from lib.data.EmailDomainDAO import EmailDomainDAO
+from lib.data.EmailAddressDAO import EmailAddressDAO
+from lib.EmailDomainSearcher import EmailDomainSearcher
+from lib.forms import EmailDomainCreateForm, EmailDomainEditForm
 from lib.templates.EmailDomainTemplate import EmailDomainTemplate
 
-def search_form(transaction, remembered):
-    page = EmailDomainSearchTemplate()
-    page.title = _("Email")
-    page.set_focus("email/search")
-    page.search_title = _('email')
-    page.search_fields = [
-        ("name", _("Name")),
-        ("description", _("Description")),
-    ]
-    page.search_action = '/email/search'
-    page.form_values = remembered
-    for cat in transaction.get_email_domain_category_searcher().search():
-        cat_name = spine_to_web(cat.get_name())
-        desc = spine_to_web(cat.get_description())
-        page.categories.append((cat_name, desc))
-
-    return page.respond()
-
-def search(transaction, **vargs):
-    args = ('name', 'description', 'category')
-    searcher = EmailDomainSearcher(transaction, *args, **vargs)
-    return searcher.respond() or search_form(transaction, searcher.get_remembered())
-search = transaction_decorator(search)
+@session_required_decorator
+def search(**vargs):
+    searcher = EmailDomainSearcher(**vargs)
+    return searcher.respond()
 search.exposed = True
 index = search
 
-def create(transaction):
-    page = Main()
-    page.title = _("Email domains")
-    page.set_focus("email/create")
-    content = EmailDomainTemplate().create(transaction)
-    page.content = lambda: content
-    return page
-create = transaction_decorator(create)
+@session_required_decorator
+def create(**kwargs):
+    """Creates a page with the form for creating a disk."""
+    form = EmailDomainCreateForm(**kwargs)
+    if form.is_correct():
+        return make(**form.get_values())
+    return form.respond()
 create.exposed = True
 
-def categories(transaction):
-    page = Main()
-    page.title = _("Email domain categories")
-    page.set_focus("email/categories")
-    content = EmailDomainTemplate().categories(transaction)
-    page.content = lambda: content
-    return page
-categories = transaction_decorator(categories)
-categories.exposed = True
-
-def view(transaction, id):
-    domain = transaction.get_email_domain(int(id))
-    page = EmailDomainTemplate()
-    page.tr = transaction
-    page.entity_id = int(id)
-    page.entity = domain
-    domain_name = spine_to_web(domain.get_name())
-    page.title = _("Email domain %s") % domain_name
-    page.set_focus("email/view")
-    return page.respond()
-view = transaction_decorator(view)
-view.exposed = True
-
-def addresses(transaction, id):
-    domain = transaction.get_email_domain(int(id))
-    page = EmailDomainTemplate()
-    page.entity = domain
-    domain_name = spine_to_web(domain.get_name())
-    page.title = _("Addresses in ") + object_link(domain, text=domain_name)
-    page.set_focus("email/addresses")
-    template = EmailDomainTemplate()
-    content = template.list_addresses(transaction, domain)
-    print 'domain = ', domain.get_id()
-    page.content = lambda: content
-    return page
-addresses = transaction_decorator(addresses)
-addresses.exposed = True
-
-def edit(transaction, id):
-    domain = transaction.get_email_domain(int(id))
-    page = Main()
-    domain_name = spine_to_web(domain.get_name())
-    page.title = _("Edit ") + object_link(domain, text=domain_name)
-    page.set_focus("email/edit")
-    template = EmailDomainTemplate()
-    content = template.edit_domain(domain)
-    page.content = lambda: content
-    return page
-edit = transaction_decorator(edit)
+@session_required_decorator
+def edit(**kwargs):
+    """Creates a page with the form for creating a disk."""
+    form = EmailDomainEditForm(**kwargs)
+    if form.is_correct():
+        return save(**form.get_values())
+    return form.respond()
 edit.exposed = True
 
-def save(transaction, id, name, description, submit=None):
-    domain = transaction.get_email_domain(int(id))
+def make(name, description, category):
+    domain_name = web_to_spine(name.strip())
+    desc = web_to_spine(description.strip())
 
-    if submit == "Cancel":
-        redirect_object(domain)
-        return
+    db = get_database()
+    dao = EmailDomainDAO(db)
+    domain = dao.create(domain_name, desc)
+    dao.set_category(domain.id, category)
+    db.commit()
 
-    if name:
-        name = web_to_spine(name.strip())
-    domain.set_name(name)
-    if description:
-        description = web_to_spine(description.strip())
-    domain.set_description(description)
+    queue_message(_("Email domain successfully created."), title=_("Change succeeded"))
+    redirect_entity(domain)
 
-    commit(transaction, domain, msg=_('Email domain successfully updated.'))
-save = transaction_decorator(save)
-save.exposed = True
+def save(id, name, description, category):
+    db = get_database()
+    dao = EmailDomainDAO(db)
+    dao.save(id, name, description)
+    dao.set_category(id, category)
+    db.commit()
 
-def make(transaction, name, description, category):
-    msg=''
-    if name:
-        if not legal_domain_format(name):
-            msg=_('Domain-name is not a legal name.')
-        if not msg:
-            if not legal_domain_chars(name):
-                msg=_('Domain-name contains unlegal characters.')
-    else:
-        msg=_('Domain name is empty.')
+    queue_message(_('Email domain successfully updated.'), title=_("Change succeded"))
+    redirect_entity(id)
 
-    import_err=False
-    mx_exists=False
-    if not msg:
-        try:
-            sys.path.append('/home/kandal/python/dnspython-1.5.0')
-            import dns.resolver
-        except ImportError:
-            import_err=True
-        else:
-            try:
-                answers=dns.resolver.query( name, 'MX')
-            except dns.resolver.NXDOMAIN:
-                pass
-            else:
-                mx_exists=True
-    
-    if not msg and import_err:
-        msg=_('DNS-library not installed. DNS-query cannot be executed.')
-    if not msg and not mx_exists:
-        msg=_('Domain-name is not registered in DNS.')
+@session_required_decorator
+def delete(id):
+    db = get_database()
+    dao = EmailDomainDAO(db)
+    dao.delete(id)
+    db.commit()
 
-    if not msg:
-        domain_name = web_to_spine(name.strip())
-        desc = web_to_spine(description.strip())
-        domain = transaction.get_commands().create_email_domain(domain_name, desc)
-        if category:
-            category = transaction.get_email_domain_category(category)
-            domain.add_to_category(category)
-
-        commit(transaction, domain, msg=_('Email domain successfully created.'))
-    else:
-        rollback_url('/email/create', msg, err=True)
-make = transaction_decorator(make)
-make.exposed = True
-
-def delete(transaction, id):
-    domain = transaction.get_email_domain(int(id))
-    msg = _("Email domain '%s' successfully deleted.") % spine_to_web(domain.get_name())
-    domain.delete()
-    commit_url(transaction, 'index', msg=msg)
-delete = transaction_decorator(delete)
+    queue_message(_('Email domain successfully deleted.'), title=_("Change succeded"))
+    redirect('/email/')
 delete.exposed = True
 
-def remove_from_category(transaction, id, category):
-    domain = transaction.get_email_domain(int(id))
-    category = transaction.get_email_domain_category(category)
-    domain.remove_from_category(category)
-    msg = _("Removed email domain %s from category %s")
-    domain_name = spine_to_web(domain.get_name())
-    cat_name = spine_to_web(category.get_name())
-    msg = msg % (domain_name, cat_name)
-    commit(transaction, domain, msg=msg)
-remove_from_category = transaction_decorator(remove_from_category)
-remove_from_category.exposed = True
+def view(id, view_all_addresses=None):
+    db = get_database()
 
-def add_to_category(transaction, id, category):
-    domain = transaction.get_email_domain(int(id))
-    category = transaction.get_email_domain_category(category)
-    domain.add_to_category(category)
-    msg = _("Added email domain %s to category %s")
-    domain_name = spine_to_web(domain.get_name())
-    cat_name = spine_to_web(category.get_name())
-    msg = msg % (domain_name, cat_name)
-    commit(transaction, domain, msg=msg)
-add_to_category = transaction_decorator(add_to_category)
-add_to_category.exposed = True
+    page = EmailDomainTemplate()
+    page.domain = EmailDomainDAO(db).get(id)
+    page.addresses = EmailAddressDAO(db).search(domain_id=id)
 
-def make_target(transaction, entity, targettype, host):
-    account = transaction.get_target_entity(int(entity))
-    type = web_to_spine(targettype)
-    target_type = transaction.get_email_target_type(type)
-    emailhost = transaction.get_host(int(host))
+    if view_all_addresses:
+        page.max_addresses = "unlimited"
 
-    cmds = transaction.get_commands()
-    email_target =  cmds.create_email_target(target_type)
-    email_target.set_target_entity(account)
-    if account.get_type().get_name() == "account" and account.is_posix():
-        email_target.set_using_uid(account)
-    email_target.set_server(emailhost)
-    
-    msg = _("Added email target (%s) successfully.") % target_type.get_name()
-    commit(transaction, account, msg=msg)
-make_target = transaction_decorator(make_target)
-make_target.exposed = True
-
-def remove_target(transaction, entity, target):
-    entity = transaction.get_target_entity(int(entity))
-    target = transaction.get_email_target(int(target))
-    type = target.get_target_type()
-    try:
-        primary = target.get_primary_address()
-    except NotFoundError, e:
-        primary = None
-    if primary:
-        primary.delete()
-    addresses = target.get_addresses()
-    if addresses:
-        for addr in addresses:
-            addr.delete()
-
-    target.delete_email_target()
-    msg = _("Removed email target (%s) successfully.") % type
-    commit(transaction, entity, msg=msg)
-remove_target = transaction_decorator(remove_target)
-remove_target.exposed = True
-
-# arch-tag: b3739600-040d-11da-97b3-692f6b35af14
-# vi:sw=4:sts=4:expandtab:
+    return page.respond()
+view.exposed = True

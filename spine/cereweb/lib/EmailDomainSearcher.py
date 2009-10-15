@@ -1,7 +1,6 @@
-#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2004, 2005 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,25 +18,27 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-# $Id: Run.py 3981 2004-11-02 09:42:37Z runefro $
+from lib.Searchers import CoreSearcher
+from lib.forms import EmailDomainSearchForm
+from lib.data.EmailDomainDAO import EmailDomainDAO
+from gettext import gettext as _
 
-import unittest
+class EmailDomainSearcher(CoreSearcher):
+    url = ''
+    DAO = EmailDomainDAO
+    SearchForm = EmailDomainSearchForm
 
-modules = [
-    'AccountDAOTest',
-    'ConstantsDAOTest',
-    'DiskDAOTest',
-    'EntityDAOTest',
-    'GroupDAOTest',
-    'HistoryDAOTest',
-    'HostDAOTest',
-    'EmailTargetDAOTest',
-    'PersonDAOTest',
-    'AuthTest',
-    'OuDAOTest',
-]
+    orderby_default = 'name'
 
-# When this module is executed from the command-line, run all its tests
-if __name__ == "__main__":
-    suite = unittest.TestLoader().loadTestsFromNames(modules)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    headers = (
+        ('Name', 'name'),
+        ('Description', 'description'),
+    )
+
+    columns = (
+        'name',
+        'description',
+    )
+
+    def format_name(self, column, row):
+        return self._create_link(column, row)

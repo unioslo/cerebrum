@@ -36,6 +36,7 @@ from lib.data.GroupDAO import GroupDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.HostDAO import HostDAO
+from lib.data.EmailTargetDAO import EmailTargetDAO
 from lib.data.GroupDTO import GroupDTO
 
 from lib.forms import GroupSearchForm
@@ -59,8 +60,6 @@ def view(id, **vargs):
     page.visibilities = ConstantsDAO(db).get_group_visibilities()
     page.spreads = ConstantsDAO(db).get_group_spreads()
     page.quarantines = ConstantsDAO(db).get_quarantines()
-    page.email_target_types = ConstantsDAO(db).get_email_target_types()
-    page.email_servers = HostDAO(db).get_email_servers()
     page.targets = HostDAO(db).get_email_targets(id)
     
     return page.respond()

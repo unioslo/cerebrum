@@ -74,7 +74,7 @@ def edit(*args, **kwargs):
     """
     form = HostEditForm(*args, **kwargs)
     if form.is_correct():
-        return save(*args, **kwargs)
+        return save(**form.get_values())
     return form.respond()
 edit.exposed = True
 
@@ -83,7 +83,7 @@ def create(*args, **kwargs):
     """Creates a page with the form for creating a host."""
     form = HostCreateForm(*args, **kwargs)
     if form.is_correct():
-        return make(*args, **kwargs)
+        return make(**form.get_values())
     return form.respond()
 create.exposed = True
 

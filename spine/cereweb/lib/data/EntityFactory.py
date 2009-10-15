@@ -10,6 +10,9 @@ from lib.data.OuDAO import OuDAO
 from lib.data.PersonDAO import PersonDAO
 from lib.data.HostDAO import HostDAO
 from lib.data.DiskDAO import DiskDAO
+from lib.data.EmailDomainDAO import EmailDomainDAO
+from lib.data.EmailTargetDAO import EmailTargetDAO
+from lib.data.EmailAddressDAO import EmailAddressDAO
 
 class EntityFactory(object):
     def __init__(self, db=None):
@@ -34,6 +37,12 @@ class EntityFactory(object):
             return HostDAO(self.db)
         if entity_type == self.c.entity_disk:
             return DiskDAO(self.db)
+        if entity_type == self.c.entity_email_target:
+            return EmailTargetDAO(self.db)
+        if entity_type == self.c.entity_email_domain:
+            return EmailDomainDAO(self.db)
+        if entity_type == self.c.entity_email_address:
+            return EmailAddressDAO(self.db)
         raise NotImplementedError("I do not know how to create DAO for type %s" % entity_type)
 
     def get_dao_by_entity_id(self, entity_id):

@@ -38,6 +38,7 @@
 #attr $form_method = 'POST'
 #attr $submit_value = "Submit"
 #attr $reset_value = "Reset"
+#attr $error_message = ""
 
 ## Overloaded by search-pages which needs search-fields which arent inputs.
 ## vargs is a dict with the values the user provided in the field in the
@@ -48,6 +49,9 @@
 #def content()
     <div class="$form_class">
         <h3>$form_title</h3>
+        #if $error_message
+            <div class="error">$error_message</div>
+        #end if
         <form action="$form_action" method="$form_method">
             #for $field in $form_fields
                 #set $cls = $field['required'] and 'required' or 'optional'
@@ -133,5 +137,4 @@
 #def render_text($field, $cls)
     <label for="$field['name']">$field['label']:</label>
     <input class="$cls" type="$field['type']" value="$field['value']" name="$field['name']" id="$field['name']" />
-    $field['value']
 #end def

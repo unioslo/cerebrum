@@ -16,220 +16,73 @@
 ## along with Cerebrum; if not, write to the Free Software Foundation,
 ## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#from lib.utils import object_link, url_quote
-#from lib.utils import url_quote, spine_to_web, html_quote
-#from lib.Main import Main
-#extends Main
+#from lib.utils import entity_link
+#from lib.utils import spine_to_web
+#extends NewEntityViewTemplate
 
 #from Widgets import Widgets
 #from FormWidgets import FormWidgets
+
 #attr $form_widgets = FormWidgets()
 #attr $widgets = Widgets()
-#attr $tr = None
-#attr $entity = None
+#attr $domain = None
+#attr $addresses = []
 
 ## Max addresses to view in emaildomain/view
 #attr $max_addresses = 20
 
-#def _create($tr)
-    #set $all_cats = $tr.get_email_domain_category_searcher().search()
-    #set $cats = [('',''),]
-    #for $cat in $all_cats
-        #set $name = $spine_to_web($cat.get_name())
-        #set $desc = $spine_to_web($cat.get_description())
-        $cats.append(($name, $desc))
-    #end for
-        <div class="required">
-            $form_widgets.input('name', 'Domain name',value="")
-        </div>
-        <div class="required">
-            $form_widgets.input('description', 'Description',value="")
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption("category", "Category", $cats)
-        </div>
-#end def
-
-#def create_box($tr)
-<div class="edit box">
-    <h3>$_("Create a new email domain:")</h3>
-    <form action="/email/make" method="post">
-        #echo $_create($tr)
-        <div class="buttons">
-            <input type="submit" value="$_('Create')" />
-            <input type="reset" value="$_('Clear')" />
-        </div>
-    </form>
-</div>
-#end def
-
-#def create($tr)
-<div class="info box">
-    <h3>$_('Create a new email domain:')</h3>
-    <form action="/email/make" method="post">
-        #echo $_create($tr)
-        <div class="buttons">
-            <input type="submit" value="$_('Create')" />
-            <input type="reset" value="$_('Clear')" />
-        </div>
-    </form>
-</div>
-#end def
-
-#def search_box($tr)
-<div class="list box">
-    <h3>$_('Find email domain:')</h3>
-    <form method="post" action="/email/search">
-        #echo $_search($tr, {})
-        <div class="buttons">
-            <input type="submit" value="$_('Search')" />
-            <input type="reset" value="$_('Clear')" />
-        </div>
-    </form>
-</div>
-#end def
-
-#def search($tr, $vargs)
-<div class="edit box">
-    <h3>$_("Search for email domain(s):")</h3>
-    <form method="post" action="/email/search">
-        #echo $_search($tr, $vargs)
-        #set $help = ["Use wildcards * and ? to extend the search.", "Supply several search parameters to limit the search."]
-        $form_widgets.showHelp($help)
-        <div class="buttons">
-            <input type="submit" value="$_('Search')" />
-            <input type="reset" value="$_('Clear')" />
-        </div>
-    </form>
-</div>
-#end def
-
-#def _search($tr, $vargs)
-    #set $all_cats = $tr.get_email_domain_category_searcher().search()
-    #set $cats = [('',''),]
-    #for $cat in $all_cats
-        #set $name = $spine_to_web($cat.get_name())
-        #set $desc = $spine_to_web($cat.get_description())
-        $cats.append(($name, $desc))
-    #end for
-    <div class="required">
-        $form_widgets.input("name", "Name", $spine_to_web($vargs.get('name', '')))
-    </div>
-    <div class="required">
-       $form_widgets.input("description", "Description", $spine_to_web($vargs.get('description', '')))
-    </div>
-    <div class="required">
-        $form_widgets.generate_loption("category", "Category", $cats, $vargs.get('category',''))
-    </div>
-#end def
-
-#def categories($tr)
-#set $cats = $tr.get_email_domain_category_searcher().search()
-<table>
-	<tr>
-		<td>
-			&#x0020;
-		</td>
-	</tr>
-    	#for $cat in $cats
-	<tr>
-		<td>
-       			<div>
-			$spine_to_web($cat.get_name()) - $spine_to_web($cat.get_description())
-			</div>
-		</td>
-	</tr>
-    	#end for
-</table>
-<br />
-<br />
-<br />
-<br />
+#def title()
+    #return $_('Email domain %s') % $spine_to_web($domain.name)
 #end def
 
 #def actions()
 <div id="actions">
     <h3>$_('Actions')</h3>
-    #set $id = $url_quote($entity.get_id())
-    <a href="edit?id=$id">$_('edit info')</a><br />
-    <a href="delete?id=$id">$_('delete domain')</a><br />
-    <a href="addresses?id=$id">$_('list adresses')</a><br />
+    <ul>
+        <li><a href="edit?id=$domain.id">$_('edit info')</a></li>
+        <li><a href="delete?id=$domain.id">$_('delete domain')</a></li>
+        <li><a href="view?id=$domain.id&amp;view_all_addresses=1">$_('list adresses')</a></li>
+    </ul>
 </div>
 #end def
 
 #def content()
 <div class="view_content">
-    ## Content
+    $viewInfo($domain)
+    $list_addresses($domain, $addresses, $max_addresses)
+</div>
+#end def
+
+#def viewInfo($domain)
     #set $info = []
-    $info.append(($_("Domain name:"), $spine_to_web($entity.get_name())))
-    $info.append(($_("Description:"), $spine_to_web($entity.get_description())))
+    $info.append(($_("Domain name:"), $spine_to_web($domain.name)))
+    $info.append(($_("Description:"), $spine_to_web($domain.description)))
+
+    #for $category in $domain.categories
+            $info.append(($_("Category:"), $spine_to_web($str($category))))
+    #end for
+
     $widgets.viewInfo($info)
-
-    $addCategory($tr, $entity)
-    $viewCategories($entity)
-    
-    $list_addresses($tr, $entity, $max_addresses)
-</div>
 #end def
 
-#def addCategory($transaction, $domain)
-#set $categories = $transaction.get_email_domain_category_searcher()
-<div class="edit box" style="display:none;">
-    <h3>$_('Add to category')</h3>
-    <form action="add_to_category" method="post">
-        <div class="hidden">
-            <input type="hidden" name="id" value="$html_quote($domain.get_id())" />
-        </div>
-        <div class="required">
-            $form_widgets.code_selector("category", "Category", $categories)
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Add')" />&#x0020;
-            <input type="button" value="$_('Cancel')" class="cancel" />
-        </div>
-    </form>
-</div>
-#end def
-
-#def viewCategories($domain)
-#set $cats = $domain.get_categories()
-#if $cats
-    <div class="list box">
-        <h3>$_("Categories")</h3>
-        #for $category in $cats
-        <div class="item">
-            $object_link($category)
-            #set $domain_name = $spine_to_web($domain.get_name())
-            $object_link($domain, text=$domain_name, method="remove_from_category", 
-            text=$_("Remove from category"), _class="action",
-            category=$category.get_name())
-        </div>
-        #end for
-    </div>
-#end if
-#end def
-
-## List email addresses (targets) in domain
-#def list_addresses($transaction, $domain, $limit="unlimited")
+#def list_addresses($domain, $addresses, $limit="unlimited")
 <div class="list box">
     <h3>$_('Addresses in domain')</h3>
-    #set $addrs = $transaction.get_email_address_searcher()
-    $addrs.set_domain($domain)
-    #for $count,$address in $enumerate($addrs.search())
+    #for $count,$address in $enumerate($addresses)
         #if $count+1 > $limit
             <div class="item">
                 (..)
             </div>
             <div class="item">
-                $object_link($domain, $_("View all addresses"), 
-                    "addresses", _class="action")
+                <a href="view?id=$domain.id&amp;view_all_addresses=1" class="action">$_('View all addresses')</a>
             </div>
             #break
         #end if
         <div class="item">
-            $object_link($address.get_target(), text=$spine_to_web($address.full_address()))
+            $entity_link($address)
         </div>
     #end for
+
     <div class="help">
         $_("To add new addresses to the domain, create a new email target. "
            "For instance, find an account and create a new email target "
@@ -237,25 +90,3 @@
     </div>
 </div>
 #end def
-
-#def edit_domain($domain)
-<div class="edit box">
-    <h3>$_('Edit domain ' + $spine_to_web($domain.get_name()))</h3>
-    <form action="save" method="post">
-        <div class="hidden">
-            <input type="hidden" name="id" value="$html_quote($domain.get_id())" />
-        </div>
-        <div class="required">
-            $form_widgets.input('name', 'Domain name', $spine_to_web($domain.get_name()))
-        </div>
-        <div class="required">
-            $form_widgets.input('description', 'Description', $spine_to_web($domain.get_description()))
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Save')" name="submit" />
-            <input type="submit" value="$_('Cancel')" name="submit" />
-        </div>
-    </form>
-</div>
-#end def
-

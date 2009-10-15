@@ -52,7 +52,7 @@ def _spine_type(object):
 
     If the Spine object is an instance of SpineEntity, the name of
     get_type() is returned.  Else, the class name part of the the
-    Spine IDL repository ID is returned.  
+    Spine IDL repository ID is returned.
 
     For instance, _spine_type(some_account) -> "account" while
     _spine_type(some_spine_email_domain) -> EmailDomain
@@ -70,15 +70,13 @@ def _spine_type(object):
         return name.lower()
 
 def object_name(object):
-    ##type = object.get_type().get_name()
-    type = object.get_typestr()
-    if type == 'person':
-        ## text = object.get_cached_full_name()
+    entity_type = _spine_type(object)
+    if entity_type == 'person':
         text = spine_to_web(get_lastname_firstname(object))
-    elif type == 'ou':
+    elif entity_type == 'ou':
         tmp = object.get_display_name()
         text = tmp and tmp or object.get_name()
-    elif type == 'emailtarget':    
+    elif entity_type == 'emailtarget':
         from SpineIDL.Errors import NotFoundError
         try:
             primary = object.get_primary_address()
@@ -90,11 +88,11 @@ def object_name(object):
                 text = primary_address.full_address() + " (%s)" % object.get_target_type()
             else:
                 text = "No primary address" + " (%s)" % object.get_target_type()
-    elif type == 'disk':
+    elif entity_type == 'disk':
         text = object.get_path()
     elif hasattr(object, "get_name"):
-        text = object.get_name()   
-    elif type == 'account':
+        text = object.get_name()
+    elif entity_type == 'account':
         text = object['name']
     else:
         text = str(object)
@@ -108,22 +106,14 @@ def object_id(object):
 
 def object_url(object, method="view", **params):
     """Return the full path to a page treating the object.
-    
+
     Method could be "view" (the default), "edit" and other things.
-    
+
     Any additional keyword arguments will be appended to the query part.
     """
-    object_type = _spine_type(object)
-
-    params['id'] = object_id(object)
-
-    if object_type == 'email_domain':
-        object_type = 'email'
-    if object_type == 'email_target':
-        object_type = 'emailtarget'
-
-    params = urllib.urlencode(params)
-    return cgi.escape("/%s/%s?%s" % (object_type, method, params))
+    entity_type = _spine_type(object)
+    entity_id = object_id(object)
+    return create_url(entity_id, entity_type, method, **params)
 
 def object_link(object, text=None, method="view", _class="", **params):
     """Create a HTML anchor (a href=..) for the object.
@@ -142,17 +132,26 @@ def object_link(object, text=None, method="view", _class="", **params):
 
 def entity_url(entity, method="view", **params):
     """Return the full path to a page treating the entity.
-    
+
     Method could be "view" (the default), "edit" and other things.
-    
+
     Any additional keyword arguments will be appended to the query part.
     """
     if not isentity(entity):
         entity = EntityFactory().get_entity(entity)
+    return create_url(entity.id, entity.type_name, method, **params)
 
-    params['id'] = entity.id
+def create_url(entity_id, entity_type, method="view", **params):
+    params['id'] = entity_id
     params = urllib.urlencode(params)
-    return cgi.escape("/%s/%s?%s" % (entity.type_name, method, params))
+
+    map = {
+        'email_target': 'emailtarget',
+        'email_domain': 'email',
+    }
+
+    type_name = map.get(entity_type, entity_type)
+    return cgi.escape("/%s/%s?%s" % (type_name, method, params))
 
 def entity_link(entity, text=None, method="view", _class="", **params):
     """Create a HTML anchor (a href=..) for the entity.
@@ -176,24 +175,25 @@ def isentity(entity):
     return hasattr(entity, 'id')
 
 def redirect(url, status=None):
+    url = clean_url(url)
     raise cherrypy.HTTPRedirect(url, status)
 
 def redirect_entity(entity, method="view", status=None):
     url = entity_url(entity, method)
-    raise cherrypy.HTTPRedirect(url, status)
+    redirect(url, status)
 
 def redirect_object(object, method="view", status=None):
-    """Redirects to the given object. 
-       This is shorthand for calling object_url and redirect 
+    """Redirects to the given object.
+       This is shorthand for calling object_url and redirect
        in succession. See the respecting methods for
        explanation of the parameters.
-    """                 
+    """
     url = object_url(object, method)
-    raise cherrypy.HTTPRedirect(url, status)
+    redirect(url, status)
 
 def queue_message(message=None, error=False, link='', title="No title", tracebk=None):
     """Queue a message.
-    
+
     The message will be displayed next time a Main-page is showed.
     If error is true, the message will be indicated as such.
     Link is used in activitylog so the user knows which
@@ -333,7 +333,7 @@ def commit_url(transaction, url, msg='', error='', link=''):
                 title="Commit Success",
                 message=msg,
                 link=link)
-    raise cherrypy.HTTPRedirect(url)
+    redirect(url)
 
 def rollback_url(url, msg, err=False):
     if msg:
@@ -341,8 +341,8 @@ def rollback_url(url, msg, err=False):
             title="Did Not Save",
             message=msg,
             is_error=err)
-    raise cherrypy.HTTPRedirect(url)
-	
+    redirect(url)
+
 def legal_date(datestr, formatstr="%Y-%m-%d"):
     try:
         mx.DateTime.strptime(datestr.strip(), formatstr)
@@ -445,7 +445,6 @@ def get_links(page):
         'email': (
             ('search', _('Search')),
             ('create', _('Create')),
-            ('categories', _('Categories')),
         ),
     }
     return map.get(page, ())
@@ -598,7 +597,7 @@ def getsalt(chars = string.letters + string.digits, length=16):
     return salt
 
 def randpasswd(length=8):
-    """ Returns a random password at a given length based on a character set. 
+    """ Returns a random password at a given length based on a character set.
     """
     charsets = [string.ascii_lowercase, string.ascii_uppercase, string.digits]
 
@@ -699,9 +698,11 @@ def nl2br(string):
     return string.replace('\n', '<br />')
 
 def quotedate(date):
-    return html_quote(strftime(date))
+    if not date: return ''
+    return html_quote(strftime(date, "%Y-%m-%d"))
 
 def quotetimestamp(date):
+    if not date: return ''
     return html_quote(strftime(date, "%Y-%m-%d %H:%M:%S"))
 
 def get_database():

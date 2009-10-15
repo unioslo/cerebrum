@@ -140,7 +140,7 @@ class AccountDAO(EntityDAO):
         if not self.auth.can_delete_account(self.db.change_by, account):
             raise PermissionDenied("Not authorized to delete account")
 
-        if self._is_posix(account_id):
+        if self.is_posix(account_id):
             self.demote_posix(account_id)
 
         account.delete()
@@ -367,8 +367,8 @@ class AccountDAO(EntityDAO):
 
         return paccount
 
-    def _is_posix(self, group_id):
-        return self._get_posix_account(group_id) is not None
+    def is_posix(self, entity_id):
+        return self._get_posix_account(entity_id) is not None
 
     def _get_name(self, entity):
         return entity.get_name(self.constants.account_namespace)

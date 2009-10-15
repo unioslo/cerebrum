@@ -59,6 +59,10 @@ class ConstantsDAO(object):
         names = self._get_names("email_server_")
         return self._get_constant_dtos(names, Constants.EmailServerType)
 
+    def get_email_domain_categories(self):
+        names = self._get_names("email_domain_category_")
+        return self._get_constant_dtos(names, Constants.EmailDomainCategory)
+
     def get_account_types(self):
         names = self._get_names("account_")
         return self._get_constant_dtos(names, Constants.Account)

@@ -37,24 +37,5 @@ class HostDAOTest(CerebrumTestCase):
             self.assert_(host.name)
         self.assert_(count > 0)
     
-    def test_get_email_targets(self):
-        count = 0
-        entity_id = 173691
-        targets = self.dao.get_email_targets(entity_id)
-        for target in targets:
-            count += 1
-            self.assert_(target.id == 217124)
-            self.assert_(target.type == "account@emanuel.itea.ntnu.no")
-            self.assert_(hasattr(target, 'alias'))
-            self.assert_(target.address == "leiv.andenes@ntnu.no")
-        self.assert_(count > 0)
-
-    def test_get_email_targets_not_found_gives_empty_list(self):
-        entity_id = -1
-        targets = self.dao.get_email_targets(entity_id)
-        self.assert_(len(targets) == 0)
-
 if __name__ == '__main__':
     unittest.main()
-
-# arch-tag: c9944718-f3a0-11d9-8f80-6ca94c3e384f

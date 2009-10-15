@@ -43,6 +43,7 @@ from lib.data.GroupDAO import GroupDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.OuDAO import OuDAO
 from lib.data.HostDAO import HostDAO
+from lib.data.EmailTargetDAO import EmailTargetDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.PersonSearcher import PersonSearcher
 from lib.forms import PersonCreateForm, PersonEditForm
@@ -349,10 +350,11 @@ def get_names(person):
 
 def get_email_address(account):
     db = get_database()
-    targets = HostDAO(db).get_email_targets(account.id)
-    for target in targets:
-        return target.address
-    return ""
+    target = EmailTargetDAO(db).get_from_entity(account.id)
+    if not target:
+        return ""
+
+    return target.primary.address
 
 def get_affiliation(person):
     affiliations = (x for x in person.affiliations if not x.is_deleted)

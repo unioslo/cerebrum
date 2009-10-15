@@ -36,6 +36,7 @@ from lib.data.DiskDAO import DiskDAO
 from lib.data.GroupDAO import GroupDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.HostDAO import HostDAO
+from lib.data.EmailTargetDAO import EmailTargetDAO
 from lib.data.PersonDAO import PersonDAO
 from lib.data.DTO import DTO
 from lib.data.EntityFactory import EntityFactory
@@ -175,9 +176,7 @@ def view(id, **kwargs):
     page.affiliations = PersonDAO(db).get_affiliations(page.account.owner.id)
     page.shells = ConstantsDAO(db).get_shells()
     page.disks = DiskDAO(db).search()
-    page.email_target_types = ConstantsDAO(db).get_email_target_types()
-    page.email_servers = HostDAO(db).get_email_servers()
-    page.targets = HostDAO(db).get_email_targets(id)
+    page.target = EmailTargetDAO(db).get_from_entity(id)
     page.spreads = ConstantsDAO(db).get_user_spreads()
     page.quarantines = ConstantsDAO(db).get_quarantines()
 

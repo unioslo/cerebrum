@@ -22,6 +22,10 @@ from AccountForms import AccountCreateForm, NonPersonalAccountCreateForm
 from AccountSearchForm import AccountSearchForm
 from DiskSearchForm import DiskSearchForm
 from DiskForms import DiskCreateForm, DiskEditForm
+from EmailTargetForms import EmailTargetCreateForm, EmailTargetEditForm
+from EmailAddressForms import EmailAddressCreateForm, EmailAddressEditForm
+from EmailDomainSearchForm import EmailDomainSearchForm
+from EmailDomainForms import EmailDomainCreateForm, EmailDomainEditForm
 from GroupSearchForm import GroupSearchForm
 from HostForms import HostCreateForm, HostEditForm
 from HostSearchForm import HostSearchForm

@@ -25,7 +25,6 @@ from Cerebrum.modules import Email
 from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
 
 from lib.data.DTO import DTO
-from lib.data.EmailTargetDTO import EmailTargetDTO
 
 from lib.data.EntityDAO import EntityDAO
 
@@ -90,30 +89,6 @@ class HostDAO(EntityDAO):
 
             yield dto
     
-    def get_email_targets(self, entity_id):
-        et = Email.EmailTarget(self.db)
-        epa = Email.EmailPrimaryAddressTarget(self.db)
-        ea = Email.EmailAddress(self.db)
-        es = Email.EmailServer(self.db)
-
-        try:
-            et.find_by_target_entity(entity_id)
-        except NotFoundError, e:
-            return []
-
-        try:
-            es.find(et.email_server_id)
-        except NotFoundError, e:
-            return []
-
-        epa.find(et.entity_id)
-        ea.find(epa.email_primaddr_id)
-        target_type = self.constants.EmailTarget(et.email_target_type)
-        target = EmailTargetDTO(et)
-        target.type = target_type.str + "@" + es.name
-        target.address = ea.get_address()
-        return [target]
-
     def search(self, name=None, description=None):
         # The data set is small enough that we search within the strings.
         if name:

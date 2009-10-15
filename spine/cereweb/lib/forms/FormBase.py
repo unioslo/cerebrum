@@ -30,13 +30,24 @@ Helper-module for search-pages and search-result-pages in cereweb.
 """
 
 class Form(object):
+    action = '/index'
+    method = 'POST'
+    title = 'No Title'
+    help = []
+    scripts = []
+    form_class = ""
+    submit_value = _("Submit")
+    reset_value = _("Reset")
+    error_message = ""
+
     Template = FormTemplate
+
     Order = []
     Fields = {}
 
     def __init__(self, **values):
         self.fields = self.Fields.copy()
-        self.order = self.Order[:]
+        self.order = self.Order[:] or self.fields.keys()
         self.init_form()
 
         self.__request_values = values
@@ -71,6 +82,17 @@ class Form(object):
             field.setdefault('name', key)
             value = values.get(key)
             field['value'] = value
+
+    def get_value(self, key):
+        return self.fields[key]['value']
+
+    def set_value(self, key, value):
+        self.fields[key]['value'] = value
+
+    def update_values(self, my_values):
+        values = self.get_values()
+        values.update(my_values)
+        self.set_values(values)
 
     def quote_all(self):
         if self._is_quoted:
@@ -121,9 +143,9 @@ class Form(object):
             if field['value']:
                 func = getattr(self, 'check_%s' % field['name'], None)
                 if func and not func(field['value']):
+                    args = (field['label'], self.error_message)
+                    self.error_message = "Field '%s': %s" % args
                     correct = False
-                    message = "Field '%s' " % field['label']
-                    self.error_message = message + self.error_message
                     break
 
         return correct and self.check()
@@ -151,19 +173,19 @@ class Form(object):
         return False
 
     def get_action(self):
-        return getattr(self, 'action', '/index')
+        return getattr(self, 'action')
 
     def get_method(self):
-        return getattr(self, 'action', 'POST')
+        return getattr(self, 'method')
 
     def get_title(self):
-        return getattr(self, 'title', 'No Title')
+        return getattr(self, 'title')
 
     def get_help(self):
-        return getattr(self, 'help', [])
+        return getattr(self, 'help')
 
     def get_scripts(self):
-        return getattr(self, 'scripts', [])
+        return getattr(self, 'scripts')
 
     def _get_page(self):
         scripts = self.get_scripts()
@@ -176,6 +198,11 @@ class Form(object):
         page.form_fields = self.get_fields()
         page.form_values = self.get_values()
         page.form_help = self.get_help()
+        page.error_message = self.error_message
+
+        page.form_class = self.form_class
+        page.submit_value = self.submit_value
+        page.reset_value = self.reset_value
         return page
 
     def render(self):
@@ -187,7 +214,19 @@ class Form(object):
         return page.respond()
             
 class SearchForm(Form):
-    Template = SearchTemplate
+    form_class = "view"
+    submit_value = _("Search")
+    reset_value = _("Clear")
+
+class CreateForm(Form):
+    form_class = "info box"
+    submit_value = _("Create")
+    reset_value = _("Clear")
+
+class EditForm(Form):
+    form_class = ""
+    submit_value = _("Save")
+    reset_value = _("Reset")
 
 class SpineForm(Form):
     def __init__(self, transaction, *args, **kwargs):

@@ -35,7 +35,7 @@ from gettext import gettext as _
 from templates.SearchResultTemplate import SearchResultTemplate
 import SpineIDL.Errors
 
-from lib.utils import get_database
+from lib.utils import get_database, create_url
 
 class Searcher(object):
     """
@@ -406,7 +406,8 @@ class CoreSearcher(Searcher):
         return date.strftime("%Y-%m-%d")
 
     def _create_view_link(self, name, target_type, target_id):
-        return '<a href="/%s/view?id=%s">%s</a>' % (target_type, target_id, name)
+        url = create_url(target_id, target_type)
+        return '<a href="%s">%s</a>' % (url, name)
 
     def _create_link(self, name, row):
         target_id = row.id
@@ -506,38 +507,6 @@ class SpineSearcher(Searcher):
             return super(SpineSearcher, self).respond()
         except SpineIDL.Errors.AccessDeniedError, e:
             return self._get_fail_response('403 Forbidden', [("No access", True)])
-
-class EmailDomainSearcher(SpineSearcher):
-    headers = (
-        ('Name', 'name'),
-        ('Description', 'description'),
-        ('Categories', '')
-    )
-
-    def get_searchers(self):
-        form = self.form_values
-        main = self.transaction.get_email_domain_searcher()
-
-        name = utils.web_to_spine(form.get('name', '').strip())
-        if name:
-            main.set_name_like(name)
-
-        description = utils.web_to_spine(form.get('description', '').strip())
-        if description:
-            main.set_description_like(description)
-
-        return {'main': main}
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-            link = utils.object_link(elm)
-            cats = [utils.spine_to_web(i.get_name()) for i in elm.get_categories()[:4]]
-            cats = ", ".join(cats[:3]) + (len(cats) == 4 and '...' or '')
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            ## rows.append([link, utils.spine_to_web(elm.get_description()), cats, str(edit)])
-            rows.append([link, utils.spine_to_web(elm.get_description()), cats, ])
-        return rows
 
 class OUSearcher(SpineSearcher):
     headers = (

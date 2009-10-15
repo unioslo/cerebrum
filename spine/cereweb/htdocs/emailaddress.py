@@ -19,31 +19,20 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
+from lib.utils import redirect
 from lib.utils import queue_message, session_required_decorator
-from lib.utils import redirect, get_database, redirect_entity
-
-from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
-from lib.forms import EmailTargetEditForm, EmailTargetCreateForm
+from lib.utils import web_to_spine, get_database
+from lib.utils import parse_date, redirect_entity
+from lib.forms import EmailAddressEditForm, EmailAddressCreateForm
 from lib.data.EmailTargetDAO import EmailTargetDAO
-
-@session_required_decorator
-def view(id):
-    db = get_database()
-    target_dao = EmailTargetDAO(db)
-
-    page = EmailTargetViewTemplate()
-    page.title = _("Email account")
-    page.set_focus("emailtarget/view")
-    page.target = target_dao.get(id)
-    return page.respond()
-view.exposed = True
+from lib.data.EmailAddressDAO import EmailAddressDAO
 
 @session_required_decorator
 def edit(*args, **kwargs):
     """
     Creates a page with the form for editing a host.
     """
-    form = EmailTargetEditForm(*args, **kwargs)
+    form = EmailAddressEditForm(*args, **kwargs)
     if form.is_correct():
         return save(**form.get_values())
     return form.respond()
@@ -54,11 +43,24 @@ def create(*args, **kwargs):
     """
     Creates a page with the form for editing a host.
     """
-    form = EmailTargetCreateForm(*args, **kwargs)
+    form = EmailAddressCreateForm(*args, **kwargs)
     if form.is_correct():
         return make(**form.get_values())
     return form.respond()
 create.exposed = True
+
+@session_required_decorator
+def delete(address_id, target_id):
+    db = get_database()
+    dao = EmailAddressDAO(db)
+    dao.delete(address_id)
+    db.commit()
+
+    queue_message(
+        _('Email address successfully deleted.'),
+        title=_("Change succeeded"))
+    redirect_entity(target_id)
+delete.exposed = True
 
 def save(id, entity_id, target_type):
     """Saves the information for the host."""
@@ -70,29 +72,27 @@ def save(id, entity_id, target_type):
         title=_("Change failed"))
     redirect_entity(emailtarget)
 
-def make(entity_id, target_type, host_id):
+def make(target_id, local, domain, expire):
+    local_part = web_to_spine(local.strip())
+    expire_date = parse_date(expire)
+
     db = get_database()
-    dao = EmailTargetDAO(db)
-    dao.create(entity_id, target_type, host_id)
+    dao = EmailAddressDAO(db)
+    dao.create(target_id, domain, local_part, expire_date)
     db.commit()
 
-    queue_message(
-        _("Added email target successfully."),
-        title=_("Change succeeded"))
-    redirect_entity(entity_id)
+    queue_message(_("Email address successfully created."), title=_("Change succeeded"))
+    redirect_entity(target_id)
 
 @session_required_decorator
-def delete(id, entity_id=None):
+def setprimary(address_id, target_id):
     db = get_database()
     dao = EmailTargetDAO(db)
-    dao.delete(id)
+    dao.set_primary_address(target_id, address_id)
     db.commit()
 
     queue_message(
-        _('Email target successfully deleted.'),
+        _("Email address successfully set as primary."),
         title=_("Change succeeded"))
-
-    if entity_id:
-        redirect_entity(entity_id)
-    redirect('/index')
-delete.exposed = True
+    redirect_entity(target_id)
+setprimary.exposed = True
