@@ -30,7 +30,6 @@ from lib.data.OuDAO import OuDAO
 from lib.AffiliatedPersonSearcher import AffiliatedPersonSearcher
 from lib.templates.OUTreeTemplate import OUTreeTemplate
 from lib.templates.OUViewTemplate import OUViewTemplate
-import SpineIDL.Errors
 
 def get_perspective(perspective, perspectives):
     if not perspective:

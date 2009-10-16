@@ -81,10 +81,14 @@ def session_time_left(nocache=None):
     timestamp = cherrypy.session.get('timestamp', None)
     
     if timestamp is None:
-        return '0'
+        time_left = 0
+    else:
+        time_left = int(timeout - (time.time() - timestamp))
+
+    if time_left <= 0:
+        cherrypy.session.clear()
+        time_left = 0
     
-    time_left = int(timeout - (time.time() - timestamp))
-    time_left = time_left > 0 and time_left or 0
     return str(time_left)
 session_time_left.exposed = True
 

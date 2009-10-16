@@ -33,5 +33,4 @@ from OuForms import OuCreateForm, OuEditForm, OuPerspectiveEditForm
 from PersonForms import PersonCreateForm, PersonEditForm
 from PersonSearchForm import PersonSearchForm
 from AffiliatedPersonSearchForm import AffiliatedPersonSearchForm
-from RoleCreateForm import RoleCreateForm
 from NoteForms import NoteCreateForm

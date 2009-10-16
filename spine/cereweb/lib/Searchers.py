@@ -28,14 +28,11 @@ import urllib
 import config
 import cherrypy
 
-import cereconf
-import utils
-import Messages
 from gettext import gettext as _
 from templates.SearchResultTemplate import SearchResultTemplate
-import SpineIDL.Errors
 
-from lib.utils import get_database, create_url
+from lib.utils import get_database, create_url, is_ajax_request
+from lib.utils import spine_to_web, get_messages
 
 class Searcher(object):
     """
@@ -88,7 +85,7 @@ class Searcher(object):
             'orderby': self.orderby_default
         })
 
-        self.is_ajax = utils.is_ajax_request()
+        self.is_ajax = is_ajax_request()
         self.form_values = self.__init_values(*args, **kwargs)
         self.options = self.__init_options(kwargs)
         self.url_args = dict(self.form_values.items() + self.options.items())
@@ -270,7 +267,7 @@ class Searcher(object):
             cherrypy.response.headerMap['Content-Type'] = 'text/plain; charset=utf-8'
             cherrypy.response.status = status
             if not messages:
-                messages = utils.get_messages()
+                messages = get_messages()
             return cjson.encode({'status': 404, 'messages': messages})
         else:
             return None
@@ -388,7 +385,7 @@ class CoreSearcher(Searcher):
             formatter = self._get_formatter(column)
 
             if type(value) == str:
-                value = utils.spine_to_web(value)
+                value = spine_to_web(value)
 
             yield formatter and formatter(value, row) or value
 
@@ -413,288 +410,3 @@ class CoreSearcher(Searcher):
         target_id = row.id
         target_type = row.type_name
         return self._create_view_link(name, target_type, target_id)
-
-class SpineSearcher(Searcher):
-    """
-    A spine-specific searcher module that should be subclassed by the
-    respective search pages in cereweb.  To use this class, you need to
-    subclass it and make the following methods:
-
-    def get_searchers(self):
-        '''
-        Configures searchers and returns them in a dictionary.  The searchers
-        should have the attribute 'join_name' set to the name needed to join
-        the searcher to the main searcher or '' if the searcher is the main
-        searcher.  The main searcher must be added to the dictionary with both
-        the key 'main' and the header name (see below).
-        '''  
-        name = self.form_values.get('name').strip() + '*'
-        account = self.transaction.get_account_searcher()
-        account.set_name_like(name)
-        account.join_name = ''
-        return {'main': account, 'account': account}
-
-    def filter_rows(self, results):
-        '''
-        Goes through the results and creates a list of tuples containing the
-        search results.  The tuples should of course match the headers tuple
-        so that the resulting table is labeled correctly.
-
-        NB: Remember that this loop iterates over all resulting objects and
-        so the operations in the loop should be minimal to keep the searches
-        fast.
-        '''
-        rows = []
-        for elm in results:
-            attr = self.searchers['main'].join_name
-            if attr:
-                obj = getattr(obj, 'get_' + attr)()
-            else:
-                obj = elm
-
-            owner = utils.object_link(obj.get_owner())
-            cdate = utils.strftime(obj.get_create_date())
-            edate = utils.strftime(obj.get_expire_date())
-            edit = utils.object_link(obj, text='edit', method='edit', _class='action')
-            rows.append((utils.object_link(obj), owner, cdate, edate, str(edit)))
-        return rows
-
-
-    The subclass must also define a 'headers' class variable which is a list of columns
-    and sort names.  If the sort name contains a period, the name before the period is the
-    key of the searcher dictionary and the rest is the field in that searcher
-    that we should order by.
-
-    Examples:
-      ('Column name', 'searcher_key.attribute'),
-    or if the attribute is guaranteed to be in the main searcher:
-      ('Column name', 'attribute'),
-    or if we don't want to be able to sort by this column:
-      ('Column name', ''),
-
-    """
-
-    def __init__(self, transaction, *args, **kwargs):
-        super(SpineSearcher, self).__init__(*args, **kwargs)
-
-        self.transaction = transaction
-        self.searchers = self.get_searchers()
-        self.init_searcher()
-
-    def init_searcher(self):
-        """
-        Configure the searcher based on the orderby, offset and display hits
-        options.
-        """
-
-        offset = int(self.options['offset'])
-        self.searchers['main'].set_search_limit(self.max_hits, offset)
-
-    def count(self):
-        return self.searchers['main'].length()
-
-    def get_results(self):
-        rows = self.get_rows()
-        return self.filter_rows(rows)
-
-    def get_rows(self):
-        """Executes the search and returns the resulting rows."""
-        if self.is_valid():
-            return self.searchers['main'].search()
-
-    def respond(self):
-        try:
-            return super(SpineSearcher, self).respond()
-        except SpineIDL.Errors.AccessDeniedError, e:
-            return self._get_fail_response('403 Forbidden', [("No access", True)])
-
-class OUSearcher(SpineSearcher):
-    headers = (
-        ('Name', 'name'),
-        ('Acronym', 'acronym'),
-        ('Short name', 'short_name'),
-        ('Actions', '')
-    )
-
-    def get_searchers(self):
-        main = self.transaction.get_ou_searcher()
-        form = self.form_values
-
-        acronym = utils.web_to_spine(form.get('acronym', '').strip())
-        if acronym:
-            main.set_acronym_like(acronym)
-
-        short = utils.web_to_spine(form.get('short', '').strip())
-        if short:
-            main.set_short_name_like(short)
-
-        spread = utils.web_to_spine(form.get('spread', '').strip())
-        if spread:
-            ou_type = self.transaction.get_entity_type('ou')
-
-            searcher = self.transaction.get_entity_spread_searcher()
-            searcher.set_entity_type(ou_type)
-
-            spreadsearcher = self.transaction.get_spread_searcher()
-            spreadsearcher.set_entity_type(ou_type)
-            spreadsearcher.set_name_like(spread)
-
-            searcher.add_join('spread', spreadsearcher, '')
-            main.add_intersection('', searcher, 'entity')
-
-        name = utils.web_to_spine(form.get('name', '').strip())
-        if name:
-            main.set_name_like(name)
-
-        description = utils.web_to_spine(form.get('description', '').strip())
-        if description:
-            main.set_description_like(description)
-
-        return {'main': main}
-
-    def filter_rows(self, results):
-        rows = []
-        for elm in results:
-
-            name = utils.spine_to_web(elm.get_display_name() or elm.get_name())
-            link = utils.object_link(elm, text=name)
-            ## edit = utils.object_link(elm, text='edit', method='edit', _class='action')
-            acro = utils.spine_to_web(elm.get_acronym())
-            short = utils.spine_to_web(elm.get_short_name())
-            ## rows.append([link, acro, short, str(edit)])
-            rows.append([link, acro, short, ])
-        return rows
-
-class PersonAffiliationsSearcher(SpineSearcher):
-    headers = (('Name', 'person_name.name'),
-               ('Type', ''),
-               ('Status', 'status'),
-               ('Source', ''),
-               ('Affiliations', ''),
-               ('Birth date', 'person.birth_date'))
-
-    url = 'list_aff_persons'
-
-    def get_searchers(self):
-        form = self.form_values
-        tr = self.transaction
-
-        main = tr.get_person_affiliation_searcher()
-        main.set_deleted_date_exists(False)
-        main.join_name = 'person'
-
-        person_name = tr.get_person_name_searcher()
-        person_name.join_name = 'person'
-        person_name.set_name_variant(tr.get_name_type('FULL'))
-        person_name.set_source_system(tr.get_source_system('Cached'))
-
-        person = tr.get_person_searcher()
-        person.join_name = ''
-
-        id = utils.web_to_spine(form.get('id', '').strip())
-        if id:
-            try:
-                ou = tr.get_ou(int(id))
-                main.set_ou(ou)
-            except SpineIDL.Errors.NotFoundError, e:
-                self.valid = False
-
-        source = utils.web_to_spine(form.get('source', '').strip())
-        if source:
-            main.set_source_system(
-                    tr.get_source_system(source))
-
-        person_orderby_name = self.transaction.get_person_name_searcher()
-        person_orderby_name.set_name_variant(self.transaction.get_name_type('LAST'))
-        person_orderby_name.set_source_system(self.transaction.get_source_system('Cached'))
-        main.add_join(main.join_name, person_orderby_name, 'person')
-        main.order_by(person_orderby_name, 'name')
-
-        return {'main': main, 'person_name': person_name, 'person': person}
-
-    def filter_rows(self, results):
-        rows = []
-        #print 'filter_rows: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! len(results)=',len(results)
-        for elm in results:
-            p = elm.get_person()
-            affs=[]
-            for a in p.get_affiliations():
-                affs.append(utils.object_link(a.get_ou(), text=utils.spine_to_web(a.get_ou().get_name())))
-            ##affs = [utils.spine_to_web(a.get_ou().get_name()) for a in p.get_affiliations()]
-            type = utils.spine_to_web(elm.get_affiliation().get_name())
-            status = utils.spine_to_web(elm.get_status().get_name())
-            source = utils.spine_to_web(elm.get_source_system().get_name())
-            persname = utils.spine_to_web(utils.get_lastname_firstname(p))
-            name = utils.object_link(p, text=persname)
-            birth_date = utils.strftime(p.get_birth_date())
-            rows.append([name, type, status, source, ", ".join(affs), birth_date])
-        return rows
-
-class PersonAffiliationsOuSearcher(PersonAffiliationsSearcher):
-    len = 0
-    def get_rows(self):
-        """Executes the search and returns the result."""
-        if not self.is_valid():
-            return
-
-        kwargs = self.form_values
-        tr = self.transaction
-
-        id = utils.web_to_spine(kwargs.get('id', '').strip())
-        ou = tr.get_ou(int(id))
-        perspective = utils.web_to_spine(kwargs.get('source', '').strip())
-        affiliation = utils.web_to_spine(kwargs.get('affiliation','').strip())
-        withoutssn = utils.web_to_spine(kwargs.get('withoutssn', '').strip())
-        recursive = utils.web_to_spine(kwargs.get('recursive', '').strip())
-        perspectives = []
-        if perspective == 'All':
-            for pers in tr.get_ou_perspective_type_searcher().search():
-                perspectives.append(pers)
-        else:
-            perspectives.append(tr.get_ou_perspective_type(perspective))
-        ou_list = []
-        if recursive:
-            for perspective in perspectives:
-                try:
-                    ret = utils.flatten(ou, perspective)
-                    if ret:
-                        for r in ret:
-                            ou_list.append(r)       
-                except SpineIDL.Errors.NotFoundError, e:
-                    pass
-        else:
-            ou_list.append(ou)
-        affs = []
-        if affiliation == 'All':
-            for aff in tr.get_person_affiliation_type_searcher().search():
-                affs.append(aff)
-        else:
-            affs.append(tr.get_person_affiliation_type(affiliation))
-        allresults = []
-        for theOu in ou_list:
-            for aff in affs:
-                aff_searcher = tr.get_person_affiliation_searcher()
-                aff_searcher.set_ou(theOu)
-                aff_searcher.set_affiliation(aff)
-                res = aff_searcher.search()
-                if res:
-                    for result in res:
-                        allresults.append(result)
-        if withoutssn:
-            filtered = []
-            for personAff in allresults:
-                person = personAff.get_person()
-                extidsList = utils.extidlist(person)
-                found = False
-                for id in extidsList:
-                    if id.variant.get_name() == 'NO_BIRTHNO':
-                        found = True
-                if not found:
-                    filtered.append(personAff)
-            allresults = filtered
-        self.len = len(allresults)
-        allresults.sort(lambda x,y : cmp(utils.get_lastname_firstname(x.get_person()), utils.get_lastname_firstname(y.get_person())))
-        return allresults
-
-    def count(self):
-        return self.len

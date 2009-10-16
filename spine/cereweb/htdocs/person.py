@@ -45,6 +45,7 @@ from lib.PersonSearcher import PersonSearcher
 from lib.forms import PersonCreateForm, PersonEditForm
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 
+@session_required_decorator
 def search(**kwargs):
     """Search after hosts and displays result and/or searchform."""
     searcher = PersonSearcher(**kwargs)

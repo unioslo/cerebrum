@@ -28,7 +28,6 @@ import re
 import cgi
 import string
 import random
-from omniORB import CORBA
 from datetime import datetime
 import Messages
 
@@ -46,89 +45,6 @@ def clean_url(url):
     #  <scheme>://<netloc>/<path>;<params>?<query>#<fragment>
     url = ('', '') + urlparse.urlparse(url)[2:]
     return urlparse.urlunparse(url)
-
-def _spine_type(object):
-    """Return the type (string) of a Spine object.
-
-    If the Spine object is an instance of SpineEntity, the name of
-    get_type() is returned.  Else, the class name part of the the
-    Spine IDL repository ID is returned.
-
-    For instance, _spine_type(some_account) -> "account" while
-    _spine_type(some_spine_email_domain) -> EmailDomain
-    """
-    if type(object) == type({}):
-        return object['object_type']
-    elif object._is_a("IDL:SpineIDL/SpineEntity:1.0"):
-        return object.get_typestr()
-    else:
-        # split up "IDL:SpineIDL/SpineEntity:1.0"
-        idl_type = object._NP_RepositoryId.split(":", 3)[1]
-        spine_type = idl_type.split("/")[1]
-        # The Spine prefix is not important
-        name = spine_type.replace("Spine", "")
-        return name.lower()
-
-def object_name(object):
-    entity_type = _spine_type(object)
-    if entity_type == 'person':
-        text = spine_to_web(get_lastname_firstname(object))
-    elif entity_type == 'ou':
-        tmp = object.get_display_name()
-        text = tmp and tmp or object.get_name()
-    elif entity_type == 'emailtarget':
-        from SpineIDL.Errors import NotFoundError
-        try:
-            primary = object.get_primary_address()
-        except NotFoundError:
-            text = "Email target of type '%s'" % object.get_target_type()
-        else:
-            primary_address = object.get_primary_address()
-            if primary_address:
-                text = primary_address.full_address() + " (%s)" % object.get_target_type()
-            else:
-                text = "No primary address" + " (%s)" % object.get_target_type()
-    elif entity_type == 'disk':
-        text = object.get_path()
-    elif hasattr(object, "get_name"):
-        text = object.get_name()
-    elif entity_type == 'account':
-        text = object['name']
-    else:
-        text = str(object)
-    return text
-
-def object_id(object):
-    if type(object) == type({}):
-        return object['id']
-    else:
-        return object.get_id()
-
-def object_url(object, method="view", **params):
-    """Return the full path to a page treating the object.
-
-    Method could be "view" (the default), "edit" and other things.
-
-    Any additional keyword arguments will be appended to the query part.
-    """
-    entity_type = _spine_type(object)
-    entity_id = object_id(object)
-    return create_url(entity_id, entity_type, method, **params)
-
-def object_link(object, text=None, method="view", _class="", **params):
-    """Create a HTML anchor (a href=..) for the object.
-
-    The text of the anchor will be str(object) - unless
-    the parameter text is given.
-
-    Any additional keyword arguments will be appended to the query part.
-    """
-    url = object_url(object, method, **params)
-    if text is None:
-        text = object_name(object)
-    if _class:
-        _class = ' class="%s"' % _class
-    return '<a href="%s"%s>%s</a>' % (url, _class, cgi.escape(text))
 
 def entity_url(entity, method="view", **params):
     """Return the full path to a page treating the entity.
@@ -182,15 +98,6 @@ def redirect_entity(entity, method="view", status=None):
     url = entity_url(entity, method)
     redirect(url, status)
 
-def redirect_object(object, method="view", status=None):
-    """Redirects to the given object.
-       This is shorthand for calling object_url and redirect
-       in succession. See the respecting methods for
-       explanation of the parameters.
-    """
-    url = object_url(object, method)
-    redirect(url, status)
-
 def queue_message(message=None, error=False, link='', title="No title", tracebk=None):
     """Queue a message.
 
@@ -237,11 +144,7 @@ def parse_date(date):
 def has_valid_session():
     """Tries to ping the server.  Returns True if we've got
     contact, False otherwise."""
-    try:
-        cherrypy.session['session'].ping()
-    except (CORBA.COMM_FAILURE, CORBA.TRANSIENT, CORBA.OBJECT_NOT_EXIST, KeyError), e:
-        return False
-    return True
+    return cherrypy.session.get("username") and True or False
 
 def session_required_decorator(method):
     def fn(*args, **vargs):
@@ -256,92 +159,13 @@ def session_required_decorator(method):
         return method(*args, **vargs)
     return fn
 
-def new_transaction():
-    if not has_valid_session():
-        Messages.queue_message(
-                title="Session Expired",
-                message='Your session is no longer available.  Please log in again.',
-                is_error=True)
-        redirect_to_login()
-    return cherrypy.session['session'].new_transaction()
-
 def redirect_to_login():
-        query = cherrypy.request.path
-        if cherrypy.request.queryString:
-            query += '?' + cherrypy.request.queryString
+    query = cherrypy.request.path
+    if cherrypy.request.queryString:
+        query += '?' + cherrypy.request.queryString
 
-        cherrypy.session['next'] = query
-        redirect('/login')
-
-def transaction_decorator(method):
-    print "DEPRECATION WARNING: %s.%s is using spine transactions." % (method.__module__, method.__name__)
-    def transaction_decorator(*args, **vargs):
-        cherrypy.session['timestamp'] = time.time()
-        tr = new_transaction()
-        # In Python < 2.5, try...except...finally did not work.
-        # try...except had to be nested in try...finally.
-        try:
-            from SpineIDL.Errors import AccessDeniedError
-            try:
-                return method(transaction=tr, *args, **vargs)
-            except AccessDeniedError, e:
-                Messages.queue_message(
-                        title="Access Denied",
-                        message=e.explanation,
-                        is_error=True)
-                redirect(cherrypy.session.get('client'))
-        finally:
-            try:
-                # FIXME: sjekk status på transaction?
-                tr.rollback()
-            except:
-                pass
-    return transaction_decorator
-
-def commit(transaction, object, method='view', msg='', error=''):
-    """Commits the transaction, then redirects.
-
-    If 'msg' is given, the message will be queued after the
-    transaction successfully commits. If the commit raises
-    an exception, and 'error' is given, it will be queued.
-    """
-    url, link = object_url(object, method), object_link(object)
-    commit_url(transaction, url, msg, error, link)
-
-def commit_url(transaction, url, msg='', error='', link=''):
-    """Commits the transaction, then redirects.
-
-    If 'msg' is given, the message will be queued after the
-    transaction successfully commits. If the commit raises
-    an exception, and 'error' is given, it will be queued.
-
-    The diffrence in this method versus commit(), is usefull
-    when your objected is deleted during the transaction.
-    """
-    try:
-        transaction.commit()
-    except Exception, e:
-        Messages.queue_message(
-            title="Commit Failed",
-            message=error,
-            is_error=True,
-            link=link,
-            tracebk=e)
-    else:
-        if msg:
-            Messages.queue_message(
-                title="Commit Success",
-                message=msg,
-                link=link)
-    redirect(url)
-
-def rollback_url(url, msg, err=False):
-    if msg:
-        Messages.queue_message(
-            title="Did Not Save",
-            message=msg,
-            is_error=err)
-    redirect(url)
+    cherrypy.session['next'] = query
+    redirect('/login')
 
 def legal_date(datestr, formatstr="%Y-%m-%d"):
     try:
@@ -656,20 +480,6 @@ def encode_args(args):
         if value:
             retStr += value
     return retStr
-
-def get_ou_structure(tr, perspective):
-    ou_structure_searcher = tr.get_ou_structure_searcher()
-    ou_structure_searcher.set_perspective(perspective)
-    r = ou_structure_searcher.search()
-    return r
-
-def find_ou_root(ou_structure, perspective):
-    root = None
-    for structure in ou_structure:
-        ou = structure.get_ou()
-        if not ou.get_parent(perspective) and ou.get_children(perspective):
-            root = ou
-    return root
 
 def get_lastname_firstname(pers):
     lastname = None

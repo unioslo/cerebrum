@@ -20,7 +20,10 @@
 
 import urllib
 import cherrypy
-from omniORB import CORBA
+from Cerebrum.Utils import Factory
+Database = Factory.get("Database")
+Account = Factory.get("Account")
+Constants = Factory.get("Constants")
 
 import cgi
 from lib import utils
@@ -29,29 +32,7 @@ from lib.Options import Options
 from lib.templates.Login import Login
 import config
 
-import SpineClient
 import cereconf
-
-class Client(object):
-    def __init__(self):
-        self.__connect()
-
-    def __call__(self):
-        if self.spine:
-            return self.spine
-        else:
-            return self.__connect()
-
-    def __connect(self):
-        try:
-            self.spine = SpineClient.SpineClient(config=config.conf)
-        except CORBA.TRANSIENT, e:
-            self.spine = None
-        return self.spine
-
-    def disconnect(self):
-        self.spine = None
-Client = Client()
 
 def login(**kwargs):
     if 'msg' in kwargs:
@@ -86,23 +67,17 @@ def try_login(username=None, password=None, **kwargs):
             is_error=True)
         return False
 
-    Spine = Client()
-    
     try:
-        if not Spine:
-            raise CORBA.TRANSIENT('Could not connect.')
+        db = Database()
+        const = Constants(db)
+        method = const.auth_type_md5_crypt
 
-        spine = Spine.connect()
-    except CORBA.TRANSIENT, e:
-        Messages.queue_message(
-            title="Connection Failed",
-            message="Could not connect to the Spine server.  Please contact Orakel.",
-            is_error=True,
-        )
-        return False
+        account = Account(db)
+        account.find_by_name(username)
+        hash = account.get_account_authentication(method)
 
-    try:
-        session = spine.login(username, password)
+        if not account.verify_password(method, password, hash):
+            raise Exception("Login failed.")
     except Exception, e:
         Messages.queue_message(
             title="Login Failed",
@@ -111,18 +86,16 @@ def try_login(username=None, password=None, **kwargs):
         )
         return False
 
-    return create_cherrypy_session(session, username)
+    return create_cherrypy_session(username)
 
 def is_allowed_login(username):
     return username == "bootstrap_account" or username == "ctestpos"
 
-def create_cherrypy_session(session, username):
+def create_cherrypy_session(username):
     cherrypy.session['username'] = username
     cherrypy.session['timeout'] = get_timeout()
     cherrypy.session['client_encoding'] = negotiate_encoding()
-
-    cherrypy.session['session'] = session
-    cherrypy.session['spine_encoding'] = session.get_encoding()
+    cherrypy.session['spine_encoding'] = 'iso-8859-1'
     cherrypy.session['options'] = Options(username)
     return True
 
@@ -139,13 +112,9 @@ def negotiate_encoding():
     return charsets[0]
 
 def logout():
-    session = cherrypy.session.get('session')
-    if session:
-        del cherrypy.session['session']
-        session.logout()
+    cherrypy.session.clear()
     utils.redirect("/login")
 logout.exposed = True
-
 
 def get_next(redirect=None, **kwargs):
     session_next = cherrypy.session.pop('next', None)

@@ -29,7 +29,6 @@ import utils
 import omniORB
 import Messages
 from templates.ErrorTemplate import ErrorTemplate
-from SpineIDL.Errors import *
 
 class NotFoundError(Exception):
     """A non existing resource was requested

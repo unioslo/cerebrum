@@ -248,8 +248,3 @@ class EditForm(Form):
     form_class = ""
     submit_value = _("Save")
     reset_value = _("Reset")
-
-class SpineForm(Form):
-    def __init__(self, transaction, *args, **kwargs):
-        self.transaction = transaction
-        super(SpineForm, self).__init__(*args, **kwargs)
