@@ -2868,6 +2868,7 @@ Addresses and settings:
         perm_filter="can_email_list_create")
     def email_reassign_list_address(self, operator, listname, sympa_delivery_host):
         et, ea = self.__get_email_target_and_address(listname)
+        old_target_id = et.entity_id
         if not self._is_mailing_list(listname):
             return "Cannot migrate a non-list target to Sympa."
         self.ba.can_email_list_create(operator.get_entity_id(), ea)
