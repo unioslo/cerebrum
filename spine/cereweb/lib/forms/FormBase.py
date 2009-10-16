@@ -161,9 +161,10 @@ class Form(object):
         correct = True
         for field in self.fields.values():
             if field['value']:
-                func = getattr(self, 'check_%s' % field['name'], None)
+                name = field['name']
+                func = getattr(self, 'check_%s' % name, None)
                 if func and not func(field['value']):
-                    args = (field['label'], self.error_message)
+                    args = (field.get('label', name), self.error_message)
                     self.error_message = "Field '%s': %s" % args
                     correct = False
                     break

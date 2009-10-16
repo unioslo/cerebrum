@@ -64,6 +64,8 @@
                         $render_checkbox($field, $cls)
                     #elif $field['type'] == 'radio'
                         $render_radio($field, $cls)
+                    #elif $field['type'] == 'textarea'
+                        $render_textarea($field, $cls)
                     #else
                         $render_text($field, $cls)
                     #end if
@@ -137,4 +139,9 @@
 #def render_text($field, $cls)
     <label for="$field['name']">$field['label']:</label>
     <input class="$cls" type="$field['type']" value="$field['value']" name="$field['name']" id="$field['name']" />
+#end def
+
+#def render_textarea($field, $cls)
+    <label for="$field['name']">$field['label']:</label>
+    <textarea name="$field['name']" id="$field['name']" class="$cls" cols="40" rows="5">$field['value']</textarea>
 #end def
