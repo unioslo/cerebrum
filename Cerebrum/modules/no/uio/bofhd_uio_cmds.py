@@ -2525,15 +2525,22 @@ class BofhdExtension(object):
         ("email", "create_sympa_cerebrum_list"),
         SimpleString(help_ref='string_email_delivery_host'),
         EmailAddress(help_ref="mailing_list"),
+        YesNo(help_ref="yes_no_force", optional=True, default="No"),        
         perm_filter="can_email_list_create")
-    def email_create_sympa_cerebrum_list(self, operator, delivery_host, listname):
+    def email_create_sympa_cerebrum_list(self, operator, delivery_host, listname, force=None):
         """Create a sympa mailing list in cerebrum only"""
 
         delivery_host = self._get_email_server(delivery_host)
-        self._create_mailing_list_in_cerebrum(operator,
-                                              self.const.email_target_Sympa,
-                                              delivery_host,
-                                              listname)
+        if self._is_yes(force):
+            self._create_mailing_list_in_cerebrum(operator,
+                                                  self.const.email_target_Sympa,
+                                                  delivery_host,
+                                                  listname, force=True)
+        else:
+            self._create_mailing_list_in_cerebrum(operator,
+                                                  self.const.email_target_Sympa,
+                                                  delivery_host,
+                                                  listname)
         return "OK, sympa list '%s' created in cerebrum only" % listname
     # end email_create_sympa_cerebrum_list
     
