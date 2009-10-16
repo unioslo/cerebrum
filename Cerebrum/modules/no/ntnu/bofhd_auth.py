@@ -77,7 +77,7 @@ class BofhdAuth(auth.BofhdAuth):
                                    target.entity_id,
                                    operation_attr):
             return True
-        
+
         return self._query_target_permissions(
             operator, operation, self.const.auth_target_type_ou, target.entity_id, None,
             operation_attr)
@@ -114,7 +114,7 @@ class BofhdAuth(auth.BofhdAuth):
                            operation_attr=None):
         if self.is_superuser(operator):
             return True
-        
+
         return super(BofhdAuth, self)._has_global_access(
             operator, operation, global_type, victim_id, operation_attr)
 
@@ -241,6 +241,24 @@ class BofhdAuth(auth.BofhdAuth):
         """
         return self.is_superuser(operator)
 
+    def can_create_ou(self, operator):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_edit_ou(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_delete_ou(self, operator, target):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
     def can_edit_spread(self, operator, entity, spread):
         """
         FIXME: Not implemented since the business logic is unclear.
@@ -318,7 +336,7 @@ class BofhdAuth(auth.BofhdAuth):
             operation_attr=str(auth_method)):
             return True
         raise PermissionDenied("Can't bulk read accounts")
-    
+
     def can_syncread_group(self, operator, spread):
         if self.is_superuser(operator):
             return True
@@ -331,8 +349,7 @@ class BofhdAuth(auth.BofhdAuth):
             self.const.auth_target_type_global_group, None):
             return True
         raise PermissionDenied("Can't bulk read groups")
-            
-    
+
     def can_syncread_ou(self, operator, spread=None):
         if self.is_superuser(operator):
             return True
@@ -355,7 +372,7 @@ class BofhdAuth(auth.BofhdAuth):
             self.const.auth_target_type_global_account, None):
             return True
         raise PermissionDenied("Can't bulk read Aliases")
-    
+
     def can_syncread_person(self, operator, spread=None):
         if self.is_superuser(operator):
             return True
