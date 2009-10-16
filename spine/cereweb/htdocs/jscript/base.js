@@ -12,7 +12,7 @@
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with Cerebrum; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
@@ -24,7 +24,7 @@ YAHOO.widget.Logger.enableBrowserConsole();
 
 // Shorthand
 log = YAHOO.log;
-YD = YAHOO.util.Dom; 
+YD = YAHOO.util.Dom;
 YE = YAHOO.util.Event;
 YC = YAHOO.util.Connect;
 cereweb = YAHOO.cereweb;
@@ -74,33 +74,36 @@ cereweb.callbacks = {
 
 cereweb.callbacks.htmlSnippet.prototype = {
     success: function(o, args) {
+        var open, close, offset; // Search indices to keep track of div nest level.
         var begin = '<div id="content">';
-        var end = '</div>';
-        var a, b; // Start and stop indexes of the content div.
-        var r = o.responseText; // Make a 
 
-        a = r.search(begin) + begin.length; // We don't include the div tag.
-        b = a; // The end can't be before the beginning :)
-        r = r.substring(a, r.length);
+        var offset = o.responseText.search(begin) + begin.length; // We don't include the div tag.
+        var rest = o.responseText.substring(offset);
+        var skipped_char = "";
+        var content = "";
 
-        var x, y;
-        var i = 1; 
-        while (i > 0) { // While we're inside the content div.
-            x = r.search(end);
-            y = r.search('<div'); 
-            if (x < y || y < 0) {
-                i -= 1;
-            } else {
+        var i = 1;
+        while (i > 0) {
+            content += skipped_char;
+
+            open = rest.search('<div');
+            close = rest.search('</div>');
+
+            if (open < close && open > -1) {
                 i += 1;
-                x = y;
+                offset = open;
+            } else {
+                i -= 1;
+                offset = close;
             }
-            b += x; // Advance the end, don't include the end tag.
-            // substring has no offset, so eat the part we just found.
-            r = r.substring(x + 1, r.length);
+
+            content += rest.substring(0, offset);
+
+            skipped_char = rest.substring(offset, offset + 1);
+            rest = rest.substring(offset + 1);
         }
-        r = o.responseText.substring(a, b);
         var cfn = this.__htmlSnippet_cfn;
-        this[cfn](r, o.argument);
+        this[cfn](content, o.argument);
     }
 }
 
@@ -145,7 +148,7 @@ cereweb.utils = {
         var evt = document.createEvent("MouseEvents");
         evt.initMouseEvent("click", true, true, window,
             0, 0, 0, 0, 0, false, false, false, false, 0, null);
-        
+
         YE.addListener(el, "click", cereweb.action.clicked,
             cereweb.action, true);
 
@@ -252,7 +255,7 @@ cereweb.action = {
     },
     fire: function(event, action) {
         var subaction = '*/' + action.name.split('/')[1];
-        var preaction = action.name.split('/')[0] + '/*' 
+        var preaction = action.name.split('/')[0] + '/*'
         var my_action = this._events[action.name] || this._events[subaction] || this._events[preaction];
         if (my_action)
             my_action.fire(event, action.args);
@@ -270,7 +273,7 @@ cereweb.action = {
             var x = elms[i].split('=');
             args[x[0]] = x[1];
         }
-            
+
         return {'name': target[0], 'args': args};
     },
     clicked: function(e) {
@@ -403,20 +406,20 @@ YE.onContentReady('container', cereweb.javascript.init);
 cereweb.tabs = new YAHOO.widget.TabView('tabview');
 cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
-(function() { 
+(function() {
     var flatten = function(args) {
         var data = [];
         for (var el in args) {
             if (!args.hasOwnProperty(el))
                 continue;
-            
+
             data[data.length] = el + '=' + args[el];
         }
         return data.join('&');
     };
 
     var make_path_absolute = function(url) {
-        if (url.slice(0,1) !== '/') 
+        if (url.slice(0,1) !== '/')
             url = '/' + url;
         return url;
     };
@@ -505,7 +508,7 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
         ]});
     confirmDialogue.setHeader("Alert!");
     confirmDialogue.setBody("Are you sure you want to do this?");
-    
+
     var confirm = function(event, args) {
         var e = args[0];
         YE.preventDefault(e);
