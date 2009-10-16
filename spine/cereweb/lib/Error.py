@@ -29,10 +29,9 @@ import utils
 import omniORB
 import Messages
 from templates.ErrorTemplate import ErrorTemplate
-
-class NotFoundError(Exception):
-    """A non existing resource was requested
-    """
+from Cerebrum.Errors import NotFoundError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.Database import IntegrityError
 
 class CustomError(Exception):
     """Used as a shortcut to display an error-page with a title and message.
@@ -58,13 +57,7 @@ def handle(error):
     cherrypy.response.headerMap['Pragma'] = 'no-cache'
     cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
 
-    if isinstance(error, omniORB.CORBA.COMM_FAILURE) or \
-       isinstance(error, omniORB.CORBA.TRANSIENT):
-        # We seem to have lost connection with the Spine server.  This is
-        # handled by the login page so that the user gets information about
-        # what's wrong.
-        utils.redirect_to_login() 
-    elif isinstance(error, AccessDeniedError):
+    if isinstance(error, PermissionDenied):
         msg = "Sorry, you do not have permissions to do the requested operation."
         if cherrypy.config.get('server.showTracebacks'):
             tracebk=traceback.format_exception(*sys.exc_info())
