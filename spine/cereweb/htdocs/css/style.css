@@ -514,35 +514,6 @@ div.log td, div.activitylog_full td, table.results td, div.memberlists td {
     padding: 1px 2px 1px 2px;
 }
 
-/* For the permissions-system. */
-span.perm_added {
-    color: green;
-    font-size: 12px;
-}
-
-span.perm_removed {
-    color: red;
-    background-color: white;
-    font-size: 12px;
-}
-
-table.perm_methods tr.gray {
-    empty-cells: show;
-    background-color: #dadada;
-}
-
-table.perm_methods th {
-    text-align: left;
-}
-
-a.perm_all:hover {
-    color: gray;
-}
-
-div.tree {
-    margin-left: 2em;
-}
-
 /* Styles for the Error-pages. */
 div.errorpage { 
     margin: 5px;

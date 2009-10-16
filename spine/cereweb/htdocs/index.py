@@ -43,7 +43,6 @@ import host
 import note
 import ou
 import person
-import permissions
 import activation
 import ajax
 import motd
