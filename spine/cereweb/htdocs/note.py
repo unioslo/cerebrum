@@ -19,29 +19,46 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
-from lib.Main import Main
-from lib.utils import transaction_decorator, commit, html_quote, web_to_spine
-from lib.utils import redirect_object, queue_message
+from lib.data.NoteDAO import NoteDAO
+from lib.forms import NoteCreateForm
+from lib import utils
 
-def add(transaction, entity, subject="", description=""):
+@utils.session_required_decorator
+def add(entity_id, **kwargs):
     """Adds a note to some entity."""
-    entity = transaction.get_entity(int(entity))
-    if not subject and not description:
-        queue_message(_("Could not add blank note"), error=True)
-        redirect_object(entity)
-    else:
-        entity.add_note(web_to_spine(subject), web_to_spine(description))
-        commit(transaction, entity, msg=_("Added note '%s'") % subject)
-add = transaction_decorator(add)
+    form = NoteCreateForm(entity_id, **kwargs)
+    if form.is_correct():
+        return make(**form.get_values())
+    return form.respond()
 add.exposed = True
 
-def delete(transaction, entity, id):
+
+@utils.session_required_decorator
+def delete(entity_id, note_id):
     """Removes a note."""
-    entity = transaction.get_entity(int(entity))
-    note = transaction.get_note(int(id))
-    entity.remove_note(note)
-    commit(transaction, entity, msg=_("Note deleted"))
-delete = transaction_decorator(delete)
+    db = utils.get_database()
+    dao = NoteDAO(db)
+    dao.delete(entity_id, note_id)
+    db.commit()
+
+    utils.queue_message(_("Note successfully deleted."),
+                        title="Change succeeded")
+    utils.redirect_entity(entity_id)
 delete.exposed = True
 
+clean = lambda x: x and utils.web_to_spine(x.strip()) or None
+
+def make(entity_id, subject, body):
+    entity_id = int(entity_id)
+    subject = clean(subject)
+    body = clean(body)
+
+    db = utils.get_database()
+    dao = NoteDAO(db)
+    dao.add(entity_id, subject, body)
+    db.commit()
+    
+    utils.queue_message(_("Note successfully created."), title="Note created")
+    utils.redirect_entity(entity_id)
+    
 # arch-tag: a346491e-4e47-42c1-8646-391b6375b69f

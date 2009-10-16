@@ -29,6 +29,7 @@
 #from lib.utils import nl2br
 
 #from lib.forms import EmailTargetCreateForm
+#from lib.forms import NoteCreateForm
 
 #from Widgets import Widgets
 #attr $widgets = Widgets()
@@ -62,26 +63,7 @@
 #end def
 
 #def addNote($entity)
-<div class="edit box" style="display:none;">
-    <h3>$_('Add a note')</h3>
-    <form action="/note/add" method="post">
-        <div class="hidden">
-            <input type="hidden" name="entity" value="$entity.id" />
-        </div>
-        <div class="required">
-            <label for="subject">$_('Subject'):</label>
-            <input type="text" size="40" name="subject" id="subject" />
-        </div>
-        <div class="required">
-            <label for="description">$_('Optional details'):</label>
-            <textarea cols="40" rows="4" name="description" id="description"></textarea>
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Add')" />
-            <input type="button" value="$_('Cancel')" class="cancel" />
-        </div>
-    </form>
-</div>
+     $NoteCreateForm($entity.id).render()
 #end def
 
 #def viewNotes($entity)
@@ -94,7 +76,7 @@
         #for $note in $entity.notes
             <div class="item">
                 <div class="actions">
-                    <a class="action" href="/note/delete?id=$note.id&amp;entity=$entity.id">$_('delete')</a>
+                    <a class="action" href="/note/delete?entity_id=$entity.id&amp;note_id=$note.id">$_('delete')</a>
                 </div>
                 <span class="name">$spine_to_web($note.subject)</span>&#x0020;
                 <span class="creator">-$_('by ') $entity_link($note.creator)</span>&#x0020;

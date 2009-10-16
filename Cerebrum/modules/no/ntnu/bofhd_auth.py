@@ -265,6 +265,30 @@ class BofhdAuth(auth.BofhdAuth):
         """
         return self.is_superuser(operator)
 
+    def can_edit_quarantine(self, operator, entity, spread):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_disable_quarantine(self, operator, entity, spread):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_add_note(self, operator, entity):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
+    def can_delete_note(self, operator, entity):
+        """
+        FIXME: Not implemented since the business logic is unclear.
+        """
+        return self.is_superuser(operator)
+
     def _get_ou(self, ou_id):
         ou = ou_id
         if isinstance(ou_id, str):
