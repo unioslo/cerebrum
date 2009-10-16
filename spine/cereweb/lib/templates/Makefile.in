@@ -17,6 +17,7 @@ backups = $(patsubst %.py,%.py_bak, $(targets))
 .SUFFIXES: .tmpl .py
 
 all: $(templates)
+	touch __init__.py
 
 .tmpl.py:
 	$(CHEETAH) compile $<
