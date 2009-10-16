@@ -45,15 +45,32 @@ class Form(object):
     Order = []
     Fields = {}
 
-    def __init__(self, **values):
+    def __init__(self, *args, **kwargs):
+        self.__request_values = kwargs.copy()
         self.fields = self.Fields.copy()
         self.order = self.Order[:] or self.fields.keys()
-        self.init_form()
 
-        self.__request_values = values
-        self.set_values(values)
+        self.init_form(*args, **kwargs)
+        self.init_fields(*args, **kwargs)
+        self.set_values(kwargs)
+        self.init_values(*args, **kwargs)
 
-    def init_form(self):
+    def init_form(self, *args, **kwargs):
+        """
+        Method for doing set up work that is related to the whole form.
+        """
+        pass
+
+    def init_fields(self, *args, **kwargs):
+        """
+        Method for adding/changing fields that should be part of the form.
+        """
+        pass
+
+    def init_values(self, *args, **kwargs):
+        """
+        Method for setting default values for the form fields.
+        """
         pass
 
     def get_fields(self):
@@ -132,6 +149,9 @@ class Form(object):
         return self.__request_values and True or False
 
     def is_correct(self):
+        if not self.is_postback():
+            return False
+
         if not self.has_required():
             return False
 

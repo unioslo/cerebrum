@@ -23,7 +23,7 @@ import cherrypy
 from gettext import gettext as _
 from lib.utils import *
 from lib.AccountSearcher import AccountSearcher
-from lib.forms import AccountCreateForm
+from lib.forms import AccountCreateForm, NonPersonalAccountCreateForm
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.AccountViewTemplate import AccountViewTemplate
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
@@ -46,56 +46,60 @@ from lib.Error import CreationFailedError
 
 @session_required_decorator
 def search(**kwargs):
-    """Search for accounts and display results and/or searchform.""" 
+    """Search for accounts and display results and/or searchform."""
     searcher = AccountSearcher(**kwargs)
     return searcher.respond()
 search.exposed = True
 index = search
 
-@session_required_decorator
-def create(**kwargs):
-    owner_id = kwargs.get('owner_id', None)
+def get_owner(owner_id):
     if owner_id is None:
-        return fail_to_referer(_("Please create an account through a person or group."))
+        return None
 
     db = get_database()
     try:
         owner = EntityFactory(db).get_entity(owner_id)
     except NotFoundError, e:
-        return fail_to_referer(_("Please create an account through a person or group."))
+        return None
 
     if owner.type_name not in ('person', 'group'):
+        return None
+    return owner
+
+@session_required_decorator
+def create(owner_id=None, **kwargs):
+    owner = get_owner(owner_id)
+    if owner is None:
         return fail_to_referer(_("Please create an account through a person or group."))
 
-    form = AccountCreateForm(owner_entity=owner, **kwargs)
-    if len(kwargs.keys()) == 1:
-        return view_form(form)
-    elif not form.is_correct():
-        return view_form(form, form.get_error_message())
-        
-    try:
-        account = make(db, owner, **kwargs)
-        db.commit()
-    except CreationFailedError, e:
-        queue_message(e.message, title=_("Creation failed"), error=True, tracebk=e)
-        db.rollback()
-        return view_form(form)
+    if owner.type_name == 'person':
+        form = AccountCreateForm(owner, **kwargs)
+    else:
+        form = NonPersonalAccountCreateForm(owner, **kwargs)
 
-    queue_message(_("Account successfully created."), title="Account created")
-    redirect_entity(account)
+    if form.is_correct():
+        try:
+            return make(**form.get_values())
+        except CreationFailedError, e:
+            queue_message(e.message, title=_("Creation failed"), error=True, tracebk=e)
+    return form.respond()
 create.exposed = True
 
 def make(db, owner, **kwargs):
+    db = get_database()
     account = create_account(db, owner, **kwargs)
     join_owner_group(db, owner, account)
     join_primary_group(db, account, **kwargs)
     set_account_password(db, account, **kwargs)
-    return account
+    db.commit()
+
+    queue_message(_("Account successfully created."), title="Account created")
+    redirect_entity(account)
 
 def create_account(db, owner, **kwargs):
     username = web_to_spine(kwargs.get('_other') or kwargs.get('name'))
     expire_date = kwargs.get('expire_date') or None
-    
+
     np_type = None
     if owner.type_name == 'group':
         np_type = kwargs.get('np_type') or None
@@ -122,7 +126,7 @@ def join_owner_group(db, owner, account, **kwargs):
 
 def join_primary_group(db, account, **kwargs):
     primary_group_name = kwargs.get('group')
-    
+
     if not primary_group_name:
         return
 
@@ -135,14 +139,14 @@ def join_primary_group(db, account, **kwargs):
         raise CreationFailedError(msg, e)
 
     dao.add_member(account.id, primary_group.id)
-        
+
     if primary_group.is_posix:
         AccountDAO(db).promote_posix(account.id, primary_group.id)
 
 def set_account_password(db, account, **kwargs):
     # We've already verified that password0 == password1.
     password = kwargs.get('password0') or kwargs.get('randpwd')
-    
+
     if not password:
         msg = _('Account creation failed.  Password is empty.')
         raise CreationFailedError(msg, e)
@@ -291,7 +295,7 @@ def leave_groups(account_id, **checkboxes):
         member_id, group_id = arg.split("_")[1:3]
         dao.remove_member(group_id, member_id)
         count += 1
-            
+
     db.commit()
     queue_message(_("Left %s group(s)" % count), title=_("Operation succeded"))
     redirect_entity(account_id)
@@ -348,7 +352,7 @@ def add_affil(account_id, aff_ou, priority):
     dao = AccountDAO(db)
     dao.add_affiliation(int(account_id), int(ou_id), int(aff_id), int(priority))
     db.commit()
-    
+
     queue_message(_("Affiliation successfully added."), title=_("Change succeeded"))
     redirect_entity(account_id)
 add_affil.exposed = True

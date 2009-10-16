@@ -51,21 +51,16 @@ class HostCreateForm(Form):
         return _('Create a new host')
 
 class HostEditForm(HostCreateForm):
-    def __init__(self, id, *args, **kwargs):
-        super(HostCreateForm, self).__init__(*args, **kwargs)
+    def init_values(self, host_id, *args, **kwargs):
+        self.set_value('id', host_id)
 
         db = get_database()
-        self.host = HostDAO(db).get(id)
-        values = self.get_values()
-        values.update({'id': self.host.id})
-
+        self.host = HostDAO(db).get(host_id)
         if not self.is_postback():
-            values.update({
+            self.update_values({
                 'name': self.host.name,
                 'description': self.host.description,
             })
-
-        self.set_values(values)
 
     action = '/host/edit'
 

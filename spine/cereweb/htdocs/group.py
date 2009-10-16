@@ -35,7 +35,6 @@ from lib.data.EntityFactory import EntityFactory
 from lib.data.GroupDAO import GroupDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.ConstantsDAO import ConstantsDAO
-from lib.data.HostDAO import HostDAO
 from lib.data.EmailTargetDAO import EmailTargetDAO
 from lib.data.GroupDTO import GroupDTO
 
@@ -60,11 +59,11 @@ def view(id, **vargs):
     page.visibilities = ConstantsDAO(db).get_group_visibilities()
     page.spreads = ConstantsDAO(db).get_group_spreads()
     page.quarantines = ConstantsDAO(db).get_quarantines()
-    page.targets = HostDAO(db).get_email_targets(id)
-    
+    page.target = EmailTargetDAO(db).get_from_entity(id)
+
     return page.respond()
 view.exposed = True
-    
+
 @session_required_decorator
 def join_group(entity_id, group_name, selected_id=None, **kwargs):
     db = get_database()
@@ -90,7 +89,7 @@ join_group.exposed = True
 def add_member(group_id, member_name, member_type, selected_id=None, **kwargs):
     """Add a member to a group."""
     db = get_database()
-    
+
     if not selected_id:
         selected_id = get_selected_id(member_name, member_type)
 
@@ -106,7 +105,7 @@ def add_member(group_id, member_name, member_type, selected_id=None, **kwargs):
     queue_message(msg, True, entity_link(group_id), title="Joined group")
     redirect_entity(group_id)
 add_member.exposed = True
-    
+
 @session_required_decorator
 def remove_member(group_id, member_id):
     db = get_database()
@@ -131,7 +130,7 @@ def create(name="", expire="", description=""):
         'expire': expire,
         'description': description,
     }
-    
+
     return page.respond()
 create.exposed = True
 
@@ -173,11 +172,11 @@ def make(name, description, expire):
     db = get_database()
     GroupDAO(db).add(group)
     db.commit()
-    
+
     if not valid:
         queue_message(error_msg, error=True, title=_("Creation failed"))
         return redirect('/group/create')
-        
+
     msg = _("Group successfully created.")
     queue_message(msg, title=_("Group created"))
     redirect_entity(group.id)
@@ -188,7 +187,7 @@ def posix_promote(id):
     db = get_database()
     GroupDAO(db).promote_posix(id)
     db.commit()
-    
+
     msg = _("Group successfully promoted to posix.")
     queue_message(msg, title=_("Group promoted"))
     redirect_entity(id)
@@ -222,10 +221,10 @@ delete.exposed = True
 def populate(group, name, description, expire, visibility=None):
     group.name = web_to_spine(name.strip())
     group.description = web_to_spine(description.strip())
-    
+
     if expire:
         expire = mx.DateTime.strptime(expire, "%Y-%m-%d")
-            
+
     group.expire_date = expire
 
     if visibility:
@@ -233,7 +232,7 @@ def populate(group, name, description, expire, visibility=None):
 
 def populate_posix(group, gid):
     if gid is not None and group.is_posix:
-        group.posix_gid = gid 
+        group.posix_gid = gid
 
 def validate(name, description, expire):
     if not name:
@@ -241,7 +240,7 @@ def validate(name, description, expire):
 
     if len(name) < 3:
         return False, _("Group-name is too short( min. 3 characters).")
-    
+
     if len(name) > 16:
         return False, _("Group-name is too long(max. 16 characters).")
 

@@ -49,3 +49,9 @@ class DiskSearchForm(SearchForm):
     help = [
         _('Use wildcards * and ? to extend the search.'),
     ]
+
+    def is_postback(self):
+        """
+        Override is_postback to return True so that the search is executed directly.
+        """
+        return True

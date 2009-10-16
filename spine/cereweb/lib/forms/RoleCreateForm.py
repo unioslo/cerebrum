@@ -22,33 +22,36 @@ from gettext import gettext as _
 from lib.forms.FormBase import SpineForm
 
 class RoleCreateForm(SpineForm):
-    def init_form(self):
-        self.order = [
-            'group', 'op_set', 'target_type', 'target',
-        ]
-        self.fields = {
-            'group': {
-                'label': _('Select group'),
-                'required': True,
-                'type': 'select',
-            },
-            'op_set': {
-                'label': _('Select op_set'),
-                'required': True,
-                'type': 'select',
-            },
-            'target_type': {
-                'label': _('Select target type'),
-                'required': True,
-                'value': 'entity',
-                'type': 'select',
-            },
-            'target': {
-                'label': _('Select target'),
-                'required': True,
-                'type': 'select',
-            },
-        }
+    Order = [
+        'group',
+        'op_set',
+        'target_type',
+        'target',
+    ]
+
+    Fields = {
+        'group': {
+            'label': _('Select group'),
+            'required': True,
+            'type': 'select',
+        },
+        'op_set': {
+            'label': _('Select op_set'),
+            'required': True,
+            'type': 'select',
+        },
+        'target_type': {
+            'label': _('Select target type'),
+            'required': True,
+            'value': 'entity',
+            'type': 'select',
+        },
+        'target': {
+            'label': _('Select target'),
+            'required': True,
+            'type': 'select',
+        },
+    }
 
     def get_group_options(self):
         searcher = self.transaction.get_group_searcher()

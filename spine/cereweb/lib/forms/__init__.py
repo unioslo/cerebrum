@@ -29,6 +29,7 @@ from EmailDomainForms import EmailDomainCreateForm, EmailDomainEditForm
 from GroupSearchForm import GroupSearchForm
 from HostForms import HostCreateForm, HostEditForm
 from HostSearchForm import HostSearchForm
+from OuForms import OuCreateForm, OuEditForm, OuPerspectiveEditForm
 from PersonForms import PersonCreateForm, PersonEditForm
 from PersonSearchForm import PersonSearchForm
 from AffiliatedPersonSearchForm import AffiliatedPersonSearchForm

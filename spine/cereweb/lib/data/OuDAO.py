@@ -1,6 +1,27 @@
+# -*- coding: iso-8859-1 -*-
+
+# Copyright 2004, 2005 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 Database = Utils.Factory.get("Database")
 OU_class = Utils.Factory.get("OU")
@@ -130,11 +151,15 @@ class OuDAO(EntityDAO):
         return self._create_node(parent_id)
 
     def create(self,
-            name, institution, faculty, institute, department,
+            name, fakultet, institutt, avdeling, institusjon, landkode,
             acronym, short_name, display_name, sort_name):
+
+        if not self.auth.can_create_ou(self.db.change_by):
+            raise PermissionDenied("Not authorized to create ou")
+
         ou = OU_class(self.db)
         ou.populate(
-            name, faculty, institute, department, institution,
+            name, fakultet, institutt, avdeling, institusjon, landkode,
             acronym = acronym,
             short_name = short_name,
             display_name = display_name,
@@ -145,6 +170,9 @@ class OuDAO(EntityDAO):
 
     def save(self, dto):
         ou = self._find(dto.id)
+        if not self.auth.can_edit_ou(self.db.change_by, ou):
+            raise PermissionDenied("Not authorized to edit ou")
+
         ou.name = dto.name
         ou.acronym = dto.acronym
         ou.short_name = dto.short_name
@@ -159,15 +187,24 @@ class OuDAO(EntityDAO):
 
     def delete(self, entity_id):
         ou = self._find(entity_id)
+        if not self.auth.can_delete_ou(self.db.change_by, ou):
+            raise PermissionDenied("Not authorized to delete ou")
+
         ou.delete()
 
     def set_parent(self, entity_id, perspective, parent):
         ou = self._find(entity_id)
+        if not self.auth.can_edit_ou(self.db.change_by, ou):
+            raise PermissionDenied("Not authorized to edit ou")
+
         perspective = self.constants.OUPerspective(perspective)
         ou.set_parent(perspective, parent)
 
     def unset_parent(self, entity_id, perspective):
         ou = self._find(entity_id)
+        if not self.auth.can_edit_ou(self.db.change_by, ou):
+            raise PermissionDenied("Not authorized to edit ou")
+
         perspective = self.constants.OUPerspective(perspective)
         ou.unset_parent(perspective)
 

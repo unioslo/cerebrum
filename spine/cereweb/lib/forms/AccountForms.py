@@ -27,10 +27,6 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.utils import randpasswd, entity_link, get_database
 
 class AccountCreateForm(Form):
-    def __init__(self, transaction, **values):
-        self.transaction = transaction
-        super(AccountCreateForm, self).__init__(**values)
-
     action = '/account/create'
 
     Order = [
@@ -89,14 +85,13 @@ class AccountCreateForm(Form):
             'required': False,
             'type': 'radio',
             'name': 'randpwd',
-            'value': [randpasswd() for i in range(10)],
         },
     }
 
-    def init_form(self):
-        self.owner = self.values.get("owner_entity")
-        self.type = self.owner.type_name
-        self.name = self.owner.name
+    def init_values(self, owner, *args, **kwargs):
+        self.set_value('owner_id', owner.id)
+        self.set_value('randpasswd', [randpasswd() for i in range(10)]),
+        self.owner = owner
 
     def get_name_options(self):
         db = get_database()
@@ -111,7 +106,7 @@ class AccountCreateForm(Form):
     def check(self):
         pwd0 = self.fields['password0'].get('value', '')
         pwd1 = self.fields['password1'].get('value', '')
-            
+
         if (pwd0 and pwd1) and (pwd0 == pwd1) and (len(pwd0) < 8):
             self.error_message = 'The password must be 8 chars long.'
             return False
@@ -128,25 +123,21 @@ class AccountCreateForm(Form):
         return True
 
 class NonPersonalAccountCreateForm(AccountCreateForm):
-    Fields = AccountCreateForm.Fields.copy()
-    Fields['np_type'] = {
-        'label': _('Account type'),
-        'required': True,
-        'type': 'select',
-    }
-    Fields['join'] = {
-        'label': _('Join %s'),
-        'type': 'checkbox',
-        'required': False,
-    }
+    def init_fields(self, owner, *args, **kwargs):
+        self.fields['np_type'] = {
+            'label': _('Account type'),
+            'required': True,
+            'type': 'select',
+        }
+        self.order.append('np_type')
 
-    def init_form(self):
-        fields['join']['label'] = fields['join']['label'] % self.name
+        self.fields['join'] = {
+            'label': _('Join %s') % owner.name,
+            'type': 'checkbox',
+            'required': False,
+        }
+        self.order.append('join')
 
-    Order = AccountCreateForm.Order[:]
-    Order.append('np_type')
-    Order.append('join')
-        
     def get_np_type_options(self):
         db = get_database()
         account_types = ConstantsDAO(db).get_account_types()

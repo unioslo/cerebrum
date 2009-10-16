@@ -55,6 +55,10 @@ class DiskCreateForm(Form):
         },
     }
 
+    def init_values(self, host_id, *args, **kwargs):
+        if host_id:
+            self.set_value('host_id', int(host_id))
+
     def get_title(self):
         return _('Create a new disk')
 
@@ -64,22 +68,17 @@ class DiskCreateForm(Form):
             HostDAO(db).search()]
 
 class DiskEditForm(DiskCreateForm):
-    def __init__(self, id, *args, **kwargs):
-        super(DiskCreateForm, self).__init__(*args, **kwargs)
+    def init_values(self, disk_id, *args, **kwargs):
+        self.set_value('id', disk_id)
 
         db = get_database()
-        self.disk = DiskDAO(db).get(id)
-
-        values = self.get_values()
-        values.update({'id': self.disk.id})
+        self.disk = DiskDAO(db).get(disk_id)
 
         if not self.is_postback():
-            values.update({
+            self.update_values({
                 'path': self.disk.path,
                 'description': self.disk.description,
             })
-
-        self.set_values(values)
 
     action = '/disk/edit'
 

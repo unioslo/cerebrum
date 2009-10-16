@@ -68,11 +68,11 @@ def view(id):
 view.exposed = True
 
 @session_required_decorator
-def edit(*args, **kwargs):
+def edit(id, *args, **kwargs):
     """
     Creates a page with the form for editing a host.
     """
-    form = HostEditForm(*args, **kwargs)
+    form = HostEditForm(id, *args, **kwargs)
     if form.is_correct():
         return save(**form.get_values())
     return form.respond()

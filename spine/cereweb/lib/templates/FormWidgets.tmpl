@@ -27,18 +27,26 @@
     #if not $id
         #set $id = $name
     #end if
-    ##<select name="$name" id="$id" onfocus="expandSelect(this);" onblur="contractSelect(this);">
     <select name="$name" id="$id">
     #for $name, $desc in $types
-        #set $is_selected = ""
+        #if type($desc) == tuple
+            #set $desc, $disabled = $desc
+        #else
+            #set $disabled = False
+        #end if
+
+        #set $attrs = ""
         #if $selected==$name
-            #set $is_selected = ' selected="selected"'
+            #set $attrs += ' selected="selected"'
+        #end if
+        #if $disabled
+            #set $attrs += ' disabled="disabled"'
         #end if
         #if $quote
             #set $name = $html_quote($name)
             #set $desc = $html_quote($desc)
         #end if
-        <option$is_selected value="$name">$desc</option>
+        <option$attrs value="$name">$desc</option>
     #end for
     </select>
 #end def

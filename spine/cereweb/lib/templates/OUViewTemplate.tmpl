@@ -22,11 +22,10 @@
 #from lib.utils import url_quote, spine_to_web
 #from SpineIDL.Errors import NotFoundError
 #from Widgets import Widgets
-#from lib.templates.OUEditTemplate import OUEditTemplate
+#from lib.forms import OuPerspectiveEditForm
 
 #attr $widgets = Widgets()
 #attr $viewBirthNo = False
-#attr $editTemplate = OUEditTemplate()
 
 #attr $page = "person"
 #attr $link = "view"
@@ -46,14 +45,15 @@
 <div id="actions">
     <h3>$_('Actions')</h3>
     <ul>
-        <li><a href="delete?id=$ou.id">$_("delete ou")</a></li>
+        <li><a href="/ou/edit?id=$ou.id">$_("Edit Organizational Unit")</a></li>
+        <li><a href="/confirm/ou/delete?id=$ou.id">$_("delete ou")</a></li>
         <li><a href="/entity/full_historylog?id=$ou.id">$_('view full history log')</a></li>
     </ul>
 </div>
 #end def
 
 #def content()
-    $editOU($ou, $trees)
+    $OuPerspectiveEditForm($ou.id).render()
     $viewInfo($ou)
     $viewQuarantines($ou)
     $addQuarantine($ou, $quarantines)
@@ -69,12 +69,6 @@
     $viewExternalIds($ou, $viewBirthNo)
     $viewHistoryLog($ou)
     $affiliatedPersons($ou, $perspectives, $affiliations)
-#end def
-
-#def editOU($ou, $trees)
-<div class="edit box">
-    $editTemplate.form($ou, $trees)
-</div>
 #end def
 
 ## View information about OU.
