@@ -44,7 +44,6 @@ import note
 import ou
 import person
 import permissions
-import user_client
 import activation
 import ajax
 import motd
