@@ -2431,10 +2431,11 @@ class BofhdExtension(object):
         SimpleString(help_ref="mailing_admins"),
         SimpleString(help_ref="mailing_list_profile"),
         SimpleString(help_ref="mailing_list_description"),
+        YesNo(help_ref="yes_no_force", optional=True, default="No"),
         perm_filter="can_email_list_create")
     def email_create_sympa_list(self, operator, run_host, delivery_host,
                                 listname, admins, list_profile,
-                                list_description):
+                                list_description, force=None):
         """Create a sympa list in Cerebrum and on the sympa server(s).
 
         Register all the necessary cerebrum information and make a bofhd
@@ -2469,10 +2470,16 @@ class BofhdExtension(object):
                                 "of the %s are allowed." % metachars)
 
         delivery_host = self._get_email_server(delivery_host)
-        self._create_mailing_list_in_cerebrum(operator,
-                                              self.const.email_target_Sympa,
-                                              delivery_host,
-                                              listname)
+        if self._is_yes(force):
+            self._create_mailing_list_in_cerebrum(operator,
+                                                  self.const.email_target_Sympa,
+                                                  delivery_host,
+                                                  listname, force=True)
+        else:
+            self._create_mailing_list_in_cerebrum(operator,
+                                                  self.const.email_target_Sympa,
+                                                  delivery_host,
+                                                  listname)            
         # Now make a bofhd request to create the list itself
         admin_list = list()
         for item in admins.split(","):
@@ -2839,8 +2846,42 @@ Addresses and settings:
             self._remove_email_address(et, addr)
         return "OK, removed alias %s and all auto registered aliases" % alias
     # end email_remove_sympa_list_alias
-    
-                
+
+
+    # email reassign_list_address <list-address>
+    #
+    # requested by bca, will be used during the migration of e-mail
+    # lists from mailman to sympa this command will delete a mailman
+    # target for a given list and create a sympa target without
+    # creating a sympa lista
+    all_commands['email_reassign_list_address'] = Command(
+        ("email", "reassign_list_address"),
+        EmailAddress(help_ref="mailing_list"),
+        SimpleString(help_ref='string_email_delivery_host'),
+        perm_filter="can_email_list_create")
+    def email_reassign_list_address(self, operator, listname, sympa_delivery_host):
+        et, ea = self.__get_email_target_and_address(listname)
+        if not self._is_mailing_list(listname):
+            return "Cannot migrate a non-list target to Sympa."
+        self.ba.can_email_list_create(operator.get_entity_id(), ea)
+        aliases = []
+        for r in et.get_addresses():
+            a = "%(local_part)s@%(domain)s" % r
+            if a == listname:
+                continue
+            aliases.append()
+        delivery_host = self._get_email_server(sympa_delivery_host)
+        result_mailman_target = self._email_delete_list(operator.get_entity_id(), listname, ea, target_only=True)
+        self._create_mailing_list_in_cerebrum(operator, self.const.email_target_Sympa,
+                                              delivery_host, listname)
+        for address in aliases:
+            self._create_list_alias(operator, listname,address,
+                                    self.const.email_target_Sympa,
+                                    delivery_host)
+            
+        return "Migrated mailman target %s to sympa target (%s)" % (old_target_id,
+                                                                    listname)
+
     # email delete_list <list-address>
     all_commands['email_delete_list'] = Command(
         ("email", "delete_list"),
@@ -2852,7 +2893,7 @@ Addresses and settings:
         self.ba.can_email_list_delete(operator.get_entity_id(), ea)
         return self._email_delete_list(operator.get_entity_id(), listname, ea)
 
-    def _email_delete_list(self, op, listname, ea):
+    def _email_delete_list(self, op, listname, ea, target_only=False):
         """Delete the list with no permission checking."""
 
         listname = self._check_mailman_official_name(listname)
@@ -2884,16 +2925,16 @@ Addresses and settings:
                 et.delete()
             except Errors.NotFoundError:
                 pass
+        if not target_only:
+            self._report_deleted_EA(deleted_EA)
 
-        self._report_deleted_EA(deleted_EA)
-
-        br = BofhdRequests(self.db, self.const)
-        # IVR 2008-08-04 +1 hour to allow changes to spread to LDAP. This way
-        # we'll have a nice SMTP-error, rather than a confusing error burp
-        # from mailman.
-        br.add_request(op, DateTime.now() + DateTime.DateTimeDelta(0, 1),
-                       self.const.bofh_mailman_remove, list_id, None,
-                       listname)
+            br = BofhdRequests(self.db, self.const)
+            # IVR 2008-08-04 +1 hour to allow changes to spread to LDAP. This way
+            # we'll have a nice SMTP-error, rather than a confusing error burp
+            # from mailman.
+            br.add_request(op, DateTime.now() + DateTime.DateTimeDelta(0, 1),
+                           self.const.bofh_mailman_remove, list_id, None,
+                           listname)
 
         return result
     # end _email_delete_list
