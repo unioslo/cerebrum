@@ -104,8 +104,8 @@ class AccountCreateForm(Form):
     check_expire_date = Form._check_date
 
     def check(self):
-        pwd0 = self.fields['password0'].get('value', '')
-        pwd1 = self.fields['password1'].get('value', '')
+        pwd0 = self.get_value('password0')
+        pwd1 = self.get_value('password1')
 
         if (pwd0 and pwd1) and (pwd0 == pwd1) and (len(pwd0) < 8):
             self.error_message = 'The password must be 8 chars long.'

@@ -59,7 +59,6 @@ index.exposed = True
 
 @session_required_decorator
 def full_activitylog():
-    # No transaction decorator, so we need to check if the session is valid.
     if not utils.has_valid_session():
         utils.redirect_to_login()
 

@@ -22,19 +22,16 @@ import cherrypy
 import re
 import string
 
-import SpineIDL
 from Cerebrum.Database import IntegrityError
 from Cerebrum.Errors import NotFoundError
 from gettext import gettext as _
 from mx import DateTime
-from lib.Main import Main
-from lib.utils import strftime, strptime, commit_url, unlegal_name
-from lib.utils import queue_message, redirect, redirect_object
-from lib.utils import transaction_decorator, object_link, commit
-from lib.utils import legal_date, rollback_url, html_quote, randpasswd
-from lib.utils import spine_to_web, web_to_spine, get_lastname_firstname
+from lib.utils import strftime, unlegal_name
+from lib.utils import queue_message, redirect
+from lib.utils import randpasswd
+from lib.utils import spine_to_web, web_to_spine
 from lib.utils import from_spine_decode, session_required_decorator
-from lib.utils import get_database, parse_date, redirect_entity, entity_link
+from lib.utils import get_database, parse_date, redirect_entity
 from lib.data.DTO import DTO
 from lib.data.EntityFactory import EntityFactory
 from lib.data.PersonDAO import PersonDAO
@@ -42,30 +39,26 @@ from lib.data.AccountDAO import AccountDAO
 from lib.data.GroupDAO import GroupDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.OuDAO import OuDAO
-from lib.data.HostDAO import HostDAO
 from lib.data.EmailTargetDAO import EmailTargetDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.PersonSearcher import PersonSearcher
 from lib.forms import PersonCreateForm, PersonEditForm
-from lib.templates.SearchResultTemplate import SearchResultTemplate
-from lib.templates.SearchTemplate import SearchTemplate
-from lib.templates.FormTemplate import FormTemplate
 from lib.templates.PersonViewTemplate import PersonViewTemplate
 
-def search(**vargs):
+def search(**kwargs):
     """Search after hosts and displays result and/or searchform."""
-    searcher = PersonSearcher(**vargs)
+    searcher = PersonSearcher(**kwargs)
     return searcher.respond()
 search.exposed = True
 index = search
 
 @session_required_decorator
-def view(id, **vargs):
+def view(id, **kwargs):
     """Creates a page with a view of the person given by id."""
     db = get_database()
 
     page = PersonViewTemplate()
-    page.viewBirthNo = vargs.get('birthno') and True or False
+    page.viewBirthNo = kwargs.get('birthno') and True or False
     page.person = PersonDAO(db).get(id, include_extra=True)
     page.person.accounts = PersonDAO(db).get_accounts(id)
     page.person.history = HistoryDAO(db).get_entity_history_tail(id)
@@ -77,84 +70,31 @@ def view(id, **vargs):
     return page.respond()
 view.exposed = True
 
-def edit_form(form, message=None):
-    page = FormTemplate()
-    if message:
-        page.messages.append(message)
-    page.title = form.get_title()
-    page.form_title = form.get_title()
-    page.set_focus("person/edit")
-    page.form_fields = form.get_fields()
-    page.form_action = "/person/edit"
-    return page.respond()
-
 @session_required_decorator
-def edit(id, **vargs):
+def edit(id, **kwargs):
     """Creates a page with the form for editing a person."""
-    db = get_database()
-    person = PersonDAO(db).get(id)
-    get_date = lambda x: x and strftime(x, '%Y-%m-%d') or ''
-    values = {
-        'id': id,
-        'gender': person.gender.name,
-        'birthdate': get_date(person.birth_date),
-        'description': person.description,
-        'deceased': get_date(person.deceased_date),
-    }
-    values.update(vargs)
-
-    form = PersonEditForm(**values)
-    form.title = entity_link(person)
-
-    if not vargs:
-        return edit_form(form)
-    if not form.has_required() or not form.is_correct():
-        return edit_form(form, message=form.get_error_message())
-    else:
-        vargs = form.get_values()
-        save(**vargs)
+    form = PersonEditForm(id, **kwargs)
+    if form.is_correct():
+        return save(**form.get_values())
+    return form.respond()
 edit.exposed = True
 
 @session_required_decorator
-def create(**vargs):
+def create(**kwargs):
     """Creates a page with the form for creating a person."""
-    form = PersonCreateForm(**vargs)
-
-    if not vargs:
-        return create_form(form)
-
-    if not form.has_required() or not form.is_correct():
-        return create_form(form, message=form.get_error_message())
-
-    birth_no = vargs.get('externalid', '').strip()
-    desc = vargs.get('description', '').strip()
-
-    if not birth_no and not desc:
-        msg = 'If NIN is empty the reason must be specified in description.'
-        return create_form(form, message=msg)
-    elif not birth_no:
-        username = cherrypy.session.get('username')
-        create_date = DateTime.now().strftime("%Y-%m-%d")
-        desc = 'Registered by: %s on %s\n' % (username, create_date) + desc
-
-    try:
-        make(
-            vargs.get('ou'),
-            vargs.get('status'),
-            vargs.get('firstname'),
-            vargs.get('lastname'),
-            vargs.get('gender'),
-            vargs.get('birthdate'),
-            birth_no,
-            desc)
-    except ValueError, e:
-        message = (spine_to_web(e.message), True)
-    except IntegrityError, e:
-        message = ("The person can not be created because it violates the integrity of the database.  Try changing the NIN.",  True)
-    return create_form(form, message)
+    form = PersonCreateForm(**kwargs)
+    if form.is_correct():
+        try:
+            return make(**form.get_values())
+        except ValueError, e:
+            message = spine_to_web(_(e.message))
+        except IntegrityError, e:
+            message = _("The person can not be created because it violates the integrity of the database.  Try changing the NIN.")
+        queue_message(message, error=True, title=_("Create failed"))
+    return form.respond()
 create.exposed = True
 
-def make(ou, status, firstname, lastname, gender, birthdate, birth_no, description):
+def make(ou, status, firstname, lastname, externalid, gender, birthdate, description):
     """Create a new person with the given values."""
     db = get_database()
     dao = PersonDAO(db)
@@ -165,8 +105,8 @@ def make(ou, status, firstname, lastname, gender, birthdate, birth_no, descripti
     dao.create(person)
     dao.add_affiliation_status(person.id, ou, status)
 
-    if birth_no:
-        dao.add_birth_no(person.id, birth_no)
+    if externalid:
+        dao.add_birth_no(person.id, externalid)
 
     db.commit()
 
@@ -177,38 +117,21 @@ def populate_name(person, firstname, lastname):
     person.first_name = web_to_spine(firstname)
     person.last_name = web_to_spine(lastname)
 
-def create_form(form, message=None):
-    """Creates a page with the form for creating a person."""
-    page = FormTemplate()
-    if message:
-        page.messages.append(message)
-    page.title = _("Person")
-    page.set_focus("person/create")
-    page.form_title = _("Create new person")
-    page.form_action = "/person/create"
-    page.form_fields = form.get_fields()
-
-    return page.respond()
-
-def save(id, gender, birthdate, deceased='', description=''):
-    """Store the form for editing a person into the database."""
+def save(id, gender, birthdate, deceased, description):
     db = get_database()
     dao = PersonDAO(db)
     dto = dao.get(id)
-    populate(dto, gender, birthdate, deceased, description)
+    dto.gender = DTO()
+    dto.gender.id = gender
+    dto.birth_date = parse_date(birth_date)
+    dto.description = description and web_to_spine(description.strip())
+    dto.deceased_date = parse_date(deceased)
     dao.save(dto)
     db.commit()
 
     msg = _("Person successfully updated.")
     queue_message(msg, title=_("Operation succeded"), error=False)
     redirect_entity(dto)
-
-def populate(dto, gender, birth_date, deceased, description):
-    dto.gender = DTO()
-    dto.gender.id = gender
-    dto.birth_date = parse_date(birth_date)
-    dto.description = description and web_to_spine(description.strip())
-    dto.deceased_date = parse_date(deceased)
 
 @session_required_decorator
 def delete(id):

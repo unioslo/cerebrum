@@ -24,7 +24,7 @@ import mx.DateTime
 
 from gettext import gettext as _
 from lib.utils import queue_message, redirect_entity, entity_link
-from lib.utils import transaction_decorator, redirect, get_database
+from lib.utils import redirect, get_database
 from lib.utils import web_to_spine, session_required_decorator
 from lib.GroupSearcher import GroupSearcher
 from lib.templates.GroupViewTemplate import GroupViewTemplate
@@ -37,8 +37,6 @@ from lib.data.HistoryDAO import HistoryDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.EmailTargetDAO import EmailTargetDAO
 from lib.data.GroupDTO import GroupDTO
-
-from lib.forms import GroupSearchForm
 
 @session_required_decorator
 def search(**vargs):
