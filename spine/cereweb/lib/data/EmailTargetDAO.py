@@ -115,6 +115,12 @@ class EmailTargetDAO(EntityDAO):
     def _get_server(self, target):
         dao = HostDAO(self.db)
         entity_id = target.get_server_id()
+        if not entity_id:
+            dto = DTO()
+            dto.id = -1
+            dto.name = "[no server]"
+            dto.type_name = dao._get_type_name()
+            return dto
         return dao.get_entity(entity_id)
 
     def _get_target_type(self, target):
