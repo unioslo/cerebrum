@@ -66,6 +66,9 @@ References:
   [2] <URL: http://www.red-dove.com/python_logging.html>
 """
 
+import cerebrum_path
+import cereconf
+
 import ConfigParser
 import codecs
 import inspect
