@@ -1046,6 +1046,7 @@ def test():
     print test_soap(sp.get_ous, getOUsRequest)
 
 class SSLForkingMixIn(ForkingMixIn):
+    from time import sleep
     def process_request(self, request, client_address):
         """
         Override ForkingMixIn.process_request to replace close_request with
@@ -1063,15 +1064,16 @@ class SSLForkingMixIn(ForkingMixIn):
             return
         else:
             # Child process.
-            # This must never return, hence os._exit()!
+            # This must never return, hence sys.exit()!
             try:
                 self.finish_request(request, client_address)
-                os._exit(0)
+                self.sleep(3) # FIXME: Ugly workaround for ZSI closing connection before data is sent.
             except:
                 try:
                     self.handle_error(request, client_address)
                 finally:
-                    os._exit(1)
+                    sys.exit(1)
+            sys.exit(0)
 
 class SecureServiceContainer(SSLForkingMixIn, SSL.SSLServer, ServiceContainer):
 
@@ -1107,13 +1109,13 @@ def daemonize():
     try:
         pid=os.fork()
         if pid > 0:
-            os._exit(0)
+            sys.exit(0)
         os.chdir("/")
         os.setsid()
         os.umask(022)
         pid=os.fork()
         if pid > 0:
-            os._exit(0)
+            sys.exit(0)
 
         os.close(0)
         os.close(1)
