@@ -373,8 +373,7 @@ class Find(object):
                        
         ret = []
         for n in range(0, (sub.ip_max-sub.ip_min)+1):
-            if (taken.has_key(long(sub.ip_min+n)) and
-                n+sub.ip_min not in sub.reserved_adr):
+            if taken.has_key(long(sub.ip_min+n)):
                 ret.append(IPCalc.long_to_ip(n+sub.ip_min))
         return ret
 
