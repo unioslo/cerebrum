@@ -50,10 +50,22 @@ import time
 import cerebrum_path
 from Cerebrum.Utils import Factory
 
-
 from Cerebrum.Entity import EntityQuarantine
 
 logger = None
+
+def elementproxy_patch():
+    """
+    Monkeypatches ZSI to use 4Suite instead of PyXML to write XML
+    """
+    import ZSI.ServiceContainer as SC
+    from ZSI.writer import SoapWriter
+    from dom import DomletteElementProxy
+    def SoapWriterFactory(*args, **kwargs):
+        kwargs['outputclass'] = DomletteElementProxy
+        return SoapWriter(*args, **kwargs)
+    SC.SoapWriter = SoapWriterFactory
+elementproxy_patch()
 
 def int_or_none(i):
     if i is None:
