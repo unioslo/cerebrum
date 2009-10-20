@@ -54,13 +54,13 @@ from Cerebrum.Entity import EntityQuarantine
 
 logger = None
 
+from Cerebrum.lib.spinews.dom import DomletteElementProxy
 def elementproxy_patch():
     """
     Monkeypatches ZSI to use 4Suite instead of PyXML to write XML
     """
     import ZSI.ServiceContainer as SC
     from ZSI.writer import SoapWriter
-    from dom import DomletteElementProxy
     def SoapWriterFactory(*args, **kwargs):
         kwargs['outputclass'] = DomletteElementProxy
         return SoapWriter(*args, **kwargs)
@@ -1021,7 +1021,7 @@ def test_soap(fun, cl, **kw):
     ps=ParsedSoap(s)
     rps=fun(ps)
     t1=time.time()-t
-    rs=str(SoapWriter().serialize(rps))
+    rs=str(SoapWriter(outputclass=DomletteElementProxy).serialize(rps))
     #open("/tmp/log.%s" % fun.__name__, 'w').write(rs)
     #rps=ParsedSoap(rs)
     t2=time.time()-t

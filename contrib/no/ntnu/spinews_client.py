@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 import sys, os, re, time, math, datetime
-from xml.dom import expatbuilder
 
 import cerebrum_path
 
@@ -23,6 +22,7 @@ from M2Crypto import X509
 from Cerebrum.lib.spinews.spinews_objects import Group, Account
 from Cerebrum.lib.spinews.spinews_objects import Ou, Alias
 from Cerebrum.lib.spinews.spinews_objects import Homedir, Person
+from Cerebrum.lib.spinews.dom import DomletteReader
 
 username = None
 password = None
@@ -34,9 +34,6 @@ numb_aliases = 0
 numb_homedirs = 0
 numb_persons = 0
 
-class ExpatReaderClass(object):
-    fromString = staticmethod(expatbuilder.parseString)
-    fromStream = staticmethod(expatbuilder.parse)
 
 class CeresyncHTTPSConnection(HTTPConnection):
     default_port = 443
@@ -147,7 +144,7 @@ def sign_request(port, username, password, useDigest=False):
 def get_ceresync_port():
     global theTraceFile
     locator = get_ceresync_locator()
-    port = locator.getspinePortType(tracefile=theTraceFile, readerclass=ExpatReaderClass, transport=CeresyncHTTPSConnection, scheme="https")
+    port = locator.getspinePortType(tracefile=theTraceFile, readerclass=DomletteReader, transport=CeresyncHTTPSConnection, scheme="https")
     global username
     global password
     sign_request(port, username, password)
