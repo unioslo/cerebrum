@@ -13,7 +13,6 @@ import time
 
 from httplib import HTTPConnection
 from M2Crypto import SSL, X509
-from xml.dom import expatbuilder
 from SignatureHandler import *
 
 from Cerebrum.lib.spinews.spinews_services import *
@@ -21,8 +20,17 @@ from Cerebrum.lib.spinews.spinews_services_types import *
 
 from ZSI import FaultException
 
-
 log = config.logger
+
+
+try:
+    from Cerebrum.lib.spinews.dom import DomletteReader as ReaderClass
+except ImportError, e:
+    log.warn("Could not import DomletteReader.  Install 4Suite for extra performance.")
+    from xml.dom import expatbuilder
+    class ReaderClass(object):
+        fromString = staticmethod(expatbuilder.parseString)
+        fromStream = staticmethod(expatbuilder.parse)
 
 class AlreadyRunning(Exception):
     """Thrown when the client is already running and the pid file exists"""
@@ -188,10 +196,6 @@ class Person(Entity):
     def __init__(self, obj):
         Entity.__init__(self, obj)
 
-class ExpatReaderClass(object):
-    fromString = staticmethod(expatbuilder.parseString)
-    fromStream = staticmethod(expatbuilder.parse)
-
 class CeresyncHTTPSConnection(HTTPConnection):
     def __init__(self, host, port=443, strict=None):
         HTTPConnection.__init__(self, host, port, strict)
@@ -241,7 +245,7 @@ class Sync(object):
 
 
         self.zsi_options= {
-                "readerclass": ExpatReaderClass,
+                "readerclass": ReaderClass,
                 #"tracefile": file("/var/log/cerebrum/spinewstrace.log","w"),
                 "transport": CeresyncHTTPSConnection,
                 #"auth": (AUTH.none,),
