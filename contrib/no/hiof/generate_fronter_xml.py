@@ -848,12 +848,7 @@ class cf_member_group(cf_group_interface):
 
         if self.cf_group_type() in ("student-undenh", "student-undakt",
                                     "student-kullklasse", "student-kull",):
-            # students have READ on kull's fellesrom...
-            if structure_group.cf_is_kull_fellesrom():
-                access_type= cf_permission.ROLE_READ
-            # ... and WRITE on everything else
-            else:
-                access_type = cf_permission.ROLE_WRITE
+            access_type = cf_permission.ROLE_WRITE
         elif self.cf_group_type() in ("undenh", "undakt", "kullklasse",
                                       "kull", "stprog", "avdeling",):
             # These are the perms stemming from FS roles. We have to look at
