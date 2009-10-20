@@ -129,17 +129,19 @@ command_help = {
     "email_create_sympa_cerebrum_list":
         "Add addresses needed for a Sympa list (Cerebrum only)",
     "email_create_list_alias":
-       "Add an alias for a Mailman list.  This also adds additional "\
-       "-owner and -request addresses.",
+        "Add an alias for a Mailman list.  This also adds additional "\
+        "-owner and -request addresses.",
     "email_create_sympa_list_alias":
-       "Add an alias for a Sympa list.  This also adds additional addresses "
-       "(e.g. -owner, -request, etc.)",
+        "Add an alias for a Sympa list.  This also adds additional addresses "
+        "(e.g. -owner, -request, etc.)",
     "email_remove_list_alias":
-       "Remove an alias for a Mailman list. This also removes additional "
-       "administrative addresses (-owner, -request, etc.)",
+        "Remove an alias for a Mailman list. This also removes additional "
+        "administrative addresses (-owner, -request, etc.)",
     "email_remove_sympa_list_alias":
-       "Remove an alias for a Sympa list. This also removes additional "
-       "administrative addresses (-owner, -request, etc.)",
+        "Remove an alias for a Sympa list. This also removes additional "
+        "administrative addresses (-owner, -request, etc.)",
+    "email_reassign_list_address":
+        "Migrates email targets from Mailman to Sympa",
     "email_create_multi":
         "Make an e-mail target which expands to the members of a group",
     "email_create_pipe":
