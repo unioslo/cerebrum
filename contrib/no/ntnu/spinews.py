@@ -758,7 +758,7 @@ class spinews(ServiceSOAPBinding):
     soapAction = {}
     root = {}
 
-    def check_incremental(self, incremental_from):
+    def check_incremental(self, db, incremental_from):
         if incremental_from is not None:
             last=db.get_last_changelog_id()
             db.rollback()
@@ -856,7 +856,7 @@ class spinews(ServiceSOAPBinding):
 
         auth.can_syncread_alias(operator_id)
 
-        self.check_incremental(incremental_from)
+        self.check_incremental(db, incremental_from)
 
         response = getAliasesResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
@@ -879,7 +879,7 @@ class spinews(ServiceSOAPBinding):
         request = ps.Parse(getOUsRequest.typecode)
         auth.can_syncread_ou(operator_id)
         incremental_from = int_or_none(request._incremental_from)
-        self.check_incremental(incremental_from)
+        self.check_incremental(db, incremental_from)
 
         response = getOUsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
@@ -907,7 +907,7 @@ class spinews(ServiceSOAPBinding):
         groupspread = co.Spread(str(request._groupspread))
         accountspread = co.Spread(str(request._accountspread))
         incremental_from = int_or_none(request._incremental_from)
-        self.check_incremental(incremental_from)
+        self.check_incremental(db, incremental_from)
 
         auth.can_syncread_group(operator_id, groupspread)
 
@@ -938,7 +938,7 @@ class spinews(ServiceSOAPBinding):
         accountspread = co.Spread(str(request._accountspread))
         auth_type = co.Authentication(str(request._auth_type))
         incremental_from = int_or_none(request._incremental_from)
-        self.check_incremental(incremental_from)
+        self.check_incremental(db, incremental_from)
 
         auth.can_syncread_account(operator_id,
                                   accountspread,
@@ -972,7 +972,7 @@ class spinews(ServiceSOAPBinding):
         else:
             personspread = None
         incremental_from = int_or_none(request._incremental_from)
-        self.check_incremental(incremental_from)
+        self.check_incremental(db, incremental_from)
 
         auth.can_syncread_person(operator_id, personspread)
 
