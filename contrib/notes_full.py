@@ -105,7 +105,7 @@ def fetch_cerebrum_data(spread):
             logger.warn("%i is very new?" % dta['owner_id'])
             continue
         if 'ou_path' not in dta:
-            logger.warn("User %s has no affiliations?", dta['uname'])
+            logger.info("User %s has no affiliations?", dta['uname'])
             dta['ou_path'] = 'ANDRE'
         tmp['person_id'] = dta['owner_id']
         tmp['ou_path'] = dta['ou_path']
