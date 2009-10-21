@@ -2321,8 +2321,8 @@ class BofhdExtension(object):
             ef.add_forward(addr)
         except Errors.TooManyRowsError:
             raise CerebrumError, "Forward address added already (%s)" % addr
-        self._register_spam_settings(localaddr, target_type)
-        self._register_filter_settings(localaddr, target_type)
+        self._register_spam_settings(localaddr, self.const.email_target_forward)
+        self._register_filter_settings(localaddr, self.const.email_target_forward)
         return "OK, created forward address '%s'" % localaddr
 
 
