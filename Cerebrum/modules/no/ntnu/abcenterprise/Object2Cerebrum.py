@@ -26,102 +26,17 @@ from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.Utils import Factory, auto_super
 from Cerebrum.extlib.doc_exception import DocstringException
+from Cerebrum.modules.abcenterprise.Object2Cerebrum import Object2Cerebrum
+from Cerebrum.modules.abcenterprise.Object2Cerebrum import ABCMultipleEntitiesExistsError
+from Cerebrum.modules.abcenterprise.Object2Cerebrum import ABCErrorInData
 
-class ABCMultipleEntitiesExistsError(DocstringException):
-    """Several Entities exist with the same ID."""
+from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsMixin import DataPersonMixin
 
-class ABCErrorInData(DocstringException):
-    """We hit an error in the data."""
-
-class Object2Cerebrum(object):
+class Object2CerebrumMixIn(Object2Cerebrum):
 
     __metaclass__ = auto_super
 
-    def __init__(self, source_system, logger):
-        self.source_system = source_system
-        self.logger = logger
-
-        self.db = Factory.get('Database')()
-        self.co = Factory.get("Constants")(self.db)
-
-        self.db.cl_init(change_program="obj(%s)" % self.source_system)
-
-        # TBD: configureable? does it belong here at all?
-        ac = Factory.get("Account")(self.db)
-        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-        self.default_creator_id = ac.entity_id
-
-        self._person = Factory.get("Person")(self.db)
-        self._ou = None
-        self._group = None
-
-        # Set up the group and affiliation cache
-        # This is updated in store_group and add_group_member.
-        self._groups = dict()
-        self._affiliations = dict()
-        self._replacedby = dict()
-
-
-    def _add_external_ids(self, entity, id_dict):
-        """Common external ID operations."""
-        entity.affect_external_id(self.source_system, *id_dict.keys())
-        for id_type in id_dict.keys():
-            if id_type is None:
-                raise ABCErrorInData, "None not allowed as type: '%s'" % id_type
-            elif id_dict[id_type] is None:
-                raise ABCErrorInData, "None not alowed as a value: '%s': '%s'" % (id_type, id_dict[id_type])
-            entity.populate_external_id(self.source_system,
-                                        id_type,
-                                        id_dict[id_type])
-
-
-    def _check_entity(self, entity, data_entity): 
-        """Check for conflicting entities or return found or None."""
-        entities = list()
-        for id_type in data_entity._ids.keys():
-            lst = entity.list_external_ids(id_type=id_type,
-                                           external_id = data_entity._ids[id_type])
-            for row in lst:
-                entities.append(row['entity_id'])
-        entity_id = None
-        for id in entities:
-            if entity_id <> id and entity_id <> None:
-                # There are entities out there with our IDs.
-                # Fat error and exit
-                ou = Factory.get('OU')(self.db)
-                ou.find(id)
-                found = ou.get_external_id(id_type=id_type) 
-                raise ABCMultipleEntitiesExistsError, "found: '%s', current: '%s'" % (found, data_entity)
-            entity_id = id
-
-        if entity_id:
-            # We found one
-            return entity_id
-        else:
-            # Noone in the database could be found with our IDs.
-            # This is fine, write_db() figures it up.
-            return None
-
-
-    def _add_entity_addresses(self, entity, addresses):
-        """Add an entity's addresses."""
-        for addr in addresses.keys():
-            #for tag in ("pobox", "street", "postcode", "city", "country"):
-            entity.populate_address(self.source_system, type=addr,
-                                    address_text=addresses[addr].street,
-                                    p_o_box=addresses[addr].pobox,
-                                    postal_number=addresses[addr].postcode,
-                                    city=addresses[addr].city)
-            ## todo fetch reference to country in country-table
-            ## ,
-            ##                        country=addresses[addr].country)
-            
-
-    def _add_entity_contact_info(self, entity, contact_info):
-        """Add contact info for an entity."""
-        for cont in contact_info.keys():
-            entity.populate_contact_info(self.source_system, type=cont,
-                                         value=contact_info[cont])
+    
     def _find_lowest(self, kodes):
         if len(kodes) == 0:
             return None
@@ -247,19 +162,6 @@ class Object2Cerebrum(object):
         return (self._ou.write_db(), self._ou.entity_id)
 
 
-    def set_ou_parent(self, child_entity_id, perspective, parent):
-        """Set a parent ID on an OU. Parent may be an entity_id or a
-        tuple with an ext_is_type and an ext_id."""
-        self._ou.clear()
-        if isinstance(parent, tuple):
-            self._ou.find_by_external_id(parent[0], parent[1])
-            parent = self._ou.entity_id
-            self._ou.clear()
-        self._ou.find(child_entity_id)
-        self._ou.set_parent(perspective, parent)
-        return self._ou.write_db()
-
-
     def store_person(self, person):
         """Pass a DataPerson to this function and it gets stored
         in Cerebrum."""
@@ -267,7 +169,38 @@ class Object2Cerebrum(object):
             self._person = Factory.get("Person")(self.db)
         self._person.clear()
 
+        entity_id = None
+
+        ## try to find in the usual way
         entity_id = self._check_entity(self._person, person)
+        if not entity_id:
+            ## the ordinary ids did not find a person.
+            ## try with the old NINs one by one in
+            ## in case the person is stored with one
+            ## of the old NINs
+    
+            ## if person.fnr_closed:
+            ##     for k in person._ids.keys():
+            ##         print '%s = %s' % (k, person._ids[k])
+            ##     for closed_fnr in person.fnr_closed:
+            ##         print 'old fnr = ', closed_fnr
+            
+            if person.fnr_closed:
+                print "@@@@@@@@@@@@@@@@@@ closed @@@@@@@@@@@"
+                ## loop thru old NINs
+                for closed_fnr in person.fnr_closed:
+                    ## use only the old NIN for search.
+                    copy_person = DataPersonMixin()
+                    copy_person._ids[self.co.externalid_fodselsnr] = closed_fnr
+                    entity_id = self._check_entity(self._person, copy_person)
+                    if entity_id:
+                        ## success
+                        print "@@@@@@@@@@@@@@@@@@ break @@@@@@@@@@"
+                        break
+                if entity_id:
+                    print '============= found ========'
+                else:
+                    print '############# NOT ##########'
         if entity_id:
             # We found one
             self._person.find(entity_id)
@@ -286,114 +219,22 @@ class Object2Cerebrum(object):
         for name_type in person._names.keys():
             self._person.populate_name(name_type,
                                        person._names[name_type])
-        # Deal with addresses and contacts. 
         ret = self._person.write_db()
+        # deal with traits
+        if person.reserv_publish:
+            reserv_trait = self._person.get_trait(self.co.trait_reserve_publish)
+            # person want to delete reservation
+            if person.reserv_publish == "no" and reserv_trait:
+                self._person.delete_trait(self.co.trait_reserve_publish)
+            # person want to activate reservation
+            if person.reserv_publish == "yes" and not reserv_trait:
+                self._person.populate_trait(self.co.trait_reserve_publish)
+        # Deal with addresses and contacts. 
         self._add_entity_addresses(self._person, person._address)
         self._add_entity_contact_info(self._person, person._contacts)
         ret = self._person.write_db()
         return ret
 
-
-    def store_group(self, group):
-        """Stores a group in Cerebrum."""
-        if self._group is None:
-            self._group = Factory.get("Group")(self.db)
-        self._group.clear()
-
-        try:
-            self._group.find_by_name(group.name)
-        except Errors.NotFoundError:
-            # No group found
-            pass
-        
-        self._group.populate(self.default_creator_id,
-                             self.co.group_visibility_all,
-                             group.name, description=group.desc)
-        self._add_external_ids(self._group, group._ids)
-        ret = self._group.write_db()
-        self._group.populate_trait(self.co.trait_group_imported,
-                                   date=DateTime.now())
-        self._group.write_db()
-        # Add group to "seen" cache.
-        self._groups.setdefault(group.name, [])
-        return ret
-
-
-    def _add_group_cache(self, group, member):
-        if self._groups.has_key(group):
-            if member not in self._groups[group]:
-                self._groups[group].append(member)
-        else:
-            self.logger.warning("Group '%s' is not in the file." % group) 
-
-        
-    def add_group_member(self, group, entity_type, member):
-        """Add an entity to a group."""
-        self._group.clear()
-        self._group.find_by_name(group[1])
-        e_t = None
-        if entity_type == "person":
-            self._person.clear()
-            self._person.find_by_external_id(member[0], member[1])
-
-            if not self._group.has_member(self._person.entity_id):
-                self._group.add_member(self._person.entity_id)
-            self._add_group_cache(group[1], self._person.entity_id)
-            return self._group.write_db()
-
-
-    def add_person_affiliation(self, ou, person, affiliation, status):
-        """Add an affiliation for a person."""
-        self._person.clear()
-        try:
-            self._person.find_by_external_id(person[0], person[1])
-        except Errors.NotFoundError:
-            raise ABCErrorInData, "no person with id: %s, %s" % (person[0],
-                                                                 person[1]) 
-        self._ou.clear()
-        self._ou.find_by_external_id(ou[0], ou[1])
-        self._person.add_affiliation(self._ou.entity_id, affiliation,
-                                     self.source_system, status)
-        ret = self._person.write_db()
-
-        # Submit affiliation data to the cache.
-        self._affiliations.setdefault(self._person.entity_id, [])
-        self._affiliations[self._person.entity_id].append((affiliation,
-                                                           self._ou.entity_id))
-        return ret
-
-
-    def _update_groups(self):
-        """Run through the cache and remove people's group membership if it hasn't
-        been seen in this push."""
-        if self._group is None:
-            self._group = Factory.get("Group")(self.db)
-        self._group.clear()
-        for grp in self._groups.keys():
-            self._group.clear()
-            self._group.find_by_name(grp)
-
-            for member in self._group.search_members(group_id=
-                                                     self._group.entity_id):
-                member_id = int(member["member_id"])
-                if member_id not in self._groups[grp]:
-                    self._group.remove_member(member_id)
-                    self.logger.debug("'%s' removed '%s'", grp, member_id)
-            self._group.write_db()
-        # Get group names
-        group_names = dict()
-        for row in self._group.list_names(self.co.group_namespace):
-            group_names[int(row['entity_id'])] = row['entity_name']
-        # See which groups are gone from the file and remove them from the
-        # database if the cache doesn't have them.
-        for row in self._group.list_traits(self.co.trait_group_imported):
-            name = group_names[int(row['entity_id'])]
-            if not self._groups.has_key(name):
-                self._group.clear()
-                self._group.find_by_name(name)
-                self._group.delete()
-                self.logger.info("Group '%s' deleted as it is no longer in file." % name)
-     
     def _update_ou_affiliations(self):
         person = Factory.get('Person')(self.db)
         pp = Factory.get('Person')(self.db)
@@ -410,63 +251,7 @@ class Object2Cerebrum(object):
                 pp.add_affiliation(int(self.replacedby[k]), aff,
                         self.source_system, status)
 
-                   
     def _update_ous(self):
         self._update_ou_affiliations()
             
-    def _update_person_affiliations(self):
-        """Run through the cache and remove people's affiliation if it hasn't
-        been seen in this push."""
-        for row in self._person.list_affiliations(source_system=self.source_system,
-                                                  include_deleted=True):
-            p_id = int(row['person_id'])
-            aff = row['affiliation']
-            ou_id = row['ou_id']
-            if self._affiliations.has_key(p_id):
-                if not (aff, ou_id) in self._affiliations[p_id]:
-                    if not self._person.entity_id == p_id:
-                        self._person.clear()
-                        self._person.find(p_id)
-                    self._person.delete_affiliation(ou_id, aff, self.source_system)
-            else:
-                # Person no longer in the data file
-                if not hasattr(self._person, "entity_id") or \
-                    not self._person.entity_id == p_id:
-                    self._person.clear()
-                    self._person.find(p_id)
-                self._person.delete_affiliation(ou_id, aff, self.source_system)
-
-
-    def commit(self):
-        """Do some cleanups and call db.commit()"""
-        # TODO:
-        # - Diff OUs as well.
-        
-        # Process the cache before calling commit.
-        self._update_ous()
-
-        ## TODO:###########
-        ## a trait is missing, must be enabled again later
-        ###
-        self._update_groups()
-
-        # Update affiliations for people
-        self._update_person_affiliations()
-        self.db.commit()
-
-
-    def rollback(self):
-        # TODO:
-        # - Diff OUs as well.
-        
-        # Process the cache before calling commit.
-        self._update_ous()
-        # Process the cache before calling commit.
-        self._update_groups()
-        # Update affiliations for people
-        self._update_person_affiliations()
-        self.db.rollback()
-
-
-
 # arch-tag: fda7302c-6995-11da-943c-1c905588559b
