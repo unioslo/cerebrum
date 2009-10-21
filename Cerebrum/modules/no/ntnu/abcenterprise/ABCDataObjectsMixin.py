@@ -26,7 +26,7 @@ class DataOUMixin(DataOU):
 class DataPersonMixin(DataPerson):
     def __init__(self):
         super(DataPersonMixin, self).__init__()
-        self.fnr_old = []
+        self.fnr_closed = []
         self.reserv_publish = None
 
     def __str__(self):
