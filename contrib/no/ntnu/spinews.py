@@ -1067,7 +1067,7 @@ class SSLForkingMixIn(ForkingMixIn):
             # This must never return, hence sys.exit()!
             try:
                 self.finish_request(request, client_address)
-                self.sleep(3) # FIXME: Ugly workaround for ZSI closing connection before data is sent.
+                request.close()
             except:
                 try:
                     self.handle_error(request, client_address)
