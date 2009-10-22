@@ -2903,7 +2903,7 @@ Addresses and settings:
         et_sympa, ea = self.__get_email_target_and_address(listname)
         if change_filters:
             etf_sympa = Email.EmailTargetFilter(self.db)
-            target_ids = [et.entity_id]
+            target_ids = [et_sympa.entity_id]
             if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
                # The only way we can get here is if uname is actually an e-mail
                # address on its own.
