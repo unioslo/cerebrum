@@ -607,6 +607,7 @@ div.motd label {
     right: 0;
     bottom: auto;
     padding: 10px;
+    width: 200px;
 }
 
 #quicksearch.open {
