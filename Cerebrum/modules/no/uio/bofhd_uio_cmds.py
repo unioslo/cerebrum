@@ -2904,22 +2904,22 @@ Addresses and settings:
             etf_sympa = Email.EmailTargetFilter(self.db)
             target_ids = [et.entity_id]
             if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
-            # The only way we can get here is if uname is actually an e-mail
-            # address on its own.
-            target_ids = self.__get_all_related_maillist_targets(address)
+               # The only way we can get here is if uname is actually an e-mail
+               # address on its own.
+               target_ids = self.__get_all_related_maillist_targets(address)
             for target_id in target_ids:
-                try:
-                    et_sympa.clear()
-                    et_sympa.find(target_id)
-                except Errors.NotFoundError:
-                    continue
-                try:
-                    etf_sympa.clear()
-                    etf_sympa.find(et.entity_id, filter_code)
-                except Errors.NotFoundError:
-                    etf_sympa.clear()
-                    etf_sympa.populate(filter_code, parent=et_sympa)
-                    etf_sympa.write_db()
+               try:
+                  et_sympa.clear()
+                  et_sympa.find(target_id)
+               except Errors.NotFoundError:
+                  continue
+               try:
+                  etf_sympa.clear()
+                  etf_sympa.find(et.entity_id, filter_code)
+               except Errors.NotFoundError:
+                  etf_sympa.clear()
+                  etf_sympa.populate(filter_code, parent=et_sympa)
+                  etf_sympa.write_db()
             
         if not spam_level and spam_action:
             return "Migrated mailman target to sympa target (%s), no spam settings where found, assigned default" % listname
