@@ -2932,7 +2932,7 @@ Addresses and settings:
         # The only way we can get here is if uname is actually an e-mail
         # address on its own.
         if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
-            target_ids = self.__get_all_related_maillist_targets(uname)
+            target_ids = self.__get_all_related_maillist_targets(listname)
         for target_id in target_ids:
             try:
                 et_sympa.clear()
