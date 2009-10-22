@@ -20,83 +20,107 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from ceresync import errors
-from ceresync import sync
+from ceresync import syncws as sync
 from ceresync import config
 
 import os
 import sys
-import omniORB
+import socket
 
 log=config.logger
 
-spine_cache= config.get("sync","last_change", "") or \
+last_change_file = config.get("sync","last_change", "") or \
              "/var/lib/cerebrum/sync.last_change"
 
+def load_changelog_id():
+    local_id = 0
+    if os.path.isfile(last_change_file):
+        local_id = long(open(last_change_file).read())
+        log.debug("Loaded changelog-id %ld", local_id)
+    else:
+        log.debug("Default changelog-id %ld", local_id)
+    return local_id
+
+def save_changelog_id(server_id):
+    log.debug("Storing changelog-id %ld", server_id)
+    open(last_change_file, 'w').write(str(server_id))
+
+def set_incremental_options(options, incr, server_id):
+    if not incr:
+        return
+
+    local_id = load_changelog_id()
+    log.debug("Local id: %ld, server_id: %ld", local_id, server_id)
+    if local_id > server_id:
+        log.warning("local changelogid is larger than the server's!")
+    elif incr and local_id == server_id:
+        log.debug("No changes to apply. Quiting.")
+        sys.exit(0)
+
+    options['incr_from'] = local_id
+
+def set_encoding_options(options):
+    options['encode_to'] = 'utf-8'
 
 def main():
-    options = config.make_bulk_options()
-    options.append(config.make_option(
+    bulk_options = config.make_bulk_options()
+    bulk_options.append(config.make_option(
         "--test",
         action="store_true",
         default=True,
         dest="test",
         help="run against the test-backend in stead of the adsi-backend."))
-    config.parse_args(options)
+    config.parse_args(bulk_options)
 
     incr= config.getboolean('args','incremental')
     add= config.getboolean('args','add')
     update= config.getboolean('args','update')
     delete= config.getboolean('args','delete')
     test= config.getboolean('args', 'test')
-    local_id= 0
-    if os.path.isfile(spine_cache):
-        local_id= long(file(spine_cache).read())
+
+    log.debug("Setting up CereWS connection")
     try:
-        log.debug("Connecting to spine-server")
-        s = sync.Sync(incr, local_id)
-    except omniORB.CORBA.TRANSIENT, e:
-        log.error("Unable to connect to spine-server: %s", e)
+        s = sync.Sync()
+        server_id= s.get_changelogid()
+    except sync.AlreadyRunningWarning, e:
+        log.warning(str(e))
+        exit(1)
+    except sync.AlreadyRunning, e:
+        log.error(str(e))
+        exit(1)
+    except socket.error, e:
+        log.error("Unable to connect to web service: %s", e)
         sys.exit(1)
-    except omniORB.CORBA.COMM_FAILURE, e:
-        log.error("Unable to connect to spine-server: %s", e)
-        sys.exit(1)
-    except errors.LoginError, e:
-        log.error("%S", e)
-        sys.exit(1)
-    server_id= long(s.cmd.get_last_changelog_id())
-    encoding= s.session.get_encoding()
-    log.debug("Local id: %ld, server_id: %ld",local_id,server_id)
 
-    if local_id > server_id:
-        log.warning("local changelogid is larger than the server's!")
-    elif incr and local_id == server_id:
-        log.debug("No changes to apply. Quiting.")
-        s.close()
-        return
+    sync_options = {}
+    set_incremental_options(sync_options, incr, server_id)
+    set_encoding_options(sync_options)
 
-    log.debug("Retrieving accounts and groups from spine")
-    try: 
-        accounts, groups= s.get_accounts(), s.get_groups()
+    try:
+        log.debug("Getting accounts with arguments %s" % str(sync_options))
+        accounts= s.get_accounts(**sync_options)
+
+        log.debug("Getting groups with arguments %s" % str(sync_options))
+        groups= s.get_groups(**sync_options)
     except:
         log.exception("Exception occured. Aborting")
-        s.close()
         sys.exit(1)
-
-    log.debug("Closing connection to spine")
-    s.close()
 
     # FIXME: URLs from config
     if test:
+        log.debug("Using testbackend")
         import ceresync.backend.test as adsibackend
         adsibackend.ADUser = lambda x: adsibackend.Account()
         adsibackend.ADGroup = lambda x: adsibackend.Group()
     else:
+        log.debug("Using adsibackend")
         import ceresync.backend.file as adsibackend
 
     userAD = adsibackend.ADUser( config.get("ad_ldap","userdn") )
     groupAD = adsibackend.ADGroup( config.get("ad_ldap","groupdn") )
 
     log.debug("Synchronizing accounts")
+    encoding= 'iso-8859-1'
     userAD.begin(encoding, incr, add, update, delete)
     for account in accounts:
         log.debug("Processing account '%s'", account.name)
@@ -115,9 +139,9 @@ def main():
     else:
         groupAD.close()
     log.debug("Done synchronizing groups")
-    if incr or ( not incr and add and update and delete ):
-        log.debug("Storing changelog-id %ld", server_id) 
-        file(spine_cache, 'w').write( str(server_id) )
+
+    if incr or (add and update and delete):
+        save_changelog_id(server_id)
 
 if __name__ == "__main__":
     main()
