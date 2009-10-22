@@ -2875,11 +2875,12 @@ Addresses and settings:
         spam_level = esf_mailman.email_spam_level
         spam_action = esf_mailman.email_spam_action
         mailman_filters = []
-        set_filters = False
+        change_filters = False
         for f in etf_mailman.list_email_target_filter(target_id=et_mailman.entity_id):
-            mailman_filters.append(f['filter'])
-        if len(mailman_filters) > 0: 
-            set_filters = True
+           if int(f['filter']) == int(self.const.email_target_filter_greylist):
+              mailman_filters.append(f['filter'])
+        if len(mailman_filters) == 0: 
+            change_filters = True
         if not self._is_mailing_list(listname):
             return "Cannot migrate a non-list target to Sympa."
         self.ba.can_email_list_create(operator.get_entity_id(), ea)
@@ -2900,7 +2901,7 @@ Addresses and settings:
                                     self.const.email_target_Sympa,
                                     delivery_host)
         et_sympa, ea = self.__get_email_target_and_address(listname)
-        if set_filters:
+        if change_filters:
             etf_sympa = Email.EmailTargetFilter(self.db)
             target_ids = [et.entity_id]
             if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
@@ -2915,11 +2916,11 @@ Addresses and settings:
                   continue
                try:
                   etf_sympa.clear()
-                  etf_sympa.find(et.entity_id, filter_code)
+                  etf_sympa.find(et_sympa.entity_id, self.const.email_target_filter_greylist)
                except Errors.NotFoundError:
-                  etf_sympa.clear()
-                  etf_sympa.populate(filter_code, parent=et_sympa)
-                  etf_sympa.write_db()
+                  continue
+               etf_sympa.disable_email_target_filter(self.const.email_target_filter_greylist)
+               etf_sympa.write_db()
             
         if not spam_level and spam_action:
             return "Migrated mailman target to sympa target (%s), no spam settings where found, assigned default" % listname
@@ -2942,9 +2943,13 @@ Addresses and settings:
             try:
                 esf_sympa.clear()
                 esf_sympa.find(et_sympa.entity_id)
+                esf_sympa.email_spam_level = spam_level
+                esf_sympa.email_spam_action = spam_action
             except Errors.NotFoundError:
-                esf_sympa.populate(spam_level, spam_action, parent=et_sympa)
-                esf_sympa.write_db()
+               # this will not happen as standard spam settings are
+               # assigned when a list is created
+               continue
+            esf_sympa.write_db()
                 
         return "Migrated mailman target to sympa target (%s)" % listname
 
