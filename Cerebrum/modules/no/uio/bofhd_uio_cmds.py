@@ -4188,12 +4188,12 @@ Addresses and settings:
         codes = self.const.fetch_constants(self.const.EmailSpamLevel,
                                            prefix_match=level)
         if len(codes) == 1:
-            levelcode = codes[0]
+           levelcode = codes[0]
         elif len(codes) == 0:
-            raise CerebrumError, "Spam level code not found: %s" % level
+           raise CerebrumError, "Spam level code not found: %s" % level
         else:
-            raise CerebrumError, ("'%s' does not uniquely identify a spam "+
-                                  "level") % level
+           raise CerebrumError, ("'%s' does not uniquely identify a spam "+
+                                 "level") % level
         et, acc = self.__get_email_target_and_account(uname)
         self.ba.can_email_spam_settings(operator.get_entity_id(), acc, et)
         esf = Email.EmailSpamFilter(self.db)
@@ -4205,25 +4205,25 @@ Addresses and settings:
         # address on its own.
         if int(et.email_target_type) in (self.const.email_target_Mailman,
                                          self.const.email_target_Sympa):
-            target_ids = self.__get_all_related_maillist_targets(uname)
+           target_ids = self.__get_all_related_maillist_targets(uname)
         elif int(et.email_target_type) == self.const.email_target_RT:
-            targets_ids = self.__get_all_related_rt_targets(uname)
+           targets_ids = self.__get_all_related_rt_targets(uname)
 
         for target_id in target_ids:
-            try:
-                et.clear()
-                et.find(target_id)
-            except Errors.NotFoundError:
-                continue
-             try:
-                esf.clear()
-                esf.find(et.entity_id)
-                esf.email_spam_level = levelcode
-            except Errors.NotFoundError:
-                esf.clear()
-                esf.populate(levelcode, self.const.email_spam_action_none,
-                             parent=et)
-            esf.write_db()
+           try:
+              et.clear()
+              et.find(target_id)
+           except Errors.NotFoundError:
+              continue
+           try:
+              esf.clear()
+              esf.find(et.entity_id)
+              esf.email_spam_level = levelcode
+           except Errors.NotFoundError:
+              esf.clear()
+              esf.populate(levelcode, self.const.email_spam_action_none,
+                           parent=et)
+              esf.write_db()
 
         return "OK, set spam-level for '%s'" % uname
     # end email_spam_level
