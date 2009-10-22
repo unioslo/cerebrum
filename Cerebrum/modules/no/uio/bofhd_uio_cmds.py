@@ -2872,8 +2872,8 @@ Addresses and settings:
         etf_mailman = Email.EmailTargetFilter(self.db)
         esf_mailman.clear()
         esf_mailman.find(et_mailman.entity_id)
-        spam_level = esf_mailman.get_spam_level()
-        spam_action = esf.get_spam_action()
+        spam_level = esf_mailman.email_spam_level
+        spam_action = esf_mailman.email_spam_action
         mailman_filters = []
         set_filters = False
         for f in etf_mailman.list_email_target_filter(target_id=et_mailman.entity_id):
