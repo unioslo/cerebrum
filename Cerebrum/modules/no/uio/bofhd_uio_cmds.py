@@ -2867,28 +2867,86 @@ Addresses and settings:
         SimpleString(help_ref='string_email_delivery_host'),
         perm_filter="can_email_list_create")
     def email_reassign_list_address(self, operator, listname, sympa_delivery_host):
-        et, ea = self.__get_email_target_and_address(listname)
-        old_target_id = et.entity_id
+        et_mailman, ea = self.__get_email_target_and_address(listname)
+        esf_mailman = Email.EmailSpamFilter(self.db)
+        etf_mailman = Email.EmailTargetFilter(self.db)
+        esf_mailman.clear()
+        esf_mailman.find(et_mailman.entity_id)
+        spam_level = esf_mailman.get_spam_level()
+        spam_action = esf.get_spam_action()
+        mailman_filters = []
+        set_filters = False
+        for f in etf_mailman.list_email_target_filter(target_id=et_mailman.entity_id):
+            mailman_filters.append(f['filter'])
+        if len(mailman_filters) > 0: 
+            set_filters = True
         if not self._is_mailing_list(listname):
             return "Cannot migrate a non-list target to Sympa."
         self.ba.can_email_list_create(operator.get_entity_id(), ea)
         aliases = []
-        for r in et.get_addresses():
+        for r in et_mailman.get_addresses():
             a = "%(local_part)s@%(domain)s" % r
             if a == listname:
                 continue
-            aliases.append()
+            aliases.append(a)
+        
         delivery_host = self._get_email_server(sympa_delivery_host)
         result_mailman_target = self._email_delete_list(operator.get_entity_id(), listname, ea, target_only=True)
         self._create_mailing_list_in_cerebrum(operator, self.const.email_target_Sympa,
                                               delivery_host, listname)
         for address in aliases:
-            self._create_list_alias(operator, listname,address,
+            self._create_list_alias(operator, listname, address,
                                     self.const.email_target_Sympa,
                                     delivery_host)
+        et_sympa, ea = self.__get_email_target_and_address(listname)
+        if set_filters:
+            etf_sympa = Email.EmailTargetFilter(self.db)
+            target_ids = [et.entity_id]
+            if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
+            # The only way we can get here is if uname is actually an e-mail
+            # address on its own.
+            target_ids = self.__get_all_related_maillist_targets(address)
+            for target_id in target_ids:
+                try:
+                    et_sympa.clear()
+                    et_sympa.find(target_id)
+                except Errors.NotFoundError:
+                    continue
+                try:
+                    etf_sympa.clear()
+                    etf_sympa.find(et.entity_id, filter_code)
+                except Errors.NotFoundError:
+                    etf_sympa.clear()
+                    etf_sympa.populate(filter_code, parent=et_sympa)
+                    etf_sympa.write_db()
             
-        return "Migrated mailman target %s to sympa target (%s)" % (old_target_id,
-                                                                    listname)
+        if not spam_level and spam_action:
+            return "Migrated mailman target to sympa target (%s), no spam settings where found, assigned default" % listname
+
+        esf_sympa = Email.EmailSpamFilter(self.db)
+        # All this magic with target ids is necessary to accomodate MLs (all
+        # ETs "related" to the same ML should have the
+        # spam settings should be processed )
+        target_ids = [et_sympa.entity_id]
+        # The only way we can get here is if uname is actually an e-mail
+        # address on its own.
+        if int(et_sympa.email_target_type) == self.const.email_target_Sympa:
+            target_ids = self.__get_all_related_maillist_targets(uname)
+        for target_id in target_ids:
+            try:
+                et_sympa.clear()
+                et_sympa.find(target_id)
+            except Errors.NotFoundError:
+                continue
+            try:
+                esf_sympa.clear()
+                esf_sympa.find(et_sympa.entity_id)
+            except Errors.NotFoundError:
+                esf_sympa.populate(spam_level, self.const.email_spam_action_none, parent=et_sympa)
+                esf_sympa.populate(self.const.email_spam_level_none, spam_action, parent=et_sympa)
+                esf_sympa.write_db()
+                
+        return "Migrated mailman target to sympa target (%s)" % listname
 
     # email delete_list <list-address>
     all_commands['email_delete_list'] = Command(
@@ -4156,8 +4214,8 @@ Addresses and settings:
                 et.find(target_id)
             except Errors.NotFoundError:
                 continue
-        
-            try:
+       
+             try:
                 esf.clear()
                 esf.find(et.entity_id)
                 esf.email_spam_level = levelcode
