@@ -125,6 +125,8 @@ def apply_quarantine(obj, typestr):
     for q in obj.quarantines:
         try:
             a=_conf.get('%s_quarantines' % typestr, q)
+        except ConfigParser.NoSectionError:
+            return
         except ConfigParser.NoOptionError:
             try:
                 a=_conf.get('%s_quarantines' % typestr, "DEFAULT")
