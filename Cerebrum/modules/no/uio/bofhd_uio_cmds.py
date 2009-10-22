@@ -2943,8 +2943,7 @@ Addresses and settings:
                 esf_sympa.clear()
                 esf_sympa.find(et_sympa.entity_id)
             except Errors.NotFoundError:
-                esf_sympa.populate(spam_level, self.const.email_spam_action_none, parent=et_sympa)
-                esf_sympa.populate(self.const.email_spam_level_none, spam_action, parent=et_sympa)
+                esf_sympa.populate(spam_level, spam_action, parent=et_sympa)
                 esf_sympa.write_db()
                 
         return "Migrated mailman target to sympa target (%s)" % listname
