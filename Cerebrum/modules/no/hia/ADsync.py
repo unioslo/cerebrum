@@ -540,21 +540,18 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             if isinstance(cerebrumusrs[usr][attr], (list)):
                                 # Multivalued, it is assumed that a
                                 # multivalue in cerebrumusrs always is
-                                # represented as a list.
-                                Mchange = False
-                                                                
+                                # represented as a list.h
                                 if (isinstance(adusrs[usr][attr],
                                                (str,int,long,unicode))):
                                     #Transform single-value to a list for comp.
                                     val2list = []
                                     val2list.append(adusrs[usr][attr])
                                     adusrs[usr][attr] = val2list
-                                                                        
-                                for val in cerebrumusrs[usr][attr]:
-                                    if val not in adusrs[usr][attr]:
-                                        Mchange = True
-                                                                                
-                                if Mchange:
+                                
+                                #sort and compare
+                                cerebrumusrs[usr][attr].sort()
+                                adusrs[usr][attr].sort()
+                                if cerebrumusrs[usr][attr] != adusrs[usr][attr]:
                                     changes[attr] = cerebrumusrs[usr][attr]
 
                             else:
