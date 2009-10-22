@@ -128,18 +128,18 @@ class FileBack(object):
             
     def update(self, obj):
         if not self.incr: 
-            raise errors.WrongModeError, "update"
+            raise errors.WrongModeError("update")
         self.records[obj.name]=self.format(obj)
 
     def delete(self, obj):
         if not self.incr: 
-            raise errors.WrongModeError, "delete"
+            raise errors.WrongModeError("delete")
         del self.records[obj.name]
     
     def format(self, obj):
         """Returns the formatted string to be added to the file based on
         the given object. Must include any ending linefeeds."""    
-        raise NotImplementedError, "format"
+        raise NotImplementedError("format")
 
 class CLFileBack(FileBack):
     """Line-based files, colon separated, primary key in first column"""
@@ -172,7 +172,7 @@ class CLFileBack(FileBack):
 class PasswdFile(CLFileBack):
     def format(self, account):
         if account.posix_uid is None:
-            raise errors.NotPosixError, account.name
+            raise errors.NotPosixError(account.name)
         res="%s:%s:%s:%s:%s:%s:%s\n" % (
             self.wash(account.name),
             "x",
@@ -190,7 +190,7 @@ class GroupFile(CLFileBack):
     filename="/etc/ceresync/group"
     def format(self, group):
         if group.posix_gid is None:
-            raise errors.NotPosixError, group.name
+            raise errors.NotPosixError(group.name)
         res="%s:*:%d:%s\n" % (
             self.wash(group.name),
             self.wash(group.posix_gid),
@@ -205,7 +205,7 @@ class ShadowFile(CLFileBack):
     filename="/etc/ceresync/shadow"
     def format(self, account):
         if account.posix_uid is None:
-            raise errors.NotPosixError, account.name
+            raise errors.NotPosixError(account.name)
         res="%s:%s:::::::\n" % (
             self.wash(account.name),
             self.wash(account.passwd) )
@@ -257,7 +257,7 @@ class SambaFile(CLFileBack):
     def format(self, account, hashes=None):
         import time
         if account.posix_uid is None:
-            raise errors.NotPosixError, account.name
+            raise errors.NotPosixError(account.name)
 
         if hashes:
             lmhash = hashes[0]
@@ -288,7 +288,7 @@ class SambaFile(CLFileBack):
 class PasswdFileCryptHash(CLFileBack):
     def format(self, account):
         if account.posix_uid is None:
-            raise errors.NotPosixError, account.name
+            raise errors.NotPosixError(account.name)
         res="%s:%s:%s:%s:%s:%s:%s\n" % (
             account.name,
             account.passwd or "INVALID",
