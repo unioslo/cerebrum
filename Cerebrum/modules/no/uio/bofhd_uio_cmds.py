@@ -2888,7 +2888,8 @@ Addresses and settings:
             a = "%(local_part)s@%(domain)s" % r
             if a == listname:
                 continue
-            aliases.append(a)
+            if a != None:
+               aliases.append(a)
         
         delivery_host = self._get_email_server(sympa_delivery_host)
         result_mailman_target = self._email_delete_list(operator.get_entity_id(), listname, ea, target_only=True)
@@ -4214,7 +4215,6 @@ Addresses and settings:
                 et.find(target_id)
             except Errors.NotFoundError:
                 continue
-       
              try:
                 esf.clear()
                 esf.find(et.entity_id)
