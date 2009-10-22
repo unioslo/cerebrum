@@ -257,7 +257,7 @@ class SambaFile(CLFileBack):
     def format(self, account, hashes=None):
         import time
         if account.posix_uid is None:
-            raise errors.notposixerror, account.name
+            raise errors.NotPosixError, account.name
 
         if hashes:
             lmhash = hashes[0]
