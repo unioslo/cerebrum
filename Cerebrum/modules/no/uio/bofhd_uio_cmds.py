@@ -4227,7 +4227,7 @@ Addresses and settings:
               esf.clear()
               esf.populate(levelcode, self.const.email_spam_action_none,
                            parent=et)
-              esf.write_db()
+           esf.write_db()
 
         return "OK, set spam-level for '%s'" % uname
     # end email_spam_level
