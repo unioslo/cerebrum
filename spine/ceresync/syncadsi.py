@@ -15,32 +15,39 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
+# You should have rec-ived a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from ceresync import errors
 from ceresync import sync
 from ceresync import config
-import ceresync.backend.adsi as adsibackend
 
-from sys import exit 
 import os
+import sys
 import omniORB
 
 log=config.logger
 
-spine_cache= config.get("spine","last_change") or \
+spine_cache= config.get("sync","last_change", "") or \
              "/var/lib/cerebrum/sync.last_change"
 
 
 def main():
-    config.parse_args(config.make_bulk_options())
+    options = config.make_bulk_options()
+    options.append(config.make_option(
+        "--test",
+        action="store_true",
+        default=True,
+        dest="test",
+        help="run against the test-backend in stead of the adsi-backend."))
+    config.parse_args(options)
 
     incr= config.getboolean('args','incremental')
     add= config.getboolean('args','add')
     update= config.getboolean('args','update')
     delete= config.getboolean('args','delete')
+    test= config.getboolean('args', 'test')
     local_id= 0
     if os.path.isfile(spine_cache):
         local_id= long(file(spine_cache).read())
@@ -49,13 +56,13 @@ def main():
         s = sync.Sync(incr, local_id)
     except omniORB.CORBA.TRANSIENT, e:
         log.error("Unable to connect to spine-server: %s", e)
-        exit(1)
+        sys.exit(1)
     except omniORB.CORBA.COMM_FAILURE, e:
         log.error("Unable to connect to spine-server: %s", e)
-        exit(1)
+        sys.exit(1)
     except errors.LoginError, e:
         log.error("%S", e)
-        exit(1)
+        sys.exit(1)
     server_id= long(s.cmd.get_last_changelog_id())
     encoding= s.session.get_encoding()
     log.debug("Local id: %ld, server_id: %ld",local_id,server_id)
@@ -67,20 +74,27 @@ def main():
         s.close()
         return
 
-    # FIXME: URLs from config
-    userAD = adsibackend.ADUser( config.get("ad_ldap","userdn") )
-    groupAD = adsibackend.ADGroup( config.get("ad_ldap","groupdn") )
-
     log.debug("Retrieving accounts and groups from spine")
     try: 
         accounts, groups= s.get_accounts(), s.get_groups()
     except:
         log.exception("Exception occured. Aborting")
         s.close()
-        exit(1)
+        sys.exit(1)
 
     log.debug("Closing connection to spine")
     s.close()
+
+    # FIXME: URLs from config
+    if test:
+        import ceresync.backend.test as adsibackend
+        adsibackend.ADUser = lambda x: adsibackend.Account()
+        adsibackend.ADGroup = lambda x: adsibackend.Group()
+    else:
+        import ceresync.backend.file as adsibackend
+
+    userAD = adsibackend.ADUser( config.get("ad_ldap","userdn") )
+    groupAD = adsibackend.ADGroup( config.get("ad_ldap","groupdn") )
 
     log.debug("Synchronizing accounts")
     userAD.begin(encoding, incr, add, update, delete)
