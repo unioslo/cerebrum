@@ -109,10 +109,13 @@ class Entity(object):
     type= ""
     attributes= []
     lists= {}
-    def __init__(self, obj):
+    def __init__(self, obj, encode_to=None):
         # Set attributes from the response, set None for missing.
         for key in self.attributes:
-            self.__setattr__(key, obj._attrs.get(key, None))
+            value = obj._attrs.get(key, None)
+            if encode_to and type(value) == unicode:
+                value = value.encode(encode_to)
+            self.__setattr__(key, value)
         # Set lists, if any
         for objkey, entkey in self.lists.items():
             self.__setattr__(entkey, getattr(obj, objkey, []))
@@ -137,8 +140,6 @@ class Account(Entity):
         "primary_affiliation","primary_ou_id",
     ]
     lists= { "_quarantine": "quarantines", }
-    def __init__(self, obj):
-        Entity.__init__(self, obj)
 
 class Group(Entity):
     type= "group"
@@ -146,8 +147,6 @@ class Group(Entity):
         "name","posix_gid",
     ]
     lists= { "_quarantine": "quarantines", "_member": "members", }
-    def __init__(self, obj):
-        Entity.__init__(self, obj)
     
 class Ou(Entity):
     type= "ou"
@@ -157,8 +156,6 @@ class Ou(Entity):
         "parent_stedkode",
     ]
     lists= { "_quarantine": "quarantines", }
-    def __init__(self, obj):
-        Entity.__init__(self, obj)
 
 class Alias(Entity):
     type= "alias"
@@ -167,8 +164,6 @@ class Alias(Entity):
         "primary_address_domain","address_id","primary_address_id",
         "server_name","account_id","account_name",
     ]
-    def __init__(self, obj):
-        Entity.__init__(self, obj)
 
 class Homedir(Entity):
     type= "homedir"
@@ -176,8 +171,6 @@ class Homedir(Entity):
         "homedir_id","disk_path","home","homedir","account_name",
         "posix_uid","posix_gid",
     ]
-    def __init__(self,obj):
-        Entity.__init__(self, obj)
 
 class Person(Entity):
     type= "person"
@@ -193,8 +186,6 @@ class Person(Entity):
         "_affiliation": "affiliations",
         "_trait": "traits", 
     }
-    def __init__(self, obj):
-        Entity.__init__(self, obj)
 
 class CeresyncHTTPSConnection(HTTPConnection):
     def __init__(self, host, port=443, strict=None):
@@ -278,7 +269,7 @@ class Sync(object):
             log.error("get_changelogid: %s", e.fault.detail[0].string)
             sys.exit(1)
 
-    def get_accounts(self, accountspread=None, auth_type=None, incr_from=None):
+    def get_accounts(self, accountspread=None, auth_type=None, incr_from=None, encode_to=None):
         try:
             accountspread= accountspread or config.get("sync","account_spread")
         except ConfigParser.Error, e:
@@ -299,9 +290,9 @@ class Sync(object):
         except FaultException, e:
             log.error("get_accounts: %s", e.fault.detail[0].string)
             sys.exit(1)
-        return [Account(obj) for obj in response._account]
+        return [Account(obj, encode_to=encode_to) for obj in response._account]
 
-    def get_groups(self, accountspread=None, groupspread=None, incr_from=None):
+    def get_groups(self, accountspread=None, groupspread=None, incr_from=None, encode_to=None):
         try: 
             accountspread= accountspread or config.get("sync","account_spread")
         except ConfigParser.Error, e:
@@ -322,9 +313,9 @@ class Sync(object):
         except FaultException, e:
             log.error("get_groups: %s", e.fault.detail[0].string)
             sys.exit(1)
-        return [Group(obj) for obj in response._group]
+        return [Group(obj, encode_to=encode_to) for obj in response._group]
 
-    def get_ous(self, incr_from=None):
+    def get_ous(self, incr_from=None, encode_to=None):
         request= getOUsRequest()
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
@@ -333,9 +324,9 @@ class Sync(object):
         except FaultException, e:
             log.error("get_accounts: %s", e.fault.detail[0].string)
             sys.exit(1)
-        return [Ou(obj) for obj in response._ou]
+        return [Ou(obj, encode_to=encode_to) for obj in response._ou]
 
-    def get_persons(self, personspread=None, incr_from=None):
+    def get_persons(self, personspread=None, incr_from=None, encode_to=None):
         personspread= personspread or \
             config.get("sync", "person_spread", allow_none=True)
         request= getPersonsRequest()
@@ -347,9 +338,9 @@ class Sync(object):
         except FaultException, e:
             log.error("get_persons: %s", e.fault.detail[0].string)
             sys.exit(1)
-        return [Person(obj) for obj in response._person]
+        return [Person(obj, encode_to=encode_to) for obj in response._person]
 
-    def get_aliases(self, incr_from=None):
+    def get_aliases(self, incr_from=None, encode_to=None):
         request= getAliasesRequest()
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
@@ -358,9 +349,9 @@ class Sync(object):
         except FaultException, e:
             log.error("get_accounts: %s", e.fault.detail[0].string)
             sys.exit(1)
-        return [Alias(obj) for obj in response._alias]
+        return [Alias(obj, encode_to=encode_to) for obj in response._alias]
        
-    def get_homedirs(self, status, hostname):
+    def get_homedirs(self, status, hostname, encode_to=None):
         request= getHomedirsRequest()
         request._status= status
         request._hostname= hostname
@@ -370,7 +361,7 @@ class Sync(object):
         except FaultException, e:
             log.error("get_homedirs: %s", e.fault.detail[0].string)
             sys.exit(1)
-        return [Homedir(obj) for obj in response._homedir]
+        return [Homedir(obj, encode_to=encode_to) for obj in response._homedir]
 
     def set_homedir_status(self, homedir_id, status):
         request= setHomedirStatusRequest()
