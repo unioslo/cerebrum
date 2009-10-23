@@ -45,7 +45,7 @@ class XMLOrg2ObjectExt(XMLOrg2Object):
     def __init__(self, xmliter):
         """Constructs an iterator supplying DataPerson objects."""
 
-        super(XMLOrg2ObjectMixIn, self).__init__(xmliter)
+        super(XMLOrg2ObjectExt, self).__init__(xmliter)
 
     def next(self):
         """Return the next DataOU object. Returns a ABCTypesError
