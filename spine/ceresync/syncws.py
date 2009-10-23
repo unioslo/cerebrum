@@ -12,11 +12,10 @@ import stat
 import time
 
 from httplib import HTTPConnection
-from M2Crypto import SSL, X509
-from SignatureHandler import *
+from M2Crypto import SSL
+from SignatureHandler import SignatureHandler
 
-from Cerebrum.lib.spinews.spinews_services import *
-from Cerebrum.lib.spinews.spinews_services_types import *
+from Cerebrum.lib.spinews import spinews_services
 
 from ZSI import FaultException
 
@@ -253,7 +252,7 @@ class Sync(object):
             remove_pidfile(self.pid_file)
     
     def _get_ceresync_port(self, useDigest=False):
-        locator= spinewsLocator()
+        locator= spinews_services.spinewsLocator()
         port= locator.getspinePortType(url=self.url, **self.zsi_options)
         port.binding.sig_handler= SignatureHandler(self.username, 
                                                    self.password,
@@ -261,7 +260,7 @@ class Sync(object):
         return port
 
     def get_changelogid(self):
-        request=getChangelogidRequest()
+        request=spinews_services.getChangelogidRequest()
         port= self._get_ceresync_port()
         try:
             return port.get_changelogid(request)
@@ -269,7 +268,13 @@ class Sync(object):
             log.error("get_changelogid: %s", e.fault.detail[0].string)
             sys.exit(1)
 
-    def get_accounts(self, accountspread=None, auth_type=None, incr_from=None, encode_to=None):
+    def get_accounts(self, accountspread=None, auth_type=None, incr_from=None, encode_to=None, **kwargs):
+        """
+        encode_to is a valid string encoding that the unicode attributes we get
+        from ZSI will be encoded to.  If it's None the attributes remain
+        unicode.  If it's utf-8 or latin-1, then the attribute will be a str
+        encoded to the given encoding.
+        """
         try:
             accountspread= accountspread or config.get("sync","account_spread")
         except ConfigParser.Error, e:
@@ -280,19 +285,15 @@ class Sync(object):
         except ConfigParser.Error, e:
             log.error("Missing auth_type: %s", e)
             sys.exit(1)
-        request= getAccountsRequest()
+        request= spinews_services.getAccountsRequest()
         request._accountspread= accountspread
         request._auth_type= auth_type
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        try: 
-            response= port.get_accounts(request)
-        except FaultException, e:
-            log.error("get_accounts: %s", e.fault.detail[0].string)
-            sys.exit(1)
+        response = self._perform_request(request, port.get_accounts, **kwargs)
         return [Account(obj, encode_to=encode_to) for obj in response._account]
 
-    def get_groups(self, accountspread=None, groupspread=None, incr_from=None, encode_to=None):
+    def get_groups(self, accountspread=None, groupspread=None, incr_from=None, encode_to=None, **kwargs):
         try: 
             accountspread= accountspread or config.get("sync","account_spread")
         except ConfigParser.Error, e:
@@ -303,68 +304,79 @@ class Sync(object):
         except ConfigParser.Error, e:
             log.error("Missing group_spread: %s",e)
             sys.exit(1)
-        request= getGroupsRequest()
+        request= spinews_services.getGroupsRequest()
         request._accountspread= accountspread
         request._groupspread= groupspread
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        try:
-            response= port.get_groups(request)
-        except FaultException, e:
-            log.error("get_groups: %s", e.fault.detail[0].string)
-            sys.exit(1)
+        response = self._perform_request(request, port.get_groups, **kwargs)
         return [Group(obj, encode_to=encode_to) for obj in response._group]
 
-    def get_ous(self, incr_from=None, encode_to=None):
-        request= getOUsRequest()
+    def get_ous(self, incr_from=None, encode_to=None, **kwargs):
+        request= spinews_services.getOUsRequest()
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        try:
-            response= port.get_ous(request)
-        except FaultException, e:
-            log.error("get_accounts: %s", e.fault.detail[0].string)
-            sys.exit(1)
+        response = self._perform_request(request, port.get_ous, **kwargs)
         return [Ou(obj, encode_to=encode_to) for obj in response._ou]
 
-    def get_persons(self, personspread=None, incr_from=None, encode_to=None):
+    def get_persons(self, personspread=None, incr_from=None, encode_to=None, **kwargs):
         personspread= personspread or \
             config.get("sync", "person_spread", allow_none=True)
-        request= getPersonsRequest()
+        request= spinews_services.getPersonsRequest()
         request._personspread= personspread
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        try: 
-            response= port.get_persons(request)
-        except FaultException, e:
-            log.error("get_persons: %s", e.fault.detail[0].string)
-            sys.exit(1)
+        response = self._perform_request(request, port.get_persons, **kwargs)
         return [Person(obj, encode_to=encode_to) for obj in response._person]
 
-    def get_aliases(self, incr_from=None, encode_to=None):
-        request= getAliasesRequest()
+    def get_aliases(self, incr_from=None, encode_to=None, **kwargs):
+        request= spinews_services.getAliasesRequest()
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        try:
-            response= port.get_aliases(request)
-        except FaultException, e:
-            log.error("get_accounts: %s", e.fault.detail[0].string)
-            sys.exit(1)
+        response = self._perform_request(request, port.get_aliases, **kwargs)
         return [Alias(obj, encode_to=encode_to) for obj in response._alias]
        
-    def get_homedirs(self, status, hostname, encode_to=None):
-        request= getHomedirsRequest()
+    def get_homedirs(self, status, hostname, encode_to=None, **kwargs):
+        request= spinews_services.getHomedirsRequest()
         request._status= status
         request._hostname= hostname
         port= self._get_ceresync_port()
-        try:
-            response= port.get_homedirs(request)
-        except FaultException, e:
-            log.error("get_homedirs: %s", e.fault.detail[0].string)
-            sys.exit(1)
+        response = self._perform_request(request, port.get_homedirs, **kwargs)
         return [Homedir(obj, encode_to=encode_to) for obj in response._homedir]
 
+    def _perform_request(self, request, method, test_file=None, dump_file=None):
+        """
+        test_file is the name of a file containing the xml that should be
+        injected into the ZSI framework.  This will cause ZSI to believe that
+        it received the given xml from the server.
+
+        dump_file is the name a file that should be filled with the xml
+        received from the server
+        """
+        try:
+            port = method.im_self
+
+            if test_file:
+                port.binding.data = open(test_file).read()
+                port.binding.IsSOAP = lambda: True
+
+                name = request.__class__.__name__.replace("Request_Holder", "Response")
+                response = getattr(spinews_services, name)
+                return port.binding.Receive(
+                    response.typecode)
+
+            response= method(request)
+
+            if dump_file:
+                open(dump_file, 'w').write(port.binding.data)
+
+            return response
+        except FaultException, e:
+            log.error("%s: %s", (method.__name__, e.fault.detail[0].string))
+            sys.exit(1)
+
     def set_homedir_status(self, homedir_id, status):
-        request= setHomedirStatusRequest()
+        request= spinews_services.setHomedirStatusRequest()
         request._homedir_id= homedir_id
         request._status= status
         port= self._get_ceresync_port()
