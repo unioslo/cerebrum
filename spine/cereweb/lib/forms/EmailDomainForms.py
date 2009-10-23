@@ -28,7 +28,7 @@ from lib.utils import entity_link, get_database, spine_to_web
 from lib.utils import legal_domain_chars, legal_domain_format
 
 class EmailDomainCreateForm(CreateForm):
-    action = '/email/create'
+    action = '/email/create/'
 
     Order = [
         'name',
@@ -114,7 +114,7 @@ class EmailDomainEditForm(EditForm, EmailDomainCreateForm):
 
         self.set_values(values)
 
-    action = '/email/edit'
+    action = '/email/edit/'
 
     Order = [
         'id',

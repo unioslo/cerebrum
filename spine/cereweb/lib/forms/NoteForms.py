@@ -26,7 +26,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.utils import entity_link, get_database, spine_to_web
 
 class NoteCreateForm(CreateForm):
-    action = '/note/add'
+    action = '/note/add/'
     title = _('Add Note')
     form_class = "edit box"
 
@@ -62,7 +62,7 @@ class NoteCreateForm(CreateForm):
 
 
 class NoteEditForm(EditForm, NoteCreateForm):
-    action = '/note/edit'
+    action = '/note/edit/'
     title = _('Edit Note')
     form_class = "edit box"
 

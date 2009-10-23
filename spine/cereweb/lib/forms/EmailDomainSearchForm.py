@@ -25,8 +25,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 
 class EmailDomainSearchForm(SearchForm):
     title = _("Email domain search")
-    action = '/email/search'
-    method = 'GET'
+    action = '/email/search/'
 
     Order = [
         'name',

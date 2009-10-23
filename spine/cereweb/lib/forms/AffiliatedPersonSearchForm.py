@@ -31,8 +31,7 @@ class AffiliatedPersonSearchForm(SearchForm):
         self.dao = ConstantsDAO(db)
 
     title = _('Search for Affiliated Person')
-    action = '/ou/perform_search'
-    method = 'GET'
+    action = '/ou/perform_search/'
 
     Order = [
         'ou_id',

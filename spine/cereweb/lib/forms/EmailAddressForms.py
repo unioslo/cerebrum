@@ -28,7 +28,7 @@ from lib.utils import entity_link, get_database, spine_to_web
 from lib.utils import legal_date, legal_emailname
 
 class EmailAddressCreateForm(CreateForm):
-    action = '/emailaddress/create'
+    action = '/emailaddress/create/'
     title = _('Add a new email address')
     form_class = "info box"
 
@@ -102,7 +102,7 @@ class EmailAddressCreateForm(CreateForm):
         return self.is_postback()
 
 class EmailAddressEditForm(EditForm, EmailAddressCreateForm):
-    action = '/emailaddress/edit'
+    action = '/emailaddress/edit/'
     form_class = "info box"
     title = _("Edit email address")
 

@@ -27,7 +27,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.utils import randpasswd, entity_link, get_database
 
 class AccountCreateForm(Form):
-    action = '/account/create'
+    action = '/account/create/'
 
     Order = [
         'owner_id',

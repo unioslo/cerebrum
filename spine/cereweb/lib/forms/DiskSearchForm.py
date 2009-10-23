@@ -23,8 +23,7 @@ from lib.forms.FormBase import SearchForm
 
 class DiskSearchForm(SearchForm):
     title = _("Search for Disk")
-    action = '/search/disk'
-    method = 'GET'
+    action = '/search/disk/'
 
     Order = [
         'path',

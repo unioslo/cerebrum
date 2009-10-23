@@ -27,7 +27,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.utils import entity_link, get_database, spine_to_web
 
 class DiskCreateForm(Form):
-    action = '/disk/create'
+    action = '/disk/create/'
 
     Order = [
         'host_id',
@@ -80,7 +80,7 @@ class DiskEditForm(DiskCreateForm):
                 'description': self.disk.description,
             })
 
-    action = '/disk/edit'
+    action = '/disk/edit/'
 
     Order = [
         'id',

@@ -24,7 +24,6 @@ from lib.forms.FormBase import SearchForm
 class PersonSearchForm(SearchForm):
     title = _('Search for Person')
     action = '/search/person/'
-    method = 'GET'
 
     Order = [
         'name',

@@ -26,7 +26,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.utils import entity_link, get_database, spine_to_web
 
 class OuCreateForm(CreateForm):
-    action = '/ou/create'
+    action = '/ou/create/'
     title = _('Create a new Organizarion Unit')
 
     Order = [
@@ -119,7 +119,7 @@ class OuCreateForm(CreateForm):
     check_avdeling = _is_int
 
 class OuEditForm(EditForm, OuCreateForm):
-    action = '/ou/edit'
+    action = '/ou/edit/'
     title = _('Edit OU')
     form_class = "edit box"
 
@@ -152,7 +152,7 @@ class OuEditForm(EditForm, OuCreateForm):
             })
 
 class OuPerspectiveEditForm(EditForm):
-    action = '/ou/edit_perspectives'
+    action = '/ou/edit_perspectives/'
     title = _("Edit OU Perspectives")
     form_class = "edit box"
 

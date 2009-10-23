@@ -25,7 +25,7 @@ from lib.data.HostDAO import HostDAO
 from lib.utils import entity_link, get_database, spine_to_web
 
 class HostCreateForm(Form):
-    action = '/host/create'
+    action = '/host/create/'
 
     Order = [
         'name',
@@ -62,7 +62,7 @@ class HostEditForm(HostCreateForm):
                 'description': self.host.description,
             })
 
-    action = '/host/edit'
+    action = '/host/edit/'
 
     Order = [
         'id',

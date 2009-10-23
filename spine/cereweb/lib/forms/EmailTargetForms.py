@@ -27,7 +27,7 @@ from lib.data.HostDAO import HostDAO
 from lib.utils import entity_link, get_database, spine_to_web
 
 class EmailTargetCreateForm(CreateForm):
-    action = '/emailtarget/create'
+    action = '/emailtarget/create/'
     title = _('Create a new email target')
     form_class = "edit box"
 
@@ -66,7 +66,7 @@ class EmailTargetCreateForm(CreateForm):
         return self.is_postback()
 
 class EmailTargetEditForm(EditForm, EmailTargetCreateForm):
-    action = '/emailtarget/edit'
+    action = '/emailtarget/edit/'
 
     Order = [
         'id',

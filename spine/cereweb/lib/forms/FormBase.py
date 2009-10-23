@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import sys
 from gettext import gettext as _
 import cgi
 from lib.utils import legal_date
@@ -30,7 +31,7 @@ Helper-module for search-pages and search-result-pages in cereweb.
 """
 
 class Form(object):
-    action = '/index'
+    action = '/index/'
     method = 'POST'
     title = 'No Title'
     help = []
@@ -194,7 +195,11 @@ class Form(object):
         return False
 
     def get_action(self):
-        return getattr(self, 'action')
+        action = getattr(self, 'action')
+        if not action.endswith("/"):
+            msg = "WARNING: %s form action does not end with /, which can cause post data to get lost."
+            print >> sys.stderr, msg % str(self)
+        return action
 
     def get_method(self):
         return getattr(self, 'method')
@@ -238,6 +243,7 @@ class SearchForm(Form):
     form_class = "view"
     submit_value = _("Search")
     reset_value = _("Clear")
+    method = "GET"
 
 class CreateForm(Form):
     form_class = "info box"

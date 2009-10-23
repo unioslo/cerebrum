@@ -23,8 +23,7 @@ from lib.forms.FormBase import SearchForm
 
 class HostSearchForm(SearchForm):
     title = _("Search for Host")
-    action = '/search/host'
-    method = 'GET'
+    action = '/search/host/'
 
     Order = [
         'name',
