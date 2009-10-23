@@ -34,11 +34,11 @@ from Cerebrum.modules.abcenterprise.ABCXmlParsers import XMLOU2Object
 from Cerebrum.modules.abcenterprise.ABCXmlParsers import XMLPerson2Object
 
 
-from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsMixin import DataPersonMixin
-from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsMixin import DataOUMixin
+from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsExt import DataPersonExt
+from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsExt import DataOUExt
 
 
-class XMLOrg2ObjectMixIn(XMLOrg2Object):
+class XMLOrg2ObjectExt(XMLOrg2Object):
     """A converter class that maps ElementTree's Element to DataOU.
     An Organization is represented as an OU."""
 
@@ -59,7 +59,7 @@ class XMLOrg2ObjectMixIn(XMLOrg2Object):
         # This call with propagate StopIteration when all the (XML) elements
         # are exhausted.
         element = super(XMLOrg2Object, self).next()
-        result = DataOUMixin()
+        result = DataOUExt()
         
         # Iterate over *all* subelements
         for sub in element:
@@ -111,12 +111,12 @@ class XMLOrg2ObjectMixIn(XMLOrg2Object):
         return result
 
 
-class XMLOU2ObjectMixIn(XMLOU2Object):
+class XMLOU2ObjectExt(XMLOU2Object):
     """A converter class that maps ElementTree's Element to DataOU."""
 
     def __init__(self, xmliter):
         """Constructs an iterator supplying DataPerson objects."""
-        super(XMLOU2ObjectMixIn, self).__init__(xmliter)
+        super(XMLOU2ObjectExt, self).__init__(xmliter)
 
     def next(self):
         """Return the next DataOU object. Returns a ABCTypesError
@@ -130,7 +130,7 @@ class XMLOU2ObjectMixIn(XMLOU2Object):
         # This call with propagate StopIteration when all the (XML) elements
         # are exhausted.
         element = super(XMLOU2Object, self).next()
-        result = DataOUMixin()
+        result = DataOUExt()
        
         # Iterate over *all* subelements
         for sub in element.getiterator():
@@ -192,13 +192,13 @@ class XMLOU2ObjectMixIn(XMLOU2Object):
         return result
     
 
-class XMLPerson2ObjectMixIn(XMLPerson2Object):
+class XMLPerson2ObjectExt(XMLPerson2Object):
     """A converter class that maps ElementTree's Element to DataPerson."""
 
     def __init__(self, xmliter):
         """Constructs an iterator supplying DataPerson objects."""
 
-        super(XMLPerson2ObjectMixIn, self).__init__(xmliter)
+        super(XMLPerson2ObjectExt, self).__init__(xmliter)
 
 
     def next(self):
@@ -213,7 +213,7 @@ class XMLPerson2ObjectMixIn(XMLPerson2Object):
         # This call with propagate StopIteration when all the (XML) elements
         # are exhausted.
         element = super(XMLPerson2Object, self).next()
-        result = DataPersonMixin()
+        result = DataPersonExt()
         
         # Iterate over *all* subelements
         for sub in element.getiterator():

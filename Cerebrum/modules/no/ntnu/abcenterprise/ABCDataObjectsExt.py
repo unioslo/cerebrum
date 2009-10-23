@@ -7,9 +7,9 @@ import abcconf
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataOU
 from Cerebrum.modules.abcenterprise.ABCDataObjects import DataPerson
 
-class DataOUMixin(DataOU):
+class DataOUExt(DataOU):
     def __init__(self):
-        super(DataOUMixin, self).__init__()
+        super(DataOUExt, self).__init__()
         self.replacedby = None
         self.stedkodes = []
 
@@ -20,12 +20,12 @@ class DataOUMixin(DataOU):
                 kodes = kode
             else:
                 kodes += ", " + kode
-        result = "%s DataOUMixin: \n\treplacedby: %s\n\tStedkoder: %s\n" % (super(DataOUMixin, self).__str__(), self.replacedby, kodes)
+        result = "%s DataOUExt: \n\treplacedby: %s\n\tStedkoder: %s\n" % (super(DataOUExt, self).__str__(), self.replacedby, kodes)
         return result
 
-class DataPersonMixin(DataPerson):
+class DataPersonExt(DataPerson):
     def __init__(self):
-        super(DataPersonMixin, self).__init__()
+        super(DataPersonExt, self).__init__()
         self.fnr_closed = []
         self.reserv_publish = None
 
@@ -36,8 +36,8 @@ class DataPersonMixin(DataPerson):
                 old_fnr = old
             else:
                 old_fnr += ", " + old
-        result = ("%sDataPersonMixin: \n" +
+        result = ("%sDataPersonExt: \n" +
                     "\tprivacy: %s Old fnr: %s" %
-                    (super(DataPersonMixin, self).__str__(),
+                    (super(DataPersonExt, self).__str__(),
                     self.reserv_publish, old_fnr))
         return result

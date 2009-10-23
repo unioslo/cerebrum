@@ -30,9 +30,9 @@ from Cerebrum.modules.abcenterprise.Object2Cerebrum import Object2Cerebrum
 from Cerebrum.modules.abcenterprise.Object2Cerebrum import ABCMultipleEntitiesExistsError
 from Cerebrum.modules.abcenterprise.Object2Cerebrum import ABCErrorInData
 
-from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsMixin import DataPersonMixin
+from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsExt import DataPersonExt
 
-class Object2CerebrumMixIn(Object2Cerebrum):
+class Object2CerebrumExt(Object2Cerebrum):
 
     __metaclass__ = auto_super
 
@@ -190,7 +190,7 @@ class Object2CerebrumMixIn(Object2Cerebrum):
                 ## loop thru old NINs
                 for closed_fnr in person.fnr_closed:
                     ## use only the old NIN for search.
-                    copy_person = DataPersonMixin()
+                    copy_person = DataPersonExt()
                     copy_person._ids[self.co.externalid_fodselsnr] = closed_fnr
                     entity_id = self._check_entity(self._person, copy_person)
                     if entity_id:
