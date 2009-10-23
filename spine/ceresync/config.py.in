@@ -184,7 +184,7 @@ def _toggle_once(parser, dest, value, options):
         raise optparse.OptionValueError("Only one of %s options should be provided" % options)
     setattr(parser.values, dest, value)
 
-def make_bulk_options():
+def make_bulk_options(include_test=False):
     """Return a list of bulk-related boolean options, for use in make_option()
 
     Only one option affecting incremental will be allowed, the others may be
@@ -199,7 +199,7 @@ def make_bulk_options():
 
     """
 
-    return [
+    options = [
         make_option("-i", "--incremental", action="callback", dest="incremental", default=None,
                      callback=lambda o,lo,v,p: _toggle_once(p, "incremental", True, "--bulk or --incremental"),
                      help="incremental synchronization. " \
@@ -225,6 +225,14 @@ def make_bulk_options():
                             help="do not delete accounts"),
     ]
 
+    if include_test:
+        options.append(make_option(
+            "--test",
+            action="store_true",
+            default=False,
+            dest="test",
+            help="run against the test-backend instead of the real-backend."))
+    return options
 
 # Creates an option for parse_args, inherits doc from optparse
 def make_option(*opts, **attrs):

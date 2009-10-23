@@ -29,8 +29,7 @@ import socket
 
 log=config.logger
 
-last_change_file = config.get("sync","last_change", "") or \
-             "/var/lib/cerebrum/sync.last_change"
+last_change_file = config.get("sync","last_change", "/var/lib/cerebrum/sync.last_change")
 
 def load_changelog_id():
     local_id = 0
@@ -63,20 +62,17 @@ def set_encoding_options(options):
     options['encode_to'] = 'utf-8'
 
 def main():
-    bulk_options = config.make_bulk_options()
-    bulk_options.append(config.make_option(
-        "--test",
-        action="store_true",
-        default=True,
-        dest="test",
-        help="run against the test-backend in stead of the adsi-backend."))
-    config.parse_args(bulk_options)
+    config.parse_args(config.make_bulk_options(include_test=True))
 
-    incr= config.getboolean('args','incremental')
+    incr= config.getboolean('args','incremental', allow_none=True)
     add= config.getboolean('args','add')
     update= config.getboolean('args','update')
     delete= config.getboolean('args','delete')
     test= config.getboolean('args', 'test')
+
+    if incr is None:
+        log.error("Invalid arguments. You must provide either the --bulk or the --incremental option")
+        exit(1)
 
     log.debug("Setting up CereWS connection")
     try:
