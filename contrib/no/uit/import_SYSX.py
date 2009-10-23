@@ -196,8 +196,7 @@ def create_sysx_person(sxp):
         person=pers_sysx
 
     # person object located, populate...
-    person.populate(db.Date(year,mon,day),gender)
-     
+    person.populate(mx.DateTime.Date(year, mon, day),gender)
     person.affect_names(co.system_x,co.name_first,co.name_last,co.name_full)
     person.populate_name(co.name_first,fornavn)
     person.populate_name(co.name_last,etternavn) 
