@@ -268,7 +268,9 @@ class Sync(object):
             log.error("get_changelogid: %s", e.fault.detail[0].string)
             sys.exit(1)
 
-    def get_accounts(self, accountspread=None, auth_type=None, incr_from=None, encode_to=None, **kwargs):
+    def get_accounts(self, accountspread=None, auth_type=None, incr_from=None,
+                     encode_to=None, account_xml_in=None, account_xml_out=None,
+                     **kwargs):
         """
         encode_to is a valid string encoding that the unicode attributes we get
         from ZSI will be encoded to.  If it's None the attributes remain
@@ -290,10 +292,14 @@ class Sync(object):
         request._auth_type= auth_type
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        response = self._perform_request(request, port.get_accounts, **kwargs)
+        response = self._perform_request(request, port.get_accounts,
+                                         load_file=account_xml_in,
+                                         save_file=account_xml_out)
         return [Account(obj, encode_to=encode_to) for obj in response._account]
 
-    def get_groups(self, accountspread=None, groupspread=None, incr_from=None, encode_to=None, **kwargs):
+    def get_groups(self, accountspread=None, groupspread=None, incr_from=None,
+                   encode_to=None, group_xml_in=None, group_xml_out=None,
+                   **kwargs):
         try: 
             accountspread= accountspread or config.get("sync","account_spread")
         except ConfigParser.Error, e:
@@ -309,55 +315,69 @@ class Sync(object):
         request._groupspread= groupspread
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        response = self._perform_request(request, port.get_groups, **kwargs)
+        response = self._perform_request(request, port.get_groups,
+                                         load_file=group_xml_in,
+                                         save_file=group_xml_out)
         return [Group(obj, encode_to=encode_to) for obj in response._group]
 
-    def get_ous(self, incr_from=None, encode_to=None, **kwargs):
+    def get_ous(self, incr_from=None, encode_to=None,
+                ou_xml_in=None, ou_xml_out=None, **kwargs):
         request= spinews_services.getOUsRequest()
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        response = self._perform_request(request, port.get_ous, **kwargs)
+        response = self._perform_request(request, port.get_ous,
+                                         load_file=ou_xml_in,
+                                         save_file=ou_xml_out)
         return [Ou(obj, encode_to=encode_to) for obj in response._ou]
 
-    def get_persons(self, personspread=None, incr_from=None, encode_to=None, **kwargs):
+    def get_persons(self, personspread=None, incr_from=None, encode_to=None,
+                    person_xml_in=None, person_xml_out=None, **kwargs):
         personspread= personspread or \
             config.get("sync", "person_spread", allow_none=True)
         request= spinews_services.getPersonsRequest()
         request._personspread= personspread
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        response = self._perform_request(request, port.get_persons, **kwargs)
+        response = self._perform_request(request, port.get_persons,
+                                         load_file=person_xml_in,
+                                         save_file=person_xml_out)
         return [Person(obj, encode_to=encode_to) for obj in response._person]
 
-    def get_aliases(self, incr_from=None, encode_to=None, **kwargs):
+    def get_aliases(self, incr_from=None, encode_to=None,
+                    alias_xml_in=None, alias_xml_out=None, **kwargs):
         request= spinews_services.getAliasesRequest()
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
-        response = self._perform_request(request, port.get_aliases, **kwargs)
+        response = self._perform_request(request, port.get_aliases,
+                                         load_file=alias_xml_in,
+                                         save_file=alias_xml_out)
         return [Alias(obj, encode_to=encode_to) for obj in response._alias]
        
-    def get_homedirs(self, status, hostname, encode_to=None, **kwargs):
+    def get_homedirs(self, status, hostname, encode_to=None,
+                     homedir_xml_in=None, homedir_xml_out=None, **kwargs):
         request= spinews_services.getHomedirsRequest()
         request._status= status
         request._hostname= hostname
         port= self._get_ceresync_port()
-        response = self._perform_request(request, port.get_homedirs, **kwargs)
+        response = self._perform_request(request, port.get_homedirs,
+                                         load_file=homedir_xml_in,
+                                         save_file=homedir_xml_out)
         return [Homedir(obj, encode_to=encode_to) for obj in response._homedir]
 
-    def _perform_request(self, request, method, test_file=None, dump_file=None):
+    def _perform_request(self, request, method, load_file=None, save_file=None):
         """
-        test_file is the name of a file containing the xml that should be
+        load_file is the name of a file containing the xml that should be
         injected into the ZSI framework.  This will cause ZSI to believe that
         it received the given xml from the server.
 
-        dump_file is the name a file that should be filled with the xml
+        save_file is the name a file that should be filled with the xml
         received from the server
         """
         try:
             port = method.im_self
 
-            if test_file:
-                port.binding.data = open(test_file).read()
+            if load_file:
+                port.binding.data = open(load_file).read()
                 port.binding.IsSOAP = lambda: True
 
                 name = request.__class__.__name__.replace("Request_Holder", "Response")
@@ -367,8 +387,8 @@ class Sync(object):
 
             response= method(request)
 
-            if dump_file:
-                open(dump_file, 'w').write(port.binding.data)
+            if save_file:
+                open(save_file, 'w').write(port.binding.data)
 
             return response
         except FaultException, e:
