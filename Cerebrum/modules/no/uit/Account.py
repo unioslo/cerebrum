@@ -276,7 +276,7 @@ class AccountUiTMixin(Account.Account):
                     raise Errors.ProgrammingError("Person %s already has account %s in BAS!" %(fnr,new_ac.account_name))
                 else:
                     #and used by another person!
-                    raise Errors.IntegretyError("Legacy account %s not owned by person %s in BAS!" (legacy_username,fnr))
+                    raise Errors.IntegrityError("Legacy account %s not owned by person %s in BAS!" (legacy_username,fnr))
              
         if create_new:
             # getting here implies that  person does not have a previous account in BAS

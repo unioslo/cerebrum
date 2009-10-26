@@ -28,12 +28,12 @@ class MailQ(object):
     ERR = 1
 
 
-    def __init__(self, db, logger=None):
+    def __init__(self, db, logger_name=None):
         self.db = db
-        if logger == None:
-            self.logger = Factory.get_logger("cronjob")
+        if True or logger_name is None:
+            self._logger = Factory.get_logger("cronjob")
         else:
-            self.logger = logger
+            self._logger = Factory.get_logger(logger_name)
 
 
 
@@ -84,17 +84,17 @@ class MailQ(object):
             res = self.db.query_1(sel_query, sel_binds)
             if scheduled < mx.DateTime.DateFrom(res):
                 res = self.db.execute(upd_sql, upd_val)
-                self.logger.info("Updated message in mailq")
+                self._logger.info("Updated message in mailq")
                 return True
             else:
-                self.logger.info("Template %s is already scheduled at %s for entity %s" % (template, res, entity_id))
+                self._logger.info("Template %s is already scheduled at %s for entity %s" % (template, res, entity_id))
                 return True
         except Errors.NotFoundError:
             res = self.db.execute(add_sql, add_val)
-            self.logger.info("Added message to mailq")
+            self._logger.info("Added message to mailq")
             return True
         except Errors.DatabaseException, e:
-            self.logger.error("Adding message to mailq failed: %s" % e)
+            self._logger.error("Adding message to mailq failed: %s" % e)
             return False
         
 
@@ -115,10 +115,10 @@ class MailQ(object):
 
         try:
             self.db.execute(sql, val)
-            self.logger.info("Deleted message from mailq")
+            self._logger.info("Deleted message from mailq")
             return True
         except Errors.DatabaseException, e:
-            self.logger.error("Deleting message from mailq failed %s" % e)
+            self._logger.error("Deleting message from mailq failed %s" % e)
             return False
 
 
@@ -139,7 +139,7 @@ class MailQ(object):
                 set_sql.append("status=:status")
                 set_val['status'] = status
             else:
-                self.logger.error("Illegal status (%s) given for mailq update for entity_id %s with template %s" % (status, entity_id, template))
+                self._logger.error("Illegal status (%s) given for mailq update for entity_id %s with template %s" % (status, entity_id, template))
                 return False
 
         if len(set_sql) > 0:
@@ -156,14 +156,14 @@ class MailQ(object):
 
             try:
                 self.db.execute(sql, val)
-                self.logger.info("Updated message in mailq")
+                self._logger.info("Updated message in mailq")
                 return True
             except Errors.DatabaseException, e:
-                self.logger.error("Updating message in mailq failed: %s" % e)
+                self._logger.error("Updating message in mailq failed: %s" % e)
                 return False
 
         else:
-            self.logger.error("Update with no content attempted for entity_id %s on template %s. Update ignored." % (entity_id, template))
+            self._logger.error("Update with no content attempted for entity_id %s on template %s. Update ignored." % (entity_id, template))
             return False
 
 
@@ -186,7 +186,7 @@ class MailQ(object):
                 where_sql.append("status=:status")
                 where_val['status'] = status
             else:
-                self.logger.error("Illegal status (%s) given for mailq search" % (status))
+                self._logger.error("Illegal status (%s) given for mailq search" % (status))
                 return False
         if status_time is not None:
             where_sql.append("status_time<=:status_time")
@@ -210,7 +210,7 @@ class MailQ(object):
             res = self.db.query(sql, where_val)
             return res
         except Errors.DatabaseException, e:
-            self.logger.error("Searching mailq failed: %s" % e)
+            self._logger.error("Searching mailq failed: %s" % e)
             raise Errors.DatabaseException, e
 
 
@@ -251,18 +251,18 @@ class MailQ(object):
                     try:
                         en.find(current_entity_id)
                     except Exception, e:
-                        self.logger.error("Error retrieving information on entity with entity_id %s" % (current_entity_id))
+                        self._logger.error("Error retrieving information on entity with entity_id %s" % (current_entity_id))
                         continue
 
                     if en.const.EntityType(en.entity_type) not in valid_entity_types:
-                        self.logger.error("Invalid entity_type (%s) placed in mailq. entity_id: %s" % (str(en.const.EntityType(en.entity_type)), current_entity_id))
+                        self._logger.error("Invalid entity_type (%s) placed in mailq. entity_id: %s" % (str(en.const.EntityType(en.entity_type)), current_entity_id))
                         continue
 
                     ac.clear()
                     try:
                         ac.find(current_entity_id)
                     except Exception, e:
-                        self.logger.error("Error retrieving information on account with entity_id %s" % (current_entity_id))
+                        self._logger.error("Error retrieving information on account with entity_id %s" % (current_entity_id))
                         continue
 
 
@@ -270,12 +270,12 @@ class MailQ(object):
                         recipient = ac.get_primary_mailaddress()
                     except Exception, e:
                         self.delete(current_entity_id)
-                        self.logger.error("Error retrieving primary e-mailaddress for entity_id %s. Removing from queue!" % (current_entity_id))
+                        self._logger.error("Error retrieving primary e-mailaddress for entity_id %s. Removing from queue!" % (current_entity_id))
                         
                         continue
 
                 except Exception, e:
-                    self.logger.error("Failed on entity_id: %s" % (current_entity_id))
+                    self._logger.error("Failed on entity_id: %s" % (current_entity_id))
                     continue
 
                 # Aggregating pending sub-templates into a message body in scheduling order because of order by clause in search function
@@ -289,7 +289,7 @@ class MailQ(object):
                             substitute['epost'] = recipient
                             substitute.update(pickle.loads(msg['parameters']))
 
-                            self.logger.info("Preparing sub-template %s for user %s (%s)" % (msg['template'], ac.account_name, msg['entity_id']))
+                            self._logger.info("Preparing sub-template %s for user %s (%s)" % (msg['template'], ac.account_name, msg['entity_id']))
 
                             template = template_path + msg['template']
                             sub_message = {}
@@ -311,7 +311,7 @@ class MailQ(object):
                             self.delete(msg['entity_id'], msg['template'])
 
                         except Exception, e:
-                            self.logger.error("Error processing sub-template. entity_id: %s template: %s error: %s" % (msg['entity_id'],
+                            self._logger.error("Error processing sub-template. entity_id: %s template: %s error: %s" % (msg['entity_id'],
                                                                                                                msg['template'],
                                                                                                                e))
                             # Update status to error
@@ -320,7 +320,7 @@ class MailQ(object):
 
                 # Send aggregated mail
                 if not empty_mail:
-                    self.logger.info("Sending template %s to user %s (%s)" % (master_template, ac.account_name, current_entity_id))
+                    self._logger.info("Sending template %s to user %s (%s)" % (master_template, ac.account_name, current_entity_id))
 
                     substitute = {'brukernavn': ac.account_name, 'epost': recipient}
                     for lang in languages:
@@ -335,4 +335,4 @@ class MailQ(object):
                                                     debug=debug)
 
                     if (dryrun):
-                        self.logger.info(debug_msg)
+                        self._logger.info(debug_msg)

@@ -48,7 +48,7 @@ class UitEntitySpreadMixin(EntitySpread):
     def __init__(self, database):
         super(UitEntitySpreadMixin, self).__init__(database)
         self.db = database
-        self.mailq = MailQ(database, self.logger)
+        self.mailq = MailQ(database)
 
     def delete(self):
         """Delete an entity's spreads."""

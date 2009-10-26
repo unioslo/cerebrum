@@ -246,7 +246,7 @@ class ITRole(object):
             return accounts[0]['name']
         else:
             logger.error("TOO MANY ACCOUNTS FOUND for with spread_uit_ad_lit_admin for %s!" % (person_id))
-            raise Errors.IntegretyError
+            raise Errors.IntegrityError
 
 
     def translate2admins(self,accountList):
