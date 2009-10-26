@@ -22,19 +22,17 @@
 #
 import sys
 from ceresync import syncws as sync
-from ceresync.backend.file import SambaFile,PasswdFileCryptHash
-
 from ceresync import config
 import omniORB # for the exceptions
 
 log = config.logger
 
 def main():
-    config.parse_args()
+    sync_options = {}
+    config.parse_args(config.make_testing_options())
+    config.set_testing_options(sync_options)
 
     log.debug("spread is: %s" , config.get("sync","account_spread"))
-
-    incr = False
 
     acclist = []
     grouplist = []
@@ -58,12 +56,17 @@ def main():
         log.error("IOError, shutting down. Error: %s", e)
         sys.exit(255)
 
+    if config.getboolean('args', 'use_test_backend'):
+        from ceresync.backend.test import Samba, PasswdWithHash
+    else:
+        from ceresync.backend.file import Samba, PasswdWithHash
+
     log.debug("Done creating sync object")
 
     log.info("Fetching hashes for all accounts")
 
     for hashtype in hashtypes:
-        for acc in s.get_accounts(auth_type=hashtype):
+        for acc in s.get_accounts(auth_type=hashtype, **sync_options):
             if acc.passwd == None or acc.passwd == '':
                 log.warning("account %s mangler passordtype %s", 
                                acc.name, hashtype)
@@ -76,11 +79,11 @@ def main():
 
     log.debug("Parsing and creating files")
 
-    smbfile = SambaFile( config.get("file","smbpasswd" ) )
-    smbfile.begin(incr, unicode=True)
+    smbfile = Samba()
+    smbfile.begin(unicode=True)
 
-    accounts = PasswdFileCryptHash(filename=config.get("file","passwd") )
-    accounts.begin(incr, unicode=True)
+    accounts = PasswdWithHash()
+    accounts.begin(unicode=True)
 
     for account in acclist:
         if len(account.quarantines) > 0:

@@ -311,6 +311,12 @@ def Account():
 def Alias():
     return AliasFile(filename=config.get("file", "aliases"))
 
+def PasswdWithHash():
+    return PasswdFileCryptHash(filename=config.get("file","passwd"))
+
+def Samba():
+    return SambaFile(filename=config.get("file","smbpasswd"))
+
 
 # When using the file backend the user will want to save the id of the
 # last recorded update to a file. (But will the users of other backends

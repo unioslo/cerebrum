@@ -55,5 +55,8 @@ class Group(StdoutFile, filebackend.GroupFile):
 class Alias(StdoutFile, filebackend.AliasFile):
     pass
 
+class PasswdWithHash(StdoutFile, filebackend.PasswdFileCryptHash):
+    pass
+
 class Samba(StdoutFile, filebackend.SambaFile):
     pass
