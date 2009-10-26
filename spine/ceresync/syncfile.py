@@ -19,10 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import re
+import sys
+
 from ceresync import syncws as sync
 from ceresync import config
-import re
-from sys import exit
 
 log = config.logger
 
@@ -58,10 +59,10 @@ def main():
         s = sync.Sync()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
-        exit(1)
+        sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
-        exit(1)
+        sys.exit(1)
 
     if config.getboolean('args', 'use_test_backend'):
         import ceresync.backend.test as filebackend
