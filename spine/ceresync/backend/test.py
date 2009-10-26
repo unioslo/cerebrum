@@ -26,6 +26,7 @@ import ceresync.backend.file as filebackend
 class StdoutFile(filebackend.CLFileBack):
     def begin(self, incr=False, unicode=False, *args, **kwargs):
         self.f = sys.stdout
+        self.unicode = unicode
 
     def close(self):
         pass
