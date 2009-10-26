@@ -42,6 +42,27 @@ class EmailTargetDAO(EntityDAO):
             server_id=host_id)
         target.write_db()
 
+    def save(self, target_id, entity_id, target_type, alias):
+        target = self._find(target_id)
+        if not self.auth.can_edit_email_target(self.db.change_by, target):
+            raise PermissionDenied("Not authorized to edit email target")
+
+        if target.email_target_entity_id != entity_id:
+            from lib.data.EntityFactory import EntityFactory
+            dao = EntityFactory(self.db).get_dao_by_entity_id(entity_id)
+            entity = dao.get_entity(entity_id)
+
+            target.email_target_entity_id = entity_id
+            target.email_target_entity_type = entity.type_id
+
+            target.email_target_using_uid = None
+            if entity.type_name == 'account' and dao.is_posix(entity_id):
+                target.email_target_using_uid = entity_id
+
+        target.email_target_type = target_type
+        target.email_target_alias = alias or None
+        target.write_db()
+
     def delete(self, target_id):
         target = self._find(target_id)
 

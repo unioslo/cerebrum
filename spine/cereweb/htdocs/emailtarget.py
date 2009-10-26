@@ -60,15 +60,17 @@ def create(*args, **kwargs):
     return form.respond()
 create.exposed = True
 
-def save(id, entity_id, target_type):
+def save(id, entity, target_type, alias):
     """Saves the information for the host."""
     db = get_database()
     dao = EmailTargetDAO(db)
+    dao.save(int(id), int(entity), int(target_type), alias)
+    db.commit()
 
     queue_message(
-        _("Emailtarget not updated, save not implemented."),
-        title=_("Change failed"))
-    redirect_entity(emailtarget)
+        _("Email target saved."),
+        title=_("Change succeeded"))
+    redirect_entity(id)
 
 def make(entity_id, target_type, host_id):
     db = get_database()
