@@ -58,20 +58,12 @@ def set_incremental_options(options, incr, server_id):
 
     options['incr_from'] = local_id
 
-def set_testing_options(options, config):
-    args = ('account_xml_in', 'account_xml_out', 'group_xml_in',
-            'group_xml_out', 'ou_xml_in', 'ou_xml_out',
-            'person_xml_in', 'person_xml_out', 'alias_xml_in',
-            'alias_xml_out', 'homedir_xml_in', 'homedir_xml_out')
-
-    for arg in args:
-        options[arg] = config.get('args', arg, allow_none=True)
-
 def set_encoding_options(options, config):
     options['encode_to'] = 'utf-8'
 
 def main():
-    config.parse_args(config.make_bulk_options(include_testing_options=True))
+    options = config.make_bulk_options() + config.make_testing_options()
+    config.parse_args(options)
 
     incr= config.getboolean('args','incremental', allow_none=True)
     add= config.getboolean('args','add')
@@ -98,7 +90,7 @@ def main():
 
     sync_options = {}
     set_incremental_options(sync_options, incr, server_id)
-    set_testing_options(sync_options, config)
+    config.set_testing_options(sync_options)
     set_encoding_options(sync_options, config)
 
     try:

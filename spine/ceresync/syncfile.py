@@ -20,7 +20,6 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from ceresync import syncws as sync
-import ceresync.backend.file as filebackend
 from ceresync import config
 import re
 from sys import exit
@@ -51,12 +50,9 @@ def check_group(group):
 
 
 def main():
-
-    # Parse command-line arguments
-    config.parse_args()
-
-    incr = False
-    id = None
+    sync_options = {}
+    config.parse_args(config.make_testing_options())
+    config.set_testing_options(sync_options)
 
     try:
         s = sync.Sync()
@@ -67,15 +63,20 @@ def main():
         log.error(str(e))
         exit(1)
 
+    if config.getboolean('args', 'use_test_backend'):
+        import ceresync.backend.test as filebackend
+    else:
+        import ceresync.backend.file as filebackend
+
     accounts = filebackend.Account()
     groups = filebackend.Group()
     primary_group = {}
 
     log.debug("Syncronizing accounts")
-    accounts.begin(incr, unicode=True)
+    accounts.begin(unicode=True)
     try:
-        for account in s.get_accounts(incr_from=id):
-            log.debug("Processing account '%s'",account.name)
+        for account in s.get_accounts(**sync_options):
+            log.debug("Processing account '%s'", account.name)
             primary_group[account.name]=account.primary_group
             fail = check_account(account)
             if not fail: 
@@ -89,9 +90,9 @@ def main():
         accounts.close()
 
     log.debug("Syncronizing groups")
-    groups.begin(incr, unicode=True)
+    groups.begin(unicode=True)
     try:
-        for group in s.get_groups(incr_from=id):
+        for group in s.get_groups(**sync_options):
             fail = check_group(group)
             group.members = [m for m in group.members
                              if (primary_group.get(m) is not None and
