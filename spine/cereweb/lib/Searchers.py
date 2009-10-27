@@ -155,7 +155,7 @@ class Searcher(object):
         if not self.SearchForm:
             return None
 
-        return self.get_form().respond()
+        return self.form.respond()
 
     def respond(self):
         if not self.is_valid():

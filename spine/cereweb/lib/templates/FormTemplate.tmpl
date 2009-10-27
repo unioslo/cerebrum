@@ -20,6 +20,8 @@
 #from lib.Main import Main
 #extends Main
 
+#from lib.utils import html_quote
+
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
@@ -96,12 +98,12 @@
 #end def
 
 #def render_hidden($field, $cls)
-    <input class="$cls" type="hidden" name="$field['name']" id="$field['name']" value="$field['value']" />
+    <input class="$cls" type="hidden" name="$field['name']" id="$field['name']" value="$html_quote($field['value'])" />
 #end def
 
 #def render_checkbox($field, $cls)
     <label for="$field['name']">$field['label']:</label>
-    <input type="checkbox" name="$field['name']" id="$field['name']" value="$field['value']" />
+    <input type="checkbox" name="$field['name']" id="$field['name']" value="$html_quote($field['value'])" />
 #end def
 
 #def render_radio($field, $cls)
@@ -138,7 +140,7 @@
 
 #def render_text($field, $cls)
     <label for="$field['name']">$field['label']:</label>
-    <input class="$cls" type="$field['type']" value="$field['value']" name="$field['name']" id="$field['name']" />
+    <input class="$cls" type="$field['type']" value="$html_quote($field['value'])" name="$field['name']" id="$field['name']" />
 #end def
 
 #def render_textarea($field, $cls)
