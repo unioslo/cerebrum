@@ -359,7 +359,7 @@ def perform_synchronization(services):
 
         try:
             db = Database.connect(user = user, service = service,
-                                  DB_driver = "Oracle")
+                                  DB_driver = cereconf.DB_DRIVER_ORACLE)
             if db_charset:
                 obj = klass(db, db_charset)
             else:
