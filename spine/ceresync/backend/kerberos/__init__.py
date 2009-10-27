@@ -252,11 +252,13 @@ class HeimdalTestCase(unittest.TestCase):
         self.account.begin(incr=True)
         self.account.add(user)
         self.account.delete(user)
+        self.account.delete(user)
+        principal= "%s@%s" % (user.name, self.account.k.realm)
 
-        self.assertRaises(heimdal_error.KADM5_UNK_PRINC,
-                self.account.delete,
-                user)
-        
+        self.assertRaises(heimdal_error.KADM5_UNK_PRINC, 
+                self.account.k.GetPrincipal,
+                principal) 
+
         self.account.close()
 
     def testSetPassword(self):
