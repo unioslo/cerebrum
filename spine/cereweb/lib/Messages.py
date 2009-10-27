@@ -84,6 +84,9 @@ class Message(object):
         for k in ("title", "message"):
             data[k] = utils.html_quote(data[k])
 
+        # Message is printed in a comment and so we can't have unencoded dashes.
+        data["message"] = data["message"].replace('-', '&ndash;')
+
         return """
         <!-- RESULT: %(message)s -->
         <div%(css_class)s>
