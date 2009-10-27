@@ -729,21 +729,26 @@ class EmailTarget(Entity_class):
         WHERE server_id IS NOT NULL
         """, fetchall=False)
 
-    def list_email_targets_ext(self):
+    def list_email_targets_ext(self, target_entity_id=None):
         # NA
-        """Return an iterator over all email_target rows.
+        """Return an iterator over all email_target rows.  If target_entity_id
+        is specified, only return email_targets with the given target_entity.
 
         For each row, the following columns are included:
           target_id, target_type, target_entity_type, target_entity_id,
           alias_value, using_uid and server_id.
 
         """
+        binds = {}
+        where_str = ""
+        if not target_entity_id is None:
+            where_str = " WHERE %s" % argument_to_sql(target_entity_id, "target_entity_id", binds, int)
         return self.query("""
         SELECT target_id, target_type, target_entity_type,
                target_entity_id, alias_value, using_uid,
                server_id
-        FROM [:table schema=cerebrum name=email_target]
-        """, fetchall=False)
+        FROM [:table schema=cerebrum name=email_target]%s
+        """ % where_str, binds, fetchall=False)
     
     def list_email_target_primary_addresses(self, target_type=None):
         # conv
