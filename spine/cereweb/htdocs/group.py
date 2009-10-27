@@ -85,12 +85,16 @@ def join_group(entity_id, group_name, selected_id=None, **kwargs):
 join_group.exposed = True
 
 @session_required_decorator
-def add_member(group_id, member_name, member_type, selected_id=None, **kwargs):
+def add_member(group_id, account_member_name, group_member_name, member_type, selected_id, **kwargs):
     """Add a member to a group."""
     db = get_database()
 
-    if not selected_id:
-        selected_id = get_selected_id(member_name, member_type)
+    member_name = "[unknown]"
+    if member_type == 'account':
+        member_name = account_member_name
+    elif member_type == 'group':
+        member_name = group_member_name
+    selected_id = get_selected_id(member_name, member_type)
 
     if not selected_id:
         msg = _("Member '%s' not found") % member_name

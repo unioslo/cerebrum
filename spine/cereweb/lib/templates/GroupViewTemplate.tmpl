@@ -180,19 +180,49 @@
 #end def
 
 #def addMember()
-    #set $types = (('account', 'Account'), ('group', 'Group'))
     <div class="edit box" style="display:none;">
         <h3>$_('Add member')</h3>
         <form action="add_member" method="post">
             <div class="hidden">
                 <input type="hidden" name="group_id" value="$group.id" />
             </div>
-            <div class="required">
-                $form_widgets.input('member_name', 'Member name', $klass="ac_account")
+            <div id="add_account" class="required">
+                $form_widgets.input('account_member_name', $_('Add account'), $klass="ac_account")
             </div>
+            <div id="add_group" class="required">
+                $form_widgets.input('group_member_name', $_('Add group'), $klass="ac_group")
+            </div>
+            #set $types = (('account', $_('Account')), ('group', $_('Group')))
             <div class="required">
                 $form_widgets.generate_loption('member_type', 'Member type', $types, 'account')
             </div>
+            <script type="text/javascript">
+                (function() {
+                    var get = function(name) {
+                        return YD.get("add_" + name);
+                    };
+
+                    var show = function(name) {
+                        get(name).style.display = "";
+                    };
+
+                    var hide = function(name) {
+                        get(name).style.display = "none";
+                    };
+
+                    var el = YD.get("member_type");
+
+                    var update = function() {
+                        for (var i=0; i &lt; el.options.length; i++) {
+                            hide(el.options[i].value);
+                        }
+                        show(el.value);
+                    }
+
+                    update();
+                    YAHOO.util.Event.addListener("member_type", "change", update);
+                })();
+            </script>
             <div class="buttons">
                 <input type="submit" value="$_('Add member')" />&#x0020;
                 <input type="button" value="$_('Cancel')" class="cancel" />
