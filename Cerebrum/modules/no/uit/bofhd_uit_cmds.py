@@ -4182,8 +4182,9 @@ class BofhdExtension(object):
         ("Name:          %s\n" +
          "Export ID:     %s\n" +
          "Birth:         %s\n" +
+         "Deceased:      %s\n" +
          "Affiliations:  %s [from %s] (last: %s)",
-         ("name", "export_id", format_day("birth"),
+         ("name", "export_id", format_day("birth"),format_day("deceased_date"),
           "affiliation_1", "source_system_1","last_date_1")),
         ("               %s [from %s] (last: %s)",
          ("affiliation", "source_system","last_date")),
@@ -4200,6 +4201,7 @@ class BofhdExtension(object):
                                                  cereconf.DEFAULT_GECOS_NAME)),
                  'export_id': person.export_id,
                  'birth': person.birth_date,
+                 'deceased_date': person.deceased_date,
                  'entity_id': person.entity_id}]
         affiliations = []
         sources = []
