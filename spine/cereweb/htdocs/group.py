@@ -36,6 +36,7 @@ from lib.data.GroupDAO import GroupDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.EmailTargetDAO import EmailTargetDAO
+from lib.data.DTO import DTO
 from lib.data.GroupDTO import GroupDTO
 
 @session_required_decorator
@@ -107,12 +108,16 @@ add_member.exposed = True
 @session_required_decorator
 def remove_member(group_id, member_id):
     db = get_database()
-    member = EntityFactory(db).get_entity(member_id)
+    try:
+        member = EntityFactory(db).get_entity(member_id)
+    except NotFoundError, e:
+        member = DTO()
+        member.name = "[Not found]"
     GroupDAO(db).remove_member(group_id, member_id)
     db.commit()
 
     msg = _("%s removed from group.") % member.name
-    queue_message(msg, True, entity_link(member_id), title="Removed member")
+    queue_message(msg, title=_("Operation succeded"))
     redirect_entity(group_id)
 remove_member.exposed = True
 

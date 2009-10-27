@@ -215,7 +215,14 @@ class GroupDAO(EntityDAO):
     def _get_members(self, group):
         members = []
         for cerebrum_member in group.search_members(group_id=group.entity_id):
-            member = self._get_member(cerebrum_member)
+            try:
+                member = self._get_member(cerebrum_member)
+            except NotFoundError, e:
+                member = DTO()
+                member.id = cerebrum_member['member_id']
+                member.type_id = cerebrum_member['member_type']
+                member.type_name = self.constants.EntityType(member.type_id).str
+                member.name = "[NOT FOUND]"
             members.append(member)
         return members
 

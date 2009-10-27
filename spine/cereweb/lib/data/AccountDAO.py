@@ -164,6 +164,10 @@ class AccountDAO(EntityDAO):
         if self.is_posix(account_id):
             self.demote_posix(account_id)
 
+        group_dao = GroupDAO(self.db)
+        for group in group_dao.get_groups_for(account_id):
+            group_dao.remove_member(group.id, account_id)
+
         account.delete()
 
     def _create_from_search(self, result):
