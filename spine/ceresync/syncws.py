@@ -392,7 +392,7 @@ class Sync(object):
 
             return response
         except FaultException, e:
-            log.error("%s: %s", (method.__name__, e.fault.detail[0].string))
+            log.error("%s: %s", method.__name__, e.fault.detail[0].string)
             sys.exit(1)
 
     def set_homedir_status(self, homedir_id, status):
