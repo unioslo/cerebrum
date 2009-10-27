@@ -20,7 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from ceresync import errors
-from ceresync import sync
+from ceresync import syncws as sync
 import ceresync.backend.kerberos as kerberosbackend
 from ceresync import config
 import os
@@ -34,8 +34,7 @@ except:
 
 log = config.logger
 
-spine_cache = config.get('spine','last_change') or \
-              "/var/lib/cerebrum/sync.last_change"
+changelog_file = config.get('sync','changelog_file',                                                        default="/var/lib/cerebrum/lastchangelog.id")
 
 def main():
     config.parse_args(config.make_bulk_options())
@@ -50,58 +49,43 @@ def main():
         exit(1)
 
     if config.get('args', 'verbose'):
+        #FIXME: This currently doesn't make it any more verbose. It needs to
+        # set loglevel for stderr on the logging module.
         verbose = True
         kerberosbackend.verbose = True
 
-    local_id= 0
-    if os.path.isfile(spine_cache):
-        local_id= long( file(spine_cache).read() )
+    local_id= None
+    if os.path.isfile(changelog_file):
+        local_id= long( file(changelog_file).read() )
     try: 
-        log.info("Connecting to spine-server")
-        s= sync.Sync(incr,local_id)
+        s= sync.Sync()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
         exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
         exit(1)
-    except omniORB.CORBA.TRANSIENT,e:
-        log.error('Unable to connect to spine-server: %s',e)
-        exit(1)
-    except omniORB.CORBA.COMM_FAILURE,e:
-        log.error('Unable to connect to spine-server: %s',e)
-        exit(1)
-    except errors.LoginError, e:
-        log.error('%s',e)
-        exit(1)
     except:
         log.exception('Unable to connect')
         exit(1)
-    server_id= s.cmd.get_last_changelog_id()
-    log.info("Local id: %ld, server id: %s",local_id,server_id)
-    if long(local_id) > long(server_id):
-        log.warning("local changelogid is larger than the server's!")
+    server_id= s.get_changelogid()
+
+    log.info("Local id: %ld, server id: %ld",local_id or -1,server_id)
+    if local_id is not None and local_id > server_id:
+        log.warning("local changelogid is greater than the server's!")
 
     if incr and local_id == server_id:
         log.info("Nothing to be done.")
-        s.close()
         return
-
+    
     user= kerberosbackend.Account()
     user.begin(incr)
-    try:
-        all_accounts= s.get_accounts()
-        s.close()
-    except:
-        log.exception("Exception occured, aborting")
-        s.close()
-        exit(1)
-
     if incr:
         log.info("Synchronizing users (incr) to changelog_id %ld",server_id)
         try:
             processed= set([])
-            for account in all_accounts:
+            for account in s.get_accounts(incr_from=local_id, 
+                                          encode_to='utf-8'):
                 if account.posix_uid == None:
                     continue
                 if account.name not in processed:
@@ -118,12 +102,12 @@ def main():
         
         if not user.dryrun:
             log.debug("Storing changelog-id")
-            file(spine_cache, 'w').write( str(server_id) )
+            file(changelog_file, 'w').write( str(server_id) )
     else:
         log.info("Synchronizing users (bulk) to changelog_id %ld", server_id)
         log.info("Options add: %d, update: %d, delete: %d",add,update,delete)
         try:
-            for account in all_accounts:
+            for account in s.get_accounts(encode_to='utf-8'):
                 if account.posix_uid == None:
                     log.debug('no posix_uid on account: %s',account.name)
                     continue
@@ -141,7 +125,7 @@ def main():
             user.close(delete)
         # If we did a full bulk sync, we should update the changelog-id
         if add and update and delete and not user.dryrun:
-            file(spine_cache, 'w').write( str(server_id) )
+            file(changelog_file, 'w').write( str(server_id) )
     
     log.info("Synchronization completed successfully")
         

@@ -31,7 +31,7 @@ from ceresync import errors
 from ceresync import config
 import os
 import re
-from ceresync.sync import Pgp
+from ceresync.syncws import Pgp
 from sets import Set as set
 import sys
 
