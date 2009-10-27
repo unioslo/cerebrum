@@ -180,7 +180,7 @@ def view(id, **kwargs):
     page.affiliations = PersonDAO(db).get_affiliations(page.account.owner.id)
     page.shells = ConstantsDAO(db).get_shells()
     page.disks = DiskDAO(db).search()
-    page.target = EmailTargetDAO(db).get_from_entity(id)
+    page.targets = EmailTargetDAO(db).get_from_entity(id)
     page.spreads = ConstantsDAO(db).get_user_spreads()
     page.quarantines = ConstantsDAO(db).get_quarantines()
 

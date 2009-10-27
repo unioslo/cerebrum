@@ -38,12 +38,13 @@
 #attr $form_widgets = FormWidgets()
 
 #def viewEmail($entity)
-    #if not $target
+    #if not $targets
         #return
     #end if
 
     <div class="info box">
         <h3>$_('Email targets')</h3>
+        #for $target in $targets
             <div class="item">
                 <em>$_("Name"):</em> <a href="/emailtarget/view?id=$target.id">$target.name</a><br />
                 #if $target.alias
@@ -55,6 +56,7 @@
                     <a class="action" href="/confirm/emailtarget/delete?id=$target.id&amp;entity_id=$entity.id">$_('Delete')</a>
                 </div>
             </div>
+        #end for
     </div>
 #end def
 

@@ -57,7 +57,7 @@ def view(id, **vargs):
     page.visibilities = ConstantsDAO(db).get_group_visibilities()
     page.spreads = ConstantsDAO(db).get_group_spreads()
     page.quarantines = ConstantsDAO(db).get_quarantines()
-    page.target = EmailTargetDAO(db).get_from_entity(id)
+    page.targets = EmailTargetDAO(db).get_from_entity(id)
 
     return page.respond()
 view.exposed = True

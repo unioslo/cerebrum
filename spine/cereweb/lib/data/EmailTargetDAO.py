@@ -98,12 +98,13 @@ class EmailTargetDAO(EntityDAO):
     def get_from_entity(self, entity_id):
         target = self._get_cerebrum_obj()
 
-        try:
-            target.find_by_target_entity(entity_id)
-        except NotFoundError, e:
-            return None
-
-        return self._create_dto(target)
+        targets = []
+        for row in target.list_email_targets_ext(target_entity_id=entity_id):
+            target.clear()
+            target.find(row.fields.target_id)
+            dto = self._create_dto(target)
+            targets.append(dto)
+        return targets
 
     def _create_dto(self, target):
         dto = DTO()
