@@ -188,6 +188,9 @@ class PersonDAO(EntityDAO):
         name_type = self.constants.PersonName(name_type)
         source = self.constants.AuthoritativeSystem(source_system)
 
+        if not source == self.constants.AuthoritativeSystem("Manual"):
+            raise PermissionDenied("Not authorized to delete name")
+
         entity._delete_name(source, name_type)
 
     def save(self, dto):
@@ -215,7 +218,8 @@ class PersonDAO(EntityDAO):
             key = "%s:%s" % (name.name_variant, name.name)
             if not key in names:
                 dto = DTO()
-                dto.value = name.name
+                dto.id = name.fields.person_id
+                dto.value = name.fields.name
                 dto.variant = ConstantsDAO(self.db).get_name_type(name.name_variant)
                 dto.source_systems = []
                 names[key] = dto

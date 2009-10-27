@@ -219,7 +219,9 @@
                <td>$spine_to_web($name.variant.name)</td>
                <td>$spine_to_web($name.value)</td>
                <td>
-                   $spine_to_web(",".join([$s.name for $s in $name.source_systems]))
+                    #for $source in $name.source_systems
+                    <div>$spine_to_web($source.name) - <a class="action" href="/confirm/person/remove_name?id=$name.id&amp;variant=$name.variant.id&amp;ss=$source.id">delete</a></div>
+                    #end for
                </td>
             </tr>
             #end for
