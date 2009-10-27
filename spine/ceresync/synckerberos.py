@@ -21,11 +21,10 @@
 
 from ceresync import errors
 from ceresync import syncws as sync
-import ceresync.backend.kerberos as kerberosbackend
 from ceresync import config
 import os
 import omniORB
-from sys import exit
+import sys
 
 try:
     set()
@@ -34,102 +33,112 @@ except:
 
 log = config.logger
 
-changelog_file = config.get('sync','changelog_file',                                                        default="/var/lib/cerebrum/lastchangelog.id")
+changelog_file = config.get('sync','changelog_file', default="/var/lib/cerebrum/lastchangelog.id")
+
+def load_changelog_id():
+    local_id = 0
+    if os.path.isfile(changelog_file):
+        local_id = long(open(changelog_file).read())
+        log.debug("Loaded changelog-id %ld", local_id)
+    else:
+        log.debug("Default changelog-id %ld", local_id)
+    return local_id
+
+def save_changelog_id(server_id):
+    log.debug("Storing changelog-id %ld", server_id)
+    open(changelog_file, 'w').write(str(server_id))
+
+def set_incremental_options(options, incr, server_id):
+    if not incr:
+        return
+
+    local_id = load_changelog_id()
+    log.debug("Local id: %ld, server_id: %ld", local_id, server_id)
+    if local_id > server_id:
+        log.warning("local changelogid is larger than the server's!")
+    elif incr and local_id == server_id:
+        log.debug("No changes to apply. Quiting.")
+        sys.exit(0)
+
+    options['incr_from'] = local_id
+
+def set_encoding_options(options, config):
+    options['encode_to'] = 'utf-8'
 
 def main():
-    config.parse_args(config.make_bulk_options())
+    options = config.make_bulk_options() + config.make_testing_options()
+    config.parse_args(options)
 
     incr   = config.getboolean('args', 'incremental', allow_none=True)
-    add    = config.getboolean('args', 'add')
-    update = config.getboolean('args', 'update')
-    delete = config.getboolean('args', 'delete')
+    add    = incr or config.getboolean('args', 'add')
+    update = incr or config.getboolean('args', 'update')
+    delete = incr or config.getboolean('args', 'delete')
 
     if incr is None:
         log.error("Invalid arguments: You must provide either the --bulk or the --incremental option")
-        exit(1)
+        sys.exit(1)
 
-    if config.get('args', 'verbose'):
-        #FIXME: This currently doesn't make it any more verbose. It needs to
-        # set loglevel for stderr on the logging module.
-        verbose = True
-        kerberosbackend.verbose = True
-
-    local_id= None
-    if os.path.isfile(changelog_file):
-        local_id= long( file(changelog_file).read() )
+    log.debug("Setting up CereWS connection")
     try: 
-        s= sync.Sync()
+        s = sync.Sync()
+        server_id = s.get_changelogid()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
-        exit(1)
+        sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
-        exit(1)
+        sys.exit(1)
+    except socket.error, e:
+        log.error("Unable to connect to web service: %s", e)
+        sys.exit(1)
+
+    sync_options = {}
+    set_incremental_options(sync_options, incr, server_id)
+    config.set_testing_options(sync_options)
+    set_encoding_options(sync_options, config)
+
+    try:
+        log.debug("Getting accounts with arguments %s" % str(sync_options))
+        accounts = s.get_accounts(**sync_options)
     except:
-        log.exception('Unable to connect')
-        exit(1)
-    server_id= s.get_changelogid()
+        log.exception("Exception occured. Aborting")
+        sys.exit(1)
 
-    log.info("Local id: %ld, server id: %ld",local_id or -1,server_id)
-    if local_id is not None and local_id > server_id:
-        log.warning("local changelogid is greater than the server's!")
+    if config.getboolean('args', 'use_test_backend'):
+        log.debug("Using testbackend")
+        import ceresync.backend.test as kerberosbackend
+    else:
+        log.debug("Using adsibackend")
+        import ceresync.backend.kerberos as kerberosbackend
 
-    if incr and local_id == server_id:
-        log.info("Nothing to be done.")
-        return
-    
     user= kerberosbackend.Account()
     user.begin(incr)
-    if incr:
-        log.info("Synchronizing users (incr) to changelog_id %ld",server_id)
-        try:
-            processed= set([])
-            for account in s.get_accounts(incr_from=local_id, 
-                                          encode_to='utf-8'):
-                if account.posix_uid == None:
-                    continue
-                if account.name not in processed:
-                    if hasattr(account,'deleted') and account.deleted:
-                        user.delete(account)
-                    else: 
-                        user.add(account)
-                    processed.add(account.name)
-            user.close()
-        except:
-            log.exception("Exception occured, aborting")
-            user.close()
-            exit(1)
-        
-        if not user.dryrun:
-            log.debug("Storing changelog-id")
-            file(changelog_file, 'w').write( str(server_id) )
+
+    mode = incr and "incr" or "bulk"
+    log.debug("Synchronizing users (%s) to changelog_id %ld", mode, server_id)
+    log.debug("Options add: %d, update: %d, delete: %d",add,update,delete)
+    try:
+        for account in accounts:
+            if account.posix_uid == None:
+                log.debug('no posix_uid on account: %s',account.name)
+                continue
+            if hasattr(account,'deleted') and account.deleted:
+                log.debug('deleted attribute set on account: %s',account.name)
+                if delete:
+                    user.delete(account)
+            else:
+                user.add(account, add, update)
+    except:
+        log.exception("Exception occured, aborting")
+        user.close()
+        sys.exit(1)
     else:
-        log.info("Synchronizing users (bulk) to changelog_id %ld", server_id)
-        log.info("Options add: %d, update: %d, delete: %d",add,update,delete)
-        try:
-            for account in s.get_accounts(encode_to='utf-8'):
-                if account.posix_uid == None:
-                    log.debug('no posix_uid on account: %s',account.name)
-                    continue
-                if hasattr(account,'deleted') and account.deleted:
-                    log.debug('deleted attribute set on account: %s',account.name)
-                    if delete:
-                        user.delete(account)
-                else:
-                    user.add(account, add, update)
-        except:
-            log.exception("Exception occured, aborting")
-            user.close()
-            exit(1)
-        else:
-            user.close(delete)
-        # If we did a full bulk sync, we should update the changelog-id
-        if add and update and delete and not user.dryrun:
-            file(changelog_file, 'w').write( str(server_id) )
-    
+        user.close(delete)
+
+    if not user.dryrun and add and update and delete:
+        save_changelog_id(server_id)
+
     log.info("Synchronization completed successfully")
         
-
 if __name__ == "__main__":
     main()
-

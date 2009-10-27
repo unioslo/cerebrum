@@ -27,14 +27,14 @@ import os
 import sys
 import socket
 
-log=config.logger
+log = config.logger
 
-last_change_file = config.get("sync","last_change", "/var/lib/cerebrum/sync.last_change")
+changelog_file = config.get("sync","last_change", "/var/lib/cerebrum/sync.last_change")
 
 def load_changelog_id():
     local_id = 0
-    if os.path.isfile(last_change_file):
-        local_id = long(open(last_change_file).read())
+    if os.path.isfile(changelog_file):
+        local_id = long(open(changelog_file).read())
         log.debug("Loaded changelog-id %ld", local_id)
     else:
         log.debug("Default changelog-id %ld", local_id)
@@ -42,7 +42,7 @@ def load_changelog_id():
 
 def save_changelog_id(server_id):
     log.debug("Storing changelog-id %ld", server_id)
-    open(last_change_file, 'w').write(str(server_id))
+    open(changelog_file, 'w').write(str(server_id))
 
 def set_incremental_options(options, incr, server_id):
     if not incr:
@@ -72,18 +72,18 @@ def main():
 
     if incr is None:
         log.error("Invalid arguments. You must provide either the --bulk or the --incremental option")
-        exit(1)
+        sys.exit(1)
 
     log.debug("Setting up CereWS connection")
     try:
         s = sync.Sync()
-        server_id= s.get_changelogid()
+        server_id = s.get_changelogid()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
-        exit(1)
+        sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
-        exit(1)
+        sys.exit(1)
     except socket.error, e:
         log.error("Unable to connect to web service: %s", e)
         sys.exit(1)
@@ -103,7 +103,6 @@ def main():
         log.exception("Exception occured. Aborting")
         sys.exit(1)
 
-    # FIXME: URLs from config
     if config.getboolean('args', 'use_test_backend'):
         log.debug("Using testbackend")
         import ceresync.backend.test as adsibackend

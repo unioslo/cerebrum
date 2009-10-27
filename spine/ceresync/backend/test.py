@@ -33,6 +33,14 @@ class StdoutFile(filebackend.CLFileBack):
     abort = close
 
 class Account(StdoutFile):
+    dryrun = True
+
+    def add(self, account, *args, **kwargs):
+        super(Account, self).add(account)
+
+    def close(self, *args, **kwargs):
+        super(Account, self).close()
+
     def format(self, account):
         if account.posix_uid is None:
             raise errors.NotPosixError, account.name
