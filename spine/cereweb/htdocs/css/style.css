@@ -393,6 +393,14 @@ div.info div.item {
     border-bottom-color: #bdf;
 }
 div.info table th {
+    font-weight: bold;
+    background: #bdf;
+    border-bottom: 1px dashed;
+    border-top: 1px dashed;
+    border-bottom-color: #bdf;
+    border-top-color: #eff;
+}
+div.info table td {
     border-bottom: 1px dashed;
     border-bottom-style: dashed;
     border-bottom-color: #bdf;
