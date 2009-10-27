@@ -226,7 +226,7 @@ def search_accounts(account, account_spread, changelog_id=None,
        tables.append("""JOIN change_log
          ON (change_log.subject_entity = account_info.account_id
             AND change_log.change_id > :changelog_id)""")
-       order_by=" ORDER BY change_log.change_id"
+       order_by=" ORDER BY change_log.change_id ASC"
        binds['changelog_id'] = changelog_id
     
     tables.append("""
@@ -306,7 +306,11 @@ def search_accounts(account, account_spread, changelog_id=None,
     sql += " WHERE " + " AND ".join(where)
     sql += order_by
 
-    return db.query(sql, binds)
+    accounts = {}
+    for row in db.query(sql, binds):
+        name = row.fields.name
+        accounts[name] = row
+    return accounts.values()
 
 
 
