@@ -38,25 +38,6 @@ class OEP(object):
     # end __init__
 
 
-    def _recode_row(self, db_row):
-        """Enforce certain encoding on db_row.
-
-        Make sure that string keys are in the specific encoding in db_row.
-
-        NB! db_row's content is modified destructively.
-        """
-
-        for key, value in db_row.items():
-            if isinstance(value, unicode):
-                db_row[key] = value.encode(self._to_charset)
-            elif (isinstance(value, str) and
-                  self._from_charset != self._to_charset):
-                db_row[key] = unicode(value,
-                                      self._from_charset).encode(self._to_charset)
-        return db_row
-    # end _recode_row
-
-
     def list_dbfg_users(self, fetchall = False):
         """
         Get all users and return them as a sequence of db_rows.
@@ -72,7 +53,7 @@ class OEP(object):
                       eu.active = 1
                 """
         
-        return [self._recode_row(x) for x in self.db.query(query, fetchall = fetchall)]
+        return self.db.query(query, fetchall = fetchall)
     # end list_dbfg_usernames
 
 
@@ -92,7 +73,7 @@ class OEP(object):
                       eu.active = 1
                 """
         
-        return [self._recode_row(x) for x in self.db.query(query, fetchall = fetchall)]
+        return self.db.query(query, fetchall = fetchall)
     # end list_applsys_users
 
 
@@ -112,7 +93,7 @@ class OEP(object):
                       eu.active = 1
                 """
         
-        return [self._recode_row(x) for x in self.db.query(query, fetchall = fetchall)]
+        return self.db.query(query, fetchall = fetchall)
     # end list_monitor_users
 
 
@@ -132,7 +113,7 @@ class OEP(object):
                       eu.active = 1
                 """
         
-        return [self._recode_row(x) for x in self.db.query(query, fetchall = fetchall)]
+        return self.db.query(query, fetchall = fetchall)
     # end list_readsoft_users
 
 
@@ -152,6 +133,6 @@ class OEP(object):
                       eu.active = 1
                 """
         
-        return [self._recode_row(x) for x in self.db.query(query, fetchall = fetchall)]
+        return self.db.query(query, fetchall = fetchall)
     # end list_useradmin_users        
 # end OEP
