@@ -79,13 +79,13 @@ def create(owner_id=None, **kwargs):
 
     if form.is_correct():
         try:
-            return make(**form.get_values())
+            return make(owner, **form.get_values())
         except CreationFailedError, e:
             queue_message(e.message, title=_("Creation failed"), error=True, tracebk=e)
     return form.respond()
 create.exposed = True
 
-def make(db, owner, **kwargs):
+def make(owner, **kwargs):
     db = get_database()
     account = create_account(db, owner, **kwargs)
     join_owner_group(db, owner, account)
@@ -145,11 +145,11 @@ def join_primary_group(db, account, **kwargs):
 
 def set_account_password(db, account, **kwargs):
     # We've already verified that password0 == password1.
-    password = kwargs.get('password0') or kwargs.get('randpwd')
+    password = kwargs.get('password0')
 
     if not password:
         msg = _('Account creation failed.  Password is empty.')
-        raise CreationFailedError(msg, e)
+        raise CreationFailedError(msg)
 
     try:
         dao = AccountDAO(db)

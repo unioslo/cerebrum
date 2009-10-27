@@ -37,7 +37,7 @@ class AccountCreateForm(Form):
         'expire_date',
         'password0',
         'password1',
-        'randpasswd',
+        'randpwd',
     ]
 
     Fields = {
@@ -80,18 +80,19 @@ class AccountCreateForm(Form):
             'required': False,
             'type': 'password',
         },
-        'randpasswd': {
+        'randpwd': {
             'label': _('Random password'),
             'required': False,
             'type': 'radio',
-            'name': 'randpwd',
         },
     }
 
     def init_values(self, owner, *args, **kwargs):
-        self.set_value('owner_id', owner.id)
-        self.set_value('randpasswd', [randpasswd() for i in range(10)]),
         self.owner = owner
+        self.set_value('owner_id', owner.id)
+
+        if not self.is_postback():
+            self.set_value('randpwd', [randpasswd() for i in range(10)]),
 
     def get_name_options(self):
         db = get_database()
@@ -106,18 +107,15 @@ class AccountCreateForm(Form):
     def check(self):
         pwd0 = self.get_value('password0')
         pwd1 = self.get_value('password1')
+        if not (pwd0 or pwd1):
+            pwd0 = pwd1 = self.get_value('randpwd')
 
-        if (pwd0 and pwd1) and (pwd0 == pwd1) and (len(pwd0) < 8):
+        if not (pwd0 and pwd1 and pwd0 == pwd1):
+            self.error_message = 'The two passwords differ.'
+            return False
+
+        if len(pwd0) != 8:
             self.error_message = 'The password must be 8 chars long.'
-            return False
-
-        msg = 'The two passwords differ.'
-        if (pwd0 and pwd1) and (pwd0 != pwd1):
-            self.error_message = msg
-            return False
-
-        if (pwd0 and not pwd1) or (not pwd0 and pwd1):
-            self.error_message = msg
             return False
 
         return True

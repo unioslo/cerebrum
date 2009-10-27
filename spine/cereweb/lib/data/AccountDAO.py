@@ -37,6 +37,7 @@ from lib.data.QuarantineDAO import QuarantineDAO
 Database = Utils.Factory.get("Database")
 Account = Utils.Factory.get("Account")
 Person = Utils.Factory.get("Person")
+Group = Utils.Factory.get("Group")
 PosixUser = Utils.Factory.get("PosixUser")
 
 def first_or_none(fn, items):
