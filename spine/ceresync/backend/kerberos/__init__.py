@@ -172,7 +172,7 @@ class Account:
                       " Ignoring", princ)
 
 class User:
-    def __init__(self, name='test_user', passwd=''):
+    def __init__(self, name='test_user', passwd='foo'):
         self.name = name
         self.passwd= passwd and Pgp().encrypt(passwd) or ''
 
@@ -246,8 +246,8 @@ class HeimdalTestCase(unittest.TestCase):
         self.account.close()
 
     def testDeleteNonExisting(self):
-        """Adds a user then deletes it twice. The last delete should raise
-        an exception"""
+        """Adds a user then deletes it twice. The last delete should be
+        ignored"""
         user= User()
         self.account.begin(incr=True)
         self.account.add(user)
