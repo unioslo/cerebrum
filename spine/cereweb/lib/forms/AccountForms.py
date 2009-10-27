@@ -107,8 +107,10 @@ class AccountCreateForm(Form):
     def check(self):
         pwd0 = self.get_value('password0')
         pwd1 = self.get_value('password1')
+
         if not (pwd0 or pwd1):
             pwd0 = pwd1 = self.get_value('randpwd')
+            self.set_value('password0', pwd0)
 
         if not (pwd0 and pwd1 and pwd0 == pwd1):
             self.error_message = 'The two passwords differ.'
