@@ -50,11 +50,11 @@
     <div id="actions">
         <h3>$_('Actions')</h3>
         <ul>
-            <li><a href="/group/delete?id=$group.id">$_("Delete group")</a></li>
+            <li><a href="/confirm/group/delete?id=$group.id">$_("Delete group")</a></li>
             #if $group.is_posix
-                <li><a href="/group/posix_demote?id=$group.id">$_("Demote from posix")</a></li>
+                <li><a href="/confirm/group/posix_demote?id=$group.id">$_("Demote from posix")</a></li>
             #else
-                <li><a href="/group/posix_promote?id=$group.id">$_("Promote to posix")</a></li>
+                <li><a href="/confirm/group/posix_promote?id=$group.id">$_("Promote to posix")</a></li>
             #end if
             <li><a href="/account/create?owner_id=$group.id">$_('Create group account')</a> </li>
             <li><a href="/entity/full_historylog?id=$group.id">$_('View full history log')</a> </li>
@@ -168,7 +168,7 @@
                                 $entity_link($member, text=$spine_to_web($member.name))
                             </td>
                             <td>
-                                <a href="/group/remove_member?group_id=$group.id&amp;member_id=$member.id">Remove member</a>
+                                <a href="/confirm/group/remove_member?group_id=$group.id&amp;member_id=$member.id">Remove member</a>
                             </td>
                         </tr>
                         #end for

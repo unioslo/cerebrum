@@ -39,9 +39,9 @@
     <ul>
         <li><a href="/confirm/account/delete?account_id=$account.id">$_("Delete account")</a></li>
         #if $account.is_posix
-            <li><a href="/account/demote_posix?account_id=$account.id">$_("Demote from posix")</a></li>
+            <li><a href="/confirm/account/demote_posix?account_id=$account.id">$_("Demote from posix")</a></li>
         #else
-            <li><a href="/account/promote_posix?account_id=$account.id">$_("Promote to posix")</a></li>
+            <li><a href="/confirm/account/promote_posix?account_id=$account.id">$_("Promote to posix")</a></li>
         #end if
         <li><a href="/entity/full_historylog?id=$account.id">$_('View full history log')</a> </li>
     </ul>
@@ -225,7 +225,7 @@
         #for $home in $account.homes
             <div class="item">
                 <div class="actions">
-                    <a class="action" href="remove_home?account_id=$account.id&amp;spread_id=$home.spread.id">$_('remove')</a>
+                    <a class="action" href="/confirm/account/remove_home?account_id=$account.id&amp;spread_id=$home.spread.id">$_('remove')</a>
                 </div>
 
                 <span class="name">$_("Spread"):</span>

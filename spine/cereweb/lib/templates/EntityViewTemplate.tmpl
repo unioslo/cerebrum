@@ -78,7 +78,7 @@
         #for $note in $entity.notes
             <div class="item">
                 <div class="actions">
-                    <a class="action" href="/note/delete?entity_id=$entity.id&amp;note_id=$note.id">$_('delete')</a>
+                    <a class="action" href="/confirm/note/delete?entity_id=$entity.id&amp;note_id=$note.id">$_('delete')</a>
                 </div>
                 <span class="name">$spine_to_web($note.subject)</span>&#x0020;
                 <span class="creator">-$_('by ') $entity_link($note.creator)</span>&#x0020;
@@ -119,7 +119,7 @@
         #for $spread in $entity.spreads
             <div class="item">
                 <div class="actions">
-                    <a class="action" href="/entity/remove_spread?id=$entity.id&amp;spread=$url_quote($spread.name)">$_('remove')</a>
+                    <a class="action" href="/confirm/entity/remove_spread?id=$entity.id&amp;spread=$url_quote($spread.name)">$_('remove')</a>
                 </div>
                 <span class="name">$spine_to_web($spread.name)</span> -
                 <span class="value">$spine_to_web($spread.description)</span>
@@ -216,7 +216,7 @@
                     <td>$quotedate($trait.date)</td>
                     <td>	
                         <div class="actions">
-                            <a class="action" href="/entity/remove_trait?id=$entity.id&amp;trait=$url_quote($trait.name)">$_('remove')</a>
+                            <a class="action" href="/confirm/entity/remove_trait?id=$entity.id&amp;trait=$url_quote($trait.name)">$_('remove')</a>
                         </div>
                     </td>
                 </tr>
@@ -235,11 +235,9 @@
         #for $q in $entity.quarantines
             <div class="item">
                 #set $type = $url_quote($q.type_name)
-                #set $remove = '/confirm/entity/remove_quarantine?id=%s&amp;type=%s' % ($entity.id, $type)
-
                 <div class="actions">
                     <a class="action" href="#editQuarantineBox_${type}">$_('disable')</a>
-                    <a class="action" href="$remove">$_('delete')</a>
+                    <a class="action" href="/confirm/entity/remove_quarantine?id=$entity.id&amp;type=$type">$_('delete')</a>
                 </div>
                 <strong>$spine_to_web($q.type_description)</strong>&#x0020;
                 <em>-$_('by ')</em>$entity_link($q.creator) &#x0020;
