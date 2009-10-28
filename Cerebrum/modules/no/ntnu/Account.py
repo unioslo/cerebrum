@@ -111,11 +111,22 @@ class AccountNTNUMixin(Account.Account):
         return self.__super.set_homedir(**kw)
 
     def encrypt_password(self, method, plaintext, salt=None):
+        """
+        Overloaded to support lanman_des, since radius uses this dinosaur.
+        """
         if method == self.const.auth_type_lanman_des:
             import smbpasswd
             return smbpasswd.lmhash(plaintext)
         return self.__super.encrypt_password(method, plaintext, salt=salt)
 
+    def verify_password(self, method, plaintext, cryptstring):
+        """
+        Overloaded to support lanman_des, since radius uses this dinosaur.
+        """
+        if method == self.const.auth_type_lanman_des:
+            s = self.encrypt_password(method, plaintext, salt=cryptstring)
+            return (s == cryptstring)
+        return self.__super.verify_password(method, plaintext, cryptstring)
 
     password_bdb_regex=re.compile("^[A-Za-z0-9!#()*+,.=?@\[\]_{}~-]+$")
     password_big_regex=re.compile("[A-Z]")
