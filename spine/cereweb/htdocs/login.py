@@ -21,6 +21,8 @@
 import urllib
 import cherrypy
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
+
 Database = Factory.get("Database")
 Account = Factory.get("Account")
 Constants = Factory.get("Constants")
@@ -60,13 +62,6 @@ def try_login(username=None, password=None, **kwargs):
     if not username or not password:
         return False
 
-    if not is_allowed_login(username):
-        Messages.queue_message(
-            title="Login failed",
-            message="You're not allowed to login to the test/development server.",
-            is_error=True)
-        return False
-
     try:
         db = Database()
         const = Constants(db)
@@ -78,6 +73,11 @@ def try_login(username=None, password=None, **kwargs):
 
         if not account.verify_password(method, password, hash):
             raise Exception("Login failed.")
+
+        auth = BofhdAuth(db)
+        if not auth.can_login_to_cereweb(account.entity_id):
+            raise Exception("Login failed.")
+
     except Exception, e:
         Messages.queue_message(
             title="Login Failed",
@@ -87,9 +87,6 @@ def try_login(username=None, password=None, **kwargs):
         return False
 
     return create_cherrypy_session(username)
-
-def is_allowed_login(username):
-    return username == "bootstrap_account" or username == "ctestpos"
 
 def create_cherrypy_session(username):
     cherrypy.session['username'] = username

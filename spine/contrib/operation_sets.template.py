@@ -48,6 +48,10 @@ op_sets = {
         ('external_id_read', None),
     ],
 
+    'login': [
+        ('login_access', None),
+    ],
+
     'cabuse': [
         ('quarantine_edit', "sperret"),
     ],
@@ -890,6 +894,7 @@ op_roles = [
     ('group', 'cereweb_basic', 'ccreate_user', ('ou', 23, None)), # ou 23 er it-avdelingen
     ('group', 'cereweb_basic', 'cmodify_user', ('ou', 23, None)),
     ('group', 'cereweb_basic', 'cadmin_client', ('global', None, None)),
+    ('group', 'cereweb_basic', 'login', ('cereweb', None, None)),
 
     # Backwards compatibility with spine.
     ('group', 'cereweb_orakel', 'modify_user', ('entity', None, None)),

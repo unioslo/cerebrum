@@ -118,6 +118,14 @@ class BofhdAuth(auth.BofhdAuth):
         return super(BofhdAuth, self)._has_global_access(
             operator, operation, global_type, victim_id, operation_attr)
 
+    def can_login_to_cereweb(self, operator):
+        if self.is_superuser(operator):
+            return True
+
+        return self._query_target_permissions(
+                        operator, self.const.auth_login,
+                        self.const.auth_target_type_cereweb, None, None)
+
     def can_set_password(self, operator, target):
         operation = self.const.auth_set_password
         return self._has_account_access(operator, target, operation)
