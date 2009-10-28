@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2006 University of Oslo, Norway
+# Copyright 2003-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -80,7 +80,6 @@ class RequestLockHandler(object):
         """lockdir should be a template holding exactly one %d."""
         if lockdir is None:
             lockdir = cereconf.BOFHD_REQUEST_LOCK_DIR
-        logger.debug("RequestLockHandler using lockdir '%s'" % lockdir)
         self.lockdir = lockdir
         self.lockfd = None
 
