@@ -505,7 +505,7 @@ def make_report(user, report_missing, item, acc_name, *func_list):
     account = Factory.get("Account")(db_cerebrum)
     service = item["dbname"]
     db = Database.connect(user = user, service = service,
-                          DB_driver = "Oracle")
+                          DB_driver =  cereconf.DB_DRIVER_ORACLE)
     source = item["class"](db)
     accessor = getattr(source, acc_name)
     stream = StringIO.StringIO()
