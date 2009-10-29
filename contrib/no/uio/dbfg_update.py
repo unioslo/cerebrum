@@ -186,6 +186,12 @@ def synchronize_group(external_group, cerebrum_group_name):
         return
     # yrt
 
+    try:
+        rows = list(external_group())
+    except:
+        logger.exception("Failed synchronizing group=%s", cerebrum_group_name)
+        return 
+
     sanitize_group(cerebrum_group, constants)
 
     new_count = 0
@@ -446,7 +452,16 @@ def report_users(stream_name, external_dbs):
     """
     Prepare status report about users in various databases.
     """
-
+    
+    def report_no_exc(user, report_missing, item, acc_name, *func_list):
+        """We don't want to bother with ignore/'"""
+        
+        try:
+            return make_report(user, report_missing, item, acc_name, *func_list)
+        except:
+            logger.exception("Failed accessing db=%s (accessor=%s):",
+                             item["dbname"], acc_name)
+            
     db_cerebrum = Factory.get("Database")()
     person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
@@ -458,8 +473,8 @@ def report_users(stream_name, external_dbs):
     # Report expired users for all databases
     for dbname in ("ajprod",):
         item = external_dbs[dbname]
-        message = make_report(user, False, item, item["sync_accessor"],
-                              check_expired)
+        message = report_no_exc(user, False, item, item["sync_accessor"],
+                                     check_expired)
         if message:
             report_stream.write("%s contains these expired accounts:\n" %
                                 item["dbname"])
@@ -474,14 +489,14 @@ def report_users(stream_name, external_dbs):
                    "basware-users", "basware-masters"):
         logger.debug("Accessing db %s", dbname)
         item = external_dbs[dbname]
-        message = make_report(user, True, item, item["report_accessor"],
-                              check_expired,
-                              lambda acc: check_spread(acc,
-                                            constants.spread_uio_nis_user),
-                              lambda acc: check_owner_status(person,
-                                            constants,
-                                            acc.owner_id,
-                                            acc.account_name))
+        message = report_no_exc(user, True, item, item["report_accessor"],
+                      check_expired,
+                      lambda acc: check_spread(acc,
+                                               constants.spread_uio_nis_user),
+                      lambda acc: check_owner_status(person,
+                                                     constants,
+                                                     acc.owner_id,
+                                                     acc.account_name))
         if message:
             report_stream.write("%s contains these strange accounts:\n" %
                                 item["dbname"])
