@@ -109,19 +109,38 @@ def is_cnaddr_free(local_part,domain_part):
 
 def get_cn_addr(username):
 
-    # Check if user already has an email address we can re-use
+
+    dom_part = cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES
+
+    # Check cerebrum knows an cn-style emailaddress for this user. re-use if applicable
     if uname2mailinfo.has_key(username):
         short_leng = -1
         short_addr = ''
         
         for mailinfo in uname2mailinfo[username]:
-            if mailinfo['domain'] == cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES:
-                if short_leng == -1 or len(mailinfo['local_part']) < short_leng:
-                    short_leng = len(mailinfo['local_part'])
-                    short_addr = mailinfo['local_part']
+            if mailinfo['domain'].endswith(dom_part):
+                logger.debug("Considering lp=%s,dp=%s" %
+                             (mailinfo['local_part'],mailinfo['domain']))
+                if mailinfo['local_part'].find('.') == -1:
+                    logger.debug("  Not a cn type local_part, will not use")
+                    continue
+                elif not is_cnaddr_free(mailinfo['local_part'], dom_part):
+                    logger.debug("  %s@%s is not free, will not use" %
+                                 (mailinfo['local_part'], dom_part))
+                    continue
+                else:
+                    mi_length=len(mailinfo['local_part'])
+                    if short_leng == -1 or mi_length < short_leng:
+                        logger.debug("  Selected! short_leng=%d,short_addr=%s" %
+                                     (mi_length,mailinfo['local_part']))
+                        short_leng = mi_length
+                        short_addr = mailinfo['local_part']
+                    else:
+                        logger.debug("  better alternative found earlier")
 
         if short_addr != '':
-            return (short_addr,cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES)
+            logger.debug("uname2mailinfo gave %s@%s" % ( short_addr,dom_part))
+            return (short_addr,dom_part)
 
     # If we get here - we have to try and generate a new address
     alternatives=_get_alternatives(username)
@@ -130,9 +149,9 @@ def get_cn_addr(username):
        alternatives = alternatives[:1]
     
     for em_addr in alternatives:
-        if is_cnaddr_free(em_addr, cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES):
-           return (em_addr,cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES)
-    return None,cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES
+        if is_cnaddr_free(em_addr,dom_part):
+           return (em_addr,dom_part)
+    return None,dom_part
 
 def get_sko(ou_id):
     ou.clear()
@@ -179,6 +198,19 @@ def check_affs(pers_affs=None):
         return False
 
 
+def username_good(username):
+
+    if username[3:5]=='99':
+        # -999 account. not wanted
+        return False
+    elif username.isalpha():
+        # username only contains alphabetic chars. not wanted
+        return False
+    else:
+        # it's good
+        return True
+
+
 def process_mail():
     tmp_ac=Factory.get('Account')(db)
     tmp_p =Factory.get('Person')(db)
@@ -205,7 +237,12 @@ def process_mail():
     tmp_ac=Factory.get('Account')(db)
     has_cn_addr=list()
     for row in tmp_ac.search_ad_email():
-        has_cn_addr.append(row['account_name'])
+        if (row['domain_part']==cereconf.NO_MAILBOX_DOMAIN_EMPLOYEES and 
+           row['local_part'].find(".") == -1):
+            logger.error("%s has %s@%s in ad_email, will try to build cn-addr" %
+                         (row['account_name'],row['local_part'],row['domain_part']))
+        else:
+            has_cn_addr.append(row['account_name'])
 
     logger.info("Loading person affs")
     pers_affs=dict()
@@ -219,7 +256,10 @@ def process_mail():
     logger.info("%d users candidates for cn mailaddrs, list=%s" % (len(build),build))
     for uname in build:
         logger.info("---------------------")
-        logger.info("Uname %s not in ad_email" % (uname,))
+        if not username_good(uname):
+            logger.error("Uname %s not accepted for cn-style email" % uname)
+            continue
+        logger.info("Uname %s does not have cn-style in ad_email" % (uname,))
         try:
             tmp_p_affs=pers_affs[accid2owner[uname2accid[uname]]]
         except KeyError:
@@ -251,7 +291,7 @@ except getopt.GetoptError,m:
 try_only_first=True
 username=None
 dryrun=False
-uname2mailinfo = ac.getdict_uname2mailinfo() 
+
 
 for opt,val in opts:
    if opt in('-u','--user'):
@@ -263,6 +303,7 @@ for opt,val in opts:
    elif opt in ('-h','--help'):
        usage(0,"")
 
+uname2mailinfo = ac.getdict_uname2mailinfo()
 process_mail()
 
 if dryrun:
