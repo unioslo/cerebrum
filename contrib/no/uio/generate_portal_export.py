@@ -233,7 +233,7 @@ def output_text(output_file):
     logger.debug(Database.__file__)
     db = Database.connect(user="ureg2000",
                           service="FSPROD.uio.no",
-                          DB_driver='Oracle')
+                          DB_driver=cereconf.DB_DRIVER_ORACLE)
     db_fs = FS(db)
     
     db_person = Factory.get("Person")(db_cerebrum)

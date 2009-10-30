@@ -40,7 +40,7 @@ import sys
 
 def main():
     db_fs = Database.connect(user = "ureg2000", service = "FSPROD.uio.no",
-                             DB_driver = "Oracle")
+                             DB_driver = cereconf.DB_DRIVER_ORACLE)
     fs = FS(db_fs)
     print "%-20s%-10s%20s%20s" % ("kurskode", "tidskode", "fra", "til")
     print "-" * 70            

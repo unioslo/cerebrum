@@ -82,7 +82,7 @@ def fetch_primary_uname(row, person, account, constants):
 
 def main():
     db_fs = Database.connect(user = "ureg2000", service = "FSPROD.uio.no",
-                             DB_driver = "Oracle")
+                             DB_driver = cereconf.DB_DRIVER_ORACLE)
     fs = FS(db_fs)
     db_cerebrum = Factory.get("Database")()
     person = Factory.get("Person")(db_cerebrum)
