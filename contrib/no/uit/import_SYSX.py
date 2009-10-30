@@ -230,21 +230,6 @@ def create_sysx_person(sxp):
     ins = sxp['ou'][2:4]
     avd = sxp['ou'][4:6]
 
-
-    ##########################
-    # collect right stedkode #
-    ##########################
-    # lets check if the ou referenced as affiliation exists in cerebrum
-    query = "select new_ou_id from ou_history where old_ou_id='%s%s%s'" % (fak, ins, avd)
-    #print "query = %s" % query
-    new_ou = db.query(query)
-    if(len(new_ou) != 0):
-        logger.warn("New stedkode %s for person with SysX id %s will be used instead of %s%s%s" % (new_ou[0][0], id, fak, ins, avd))
-        stedkode = "%s" % new_ou[0][0]
-        fak = stedkode[0:2]
-        ins = stedkode[2:4]
-        avd = stedkode[4:6]
-
     try:
         my_stedkode.find_stedkode(fak,ins,avd,cereconf.DEFAULT_INSTITUSJONSNR)
     except EntityExpiredError, err:
