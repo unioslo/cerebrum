@@ -6951,7 +6951,7 @@ Addresses and settings:
         ret = []
         try:
             db = Database.connect(user="ureg2000", service="FSPROD.uio.no",
-                                  DB_driver='Oracle')
+                                  DB_driver=cereconf.DB_DRIVER_ORACLE)
         except Database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
             raise CerebrumError("Can't connect to FS, try later")
