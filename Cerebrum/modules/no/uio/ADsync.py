@@ -30,6 +30,7 @@ import sys
 import cereconf
 import copy
 import pickle
+import sets
 
 from Cerebrum.Constants import _SpreadCode
 from Cerebrum import Utils
@@ -521,39 +522,44 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         return changelist
 
     
-    def get_pwds_from_cl(self, adusrs, dry_run, commit_changes=False):
-        cl = CLHandler.CLHandler(db)
+    def get_pwds_from_cl(self, adusrs, dry_run, spread, commit_changes=False):
+        cl = CLHandler.CLHandler(self.db)
         answer = cl.get_events('ad', (self.co.account_password,))
         for ans in answer:
             if ans['change_type_id'] == self.co.account_password:
                 self.ac.clear()
-                self.ac.find(account_id)
+                self.ac.find(ans['subject_entity'])
                 #if usr exists in ad change pwd, else password set when created
                 if adusrs.has_key(self.ac.account_name):
+                    pw = pickle.loads(ans['change_params'])['password']
+                    self.change_pwd(self.ac.account_name, pw, dry_run)
+                #but for now we dont get the password when user is created so we also
+                #check if user is a user with AD-spread and asume these are just created
+                elif self.ac.has_spread(spread):
                     pw = pickle.loads(ans['change_params'])['password']
                     self.change_pwd(self.ac.account_name, pw, dry_run)
             else:
                 self.logger.debug("unknown change_type_id %i",
                                   ans['change_type_id'])
-            self.cl.confirm_event(ans)
+            cl.confirm_event(ans)
         if commit_changes:                
-            self.cl.commit_confirmations()
+            cl.commit_confirmations()
             self.logger.info("Commited changes, updated c_l_handler.")
             
 
     def change_pwd(self, uname, pw, dry_run):
-        dn = self.server.findObject(self.ac.account_name)
+        dn = self.server.findObject(uname)
         ret = self.run_cmd('bindObject', dry_run, dn)
         self.logger.debug("BIND: %s", ret[0])
         pwUnicode = unicode(pw, 'iso-8859-1')
         ret = self.run_cmd('setPassword', dry_run, pwUnicode)
         if ret[0]:
             self.logger.info('Changed password for %s in domain %s' %
-                             (self.ac.account_name, self.ad_ldap))
+                             (uname, self.ad_ldap))
         else:
             #Something went wrong.
             self.logger.warn('Failed change password for %s in domain %s.' % (
-                    self.ac.account_name, self.ad_ldap))
+                    uname, self.ad_ldap))
 
     
     def full_sync(self, delete=False, spread=None, dry_run=True, 
@@ -583,7 +589,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         #Set passwords from changelog if option enabled
         if pwd_sync:
-            self.get_pwds_from_cl(addump, dry_run, True)
+            self.get_pwds_from_cl(addump, dry_run, spread, True)
 
         #Cleaning up.
         addump = None
@@ -948,26 +954,61 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @type user_spread: _SpreadCode
         @param dry_run: Flag
         @param sendDN_boost: Flag to determine if we should use fully qualified 
-                             domain named for users
+                             domain named for users and groups
         """
+        def get_medlemmer(gruppe_id, add_users):
+            """ Help function to gather group members. Groups without AD-spread
+            that are member, either directly or in-directly will have their
+            members with ad-spread added as members (so-called flattening).
+            """
+            if add_users:
+                for usr in (self.group.search_members(
+                        group_id=gruppe_id,
+                        member_spread=int(self.co.Spread(user_spread)))):
+                    user_members.append(usr["member_id"])
+
+            for gruppe in (self.group.search_members(
+                    group_id=gruppe_id)):
+                #to avoid loops where groups are members of each-other
+                if gruppe["member_id"] in group_members:
+                    continue
+                self.group.clear()
+                try:
+                    self.group.find(gruppe["member_id"])
+                except Errors.NotFoundError:
+                    continue
+                if self.group.has_spread(self.co.Spread(group_spread)):
+                    if add_users:
+                        group_members.append(gruppe["member_id"])
+                    get_medlemmer(gruppe["member_id"], False)
+                else:
+                    get_medlemmer(gruppe["member_id"], True)
+
+
         entity2name = dict([(x["entity_id"], x["entity_name"]) for x in 
                             self.group.list_names(self.co.account_namespace)])
         entity2name.update([(x["entity_id"], x["entity_name"]) for x in
                             self.group.list_names(self.co.group_namespace)])    
 
+
         for grp in cerebrum_dict:
             if cerebrum_dict[grp].has_key('grp_id'):
+                #self.logger.debug("Doing member sync for group %s" % grp)
                 grp_id = cerebrum_dict[grp]['grp_id']
-                #self.logger.debug("Comparing group %s" % grp)
-                
-                #TODO: How to treat quarantined users???, some exist in AD, 
-                #others do not. They generate errors when not in AD. We still
-                #want to update group membership if in AD.
+
+                user_members = list()
+                group_members = list()
                 members = list()
-                for usr in (self.group.search_members(
-                    group_id=grp_id,
-                    member_spread=int(self.co.Spread(user_spread)))):
-                    user_id = usr["member_id"]
+                
+                #get members and flatten groups without ad-spread recurseivly
+                get_medlemmer(grp_id, True)
+
+                #remove any duplicates
+                user_members = list(set(user_members))
+                group_members = list(set(group_members))
+                
+                
+                for user_id in user_members:
                     if user_id not in entity2name:
                         self.logger.debug("Missing name for account id=%s",
                                           user_id)
@@ -978,10 +1019,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     else:
                         members.append(entity2name[user_id])
                 
-                for gruppe in (self.group.search_members(
-                        group_id=grp_id,
-                        member_spread=int(self.co.Spread(group_spread)))):
-                    group_id = gruppe["member_id"]
+                for group_id in group_members:
                     if group_id not in entity2name:
                         self.logger.debug("Missing name for group id=%s", 
                                           group_id)
@@ -1025,12 +1063,12 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                                 dn, res[1:])
                     continue
 
+                #Comparing members in cerebrum and ad
                 members_add = [userdn for userdn in members 
                                if userdn not in members_in_ad]
                 members_remove = [userdn for userdn in members_in_ad 
                                   if userdn not in members]
-                    
-                    
+                        
                 if members_add or members_remove:
                     dn = self.server.findObject(grp)
                     if not dn:
@@ -1058,6 +1096,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                 self.logger.warning(
                                     "Removing members for group %s failed: %s",
                                     dn, res[1])
+
             else:
                 self.logger.warning(
                     "Group %s has no group_id. Not syncing members.", (grp))
@@ -1088,7 +1127,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             if cerebrum_dict[grp].has_key('grp_id'):
                 grp_name = grp.replace(cereconf.AD_GROUP_POSTFIX,"")
                 grp_id = cerebrum_dict[grp]['grp_id']
-                self.logger.debug("Sync group %s" % grp_name)
+                #self.logger.debug("Sync group %s" % grp_name)
 
                 #TODO: How to treat quarantined users???, some exist in AD, 
                 #others do not. They generate errors when not in AD. We still
