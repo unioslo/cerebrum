@@ -1346,6 +1346,7 @@ class BofhdExtension(object):
                          self.const.email_target_deleted):
             ret += self._email_info_spam(et)
             ret += self._email_info_filters(et)
+            ret += self._email_info_forwarding(et, uname)
 
         return ret
 
