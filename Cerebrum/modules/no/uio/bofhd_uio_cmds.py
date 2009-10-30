@@ -2667,7 +2667,7 @@ class BofhdExtension(object):
 
 
     def _create_list_alias(self, operator, listname, address, list_type,
-                           delivery_host):
+                           delivery_host, force_alias=False):
         """Create an alias L{address} for an existing ml L{listname}.
 
         @type listname: basestring
@@ -2703,13 +2703,14 @@ class BofhdExtension(object):
             self._check_mailman_official_name(listname)
         else:
             self._validate_sympa_list(listname)
-        try:
-            self._get_account(lp)
-        except CerebrumError:
-            pass
-        else:
-            raise CerebrumError, ("Won't create list-alias %s, as %s is an "
-                                  "existing username") % (address, lp)
+        if not force_alias:
+            try:
+                self._get_account(lp)
+            except CerebrumError:
+                pass
+            else:
+                raise CerebrumError, ("Won't create list-alias %s, as %s is an "
+                                      "existing username") % (address, lp)
         # we _don't_ check for "more than 8 characters in local
         # part OR it contains hyphen" since we assume the people
         # who have access to this command know what they are doing
@@ -2866,8 +2867,9 @@ Addresses and settings:
         ("email", "reassign_list_address"),
         EmailAddress(help_ref="mailing_list"),
         SimpleString(help_ref='string_email_delivery_host'),
+        YesNo(help_ref="yes_no_force", optional=True),        
         perm_filter="can_email_list_create")
-    def email_reassign_list_address(self, operator, listname, sympa_delivery_host):
+    def email_reassign_list_address(self, operator, listname, sympa_delivery_host,  force_alias="No"):
         et_mailman, ea = self.__get_email_target_and_address(listname)
         esf_mailman = Email.EmailSpamFilter(self.db)
         etf_mailman = Email.EmailTargetFilter(self.db)
@@ -2898,9 +2900,14 @@ Addresses and settings:
         self._create_mailing_list_in_cerebrum(operator, self.const.email_target_Sympa,
                                               delivery_host, listname)
         for address in aliases:
-            self._create_list_alias(operator, listname, address,
-                                    self.const.email_target_Sympa,
-                                    delivery_host)
+            if self._is_yes(force_alias):
+                self._create_list_alias(operator, listname, address,
+                                        self.const.email_target_Sympa,
+                                        delivery_host, force_alias=True)
+            else:
+                self._create_list_alias(operator, listname, address,
+                                        self.const.email_target_Sympa,
+                                        delivery_host)
         et_sympa, ea = self.__get_email_target_and_address(listname)
         if change_filters:
             etf_sympa = Email.EmailTargetFilter(self.db)
