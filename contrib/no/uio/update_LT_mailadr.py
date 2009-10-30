@@ -201,7 +201,7 @@ def main():
     # od
 
     lt = LT(Database.connect(user="ureg2000", service = "LTPROD.uio.no",
-                             DB_driver = "DCOracle2"))
+                             DB_driver = cereconf.DB_DRIVER_ORACLE))
     db = Factory.get("Database")()
     person = Factory.get("Person")(db)
     const = Factory.get("Constants")(db)
