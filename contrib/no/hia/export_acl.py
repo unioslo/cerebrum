@@ -506,7 +506,7 @@ def prepare_kull():
     """
 
     db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
-                          DB_driver="DCOracle2")
+                          DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 
     logger.info("Generating <group>-elements for kull")    
@@ -550,7 +550,7 @@ def prepare_ue():
     """
 
     db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
-                          DB_driver="DCOracle2")
+                          DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 
     logger.info("Generating <group>-elements for UE")
@@ -919,7 +919,7 @@ def generate_report():
     #
     # All the relations
     db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
-                          DB_driver="DCOracle2")
+                          DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 
     output_pay_relation(person_info, fs)

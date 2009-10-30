@@ -192,7 +192,7 @@ class Fronter(object):
         self.logger.debug("Fronter: len(self.supergroups)=%i" % len(self.supergroups))
         #fronter_db = Database.connect(user='fronter',
         #                              service=self.DBinst,
-        #                              DB_driver='Oracle')
+        #                              DB_driver=cereconf.DB_DRIVER_ORACLE)
         #self._accessFronter = AccessFronter(fronter_db)
         self.kurs2navn = {}
         self.kurs2enhet = {}

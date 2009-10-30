@@ -399,7 +399,7 @@ def main():
     if user is None or sid is None:
         usage(1)
 
-    db = Database.connect(user=user, service=sid, DB_driver='Oracle')
+    db = Database.connect(user=user, service=sid, DB_driver=cereconf.DB_DRIVER_ORACLE)
     LT = LT(db)
     xml = XMLHelper()
 

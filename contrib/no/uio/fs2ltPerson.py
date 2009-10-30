@@ -6,6 +6,7 @@ import getopt
 import sys
 import time
 import cerebrum_path
+import cereconf
 
 from Cerebrum import Database
 from Cerebrum import Errors
@@ -221,7 +222,7 @@ def main():
 
     fs = FS(user=fs_user, database=fs_database)
     lt_db = Database.connect(user=lt_user, service=lt_database,
-                             DB_driver='Oracle')
+                             DB_driver=cereconf.DB_DRIVER_ORACLE)
     lt = LT(lt_db)
     if dryrun:
         fs.db.commit = fs.db.rollback

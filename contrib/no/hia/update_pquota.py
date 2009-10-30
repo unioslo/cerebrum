@@ -55,7 +55,7 @@ def check_paid_semfee():
     paid_semfee = []
     fs_db = Database.connect(user=cereconf.FS_USER,
                              service=cereconf.FS_DATABASE_NAME,
-                             DB_driver='Oracle')
+                             DB_driver=cereconf.DB_DRIVER_ORACLE)
 
     fs = FS(fs_db)
     temp = fs.student.list_betalt_semesteravgift()
