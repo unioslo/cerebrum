@@ -302,6 +302,14 @@ def process_person_callback(person_info):
 
         if 'status_dod' in p and p['status_dod'] == 'J':
             logger.error("Død person (blir ikke prosessert): %s" % fnr)
+            if fnr2person_id.has_key(fnr):
+                deceased_person = Factory.get('Person')(db)
+                deceased_person.find(fnr2person_id[fnr])
+                if deceased_person.deceased_date is None:
+                    deceased_person.deceased_date = mx.DateTime.today() - 1
+                    deceased_person.description = 'Deceased date set by import_FS.py: %s' % mx.DateTime.now()
+                    deceased_person.write_db()
+                    logger.info("Set deceased date on person: %s" % fnr)
             return
 
         # Get name
@@ -419,8 +427,12 @@ def process_person_callback(person_info):
     if fnr2person_id.has_key(fnr):
         new_person.find(fnr2person_id[fnr])
 
-    new_person.populate(mx.DateTime.Date(year, mon, day), gender)
-
+    try:
+        new_person.populate(mx.DateTime.Date(year, mon, day), gender)
+    except Errors.CerebrumError,m:
+        logger.error("Person %s populate failed: %s" % (fnr,m))
+        return
+    
     new_person.affect_names(co.system_fs, co.name_first, co.name_last)
     new_person.populate_name(co.name_first, fornavn)
     new_person.populate_name(co.name_last, etternavn)
