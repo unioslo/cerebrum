@@ -196,7 +196,12 @@ def create_sysx_person(sxp):
         person=pers_sysx
 
     # person object located, populate...
-    person.populate(mx.DateTime.Date(year, mon, day),gender)
+    try:
+        person.populate(mx.DateTime.Date(year, mon, day),gender)
+    except Errors.CerebrumError,m:
+        logger.error("Person %s populate failed: %s" % (personnr or id,m))
+        return
+    
     person.affect_names(co.system_x,co.name_first,co.name_last,co.name_full)
     person.populate_name(co.name_first,fornavn)
     person.populate_name(co.name_last,etternavn) 
@@ -262,9 +267,10 @@ def create_sysx_person(sxp):
     if include_delete:
        key_a = "%s:%s:%s" % (person.entity_id,ou_id,int(affiliation))
        if old_aff.has_key(key_a):
+          logger.debug("Don't delete affiliation: %s" % (key_a,))
           old_aff[key_a] = False
 
-    op3 = person.write_db()
+    op2 = person.write_db()
 
     # Update last-seen date
     try:
@@ -280,14 +286,14 @@ def create_sysx_person(sxp):
        logger.warn("WHOOOO. Programming errror: %s"  % m)
        
  
-    #write the person data to the database
-    op2 = person.write_db()
-
-    logger.debug("OP codes: op=%s,op2=%s,op3=%s" % (op,op2,op3))
+    logger.debug("OP codes: op=%s,op2=%s" % (op,op2))
     
     if op is None and op2 is None:
        logger.info("**** EQUAL ****")
        unchanged+=1
+    elif op is None and op2 == False:
+       logger.info("**** AFF UPDATE ****")
+       updated+=1
     elif op == True:
        logger.info("**** NEW ****")
        added+=1

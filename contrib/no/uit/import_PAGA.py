@@ -301,7 +301,12 @@ def process_person(person):
         logger.warn("Ikke noe navn for paga_nr %s" % paga_nr)
         return
 
-    new_person.populate(mx.DateTime.Date(year, mon, day), gender)
+    try:
+        new_person.populate(mx.DateTime.Date(year, mon, day), gender)
+    except Errors.CerebrumError,m:
+        logger.error("Person %s populate failed: %s" % (fnr or paga_nr,m))
+        return
+
     new_person.affect_names(const.system_paga, const.name_first, const.name_last, const.name_personal_title)
     new_person.affect_external_id(const.system_paga, const.externalid_fodselsnr, const.externalid_paga_ansattnr)
     new_person.populate_name(const.name_first, person['fornavn'])

@@ -1,5 +1,7 @@
+#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+
+# Copyright 2003, 2004 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,104 +19,110 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import re
+
+
+import cerebrum_path
 import cereconf
+
+from Cerebrum import Utils
 from Cerebrum import Person
+from Cerebrum import Errors
 
-class PersonFnrMixin(Person.Person):
-    """Methods to get Norwegian fodselsnummer information."""
 
-    def __init__(self, db):
-        self.__super.__init__(db)
-        self._fnr_sources = dict(zip(
-            [int(getattr(self.const,s)) for s in cereconf.SYSTEM_LOOKUP_ORDER],
-            range(-len(cereconf.SYSTEM_LOOKUP_ORDER), 0)))
+class UiTPersonMixin(Person.Person):
+  """
+  This class provides an UiT-specific extension to the core Person class.
+  """
 
-    # Rough check for valid fodselsnummer
-    check_fnr = re.compile(r'[0-7]\d[0156]\d{8}\Z').match
 
-    def preferred_fnr(self, person_id, nums=None):
-        """Return person_id's preferred fodselsnr, from nums if given, or None.
+  # We want to raise an error when person.populate is called on a person with
+  # deceased_date set in the DB.
+  def populate(self, birth_date, gender, description=None, deceased_date=None,
+                 parent=None):
+    try:
+      db_deceased = self.deceased_date
+    except AttributeError:
+      pass
+    else:
+      if db_deceased is not None and deceased_date is None:
+        raise Errors.CerebrumError('Populate called with deceased_date=None,'\
+                                   'but deceased_date already set on person')
+    self.__super.populate(birth_date,gender,description,deceased_date,parent)
+    
 
-        <nums> is either None or a sequence with <person_id>'s fodselsnrs.
-        Prefer permanent nums over B-nums over fake nums.
-        Reject severely malformed nums.
-        With several equally good nums, choose by cereconf.SYSTEM_LOOKUP_ORDER
-        (unless self._fnr_sources is overridden)."""
-        selected = None
-        select = "SELECT external_id, source_system" \
-                 " FROM [:table schema=cerebrum name=entity_external_id]" \
-                 " WHERE entity_id = %d AND id_type = %d"
-        if nums is None:
-            selected = self.query(select %
-                                  (person_id, self.const.externalid_fodselsnr))
-            nums = [s[0] for s in selected]
-        # Prefer permanent nums over B-nums over fake nums. Skip very bad nums.
-        best_nums = {}
-        best_score = 0
-        for fnr in filter(self.check_fnr, nums):
-            if fnr[2] > '4' or fnr[6] == '9':
-                score = 1               # Fake number from FS or LT
-            elif fnr[0] > '3':
-                score = 2               # B-number (6 months lifetime)
-            else:
-                score = 3               # Permanent number
-            if score > best_score:
-                best_score = score
-                best_nums = {fnr: True}
-            elif score == best_score:
-                best_nums[fnr] = True
-        if len(best_nums) < 2:
-            return (best_nums.keys() or (None,))[0]
-        # Several equally good numbers.  Choose by preferred source system.
-        nums = []
-        if selected is None:
-            selected = self.query(select %
-                                  (person_id, self.const.externalid_fodselsnr))
-        for fnr, source in selected:
-            if fnr in best_nums:
-                nums.append((self._fnr_sources.get(int(source), 1), fnr))
-        if nums:
-            nums.sort()
-            return nums[0][1]
-        # The supplied numbers are not in the database.
-        return None
+  def list_deceased(self):
+      ret = {}
+      for row in self.query("""
+                            SELECT pi.person_id, pi.deceased_date
+                            FROM [:table schema=cerebrum name=person_info] pi
+                            WHERE pi.deceased_date IS NOT NULL """):
+          ret[int(row['person_id'])] = row['deceased_date']
+      return ret
 
-    def getdict_fodselsnr(self, users_only=False):
-        """Return a dict {person_id: fodselsnr}.
 
-        Some values may be objects that must be converted to strings.
-        If users_only, only return persons with accounts with affiliations."""
-        result = {}                     # {person_id: fodselsnr}
-        multi = {}                      # {person_id: {fodselsnr: 0}}
-        f = "[:table schema=cerebrum name=entity_external_id] eei"
-        if users_only:
-            f += " JOIN [:table schema=cerebrum name=account_type] at" \
-                 " ON at.person_id=eei.entity_id"
-        for person_id, fnr in self.query("""
-            SELECT DISTINCT eei.entity_id, eei.external_id FROM %s
-            WHERE eei.id_type = %d""" % (f, self.const.externalid_fodselsnr)):
-            person_id = int(person_id)
-            if result.setdefault(person_id, fnr) is not fnr:
-                multi.setdefault(person_id, {result[person_id]: 0})[fnr] = 0
-        if multi:
-            # Handle persons with several different fodselsnrs:
-            # Defer the choice of which number to use until it is used,
-            # since many of the entries in the dict may be left unused.
-            class fnr_selector(object):
-                __slots__ = ('args', 'val')
-                def __init__(self, *args):
-                    self.args = args
-                def __str__(self):
-                    if self.args:
-                        self.val = self.preferred_fnr(*self.args) or ''
-                        self.args = False
-                    return self.val
-                def __nonzero__(self):
-                    return bool(self.__str__())
-            fnr_selector.preferred_fnr = self.preferred_fnr
-            for person_id, nums in multi.iteritems():
-                result[person_id] = fnr_selector(person_id, nums.keys())
-        return result
 
-# arch-tag: 64f8187c-3b85-401b-b11d-8c5ab1c41049
+
+  def get_primary_account(self,filter_expired=True):
+    """Returns the account_id of SELF.entity_id's primary account"""
+    acc = Utils.Factory.get("Account")(self._db)
+    # get_account_types returns its results sorted
+    accounts = acc.get_account_types(all_persons_types=True,
+                                     owner_id=self.entity_id,
+                                     filter_expired=filter_expired)
+    if accounts:
+      return accounts[0]["account_id"]
+    else:
+      return None
+
+
+  def _compare_names(self, type, other):
+        """Returns True if names are equal.
+
+        self must be a populated object."""
+        try:
+            tmp = other.get_name(self._pn_affect_source, type)
+            if tmp ==None:
+            #if len(tmp) == 0:
+                raise KeyError
+        except:
+            raise Person.MissingOtherException 
+        try:
+            myname = self._name_info[type]
+        except:
+            raise Person.MissingSelfException
+#        if isinstance(myname, unicode):
+#            return unicode(tmp, 'iso8859-1') == myname
+        return tmp == myname
+
+
+  def set_affiliation_last_date(self, source, ou_id, affiliation, status):
+        binds = {'ou_id': int(ou_id),
+                 'affiliation': int(affiliation),
+                 'source': int(source),
+                 'status': int(status),
+                 'p_id': self.entity_id,
+                 }
+        try:
+            self.query_1("""
+            SELECT 'yes' AS yes
+            FROM [:table schema=cerebrum name=person_affiliation_source]
+            WHERE
+              person_id=:p_id AND
+              ou_id=:ou_id AND
+              affiliation=:affiliation AND
+              source_system=:source""", binds)
+            self.execute("""
+            UPDATE [:table schema=cerebrum name=person_affiliation_source]
+            SET last_date=[:now]
+            WHERE
+              person_id=:p_id AND
+              ou_id=:ou_id AND
+              affiliation=:affiliation AND
+              source_system=:source""", binds)
+            #self._db.log_change(self.entity_id,
+            #                    self.const.person_aff_src_mod, None)
+        
+        except Errors.NotFoundError:
+            raise Errors.ProgrammingError, "set_affiliation_last_date() failed. Called before person.populate_affiliations()?"
+         
+# arch-tag: 07747944-da97-11da-854b-ac67a6778cc2
