@@ -6971,8 +6971,8 @@ Addresses and settings:
                         'studierettstatkode': row['studierettstatkode'],
                         'studentstatkode': row['studentstatkode'],
 			'studieretningkode': row['studieretningkode'],
-                        'dato_tildelt': self._convert_ticks_to_timestamp(row['dato_studierett_tildelt']),
-                        'dato_gyldig_til': self._convert_ticks_to_timestamp(row['dato_studierett_gyldig_til']),
+                        'dato_tildelt': row['dato_studierett_tildelt'] and row['dato_studierett_tildelt'].date or '',
+                        'dato_gyldig_til': row['dato_studierett_gyldig_til'] and row['dato_studierett_gyldig_til'].date or '',
                         'privatist': row['status_privatist']})
 
         for row in fs.student.get_eksamensmeldinger(fodselsdato, pnum):
