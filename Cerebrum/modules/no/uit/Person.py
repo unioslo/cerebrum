@@ -35,14 +35,29 @@ class UiTPersonMixin(Person.Person):
   """
 
 
+  # We want to raise an error when person.populate is called on a person with
+  # deceased_date set in the DB.
+  def populate(self, birth_date, gender, description=None, deceased_date=None,
+                 parent=None):
+    try:
+      db_deceased = self.deceased_date
+    except AttributeError:
+      pass
+    else:
+      if db_deceased is not None and deceased_date is None:
+        raise Errors.CerebrumError('Populate called with deceased_date=None,'\
+                                   'but deceased_date already set on person')
+    self.__super.populate(birth_date,gender,description,deceased_date,parent)
+    
+
   def list_deceased(self):
-        ret = {}
-        for row in self.query("""
-        SELECT pi.person_id, pi.deceased_date
-        FROM [:table schema=cerebrum name=person_info] pi
-        WHERE pi.deceased_date IS NOT NULL """):
-            ret[int(row['person_id'])] = row['deceased_date']
-        return ret
+      ret = {}
+      for row in self.query("""
+                            SELECT pi.person_id, pi.deceased_date
+                            FROM [:table schema=cerebrum name=person_info] pi
+                            WHERE pi.deceased_date IS NOT NULL """):
+          ret[int(row['person_id'])] = row['deceased_date']
+      return ret
 
 
 
