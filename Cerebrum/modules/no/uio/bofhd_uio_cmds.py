@@ -6982,19 +6982,19 @@ Addresses and settings:
                     programmer.append(row2['studieprogramkode'])
             ret.append({'ekskode': row['emnekode'],
                         'programmer': ",".join(programmer),
-                        'dato': self._convert_ticks_to_timestamp(row['dato_opprettet'])})
+                        'dato': row['dato_opprettet']})
                       
         for row in fs.student.get_utdanningsplan(fodselsdato, pnum):
             ret.append({'studieprogramkode': row['studieprogramkode'],
                         'terminkode_bekreft': row['terminkode_bekreft'],
                         'arstall_bekreft': row['arstall_bekreft'],
-                        'dato_bekreftet': self._convert_ticks_to_timestamp(row['dato_bekreftet'])})
+                        'dato_bekreftet': row['dato_bekreftet']})
 
         for row in fs.student.get_semreg(fodselsdato, pnum):
             ret.append({'regformkode': row['regformkode'],
                         'betformkode': row['betformkode'],
-                        'dato_endring': self._convert_ticks_to_timestamp(row['dato_endring']),
-                        'dato_regform_endret': self._convert_ticks_to_timestamp(row['dato_regform_endret'])})
+                        'dato_endring': row['dato_endring'],
+                        'dato_regform_endret': row['dato_regform_endret']})
         db.close()
         return ret
 
