@@ -152,15 +152,15 @@ class ou:
         INSTNAME=3
         GRPNR=4
         GRPNAME=5
-        PORTAL=6
-        NODE_FOR_PERSON=7
-        SHORTNAME=8        
-        STED_ORGCARD_NAME=9
-        STED_AKRONYM=10
-        LEVEL=11
-        LEVEL_SPES=12
-        SORT_KEY=13
-        num_fields=14        
+        PORTAL=8
+        #NODE_FOR_PERSON=7
+        SHORTNAME=6        
+        #STED_ORGCARD_NAME=9
+        STED_AKRONYM=7
+        #LEVEL=11
+        #LEVEL_SPES=12
+        SORT_KEY=9
+        num_fields=11        
         import codecs
 
         # BEGIN
