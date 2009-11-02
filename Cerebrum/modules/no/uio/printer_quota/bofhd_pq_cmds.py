@@ -20,14 +20,11 @@
 
 import time
 import cereconf
+from mx import DateTime
 
-from Cerebrum import Account
 from Cerebrum import Cache
 from Cerebrum import Constants
 from Cerebrum import Database
-from Cerebrum import Errors
-from Cerebrum import Utils
-from Cerebrum import Person
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.bofhd.cmd_param import Command, PersonId, SimpleString, FormatSuggestion, Integer
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -284,13 +281,9 @@ The currently defined id-types are:
                 #
                 # We make some effort to get daylight saving and
                 # timezone right since DCOracle2.Timestamp doesn't.
-                tstamp = time.time()
-                year, mon, mday, hour = time.localtime(tstamp)[:4]
-                if hour < 7:
-                    year, mon, mday = time.localtime(tstamp - 7*3600)[:3]
-                tstamp = int(time.mktime((year, mon, mday, 7, 0, 0, 0, 0, -1)))
-                this_morning = fs.TimeFromTicks(tstamp)
-
+                this_morning = DateTime.now()
+                if this_morning.hour < 7:
+                    this_morning = DateTime.today() + DateTime.RelativeDateTime(hour=7)
                 reason = ["%s: Printer quota has been blocked due to:" % person]
 
                 from Cerebrum.modules.no.access_FS import Student
@@ -415,6 +408,8 @@ The currently defined id-types are:
             # obsoleted human-readable format.
             if trace.count(":") and not trace.count(" "):
                 from mx.DateTime import DateTime, DateTimeDeltaFromSeconds
+                # TODO: what is this code supposed to do? last_event
+                # is not defiend. Fix!
                 time_t = int(last_event.split(":")[-1])
                 tstamp = DateTime(1970) + DateTimeDeltaFromSeconds(time_t)
                 tstamp += tstamp.gmtoffset()
