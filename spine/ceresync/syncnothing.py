@@ -7,7 +7,7 @@ from ceresync import config
 config.parse_args()
 
 def main():
-    s= sync.Sync()
+    s= sync.Sync(locking=False)
     print s.get_changelogid() 
 
 if __name__ == "__main__":
