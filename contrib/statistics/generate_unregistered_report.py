@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -22,20 +22,23 @@
 import sys
 import getopt
 
-from mx.DateTime import *
-
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
 
-"""This program generates a report of persons that are not registered in
-an authoritative system (e.g. SAP or FS), but still has an active account.
-An active account is simply an account that is not expired, regardless of
-home is set.
+"""This program generates a report of persons that are not registered in an
+authoritative system (e.g. SAP or FS), but still has an active account.  An
+active account is simply an account that is not expired, regardless of home is
+set.
 
-The script is sorting the persons by OUs. It can work at faculty, institute 
-and unity level. Those that does not even have a manual affiliation are 
-sorted in 'unregistered'.
+The script is sorting the persons by OUs. It can work at fakultet, institutt and
+avdeling level. Those that does not even have a manual affiliation are sorted as
+'unregistered'.
+
+Example of use:
+
+    generate_unregistered_report.py -f /tmp/unregistered_report.txt \
+            --ignore-students --ignore-sko 78,79
 """
 
 db = Factory.get('Database')()
@@ -46,17 +49,8 @@ account = Factory.get('Account')(db)
 ou = Factory.get('OU')(db)
 
 # List of the authoritative systems
-auth_sources = [getattr(constants, syst) for syst in cereconf.BOFHD_AUTH_SYSTEMS]
-
-# Dict with the unregistered persons
-# First dimension has stedkode as keys, the deeper key gives the persons entity_id,
-# which at last points at the persons accountnames. The boolean value for each account
-# is set to False if the account does not have a home set.
-#
-#   unregistered => sko => person_id => account_id => (bool) Home
-# 
-# The special case ou_id = None lists persons without any affiliation.
-unregistered = {None: {}}
+auth_sources = filter(None, (constants.human2constant(x, constants.AuthoritativeSystem) 
+        for x in getattr(cereconf, "BOFHD_AUTH_SYSTEMS", ())))
 
 # Counters:
 nr_hasaccounts = 0  # number of people that has at least one account, registered or not
@@ -70,20 +64,24 @@ def usage(exitcode = 0, message = None):
 
     print """\nUsage: %s [options]
 
-    -f, --file          The file to send the report to, outputted to the console if no file is given.
-    -s, --sko           If you just want to search through a specific sko. 6 digits means an exact OU, 
-                        less digits means that children OUs should be searched through as well.
+    -f, --file          The file to send the report to, outputted to the console
+                        if no file is given.
 
-    --summary           Only print out a summary of the number of unregistered persons.
-    --faculties         If only the faculty level of OUs are being searched.
-    --institutes        If only the faculty and institute level of OUs are being searched.
-                        If neither --faculties nor --institutes is used every ou is searched through.
+    --summary           Only print summary of the number of unregistered
+                        persons.
+    --faculties         Only the faculty level of OUs are being searched.
+    --institutes        Only the faculty and institute OUs are being searched.
 
-    --ignore-students   Since a lot of students are unregistered before they're disabled, this
-                        option can be used to ignore these persons.
-    --ignore-sko        If some OUs are to be ignored. Can be a commaseparated list of stedkoder.
-                        Can add subOUs by only adding the first digits in the sko, e.g. '33' 
-                        gives all OUs at USIT.
+                        If neither --faculties nor --institutes is used every ou
+                        is searched through.
+
+    --ignore-students   Since a lot of students are unregistered before they're
+                        disabled, this option can be used to ignore these
+                        persons.
+    --ignore-sko        If some OUs are to be ignored. Can be a commaseparated 
+                        list of stedkoder. Can add sub-OUs by only adding the 
+                        first digits in the sko. E.g. '33' gives all OUs at 
+                        USIT.
 
     -h, --help          See this help info and exit.
 
@@ -92,51 +90,51 @@ def usage(exitcode = 0, message = None):
     sys.exit(exitcode)
 
 
-def process_report(stream, ou_level = 0, summary = False, ignore_students = False, ignore_sko = None):
+def process_report(stream, ou_level = 0, summary = False, 
+                        ignore_students = False, ignore_sko = ()):
     '''
     Generating the report and send it to logger.
     '''
 
-    logger.info("Generating report of active persons not registered in auth_source")
+    logger.info("Generating report of persons not registered in auth_source")
+
+    # Dict with the unregistered persons
+    # First dimension has stedkode as keys, the deeper key gives the persons 
+    # entity_id, which at last points at the persons accountnames. The boolean
+    # value for each account is set to False if the account does not have a home 
+    # set.
+    #
+    #   unregistered => sko => person_id => account_id => (bool) Home
+    # 
+    # The special case ou_id = None lists persons without any affiliation.
+    unregistered = {None: {}}
 
     # OUs
-    ous = []
     institutt = None
     avdeling = None
     if ou_level >= 1: institutt = 0
     if ou_level >= 2: avdeling = 0
     # else: every ou
 
-    for u in ou.get_stedkoder(institutt=institutt, avdeling=avdeling):
-        ous += u[0],
-        #unregistered[u[0]] = {}
-
+    # Get a list of all OUs we want to search through on the form
+    # ((ou_id, stedkode), (ou_id, stedkode), ...)
+    all_ous = set((row['ou_id'], "%02d%02d%02d" % (row['fakultet'],
+                                                   row['institutt'],
+                                                   row['avdeling']))
+                          for row in ou.get_stedkoder(institutt=institutt, 
+                                                      avdeling=avdeling))
+    # Create a dict of the ous and skos, but without those specified in 
+    # ignore_sko (if any):
+    ous = dict(x for x in all_ous if not any(sko_filter in x[1]
+                                          for sko_filter in ignore_sko))
     logger.debug("Found %d OUs to sort by" % len(ous))
-
-    # OUs to be ignored
-    if ignore_sko:
-        for ignsko in ignore_sko:
-            if not ignsko.isdigit() or len(ignsko) > 6:
-                logger.warn("Ignore_sko ignored due to bad string: '%s'" % ignsko)
-                continue
-
-            avd  = None
-            inst = None
-            fak  = ignsko[:2]
-            if len(ignsko) >= 4: inst = ignsko[2:4]
-            if len(ignsko) >= 6: avd  = ignsko[4:6]
-            ignous = ou.get_stedkoder(fakultet=fak, institutt=inst, avdeling=avd)
-            logger.debug("Ignoring sko %s, which includes %d ous" % (ignsko, len(ignous)))
-            for id in ignous:
-                ous.remove(id[0])
-        logger.debug("Ignored some OUs, %d OUs remaining" % len(ous))
-
 
     all_persons = person.list_persons()
     logger.debug("%d persons found" % len(all_persons))
 
     for pid in all_persons:
-        process_person(int(pid['person_id']), ous=ous, ignore_students=ignore_students)
+        process_person(pid=int(pid['person_id']), unregistered=unregistered,
+                       ous=ous, ignore_students=ignore_students)
 
 
     logger.debug("Search is done, go for report")
@@ -167,12 +165,15 @@ def process_report(stream, ou_level = 0, summary = False, ignore_students = Fals
             if sko is None:
                 stream.write("\n----- Unregistered persons (no affiliations) -----\n")
             else:
-            #elif len(unregistered[ou_id]) > 0:
                 ou.clear()
-                ou.find_stedkode(fakultet=sko[:2], institutt=sko[2:4], avdeling=sko[4:6], 
-                        institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
-                stream.write("\n----- %02d%02d%02d (%s) -----\n" % (ou.fakultet, ou.institutt, 
-                                                                    ou.avdeling, ou.name))
+                ou.find_stedkode(fakultet=sko[:2], 
+                                 institutt=sko[2:4], 
+                                 avdeling=sko[4:6], 
+                                 institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
+                stream.write("\n----- %02d%02d%02d (%s) -----\n" % (ou.fakultet, 
+                                                                    ou.institutt,
+                                                                    ou.avdeling, 
+                                                                    ou.name))
 
             for pid in unregistered[sko]:
                 person.clear()
@@ -180,24 +181,27 @@ def process_report(stream, ou_level = 0, summary = False, ignore_students = Fals
                 acstrings = ()
                 for ac, home in unregistered[sko][pid].items():
                     if home:
-                        acstrings += ("%s" % ac,)
+                        acstrings += (str(ac),)
                     else:
                         acstrings += ("%s (NOHOME)" % ac,)
 
                 stream.write("%d - %s - accounts: %s\n" % (pid, 
-                                person.get_name(constants.system_cached, constants.name_full),
+                    person.get_name(constants.system_cached, constants.name_full),
                                 ', '.join(acstrings)))
 
-    logger.info("Generating report of active persons not registered in auth_source - done")
+    logger.info("Generating report of persons not registered in auth_source - done")
 
 
-def process_person(pid, ous, ignore_students=False):
+def process_person(pid, unregistered, ous, ignore_students=False):
     '''
     Checks if a given person validates as an unregistered person, and then adds
     it to the list of unregistered.
+
+    Returns true only if the person qualifies as unregistered and is put into
+    the unregistered list.
     '''
 
-    global nr_hasaccounts, nr_manually, unregistered
+    global nr_hasaccounts, nr_manually
 
     accs = [ac[0] for ac in account.list_accounts_by_owner_id(owner_id=pid)]
 
@@ -206,8 +210,8 @@ def process_person(pid, ous, ignore_students=False):
 
     nr_hasaccounts += 1
 
-    affs = person.list_affiliations(person_id=pid)
     # Check for authoritative systems, skipping person if found
+    affs = person.list_affiliations(person_id=pid)
     for aff in affs:
         if aff['source_system'] in auth_sources:
             return False
@@ -222,7 +226,7 @@ def process_person(pid, ous, ignore_students=False):
         if ignore_students and len(accs) == 1:
             # Check for a STUDENT-affiliation on the account
             if constants.affiliation_student in [type['affiliation'] for type in 
-                                                    account.get_account_types()]:
+                                                   account.get_account_types()]:
                 return False
         accounts[account.account_name] = bool(account.get_homes())
 
@@ -238,16 +242,9 @@ def process_person(pid, ous, ignore_students=False):
     # Finding and sorting by OU
     for aff in affs:
         if aff['ou_id'] in ous:
-            ou.clear()
-            ou.find(aff['ou_id'])
-            skostr = "%02d%02d%02d" % (ou.fakultet, ou.institutt, ou.avdeling)
-            if skostr not in unregistered:
-                unregistered[skostr] = {}
-            unregistered[skostr][pid] = accounts
+            unregistered.setdefault(ous[aff['ou_id']], {})[pid] = accounts
         # else: skip the person
-
     return True
-
 
 def main():
     try:
@@ -290,7 +287,7 @@ def main():
     process_report(outputstream, ou_level=ou_level, summary=summary, 
             ignore_students=ignore_students, ignore_sko=ignore_sko)
 
-    if outputstream in (sys.stdout, sys.stderr):
+    if outputstream not in (sys.stdout, sys.stderr):
         outputstream.close()
 
 if __name__ == '__main__':
