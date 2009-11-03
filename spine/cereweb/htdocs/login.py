@@ -31,7 +31,7 @@ import cgi
 from lib import utils
 from lib import Messages
 from lib.Options import Options
-from lib.templates.Login import Login
+from lib.templates.LoginTemplate import LoginTemplate
 import config
 
 import cereconf
@@ -50,11 +50,12 @@ def login(**kwargs):
         next = get_next(**kwargs)
         utils.redirect(next)
     else:
+        username = kwargs.get('username', '')
         namespace = {
-            'username': kwargs.get('username', ''),
+            'username': utils.html_quote(username),
             'messages': utils.get_messages(),
         }
-        template = Login(searchList=[namespace])
+        template = LoginTemplate(searchList=[namespace])
         return template.respond()
 login.exposed = True
 
