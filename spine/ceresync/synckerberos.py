@@ -23,8 +23,8 @@ from ceresync import errors
 from ceresync import syncws as sync
 from ceresync import config
 import os
-import omniORB
 import sys
+import socket
 
 try:
     set()

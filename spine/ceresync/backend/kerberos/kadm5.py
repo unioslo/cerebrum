@@ -20,19 +20,22 @@
 
 import os
 from ctypes import *
+from ceresync import config
 
 KRB_FLAVOR_MIT = 1
 KRB_FLAVOR_HEIMDAL = 2
 
 # kerberos library names for mit and heimdal kerberos
-MIT_KRB5 = 'libkrb5.so.3'
-HEIMDAL_KRB5 = 'libkrb5.so.17'
+MIT_KRB5 = config.get('mit', 'libkrb5', default='libkrb5.so.3')
+HEIMDAL_KRB5 = config.get('heimdal', 'libkrb5', default='libkrb5.so.17')
 
 # library names for adm5clnt libraries
-MIT_ADM5CLNT = 'libkadm5clnt.so.5' 
-MIT_ADM5SRV = 'libkadm5srv.so.5'
-HEIMDAL_ADM5CLNT = 'libkadm5clnt.so.4'
-HEIMDAL_ADM5SRV = '/usr/lib/libkadm5srv.so.7'
+MIT_ADM5CLNT = config.get('mit', 'libadm5clnt', default='libkadm5clnt.so.5')
+MIT_ADM5SRV = config.get('mit', 'libadm5srv', default='libkadm5srv.so.5')
+HEIMDAL_ADM5CLNT = config.get('heimdal', 'libadm5clnt', 
+                              default='libkadm5clnt.so.4')
+HEIMDAL_ADM5SRV = config.get('heimdal', 'libadm5srv', 
+                             default='/usr/lib/libkadm5srv.so.7')
 #libkadm5clnt = CDLL('libkadm5clnt.so.5')
 
 # On this system int32 == c_int, will have to check
