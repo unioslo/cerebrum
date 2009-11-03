@@ -28,6 +28,9 @@ import os
 from Cerebrum.DatabaseAccessor import DatabaseAccessor
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import PasswordHistory
+from Cerebrum import Errors
+
+
 
 msgs = {
     'not_null_char': 
@@ -66,6 +69,8 @@ one.""",
     'repetitive_sequence':
 """Don't use repeating sequences of the same characters""",
     'uname_backwards': "Don't use your username backwards",
+    'uname_forwards': "Don't use your username",
+    'password_is_a_name': "Don't use your name as password",
     'used_parentheses': "\nDon't enclose password in parentheses."}
 
 class PasswordGoodEnoughException(Exception):
@@ -76,6 +81,13 @@ class PasswordChecker(DatabaseAccessor):
     """Password checking routines.  For dictionary lookup to work, it
     is important that the dictionary files are sorted in dictionary
     order with case folded (LC_LANG=C sort -df)."""
+
+    def __init__(self, *rest, **kw):
+        super(PasswordChecker, self).__init__(*rest, **kw)
+        # Make a translation table for l33t-style transliteration
+        self.l33t_speak = string.maketrans('431!05$', 'aeiioss')
+    # end __init__
+
 
     def look(self, FH, key, dict, fold):
         """Quick port of look.pl (distributed with perl)"""
@@ -204,8 +216,8 @@ class PasswordChecker(DatabaseAccessor):
             oneup = ''
             if m:
                 oneup = m.group(1)
-            npass = string.translate(cpasswd,
-                                 string.maketrans('431!05$', 'aeiioss'))
+            npass = string.translate(cpasswd, self.l33t_speak)
+
             npass = re.sub('/[\?\!\.]$', '', npass)
             if re.search(r'.+[A-Z].*[A-Z]', passwd):
                 return
@@ -276,12 +288,23 @@ class PasswordChecker(DatabaseAccessor):
             if self._is_word_in_dict([re.sub(r'^[^a-z]+', '', passwd)]):
                 raise PasswordGoodEnoughException(msgs['dict_hit'])
 
-        nshort = string.translate(passwd,
-                                  string.maketrans('431!05$', 'aeiioss'))
+        nshort = string.translate(passwd, self.l33t_speak)
         if self._is_word_in_dict([nshort]):
             raise PasswordGoodEnoughException(msgs['dict_hit'])
+    # end _check_dict
+    
 
     def _check_variation(self, passwd):
+        """Check that the password is 'varied enough'.
+
+        We want at least 3 out of these 4:
+
+          - lowercase
+          - uppercase
+          - digits
+          - special chars
+        """
+        
         # I'm not sure that the below is very smart.  If this rule
         # causes most users to include a digit in their password, one
         # has managed to reduce the password space by 26*2/10 provided
@@ -298,13 +321,14 @@ class PasswordChecker(DatabaseAccessor):
 
         if variation < 3:
             if good_try:
-                raise PasswordGoodEnoughException(msgs['mix_needed8']+self.extra_msg)
+                raise PasswordGoodEnoughException(msgs['mix_needed8'])
             else:
-                raise PasswordGoodEnoughException(msgs['mix_needed']+self.extra_msg)
+                raise PasswordGoodEnoughException(msgs['mix_needed'])
 
     def _check_sequence(self, passwd):
         passwd = passwd.lower()
-        # A sequence of closely related ASCII characters?
+
+        # A sequence of closely related ASCII characters.
         ok = 0
         for i in range(len(passwd)-1):
             if abs(ord(passwd[i]) - ord(passwd[i+1])) > 1:
@@ -312,28 +336,235 @@ class PasswordChecker(DatabaseAccessor):
         if not ok:
             raise PasswordGoodEnoughException(msgs['sequence_alphabet'])
 
-        # A sequence of keyboard keys?
-        # TODO: 'kbd' should match a typical keyboard
-        # IVR 2009-01-23 FIXME: This is broken. A word like 'bygg' will be
-        # considered in-sequence by the code below, since different rows of a
-        # qwerty keyboard are mapped onto the same character sequence.
-        kbd = ("qwertyuiop[]asdfghjkl;'zxcvbnm,./",
-               "abcdefghijklabcdefghijkabcdefghij",
-               "!@#$%^&*()_+|~",
-               "abcdefghijklmn",
-               "-1234567890=\`",
-               "kabcdefghijlmn")
+        # TODO: 'kbd' should probably try a number of typical layouts.
+        # Rows may be of different lengths, but the same symbol CANNOT occur
+        # more than once.
+        keyboard_rows = ("qwertyuiop[]",
+                         "asdfghjkl;'",
+                         "zxcvbnm,./", 
+                         "!@#$%^&*()_+|~",
+                         "-1234567890=\`")
         tmp = passwd
-        i = 0
-        while i < len(kbd):
-            tmp = string.translate(tmp, string.maketrans(kbd[i], kbd[i+1]))
-            i += 2
+        last_index = 0
+        #
+        # The idea is to map each keyboard row into its own interval of
+        # consecutive chars (we don't care they may be non-printable). The
+        # code later checks that there does in fact exist at least 2
+        # consecutive chars in the password that differ by more than one.
+        for row in keyboard_rows:
+            translation_map = ''.join(chr(x) for x in range(last_index,
+                                                            last_index+len(row)))
+            last_index += len(row)
+            tmp = string.translate(tmp,
+                                   string.maketrans(row, translation_map))
+            
+        # Is there at least 1 pair of consecutive chars that differ by more
+        # than 1? 
         ok = 0
         for i in range(len(tmp)-1):
             if abs(ord(tmp[i]) - ord(tmp[i+1])) > 1:
                 ok = 1
         if not ok:
             raise PasswordGoodEnoughException(msgs['sequence_keys'])
+    # end _check_sequence
+
+
+    def _check_password_has_no_invalid_characters(self, password):
+        """Check that only valid characters are allowed.
+        """
+
+        # nul is not allowed
+        if '\0' in password:
+            raise PasswordGoodEnoughException(msgs['not_null_char'])
+
+        if ' ' in password:
+            raise PasswordGoodEnoughException(msgs['space'])
+
+        # 8-bit chars are problematic 
+        if re.search(r'[\200-\376]', password):
+            raise PasswordGoodEnoughException(msgs['8bit'])
+
+    # end _check_password_has_no_invalid_characters
+
+
+    def _strip_enclosing_parenthesis(self, password):
+        """Strip surrounding parentheses, to prevent people from creating
+        'secure' passwords like '(house)'.
+        """
+
+        if password[0] in "([{<":
+            password = password[1:]
+            if password[-1] in ">}])":
+                password = password[:-1]
+
+        return password
+    # end _strip_enclosing_parenthesis
+    
+
+    def _check_password_has_proper_length(self, password):
+        """A password is between 8 and 15 characters.
+        
+        NB! To prevent people from subverting the passwords, we have to strip
+        parentheses from the passwords.
+        """
+
+        if len(password) < 8:
+            raise PasswordGoodEnoughException(msgs['atleast8'])
+
+        stripped_password = self._strip_enclosing_parenthesis(password)
+        if len(stripped_password) > 15:
+            raise PasswordGoodEnoughException(msgs['atmost15'])
+    # end _check_password_has_proper_length
+
+
+    def _check_password_is_not_two_concatenated_words(self, fullpwd, pwd):
+        """We disallow passwords like 'Camel*Toe'.
+
+        (Passwords are pretty legit otherwise, except that they are
+        essentially 2 dictionary words combined).
+
+        TBD: Is this really a good idea? This check disallows passwords like
+        'Hsy#Klj7', which is clearly completely insane.
+        """
+
+        # Concatenated names or words from dictionaries
+        if (re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', pwd[0:7]) or
+            re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', fullpwd)):
+            raise PasswordGoodEnoughException(msgs['dict_hit_joined'])
+    # end _check_password_is_not_two_concatenated_words
+
+
+    def _check_illegal_words(self, password):
+        """Check that certain words are NOT part of the password.
+
+        The reasoning is that using these substrings would severely compromise
+        password strength.
+        """
+
+        normalised = password.lower()
+        for tmp in ('ibm', 'dec', 'sun', 'at&t', 'nasa', 'jan', 'feb',
+                    'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep',
+                    'oct', 'nov', 'dec'):
+            if tmp in normalised:
+                raise PasswordGoodEnoughException(msgs['dict_hit'])
+    # end _check_illegal_words
+
+
+
+    def _check_repeated_patterns(self, password):
+        """Check that the password does not have certain regularity.
+        """
+        
+        # Repeated patterns: ababab, abcabc, abcdabcd
+        if (re.search(r'^(..)\1\1', password) or
+            re.search(r'^(...)\1', password) or
+            re.search(r'^(....)\1', password)):
+            raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
+
+        # Reversed patterns: abccba abcddcba
+        if (re.search(r'^(.)(.)(.)\3\2\1', password) or
+            re.search(r'^(.)(.)(.)(.)\4\3\2\1', password)):
+            raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
+
+    # end _check_repeated_patterns
+
+
+    def _check_username(self, account, password, uname):
+        """Check that the password does not match username.
+        """
+
+        if uname is None:
+            uname = account.account_name
+
+        # password cannot equal the username
+        if password.lower() == uname:
+            raise PasswordGoodEnoughException(msgs["uname_forwards"])
+
+        # password cannot equal reversed username
+        if password.lower() == uname[::-1]:
+            raise PasswordGoodEnoughException(msgs['uname_backwards'])
+    # end _check_username
+
+
+
+    def _match_password_to_name(self, name, password):
+        """Check whether password 'matches' (in a sense) name.
+        """
+
+        def make_match(name_chunks, pwd_chunks):
+            # For each subsequent name part, check if that name part starts
+            # with a the leftover password. In case there is a match, shorten
+            # leftover password (that's what pwd_index is for).
+
+            # How many overlapping characters we have found so far.
+            matching_length = 0
+            for name in name_chunks:
+                for pwd in pwd_chunks:
+                    if name.startswith(pwd):
+                        matching_length += len(pwd)
+
+            return matching_length
+        # end make_match
+            
+        # Now, we have a name, 'Schnappi von Krokodil'. What variations are
+        # compared against the password? We want to trap variations like
+        # S*Krokodil, Sv-Krokodil, Schnappi-Krok and the like; i.e. we want to
+        # force people NOT to use some trivial variation of their name.
+        #
+        # Mitt spm er da: kan vi legge inn bedre sjekker av dette? Eller vil                            
+        # det bli vanskelig å en algoritme for det?                                                     
+        # Jeg tenkte:                                                                                        
+        # - uppercase av alle bokstaver.                                                                     
+        # - finn starten på "ord" dvs. 3-4 tegn etter skilletegn eller spesialtegn.                          
+        # - sjekk om disse er starten på for, mellom eller etternavn.                                        
+        name = name.lower()
+        password = password.lower()
+        name_chunks = [x for x in name.split() if len(x) > 0]
+        pwd_chunks = [x for x in re.split(r"[^a-z]+", password) if len(x) > 0]
+        pwd_l33t_chunks = [x for x in re.split(r"[^a-z]+",
+                                               password.translate(self.l33t_speak))
+                           if len(x) > 0]
+
+        # Now, matching_length counts the number of password alpha characters
+        # that overlap with the name. Let's say that if more than half the
+        # password is, in fact, a match => the password is a copy of the name.
+        if (make_match(name_chunks, pwd_chunks) > len(password)/2 or
+            make_match(name_chunks, pwd_l33t_chunks) > len(password)/2):
+            raise PasswordGoodEnoughException(msgs["password_is_a_name"])
+    # end _match_password_to_name
+    
+
+
+    def _check_human_owner(self, account, password):
+        """Make sure that password is not some variation of the human owner's
+        name.
+        """
+
+        if account is None:
+            return
+
+        # First, do we have a human owner at all?
+        person = Factory.get("Person")(self._db)
+        const = Factory.get("Constants")()
+        try:
+            person.find(account.owner_id)
+        except Errors.NotFoundError:
+            # This cannot be, really? But for password purposes, it means
+            # there is nothing to check.
+            return
+
+        # Which name to use? Let's grab the first full name we find
+        for row in person.get_all_names():
+            if row["name_variant"] == const.name_full:
+                name = row["name"]
+                break
+        else:
+            return 
+
+        self._match_password_to_name(name, password)
+    # end _check_human_owner
+        
+
 
     def goodenough(self, account, fullpasswd, uname=None):
         """Perform a number of checks on a password to see if it is
@@ -346,60 +577,35 @@ class PasswordChecker(DatabaseAccessor):
 
         passwd = fullpasswd[0:8]
 
-        if re.search(r'\0', passwd):
-            raise PasswordGoodEnoughException(msgs['not_null_char'])
-        self.extra_msg = ''
-        if len(passwd) < 8:
-            raise PasswordGoodEnoughException(msgs['atleast8'])
-        if passwd[0] in '([{<':     # Detect passwords like [Secret]
-            passwd = passwd[1:]
-            self.extra_msg = msgs['used_parentheses']
-            if passwd[-1] in ')]}>':
-                passwd = passwd[:-1]
-        if len(passwd) > 15:
-            raise PasswordGoodEnoughException(msgs['atmost15'])
-        if re.search(r'[\200-\376]', fullpasswd):
-            raise PasswordGoodEnoughException(msgs['8bit'])
-        if re.search(r' ', fullpasswd):
-            raise PasswordGoodEnoughException(msgs['space'])
-        # Concatenated names or words from dictionaries
-        if (re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', passwd[0:7]) or
-            re.search(r'^[A-Z][a-z]+[^A-Za-z0-9][A-Z][a-z]*$', fullpasswd)):
-            raise PasswordGoodEnoughException(msgs['dict_hit_joined'])
+        self._check_password_has_no_invalid_characters(fullpasswd)
+
+        self._check_password_has_proper_length(passwd)
+
+        passwd = self._strip_enclosing_parenthesis(passwd)
+
+        self._check_password_is_not_two_concatenated_words(fullpasswd, passwd)
 
         self._check_variation(passwd)
+
         if account is not None:
             self.check_password_history(account, passwd)   # Will raise on error
             self.check_password_history(account, fullpasswd)
+
         self._check_dict(passwd)
+
         self._check_two_word_combination(passwd)
 
-        for tmp in ('ibm', 'dec', 'sun', 'at&t', 'nasa', 'jan', 'feb',
-                    'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep',
-                    'oct', 'nov', 'dec'):
-            if passwd.lower().find(tmp) != -1:
-                raise PasswordGoodEnoughException(msgs['dict_hit'])
+        self._check_illegal_words(passwd)
 
         self._check_sequence(passwd)
 
-        # Repeated patterns: ababab, abcabc, abcdabcd
-        if (re.search(r'^(..)\1\1', passwd) or
-            re.search(r'^(...)\1', passwd) or
-            re.search(r'^(....)\1', passwd)):
-            raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
+        self._check_repeated_patterns(passwd)
 
-        # Reversed patterns: abccba abcddcba
-        if (re.search(r'^(.)(.)(.)\3\2\1', passwd) or
-            re.search(r'^(.)(.)(.)(.)\4\3\2\1', passwd)):
-            raise PasswordGoodEnoughException(msgs['repetitive_sequence'])
+        self._check_username(account, passwd, uname)
 
-        # username backwards?
-        if uname is None:
-            uname = account.account_name
-        tmp = list(uname)
-        tmp.reverse()
-        if passwd == "".join(tmp):
-            raise PasswordGoodEnoughException(msgs['uname_backwards'])
+        self._check_human_owner(account, passwd)
+    # end goodenough
+
 
 def main():
     from Cerebrum.Account import Account
@@ -417,7 +623,405 @@ def main():
         pc._check_two_word_combination("CamElate")
     print "ok"
 
+
+
+########################################################################
+#
+# Password tests
+#
+# Usage:
+#
+# nosetests -s -v PasswordChecker.py
+# py.test -s -v PasswordChecker
+#
+########################################################################
+def test_nul_byte_fails():
+    """Nul byte is not a valid password component."""
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+    try:
+        pc._check_password_has_no_invalid_characters("foo\0bar")
+        assert False
+    except PasswordGoodEnoughException:
+        pass
+# end test_nul_byte_fails
+
+def test_pure_latin1_fails():
+    """Chars outside of ascii range may be problematic, and we disallow them.
+    """
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+    try:
+        pc._check_password_has_no_invalid_characters("fooæøåbar")
+        pc._check_password_has_no_invalid_characters("{[(<fooæøåbar")
+        assert False
+    except PasswordGoodEnoughException:
+        pass
+# end test_pure_latin1_fails
+
+
+def test_pwd_stripping_without_parens():
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    pc._strip_enclosing_parenthesis("foobar") == "foobar"
+# end test_pwd_stripping_without_parens
+
+
+def test_pwd_stripping_with_parens():
+    """Check hos parentheses stripping works"""
+    
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    root = "cat"
+    patterns = list()
+    for lparen, rparen in ("()",
+                           "[]",
+                           "()",
+                           "{}"):
+        # just opening paren
+        patterns.append((lparen + root, root))
+        # just closing paren
+        patterns.append((root + rparen, root))
+        # both
+        patterns.append((lparen + root + rparen, root))
+
+    # mismatches parens
+    patterns.append(("(" + root + ">", root))
+
+    for original, stripped in patterns:
+        pc._strip_enclosing_parenthesis(original) == stripped
+# end test_pwd_stripping_with_parens
+
+
+def test_pwd_stripping_does_not_strip_closing():
+    """Check that paren stripping ignores right parenthesis at the start.
+    """
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    root = "cat"
+    patterns = list()
+    for lparen, rparen in (")(",
+                           "][",
+                           ")(",
+                           "}{"):
+        # just opening paren
+        patterns.append((lparen + root, lparen + root))
+        # just closing paren
+        patterns.append((root + rparen, root + rparen))
+        # both
+        patterns.append((lparen + root + rparen, lparen + root + rparen))
+
+    # mismatches parens
+    patterns.append((">" + root + "(", ">" + root + "("))
+
+    for original, stripped in patterns:
+        pc._strip_enclosing_parenthesis(original) == stripped
+# end test_pwd_stripping_does_not_strip_closing
+   
+    
+
+def test_short_pwd_fails1():
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    try:
+        pc._check_password_has_proper_length("123")
+        assert False
+    except PasswordGoodEnoughException:
+        pass
+# end test_short_pwd_fails
+        
+    
+def test_short_pwd_fails2():
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    try:
+        pc._check_password_has_proper_length("1234567")
+        assert False
+    except PasswordGoodEnoughException:
+        pass
+# end test_short_pwd_fails
+
+
+def test_password_too_long():
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    try:
+        pc._check_password_has_proper_length("-"*20)
+        assert False
+    except PasswordGoodEnoughException:
+        pass
+# end test_password_too_long
+
+
+def test_check_parens_do_not_reduce_pwd_length():
+    """Make sure that stripping surrounding parens does NOT affect min
+    password length"""
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    # This must succeed (8 chars, 1st is stripped, since it's a paren, but it
+    # still counts towards *minimum* pwd length)
+    pc._check_password_has_proper_length("{1234567")
+# end test_check_parens_do_not_reduce_pwd_length
+
+
+def test_check_parens_reduce_max_length():
+    """Make sure that stripping surrounding parens does in fact affect max
+    password length"""
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    # This must succeed (17 chars, but the surrounding parens are stripped
+    pc._check_password_has_proper_length("{" + "-"*15 + ")")
+# end test_check_parens_do_not_reduce_pwd_length
+    
+
+
+def test_check_two_word_concat_fails():
+    """Check that a password does not look like two words with a separator in
+    the middle.
+
+    I.e. we do NOT allow 'Camel*Toe' (but this test DOES allow 'CamelToe')
+    """
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    try:
+        pwd = "Camel*Toe"
+        pc._check_password_is_not_two_concatenated_words(pwd, pwd)
+        assert False
+    except PasswordGoodEnoughException:
+        pass
+
+    # this must succeed, though
+    pwd = "CmToe"
+    pc._check_password_is_not_two_concatenated_words(pwd, pwd)
+# end test_check_two_word_concat_fails
+
+
+def test_invalid_variations():
+    """Test that our passwords are 'varied enough'."""
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    failing_pwds = ("House",
+                    "housE",
+                    "hou3se",
+                    "Hous3",    # <- fails, because leadnig upcase does NOT
+                                #    contribute to variation score
+                    "12345678", # <- just digits
+                    "house",    # <- just lowercase
+                    "HOUSE",    # <- just upcase
+                    "hoUSE",    # <- just up+low
+                    "ho123",    # <- just low+digits
+                    "ho()/)",   # <- just low+special
+                    "HO123",    # <- just up+digits
+                    "HO/(#)",   # <- just up+special
+                    "12()&)",   # <- juts digits+special
+                    )
+
+    for fail in failing_pwds:
+        try:
+            pc._check_variation(fail)
+            assert False, "%s should have failed" % fail
+        except PasswordGoodEnoughException:
+            pass
+# end test_invalid_variations
+
+
+
+def test_valid_variations():
+    """Test that our passwords are 'varied enough'."""
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+    successful_pwds = ("hOus3", "h()us3",)
+    for success in successful_pwds:
+        try:
+            pc._check_variation(success)
+        except:
+            print "Failed", success
+            raise
+# end test_valid_variations
+
+
+def test_invalid_sequences():
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    fail_seqs = ("0123456789",       # <- digits
+                 "abcdefg",          # <- alphabet
+                 "hijkl",
+                 "mnopqrst",
+                 "uvwxyz",
+                 "qwerty", "rtyuio", # <- 'qwerty'-row
+                 "asdfg", "ghjkl",   # <- 'asdf'-row
+                 "zxcvb", "bnm,.",   # <- 'zxcv'-row
+                 '!@#$%^',           # <- row with digits
+                 )
+    for fail in fail_seqs:
+        try:
+            pc._check_sequence(fail)
+            assert False, "%s should have failed" % fail
+        except PasswordGoodEnoughException:
+            pass
+# end test_invalid_sequences
+
+
+def test_valid_sequences():
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    success_seqs = ("qwrty",         # gap of 2
+                    "abcdfg",        # gap of 2
+                    "123567",        # gap of 2
+                    "bygg",          # used to fail
+                    "yhn",           # same offset in different kbd rows
+                    )
+    for success in success_seqs:
+        try:
+            pc._check_sequence(success)
+        except:
+            print "Failed", success
+            raise
+# end test_valid_sequences
+
+
+def test_repetition1():
+    """Check that repeating patterns fail."""
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    fail_seqs = ("aaaaaa",
+                 "ababab",
+                 "bababa",
+                 "abcabc",
+                 "cbacba",
+                 "abcdabcd",
+                 "abccba",
+                 "xyz11zyx",)
+
+    for fail in fail_seqs:
+        try:
+            pc._check_repeated_patterns(fail)
+            assert False, "%s should have failed" % fail
+        except PasswordGoodEnoughException:
+            pass
+# end test_repetition1
+
+
+
+def test_repetition2():
+    """Some repetition should be allowed"""
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+    success_seqs = ("aaaa",     # <- repetition is too short :)
+                    "ababa",    # <- we need at least 3 consec pairs for a fail
+                    "abcdab",   # <- non-consecutive repetition
+                    "ab*ba",    # <- same story
+                    "abc*cba",  # <- same story
+                    "a1a2a3", 
+                    )
+    for success in success_seqs:
+        try:
+            pc._check_repeated_patterns(success)
+        except:
+            print "Failed", success
+            raise
+# end test_repetition2
+
+
+def test_uname_password():
+    """Test that uname != password."""
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+    user = "schnappi"
+    pwds = (user, user[::-1])
+    for fail in pwds:
+        try:
+            pc._check_username(None, fail, user)
+            assert False, "%s should have failed" % fail
+        except PasswordGoodEnoughException:
+            pass
+# end test_uname_password
+
+
+def test_failing_name_passwords():
+    """Check that a password derived from human's name fails.
+    """
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    name = "Schnappi von Krokodil"
+    failures = ("Schn-Kroko",
+                "S*Krokodil",
+                "Sc#Krok",
+                "schn4ppi",
+                "Schn-vo",
+                "S-v-Kroko",
+                "Kroko-Sch",
+                "von-Schn",
+                "Schn4Schn",
+                "Kroko-Kroko",
+                )
+    for fail in failures:
+        try:
+            pc._match_password_to_name(name, fail)
+            assert False, "%s should have failed" % fail
+        except PasswordGoodEnoughException:
+            pass
+
+    name = "Ola Nordmann"
+    failures = ("O-Nordmann",
+                "O-Nordman",
+                "Nor-Ola",
+                "Nord-Ola",
+                "N-Ola",
+                "No*Ola",)
+    for fail in failures:
+        try:
+            pc._match_password_to_name(name, fail)
+            assert False, "%s should have failed" % fail
+        except PasswordGoodEnoughException:
+            pass
+# end test_failing_name_passwords
+
+
+def test_allowed_name_passwords():
+    """Check that sufficient difference from name is allowed for passwords.
+    """
+
+    db = Factory.get("Database")()
+    pc = PasswordChecker(db)
+
+    name = "Schnappi von Krokodil"
+    successes = ("S-Kr-blab",   # <- too few chars match
+                 "ScOn*Krble",  # <- not enough chars in each prefix for a match
+                 )
+    for success in successes:
+        try:
+            pc._match_password_to_name(name, success)
+        except:
+            print "Failed", success
+            raise
+# end test_allowed_name_passwords
+
+
+
 if __name__ == '__main__':
     main()
-
-# arch-tag: 9c6dbb8e-0215-4966-adff-7f0f1e6203a3
