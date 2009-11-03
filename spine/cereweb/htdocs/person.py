@@ -274,11 +274,10 @@ def get_names(person):
 
 def get_email_address(account):
     db = get_database()
-    target = EmailTargetDAO(db).get_from_entity(account.id)
-    if not target:
-        return ""
-
-    return target.primary.address
+    targets = EmailTargetDAO(db).get_from_entity(account.id)
+    for target in targets:
+        return target.primary.address
+    return ""
 
 def get_affiliation(person):
     affiliations = (x for x in person.affiliations if not x.is_deleted)
