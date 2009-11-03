@@ -506,17 +506,11 @@ class PasswordChecker(DatabaseAccessor):
             return matching_length
         # end make_match
             
-        # Now, we have a name, 'Schnappi von Krokodil'. What variations are
-        # compared against the password? We want to trap variations like
-        # S*Krokodil, Sv-Krokodil, Schnappi-Krok and the like; i.e. we want to
-        # force people NOT to use some trivial variation of their name.
-        #
-        # Mitt spm er da: kan vi legge inn bedre sjekker av dette? Eller vil                            
-        # det bli vanskelig å en algoritme for det?                                                     
-        # Jeg tenkte:                                                                                        
-        # - uppercase av alle bokstaver.                                                                     
-        # - finn starten på "ord" dvs. 3-4 tegn etter skilletegn eller spesialtegn.                          
-        # - sjekk om disse er starten på for, mellom eller etternavn.                                        
+        # Now, we have a name, 'Schnappi von Krokodil'. What password
+        # variations are compared against such a name? We want to trap
+        # variations like S*Krokodil, Sv-Krokodil, Schnappi-Krok and the like;
+        # i.e. we want to force people NOT to use some trivial version of
+        # their name.
         name = name.lower()
         password = password.lower()
         name_chunks = [x for x in name.split() if len(x) > 0]
