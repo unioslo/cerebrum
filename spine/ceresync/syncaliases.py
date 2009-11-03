@@ -30,9 +30,10 @@ def main():
     sync_options = {}
     config.parse_args(config.make_testing_options())
     config.set_testing_options(sync_options)
+    using_test_backend = config.getboolean('args', 'use_test_backend')
 
     try:
-        s = sync.Sync()
+        s = sync.Sync(locking=not using_test_backend)
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
         sys.exit(1)
@@ -40,7 +41,7 @@ def main():
         log.error(str(e))
         sys.exit(1)
 
-    if config.getboolean('args', 'use_test_backend'):
+    if using_test_backend:
         import ceresync.backend.test as filebackend
     else:
         import ceresync.backend.file as filebackend

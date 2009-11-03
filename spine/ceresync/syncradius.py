@@ -31,6 +31,7 @@ def main():
     sync_options = {}
     config.parse_args(config.make_testing_options())
     config.set_testing_options(sync_options)
+    using_test_backend = config.getboolean('args', 'use_test_backend')
 
     log.debug("spread is: %s" , config.get("sync","account_spread"))
 
@@ -45,7 +46,7 @@ def main():
     log.debug("Creating sync object")
 
     try:
-        s = sync.Sync()
+        s = sync.Sync(locking=not using_test_backend)
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
         sys.exit(1)
@@ -56,7 +57,7 @@ def main():
         log.error("IOError, shutting down. Error: %s", e)
         sys.exit(255)
 
-    if config.getboolean('args', 'use_test_backend'):
+    if using_test_backend:
         from ceresync.backend.test import Samba, PasswdWithHash
     else:
         from ceresync.backend.file import Samba, PasswdWithHash

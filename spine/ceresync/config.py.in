@@ -106,10 +106,8 @@ def getboolean(section, option, default=None, allow_none=False, **kwargs):
     """get the option from a section in the config, or use default if set.
     Setting allow_none will make "None" a valid return value"""
 
-    if not _conf.has_option(section, option) and default is not None:
+    if not _conf.has_option(section, option) and (allow_none or default is not None):
         return default
-    if allow_none and _conf.get(section, option, **kwargs) == "None":
-        return None
     return _conf.getboolean(section, option, **kwargs)
 
 def apply_quarantine(obj, typestr):

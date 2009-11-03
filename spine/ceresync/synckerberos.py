@@ -73,6 +73,7 @@ def main():
     add    = incr or config.getboolean('args', 'add')
     update = incr or config.getboolean('args', 'update')
     delete = incr or config.getboolean('args', 'delete')
+    using_test_backend = config.getboolean('args', 'use_test_backend')
 
     if incr is None:
         log.error("Invalid arguments: You must provide either the --bulk or the --incremental option")
@@ -80,7 +81,7 @@ def main():
 
     log.debug("Setting up CereWS connection")
     try: 
-        s = sync.Sync()
+        s = sync.Sync(locking=not using_test_backend)
         server_id = s.get_changelogid()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
@@ -104,11 +105,9 @@ def main():
         log.exception("Exception occured. Aborting")
         sys.exit(1)
 
-    if config.getboolean('args', 'use_test_backend'):
-        log.debug("Using testbackend")
+    if using_test_backend:
         import ceresync.backend.test as kerberosbackend
     else:
-        log.debug("Using adsibackend")
         import ceresync.backend.kerberos as kerberosbackend
 
     user= kerberosbackend.Account()

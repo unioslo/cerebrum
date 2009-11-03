@@ -218,12 +218,14 @@ class CeresyncHTTPSConnection(HTTPConnection):
         self.ctx= ctx
 
 class Sync(object):
-    def __init__(self):
+    def __init__(self, locking=True):
         # Create a pid file, and store the file name for use in the destructor
         # Make sure self.pid_file exists, in case create_pidfile() fails.
         self.pid_file = None 
-        self.pid_file = create_pidfile(
-                config.get("sync","pid_file","/var/run/cerebrum/ceresync.pid"))
+
+        if locking:
+            self.pid_file = create_pidfile(
+                    config.get("sync","pid_file","/var/run/cerebrum/ceresync.pid"))
 
         try:
             self.username= config.get("spinews","login")
@@ -247,6 +249,7 @@ class Sync(object):
                 #"ssl", 0,
                 #"url": ...,
         }
+
     def __del__(self):
         if self.pid_file:
             remove_pidfile(self.pid_file)
