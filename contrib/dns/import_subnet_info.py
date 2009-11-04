@@ -217,8 +217,9 @@ def compare_file_to_db(subnets_in_file, force):
                 logger.info("Deleting subnet '%s'" % subnet_ID)
                 s.clear()
                 s.find(subnet_ID)
+                description = s.description
                 s.delete(perform_checks=perform_checks)
-                changes.append("Deleted subnet '%s'" % subnet_ID)
+                changes.append("Deleted subnet '%s' (%s)" % (subnet_ID, description))
             except CerebrumError, ce:
                 logger.error(str(ce))
                 errors.append(str(ce))
@@ -229,7 +230,7 @@ def compare_file_to_db(subnets_in_file, force):
             subnet, description, vlan = subnets_in_file[new_subnet]
             logger.info("Adding subnet '%s' (%s)" % (subnet, description))
             add_subnet(subnet, description, vlan, perform_checks=perform_checks)
-            changes.append("Added subnet '%s'" % subnet)
+            changes.append("Added subnet '%s' (%s)" % (subnet, description))
         except CerebrumError, ce:
             logger.error(str(ce))
             errors.append(str(ce))
