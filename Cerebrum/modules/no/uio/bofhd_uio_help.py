@@ -425,6 +425,8 @@ affiliation status codes"""],
         ['domain', 'Enter e-mail domain'],
     'email_failure_message':
         ['message', 'Enter failure message'],
+    'email_forward_address':
+        ['forward_to_address', 'Enter the email address to forward to'],
     'email_forward_action':
         ['action', 'Enter action',
          "Legal forward actions:\n - on\n - off\n - local"],
@@ -589,7 +591,7 @@ printer."""],
         ['qtype', 'Enter quarantine type',
           "'quarantine list' lists defined quarantines"],
     'rt_queue':
-        ['queue', 'Enter name of RT queue',
+        ['queue[@host]', 'Enter name of RT queue',
          "Format is <queue>@<host>.  If <host> is the default host, it can be "
          "omitted."],
     'spam_action':

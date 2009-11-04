@@ -2290,7 +2290,7 @@ class BofhdExtension(object):
     all_commands['email_create_forward'] = Command(
         ("email", "create_forward"),
         EmailAddress(),
-        EmailAddress(),
+        EmailAddress(help_ref='email_forward_address'),
         perm_filter="can_email_forward_create")
     def email_create_forward(self, operator, localaddr, remoteaddr):
         """Create a forward target, add localaddr as an address
@@ -3773,7 +3773,7 @@ Addresses and settings:
     # email rt_delete queue[@host]
     all_commands['email_rt_delete'] = Command(
         ("email", "rt_delete"),
-        RTQueue(),
+        EmailAddress(),
         fs=FormatSuggestion([("Deleted address: %s", ("address", ))]),
         perm_filter='can_rt_delete')
     def email_rt_delete(self, operator, queuename):
