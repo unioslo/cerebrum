@@ -19,114 +19,237 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
-from ceresync import config 
-from ceresync import syncws as sync
 import os, sys
+
+from ceresync import config
+from ceresync import syncws as sync
+
 log = config.logger
 
-statuses= ['archived','create_failed','not_created','on_disk','pending_restore']
+class HomedirSync(object):
+    statuses = [
+        'archived',
+        'create_failed',
+        'not_created',
+        'on_disk',
+        'pending_restore'
+    ]
 
-def setup_home(path, uid, gid, dryrun):
-    if not os.path.isdir(path):
-        parent= os.path.dirname(path)
+    def __init__(self, hostname, show_db, lint, dryrun, no_report,
+                 retry_failed, setup_script, testing_options, root):
+        self.cerews = sync.Sync()
+        self.hostname = hostname
+        self.show_db = show_db
+        self.lint = lint
+        self.dryrun = dryrun
+        self.no_report = no_report
+        self.retry_failed = retry_failed
+        self.setup_script = setup_script
+        self.testing_options = testing_options
+        self.root = root
+
+    def execute(self):
+        if self.lint:
+            self.lint_homedirs()
+        elif self.show_db:
+            self.show_homedirs()
+        else:
+            self.make_homedirs()
+
+    def lint_homedirs(self):
+        status='on_disk'
+        print "Status %s in cerebrum, but does not exist on disk:" % (status,)
+        for homedir in self.get_homedirs(status):
+            path = self.get_path(homedir)
+            if not os.path.isdir(path):
+                print path
+
+        status='not_created'
+        print "Status %s in cerebrum, but does exist on disk:" % (status,)
+        for homedir in self.get_homedirs(status):
+            path = self.get_path(homedir)
+            if os.path.isdir(path):
+                print path
+
+    def show_homedirs(self):
+        for status in self.statuses:
+            print "Status: %s" % (status,)
+            for homedir in self.get_homedirs(status):
+                path = self.get_path(homedir)
+                print "  %-9s %s" % (homedir.account_name, path)
+
+    def make_homedirs(self):
+        status = self.get_create_status()
+        for homedir in self.get_homedirs(status):
+            self.make_homedir(homedir)
+
+    def get_homedirs(self, status):
+        testing_options = self.get_testing_options(status)
+        return self.cerews.get_homedirs(status, self.hostname, **testing_options)
+
+    def get_create_status(self):
+        if self.retry_failed:
+            return 'create_failed'
+        return 'not_created'
+
+    def make_homedir(self, homedir):
+        path = self.get_path(homedir)
+        log.debug("Creating homedir for %s: %s",
+            homedir.account_name, path)
+
+        try:
+            if not os.path.isdir(path):
+                self.create_homedir(path, homedir)
+                self.run_setup_script(path, homedir)
+                log.info("Created homedir %s for %s" % (
+                    path, homedir.account_name))
+            else:
+                log.debug("Homedir %s for %s is ok" % (
+                    path, homedir.account_name))
+            result_status = 'on_disk'
+        except Exception, e:
+            log.exception("Failed creating homedir for %s: %s" % (
+                homedir.account_name, e))
+            result_status= 'create_failed'
+
+        log.info("Setting status for homedir for %s to %s",
+            homedir.account_name, result_status)
+        self.set_homedir_status(homedir, result_status)
+
+    def get_testing_options(self, status):
+        in_file = '%s_homedir_xml_in' % status
+        out_file = '%s_homedir_xml_out' % status
+        return {
+            'homedir_xml_in': self.testing_options.get(in_file),
+            'homedir_xml_out': self.testing_options.get(out_file),
+        }
+
+    def create_homedir(self, path, homedir):
+        parent = os.path.dirname(path)
         if not os.path.isdir(parent):
-            log.debug("Creating parent dir: %s",parent)
-            if not dryrun:
-                os.mkdir(parent, 0755)
+            self.create_parent_directory(parent)
+
+        self.create_directory(
+            path, homedir.posix_uid, homedir.posix_gid)
+
+    def run_setup_script(self, path, homedir):
+        cmd = "echo %s %d %d %s %s" % (
+                    self.setup_script, homedir.posix_uid, homedir.posix_gid,
+                    path, homedir.account_name)
+        log.info("Running setup script: %s", cmd)
+        if not self.dryrun:
+            r = os.system(cmd)
+            if r != 0:
+                raise Exception("\"%s\" failed" % self.setup_script)
+
+    def set_homedir_status(self, homedir, status):
+        if not self.no_report and not self.dryrun:
+            self.cerews.set_homedir_status(homedir.homedir_id, status)
+
+    def create_parent_directory(self, path):
+        log.debug("Creating parent dir: %s", path)
+        if not self.dryrun:
+            os.mkdir(path, 0755)
+
+    def create_directory(self, path, uid, gid):
         log.debug("Creating dir: %s", path)
-        if not dryrun:        
+        if not self.dryrun:
             os.mkdir(path, 0700)
             os.chown(path, uid, gid)
-        return True
-    else:
-        return False
 
-def make_homedir(sync, homedir, setup_script, dryrun=False, no_report=False):
-    path= homedir.homedir
-    username= homedir.account_name
-    uid= homedir.posix_uid
-    gid= homedir.posix_gid
-    result_status= 'on_disk'
-    log.debug("Creating homedir for %s: %s", username, path)
-    if dryrun:
-        return
+    def get_path(self, homedir):
+        return self.root_path(homedir.homedir)
 
-    try:
-        if setup_home(path, uid, gid, dryrun):
-            log.info("Running setup script: %s", setup_script)
-            if not dryrun:
-                r = os.system("echo %s %d %d %s %s" % (setup_script,
-                                              uid, gid, path, username))
-                if r != 0:
-                    raise Exception("\"%s\" failed" % setup_script)
+    def root_path(self, path):
+        return os.path.join(self.root, path.lstrip("/"))
 
-            log.info("Created homedir %s for %s" % (path, username))
-        else:
-            log.debug("Homedir %s for %s is ok" % (path, username))
-    except Exception, e:
-        log.warn("Failed creating homedir for %s: %s" % (username, e))
-        result_status= 'create_failed'
+def get_option_dict(config):
+    return {
+        'show_db': config.getboolean('args', 'show_db'),
+        'lint': config.getboolean('args', 'lint'),
+        'dryrun': config.getboolean('args', 'dryrun'),
+        'no_report': config.getboolean('args', 'no_report'),
+        'retry_failed': config.getboolean('args', 'retry_failed'),
+        'setup_script': config.get('homedir', 'setup_script', default="/local/skel/bdb-setup"),
+        'hostname': get_hostname(config),
+        'root': config.get('args', 'root', default="/"),
+    }
 
-    if not no_report and not dryrun:
-        sync.set_homedir_status(homedir.homedir_id, result_status)
+def get_testing_option_dict(config):
+    data = {}
+    for status in HomedirSync.statuses:
+        data.update({
+            '%s_homedir_xml_in' % status: config.get(
+                'args', '%s_homedir_xml_in' % status, allow_none=True),
+            '%s_homedir_xml_out' % status: config.get(
+                'args', '%s_homedir_xml_out' % status, allow_none=True),
+        })
+    return data
 
-def show_homedirs(s, hostname):
-    for status in statuses:
-        print "Status: %s" % (status,)
-        for homedir in s.get_homedirs(status, hostname):
-            print "  %-9s %s" % (homedir.account_name, homedir.homedir)
+def get_testing_args():
+    args = []
+    for status in HomedirSync.statuses:
+        args.extend([
+            config.make_option(
+                "--load-%s-homedir-xml" % status,
+                action="store",
+                dest="%s_homedir_xml_in" % status,
+                help="Load homedir data from specified file"),
+            config.make_option(
+                "--save-%s-homedir-xml" % status,
+                action="store",
+                dest="%s_homedir_xml_out" % status,
+                help="Save homedir data to specified file"),
+        ])
+    return args
 
-def lint_homedirs(s, hostname):
-    status='on_disk'
-    print "Status %s in cerebrum, but does not exist on disk:" % (status,)
-    for homedir in s.get_homedirs(status, hostname):
-        if not os.path.isdir(homedir.homedir):
-            print homedir.homedir
-
-    status='not_created'
-    print "Status %s in cerebrum, but does exist on disk:" % (status,)
-    for homedir in s.get_homedirs(status, hostname):
-        if os.path.isdir(homedir.homedir):
-            print homedir.homedir
+def get_hostname(config):
+    hostname = config.get('homedir', 'hostname', default=os.uname()[1]),
+    return config.get('args', 'hostname', default=hostname) # Allow command-line override
 
 def main():
     config.parse_args([
-        config.make_option("-H", "--hostname", action="store", type="string", metavar="HOSTNAME",
-                            help="pretend to be file server HOSTNAME"),
-        config.make_option("-n", "--no-report", action="store_true", default=False,
-                            help="don't report back to cerebrum"),
-        config.make_option("-d", "--dryrun", action="store_true", default=False,
-                            help="don't create directories, and don't report back to cerebrum (implies --no-report)"),
-        config.make_option("-r", "--retry-failed", action="store_true", default=False,
-                            help="retry homedirs with creation failed status"),
-        config.make_option("-s", "--show-db", action="store_true", default=False,                           
-                            help="only show database contents"),
-        config.make_option("-l", "--lint", action="store_true", default=False,
-                            help="only warn about inconsistencies between Cerebrum and the filesystem"),
+        config.make_option(
+            "-H", "--hostname",
+            action="store",
+            type="string",
+            metavar="HOSTNAME",
+            help="pretend to be file server HOSTNAME"),
+        config.make_option(
+            "-n", "--no-report",
+            action="store_true",
+            default=False,
+            help="don't report back to cerebrum"),
+        config.make_option(
+            "-d", "--dryrun",
+            action="store_true",
+            default=False,
+            help="don't create directories, and don't report back to cerebrum (implies --no-report)"),
+        config.make_option(
+            "--root",
+            action="store",
+            type="string",
+            help="Create homedirs under the specified root.  Default is /"),
+        config.make_option("-r", "--retry-failed",
+            action="store_true",
+            default=False,
+            help="retry homedirs with creation failed status"),
+        config.make_option(
+            "-s", "--show-db",
+            action="store_true",
+            default=False,
+            help="only show database contents"),
+        config.make_option(
+            "-l", "--lint",
+            action="store_true",
+            default=False,
+            help="only warn about inconsistencies between Cerebrum and the filesystem"),
+    ] + get_testing_args())
 
-    ])
-    dryrun          = config.getboolean('args', 'dryrun')
-    no_report       = config.getboolean('args', 'no_report')
-    retry_failed    = config.getboolean('args', 'retry_failed')
-    show_db         = config.getboolean('args', 'show_db')
-    lint            = config.getboolean('args', 'lint')
-    hostname        = config.get('homedir', 'hostname', default=os.uname()[1])
-    hostname        = config.get('args', 'hostname', default=hostname) # Allow command-line override
-    setup_script    = config.get('homedir', 'setup_script', default="/local/skel/bdb-setup")
-    
-    home_status='not_created'
-    if retry_failed:
-        home_status='create_failed'
-
-    s= sync.Sync()
-    if lint:
-        lint_homedirs(s, hostname)
-    elif show_db:
-        show_homedirs(s, hostname)
-    else:
-        for homedir in s.get_homedirs(home_status, hostname):
-            make_homedir(s, homedir, setup_script, dryrun, no_report)
+    options = get_option_dict(config)
+    options['testing_options'] = get_testing_option_dict(config)
+    sync = HomedirSync(**options)
+    sync.execute()
 
 if __name__ == "__main__":
     main()
