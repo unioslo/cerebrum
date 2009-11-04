@@ -202,28 +202,33 @@ class Subnet(Entity):
         """TODO: DOC
 
         """
-        # If no_of_reserved_adr is 0, then no addresses should be
-        # reserved at all (not even broadcast); typically for small,
-        # special-purpose subnets.
+        # If no_of_reserved_adr is 0, then only the net address should
+        # be reserved; typically for small, special-purpose subnets.
         if self.no_of_reserved_adr == 0:
             self.reserved_adr = set()
+            self.reserved_adr.add(self.ip_min)
             return
         
         # First, check that we aren't trying to reserve more addresses
-        # than there are in the subnet
-        if (self.ip_min + self.no_of_reserved_adr - 1) > self.ip_max:
+        # than there are in the subnet. Don't count the subnet's
+        # address itself, since the number is for counting addresses
+        # after it.
+        if (self.ip_min + self.no_of_reserved_adr) > self.ip_max:
             raise SubnetError, ("Trying to reserve %i addresses in a subnet " %
                                 self.no_of_reserved_adr + 
-                                "that has %i addresses in total. " %
-                                (self.ip_max - self.ip_min + 1) +
+                                "that has %i addresses available. " %
+                                (self.ip_max - self.ip_min) +
                                 "You can't do that! Because it's *wrong*")
         
-        # Designate the first X adresses in subnet as reserved, where
-        # X equals the number specifically set as reserved addresses
-        self.reserved_adr = set([x + self.ip_min for x in range(self.no_of_reserved_adr)])
+        # Designate the first X adresses in subnet (not counting the
+        # subnet's address itself) as reserved, where X equals the
+        # number specifically set as reserved addresses.
+        self.reserved_adr = set([x + self.ip_min + 1 for
+                                 x in range(self.no_of_reserved_adr)])
         
-        # Make sure the last address in the subnet is set as reserved
-        # (broadcast)
+        # Make sure the first (subnet address) and last (broadcast)
+        # addresses in the subnet is set as reserved.
+        self.reserved_adr.add(self.ip_min)
         self.reserved_adr.add(self.ip_max)
 
         # /22 and /23 nets have some intermediate adresses reserved in
@@ -600,7 +605,7 @@ class BofhdExtension(object):
                               "VLAN:                   %s\n" +
                               "DNS delegated:          %s\n" + 
                               "IP-range:               %s\n" +
-                              "Reserved adr at start:  %s\n" +
+                              "Reserved host adresses: %s\n" +
                               "Reserved addresses:     %s",
                               ("subnet", "entity_id", "netmask", "desc",
                                "name_prefix", "vlan", "delegated",
@@ -648,15 +653,18 @@ class BofhdExtension(object):
 
         if reserved_adresses:
             reserved_adresses.sort()
-            data["res_adr1"] = IPCalc.long_to_ip(reserved_adresses.pop(0))
+            data["res_adr1"] = "%s (net)" % IPCalc.long_to_ip(reserved_adresses.pop(0))
         else:
             data["res_adr1"] = "(None)"
 
         ret = [data,]
 
-        for address in reserved_adresses:
-            ret.append({'res_adr': IPCalc.long_to_ip(address)})
-
+        if reserved_adresses:
+            last_ip = reserved_adresses.pop()
+            for address in reserved_adresses:
+                ret.append({'res_adr': IPCalc.long_to_ip(address)})
+            ret.append({'res_adr': "%s (broadcast)" % IPCalc.long_to_ip(last_ip)})
+            
         return ret
 
 
