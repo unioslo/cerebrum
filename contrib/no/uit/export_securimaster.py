@@ -47,6 +47,7 @@ stedkode = Stedkode(db)
 logger=Factory.get_logger("console")
 
 CHARSEP=";"
+AFF_CHARSEP="|"
 
 pid2fnr=pnr2account=sysx2accountid=account2name=owner2account=num2const=owner2email=worktitle_cache=None
 
@@ -166,7 +167,7 @@ def build_export(outfile):
     for person_id in export_attrs:
         attrs=export_attrs[person_id]
         affs = person_affs.get(person_id)
-        aff_str=",".join(affs)
+        aff_str=AFF_CHARSEP.join(affs)
         attrs.append(aff_str)
         try:
             export.append(CHARSEP.join(attrs) )
