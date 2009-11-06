@@ -65,6 +65,34 @@
         </tr>
 
         <tr>
+	  <td valign="top">Primær e-postadresse:</td> 
+	  <td tal:content="user/email">addresse</td>
+        </tr>
+
+        <tr tal:condition="user/email_addresses">
+	  <td valign="top">E-postalias:</td> 
+	  <td> 
+        <form method="post" action="#">
+        <input type="hidden" name="action" value="do_email_remove_address">
+        <input type="hidden" name="username" tal:attributes="value string:${user/username}">
+        <table>
+
+	    <span tal:repeat="address user/email_addresses" tal:omit-tag="">
+            <tr>
+                <td><input type="checkbox" name="address" tal:attributes="value string:${address}"></td>
+                <td><span tal:content="address"></span></td>
+            </tr>
+        </span>
+        <tr>
+            <td></td>
+            <td><input type="submit" name="do_email_remove_address" value="Slett alias"></td>
+        </tr>
+        </table>
+        </form>
+      </td>
+    </tr>
+
+    <tr>
 	  <td colspan=2></td>
 	</tr>
 
@@ -88,6 +116,11 @@
           </tr>
         </span>
       <span tal:condition="python: state['authlevel'] > 'c2'" tal:omit-tag="">
+        <tr>
+          <td colspan=2>
+            <a tal:attributes="href string:?action=show_email_add_address&username=${user/username}">Opprett nytt e-post alias for denne brukeren</a>
+          </td>
+        </tr>
         <tr>
           <td colspan=2>
             <a tal:attributes="href string:?action=show_user_create&owner_id=${person/entity_id}&owner_type=person">Opprett ny bruker til denne personen</a>
@@ -120,6 +153,7 @@
           </table>
         </span>
       </span>
+
     </span>
   </span>
 </span>

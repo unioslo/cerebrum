@@ -82,6 +82,8 @@ class Controller(object):
     def controller(self):
         action_map = {
             'do_clear_passwords': [self.user_cmd.clear_passwords],
+            'do_email_add_address': [self.user_cmd.email_add_address],
+            'do_email_remove_address': [self.user_cmd.email_remove_address],
             'do_group_create': [self.group_cmd.group_create],
             'do_group_find': [self.group_cmd.group_find],
             'do_group_mod': [self.group_cmd.group_mod],
@@ -95,6 +97,7 @@ class Controller(object):
             'do_list_new_entities': [self.misc_cmd.list_new_entities],
             'do_select_target': [self.select_target],
             'do_user_priority_mod': [self.user_cmd.user_priority_mod],
+            'show_email_add_address': [self.user_cmd.show_email_add_address],
             'show_group_create': [self.group_cmd.show_group_create],
             'show_group_info': [self.group_cmd.show_group_info],
             'show_group_mod': [self.group_cmd.show_group_mod],

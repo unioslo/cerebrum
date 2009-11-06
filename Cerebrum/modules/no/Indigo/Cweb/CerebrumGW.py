@@ -250,6 +250,7 @@ class CerebrumProxy(object):
         return self.run_command('quarantine_show', 'account', search)
 
     def email_info(self, entity_id=None, uname=None):
+        # email_info doesn't support entity_id for now, so can only use uname
         search = self._get_search_str(
             etype='user', entity_id=entity_id, name=uname)
         tmp = self.run_command('email_info', search)
@@ -263,6 +264,14 @@ class CerebrumProxy(object):
                 else:
                     ret[k] = v
         return ret
+
+    def email_add_address(self, username, new_address):
+        return self.run_command('email_add_address', username, 
+                new_address)
+
+    def email_remove_address(self, username, address):
+        return self.run_command('email_remove_address', username, 
+                address)
 
     def misc_history(self, days):
         tmp = self.run_command('misc_history', days)

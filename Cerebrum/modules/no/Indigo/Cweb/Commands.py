@@ -166,6 +166,46 @@ class UserCommands(VirtualCommands):
             ret['group_name'] = group['name']
         return tpl.show(ret)
 
+    # TODO: this should maybe be in a new class EmailCommands
+    def email_add_address(self):
+        '''Add a new email address (alias) to a user.'''
+
+        new_address = self.state.get_form_value('new_address')
+        username = self.state.get_form_value('username')
+        # TODO: add some checks here?
+        message = self.cerebrum.email_add_address(username, new_address)
+
+        return self.show_email_add_address(message)
+
+    # TODO: this should maybe be in a new class EmailCommands
+    def email_remove_address(self):
+        '''Try to remove an email address (alias).'''
+
+        username = self.state.get_form_value('username')
+        address = self.state.get_form_value('address')
+        # TODO: add some checks here?
+        tpl = UserTemplate(self.state, 'email_remove_address_res')
+        message = self.cerebrum.email_remove_address(username, address)
+
+        return tpl.show({'message': message,
+                         'address': address,
+                         'username': username})
+
+    # TODO: this should maybe be in a new class EmailCommands
+    def show_email_add_address(self, message = None):
+        '''Shows a form for giving a user more email addresses
+           (alias).'''
+
+        tpl = UserTemplate(self.state, 'email_add_address')
+        username = self.state.get_form_value('username')
+
+        email_info = self.cerebrum.email_info(uname=username)
+        email_addresses = email_info['valid_addr']
+        # TODO: add valid_addr_1?
+        return tpl.show({'message': message,
+                         'email_addresses': email_addresses,
+                         'username': username})
+
 class GroupCommands(VirtualCommands):
     def __init__(self, state, cerebrum):
         self.state = state
@@ -297,6 +337,15 @@ class PersonCommands(VirtualCommands):
                 u['email'] = self.cerebrum.get_default_email(u['entity_id'])
             except:
                 u['email'] = '<ukjent>'
+
+            if u['email'] is '<ukjent>':
+                u['email_addresses'] = ()
+            else:
+                email_info = self.cerebrum.email_info(uname=u['username'])
+                u['email_addresses'] = email_info['valid_addr']
+                if u['email'] in u['email_addresses']:
+                    u['email_addresses'].remove(u['email'])
+
             u['groups'] = self.cerebrum.group_user(entity_id=u['entity_id'])
             u['create_date'] = self.cerebrum.get_create_date(entity_id=u['entity_id'])
 
@@ -346,6 +395,8 @@ class PersonCommands(VirtualCommands):
             return self.show_person_info(r[0]['entity_id'])
         tpl = PersonTemplate(self.state, 'person_find_res')
         return tpl.show({'personlist': r})
+
+
 
 class MiscCommands(VirtualCommands):
     def __init__(self, state, cerebrum):

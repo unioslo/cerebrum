@@ -29,6 +29,7 @@ from Cerebrum import Constants
 from Cerebrum import Utils
 from Cerebrum import Cache
 from Cerebrum import Errors
+from Cerebrum.modules import Email
 from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName
 from Cerebrum.Constants import _CerebrumCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthRole, \
@@ -68,7 +69,13 @@ class BofhdExtension(object):
         '_get_group_opcode', '_get_name_from_object',
         '_group_add_entity', '_group_count_memberships',
         'group_create', 'spread_add', '_get_constant',
-        'misc_clear_passwords', 'person_set_user_priority',)
+        'misc_clear_passwords', 'person_set_user_priority',
+        'email_add_address', 'email_remove_address',
+        'email_info', '_email_info_basic', '_email_info_account', 
+        '_email_info_spam', '_email_info_forwarding', '_email_info_filters',
+
+        '_get_address', '_remove_email_address', '_split_email_address', 
+        '_get_email_domain', )
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
@@ -677,5 +684,146 @@ class BofhdExtension(object):
 
     def _format_ou_name(self, ou):
         return ou.short_name or ou.name
+
+    # this is stripped down version of UiO's, without ldap-functionality.
+    def _email_info_detail(self, acc):
+        info = []
+        eq = Email.EmailQuota(self.db)
+        try:
+            eq.find_by_target_entity(acc.entity_id)
+            et = Email.EmailTarget(self.db)
+            et.find_by_target_entity(acc.entity_id)
+            es = Email.EmailServer(self.db)
+            es.find(et.email_server_id)
+            if es.email_server_type == self.const.email_server_type_cyrus:
+                pw = self.db._read_password(cereconf.CYRUS_HOST,
+                                            cereconf.CYRUS_ADMIN)
+                used = 'N/A'; limit = None
+                try:
+                    cyrus = imaplib.IMAP4(es.name)
+                    # IVR 2007-08-29 If the server is too busy, we do not want
+                    # to lock the entire bofhd.
+                    # 5 seconds should be enough
+                    cyrus.socket().settimeout(5)
+                    cyrus.login(cereconf.CYRUS_ADMIN, pw)
+                    res, quotas = cyrus.getquota("user." + acc.account_name)
+                    cyrus.socket().settimeout(None)
+                    if res == "OK":
+                        for line in quotas:
+                            try:
+                                folder, qtype, qused, qlimit = line.split()
+                                if qtype == "(STORAGE":
+                                    used = str(int(qused)/1024)
+                                    limit = int(qlimit.rstrip(")"))/1024
+                            except ValueError:
+                                # line.split fails e.g. because quota isn't set on server
+                                folder, junk = line.split()
+                                self.logger.warning("No IMAP quota set for '%s'" % acc.account_name)
+                                used = "N/A"
+                                limit = None
+                except (TimeoutException, socket.error):
+                    used = 'DOWN'
+                except ConnectException, e:
+                    used = str(e)
+                except imaplib.IMAP4.error, e:
+                    used = 'DOWN'
+                info.append({'quota_hard': eq.email_quota_hard,
+                             'quota_soft': eq.email_quota_soft,
+                             'quota_used': used})
+                if limit is not None and limit != eq.email_quota_hard:
+                    info.append({'quota_server': limit})
+            else:
+                info.append({'dis_quota_hard': eq.email_quota_hard,
+                             'dis_quota_soft': eq.email_quota_soft})
+        except Errors.NotFoundError:
+            pass
+
+        return info
+
+    # helpers needed for email_info, cannot be copied in the usual way
+    #
+    def __get_email_target_and_account(self, address):
+        """Returns a tuple consisting of the email target associated
+        with address and the account if the target type is user.  If
+        there is no at-sign in address, assume it is an account name.
+        Raises CerebrumError if address is unknown."""
+        et, ea = self.__get_email_target_and_address(address)
+        acc = None
+        if et.email_target_type in (self.const.email_target_account,
+                                    self.const.email_target_deleted):
+            acc = self._get_account(et.email_target_entity_id, idtype='id')
+        return et, acc
+
+    def __get_email_target_and_address(self, address):
+        """Returns a tuple consisting of the email target associated
+        with address and the address object.  If there is no at-sign
+        in address, assume it is an account name and return primary
+        address.  Raises CerebrumError if address is unknown.
+        """
+        et = Email.EmailTarget(self.db)
+        ea = Email.EmailAddress(self.db)
+        if address.count('@') == 0:
+            acc = self.Account_class(self.db)
+            try:
+                acc.find_by_name(address)
+                # FIXME: We can't use Account.get_primary_mailaddress
+                # since it rewrites special domains.
+                et = Email.EmailTarget(self.db)
+                et.find_by_target_entity(acc.entity_id)
+                epa = Email.EmailPrimaryAddressTarget(self.db)
+                epa.find(et.entity_id)
+                ea.find(epa.email_primaddr_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, ("No such address: '%s'" % address)
+        elif address.count('@') == 1:
+            try:
+                ea.find_by_address(address)
+                et.find(ea.email_addr_target_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such address: '%s'" % address
+        else:
+            raise CerebrumError, "Malformed e-mail address (%s)" % address
+        return et, ea
+
+    def __get_address(self, etarget):
+        """The argument can be
+        - EmailPrimaryAddressTarget
+        - EmailAddress
+        - EmailTarget (look up primary address and return that, throw
+        exception if there is no primary address)
+        - integer (use as entity_id and look up that target's
+        primary address)
+        The return value is a text string containing the e-mail
+        address.  Special domain names are not rewritten."""
+        ea = Email.EmailAddress(self.db)
+        if isinstance(etarget, (int, long, float)):
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            # may throw exception, let caller handle it
+            epat.find(etarget)
+            ea.find(epat.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailTarget):
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            epat.find(etarget.entity_id)
+            ea.find(epat.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailPrimaryAddressTarget):
+            ea.find(etarget.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailAddress):
+            ea = etarget
+        else:
+            raise ValueError, "Unknown argument (%s)" % repr(etarget)
+        ed = Email.EmailDomain(self.db)
+        ed.find(ea.email_addr_domain_id)
+        return ("%s@%s" % (ea.email_addr_local_part,
+                           ed.email_domain_name))
+
+    def __get_valid_email_addrs(self, et, special=False, sort=False):
+        """Return a list of all valid e-mail addresses for the given
+        EmailTarget.  Keep special domain names intact if special is
+        True, otherwise re-write them into real domain names."""
+        addrs = [(r['local_part'], r['domain'])       
+                 for r in et.get_addresses(special=special)]
+        if sort:
+            addrs.sort(lambda x,y: cmp(x[1], y[1]) or cmp(x[0],y[0]))
+        return ["%s@%s" % a for a in addrs]
 
 # arch-tag: d1ad56e6-7155-11da-87dd-ea237fa9df60
