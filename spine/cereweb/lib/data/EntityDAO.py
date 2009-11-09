@@ -88,20 +88,22 @@ class EntityDAO(object):
 
     def add_spread(self, entity_id, spread):
         entity = self._find(entity_id)
-        if not self.auth.can_edit_spread(self.db.change_by, entity, spread):
-            raise PermissionDenied("Not authorized to edit spread (%s) of entity (%s)" % (spread, entity_id))
-
         spread_type = self.constants.Spread(spread)
+
+        if not self.auth.can_edit_spread(self.db.change_by, entity,
+                                         int(spread_type)):
+            raise PermissionDenied("Not authorized to edit spread (%s) of entity (%s)" % (spread, entity_id))
 
         entity.add_spread(spread_type)
         entity.write_db()
 
     def remove_spread(self, entity_id, spread):
         entity = self._find(entity_id)
-        if not self.auth.can_edit_spread(self.db.change_by, entity, spread):
-            raise PermissionDenied("Not authorized to edit spread (%s) of entity (%s)" % (spread, entity_id))
-
         spread_type = self.constants.Spread(spread)
+
+        if not self.auth.can_edit_spread(self.db.change_by, entity,
+                                         int(spread_type)):
+            raise PermissionDenied("Not authorized to edit spread (%s) of entity (%s)" % (spread, entity_id))
 
         entity.delete_spread(spread_type)
         entity.write_db()

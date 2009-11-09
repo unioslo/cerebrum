@@ -84,7 +84,7 @@ class DiskDAO(EntityDAO):
         disk.write_db()
 
     def create(self, host_id, path, description):
-        if not self.auth.can_create_disk(self.db.change_by):
+        if not self.auth.can_create_disk(self.db.change_by, host_id):
             raise PermissionDenied("Not authorized to edit disk")
 
         disk = Disk(self.db)
