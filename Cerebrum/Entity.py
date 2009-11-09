@@ -283,6 +283,11 @@ class EntitySpread(Entity):
         FROM [:table schema=cerebrum name=entity_spread]""" + sel)
 
     def list_entity_spreads(self, entity_types=None):
+        """Return entities and their spreads, optionally filtered by entity
+        type. If entity type is None, all entities with all spreads will be
+        returned.
+        
+        See also list_spreads."""
         sel = ""
         if entity_types:
             sel = """
@@ -296,6 +301,29 @@ class EntitySpread(Entity):
         return self.query("""
         SELECT es.entity_id, es.spread
           FROM [:table schema=cerebrum name=entity_spread] es""" + sel)
+
+    def list_spreads(self, entity_types=None):
+        """Return a sequence of spreads, optionally limited by the entity types
+        the spreads are valid for.
+
+        See also list_entity_spreads.
+
+        @type  entity_types: EntityType constant, an int or a sequence thereof.
+        @param entity_types: When not None, this parameter filters the result 
+            set by the entity types the spreads are valid for. When None, all 
+            spreads are returned."""
+        binds = dict()
+        where = ['(sc.entity_type = et.code)']
+        if entity_types is not None:
+            where.append(argument_to_sql(entity_types, "sc.entity_type", binds,
+                                         int))
+        return self.query("""
+            SELECT sc.code as spread_code, sc.code_str as spread, 
+                   sc.description as description, sc.entity_type as entity_type, 
+                   et.code_str as entity_type_str
+              FROM [:table schema=cerebrum name=spread_code] sc,
+                   [:table schema=cerebrum name=entity_type_code] et
+             WHERE """ + " AND ".join(where) + " ORDER BY entity_type", binds)
 
     def has_spread(self, spread):
         """Return true if entity has spread.""" 

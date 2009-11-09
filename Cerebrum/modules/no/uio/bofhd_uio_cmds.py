@@ -7179,10 +7179,12 @@ Addresses and settings:
                             hdr="%-14s %s" % ('Name', 'Description')))
     def spread_list(self, operator):
         ret = []
-        for c in dir(self.const):
-            tmp = getattr(self.const, c)
-            if isinstance(tmp, _SpreadCode):
-                ret.append({'name': "%s" % tmp, 'desc': tmp._get_description()})
+        spr = Entity.EntitySpread(self.db)
+        for s in spr.list_spreads():
+            ret.append({'name': s['spread'],
+                        'desc': s['description'],
+                        'type': s['entity_type_str'],
+                        'type_id': s['entity_type']})
         return ret
 
     # spread remove
