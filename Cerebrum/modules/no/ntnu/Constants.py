@@ -365,6 +365,8 @@ class Constants(Constants.Constants):
 
     auth_quarantine_edit = _AuthRoleOpCode(
         'quarantine_edit', "Operation code for adding/removing quarantines")
+    auth_quarantine_disable = _AuthRoleOpCode(
+        'quarantine_edit', "Operation code for temporary disabling quarantines")
 
     auth_homedir_edit = _AuthRoleOpCode(
         'homedir_edit', "Operation code for adding/removing homedirs")
@@ -374,6 +376,40 @@ class Constants(Constants.Constants):
 
     auth_address_edit = _AuthRoleOpCode(
         'address_edit', "Operation code for adding/removing address information")
+
+    auth_host_create = _AuthRoleOpCode(
+        'host_create', "Operation code for creating a host")
+    auth_host_edit = _AuthRoleOpCode(
+        'host_edit', "Operation code for changing a host")
+    auth_host_delete = _AuthRoleOpCode(
+        'host_delete', "Operation code for deleting a host")
+
+    auth_disk_create = _AuthRoleOpCode(
+        'disk_create', "Operation code for creating a disk")
+    auth_disk_edit = _AuthRoleOpCode(
+        'disk_edit', "Operation code for changing a disk")
+    auth_disk_delete = _AuthRoleOpCode(
+        'disk_delete', "Operation code for deleting a disk")
+
+    auth_email_target_create = _AuthRoleOpCode(
+        'email_target_create', "Operation code for creating an email target")
+    auth_email_target_edit = _AuthRoleOpCode(
+        'email_target_edit', "Operation code for changing an email target")
+    auth_email_target_delete = _AuthRoleOpCode(
+        'email_target_delete', "Operation code for deleting an email target")
+
+    auth_email_domain_create = _AuthRoleOpCode(
+        'email_domain_create', "Operation code for creating an email domain")
+    auth_email_domain_edit = _AuthRoleOpCode(
+        'email_domain_edit', "Operation code for changing an email domain")
+    auth_email_domain_delete = _AuthRoleOpCode(
+        'email_domain_delete', "Operation code for deleting an email domain")
+
+    auth_email_address_create = _AuthRoleOpCode(
+        'email_address_create', "Operation code for creating an email address")
+    auth_email_address_delete = _AuthRoleOpCode(
+        'email_address_delete', "Operation code for deleting an email address")
+
     auth_account_syncread = _AuthRoleOpCode(
         'syncread_account', "Operation code for bulk reading accounts")
 
@@ -397,6 +433,8 @@ class Constants(Constants.Constants):
 
     auth_target_type_spread="spread"
     auth_target_type_cereweb="cereweb"
+    auth_target_type_email_domain="email_domain"
+    auth_target_type_global_email_domain="global_email_domain"
 
     auth_login = _AuthRoleOpCode(
         'login_access', "Operation code for granting login access")

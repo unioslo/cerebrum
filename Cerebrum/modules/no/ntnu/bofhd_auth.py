@@ -82,6 +82,46 @@ class BofhdAuth(auth.BofhdAuth):
             operator, operation, self.const.auth_target_type_ou, target.entity_id, None,
             operation_attr)
 
+
+    def _has_host_access(self, operator, host_id, operation):
+        if self.is_superuser(operator):
+            return True
+        
+        if self._has_global_access(operator,
+                                   operation,
+                                   self.const.auth_target_type_global_host,
+                                   host_id):
+            return True
+
+        return self._query_target_permissions(
+            operator, operation, self.const.auth_target_type_host,
+            host_id, None)
+
+    def _has_email_domain_access(self, operator, domain_id, operation):
+        if self.is_superuser(operator):
+            return True
+        
+        if self._has_global_access(operator,
+                                   operation,
+                                   self.const.auth_target_type_global_email_domain,
+                                   domain_id):
+            return True
+
+        return self._query_target_permissions(
+            operator, operation, self.const.auth_target_type_email_domain,
+            domain_id, None)
+
+
+    def _has_spread_access(self, operator, spread_id, operation):
+        if self.is_superuser(operator):
+            return True
+        if self._has_global_access(operator, operation,
+                                   self.const.auth_target_type_global_spread):
+            return True
+        return self._query_target_permissions(
+            operator, operation, self.const.auth_target_type_spread,
+            spread_id, None)
+    
     def _has_access(self, operator, target, target_type, operation, operation_attr=None):
         if self.is_superuser(operator):
             return True
@@ -153,41 +193,33 @@ class BofhdAuth(auth.BofhdAuth):
         operation = self.const.auth_account_delete
         return self._has_account_access(operator, target, operation)
 
-    def can_create_disk(self, operator):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+    def can_create_disk(self, operator, host_id):
+        operation = self.const.auth_disk_create
+        return self._has_host_access(operator, host_id, operation)
 
     def can_edit_disk(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_disk_edit
+        return self._has_host_access(operator, target.host_id, operation)
 
     def can_delete_disk(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_disk_delete
+        return self._has_host_access(operator, target.host_id, operation)
 
     def can_create_host(self, operator):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        if self.is_superuser(operator):
+            return True
+
+        return self._has_global_access(
+            operator, self.const.auth_host_create,
+            self.const.auth_target_type_global_host, None)
 
     def can_edit_host(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_host_edit
+        return self._has_host_access(operator, target.entity_id, operation)
 
     def can_delete_host(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_host_delete
+        return self._has_host_access(operator, target.entity_id, operation)
 
     def can_edit_motd(self, operator):
         """
@@ -196,106 +228,95 @@ class BofhdAuth(auth.BofhdAuth):
         return self.is_superuser(operator)
 
     def can_create_email_target(self, operator, entity_id, target_type, host_id):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        # XXX perhaps this should also check if operator is allowed to
+        # work on entity_id
+        operation = self.const.auth_email_target_create
+        return self._has_host_access(operator, host_id, operation)
 
     def can_edit_email_target(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_email_target_edit
+        return self._has_host_access(operator, target.host_id, operation)
 
     def can_delete_email_target(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_email_target_delete
+        return self._has_host_access(operator, target.host_id, operation)
 
     def can_create_email_address(self, operator, target, domain):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
-
-    def can_edit_email_address(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_email_address_create
+        return self._has_email_domain_access(operator, domain.entity_id,
+                                             operation)
 
     def can_delete_email_address(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_email_address_delete
+        return self._has_email_domain_access(operator, target.domain_id,
+                                             operation)
 
     def can_create_email_domain(self, operator):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        if self.is_superuser(operator):
+            return True
+
+        return self._has_global_access(
+            operator, self.const.auth_email_domain_create,
+            self.const.auth_target_type_global_email_domain, None)
 
     def can_edit_email_domain(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_email_domain_edit
+        return self._has_email_domain_access(operator, target.entity_id,
+                                             operation)
 
     def can_delete_email_domain(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_email_domain_delete
+        return self._has_email_domain_access(operator, target.entity_id,
+                                             operation)
 
     def can_create_ou(self, operator):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        if self.is_superuser(operator):
+            return True
+
+        return self._has_global_access(
+            operator, self.const.auth_ou_create,
+            self.const.auth_target_type_global_ou, None)
 
     def can_edit_ou(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_ou_edit
+        return self._has_ou_access(operator, target, operation)
 
     def can_delete_ou(self, operator, target):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_ou_delete
+        return self._has_ou_access(operator, target, operation)
 
-    def can_edit_spread(self, operator, entity, spread):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+    def can_edit_spread(self, operator, entity, spread_id):
+        # FIXME finn bedre navn
+        operation = self.const.auth_spread_edit
+        return self._has_spread_access(operator, spread_id, operation)
 
-    def can_edit_quarantine(self, operator, entity, spread):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+    def can_edit_quarantine(self, operator, entity, quarantine_str):
+        # FIXME finn bedre navn
+        operation = self.const.auth_quarantine_edit
+        return self._has_entity_access(operator, entity, operation,
+                                       quarantine_str)
 
-    def can_disable_quarantine(self, operator, entity, spread):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+    def can_disable_quarantine(self, operator, entity, quarantine_str):
+        # FIXME finn bedre navn
+        operation = self.const.auth_quarantine_disable
+        return self._has_entity_access(operator, entity, operation,
+                                       quarantine_str)
 
     def can_add_note(self, operator, entity):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_note_edit
+        if self.is_superuser(operator):
+            return True
+        return self._has_access(
+            operator, target, self.const.auth_target_type_global_person,
+            operation, operation_attr)
 
     def can_delete_note(self, operator, entity):
-        """
-        FIXME: Not implemented since the business logic is unclear.
-        """
-        return self.is_superuser(operator)
+        operation = self.const.auth_note_edit
+        if self.is_superuser(operator):
+            return True
+        return self._has_access(
+            operator, target, self.const.auth_target_type_global_person,
+            operation, operation_attr)
 
     def _get_ou(self, ou_id):
         ou = ou_id
@@ -351,6 +372,9 @@ class BofhdAuth(auth.BofhdAuth):
         return self._has_person_access(operator, target, operation)
 
     def can_create_person(self, operator):
+        if self.is_superuser(operator):
+            return True
+
         return self._has_global_access(
             operator, self.const.auth_person_create,
             self.const.auth_target_type_global_person, None)
