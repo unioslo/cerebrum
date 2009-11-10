@@ -767,7 +767,7 @@ class spinews(ServiceSOAPBinding):
             last=db.get_last_changelog_id()
             db.rollback()
             incr_max = getattr(cereconf, "SPINEWS_INCREMENTAL_MAX", 1000)
-            if last - incremental_from > incr_max
+            if last - incremental_from > incr_max:
                 raise IncrementalError()
             return last
         return None
