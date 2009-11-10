@@ -129,7 +129,7 @@ def main():
                 user.add(account, add, update)
     except:
         log.exception("Exception occured, aborting")
-        user.close()
+        user.close(False)
         sys.exit(1)
     else:
         user.close(delete)
