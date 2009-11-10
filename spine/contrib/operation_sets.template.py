@@ -880,7 +880,7 @@ op_set = name of an op_set as defined above
 op_target = (target_entity, target_id, target_value)
 target_entity = 'entity' | 'global'
 target_id = int
-target_value = None
+target_attr = None
 """
 op_roles = [
     ('group', 'cereweb_orakel', 'cmodify_user', ('global_ou', None, None)),
@@ -906,6 +906,9 @@ op_roles = [
     ('account', 'steinarh', 'testset', ('global_person', None, None)),
     ('account', 'steinarh', 'testset', ('global_group', None, None)),
     ('account', 'steinarh', 'testset', ('global_account', None, None)),
-    ('account', 'steinarh', 'testset', ('host', 346781, None)),
-    ('account', 'steinarh', 'testset', ('spread', 45, None)),
+    ('account', 'steinarh', 'testset', ('host', 'jak.itea.ntnu.no')),
+    ('account', 'steinarh', 'testset', ('spread', 'user@ansatt')),
+    ('account', 'steinarh', 'testset', ('disk', '/home/ahomea')),
+    ('account', 'steinarh', 'testset', ('ou', 'OI-ITAVD')),
+    ('account', 'steinarh', 'testset', ('ou', 'IME-IMF')),
 ]

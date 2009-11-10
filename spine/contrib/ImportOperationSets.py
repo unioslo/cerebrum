@@ -24,27 +24,23 @@ import sys
 import cerebrum_path
 import cereconf
 import Cerebrum.Errors
+import types
 from Cerebrum.Utils import Factory
-from Cerebrum import Constants
 from sets import Set
 from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.auth import *
 
-class AuthImporter(object):
-    def __init__(self, module):
-        db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner']
-        if db_user is None:
-            db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user']
-            if db_user is not None:
-                print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
-                print "Will use regular 'user' (%s) instead." % db_user
-        self.db = Factory.get('Database')(user=db_user)
-        self.db.cl_init(change_program="import_op_sets")
-        self.op_sets = module.op_sets
-        self.op_roles = module.op_roles
-        self.old_op_sets = self._get_op_sets()
-        self.old_op_roles = self._get_op_roles()
+class AuthEntities(object):
+    def __init__(self, db):
+        self.db = db
+        self.cache={}
+        self.account=Factory.get('Account')(self.db)
+        self.group=Factory.get('Group')(self.db)
+        self.host=Factory.get('Host')(self.db)
+        self.disk=Factory.get('Disk')(self.db)
+        self.ou=Factory.get('OU')(self.db)
+        self.co=Factory.get('Constants')()
 
         creator = Factory.get('Account')(self.db)
         creator.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
@@ -54,20 +50,123 @@ class AuthImporter(object):
         try:
             ceresync_group.find_by_name("ceresync")
         except Cerebrum.Errors.NotFoundError:
-            ceresync_group.populate(self.creator_id, ceresync_group.const.group_visibility_all,
-                           "ceresync")
+            ceresync_group.populate(self.creator_id,
+                                    ceresync_group.const.group_visibility_all,
+                                    "ceresync")
             ceresync_group.write_db()
         self.ceresync_group_id = ceresync_group.entity_id
 
-    def __del__(self):
-        if hasattr(self, 'db'):
-            self.db.close()
 
+    def lookup(self, entity_type, name):
+        key=(entity_type, name)
+        if type(name) in types.StringTypes:
+            if not key in self.cache:
+                self.cache[key] = self._lookup(entity_type, name)
+            return self.cache[key]
+        else:
+            return name
+        
+    def _lookup(self, entity_type, name):
+        if entity_type == 'spread':
+            return int(self.co.Spread(name))
+        if entity_type == 'account':
+            self.account.clear()
+            self.account.find_by_name(name)
+            return self.account.entity_id
+        if entity_type == 'group':
+            self.group.clear()
+            self.group.find_by_name(name)
+            return self.group.entity_id
+        if entity_type == 'host':
+            self.host.clear()
+            self.host.find_by_name(name)
+            return self.host.entity_id
+        if entity_type == 'disk':
+            self.disk.clear()
+            splname = name.split(":", 1)
+            if len(splname) == 1:
+                name = splname[0]
+                host = None
+            else:
+                host, name = splname
+                host = lookup_entity("host", host)
+            self.disk.find_by_path(name, host)
+            return self.disk.entity_id
+        if entity_type == 'ou':
+            self.ou.clear()
+            rows = self.ou.search(acronym=name)
+            if len(rows) == 1:
+                return rows[0]['ou_id']
+            elif len(rows) == 0:
+                raise Errors.NotFoundError("OU by acronym=%s" % acronym)
+            else:
+                raise Errors.TooManyRowsError("OU by acronym=%s" % acronym)
+
+class AuthTargets(object):
+    def __init__(self, db, auth_entities):
+        self.db = db
+        self.auth_entities = auth_entities
+        self.targets = self.get_targets()
+        self.new_targets = set()
+
+    def parse1(self, target_type, target_name=None, attr=None):
+        entity_id = self.auth_entities.lookup(target_type, target_name)
+        self.new_targets.add((target_type, entity_id, attr))
+        
+    def get_targets(self):
+        targets = {}
+        op_target = BofhdAuthOpTarget(self.db)
+        for row in op_target.list():
+            targets[row['target_type'], row['entity_id'], row['attr']] = \
+                row['op_target_id']
+        return targets
+    
+    def _add_targets(self, targets):
+        op_target = BofhdAuthOpTarget(self.db)
+        for target_type, entity_id, attr in targets:
+            print entity_id
+            op_target.clear()
+            op_target.populate(entity_id, target_type, attr)
+            op_target.write_db()
+            self.targets[target_type, entity_id, attr] = op_target.op_target_id
+        
+    def _remove_targets(self, targets):
+        op_target = BofhdAuthOpTarget(self.db)
+        for t in targets:
+            op_target.clear()
+            op_target.find(self.targets[t])
+            op_target.delete()
+            
+    def add_targets(self):
+        old = set(self.targets.keys())
+        new = self.new_targets
+        self._add_targets(new - old)
+        
+    def remove_targets(self):
+        old = set(self.targets.keys())
+        new = self.new_targets
+        self._remove_targets(old - new)
+
+    def lookup(self, target_type, target_name=None, attr=None):
+        return self.targets[(target_type,
+                   self.auth_entities.lookup(target_type, target_name),
+                   attr)]
+
+class AuthOpSets(object):
+    def __init__(self, db):
+        self.db = db
+        self.old_op_sets = self._get_op_sets()
+
+    def parse(self, op_sets):
+        self.op_sets = op_sets
+            
     def _get_op_sets(self):
         bofhd_os = BofhdAuthOpSet(self.db)
         sets = {}
         self.operations = {}
+        self.op_set_map = {}
         for sid, name in bofhd_os.list():
+            self.op_set_map[name] = sid
             bofhd_os.find(sid)
             for op_code, op_id, set_id in bofhd_os.list_operations():
                 attrs = bofhd_os.list_operation_attrs(op_id)
@@ -81,8 +180,8 @@ class AuthImporter(object):
                     sets.setdefault(name, []).append((op_code, None))
         return sets
 
-    def commit(self):
-        self.db.commit()
+    def lookup(self, name):
+        return self.op_set_map[name]
 
     def _add_ops_to_set(self, name, operations):
         bofhd_os = BofhdAuthOpSet(self.db)
@@ -91,6 +190,7 @@ class AuthImporter(object):
         except Cerebrum.Errors.NotFoundError:
             bofhd_os.populate(name)
             bofhd_os.write_db()
+            self.op_set_map[name] = bofhd_os.op_set_id
         for operation, attribute in operations:
             try:
                 op_code = int(_AuthRoleOpCode(operation))
@@ -120,104 +220,6 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
             bofhd_os.del_operation(op_code, op_id=op_id)
             bofhd_os.write_db()
 
-    def _get_op_roles(self):
-        bo_roles = BofhdAuthRole(self.db)
-        self.roles = []
-        entity = Factory.get('Entity')(self.db)
-        group = Factory.get('Group')(self.db)
-        account = Factory.get('Account')(self.db)
-        op_set = BofhdAuthOpSet(self.db)
-        op_target = BofhdAuthOpTarget(self.db)
-
-        for eid, oid, tid in bo_roles.list():
-            entity.find(eid)
-            if entity.entity_type == entity.const.entity_account:
-                account.find(eid)
-                ename = account.account_name
-                etype = 'account'
-            elif entity.entity_type == entity.const.entity_group:
-                group.find(eid)
-                ename = group.group_name
-                etype = 'group'
-            else:
-                print "ERROR: Invalid entity_type %d" % entity.entity_type
-                sys.exit(1)
-            op_set.find(oid)
-            op_target.find(tid)
-            self.roles.append((etype, ename, op_set.name,
-                (op_target.target_type,
-                 op_target.entity_id,
-                 op_target.attr)))
-            group.clear()
-            account.clear()
-            entity.clear()
-        return self.roles
-
-    def _convert_op_roles(self, roles):
-        res = []
-        group = Factory.get('Group')(self.db)
-        account = Factory.get('Account')(self.db)
-        op_set = BofhdAuthOpSet(self.db)
-        op_target = BofhdAuthOpTarget(self.db)
-        
-        for entity_type, entity_name, op_set_name, target in roles:
-            try:
-                op_set.find_by_name(op_set_name)
-            except Cerebrum.Errors.NotFoundError:
-                print "WARNING: invalid op_set %s, ignoring" % op_set_name
-                continue
-
-            if entity_type=='group':
-                entity = group
-                try:
-                    group.find_by_name(entity_name)
-                except Cerebrum.Errors.NotFoundError:
-                    # Create empty group
-                    group.populate(self.creator_id, group.const.group_visibility_all,
-                                   entity_name)
-                    group.write_db()
-            elif entity_type=='account':
-                entity = account
-                try:
-                    account.find_by_name(entity_name)
-                except Cerebrum.Errors.NotFoundError:
-                    account.populate(entity_name,
-                                     account.const.entity_group,
-                                     self.ceresync_group_id,
-                                     account.const.account_program,
-                                     self.creator_id, None)
-                    account.write_db()
-            else:
-                print "ERROR: Invalid entity_type %s" % entity_type
-                sys.exit(1)
-            eid = entity.entity_id
-
-            oid = op_set.op_set_id
-            ttype, tid, tattr = target
-            r = op_target.list(entity_id=tid, target_type=ttype, attr=tattr)
-            if not r:
-                op_target.populate(tid, ttype, tattr)
-                op_target.write_db()
-                tid = op_target.op_target_id
-                op_target.clear()
-            else:
-                tid = r[0]['op_target_id']
-
-            res.append((eid, oid, tid))
-            account.clear()
-            group.clear()
-        return res
-    
-    def _add_op_roles(self, roles):
-        role = BofhdAuthRole(self.db)
-        for eid, oid, tid in self._convert_op_roles(roles):
-            role.grant_auth(eid, oid, tid)
-            
-    def _remove_op_roles(self, roles):
-        role = BofhdAuthRole(self.db)
-        for eid, oid, tid in self._convert_op_roles(roles):
-            role.revoke_auth(eid, oid, tid)
-
     def _remove_op_set(self, name):
         op_set = BofhdAuthOpSet(self.db)
         try:
@@ -233,8 +235,7 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
         op_set.delete()
         op_set.write_db()
 
-    def update_operation_sets(self):
-
+    def add_operation_sets(self):
         # Add and update op_sets in the config file.
         for key, new in self.op_sets.items():
             new = Set(new)
@@ -243,18 +244,107 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
             self._add_ops_to_set(key, new - old)
             self._remove_ops_from_set(key, old - new)
 
-    def delete_operation_sets(self):
+    def remove_operation_sets(self):
         # Remove op_sets not in the config file.
         for key in self.old_op_sets.keys():
             if not key in self.op_sets:
                 self._remove_op_set(key)
 
+
+class AuthRoles(object):
+    def __init__(self, db, auth_entities, auth_targets, auth_op_sets):
+        self.db = db
+        self.auth_entities = auth_entities
+        self.auth_targets = auth_targets
+        self.auth_op_sets = auth_op_sets
+        self.old_op_roles = self._get_op_roles()
+
+    def _get_op_roles(self):
+        bo_roles = BofhdAuthRole(self.db)
+
+        roles = set()
+        for row in bo_roles.list():
+            roles.add((row['entity_id'], row['op_set_id'], row['op_target_id']))
+            
+        return roles
+
+    def parse(self, roles):
+        self.parse_roles = []
+        for entity_type, entity_name, operation_set, target in roles:
+            self.auth_targets.parse1(*target)
+            self.parse_roles.append(((entity_type, entity_name), operation_set, target))
+
+    def parse1(self, entity, operation_set, target):
+        roles = set()
+        
+        entity_id = self.auth_entities.lookup(*entity)
+        op_set = self.auth_op_sets.lookup(operation_set)
+        target_id = self.auth_targets.lookup(*target)
+        return (entity_id, op_set, target_id)
+
+    def post_parse(self):
+        self.new_op_roles = set()
+        for role in self.parse_roles:
+            self.new_op_roles.add(self.parse1(*role))
+
+    def _add_op_roles(self, roles):
+        role = BofhdAuthRole(self.db)
+        for eid, oid, tid in roles:
+            role.grant_auth(eid, oid, tid)
+ 
+    def _remove_op_roles(self, roles):
+        role = BofhdAuthRole(self.db)
+        for eid, oid, tid in roles:
+            role.revoke_auth(eid, oid, tid)
+
     def update_roles(self):
-        old = Set(self.old_op_roles)
-        new = Set(self.op_roles)
+        self.post_parse()
+
+        old = set(self.old_op_roles)
+        new = set(self.new_op_roles)
 
         self._add_op_roles(new - old)
         self._remove_op_roles(old - new)
+
+
+
+class AuthImporter(object):
+    def __init__(self, module):
+        db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['table_owner']
+        if db_user is None:
+            db_user = cereconf.CEREBRUM_DATABASE_CONNECT_DATA['user']
+            if db_user is not None:
+                print "'table_owner' not set in CEREBRUM_DATABASE_CONNECT_DATA."
+                print "Will use regular 'user' (%s) instead." % db_user
+                
+        self.db = Factory.get('Database')(user=db_user)
+        self.db.cl_init(change_program="import_op_sets")
+
+        self.op_sets = module.op_sets
+        self.op_roles = module.op_roles
+
+    def main(self):
+        auth_entities = AuthEntities(self.db)
+        auth_targets = AuthTargets(self.db, auth_entities)
+
+        auth_op_sets = AuthOpSets(self.db)
+        auth_op_sets.parse(self.op_sets)
+        auth_op_sets.add_operation_sets()
+
+        auth_roles = AuthRoles(self.db, auth_entities, auth_targets, auth_op_sets)
+        auth_roles.parse(self.op_roles)
+
+        auth_targets.add_targets()
+
+        auth_roles.post_parse()
+        auth_roles.update_roles()
+
+        auth_targets.remove_targets()
+        
+        auth_op_sets.remove_operation_sets()
+
+    def commit(self):
+        self.db.commit()
 
 if __name__ == '__main__':
     try:
@@ -268,8 +358,6 @@ if __name__ == '__main__':
         source = None
     if source:
         importer = AuthImporter(source)
-        importer.update_operation_sets()
-        importer.update_roles()
-        importer.delete_operation_sets()
+        importer.main()
         importer.commit()
 
