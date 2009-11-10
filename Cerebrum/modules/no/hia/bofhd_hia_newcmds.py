@@ -54,6 +54,20 @@ def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
+def date_to_string(date):
+    """Takes a DateTime-object and formats a standard ISO-datestring
+    from it.
+
+    Custom-made for our purposes, since the standard XMLRPC-libraries
+    restrict formatting to years after 1899, and we see years prior to
+    that.
+
+    """
+    if not date:
+        return "<not set>"
+    
+    return "%04i-%02i-%02i" % (date.year, date.month, date.day)
+
 class BofhdExtension(object):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
@@ -102,7 +116,7 @@ class BofhdExtension(object):
         'person_accounts', 'person_affiliation_add',
         '_person_affiliation_add_helper',
         'person_affiliation_remove', 'person_create',
-        'person_find', 'person_info', 'person_list_user_priorities',
+        'person_find', 'person_list_user_priorities',
         'person_set_user_priority', 'person_set_name',
         'person_clear_name', 'person_clear_id', 'person_set_bdate',
         'person_set_id',
@@ -471,6 +485,133 @@ class BofhdExtension(object):
     # These are just for show, UiA is not really using this
     _mailman_pipe = "|/fake %(interface)s %(listname)s"
     _mailman_patt = r'\|/fake (\S+) (\S+)$'
+    
+    # person info
+    all_commands['person_info'] = Command(
+        ("person", "info"), PersonId(help_ref="id:target:person"),
+        fs=FormatSuggestion([
+        ("Name:          %s\n" +
+         "Entity-id:     %i\n" +
+         "Birth:         %s\n" +
+         "Affiliations:  %s [from %s]",
+         ("name", "entity_id", "birth",
+          "affiliation_1", "source_system_1")),
+        ("               %s [from %s]",
+         ("affiliation", "source_system")),
+        ("Names:         %s[from %s]",
+         ("names", "name_src")),
+        ("Fnr:           %s [from %s]",
+         ("fnr", "fnr_src")),
+        ("External id:   %s [from %s]",
+         ("extid", "extid_src")),
+        ("Address:       %s [from %s]",
+         ("address_line_1", "address_source")),
+        ("               %s",
+         ("address_line",)),
+        ("               %s %s",
+         ("address_zip", "address_city")),
+        ("               %s",
+         ("address_country",)),
+        ]))
+    def person_info(self, operator, person_id):
+        try:
+            person = self.util.get_target(person_id, restrict_to=['Person'])
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+        try:
+            p_name = person.get_name(self.const.system_cached,
+                                     getattr(self.const, cereconf.DEFAULT_GECOS_NAME))
+            p_name = p_name + ' [from Cached]'
+        except Errors.NotFoundError:
+            raise CerebrumError("No name is registered for this person")
+        data = [{'name': p_name,
+                 'entity_id': person.entity_id,
+                 'birth': date_to_string(person.birth_date),
+                 'entity_id': person.entity_id}]
+        affiliations = []
+        sources = []
+        for row in person.get_affiliations():
+            ou = self._get_ou(ou_id=row['ou_id'])
+            affiliations.append("%s@%s" % (
+                self.const.PersonAffStatus(row['status']),
+                self._format_ou_name(ou)))
+            sources.append(str(self.const.AuthoritativeSystem(row['source_system'])))
+        for ss in cereconf.SYSTEM_LOOKUP_ORDER:
+            ss = getattr(self.const, ss)
+            person_name = ""
+            for type in [self.const.name_first, self.const.name_last]:
+                try:
+                    person_name += person.get_name(ss, type) + ' '
+                except Errors.NotFoundError:
+                    continue
+            if person_name:
+                data.append({'names': person_name,
+                             'name_src': str(
+                    self.const.AuthoritativeSystem(ss))})
+        if affiliations:
+            data[0]['affiliation_1'] = affiliations[0]
+            data[0]['source_system_1'] = sources[0]
+        else:
+            data[0]['affiliation_1'] = "<none>"
+            data[0]['source_system_1'] = "<nowhere>"
+        for i in range(1, len(affiliations)):
+            data.append({'affiliation': affiliations[i],
+                         'source_system': sources[i]})
+        account = self.Account_class(self.db)
+        account_ids = [int(r['account_id'])
+                       for r in account.list_accounts_by_owner_id(person.entity_id)]
+        ## Ugly hack: We use membership in a given group (defined in
+        ## cereconf) to enable viewing fnr in person info.
+        is_member_of_priviliged_group = False
+        if cereconf.BOFHD_FNR_ACCESS_GROUP is not None:
+            g_view_fnr =  Utils.Factory.get("Group")(self.db)
+            g_view_fnr.find_by_name(cereconf.BOFHD_FNR_ACCESS_GROUP)
+            is_member_of_priviliged_group = g_view_fnr.has_member(operator.get_entity_id())
+        if (self.ba.is_superuser(operator.get_entity_id()) or
+            operator.get_entity_id() in account_ids or
+            is_member_of_priviliged_group):
+            # Show fnr
+            for row in person.get_external_id(id_type=self.const.externalid_fodselsnr):
+                data.append({'fnr': row['external_id'],
+                             'fnr_src': str(
+                    self.const.AuthoritativeSystem(row['source_system']))})
+            # Show external id from FS and SAP
+            for extid in (self.const.externalid_sap_ansattnr,
+                          self.const.externalid_studentnr):
+                for row in person.get_external_id(id_type=extid):
+                    data.append({'extid': row['external_id'],
+                                 'extid_src': str(
+                        self.const.AuthoritativeSystem(row['source_system']))})
+            # Show addresses
+            for source, kind in ((self.const.system_sap, self.const.address_post),
+                                 (self.const.system_fs, self.const.address_post),
+                                 (self.const.system_sap, self.const.address_post_private),
+                                 (self.const.system_fs, self.const.address_post_private)):
+                address = person.get_entity_address(source = source, type = kind)
+                if address:
+                    address = address[0]
+                    break
+                address = None
+            if address:
+                for nr, line in enumerate(address['address_text'].split("\n")):
+                    if nr is 0:
+                        data.append({'address_line_1': line,
+                                     'address_source':
+                                         str(self.const.AuthoritativeSystem(
+                                                    address['source_system']))})
+                    else:
+                        data.append({'address_line': line})
+                data.append({'address_zip':  str(address['postal_number']),
+                             'address_city': address['city']})
+                if address['country']:
+                    country_codes = dict((c['code'], c['country']) for c in
+                                                    person.list_country_codes())
+                    if address['country'] in country_codes:
+                        data.append({'address_country': str(
+                            country_codes[address['country']])})
+        return data
+
+
     
     # person student_info
     all_commands['person_student_info'] = Command(
