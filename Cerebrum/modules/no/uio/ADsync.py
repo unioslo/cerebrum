@@ -40,6 +40,7 @@ from Cerebrum import Errors
 from Cerebrum.modules import CLHandler
 
 
+
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def _filter_quarantines(self, user_dict):
@@ -963,51 +964,44 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
             """
             if add_users:
                 for usr in (self.group.search_members(
-                        group_id=gruppe_id,
+                        group_id=gruppe_id, member_type=self.co.entity_account,
                         member_spread=int(self.co.Spread(user_spread)))):
-                    user_members.append(usr["member_id"])
+                    user_members.add(usr["member_id"])
 
             for gruppe in (self.group.search_members(
-                    group_id=gruppe_id)):
+                    group_id=gruppe_id, member_type=self.co.entity_group)):
                 #to avoid loops where groups are members of each-other
                 if gruppe["member_id"] in group_members:
                     continue
-                self.group.clear()
-                try:
-                    self.group.find(gruppe["member_id"])
-                except Errors.NotFoundError:
-                    continue
-                if self.group.has_spread(self.co.Spread(group_spread)):
+                if gruppe["member_id"] in groups_with_ad_spread:
                     if add_users:
-                        group_members.append(gruppe["member_id"])
+                        group_members.add(gruppe["member_id"])
                     get_medlemmer(gruppe["member_id"], False)
                 else:
                     get_medlemmer(gruppe["member_id"], True)
-
+                    
 
         entity2name = dict([(x["entity_id"], x["entity_name"]) for x in 
                             self.group.list_names(self.co.account_namespace)])
         entity2name.update([(x["entity_id"], x["entity_name"]) for x in
-                            self.group.list_names(self.co.group_namespace)])    
+                            self.group.list_names(self.co.group_namespace)]) 
 
+        self.logger.debug("Lager set med grupper med ad-spread")
+        groups_with_ad_spread = set(int(x['group_id']) for x in 
+                                     self.group.search(spread=int(self.co.Spread(group_spread))))
 
         for grp in cerebrum_dict:
             if cerebrum_dict[grp].has_key('grp_id'):
-                #self.logger.debug("Doing member sync for group %s" % grp)
+                self.logger.debug("Doing member sync for group %s" % grp)
                 grp_id = cerebrum_dict[grp]['grp_id']
 
-                user_members = list()
-                group_members = list()
+                user_members = set()
+                group_members = set()
                 members = list()
                 
                 #get members and flatten groups without ad-spread recurseivly
                 get_medlemmer(grp_id, True)
 
-                #remove any duplicates
-                user_members = list(set(user_members))
-                group_members = list(set(group_members))
-                
-                
                 for user_id in user_members:
                     if user_id not in entity2name:
                         self.logger.debug("Missing name for account id=%s",
@@ -1036,7 +1030,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 if sendDN_boost:
                     members_in_ad = ad_dict.get(grp, {}).get("member", [])
                 else:
-                    members_in_ad = [x.split(",")[0].split("=")[1] for x in ad_dict.get(grp, {}).get("member", [])]
+                    #To extract the username/groupname from the FQDN (CN=username,OU=...etc)
+                    members_in_ad = [x.split(",")[0].split("=")[1] for x in 
+                                     ad_dict.get(grp, {}).get("member", [])]
                     
                 # If number of members of a group in cerebrum is 1500 or more 
                 # it exceeds the 1500 maxValRange limit in AD and we will not be 
@@ -1105,7 +1101,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
     def sync_group_members(self, cerebrum_dict, group_spread, user_spread, 
                            dry_run, sendDN_boost):
         """
-        Update group memberships in AD
+        Update group memberships in AD using an alternative method to the
+        compare_memebers function. Here we do not read status in AD and 
+        instead gives AD a full current list of members for all groups.
+        This method can be used if the --full_membersync option is enabled.
 
         @param cerebrum_dict : group_name -> group info mapping
         @type cerebrum_dict : dict
