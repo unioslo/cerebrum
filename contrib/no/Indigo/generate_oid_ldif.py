@@ -141,142 +141,7 @@ def process_txt_file(file):
         if ou_id in ou_spreads and a_id in acc_spreads:
             users_ou.setdefault(ou_id2name[ou_id], {}).setdefault(aff, []).append(uname)
     return users_ou
-        
 
-def process_users(affiliation, file):    
-    known_dns = dict()
-    
-    for row in ac.list_accounts_by_type(affiliation=affiliation):
-        id = row['account_id']
-        aff = row['affiliation']
-        if not (a_id2auth.has_key(id) and a_id2auth[id][0]):
-            # No username
-            logger.warning("pu: No username found for account '%s'" % id)
-            continue
-        uname = a_id2auth[id][0]
-        plain = "*notfound"
-        md4 = "*notfound"
-        ssha = "*notfound"
-        if a_id2auth[id][1] is not None:
-            plain = a_id2auth[id][1][int(co.auth_type_plaintext)]
-            md4 = a_id2auth[id][1][int(co.auth_type_md4_nt)]
-            ssha = a_id2auth[id][1][int(co.auth_type_ssha)]
-        first = last = None
-        if not a_id2p_id.has_key(id):
-            # User not a primary user so skipped.
-            continue
-        if a_id2p_id[id] not in p_id2name:
-            logger.warning("No names found for account id='%s'", id)
-            continue
-
-        p_names = p_id2name[a_id2p_id[id]]
-        if not (p_names.get(int(co.name_first)) or
-                p_names.get(int(co.name_last))):
-            logger.warning("No names found for accound id='%s'" % id)
-            continue
-        first = p_names[int(co.name_first)]
-        last = p_names[int(co.name_last)]
-        if not p_id2fnr.has_key(a_id2p_id[id]):
-            logger.warning("Fnr not found for '%s'" % id)
-            continue
-        # Skip duplicates
-        if known_dns.has_key(uname):
-            continue
-        else:
-            if id in acc_spreads:
-                known_dns[uname] = True
-            else:
-                continue
-        
-        u_uname = iso2utf(uname)
-        dn = "cn=%s,cn=users,dc=ovgs,dc=no" % u_uname
-        entry = {
-            'givenname': (iso2utf(first),),
-            'orcldefaultprofilegroup': ("cn=%s,cn=groups,dc=ovgs,dc=no"
-                                        % const2str[aff],),
-            'orcltimezone': ("Europe/Oslo",),
-            'objectclass': ("top", "person", "inetorgperson",
-                            "organizationalperson", "orcluser", "orcluserv2"),
-            'orclsamaccountname': (u_uname,),
-            'sn': (iso2utf(last),),
-            'uid': (u_uname,),
-            'userpassword': ("{SSHA}%s" % ssha,),
-            'ofkpassword': ("{MD4}%s" % md4,),
-            'userpasswordct': (plain,),
-            'fnr': (p_id2fnr[a_id2p_id[id]],)}
-        if a_id2email.has_key(id):
-            entry['mail'] = (a_id2email[id],)
-        if p_id2cont.has_key(a_id2p_id[id]):
-            entry['mobile'] = (p_id2cont[a_id2p_id[id]],)
-        if id in acc_spreads:
-            file.write(entry_string(dn, entry, False))
-    return known_dns.keys()
-        
-
-def process_prof_group(name, users, file):
-    file.write(entry_string(
-        "cn=%s,cn=groups,dc=ovgs,dc=no" % name, {
-        'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
-        'displayname': (name,),
-        'description': (name,),
-        'uniquemember': ["cn=%s,cn=users,dc=ovgs,dc=no" % iso2utf(u)
-                         for u in users]
-        }, False))
-
-
-def process_aff_groups(users, file):
-    for ou, ou_aff in users.iteritems():
-        u_ou = iso2utf(ou)
-        for aff, aff_users in ou_aff.iteritems():
-            name = "%s:%s" % (u_ou, const2str[int(aff)])
-            dn = "cn=%s,cn=groups,dc=ovgs,dc=no" % (name)
-            file.write(entry_string(dn, {
-                'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
-                'displayname': (name,),
-                'description': (name,),
-                'uniquemember': ["cn=%s,cn=users,dc=ovgs,dc=no" % iso2utf(u)
-                                 for u in aff_users]}, False))
-        # Make "pure" OU groups as well
-        dn = "cn=%s,cn=groups,dc=ovgs,dc=no" % (u_ou)
-        file.write(entry_string(dn, {
-            'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
-            'displayname': (u_ou,),
-            'description': (u_ou,),
-            'uniquemember': ["cn=%s,cn=users,dc=ovgs,dc=no" % iso2utf(u)
-                             for aff_users in ou_aff.values()
-                             for u in aff_users]}, False))
-
-
-def process_groups(spread, file):
-    g = Factory.get('Group')(db)
-    for row in g.search(spread=int(spread)):
-        id = row['group_id']
-        u_name = iso2utf(row['name'])
-        g.clear()
-        g.find(id)
-
-        uniques = list()
-        for row in g.search_members(group_id=id):
-            if row["member_type"] == co.entity_account:
-                member_id = int(row["member_id"])
-                if a_id2auth.has_key(member_id):
-                    uniques.append("cn=%s,cn=users,dc=ovgs,dc=no"
-                                   % iso2utf(a_id2auth[member_id][0]))
-                else:
-                    logger.warning("pg: No username found for: %s" % member_id)
-                    continue
-            else:
-                logger.warning("Member is not an account: id=%s, type=%s",
-                               member_id, co.EntityType(row["member_type"]))
-                continue
-
-        dn = "cn=%s,cn=groups,dc=ovgs,dc=no" % u_name
-        file.write(entry_string(dn, {
-            'description': (u_name,),
-            'displayname': (u_name,),
-            'objectclass': ("top", "groupOfUniqueNames", "orclGroup"),
-            'uniquemember': uniques}, False))
-        
 
 def main():
     global db, co, ac, p, ou, et, logger
@@ -291,15 +156,11 @@ def main():
     et = Email.EmailTarget(db) 
 
     txt_path = "/cerebrum/dumps/txt"
-    oid_path = "/cerebrum/dumps/OID"
     
     options, rest = getopt.getopt(sys.argv[1:],
-                                  "o:t:",
-                                  ["oid-path=", "txt-path="])
+                                  "t:", ["txt-path=",])
     for option, value in options:
-        if option in ("-o", "--oid-path"):
-            oid_path = value
-        elif option in ("-t", "--txt-path"):
+        if option in ("-t", "--txt-path"):
             txt_path = value
 
     # Load dicts with misc info.
@@ -310,42 +171,6 @@ def main():
     f = SimilarSizeWriter("%s/ofk.txt" % txt_path, "w")
     f.set_size_change_limit(10)
     users = process_txt_file(f)
-    f.close()
-
-    # Dump info about OU groups
-    f = SimilarSizeWriter("%s/affiliation_groups_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    process_aff_groups(users, f)
-    f.close()
-
-    # Dump info about users with co.affiliation_ansatt
-    f = SimilarSizeWriter("%s/ans_user_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    users = process_users((co.affiliation_ansatt,co.affiliation_tilknyttet), f)
-    f.close()
-
-    # Make a group out of these users
-    f = SimilarSizeWriter("%s/ans_group_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    process_prof_group("ANSATTE", users, f)
-    f.close()
-
-    # Dump info about users with co.affiliation_elev 
-    f = SimilarSizeWriter("%s/elev_user_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    users = process_users(co.affiliation_elev, f)
-    f.close()
-    
-    # Make a group out of these users
-    f = SimilarSizeWriter("%s/elev_group_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    process_prof_group("ELEVER", users, f)
-    f.close()
-            
-    # Make and populate groups with spread spread_oid_grp
-    f = SimilarSizeWriter("%s/group_oid.ldif" % oid_path, "w")
-    f.set_size_change_limit(10)
-    process_groups(co.spread_oid_grp, f)
     f.close()
     
 if __name__ == '__main__':
