@@ -143,18 +143,6 @@ cereweb.utils = {
             return "";
         else
             return results[1];
-    },
-    clickLink: function (el) {
-        var evt = document.createEvent("MouseEvents");
-        evt.initMouseEvent("click", true, true, window,
-            0, 0, 0, 0, 0, false, false, false, false, 0, null);
-
-        YE.addListener(el, "click", cereweb.action.clicked,
-            cereweb.action, true);
-
-        var follow = el.dispatchEvent(evt);
-        if (follow)
-            document.location = el.href;
     }
 }
 cereweb.createDiv = cereweb.utils.createDiv; // Backwards compatibility.
@@ -484,10 +472,8 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 
 (function() {
     var handleYes = function() {
-        var link = this.target.cloneNode(true);
-        link.href = link.href.replace('/confirm', '');
-        cereweb.utils.clickLink(link);
         this.hide();
+        document.location = this.target.href.replace('/confirm', '');
     }
 
     var handleNo = function() {

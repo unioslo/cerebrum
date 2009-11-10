@@ -214,11 +214,6 @@
                     <td>$html_quote($trait.number)</td>
                     <td>$spine_to_web($trait.string)</td>
                     <td>$quotedate($trait.date)</td>
-                    <td>	
-                        <div class="actions">
-                            <a class="action" href="/confirm/entity/remove_trait?id=$entity.id&amp;trait=$url_quote($trait.name)">$_('remove')</a>
-                        </div>
-                    </td>
                 </tr>
             #end for
         </table>
@@ -275,6 +270,7 @@
 	<div class="required">
 	  <label for="disable_until">$_('Disable Until'):</label>
 	  <input class="date" type="text" name="disable_until" size="10" />
+          <input type="submit" value="$_('Disable')" />
 	</div>
       </form>
     </div>
@@ -295,7 +291,7 @@
         </div>
 	<div class="optional">
 	  <label for="why">$_('Description'):</label>
-          <textarea name="why" rows="5" cols="40" />
+          <textarea name="why" rows="5" cols="40"></textarea>
 	</div>
 	<div class="optional">
 	  <label for="start">$_('Start date'):</label>

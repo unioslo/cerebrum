@@ -197,6 +197,7 @@
                 $form_widgets.generate_loption('member_type', 'Member type', $types, 'account')
             </div>
             <script type="text/javascript">
+                /* <![CDATA[ */
                 (function() {
                     var get = function(name) {
                         return YD.get("add_" + name);
@@ -213,7 +214,7 @@
                     var el = YD.get("member_type");
 
                     var update = function() {
-                        for (var i=0; i &lt; el.options.length; i++) {
+                        for (var i=0; i < el.options.length; i++) {
                             hide(el.options[i].value);
                         }
                         show(el.value);
@@ -222,6 +223,7 @@
                     update();
                     YAHOO.util.Event.addListener("member_type", "change", update);
                 })();
+                /* ]]> */
             </script>
             <div class="buttons">
                 <input type="submit" value="$_('Add member')" />&#x0020;

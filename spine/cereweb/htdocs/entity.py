@@ -95,6 +95,9 @@ def add_quarantine(id, quarantine, why="", start="", end="", disable_until=""):
     dao = EntityFactory(db).get_dao_by_entity_id(id)
 
     why = why or None
+    if why:
+        why = web_to_spine(why)
+
     start = start or None
     end = end or None
     disable_until = disable_until or None

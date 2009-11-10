@@ -25,8 +25,10 @@ from lib.forms.FormBase import Form
 
 from lib.utils import get_database
 from lib.utils import strftime
+from lib.utils import entity_link
 
 from lib.data.ConstantsDAO import ConstantsDAO
+from lib.data.PersonDAO import PersonDAO
 from lib.data.OuDAO import OuDAO
 
 class PersonCreateForm(Form):
@@ -178,7 +180,7 @@ class PersonEditForm(PersonCreateForm):
         },
     }
 
-    def init_values(person_id, *args, **kwargs):
+    def init_values(self, person_id, *args, **kwargs):
         self.set_value('id', person_id)
         self.person = PersonDAO(self.db).get(person_id)
 
