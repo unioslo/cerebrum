@@ -393,9 +393,9 @@ def load_registration_criteria(criteria):
     special: they are ALSO members of the corresponding 'meta-ansatt' groups.
     """
 
-    logger.debug("AUTO_GROUPS=%s", getattr(cereconf, "AUTOMATIC_GROUPS", ()))
-    result = _load_selection_helper(getattr(cereconf, "AUTOMATIC_GROUPS", ()))
-    result.update(_load_selection_helper(iter(criteria)))
+    logger.debug("AUTO_GROUPS=%s", getattr(cereconf, "AUTOMATIC_GROUPS", {}))
+    result = _load_selection_helper(getattr(cereconf, "AUTOMATIC_GROUPS", {}).items())
+    result.update(_load_selection_helper(criteria.items()))
     logger.debug("The following affs/statuses will result in memberships")
     logger.debug("Result is %s", result)
     for aff_or_status in result:
@@ -1196,7 +1196,7 @@ def main():
     perspective = None
     wipe_all = False
     source_system = constants.system_sap
-    select_criteria = list()
+    select_criteria = dict()
     output_groups = False
     output_filters = list()
     for option, value in options:
@@ -1210,7 +1210,7 @@ def main():
             wipe_all = True
         elif option in ("-c", "--collect",):
             aff_or_status, prefix = value.split(":")
-            select_criteria.append((aff_or_status, prefix))
+            select_criteria[aff_or_status] = prefix
         elif option in ("-f", "--filters",):
             output_filters.append(value)
         elif option in ("-o", "--output-groups",):
