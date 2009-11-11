@@ -30,6 +30,7 @@ from lib.GroupSearcher import GroupSearcher
 from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
 from Cerebrum.Errors import NotFoundError
+from Cerebrum.Database import IntegrityError
 
 from lib.data.EntityFactory import EntityFactory
 from lib.data.GroupDAO import GroupDAO
@@ -117,11 +118,21 @@ def remove_member(group_id, member_id):
     except NotFoundError, e:
         member = DTO()
         member.name = "[Not found]"
-    GroupDAO(db).remove_member(group_id, member_id)
-    db.commit()
-
-    msg = _("%s removed from group.") % member.name
-    queue_message(msg, title=_("Operation succeded"))
+    try:
+        GroupDAO(db).remove_member(group_id, member_id)
+        db.commit()
+    except IntegrityError, e:
+        message = e.args[0]
+        if 'constraint "posix_user_in_primary_group"' in message:
+            queue_message(
+                _("Can't remove a user from her primary group.  Either demote the user from posix or change her primary group, then try again."),
+                error=True,
+                title=_("Remove member failed"))
+        else:
+            raise
+    else:
+        msg = _("%s removed from group.") % member.name
+        queue_message(msg, title=_("Operation succeded"))
     redirect_entity(group_id)
 remove_member.exposed = True
 
@@ -203,11 +214,21 @@ posix_promote.exposed = True
 @session_required_decorator
 def posix_demote(id):
     db = get_database()
-    GroupDAO(db).demote_posix(id)
-    db.commit()
-
-    msg = _("Group successfully demoted from posix.")
-    queue_message(msg, title=_("Group demoted"))
+    try:
+        GroupDAO(db).demote_posix(id)
+        db.commit()
+    except IntegrityError, e:
+        message = e.args[0]
+        if 'constraint "posix_user_gid"' in message:
+            queue_message(
+                _("This group can't be demoted from posix because it is used as the primary group of at least one posix user."),
+                error=True,
+                title=_("Demote posix failed"))
+        else:
+            raise
+    else:
+        msg = _("Group successfully demoted from posix.")
+        queue_message(msg, title=_("Group demoted"))
     redirect_entity(id)
 posix_demote.exposed = True
 

@@ -168,28 +168,30 @@
         #return
     #end if
 
-    #set $active_affiliations = $map(lambda x: (x.id, x.ou.id), $account.affiliations)
-    #set $valid_affiliations = [$x for $x in $affiliations if not ($x.affiliation.id, $x.ou.id) in $active_affiliations]
     #set $aff_list = [($spine_to_web("%s:%s" % ($a.affiliation.id, $a.ou.id)),
-                       $spine_to_web("%s:%s" % ($a.name, $a.ou.name))) for $a in $valid_affiliations]
+                       $spine_to_web("%s:%s" % ($a.name, $a.ou.name))) for $a in $affiliations]
 
     <div class="edit box" style="display:none;">
-        <h3 id="affil">$_('Add an affiliation')</h3>
-        <form action="add_affil" method="post">
-            <div class="hidden">
-                <input type="hidden" name="account_id" value="$account.id" />
-            </div>
-            <div class="required">
-                $form_widgets.generate_loption("aff_ou", "Affiliation", $aff_list)
-            </div>
-            <div class="required">
-                $form_widgets.input("priority", "Priority")
-            </div>
-            <div class="buttons">
-                <input type="submit" value="$_('Add')" />
-                <input type="button" value="$_('Cancel')" class="cancel" />
-            </div>
-        </form>
+        <h3 id="affil">$_('Set account affiliation')</h3>
+        #if $aff_list
+            <form action="add_affil" method="post">
+                <div class="hidden">
+                    <input type="hidden" name="account_id" value="$account.id" />
+                </div>
+                <div class="required">
+                    $form_widgets.generate_loption("aff_ou", "Affiliation", $aff_list)
+                </div>
+                <div class="required">
+                    $form_widgets.input("priority", "Priority")
+                </div>
+                <div class="buttons">
+                    <input type="submit" value="$_('Set')" />
+                    <input type="button" value="$_('Cancel')" class="cancel" />
+                </div>
+            </form>
+        #else
+            <p>$_("Can't affiliate the account because the owner is not affiliated.")</p>
+        #end if
     </div>
 #end def
 

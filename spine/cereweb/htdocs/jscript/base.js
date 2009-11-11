@@ -424,6 +424,12 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
         var elements = el.getElementsByTagName('input');
         for (var i = 0; i < elements.length; i++) {
             var el = elements[i];
+
+            if (el.type === 'reset') {
+                el.value = 'Cancel';
+                return el;
+            }
+
             if (el.type === 'submit' && el.value === 'Cancel')
                 return el;
         }

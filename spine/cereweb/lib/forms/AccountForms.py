@@ -90,9 +90,10 @@ class AccountCreateForm(Form):
     def init_values(self, owner, *args, **kwargs):
         self.owner = owner
         self.set_value('owner_id', owner.id)
+        self.set_value('randpwd', [randpasswd() for i in range(10)]),
 
-        if not self.is_postback():
-            self.set_value('randpwd', [randpasswd() for i in range(10)]),
+        self._random_password = kwargs.get('randpwd')
+            
 
     def get_name_options(self):
         db = get_database()
@@ -109,10 +110,10 @@ class AccountCreateForm(Form):
         pwd1 = self.get_value('password1')
 
         if not (pwd0 or pwd1):
-            pwd0 = pwd1 = self.get_value('randpwd')
+            pwd0 = pwd1 = self._random_password
             self.set_value('password0', pwd0)
 
-        if not (pwd0 and pwd1 and pwd0 == pwd1):
+        if not pwd0 == pwd1:
             self.error_message = 'The two passwords differ.'
             return False
 
