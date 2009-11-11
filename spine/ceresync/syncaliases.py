@@ -53,9 +53,10 @@ def main():
 
     try:
         for alias in s.get_aliases(**sync_options):
-            log.debug("Processing account '%s@%s'", alias.local_part, alias.domain)
+            log.debug("Processing account '%s@%s'", alias.local_part, 
+                      alias.domain)
             aliases.add(alias)
-    except IOError,e:
+    except Exception, e:
         log.error("Exception %s occured, aborting",e)
         aliases.abort()
     else:

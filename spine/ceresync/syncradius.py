@@ -52,10 +52,10 @@ def main():
         sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
-        sys.exit(255)
-    except IOError, e:
-        log.error("IOError, shutting down. Error: %s", e)
-        sys.exit(255)
+        sys.exit(1)
+    except Exception, e:
+        log.error("Exception %s occured, aborting",e)
+        sys.exit(1)
 
     if using_test_backend:
         from ceresync.backend.test import Samba, PasswdWithHash
@@ -66,17 +66,21 @@ def main():
 
     log.info("Fetching hashes for all accounts")
 
-    for hashtype in hashtypes:
-        for acc in s.get_accounts(auth_type=hashtype, **sync_options):
-            if acc.passwd == None or acc.passwd == '':
-                log.warning("account %s mangler passordtype %s", 
-                               acc.name, hashtype)
-                continue
-            # Try save time doing it all in a loop-de-loop
-            if not pwdict.has_key(acc.name):
-                acclist.append(acc)
-                pwdict[acc.name] = { }
-            pwdict[acc.name][hashtype] = acc.passwd
+    try:
+        for hashtype in hashtypes:
+            for acc in s.get_accounts(auth_type=hashtype, **sync_options):
+                if acc.passwd == None or acc.passwd == '':
+                    log.warning("account %s missing auth_type %s", 
+                                   acc.name, hashtype)
+                    continue
+                # Try save time doing it all in a loop-de-loop
+                if not pwdict.has_key(acc.name):
+                    acclist.append(acc)
+                    pwdict[acc.name] = { }
+                pwdict[acc.name][hashtype] = acc.passwd
+    except Exception, e:
+        log.error("Exception %s occured, aborting",e)
+        sys.exit(1)
 
     log.debug("Parsing and creating files")
 
@@ -86,23 +90,28 @@ def main():
     accounts = PasswdWithHash()
     accounts.begin(unicode=True)
 
-    for account in acclist:
-        if len(account.quarantines) > 0:
-            log.info("Skipping account %s with quarantines: %s", 
-                        account.name, account.quarantines)
-            continue
+    try:
+        for account in acclist:
+            if len(account.quarantines) > 0:
+                log.info("Skipping account %s with quarantines: %s", 
+                            account.name, account.quarantines)
+                continue
 
-        ntlmhash = pwdict[account.name].get('MD4-NT')
-        lmhash =   pwdict[account.name].get('LANMAN-DES')
+            ntlmhash = pwdict[account.name].get('MD4-NT')
+            lmhash =   pwdict[account.name].get('LANMAN-DES')
 
-        userhashes = (lmhash, ntlmhash)
-        smbfile.add(account, hashes=userhashes )
+            userhashes = (lmhash, ntlmhash)
+            smbfile.add(account, hashes=userhashes )
 
-        if account.posix_uid is not None:
-            accounts.add(account)
-
-    smbfile.close()
-    accounts.close()
+            if account.posix_uid is not None:
+                accounts.add(account)
+    except Exception, e:
+        log.error("Exception %s occured, aborting",e)
+        smbfile.abort()
+        accounts.abort()
+    else:
+        smbfile.close()
+        accounts.close()
 
     log.debug("Syncronization done")
 

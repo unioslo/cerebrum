@@ -157,6 +157,8 @@ class CLFileBack(FileBack):
 
     word_illegal_char=re.compile("[:\n]")
     def wash(self, word):
+        if word is None:
+            return ''
         if self.unicode:
             if self.word_illegal_char.match(unicode(word)):
                 raise errors.FormatError

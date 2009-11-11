@@ -27,7 +27,7 @@ from ceresync import config
 
 log = config.logger
 
-name_regex=re.compile("^[A-Za-z0-9_-]+$")
+name_regex = re.compile("^[A-Za-z0-9_-]+$")
 def check_account(account):
     if not name_regex.match(account.name):
         return "Bad accountname"
@@ -64,6 +64,9 @@ def main():
     except sync.AlreadyRunning, e:
         log.error(str(e))
         sys.exit(1)
+    except Exception, e:
+        log.error("Exception %s occured, aborting",e)
+        sys.exit(1)
 
     if using_test_backend:
         import ceresync.backend.test as filebackend
@@ -79,15 +82,16 @@ def main():
     try:
         for account in s.get_accounts(**sync_options):
             log.debug("Processing account '%s'", account.name)
-            primary_group[account.name]=account.primary_group
+            primary_group[account.name] = account.primary_group
             fail = check_account(account)
             if not fail: 
                 accounts.add(account)
             else:
                 log.warning("Skipping account '%s', reason: %s",
                             account.name,fail) 
-    except IOError,e:
+    except Exception,e:
         log.error("Exception %s occured, aborting",e)
+        accounts.abort()
     else:
         accounts.close()
 
@@ -103,8 +107,9 @@ def main():
                 groups.add(group)
             else:
                 log.warning("Skipping group '%s', reason: %s",group.name, fail)
-    except IOError,e:
+    except Exception, e:
         log.error("Exception %s occured, aborting",e)
+        groups.abort()
     else:
         groups.close()
 
