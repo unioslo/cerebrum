@@ -36,6 +36,8 @@ from lib.HostSearcher import HostSearcher
 from lib.templates.HostViewTemplate import HostViewTemplate
 from lib.forms import HostCreateForm, HostEditForm
 
+from Cerebrum.Database import IntegrityError
+
 @session_required_decorator
 def search(**vargs):
     """
@@ -165,9 +167,19 @@ promote_mailhost.exposed = True
 def demote_mailhost(host_id):
     db = get_database()
     dao = HostDAO(db)
-    dao.demote_mailhost(host_id)
-    db.commit()
-
-    queue_message(_('Host is no longer a mailhost.'), title=_("Change succeeded"))
+    try:
+        dao.demote_mailhost(host_id)
+        db.commit()
+    except IntegrityError, e:
+        message = e.args[0]
+        if 'constraint "email_target_server_server_id"' in message:
+            queue_message(
+                _("Host is associated with e-mail targets and can't be demoted until these are deleted."),
+                error=True,
+                title=_("Demote failed"))
+        else:
+            raise
+    else:
+        queue_message(_('Host is no longer a mailhost.'), title=_("Change succeeded"))
     redirect_entity(host_id)
 demote_mailhost.exposed = True

@@ -32,7 +32,7 @@ from gettext import gettext as _
 from templates.SearchResultTemplate import SearchResultTemplate
 
 from lib.utils import get_database, create_url, is_ajax_request
-from lib.utils import spine_to_web, get_messages
+from lib.utils import spine_to_web, get_messages, queue_message
 
 class Searcher(object):
     """
@@ -159,15 +159,19 @@ class Searcher(object):
 
     def respond(self):
         if not self.is_valid():
-            fail_response = self._get_fail_response('400 Bad request')
             if self.is_ajax:
-                return fail_response
-            return self.render_search_form() or fail_response
+                return self._get_fail_response('400 Bad request')
+            return self.render_search_form()
 
         self.__remember_last()
         result = self.search()
-        if not result:
-            return self._get_fail_response('404 Not Found', [("No hits", True)])
+
+        if result['hits'] == 0:
+            if self.is_ajax:
+                return self._get_fail_response('404 Not Found', [("No hits", True)])
+
+            queue_message(_('The current search would yield no results.  Please refine your criteria and search again.'), title=_("No results"))
+            return self.render_search_form()
 
         page = SearchResultTemplate()
         content = page.viewDict(result)

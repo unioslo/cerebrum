@@ -179,7 +179,6 @@ cereweb.ac_quicksearch = function(container) {
                         <img id="qs_qmark" alt="Help" src="/img/q.gif" />  \
                     </div> \
                     <div class="optional"> \
-                        <span>+ <a id="qs_advanced_search" href="/search/">Advanced search</a></span> \
                         <input id="qs_submit" type="submit" value="Search" /> \
                     </div> \
                 </form> \
@@ -200,9 +199,6 @@ cereweb.ac_quicksearch = function(container) {
     YE.addListener(this.input, 'blur', this.closeSearch, this, true);
     YE.addListener(this.qs_submit, 'click', this.submitClicked, this, true);
 
-    var as = YD.get("qs_advanced_search");
-    YE.addListener(as, 'click', this.openAdvancedSearch, this, true);
-
     this.updateLabel("close");
 }
 YAHOO.lang.extend(cereweb.ac_quicksearch, cereweb.ac_account);
@@ -214,9 +210,6 @@ cereweb.ac_quicksearch.prototype.initTooltip = function(el) {
                             <li>Search for people by writing the first character in uppercase or by prepending the search text with <em>p:</em></li> \
                             <li>Search for groups by prepending the search text with <em>g:</em></li> \
                         </ul>'});
-}
-
-cereweb.ac_quicksearch.prototype.openAdvancedSearch = function(e) {
 }
 
 cereweb.ac_quicksearch.prototype.submitClicked = function(e) {

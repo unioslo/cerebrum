@@ -104,3 +104,6 @@ class DiskDAO(EntityDAO):
         
     def _get_type(self):
          return self.constants.entity_disk
+
+    def _get_name(self, entity):
+        return entity.path

@@ -33,6 +33,8 @@ from lib.forms import DiskCreateForm, DiskEditForm
 from lib.DiskSearcher import DiskSearcher
 from lib.templates.DiskViewTemplate import DiskViewTemplate
 
+from Cerebrum.Database import IntegrityError
+
 @session_required_decorator
 def search(**vargs):
     """
@@ -78,7 +80,17 @@ def create(host_id=None, **kwargs):
     """Creates a page with the form for creating a disk."""
     form = DiskCreateForm(host_id, **kwargs)
     if form.is_correct():
-        return make(**form.get_values())
+        try:
+            return make(**form.get_values())
+        except IntegrityError, e:
+            message = e.args[0]
+            if 'constraint "disk_info_path_u"' in message:
+                queue_message(
+                    _("Path already exists.  Please try a different path."),
+                    error=True,
+                    title=_("Creation failed"))
+            else:
+                raise
     return form.respond()
 create.exposed = True
 

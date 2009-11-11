@@ -216,6 +216,12 @@ def valid_search(*args, **vargs):
             break
     return valid
 
+def get_section(page):
+    map = {
+        'motd': 'index',
+    }
+    return map.get(page, page)
+
 def get_tabs(current=None):
     tabs = [
       ('Cereweb', 'index', '/index'),
@@ -226,11 +232,14 @@ def get_tabs(current=None):
       ('Hosts', 'host', '/host'),
       ('Disks', 'disk', '/disk'),
       ('Email', 'email', '/email'),
+      ('Search', 'search', '/search'),
       ('Logout', 'logout', '/logout'),
     ]
 
     html = '<li%s><a href="%s"><em>%s</em></a></li>'
     res = []
+
+    current = get_section(current)
     for (name, page, link) in tabs:
         selected = page == current and ' class="selected"' or ''
         res.append(html % (selected, link, name))
@@ -271,7 +280,8 @@ def get_links(page):
             ('create', _('Create')),
         ),
     }
-    return map.get(page, ())
+    section = get_section(page)
+    return map.get(section, ())
 
 def flatten(elem, perspective_type):
     output = [elem]
