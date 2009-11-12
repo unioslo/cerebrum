@@ -102,7 +102,7 @@ class HomedirSync(object):
                     path, homedir.account_name))
             except Exception, e:
                 result_status = 'create_failed'
-                log.exception("Failed creating homedir for %s: %s" % (
+                log.info("Failed creating homedir for %s: %s" % (
                     homedir.account_name, e))
         else:
             log.debug("Homedir %s for %s already exists" % (
@@ -132,6 +132,7 @@ class HomedirSync(object):
             str(homedir.posix_uid),
             str(homedir.posix_gid),
             str(path),
+            str(homedir.account_name),
         )
 
         log.info("Running create script: %s", cmd)
@@ -157,6 +158,9 @@ class HomedirSync(object):
             raise InconsistencyError(
                 "Would report existing homedir as %s: %s" % (
                     status, homedir.homedir))
+
+    def _homedir_exists(self, homedir):
+        return os.path.isdir(homedir.homedir)
 
 def get_option_dict(config):
     return {

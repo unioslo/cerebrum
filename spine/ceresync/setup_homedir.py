@@ -27,8 +27,8 @@ import errno
 
 from optparse import OptionParser
 
-logger = logging.getLogger("setup_homedir")
-logger.addHandler(logging.StreamHandler(sys.stderr))
+from ceresync import config
+logger = config.logger
 
 class Homedir(object):
     skeldir = "/local/skel"
@@ -306,6 +306,13 @@ def main():
     setup_logger(options)
 
     args = update_args(args)
+
+    if not (options.student or options.ansatt):
+        mode = config.get('homedir', 'mode', None)
+        if mode == "student":
+            options.student = True
+        elif mode == "ansatt":
+            options.ansatt = True
 
     error_message = verify_args(options, args)
     if error_message:
