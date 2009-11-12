@@ -40,7 +40,6 @@ from Cerebrum import Errors
 from Cerebrum.modules import CLHandler
 
 
-
 class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
     def _filter_quarantines(self, user_dict):
@@ -536,7 +535,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     self.change_pwd(self.ac.account_name, pw, dry_run)
                 #but for now we dont get the password when user is created so we also
                 #check if user is a user with AD-spread and asume these are just created
-                elif self.ac.has_spread(spread):
+                elif self.ac.has_spread(self.co.Spread(spread)):
                     pw = pickle.loads(ans['change_params'])['password']
                     self.change_pwd(self.ac.account_name, pw, dry_run)
             else:
@@ -570,15 +569,15 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                          "dry_run = %s, store_sid = %s)" % 
                              (spread, delete, dry_run, store_sid))     
 
-        #Fetch cerebrum data.
-        self.logger.info("Fetching cerebrum data...")
-        cerebrumdump = self.fetch_cerebrum_data(spread)
-        self.logger.info("Fetched %i cerebrum users" % len(cerebrumdump))
-
         #Fetch AD-data.     
         self.logger.info("Fetching AD data...")
         addump = self.fetch_ad_data(self.ad_ldap)       
         self.logger.info("Fetched %i ad-users" % len(addump))
+
+        #Fetch cerebrum data.
+        self.logger.info("Fetching cerebrum data...")
+        cerebrumdump = self.fetch_cerebrum_data(spread)
+        self.logger.info("Fetched %i cerebrum users" % len(cerebrumdump))
                 
         #compare cerebrum and ad-data.
         self.logger.info("Comparing Cerebrum and AD data...")
@@ -590,6 +589,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         #Set passwords from changelog if option enabled
         if pwd_sync:
+            self.logger.info("Starting passowrd sync.")
             self.get_pwds_from_cl(addump, dry_run, spread, True)
 
         #Cleaning up.
@@ -992,7 +992,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
 
         for grp in cerebrum_dict:
             if cerebrum_dict[grp].has_key('grp_id'):
-                self.logger.debug("Doing member sync for group %s" % grp)
+                self.logger.debug("Checking memberships for group %s" % grp)
                 grp_id = cerebrum_dict[grp]['grp_id']
 
                 user_members = set()
