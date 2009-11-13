@@ -3389,13 +3389,13 @@ Addresses and settings:
     
 
     def _is_ok_mailing_list_name(self, localpart):
-        # originally this regexp was:^[a-z0-9.- postmaster however
+        # originally this regexp was:^[a-z0-9.-]. postmaster however
         # needs to be able to recreate some of the older mailing lists
         # in sympa and '_' used to be a valid character in list names.
         # this may not be very wise, but the postmasters have promised
         # to be good and make sure not to abuse this :-). Jazz,
         # 2009-11-13
-        if not re.match(r'^[a-z0-9.-_]+$', localpart):
+        if not re.match(r'^[a-z0-9.-]+$|^[a-z0-9._]+$', localpart):
             raise CerebrumError, "Illegal localpart: %s" % localpart
         if len(localpart) > 8 or localpart.count('-') or localpart == 'drift':
             return True
