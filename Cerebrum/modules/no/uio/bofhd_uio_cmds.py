@@ -2869,7 +2869,7 @@ Addresses and settings:
         SimpleString(help_ref='string_email_delivery_host'),
         YesNo(help_ref="yes_no_force", optional=True),        
         perm_filter="can_email_list_create")
-    def email_reassign_list_address(self, operator, listname, sympa_delivery_host,  force_alias="No"):
+    def email_reassign_list_address(self, operator, listname, sympa_delivery_host, force_alias="No"):
         et_mailman, ea = self.__get_email_target_and_address(listname)
         esf_mailman = Email.EmailSpamFilter(self.db)
         etf_mailman = Email.EmailTargetFilter(self.db)
@@ -2897,8 +2897,16 @@ Addresses and settings:
         
         delivery_host = self._get_email_server(sympa_delivery_host)
         result_mailman_target = self._email_delete_list(operator.get_entity_id(), listname, ea, target_only=True)
-        self._create_mailing_list_in_cerebrum(operator, self.const.email_target_Sympa,
-                                              delivery_host, listname)
+        # for postmaster an alias is treated in the same way as a primary address
+        # it is therefore acceptable to use force_alias to allow postmaster to create
+        # primary list addresses where local part coincides with av registered account name
+        # in Cerebrum
+        if self._is_yes(force_alias):
+            self._create_mailing_list_in_cerebrum(operator, self.const.email_target_Sympa,
+                                                  delivery_host, listname, force=True)
+        else:
+            self._create_mailing_list_in_cerebrum(operator, self.const.email_target_Sympa,
+                                                  delivery_host, listname)
         for address in aliases:
             if self._is_yes(force_alias):
                 self._create_list_alias(operator, listname, address,
@@ -3381,7 +3389,13 @@ Addresses and settings:
     
 
     def _is_ok_mailing_list_name(self, localpart):
-        if not re.match(r'^[a-z0-9.-]+$', localpart):
+        # originally this regexp was:^[a-z0-9.- postmaster however
+        # needs to be able to recreate some of the older mailing lists
+        # in sympa and '_' used to be a valid character in list names.
+        # this may not be very wise, but the postmasters have promised
+        # to be good and make sure not to abuse this :-). Jazz,
+        # 2009-11-13
+        if not re.match(r'^[a-z0-9.-_]+$', localpart):
             raise CerebrumError, "Illegal localpart: %s" % localpart
         if len(localpart) > 8 or localpart.count('-') or localpart == 'drift':
             return True
