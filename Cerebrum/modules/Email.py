@@ -1996,7 +1996,8 @@ class AccountEmailMixin(Account.Account):
                 ed.rewrite_special_domains(r['domain']))
 
 
-    def getdict_uname2mailaddr(self, filter_expired=True, primary_only=True):
+    def getdict_uname2mailaddr(self, filter_expired=True, primary_only=True,
+                               filter_deleted=True):
         """Collect uname -> e-mail address mappings.
 
         This method collects e-mail address information for all users in
@@ -2011,6 +2012,10 @@ class AccountEmailMixin(Account.Account):
         @param primary_only:
           When True, collect primary e-mail addresses only.
 
+        @type filter_deleted: bool
+        @param filter_deleted:
+          When True, do NOT collect information about deleted email accounts.
+
         @rtype: dict (of basestring to basestring/sequence of basestring)
         @return:
           A dict mapping user names (all/non-expired) to e-mail
@@ -2019,7 +2024,6 @@ class AccountEmailMixin(Account.Account):
           (even when there is just one e-mail address for a user names)
         """
         ret = {}
-        target_type = int(self.const.email_target_account)
         namespace = int(self.const.account_namespace)
         ed = EmailDomain(self._db)
         where = "en.value_domain = :namespace"
@@ -2039,13 +2043,21 @@ class AccountEmailMixin(Account.Account):
                    ON ea.target_id = et.target_id
             """
 
+        if filter_deleted:
+            target_type = "et.target_type = %d" % \
+                          int(self.const.email_target_account)
+        else:
+            target_type = "et.target_type in (%d, %d)" % (
+                int(self.const.email_target_account),
+                int(self.const.email_target_deleted))
+
         for row in self.query("""
         SELECT en.entity_name, ea.local_part, ed.domain
         FROM [:table schema=cerebrum name=account_info] ai
         JOIN [:table schema=cerebrum name=entity_name] en
           ON en.entity_id = ai.account_id
         JOIN [:table schema=cerebrum name=email_target] et
-          ON et.target_type = :targ_type AND
+          ON %s AND
              et.target_entity_id = ai.account_id
 
         %s
@@ -2053,9 +2065,8 @@ class AccountEmailMixin(Account.Account):
         JOIN [:table schema=cerebrum name=email_domain] ed
           ON ed.domain_id = ea.domain_id
 
-        WHERE %s""" % (extra_join, where),
-                      {'targ_type': target_type,
-                       'namespace': namespace}):
+        WHERE %s""" % (target_type, extra_join, where),
+                      {'namespace': namespace}):
             uname = row['entity_name']
             address = '@'.join((row['local_part'],
                                 ed.rewrite_special_domains(row['domain'])))
