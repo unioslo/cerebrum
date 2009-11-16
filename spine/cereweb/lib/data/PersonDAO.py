@@ -190,8 +190,9 @@ class PersonDAO(EntityDAO):
 
         if not source == self.constants.AuthoritativeSystem("Manual"):
             raise PermissionDenied("Not authorized to delete name")
-
-        entity._delete_name(source, name_type)
+        
+        entity.affect_names(self.constants.system_manual, name_type)
+        entity.write_db()
 
     def save(self, dto):
         entity = self._find(dto.id)

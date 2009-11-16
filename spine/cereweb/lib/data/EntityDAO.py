@@ -84,7 +84,8 @@ class EntityDAO(object):
         source = self.constants.AuthoritativeSystem("Manual")
         id_type = self.constants.EntityExternalId(external_id_type)
 
-        entity._delete_external_id(source, id_type)
+        entity.affect_external_id(source, id_type)
+        entity.write_db()
 
     def add_spread(self, entity_id, spread):
         entity = self._find(entity_id)
