@@ -122,7 +122,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hugp',  [
             'help', 'user-sync', 'group-sync', 'user_spread=',
-            'dryrun', 'store-sid', 'sendDN_boost', 
+            'dryrun', 'store-sid', 'sendDN_boost', 'password-sync',
             'delete', 'full_membersync', 'group_spread=', 
             'logger-level=', 'logger-name='])
     except getopt.GetoptError:
