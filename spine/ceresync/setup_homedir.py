@@ -108,7 +108,7 @@ class Homedir(object):
         def undo():
             logger.info("Removing directory: %s", path)
             if os.path.isdir(self.path):
-                os.removedirs(self.path)
+                os.rmdir(self.path)
         self.undolist.insert(0, undo)
 
     def _fix_owner(self, path):
@@ -140,12 +140,13 @@ class Homedir(object):
 
     def _remove_symlink(self, name):
         target = os.readlink(name)
+        os.unlink(name)
+
         def undo():
             logger.debug("Restoring symlink from %s to %s", name, target)
             os.symlink(target, name)
         self.undolist.insert(0, undo)
 
-        os.unlink(name)
 
     def _setup_weblink(self, path):
         name = os.path.join(self.path, self.weblink)
@@ -158,8 +159,11 @@ class Homedir(object):
             os.lstat(name)
             self._remove_symlink(name)
         except OSError, e:
-            pass
-            
+            if e.errno == errno.ENOENT:
+                pass
+            else:
+                raise
+
         os.symlink(target, name)
 
         def undo():
@@ -214,10 +218,11 @@ class StudentHomedir(Homedir):
         """
         link = "/home/stud/%s" % self.username
 
-        self._set_symlink(link, self.path)
+        self._set_symlink(self.path, link)
 
 class AnsattHomedir(Homedir):
     homemode = 0701
+    mhomeroot = "/home/mhome"
 
     def setup(self):
         super(AnsattHomedir, self).setup()
@@ -230,7 +235,7 @@ class AnsattHomedir(Homedir):
 
     def _get_mailhomedir(self, path):
         mpath = path.replace("/home/ahome", "")
-        return "/home/mhome" + mpath[1:]
+        return self.mhomeroot + mpath[1:]
 
     def _setup_maildir(self, path):
         target = os.path.join(path, "mail")
@@ -243,9 +248,9 @@ class AnsattHomedir(Homedir):
     def _setup_ubit_profile(self, path):
         profil = os.path.join(path, ".profil")
         if not os.path.exists(profil):
-            self._create_dir(profil, 0500)
+            self._create_dir(profil, 0700)
         else:
-            self._fix_permissions(profil, 0500)
+            self._fix_permissions(profil, 0700)
         self._fix_owner(profil)
 
         target = os.path.join(profil, "ubit")
