@@ -60,6 +60,25 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
     </head>
     <body>
         <div id="content">
+            <!--[if lte IE 6]>
+            <style type="text/css">
+                #ie6msg{border:3px solid #090; margin:8px 0; background:#cfc; color:#000;}
+                #ie6msg h4{margin:8px; padding:0;}
+                #ie6msg p{margin:8px; padding:0;}
+                #ie6msg p a.getie7{font-weight:bold; color:#006;}
+                #ie6msg p a.ie6expl{font-weight:normal; color:#006;}
+            </style>
+            <div id="ie6msg">
+            <h4>Du har en gammel versjon av Internet Explorer.</h4>
+            <p>
+                    Cereweb støtter ikke så gamle nettlesere og vil ikke fungere 100% før du oppgraderer.
+            </p>
+            <p>
+                    Du kan gratis <a class="getie7" href="http://www.microsoft.com/norge/windows/downloads/ie/getitnow.mspx" target="_blank">hente en nyere versjon av Internet Explorer</a>.
+                    Bruker du en jobb-PC bør du kontakte Orakel på telefon (735) 91500 eller e-post <a href="mailto:orakel@ntnu.no">orakel@ntnu.no</a>.
+                </p>
+            </div>
+            < ![endif]-->
             <div id="messages">
             #for $msg in $messages
                 $msg
