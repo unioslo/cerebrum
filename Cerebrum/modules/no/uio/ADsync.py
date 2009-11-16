@@ -386,6 +386,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 if [s for s in cereconf.AD_DO_NOT_TOUCH if
                     adusrs[usr]['distinguishedName'].upper().find(s.upper()) 
                     >= 0]:
+                    #Shall not be processed so we delete from array.
+                    del cerebrumusrs[usr]
                     continue
 
                 #Checking for correct OU.
