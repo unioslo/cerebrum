@@ -21,9 +21,11 @@
 
 import os, sys
 import subprocess
+import unittest
 
 from ceresync import config
 from ceresync import syncws as sync
+from ceresync.syncws import Homedir
 
 log = config.logger
 
@@ -39,10 +41,11 @@ class HomedirSync(object):
         'pending_restore'
     ]
 
-    def __init__(self, hostname, dryrun, no_report, retry_failed,
+    def __init__(self, hostname, verify, dryrun, no_report, retry_failed,
                  setup_script, testing_options, root):
         self.cerews = sync.Sync()
         self.hostname = hostname
+        self.verify = verify
         self.dryrun = dryrun
         self.no_report = no_report
         self.retry_failed = retry_failed
@@ -53,7 +56,8 @@ class HomedirSync(object):
     def lint_homedirs(self):
         status='on_disk'
         print "Status %s in cerebrum, but does not exist on disk:" % (status,)
-        for homedir in self._get_homedirs(status):
+        homedirs = self._get_homedirs(status)
+        for homedir in homedirs:
             path = self._get_path(homedir)
             if not os.path.isdir(path):
                 print path
@@ -137,15 +141,23 @@ class HomedirSync(object):
 
         log.info("Running create script: %s", cmd)
 
-        returncode = subprocess.call(cmd)
+        returncode = self._do_run_create_script(cmd)
         if returncode != 0:
             raise Exception("\"%s\" failed" % self.setup_script)
+
+    def _do_run_create_script(self, cmd):
+        return subprocess.call(cmd)
 
     def _set_homedir_status(self, homedir, status):
         if self.no_report or self.dryrun:
             return
 
-        self._verify_consistency(homedir, status)
+        if self.verify:
+            self._verify_consistency(homedir, status)
+
+        self._do_set_homedir_status(homedir, status)
+
+    def _do_set_homedir_status(self, homedir, status):
         self.cerews.set_homedir_status(homedir.homedir_id, status)
 
     def _verify_consistency(self, homedir, status):
@@ -162,8 +174,89 @@ class HomedirSync(object):
     def _homedir_exists(self, homedir):
         return os.path.isdir(homedir.homedir)
 
+class TestableHomedirSync(HomedirSync):
+    can_create = True
+
+    def __init__(self, *args, **kwargs):
+        self.retry_failed = False
+        self.root = ""
+        self.no_report = False
+        self.dryrun = False
+        self.verify = False
+        self.setup_script = "mock_setup.py"
+
+    def _get_homedirs(self, status):
+        return self._get_or_create_mock_homedirs()
+
+    def _do_run_create_script(self, cmd):
+        if self.can_create: return 0
+        return 1
+
+    def _do_set_homedir_status(self, homedir, status):
+        homedir.status = status
+
+    def _get_or_create_mock_homedirs(self):
+        homedirs = getattr(self, 'homedirs', None)
+        if not homedirs:
+            homedirs = self.homedirs = self._create_mock_homedirs()
+        return homedirs
+
+    def _create_mock_homedirs(self):
+        homedirs = []
+        for i in range(10):
+            homedir = self._create_mock_homedir(i)
+            homedirs.append(homedir)
+        return homedirs
+
+    def _create_mock_homedir(self, i):
+        obj = lambda: 0
+        obj._attrs = {}
+        homedir = Homedir(obj)
+        homedir.homedir_id = i
+        homedir.account_name = "user_%s" % i
+        homedir.home = homedir.account_name
+        homedir.disk_path = "/home"
+        homedir.homedir = os.path.join(homedir.disk_path, homedir.home)
+        homedir.posix_uid = i
+        homedir.posix_gid = i
+        return homedir
+
+class HomedirSyncTest(unittest.TestCase):
+    def test_that_sync_tries_to_change_status_to_on_disk_if_setup_succeeds(self):
+        sync = TestableHomedirSync()
+        sync.can_create = True
+
+        sync.make_homedirs()
+
+        homedirs = sync.homedirs
+        self.assertEqual(10, len(homedirs))
+        for homedir in homedirs:
+            self.assertEqual('on_disk', homedir.status)
+
+    def test_that_sync_tries_to_change_status_to_create_failed_if_setup_fails(self):
+        sync = TestableHomedirSync()
+        sync.can_create = False
+
+        sync.make_homedirs()
+
+        homedirs = sync.homedirs
+        self.assertEqual(10, len(homedirs))
+        for homedir in homedirs:
+            self.assertEqual('create_failed', homedir.status)
+
+    def test_that_make_homedirs_throws_exception_if_verify_and_homedir_is_not_created(self):
+        sync = TestableHomedirSync()
+        sync.verify = True
+
+        try:
+            sync.make_homedirs()
+            self.fail("Expected InconsistencyError exception.")
+        except InconsistencyError, e:
+            pass
+
 def get_option_dict(config):
     return {
+        'verify': config.getboolean('args', 'verify'),
         'dryrun': config.getboolean('args', 'dryrun'),
         'no_report': config.getboolean('args', 'no_report'),
         'retry_failed': config.getboolean('args', 'retry_failed'),
@@ -249,7 +342,21 @@ def main():
             action="store_true",
             default=False,
             help="only warn about inconsistencies between Cerebrum and the filesystem"),
+        config.make_option(
+            "--verify",
+            action="store_true",
+            default=False,
+            help="verify that the requested paths are created properly (i.e. don't trust the setup_script)"),
+        config.make_option(
+            "--run-tests",
+            action="store_true",
+            default=False,
+            help="run unit tests"),
     ] + get_testing_args())
+
+    if config.getboolean('args', 'run_tests'):
+        sys.argv.remove("--run-tests")
+        return unittest.main()
 
     options = get_option_dict(config)
     options['testing_options'] = get_testing_option_dict(config)
