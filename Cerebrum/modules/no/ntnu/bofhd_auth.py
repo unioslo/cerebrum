@@ -460,11 +460,11 @@ class BofhdAuth(auth.BofhdAuth):
         if self._query_target_permissions(
             operator, self.const.auth_homedir_set_status,
             self.const.auth_target_type_host, host_id, None,
-            operation_attr=status):
+            operation_attr=str(status)):
             return True
         if self._has_global_access(
             operator, self.const.auth_homedir_set_status,
             self.const.auth_target_type_global_host, None,
-            operation_attr=status):
+            operation_attr=str(status)):
             return True
         raise PermissionDenied("Can't set homedir status")
