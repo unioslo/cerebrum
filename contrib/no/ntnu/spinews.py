@@ -731,7 +731,8 @@ def get_auth_values(ps):
 def check_created(created):
     gmCreated= time.strptime(created, '%Y-%m-%dT%H:%M:%SZ')
     ## allow timeout up to 10 secs.
-    gmNow = time.gmtime((time.time() - 60))
+    auth_timeout = getattr(cereconf, "SPINEWS_AUTH_TIMEOUT", 600)
+    gmNow = time.gmtime((time.time() - auth_timeout))
     if gmCreated < gmNow:
         raise RuntimeError('Unauthorized, UsernameToken is expired')
     
