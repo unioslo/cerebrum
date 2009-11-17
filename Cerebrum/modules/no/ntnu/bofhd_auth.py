@@ -352,13 +352,13 @@ class BofhdAuth(auth.BofhdAuth):
         operation = self.const.auth_external_id_edit
 
         return self._has_entity_access(
-                operator, target, operation, operation_attr=external_id_type)
+                operator, target, operation, operation_attr=str(external_id_type))
 
     def can_read_external_id(self, operator, target, external_id_type):
         operation = self.const.auth_external_id_read
 
         return self._has_entity_access(
-                operator, target, operation, operation_attr=external_id_type)
+                operator, target, operation, operation_attr=str(external_id_type))
 
     def can_edit_homedir(self, operator, target, spread_id):
         return True
