@@ -149,11 +149,10 @@ class AccountDAO(EntityDAO):
 
     def demote_posix(self, account_id):
         paccount = PosixUser(self.db)
+        paccount.find(account_id)
         if not self.auth.can_edit_account(self.db.change_by, paccount):
             raise PermissionDenied("Not authorized to edit account")
 
-
-        paccount.find(account_id)
         paccount.delete_posixuser()
 
     def delete(self, account_id):
