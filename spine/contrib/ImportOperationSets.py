@@ -271,7 +271,6 @@ class AuthRoles(object):
     def parse(self, roles):
         self.parse_roles = []
         for entity_type, entity_name, operation_set, target in roles:
-            self.auth_targets.parse1(*target)
             self.parse_roles.append(((entity_type, entity_name), operation_set, target))
 
     def parse1(self, entity, operation_set, target):
