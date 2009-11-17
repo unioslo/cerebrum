@@ -306,17 +306,19 @@ class BofhdAuth(auth.BofhdAuth):
         operation = self.const.auth_note_edit
         if self.is_superuser(operator):
             return True
+
         return self._has_access(
-            operator, target, self.const.auth_target_type_global_person,
-            operation, operation_attr)
+            operator, entity, self.const.auth_target_type_global_person,
+            operation)
 
     def can_delete_note(self, operator, entity):
         operation = self.const.auth_note_edit
         if self.is_superuser(operator):
             return True
+
         return self._has_access(
-            operator, target, self.const.auth_target_type_global_person,
-            operation, operation_attr)
+            operator, entity, self.const.auth_target_type_global_person,
+            operation)
 
     def _get_ou(self, ou_id):
         ou = ou_id
