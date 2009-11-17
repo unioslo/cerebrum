@@ -118,7 +118,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 home_srv = uname2hostname[k]
                 v['homeDirectory'] = "\\\\%s\\%s" % (home_srv, k)
             else:
-                self.logger.warning("Can not find home server for %s" % k)
+                self.logger.info("Can not find home server for %s" % k)
                 v['homeDirectory'] = ""
 
     
@@ -315,7 +315,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             pw = self.get_password(chg['sAMAccountName'])
             ret = self.run_cmd('setPassword', dry_run, pw)
             if not ret[0]:
-                self.logger.warning("setPassword on %s failed: %s",
+                self.logger.warning("Setting random password on %s failed: %s",
                                     chg['sAMAccountName'], ret)
             else:
                 #Important not to enable a new account if setPassword
@@ -552,7 +552,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     def change_pwd(self, uname, pw, dry_run):
         dn = self.server.findObject(uname)
         ret = self.run_cmd('bindObject', dry_run, dn)
-        self.logger.debug("BIND: %s", ret[0])
+        self.logger.debug("Binding %s", ret[0])
         pwUnicode = unicode(pw, 'iso-8859-1')
         ret = self.run_cmd('setPassword', dry_run, pwUnicode)
         if ret[0]:
@@ -560,7 +560,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                              (uname, self.ad_ldap))
         else:
             #Something went wrong.
-            self.logger.warn('Failed change password for %s in domain %s.' % (
+            self.logger.error('Failed change password for %s in domain %s.' % (
                     uname, self.ad_ldap))
 
     
@@ -568,8 +568,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                   store_sid=False, pwd_sync=False):
 
         self.logger.info("Starting user-sync(spread = %s, delete = %s, "
-                         "dry_run = %s, store_sid = %s)" % 
-                             (spread, delete, dry_run, store_sid))     
+                         "dry_run = %s, store_sid = %s password_sync = %s)" % 
+                         (spread, delete, dry_run, store_sid, pwd_sync))     
 
         #Fetch AD-data.     
         self.logger.info("Fetching AD data...")
@@ -837,7 +837,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         """
         #TBD: Check if we create a new object for a entity that already
         #have an externalid_groupsid defined in the db and delete old?
-        self.logger.debug("Writing Sid for %s %s to database" 
+        self.logger.info("Writing Sid for %s %s to database" 
                           % (objtype, crbname))
         if objtype == 'group' and not dry_run:
             self.group.clear()
@@ -988,13 +988,12 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         entity2name.update([(x["entity_id"], x["entity_name"]) for x in
                             self.group.list_names(self.co.group_namespace)]) 
 
-        self.logger.debug("Lager set med grupper med ad-spread")
         groups_with_ad_spread = set(int(x['group_id']) for x in 
                                      self.group.search(spread=int(self.co.Spread(group_spread))))
 
         for grp in cerebrum_dict:
             if cerebrum_dict[grp].has_key('grp_id'):
-                self.logger.debug("Checking memberships for group %s" % grp)
+                #self.logger.debug("Checking memberships for group %s" % grp)
                 grp_id = cerebrum_dict[grp]['grp_id']
 
                 user_members = set()
@@ -1052,8 +1051,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                           "have done fullsync of group.")
                     else:
                         self.server.bindObject(dn)
-                        self.logger.debug("Too many members(%i). Doing fullsync of "
-                                         "memberships for group %s", len(members), grp)
+                        self.logger.info("Too many members(%i) or empty AD group. Doing" 
+                                         "fullsync of memberships for group %s", 
+                                         len(members), grp)
                         if sendDN_boost:
                             res = self.server.syncMembers(members, True, False)
                         else:
