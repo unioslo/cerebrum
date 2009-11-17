@@ -248,7 +248,7 @@ class BofhdAuth(auth.BofhdAuth):
 
     def can_delete_email_address(self, operator, target):
         operation = self.const.auth_email_address_delete
-        return self._has_email_domain_access(operator, target.domain_id,
+        return self._has_email_domain_access(operator, target.email_addr_domain_id,
                                              operation)
 
     def can_create_email_domain(self, operator):
