@@ -280,92 +280,120 @@ YE.addListener('container', "click", cereweb.action.clicked,
     cereweb.action, true);
 cereweb.events.sessionError.subscribe(cereweb.action.clear, cereweb.action, true);
 
-/**
- * This object creates dialogues of divs with both the "box" and the "edit"
- * classes.  It also adds links to the actions div so that the box can be
- * shown.
- */
-cereweb.editBox = {
-    create: function(el, header, body) {
-        var editBox = new YAHOO.widget.Dialog(el, {
-            'width': '600px',
-            'draggable': true,
-            'visible': false,
-            'fixedcenter': true,
-            'postmethod': 'form' });
-        if (header)
-            editBox.setHeader(header);
-        if (body)
-            editBox.setBody(body);
-        editBox.render();
-        editBox.hide();
-        return editBox;
-    },
-    /* boolean function used to recognize editBoxes */
-    isEditBox: function(el) {
-        return YD.hasClass(el, 'box') &&
-               YD.hasClass(el, 'edit');
-    },
-    /* parses the DOM and runs add on all editBoxes it finds */
-    init: function() {
-        var els = YD.getElementsBy(
-            this.isEditBox, 'div', 'content');
-        if (els.length > 0)
-            YD.batch(els, this.add, this, true);
-    },
-    /**
-     * transforms the element to a YAHOO Dialog, and adds a link to the
-     * actions div that, when clicked, shows the dialog
-     */
-    add: function(el) {
-        var link = document.createElement('a');
-        var actions = YD.get('actions');
-        if (actions === null) {
-            return;
+(function() {
+    var get_cancel_button = function(el) {
+        var elements = el.getElementsByTagName('input');
+        for (var i = 0; i < elements.length; i++) {
+            var el = elements[i];
+
+            if (el.type === 'reset') {
+                el.value = 'Cancel';
+                return el;
+            }
+
+            if (el.type === 'submit' && el.value === 'Cancel')
+                return el;
+
+            if (el.type === 'button' && el.value === 'Cancel')
+                return el;
         }
+    };
 
-        var list = actions.getElementsByTagName('ul');
-        if (list.length > 0) {
-            list = list[0];
-            var li = document.createElement('li');
-            li.appendChild(link);
-            list.appendChild(li);
-        } else {
-            actions.appendChild(link);
-            actions.appendChild(document.createElement('br'));
-        }
-
-        if (!el.id)
-            YD.generateId(el, 'editBox_');
-
-        var id = el.id;
-        var header = el.getElementsByTagName('h3')[0];
-        link.href = "#" + el.id;
-        link.innerHTML = header.innerHTML;
-
-        el.removeChild(header);
-
-        var editBox = this.create(el, header.innerHTML);
-        el.style.display = "";
-
-        cereweb.action.add(id, this.toggle, editBox);
-        var cancel_links = YD.getElementsByClassName("cancel", null, el);
-        if (cancel_links.length > 0)
-            YE.addListener(cancel_links, 'click', editBox.hide, editBox, true);
-    },
     /**
-     * toggle the dialogues visibility.
+     * This object creates dialogues of divs with both the "box" and the "edit"
+     * classes.  It also adds links to the actions div so that the box can be
+     * shown.
      */
-    toggle: function(name, args) {
-        var event = args[0];
-        YE.preventDefault(event);
-        if (this.element.style.visibility !== "visible")
-            this.show();
-        else
-            this.hide();
+    cereweb.editBox = {
+        create: function(el, header, body) {
+            var editBox = new YAHOO.widget.Dialog(el, {
+                'width': '600px',
+                'draggable': true,
+                'visible': false,
+                'fixedcenter': true,
+                'postmethod': 'form' });
+            if (header)
+                editBox.setHeader(header);
+            if (body)
+                editBox.setBody(body);
+            editBox.render();
+            editBox.hide();
+            cereweb.editBox.fix_buttons(editBox);
+            return editBox;
+        },
+        /* boolean function used to recognize editBoxes */
+        isEditBox: function(el) {
+            return YD.hasClass(el, 'box') &&
+                   YD.hasClass(el, 'edit');
+        },
+        /* parses the DOM and runs add on all editBoxes it finds */
+        init: function() {
+            var els = YD.getElementsBy(
+                this.isEditBox, 'div', 'content');
+            if (els.length > 0)
+                YD.batch(els, this.add, this, true);
+        },
+        /** Change Reset-buttons into Cancel buttons and make Cancel buttons
+         *  close the dialog */
+        fix_buttons: function(myBox) {
+            var cancelButton = get_cancel_button(myBox.element);
+            YE.on(cancelButton, 'click', function(e) {
+                YE.preventDefault(e);
+                myBox.hide();
+            });
+
+        },
+        /**
+         * transforms the element to a YAHOO Dialog, and adds a link to the
+         * actions div that, when clicked, shows the dialog
+         */
+        add: function(el) {
+            var link = document.createElement('a');
+            var actions = YD.get('actions');
+            if (actions === null) {
+                return;
+            }
+
+            var list = actions.getElementsByTagName('ul');
+            if (list.length > 0) {
+                list = list[0];
+                var li = document.createElement('li');
+                li.appendChild(link);
+                list.appendChild(li);
+            } else {
+                actions.appendChild(link);
+                actions.appendChild(document.createElement('br'));
+            }
+
+            if (!el.id)
+                YD.generateId(el, 'editBox_');
+
+            var id = el.id;
+            var header = el.getElementsByTagName('h3')[0];
+            link.href = "#" + el.id;
+            link.innerHTML = header.innerHTML;
+
+            el.removeChild(header);
+
+            var editBox = this.create(el, header.innerHTML);
+            el.style.display = "";
+
+            cereweb.action.add(id, this.toggle, editBox);
+        },
+        /**
+         * toggle the dialogues visibility.
+         */
+        toggle: function(name, args) {
+            var event = args[0];
+            YE.preventDefault(event);
+            if (this.element.style.visibility !== "visible")
+                this.show();
+            else
+                this.hide();
+        }
     }
-}
-YE.onContentReady('content', cereweb.editBox.init, cereweb.editBox, true);
+    YE.onContentReady('content', cereweb.editBox.init, cereweb.editBox, true);
+})();
 
 cereweb.tooltip = {
     init: function() {
@@ -420,21 +448,6 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
         }
     };
 
-    var get_cancel_button = function(el) {
-        var elements = el.getElementsByTagName('input');
-        for (var i = 0; i < elements.length; i++) {
-            var el = elements[i];
-
-            if (el.type === 'reset') {
-                el.value = 'Cancel';
-                return el;
-            }
-
-            if (el.type === 'submit' && el.value === 'Cancel')
-                return el;
-        }
-    };
-
     var inline_edit = function(name, args) {
         var event = args[0];
         var args = args[1];
@@ -454,16 +467,12 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
         }
 
         myBox.update = function(r) {
-            myBox.setBody(r);
             var header = get_header(myBox.element)
             header.parentNode.removeChild(header);
-            myBox.setHeader(header);
 
-            var cancelButton = get_cancel_button(myBox.element);
-            YE.on(cancelButton, 'click', function(e) {
-                YE.preventDefault(e);
-                myBox.hide();
-            });
+            myBox.setBody(r);
+            myBox.setHeader(header);
+            cereweb.editBox.fix_buttons(myBox);
 
             myBox.show();
         }
