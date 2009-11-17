@@ -131,6 +131,7 @@ class Constants(Constants.Constants):
     auth_target_type_ou = "ou"
     auth_target_type_person = "person"
     auth_target_type_account = "account"
+    auth_target_type_spread = "spread"
     # These are wildcards, allowing access to _all_ objects of that type
     auth_target_type_global_group = "global_group"
     auth_target_type_global_host = "global_host" # also "disk"
@@ -138,6 +139,7 @@ class Constants(Constants.Constants):
     auth_target_type_global_ou = "global_ou"
     auth_target_type_global_person = "global_person"
     auth_target_type_global_account = "global_account"
+    auth_target_type_global_spread = "global_spread"
 
     bofh_move_user = _BofhdRequestOpCode('br_move_user', 'Move user (batch)')
     bofh_move_user_now = _BofhdRequestOpCode('br_move_user_now', 'Move user')
