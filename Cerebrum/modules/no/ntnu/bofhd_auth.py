@@ -235,11 +235,11 @@ class BofhdAuth(auth.BofhdAuth):
 
     def can_edit_email_target(self, operator, target):
         operation = self.const.auth_email_target_edit
-        return self._has_host_access(operator, target.host_id, operation)
+        return self._has_host_access(operator, target.email_server_id, operation)
 
     def can_delete_email_target(self, operator, target):
         operation = self.const.auth_email_target_delete
-        return self._has_host_access(operator, target.host_id, operation)
+        return self._has_host_access(operator, target.email_server_id, operation)
 
     def can_create_email_address(self, operator, target, domain):
         operation = self.const.auth_email_address_create
