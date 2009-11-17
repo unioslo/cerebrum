@@ -1036,11 +1036,13 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     members_in_ad = [x.split(",")[0].split("=")[1] for x in 
                                      ad_dict.get(grp, {}).get("member", [])]
                     
-                # If number of members of a group in cerebrum is 1500 or more 
-                # it exceeds the 1500 maxValRange limit in AD and we will not be 
-                # able to get the members easily from AD. We do a full sync instead 
-                # on this group to make sure memberships are correct.
-                if len(members) >= 1500:
+                
+                #If number of members returned from AD is zero and the group
+                #has members in cerebrum we do a full sync on this group. It 
+                #is either an empty group that gets members or it is a group 
+                #with more members than the 1500 maxValRange limit in AD (thus
+                #AD returns no members at all)
+                if not members_in_ad and members:
                     dn = self.server.findObject(grp)
                     if not dn:
                         self.logger.warning(
