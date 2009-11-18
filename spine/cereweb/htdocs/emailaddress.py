@@ -62,15 +62,15 @@ def delete(address_id, target_id):
     redirect_entity(target_id)
 delete.exposed = True
 
-def save(id, entity_id, target_type):
+def save(target_id, **kwargs):
     """Saves the information for the host."""
     db = get_database()
     dao = EmailTargetDAO(db)
 
     queue_message(
-        _("Emailtarget not updated, save not implemented."),
+        _("Save is not implemented yet."),
         title=_("Change failed"))
-    redirect_entity(emailtarget)
+    redirect_entity(target_id)
 
 def make(target_id, local, domain, expire):
     local_part = web_to_spine(local.strip())

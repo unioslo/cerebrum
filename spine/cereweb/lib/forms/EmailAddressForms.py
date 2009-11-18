@@ -106,9 +106,17 @@ class EmailAddressEditForm(EditForm, EmailAddressCreateForm):
     form_class = "info box"
     title = _("Edit email address")
 
+    Order = [
+        'address_id',
+        'target_id',
+        'local',
+        'domain',
+        'expire',
+    ]
+
     Fields = {
         'target_id': {
-            'label': _("Address ID"),
+            'label': _("Target ID"),
             'type': 'hidden',
             'required': True,
         },
