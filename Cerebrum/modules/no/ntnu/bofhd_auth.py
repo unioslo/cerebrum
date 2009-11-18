@@ -112,12 +112,12 @@ class BofhdAuth(auth.BofhdAuth):
             domain_id, None)
 
 
-    def _has_spread_access(self, operator, spread_id, operation):
+    def _has_spread_access(self, operator, spread_id, operation, victim_id=None):
         if self.is_superuser(operator):
             return True
 
         if self._has_global_access(operator, operation,
-                                   self.const.auth_target_type_global_spread, victim_id=None):
+                                   self.const.auth_target_type_global_spread, victim_id):
             return True
 
         return self._query_target_permissions(
@@ -365,7 +365,8 @@ class BofhdAuth(auth.BofhdAuth):
                 operator, target, operation, operation_attr=str(external_id_type))
 
     def can_edit_homedir(self, operator, target, spread_id):
-        return True
+        operation = self.const.auth_homedir_edit
+        return self._has_spread_access(operator, spread_id, operation, target.entity_id)
 
     def can_read_person(self, operator, target):
         operation = self.const.auth_person_read
