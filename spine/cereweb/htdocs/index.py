@@ -40,7 +40,6 @@ import entity
 import error
 import group
 import host
-import note
 import ou
 import person
 import ajax

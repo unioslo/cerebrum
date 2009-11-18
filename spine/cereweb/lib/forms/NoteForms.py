@@ -26,7 +26,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.utils import entity_link, get_database, spine_to_web
 
 class NoteCreateForm(CreateForm):
-    action = '/note/add/'
+    action = '/entity/add_note/'
     title = _('Add Note')
     form_class = "edit box"
 
@@ -57,33 +57,3 @@ class NoteCreateForm(CreateForm):
 
     def init_values(self, entity_id, *args, **kwargs):
         self.set_value('entity_id', entity_id)
-
-    
-
-
-class NoteEditForm(EditForm, NoteCreateForm):
-    action = '/note/edit/'
-    title = _('Edit Note')
-    form_class = "edit box"
-
-    def init_fields(self, *args, **kwargs):
-        self.order.append('note_id')
-        self.fields['note_id'] = {
-            'type': 'hidden',
-            'required': True,
-        }
-
-    def init_values(self, enitity_id, note_id, *args, **kwargs):
-        super().init_values(enitity_id, note_id, *args, **kwargs)
-        self.set_value('note_id', note_id)
-
-        db = get_database()
-        self.note = NoteDAO(db).get(note_id)
-
-        if not self.is_postback():
-            self.update_values({
-                'entity_id': self.note.entity_id,
-                'subject': self.note.subject,
-                'body': self.ou.body,
-            })
-

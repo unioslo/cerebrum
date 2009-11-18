@@ -78,7 +78,7 @@
         #for $note in $entity.notes
             <div class="item">
                 <div class="actions">
-                    <a class="action" href="/confirm/note/delete?entity_id=$entity.id&amp;note_id=$note.id">$_('delete')</a>
+                    <a class="action" href="/confirm/entity/delete_note?entity_id=$entity.id&amp;note_id=$note.id">$_('delete')</a>
                 </div>
                 <span class="name">$spine_to_web($note.subject)</span>&#x0020;
                 <span class="creator">-$_('by ') $entity_link($note.creator)</span>&#x0020;

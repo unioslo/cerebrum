@@ -29,6 +29,7 @@ from lib.templates.EntityViewTemplate import EntityViewTemplate
 from lib.data.EntityFactory import EntityFactory
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.DTO import DTO
+from lib.forms import NoteCreateForm
 
 def view(id):
     redirect_entity(id)
@@ -136,6 +137,42 @@ def remove_quarantine(id, type):
     queue_message(msg, title=_("Operation succeeded"))
     redirect_entity(id)
 remove_quarantine.exposed = True
+
+@session_required_decorator
+def add_note(entity_id, **kwargs):
+    """Adds a note to some entity."""
+    form = NoteCreateForm(entity_id, **kwargs)
+    if form.is_correct():
+        return make_note(**form.get_values())
+    return form.respond()
+add_note.exposed = True
+
+clean = lambda x: x and web_to_spine(x.strip()) or None
+def make_note(entity_id, subject, body):
+    entity_id = int(entity_id)
+    subject = clean(subject)
+    body = clean(body)
+
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(entity_id)
+    dao.add_note(entity_id, subject, body)
+    db.commit()
+
+    queue_message(_("Note successfully created."), title="Note created")
+    redirect_entity(entity_id)
+
+@session_required_decorator
+def delete_note(entity_id, note_id):
+    """Removes a note."""
+    db = get_database()
+    dao = EntityFactory(db).get_dao_by_entity_id(entity_id)
+    dao.delete_note(entity_id, note_id)
+    db.commit()
+
+    queue_message(_("Note successfully deleted."),
+                        title="Change succeeded")
+    redirect_entity(entity_id)
+delete_note.exposed = True
 
 @session_required_decorator
 def full_historylog(id):

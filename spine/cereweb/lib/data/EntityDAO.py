@@ -139,6 +139,20 @@ class EntityDAO(object):
         quarantine_type_id = self.constants.Quarantine(quarantine_type)
         entity.disable_entity_quarantine(quarantine_type_id, disable_until)
 
+    def add_note(self, entity_id, subject, body=None):
+        entity = self._find(entity_id)
+        if not self.auth.can_add_note(self.db.change_by, entity):
+            raise PermissionDenied("Not authorized to add note")
+
+        entity.add_note(self.db.change_by, subject, body)
+
+    def delete_note(self, entity_id, note_id):
+        entity = self._find(entity_id)
+        if not self.auth.can_delete_note(self.db.change_by, entity):
+            raise PermissionDenied("Not authorized to delete note")
+
+        entity.delete_note(self.db.change_by, note_id)
+
     def _get_name(self, entity):
         return "Unknown"
 

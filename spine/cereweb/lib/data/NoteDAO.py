@@ -41,20 +41,3 @@ class NoteDAO(object):
         dto.subject = note['subject']
         dto.description = note['description']
         return dto
-    
-    def add(self, entity_id, subject, body=None):
-        if not self.auth.can_add_note(self.db.change_by, entity_id):
-            raise PermissionDenied("Not authorized to add note")
-
-        entity = Entity(self.db)
-        entity.find(entity_id)
-        entity.add_note(self.db.change_by, subject, body)
-    
-
-    def delete(self, entity_id, note_id):
-        if not self.auth.can_delete_note(self.db.change_by, entity_id):
-            raise PermissionDenied("Not authorized to delete note")
-
-        entity = Entity(self.db)
-        entity.find(entity_id)
-        entity.delete_note(self.db.change_by, note_id)
