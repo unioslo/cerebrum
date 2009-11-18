@@ -98,7 +98,9 @@ def register_disk(host_name, disk_path, description="A disk"):
     try:
         disk.find_by_path(disk_path)
         if disk.description != description:
-            disk.description=description
+            disk.description = description
+        if disk.host_id != host.entity_id:
+            disk.host_id = host.entity_id
     except Errors.NotFoundError:
         disk.populate(host.entity_id, disk_path, description)
     try:
