@@ -115,9 +115,11 @@ class BofhdAuth(auth.BofhdAuth):
     def _has_spread_access(self, operator, spread_id, operation):
         if self.is_superuser(operator):
             return True
+
         if self._has_global_access(operator, operation,
-                                   self.const.auth_target_type_global_spread):
+                                   self.const.auth_target_type_global_spread, victim_id=None):
             return True
+
         return self._query_target_permissions(
             operator, operation, self.const.auth_target_type_spread,
             spread_id, None)
@@ -211,7 +213,7 @@ class BofhdAuth(auth.BofhdAuth):
 
         return self._has_global_access(
             operator, self.const.auth_host_create,
-            self.const.auth_target_type_global_host, None)
+            self.const.auth_target_type_global_host, victim_id=None)
 
     def can_edit_host(self, operator, target):
         operation = self.const.auth_host_edit
@@ -257,7 +259,7 @@ class BofhdAuth(auth.BofhdAuth):
 
         return self._has_global_access(
             operator, self.const.auth_email_domain_create,
-            self.const.auth_target_type_global_email_domain, None)
+            self.const.auth_target_type_global_email_domain, victim_id=None)
 
     def can_edit_email_domain(self, operator, target):
         operation = self.const.auth_email_domain_edit
@@ -275,7 +277,7 @@ class BofhdAuth(auth.BofhdAuth):
 
         return self._has_global_access(
             operator, self.const.auth_ou_create,
-            self.const.auth_target_type_global_ou, None)
+            self.const.auth_target_type_global_ou, victim_id=None)
 
     def can_edit_ou(self, operator, target):
         operation = self.const.auth_ou_edit
@@ -379,7 +381,7 @@ class BofhdAuth(auth.BofhdAuth):
 
         return self._has_global_access(
             operator, self.const.auth_person_create,
-            self.const.auth_target_type_global_person, None)
+            self.const.auth_target_type_global_person, victim_id=None)
 
     def can_delete_person(self, operator, target):
         operation = self.const.auth_person_delete
@@ -404,7 +406,7 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self._has_global_access(
             operator, self.const.auth_group_syncread,
-            self.const.auth_target_type_global_group, None):
+            self.const.auth_target_type_global_group, victim_id=None):
             return True
         raise PermissionDenied("Can't bulk read groups")
 
@@ -418,7 +420,7 @@ class BofhdAuth(auth.BofhdAuth):
                 return True
         if self._has_global_access(
             operator, self.const.auth_ou_syncread,
-            self.const.auth_target_type_global_ou, None):
+            self.const.auth_target_type_global_ou, victim_id=None):
             return True
         raise PermissionDenied("Can't bulk read OUs")
 
@@ -427,7 +429,7 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self._has_global_access(
             operator, self.const.auth_alias_syncread,
-            self.const.auth_target_type_global_account, None):
+            self.const.auth_target_type_global_account, victim_id=None):
             return True
         raise PermissionDenied("Can't bulk read Aliases")
 
@@ -441,7 +443,7 @@ class BofhdAuth(auth.BofhdAuth):
                 return True
         if self._has_global_access(
             operator, self.const.auth_person_syncread,
-            self.const.auth_target_type_global_person, None):
+            self.const.auth_target_type_global_person, victim_id=None):
             return True
         raise PermissionDenied("Can't bulk read Persons")
 
@@ -454,7 +456,7 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self._has_global_access(
             operator, self.const.auth_homedir_syncread,
-            self.const.auth_target_type_global_host, None):
+            self.const.auth_target_type_global_host, victim_id=None):
             return True
         raise PermissionDenied("Can't bulk read home directories")
 
@@ -466,7 +468,7 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self._has_global_access(
             operator, self.const.auth_homedir_set_status,
-            self.const.auth_target_type_global_host, None,
+            self.const.auth_target_type_global_host, victim_id=None,
             operation_attr=str(status)):
             return True
         raise PermissionDenied("Can't set homedir status")
