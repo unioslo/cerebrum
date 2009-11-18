@@ -467,10 +467,11 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
         }
 
         myBox.update = function(r) {
-            var header = get_header(myBox.element)
+            myBox.setBody(r);
+
+            var header = get_header(myBox.element);
             header.parentNode.removeChild(header);
 
-            myBox.setBody(r);
             myBox.setHeader(header);
             cereweb.editBox.fix_buttons(myBox);
 
