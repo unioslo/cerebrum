@@ -303,15 +303,15 @@ leave_groups.exposed = True
 
 @session_required_decorator
 def set_home(account_id, spread_id, disk_id, path):
+    disk_id = disk_id or None
+    path = path or None
+
+    if not (disk_id or path):
+        queue_message(_("You must specify disk and/or path."), title=_("Operation failed"), error=True)
+        redirect_entity(account_id)
+
     db = get_database()
     dao = AccountDAO(db)
-
-    if not disk_id:
-        disk_id = None
-
-    if not path:
-        path = None
-
     dao.set_home(account_id, spread_id, disk_id, path)
     db.commit()
     queue_message(_("Home directory set successfully."), title=_("Operation succeded"))
