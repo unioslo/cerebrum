@@ -41,11 +41,10 @@ class HomedirSync(object):
         'pending_restore'
     ]
 
-    def __init__(self, hostname, verify, dryrun, no_report, retry_failed,
+    def __init__(self, hostname, dryrun, no_report, retry_failed,
                  setup_script, testing_options, root):
         self.cerews = sync.Sync()
         self.hostname = hostname
-        self.verify = verify
         self.dryrun = dryrun
         self.no_report = no_report
         self.retry_failed = retry_failed
@@ -82,7 +81,7 @@ class HomedirSync(object):
             self._make_homedir(homedir)
 
     def _get_path(self, homedir):
-        return self._root_path(homedir.homedir)
+        return self._chroot_path(self.root, homedir.homedir)
 
     def _get_homedirs(self, status):
         testing_options = self._get_testing_options(status)
@@ -99,25 +98,21 @@ class HomedirSync(object):
             homedir.account_name, path)
 
         result_status = 'on_disk'
-        if not os.path.isdir(path):
-            try:
-                self._run_create_script(path, homedir)
-                log.info("Created homedir %s for %s" % (
-                    path, homedir.account_name))
-            except Exception, e:
-                result_status = 'create_failed'
-                log.info("Failed creating homedir for %s: %s" % (
-                    homedir.account_name, e))
-        else:
-            log.debug("Homedir %s for %s already exists" % (
+        try:
+            self._run_create_script(path, homedir)
+            log.info("Created homedir %s for %s" % (
                 path, homedir.account_name))
+        except Exception, e:
+            result_status = 'create_failed'
+            log.info("Failed creating homedir for %s: %s" % (
+                homedir.account_name, e))
 
         log.info("Setting status for homedir for %s to %s",
             homedir.account_name, result_status)
         self._set_homedir_status(homedir, result_status)
 
-    def _root_path(self, path):
-        return os.path.join(self.root, path.lstrip("/"))
+    def _chroot_path(self, root, path):
+        return os.path.join(root, path.lstrip("/"))
 
     def _get_testing_options(self, status):
         in_file = '%s_homedir_xml_in' % status
@@ -152,24 +147,10 @@ class HomedirSync(object):
         if self.no_report or self.dryrun:
             return
 
-        if self.verify:
-            self._verify_consistency(homedir, status)
-
         self._do_set_homedir_status(homedir, status)
 
     def _do_set_homedir_status(self, homedir, status):
         self.cerews.set_homedir_status(homedir.homedir_id, status)
-
-    def _verify_consistency(self, homedir, status):
-        if status == "on_disk" and not self._homedir_exists(homedir):
-            raise InconsistencyError(
-                "Would report non-existing homedir as %s: %s" % (
-                    status, homedir.homedir))
-
-        if status == "create_failed" and self._homedir_exists(homedir):
-            raise InconsistencyError(
-                "Would report existing homedir as %s: %s" % (
-                    status, homedir.homedir))
 
     def _homedir_exists(self, homedir):
         return os.path.isdir(homedir.homedir)
@@ -182,7 +163,6 @@ class TestableHomedirSync(HomedirSync):
         self.root = ""
         self.no_report = False
         self.dryrun = False
-        self.verify = False
         self.setup_script = "mock_setup.py"
 
     def _get_homedirs(self, status):
@@ -244,19 +224,8 @@ class HomedirSyncTest(unittest.TestCase):
         for homedir in homedirs:
             self.assertEqual('create_failed', homedir.status)
 
-    def test_that_make_homedirs_throws_exception_if_verify_and_homedir_is_not_created(self):
-        sync = TestableHomedirSync()
-        sync.verify = True
-
-        try:
-            sync.make_homedirs()
-            self.fail("Expected InconsistencyError exception.")
-        except InconsistencyError, e:
-            pass
-
 def get_option_dict(config):
     return {
-        'verify': config.getboolean('args', 'verify'),
         'dryrun': config.getboolean('args', 'dryrun'),
         'no_report': config.getboolean('args', 'no_report'),
         'retry_failed': config.getboolean('args', 'retry_failed'),
@@ -342,11 +311,6 @@ def main():
             action="store_true",
             default=False,
             help="only warn about inconsistencies between Cerebrum and the filesystem"),
-        config.make_option(
-            "--verify",
-            action="store_true",
-            default=False,
-            help="verify that the requested paths are created properly (i.e. don't trust the setup_script)"),
         config.make_option(
             "--run-tests",
             action="store_true",
