@@ -487,9 +487,27 @@ cereweb.tabs.DOMEventHandler = function(e) { /* do nothing */ };
 })();
 
 (function() {
+    var isOpera = typeof(window.opera) != 'undefined';
+    var isIE = (!isOpera && navigator.userAgent.indexOf('Internet Explorer') >= 0);
+
+    var followLink = function(url) {
+        document.location = url;
+    };
+
+    if (isIE) {
+        // IE doesn't send referer if we change document.location.
+        followLink = function(url) {
+            var refererLink = document.createElement("a");
+            refererLink.href = url;
+            document.body.appendChild(refererLink);
+            refererLink.click();
+        }
+    }
+
     var handleYes = function() {
         this.hide();
-        document.location = this.target.href.replace('/confirm', '');
+        var url = this.target.href.replace('/confirm', '');
+        followLink(url);
     }
 
     var handleNo = function() {

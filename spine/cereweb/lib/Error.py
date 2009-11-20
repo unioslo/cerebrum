@@ -54,9 +54,6 @@ def handle(error):
     path = utils.clean_url(cherrypy.request.path)
     referer = cherrypy.request.headerMap.get('Referer', '')
 
-    cherrypy.response.headerMap['Pragma'] = 'no-cache'
-    cherrypy.response.headerMap['Cache-Control'] = 'max-age=0'
-
     if isinstance(error, PermissionDenied):
         msg = "Sorry, you do not have permissions to do the requested operation."
         if cherrypy.config.get('server.showTracebacks'):
@@ -86,7 +83,7 @@ def handle(error):
     elif isinstance(error, CustomError):
         title, message = error.args
         tracebk = "No traceback"
-        
+
     if title is None:
         title = error.__class__.__name__
     if message is None:

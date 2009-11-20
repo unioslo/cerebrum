@@ -35,8 +35,26 @@
     #set $user = ''
     ##FIXME: set $user = $cherrypy.session.get('username', '')
 ##
-## FIXME:  charset should be set to cherrypy.session.get(...
-<% cherrypy.response.headerMap['Content-Type']='application/xhtml+xml; charset=utf-8' %>
+## Setting http headers.
+## MSIE does not accept application/xhtml+xml so it is served text/html instead.
+<%
+client_charset = cherrypy.session.get('client_encoding', 'utf-8')
+
+content_type = 'application/xhtml+xml; charset=%s' % client_charset
+
+user_agent = cherrypy.request.headerMap['User-Agent']
+if user_agent.rfind('MSIE') != -1:
+    content_type = 'text/html; charset=%s' % client_charset
+
+cherrypy.response.headerMap['Content-Type']= content_type
+
+pragma = 'no-cache'
+cache_control='private, no-cache, no-store, must-revalidate, max-age=0'
+
+cherrypy.response.headerMap['Pragma'] = pragma
+cherrypy.response.headerMap['Cache-Control'] = cache_control
+
+%>
 <!DOCTYPE
 html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
 "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
