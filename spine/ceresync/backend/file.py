@@ -159,12 +159,12 @@ class CLFileBack(FileBack):
     def wash(self, word):
         if word is None:
             return ''
-        if self.unicode:
-            if self.word_illegal_char.match(unicode(word)):
-                raise errors.FormatError
-        else:
-            if self.word_illegal_char.match(str(word)):
-                raise errors.FormatError
+
+        word = self.unicode and unicode(word) or str(word)
+
+        if self.word_illegal_char.match(word):
+            raise errors.FormatError("%s contains illegal characters." % word)
+
         return word
 
 # classic: name:crypt:uid:gid:gcos:home:shell
@@ -181,8 +181,8 @@ class PasswdFile(CLFileBack):
             self.wash(account.posix_uid),
             self.wash(account.posix_gid),
             self.wash(account.gecos),
-            self.wash(account.homedir),
-            self.wash(account.shell))
+            self.wash(account.homedir) or "/dev/null",
+            self.wash(account.shell) or "/bin/false")
         if self.unicode:
             return res.encode(self.encoding)
         else:
@@ -202,7 +202,6 @@ class GroupFile(CLFileBack):
         else:
             return res
 
-
 class ShadowFile(CLFileBack):
     filename="/etc/ceresync/shadow"
     def format(self, account):
@@ -210,7 +209,7 @@ class ShadowFile(CLFileBack):
             raise errors.NotPosixError(account.name)
         res="%s:%s:::::::\n" % (
             self.wash(account.name),
-            self.wash(account.passwd) )
+            self.wash(account.passwd) or "*")
         if self.unicode:
             return res.encode(self.encoding)
         else:
@@ -223,20 +222,27 @@ class AliasFile(CLFileBack):
             return
         else:
             super(AliasFile, self).add(obj)
+
     def format(self, addr):
         if addr.address_id == addr.primary_address_id:
             if addr.server_name is None:
                 res="%s@%s: <> %s@\n" % (
-                    addr.local_part, addr.domain,
-                    addr.account_name)
+                    self.wash(addr.local_part),
+                    self.wash(addr.domain),
+                    self.wash(addr.account_name))
             else:
                 res="%s@%s: <> %s@%s\n" % (
-                    addr.local_part, addr.domain,
-                    addr.account_name, addr.server_name )
+                    self.wash(addr.local_part),
+                    self.wash(addr.domain),
+                    self.wash(addr.account_name),
+                    self.wash(addr.server_name))
         else:
             res="%s@%s: %s@%s\n" % (
-                addr.local_part, addr.domain,
-                addr.primary_address_local_part, addr.primary_address_domain )
+                self.wash(addr.local_part),
+                self.wash(addr.domain),
+                self.wash(addr.primary_address_local_part),
+                self.wash(addr.primary_address_domain))
+
         if self.unicode:
             return res.encode(self.encoding)
         else:
@@ -269,12 +275,13 @@ class SambaFile(CLFileBack):
             nthash = "*Missing_nthash*"
 
         res="%s:%s:%s:%s:%s:%s\n" % (
-                account.name,
-                account.posix_uid,
-                lmhash,
-                nthash,
+                self.wash(account.name),
+                self.wash(account.posix_uid),
+                self.wash(lmhash),
+                self.wash(nthash),
                 "[UX         ]",
                 "LCT-%s" % hex(int( time.time() ))[2:] )
+
         if self.unicode:
             return res.encode(self.encoding)
         else:
@@ -292,11 +299,14 @@ class PasswdFileCryptHash(CLFileBack):
         if account.posix_uid is None:
             raise errors.NotPosixError(account.name)
         res="%s:%s:%s:%s:%s:%s:%s\n" % (
-            account.name,
-            account.passwd or "INVALID",
-            account.posix_uid,
-            account.posix_gid, account.gecos,
-            account.homedir, account.shell)
+            self.wash(account.name),
+            self.wash(account.passwd) or "*",
+            self.wash(account.posix_uid),
+            self.wash(account.posix_gid),
+            self.wash(account.gecos),
+            self.wash(account.homedir) or "/dev/null",
+            self.wash(account.shell) or "/bin/false")
+
         if self.unicode:
             return res.encode(self.encoding)
         else:
