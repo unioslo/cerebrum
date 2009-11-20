@@ -124,7 +124,7 @@ def save(id, gender, birthdate, deceased, description):
     dto = dao.get(id)
     dto.gender = DTO()
     dto.gender.id = gender
-    dto.birth_date = parse_date(birth_date)
+    dto.birth_date = parse_date(birthdate)
     dto.description = description and web_to_spine(description.strip())
     dto.deceased_date = parse_date(deceased)
     dao.save(dto)

@@ -32,7 +32,7 @@ from lib.data.PersonDAO import PersonDAO
 from lib.data.OuDAO import OuDAO
 
 class PersonCreateForm(Form):
-    url = '/person/create'
+    action = '/person/create'
     title = _("Create new person")
 
     def init_form(self, *args, **kwargs):
@@ -139,7 +139,7 @@ class PersonCreateForm(Form):
                 'Registered by: %s on %s\n' % (username, create_date) + desc)
 
 class PersonEditForm(PersonCreateForm):
-    url = '/person/edit'
+    action = '/person/edit'
 
     Order = [
         'id',
@@ -198,3 +198,10 @@ class PersonEditForm(PersonCreateForm):
 
     def get_title(self):
         return 'Edit %s' % entity_link(self.person)
+
+    def check(self):
+        # Use super(PersonCreateForms) instead of super(PersonEditForm) since
+        # we want to skip PersonCreateForms check method.  The reason for this
+        # is that the edit form doesn't allow editing externalid while the
+        # create form expects it.
+        return super(PersonCreateForm, self).check()
