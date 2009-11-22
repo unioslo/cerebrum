@@ -100,13 +100,14 @@ def process_delete_requests():
             db.commit()
             continue
         logger.info("Trying to delete account %s", account.account_name)
-        posix_user = PosixUser.PosixUser(db)
+
         set_operator(r['requestee_id'])
         ## Set expire_date (do not export data about this account)
         account.expire_date = br.now
         logger.debug("expire_date for %s registered as %s", account.account_name, br.now)
         account.write_db()
         # check for posix attrs
+        posix_user = PosixUser.PosixUser(db)    
         posix_user.clear()
         try:
             posix_user.find(r['entity_id'])
@@ -160,7 +161,7 @@ def process_delete_requests():
                 account.delete_spread(row['spread'])
             ## Account is valid in nis@hia, remove account@nis spread, register nis-home delete
             elif row['spread'] == const.spread_nis_user:
-                if posix_user == None:
+                if not isinstance(posix_user, PosixUser.PosixUser):
                     logger.error("Manual intervention required, no posix account is found for account %s",
                                  account.account_name)
                     continue
