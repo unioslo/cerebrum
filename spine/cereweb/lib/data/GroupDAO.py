@@ -214,23 +214,15 @@ class GroupDAO(EntityDAO):
         
     def _get_members(self, group):
         members = []
-        for cerebrum_member in group.search_members(group_id=group.entity_id):
-            try:
-                member = self._get_member(cerebrum_member)
-            except NotFoundError, e:
-                member = DTO()
-                member.id = cerebrum_member['member_id']
-                member.type_id = cerebrum_member['member_type']
-                member.type_name = self.constants.EntityType(member.type_id).str
-                member.name = "[NOT FOUND]"
+        for cerebrum_member in group.search_members(group_id=group.entity_id,
+                                                    include_member_entity_name=True):
+            member = DTO()
+            member.id = cerebrum_member['member_id']
+            member.type_id = cerebrum_member['member_type']
+            member.type_name = self.constants.EntityType(member.type_id).str
+            member.name = cerebrum_member['member_name']
             members.append(member)
         return members
-
-    def _get_member(self, cerebrum_member):
-        member_id = cerebrum_member['member_id']
-        member_type = cerebrum_member['member_type']
-        from lib.data.EntityFactory  import EntityFactory
-        return EntityFactory(self.db).get_entity(member_id, member_type)
 
     def _get_quarantines(self, group):
         return QuarantineDAO(self.db).create_from_entity(group)
