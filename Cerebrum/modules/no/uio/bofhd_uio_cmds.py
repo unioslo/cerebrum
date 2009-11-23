@@ -3012,8 +3012,9 @@ Addresses and settings:
                 et.delete()
             except Errors.NotFoundError:
                 pass
-        if not target_only:
-            self._report_deleted_EA(deleted_EA)
+        if cereconf.INSTITUTION_DOMAIN_NAME == 'uio.no':
+            if not target_only:
+                self._report_deleted_EA(deleted_EA)
 
             br = BofhdRequests(self.db, self.const)
             # IVR 2008-08-04 +1 hour to allow changes to spread to LDAP. This way
@@ -3098,7 +3099,8 @@ Addresses and settings:
             except Errors.NotFoundError:
                 pass
 
-        self._report_deleted_EA(deleted_EA)
+        if cereconf.INSTITUTION_DOMAIN_NAME == 'uio.no':
+            self._report_deleted_EA(deleted_EA)
         if not self._is_yes(force_request):
             return "OK, sympa list '%s' deleted (no bofhd request)" % listname
 
@@ -5122,10 +5124,10 @@ Addresses and settings:
         members = list(group.search_members(group_id=group.entity_id,
                                             indirect_members=False,
                                             member_filter_expired=False))
-        if len(members) > cereconf.BOFHD_MAX_MATCHES:
-            raise CerebrumError("More than %d (%d) matches. Cowardly refusing "
-                                "to return result." %
-                                (cereconf.BOFHD_MAX_MATCHES, len(members)))
+        if len(members) > cereconf.BOFHD_MAX_MATCHES and not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError("More than %d (%d) matches. Contact superuser"
+                                "to get a listing for %s." %
+                                (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
         for x in self._fetch_member_names(members):
             tmp = {'id': x['member_id'],
                    'type': str(self.const.EntityType(x['member_type'])),
@@ -5191,10 +5193,10 @@ Addresses and settings:
         type2str = lambda x: str(self.const.EntityType(int(x)))
         all_members = list(group.search_members(group_id=group.entity_id,
                                                 indirect_members=True))
-        if len(all_members) > cereconf.BOFHD_MAX_MATCHES:
-            raise CerebrumError("More than %d (%d) matches. Cowardly refusing "
-                                "to return result." %
-                                (cereconf.BOFHD_MAX_MATCHES, len(all_members)))
+        if len(all_members) > cereconf.BOFHD_MAX_MATCHES and not self.ba.is_superuser(operator.get_entity_id()):
+            raise CerebrumError("More than %d (%d) matches. Contact superuser"
+                                "to get a listing for %s." %
+                                (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
         for member in all_members:
             member_type = member["member_type"]
             member_id = member["member_id"]
