@@ -550,7 +550,8 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
                        member_id=None, member_type=None, 
                        indirect_members=False,
                        member_spread=None,
-                       member_filter_expired=True):
+                       member_filter_expired=True,
+                       include_member_entity_name=False):
         """Search for group *MEMBERS* satisfying certain criteria.
 
         This method is a complement of L{search}. While L{search} returns
@@ -769,6 +770,31 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             where.append("""(tmp1.expire1 IS NULL OR tmp1.expire1 > [:now]) AND
                             (gi.expire_date IS NULL OR gi.expire_date > [:now])
                          """)
+
+        if include_member_entity_name:
+            if isinstance(include_member_entity_name, dict):
+                member_name_dict=include_member_entity_name
+            else:
+                member_name_dict={}
+                for k,v in cereconf.ENTITY_TYPE_NAMESPACE.items():
+                    member_name_dict[self.const.EntityType(k)]=self.const.ValueDomain(v)
+            case=[]
+            i=0
+            for e_type,vdomain in member_name_dict.items():
+                e_type_name="e_type%d" % i
+                vdomain_name="vdomain%d" % i
+                case.append("WHEN tmp1.member_type=:%s THEN :%s"
+                            % (e_type_name, vdomain_name))
+                binds[e_type_name]=e_type
+                binds[vdomain_name]=vdomain
+                i+=1
+            select.append("mn.entity_name AS member_name")
+            tables.append(
+                """LEFT OUTER JOIN [:table schema=cerebrum name=entity_name] mn
+                     ON tmp1.member_id = mn.entity_id
+                        AND mn.value_domain = CASE %s
+                          END""" % "\n".join(case))
+                
 
         where_str = ""
         if where:
