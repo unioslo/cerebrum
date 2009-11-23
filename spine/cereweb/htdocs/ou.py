@@ -21,7 +21,6 @@
 import cherrypy
 
 from gettext import gettext as _
-from lib.Main import Main
 from lib import utils
 from lib.forms import OuCreateForm, OuEditForm, OuPerspectiveEditForm
 from lib.data.ConstantsDAO import ConstantsDAO
