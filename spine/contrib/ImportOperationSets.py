@@ -124,7 +124,6 @@ class AuthTargets(object):
     def _add_targets(self, targets):
         op_target = BofhdAuthOpTarget(self.db)
         for target_type, entity_id, attr in targets:
-            print entity_id
             op_target.clear()
             op_target.populate(entity_id, target_type, attr)
             op_target.write_db()
@@ -271,6 +270,10 @@ class AuthRoles(object):
     def parse(self, roles):
         self.parse_roles = []
         for entity_type, entity_name, operation_set, target in roles:
+            # Parse only targets now,
+            # the remainder of the roles can not be looked up until new
+            # targets are created.
+            self.auth_targets.parse1(*target)
             self.parse_roles.append(((entity_type, entity_name), operation_set, target))
 
     def parse1(self, entity, operation_set, target):
