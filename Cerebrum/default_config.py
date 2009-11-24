@@ -304,6 +304,9 @@ BOFHD_CLIENT_SOCKET_TIMEOUT=None
 # authoritative source system (typically administrative
 # systems/registers used by an organization)
 BOFHD_AUTH_SYSTEMS = ("system_manual",)
+# The name of the OpSet for use as moderator of groups, e.g.
+# 'Group-owner' or 'groupmod-priv'.
+BOFHD_AUTH_GROUPMODERATOR = None
 # Directory for templates
 TEMPLATE_DIR=None
 # Location of locks used by bofhd-request processing system
