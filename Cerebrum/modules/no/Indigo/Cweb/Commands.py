@@ -222,8 +222,21 @@ class GroupCommands(VirtualCommands):
         tpl = GroupTemplate(self.state, 'group_mod')
         if not entity_id:
             entity_id=self._get_target_id()
-        r = self.cerebrum.group_list(entity_id=entity_id)
-        return tpl.show({'members': r,
+        members = self.cerebrum.group_list(entity_id=entity_id)
+        for mem in members:
+            mem['affiliations'] = list()
+            prsn = None
+            if mem['type'] == 'account':
+                prsn = self.cerebrum.run_command('person_info', mem['name'])
+            elif mem['type'] == 'person':
+                prsn = self.cerebrum.run_command('person_info', 'entity_id:%s' % mem['id'])
+            for p in prsn:
+                if p.has_key('affiliation'):
+                    mem['affiliations'].append("%s %s(fra %s)" % 
+                                        (p['aff_status'], 
+                                         (p['aff_sted_desc'] or "")+" ",
+                                         p['source_system']))
+        return tpl.show({'members': members,
                          'target_id': entity_id})
 
     def show_group_password(self, entity_id=None):
