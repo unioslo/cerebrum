@@ -48,7 +48,7 @@ def write_person_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
 
     # Aktive ordinære studenter ved HIH
-    cols, student = _ext_cols(fs.student.list_aktiv())
+    cols, student = _ext_cols(fs.student.list_aktiv_midlertidig())
     for a in student:
         f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols), 'aktiv') + "\n")
         
