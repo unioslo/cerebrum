@@ -55,7 +55,7 @@ def write_person_info(outfile):
     f.write("</data>\n")
     f.close()
 
-def assert_connected(user="CEREBRUM", service="FSHIH.uio.no"):
+def assert_connected(user="cerebrum", service="FSHIH.uio.no"):
     global fs
     if fs is None:
         db = Database.connect(user=user, service=service,
@@ -64,8 +64,8 @@ def assert_connected(user="CEREBRUM", service="FSHIH.uio.no"):
 
 def main():
     person_file = default_person_file
-    db_user = None         
-    db_service = None
+    
+    assert_connected()
 
     write_person_info(person_file)
     
