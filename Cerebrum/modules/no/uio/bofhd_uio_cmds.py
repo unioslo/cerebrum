@@ -5196,7 +5196,7 @@ Addresses and settings:
         if len(all_members) > cereconf.BOFHD_MAX_MATCHES and not self.ba.is_superuser(operator.get_entity_id()):
             raise CerebrumError("More than %d (%d) matches. Contact superuser"
                                 "to get a listing for %s." %
-                                (cereconf.BOFHD_MAX_MATCHES, len(members), groupname))
+                                (cereconf.BOFHD_MAX_MATCHES, len(all_members), groupname))
         for member in all_members:
             member_type = member["member_type"]
             member_id = member["member_id"]
