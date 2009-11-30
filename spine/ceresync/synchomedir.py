@@ -281,7 +281,7 @@ def main():
             "-S", "--setup_script",
             action="store",
             type="string",
-            help="pretend to be file server HOSTNAME"),
+            help="use the specified setup_script.  Overrides the config file"),
         config.make_option(
             "-n", "--no-report",
             action="store_true",
