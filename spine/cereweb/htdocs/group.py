@@ -81,7 +81,7 @@ def join_group(entity_id, group_name, selected_id=None, **kwargs):
     db.commit()
 
     msg = _('Joined group %s successfully') % group_name
-    queue_message(msg, True, entity_link(entity_id), title="Joined group")
+    queue_message(msg, title="Joined group")
     redirect_entity(entity_id)
 join_group.exposed = True
 
@@ -106,7 +106,7 @@ def add_member(group_id, account_member_name, group_member_name, member_type, se
     db.commit()
 
     msg = _("%s added as a member to group.") % member_name
-    queue_message(msg, True, entity_link(group_id), title="Joined group")
+    queue_message(msg, title="Joined group")
     redirect_entity(group_id)
 add_member.exposed = True
 
