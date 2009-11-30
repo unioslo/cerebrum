@@ -53,6 +53,18 @@ def delete_email_address(address):
         logger.debug("Would delete <%s>", address)
         return
     logger.info("Deleting <%s>", address)
+
+    # We can't delete this EA, if there is an epat attached to it.
+    # Before we can drop ea, remove epat (or we'll get constraint violation
+    # from the db)
+    try:
+        epat = Email.EmailPrimaryAddressTarget(db)
+        epat.find(ea.email_addr_target_id)
+        epat.delete()
+        logger.debug("Deleted *primary* address <%s>", address)
+    except Errors.NotFoundError:
+        pass
+        
     ea.delete()
     for r in et.get_addresses():
         logger.info("There are addresses left")
