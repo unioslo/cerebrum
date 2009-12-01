@@ -57,6 +57,58 @@ class Account(StdoutFile):
         else:
             return res
 
+class Person(StdoutFile):
+    def format(self, person):
+        res = "%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s\n" % (
+            self.wash(person.id),
+            self.wash(person.first_name),
+            self.wash(person.last_name),
+            self.wash(person.display_name),
+            self.wash(person.full_name),
+            self.wash(person.primary_account_name),
+            self.wash(person.address_text),
+            self.wash(person.traits),
+            self.wash(person.city),
+            self.wash(person.primary_account),
+            self.wash(person.affiliations),
+            self.wash(person.type),
+            self.wash(person.email),
+            self.wash(person.nin),
+            self.wash(person.primary_account_password),
+            self.wash(person.phone),
+            self.wash(person.quarantines),
+            self.wash(person.export_id),
+            self.wash(person.url),
+            self.wash(person.birth_date),
+            self.wash(person.work_title),
+            self.wash(person.postal_number))
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
+
+class OU(StdoutFile):
+    def format(self, ou):
+        res = "%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s\n" % (
+            self.wash(ou.id),
+            self.wash(ou.stedkode),
+            self.wash(ou.name),
+            self.wash(ou.acronym),
+            self.wash(ou.short_name),
+            self.wash(ou.sort_name),
+            self.wash(ou.display_name),
+            self.wash(ou.phone),
+            self.wash(ou.email),
+            self.wash(ou.url),
+            self.wash(ou.post_address),
+            self.wash(ou.parent_id),
+            self.wash(ou.parent_stedkode),
+            self.wash(ou.quarantines))
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
+
 class Group(StdoutFile, filebackend.GroupFile):
     pass
 

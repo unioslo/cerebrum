@@ -135,7 +135,7 @@ class LdapBack(object):
         "Return decoded utf8-string"
         return unicode(str,"utf-8").encode("iso-8859-1")
 
-    def begin(self, encoding, incr=False, bulk_add=True, bulk_update=True,
+    def begin(self, incr=False, bulk_add=True, bulk_update=True,
                     bulk_delete=True, uri=None, binddn=None, bindpw=None):
         """
         If incr is true, updates will be incremental, ie the 

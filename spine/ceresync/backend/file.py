@@ -193,7 +193,7 @@ class GroupFile(CLFileBack):
     def format(self, group):
         if group.posix_gid is None:
             raise errors.NotPosixError(group.name)
-        res="%s:*:%d:%s\n" % (
+        res="%s:*:%s:%s\n" % (
             self.wash(group.name),
             self.wash(group.posix_gid),
             self.wash(",".join(group.members)))
@@ -312,7 +312,6 @@ class PasswdFileCryptHash(CLFileBack):
         else:
             return res
 
-
 def Group():
     return GroupFile(filename=config.get("file", "group"))
 
@@ -328,7 +327,6 @@ def PasswdWithHash():
 
 def Samba():
     return SambaFile(filename=config.get("file","smbpasswd"))
-
 
 # When using the file backend the user will want to save the id of the
 # last recorded update to a file. (But will the users of other backends
