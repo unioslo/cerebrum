@@ -2876,11 +2876,11 @@ Addresses and settings:
         esf_mailman.clear()
         try:
             esf_mailman.find(et_mailman.entity_id)
+            spam_level = esf_mailman.email_spam_level
+            spam_action = esf_mailman.email_spam_action
         except Errors.NotFoundError:
             spam_level = self.const.email_spam_level_standard
             spam_action = self.const.email_spam_action_delete
-        spam_level = esf_mailman.email_spam_level
-        spam_action = esf_mailman.email_spam_action
         mailman_filters = []
         change_filters = False
         for f in etf_mailman.list_email_target_filter(target_id=et_mailman.entity_id):
