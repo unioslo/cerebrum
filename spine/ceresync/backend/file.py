@@ -157,7 +157,7 @@ class CLFileBack(FileBack):
 
     word_illegal_char=re.compile("[:\n]")
     def wash(self, word):
-        if word is None:
+        if not word:
             return ''
 
         word = self.unicode and unicode(word) or str(word)
@@ -173,7 +173,7 @@ class CLFileBack(FileBack):
 
 class PasswdFile(CLFileBack):
     def format(self, account):
-        if account.posix_uid is None:
+        if not account.posix_uid:
             raise errors.NotPosixError(account.name)
         res="%s:%s:%s:%s:%s:%s:%s\n" % (
             self.wash(account.name),
@@ -191,7 +191,7 @@ class PasswdFile(CLFileBack):
 class GroupFile(CLFileBack):
     filename="/etc/ceresync/group"
     def format(self, group):
-        if group.posix_gid is None:
+        if not group.posix_gid:
             raise errors.NotPosixError(group.name)
         res="%s:*:%s:%s\n" % (
             self.wash(group.name),
@@ -205,7 +205,7 @@ class GroupFile(CLFileBack):
 class ShadowFile(CLFileBack):
     filename="/etc/ceresync/shadow"
     def format(self, account):
-        if account.posix_uid is None:
+        if not account.posix_uid:
             raise errors.NotPosixError(account.name)
         res="%s:%s:::::::\n" % (
             self.wash(account.name),
@@ -218,14 +218,14 @@ class ShadowFile(CLFileBack):
 class AliasFile(CLFileBack):
     filename="/etc/ceresync/aliases"
     def add(self, obj):
-        if obj.primary_address_id is None:
+        if not obj.primary_address_id:
             return
         else:
             super(AliasFile, self).add(obj)
 
     def format(self, addr):
         if addr.address_id == addr.primary_address_id:
-            if addr.server_name is None:
+            if not addr.server_name:
                 res="%s@%s: <> %s@\n" % (
                     self.wash(addr.local_part),
                     self.wash(addr.domain),
@@ -252,19 +252,10 @@ class SambaFile(CLFileBack):
     """an entry in a samba passwordfile lookes like this:
     <username>:<uid>:<lanman-hash>:<nt-hash>:[<account flags>]:LCT-<hex of unixtime of last change time>:
     Additional colonseparated options are ignored. man 5 smbpasswd for further info.  """
-
-#    def set_hashes(self, accountname, hashtype, hash):
-#        "set_hashes(hashtype, hash). Terrible hack to avoid breaking the CLFileBack interface. 
-#        Should be redone when Account objects has the ability to have more than one hash at once."
-#        if not self.hashes:
-#            self.hashes = {}
-#        if not self.hashes.has_key(accountname):
-#            self.hashes[accountname] = {}
-#        self.hashes[accountname][hashtype] = hash
         
     def format(self, account, hashes=None):
         import time
-        if account.posix_uid is None:
+        if not account.posix_uid:
             raise errors.NotPosixError(account.name)
 
         if hashes:
@@ -296,7 +287,7 @@ class SambaFile(CLFileBack):
 
 class PasswdFileCryptHash(CLFileBack):
     def format(self, account):
-        if account.posix_uid is None:
+        if not account.posix_uid:
             raise errors.NotPosixError(account.name)
         res="%s:%s:%s:%s:%s:%s:%s\n" % (
             self.wash(account.name),

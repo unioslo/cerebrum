@@ -42,7 +42,7 @@ class Account(StdoutFile):
         super(Account, self).close()
 
     def format(self, account):
-        if account.posix_uid is None:
+        if not account.posix_uid:
             raise errors.NotPosixError, account.name
         res="%s:%s:%s:%s:%s:%s:%s\n" % (
             self.wash(account.name),

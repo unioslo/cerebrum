@@ -109,9 +109,9 @@ class Entity(object):
     attributes= []
     lists= {}
     def __init__(self, obj, encode_to=None):
-        # Set attributes from the response, set None for missing.
+        # Set attributes from the response, set '' for missing.
         for key in self.attributes:
-            value = obj._attrs.get(key, None)
+            value = obj._attrs.get(key, '')
             if encode_to and type(value) == unicode:
                 value = value.encode(encode_to)
             self.__setattr__(key, value)

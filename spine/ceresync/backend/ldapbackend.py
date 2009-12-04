@@ -127,14 +127,6 @@ class LdapBack(object):
         self.ignore_attr_types = [] # To be overridden by subclasses
         self.populated = False
 
-    def iso2utf(self, str):
-        """ Return utf8-encoded string """
-        return unicode(str, "iso-8859-1").encode("utf-8")
-        
-    def utf2iso(self, str):
-        "Return decoded utf8-string"
-        return unicode(str,"utf-8").encode("iso-8859-1")
-
     def begin(self, incr=False, bulk_add=True, bulk_update=True,
                     bulk_delete=True, uri=None, binddn=None, bindpw=None):
         """
@@ -387,8 +379,8 @@ class PosixUser(LdapBack):
         """Convert Account-object to map ldap-attributes"""
         s = {}
         s['objectClass']   = self.obj_class
-        s['cn']            = ["%s"     %  self.iso2utf(obj.gecos)]
-        s['sn']            = ["%s"     %  self.iso2utf(obj.gecos).split(" ").pop()]
+        s['cn']            = ["%s"     %  obj.gecos]
+        s['sn']            = ["%s"     %  obj.gecos.split(" ").pop()]
         s['uid']           = ["%s"     %  obj.name]
         s['gecos']         = ["%s"     %  self.gecos(obj.gecos)]
         s['uidNumber']     = ["%s"     %  obj.posix_uid]
@@ -472,8 +464,8 @@ class Person(LdapBack):
         self.ignore_attr_types = []
 
     def add(self, obj):
-        if obj.primary_account == -1:
-            log.debug("Ignoring %s with primary_account=%d", obj.full_name, 
+        if not obj.primary_account:
+            log.debug("Ignoring %s with primary_account=%s", obj.full_name, 
                       obj.primary_account)
             return
         super(Person, self).add(obj)
@@ -484,9 +476,9 @@ class Person(LdapBack):
     def get_attributes(self,obj):
         s = {}
         s['objectClass']            = self.obj_class
-        s['cn']                     = ["%s"     %  self.iso2utf(obj.full_name)]
-        s['sn']                     = ["%s"     %  self.iso2utf(obj.last_name)]
-        s['givenName']              = ["%s"     %  self.iso2utf(obj.first_name)]
+        s['cn']                     = ["%s"     %  obj.full_name]
+        s['sn']                     = ["%s"     %  obj.last_name]
+        s['givenName']              = ["%s"     %  obj.first_name]
         s['uid']                    = ["%s"     %  obj.primary_account_name]
         # FIXME: Must look up in primary account to get password
         s['userPassword']           = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.primary_account_passwd)]
@@ -570,10 +562,8 @@ class OU(LdapBack):
         self.on_hold= []
 
     def add(self, obj):
-        dn= self.get_dn(obj)
-        if dn == self.base:
-            return
-        elif dn in self.processed:
+        dn = self.get_dn(obj)
+        if dn in self.processed:
             log.warning("Entry with the same name already processed: %s", dn)
             return
         elif dn == None:
@@ -584,22 +574,20 @@ class OU(LdapBack):
         super(OU, self).add(obj)
 
     def get_dn(self,obj):
-        base = self.base
-        filter = "(norEduOrgUnitUniqueIdentifier=%s)" % obj.parent_stedkode 
-        if self.ou_dict.has_key(obj.parent_stedkode):
-            parentdn = self.ou_dict[obj.parent_stedkode]
-        elif obj.parent_stedkode == '':           # root-node
-            self.ou_dict[obj.stedkode]= self.base
-            return self.base
+        if obj.parent_stedkode:
+            parentdn = self.ou_dict.get(obj.parent_stedkode)
         else:
-            found= self.search(base=base,filterstr=filter)
-            if found:
-                parentdn= found[0][0]
-            else:
+            parentdn = self.base
+
+        if not parentdn:
+            filter = "(norEduOrgUnitUniqueIdentifier=%s)" % obj.parent_stedkode 
+            found = self.search(base=self.base,filterstr=filter)
+            if not found:
                 self.on_hold.append(obj)
                 return None
-
-        dn = "ou=%s,%s" % (self.iso2utf(obj.short_name),parentdn,)
+            parentdn = found[0][0]
+                
+        dn = "ou=%s,%s" % (obj.id, parentdn)
         self.ou_dict[obj.stedkode] = dn # Local cache to speed things up.. 
         return dn
 
@@ -607,10 +595,14 @@ class OU(LdapBack):
         #FIXME: add support for storing unit-id,parent-id and rootnode-id
         s = {}
         s['objectClass']               = self.obj_class
-        s['ou']                        = [self.iso2utf(obj.short_name)]
-        s['cn']                        = [self.iso2utf(obj.display_name)]
+        s['ou']                        = [str(obj.id)]
+        s['cn']                        = [obj.display_name]
         s['norEduOrgUnitUniqueIdentifier']= [obj.stedkode]
-        #s['norEduOrgAcronym'] = obj.acronyms
+        if obj.acronym:
+            s['norEduOrgAcronym'] = obj.acronym
+        if obj.url:
+            s['labeledURI'] = obj.url
+        
         return s
 
     def close(self):
@@ -643,9 +635,9 @@ class OracleCalendar(LdapBack):
         s = {}
         s['objectClass']      = self.obj_class
         s['uid']              = [obj.name]
-        s['cn']               = [self.iso2utf(obj.gecos)]
-        s['sn']               = [self.iso2utf(sn)]
-        s['givenName']        = [self.iso2utf(givenName)]
+        s['cn']               = [obj.gecos]
+        s['sn']               = [sn]
+        s['givenName']        = [givenName]
         s['userPassword']     = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
         return s
 
