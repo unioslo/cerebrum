@@ -371,6 +371,7 @@ def generate_address_parts_file(orgs):
             logger.warn("could not find OU %s", o)
             continue
         sko = '%02d%02d%02d' % (ou.fakultet, ou.institutt, ou.avdeling)
+        logger.debug("SKO: %s", sko)
         addrs_1 = ou.get_entity_address(source=const.system_sap, type=const.address_post)
         apa_add_id = sko + '2'
         pobox = []
@@ -411,6 +412,14 @@ def generate_address_parts_file(orgs):
         addrs_2 = ou.get_entity_address(source=const.system_sap, type=const.address_street)
         apa_add_id = sko + '1'
         street = []
+        
+        if len(addrs_2) == 0:
+            # This will happen when the OU has no valid street address registered
+            # Use bogus/empty address to enable further processing            
+            logger.warning("OU '%s' (SKO: '%s', ENT-ID: '%s') is registered"
+                           " without a street address" % (ou.name, sko, o))
+            addrs_2.append((0, 0, 0, '', None, '', None, ''))
+            
         for k in addrs_2[0][3].split('\n'):
             street.append(k)
         for e in ['Name1:0', 'Name2:1', 'Street1:4', 'Street2:6', 'Department:12', 'Postalcode:13', 'City:14']:
