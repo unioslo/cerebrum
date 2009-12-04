@@ -25,6 +25,7 @@ import string
 import sys
 import time
 import sets
+import unicodedata
 
 import ldap,ldif,dsml
 import urllib
@@ -352,11 +353,6 @@ class LdapBack(object):
 
         self.populated = True
 
-###
-###
-###
-
-
 class PosixUser(LdapBack):
     """Stub object for representation of an account."""
     def __init__(self,conn=None,base=None,filter='(objectClass=*)'):
@@ -368,8 +364,8 @@ class PosixUser(LdapBack):
         self.ignore_attr_types = []
 
     def add(self, obj):
-        if obj.posix_uid == -1 or obj.full_name == "":
-            log.debug("Ignoring %s with uid=%d and full_name='%s'", obj.name,
+        if obj.posix_uid == "" or obj.full_name == "":
+            log.debug("Ignoring %s with uid=%s and full_name='%s'", obj.name,
                       obj.posix_uid, obj.full_name)
             return
         super(PosixUser, self).add(obj)
@@ -382,7 +378,7 @@ class PosixUser(LdapBack):
         s['cn']            = ["%s"     %  obj.gecos]
         s['sn']            = ["%s"     %  obj.gecos.split(" ").pop()]
         s['uid']           = ["%s"     %  obj.name]
-        s['gecos']         = ["%s"     %  self.gecos(obj.gecos)]
+        s['gecos']         = ["%s"     %  self.toAscii(obj.gecos)]
         s['uidNumber']     = ["%s"     %  obj.posix_uid]
         s['gidNumber']     = ["%s"     %  obj.posix_gid]
         s['loginShell']    = ["%s"     %  obj.shell]
@@ -390,25 +386,11 @@ class PosixUser(LdapBack):
         s['homeDirectory'] = ["%s"     %  obj.homedir]
         return s
 
-    def gecos(self,s,default=1):
-        # Taken from cerebrum/contrib/generate_ldif.py and then modified.
-        # Maybe use latin1_to_iso646_60 from Cerebrum.utils?
-        """  Convert special chars to 7bit ascii for gecos-attribute. """
-        if default == 1:
-            #translate = {'Æ' : 'Ae', 'æ' : 'ae', 'Å' : 'Aa', 'å' : 'aa','Ø' : 'Oe','ø' : 'oe' }
-            translate = dict(zip(
-                'ÆØÅæø¿åÀÁÂÃÄÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜİàáâãäçèéêëìíîïñòóôõöùúûüıÿ{[}]|¦\\¨­¯´',
-                'AOAaooaAAAAACEEEEIIIINOOOOOUUUUYaaaaaceeeeiiiinooooouuuuyyaAaAooO"--\''))
-        elif default == 2:
-            translate = {'Æ' : 'A', 'æ' : 'a', 'Å' : 'A', 'å' : 'a','Ø' : 'O','ø' : 'o' }
-        elif default == 3:
-            translate = {'Æ' : '[', 'æ' : '{', 'Å' : ']', 'å' : '}','Ø' : '\\','ø' : '|' }
-        s = string.join(map(lambda x:translate.get(x, x), s), '')
-        return s
+    def toAscii(self, utf8string):
+        return unicodedata.normalize('NFKD', utf8string.decode('utf-8')).encode('ASCII', 'ignore')
 
     def get_dn(self,obj):
-        # Maybe generalize this to LdapBack instead
-        return "uid=" + obj.name + "," + self.base
+        return "uid=%s,%s" % (obj.name, self.base)
 
 class PosixGroup(LdapBack):
     '''Abstraction of a group of accounts'''
