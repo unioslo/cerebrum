@@ -2874,7 +2874,11 @@ Addresses and settings:
         esf_mailman = Email.EmailSpamFilter(self.db)
         etf_mailman = Email.EmailTargetFilter(self.db)
         esf_mailman.clear()
-        esf_mailman.find(et_mailman.entity_id)
+        try:
+            esf_mailman.find(et_mailman.entity_id)
+        except Errors.NotFoundError:
+            spam_level = None
+            spam_action = None
         spam_level = esf_mailman.email_spam_level
         spam_action = esf_mailman.email_spam_action
         mailman_filters = []
