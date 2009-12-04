@@ -2877,8 +2877,8 @@ Addresses and settings:
         try:
             esf_mailman.find(et_mailman.entity_id)
         except Errors.NotFoundError:
-            spam_level = None
-            spam_action = None
+            spam_level = self.const.email_spam_level_standard
+            spam_action = self.const.email_spam_action_delete
         spam_level = esf_mailman.email_spam_level
         spam_action = esf_mailman.email_spam_action
         mailman_filters = []
