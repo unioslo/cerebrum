@@ -408,7 +408,7 @@ class PosixGroup(LdapBack):
         s['cn']              = ["%s" % obj.name]
         s['gidNumber']       = ["%s" % obj.posix_gid]
         if (len(obj.members) > 0):
-            s['memberUid']   = obj.members
+            s['memberUid']   = [str(m) for m in obj.members]
         #if (len(obj.description) > 0):
         #    s['description'] = obj.description
         return s
