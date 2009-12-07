@@ -505,7 +505,7 @@ class BDBSync:
             else:
                 if dryrun:
                     self.db.rollback()
-                    logger.debug('Rollback called. Changes omitted.')
+                    self.logger.debug('Rollback called. Changes omitted.')
                 else:
                     num_persons+=1
                     self.db.commit()
