@@ -579,7 +579,7 @@ class OU(LdapBack):
         s['objectClass']               = self.obj_class
         s['ou']                        = [str(obj.id)]
         s['cn']                        = [obj.display_name]
-        s['norEduOrgUnitUniqueIdentifier']= [obj.stedkode]
+        s['norEduOrgUnitUniqueIdentifier']= [obj.stedkode.lstrip("0")]
         if obj.acronym:
             s['norEduOrgAcronym'] = obj.acronym
         if obj.url:
