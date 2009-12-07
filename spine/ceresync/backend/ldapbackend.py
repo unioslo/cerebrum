@@ -24,7 +24,11 @@ import re
 import string
 import sys
 import time
-import sets
+try:
+    set()
+except:
+    from sets import Set as set
+
 import unicodedata
 
 import ldap,ldif,dsml
@@ -438,7 +442,7 @@ class NetGroup(LdapBack):
 
 
 class Person(LdapBack):
-    def __init__(self, base="ou=People,dc=ntnu,dc=no", filter='(objectClass=*)'):
+    def __init__(self, base="ou=people,dc=ntnu,dc=no", filter='(objectClass=*)'):
         LdapBack.__init__(self)
         self.base = base
         self.filter = filter
@@ -462,25 +466,24 @@ class Person(LdapBack):
         s['sn']                     = ["%s"     %  obj.last_name]
         s['givenName']              = ["%s"     %  obj.first_name]
         s['uid']                    = ["%s"     %  obj.primary_account_name]
-        # FIXME: Must look up in primary account to get password
         s['userPassword']           = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.primary_account_passwd)]
-        #s['userPassword']           = ["Ikkepassord"] #["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
-        s['eduPersonOrgDn']         = ["dc=ntnu,dc=no"] #Should maybe be in config?
+        s['eduPersonOrgDN']         = ["dc=ntnu,dc=no"]
 
-        #must remove duplicate values
-        affiliations = []
+        affiliations = set()
         for aff in obj.affiliations:
             if aff == 'STUDENT':
-                affiliations.extend(['student','member'])
+                affiliations.add('student')
+                affiliations.add('member')
             elif aff == 'ANSATT':
-                affiliations.extend(['employee','member'])
+                affiliations.add('employee')
+                affiliations.add('member')
             elif aff == 'TILKNYTTET':
-                affiliations.extend(['affiliate'])
+                affiliations.add('affiliate')
             elif aff == 'ALUMNI':
-                affiliations.extend(['alum'])
+                affiliations.add('alum')
             else:
                 log.warn("Unknown affiliation: %s" % aff)
-        s['eduPersonAffiliation']   = {}.fromkeys(affiliations).keys() 
+        s['eduPersonAffiliation'] = list(affiliations)
 
         # Expecting birth_date from spine on the form "%Y-%m-%d 00:00:00.00"
         # Ldap wants the form "%Y%m%d".
