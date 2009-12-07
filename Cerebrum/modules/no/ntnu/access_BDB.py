@@ -82,7 +82,7 @@ class BDB:
                 b.status = 1 AND
                 n.person (+) = p.id AND
                 (p.personnr IS NOT NULL
-                   OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
+                   OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL)) AND
                 p.mail_domain = m.id AND
                 s.id(+) = m.system
         """
@@ -120,7 +120,7 @@ class BDB:
         WHERE p.id = b.person AND
           p.id = n.person (+) AND
           (p.personnr IS NOT NULL
-            OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
+            OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
           k.bruker = b.id AND
           k.gruppe = g.id AND
           k.system = s.id AND
@@ -158,7 +158,7 @@ class BDB:
           p.id = b.person AND
           p.id = n.person (+) AND
           (p.personnr IS NOT NULL
-            OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
+            OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL)) AND
           b.user_domain = 1
         """)
         bdb_vacations = cursor.fetchall()
@@ -194,7 +194,7 @@ class BDB:
               b.user_domain=1 AND
               p.id = n.person (+) AND
               (p.personnr IS NOT NULL
-                OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL))
+                OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL))
             """)
         elif bdbid:
             cursor.execute("""
@@ -273,7 +273,7 @@ class BDB:
               b.person = p.id AND
               p.id = n.person (+) AND
               (p.personnr IS NOT NULL
-                OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
+                OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
               b.gruppe = g.id (+)
             """ % int(last))
                               
@@ -290,7 +290,7 @@ class BDB:
               b.person = p.id AND
               p.id = n.person (+) AND
               (p.personnr IS NOT NULL
-                OR (n.person IS NOT NULL AND n.utloper IS NULL)) AND
+                OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
               b.gruppe =  g.id (+)
             """) 
         # user_domain=1 is NTNU
@@ -366,7 +366,7 @@ class BDB:
           b.person = p.id AND
           p.id = n.person (+) AND
           (p.personnr IS NOT NULL
-            OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
+            OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL)) AND
           b.user_domain = 1 AND
           b.status = 1 AND
           t.tilkn_form = f.id AND
@@ -414,7 +414,7 @@ class BDB:
                 b.status = 1 AND
                 p.id = n.person (+) AND
                 (p.personnr IS NOT NULL
-                  OR (n.person IS NOT NULL AND n.utloper IS NULL AND n.account_type IS NULL)) AND
+                  OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL)) AND
                 p.id = e.person AND
                 e.mail_domain = d.id AND
                 s.id (+) = d.system
