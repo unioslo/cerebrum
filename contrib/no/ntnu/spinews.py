@@ -28,6 +28,7 @@ import Cerebrum.lib
 from Cerebrum.lib.spinews.spinews_services import *
 from Cerebrum.lib.spinews.SignatureHandler import SignatureHandler
 from Cerebrum import Errors
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 from SocketServer import ForkingMixIn
 
@@ -52,7 +53,7 @@ from Cerebrum.Utils import Factory
 
 from Cerebrum.Entity import EntityQuarantine
 
-logger = None
+logger = Factory.get_logger("cerews")
 
 from Cerebrum.lib.spinews.dom import DomletteElementProxy
 def elementproxy_patch():
@@ -731,7 +732,7 @@ def get_auth_values(ps):
 def check_created(created):
     gmCreated= time.strptime(created, '%Y-%m-%dT%H:%M:%SZ')
     ## allow timeout up to 10 secs.
-    auth_timeout = getattr(cereconf, "SPINEWS_AUTH_TIMEOUT", 600)
+    auth_timeout = getattr(cereconf, "CEREWS_AUTH_TIMEOUT", 600)
     gmNow = time.gmtime((time.time() - auth_timeout))
     if gmCreated < gmNow:
         raise RuntimeError('Unauthorized, UsernameToken is expired')
@@ -751,15 +752,48 @@ def authenticate(db, ps):
     debug = False
     username, password, created = get_auth_values(ps)
     check_created(created)
-    if debug:
-        print 'username =', username
-        print 'password =', md5.new(password).hexdigest()
-        print 'created =', created
-    operator_id = check_username_password(db, username, password)
-    return operator_id
+    try:
+        operator_id = check_username_password(db, username, password)
+    except AuthenticationError, e:
+        logger.warning("Login failed for user=%s" % username)
+        raise e
+    return operator_id, username
 
-class spinews(ServiceSOAPBinding):
-    #_wsdl = "".join(open("spinews.wsdl").readlines())
+
+def format_args(request):
+    args={}
+    for attr in dir(request):
+        if attr[0] == "_" and attr[1] != "_":
+            args[attr[1:]] = getattr(request, attr)
+    return ", ".join(["%s=%s" % (k, repr(v)) for k,v in args.items()])
+
+def logmethod(requesttype):
+    def reallogmethod(fn):
+        def wrapper(self, ps):
+            db = Factory.get("Database")(client_encoding='UTF-8')
+            request = ps.Parse(requesttype.typecode)
+            operator_id, user_name = authenticate(db, ps)
+            args = format_args(request)
+            logger.info("Running %s(%s) user=%s" % (
+                    fn.__name__, args, user_name))
+            try:
+                result=fn(self, db, operator_id, request)
+            except PermissionDenied, e:
+                logger.warning("Authentication failed %s(%s) user=%s" % (
+                        fn.__name__, args, user_name))
+                raise e
+            except Exception, e:
+                logger.warning("Operation failed %s(%s) user=%s: %s" % (
+                        fn.__name__, args, user_name, repr(e)))
+                raise e
+            return result
+        wrapper.__name__ = fn.__name__
+        return wrapper
+    return reallogmethod
+
+
+class cerews(ServiceSOAPBinding):
+    #_wsdl = "".join(open("cerews.wsdl").readlines())
     soapAction = {}
     root = {}
 
@@ -767,7 +801,7 @@ class spinews(ServiceSOAPBinding):
         if incremental_from is not None:
             last=db.get_last_changelog_id()
             db.rollback()
-            incr_max = getattr(cereconf, "SPINEWS_INCREMENTAL_MAX", 1000)
+            incr_max = getattr(cereconf, "CEREWS_INCREMENTAL_MAX", 1000)
             if last - incremental_from > incr_max:
                 raise IncrementalError()
             return last
@@ -776,27 +810,20 @@ class spinews(ServiceSOAPBinding):
     def __init__(self, post='/', **kw):
         ServiceSOAPBinding.__init__(self, post)
 
-    def get_changelogid(self, ps):
-        db=Factory.get("Database")(client_encoding='UTF-8')
-        
-        operator_id = authenticate(db, ps)
-        request = ps.Parse(getChangelogidRequest.typecode)
-
+    @logmethod(getChangelogidRequest)
+    def get_changelogid(self, db, operator_id, request):
         id = db.get_last_changelog_id()
         db.rollback()
         return getChangelogidResponse(id)
 
-    def set_homedir_status(self, ps):
-        db=Factory.get("Database")(client_encoding='UTF-8')
-        db.cl_init(change_program="spinews")
+    @logmethod(setHomedirStatusRequest)
+    def set_homedir_status(self, db, operator_id, request):
+        db.cl_init(change_program="cerews")
         co=Factory.get("Constants")()
         account=Factory.get("Account")(db)
         disk=Factory.get("Disk")(db)
         auth=bofhd_auth.BofhdAuth(db)
 
-        operator_id = authenticate(db, ps)
-
-        request = ps.Parse(setHomedirStatusRequest.typecode)
         status_str = str(request._status)
         homedir_id = int(request._homedir_id)
 
@@ -821,17 +848,14 @@ class spinews(ServiceSOAPBinding):
 
         return response
 
-    def get_homedirs(self, ps):
-        db=Factory.get("Database")(client_encoding='UTF-8')
+    @logmethod(getHomedirsRequest)
+    def get_homedirs(self, db, operator_id, request):
         co=Factory.get("Constants")()
         host=Factory.get("Host")(db)
         account=Factory.get("Account")(db)
         auth=bofhd_auth.BofhdAuth(db)
         
-        operator_id = authenticate(db, ps)
-
-        request = ps.Parse(getHomedirsRequest.typecode)
-        status = str(request._status) 
+        status = str(request._status)
         hostname = str(request._hostname)
 
         host.clear()
@@ -850,14 +874,11 @@ class spinews(ServiceSOAPBinding):
         
         return response
 
-    def get_aliases(self, ps):
-        db=Factory.get("Database")(client_encoding='UTF-8')
+    @logmethod(getAliasesRequest)
+    def get_aliases(self, db, operator_id, request):
         co=Factory.get("Constants")()
         auth=bofhd_auth.BofhdAuth(db)
 
-        operator_id = authenticate(db, ps)
-
-        request = ps.Parse(getAliasesRequest.typecode)
         incremental_from = int_or_none(request._incremental_from)
 
         auth.can_syncread_alias(operator_id)
@@ -875,14 +896,11 @@ class spinews(ServiceSOAPBinding):
 
         return response
 
-    def get_ous(self, ps):
-        db=Factory.get("Database")(client_encoding='UTF-8')
+    @logmethod(getOUsRequest)
+    def get_ous(self, db, operator_id, request):
         co=Factory.get("Constants")()
-
         auth=bofhd_auth.BofhdAuth(db)
-        operator_id = authenticate(db, ps)
 
-        request = ps.Parse(getOUsRequest.typecode)
         auth.can_syncread_ou(operator_id)
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(db, incremental_from)
@@ -901,15 +919,12 @@ class spinews(ServiceSOAPBinding):
         return response
         
 
-    def get_groups(self, ps):
-        db=Factory.get("Database")(client_encoding='UTF-8')
+    @logmethod(getGroupsRequest)
+    def get_groups(self,  db, operator_id, request):
         co=Factory.get("Constants")()
         group=Factory.get("Group")(db)
         auth=bofhd_auth.BofhdAuth(db)
 
-        operator_id = authenticate(db, ps)
-
-        request = ps.Parse(getGroupsRequest.typecode)
         groupspread = co.Spread(str(request._groupspread))
         accountspread = co.Spread(str(request._accountspread))
         incremental_from = int_or_none(request._incremental_from)
@@ -932,15 +947,12 @@ class spinews(ServiceSOAPBinding):
 
         return response
 
-    def get_accounts(self, ps):
-        db=Factory.get("Database")(client_encoding='UTF-8')
+    @logmethod(getAccountsRequest)
+    def get_accounts(self, db, operator_id, request):
         co=Factory.get("Constants")()
         account=Factory.get("Account")(db)
         auth=bofhd_auth.BofhdAuth(db)
 
-        operator_id = authenticate(db, ps)
-
-        request = ps.Parse(getAccountsRequest.typecode)
         accountspread = co.Spread(str(request._accountspread))
         auth_type = co.Authentication(str(request._auth_type))
         incremental_from = int_or_none(request._incremental_from)
@@ -964,15 +976,12 @@ class spinews(ServiceSOAPBinding):
 
         return response
 
-    def get_persons(self, ps):
-        db=Factory.get("Database")(client_encoding='UTF-8')
-        db.cl_init(change_program="spinews")
+    @logmethod(getPersonsRequest)
+    def get_persons(self, db, operator_id, request):
+        db.cl_init(change_program="cerews")
         co=Factory.get("Constants")()
         auth=bofhd_auth.BofhdAuth(db)
 
-        operator_id = authenticate(db, ps)
-
-        request = ps.Parse(getPersonsRequest.typecode)
         if request._personspread is not None:
             personspread = int(co.Spread(str(request._personspread)))
         else:
@@ -1034,7 +1043,7 @@ def test_soap(fun, cl, **kw):
     return fun.__name__, t1, t2
 
 def test():
-    sp=spinews()
+    sp=cerews()
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
                     homedir_id=85752, status="not_created")
     print test_soap(sp.get_ous, getOUsRequest)
@@ -1084,7 +1093,7 @@ class SSLForkingMixIn(ForkingMixIn):
 class SecureServiceContainer(SSLForkingMixIn, SSL.SSLServer, ServiceContainer):
 
     def __init__(self, server_address, ssl_context, services=[], RequestHandlerClass=SOAPRequestHandler):
-        self.max_children = getattr(cereconf, "SPINEWS_MAX_CHILDREN", 5)
+        self.max_children = getattr(cereconf, "CEREWS_MAX_CHILDREN", 5)
         ServiceContainer.__init__(self, server_address, services, RequestHandlerClass)
         SSL.SSLServer.__init__(self, server_address, RequestHandlerClass, ssl_context)
         self.server_name, self.server_port = server_address
@@ -1096,12 +1105,12 @@ def RunAsServer(port=80, services=(), fork=False):
     sc.serve_forever()
 
 def passphrase_callback(v):
-    return cereconf.SPINEWS_KEY_FILE_PASSWORD
+    return cereconf.CEREWS_KEY_FILE_PASSWORD
 
 def init_ssl(debug=None):
     ctx = SSL.Context('sslv23')
     ## certificate and private-key in the same file
-    ctx.load_cert(cereconf.SPINEWS_KEY_FILE, callback=passphrase_callback)
+    ctx.load_cert(cereconf.CEREWS_KEY_FILE, callback=passphrase_callback)
     ## do not use sslv2
     ctx.set_options(SSL.op_no_sslv2)
     ctx.set_session_id_ctx('ceresync_srv')
@@ -1142,12 +1151,12 @@ def main(daemon=False):
     if daemon:
         logger = Factory.get_logger("spine")
         daemonize()
-        if hasattr(cereconf, "SPINEWS_PIDFILE"):
-            open(cereconf.SPINEWS_PIDFILE, "w").write(str(os.getpid())+"\n")
+        if hasattr(cereconf, "CEREWS_PIDFILE"):
+            open(cereconf.CEREWS_PIDFILE, "w").write(str(os.getpid())+"\n")
     else:
         logger = Factory.get_logger("console")
     logger.info("starting...")
-    RunAsServer(port=int(cereconf.SPINEWS_PORT), services=[spinews(),])
+    RunAsServer(port=int(cereconf.CEREWS_PORT), services=[cerews(),])
 
 if __name__ == '__main__':
     help = False
@@ -1165,7 +1174,7 @@ if __name__ == '__main__':
 
     if help:
         print >> sys.stderr, """
-spinews!
+cerews!
 
 Hello. Try one of these:
 
