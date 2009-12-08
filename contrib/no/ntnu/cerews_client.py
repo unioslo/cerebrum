@@ -7,11 +7,11 @@ import cerebrum_path
 import cereconf
 from optparse import OptionParser
 
-from Cerebrum.lib.spinews.SignatureHandler import SignatureHandler
+from Cerebrum.lib.cerews.SignatureHandler import SignatureHandler
 
 
-from Cerebrum.lib.spinews.spinews_services import *
-from Cerebrum.lib.spinews.spinews_services_types import *
+from Cerebrum.lib.cerews.cerews_services import *
+from Cerebrum.lib.cerews.cerews_services_types import *
 from ZSI.ServiceContainer import ServiceSOAPBinding
 
 from httplib import HTTPConnection
@@ -19,10 +19,10 @@ from httplib import HTTPConnection
 from M2Crypto import SSL
 from M2Crypto import X509
 
-from Cerebrum.lib.spinews.spinews_objects import Group, Account
-from Cerebrum.lib.spinews.spinews_objects import Ou, Alias
-from Cerebrum.lib.spinews.spinews_objects import Homedir, Person
-from Cerebrum.lib.spinews.dom import DomletteReader
+from Cerebrum.lib.cerews.cerews_objects import Group, Account
+from Cerebrum.lib.cerews.cerews_objects import Ou, Alias
+from Cerebrum.lib.cerews.cerews_objects import Homedir, Person
+from Cerebrum.lib.cerews.dom import DomletteReader
 
 username = None
 password = None
@@ -46,8 +46,10 @@ class CeresyncHTTPSConnection(HTTPConnection):
             tab = self.host.split(':')
             self.host = tab[0]
             self.port = int(tab[1])
-        if hasattr(cereconf, "SPINEWS_PORT"):
-            self.port = cereconf.SPINEWS_PORT
+        if hasattr(cereconf, "CEREWS_HOST"):
+            self.host = cereconf.CEREWS_HOST
+        if hasattr(cereconf, "CEREWS_PORT"):
+            self.port = cereconf.CEREWS_PORT
         if not self.port:
             self.port = self.default_port
 
@@ -58,14 +60,14 @@ class CeresyncHTTPSConnection(HTTPConnection):
         self.sock.connect((self.host, self.port))
 
 def phrase_callback(v, prompt1='p1', prompt2='p2'):
-    return cereconf.SPINEWS_KEY_FILE_PASSWORD
+    return cereconf.CEREWS_KEY_FILE_PASSWORD
 
 def init_ssl():
     ctx = SSL.Context('sslv23')
-    if hasattr(cereconf, "SPINEWS_CA_PATH"):
-        ctx.load_verify_info(capath=cereconf.SPINEWS_CA_PATH)
-    elif hasattr(cereconf, "SPINEWS_CA_FILE"):
-        ctx.load_verify_info(cafile=cereconf.SPINEWS_CA_FILE)
+    if hasattr(cereconf, "CEREWS_CA_PATH"):
+        ctx.load_verify_info(capath=cereconf.CEREWS_CA_PATH)
+    elif hasattr(cereconf, "CEREWS_CA_FILE"):
+        ctx.load_verify_info(cafile=cereconf.CEREWS_CA_FILE)
     else:
         ## logging and axit maybe?
         print >> sys.stderr, 'could not load ca-certificates'
@@ -134,7 +136,7 @@ def set_username_password(uname, pwd):
     password = pwd
 
 def get_ceresync_locator():
-    return spinewsLocator()
+    return cerewsLocator()
 
 def sign_request(port, username, password, useDigest=False):
     sigHandler = SignatureHandler(username, password, useDigest)
@@ -144,7 +146,7 @@ def sign_request(port, username, password, useDigest=False):
 def get_ceresync_port():
     global theTraceFile
     locator = get_ceresync_locator()
-    port = locator.getspinePortType(tracefile=theTraceFile, readerclass=DomletteReader, transport=CeresyncHTTPSConnection, scheme="https")
+    port = locator.getcerewsPortType(tracefile=theTraceFile, readerclass=DomletteReader, transport=CeresyncHTTPSConnection, scheme="https")
     global username
     global password
     sign_request(port, username, password)
