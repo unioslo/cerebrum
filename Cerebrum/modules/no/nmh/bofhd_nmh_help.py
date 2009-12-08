@@ -96,6 +96,8 @@ command_help = {
         'Remove an affiliation from a person',
     'person_clear_id':
         'Remove specific external id type from a source system from a person',
+    'person_clear_name':
+        'Remove the names coming from a source system from a person',
     'person_create':
         'Register a new person in Cerebrum',
     'person_find':
