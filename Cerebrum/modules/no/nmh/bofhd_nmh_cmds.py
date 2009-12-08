@@ -86,6 +86,7 @@ class BofhdExtension(object):
         'person_affiliation_remove', 'person_create',
         'person_find', 'person_info', 'person_list_user_priorities',
         'person_set_user_priority', 'person_set_name', 'person_clear_id',
+        'person_clear_name',
         #
         # copy relevant quarantine-cmds and util methods
         #
