@@ -15,7 +15,7 @@ from httplib import HTTPConnection
 from M2Crypto import SSL
 from SignatureHandler import SignatureHandler
 
-from Cerebrum.lib.spinews import spinews_services
+from Cerebrum.lib.cerews import cerews_services
 
 from ZSI import FaultException
 
@@ -23,7 +23,7 @@ log = config.logger
 
 
 try:
-    from Cerebrum.lib.spinews.dom import DomletteReader as ReaderClass
+    from Cerebrum.lib.cerews.dom import DomletteReader as ReaderClass
 except ImportError, e:
     log.warn("Could not import DomletteReader.  Install 4Suite for extra performance.")
     from xml.dom import expatbuilder
@@ -191,10 +191,10 @@ class CeresyncHTTPSConnection(HTTPConnection):
         HTTPConnection.__init__(self, host, port, strict)
         self.ctx= None
         self.sock= None
-        self.ca_path= config.get("spinews", "ca_path", allow_none=True)
-        self.ca_file= config.get("spinews", "ca_file", allow_none=True)
+        self.ca_path= config.get("cerews", "ca_path", allow_none=True)
+        self.ca_file= config.get("cerews", "ca_file", allow_none=True)
         if self.ca_path is None and self.ca_file is None:
-            log.error("Missing path to CA certificates. Add ca_path or ca_file under [spinews]")
+            log.error("Missing path to CA certificates. Add ca_path or ca_file under [cerews]")
             exit(1)
         self.host = host
         self.port = port
@@ -228,9 +228,9 @@ class Sync(object):
                     config.get("sync","pid_file","/var/run/cerebrum/ceresync.pid"))
 
         try:
-            self.username= config.get("spinews","login")
-            self.password= config.get("spinews","password")
-            self.url= config.get("spinews","url")
+            self.username= config.get("cerews","login")
+            self.password= config.get("cerews","password")
+            self.url= config.get("cerews","url")
         except ConfigParser.Error, e:
             log.error("Missing url, login or password: %s",e)
             sys.exit(1)
@@ -238,7 +238,7 @@ class Sync(object):
 
         self.zsi_options= {
                 "readerclass": ReaderClass,
-                #"tracefile": file("/var/log/cerebrum/spinewstrace.log","w"),
+                #"tracefile": file("/var/log/cerebrum/cerewstrace.log","w"),
                 "transport": CeresyncHTTPSConnection,
                 #"auth": (AUTH.none,),
                 #"host": "localhost",
@@ -255,15 +255,15 @@ class Sync(object):
             remove_pidfile(self.pid_file)
     
     def _get_ceresync_port(self, useDigest=False):
-        locator= spinews_services.spinewsLocator()
-        port= locator.getspinePortType(url=self.url, **self.zsi_options)
+        locator= cerews_services.cerewsLocator()
+        port= locator.getcerewsPortType(url=self.url, **self.zsi_options)
         port.binding.sig_handler= SignatureHandler(self.username, 
                                                    self.password,
                                                    useDigest)
         return port
 
     def get_changelogid(self):
-        request=spinews_services.getChangelogidRequest()
+        request=cerews_services.getChangelogidRequest()
         port= self._get_ceresync_port()
         try:
             return port.get_changelogid(request)
@@ -290,7 +290,7 @@ class Sync(object):
         except ConfigParser.Error, e:
             log.error("Missing auth_type: %s", e)
             sys.exit(1)
-        request= spinews_services.getAccountsRequest()
+        request= cerews_services.getAccountsRequest()
         request._accountspread= accountspread
         request._auth_type= auth_type
         request._incremental_from= incr_from
@@ -313,7 +313,7 @@ class Sync(object):
         except ConfigParser.Error, e:
             log.error("Missing group_spread: %s",e)
             sys.exit(1)
-        request= spinews_services.getGroupsRequest()
+        request= cerews_services.getGroupsRequest()
         request._accountspread= accountspread
         request._groupspread= groupspread
         request._incremental_from= incr_from
@@ -325,7 +325,7 @@ class Sync(object):
 
     def get_ous(self, incr_from=None, encode_to=None,
                 ou_xml_in=None, ou_xml_out=None, **kwargs):
-        request= spinews_services.getOUsRequest()
+        request= cerews_services.getOUsRequest()
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_ous,
@@ -337,7 +337,7 @@ class Sync(object):
                     person_xml_in=None, person_xml_out=None, **kwargs):
         personspread= personspread or \
             config.get("sync", "person_spread", allow_none=True)
-        request= spinews_services.getPersonsRequest()
+        request= cerews_services.getPersonsRequest()
         request._personspread= personspread
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
@@ -348,7 +348,7 @@ class Sync(object):
 
     def get_aliases(self, incr_from=None, encode_to=None,
                     alias_xml_in=None, alias_xml_out=None, **kwargs):
-        request= spinews_services.getAliasesRequest()
+        request= cerews_services.getAliasesRequest()
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_aliases,
@@ -358,7 +358,7 @@ class Sync(object):
        
     def get_homedirs(self, status, hostname, encode_to=None,
                      homedir_xml_in=None, homedir_xml_out=None, **kwargs):
-        request= spinews_services.getHomedirsRequest()
+        request= cerews_services.getHomedirsRequest()
         request._status= status
         request._hostname= hostname
         port= self._get_ceresync_port()
@@ -384,7 +384,7 @@ class Sync(object):
                 port.binding.IsSOAP = lambda: True
 
                 name = request.__class__.__name__.replace("Request_Holder", "Response")
-                response = getattr(spinews_services, name)
+                response = getattr(cerews_services, name)
                 return port.binding.Receive(
                     response.typecode)
 
@@ -399,7 +399,7 @@ class Sync(object):
             sys.exit(1)
 
     def set_homedir_status(self, homedir_id, status):
-        request= spinews_services.setHomedirStatusRequest()
+        request= cerews_services.setHomedirStatusRequest()
         request._homedir_id= homedir_id
         request._status= status
         port= self._get_ceresync_port()
