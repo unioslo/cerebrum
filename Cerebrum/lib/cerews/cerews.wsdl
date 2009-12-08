@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <wsdl:definitions
- targetNamespace="http://bas.ntnu.no/spinews.wsdl"
+ targetNamespace="http://bas.ntnu.no/cerews.wsdl"
  xmlns="http://schemas.xmlsoap.org/wsdl/"
  xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
  xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
- xmlns:ns1="http://bas.ntnu.no/spinews.wsdl">
+ xmlns:ns1="http://bas.ntnu.no/cerews.wsdl">
 
 <wsdl:types>
 
-<xs:schema targetNamespace="http://bas.ntnu.no/spinews.wsdl">
+<xs:schema targetNamespace="http://bas.ntnu.no/cerews.wsdl">
 
   <xs:complexType name="GroupType">
     <xs:sequence>
@@ -303,7 +303,7 @@
   <wsdl:part element="ns1:getChangelogidResponse" name="getChangelogidResponse"/>
 </wsdl:message>
 
-<wsdl:portType name="spinePortType">
+<wsdl:portType name="cerewsPortType">
 
 <wsdl:operation name="get_accounts">
 <wsdl:input message="ns1:getAccountsRequest" name="getAccountsRequest"/>
@@ -349,8 +349,8 @@
 </wsdl:portType>
 
 
-<wsdl:binding name="spineBinding"
-	      type="ns1:spinePortType">
+<wsdl:binding name="cerewsBinding"
+	      type="ns1:cerewsPortType">
   <wsdlsoap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
   
   <wsdl:operation name="get_accounts">
@@ -436,9 +436,9 @@
   
 </wsdl:binding>
 
-<wsdl:service name="spinews">
-  <wsdl:port binding="ns1:spineBinding" name="spinePort">
-    <wsdlsoap:address location="http://spine.itea.ntnu.no:8666/"/>
+<wsdl:service name="cerews">
+  <wsdl:port binding="ns1:cerewsBinding" name="cerewsPort">
+    <wsdlsoap:address location="http://cerews.ntnu.no:8666/"/>
   </wsdl:port>
 </wsdl:service>
 

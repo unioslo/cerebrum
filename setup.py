@@ -492,8 +492,8 @@ data_files = [
      []),
 ]
 
-wsdl2py('Cerebrum/lib/spinews/spinews.wsdl')
-wsdl2dispatch('Cerebrum/lib/spinews/spinews.wsdl')
+wsdl2py('Cerebrum/lib/cerews/cerews.wsdl')
+wsdl2dispatch('Cerebrum/lib/cerews/cerews.wsdl')
 
 
 setup (name = "Cerebrum", version = Cerebrum.__version__,
@@ -538,7 +538,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/modules/no/uit',
                    'Cerebrum/modules/no/uit/AutoStud',
                    'Cerebrum/lib',
-                   'Cerebrum/lib/spinews',
+                   'Cerebrum/lib/cerews',
                    'Cerebrum/client',
                    'Cerebrum/modules/LMS',
                    ],

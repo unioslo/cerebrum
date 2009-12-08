@@ -25,8 +25,8 @@ import cerebrum_path
 import cereconf
 
 import Cerebrum.lib
-from Cerebrum.lib.spinews.spinews_services import *
-from Cerebrum.lib.spinews.SignatureHandler import SignatureHandler
+from Cerebrum.lib.cerews.cerews_services import *
+from Cerebrum.lib.cerews.SignatureHandler import SignatureHandler
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import PermissionDenied
 
@@ -55,7 +55,7 @@ from Cerebrum.Entity import EntityQuarantine
 
 logger = Factory.get_logger("cerews")
 
-from Cerebrum.lib.spinews.dom import DomletteElementProxy
+from Cerebrum.lib.cerews.dom import DomletteElementProxy
 def elementproxy_patch():
     """
     Monkeypatches ZSI to use 4Suite instead of PyXML to write XML
