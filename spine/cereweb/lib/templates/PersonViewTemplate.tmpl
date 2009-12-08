@@ -90,44 +90,6 @@
     $widgets.viewInfo($info, $notice)
 #end def
 
-## List accounts and groups the accounts are member of.
-#def viewAccounts($person)
-<div class="list box">
-    <h3>$_('Accounts &amp; Groups')</h3>
-    <form action="accounts" method="post">
-        <input type="hidden" value="$person.id" name="owner_id" />
-        #for $account in $person.accounts
-
-        #if $account.is_primary
-        <div class="item primary">
-        #else
-        <div class="item">
-        #end if
-            <input type="checkbox" name="account_$account.id" />
-            <em>$_('Account'):</em>$account.name
-            $entity_link($account, "view", _class="action")
-            ## no point in checking unless we have a primary
-            #if $account.is_primary
-                <span class="extra">(primary)</span>
-            #end if
-            #if $account.is_posix
-                <span class="extra">(posix)</span>
-            #end if
-            #if $account.is_expired
-                <span class="extra">(expired)</span>
-            #end if
-        </div>
-        $listGroups($account)
-        #end for
-        
-        #if $person.accounts
-        <input type="submit" value="$_('Delete')" name="delete" />&#x0020;
-        #end if
-        <a href="/account/create?owner_id=$person.id">$_('create new account')</a>
-    </form>
-</div>
-#end def
-
 #def viewAffiliation($person)
 #if not $person.affiliations
     #return

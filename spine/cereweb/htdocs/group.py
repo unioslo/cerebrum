@@ -33,6 +33,7 @@ from Cerebrum.Errors import NotFoundError
 from Cerebrum.Database import IntegrityError
 
 from lib.data.EntityFactory import EntityFactory
+from lib.data.AccountDAO import AccountDAO
 from lib.data.GroupDAO import GroupDAO
 from lib.data.HistoryDAO import HistoryDAO
 from lib.data.ConstantsDAO import ConstantsDAO
@@ -48,12 +49,21 @@ def search(**vargs):
 search.exposed = True
 index = search
 
+def get_accounts(db, entity_id):
+    dao = AccountDAO(db)
+    accs = dao.get_by_owner_ids(entity_id)
+    accs = dao.get_accounts(*[a.id for a in accs])
+    for a in accs:
+       a.is_primary = False
+    return accs
+
 @session_required_decorator
 def view(id, **vargs):
     """Creates a page with the view of the group with the given id."""
     db = get_database()
     page = GroupViewTemplate()
     page.group = GroupDAO(db).get(id, include_extra=True)
+    page.group.accounts = get_accounts(db, id)
     page.group.traits = []
     page.group.history = HistoryDAO(db).get_entity_history_tail(id)
     page.visibilities = ConstantsDAO(db).get_group_visibilities()
