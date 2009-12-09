@@ -198,7 +198,11 @@ def make(name, description, expire):
     populate(group, name, description, expire)
 
     db = get_database()
-    GroupDAO(db).add(group)
+    try:
+        GroupDAO(db).add(group)
+    except Exception, e:
+        queue_message(e, error=True, title=_("Creation failed"))
+        return redirect('/group/create')
     db.commit()
 
     if not valid:

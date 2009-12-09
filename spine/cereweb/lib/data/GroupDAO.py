@@ -119,6 +119,9 @@ class GroupDAO(EntityDAO):
             raise PermissionDenied("No access to group")
 
         group = Group(self.db)
+        illegal_name = group.illegal_name(dto.name)
+        if illegal_name:
+            raise self.db.IntegrityError("Not a legal group-name")
         group.populate(
             self.db.change_by,
             self.constants.group_visibility_all,
