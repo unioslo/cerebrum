@@ -756,7 +756,7 @@ def authenticate(db, ps):
         operator_id = check_username_password(db, username, password)
     except AuthenticationError, e:
         logger.warning("Login failed for user=%s" % username)
-        raise e
+        raise
     return operator_id, username
 
 
@@ -781,11 +781,11 @@ def logmethod(requesttype):
             except PermissionDenied, e:
                 logger.warning("Authentication failed %s(%s) user=%s" % (
                         fn.__name__, args, user_name))
-                raise e
+                raise
             except Exception, e:
                 logger.warning("Operation failed %s(%s) user=%s: %s" % (
                         fn.__name__, args, user_name, repr(e)))
-                raise e
+                raise
             return result
         wrapper.__name__ = fn.__name__
         return wrapper
