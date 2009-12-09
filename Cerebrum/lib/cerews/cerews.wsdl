@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <wsdl:definitions
- targetNamespace="http://bas.ntnu.no/cerews.wsdl"
+ targetNamespace="http://bas.ntnu.no/spinews.wsdl"
  xmlns="http://schemas.xmlsoap.org/wsdl/"
  xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
  xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/"
  xmlns:xs="http://www.w3.org/2001/XMLSchema"
- xmlns:ns1="http://bas.ntnu.no/cerews.wsdl">
+ xmlns:ns1="http://bas.ntnu.no/spinews.wsdl">
 
 <wsdl:types>
 
-<xs:schema targetNamespace="http://bas.ntnu.no/cerews.wsdl">
+<xs:schema targetNamespace="http://bas.ntnu.no/spinews.wsdl">
 
   <xs:complexType name="GroupType">
     <xs:sequence>
@@ -438,7 +438,7 @@
 
 <wsdl:service name="cerews">
   <wsdl:port binding="ns1:cerewsBinding" name="cerewsPort">
-    <wsdlsoap:address location="http://cerews.ntnu.no:8666/"/>
+    <wsdlsoap:address location="https://bas.ntnu.no:8666/"/>
   </wsdl:port>
 </wsdl:service>
 
