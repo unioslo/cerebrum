@@ -754,6 +754,7 @@ def authenticate(db, ps):
     check_created(created)
     try:
         operator_id = check_username_password(db, username, password)
+        logger.info("Login succeeded for user=%s" % username)
     except AuthenticationError, e:
         logger.warning("Login failed for user=%s" % username)
         raise
