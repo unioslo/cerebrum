@@ -377,7 +377,7 @@ class WrapMeta(type):
                     wrapname = self.__wrap_name__ + repr(args[0])
                 else:
                     wrapname = self.__wrap_name__   
-                raise convertComError(e), wrapname
+                raise convertComError(e)(wrapname)
             return res
         return metawrapper       
     metawrap = staticmethod(metawrap)

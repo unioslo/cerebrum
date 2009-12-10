@@ -111,7 +111,7 @@ def main():
         adsibackend.ADGroup = lambda x: adsibackend.Group()
     else:
         log.debug("Using adsibackend")
-        import ceresync.backend.file as adsibackend
+        import ceresync.backend.adsi as adsibackend
 
     userAD = adsibackend.ADUser( config.get("ad_ldap","userdn") )
     groupAD = adsibackend.ADGroup( config.get("ad_ldap","groupdn") )

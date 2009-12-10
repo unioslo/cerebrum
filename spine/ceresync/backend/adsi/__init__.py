@@ -34,7 +34,7 @@ import win32pipe
 import time
 import StringIO
 import win32com.client
-from ceresync.sync import Pgp
+from ceresync.syncws import Pgp
 from ceresync import config
 
 log=config.logger
@@ -340,7 +340,6 @@ class ADUser(_ADAccount):
         """Update the ad_object, ad_obj, with the fields from the spine object,
            obj.
         """
-        ad_obj.userAccountControl= str2int(obj.control_flags)
         full_name= unicode(obj.full_name or obj.gecos or ' ', self.encoding)
         try: 
             first_name, last_name= full_name.rsplit(None,1)
@@ -353,16 +352,30 @@ class ADUser(_ADAccount):
         ad_obj.userPrincipalName= '%s@%s' % (obj.name,obj.domain)
         ad_obj.profilePath= obj.profilepath
         ad_obj.scriptPath= obj.scriptpath
-        if obj.passwd:
-            dec= Pgp().decrypt(obj.passwd)
-            try: 
-                log.info("Updating password on '%s'", obj.name)
-                ad_obj.setPassword(dec)
-            except Exception,e:
-                log.warning("Failed to set password on '%s': %s", obj.name, e) 
-        else:
+
+        password_ok = self._set_password(ad_obj, obj)
+        if not password_ok:
             log.warning("No password on %s.", obj.name)
+
         ad_obj.setInfo()
+        try:
+            ad_obj.userAccountControl= str2int(obj.control_flags)
+        except ad_errors.DSUnwillingToPerformError, e:
+            log.warning(
+                "Couldn't set userAccountControl for %s to %s" % (obj.name, obj.control_flags))
+
+    def _set_password(self, ad_obj, obj):
+        if not obj.passwd:
+            return False
+        
+        dec = Pgp().decrypt(obj.passwd)
+        try: 
+            log.info("Updating password on '%s'", obj.name)
+            ad_obj.setPassword(dec)
+            return True
+        except Exception,e:
+            log.warning("Failed to set password on '%s': %s", obj.name, e)
+            return False
 
     def update(self, obj):
         ad_obj = super(ADUser, self).update(obj)
