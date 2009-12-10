@@ -22,7 +22,7 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
-#attr $help = ["* Expire date: YYYY-MM-DD"]
+#attr $help = ["# Name: Legal chars are [a-zA-Z0-9_]. First char must be a letter. Min. length 3 and max. length 16.", "* Expire date: YYYY-MM-DD"]
 
 #def actions()
 <div id="actions">
@@ -36,7 +36,7 @@
 <h3>$_('Create a new group:')</h3>
     <form action="make" method="post">
         <div class="required">
-            $form_widgets.input("name", "Name", $data['name'])
+            $form_widgets.input("name", "Name #", $data['name'])
         </div>
         <div class="required">
             <label for="description">$_('Description'):</label>

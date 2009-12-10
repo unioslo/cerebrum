@@ -314,6 +314,7 @@
 #end def
 
 #def addQuarantine($entity, $quarantines)
+    #set help = ["* Format: YYYY-MM-DD"]
     #set all_quarantinenames = [$q.name for $q in $quarantines]
     #set entity_quarantinenames = [$q.type_name for $q in $entity.quarantines]
     #set $quarantines = [($qn, $qn) for $qn in $all_quarantinenames if $qn not in $entity_quarantinenames]
@@ -331,13 +332,14 @@
           <textarea name="why" rows="5" cols="40"></textarea>
 	</div>
 	<div class="optional">
-	  <label for="start">$_('Start date'):</label>
+	  <label for="start">$_('Start date') *:</label>
 	  <input class="date" type="text" name="start" size="10" />
 	</div>
 	<div class="optional">
-	  <label for="end">$_('End date'):</label>
+	  <label for="end">$_('End date') *:</label>
 	  <input class="date" type="text" name="end" size="10" />
 	</div>
+        $form_widgets.showHelp($help)
 	<div class="buttons">
           <input type="submit" value="$_('Add')" />&#x0020;
           <input type="button" value="$_('Cancel')" class="cancel" />

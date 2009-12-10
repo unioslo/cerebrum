@@ -57,6 +57,9 @@
         <form action="$form_action" method="$form_method">
             #for $field in $form_fields
                 #set $cls = $field['required'] and 'required' or 'optional'
+                #if $field.get('cls')
+                   #set $cls += " " + $field['cls']
+                #end if
                 <div class="$cls">
                     #if $field['type'] == 'select'
                         $render_select($field, $cls)

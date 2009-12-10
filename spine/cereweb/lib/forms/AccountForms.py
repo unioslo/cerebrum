@@ -56,6 +56,7 @@ class AccountCreateForm(Form):
             'required': False,
             'type': 'text',
             'quote': 'reject',
+            'help' : _("Legal chars are [a-zA-Z0-9]. First char must be a letter.  Max. length 8."),
         },
         'expire_date': {
             'label': _('Expire date'),
