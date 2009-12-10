@@ -3019,14 +3019,13 @@ Addresses and settings:
         if cereconf.INSTITUTION_DOMAIN_NAME == 'uio.no':
             if not target_only:
                 self._report_deleted_EA(deleted_EA)
-
-            br = BofhdRequests(self.db, self.const)
-            # IVR 2008-08-04 +1 hour to allow changes to spread to LDAP. This way
-            # we'll have a nice SMTP-error, rather than a confusing error burp
-            # from mailman.
-            br.add_request(op, DateTime.now() + DateTime.DateTimeDelta(0, 1),
-                           self.const.bofh_mailman_remove, list_id, None,
-                           listname)
+                br = BofhdRequests(self.db, self.const)
+                # IVR 2008-08-04 +1 hour to allow changes to spread to LDAP. This way
+                # we'll have a nice SMTP-error, rather than a confusing error burp
+                # from mailman.
+                br.add_request(op, DateTime.now() + DateTime.DateTimeDelta(0, 1),
+                               self.const.bofh_mailman_remove, list_id, None,
+                               listname)
 
         return result
     # end _email_delete_list
