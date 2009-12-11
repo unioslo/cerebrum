@@ -211,9 +211,10 @@
 #end def
 
 #def setPassword($account)
+#set help = ["Min. length 8 chars.  Must be different from the existing password. Legal chars: [a-z],[A-Z],[0-9] and [!#()*+,.=?@[]_{}~-]. Must contain at least 1 char from 3 of these 4 groups."]
 <div class="edit box">
     <h3>$_('Set Password')</h3>
-    $form_widgets.changePassword($account.id)
+    $form_widgets.changePassword($account.id, $help)
 </div>
 #end def
 

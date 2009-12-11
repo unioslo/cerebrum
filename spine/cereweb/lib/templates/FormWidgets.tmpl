@@ -130,7 +130,10 @@
 	#end for
 #end def
 
-#def changePassword($aid)
+#def changePassword($aid, $help)
+    #if $help
+        $showHelp($help)
+    #end if
 <form action="set_password" method="post">
     <div class="hidden">
         <input type="hidden" name="id" value="$aid" />
