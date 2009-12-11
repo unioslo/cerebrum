@@ -52,8 +52,8 @@
 #end def
 
 #def content()
-    $OuPerspectiveEditForm($ou.id).render()
     $viewInfo($ou)
+    $OuPerspectiveEditForm($ou.id).render()
     $viewQuarantines($ou)
     $addQuarantine($ou, $quarantines)
     $addNote($ou)
