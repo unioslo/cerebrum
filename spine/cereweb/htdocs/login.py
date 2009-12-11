@@ -36,7 +36,11 @@ import config
 
 import cereconf
 
+logger = None
+
 def login(**kwargs):
+    global logger
+    logger = Factory.get_logger("root")
     if 'msg' in kwargs:
         Messages.queue_message(
             title='No Title',
@@ -60,6 +64,7 @@ def login(**kwargs):
 login.exposed = True
 
 def try_login(username=None, password=None, **kwargs):
+    global logger
     if not username or not password:
         return False
 
@@ -72,11 +77,14 @@ def try_login(username=None, password=None, **kwargs):
         account.find_by_name(username)
         hash = account.get_account_authentication(method)
 
+        remote = cherrypy.request.headerMap.get("Remote-Addr", '')
         if not account.verify_password(method, password, hash):
+            logger.warn("Login failed for " + username + ". Remote-addr = " + remote)
             raise Exception("Login failed.")
 
         auth = BofhdAuth(db)
         if not auth.can_login_to_cereweb(account.entity_id):
+            logger.warn("Login failed for " + username + ". Not authorized. Remote-addr = " + remote)
             raise Exception("Login failed.")
 
     except Exception, e:
@@ -90,11 +98,14 @@ def try_login(username=None, password=None, **kwargs):
     return create_cherrypy_session(username)
 
 def create_cherrypy_session(username):
+    global logger
     cherrypy.session['username'] = username
     cherrypy.session['timeout'] = get_timeout()
     cherrypy.session['client_encoding'] = negotiate_encoding()
     cherrypy.session['spine_encoding'] = 'iso-8859-1'
     cherrypy.session['options'] = Options(username)
+    remote = cherrypy.request.headerMap.get("Remote-Addr", '')
+    logger.info("Login successful for " + username + ". Remote-addr = " + remote)
     return True
 
 def negotiate_encoding():
@@ -110,7 +121,11 @@ def negotiate_encoding():
     return charsets[0]
 
 def logout():
+    global logger
+    remote = cherrypy.request.headerMap.get("Remote-Addr", '')
+    username = cherrypy.session.get('username','')
     cherrypy.session.clear()
+    logger.info("Logout successful for " + username +". Remote-addr = " + remote)
     utils.redirect("/login")
 logout.exposed = True
 
