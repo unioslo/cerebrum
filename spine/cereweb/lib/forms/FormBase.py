@@ -51,7 +51,7 @@ class Form(object):
 
         for key, value in kwargs.items():
             kwargs[key] = web_to_spine(value)
-        return decoded_args, decoded_kwargs
+        return decoded_args, kwargs
 
     def __init__(self, *args, **kwargs):
         args, kwargs = self._web_to_spine(args, kwargs)
