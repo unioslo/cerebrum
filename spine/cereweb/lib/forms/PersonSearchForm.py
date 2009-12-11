@@ -23,7 +23,7 @@ from lib.forms.FormBase import SearchForm
 
 class PersonSearchForm(SearchForm):
     title = _('Search for Person')
-    action = '/search/person/'
+    action = '/person/search/'
 
     Order = [
         'name',

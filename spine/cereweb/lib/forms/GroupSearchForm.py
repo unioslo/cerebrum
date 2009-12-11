@@ -23,7 +23,7 @@ from lib.forms.FormBase import SearchForm
 
 class GroupSearchForm(SearchForm):
     title = _("Search for Groups")
-    action = '/search/group/'
+    action = '/group/search/'
 
     Order = [
         'name',

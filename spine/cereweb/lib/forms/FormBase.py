@@ -21,7 +21,7 @@
 import sys
 from gettext import gettext as _
 import cgi
-from lib.utils import legal_date
+from lib.utils import legal_date, web_to_spine
 
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.SearchTemplate import SearchTemplate
@@ -46,7 +46,16 @@ class Form(object):
     Order = []
     Fields = {}
 
+    def _web_to_spine(self, args, kwargs):
+        decoded_args = map(web_to_spine, args)
+
+        for key, value in kwargs.items():
+            kwargs[key] = web_to_spine(value)
+        return decoded_args, decoded_kwargs
+
     def __init__(self, *args, **kwargs):
+        args, kwargs = self._web_to_spine(args, kwargs)
+
         self.__request_values = kwargs.copy()
         self.fields = self.Fields.copy()
         self.order = self.Order[:] or self.fields.keys()
