@@ -81,6 +81,8 @@ class EphorteConstants(ConstantsBase):
     ephorte_perm_sd = _EphortePermTypeCode('SD', 'Disiplinærsaker studenter')
     ephorte_perm_ar = _EphortePermTypeCode('AR', 'Under arbeid')    
     ephorte_perm_pa = _EphortePermTypeCode('PA', 'Personalsaker AKAN')
+    # new permission, as requested by arkiv 2009-12-11
+    ephorte_perm_pa = _EphortePermTypeCode('FO', 'Forskningssaker')
     
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
