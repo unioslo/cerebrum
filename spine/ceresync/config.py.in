@@ -50,17 +50,22 @@ def syslog_to_unixsocket(sysloghandler):
     sysloghandler.address = myaddress
     sysloghandler.socket = mysocket
 
-_conf = ConfigParser.SafeConfigParser()
-confpath= os.environ.get("CERECONF_DIR", "@CONFDIR@")+'/'
-_conf.read((confpath+'sync.conf.template', confpath+'sync.conf'))
+confpath = os.environ.get("CERECONF_DIR", "@CONFDIR@")
 
-logging_ini= "@CONFDIR@"+"/logging.ini"   
+_conf = ConfigParser.SafeConfigParser()
+_conf.read((
+    os.path.join(confpath, 'sync.conf.template'),
+    os.path.join(confpath, 'sync.conf')
+))
+
+logging_ini = os.path.join(confpath, "logging.ini")
 if _conf.has_option('logging','ini_path'):
-    logging_ini= _conf.get('logging','ini_path')
+    logging_ini = _conf.get('logging','ini_path')
+
 logging.config.fileConfig(logging_ini)
-loggername= 'ceresync'       
+loggername = 'ceresync'       
 if _conf.has_option('logging','logger'):
-    loggername= _conf.get('logging','logger')
+    loggername = _conf.get('logging','logger')
                          
 logger= logging.getLogger(loggername)
 logger.name= os.path.basename(sys.argv[0])
