@@ -149,6 +149,9 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
                     $render_links($page)
                 </ul>
             </div>
+            #set realname = $cherrypy.session.get('realname', 'unknown')
+            #set account = $cherrypy.session.get('username', 'unknown')
+            <div class="loggedin">Logged in as: $account ($realname)</div>
             <div id="messages">
                 #for $message in $messages
                     $message

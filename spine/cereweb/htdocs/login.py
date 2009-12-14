@@ -22,6 +22,7 @@ import urllib
 import cherrypy
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
+from lib.data.AccountDAO import AccountDAO
 
 Database = Factory.get("Database")
 Account = Factory.get("Account")
@@ -99,6 +100,9 @@ def try_login(username=None, password=None, **kwargs):
 
 def create_cherrypy_session(username):
     global logger
+    db = Database()
+    acc = AccountDAO(db).get_by_name(username)
+    cherrypy.session['realname'] = acc.owner.name
     cherrypy.session['username'] = username
     cherrypy.session['timeout'] = get_timeout()
     cherrypy.session['client_encoding'] = negotiate_encoding()

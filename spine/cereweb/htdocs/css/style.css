@@ -50,6 +50,16 @@ h3 {
     width: 625px;
     overflow: visible;
 }
+#container div.loggedin {
+    font-weight: bold;
+    text-align: right;
+    color: #456;
+    font-size: 14px;
+    margin-top: 4px;
+    margin-bottom: 0px;
+    margin-right: 4px;
+}
+
 
 #messages div.error {
     color: red;
