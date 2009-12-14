@@ -463,7 +463,7 @@ def spine_to_web(string):
 
 def web_to_spine(string):
     if not string: return ''
-    return to_spine_encode(from_web_decode(string))
+    return to_spine_encode(from_web_decode(str(string)))
 
 def from_spine_decode(string):
     if not string: return ''
