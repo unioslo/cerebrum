@@ -117,7 +117,7 @@ def main():
     groupAD = adsibackend.ADGroup( config.get("ad_ldap","groupdn") )
 
     log.debug("Synchronizing accounts")
-    encoding= 'iso-8859-1'
+    encoding= 'utf-8'
     userAD.begin(encoding, incr, add, update, delete)
     for account in accounts:
         log.debug("Processing account '%s'", account.name)
