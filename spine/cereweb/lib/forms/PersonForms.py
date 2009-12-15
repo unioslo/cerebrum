@@ -32,7 +32,7 @@ from lib.data.PersonDAO import PersonDAO
 from lib.data.OuDAO import OuDAO
 
 class PersonCreateForm(Form):
-    action = '/person/create'
+    action = '/person/create/'
     title = _("Create new person")
 
     def init_form(self, *args, **kwargs):
@@ -139,7 +139,7 @@ class PersonCreateForm(Form):
                 'Registered by: %s on %s\n' % (username, create_date) + desc)
 
 class PersonEditForm(PersonCreateForm):
-    action = '/person/edit'
+    action = '/person/edit/'
 
     Order = [
         'id',
