@@ -84,25 +84,16 @@ class IncrementalError(Errors.CerebrumError):
     """Too large incremental range"""
 
 
-def search_persons(db, co, personspread=None, changelog_id=None):
-    select=["person_info.person_id AS id",
-            "person_info.export_id AS export_id",
-            "person_full_name.name AS full_name",
-            "person_first_name.name AS first_name",
-            "person_last_name.name AS last_name",
-            "person_work_title.name AS work_title",
-            
-            "contact_email.contact_value AS email",
-            "contact_url.contact_value AS url",
-            "contact_phone.contact_value AS phone",
+def search_persons(db, co, personspread=None, changelog_id=None,
+                   search_account_priority=False):
+    search_data=False
+    search_affiliations=False
+    search_accounts=False
+    if not search_account_priority:
+        search_data=True
 
-            "person_info.birth_date AS birth_date",
-            "person_nin.external_id AS nin",
-            "entity_address.address_text AS address_text",
-            "entity_address.postal_number AS postal_number",
-            "entity_address.city AS city"
-            ]
     tables=["person_info"]
+    select=["person_info.person_id AS id"]
     order_by=""
     binds={ "externalid_nin": co.externalid_fodselsnr,
             "nin_source": co.system_bdb,
@@ -122,6 +113,7 @@ def search_persons(db, co, personspread=None, changelog_id=None):
             "contact_post_address": co.address_post,
             }
             
+    where=["(person_info.deceased_date IS NULL)"]
         
 
     if changelog_id is not None:
@@ -138,7 +130,24 @@ def search_persons(db, co, personspread=None, changelog_id=None):
           AND person_spread.entity_id = person_info.person_id)""")
         binds["person_spread"] = personspread
 
-    tables.append("""LEFT JOIN entity_external_id person_nin
+    if search_data is not None:
+        select+=["person_info.export_id AS export_id",
+            "person_full_name.name AS full_name",
+            "person_first_name.name AS first_name",
+            "person_last_name.name AS last_name",
+            "person_work_title.name AS work_title",
+            
+            "contact_email.contact_value AS email",
+            "contact_url.contact_value AS url",
+            "contact_phone.contact_value AS phone",
+
+            "person_info.birth_date AS birth_date",
+            "person_nin.external_id AS nin",
+            "entity_address.address_text AS address_text",
+            "entity_address.postal_number AS postal_number",
+            "entity_address.city AS city"
+                 ]
+        tables.append("""LEFT JOIN entity_external_id person_nin
     ON (person_nin.entity_id = person_info.person_id
       AND person_nin.id_type = :externalid_nin
       AND person_nin.source_system = :nin_source )
@@ -183,7 +192,55 @@ def search_persons(db, co, personspread=None, changelog_id=None):
       AND entity_address.source_system = :address_source
       AND entity_address.address_type = :contact_post_address)""")
 
-    where=["(person_info.deceased_date IS NULL)"]
+    if search_affiliations:
+        select.append("person_affiliation.ou_id AS ou_id")
+        select.append("person_affiliation.affiliation AS affiliation")
+        select.append("account_type.priority AS priority")
+        tables.append("""JOIN person_affiliation person_affiliation
+          ON (person_affiliation.person_id = person_info.person_id)""")
+        tables.append("""LEFT JOIN account_type account_type
+          ON (account_type.person_id = person_info.person_id AND
+              account_type.ou_id = person_affiliation.ou_id AND
+              account_type.affiliation = person_affiliation.affiliation)""")
+
+    if search_account_priority:
+        binds["account_namespace"] = co.account_namespace
+        binds["authentication_method"] = co.auth_type_ssha
+        select.append("account_type.ou_id AS ou_id")
+        select.append("account_type.affiliation AS affiliation")
+        select.append("account_type.account_id AS account_id")
+        select.append("account_name.entity_name AS account_name")
+        select.append("account_type.priority AS priority")
+        select.append("account_authentication.auth_data AS account_passwd")
+        tables.append("""JOIN account_type account_type
+          ON (account_type.person_id = person_info.person_id)""")
+        tables.append("""JOIN entity_name account_name
+          ON (account_name.entity_id = account_type.account_id
+             AND account_name.value_domain = :account_namespace)""")
+        tables.append("""LEFT JOIN account_authentication
+          ON (account_authentication.method = :authentication_method
+             AND account_authentication.account_id = account_type.account_id)""")
+    if search_accounts:
+        binds["account_namespace"] = co.account_namespace
+        binds["authentication_method"] = co.auth_type_ssha
+        select.append("account_info.account_id AS account_id")
+        select.append("account_name.entity_name AS account_name")
+        select.append("account_type.priority AS priority")
+        select.append("account_authentication.auth_data AS account_passwd")
+        tables.append("""JOIN account_info account_info
+          ON (account_info.owner_id = person_info.person_id)""")
+        tables.append("""LEFT JOIN account_type account_type
+          ON (account_type.person_id = person_info.person_id AND
+            account_type.account_id = account_info.account_id)""")
+        tables.append("""JOIN entity_name account_name
+          ON (account_name.entity_id = account_info.account_id
+             AND account_name.value_domain = :account_namespace)""")
+        tables.append("""LEFT JOIN account_authentication
+          ON (account_authentication.method = :authentication_method
+             AND account_authentication.account_id = account_info.account_id)""")
+        where.append("""(account_info.expire_date > now()
+              OR account_info.expire_date IS NULL)""")
+
     sql = "SELECT " + ",\n".join(select)
     sql += " FROM " + "\n".join(tables)
     sql += " WHERE " + " AND ".join(where)
@@ -996,11 +1053,29 @@ class cerews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._person = []
         
+        
+        account_priorities={}
+        for row in search_persons(db, co, personspread, incremental_from,
+                                  search_account_priority=True):
+            account_priorities.setdefault(row['id'], {})[row['priority']]=row
+            
         q=quarantines(db, co)
         for row in search_persons(db, co, personspread, incremental_from):
             p=PersonDTO(row, atypes)
             p._quarantine = q.get_quarantines(row['id'])
-            response._person.append(p)
+            my_account_priorities = account_priorities.get(row['id'])
+            if my_account_priorities is not None:
+                primary_prio = min(my_account_priorities.keys())
+                primary = my_account_priorities[primary_prio]
+                p._attrs['primary_account'] = primary['account_id']
+                p._attrs['primary_account_name'] = primary['account_name']
+                p._attrs['primary_account_password'] = primary['account_passwd']
+                p._attrs['primary_affiliation'] = str(co.PersonAffiliation(primary['affiliation']))
+                p._attrs['primary_ou'] = primary['ou_id']
+                p._affiliation = [str(co.PersonAffiliation(ap['affiliation']))
+                                  for ap in my_account_priorities.values()]
+                p._ou = [ap['ou_id'] for ap in my_account_priorities.values()]
+                response._person.append(p)
         db.rollback()
 
         return response
@@ -1045,6 +1120,7 @@ def test_soap(fun, cl, **kw):
 
 def test():
     sp=cerews()
+    print test_soap(sp.get_persons, getPersonsRequest)
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
                     homedir_id=85752, status="not_created")
     print test_soap(sp.get_ous, getOUsRequest)
@@ -1057,7 +1133,6 @@ def test():
                     hostname="jak.itea.ntnu.no", status="not_created")
     print test_soap(sp.get_persons, getPersonsRequest,
                     person_spread="group@ntnu")
-    print test_soap(sp.get_persons, getPersonsRequest)
     print test_soap(sp.get_changelogid, getChangelogidRequest)
     print test_soap(sp.get_ous, getOUsRequest)
 

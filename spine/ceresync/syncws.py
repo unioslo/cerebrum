@@ -178,7 +178,7 @@ class Person(Entity):
         "last_name", "full_name", "display_name", "work_title", 
         "primary_account", "primary_account_name",
         "primary_account_password", "email", "address_text", "city",
-        "postal_number", "phone", "url",
+        "postal_number", "phone", "url", "primary_affiliation"
     ]
     lists= { 
         "_quarantine": "quarantines", 

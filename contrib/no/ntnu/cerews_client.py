@@ -299,7 +299,7 @@ def test_persons():
                 f.write('Norwegian chars')
         f.write(':')
         if pers.primary_account:
-            f.write(pers.primary_account)
+            f.write(str(pers.primary_account))
         f.write(':')
         if pers.primary_account_name:
             f.write(pers.primary_account_name)
