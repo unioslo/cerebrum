@@ -12,6 +12,7 @@ import random
 import cyruslib
 import cyrusconf
 from ceresync import config
+from sets import Set as set
 
 log= config.logger
 
@@ -22,7 +23,7 @@ class _Dummy(object):
 class CyrusConnectError(Exception):
     pass
 
-class Account:
+class Account(object):
     """
     Wrapper-class for talking to a Cyrus-backend. 
     Initiate connection with self.begin() and close
@@ -36,25 +37,26 @@ class Account:
     All configuration is stored in cyrusconf.py
     """
 
-    def __init__(self,verbose=True):
-        self.verbose=verbose
+    def __init__(self, verbose=False):
+        self.verbose = verbose
 
-    def begin(self,incr=False):
+        self.group = cyrusconf.default_group
+        self.default_quota = cyrusconf.default_quota 
+        self.default_acl = cyrusconf.default_acl 
+        self.user_quota = cyrusconf.user_quota
+        self.backends = cyrusconf.backends
+        self.partitions = cyrusconf.partitions
+
+        self._conns = {}
+
+    def begin(self, incr=False):
         """
         Initiation-method. Must be called first after __init__()
         and before add(args),update(args) etc
         """
         self.incr = incr
         if not self.incr:
-            self._in_sync = sets.Set() # placeholder for synced objects
-        self.group = cyrusconf.default_group
-        self.default_quota = cyrusconf.default_quota 
-        self.default_acl = cyrusconf.default_acl 
-
-        self.user_quota = cyrusconf.user_quota
-        self.backends = cyrusconf.backends
-        self.partitions = cyrusconf.partitions
-        self._conns = {}
+            self._in_sync = set() # placeholder for synced objects
         for auth in self.backends:
             # Fetch an authenticated imap-object
             my_auth = self.connect(hostname=auth)
@@ -69,28 +71,28 @@ class Account:
         items = self.partitions.keys()
         return random.choice(items)
 
-    def _exists(self,username):
+    def _exists(self, username):
         backends = self._conns.keys()
         if len(backends) < 1:
             raise CyrusConnectError
         for backend in backends:
             users = self._conns[backend].get("users")
             if username in users: 
-                return (True,backend)
-        return (False,'')
+                return (True, backend)
+        return (False, '')
 
-    def connect(self,hostname=None,username=None,as_admin=True):
+    def connect(self, hostname=None, username=None, as_admin=True):
         conn = cyruslib.CYRUS(host=hostname)
         if self.verbose:
             conn.verbose = True
-        conn.login(cyrusconf.binduser,cyrusconf.bindpw)
+        conn.login(cyrusconf.binduser, cyrusconf.bindpw)
         return conn
 
     def close(self, allow_delete=True):
         """
         Close all connections to all Cyrus-backends
         """
-        if not self.incr :
+        if not self.incr:
             if allow_delete:
                 log.info('Removing users not in cerebrum')
                 self.syncronize()
@@ -105,15 +107,11 @@ class Account:
         Remove/disable mailboxes that shouldn't be here anymoe
         """
         if not self.incr:
-            cur_users = sets.Set()
-            to_be_deleted = sets.Set()
+            cur_users = set()
             for backend in self._conns.keys():
                 cur_users.union_update(self._conns[backend].get("users"))
             # Get a list from cur_users not in _in_sync
-            for user in cur_users:
-                if user not in self._in_sync:
-                    to_be_deleted.add(user)
-            for user in to_be_deleted:
+            for user in cur_users - self._in_sync:
                 self.delete(_Dummy(user))
         else:
             return
@@ -122,7 +120,6 @@ class Account:
         """
         Close ongoing operations and disconnect from server
         """
-        print "Not applicable for this backend"
         return
 
     def _get_quota(self,obj):
@@ -139,13 +136,14 @@ class Account:
             quota = self.default_quota
         return quota
 
-    def add(self, obj, update_if_exists=True):
+    def add(self, obj, allow_add=True, allow_update=True):
         """
         Add a user to Cyrus-backend. Duh!
         """
         exists,host = self._exists(obj.name)
-        if exists and update_if_exists:
-            self.update(obj)
+        if exists:
+            if allow_update:
+                self.update(obj)
         else:
             part = self._get_partition()
             host = self.partitions[part].get("host")
@@ -168,7 +166,7 @@ class Account:
                 self._in_sync.add(obj.name)
             return True
 
-    def update(self,obj):
+    def update(self, obj):
         """
         Since passwords are handled by Kerberos, only thing
         update will do, is to set ACL and quota
@@ -179,8 +177,6 @@ class Account:
             try:
                 # Update quota
                 co.sq(self.group,obj.name,self._get_quota(obj))
-                # Update ACL
-                co.sam(self.group,obj.name,'cyrproxy',cyrusconf.default_acl)
                 if not self.incr:
                     self._in_sync.add(obj.name)
                 return True
@@ -188,14 +184,14 @@ class Account:
                 print "Error occured while update quota and ACL for %s. Reason: %s" % (obj.name,str(e))
                 return False
 
-    def delete(self,obj=None,really_delete=False):
+    def delete(self, obj=None, really_delete=False):
         """
         Deletes a mailbox owned by <obj>.name in group self.group
         """
-        exists,host = self._exists(obj.name)
+        exists, host = self._exists(obj.name)
         if exists:
             co = self._conns[host].get("auth")
-            co.sam(self.group,obj.name,co.admin,co.admin_acl) # Needed to delete a mailbox
+            co.sam(self.group, obj.name, co.admin, co.admin_acl) # Needed to delete a mailbox
             mailbox_pattern = cyrusconf.default_group + co.sep + obj.name + co.sep + '*'
             status, mailboxes = co.m.list(pattern=mailbox_pattern)
             if status == 'OK':

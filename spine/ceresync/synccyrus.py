@@ -19,11 +19,11 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sync
-import backend.cyrus
-import config
+from ceresync import syncws as sync
+from ceresync import config
 import os
-from sys import exit
+import sys
+import socket
 
 try:
     set()
@@ -32,89 +32,106 @@ except:
 
 log = config.logger
 
-spine_cache= "/var/cache/cerebrum/spine_cyrus_lastupdate"
+changelog_file = config.get("sync","changelog_file",
+                            default="/var/lib/cerebrum/lastchangelog.id")
+
+def load_changelog_id():
+    local_id = 0
+    if os.path.isfile(changelog_file):
+        local_id = long(open(changelog_file.read()))
+        log.debug("Loaded changelog-id %ld", local_id)
+    else:
+        log.debug("Default changelog-id %ld", local_id)
+    return local_id
+
+def save_changelog_id(server_id):
+    log.debug("Storing changelog-id %ld", server_id)
+    open(changelog_file, 'w').write(str(server_id))
+
+def set_incremental_options(options, incr, server_id):
+    if not incr:
+        return
+
+    local_id = load_changelog_id()
+    log.debug("Local id: %ld, server id: %ld", local_id, server_id)
+    if local_id > server_id:
+        log.warning("Local changelog-id is greater than the server's!")
+    elif local_id == server_id:
+        log.debug("No changes to apply. Quiting.")
+        sys.exit(0)
+
+    options['incr_from'] = local_id
+
+def set_encoding_options(options, config):
+    options['encode_to'] = 'utf-8'
 
 def main():
-    config.parse_args(config.make_bulk_options())
+    options = config.make_bulk_options() + config.make_testing_options()
+    config.parse_args(options)
 
     incr   = config.getboolean('args', 'incremental', allow_none=True)
-    add    = config.getboolean('args', 'add')
-    update = config.getboolean('args', 'update')
-    delete = config.getboolean('args', 'delete')
+    add    = incr or config.getboolean('args', 'add')
+    update = incr or config.getboolean('args', 'update')
+    delete = incr or config.getboolean('args', 'delete')
+    using_test_backend = config.getboolean('args', 'use_test_backend')
 
     if incr is None:
         log.error("Invalid arguments: You must provide either the --bulk or the --incremental option")
-        exit(1)
+        sys.exit(1)
 
-    if config.get('args', 'verbose'):
-        verbose = True
-        backend.cyrus.verbose = True
-
-    local_id= 0
-    if os.path.isfile(spine_cache):
-        local_id= long( file(spine_cache).read() )
-    print "Local changelog-id:",local_id
     try:
-        s = sync.Sync(incr,local_id)
+        s = sync.Sync(locking=not using_test_backend)
+        server_id = s.get_changelogid()
     except sync.AlreadyRunningWarning, e:
         log.warning(str(e))
-        exit(1)
+        sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
-        exit(1)
-    server_id= s.cmd.get_last_changelog_id()
-    print "Server changelog-id:",server_id
+        sys.exit(1)
+    except socket.error, e:
+        log.error("Unable to connect to web service: %s", e)
+        sys.exit(1)
 
-    if local_id >= server_id:
-        print "Nothing to be done."
-        return
+    sync_options = {}
+    set_incremental_options(sync_options, incr, server_id)
+    config.set_testing_options(sync_options)
+    set_encoding_options(sync_options, config)
 
-    cyrus = backend.cyrus.Account()
-    cyrus.begin(incr)
-    print "Fetch all accounts from Spine"
-    try: all_accounts= list(s.get_accounts())
-    except Exception,e:
-        print "Exception '%s' occured, aborting" % e
-        s.close()
-        exit(1)
-    s.close()
-    print "Done fetching accounts"
+    try:
+        log.debug("Getting accounts with arguments %s", str(sync_options))
+        accounts = s.get_accounts(**sync_options)
+    except:
+        log.exception("Exception occured. Aborting.")
+        sys.exit(1)
 
-    if incr:
-        print "Synchronizing users (incr) to changelog",server_id
-        try:
-            processed= set([])
-            for account in all_accounts:
-                if account.name not in processed:
-                    cyrus.add(account)
-                    processed.add(account.name)
-        except Exception,e:
-            print "Exception '%s' occured, aborting" % e
-            cyrus.close()
-            exit(1)
-        else:
-            cyrus.close()
-        
-        file(spine_cache, 'w').write( str(server_id) )
+    if using_test_backend:
+        import ceresync.backend.test as cyrusbackend
     else:
-        print "Synchronizing users (bulk) to changelog",server_id
-        print "Options:",add and "add" or "", update and "update" or "",
-        print delete and "delete" or ""
-        try:
-            for account in all_accounts:
+        import ceresync.backend.cyrus as cyrusbackend
+
+    cyrus = cyrusbackend.Account()
+    cyrus.begin(incr)
+
+    mode = incr and "incr" or "bulk"
+    log.debug("Synchronizing users (%s) to changelog-id %ld", mode, server_id)
+    log.debug("Options add: %d, update: %d, delete: %d", add, update, delete)
+
+    try:
+        for account in accounts:
+            if hasattr(account, "deleted") and account.deleted:
+                cyrus.delete(account)
+            else:
                 cyrus.add(account)
-        except Exception, e:
-            print "Exception %s occured, aborting" % e
-            cyrus.close()
-            exit(1)
-        else:
-            cyrus.close(delete)
-        # If we did a full bulk sync, we should update the changelog-id
-        if add and update and delete:
-            file(spine_cache, 'w').write( str(server_id) )
-    
-    print "Synchronization completed successfully"
-        
+    except:
+        log.exception("Exception occured, aborting")
+        cyrus.close(False)
+        sys.exit(1)
+    else:
+        cyrus.close(delete)
+
+    if not cyrus.dryrun and add and update and delete:
+        save_changelog_id(server_id)
+    log.info("Synchronization completed successfully")
 
 if __name__ == "__main__":
     main()
