@@ -26,6 +26,7 @@ from gettext import gettext as _
 from lib.utils import queue_message, redirect_entity, entity_link
 from lib.utils import redirect, get_database
 from lib.utils import web_to_spine, session_required_decorator
+from lib.utils import is_correct_referer, get_referer_error
 from lib.GroupSearcher import GroupSearcher
 from lib.templates.GroupViewTemplate import GroupViewTemplate
 from lib.templates.GroupCreateTemplate import GroupCreateTemplate
@@ -76,6 +77,9 @@ view.exposed = True
 
 @session_required_decorator
 def join_group(entity_id, group_name, selected_id=None, **kwargs):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Join group failed')
+        redirect_entity(entity_id)
     db = get_database()
     dao = GroupDAO(db)
 
@@ -98,6 +102,9 @@ join_group.exposed = True
 @session_required_decorator
 def add_member(group_id, account_member_name, group_member_name, member_type, selected_id, **kwargs):
     """Add a member to a group."""
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Add member failed')
+        redirect_entity(group_id)
     db = get_database()
 
     member_name = "[unknown]"
@@ -164,6 +171,10 @@ create.exposed = True
 
 @session_required_decorator
 def save(id, name, expire, description, visi, gid=None):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title=_("Save failed"))
+        return redirect_entity(group.id)
+        
     valid, error_msg = validate(name, description, expire)
 
     if not valid:
@@ -189,6 +200,10 @@ save.exposed = True
 @session_required_decorator
 def make(name, description, expire):
     """Performs the creation towards the server."""
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title=_("Creation failed"))
+        return redirect('/group/create')
+        
     valid, error_msg = validate(name, description, expire)
     if not valid:
         queue_message(error_msg, error=True, title=_("Creation failed"))

@@ -26,6 +26,7 @@ from lib.utils import spine_to_web, web_to_spine
 from lib.utils import session_required_decorator
 from lib.utils import get_database, queue_message
 from lib.utils import url_quote, entity_link
+from lib.utils import is_correct_referer, get_referer_error
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.DiskDAO import DiskDAO
 from lib.data.HistoryDAO import HistoryDAO
@@ -76,7 +77,10 @@ def edit(id, *args, **kwargs):
     """
     form = HostEditForm(id, *args, **kwargs)
     if form.is_correct():
-        return save(**form.get_values())
+        if is_correct_referer():
+            return save(**form.get_values())
+        else:
+            queue_message(get_referer_error(), error=True, title='Edit host failed')
     return form.respond()
 edit.exposed = True
 
@@ -85,7 +89,10 @@ def create(*args, **kwargs):
     """Creates a page with the form for creating a host."""
     form = HostCreateForm(*args, **kwargs)
     if form.is_correct():
-        return make(**form.get_values())
+        if is_correct_referer():
+            return make(**form.get_values())
+        else:
+            queue_message(get_referer_error(), error=True, title='Create host failed')
     return form.respond()
 create.exposed = True
 

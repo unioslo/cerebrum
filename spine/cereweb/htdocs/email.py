@@ -23,6 +23,7 @@ from lib.utils import queue_message, redirect
 from lib.utils import session_required_decorator
 from lib.utils import web_to_spine, get_database
 from lib.utils import redirect_entity
+from lib.utils import is_correct_referer, get_referer_error
 from lib.data.EmailDomainDAO import EmailDomainDAO
 from lib.data.EmailAddressDAO import EmailAddressDAO
 from lib.EmailDomainSearcher import EmailDomainSearcher
@@ -41,7 +42,10 @@ def create(**kwargs):
     """Creates a page with the form for creating a disk."""
     form = EmailDomainCreateForm(**kwargs)
     if form.is_correct():
-        return make(**form.get_values())
+        if is_correct_referer():
+            return make(**form.get_values())
+        else:
+            queue_message(get_referer_error(), error=True, title='Create failed')
     return form.respond()
 create.exposed = True
 
@@ -50,7 +54,10 @@ def edit(**kwargs):
     """Creates a page with the form for creating a disk."""
     form = EmailDomainEditForm(**kwargs)
     if form.is_correct():
-        return save(**form.get_values())
+        if is_correct_referer():
+            return save(**form.get_values())
+        else:
+            queue_message(get_referer_error(), error=True, title='Edit failed')
     return form.respond()
 edit.exposed = True
 

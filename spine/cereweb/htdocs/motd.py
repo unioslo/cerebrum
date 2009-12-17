@@ -27,6 +27,7 @@ from lib import utils
 from lib.utils import queue_message
 from lib.utils import redirect
 from lib.utils import session_required_decorator
+from lib.utils import is_correct_referer, get_referer_error
 from lib.data.MotdDAO import MotdDAO
 from lib.Main import Main
 from lib.templates.MotdTemplate import MotdTemplate
@@ -69,6 +70,10 @@ all.exposed = True
 
 @session_required_decorator
 def save(id=None, subject=None, message=None):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Save message failed')
+        redirect('/index')
+        
     db = utils.get_database()
     dao = MotdDAO(db)
 
@@ -92,6 +97,10 @@ save.exposed = True
 
 @session_required_decorator
 def edit(id=None):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), title=_("Change failed"), error=True)
+        redirect('/index')
+        
     motd = _get_motd(id)
     if motd is None:
         msg = _("Couldn't find existing motd.");

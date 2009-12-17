@@ -23,6 +23,7 @@ from lib.utils import redirect
 from lib.utils import queue_message, session_required_decorator
 from lib.utils import web_to_spine, get_database
 from lib.utils import parse_date, redirect_entity
+from lib.utils import is_correct_referer, get_referer_error
 from lib.forms import EmailAddressEditForm, EmailAddressCreateForm
 from lib.data.EmailTargetDAO import EmailTargetDAO
 from lib.data.EmailAddressDAO import EmailAddressDAO
@@ -45,7 +46,11 @@ def create(*args, **kwargs):
     """
     form = EmailAddressCreateForm(*args, **kwargs)
     if form.is_correct():
-        return make(**form.get_values())
+        if is_correct_referer():
+            return make(**form.get_values())
+        else:
+            queue_message(get_referer_error(), error=True, title='Create emailaddress failed')
+            redirect_entity(form.get('target_id'))
     return form.respond()
 create.exposed = True
 
@@ -64,6 +69,9 @@ delete.exposed = True
 
 def save(target_id, **kwargs):
     """Saves the information for the host."""
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Save failed')
+        redirect_entity(target_id)
     db = get_database()
     dao = EmailTargetDAO(db)
 

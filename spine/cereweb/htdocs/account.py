@@ -41,7 +41,7 @@ from lib.data.PersonDAO import PersonDAO
 from lib.data.DTO import DTO
 from lib.data.EntityFactory import EntityFactory
 
-from lib.utils import get_database
+from lib.utils import get_database, is_correct_referer, get_referer_error
 from lib.Error import CreationFailedError
 
 @session_required_decorator
@@ -79,7 +79,12 @@ def create(owner_id=None, **kwargs):
 
     if form.is_correct():
         try:
-            return make(owner, **form.get_values())
+            if is_correct_referer():
+                make(owner, **form.get_values())
+            else:
+                queue_message(get_referer_error(), error=True, title="Account not created")
+                redirect_entity(owner_id)
+                
         except CreationFailedError, e:
             queue_message(e.message, title=_("Creation failed"), error=True, tracebk=e)
     return form.respond()
@@ -145,6 +150,9 @@ def join_primary_group(db, account, **kwargs):
 
 def set_account_password(db, account, **kwargs):
     # We've already verified that password0 == password1.
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Change password failed')
+        redirect_entity(account.id)
     password = kwargs.get('password0')
 
     if not password:
@@ -189,6 +197,9 @@ view.exposed = True
 
 def save(**kwargs):
     account_id = kwargs.get('id')
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Update account failed')
+        redirect_entity(account_id)
     db = get_database()
     dao = AccountDAO(db)
     dto = dao.get(account_id)
@@ -285,6 +296,9 @@ delete.exposed = True
 @session_required_decorator
 def leave_groups(account_id, **checkboxes):
     """Removes 'account_id' from group checked in 'checkboxes'."""
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Leave groups failed')
+        redirect_entity(account_id)
     db = get_database()
     dao = GroupDAO(db)
 
@@ -303,6 +317,9 @@ leave_groups.exposed = True
 
 @session_required_decorator
 def set_home(account_id, spread_id, disk_id, path):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Set home failed directory failed')
+        redirect_entity(account_id)
     disk_id = disk_id or None
     path = path or None
 
@@ -330,6 +347,9 @@ remove_home.exposed = True
 
 @session_required_decorator
 def set_password(id, passwd1, passwd2):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Set password failed')
+        redirect_entity(id)
     if passwd1 != passwd2:
         queue_message(_("Passwords does not match."), title=_("Change failed"), error=True)
         redirect_entity(id)
@@ -346,6 +366,9 @@ set_password.exposed = True
 
 @session_required_decorator
 def add_affil(account_id, aff_ou, priority):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Add affiliation failed')
+        redirect_entity(account_id)
     aff_id, ou_id = aff_ou.split(":", 2)
 
     db = get_database()

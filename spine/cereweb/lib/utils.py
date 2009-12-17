@@ -37,6 +37,30 @@ Database = Utils.Factory.get("Database")
 from lib.data.AccountDAO import AccountDAO
 from lib.data.EntityFactory import EntityFactory
 
+def get_referer():
+    return cherrypy.request.headers.get('Referer','')
+    
+def get_host():
+    return cherrypy.request.headers.get('Host', '')
+
+def get_method():
+    return cherrypy.request.method.strip()
+
+def get_referer_error():
+    return 'Somebody is trying to do something nasty.  Referer from: %s' % get_referer()
+
+def is_correct_referer():
+    approved = False
+    if 'POST' == get_method():
+        ref_loc = urlparse.urlparse(get_referer()).netloc
+        hostname = get_host()
+        if hostname and ref_loc:
+            if ref_loc.startswith(hostname, 0, len(hostname)):
+                approved = True
+    else:
+        approved = True
+    return approved
+
 def clean_url(url):
     """Make sure the url doesn't point to a different server."""
     if not url:
@@ -457,13 +481,20 @@ def get_client_encoding():
     if is_ajax_request(): return "utf-8"
     return cherrypy.session['client_encoding']
 
+def can_decode_encode(string):
+    return hasattr(string, 'decode') and hasattr(string, 'encode')
+    
 def spine_to_web(string):
     if not string: return ""
-    return to_web_encode(from_spine_decode(html_quote(string)))
+    if can_decode_encode(string):
+        return to_web_encode(from_spine_decode(html_quote(string)))
+    return string
 
 def web_to_spine(string):
     if not string: return ''
-    return to_spine_encode(from_web_decode(str(string)))
+    if can_decode_encode(string):
+        return to_spine_encode(from_web_decode(string))
+    return string
 
 def from_spine_decode(string):
     if not string: return ''

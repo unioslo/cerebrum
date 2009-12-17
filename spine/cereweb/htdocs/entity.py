@@ -25,6 +25,7 @@ from lib.utils import redirect_entity
 from lib.utils import entity_link, queue_message
 from lib.utils import web_to_spine, spine_to_web
 from lib.utils import get_database, session_required_decorator
+from lib.utils import is_correct_referer, get_referer_error
 from lib.templates.EntityViewTemplate import EntityViewTemplate
 from lib.data.EntityFactory import EntityFactory
 from lib.data.HistoryDAO import HistoryDAO
@@ -37,6 +38,9 @@ view.exposed = True
 
 @session_required_decorator
 def add_external_id(id, external_id, id_type):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Adding external id failed')
+        redirect_entity(id)
     if not external_id:
         queue_message('External identifier is empty.  Identifier not set.', error=True)
         redirect_entity(id)
@@ -68,6 +72,10 @@ remove_external_id.exposed = True
 
 @session_required_decorator
 def add_spread(id, spread):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Adding spread failed')
+        redirect_entity(id)
+        
     db = get_database()
     dao = EntityFactory(db).get_dao_by_entity_id(id)
     dao.add_spread(id, spread)
@@ -92,6 +100,10 @@ remove_spread.exposed = True
 
 @session_required_decorator
 def add_quarantine(id, quarantine, why="", start="", end="", disable_until=""):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Adding quarantine failed')
+        redirect_entity(id)
+        
     db = get_database()
     dao = EntityFactory(db).get_dao_by_entity_id(id)
 
@@ -143,7 +155,11 @@ def add_note(entity_id, **kwargs):
     """Adds a note to some entity."""
     form = NoteCreateForm(entity_id, **kwargs)
     if form.is_correct():
-        return make_note(**form.get_values())
+        if is_correct_referer():
+            return make_note(**form.get_values())
+        else:
+            queue_message(get_referer_error(), error=True, title="Note not created")
+            redirect_entity(entity_id)
     return form.respond()
 add_note.exposed = True
 

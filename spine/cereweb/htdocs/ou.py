@@ -72,7 +72,10 @@ view.exposed = True
 def edit(id, **kwargs):
     form = OuEditForm(id, **kwargs)
     if form.is_correct():
-        return save(**form.get_values())
+        if utils.is_correct_referer():
+            return save(**form.get_values())
+        else:
+            utils.queue_message(utils.get_referer_error(), error=True, title='Edit OU failed')
     return form.respond()
 edit.exposed = True
 
@@ -80,7 +83,10 @@ edit.exposed = True
 def create(**kwargs):
     form = OuCreateForm(**kwargs)
     if form.is_correct():
-        return make(**form.get_values())
+        if utils.is_correct_referer():
+            return make(**form.get_values())
+        else:
+            utils.queue_message(utils.get_referer_error(), error=True, title='Create OU failed')
     return form.respond()
 create.exposed = True
 
@@ -147,7 +153,11 @@ def save(
 def edit_perspectives(id, **kwargs):
     form = OuPerspectiveEditForm(id, **kwargs)
     if form.is_correct():
-        return save_perspective(**form.get_values())
+        if utils.is_correct_referer():
+            return save_perspective(**form.get_values())
+        else:
+            utils.queue_message(utils.get_referer_error(), error=True, title="Edit OU failed")
+            
     return form.respond()
 edit_perspectives.exposed = True
 

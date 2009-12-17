@@ -21,6 +21,7 @@
 from gettext import gettext as _
 from lib.utils import queue_message, session_required_decorator
 from lib.utils import redirect, get_database, redirect_entity
+from lib.utils import is_correct_referer, get_referer_error
 
 from lib.templates.EmailTargetViewTemplate import EmailTargetViewTemplate
 from lib.forms import EmailTargetEditForm, EmailTargetCreateForm
@@ -45,7 +46,10 @@ def edit(*args, **kwargs):
     """
     form = EmailTargetEditForm(*args, **kwargs)
     if form.is_correct():
-        return save(**form.get_values())
+        if is_correct_referer():
+            return save(**form.get_values())
+        else:
+            queueu_message(get_referer_error(), error=True, title='Edit failed')
     return form.respond()
 edit.exposed = True
 
@@ -56,7 +60,10 @@ def create(*args, **kwargs):
     """
     form = EmailTargetCreateForm(*args, **kwargs)
     if form.is_correct():
-        return make(**form.get_values())
+        if is_correct_referer():
+            return make(**form.get_values())
+        else:
+            queueu_message(get_referer_error(), error=True, title='Create failed')
     return form.respond()
 create.exposed = True
 

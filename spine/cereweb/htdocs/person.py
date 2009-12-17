@@ -28,7 +28,7 @@ from gettext import gettext as _
 from mx import DateTime
 from lib.utils import strftime, unlegal_name
 from lib.utils import queue_message, redirect
-from lib.utils import randpasswd
+from lib.utils import randpasswd, is_correct_referer, get_referer_error
 from lib.utils import spine_to_web, web_to_spine
 from lib.utils import from_spine_decode, session_required_decorator
 from lib.utils import get_database, parse_date, redirect_entity
@@ -76,7 +76,10 @@ def edit(id, **kwargs):
     """Creates a page with the form for editing a person."""
     form = PersonEditForm(id, **kwargs)
     if form.is_correct():
-        return save(**form.get_values())
+        if is_correct_referer():
+            return save(**form.get_values())
+        else:
+            queue_message(get_referer_error(), error=True, title='Not saved.')
     return form.respond()
 edit.exposed = True
 
@@ -86,12 +89,16 @@ def create(**kwargs):
     form = PersonCreateForm(**kwargs)
     if form.is_correct():
         try:
-            return make(**form.get_values())
+            if is_correct_referer():
+                make(**form.get_values())
+            else:
+                queue_message(get_referer_error(), error=True, title='Person not created')
+                redirect('/person/create/')
         except ValueError, e:
             message = spine_to_web(_(e.message))
         except IntegrityError, e:
             message = _("The person can not be created because it violates the integrity of the database.  Try changing the NIN.")
-        queue_message(message, error=True, title=_("Create failed"))
+            queue_message(message, error=True, title=_("Create failed"))
     return form.respond()
 create.exposed = True
 
@@ -99,20 +106,27 @@ def make(ou, status, firstname, lastname, externalid, gender, birthdate, descrip
     """Create a new person with the given values."""
     db = get_database()
     dao = PersonDAO(db)
-    person = DTO()
-    populate(person, gender, birthdate, None, description)
-    populate_name(person, firstname, lastname)
+    dto = DTO()
+    dto.gender = DTO()
+    dto.gender.id = gender
+    dto.birth_date = parse_date(birthdate)
+    dto.description = description and web_to_spine(description.strip())
+    populate_name(dto, firstname, lastname)
 
-    dao.create(person)
-    dao.add_affiliation_status(person.id, ou, status)
+    dao.create(dto)
+    dao.add_affiliation_status(dto.id, ou, status)
 
     if externalid:
-        dao.add_birth_no(person.id, externalid)
+        try:
+            dao.add_birth_no(dto.id, externalid)
+        except Exception, e:
+            queue_message(e, error=True, title='Failed to save person')
+            redirect('/person/create/')
 
     db.commit()
 
     queue_message(_("Person successfully created.  Now he probably needs an account."), title="Person created")
-    redirect('/account/create?owner_id=%s' % person.id)
+    redirect_entity(dto.id)
 
 def populate_name(person, firstname, lastname):
     person.first_name = web_to_spine(firstname)
@@ -150,11 +164,13 @@ delete.exposed = True
 @session_required_decorator
 def add_name(id, name, name_type):
     """Add a new name to the person with the given id."""
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Name not added')
+        redirect_entity(id)
     msg = unlegal_name(name)
     if msg:
         queue_message(msg, error=True)
         redirect_entity(id)
-
     db = get_database()
     dao = PersonDAO(db)
     dao.add_name(id, web_to_spine(name_type), web_to_spine(name.strip()))
@@ -180,6 +196,9 @@ remove_name.exposed = True
 
 @session_required_decorator
 def add_affil(id, status, ou, description=""):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Affiliation not added')
+        redirect_entity(id)
     db = get_database()
     dao = PersonDAO(db)
     dao.add_affiliation_status(id, ou, status)
@@ -204,6 +223,9 @@ remove_affil.exposed = True
 
 @session_required_decorator
 def accounts(owner_id, **checkboxes):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Not allowed to delete')
+        redirect_entity(owner_id)
     msgs = []
     for arg, value in checkboxes.items():
         if arg.startswith("account_"):
@@ -238,7 +260,6 @@ def leave_group(arg):
     member_id, group_id = arg.split("_")[1:3]
     member_id = int(member_id)
     group_id = int(group_id)
-
     db = get_database()
     group = GroupDAO(db).get_entity(group_id)
     member = EntityFactory(db).get_entity(member_id)
@@ -301,6 +322,9 @@ def change_password(account):
 @session_required_decorator
 def print_contract(id, lang):
     from lib.CerebrumUserSchema import CerebrumUserSchema
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Could not print contract')
+        redirect_entity(id)
     referer = cherrypy.request.headerMap.get('Referer', '')
     try:
         prim_account = get_primary_account(id)

@@ -137,6 +137,7 @@ class PersonCreateForm(Form):
             create_date = DateTime.now().strftime("%Y-%m-%d")
             self.set_value("description",
                 'Registered by: %s on %s\n' % (username, create_date) + desc)
+        return True
 
 class PersonEditForm(PersonCreateForm):
     action = '/person/edit/'
