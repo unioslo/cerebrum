@@ -129,7 +129,7 @@ def main():
     else:
         cyrus.close(delete)
 
-    if not cyrus.dryrun and add and update and delete:
+    if add and update and delete:
         save_changelog_id(server_id)
     log.info("Synchronization completed successfully")
 
