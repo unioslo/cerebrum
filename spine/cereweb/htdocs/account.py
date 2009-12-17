@@ -318,7 +318,7 @@ leave_groups.exposed = True
 @session_required_decorator
 def set_home(account_id, spread_id, disk_id, path):
     if not is_correct_referer():
-        queue_message(get_referer_error(), error=True, title='Set home irectory failed')
+        queue_message(get_referer_error(), error=True, title='Set home directory failed')
         redirect_entity(account_id)
     disk_id = disk_id or None
     path = path or None
