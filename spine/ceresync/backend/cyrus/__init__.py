@@ -75,11 +75,11 @@ class Account(object):
         backends = self._conns.keys()
         if len(backends) < 1:
             raise CyrusConnectError
-        for backend in backends:
+        for backend in self._conns.keys():
             users = self._conns[backend].get("users")
             if username in users: 
-                return (True, backend)
-        return (False, '')
+                return backend
+        return None
 
     def connect(self, hostname=None, username=None, as_admin=True):
         conn = cyruslib.CYRUS(host=hostname)
@@ -140,8 +140,8 @@ class Account(object):
         """
         Add a user to Cyrus-backend. Duh!
         """
-        exists,host = self._exists(obj.name)
-        if exists:
+        host = self._exists(obj.name)
+        if host:
             if allow_update:
                 self.update(obj)
         else:
@@ -171,9 +171,9 @@ class Account(object):
         Since passwords are handled by Kerberos, only thing
         update will do, is to set ACL and quota
         """
-        exists,backend = self._exists(obj.name)
-        if exists:
-            co = self._conns[backend].get("auth")
+        host = self._exists(obj.name)
+        if host:
+            co = self._conns[host].get("auth")
             try:
                 # Update quota
                 co.sq(self.group,obj.name,self._get_quota(obj))
@@ -188,8 +188,8 @@ class Account(object):
         """
         Deletes a mailbox owned by <obj>.name in group self.group
         """
-        exists, host = self._exists(obj.name)
-        if exists:
+        host = self._exists(obj.name)
+        if host:
             co = self._conns[host].get("auth")
             co.sam(self.group, obj.name, co.admin, co.admin_acl) # Needed to delete a mailbox
             mailbox_pattern = cyrusconf.default_group + co.sep + obj.name + co.sep + '*'
