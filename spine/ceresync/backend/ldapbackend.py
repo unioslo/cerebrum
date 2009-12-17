@@ -466,7 +466,7 @@ class Person(LdapBack):
         s['sn']                     = ["%s"     %  obj.last_name]
         s['givenName']              = ["%s"     %  obj.first_name]
         s['uid']                    = ["%s"     %  obj.primary_account_name]
-        s['userPassword']           = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.primary_account_passwd)]
+        s['userPassword']           = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.primary_account_password)]
         s['eduPersonOrgDN']         = ["dc=ntnu,dc=no"]
 
         affiliations = set()
