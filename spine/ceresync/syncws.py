@@ -105,7 +105,7 @@ def remove_pidfile(pid_file):
     log.debug("Removed pid file " + pid_file)
 
 class Entity(object):
-    type= ""
+    entity_type= ""
     attributes= []
     lists= {}
     def __init__(self, obj, encode_to=None):
@@ -118,10 +118,10 @@ class Entity(object):
         # Set lists, if any
         for objkey, entkey in self.lists.items():
             self.__setattr__(entkey, getattr(obj, objkey, []))
-        config.apply_override(self, self.type)
-        config.apply_default(self, self.type)
+        config.apply_override(self, self.entity_type)
+        config.apply_default(self, self.entity_type)
         if 'quarantines' in self.lists.values():
-            config.apply_quarantine(self, self.type)
+            config.apply_quarantine(self, self.entity_type)
     def __str__(self):
         return "%s(%s)" % (
             self.__class__.__name__,
@@ -131,7 +131,7 @@ class Entity(object):
         return self.__str__()
 
 class Account(Entity):
-    type= "account"
+    entity_type= "account"
     attributes= [
         "name","passwd","homedir","home","disk_path","disk_host",
         "gecos","full_name","shell","shell_name","posix_uid",
@@ -141,14 +141,14 @@ class Account(Entity):
     lists= { "_quarantine": "quarantines", }
 
 class Group(Entity):
-    type= "group"
+    entity_type= "group"
     attributes= [
         "name","posix_gid",
     ]
     lists= { "_quarantine": "quarantines", "_member": "members", }
     
 class Ou(Entity):
-    type= "ou"
+    entity_type= "ou"
     attributes= [
         "id","name","acronym","short_name","display_name","sort_name",
         "parent_id","email","url","phone","post_address","stedkode",
@@ -157,7 +157,7 @@ class Ou(Entity):
     lists= { "_quarantine": "quarantines", }
 
 class Alias(Entity):
-    type= "alias"
+    entity_type= "alias"
     attributes= [
         "local_part","domain","primary_address_local_part",
         "primary_address_domain","address_id","primary_address_id",
@@ -165,14 +165,14 @@ class Alias(Entity):
     ]
 
 class Homedir(Entity):
-    type= "homedir"
+    entity_type= "homedir"
     attributes= [
         "homedir_id","disk_path","home","homedir","account_name",
         "posix_uid","posix_gid",
     ]
 
 class Person(Entity):
-    type= "person"
+    entity_type= "person"
     attributes= [
         "id", "export_id", "type", "birth_date", "nin", "first_name", 
         "last_name", "full_name", "display_name", "work_title", 
