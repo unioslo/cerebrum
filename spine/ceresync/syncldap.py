@@ -29,9 +29,8 @@ import socket
 
 log = config.logger
 
-changelog_file = config.get("sync","last_change", "/var/lib/cerebrum/sync.last_change")
 
-def load_changelog_id():
+def load_changelog_id(changelog_file):
     local_id = 0
     if os.path.isfile(changelog_file):
         local_id = long(open(changelog_file).read())
@@ -40,15 +39,15 @@ def load_changelog_id():
         log.debug("Default changelog-id %ld", local_id)
     return local_id
 
-def save_changelog_id(server_id):
+def save_changelog_id(server_id, changelog_file):
     log.debug("Storing changelog-id %ld", server_id)
     open(changelog_file, 'w').write(str(server_id))
 
-def set_incremental_options(options, incr, server_id):
+def set_incremental_options(options, incr, server_id, changelog_file):
     if not incr:
         return
 
-    local_id = load_changelog_id()
+    local_id = load_changelog_id(changelog_file)
     log.debug("Local id: %ld, server_id: %ld", local_id, server_id)
     if local_id > server_id:
         log.warning("local changelogid is larger than the server's!")
@@ -64,6 +63,8 @@ def set_encoding_options(options, config):
 def main():
     options = config.make_bulk_options() + config.make_testing_options()
     config.parse_args(options)
+    changelog_file = config.get("sync","changelog_file", 
+                                default="/var/lib/cerebrum/lastchangelog.id")
 
     incr = config.getboolean('args','incremental', allow_none=True)
     add = config.getboolean('args','add')
@@ -90,7 +91,7 @@ def main():
         sys.exit(1)
 
     sync_options = {}
-    set_incremental_options(sync_options, incr, server_id)
+    set_incremental_options(sync_options, incr, server_id, changelog_file)
     config.set_testing_options(sync_options)
     set_encoding_options(sync_options, config)
 
@@ -113,7 +114,7 @@ def main():
         backend.close()
 
     if incr or (add and update and delete):
-        save_changelog_id(server_id)
+        save_changelog_id(server_id, changelog_file)
 
 def get_conf(system, name, default=None):
     conf_section = 'ldap_%s' % system
