@@ -319,8 +319,8 @@ def change_password(account):
     db.commit()
     return new_password
 
-@session_required_decorator
-def print_contract(id, lang):
+## @session_required_decorator
+def print_contract(id, lang, printpw='off'):
     from lib.CerebrumUserSchema import CerebrumUserSchema
     if not is_correct_referer():
         queue_message(get_referer_error(), error=True, title='Could not print contract')
@@ -338,8 +338,9 @@ def print_contract(id, lang):
     username = from_spine_decode(prim_account.name)
     firstname, lastname = get_names(person)
     email_address = get_email_address(prim_account)
-
-    passwd = change_password(prim_account)
+    passwd = ''
+    if 'on' == printpw:
+        passwd = change_password(prim_account)
     studyprogram = None
     year = None
     birthdate = person.birth_date.strftime('%d-%m-%Y')

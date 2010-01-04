@@ -219,14 +219,18 @@
     <h3>$_('Print contract')</h3>
         <form action="print_contract" method="post">
             <div>
-            <input type="hidden" name="id" value="$person.id" />
-            <div>
-                $form_widgets.generate_loption("lang", "Language", $langs)
-            </div>
-            <div class="buttons">
-            <input type="submit" value="$_('Print')" />
-            <input type="button" value="$_('Cancel')" class="cancel" />
-            </div>
+                <input type="hidden" name="id" value="$person.id" />
+                <div>
+                    $form_widgets.generate_loption("lang", "Language", $langs)
+                </div>
+                <div>
+                    <label for="printpw">Print password:</label>
+                    <input type="checkbox" name="printpw" value="on" />
+                </div>
+                <div class="buttons">
+                    <input type="submit" value="$_('Print')" />
+                    <input type="button" value="$_('Cancel')" class="cancel" />
+                </div>
             </div>
         </form>
 </div>
