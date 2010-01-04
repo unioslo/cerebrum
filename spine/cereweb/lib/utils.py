@@ -55,7 +55,7 @@ def is_correct_referer():
         ref_loc = urlparse.urlparse(get_referer()).netloc
         hostname = get_host()
         if hostname and ref_loc:
-            if ref_loc.startswith(hostname, 0, len(hostname)):
+            if ref_loc.startswith(hostname):
                 approved = True
     else:
         approved = True
