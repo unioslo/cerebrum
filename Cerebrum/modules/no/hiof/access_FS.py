@@ -222,7 +222,8 @@ class HiOfUndervisning(access_FS.Undervisning):
             kks.studieprogramkode = k.studieprogramkode AND
             kks.terminkode = k.terminkode AND
             kks.arstall = k.arstall AND
-            k.status_aktiv = 'J'
+            k.status_aktiv = 'J' AND
+            sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID')
         """
 
         return self.db.query(query)
@@ -239,7 +240,7 @@ class HiOfUndervisning(access_FS.Undervisning):
         FROM
             fs.studieprogramstudent
         WHERE
-            studentstatkode IN ('AKTIV', 'PERMISJON') AND
+            studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID') AND
             NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
             studieprogramkode = :studieprogramkode AND
             terminkode_kull = :terminkode_kull AND
@@ -275,7 +276,8 @@ class HiOfUndervisning(access_FS.Undervisning):
             sps.studieprogramkode = k.studieprogramkode AND
             sps.terminkode_kull = k.terminkode AND
             sps.arstall_kull = k.arstall AND
-            k.status_aktiv = 'J'
+            k.status_aktiv = 'J' AND
+            sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID')
         """
 
         return self.db.query(query)
