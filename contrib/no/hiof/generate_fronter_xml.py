@@ -832,13 +832,13 @@ class cf_member_group(cf_group_interface):
             "kursansv":    all_write,
             "lærer":       all_write,
             "kontakt":     all_read,
-            "veileder":    { "stprog": cf_permission.ROLE_READ,
-                             "kull": cf_permission.ROLE_READ,
-                             "kullklasse": cf_permission.ROLE_READ,
+            "veileder":    all_write,
+            "admin":       { "stprog": cf_permission.ROLE_CHANGE,
+                             "kull": cf_permission.ROLE_CHANGE,
+                             "kullklasse": cf_permission.ROLE_CHANGE,
                              "undenh": cf_permission.ROLE_WRITE,
                              "undakt": cf_permission.ROLE_WRITE,
-                             "avdeling": cf_permission.ROLE_READ,},
-            "admin":       all_delete,
+                             "avdeling": cf_permission.ROLE_CHANGE,},
         }
 
         access_type = None
