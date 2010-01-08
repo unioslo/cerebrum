@@ -46,7 +46,7 @@ class Message(object):
             %(msg)s
             %(error)s
         </div>""" % {
-            'link': link,
+            'link': link or '',
             'msg': utils.html_quote(self.__msg.get('message')),
             'error': error,
         }
