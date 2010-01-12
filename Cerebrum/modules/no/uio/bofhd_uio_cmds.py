@@ -6047,7 +6047,8 @@ Addresses and settings:
             op = self.const.BofhdRequestOp(r['operation'])
             dest = None
             ent_name = None
-            if op in (self.const.bofh_move_user, self.const.bofh_move_request):
+            if op in (self.const.bofh_move_user, self.const.bofh_move_request,
+                      self.const.bofh_move_user_now):
                 disk = self._get_disk(r['destination_id'])[0]
                 dest = disk.path
             elif op in (self.const.bofh_move_give,):
