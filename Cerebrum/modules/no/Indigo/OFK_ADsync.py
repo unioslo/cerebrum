@@ -130,18 +130,16 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
                 #Some accounts have an old X.400 address
                 x400_trait = self.ac.get_trait(self.co.trait_x400_addr)
-                if x400_trait:
-                    if x400_trait["strval"]:
-                        v['proxyAddresses'].append(("X400:" + x400_trait["strval"]))
+                if x400_trait and x400_trait["strval"]:
+                    v['proxyAddresses'].append(("X400:" + x400_trait["strval"]))
                 #Some accounts have an old X.400 address
                 x500_trait = self.ac.get_trait(self.co.trait_x500_addr)
-                if x500_trait:
-                    if x500_trait["strval"]:
-                        v['proxyAddresses'].append(("X500:" + x500_trait["strval"]))                        
+                if x500_trait and x500_trait["strval"]:
+                    v['proxyAddresses'].append(("X500:" + x500_trait["strval"]))                        
 
                 #Set homeMDB for Exchange users
                 mdb_trait = self.ac.get_trait(self.co.trait_homedb_info)
-                if mdb_trait["strval"]:
+                if mdb_trait and mdb_trait["strval"]:
                     exchangeserver = ""
                     for servername in cereconf.AD_EX_MDB_SERVER:
                         if mdb_trait["strval"] in cereconf.AD_EX_MDB_SERVER[servername]:
@@ -585,6 +583,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             #commit changes
                             changelist.append(changes)
                             changes = {}
+                            if (not usr in exch_users) and (cerebrumusrs[usr]['Exchange']): 
+                                exch_users.append(usr)
+                                self.logger.info("Added to run Update-Recipient list: %s" % usr)
                         #Moving account.
                         if (adusrs[usr]['distinguishedName'] != 
                             "CN=%s,OU=%s,%s" % 
