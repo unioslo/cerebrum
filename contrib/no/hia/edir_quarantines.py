@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2002-2005 University of Oslo, Norway
+# Copyright 2002-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -84,8 +84,9 @@ def main():
                                            constants.quarantine_add]:
                 en = Factory.get('Entity')(db)
                 en.find(event['subject_entity'])
-                if en.entity_type <> constants.entity_account:
+                if en.entity_type != constants.entity_account:
                     logger.info('We cannot handle quarantine events for non-account entities yet.')
+                    cl_handler.confirm_event(event)
                     continue
             if event['change_type_id'] in [constants.quarantine_del,
                                            constants.quarantine_mod]:
@@ -94,21 +95,22 @@ def main():
                     account.find(event['subject_entity'])
                 except Errors.NotFoundError:
                     logger.error('No such account %s!', event['subject_entity'])
+                    cl_handler.confirm_event(event)
                     continue
                 edir_util.account_remove_quarantine(account.account_name)
-                cl_handler.confirm_event(event)
             elif event['change_type_id'] == constants.quarantine_add:
                 account = Factory.get('Account')(db)
                 try:
                     account.find(event['subject_entity'])
                 except Errors.NotFoundError:
                     logger.error('No such account %s!', event['subject_entity'])
+                    cl_handler.confirm_event(event)
                     continue
                 if check_quarantine(account):
                     edir_util.account_set_quarantine(account.account_name)
                 else:
                     logger.info("Skipping inactive quarantine for %s", account.account_name)
-                cl_handler.confirm_event(event)
+            cl_handler.confirm_event(event)
     except TypeError, e:
         logger.warn("No such event, %s" % e)
         return None

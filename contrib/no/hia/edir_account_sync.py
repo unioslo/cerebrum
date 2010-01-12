@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -219,10 +219,9 @@ def main():
                 if s == int(constants.spread_hia_novell_user):
                     dn =  _person_account_make_dn(event['subject_entity'])
                     edir_util.object_edir_create(dn, account_make_attrs(event['subject_entity']))
-                    cl_handler.confirm_event(event)
             elif event['change_type_id'] in [constants.person_name_add, constants.person_name_mod]:
                 person_mod_names(event['subject_entity'])
-                cl_handler.confirm_event(event)
+            cl_handler.confirm_event(event)
     except TypeError, e:
         logger.warn("No such event, %s" % e)
         return None

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2002-2005 University of Oslo, Norway
+# Copyright 2002-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -79,7 +79,7 @@ def main():
                     continue
                 if account.has_spread(constants.spread_hia_novell_user):
                     edir_util.account_set_password(account.account_name, passwd)
-                    cl_handler.confirm_event(event)
+                cl_handler.confirm_event(event)
     except TypeError, e:
         logger.warn("No such event, %s" % e)
         return None

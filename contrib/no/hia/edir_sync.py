@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -317,10 +317,9 @@ def main():
                     if tmp_attrs:
                         edir_util.object_edir_create(dn, tmp_attrs)
                         time.sleep(1)
-                    cl_handler.confirm_event(event)
             elif event['change_type_id'] in [constants.person_name_add, constants.person_name_mod]:
                 person_mod_names(event['subject_entity'])
-                cl_handler.confirm_event(event)
+            cl_handler.confirm_event(event)
     except TypeError, e:
         logger.warn("No such event, %s" % e)
     cl_handler.commit_confirmations()
@@ -340,7 +339,6 @@ def main():
                 group_mod(event['change_type_id'],
                           event['dest_entity'],
                           event['subject_entity'])
-                cl_handler.confirm_event(event)
             elif event['change_type_id'] == constants.spread_add:
                 s = pickle.loads(event['change_params'])['spread']
                 if s == int(constants.spread_hia_edir_grpemp):
@@ -349,6 +347,7 @@ def main():
                     dn =  _group_make_dn(event['subject_entity'], 'ou=Stud')
                 else:
                     logger.debug("Unknown spread, skipping.")
+                    cl_handler.confirm_event(event)             
                     continue
                 attrs = group_make_attrs(event['subject_entity'])
                 if not attrs or not dn:
@@ -358,7 +357,7 @@ def main():
                     edir_util.object_edir_create(dn,
                                                  group_make_attrs(event['subject_entity']))
                     time.sleep(1)
-                cl_handler.confirm_event(event)             
+            cl_handler.confirm_event(event)             
     except TypeError, e:
         logger.warn("No such event, %s" % e)
     cl_handler.commit_confirmations()
