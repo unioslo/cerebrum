@@ -133,7 +133,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     continue
 
                 mdb_trait = self.ac.get_trait(self.co.trait_exchange_mdb)
-                if mdb_trait["strval"]:
+                if mdb_trait and mdb_trait["strval"]:
                     v['homeMDB'] = "CN=%s,CN=SG%s,%s" % (mdb_trait["strval"],
                                                          mdb_trait["strval"].replace("MDB",""),
                                                          cereconf.AD_EX_MDB_SERVER)
@@ -636,6 +636,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             #commit changes
                             changelist.append(changes)
                             changes = {}
+                            if (not usr in exch_users) and (cerebrumusrs[usr]['Exchange'] 
+                                                            or cerebrumusrs[usr]['imap']): 
+                                exch_users.append(usr)
+                                self.logger.info("Added to run Update-Recipient list: %s" % usr)
                         #Moving account.
                         if (adusrs[usr]['distinguishedName'] != 
                             "CN=%s,OU=%s,%s" % 
