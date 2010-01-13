@@ -274,6 +274,8 @@ class Object2Cerebrum(object):
         except Errors.NotFoundError:
             raise ABCErrorInData, "no person with id: %s, %s" % (person[0],
                                                                  person[1]) 
+        if self._ou is None:
+            self._ou = Factory.get("OU")(self.db)   
         self._ou.clear()
         self._ou.find_by_external_id(ou[0], ou[1])
         self._person.add_affiliation(self._ou.entity_id, affiliation,
