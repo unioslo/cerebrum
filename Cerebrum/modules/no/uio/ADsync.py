@@ -1055,11 +1055,11 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                                          "fullsync of memberships for group %s", 
                                          len(members), grp)
                         if sendDN_boost:
-                            #res = self.server.syncMembers(members, True, False)
-                            res = self.server.replaceMembers(members, True)
+                            res = self.server.syncMembers(members, True, False)
+                            #res = self.server.replaceMembers(members, True)
                         else:
-                            #res = self.server.syncMembers(members, False, False)
-                            res = self.server.replaceMembers(members, False)
+                            res = self.server.syncMembers(members, False, False)
+                            #res = self.server.replaceMembers(members, False)
                         if not res[0]:
                             self.logger.warning("syncMembers %s failed for:%r",
                                                 dn, res[1:])
