@@ -237,8 +237,7 @@ class NISGroupUtil(object):
         entity_id (group or account) since we cached entity names.
         """
         try:
-            changelog = Factory.get('ChangeLog')(db)
-            events = list(changelog.get_log_events(
+            events = list(db.get_log_events(
                     types=(co.group_create, co.account_create),
                     subject_entity=entity_id,
                     sdate=self._namecachedtime))
