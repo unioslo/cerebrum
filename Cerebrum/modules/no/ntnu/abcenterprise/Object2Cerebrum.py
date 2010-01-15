@@ -179,14 +179,7 @@ class Object2CerebrumExt(Object2Cerebrum):
             ## in case the person is stored with one
             ## of the old NINs
     
-            ## if person.fnr_closed:
-            ##     for k in person._ids.keys():
-            ##         print '%s = %s' % (k, person._ids[k])
-            ##     for closed_fnr in person.fnr_closed:
-            ##         print 'old fnr = ', closed_fnr
-            
             if person.fnr_closed:
-                print "@@@@@@@@@@@@@@@@@@ closed @@@@@@@@@@@"
                 ## loop thru old NINs
                 for closed_fnr in person.fnr_closed:
                     ## use only the old NIN for search.
@@ -195,12 +188,7 @@ class Object2CerebrumExt(Object2Cerebrum):
                     entity_id = self._check_entity(self._person, copy_person)
                     if entity_id:
                         ## success
-                        print "@@@@@@@@@@@@@@@@@@ break @@@@@@@@@@"
                         break
-                if entity_id:
-                    print '============= found ========'
-                else:
-                    print '############# NOT ##########'
         if entity_id:
             # We found one
             self._person.find(entity_id)
@@ -223,12 +211,11 @@ class Object2CerebrumExt(Object2Cerebrum):
         # deal with traits
         if person.reserv_publish:
             reserv_trait = self._person.get_trait(self.co.trait_reserve_publish)
-            # person want to delete reservation
-            if person.reserv_publish == "no" and reserv_trait:
-                self._person.delete_trait(self.co.trait_reserve_publish)
-            # person want to activate reservation
-            if person.reserv_publish == "yes" and not reserv_trait:
+            if person.reserv_publish == "yes":
                 self._person.populate_trait(self.co.trait_reserve_publish)
+            # person want to delete reservation
+            elif person.reserv_publish == "no" and reserv_trait:
+                self._person.delete_trait(self.co.trait_reserve_publish)
         # Deal with addresses and contacts. 
         self._add_entity_addresses(self._person, person._address)
         self._add_entity_contact_info(self._person, person._contacts)

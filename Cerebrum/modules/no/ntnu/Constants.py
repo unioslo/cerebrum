@@ -77,6 +77,14 @@ class Constants(Constants.Constants):
         Constants.Constants.entity_person,
         'BDBs internal ID for the person')
 
+    externalid_keycardid_student = _EntityExternalIdCode('KEYCARDID_STUD',
+        Constants.Constants.entity_person,
+        'Key card identity for students')
+
+    externalid_keycardid_employee = _EntityExternalIdCode('KEYCARDID_EMP',
+        Constants.Constants.entity_person,
+        'Key card identity for employees')
+
     externalid_bdb_group = _EntityExternalIdCode('BDB_GROUP_ID',
         Constants.Constants.entity_group,
         'BDBs internal ID for the group')

@@ -317,6 +317,9 @@ class XMLPerson2ObjectExt(XMLPerson2Object):
                 type = sub.attrib.get("keycardtype")
                 result.add_id(ABCTypesExt.get_type("keycardtype",(type,)),
                               value)
+            ## ignoring this one.
+            ## primary affiliation is printplace.
+            ## may change later...
             elif sub.tag == "printplace":
                 pass
             elif sub.tag == "name":

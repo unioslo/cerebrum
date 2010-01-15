@@ -98,15 +98,8 @@ NAMETYPES={'fn'       : "NAME_FULL",
 import cerebrum_path
 import cereconf
 
-## for cls in cereconf.CLASS_CONSTANTS:
-##     print '==========================> ', cls
-
-## print 'ffffffffffffffffffffffffffffffffffffffffff'
-
 from Cerebrum.Utils import Factory
 co = Factory.get('Constants')(Factory.get('Database')())
-
-## print 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 
 ## SOURCE={'datasource'   : "Example SAS",
 ##         'target'       : "Example BAS",
