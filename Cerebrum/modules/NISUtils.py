@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2009 University of Oslo, Norway
+# Copyright 2003-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -19,7 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import mx
+import mx, sys
 
 import cerebrum_path
 from Cerebrum import Errors
@@ -213,6 +213,7 @@ class NISGroupUtil(object):
     def __init__(self, namespace, member_type, group_spread, member_spread,
                  tmp_group_prefix='x'):
         self._entity2name = self._build_entity2name_mapping(namespace)
+        self._namecachedtime = mx.DateTime.now()
         self._member_spread = member_spread
         self._member_type = member_type
         self._exported_groups = {}
@@ -229,6 +230,22 @@ class NISGroupUtil(object):
         for row in en.list_names(namespace):
             ret[int(row['entity_id'])] = row['entity_name']
         return ret
+
+    def _is_new(self, entity_id):
+        """
+        Returns true if there is a change log create event for 
+        entity_id (group or account) since we cached entity names.
+        """
+        try:
+            changelog = Factory.get('ChangeLog')(db)
+            events = list(changelog.get_log_events(
+                    types=(co.group_create, co.account_create),
+                    subject_entity=entity_id,
+                    sdate=self._namecachedtime))
+            return bool(events)
+        except:
+            logger.debug("Checking change log failed: %s", sys.exc_value)
+        return False
 
     def _expand_group(self, gid):
         """Expand a group and all of its members.  Subgroups are
@@ -247,7 +264,8 @@ class NISGroupUtil(object):
             member_id = int(row["member_id"])
             name = self._entity2name.get(member_id)
             if not name:
-                logger.warn("Was %i very recently created?", member_id)
+                if not self._is_new(member_id):
+                    logger.warn("Was %i very recently created?", member_id)
                 continue
             ret_non_groups.append(name)
         
@@ -377,7 +395,8 @@ class FileGroup(NISGroupUtil):
                 continue  # Don't include the users primary group
             name = self._entity2name.get(account_id, None)
             if not name:
-                logger.warn("Was %i very recently created?" % int(account_id))
+                if not self._is_new(account_id):
+                    logger.warn("Was %i very recently created?" % int(account_id))
                 continue
             ret.append(name)
         return None, list(set(ret))
