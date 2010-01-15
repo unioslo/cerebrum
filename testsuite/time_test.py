@@ -20,8 +20,8 @@ opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 
 stat_max_min = {}
 
-MODE = "test"
-## MODE = "utvikling"
+## MODE = "test"
+MODE = "utvikling"
 
 username="bootstrap_account"
 
@@ -150,7 +150,7 @@ def statreg(stat, t):
   samples[stat]=(n+1, sum+t, ssum+t*t)
 
 def statresult():
-  print '%-15s  %s\t%s\t\t%s\t\t%s\t\t%s' % ('Operation',
+  print '%-19s  %s\t%s\t\t%s\t\t%s\t\t%s' % ('Operation',
                                             'Average',
                                             'Varying',
                                             'Max',
@@ -161,7 +161,7 @@ def statresult():
       n, sum, ssum = v
       mean=sum/n
       sd=math.sqrt(ssum/n-mean*mean)
-      print "%-15s: %2.6f\t~%2.6f\t%2.6f\t%2.6f\t%d" % (k, mean,
+      print "%-19s: %2.6f\t~%2.6f\t%2.6f\t%2.6f\t%d" % (k, mean,
                                                            sd,
                                                            max(stat_max_min[k]),
                                                            min(stat_max_min[k]),
@@ -193,7 +193,7 @@ def run_logout(post=None):
 def run_pers_search(post=None):
   str = 'Person search = %s - ' % post
   sys.stdout.write(str)
-  tgetpage('person_search','/person/search', post)
+  tgetpage('person_search','/search/person', post)
 
 def run_pers_view(post=None):
   str = 'Person view = %s - ' % post
@@ -208,7 +208,7 @@ def run_pers_save(page, post=None):
 def run_acc_search(post=None):
   str = 'Account search = %s - ' % post
   sys.stdout.write(str)
-  tgetpage("acc_search", "/account/search", post)
+  tgetpage("acc_search", "/search/account", post)
 
 def run_acc_view(post=None):
   str = 'Account view  =  %s - ' % post
@@ -223,17 +223,17 @@ def run_acc_save(page, post=None):
 def run_group_search(post=None):
   str = 'Group search = %s - ' % post
   sys.stdout.write(str)
-  tgetpage('group_search', '/group/search', post)
+  tgetpage('group_search', '/search/group', post)
 
 def run_group_view(post=None):
   str = 'Group view %s - ' % post
   sys.stdout.write(str)
   tgetpage('group_view', '/group/view?id=%s' % (post))
 
-def run_ou_search(post=None):
-  str='OU search %s - ' % post
-  sys.stdout.write(str)
-  tgetpage('ou_search', '/ou/search', post)
+## def run_ou_search(post=None):
+##   str='OU search %s - ' % post
+##   sys.stdout.write(str)
+##   tgetpage('ou_search', '/search/ou', post)
 
 def run_ou_view(post=None):
   str = 'OU view %s - ' % post
@@ -243,7 +243,7 @@ def run_ou_view(post=None):
 def run_host_search(post=None):
    str = 'Host search = %s - ' % post
    sys.stdout.write(str)
-   tgetpage('host_search', '/host/search', post)
+   tgetpage('host_search', '/search/host', post)
 
 def run_host_view(post=None):
    str = 'Host view = %s - ' % post
@@ -253,22 +253,22 @@ def run_host_view(post=None):
 def run_disk_search(post=None):
   str = 'Disk search = %s - ' % post
   sys.stdout.write(str)
-  tgetpage('disk_search', '/disk/search', post)
+  tgetpage('disk_search', '/search/disk', post)
 
 def run_disk_view(post=None):
   str = 'Disk view = %s - ' % post
   sys.stdout.write(str)
   tgetpage('disk_view', '/disk/view?id=%s' % (post))
 
-def run_email_search(post=None):
-  str = 'Email search = %s - ' % post
-  sys.stdout.write(str)
-  tgetpage('email_search', '/email/search', post)
+## def run_email_search(post=None):
+  ## str = 'Email search = %s - ' % post
+  ## sys.stdout.write(str)
+  ## tgetpage('email_search', '/email/search', post)
 
 def run_email_view(post=None):
-  str = 'Email view = %s - ' % post
-  sys.stdout.write(str)
-  tgetpage('email_view', '/email/view?id=%s' % (post))
+    str = 'Email view = %s - ' % post
+    sys.stdout.write(str)
+    tgetpage('email_view', '/email/view?id=%s' % (post))
 
 
 pass
@@ -310,7 +310,7 @@ person_rm_affil = (
 )
 
 account_search = (
-  {'name' : 's*'},
+  {'name' : 's*ant'},
   {'name': 'st*n*'},
   {'name' : '*bert*'},
   {'create_date': '2008-10-10'},
@@ -464,7 +464,7 @@ email_view = (
 
 statreset()
 start_time = datetime.datetime.now()
-for i in range(10):
+for i in range(20):
   cj = cookielib.CookieJar()
   opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
   print 'Run number: %d' % (i + 1)
@@ -481,111 +481,140 @@ for i in range(10):
   ## finished
   ## add an affiliation for person.
   for pa in person_add_affil:
-     run_pers_save('add_affil', pa)
+    run_pers_save('add_affil', pa)
 
 
   ## add an affiliation for account
   ## finished...
   for aa in account_add_affil:
-     run_acc_save('add_affil', aa)
+    run_acc_save('add_affil', aa)
 
   ## finished ...
   for ad in account_rm_affil:
-     run_acc_save('remove_affil', ad)
+    run_acc_save('remove_affil', ad)
 
   ## finished
   for pd in person_rm_affil:
-     run_pers_save('remove_affil', pd)
+    run_pers_save('remove_affil', pd)
 
 ## Disabled until we've converted entity
 #   ## remove spreads before adding, or else
 #   ## the db will complain about already extisting.
-#   for i in range(2):
-#      for as in account_add_spread:
-#         stdout_write('Account remove = %s - ' % as)
-#         tgetpage('acc_rm_spread', '/entity/remove_spread', as)
-#         time.sleep(1)
-#         stdout_write('Account save = %s - ' % as)   
-#         tgetpage('acc_add_spread', '/entity/add_spread', as)
-#         time.sleep(1)
+  for i in range(2):
+    for as in account_add_spread:
+      stdout_write('Account remove = %s - ' % as)
+      tgetpage('acc_rm_spread', '/entity/remove_spread', as)
+      time.sleep(1)
+      stdout_write('Account save = %s - ' % as)   
+      tgetpage('acc_add_spread', '/entity/add_spread', as)
+      time.sleep(1)
 
 ## Disabled until we've converted entity
-#   for i in range(3):
-#      for gs in group_add_spread:
-#         stdout_write('Group remove = %s - ' % gs)
-#         tgetpage('grp_rm_spread', '/entity/remove_spread', gs)
-#         time.sleep(1)
-#         stdout_write('Group save = %s - ' % gs)
-#         tgetpage('grp_add_spread', '/entity/add_spread', gs)
-#         time.sleep(1)
+  for i in range(3):
+    for gs in group_add_spread:
+      stdout_write('Group remove = %s - ' % gs)
+      tgetpage('grp_rm_spread', '/entity/remove_spread', gs)
+      time.sleep(1)
+      stdout_write('Group save = %s - ' % gs)
+      tgetpage('grp_add_spread', '/entity/add_spread', gs)
+      time.sleep(1)
 
   ## finished...
   for i in range(1):
-     for ga in group_add_member:
-        stdout_write('Group save = %s - ' % ga)
-        tgetpage('grp_add_mem', '/group/add_member', ga)
-     time.sleep(1)
-     for gr in group_rm_member:
-        stdout_write('Group remove = %s - ' % gr)
-        tgetpage('grp_rm_mem', '/group/remove_member', gr)
-     time.sleep(1)
+    for ga in group_add_member:
+      stdout_write('Group save = %s - ' % ga)
+      tgetpage('grp_add_mem', '/group/add_member', ga)
+    time.sleep(1)
+    for gr in group_rm_member:
+      stdout_write('Group remove = %s - ' % gr)
+      tgetpage('grp_rm_mem', '/group/remove_member', gr)
+    time.sleep(1)
 
 ## Disabled until we've converted the searcher.
-#   for a in account_search:
-#      run_acc_search(a)
+  for acc in account_search:
+    for k,v in acc.iteritems():
+        print 'account value = ', v
+        stdout_write('Account search = %s - ' % v)
+        url = '/search/account?%s=%s' % (k, urllib.quote(v))
+        tgetpage('acc_search', url )
+        #run_acc_search(a)
 
   ## finsihed...
   for a in account_view:
-     run_acc_view(a)
+    run_acc_view(a)
 
 ## Disabled until we've converted the searcher.
-#   for p in person_search:
-#      run_pers_search(p)
+  for pp in person_search:
+    for k,v in pp.iteritems():
+        stdout_write('Person search = %s' % v)
+        str = '/search/person?%s=%s' %(k, urllib.quote(v))
+        tgetpage('pers_search',str)
+        ## run_pers_search(p)
 
   ## finished
   for p in person_view:
-     run_pers_view(p)
+    run_pers_view(p)
 
 ## Disabled until we've converted the searcher.
 # 
-#   for g in group_search:
-#      run_group_search(g)
+  for grp in group_search:
+    for k,v in grp.iteritems():
+        stdout_write('Group search = %s -' % v)
+        url = '/search/group?%s=%s' % (k, urllib.quote(v))
+        tgetpage('grp_search', url)
+        ##run_group_search(g)
 
   ## finished...
   for g in group_view:
-     run_group_view(g)
+    run_group_view(g)
 
 ## Disabled until we've converted the searcher.
-#   for o in ou_search:
-#      run_ou_search(o)
+##  for ous in ou_search:
+##    for k,v in ous.iteritems():
+##        stdout_write('OU search = %s - ' % v)
+##        url = '/search/ou?%s=%s' % (k, urllib.quote(v))
+##        tgetpage('ou_search', url)
+        ## run_ou_search(o)
 
 ## Disabled until we've converted ou
-#   for o in ou_view:
-#      run_ou_view(o)
+  for o in ou_view:
+    run_ou_view(o)
 
 ## Disabled until we've converted the searcher.
-#   for h in host_search:
-#      run_host_search(h)
+  for host in host_search:
+    for k, v in host.iteritems():
+        stdout_write('Host search = %s - ' % v)
+        url = '/search/host?%s=%s' % (k, urllib.quote(v))
+        tgetpage('host_search', url)
+        ## run_host_search(h)
 
 ## Disabled until we've converted host
-#   for h in host_view:
-#      run_host_view(h)
+  for h in host_view:
+    run_host_view(h)
 
 ## Disabled until we've converted the searcher.
-#   for d in disk_search:
-#      run_disk_search(d)
+  for disk in disk_search:
+    for k,v in disk.iteritems():
+        stdout_write('Disk search = %s - ' % v)
+        url = '/search/disk?%s=%s' % (k, urllib.quote(v))
+        tgetpage('disk_search', url)
+        ## run_disk_search(d)
 
 ## Disabled until we've converted disk
-#   for d in disk_view:
-#      run_disk_view(d)
+  for d in disk_view:
+    run_disk_view(d)
 
 ## Disabled until we've converted the searcher.
-#   for e in email_search:
-#      run_email_search(e)
+##  for email in email_search:
+##    for k,v in email.iteritems():
+##        stdout_write('Email search = %s - ' % v)
+##        url = '/search/email?%s=%s' % (k, urllib.quote(v))
+##        tgetpage('email_search', url)
+        ## run_email_search(e)
 
 ## Disabled until we've converted email
-#   for e in email_view:
-#      run_email_view(e)
+  for e in email_view:
+    run_email_view(e)
 
   run_logout()
   sys.stdout.write('\n\n')
