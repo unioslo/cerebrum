@@ -160,8 +160,11 @@ def synchronize_attribute(cerebrum_lookup, fs_lookup,
         fdato, persnr = additions[cere_value]
         logger.debug1("Adding address for %06d%05d: %s", fdato, persnr,
                       cere_value)
-        fs_update(fdato, persnr, cere_value)
-        attempt_commit()
+        try:
+          fs_update(fdato, persnr, cere_value)
+          attempt_commit()
+        except:
+          logger.error("Failed adding mailaddr for %06d%05d: %s", fdato, persnr, cere_value)
     # od
 
     logger.debug("Done updating attributes")
