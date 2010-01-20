@@ -89,6 +89,9 @@
     $info.append(($_('Date created'), $quotedate($account.create_date)))
     $info.append(($_('Created by'), $entity_link($account.creator)))
 
+    #if $account.np_type
+        $info.append(($_('Account type'), $spine_to_web($account.np_type_name)))
+    #end if
     #if $account.is_posix
         $info.append(($_('UID'), $account.posix_uid))
         $info.append(($_('Primary group'), $entity_link($account.primary_group)))

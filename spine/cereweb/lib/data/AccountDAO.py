@@ -307,7 +307,8 @@ class AccountDAO(EntityDAO):
             dto.traits = self._get_traits(account)
             dto.notes = self._get_notes(account)
             dto.quarantines = self._get_quarantines(account)
-
+            dto.np_type = account.np_type
+            dto.np_type_name = self._get_np_type_name(account)
         return dto
 
     def _populate(self, dto, account):
@@ -400,3 +401,7 @@ class AccountDAO(EntityDAO):
     def _get_type(self):
         return self.constants.entity_account
 
+    def _get_np_type_name(self, account):
+        if account.np_type:
+            return self.constants.Account(account.np_type).description
+        return None
