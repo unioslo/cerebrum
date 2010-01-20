@@ -62,17 +62,16 @@ h3 {
 
 
 #messages div.error {
-    color: red;
-    background-color: white;
+    border: 2px solid red;
+    color: black;
 }
 
 #messages div {
     position: relative;
     padding: 8px;
     margin-top: 1em;
-
-    border: 1px dotted black;
-    background: #FFFF80;
+    border: 1px solid black;
+    background: white;
 }
 
 #messages div:first-child {
