@@ -32,6 +32,7 @@ h1 {
 
 h3 {
     font-size: 135%;
+    margin-left: 2px;
 }
 
 #container {
@@ -200,6 +201,7 @@ div.view_content {
     background: white;
     color: black;
     float: right;
+    left-padding: 10px;
 }
 
 div.view_content div.view_actions {
@@ -308,12 +310,15 @@ form select {
  * Form fields can be either optional or required.
  */
 div.optional label {
-    font-weight: normal;
     font-style: normal;
+    font-weight: normal;
+    margin-left: 10px;
+    text-align: left;
 }
 div.required label {
-    font-style: oblique;
     font-weight: bold;
+    margin-left: 10px;
+    text-align: left;
 }
 /**
  * Make the buttons start after the labels.
@@ -583,12 +588,15 @@ div.errorpage div.traceback pre {
 div.motd {
     width: 623px;
     margin-bottom: 1em;
+    padding-left: 4px;
+    padding-right: 4px;
 }
 
 div.motd div.subject {
     font-weight: bold;
     border-bottom: 1px solid black;
-    padding-left: 10px;
+    padding-left: 2px;
+    margin-bottom: 6px;
     width: auto;
     font-size: 110%;
 }
