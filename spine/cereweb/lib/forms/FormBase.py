@@ -252,7 +252,7 @@ class SearchForm(Form):
     form_class = "view"
     submit_value = _("Search")
     reset_value = _("Clear")
-    method = "GET"
+    method = "get"
 
 class CreateForm(Form):
     form_class = "info box"
