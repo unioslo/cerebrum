@@ -35,9 +35,9 @@
 <div id="actions">
     <h3>$_("Actions")</h3>
     <ul>
-        <li><a href="/host/edit?id=$host.id">$_("edit info")</a></li>
-        <li><a href="/confirm/host/delete?id=$host.id">$_("delete host")</a></li>
-        <li><a href="/entity/full_historylog?id=$host.id">$_('view full history log')</a></li>
+        <li><a href="/host/edit?id=$host.id">$_("Edit info")</a></li>
+        <li><a href="/confirm/host/delete?id=$host.id">$_("Delete host")</a></li>
+        <li><a href="/entity/full_historylog?id=$host.id">$_('View full history log')</a></li>
         #if $host.is_email_server
             <li><a href="/confirm/host/demote_mailhost?host_id=$host.id">$_('Demote as mailhost')</a></li>
         #end if

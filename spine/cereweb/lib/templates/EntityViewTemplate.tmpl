@@ -92,7 +92,7 @@
         #if $entity.accounts
         <input type="submit" value="$_('Delete')" name="delete" />&#x0020;
         #end if
-        <a href="/account/create?owner_id=$entity.id">$_('create new account')</a>
+        <a href="/account/create?owner_id=$entity.id">$_('Create new account')</a>
     </form>
 </div>
 #end def
@@ -115,7 +115,7 @@
         #for $note in $entity.notes
             <div class="item">
                 <div class="actions">
-                    <a class="action" href="/confirm/entity/delete_note?entity_id=$entity.id&amp;note_id=$note.id">$_('delete')</a>
+                    <a class="action" href="/confirm/entity/delete_note?entity_id=$entity.id&amp;note_id=$note.id">$_('Delete')</a>
                 </div>
                 <span class="name">$spine_to_web($note.subject)</span>&#x0020;
                 <span class="creator">-$_('by ') $entity_link($note.creator)</span>&#x0020;
@@ -156,7 +156,7 @@
         #for $spread in $entity.spreads
             <div class="item">
                 <div class="actions">
-                    <a class="action" href="/confirm/entity/remove_spread?id=$entity.id&amp;spread=$url_quote($spread.name)">$_('remove')</a>
+                    <a class="action" href="/confirm/entity/remove_spread?id=$entity.id&amp;spread=$url_quote($spread.name)">$_('Remove')</a>
                 </div>
                 <span class="name">$spine_to_web($spread.name)</span> -
                 <span class="value">$spine_to_web($spread.description)</span>
@@ -275,8 +275,8 @@
             <div class="item">
                 #set $type = $url_quote($q.type_name)
                 <div class="actions">
-                    <a class="action" href="#editQuarantineBox_${type}">$_('disable')</a>
-                    <a class="action" href="/confirm/entity/remove_quarantine?id=$entity.id&amp;type=$type">$_('delete')</a>
+                    <a class="action" href="#editQuarantineBox_${type}">$_('Disable')</a>
+                    <a class="action" href="/confirm/entity/remove_quarantine?id=$entity.id&amp;type=$type">$_('Delete')</a>
                 </div>
                 <strong>$spine_to_web($q.type_description)</strong>&#x0020;
                 <em>-$_('by ')</em>$entity_link($q.creator) &#x0020;
