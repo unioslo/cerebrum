@@ -62,8 +62,8 @@ def register_email_server(email_srv_type, email_srv_name, description):
     email_server = Email.EmailServer(db)
 
     try:
-        int(const.EmailServerType(email_srv_type))
         email_srv_type = const.EmailServerType(email_srv_type)
+        int(email_srv_type)
     except Errors.NotFoundError:
         logger.error("Unknown email server type: %s. Entry skipped",
                      email_srv_type)
@@ -71,7 +71,7 @@ def register_email_server(email_srv_type, email_srv_name, description):
     
     try:
         email_server.find_by_name(email_srv_name)
-        email_server.email_server_type=email_srv_name
+        email_server.email_server_type=email_srv_type
         email_server.description=description
     except Errors.NotFoundError:
         try:
