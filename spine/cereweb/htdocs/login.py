@@ -66,10 +66,12 @@ login.exposed = True
 
 def try_login(username=None, password=None, **kwargs):
     global logger
-    if not username or not password:
-        return False
-
     try:
+        if (username and not password) or (not username and password):
+            raise Exception("Login failed.")
+        if not username or not password:
+            return False
+
         db = Database()
         const = Constants(db)
         method = const.auth_type_md5_crypt
