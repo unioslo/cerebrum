@@ -993,7 +993,7 @@ class UiOStudieInfo(access_FS.StudieInfo):
           k.kulltrinn_start, k.terminnr_maks, k.status_generer_epost,
           s.institusjonsnr_studieansv, s.faknr_studieansv,
           s.instituttnr_studieansv, s.gruppenr_studieansv
-        FROM  fs.kull k, fs.studieprogram s, fs.studieprogram
+        FROM  fs.kull k, fs.studieprogram s
         WHERE
           k.status_aktiv = 'J' AND
           s.studieprogramkode = k.studieprogramkode AND
