@@ -1284,10 +1284,7 @@ def list_users_for_fronter_export():  # TODO: rewrite this
                                         '@'.join((row['entity_name'],
                                                   'ulrik.uio.no'))),
                'uname': row['entity_name']}
-        if row['gecos'] is None:
-            tmp['fullname'] = row['name']
-        else:
-            tmp['fullname'] = row['gecos']            
+        tmp['fullname'] = row['name']
         ret.append(tmp)
     return ret
 
