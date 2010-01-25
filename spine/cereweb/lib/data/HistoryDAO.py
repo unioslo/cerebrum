@@ -48,8 +48,8 @@ class HistoryDAO(object):
         return self.co.ChangeType(change_type_id)
 
     def _get_creator(self, event):
-        if event.change_by:
-            return self.ac.get_entity(event.change_by)
-        elif event.change_program:
-            return event.change_program
+        if event['change_by']:
+            return self.ac.get_entity(event['change_by'])
+        elif event['change_program']:
+            return event['change_program']
         return "unknown"

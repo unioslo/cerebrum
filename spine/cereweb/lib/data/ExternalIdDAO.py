@@ -20,22 +20,22 @@ class ExternalIdDAO(object):
         external_ids = {}
 
         for external_id in entity.list_external_ids(entity_id=entity.entity_id):
-            key = "%s:%s" % (external_id.id_type, external_id.external_id)
+            key = "%s:%s" % (external_id['id_type'], external_id['external_id'])
 
-            if self.auth.can_read_external_id(self.db.change_by, entity, external_id.id_type):
-                value = external_id.external_id
+            if self.auth.can_read_external_id(self.db.change_by, entity, external_id['id_type']):
+                value = external_id['external_id']
             else:
                 value = "[No access]"
 
             if not key in external_ids:
                 dto = DTO()
                 dto.value = value
-                dto.variant = ConstantsDAO(self.db).get_external_id_type(external_id.id_type)
+                dto.variant = ConstantsDAO(self.db).get_external_id_type(external_id['id_type'])
                 dto.source_systems = []
                 external_ids[key] = dto
 
             dto = external_ids[key]
-            source_system = ConstantsDAO(self.db).get_source_system(external_id.source_system)
+            source_system = ConstantsDAO(self.db).get_source_system(external_id['source_system'])
             if not source_system in dto.source_systems:
                 dto.source_systems.append(source_system)
 

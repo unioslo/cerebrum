@@ -46,7 +46,7 @@ class MotdDAO(object):
 
     def get_latest(self, num=None):
         motds = CerewebMotd(self.db).list_motd()
-        motds.sort(key=lambda x: x.create_date, reverse=True)
+        motds.sort(key=lambda x: x['create_date'], reverse=True)
         if num:
             motds = motds[:num]
 

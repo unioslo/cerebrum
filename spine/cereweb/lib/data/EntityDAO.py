@@ -203,17 +203,17 @@ class EntityDAO(object):
         contacts = {}
 
         for contact in entity.get_contact_info():
-            key = "%s:%s" % (contact.contact_type, contact.contact_value)
+            key = "%s:%s" % (contact['contact_type'], contact['contact_value'])
             if not key in contacts:
                 dto = DTO()
-                dto.value = contact.contact_value
-                dto.variant = ConstantsDAO(self.db).get_contact_type(contact.contact_type)
+                dto.value = contact['contact_value']
+                dto.variant = ConstantsDAO(self.db).get_contact_type(contact['contact_type'])
                 dto.source_systems = []
                 contacts[key] = dto
 
             dto = contacts[key]
-            source_system = ConstantsDAO(self.db).get_source_system(contact.source_system)
-            source_system.preferance = contact.contact_pref
+            source_system = ConstantsDAO(self.db).get_source_system(contact['source_system'])
+            source_system.preferance = contact['contact_pref']
             if not source_system in dto.source_systems:
                 dto.source_systems.append(source_system)
         return contacts.values()
@@ -223,26 +223,26 @@ class EntityDAO(object):
 
         for address in entity.get_entity_address():
             key = "%s:%s.%s.%s.%s.%s" % (
-                address.address_type,
-                address.address_text,
-                address.p_o_box,
-                address.postal_number,
-                address.city,
-                address.country)
+                address['address_type'],
+                address['address_text'],
+                address['p_o_box'],
+                address['postal_number'],
+                address['city'],
+                address['country'])
             if not key in addresses:
                 dto = DTO()
                 dto.value = DTO()
-                dto.value.address_text = address.address_text
-                dto.value.p_o_box = address.p_o_box
-                dto.value.postal_number = address.postal_number
-                dto.value.city = address.city
-                dto.value.country = address.country
-                dto.variant = ConstantsDAO(self.db).get_address_type(address.address_type)
+                dto.value.address_text = address['address_text']
+                dto.value.p_o_box = address['p_o_box']
+                dto.value.postal_number = address['postal_number']
+                dto.value.city = address['city']
+                dto.value.country = address['country']
+                dto.variant = ConstantsDAO(self.db).get_address_type(address['address_type'])
                 dto.source_systems = []
                 addresses[key] = dto
 
             dto = addresses[key]
-            source_system = ConstantsDAO(self.db).get_source_system(address.source_system)
+            source_system = ConstantsDAO(self.db).get_source_system(address['source_system'])
             if not source_system in dto.source_systems:
                 dto.source_systems.append(source_system)
         return addresses.values()
@@ -253,8 +253,8 @@ class EntityDAO(object):
     def _get_spreads(self, entity):
         spreads = []
         spread_dao = ConstantsDAO(self.db)
-        for (spread_id,) in entity.get_spread():
-            dto = spread_dao.get_spread(spread_id)
+        for spread in entity.get_spread():
+            dto = spread_dao.get_spread(spread['spread'])
             spreads.append(dto)
         return spreads
 

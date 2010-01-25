@@ -270,7 +270,7 @@ class AccountDAO(EntityDAO):
     def _get_homedir_id_or_not_set(self, account, spread_id):
         try:
             home = account.get_home(spread_id)
-            return home.homedir_id
+            return home['homedir_id']
         except NotFoundError, e:
             return None
     
@@ -351,7 +351,7 @@ class AccountDAO(EntityDAO):
         auths = []
         auth_dao = ConstantsDAO(self.db)
         for auth in account.get_account_authentication_methods():
-            dto = auth_dao.get_authentication_method(auth.method)
+            dto = auth_dao.get_authentication_method(auth['method'])
             auths.append(dto)
         return auths
 
@@ -365,10 +365,10 @@ class AccountDAO(EntityDAO):
 
     def _create_home_dto(self, home):
         dto = DTO()
-        dto.spread = ConstantsDAO(self.db).get_spread(home.spread)
-        dto.path = home.home
-        dto.disk = home.disk_id and DiskDAO(self.db).get(home.disk_id)
-        status = self.constants.AccountHomeStatus(home.status)
+        dto.spread = ConstantsDAO(self.db).get_spread(home['spread'])
+        dto.path = home['home']
+        dto.disk = home['disk_id'] and DiskDAO(self.db).get(home['disk_id'])
+        status = self.constants.AccountHomeStatus(home['status'])
         dto.status = DTO()
         dto.status.description = status.description
         return dto

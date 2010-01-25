@@ -62,7 +62,7 @@ class PersonDAO(EntityDAO):
         if recursive:
             ou = OU_class(self.db)
             children = ou.list_children(int(perspective_type), entity_id=ou_id, recursive=True)
-            ous.extend([c.ou_id for c in children])
+            ous.extend([c['ou_id'] for c in children])
 
         rows = p.list_affiliations(
                         affiliation=affiliation_type,
@@ -75,7 +75,7 @@ class PersonDAO(EntityDAO):
 
         for row in rows:
             person = people[row.person_id]
-            person.status = self.constants.PersonAffStatus(row.status)
+            person.status = self.constants.PersonAffStatus(row['status'])
 
         return people.values()
 
@@ -89,7 +89,7 @@ class PersonDAO(EntityDAO):
         id = ids[0]
 
         person = self._find(id)
-        account_ids = [a.account_id for a in person.get_accounts()]
+        account_ids = [a["account_id"] for a in person.get_accounts()]
         account_dtos = AccountDAO(self.db).get_accounts(*account_ids)
         primary_id = person.get_primary_account()
         for dto in account_dtos:
@@ -126,7 +126,7 @@ class PersonDAO(EntityDAO):
             dto.last_name)
         entity.write_db()
 
-        dto.id = entity.entity_id
+        dto.id = entity["entity_id"]
 
     def delete(self, person_id):
         person = self._find(person_id)
@@ -188,7 +188,7 @@ class PersonDAO(EntityDAO):
         name_type = self.constants.PersonName(name_type)
         source = self.constants.AuthoritativeSystem(source_system)
 
-        if not source == self.constants.AuthoritativeSystem("Manual"):
+        if not source == self.constants.system_manual:
             raise PermissionDenied("Not authorized to delete name")
         
         entity.affect_names(self.constants.system_manual, name_type)
@@ -216,17 +216,17 @@ class PersonDAO(EntityDAO):
         names = {}
 
         for name in entity.get_all_names():
-            key = "%s:%s" % (name.name_variant, name.name)
+            key = "%s:%s" % (name['name_variant'], name['name'])
             if not key in names:
                 dto = DTO()
-                dto.id = name.fields.person_id
-                dto.value = name.fields.name
-                dto.variant = ConstantsDAO(self.db).get_name_type(name.name_variant)
+                dto.id = name['person_id']
+                dto.value = name['name']
+                dto.variant = ConstantsDAO(self.db).get_name_type(name['name_variant'])
                 dto.source_systems = []
                 names[key] = dto
 
             dto = names[key]
-            source_system = ConstantsDAO(self.db).get_source_system(name.source_system)
+            source_system = ConstantsDAO(self.db).get_source_system(name['source_system'])
             if not source_system in dto.source_systems:
                 dto.source_systems.append(source_system)
         return names.values()

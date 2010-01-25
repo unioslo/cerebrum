@@ -98,7 +98,7 @@ class OuDAO(EntityDAO):
             family.is_root = family.parent is None
 
             child_ids = ou.list_children(perspective.id, ou.entity_id)
-            family.children = [s.get_entity(c.ou_id) for c in child_ids]
+            family.children = [s.get_entity(c['ou_id']) for c in child_ids]
 
         return families
 
@@ -108,8 +108,8 @@ class OuDAO(EntityDAO):
         dtos = []
         for entity in entity.list_all():
             dto = DTO()
-            dto.name = entity.name
-            dto.id = entity.ou_id
+            dto.name = entity['name']
+            dto.id = entity['ou_id']
             dtos.append(dto)
         return dtos
 
