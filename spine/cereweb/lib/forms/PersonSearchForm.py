@@ -49,7 +49,25 @@ class PersonSearchForm(SearchForm):
 
     def check(self):
         values = self.get_values()
-        return values['name'] is not None or values['birth_date'] is not None
+
+        name = values.get('name')
+        birth_date = values.get('birth_date')
+
+        is_valid = self._is_not_empty(name) or self._is_not_empty(birth_date)
+        if not is_valid:
+            self.error_message = _("Search form can't be empty.")
+
+        return is_valid
+
+    def _is_not_empty(self, value):
+        val = value.strip()
+        if not val:
+            return False
+
+        if not val.strip('*'):
+            return False
+
+        return True
 
     help = [
         _('Use wildcards * and ? to extend the search.'),
