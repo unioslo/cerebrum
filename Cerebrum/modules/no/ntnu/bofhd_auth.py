@@ -61,21 +61,27 @@ class BofhdAuth(auth.BofhdAuth):
         if not isinstance(target, Group_class):
             raise TypeError(
                 "Can't handle target, expected type %s but got %s" % (Group_class, type(target)))
+        
+        groupvis = str(self.const.GroupVisibility(target.visibility))
+        for r in  self._query_target_permissions(
+            operator, operation, self.const.auth_target_type_group,
+            None, None, operation_attr):
+            if not r['attr'] or r['attr'] = groupvis:
+                return True
+        
+        return self._query_target_permissions(
+            operator, operation, self.const.auth_target_type_group,
+            target.entity_id, None, operation_attr)
 
-        return self._has_access(
-            operator, target, self.const.auth_target_type_global_group,
-            operation, operation_attr)
 
     def _has_ou_access(self, operator, target, operation, operation_attr=None):
         if not isinstance(target, OU_class):
             raise TypeError(
                 "Can't handle target, expected type %s but got %s" % (OU_class, type(target)))
 
-        if self._has_global_access(operator,
-                                   operation,
-                                   self.const.auth_target_type_global_ou,
-                                   target.entity_id,
-                                   operation_attr):
+        if self._has_global_access(
+            operator, operation, self.const.auth_target_type_global_ou,
+            target.entity_id, operation_attr=operation_attr):
             return True
 
         return self._query_target_permissions(
@@ -167,6 +173,10 @@ class BofhdAuth(auth.BofhdAuth):
         return self._query_target_permissions(
                         operator, self.const.auth_login,
                         self.const.auth_target_type_cereweb, None, None)
+
+    def can_alter_group(self, operator, target):
+        operation = self.const.auth_alter_group_membership
+        return self._has_group_access(operator, target, operation)
 
     def can_set_password(self, operator, target):
         operation = self.const.auth_set_password
@@ -337,17 +347,20 @@ class BofhdAuth(auth.BofhdAuth):
 
         ou = self._get_ou(ou_id)
         affiliation = self.const.PersonAffiliation(affiliation_id)
-
-        if not self._has_ou_access(operator, ou, operation, operation_attr=str(affiliation)):
+        operation_attr=str(affiliation)
+        
+        if not self._has_ou_access(operator, ou, operation, operation_attr):
             return False
 
         if isinstance(target, Person_class):
             if not target.get_affiliations():
                 return True
 
-            return self._has_person_access(operator, target, operation)
+            return self._has_person_access(operator, target, operation,
+                                           operation_attr)
         elif isinstance(target, Account_class):
-            return self._has_account_access(operator, target, operation)
+            return self._has_account_access(operator, target, operation,
+                                            operation_attr)
         else:
             raise TypeError(
                 "Can't handle target of unknown type (%s)" % type(target))
