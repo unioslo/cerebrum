@@ -96,8 +96,9 @@
 #end def
 
 #def render_select($field, $cls)
+    #set $quote = $field.get('quote_values', True)
     $form_widgets.generate_loption($field['name'],
-            $field['label'], $field['options'], $field['value'])
+            $field['label'], $field['options'], $field['value'], quote=$quote)
 #end def
 
 #def render_hidden($field, $cls)

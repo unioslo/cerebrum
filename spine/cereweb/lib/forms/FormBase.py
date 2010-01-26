@@ -90,6 +90,7 @@ class Form(object):
             if field['type'] == 'select':
                 func = getattr(self, 'get_%s_options' % key)
                 field['options'] = func()
+                field['quote_values'] = getattr(func, 'quote', True)
             res.append(field)
         return res
 

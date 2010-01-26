@@ -26,6 +26,7 @@ from lib.forms.FormBase import Form
 from lib.utils import get_database
 from lib.utils import strftime
 from lib.utils import entity_link
+from lib.utils import create_ou_selection_tree
 
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.PersonDAO import PersonDAO
@@ -105,7 +106,9 @@ class PersonCreateForm(Form):
         return options
 
     def get_ou_options(self):
-        return [(t.id, t.name) for t in OuDAO(self.db).get_entities()]
+        ou_tree = OuDAO(self.db).get_tree("Kjernen")
+        return create_ou_selection_tree(ou_tree)
+    get_ou_options.quote = False
 
     def get_gender_options(self):
         return [(g.name, g.description) for g in
