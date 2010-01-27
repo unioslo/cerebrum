@@ -378,10 +378,10 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(operator,
                                               self.const.auth_email_create)
-        return self._query_target_permissions(operator,
-                                              self.const.auth_email_create,
-                                              self.const.auth_target_type_global_maildomain,
-                                              None, None)
+        return self._has_target_permissions(operator,
+                                            self.const.auth_email_create,
+                                            self.const.auth_target_type_global_maildomain,
+                                            None, None)
     
     def is_studit(self, operator, query_run_any=False):
         if operator in self._get_group_members(cereconf.BOFHD_STUDADM_GROUP):
@@ -389,10 +389,10 @@ class BofhdAuth(DatabaseAccessor):
         return False
 
     def is_group_owner(self, operator, operation, entity, operation_attr=None):
-        if self._query_target_permissions(operator, operation,
-                                          self.const.auth_target_type_group,
-                                          int(entity.entity_id), None,
-                                          operation_attr=operation_attr):
+        if self._has_target_permissions(operator, operation,
+                                        self.const.auth_target_type_group,
+                                        int(entity.entity_id), None,
+                                        operation_attr=operation_attr):
             return True
         if self._has_global_access(operator, operation,
                                    self.const.auth_target_type_global_group,
@@ -461,11 +461,11 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_disk_def_quota_set)
-        if ((host is not None and self._query_target_permissions(
+        if ((host is not None and self._has_target_permissions(
             operator, self.const.auth_disk_def_quota_set,
             self.const.auth_target_type_host, host.entity_id, None))
             or
-            (disk is not None and self._query_target_permissions(
+            (disk is not None and self._has_target_permissions(
             operator, self.const.auth_disk_def_quota_set,
             self.const.auth_target_type_disk, disk.entity_id, None))):
             return True
@@ -503,17 +503,17 @@ class BofhdAuth(DatabaseAccessor):
     def can_create_person(self, operator, ou=None, affiliation=None,
                           query_run_any=False):
         if (self.is_superuser(operator) or
-            self._query_target_permissions(operator,
-                                           self.const.auth_create_user,
-                                           self.const.auth_target_type_host,
-                                           None, None) or
-            self._query_target_permissions(operator,
-                                           self.const.auth_create_user,
-                                           self.const.auth_target_type_disk,
-                                           None, None) or
-            self._query_ou_permissions(operator,
-                                       self.const.auth_create_user,
-                                       ou, affiliation, None)):
+            self._has_target_permissions(operator,
+                                         self.const.auth_create_user,
+                                         self.const.auth_target_type_host,
+                                         None, None) or
+            self._has_target_permissions(operator,
+                                         self.const.auth_create_user,
+                                         self.const.auth_target_type_disk,
+                                         None, None) or
+            self._has_ou_permissions(operator,
+                                     self.const.auth_create_user,
+                                     ou, affiliation, None)):
             return True
         if query_run_any:
             return False
@@ -627,9 +627,9 @@ class BofhdAuth(DatabaseAccessor):
                                                       self.const.auth_add_disk)
         if host is not None:
             host = int(host.entity_id)
-        if self._query_target_permissions(operator, self.const.auth_add_disk,
-                                          self.const.auth_target_type_host,
-                                          host, None):
+        if self._has_target_permissions(operator, self.const.auth_add_disk,
+                                        self.const.auth_target_type_host,
+                                        host, None):
             return True
         raise PermissionDenied("No access to host")
 
@@ -657,10 +657,10 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(
                 operator, self.const.auth_alter_group_membership)
-        if self._query_target_permissions(operator,
-                                          self.const.auth_alter_group_membership,
-                                          self.const.auth_target_type_group,
-                                          group.entity_id, group.entity_id):
+        if self._has_target_permissions(operator,
+                                        self.const.auth_alter_group_membership,
+                                        self.const.auth_target_type_group,
+                                        group.entity_id, group.entity_id):
             return True
         raise PermissionDenied("No access to group")
 
@@ -1047,9 +1047,9 @@ class BofhdAuth(DatabaseAccessor):
             return False
         if opset is not None:
             opset = opset.name
-        if self._query_target_permissions(operator, operation,
-                                          target_type, target_id,
-                                          None, operation_attr=opset):
+        if self._has_target_permissions(operator, operation,
+                                        target_type, target_id,
+                                        None, operation_attr=opset):
             return True
         raise PermissionDenied("No access to %s" % target_type)
 
@@ -1308,20 +1308,20 @@ class BofhdAuth(DatabaseAccessor):
         """Permissions on disks may either be granted to a specific
         disk, a complete host, or a set of disks matching a regexp"""
                 
-        if self._query_target_permissions(operator, operation,
-                                          self.const.auth_target_type_disk,
-                                          disk.entity_id, victim_id,
-                                          operation_attr=operation_attr):
+        if self._has_target_permissions(operator, operation,
+                                        self.const.auth_target_type_disk,
+                                        disk.entity_id, victim_id,
+                                        operation_attr=operation_attr):
             return True
         if self._has_global_access(operator, operation,
                                    self.const.auth_target_type_global_host,
                                    victim_id, operation_attr=operation_attr):
             return True
         # Check regexp on host targets
-        for r in self._query_target_permissions(operator, operation,
-                                                self.const.auth_target_type_host,
-                                                disk.host_id, victim_id,
-                                                operation_attr=operation_attr):
+        for r in self._list_target_permissions(operator, operation,
+                                               self.const.auth_target_type_host,
+                                               disk.host_id,
+                                               operation_attr=operation_attr):
             if not r['attr']:
                 return True
             m = re.compile(r['attr']).match(disk.path.split("/")[-1])
@@ -1336,9 +1336,9 @@ class BofhdAuth(DatabaseAccessor):
                                    self.const.auth_target_type_global_maildomain,
                                    victim_id):
             return True
-        if self._query_target_permissions(operator, operation,
-                                          self.const.auth_target_type_maildomain,
-                                          domain.entity_id, victim_id):
+        if self._has_target_permissions(operator, operation,
+                                        self.const.auth_target_type_maildomain,
+                                        domain.entity_id, victim_id):
             return True
         raise PermissionDenied("No access to '%s' for e-mail domain %s" %
                                (operation.description,
@@ -1350,9 +1350,9 @@ class BofhdAuth(DatabaseAccessor):
         ou_id = None
         if ou:
             ou_id = ou.ou_id
-        for r in self._query_target_permissions(operator, operation,
-                                                self.const.auth_target_type_ou,
-                                                ou_id, victim_id):
+        for r in self._list_target_permissions(operator, operation,
+                                               self.const.auth_target_type_ou,
+                                               ou_id):
             # We got at least one hit.  If we don't match a specific
             # affiliation, just return.
             if not affiliation or not r['attr']:
@@ -1387,12 +1387,23 @@ class BofhdAuth(DatabaseAccessor):
 
     def _query_target_permissions(self, operator, operation, target_type,
                                   target_id, victim_id, operation_attr=None):
+        logger = Factory.get_logger()
+        logger.warn("Deprecated function _query_target_permissions. " +
+                    "Use _has_target_permissions or _list_target_permissions.")
+        return self._has_target_permissions(
+            operator, operation, target_type, target_id, victim_id,
+            operation_attr)
+    
+
+    def _has_target_permissions(self, operator, operation, target_type,
+                                  target_id, victim_id, operation_attr=None):
         """Query any permissions that operator, or any of the groups
         where operator is a member, has been granted operation on
-        target_type:target_id"""
-        ewhere = ""
+        target_type:target_id, or the global equivalent of the target.
+        
+        This function returns True or False.
+        """
         if target_id is not None:
-            ewhere = "AND aot.entity_id=:target_id"
             if target_type in (self.const.auth_target_type_host,
                                self.const.auth_target_type_disk):
                 if self._has_global_access(operator, operation,
@@ -1415,6 +1426,25 @@ class BofhdAuth(DatabaseAccessor):
                                            victim_id, operation_attr=operation_attr):
                     return True
 
+        if self._list_target_permissions(
+            operator, operation, target_type, target_id,  operation_attr):
+            return True
+        else:
+            return False
+
+    def _list_target_permissions(self, operator, operation, target_type,
+                                 target_id,  operation_attr=None):
+        """
+        List permissions that operator, or any of the groups
+        where operator is a member, for the operation on the direct target
+        
+        The result of this function is a sequence of dbrows which
+        can be checked for dbrow['attr'].
+        """
+        
+        ewhere = ""
+        if target_id is not None:
+            ewhere = "AND aot.entity_id=:target_id"
         # Connect auth_operation and auth_op_target
         # Relevant entries in auth_operation are:
         # 
@@ -1525,9 +1555,9 @@ class BofhdAuth(DatabaseAccessor):
         elif victim_id in \
                  self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
             return False
-        for k in self._query_target_permissions(operator, operation,
-                                                global_type, None, None,
-                                                operation_attr=operation_attr):
+        for k in self._list_target_permissions(operator, operation,
+                                               global_type, None,
+                                               operation_attr=operation_attr):
             return True
         return False
 

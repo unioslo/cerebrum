@@ -63,13 +63,13 @@ class BofhdAuth(auth.BofhdAuth):
                 "Can't handle target, expected type %s but got %s" % (Group_class, type(target)))
         
         groupvis = str(self.const.GroupVisibility(target.visibility))
-        for r in  self._query_target_permissions(
+        for r in self._list_target_permissions(
             operator, operation, self.const.auth_target_type_group,
-            None, None, operation_attr):
-            if not r['attr'] or r['attr'] == groupvis:
+            None, operation_attr):
+            if r['attr'] == groupvis:
                 return True
         
-        return self._query_target_permissions(
+        return self._has_target_permissions(
             operator, operation, self.const.auth_target_type_group,
             target.entity_id, None, operation_attr)
 
@@ -84,7 +84,7 @@ class BofhdAuth(auth.BofhdAuth):
             target.entity_id, operation_attr=operation_attr):
             return True
 
-        return self._query_target_permissions(
+        return self._has_target_permissions(
             operator, operation, self.const.auth_target_type_ou, target.entity_id, None,
             operation_attr)
 
@@ -99,7 +99,7 @@ class BofhdAuth(auth.BofhdAuth):
                                    host_id):
             return True
 
-        return self._query_target_permissions(
+        return self._has_target_permissions(
             operator, operation, self.const.auth_target_type_host,
             host_id, None)
 
@@ -113,7 +113,7 @@ class BofhdAuth(auth.BofhdAuth):
                                    domain_id):
             return True
 
-        return self._query_target_permissions(
+        return self._has_target_permissions(
             operator, operation, self.const.auth_target_type_email_domain,
             domain_id, None)
 
@@ -126,7 +126,7 @@ class BofhdAuth(auth.BofhdAuth):
                                    self.const.auth_target_type_global_spread, victim_id):
             return True
 
-        return self._query_target_permissions(
+        return self._has_target_permissions(
             operator, operation, self.const.auth_target_type_spread,
             spread_id, None)
     
@@ -170,12 +170,16 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
 
-        return self._query_target_permissions(
-                        operator, self.const.auth_login,
-                        self.const.auth_target_type_cereweb, None, None)
+        return self._has_target_permissions(
+            operator, self.const.auth_login,
+            self.const.auth_target_type_cereweb, None, None)
 
-    def can_alter_group(self, operator, target):
-        operation = self.const.auth_alter_group_membership
+    def can_edit_group_membership(self, operator, target):
+        operation = self.const.auth_group_edit_membership
+        return self._has_group_access(operator, target, operation)
+
+    def can_edit_group(self, operator, target):
+        operation = self.const.auth_group_edit
         return self._has_group_access(operator, target, operation)
 
     def can_set_password(self, operator, target):
@@ -404,7 +408,7 @@ class BofhdAuth(auth.BofhdAuth):
     def can_syncread_account(self, operator, spread, auth_method):
         if self.is_superuser(operator):
             return True
-        if self._query_target_permissions(
+        if self._has_target_permissions(
             operator, self.const.auth_account_syncread,
             self.const.auth_target_type_spread, int(spread), None,
             operation_attr=str(auth_method)):
@@ -414,7 +418,7 @@ class BofhdAuth(auth.BofhdAuth):
     def can_syncread_group(self, operator, spread):
         if self.is_superuser(operator):
             return True
-        if self._query_target_permissions(
+        if self._has_target_permissions(
             operator, self.const.auth_group_syncread,
             self.const.auth_target_type_spread, int(spread), None):
             return True
@@ -428,7 +432,7 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
         if spread is not None:
-            if self._query_target_permissions(
+            if self._has_target_permissions(
                 operator, self.const.auth_ou_syncread,
                 self.const.auth_target_type_spread, int(spread), None):
                 return True
@@ -451,7 +455,7 @@ class BofhdAuth(auth.BofhdAuth):
         if self.is_superuser(operator):
             return True
         if spread is not None:
-            if self._query_target_permissions(
+            if self._has_target_permissions(
                 operator, self.const.auth_person_syncread,
                 self.const.auth_target_type_spread, int(spread), None):
                 return True
@@ -464,7 +468,7 @@ class BofhdAuth(auth.BofhdAuth):
     def can_syncread_homedir(self, operator, host_id):
         if self.is_superuser(operator):
             return True
-        if self._query_target_permissions(
+        if self._has_target_permissions(
             operator, self.const.auth_homedir_syncread,
             self.const.auth_target_type_host, host_id, None):
             return True
@@ -475,7 +479,7 @@ class BofhdAuth(auth.BofhdAuth):
         raise PermissionDenied("Can't bulk read home directories")
 
     def can_set_homedir_status(self, operator, host_id, status):
-        if self._query_target_permissions(
+        if self._has_target_permissions(
             operator, self.const.auth_homedir_set_status,
             self.const.auth_target_type_host, host_id, None,
             operation_attr=str(status)):
