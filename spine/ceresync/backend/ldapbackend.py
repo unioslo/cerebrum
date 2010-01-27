@@ -58,6 +58,9 @@ def ldapDict(s):
 class LdapConnectionError(ServerError):
     pass
 
+class OUNotFoundException(Exception):
+    pass
+
 class DsmlHandler(DSMLParser):
     """Class for a DSMLv1 parser. Overrides method handle from class dsml.DSMLParser"""
 
@@ -449,6 +452,49 @@ class Person(LdapBack):
         self.obj_class = ['top','person','organizationalPerson','inetOrgPerson','eduPerson','norEduPerson','ntnuPerson']
         self.ignore_attr_types = []
 
+    def begin(self, **kwargs):
+        LdapBack.begin(self, **kwargs)
+        self._fetch_ous()
+
+    def _fetch_ous(self):
+        self.ous = {}
+        self.ou_cache = {}
+        res = self.search(base='ou=organization,dc=ntnu,dc=no',
+                          filterstr='(objectClass=organizationalUnit)')
+        for dn, attrs in res:
+            current, parent, rest = dn.split(',', 2)
+            current = current.split('=', 1)[1]
+            parent = parent.split('=', 1)[1]
+            acronym = attrs.get('norEduOrgAcronym', [""])
+            acronym = acronym[0]
+            if current == "organization":
+                continue
+            if parent == "organization":
+                parent = None
+                self.ou_cache[current] = [ acronym ]
+            self.ous[current] = {
+                    'parent': parent,
+                    'acronym': acronym,
+            }
+
+    def _get_acronym_list(self, ou):
+        if ou in self.ou_cache:
+            return self.ou_cache[ou]
+        current = self.ous.get(ou, "")
+        if not current:
+            raise OUNotFoundException(ou)
+        parent = current['parent']
+        acronyms = [ current['acronym'] ]
+        while parent:
+            if parent in self.ou_cache:
+                acronyms.extend(self.ou_cache[parent])
+                break
+            current = self.ous.get(parent, "")
+            parent = current['parent']
+            acronyms.append(current['acronym'])
+        self.ou_cache[ou] = acronyms
+        return acronyms 
+        
     def add(self, obj):
         if not obj.primary_account:
             log.debug("Ignoring %s with primary_account=%s", obj.full_name, 
@@ -490,7 +536,9 @@ class Person(LdapBack):
         # FIXME: Should probably use datetime or mx.DateTime
         birth_date= obj.birth_date.split()[0].replace('-','')
         s['norEduPersonBirthDate']  = ["%s"     %  birth_date]
-        s['norEduPersonNIN']        = ["%s"     %  obj.nin] # Norwegian "Birth number" / SSN 
+        if obj.nin:
+            # Norwegian "Birth number" / SSN 
+            s['norEduPersonNIN']        = ["%s"     %  obj.nin] 
         s['eduPersonPrincipalName'] = ["%s@%s"  %  (obj.primary_account_name, config.get('ldap','eduperson_realm'))]
         if 'ANSATT' in obj.affiliations:
             s['title'] = ['ansatt']
@@ -507,6 +555,12 @@ class Person(LdapBack):
             #print "%s"     %  obj.work_title
         #s['title']                  = ["Ikke title enno"] #["%s"     %  obj.work_title]
         s['mail']                   = ["%s"     %  obj.email]
+        try:
+            acronym_list = self._get_acronym_list(str(obj.primary_ou))
+            s['norEduOrgAcronym'] = acronym_list
+        except OUNotFoundException, e:
+            log.warning("primary ou (%d) of person '%s' not found", 
+                    obj.primary_ou, obj.full_name)
         return s
 
 class Alias:
