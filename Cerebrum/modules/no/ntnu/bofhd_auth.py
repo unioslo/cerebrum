@@ -66,7 +66,7 @@ class BofhdAuth(auth.BofhdAuth):
         for r in  self._query_target_permissions(
             operator, operation, self.const.auth_target_type_group,
             None, None, operation_attr):
-            if not r['attr'] or r['attr'] = groupvis:
+            if not r['attr'] or r['attr'] == groupvis:
                 return True
         
         return self._query_target_permissions(
