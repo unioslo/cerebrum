@@ -159,6 +159,8 @@ class XMLOrg2ObjectExt(XMLOrg2Object):
                 else:
                     result.add_id(ABCTypesExt.get_type("orgidtype",(type,)),
                               value)
+            elif sub.tag == 'business_category':
+                pass
             elif sub.tag == "orgname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "not 2 attributes: %s" % value
@@ -230,6 +232,8 @@ class XMLOU2ObjectExt(XMLOU2Object):
                 else:
                     result.add_id(ABCTypesExt.get_type("ouidtype",(type,)),
                               value)
+            elif sub.tag == 'business_category':
+                pass
             elif sub.tag == "ouname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "error in ouname: %s" % value
