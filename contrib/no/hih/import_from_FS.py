@@ -36,7 +36,7 @@ default_person_file = "/cerebrum/hih/dumps/FS/person.xml"
 default_role_file = "/cerebrum/hih/dumps/FS/roles.xml"
 default_undvenh_file = "/cerebrum/hih/dumps/FS/underv_enhet.xml"
 default_undenh_student_file = "/cerebrum/hih/dumps/FS/student_undenh.xml"
-default_studieprogram_file = "/cerebrum/nih/dumps/FS/studieprog.xml"
+default_studieprogram_file = "/cerebrum/hih/dumps/FS/studieprog.xml"
 default_ou_file = "/cerebrum/hih/dumps/FS/ou.xml"
 default_emne_file = "/cerebrum/hih/dumps/FS/emner.xml"
 default_fnr_update_file = "/cerebrum/hih/dumps/FS/fnr_update.xml"
@@ -111,8 +111,8 @@ def write_ou_info(outfile):
         for fs_col, typekode in (
             ('telefonnr', 'EKSTRA TLF'),
             ('faxnr', 'FAX'),
-	    ('emailadresse','EMAIL'),
-	    ('url', 'URL')):
+            ('emailadresse','EMAIL'),
+            ('url', 'URL')):
             if o[fs_col]:               # Skip NULLs and empty strings
                 komm.append({'kommtypekode': xml.escape_xml_attr(typekode),
                              'kommnrverdi': xml.escape_xml_attr(o[fs_col])})
@@ -148,7 +148,7 @@ def write_role_info(outfile):
     f.write(xml.xml_hdr + "<data>\n")
     cols, role = _ext_cols(fs.undervisning.list_alle_personroller())
     for r in role:
-	f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
+        f.write(xml.xmlify_dbrow(r, xml.conv_colnames(cols), 'rolle') + "\n")
     f.write("</data>\n")
     f.close()
 
@@ -290,7 +290,7 @@ def usage(exitcode=0):
     """
     sys.exit(exitcode)
 
-def assert_connected(user="CEREBRUM", service="FSNIH.uio.no"):
+def assert_connected(user="CEREBRUM", service="FSHIH.uio.no"):
     global fs
     if fs is None:
         db = Database.connect(user=user, service=service,
@@ -300,14 +300,20 @@ def assert_connected(user="CEREBRUM", service="FSNIH.uio.no"):
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeE",
-                                   ["personinfo-file=", "studprog-file=", 
-				    "roleinfo-file=", "undenh-file=",
-                                    "student-undenh-file=",
-				    "emneinfo-file=",
-                                    "evukursinfo-file=",
-				    "fnr-update-file=", "misc-func=", 
-                                    "misc-file=", "misc-tag=",
-                                    "ou-file=", "db-user=", "db-service="])
+                   ["personinfo-file=",
+                    "studprog-file=", 
+                    "roleinfo-file=",
+                    "undenh-file=",
+                    "student-undenh-file=",
+                    "emneinfo-file=",
+                    "evukursinfo-file=",
+                    "fnr-update-file=",
+                    "misc-func=", 
+                    "misc-file=",
+                    "misc-tag=",
+                    "ou-file=",
+                    "db-user=",
+                    "db-service="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -332,14 +338,14 @@ def main():
             evu_kursinfo_file = val
         elif o in ('--studprog-file',):
             studprog_file = val
-	elif o in ('--roleinfo-file',):
-	    role_file = val
-	elif o in ('--undenh-file',):
-	    undervenh_file = val
+        elif o in ('--roleinfo-file',):
+            role_file = val
+        elif o in ('--undenh-file',):
+            undervenh_file = val
         elif o in ('--student-undenh-file',):
             undenh_student_file = val
-	elif o in ('--fnr-update-file',):
-	    fnr_update_file = val
+        elif o in ('--fnr-update-file',):
+            fnr_update_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -352,16 +358,16 @@ def main():
             write_person_info(person_file)
         elif o in ('-s',):
             write_studprog_info(studprog_file)
-	elif o in ('-r',):
-	    write_role_info(role_file)
-	elif o in ('-u',):
-	    write_undenh_metainfo(undervenh_file)
+        elif o in ('-r',):
+            write_role_info(role_file)
+        elif o in ('-u',):
+            write_undenh_metainfo(undervenh_file)
         elif o in ('-U',):
             write_undenh_student(undenh_student_file)
         elif o in ('-e',):
-	    write_emne_info(emne_info_file)
-	elif o in ('-f',):
-	    write_fnrupdate_info(fnr_update_file)
+            write_emne_info(emne_info_file)
+        elif o in ('-f',):
+            write_fnrupdate_info(fnr_update_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
         elif o in ('-E',):
