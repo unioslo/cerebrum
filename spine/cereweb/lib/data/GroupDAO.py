@@ -85,7 +85,7 @@ class GroupDAO(EntityDAO):
         pgroup.write_db()
 
     def demote_posix(self, id):
-        pgroup = self._get_edit_group(id)
+        pgroup = self._get_posix_group(id)
         if not self.auth.can_alter_group(self.db.change_by, pgroup):
             raise PermissionDenied("No access to group")
 
