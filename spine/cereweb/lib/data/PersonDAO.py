@@ -126,7 +126,7 @@ class PersonDAO(EntityDAO):
             dto.last_name)
         entity.write_db()
 
-        dto.id = entity["entity_id"]
+        dto.id = entity.entity_id
 
     def delete(self, person_id):
         person = self._find(person_id)
