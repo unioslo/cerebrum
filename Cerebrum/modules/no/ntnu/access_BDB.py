@@ -82,7 +82,7 @@ class BDB:
                 b.status = 1 AND
                 n.person (+) = p.id AND
                 (p.personnr IS NOT NULL
-                   OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL)) AND
+                   OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
                 p.mail_domain = m.id AND
                 s.id(+) = m.system
         """
@@ -414,7 +414,7 @@ class BDB:
                 b.status = 1 AND
                 p.id = n.person (+) AND
                 (p.personnr IS NOT NULL
-                  OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL)) AND
+                  OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
                 p.id = e.person AND
                 e.mail_domain = d.id AND
                 s.id (+) = d.system
