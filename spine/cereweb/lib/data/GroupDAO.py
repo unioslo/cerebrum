@@ -62,7 +62,7 @@ class GroupDAO(EntityDAO):
 
     def add_member(self, member_id, group_id):
         group = self._find(group_id)
-        if not self.auth.can_alter_group(self.db.change_by, group):
+        if not self.auth.can_edit_group_membership(self.db.change_by, group):
             raise PermissionDenied("No access to group")
 
         if not group.has_member(member_id):
@@ -70,14 +70,14 @@ class GroupDAO(EntityDAO):
 
     def remove_member(self, group_id, member_id):
         group = self._find(group_id)
-        if not self.auth.can_alter_group(self.db.change_by, group):
+        if not self.auth.can_edit_group_membership(self.db.change_by, group):
             raise PermissionDenied("No access to group")
         if group.has_member(member_id):
             group.remove_member(member_id)
 
     def promote_posix(self, id):
         group = self._find(id)
-        if not self.auth.can_alter_group(self.db.change_by, group):
+        if not self.auth.can_edit_group(self.db.change_by, group):
             raise PermissionDenied("No access to group")
 
         pgroup = PosixGroup(self.db)
@@ -85,7 +85,7 @@ class GroupDAO(EntityDAO):
         pgroup.write_db()
 
     def demote_posix(self, id):
-        pgroup = self._get_posix_group(id)
+        pgroup = self._get_edit_group(id)
         if not self.auth.can_alter_group(self.db.change_by, pgroup):
             raise PermissionDenied("No access to group")
 
