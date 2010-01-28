@@ -205,6 +205,11 @@ class AccountDAO(EntityDAO):
             self.db.change_by,
             dto.expire_date)
         account.write_db()
+        # Inherit all affiliations from owner.
+        # Perhaps this should come from populate of initial write_db()?
+        if hasattr(owner, "get_affiliations"):
+            for aff in owner.get_affiliations():
+                account.set_account_type(aff['ou_id'], aff['affiliation'])
 
         return self._create_dto(account)
 
