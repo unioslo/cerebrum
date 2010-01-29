@@ -61,6 +61,20 @@ def is_correct_referer():
         approved = True
     return approved
 
+def get_content_type():
+    client_charset = cherrypy.session.get('client_encoding', 'utf-8')
+    content_type = 'application/xhtml+xml; charset=%s' % client_charset
+    user_agent = cherrypy.request.headerMap['User-Agent']
+    if user_agent.rfind('MSIE') != -1:
+        content_type = 'text/html; charset=%s' % client_charset
+    return content_type
+
+def get_pragma():
+    return 'no-cache'
+
+def get_cache_control():
+    return 'private, no-cache, no-store, must-revalidate, max-age=0'
+
 def clean_url(url):
     """Make sure the url doesn't point to a different server."""
     if not url:

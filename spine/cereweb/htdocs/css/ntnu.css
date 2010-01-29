@@ -1,0 +1,92 @@
+/*
+ *
+ *
+ *
+ *
+ * */
+
+body {
+    background-color: white;
+    color: black;
+    font-family: Verdana,Helvetica,sans-serif;
+    font-size: 10pt;
+}
+
+div.pagewrap{ width: 975px;}
+
+#topp {
+    background-color: #dce2ed;
+    color: black;
+    border: 1px solid black;
+    margin: 5px 0px 0px 15px;
+    text-align: left;
+    height: auto;
+    width: auto;
+}
+
+#page {
+    background-color:   white;
+    color:  black;
+    border: 1px solid black;
+    margin: -1px auto 0px 15px;
+    text-align: left;
+    height: auto;
+    width:  auto;
+    padding-bottom: 25px;
+}
+
+h1 {
+    font-size: 24px;
+    margin: 20px auto 20px 10px;
+}
+
+h2 {
+    font-size: 20px;
+    margin: 20px auto 20px 10px;
+}
+
+div.text {
+    font-size:  18px;
+    margin: 15px 10px 10px 20px;
+}
+
+div.message {
+    margin-left: 25px 25px 30px 30px;
+    text-align: left;
+}
+
+a:link {color:  #0e2c8e;}
+a:hover { color:    #336699;}
+
+.orginfo {
+        padding-right: 2em;
+        color: #999;
+        font-size: .75em;
+        font-weight: normal;    
+        letter-spacing: 0.1em;
+        text-align: right;  
+}
+
+.hidden {
+    visibility: hidden;
+}
+
+
+div.optional label {
+    font-style: normal;
+    font-weight: normal;
+    margin-left: 10px;
+    text-align: left;
+    width:  200px;
+}
+/* div.required label { */
+label {
+    font-weight: bold;
+    margin-left: 10px;
+    text-align: left;
+    width:  200px;
+}
+
+input.text {
+    width:  300px;
+}
