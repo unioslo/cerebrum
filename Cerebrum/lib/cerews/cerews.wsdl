@@ -45,11 +45,15 @@
     <xs:attribute name="primary_ou_id" type="xs:integer"/>
   </xs:complexType>
 
+  <xs:complexType name="AffiliationType">
+    <xs:attribute name="affiliation" type="xs:string"/>
+    <xs:attribute name="ou_id" type="xs:integer"/>
+  </xs:complexType>
+
   <xs:complexType name="PersonType">
     <xs:sequence>
       <xs:element name="quarantine" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="affiliation" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="ou" type="xs:integer" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="affiliation" type="ns1:AffiliationType" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="trait" type="xs:integer" minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
     <xs:attribute name="id" type="xs:integer"/>

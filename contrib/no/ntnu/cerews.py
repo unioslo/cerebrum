@@ -53,8 +53,6 @@ from Cerebrum.Utils import Factory
 
 from Cerebrum.Entity import EntityQuarantine
 
-logger = Factory.get_logger("cerews")
-
 from Cerebrum.lib.cerews.dom import DomletteElementProxy
 def elementproxy_patch():
     """
@@ -733,6 +731,12 @@ class HomedirDTO(DTO):
             disk_path=row['disk_path'],
             home=row['home'])
 
+class AffiliationDTO(DTO):
+    def __init__(self, row, co):
+        self._attrs = {}
+        self._attrs['affiliation'] = str(co.PersonAffiliation(row['affiliation']))
+        self._attrs['ou_id'] = row['ou_id']
+
 def get_node_value(node):
     if not node:
         return None
@@ -1036,7 +1040,6 @@ class cerews(ServiceSOAPBinding):
 
     @logmethod(getPersonsRequest)
     def get_persons(self, db, operator_id, request):
-        db.cl_init(change_program="cerews")
         co=Factory.get("Constants")()
         auth=bofhd_auth.BofhdAuth(db)
 
@@ -1072,9 +1075,8 @@ class cerews(ServiceSOAPBinding):
                 p._attrs['primary_account_password'] = primary['account_passwd']
                 p._attrs['primary_affiliation'] = str(co.PersonAffiliation(primary['affiliation']))
                 p._attrs['primary_ou'] = primary['ou_id']
-                p._affiliation = [str(co.PersonAffiliation(ap['affiliation']))
-                                  for ap in my_account_priorities.values()]
-                p._ou = [ap['ou_id'] for ap in my_account_priorities.values()]
+                p._affiliation = [
+                    AffiliationDTO(ap, co) for ap in my_account_priorities.values()]
                 response._person.append(p)
         db.rollback()
 
@@ -1119,6 +1121,8 @@ def test_soap(fun, cl, **kw):
     return fun.__name__, t1, t2
 
 def test():
+    global logger
+    logger = Factory.get_logger("console")
     sp=cerews()
     print test_soap(sp.get_persons, getPersonsRequest)
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
@@ -1225,12 +1229,13 @@ def daemonize():
 def main(daemon=False):
     global logger
     if daemon:
-        logger = Factory.get_logger("spine")
+        logger = Factory.get_logger("cerews")
         daemonize()
         if hasattr(cereconf, "CEREWS_PIDFILE"):
             open(cereconf.CEREWS_PIDFILE, "w").write(str(os.getpid())+"\n")
     else:
         logger = Factory.get_logger("console")
+        logger.setLevel(logging.DEBUG)
     logger.info("starting...")
     RunAsServer(port=int(cereconf.CEREWS_PORT), services=[cerews(),])
 
