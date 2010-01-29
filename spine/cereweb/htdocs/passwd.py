@@ -81,7 +81,7 @@ def savepw(**vargs):
             template.messages.append('If the server remains ' + \
                 ' unavailable, call (735) 91500 and notify ' + \
                 'Orakeltjenesten of the situation.')
-            logger.err(e)
+            logger.error(e)
             db.rollback()
             return template.respond()
         try:
@@ -91,7 +91,7 @@ def savepw(**vargs):
             template.messages.append('If the server remains ' + \
                 'unavailable, call (735) 91500 and notify ' + \
                 'Orakeltjenesten of the situation.')
-            logger.err(e)
+            logger.error(e)
             db.rollback()
             return template.respond()
     except Exception, e:
