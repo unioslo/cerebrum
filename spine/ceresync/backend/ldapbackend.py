@@ -38,6 +38,7 @@ from ldif import LDIFParser,LDIFWriter
 from dsml import DSMLParser,DSMLWriter 
 
 from ceresync import config
+from ceresync.syncws import Affiliation
 log = config.logger
 
 import unittest
@@ -516,19 +517,20 @@ class Person(LdapBack):
         s['eduPersonOrgDN']         = ["dc=ntnu,dc=no"]
 
         affiliations = set()
-        for aff in obj.affiliations:
-            if aff == 'STUDENT':
+        for holder in obj.affiliations:
+            aff = Affiliation(holder)
+            if aff.affiliation == 'STUDENT':
                 affiliations.add('student')
                 affiliations.add('member')
-            elif aff == 'ANSATT':
+            elif aff.affiliation == 'ANSATT':
                 affiliations.add('employee')
                 affiliations.add('member')
-            elif aff == 'TILKNYTTET':
+            elif aff.affiliation == 'TILKNYTTET':
                 affiliations.add('affiliate')
-            elif aff == 'ALUMNI':
+            elif aff.affiliation == 'ALUMNI':
                 affiliations.add('alum')
             else:
-                log.warn("Unknown affiliation: %s" % aff)
+                log.warn("Unknown affiliation: %s" % aff.affiliation)
         s['eduPersonAffiliation'] = list(affiliations)
 
         # Expecting birth_date from spine on the form "%Y-%m-%d 00:00:00.00"
@@ -540,20 +542,21 @@ class Person(LdapBack):
             # Norwegian "Birth number" / SSN 
             s['norEduPersonNIN']        = ["%s"     %  obj.nin] 
         s['eduPersonPrincipalName'] = ["%s@%s"  %  (obj.primary_account_name, config.get('ldap','eduperson_realm'))]
-        if 'ANSATT' in obj.affiliations:
-            s['title'] = ['ansatt']
-        elif 'STUDENT' in obj.affiliations:
+
+
+        if 'employee' in affiliations:
+            s['title'] = ['fast ansatt']
+        elif 'student' in affiliations:
             s['title'] = ['student']
-        elif 'TILKNYTTET' in obj.affiliations:
+        elif 'affiliate' in affiliations:
             s['title'] = ['tilknyttet']
-        elif 'ALUMNI' in obj.affiliations:
+        elif 'alum' in affiliations:
             s['title'] = ['alumnus']
         else:
             s['title'] = ["Ikke title enno"] 
         if obj.work_title != '':
             pass
-            #print "%s"     %  obj.work_title
-        #s['title']                  = ["Ikke title enno"] #["%s"     %  obj.work_title]
+
         s['mail']                   = ["%s"     %  obj.email]
         try:
             acronym_list = self._get_acronym_list(str(obj.primary_ou))

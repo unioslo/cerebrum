@@ -187,6 +187,12 @@ class Person(Entity):
         "_trait": "traits", 
     }
 
+class Affiliation(Entity):
+    entity_type= "affiliation"
+    attributes= [
+        "affiliation", "ou_id",
+    ]
+
 class CeresyncHTTPSConnection(HTTPConnection):
     def __init__(self, host, port=443, strict=None):
         HTTPConnection.__init__(self, host, port, strict)
