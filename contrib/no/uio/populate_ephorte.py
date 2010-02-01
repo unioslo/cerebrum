@@ -216,7 +216,8 @@ class PopulateEphorte(object):
                         self.ouid2sko[ou_id],
                         self.ouid2sko.get(self.ou_id2parent.get(ou_id))))
                 ou_id = self.ou_id2parent.get(ou_id)
-            # No ePhorte OU found. Log a warning
+            # No ePhorte OU found. Log to ou_map_warnings which is
+            # sent automatically to ephorte support.
             if ou_id is None or ou_id not in self.app_ephorte_ouid2name:
                 sko = self.ouid2sko[int(row['ou_id'])]
                 person_info = self.find_person_info(row['person_id'])
@@ -224,7 +225,9 @@ class PopulateEphorte(object):
                 tmp_msg = "Failed mapping '%s' to known ePhorte OU. " % sko
                 tmp_msg += "Skipping affiliation %s@%s for person %s" % (
                     co.affiliation_ansatt, sko, row['person_id'])
-                logger.warn(tmp_msg)
+                # warn -> info level since ephorte support must deal
+                # with this anyway
+                logger.info(tmp_msg)
                 continue
             person2ou.setdefault(int(row['person_id']), {})[ou_id] = 1
 
