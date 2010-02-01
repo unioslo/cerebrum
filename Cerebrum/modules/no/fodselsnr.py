@@ -62,6 +62,10 @@ def personnr_ok(nr, _retDate=0):
     day, month, year, pnr = \
          int(nr[0:2]), int(nr[2:4]), int(nr[4:6]), int(nr[6:9])
 
+    # luk ut personnr fra SAP (12345600X00)
+    if re.match(r'00\d00', pnr):
+        raise InvalidFnrError, "Fnr med gyldig sjekksum, men ugyldig personnr"
+    
     # B-nummer -- midlertidig (max 6 mnd) personnr
     if day > 40:
         day -= 40
