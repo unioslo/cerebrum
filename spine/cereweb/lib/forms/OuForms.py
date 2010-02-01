@@ -172,7 +172,7 @@ class OuPerspectiveEditForm(EditForm):
     def init_fields(self, *args, **kwargs):
         dao = self.constants_dao
         for perspective in dao.get_ou_perspective_types():
-            name = 'parent_%s' % perspective.name.lower()
+            name = 'parent_%s' % perspective.name
 
             self.fields[name] = {
                 'label': _("Parent in %s") % perspective.name,
@@ -189,7 +189,7 @@ class OuPerspectiveEditForm(EditForm):
         self.ou = self.ou_dao.get(id)
 
         for perspective, family in self.ou.families.items():
-            name = 'parent_%s' % perspective.name.lower()
+            name = 'parent_%s' % perspective.name
 
             if not family.in_perspective:
                 self.set_value(name, "not_in")

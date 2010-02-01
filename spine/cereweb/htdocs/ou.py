@@ -161,32 +161,23 @@ def edit_perspectives(id, **kwargs):
     return form.respond()
 edit_perspectives.exposed = True
 
-@utils.session_required_decorator
-def save_perspectives(id, **vargs):
+def save_perspective(id, **vargs):
     db = utils.get_database()
     dao = OuDAO(db)
 
-    parents = {}
     for (attr, value) in vargs.items():
         if attr.startswith("parent_"):
-            parent = attr.replace("parent_", "")
-            if value.isdigit():
-                value = int(value)
+            perspective = attr.replace("parent_", "")
+            if value == "not_in":
+                dao.unset_parent(id, perspective)
             elif value == "root":
-                value = None
-            # Else it is not in and should be unset
-            parents[parent] = value
-
-    for (perspective, parent) in parents.items():
-        if parent == "not_in":
-            dao.unset_parent(ou.id, perspective)
-        else:
-            dao.set_parent(ou.id, perspective, parent)
+                dao.set_parent(id, perspective, None)
+            else:
+                dao.set_parent(id, perspective, int(value))
 
     db.commit()
     utils.queue_message(_("Organization Unit successfully modified."), title="OU changed")
     utils.redirect_entity(id)
-save_perspectives.exposed = True
 
 @utils.session_required_decorator
 def delete(id):

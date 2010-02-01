@@ -197,15 +197,15 @@ class OuDAO(EntityDAO):
         if not self.auth.can_edit_ou(self.db.change_by, ou):
             raise PermissionDenied("Not authorized to edit ou")
 
-        perspective = self.constants.OUPerspective(perspective)
+        perspective = int(self.constants.OUPerspective(perspective))
         ou.set_parent(perspective, parent)
 
     def unset_parent(self, entity_id, perspective):
         ou = self._find(entity_id)
         if not self.auth.can_edit_ou(self.db.change_by, ou):
             raise PermissionDenied("Not authorized to edit ou")
-
-        perspective = self.constants.OUPerspective(perspective)
+        
+        perspective = int(self.constants.OUPerspective(perspective))
         ou.unset_parent(perspective)
 
     def _create_node(self, node_id):

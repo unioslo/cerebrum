@@ -399,6 +399,13 @@ class Constants(Constants.Constants):
     auth_disk_delete = _AuthRoleOpCode(
         'disk_delete', "Operation code for deleting a disk")
 
+    auth_ou_create = _AuthRoleOpCode(
+        'disk_create', "Operation code for creating a organisational unit")
+    auth_ou_edit = _AuthRoleOpCode(
+        'disk_edit', "Operation code for changing a organisational unit")
+    auth_ou_delete = _AuthRoleOpCode(
+        'disk_delete', "Operation code for deleting a organisational unit")
+
     auth_email_target_create = _AuthRoleOpCode(
         'email_target_create', "Operation code for creating an email target")
     auth_email_target_edit = _AuthRoleOpCode(
