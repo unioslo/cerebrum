@@ -63,6 +63,19 @@ class AccountHiAMixin(Account.Account):
         ret = self.__super.delete_spread(spread)
         return ret
 
+    def illegal_name(self, name):
+        # Avoid circular import dependency
+        from Cerebrum.modules.PosixUser import PosixUser
+
+        if isinstance(self, PosixUser):
+            if len(name) > 8:
+                return "too long (%s)" % name
+            if re.search("^[^A-Za-z]", name):
+                return "must start with a character (%s)" % name
+            if re.search("[^A-Za-z0-9\-_]", name):
+                return "contains illegal characters (%s)" % name
+        return False    
+
     def _autopick_homeMDB(self):
         mdb_candidates = set(cereconf.EXCHANGE_HOMEMDB_VALID.keys())
         mdb_count = dict()
