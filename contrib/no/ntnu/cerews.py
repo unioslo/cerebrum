@@ -83,7 +83,7 @@ class IncrementalError(Errors.CerebrumError):
 
 
 def search_persons(db, co, personspread=None, changelog_id=None,
-                   search_account_priority=False):
+                   search_account_priority=False, include_keycard=False):
     search_data=False
     search_affiliations=False
     search_accounts=False
@@ -189,6 +189,21 @@ def search_persons(db, co, personspread=None, changelog_id=None,
     ON (entity_address.entity_id = person_info.person_id
       AND entity_address.source_system = :address_source
       AND entity_address.address_type = :contact_post_address)""")
+
+        if include_keycard:
+            select+=["keycard_employee.external_id AS keycardid0",
+                     "keycard_student.external_id AS keycardid1"]
+            tables.append("""LEFT JOIN entity_external_id keycard_employee
+            ON (keycard_employee.entity_id = person_info.person_id
+              AND keycard_employee.id_type = :keycard_employee
+              AND keycard_employee.source_system = :keycard_source)
+            LEFT JOIN entity_external_id keycard_student
+            ON (keycard_student.entity_id = person_info.person_id
+              AND keycard_student.id_type = :keycard_student
+              AND keycard_student.source_system = :keycard_source)""")
+            binds["keycard_source"] = co.system_kjernen
+            binds["keycard_employee"] = co.externalid_keycardid_employee
+            binds["keycard_student"] = co.externalid_keycardid_student
 
     if search_affiliations:
         select.append("person_affiliation.ou_id AS ou_id")
@@ -1063,7 +1078,8 @@ class cerews(ServiceSOAPBinding):
             account_priorities.setdefault(row['id'], {})[row['priority']]=row
             
         q=quarantines(db, co)
-        for row in search_persons(db, co, personspread, incremental_from):
+        for row in search_persons(db, co, personspread, incremental_from,
+                                  include_keycard=True):
             p=PersonDTO(row, atypes)
             p._quarantine = q.get_quarantines(row['id'])
             my_account_priorities = account_priorities.get(row['id'])

@@ -77,6 +77,8 @@
     <xs:attribute name="postal_number" type="xs:integer"/>
     <xs:attribute name="phone" type="xs:string"/>
     <xs:attribute name="url" type="xs:string"/>
+    <xs:attribute name="keycardid0" type="xs:string"/>
+    <xs:attribute name="keycardid1" type="xs:string"/>
   </xs:complexType>
     
   <xs:complexType name="OUType">
