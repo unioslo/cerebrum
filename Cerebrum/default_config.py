@@ -313,6 +313,7 @@ TEMPLATE_DIR=None
 BOFHD_REQUEST_LOCK_DIR='/cerebrum/var/log/cerebrum/.lock-%d'
 # Quarantines that do not lead to denial of access to bofhd
 BOFHD_NONLOCK_QUARANTINES = ()
+BOFHD_QUARANTINE_DISABLE_LIMIT = None # days a quarantine can be disabled
 
 # List of valid values for toplevel mountpoints for disks. Checked
 # when disks are added. None = no check performed

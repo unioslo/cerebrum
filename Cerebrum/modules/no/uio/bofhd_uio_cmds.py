@@ -7084,6 +7084,11 @@ Addresses and settings:
         date = self._parse_date(date)
         qconst = self._get_constant(self.const.Quarantine, qtype, "quarantine")
         self.ba.can_disable_quarantine(operator.get_entity_id(), entity, qtype)
+
+        limit = getattr(cereconf, 'BOFHD_QUARANTINE_DISABLE_LIMIT', None)
+        if limit:
+            if date > DateTime.today() + DateTime.RelativeDateTime(days=limit):
+                return "Quarantines can only be disabled for %d days" % limit
         entity.disable_entity_quarantine(qconst, date)
         return "OK, disabled quarantine %s for %s" % (
             qconst, self._get_name_from_object(entity))
