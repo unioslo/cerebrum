@@ -161,11 +161,11 @@ def edit_perspectives(id, **kwargs):
     return form.respond()
 edit_perspectives.exposed = True
 
-def save_perspective(id, **vargs):
+def save_perspective(id, **kwargs):
     db = utils.get_database()
     dao = OuDAO(db)
 
-    for (attr, value) in vargs.items():
+    for (attr, value) in kwargs.items():
         if attr.startswith("parent_"):
             perspective = attr.replace("parent_", "")
             if value == "not_in":
