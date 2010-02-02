@@ -196,7 +196,8 @@ class OuPerspectiveEditForm(EditForm):
             elif family.is_root:
                 self.set_value(name, "root")
             else:
-                self.set_value(name, family.parent.id)
+                value = kwargs.get(name, family.parent.id)
+                self.set_value(name, value)
 
 
     def get_parent_options(self, perspective):
