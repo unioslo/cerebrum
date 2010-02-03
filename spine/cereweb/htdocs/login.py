@@ -21,11 +21,14 @@
 import urllib
 import cherrypy
 from Cerebrum.Utils import Factory
+from Cerebrum.Errors import NotFoundError
+
 from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
 from lib.data.AccountDAO import AccountDAO
 
 Database = Factory.get("Database")
 Account = Factory.get("Account")
+Person = Factory.get("Person")
 Constants = Factory.get("Constants")
 
 import cgi
@@ -64,11 +67,16 @@ def login(**kwargs):
         return template.respond()
 login.exposed = True
 
+class LoginFailed(Exception):
+    pass
+
 def try_login(username=None, password=None, **kwargs):
     global logger
     try:
+        # Set by apache mod_rewrite
+        remote = cherrypy.request.headerMap.get("Remote-Addr", '')
         if (username and not password) or (not username and password):
-            raise Exception("Login failed.")
+            raise LoginFailed("Login failed.")
         if not username or not password:
             return False
 
@@ -77,20 +85,23 @@ def try_login(username=None, password=None, **kwargs):
         method = const.auth_type_md5_crypt
 
         account = Account(db)
-        account.find_by_name(username)
+        try:
+            account.find_by_name(username)
+        except NotFoundError, e:
+            logger.warn("Login failed for " + username + ". Remote-addr = " + remote)
+            raise LoginFailed("Login failed.")
         hash = account.get_account_authentication(method)
 
-        remote = cherrypy.request.headerMap.get("Remote-Addr", '')
         if not account.verify_password(method, password, hash):
             logger.warn("Login failed for " + username + ". Remote-addr = " + remote)
-            raise Exception("Login failed.")
+            raise LoginFailed("Login failed.")
 
         auth = BofhdAuth(db)
         if not auth.can_login_to_cereweb(account.entity_id):
             logger.warn("Login failed for " + username + ". Not authorized. Remote-addr = " + remote)
-            raise Exception("Login failed.")
+            raise LoginFailed("Login failed.")
 
-    except Exception, e:
+    except LoginFailed, e:
         Messages.queue_message(
             title="Login Failed",
             message="Incorrect username/password combination.  Please try again.",
@@ -98,13 +109,20 @@ def try_login(username=None, password=None, **kwargs):
         )
         return False
 
-    return create_cherrypy_session(username)
+    if account.np_type is not None:
+        realname = str(const.Account(account.np_type))
+    else:
+        print account.account_name, account.owner_id
+        person = Person(db)
+        person.find(account.owner_id)
+        realname = person.get_name(const.system_cached,
+                                   const.name_full)
+    return create_cherrypy_session(username, realname)
 
-def create_cherrypy_session(username):
+def create_cherrypy_session(username, realname):
     global logger
-    db = Database()
-    acc = AccountDAO(db).get_by_name(username)
-    cherrypy.session['realname'] = acc.owner.name
+
+    cherrypy.session['realname'] = realname
     cherrypy.session['username'] = username
     cherrypy.session['timeout'] = get_timeout()
     cherrypy.session['client_encoding'] = negotiate_encoding()
