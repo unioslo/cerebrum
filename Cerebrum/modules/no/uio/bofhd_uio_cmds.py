@@ -750,6 +750,13 @@ class BofhdExtension(object):
                     ed = Email.EmailDomain(self.db)
                     ed.find(r['entity_id'])
                     target_name = ed.email_domain_name
+                elif r['target_type'] == self.const.auth_target_type_ou:
+                    ou = self.OU_class(self.db)
+                    ou.find(r['entity_id'])
+                    target_name = "%02d%02d%02d (%s)" % (ou.fakultet,
+                                                    ou.institutt,
+                                                    ou.avdeling,
+                                                    ou.short_name)
                 else:
                     try:
                         ety = self._get_entity(id=r['entity_id'])
