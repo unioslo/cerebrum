@@ -90,3 +90,9 @@ label {
 input.text {
     width:  300px;
 }
+
+#messages div.error {
+    border: 2px solid red;
+    color: black;
+}
+

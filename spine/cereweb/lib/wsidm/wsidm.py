@@ -11,6 +11,16 @@ from httplib import HTTPConnection
 from M2Crypto import SSL
 from Cerebrum.lib.cerews.SignatureHandler import SignatureHandler
 
+try:
+    from Cerebrum.lib.cerews.dom import DomletteReader as ReaderClass
+except ImportError, e:
+    log.warn("Could not import DomletteReader.  Install 4Suite for extra performance.")
+    from xml.dom import expatbuilder
+    class ReaderClass(object):
+        fromString = staticmethod(expatbuilder.parseString)
+        fromStream = staticmethod(expatbuilder.parse)
+
+
 class WSIdmHTTPSConnection(HTTPConnection):
     def __init__(self, host, port=443, strict=None):
         HTTPConnection.__init__(self, host, port, strict)
@@ -69,7 +79,8 @@ class WSIdm(object):
             exit(3)
 
         self.zsi_options = {
-            'transport' : WSIdmHTTPSConnection,
+            'readerclass'   : ReaderClass,
+            'transport'     : WSIdmHTTPSConnection,
             }
 
     def _get_wsidm_port(self, useDigest=False):
@@ -89,6 +100,9 @@ class WSIdm(object):
         request._pin = pin
         port = self._get_wsidm_port()
         response = port.kjerneCheckId(request)
-        return response
+        ret = None
+        if response:
+            ret = response._kjerneCheckIdReturn
+        return ret
         
 

@@ -1,0 +1,467 @@
+## -*- encoding: utf-8 -*-
+## Copyright 2004, 2005 University of Oslo, Norway
+##
+## This file is part of Cerebrum.
+##
+## Cerebrum is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## Cerebrum is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with Cerebrum; if not, write to the Free Software Foundation,
+## Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+##
+
+#from lib.Main import Main
+#from lib.utils import randpasswd
+#from lib.utils import get_content_type, get_pragma, get_cache_control
+#import cherrypy
+#from gettext import gettext as _
+
+#extends Main
+
+#implements respond
+#encoding utf8
+
+#attr $title = 'Activate account'
+#attr $jscripts = ['base.js', 'search.js', 'error.js', 'motd.js']
+#attr $messages = []
+
+## The following hack removes the bottom div
+#def page_bottom
+#end def
+## The following hack removes the tabview
+#def tabview
+#end def
+#from lib.Languages import Languages
+
+#def header()
+<%
+content_type=get_content_type()
+cherrypy.response.headerMap['Content-Type']= content_type
+
+pragma=get_pragma()
+cache_control=get_cache_control()
+
+cherrypy.response.headerMap['Pragma'] = pragma
+cherrypy.response.headerMap['Cache-Control'] = cache_control
+%>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+        <title>$title</title>
+        <meta http-equiv="Content-Type" content="$content_type" />
+        <meta http-equiv="Pragma" content="$pragma" />
+        <meta http-equiv="Cache-Control" content="$cache_control" />
+        <meta http-equiv="content-language" content="nb-NO, en-US" />
+        <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
+	<link rel="stylesheet" type="text/css" charset="utf-8" href="/css/ntnu.css" />
+
+</head>
+<body>
+        <div class="pagewrap">
+            <!--[if lte IE 6]>
+            <style type="text/css">
+                #ie6msg{border:3px solid #090; margin:8px 0; background:#cfc; color:#000;}
+                #ie6msg h4{margin:8px; padding:0;}
+                #ie6msg p{margin:8px; padding:0;}
+                #ie6msg p a.getie7{font-weight:bold; color:#006;}
+                #ie6msg p a.ie6expl{font-weight:normal; color:#006;}
+            </style>
+            <div id="ie6msg">
+            <h4>Du har en gammel versjon av Internet Explorer.</h4>
+            <p>
+                    Cereweb st&oslash;tter ikke s&aring; gamle nettlesere og vil ikke fungere 100% f&oring;r du oppgraderer.
+            </p>
+            <p>
+                    Du kan gratis <a class="getie7" href="http://www.microsoft.com/norge/windows/downloads/ie/getitnow.mspx" target="_blank">hente en nyere versjon av Internet Explorer</a>.
+                    Bruker du en jobb-PC b&oslash;r du kontakte Orakel p&aring; telefon (735) 91500 eller e-post <a href="mailto:orakel@ntnu.no">orakel@ntnu.no</a>.
+                </p>
+        </div>
+            <![endif]-->
+     <div class="orginfo">
+      NORGES TEKNISKE-NATURVITENSKAPLIGE UNIVERSITET
+    </div>
+     <div id="topp">
+      <img src="/img/BAS_ntnu_logo.png" alt="NTNU" />
+    </div>
+    <div id="page">
+        <h1>NTNU&apos;s database for administering accounts</h1>
+    #if $messages
+        <div class="text">
+        #for $mesg in $messages
+                $mesg
+        #end for
+        </div>
+    #end if
+#end def
+
+#def footer()
+    <!-- page -->
+    </div>
+    <!-- pagewrap -->
+    </div>
+</body>
+</html>
+#end def
+
+#def welcome($lang='no')
+
+
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang')
+#end if
+
+#set $theLang = Languages($lang)
+$header()
+    <h2>$theLang.get_congratulations_header_text()</h2>
+    <div class="text">
+    $theLang.get_congratulations_body_text()
+    </div>
+$footer()
+#end def
+
+#def initpassword($lang='no')
+
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang', '')
+#end if
+
+#set $username = $cherrypy.session.get('username', '')
+
+#set $theLang = Languages($lang)
+$header()
+
+  <h2>$theLang.get_setpassword_header_text()</h2>
+  <form method="post" action="/activation/">
+    <div>
+        <input type="hidden" name="page" value="initpassword" />
+    </div>
+    <div>
+      <table border="0">
+        <tr>
+            <td>
+                <div class="text">
+                    $theLang.get_setpassword_username_text() <b>$username</b>
+                </div>
+            </td>
+            <td>
+                &#x0020;
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="text">
+                    $theLang.get_setpassword_warning_text()
+                </div>
+            </td>
+            <td>
+                &#x0020;
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="text">
+                    $theLang.get_setpassword_legal_passwords_text()
+                </div>
+            </td>
+            <td>
+                &#x0020;
+            </td>
+        </tr>
+        <tr>
+          <td>
+                <div class="text">
+                $theLang.get_setpassword_choose_self_text()
+                </div>
+          </td>
+          <td>
+                <div class="text">
+                $theLang.get_setpassword_choose_generated_text()
+                </div>
+            </td>
+        </tr>
+        <tr>
+          <td>
+
+            <div class="required">
+	      <label for="passwd1" >$theLang.get_setpassword_password_label1_text()</label>
+	      <input type="password" id="passwd1" name="pw1" />
+            </div>
+
+            <div class="required">
+	      <label for="passwd2">$theLang.get_setpassword_password_label2_text()</label>
+              <input type="password" id="passwd2" name="pw2" />
+            </div>
+
+          </td>
+          <td>
+            <div class="text">
+            #for $i in $range(0,6)
+                $randpasswd()<br />
+            #end for
+            </div>
+          </td>
+        </tr>
+        <tr>
+          ## <td cellspan="2">
+           ## <div class="text">
+           ##      $theLang.get_setpassword_warning_text()
+           ## </div>
+           ## <div class="buttons">
+           ##   <input type="submit" name="submit_pw" value="$theLang.get_setpassword_submit_button_text()" />
+           ## </div>
+          ## </td>
+            <td>
+           <div class="buttons">
+              <input type="submit" name="submit_pw" value="$theLang.get_setpassword_submit_button_text()" />
+           </div>
+            </td>
+            <td>
+                &#x0020;
+            </td>
+        </tr>
+      </table>
+    </div>
+    ## <div class="text">
+    ##     $theLang.get_setpassword_legal_passwords_text()
+    ## </div>
+  </form>
+$footer()
+#end def
+
+#def eula($lang='no')
+
+#if $cherrypy.session.get('lang', ''):
+    #set $lang = $cherrypy.session.get('lang', '')
+#end if
+
+#set theLang = Languages($lang)
+
+$header()
+
+<h2>$theLang.get_eula_header_text()</h2>
+  <form method="post" action="/activation/">
+        <div>
+            <input type="hidden" name="page" value="eula" />
+        </div>
+      <div class="text">
+        <a href="$theLang.get_eula_bokmaal_link()" target="itreg">$theLang.get_eula_bokmaal_link_text()</a>
+        <a href="$theLang.get_eula_english_link()" target="itreg">$theLang.get_eula_english_link_text()</a>
+      </div>
+    
+      <div class="text">
+        $theLang.get_eula_legal_notes_text()
+      </div>
+
+        <div>
+	   <label for="godkjent">$theLang.get_eula_accept_label_text()</label>
+	   <input type="checkbox" id="godkjent" name="godkjent_logger" />
+	 </div>
+
+      <div>
+        <input type="submit" name="submit_btn" value="$theLang.get_eula_accept_button_text()" />
+      </div>
+  </form>
+$footer()
+#end def
+
+#def studentnr($lang='no')
+
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang', '')
+#end if
+
+#set $theLang = Languages($lang)
+$header()
+
+<h2>$theLang.get_sid_header_text()</h2>
+  <form method="post" action="/activation/">
+        <div>
+            <input type="hidden" name="page" value="studentnr" />
+        </div>
+        <div class="text">
+            $theLang.get_sid_body_text()
+        </div>
+
+        <div>
+	  <label for="studentnummer">$theLang.get_sid_submit_label_text()</label>
+          <input type="text" id="studentnummer" name="studentnr" />
+        </div>
+
+        <div>
+            <input type="submit" name="blapp" value="$theLang.get_sid_submit_button_text()" />
+	</div>
+  </form>
+$footer()
+#end def
+
+#def pinkode($lang='no')
+
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang', '')
+#end if
+
+#set $theLang = Languages($lang)
+$header()
+
+<h2>$theLang.get_pin_header_text()</h2>
+
+  <form method="post" action="/activation/">
+        <div>
+            <input type="hidden" name="page" value="pinkode" />
+        </div>
+        <div class="text">
+            $theLang.get_pin_body_text()
+        </div>
+        <div>
+            <label for="pincode">$theLang.get_pin_submit_label_text()</label>
+            <input maxlength="4" id="pincode" type="text" name="pin" />
+
+        </div>
+
+        <div>
+            <input type="submit" id="pinkodeok" name="blapp" value="$theLang.get_pin_submit_button_text()" />
+	</div>
+
+        <div class="text">
+            $theLang.get_pin_help_text()
+        </div>
+  </form>
+$footer()
+#end def
+
+#def fodselsnr($lang='no')
+
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang','')
+#end if
+
+#set $theLang = Languages($lang)
+
+$header()
+
+<h2>$theLang.get_nin_header_text()</h2>
+  <form method="post" action="/activation/">
+        <div>
+            <input type="hidden" name="page" value="fodselsnr" />
+        </div>
+      <div class="text">
+        $theLang.get_nin_body_text()
+      </div>
+
+        <div class="text">
+        <label for="fnummer">$theLang.get_nin_submit_label_text()</label>
+        <input maxlength="11" type="text" id="fnummer" name="fnr" />
+      </div>
+
+        <div>
+        <input type="submit" id="fodselsnrok" name="submit" value="$theLang.get_nin_submit_button_text()" />
+      </div>
+  </form>
+$footer()
+#end def
+
+#def eulaNotApproved($lang='no')
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang', '')
+#end if
+#set $theLang = Languages($lang)
+
+$header()
+<h2>$theLang.get_eula_not_approved_header_text()</h2>
+    <div class="text">
+        $theLang.get_eula_not_approved_body_text()
+    </div>
+$footer()
+#end def
+
+#def errorInInput($lang='no')
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang', '')
+#end if
+#set $theLang = Languages($lang)
+
+$header()
+<h2>$theLang.get_error_in_input_header_text()</h2>
+    <div class="content_text">
+        $theLang.get_error_in_input_body_text()
+    </div>
+$footer()
+#end def
+
+#def noUsernameFound($lang='no')
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang', '')
+#end if
+#set $theLang = Languages($lang)
+
+$header()
+<h2>$theLang.get_username_not_found_header_text()</h2>
+    <div class="text">
+        $theLang.get_username_not_found_body_text()
+    </div>
+$footer()
+#end def
+
+
+#def choose_language($lang='no')
+#set $theLang = Languages($lang)
+
+<h2>$theLang.get_choose_language_header_text()</h2>
+
+  <form method="post" action="/activation/">
+    <div>
+        <input type="hidden" name="page" value="language" />
+    </div>
+    <div>
+      <label for="thelang">$theLang.get_choose_language_label_text()</label>
+
+      <select id="thelang" name="lang">
+        <option value="no">Norsk</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+
+    <div>
+      <input type="submit" id="thelangbutton" name="language" value="$theLang.get_choose_language_button_text()" />
+    </div>
+  </form>
+#end def
+
+#def language():
+##set $theLang = Languages('no')
+$header()
+$choose_language()
+$footer()
+#end def
+
+#def content($lang='no')
+
+#if $cherrypy.session.get('lang', '')
+    #set $lang = $cherrypy.session.get('lang', '')
+#end if
+
+$header()
+## Content
+<div class="text">
+     Du har n&aring; kommet til siden for &aring; aktivere brukerkonto
+     ved NTNUs IT-systemer.
+</div>
+
+<div class="text">
+    You have now reached the page used to activate your user account
+    at NTNU&apos;s computer-systems.
+</div>
+$choose_language()
+
+$footer()
+#end def
+
+$content()
