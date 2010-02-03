@@ -31,11 +31,9 @@ except:
 
 import unicodedata
 
-import ldap,ldif,dsml
+import ldap
 import urllib
 from ldap import modlist
-from ldif import LDIFParser,LDIFWriter
-from dsml import DSMLParser,DSMLWriter 
 
 from ceresync import config
 from ceresync.syncws import Affiliation
@@ -44,83 +42,12 @@ log = config.logger
 import unittest
 from ceresync.errors import ServerError
 
-
-def ldapDict(s):
-    """Oracle Internet Directory suck bigtime. if we insert with lowercase, 
-    we might get camelCase back. Helperfunction for easier comparison of 
-    dicts with attributes and values. This function lowercases all keys
-    in a dictionary and keeps the values untouched.
-    """
-    for key, val in s.items():
-        del s[key]
-        s[key.lower()] = val
-    return s
-
 class LdapConnectionError(ServerError):
     pass
 
 class OUNotFoundException(Exception):
     pass
 
-class DsmlHandler(DSMLParser):
-    """Class for a DSMLv1 parser. Overrides method handle from class dsml.DSMLParser"""
-
-    def handle(self):
-        """Do something meaningful """
-        pass
-
-class LdifHandler(LDIFParser):
-    """Class for LDIF records"""
-
-class DsmlBack( DSMLParser ):
-    """XML-based files. xmlns:dsml=http://www.dsml.org/DSML """
-    def __init_(self,output_file=None,input_file=None,base64_attrs=None,cols=76,line_sep='\n'):
-        self.output_file = output_file
-        self._input_file = input_file
-        self.base64_attrs = base64_attrs
-        self.cols = cols
-        self.line_sep = line_sep
-
-    def handler(self,*args,**kwargs):
-        pass
-
-    def readin(self,srcfile,type="dsml"):
-        """Default, the dsml.DSMLParser only wants to parse LDIF-files
-        to convert it into DSML before we save it as <filenam>.dsml.
-        This function will do both
-        """
-        pass
-    
-    def writeout(self):
-        dsml.DSMLWriter.writeHeader()
-        for record in self.records:
-            dsml.DSMLWriter.writeRecord(record.dn,record.entry)
-        dsml.DSMLWriter.writeFooter()
-
-class LdifBack( object ):
-    """LDIF-based files. 
-    """
-    def __init__(self,output_file=None, base64_attrs=None,cols=76,line_sep='\n'):
-        self.output_file = output_file # or rather from a config-file or something
-        self.base64_attrs = base64_attrs
-        self.cols = cols
-        self.line_sep = line_sep
-
-    def readin(self,srcfile):
-        self.file = srcfile
-        try:
-            file = open(self.file)
-            self.records = ldif.ParseLDIF(file) # ldif.ParseLDIF is deprecated... re-implement later
-            file.close() 
-        except IOError,e:
-            log.exception("An error occured while importing file: %s" % srcfile)
-
-    def writeout(self):
-        self.outfile = open(self.output_file,"w")
-        for entry in self.records:
-            self.outfile.write(ldif.CreateLDIF(entry[0],entry[1],self.base64_attrs,self.cols))
-        self.outfile.close()
-        
 class LdapBack(object):
     """
     All default values such as basedn for each type of object shall be fetch
