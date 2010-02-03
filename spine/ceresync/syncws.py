@@ -115,6 +115,7 @@ class Entity(object):
             if encode_to and type(value) == unicode:
                 value = value.encode(encode_to)
             self.__setattr__(key, value)
+
         # Set lists, if any
         for objkey, entkey in self.lists.items():
             self.__setattr__(entkey, getattr(obj, objkey, []))
@@ -179,7 +180,7 @@ class Person(Entity):
         "primary_account", "primary_account_name",
         "primary_account_password", "email", "address_text", "city",
         "postal_number", "phone", "url", "primary_affiliation",
-        "primary_ou",
+        "primary_ou", "keycardid0", "keycardid1",
     ]
     lists= { 
         "_quarantine": "quarantines", 

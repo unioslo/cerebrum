@@ -684,6 +684,35 @@ class OracleCalendar(LdapBack):
         return s
 
 
+class AccessCardHolder(LdapBack):
+    """
+    Module for populating an ntnuAccessCardHolder branch.  Used for the
+    equictrac print system at NTNU.
+    """
+    def __init__(self, base=None, filter='(objectClass=*)'):
+        super(AccessCardHolder, self).__init__()
+
+        self.base = base
+        self.filter = filter
+        self.obj_class = ('top', 'person', 'inetOrgPerson', 'ntnuAccessCardHolder')
+
+    def get_dn(self, obj):
+        return "uid=%s,%s" % (obj.primary_account_name, self.base)
+
+    def get_attributes(self, obj):
+        return {
+            'objectClass': self.obj_class,
+            'cn': obj.full_name,
+            'description': "Adgangskort ved NTNU for Uniflow-utskriftsystem.",
+            'sn': obj.last_name,
+            'uid': obj.primary_account_name,
+            'mail': obj.email,
+            'ntnuAccessCardId': self.get_access_card_ids(obj),
+        }
+
+    def get_access_card_ids(self, obj):
+        access_cards = [obj.keycardid0, obj.keycardid1]
+        return [card for card in access_cards if card]
 
 ###
 ### UnitTesting is good for you
