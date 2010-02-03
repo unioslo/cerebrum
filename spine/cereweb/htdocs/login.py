@@ -117,13 +117,14 @@ def try_login(username=None, password=None, **kwargs):
         person.find(account.owner_id)
         realname = person.get_name(const.system_cached,
                                    const.name_full)
-    return create_cherrypy_session(username, realname)
+    return create_cherrypy_session(username, realname, account.entity_id)
 
-def create_cherrypy_session(username, realname):
+def create_cherrypy_session(username, realname, userid):
     global logger
 
     cherrypy.session['realname'] = realname
     cherrypy.session['username'] = username
+    cherrypy.session['userid'] = userid
     cherrypy.session['timeout'] = get_timeout()
     cherrypy.session['client_encoding'] = negotiate_encoding()
     cherrypy.session['spine_encoding'] = 'iso-8859-1'

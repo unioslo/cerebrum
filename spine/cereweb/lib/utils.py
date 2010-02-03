@@ -573,9 +573,8 @@ def quotetimestamp(date):
 
 def get_database():
     db = Database()
-    user = cherrypy.session.get("username")
-    acc = AccountDAO(db).get_by_name(user)
-    db.change_by = acc.id
+    userid = cherrypy.session.get("userid")
+    db.cl_init(change_by = userid)
     return db
 
 def timer_decorator(fn):
