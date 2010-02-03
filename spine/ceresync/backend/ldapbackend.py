@@ -711,7 +711,7 @@ class AccessCardHolder(LdapBack):
         }
 
     def get_access_card_ids(self, obj):
-        access_cards = [obj.keycardid0, obj.keycardid1]
+        access_cards = set([obj.keycardid0, obj.keycardid1])
         return [card for card in access_cards if card]
 
 ###
