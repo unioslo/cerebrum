@@ -24,6 +24,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 
+import mx.DateTime
 import re
 import random
 import cereconf
@@ -40,7 +41,7 @@ spread_homedirs = cereconf.SPREAD_HOMEDIRS
 
 account_name_regex=re.compile("^[a-z][a-z0-9]*$")
 account_name_np_regex=re.compile("^[a-z][a-z0-9._-]*$")
-
+Person_class = Factory.get('Person')
 
 class AccountNTNUMixin(Account.Account):
     def illegal_name(self, name):
@@ -163,7 +164,7 @@ class AccountNTNUMixin(Account.Account):
         # Determine the status this affiliation resolves to
         if self.owner_id is None:
             raise ValueError, "non-owned account can't have account_type"
-        person = Factory.get('Person')(self._db)
+        person = Person_class(self._db)
         status = None
         for row in person.list_affiliations(person_id=self.owner_id,
                                             include_deleted=True):
@@ -233,6 +234,75 @@ class AccountNTNUMixin(Account.Account):
         raise ValueError, "No free priorities for that account_type!"
 
 
+    def lookup_policy(self, policy, atype, source, affil, status):
+        if (atype, source, affil, status) in policy:
+            return policy[(atype, source, affil, status)]
+        if (atype, source, affil) in policy:
+            return policy[(atype, source, affil)]
+        if (atype, source) in policy:
+            return policy[(atype, source)]
+        if (atype,) in policy:
+            return policy[(atype,)]
+        if None in policy:
+            return policy[None]
+        return (None, None)
+        
+        
+    def apply_expiredate_policy(self):
+        try:
+            policy=cereconf.ACCOUNT_EXPIRE_POLICY
+        except AttributeError:
+            return
+        maxexpire = 0
+        defaultexpire = 0
 
+        if self.np_type is not None:
+            atype = str(self.const.Account(self.np_type))
+            if (atype,) in policy:
+                defaultexpire, maxexpire = policy[(atype,)]
+            elif None in policy:
+                defaultexpire, maxexpire = policy[None]
+            else:
+                defaultexpire, maxexpire = None, None
+        else:
+            person = Person_class(self._db)
+            if list(person.list_external_ids(
+                    id_type = self.const.externalid_fodselsnr,
+                    entity_id = a.owner_id)):
+                atype = "has_nin"
+            else:
+                atype = "no_nin"
+            for aff in person.list_affiliations(person_id = self.owner_id):
+                source = str(self.const.AuthoritativeSystem(
+                        aff['source_system']))
+                affil = str(self.const.PersonAffiliation(
+                        aff['affiliation']))
+                status = str(self.const.PersonAffStatus(
+                        aff['status']))
+                d, m = self.lookup_policy(policy, atype, source, affil, status)
+                if (defaultexpire is not None and d > defaultexpire):
+                    defaultexpire = d
+                if (maxexpire is not None and m > maxexpire):
+                    maxexpire = m
 
-# arch-tag: 115d851e-d604-11da-80dd-29649c6d89a0
+        #apply default expiredate
+        if self.expire_date is None and defaultexpire is not None:
+            self.expire_date = mx.DateTime.now() + defaultexpire
+        
+        if maxexpire is None:
+            return
+
+        #enforce max expiredate
+        if self.expire_date is None:
+            raise Errors.PolicyException(
+                "Expiredate is required for this account")
+
+        expire_date = mx.DateTime.DateTimeFrom(self.expire_date)
+        if expire_date > mx.DateTime.now() + maxexpire:
+            raise Errors.PolicyException(
+                "Expiredate too far in the future, max %d days for this account" % maxexpire)
+
+    def write_db(self):
+        self.apply_expiredate_policy()
+
+        return self.__super.write_db()

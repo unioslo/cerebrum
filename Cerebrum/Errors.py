@@ -120,6 +120,12 @@ class RequiresPosixError(CerebrumError):
 class NotImplementedAuthTypeError(NotImplementedError):
     """Auth type not implemented"""
 
+class PolicyException(CerebrumError):
+    """This action violates a policy.
+    
+    The argument should be a complete explanation of
+    what policy is broken."""
+
 def _test():
     import doctest,Errors 
     return doctest.testmod(Errors)
