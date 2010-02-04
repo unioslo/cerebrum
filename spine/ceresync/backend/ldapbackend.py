@@ -396,56 +396,17 @@ class PosixGroup(GroupLdapBack):
         }
 
 class Person(PersonLdapBack):
-    def __init__(self, base="ou=people,dc=ntnu,dc=no", filter='(objectClass=*)'):
+    def __init__(self, base="ou=people,dc=ntnu,dc=no", filter='(objectClass=*)', ouregister=None):
         LdapBack.__init__(self)
         self.base = base
         self.filter = filter
         self.obj_class = ['top','person','organizationalPerson','inetOrgPerson','eduPerson','norEduPerson','ntnuPerson']
         self.ignore_attr_types = []
+        self.ouregister = ouregister
 
     def begin(self, **kwargs):
         LdapBack.begin(self, **kwargs)
-        self._fetch_ous()
 
-    def _fetch_ous(self):
-        self.ous = {}
-        self.ou_cache = {}
-        res = self.search(base='ou=organization,dc=ntnu,dc=no',
-                          filterstr='(objectClass=organizationalUnit)')
-        for dn, attrs in res:
-            current, parent, rest = dn.split(',', 2)
-            current = current.split('=', 1)[1]
-            parent = parent.split('=', 1)[1]
-            acronym = attrs.get('norEduOrgAcronym', [""])
-            acronym = acronym[0]
-            if current == "organization":
-                continue
-            if parent == "organization":
-                parent = None
-                self.ou_cache[current] = [ acronym ]
-            self.ous[current] = {
-                    'parent': parent,
-                    'acronym': acronym,
-            }
-
-    def _get_acronym_list(self, ou):
-        if ou in self.ou_cache:
-            return self.ou_cache[ou]
-        current = self.ous.get(ou, "")
-        if not current:
-            raise OUNotFoundException(ou)
-        parent = current['parent']
-        acronyms = [ current['acronym'] ]
-        while parent:
-            if parent in self.ou_cache:
-                acronyms.extend(self.ou_cache[parent])
-                break
-            current = self.ous.get(parent, "")
-            parent = current['parent']
-            acronyms.append(current['acronym'])
-        self.ou_cache[ou] = acronyms
-        return acronyms 
-        
     def add(self, obj):
         if not obj.primary_account:
             log.debug("Ignoring %s with primary_account=%s", obj.full_name, 
@@ -468,12 +429,7 @@ class Person(PersonLdapBack):
         s['eduPersonPrincipalName'] = self.get_principal(obj)
         s['title']                  = self.get_title(obj)
         s['mail']                   = self.get_email(obj)
-
-        try:
-            s['norEduOrgAcronym']   = self._get_acronym_list(str(obj.primary_ou))
-        except OUNotFoundException, e:
-            log.warning("primary ou (%d) of person '%s' not found", 
-                    obj.primary_ou, obj.full_name)
+        s['norEduOrgAcronym']       = self.get_acronym_list(obj),
         return s
 
     def get_affiliations(self, obj):
@@ -522,6 +478,9 @@ class Person(PersonLdapBack):
 
     def get_social_security_number(self, obj):
         return obj.nin
+
+    def get_acronym_list(self, obj):
+        return self.ouregister.get_acronym_list(obj.primary_ou)
 
 class OU(LdapBack):
     """ OrganizationalUnit, where people work or students follow studyprograms.

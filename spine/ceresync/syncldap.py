@@ -29,6 +29,29 @@ import socket
 
 log = config.logger
 
+class OURegister(object):
+    """ OrganizationalUnit, where people work or students follow studyprograms.
+    Needs name,id and parent as minimum.
+    """
+
+    def __init__(self):
+        self.__data = {}
+
+    def add(self, obj):
+        self.__data[obj.id] = obj
+
+    def get_path(self, key, path=None):
+        path = path or []
+
+        if key in self.__data:
+            value = self.__data[key]
+            path.append(value)
+            return self.get_path(value.parent_id, path)
+
+        return reversed(path)
+
+    def get_acronym_list(self, key):
+        return [ou.acronym.encode("utf-8") for ou in self.get_path(key)]
 
 def load_changelog_id(changelog_file):
     local_id = 0
@@ -99,9 +122,9 @@ def main():
     for system in systems:
         log.debug("Syncing system %s", system)
         if using_test_backend:
-            backend = get_testbackend(system)
+            backend = get_testbackend(s, system)
         else:
-            backend = get_ldapbackend(system)
+            backend = get_ldapbackend(s, system)
 
         backend.begin(
             incr=incr,
@@ -122,31 +145,38 @@ def get_conf(system, name, default=None):
         return config.get(conf_section, name, default=default)
     return config.get(conf_section, name)
 
-def get_testbackend(system):
+def get_testbackend(s, system):
     import ceresync.backend.test as ldapbackend
-    entity = get_conf(system, "entity")
+    backend_class = get_conf(system, "backend")
 
-    if (entity == "account"):
+    if (backend_class == "PosixUser"):
         return ldapbackend.Account()
-    elif (entity == "group"):
+    elif (backend_class == "PosixGroup"):
         return ldapbackend.Group()
-    elif (entity == "person"):
+    elif (backend_class == "Person"):
         return ldapbackend.Person()
-    elif (entity == "ou"):
+    elif (backend_class == "OU"):
         return ldapbackend.OU()
     else:
-        raise NotImplementedError("Haven't faked %s, and didn't plan on it." % entity)
+        raise NotImplementedError("Haven't faked %s, and didn't plan on it." % backend_class)
 
-def get_ldapbackend(system):
+def get_ldapbackend(s, system):
     from ceresync.backend import ldapbackend
 
     backend_class = get_conf(system, "backend")
     base = get_conf(system, "base")
     filter = get_conf(system, "filter", default="(objectClass='*')")
+    backend = getattr(ldapbackend, backend_class)
 
+    if backend_class in ("Person",):
+        register = OURegister()
+        for ou in s.get_ous():
+            register.add(ou)
+
+        return backend(base=base, filter=filter, ouregister=register)
+        
     log.debug("Initializing %s backend with base %s", backend_class, base)
-    backend = getattr(ldapbackend, backend_class)(base=base, filter=filter)
-    return backend
+    return backend(base=base, filter=filter)
 
 cache = {}
 def get_entities(s, system, sync_options):
