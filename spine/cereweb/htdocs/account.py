@@ -180,10 +180,15 @@ def fail(url, message):
     redirect(url)
 
 @session_required_decorator
-def view(id, **kwargs):
+def view(id=None, name=None, **kwargs):
     db = get_database()
     page = AccountViewTemplate()
-    page.account = AccountDAO(db).get(id, include_extra=True)
+    if id is not None:
+        page.account = AccountDAO(db).get(id, include_extra=True)
+    else:
+        page.account = AccountDAO(db).get_by_name(name, include_extra=True)
+        id = page.account.id
+
     page.account.history = HistoryDAO(db).get_entity_history_tail(id)
     page.affiliations = PersonDAO(db).get_affiliations(page.account.owner.id)
     page.shells = ConstantsDAO(db).get_shells()

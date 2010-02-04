@@ -64,10 +64,12 @@ class AccountDAO(EntityDAO):
         account = self._get_cerebrum_obj()
         return [self._create_from_search(r) for r in account.search(owner_id=owner_ids)]
 
-    def get_by_name(self, name):
+    def get_by_name(self, name, include_extra=True):
         account = self._find_by_name(name)
+        if not self.auth.can_read_account(self.db.change_by, account):
+            raise PermissionDenied("Not authorized to view account")
 
-        return self._create_dto(account)
+        return self._create_dto(account, include_extra)
 
     def get_owner(self, account_id):
         dto = DTO()
