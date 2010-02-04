@@ -146,17 +146,17 @@ def get_conf(system, name, default=None):
     return config.get(conf_section, name)
 
 def get_testbackend(s, system):
-    import ceresync.backend.test as ldapbackend
+    import ceresync.backend.test as testbackend
     backend_class = get_conf(system, "backend")
 
     if (backend_class == "PosixUser"):
-        return ldapbackend.Account()
+        return testbackend.Account()
     elif (backend_class == "PosixGroup"):
-        return ldapbackend.Group()
+        return testbackend.Group()
     elif (backend_class == "Person"):
-        return ldapbackend.Person()
+        return testbackend.Person()
     elif (backend_class == "OU"):
-        return ldapbackend.OU()
+        return testbackend.OU()
     else:
         raise NotImplementedError("Haven't faked %s, and didn't plan on it." % backend_class)
 
