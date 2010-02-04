@@ -191,8 +191,8 @@ def search_persons(db, co, personspread=None, changelog_id=None,
       AND entity_address.address_type = :contact_post_address)""")
 
         if include_keycard:
-            select+=["keycard_employee.external_id AS keycardid0",
-                     "keycard_student.external_id AS keycardid1"]
+            select.append("keycard_employee.external_id AS keycardid0")
+            select.append("keycard_student.external_id AS keycardid1")
             tables.append("""LEFT JOIN entity_external_id keycard_employee
             ON (keycard_employee.entity_id = person_info.person_id
               AND keycard_employee.id_type = :keycard_employee
