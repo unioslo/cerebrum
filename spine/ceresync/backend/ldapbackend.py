@@ -493,29 +493,6 @@ class Person(LdapBack):
                     obj.primary_ou, obj.full_name)
         return s
 
-class Alias:
-    """ Mail aliases, for setups that store additional mailinglists and personal aliases in ldap.
-    rfc822 mail address of group member(s)
-    Depends on rfc822-MailMember.schema
-
-    Decide which schema you want to follow, and change objectclass-chain and attribute-names.
-    Some prefer to use attribute mailDrop, mailHost etc from ISPEnv2.schema
-    """
-    def __init__(self, base=None, filter='(objectClass=*)'):
-        self.base = base
-        self.filter = filter
-        self.obj_class = ('top','nisMailAlias')
-
-    def get_dn(self,obj):
-        return "cn=" + obj.name + "," + self.base
-
-    def get_attributes(self,obj):
-        s = {}
-        s['objectClass']      = self.obj_class
-        s['cn']               = [obj.name]
-        s['rfc822MailMember'] = obj.membernames()
-        return s
-
 class OU(LdapBack):
     """ OrganizationalUnit, where people work or students follow studyprograms.
     Needs name,id and parent as minimum.
