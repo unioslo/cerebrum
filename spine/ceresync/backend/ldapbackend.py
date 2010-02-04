@@ -288,12 +288,71 @@ class LdapBack(object):
 
         self.populated = True
 
-class PosixUser(LdapBack):
+    def get_dn(self, obj):
+        return "uid=%s,%s" % (self.get_uid(obj), self.base)
+
+class AccountLdapBack(LdapBack):
+    def get_uid(self, obj):
+        return obj.name
+
+    def get_cn(self, obj):
+        return obj.gecos
+
+    def get_sn(self, obj):
+        return obj.gecos.split(" ").pop()
+
+    def get_given_name(self, obj):
+        full_name = self.get_cn(obj)
+        return " ".join(full_name.split(" ")[:-1])
+        
+    def get_gecos(self, obj):
+        return self.toAscii(obj.gecos)
+
+    def get_password(self, obj):
+        return "{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)
+
+    def toAscii(self, utf8string):
+        return unicodedata.normalize('NFKD', utf8string.decode('utf-8')).encode('ASCII', 'ignore')
+
+class PersonLdapBack(LdapBack):
+    def get_uid(self, obj):
+        return obj.primary_account_name
+
+    def get_cn(self, obj):
+        return obj.full_name
+
+    def get_sn(self, obj):
+        return obj.last_name
+
+    def get_given_name(self, obj):
+        return obj.first_name
+        
+    def get_password(self, obj):
+        return "{%s}%s" % (config.get('ldap','hash').upper(), obj.primary_account_password)
+
+    def get_email(self, obj):
+        return obj.email
+
+class GroupLdapBack(LdapBack):
+    def get_cn(self, obj):
+        return obj.name
+
+    def get_uid(self, obj):
+        return obj.name
+
+    def get_gid(self, obj):
+        return obj.posix_gid
+
+    def get_members(self, obj):
+        return [str(m) for m in obj.members]
+
+class PosixUser(AccountLdapBack):
     """Stub object for representation of an account."""
     def __init__(self,conn=None,base=None,filter='(objectClass=*)'):
         LdapBack.__init__(self)
         self.base = base
         self.filter = filter
+
         # Need 'person' for structural-objectclass
         self.obj_class = ['top','person','posixAccount','shadowAccount'] 
         self.ignore_attr_types = []
@@ -305,53 +364,38 @@ class PosixUser(LdapBack):
             return
         super(PosixUser, self).add(obj)
 
-
     def get_attributes(self,obj):
-        """Convert Account-object to map ldap-attributes"""
-        s = {}
-        s['objectClass']   = self.obj_class
-        s['cn']            = ["%s"     %  obj.gecos]
-        s['sn']            = ["%s"     %  obj.gecos.split(" ").pop()]
-        s['uid']           = ["%s"     %  obj.name]
-        s['gecos']         = ["%s"     %  self.toAscii(obj.gecos)]
-        s['uidNumber']     = ["%s"     %  obj.posix_uid]
-        s['gidNumber']     = ["%s"     %  obj.posix_gid]
-        s['loginShell']    = ["%s"     %  obj.shell]
-        s['userPassword']  = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
-        s['homeDirectory'] = ["%s"     %  obj.homedir]
-        return s
+        return {
+            'objectClass': self.obj_class,
+            'cn': self.get_cn(obj),
+            'sn': self.get_sn(obj),
+            'uid': self.get_uid(obj),
+            'gecos': self.get_gecos(obj),
+            'uidNumber': str(obj.posix_uid),
+            'gidNumber': str(obj.posix_gid),
+            'loginShell': str(obj.shell),
+            'userPassword': self.get_password(obj),
+            'homeDirectory': str(obj.homedir),
+        }
 
-    def toAscii(self, utf8string):
-        return unicodedata.normalize('NFKD', utf8string.decode('utf-8')).encode('ASCII', 'ignore')
-
-    def get_dn(self,obj):
-        return "uid=%s,%s" % (obj.name, self.base)
-
-class PosixGroup(LdapBack):
+class PosixGroup(GroupLdapBack):
     '''Abstraction of a group of accounts'''
     def __init__(self, base=None, filter='(objectClass=*)'):
         LdapBack.__init__(self)
         self.base = base
         self.filter = filter
         self.obj_class = ['top','posixGroup']
-        # posixGroup supports attribute memberUid, which is multivalued (i.e. can be a list, or string)
         self.ignore_attr_types = []
 
     def get_attributes(self,obj):
-        s = {}
-        s['objectClass']     = self.obj_class
-        s['cn']              = ["%s" % obj.name]
-        s['gidNumber']       = ["%s" % obj.posix_gid]
-        if (len(obj.members) > 0):
-            s['memberUid']   = [str(m) for m in obj.members]
-        #if (len(obj.description) > 0):
-        #    s['description'] = obj.description
-        return s
+        return {
+            'objectClass': self.obj_class,
+            'cn': self.get_cn(obj),
+            'gidNumber': self.get_gid(obj),
+            'memberUid': self.get_members(obj),
+        }
 
-    def get_dn(self,obj):
-        return "cn=" + obj.name + "," + self.base
-
-class Person(LdapBack):
+class Person(PersonLdapBack):
     def __init__(self, base="ou=people,dc=ntnu,dc=no", filter='(objectClass=*)'):
         LdapBack.__init__(self)
         self.base = base
@@ -409,19 +453,30 @@ class Person(LdapBack):
             return
         super(Person, self).add(obj)
 
-    def get_dn(self,obj):
-        return "uid=" + obj.primary_account_name + "," + self.base
-
     def get_attributes(self,obj):
         s = {}
         s['objectClass']            = self.obj_class
-        s['cn']                     = ["%s"     %  obj.full_name]
-        s['sn']                     = ["%s"     %  obj.last_name]
-        s['givenName']              = ["%s"     %  obj.first_name]
-        s['uid']                    = ["%s"     %  obj.primary_account_name]
-        s['userPassword']           = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.primary_account_password)]
-        s['eduPersonOrgDN']         = ["dc=ntnu,dc=no"]
+        s['cn']                     = self.get_cn(obj)
+        s['sn']                     = self.get_sn(obj)
+        s['givenName']              = self.get_given_name(obj)
+        s['uid']                    = self.get_uid(obj),
+        s['userPassword']           = self.get_password(obj)
+        s['eduPersonOrgDN']         = "dc=ntnu,dc=no"
+        s['eduPersonAffiliation']   = self.get_affiliations(obj)
+        s['norEduPersonBirthDate']  = self.get_birthdate(obj)
+        s['norEduPersonNIN']        = self.get_social_security_number(obj)
+        s['eduPersonPrincipalName'] = self.get_principal(obj)
+        s['title']                  = self.get_title(obj)
+        s['mail']                   = self.get_email(obj)
 
+        try:
+            s['norEduOrgAcronym']   = self._get_acronym_list(str(obj.primary_ou))
+        except OUNotFoundException, e:
+            log.warning("primary ou (%d) of person '%s' not found", 
+                    obj.primary_ou, obj.full_name)
+        return s
+
+    def get_affiliations(self, obj):
         affiliations = set()
         for holder in obj.affiliations:
             aff = Affiliation(holder)
@@ -437,40 +492,36 @@ class Person(LdapBack):
                 affiliations.add('alum')
             else:
                 log.warn("Unknown affiliation: %s" % aff.affiliation)
-        s['eduPersonAffiliation'] = list(affiliations)
+        return list(affiliations)
 
+    def get_birthdate(self, obj):
         # Expecting birth_date from spine on the form "%Y-%m-%d 00:00:00.00"
         # Ldap wants the form "%Y%m%d".
         # FIXME: Should probably use datetime or mx.DateTime
         birth_date= obj.birth_date.split()[0].replace('-','')
-        s['norEduPersonBirthDate']  = ["%s"     %  birth_date]
-        if obj.nin:
-            # Norwegian "Birth number" / SSN 
-            s['norEduPersonNIN']        = ["%s"     %  obj.nin] 
-        s['eduPersonPrincipalName'] = ["%s@%s"  %  (obj.primary_account_name, config.get('ldap','eduperson_realm'))]
+        return ["%s"     %  birth_date]
 
-
+    def get_title(self, obj):
+        affiliations = self.get_affiliations(obj)
         if 'employee' in affiliations:
-            s['title'] = ['fast ansatt']
-        elif 'student' in affiliations:
-            s['title'] = ['student']
-        elif 'affiliate' in affiliations:
-            s['title'] = ['tilknyttet']
-        elif 'alum' in affiliations:
-            s['title'] = ['alumnus']
-        else:
-            s['title'] = ["Ikke title enno"] 
-        if obj.work_title != '':
-            pass
+            return ['fast ansatt']
 
-        s['mail']                   = ["%s"     %  obj.email]
-        try:
-            acronym_list = self._get_acronym_list(str(obj.primary_ou))
-            s['norEduOrgAcronym'] = acronym_list
-        except OUNotFoundException, e:
-            log.warning("primary ou (%d) of person '%s' not found", 
-                    obj.primary_ou, obj.full_name)
-        return s
+        if 'student' in affiliations:
+            return ['student']
+
+        if 'affiliate' in affiliations:
+            return ['tilknyttet']
+
+        if 'alum' in affiliations:
+            return ['alumnus']
+
+        return ["Ikke title enno"] 
+
+    def get_principal(self, obj):
+        return "%s@%s" % (obj.primary_account_name, config.get('ldap','eduperson_realm'))
+
+    def get_social_security_number(self, obj):
+        return obj.nin
 
 class OU(LdapBack):
     """ OrganizationalUnit, where people work or students follow studyprograms.
@@ -536,51 +587,54 @@ class OU(LdapBack):
             self.add(obj)
         super(OU,self).close()
 
-
-class OracleCalendar(LdapBack):
+class OracleCalendar(AccountLdapBack):
     """
+    Module for handling ldap entries for Oracle Calendar.  The Calendar
+    periodically runs a diff against this ldap tree and adds new entries to the
+    calendar in addition to disabling accounts that it no longer finds in the
+    tree.
     """
     def __init__(self, base=None, filter='(objectClass=*)'):
         LdapBack.__init__(self)
+
         if base == None:
             self.base = config.get("ldap","calendar_base")
         else:
             self.base = base
+
         self.filter = filter
-        self.obj_class = ('top','inetOrgPerson', 'shadowAccount', 'ctCalUser')
         self.obj_class = ('top','inetOrgPerson', 'shadowAccount')
 
-    def get_dn(self,obj):
-        return "uid=" + obj.name + "," + self.base
-
     def get_attributes(self,obj):
-        names = obj.full_name.split(" ")
-        sn = names.pop()
-        givenName = " ".join(names)
-        s = {}
-        s['objectClass']      = self.obj_class
-        s['uid']              = [obj.name]
-        s['cn']               = [obj.gecos]
-        s['sn']               = [sn]
-        s['givenName']        = [givenName]
-        s['userPassword']     = ["{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)]
-        return s
+        return {
+            'uid': self.get_uid(obj),
+            'objectClass': self.obj_class,
+            'sn': self.get_sn(obj),
+            'cn': self.get_cn(obj),
+            'givenName': self.get_given_name(obj),
+            'userPassword': self.get_password(obj),
+            'mail': self.get_email(obj),
+            'ou': self.get_ou(obj),
+            'o': "NTNU",
+        }
 
+    def get_email(self, obj):
+        return "%s@%s" % (self.get_uid(obj), 'ntnu.no')
 
-class AccessCardHolder(LdapBack):
+    def get_ou(self, obj):
+        return "OI-ITAVD:OI:RE:NTNU"
+
+class AccessCardHolder(PersonLdapBack):
     """
     Module for populating an ntnuAccessCardHolder branch.  Used for the
     equictrac print system at NTNU.
     """
     def __init__(self, base=None, filter='(objectClass=*)'):
-        super(AccessCardHolder, self).__init__()
+        LdapBack.__init__(self)
 
         self.base = base
         self.filter = filter
         self.obj_class = ('top', 'person', 'inetOrgPerson', 'ntnuAccessCardHolder')
-
-    def get_dn(self, obj):
-        return "uid=%s,%s" % (obj.primary_account_name, self.base)
 
     def get_attributes(self, obj):
         return {
@@ -588,7 +642,7 @@ class AccessCardHolder(LdapBack):
             'cn': obj.full_name,
             'description': "Adgangskort ved NTNU for Uniflow-utskriftsystem.",
             'sn': obj.last_name,
-            'uid': obj.primary_account_name,
+            'uid': self.get_uid(obj),
             'mail': obj.email,
             'ntnuAccessCardId': self.get_access_card_ids(obj),
         }
