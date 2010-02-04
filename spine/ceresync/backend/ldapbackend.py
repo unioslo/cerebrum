@@ -351,27 +351,6 @@ class PosixGroup(LdapBack):
     def get_dn(self,obj):
         return "cn=" + obj.name + "," + self.base
 
-class NetGroup(LdapBack):
-    ''' '''
-    def __init__(self, base=None, filter='(objectClass=*)'):
-        LdapBack.__init__(self)
-        self.base = base
-        self.filter = filter
-        self.obj_class = ('top', 'nisNetGroup')
-        self.ignore_attr_types = []
-
-    def get_dn(self,obj):
-        return "cn=" + obj.name + "," + self.base
-
-    def get_attributes(self,obj):
-        s = {}
-        s['objectClass']       = self.obj_class
-        s['cn']                = [obj.name]
-        s['nisNetGroupTriple'] = [] # Which attribute to fetch? FIXME
-        s['memberNisNetgroup'] = [] # Which attribute to fetch? FIXME
-        return s
-
-
 class Person(LdapBack):
     def __init__(self, base="ou=people,dc=ntnu,dc=no", filter='(objectClass=*)'):
         LdapBack.__init__(self)
