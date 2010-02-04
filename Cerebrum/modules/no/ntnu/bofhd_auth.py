@@ -413,6 +413,10 @@ class BofhdAuth(auth.BofhdAuth):
             self.const.auth_target_type_spread, int(spread), None,
             operation_attr=str(auth_method)):
             return True
+        if self._has_global_access(
+            operator, self.const.auth_account_syncread,
+            self.const.auth_target_type_global_account, victim_id=None):
+            return True
         raise PermissionDenied("Can't bulk read accounts")
 
     def can_syncread_group(self, operator, spread):
