@@ -6,6 +6,7 @@ import activation
 import cerebrum_path
 import cereconf
 from lib.utils import get_content_type
+from gettext import gettext as _
 
 def index():
     content_type = get_content_type()
@@ -16,8 +17,8 @@ def index():
     '<meta http-equiv="Content-Type" content="' + content_type + '"/>\n' +\
     '<link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>\n' + \
     '<title>\n' + \
-         'NTNU&apos;s database for administering user accounts\n' + \
-    '</title>\n' + \
+         _('NTNU&apos;s database for administering user accounts') + \
+    '\n</title>\n' + \
     '<link rel="stylesheet" type="text/css" media="screen" href="css/ntnu.css" charset="utf-8" />\n' + \
     '</head>\n' + \
     '<body>\n' + \
@@ -29,12 +30,18 @@ def index():
     '<img src="/img/BAS_ntnu_logo.png" alt="NTNU" />\n' + \
     '</div>\n' + \
     '<div id="page">\n' + \
-      '<h1>NTNU&apos;s database for administering user accounts</h1>\n' + \
+      '<h1>' + \
+         _('NTNU&apos;s database for administering user accounts') + \
+      '</h1>\n' + \
         '<div class="text">\n' + \
-          '<a href="/passwd/index">Change password for an existing user account</a>\n' + \
+          '<a href="/passwd/index">' + \
+            _('Change password for an existing user account') + \
+          '</a>\n' + \
         '</div>\n' + \
         '<div class="text">\n' + \
-          '<a href="/activation/index">Activate your user account at NTNU</a>\n' + \
+          '<a href="/activation/index">' + \
+                _('Activate your user account at NTNU') + \
+          '</a>\n' + \
         '</div>\n' + \
     '</div>\n' + \
   '</div>\n' + \

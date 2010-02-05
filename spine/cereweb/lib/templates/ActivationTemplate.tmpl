@@ -29,7 +29,6 @@
 #implements respond
 #encoding utf8
 
-#attr $title = 'Activate account'
 #attr $jscripts = ['base.js', 'search.js', 'error.js', 'motd.js']
 #attr $messages = []
 
@@ -39,7 +38,6 @@
 ## The following hack removes the tabview
 #def tabview
 #end def
-#from lib.Languages import Languages
 
 #def header()
 <%
@@ -55,14 +53,38 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
-        <title>$title</title>
+        <title>$_('Activate user account')</title>
         <meta http-equiv="Content-Type" content="$content_type" />
         <meta http-equiv="Pragma" content="$pragma" />
         <meta http-equiv="Cache-Control" content="$cache_control" />
         <meta http-equiv="content-language" content="nb-NO, en-US" />
         <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
+                <!-- Include yui styles -->
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/reset-fonts-grids/reset-fonts-grids.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/container/assets/container.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/logger/assets/logger.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/datatable/assets/datatable.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/tabview/assets/tabview.css"/>
+        <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/tabview/assets/border_tabs.css"/> 
+
+        <!-- Include our styles -->
 	<link rel="stylesheet" type="text/css" charset="utf-8" href="/css/ntnu.css" />
 
+        <!-- Include yui components -->
+        <script type="text/javascript" charset="utf-8" src="/yui/utilities/utilities.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/logger/logger-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/container/container-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/element/element-beta-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/datasource/datasource-beta-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/datatable/datatable-beta-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/autocomplete/autocomplete-min.js"></script>
+        <script type="text/javascript" charset="utf-8" src="/yui/tabview/tabview-min.js"></script> 
+
+        <!-- Include our javascript application -->
+        <!-- $len($jscripts) -->
+        #for $i in $jscripts
+            <script type="text/javascript" charset="utf-8" src="/jscript/$i"></script>
+        #end for
 </head>
 <body>
         <div class="pagewrap">
@@ -92,7 +114,7 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
       <img src="/img/BAS_ntnu_logo.png" alt="NTNU" />
     </div>
     <div id="page">
-        <h1>NTNU&apos;s database for administering accounts</h1>
+        <h1>$_('NTNU&apos;s database for administering accounts')</h1>
     #if $messages
         <div class="text">
         #for $mesg in $messages
@@ -111,34 +133,29 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
 </html>
 #end def
 
-#def welcome($lang='no')
-
-
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang')
-#end if
-
-#set $theLang = Languages($lang)
+#def welcome()
 $header()
-    <h2>$theLang.get_congratulations_header_text()</h2>
+    <h2>
+        $_('Congratulations!')
+    </h2>
     <div class="text">
-    $theLang.get_congratulations_body_text()
+        $_('Your are now welcomed to use your account here at NTNU.')
+    </div>
+    <div class="text">
+        $_('You may use the URL <a href="http://bas.ntnu.no/"> (http://bas.ntnu.no/)</a> to examin your accounts, membership of groups, manage groups (if you own several).')
+    </div>
+    <div class="text">
+        $_('You must change your password every N. months,- and of course you may do it right here at this web-page.')
     </div>
 $footer()
 #end def
 
-#def initpassword($lang='no')
-
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang', '')
-#end if
-
+#def initpassword()
 #set $username = $cherrypy.session.get('username', '')
-
-#set $theLang = Languages($lang)
 $header()
-
-  <h2>$theLang.get_setpassword_header_text()</h2>
+  <h2>
+    $_('Please enter the password you want to use (5/5)')
+    </h2>
   <form method="post" action="/activation/">
     <div>
         <input type="hidden" name="page" value="initpassword" />
@@ -148,7 +165,7 @@ $header()
         <tr>
             <td>
                 <div class="text">
-                    $theLang.get_setpassword_username_text() <b>$username</b>
+                    $_('Your username is:') <b>$username</b>
                 </div>
             </td>
             <td>
@@ -158,7 +175,7 @@ $header()
         <tr>
             <td>
                 <div class="text">
-                    $theLang.get_setpassword_warning_text()
+                    $_('<em>NB!</em>The password will not be shown again. Make sure that you remember the username and password.')
                 </div>
             </td>
             <td>
@@ -168,7 +185,22 @@ $header()
         <tr>
             <td>
                 <div class="text">
-                    $theLang.get_setpassword_legal_passwords_text()
+                    <ul>
+                        <li>
+                        $_('The password must be at least 8 characters or more.')
+                        </li>
+                         <li>
+                            $_('The password must be different from your existing password.')
+                        </li>
+                        <li>$_('The password must contain at least one character from three of the four groups:')
+                        </li>
+                            <ol>
+                                <li>$_('Uppercase letters(A-Z)')</li>
+                                <li>$_('Lowercase letters (a-z)')</li>
+                                <li>$_('Numerals (0-9)')</li>
+                                <li>$_('Special characters (!#()*+,.=?@[]_{}~-) ')</li>
+                            </ol>
+                    </ul>
                 </div>
             </td>
             <td>
@@ -178,12 +210,12 @@ $header()
         <tr>
           <td>
                 <div class="text">
-                $theLang.get_setpassword_choose_self_text()
+                $_('Choose password:')
                 </div>
           </td>
           <td>
                 <div class="text">
-                $theLang.get_setpassword_choose_generated_text()
+                    $_('Choose a generated password:')
                 </div>
             </td>
         </tr>
@@ -191,12 +223,12 @@ $header()
           <td>
 
             <div class="required">
-	      <label for="passwd1" >$theLang.get_setpassword_password_label1_text()</label>
+	      <label for="passwd1" >$_('Password:')</label>
 	      <input type="password" id="passwd1" name="pw1" />
             </div>
 
             <div class="required">
-	      <label for="passwd2">$theLang.get_setpassword_password_label2_text()</label>
+	      <label for="passwd2">$_('Retype password:')</label>
               <input type="password" id="passwd2" name="pw2" />
             </div>
 
@@ -210,17 +242,9 @@ $header()
           </td>
         </tr>
         <tr>
-          ## <td cellspan="2">
-           ## <div class="text">
-           ##      $theLang.get_setpassword_warning_text()
-           ## </div>
-           ## <div class="buttons">
-           ##   <input type="submit" name="submit_pw" value="$theLang.get_setpassword_submit_button_text()" />
-           ## </div>
-          ## </td>
             <td>
-           <div class="buttons">
-              <input type="submit" name="submit_pw" value="$theLang.get_setpassword_submit_button_text()" />
+            <div class="buttons">
+              <input type="submit" name="submit_pw" value="$_('Continue')" />
            </div>
             </td>
             <td>
@@ -229,199 +253,168 @@ $header()
         </tr>
       </table>
     </div>
-    ## <div class="text">
-    ##     $theLang.get_setpassword_legal_passwords_text()
-    ## </div>
   </form>
 $footer()
 #end def
 
-#def eula($lang='no')
-
-#if $cherrypy.session.get('lang', ''):
-    #set $lang = $cherrypy.session.get('lang', '')
-#end if
-
-#set theLang = Languages($lang)
-
+#def eula()
 $header()
-
-<h2>$theLang.get_eula_header_text()</h2>
+<h2>$_('End user license agreement (4/5)')</h2>
   <form method="post" action="/activation/">
         <div>
             <input type="hidden" name="page" value="eula" />
         </div>
       <div class="text">
-        <a href="$theLang.get_eula_bokmaal_link()" target="itreg">$theLang.get_eula_bokmaal_link_text()</a>
-        <a href="$theLang.get_eula_english_link()" target="itreg">$theLang.get_eula_english_link_text()</a>
+        <a href="itreg_no.html" target="itreg">$_('Bokm&aring;l')</a>
+        <a href="itreg_en.html" target="itreg">$_('English')</a>
       </div>
     
       <div class="text">
-        $theLang.get_eula_legal_notes_text()
+        $_('I confirm that i have read the IT regulations at NTNU and i accept those oligations as the regulations to any moment demands. I also accepts the sanctions that NTNU can put into action when the IT regulations have been violated as stated in the IT regulations paragraph 4.3, 7.1 and 7.2.')
+    </div>
+    <div class="text">
+        $_('I also give permission to that log-information can be used to indentify my use of all it-equipment with those boundaries as stated in the IT regulations paragraph 5.10.')
       </div>
 
-        <div>
-	   <label for="godkjent">$theLang.get_eula_accept_label_text()</label>
+        <div class="required">
+	   <label for="godkjent">$('I accept:')</label>
 	   <input type="checkbox" id="godkjent" name="godkjent_logger" />
 	 </div>
 
       <div>
-        <input type="submit" name="submit_btn" value="$theLang.get_eula_accept_button_text()" />
+        <input type="submit" name="submit_btn" value="$_('Continue')" />
       </div>
   </form>
 $footer()
 #end def
 
-#def studentnr($lang='no')
-
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang', '')
-#end if
-
-#set $theLang = Languages($lang)
+#def studentnr()
 $header()
-
-<h2>$theLang.get_sid_header_text()</h2>
+<h2>$_('Enter your student identification number (2/5)')</h2>
   <form method="post" action="/activation/">
         <div>
             <input type="hidden" name="page" value="studentnr" />
         </div>
         <div class="text">
-            $theLang.get_sid_body_text()
+            $_('You need to enter your student identification number (6 numerals).')
         </div>
 
         <div>
-	  <label for="studentnummer">$theLang.get_sid_submit_label_text()</label>
+	  <label for="studentnummer">$_('Student identification number:')</label>
           <input type="text" id="studentnummer" name="studentnr" />
         </div>
 
         <div>
-            <input type="submit" name="blapp" value="$theLang.get_sid_submit_button_text()" />
+            <input type="submit" name="blapp" value="$_('Continue')" />
 	</div>
   </form>
 $footer()
 #end def
 
-#def pinkode($lang='no')
-
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang', '')
-#end if
-
-#set $theLang = Languages($lang)
+#def pinkode()
 $header()
-
-<h2>$theLang.get_pin_header_text()</h2>
+<h2>$_('PIN-code (3/5)')</h2>
 
   <form method="post" action="/activation/">
         <div>
             <input type="hidden" name="page" value="pinkode" />
         </div>
         <div class="text">
-            $theLang.get_pin_body_text()
+            $_('Please, enter your PIN-code (4 numerals).')
         </div>
         <div>
-            <label for="pincode">$theLang.get_pin_submit_label_text()</label>
+            <label for="pincode">$_('PIN-code:')</label>
             <input maxlength="4" id="pincode" type="text" name="pin" />
 
         </div>
 
         <div>
-            <input type="submit" id="pinkodeok" name="blapp" value="$theLang.get_pin_submit_button_text()" />
+            <input type="submit" id="pinkodeok" name="blapp" value="$_('Continue')" />
 	</div>
 
         <div class="text">
-            $theLang.get_pin_help_text()
+          $_('The pin-code can be found on the invoice for semester fee you have received.')
+        </div>
+        <div class="text">
+            $_('In case you have not received an invoice, contact <a href="www.ntnu.no/studentservice/">Studentservice</a>.')
         </div>
   </form>
 $footer()
 #end def
 
-#def fodselsnr($lang='no')
-
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang','')
-#end if
-
-#set $theLang = Languages($lang)
-
+#def fodselsnr()
 $header()
-
-<h2>$theLang.get_nin_header_text()</h2>
+<h2>$_('Norwegian national identification number (1/5)')</h2>
   <form method="post" action="/activation/">
         <div>
             <input type="hidden" name="page" value="fodselsnr" />
         </div>
       <div class="text">
-        $theLang.get_nin_body_text()
+        $_('You have now entered a service that needs authentication.')
+      </div>
+      <div class="text">
+        $_('This procedure is done in 5 steps.')
+      </div>
+        <div class="text">
+        $_('Please enter your norwegian national identification number (11 numerals).')
       </div>
 
         <div class="text">
-        <label for="fnummer">$theLang.get_nin_submit_label_text()</label>
+        <label for="fnummer">$_('National identification number:')</label>
         <input maxlength="11" type="text" id="fnummer" name="fnr" />
       </div>
 
         <div>
-        <input type="submit" id="fodselsnrok" name="submit" value="$theLang.get_nin_submit_button_text()" />
+        <input type="submit" id="fodselsnrok" name="submit" value="$_('Continue')" />
       </div>
   </form>
 $footer()
 #end def
 
-#def eulaNotApproved($lang='no')
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang', '')
-#end if
-#set $theLang = Languages($lang)
-
+#def eulaNotApproved()
 $header()
-<h2>$theLang.get_eula_not_approved_header_text()</h2>
+<h2>$_('End user license agreement is not approved...')</h2>
     <div class="text">
-        $theLang.get_eula_not_approved_body_text()
+        $_('Good luck with your studies at NTNU.')
     </div>
 $footer()
 #end def
 
-#def errorInInput($lang='no')
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang', '')
-#end if
-#set $theLang = Languages($lang)
-
+#def errorInInput()
 $header()
-<h2>$theLang.get_error_in_input_header_text()</h2>
+<h2>$_('Error in the input-data')</h2>
     <div class="content_text">
-        $theLang.get_error_in_input_body_text()
+        $_('Sorry, there must be an error in the input-data...')
     </div>
 $footer()
 #end def
 
-#def noUsernameFound($lang='no')
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang', '')
-#end if
-#set $theLang = Languages($lang)
 
+#def noUsernameFound()
 $header()
-<h2>$theLang.get_username_not_found_header_text()</h2>
+<h2>$_('Could not find the user account...')</h2>
     <div class="text">
-        $theLang.get_username_not_found_body_text()
+        $_('Sorry, but an user account was not found.')
+    </div>
+    <div class="text">
+        $_('Some will experience a delay of minimum 1 day before an user account is available.')
+    </div>
+    <div class="text">
+        $_('Please, try again later.')
     </div>
 $footer()
 #end def
 
 
-#def choose_language($lang='no')
-#set $theLang = Languages($lang)
-
-<h2>$theLang.get_choose_language_header_text()</h2>
+#def choose_language()
+<h2>$_('Vennglist velg spr&aring;k/Please choose language.')</h2>
 
   <form method="post" action="/activation/">
     <div>
         <input type="hidden" name="page" value="language" />
     </div>
     <div>
-      <label for="thelang">$theLang.get_choose_language_label_text()</label>
+      <label for="thelang">$_('Spr&aring;k/Language:')</label>
 
       <select id="thelang" name="lang">
         <option value="no">Norsk</option>
@@ -430,34 +423,22 @@ $footer()
     </div>
 
     <div>
-      <input type="submit" id="thelangbutton" name="language" value="$theLang.get_choose_language_button_text()" />
+      <input type="submit" id="thelangbutton" name="language" value="$_('Continue')" />
     </div>
   </form>
 #end def
 
 #def language():
-##set $theLang = Languages('no')
 $header()
 $choose_language()
 $footer()
 #end def
 
-#def content($lang='no')
-
-#if $cherrypy.session.get('lang', '')
-    #set $lang = $cherrypy.session.get('lang', '')
-#end if
-
+#def content()
 $header()
 ## Content
 <div class="text">
-     Du har n&aring; kommet til siden for &aring; aktivere brukerkonto
-     ved NTNUs IT-systemer.
-</div>
-
-<div class="text">
-    You have now reached the page used to activate your user account
-    at NTNU&apos;s computer-systems.
+    $_('You have now reached the page used to activate your user account at NTNU&apos;s computer-systems.')
 </div>
 $choose_language()
 

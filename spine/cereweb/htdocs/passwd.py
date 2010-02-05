@@ -12,6 +12,7 @@ from lib import utils
 from lib.templates.UserTemplate import UserTemplate
 from Cerebrum.Utils import Factory
 from lib.data.AccountDAO import AccountDAO
+from gettext import gettext as _
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 
 def index():
@@ -24,10 +25,10 @@ def savepw(**vargs):
     logger = Factory.get_logger("root")
     remote = cherrypy.request.headerMap.get("Remote-Addr", '')
 
-        
+     
     template = UserTemplate()
     template.messages = []
-
+    orakel_msg = _('If the server remains unavailable, call (735) 91500 and notify Orakeltjenesten of the situation.')
     if not is_correct_referer():
         template.messages.append(get_referer_error())
         template.respond()
@@ -36,19 +37,19 @@ def savepw(**vargs):
     pwd1 = vargs.get('password1', '')
     pwd2 = vargs.get('password2', '')
     if not uname:
-        template.messages.append('No username.')
+        template.messages.append(_('No username.'))
         return template.respond()
     if not oldpwd:
-        template.messages.append('No password.')
+        template.messages.append(_('No password.'))
         return template.respond()
     if not pwd1 or not pwd2:
-        template.messages.append('Passwords do not match.')
+        template.messages.append(_('Passwords do not match.'))
         return template.respond()
     if pwd1 and pwd2 and pwd1 != pwd2:
-        template.messages.append('Passwords do not match.')
+        template.messages.append(_('Passwords do not match.'))
         return template.respond()
     if pwd1 and pwd2 and pwd1 == pwd2 and len(pwd1) < 8:
-        template.messages.append('Passwords too short (min. 8 characters).')
+        template.messages.append(_('Passwords too short (min. 8 characters).'))
         return template.respond()
 
     try:
@@ -70,36 +71,31 @@ def savepw(**vargs):
             acc.set_password(pwd1)
         except PasswordGoodEnoughException, e:
             # password not good enough
-            template.messages.append('Password not good enough.' + \
-                '  Try to make a stronger password.')
+            template.messages.append(_('Password not good enough. Try to make a stronger password.'))
             db.rollback()
             return template.respond()
         try:
             acc.write_db()
         except Exception, e:
-            template.messages.append('The server is unavailable.')
-            template.messages.append('If the server remains ' + \
-                ' unavailable, call (735) 91500 and notify ' + \
-                'Orakeltjenesten of the situation.')
+            template.messages.append(_('The server is unavailable.'))
+            template.messages.append(orakel_msg)
             logger.error(e)
             db.rollback()
             return template.respond()
         try:
             db.commit()
         except Exception, e:
-            template.messages.append('The server is unavailable.')
-            template.messages.append('If the server remains ' + \
-                'unavailable, call (735) 91500 and notify ' + \
-                'Orakeltjenesten of the situation.')
+            template.messages.append(_('The server is unavailable.'))
+            template.messages.append(orakel_msg)
             logger.error(e)
             db.rollback()
             return template.respond()
     except Exception, e:
-        template.messages.append('Login failed.')
+        template.messages.append(_('Login failed.'))
         return template.respond()
     # i do not know if this is necessary...
     cherrypy.session.clear()
     logger.warn(uname + ' has changed password.  Remote-addr = ' + remote)
-    template.messages.append('Password is changed!')
+    template.messages.append(_('Password is changed!'))
     return template.respond()
 savepw.exposed = True

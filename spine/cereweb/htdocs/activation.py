@@ -35,7 +35,6 @@ from lib.utils import queue_message, get_messages
 from lib.utils import is_correct_referer, get_referer_error
 from lib.templates.ActivationTemplate import ActivationTemplate
 from lib.wsidm.wsidm import WSIdm
-from lib.Languages import Languages
 from lib.wsidm.wsidm import WSIdm
 import config
 import re
@@ -84,23 +83,25 @@ def index(**vargs):
         cherrypy.session['client_encoding'] = negotiate_encoding()
         cherrypy.session['spine_encoding'] = 'iso-8859-1'
     if not is_correct_referer():
-        print 'is_correct'
+        ## print 'is_correct'
         queue_message(get_referer_error(), title="Error!", error=True)
-        print 'vargs =', vargs
-        print 'session =', cherrypy.session
+        ## print 'vargs =', vargs
+        ## print 'session =', cherrypy.session
         return _retry_page(**vargs).respond()
-    lang = Languages(vargs.get('lang', 'no'))
     currentPage = vargs.get('page', '')
     if currentPage == 'fodselsnr':
         if not checkParam('fnr', 11, **vargs):
-            queue_message(lang.get_nin_not_legal_error_message(), error=True)
+            queue_message(_('National identification number is not legal. Must be 11 numerals (NNNNNNNNNNN).'), title=_('Error in input-data'), error=True)
             return _retry_page(**vargs).respond()
     elif currentPage == 'studentnr':
         studentnr = vargs.get('studentnr', '')
         if not checkParam('studentnr', 6, **vargs):
-            queue_message(lang.get_sid_not_legal_error_mesage(), error=True)
+            queue_message(_('Student indentification number is not legal. Must be 6 numerals (NNNNNN).'), title=_('Error in input-data'), error=True)
             return _retry_page(**vargs).respond()
     elif currentPage == 'initpassword':
+        unavail_title =_('The server is unavailable')
+        unavail_msg = _('If the server remains unavailable, call (735) 91500 and notify Orakeltjenesten of the situation.')
+        
         pw1 = vargs.get('pw1', '')
         pw2 = vargs.get('pw2', '')
         username = cherrypy.session.get('username', '')
@@ -118,46 +119,37 @@ def index(**vargs):
                 acc.set_password(pw1)
             except PasswordGoodEnoughException, e:
                 db.rollback()
-                queue_message("Not strong enough", error=True)
+                queue_message(_('Password is not strong enough. Please try to make a stronger password.'), title=_('Password is not strong enough'), error=True)
                 _retry_page(**vargs).respond()
             try:
                 acc.write_db()
             except Exception, e:
                 db.rollback()
-                queue_message('The server is unavailable.',error=True)
-                queue_message('If the server remains ' + \
-                    ' unavailable, call (735) 91500 and notify ' + \
-                    'Orakeltjenesten of the situation.', error=True)
+                queue_message(unavail_msg, title=unavail_title,error=True)
                 logger.error(e)
                 _retry_page(**vargs).respond()
             try:
                 db.commit()
             except Exception, e:
                 db.rollback()
-                queue_message('The server is unavailable.',error=True)
-                queue_message('If the server remains ' + \
-                    ' unavailable, call (735) 91500 and notify ' + \
-                    'Orakeltjenesten of the situation.', error=True)
+                queue_message(unavail_msg, title=unavail_title,error=True)
                 logger.error(e)
                 _retry_page(**vargs).respond()
             remote = cherrypy.request.headerMap.get("Remote-Addr", '')
             logger.warn(username + ' is activated. Remote-Addr = ' + remote)
         if pw1 and pw2 and pw1 == pw2 and len(pw1) < 8:
-            queue_message(lang.get_setpassword_too_short_error_message(), title="Passwords too short", error=True)
+            queue_message(_('Password is too short. Min. 8 characters or more.'), title=_('Password too short'), error=True)
             return _retry_page(**vargs).respond()
         elif pw1 != pw2:
-            queue_message(lang.get_setpassword_no_match_error_message(), title="Passwords do not match", error=True)
+            queue_message(_('Passwords do not match. Please try again.'), title=_('Mismatch'), error=True)
             return _retry_page(**vargs).respond()
-        elif not pw1:
-            queue_message(lang.get_setpassword_no_match_error_message(), title="Passwords do not match", error=True)
-            return _retry_page(**vargs).respond()
-        elif not pw2:
-            queue_message(lang.get_setpassword_no_match_error_message(), title="Passwords do not match", error=True)
+        elif not pw1 or not pw2:
+            queue_message(_('Passwords do not match. Please try again.'), title=_('Mismatch'), error=True)
             return _retry_page(**vargs).respond()
     elif currentPage == 'pinkode':
         pin = vargs.get('pin', '')
         if not checkParam('pin', 4, **vargs):
-            queue_message(lang.get_pin_not_legal_error_message(), error=True)
+            queue_message(_('PIN-code is not legal. Must be 4 numerals (NNNN)'),title=_('Error in PIN-code'), error=True)
             return _retry_page(**vargs).respond()
     elif currentPage == 'eula':
         godkjent_logger = vargs.get('godkjent_logger', '')
