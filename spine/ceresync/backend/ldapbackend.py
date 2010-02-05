@@ -337,11 +337,11 @@ class GroupLdapBack(LdapBack):
     def get_cn(self, obj):
         return obj.name
 
-    def get_uid(self, obj):
-        return obj.name
+    def get_dn(self, obj):
+        return "cn=%s,%s" % (self.get_cn(obj), self.base)
 
     def get_gid(self, obj):
-        return obj.posix_gid
+        return str(obj.posix_gid)
 
     def get_members(self, obj):
         return [str(m) for m in obj.members]
@@ -415,22 +415,22 @@ class Person(PersonLdapBack):
         super(Person, self).add(obj)
 
     def get_attributes(self,obj):
-        s = {}
-        s['objectClass']            = self.obj_class
-        s['cn']                     = self.get_cn(obj)
-        s['sn']                     = self.get_sn(obj)
-        s['givenName']              = self.get_given_name(obj)
-        s['uid']                    = self.get_uid(obj),
-        s['userPassword']           = self.get_password(obj)
-        s['eduPersonOrgDN']         = "dc=ntnu,dc=no"
-        s['eduPersonAffiliation']   = self.get_affiliations(obj)
-        s['norEduPersonBirthDate']  = self.get_birthdate(obj)
-        s['norEduPersonNIN']        = self.get_social_security_number(obj)
-        s['eduPersonPrincipalName'] = self.get_principal(obj)
-        s['title']                  = self.get_title(obj)
-        s['mail']                   = self.get_email(obj)
-        s['norEduOrgAcronym']       = self.get_acronym_list(obj),
-        return s
+        return {
+            'objectClass': self.obj_class,
+            'cn': self.get_cn(obj),
+            'sn': self.get_sn(obj),
+            'givenName': self.get_given_name(obj),
+            'uid': self.get_uid(obj),
+            'userPassword': self.get_password(obj),
+            'eduPersonOrgDN': "dc=ntnu,dc=no",
+            'eduPersonAffiliation': self.get_affiliations(obj),
+            'norEduPersonBirthDate': self.get_birthdate(obj),
+            'norEduPersonNIN': self.get_social_security_number(obj),
+            'eduPersonPrincipalName': self.get_principal(obj),
+            'title': self.get_title(obj),
+            'mail': self.get_email(obj),
+            'norEduOrgAcronym': self.get_acronym_list(obj),
+        }
 
     def get_affiliations(self, obj):
         affiliations = set()
