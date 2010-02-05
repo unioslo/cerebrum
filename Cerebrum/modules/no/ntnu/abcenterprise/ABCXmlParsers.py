@@ -37,6 +37,7 @@ from Cerebrum.modules.abcenterprise.ABCXmlParsers import XMLPropertiesParser
 
 from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsExt import DataPersonExt
 from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsExt import DataOUExt
+from Cerebrum.Utils import Factory
 
 class XMLPropertiesParserExt(XMLPropertiesParser):
 
@@ -161,6 +162,8 @@ class XMLOrg2ObjectExt(XMLOrg2Object):
                               value)
             elif sub.tag == 'business_category':
                 pass
+            elif sub.tag == 'ou_level':
+                pass
             elif sub.tag == "orgname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "not 2 attributes: %s" % value
@@ -234,6 +237,8 @@ class XMLOU2ObjectExt(XMLOU2Object):
                               value)
             elif sub.tag == 'business_category':
                 pass
+            elif sub.tag == 'ou_level':
+                pass
             elif sub.tag == "ouname":
                 if len(sub.attrib) <> 2:
                     raise ABCTypesError, "error in ouname: %s" % value
@@ -285,6 +290,7 @@ class XMLPerson2ObjectExt(XMLPerson2Object):
         """Constructs an iterator supplying DataPerson objects."""
 
         super(XMLPerson2ObjectExt, self).__init__(xmliter)
+        self.logger = Factory.get_logger("cronjob")
 
 
     def next(self):
@@ -319,6 +325,18 @@ class XMLPerson2ObjectExt(XMLPerson2Object):
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in keycardid: %s" % value
                 type = sub.attrib.get("keycardtype")
+                ## we do not want the import to stop for the
+                ## person,- just log a nice message
+                key = ABCTypesExt.get_type("keycardtype",(type,))
+                ret = result._ids.get(key)
+                if ret:
+                    msg = ''
+                    ## get hold of all the ids that can help
+                    ## to identitfy the person.
+                    for k in result._ids.keys():
+                        msg = msg + '%s = %s, ' % (k, result._ids.get(k))
+                    msg = msg + ' conflicting %s; new value = %s.' % (key, value)
+                    self.logger.warn(msg)
                 result.add_id(ABCTypesExt.get_type("keycardtype",(type,)),
                               value)
             ## ignoring this one.
