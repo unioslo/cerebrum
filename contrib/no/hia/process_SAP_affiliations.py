@@ -255,6 +255,12 @@ def process_affiliations(employment_file, person_file):
                          "all employment info will be ignored", sap_ansattnr)
             continue
 
+        # 99999999 has always been "invalid"/"to ignore".
+        if sap_plans == "99999999":
+            logger.debug("Ignored employment %s/%s for person sap_id %s",
+                         sap_plans, sap_lonnstittelkode, sap_ansattnr)
+            continue
+
         # Can we find the OU in Cerebrum?
         ou_id = sap_ou_number2ou_id(fo_kode, sap_ou_number)
         if ou_id is None:
