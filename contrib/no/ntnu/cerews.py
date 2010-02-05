@@ -81,71 +81,93 @@ class AuthenticationError(Exception):
 class IncrementalError(Errors.CerebrumError):
     """Too large incremental range"""
 
+class QueryError(Exception):
+    pass
 
-def search_persons(db, co, personspread=None, changelog_id=None,
-                   search_account_priority=False, include_keycard=False):
-    search_data=False
-    search_affiliations=False
-    search_accounts=False
-    if not search_account_priority:
-        search_data=True
+class BaseQuery(object):
+    def __init__(self, db, co):
+        self.select = []
+        self.tables = []
+        self.where = []
+        self.order_by = []
+        self.binds = {}
 
-    tables=["person_info"]
-    select=["person_info.person_id AS id"]
-    order_by=""
-    binds={ "externalid_nin": co.externalid_fodselsnr,
-            "nin_source": co.system_bdb,
-            "system_cached": co.system_cached,
-            "system_bdb": co.system_bdb,
-            "address_source": co.system_fs,
-            "name_first": co.name_first,
-            "name_last": co.name_last,
-            "name_full": co.name_full,
-            "name_display": co.name_display,
-            "name_personal_title": co.name_personal_title,
-            "name_work_title": co.name_work_title,
-            "contact_email": co.contact_email,
-            "contact_url": co.contact_url,
-            "contact_phone": co.contact_phone,
-            "contact_email": co.contact_email,
-            "contact_post_address": co.address_post,
-            }
-            
-    where=["(person_info.deceased_date IS NULL)"]
+        self.db = db
+        self.co = co
+        self._is_used = False
         
 
-    if changelog_id is not None:
-        tables.append("""JOIN change_log
+    def _execute(self):
+        if self._is_used:
+            raise QueryError("Query already spent.")
+        self._is_used = True
+        sql = "SELECT " + ",\n".join(self.select)
+        sql += " FROM " + "\n".join(self.tables)
+        if self.where:
+            sql += " WHERE " + " AND ".join(self.where)
+        if self.order_by:
+            sql += " ORDER BY " + ", ".join(self.order_by)
+
+        return self.db.query(sql, self.binds)
+        
+class PersonQuery(BaseQuery):
+    def __init__(self, db, co, spread=None, changelog_id=None):
+        BaseQuery.__init__(self, db, co)
+        self.tables = ["person_info"]
+        self.select = ["person_info.person_id AS id"]
+        self.where = ["(person_info.deceased_date IS NULL)"]
+        self._spread = spread
+        self._changelog_id = changelog_id
+
+        if spread:
+            self._set_spread(spread)
+        if changelog_id:
+            self._set_changelogid(changelog_id)
+
+    def search_data(self, include_keycard=False):
+        self._include_data()
+        if include_keycard:
+            self._include_keycard()
+
+        return self._execute()
+
+    def search_affiliations(self):
+        self._include_account_priority()
+        
+        return self._execute()
+    
+    def _set_changelogid(self, changelog_id):
+        self.tables.append("""JOIN change_log
                    ON (change_log.subject_entity = person_info.person_id
                      AND change_log.change_id > :changelog_id)""")
-        binds["changelog_id"] = changelog_id
-        order_by="ORDER BY change_log.change_id"
-        binds['changelog_id'] = changelog_id
+        self.order_by.append("change_log.change_id")
+        self.binds["changelog_id"] = changelog_id
 
-    if personspread is not None:
-        tables.append("""JOIN entity_spread person_spread
+    def _set_spread(self, spread):
+        self.tables.append("""JOIN entity_spread person_spread
         ON (person_spread.spread = :person_spread
           AND person_spread.entity_id = person_info.person_id)""")
-        binds["person_spread"] = personspread
-
-    if search_data is not None:
-        select+=["person_info.export_id AS export_id",
+        self.binds["person_spread"] = spread
+        
+    def _include_data(self):
+        self.select += [
+            "person_info.export_id AS export_id",
             "person_full_name.name AS full_name",
             "person_first_name.name AS first_name",
             "person_last_name.name AS last_name",
             "person_work_title.name AS work_title",
-            
             "contact_email.contact_value AS email",
             "contact_url.contact_value AS url",
             "contact_phone.contact_value AS phone",
-
             "person_info.birth_date AS birth_date",
             "person_nin.external_id AS nin",
             "entity_address.address_text AS address_text",
             "entity_address.postal_number AS postal_number",
             "entity_address.city AS city"
-                 ]
-        tables.append("""LEFT JOIN entity_external_id person_nin
+            ]
+
+        self.tables.append("""
+    LEFT JOIN entity_external_id person_nin
     ON (person_nin.entity_id = person_info.person_id
       AND person_nin.id_type = :externalid_nin
       AND person_nin.source_system = :nin_source )
@@ -190,10 +212,29 @@ def search_persons(db, co, personspread=None, changelog_id=None,
       AND entity_address.source_system = :address_source
       AND entity_address.address_type = :contact_post_address)""")
 
-        if include_keycard:
-            select.append("keycard_employee.external_id AS keycardid0")
-            select.append("keycard_student.external_id AS keycardid1")
-            tables.append("""LEFT JOIN entity_external_id keycard_employee
+        self.binds = {
+            "externalid_nin": self.co.externalid_fodselsnr,
+            "nin_source": self.co.system_bdb,
+            "system_cached": self.co.system_cached,
+            "system_bdb": self.co.system_bdb,
+            "address_source": self.co.system_fs,
+            "name_first": self.co.name_first,
+            "name_last": self.co.name_last,
+            "name_full": self.co.name_full,
+            "name_display": self.co.name_display,
+            "name_personal_title": self.co.name_personal_title,
+            "name_work_title": self.co.name_work_title,
+            "contact_email": self.co.contact_email,
+            "contact_url": self.co.contact_url,
+            "contact_phone": self.co.contact_phone,
+            "contact_email": self.co.contact_email,
+            "contact_post_address": self.co.address_post,
+            }
+
+    def _include_keycard(self):
+        self.select.append("keycard_employee.external_id AS keycardid0")
+        self.select.append("keycard_student.external_id AS keycardid1")
+        self.tables.append("""LEFT JOIN entity_external_id keycard_employee
             ON (keycard_employee.entity_id = person_info.person_id
               AND keycard_employee.id_type = :keycard_employee
               AND keycard_employee.source_system = :keycard_source)
@@ -201,67 +242,27 @@ def search_persons(db, co, personspread=None, changelog_id=None,
             ON (keycard_student.entity_id = person_info.person_id
               AND keycard_student.id_type = :keycard_student
               AND keycard_student.source_system = :keycard_source)""")
-            binds["keycard_source"] = co.system_kjernen
-            binds["keycard_employee"] = co.externalid_keycardid_employee
-            binds["keycard_student"] = co.externalid_keycardid_student
+        self.binds["keycard_source"] = self.co.system_kjernen
+        self.binds["keycard_employee"] = self.co.externalid_keycardid_employee
+        self.binds["keycard_student"] = self.co.externalid_keycardid_student
 
-    if search_affiliations:
-        select.append("person_affiliation.ou_id AS ou_id")
-        select.append("person_affiliation.affiliation AS affiliation")
-        select.append("account_type.priority AS priority")
-        tables.append("""JOIN person_affiliation person_affiliation
-          ON (person_affiliation.person_id = person_info.person_id)""")
-        tables.append("""LEFT JOIN account_type account_type
-          ON (account_type.person_id = person_info.person_id AND
-              account_type.ou_id = person_affiliation.ou_id AND
-              account_type.affiliation = person_affiliation.affiliation)""")
-
-    if search_account_priority:
-        binds["account_namespace"] = co.account_namespace
-        binds["authentication_method"] = co.auth_type_ssha
-        select.append("account_type.ou_id AS ou_id")
-        select.append("account_type.affiliation AS affiliation")
-        select.append("account_type.account_id AS account_id")
-        select.append("account_name.entity_name AS account_name")
-        select.append("account_type.priority AS priority")
-        select.append("account_authentication.auth_data AS account_passwd")
-        tables.append("""JOIN account_type account_type
+    def _include_account_priority(self):
+        self.binds["account_namespace"] = self.co.account_namespace
+        self.binds["authentication_method"] = self.co.auth_type_ssha
+        self.select.append("account_type.ou_id AS ou_id")
+        self.select.append("account_type.affiliation AS affiliation")
+        self.select.append("account_type.account_id AS account_id")
+        self.select.append("account_name.entity_name AS account_name")
+        self.select.append("account_type.priority AS priority")
+        self.select.append("account_authentication.auth_data AS account_passwd")
+        self.tables.append("""JOIN account_type account_type
           ON (account_type.person_id = person_info.person_id)""")
-        tables.append("""JOIN entity_name account_name
+        self.tables.append("""JOIN entity_name account_name
           ON (account_name.entity_id = account_type.account_id
              AND account_name.value_domain = :account_namespace)""")
-        tables.append("""LEFT JOIN account_authentication
+        self.tables.append("""LEFT JOIN account_authentication
           ON (account_authentication.method = :authentication_method
              AND account_authentication.account_id = account_type.account_id)""")
-    if search_accounts:
-        binds["account_namespace"] = co.account_namespace
-        binds["authentication_method"] = co.auth_type_ssha
-        select.append("account_info.account_id AS account_id")
-        select.append("account_name.entity_name AS account_name")
-        select.append("account_type.priority AS priority")
-        select.append("account_authentication.auth_data AS account_passwd")
-        tables.append("""JOIN account_info account_info
-          ON (account_info.owner_id = person_info.person_id)""")
-        tables.append("""LEFT JOIN account_type account_type
-          ON (account_type.person_id = person_info.person_id AND
-            account_type.account_id = account_info.account_id)""")
-        tables.append("""JOIN entity_name account_name
-          ON (account_name.entity_id = account_info.account_id
-             AND account_name.value_domain = :account_namespace)""")
-        tables.append("""LEFT JOIN account_authentication
-          ON (account_authentication.method = :authentication_method
-             AND account_authentication.account_id = account_info.account_id)""")
-        where.append("""(account_info.expire_date > now()
-              OR account_info.expire_date IS NULL)""")
-
-    sql = "SELECT " + ",\n".join(select)
-    sql += " FROM " + "\n".join(tables)
-    sql += " WHERE " + " AND ".join(where)
-    sql += order_by
-
-    return db.query(sql, binds)
-               
-
 
 
 # Merge this with Account.search()....
@@ -1071,15 +1072,16 @@ class cerews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         response._person = []
         
-        
         account_priorities={}
-        for row in search_persons(db, co, personspread, incremental_from,
-                                  search_account_priority=True):
+        for row in PersonQuery(
+               db, co, personspread, incremental_from).search_affiliations():
             account_priorities.setdefault(row['id'], {})[row['priority']]=row
             
         q=quarantines(db, co)
-        for row in search_persons(db, co, personspread, incremental_from,
-                                  include_keycard=True):
+        for row in PersonQuery(
+               db, co, personspread,
+               incremental_from).search_data(include_keycard=True):
+            
             p=PersonDTO(row, atypes)
             p._quarantine = q.get_quarantines(row['id'])
             my_account_priorities = account_priorities.get(row['id'])
