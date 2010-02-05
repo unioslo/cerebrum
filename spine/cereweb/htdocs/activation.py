@@ -119,7 +119,7 @@ def index(**vargs):
                 acc.set_password(pw1)
             except PasswordGoodEnoughException, e:
                 db.rollback()
-                queue_message(_('Password is not strong enough. Please try to make a stronger password.'), title=_('Password is not strong enough'), error=True)
+                queue_message(_('Password is not strong enough. Please, try to make a stronger password.'), title=_('Password is not strong enough'), error=True)
                 _retry_page(**vargs).respond()
             try:
                 acc.write_db()
