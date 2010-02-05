@@ -14,8 +14,10 @@
 
   <xs:complexType name="GroupType">
     <xs:sequence>
-      <xs:element name="member" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="quarantine" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="member" type="xs:string"
+		  minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="quarantine" type="xs:string"
+		  minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
     <xs:attribute name="name" type="xs:string"/>
     <xs:attribute name="posix_gid" type="xs:integer"/>
@@ -25,6 +27,8 @@
     <xs:sequence>
       <xs:element name="quarantine" type="xs:string"
                   minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="affiliation" type="ns1:AffiliationType"
+		  minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
     <xs:attribute name="name" type="xs:string"/>
     <xs:attribute name="passwd" type="xs:string"/>
@@ -52,9 +56,12 @@
 
   <xs:complexType name="PersonType">
     <xs:sequence>
-      <xs:element name="quarantine" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="affiliation" type="ns1:AffiliationType" minOccurs="0" maxOccurs="unbounded"/>
-      <xs:element name="trait" type="xs:integer" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="quarantine" type="xs:string"
+		  minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="affiliation" type="ns1:AffiliationType"
+		  minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="trait" type="xs:integer"
+		  minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
     <xs:attribute name="id" type="xs:integer"/>
     <xs:attribute name="export_id" type="xs:string"/>
@@ -70,7 +77,7 @@
     <xs:attribute name="primary_account_name" type="xs:string"/>
     <xs:attribute name="primary_account_password" type="xs:string"/>
     <xs:attribute name="primary_affiliation" type="xs:string"/>
-    <xs:attribute name="primary_ou" type="xs:integer"/>
+    <xs:attribute name="primary_ou_id" type="xs:integer"/>
     <xs:attribute name="email" type="xs:string"/>
     <xs:attribute name="address_text" type="xs:string"/>
     <xs:attribute name="city" type="xs:string"/>
@@ -83,7 +90,8 @@
     
   <xs:complexType name="OUType">
     <xs:sequence>
-      <xs:element name="quarantine" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="quarantine" type="xs:string"
+		  minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
     <xs:attribute name="id" type="xs:integer"/>
     <xs:attribute name="name" type="xs:string"/>
@@ -125,7 +133,8 @@
   <xs:element name="getAccountsResponse">
     <xs:complexType>
       <xs:sequence>
-	<xs:element minOccurs="0" maxOccurs="unbounded" name="account" type="ns1:AccountType" /> 
+	<xs:element minOccurs="0" maxOccurs="unbounded"
+		    name="account" type="ns1:AccountType" /> 
       </xs:sequence>
     </xs:complexType>
   </xs:element>
@@ -133,7 +142,8 @@
   <xs:element name="getPersonsResponse">
     <xs:complexType>
       <xs:sequence>
-	<xs:element minOccurs="0" maxOccurs="unbounded" name="person" type="ns1:PersonType" />
+	<xs:element minOccurs="0" maxOccurs="unbounded"
+		    name="person" type="ns1:PersonType" />
       </xs:sequence>
     </xs:complexType>
   </xs:element>
@@ -141,7 +151,8 @@
   <xs:element name="getGroupsResponse">
     <xs:complexType>
       <xs:sequence>
-	<xs:element minOccurs="0" maxOccurs="unbounded" name="group" type="ns1:GroupType" />
+	<xs:element minOccurs="0" maxOccurs="unbounded"
+		    name="group" type="ns1:GroupType" />
       </xs:sequence>
     </xs:complexType>
   </xs:element>
@@ -150,7 +161,8 @@
   <xs:element name="getOUsResponse">
     <xs:complexType>
       <xs:sequence>
-	<xs:element minOccurs="0" maxOccurs="unbounded" name="ou" type="ns1:OUType" /> 
+	<xs:element minOccurs="0" maxOccurs="unbounded"
+		    name="ou" type="ns1:OUType" /> 
       </xs:sequence>
     </xs:complexType>
   </xs:element>
@@ -158,7 +170,8 @@
   <xs:element name="getAliasesResponse">
     <xs:complexType>
       <xs:sequence>
-	<xs:element minOccurs="0" maxOccurs="unbounded" name="alias" type="ns1:AliasType" />
+	<xs:element minOccurs="0" maxOccurs="unbounded"
+		    name="alias" type="ns1:AliasType" />
       </xs:sequence>
     </xs:complexType>
   </xs:element>
@@ -166,7 +179,8 @@
   <xs:element name="getHomedirsResponse">
     <xs:complexType>
       <xs:sequence>
-	<xs:element minOccurs="0" maxOccurs="unbounded" name="homedir" type="ns1:HomedirType" /> 
+	<xs:element minOccurs="0" maxOccurs="unbounded"
+		    name="homedir" type="ns1:HomedirType" /> 
       </xs:sequence>
     </xs:complexType>
   </xs:element>

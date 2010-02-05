@@ -1090,7 +1090,7 @@ class cerews(ServiceSOAPBinding):
                 p._attrs['primary_account_name'] = primary['account_name']
                 p._attrs['primary_account_password'] = primary['account_passwd']
                 p._attrs['primary_affiliation'] = str(co.PersonAffiliation(primary['affiliation']))
-                p._attrs['primary_ou'] = primary['ou_id']
+                p._attrs['primary_ou_id'] = primary['ou_id']
                 p._affiliation = [
                     AffiliationDTO(ap, co) for ap in my_account_priorities.values()]
                 response._person.append(p)
