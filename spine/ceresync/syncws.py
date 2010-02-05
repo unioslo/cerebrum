@@ -180,7 +180,7 @@ class Person(Entity):
         "primary_account", "primary_account_name",
         "primary_account_password", "email", "address_text", "city",
         "postal_number", "phone", "url", "primary_affiliation",
-        "primary_ou", "keycardid0", "keycardid1",
+        "primary_ou_id", "keycardid0", "keycardid1",
     ]
     lists= { 
         "_quarantine": "quarantines", 

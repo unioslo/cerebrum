@@ -480,7 +480,7 @@ class Person(PersonLdapBack):
         return obj.nin
 
     def get_acronym_list(self, obj):
-        return self.ouregister.get_acronym_list(obj.primary_ou)
+        return self.ouregister.get_acronym_list(obj.primary_ou_id)
 
 class OracleCalendar(AccountLdapBack):
     """
