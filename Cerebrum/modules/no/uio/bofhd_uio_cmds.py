@@ -7210,13 +7210,21 @@ Addresses and settings:
         fs=FormatSuggestion("%-14s %s", ('name', 'desc'),
                             hdr="%-14s %s" % ('Name', 'Description')))
     def spread_list(self, operator):
+        """
+        List out all available spreads.
+        """
         ret = []
         spr = Entity.EntitySpread(self.db)
+        autospreads = [self.const.human2constant(x, self.const.Spread)
+                   for x in getattr(cereconf, 'GROUP_REQUESTS_AUTOSPREADS', ())]
         for s in spr.list_spreads():
             ret.append({'name': s['spread'],
                         'desc': s['description'],
                         'type': s['entity_type_str'],
-                        'type_id': s['entity_type']})
+                        'type_id': s['entity_type'],
+                        'spread_code': s['spread_code'],
+                        'auto': int(s['spread_code'] in autospreads)})
+                        # int() since boolean doesn't work for brukerinfo
         return ret
 
     # spread remove

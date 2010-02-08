@@ -315,6 +315,9 @@ BOFHD_REQUEST_LOCK_DIR='/cerebrum/var/log/cerebrum/.lock-%d'
 BOFHD_NONLOCK_QUARANTINES = ()
 BOFHD_QUARANTINE_DISABLE_LIMIT = None # days a quarantine can be disabled
 
+# What spreads which should be tagged as 'auto' in bofhds spread_list
+GROUP_REQUESTS_AUTOSPREADS = ()
+
 # List of valid values for toplevel mountpoints for disks. Checked
 # when disks are added. None = no check performed
 VALID_DISK_TOPLEVELS = None
