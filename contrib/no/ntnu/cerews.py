@@ -396,18 +396,9 @@ class AccountQuery(BaseQuery):
     def _include_account_priority(self):
         self.select.append("account_type.ou_id AS ou_id")
         self.select.append("account_type.affiliation AS affiliation")
-        self.select.append("account_type.account_id AS account_id")
         self.select.append("account_type.priority AS priority")
         self.tables.append("""JOIN account_type account_type
           ON (account_type.account_id = account_info.account_id)""")
-
-    def _execute(self):
-        accounts = {}
-        for row in super(AccountQuery, self)._execute():
-            name = row.fields.id
-            accounts[id] = row
-        return accounts.values()
-
 
 # Groups -- merge into Group.search()
 def search_groups(group, group_spread, changelog_id=None):
@@ -1065,6 +1056,13 @@ class cerews(ServiceSOAPBinding):
 
         response = getAccountsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
+
+        include_affiliations = True # XXX FIXME
+        if include_affiliations:
+            account_priorities = {}
+            for row in AccountQuery(db, co, accountspread,
+                                    incremental_from).search_affiliations():
+                account_priorities.setdefault(row['id'], {})[row['priority']]=row
         
         response._account = []
         q = quarantines(db, co)
@@ -1074,6 +1072,15 @@ class cerews(ServiceSOAPBinding):
             a._quarantine = (q.get_quarantines(row['id']) +
                              q.get_quarantines(row['owner_id']))
             response._account.append(a)
+            my_account_priorities = account_priorities.get(row['id'])
+            if my_account_priorities is not None:
+                primary_prio = min(my_account_priorities.keys())
+                primary = my_account_priorities[primary_prio]
+                a._attrs['primary_affiliation'] = str(co.PersonAffiliation(primary['affiliation']))
+                a._attrs['primary_ou_id'] = primary['ou_id']
+                a._affiliation = [
+                    AffiliationDTO(ap, co) for ap in my_account_priorities.values()]
+                
         db.rollback()
 
         return response
@@ -1171,8 +1178,8 @@ def test():
     print test_soap(sp.get_accounts, getAccountsRequest,
                     accountspread="user@stud", auth_type="MD5-crypt",
                     incremental_from=fromid)
-    print test_soap(sp.get_accounts, getAccountsRequest,
-                    accountspread="user@stud", auth_type="MD5-crypt")
+    #print test_soap(sp.get_accounts, getAccountsRequest,
+    #                accountspread="user@stud", auth_type="MD5-crypt")
     print test_soap(sp.get_persons, getPersonsRequest)
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
                     homedir_id=85752, status="not_created")
