@@ -1277,8 +1277,8 @@ cerews!
 
 Hello. Try one of these:
 
-%(prog)s daemon   start the spine server
-%(prog)s debug    start the spine server in the foreground
-%(prog)s start    start the spine server in the foreground
+%(prog)s daemon   start the server
+%(prog)s debug    start the server in the foreground
+%(prog)s start    start the server in the foreground
 %(prog)s test     run internal tests
 """ % {'prog': sys.argv[:1]}

@@ -747,8 +747,7 @@ STATISTICS_EXPLANATION_TEMPLATE = ""
 
 # CACHING
 # Some testing requires that the constants do not save their int-value when
-# looked up.  Disable CACHE_CONSTANTS when running these tests.  For instance
-# the tests in cerebrum/spine/lib/server/test
+# looked up.  Disable CACHE_CONSTANTS when running these tests.
 CACHE_CONSTANTS = True
 
 # Needed by contrib/file_clean.py
