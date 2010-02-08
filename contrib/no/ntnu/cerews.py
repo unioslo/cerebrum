@@ -91,7 +91,8 @@ class BaseQuery(object):
         self.where = []
         self.order_by = []
         self.binds = {}
-
+        self.distinct = False
+        
         self.db = db
         self.co = co
         self._is_used = False
@@ -101,7 +102,10 @@ class BaseQuery(object):
         if self._is_used:
             raise QueryError("Query already spent.")
         self._is_used = True
-        sql = "SELECT " + ",\n".join(self.select)
+        sql = "SELECT "
+        if self.distinct:
+            sql += "DISTINCT "
+        sql += ",\n".join(self.select)
         sql += " FROM " + "\n".join(self.tables)
         if self.where:
             sql += " WHERE " + " AND ".join(self.where)
@@ -140,7 +144,7 @@ class PersonQuery(BaseQuery):
         self.tables.append("""JOIN change_log
                    ON (change_log.subject_entity = person_info.person_id
                      AND change_log.change_id > :changelog_id)""")
-        self.order_by.append("change_log.change_id")
+        self.order_by.append("change_log.change_id ASC")
         self.binds["changelog_id"] = changelog_id
 
     def _set_spread(self, spread):
@@ -266,60 +270,52 @@ class PersonQuery(BaseQuery):
 
 
 # Merge this with Account.search()....
-def search_accounts(account, account_spread, changelog_id=None,
-                    auth_type=None):
-    co=account.const
-    db=account._db
 
-    if auth_type is None:
-        auth_type = co.auth_type_md5_crypt
-        
-    home=posix=owner=True
-    
-    select=["account_info.account_id AS id",
-            "account_info.owner_id AS owner_id",
-            "account_name.entity_name AS name",
-            "account_authentication.auth_data AS passwd",
-            ]
-    tables=["account_info"]
-    where=["""(account_info.expire_date > now()
+class AccountQuery(BaseQuery):
+    def __init__(self, db, co, spread=None, changelog_id=None):
+        BaseQuery.__init__(self, db, co)
+        self.tables = ["account_info"]
+        self.select = ["account_info.account_id AS id"]
+        self.where=["""(account_info.expire_date > now()
               OR account_info.expire_date IS NULL)"""]
-    order_by=""
-    binds={'account_namespace': co.account_namespace,
-           'group_namespace': co.group_namespace,
-           'host_namespace': co.group_namespace,
-           'name_display': co.name_display,
-           'system_cached': co.system_cached,
-           }
-    binds['authentication_method'] = auth_type
-    binds['account_spread'] = account_spread
+        if changelog_id:
+            self._set_changelogid(changelog_id)
+            
+        self.tables.append("""
+            JOIN entity_spread account_spread
+            ON (account_spread.spread = :account_spread
+                AND account_spread.entity_id = account_info.account_id)""")
+        self.binds['account_spread'] = spread
+        
+    def search_data(self, auth_type=None):
+        if auth_type is None:
+            auth_type = self.co.auth_type_md5_crypt
 
-    if changelog_id is not None:
-       tables.append("""JOIN change_log
+        self._include_data()
+        self._set_auth_type(auth_type)
+        self._include_posix()
+        self._include_owner()
+        self._include_home()
+        return self._execute()
+
+    def search_affiliations(self):
+        self._include_account_priority()
+
+        return self._execute()
+
+    def _set_changelogid(self, changelog_id):
+        self.tables.append("""JOIN change_log
          ON (change_log.subject_entity = account_info.account_id
             AND change_log.change_id > :changelog_id)""")
-       order_by=" ORDER BY change_log.change_id ASC"
-       binds['changelog_id'] = changelog_id
-    
-    tables.append("""
-    JOIN entity_spread account_spread
-      ON (account_spread.spread = :account_spread
-        AND account_spread.entity_id = account_info.account_id)
-    JOIN entity_name account_name
-      ON (account_info.account_id = account_name.entity_id
-        AND account_name.value_domain = :account_namespace)
-    LEFT JOIN account_authentication
-      ON (account_authentication.method = :authentication_method
-        AND account_authentication.account_id = account_info.account_id)
-    """)
+        #self.order_by.append("change_log.change_id ASC")
+        self.distinct = True
+        self.binds['changelog_id'] = changelog_id
 
-    if home:
-        select.append("""
-        homedir.home AS home,
-        disk_info.path AS disk_path,
-        disk_host_name.entity_name AS disk_host
-        """)
-        tables.append("""
+    def _include_home(self):
+        self.select.append("homedir.home AS home")
+        self.select.append("disk_info.path AS disk_path")
+        self.select.append("disk_host_name.entity_name AS disk_host")
+        self.tables.append("""
         LEFT JOIN account_home
           ON (account_home.spread = :account_spread
             AND account_home.account_id = account_info.account_id)
@@ -331,8 +327,11 @@ def search_accounts(account, account_spread, changelog_id=None,
           ON (disk_host_name.entity_id = disk_info.host_id
             AND disk_host_name.value_domain = :host_namespace)
         """)
-    if posix:
-        select.append("""
+        self.binds['host_namespace'] = int(self.co.host_namespace)
+
+
+    def _include_posix(self):
+        self.select.append("""
         posix_user.gecos AS gecos,
         posix_user.posix_uid AS posix_uid,
         posix_shell.shell AS shell,
@@ -340,7 +339,7 @@ def search_accounts(account, account_spread, changelog_id=None,
         posix_group.posix_gid AS posix_gid,
         group_name.entity_name AS primary_group
         """)
-        tables.append("""
+        self.tables.append("""
         LEFT JOIN posix_user
           ON (account_info.account_id = posix_user.account_id)
         LEFT JOIN posix_shell_code posix_shell
@@ -353,13 +352,14 @@ def search_accounts(account, account_spread, changelog_id=None,
           ON (group_info.group_id = group_name.entity_id
             AND group_name.value_domain = :group_namespace)
         """)
+        self.binds['group_namespace'] = int(self.co.group_namespace)
         
-    if owner:
-        select.append("""
+    def _include_owner(self):
+        self.select.append("""
         owner_group_name.entity_name AS owner_group_name,
         person_name.name AS full_name
         """)
-        tables.append("""
+        self.tables.append("""
         LEFT JOIN group_info owner_group_info
           ON (owner_group_info.group_id = account_info.owner_id)
         LEFT JOIN person_info
@@ -372,18 +372,41 @@ def search_accounts(account, account_spread, changelog_id=None,
             AND person_name.name_variant = :name_display
             AND person_name.source_system = :system_cached)
         """)
+        self.binds['group_namespace'] = int(self.co.group_namespace)
+        self.binds['name_display'] = int(self.co.name_display)
+        self.binds['system_cached'] = int(self.co.system_cached)
 
-    sql = "SELECT " + ",\n".join(select)
-    sql += " FROM " + "\n".join(tables)
-    sql += " WHERE " + " AND ".join(where)
-    sql += order_by
+    def _set_auth_type(self, auth_type):
+        self.select.append("account_authentication.auth_data AS passwd")
+        self.tables.append("""
+        LEFT JOIN account_authentication
+          ON (account_authentication.method = :authentication_method
+            AND account_authentication.account_id = account_info.account_id)""")
+        self.binds['authentication_method'] = auth_type
 
-    accounts = {}
-    for row in db.query(sql, binds):
-        name = row.fields.name
-        accounts[name] = row
-    return accounts.values()
+    def _include_data(self):
+        self.select.append("account_info.owner_id AS owner_id")
+        self.select.append("account_name.entity_name AS name")
+        self.tables.append("""
+        JOIN entity_name account_name
+        ON (account_info.account_id = account_name.entity_id
+            AND account_name.value_domain = :account_namespace)""")
+        self.binds['account_namespace'] = int(self.co.account_namespace)
+        
+    def _include_account_priority(self):
+        self.select.append("account_type.ou_id AS ou_id")
+        self.select.append("account_type.affiliation AS affiliation")
+        self.select.append("account_type.account_id AS account_id")
+        self.select.append("account_type.priority AS priority")
+        self.tables.append("""JOIN account_type account_type
+          ON (account_type.account_id = account_info.account_id)""")
 
+    def _execute(self):
+        accounts = {}
+        for row in super(AccountQuery, self)._execute():
+            name = row.fields.id
+            accounts[id] = row
+        return accounts.values()
 
 
 # Groups -- merge into Group.search()
@@ -1044,11 +1067,12 @@ class cerews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         
         response._account = []
-        q=quarantines(db, co)
-        for row in search_accounts(account, accountspread, incremental_from, auth_type):
-            a=AccountDTO(row, atypes, account)
+        q = quarantines(db, co)
+        for row in AccountQuery(db, co, accountspread,
+                                incremental_from).search_data(auth_type):
+            a = AccountDTO(row, atypes, account)
             a._quarantine = (q.get_quarantines(row['id']) +
-                              q.get_quarantines(row['owner_id']))
+                             q.get_quarantines(row['owner_id']))
             response._account.append(a)
         db.rollback()
 
@@ -1133,7 +1157,7 @@ def test_soap(fun, cl, **kw):
     rps=fun(ps)
     t1=time.time()-t
     rs=str(SoapWriter(outputclass=DomletteElementProxy).serialize(rps))
-    #open("/tmp/log.%s" % fun.__name__, 'w').write(rs)
+    open("/tmp/log.%s.ny" % fun.__name__, 'w').write(rs)
     #rps=ParsedSoap(rs)
     t2=time.time()-t
     return fun.__name__, t1, t2
@@ -1142,13 +1166,18 @@ def test():
     global logger
     logger = Factory.get_logger("console")
     sp=cerews()
+    db = Factory.get("Database")(client_encoding='UTF-8')
+    fromid = db.get_last_changelog_id() - 40000
+    print test_soap(sp.get_accounts, getAccountsRequest,
+                    accountspread="user@stud", auth_type="MD5-crypt",
+                    incremental_from=fromid)
+    print test_soap(sp.get_accounts, getAccountsRequest,
+                    accountspread="user@stud", auth_type="MD5-crypt")
     print test_soap(sp.get_persons, getPersonsRequest)
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
                     homedir_id=85752, status="not_created")
     print test_soap(sp.get_ous, getOUsRequest)
     print test_soap(sp.get_aliases, getAliasesRequest)
-    print test_soap(sp.get_accounts, getAccountsRequest,
-                    accountspread="user@stud", auth_type="MD5-crypt")
     print test_soap(sp.get_groups, getGroupsRequest, 
                     accountspread="user@stud", groupspread="group@ntnu")
     print test_soap(sp.get_homedirs, getHomedirsRequest,
