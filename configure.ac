@@ -75,12 +75,6 @@ AC_CONFIG_FILES([
 	Makefile
 	testsuite/Makefile
     spine/Makefile
-    spine/server/Makefile
-    spine/lib/Makefile
-    spine/lib/SpineLib/Makefile
-    spine/lib/cerebrum/Makefile
-    spine/lib/server/Makefile
-    spine/lib/server/idl/Makefile
     spine/contrib/Makefile
     spine/client/Makefile
     spine/ceresync/Makefile
