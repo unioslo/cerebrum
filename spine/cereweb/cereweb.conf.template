@@ -2,15 +2,6 @@
 webroot: /
 max_hits: 200
 
-[SpineClient]
-url: http://localhost/~erikgors/spine.ior
-idl_path: tmp_idl
-
-use_ssl: false
-ca_file: CA.crt
-key_file: client.pem
-key_password: client
-
 [error]
 allow_traceback: true
 allow_reporting: true
