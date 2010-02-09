@@ -208,6 +208,8 @@
 	<xs:element name="auth_type" type="xs:string" />
 	<xs:element name="incremental_from" type="xs:integer"
 		    minOccurs="0"/>
+	<xs:element name="include_affiliations" type="xs:integer"
+		    minOccurs="0"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>

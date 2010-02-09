@@ -72,6 +72,12 @@ def int_or_none(i):
     else:
         return int(i)
 
+def bool_default(i, default=False):
+    if i is None:
+        return default
+    else:
+        return bool(i)
+
 class AuthenticationError(Exception):
     def __init__(self, value):
         self.value = value
@@ -287,15 +293,20 @@ class AccountQuery(BaseQuery):
                 AND account_spread.entity_id = account_info.account_id)""")
         self.binds['account_spread'] = spread
         
-    def search_data(self, auth_type=None):
+    def search_data(self, auth_type=None, include_affiliations=False,
+                    include_posix=True, include_owner=True,
+                    include_home=True):
         if auth_type is None:
             auth_type = self.co.auth_type_md5_crypt
 
         self._include_data()
         self._set_auth_type(auth_type)
-        self._include_posix()
-        self._include_owner()
-        self._include_home()
+        if include_posix:
+            self._include_posix()
+        if include_owner:
+            self._include_owner()
+        if include_home:
+            self._include_home()
         return self._execute()
 
     def search_affiliations(self):
@@ -1047,8 +1058,13 @@ class cerews(ServiceSOAPBinding):
 
         accountspread = co.Spread(str(request._accountspread))
         auth_type = co.Authentication(str(request._auth_type))
+        include_affiliations = bool_default(request._include_affiliations,
+                                            False)
+
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(db, incremental_from)
+        
+        
 
         auth.can_syncread_account(operator_id,
                                   accountspread,
@@ -1057,9 +1073,8 @@ class cerews(ServiceSOAPBinding):
         response = getAccountsResponse()
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
 
-        include_affiliations = True # XXX FIXME
+        account_priorities = {}
         if include_affiliations:
-            account_priorities = {}
             for row in AccountQuery(db, co, accountspread,
                                     incremental_from).search_affiliations():
                 account_priorities.setdefault(row['id'], {})[row['priority']]=row
@@ -1067,7 +1082,9 @@ class cerews(ServiceSOAPBinding):
         response._account = []
         q = quarantines(db, co)
         for row in AccountQuery(db, co, accountspread,
-                                incremental_from).search_data(auth_type):
+                                incremental_from).search_data(
+                auth_type,
+                include_affiliations=include_affiliations):
             a = AccountDTO(row, atypes, account)
             a._quarantine = (q.get_quarantines(row['id']) +
                              q.get_quarantines(row['owner_id']))
@@ -1178,8 +1195,9 @@ def test():
     print test_soap(sp.get_accounts, getAccountsRequest,
                     accountspread="user@stud", auth_type="MD5-crypt",
                     incremental_from=fromid)
-    #print test_soap(sp.get_accounts, getAccountsRequest,
-    #                accountspread="user@stud", auth_type="MD5-crypt")
+    print test_soap(sp.get_accounts, getAccountsRequest,
+                    accountspread="user@stud", auth_type="MD5-crypt",
+                    include_affiliations=True)
     print test_soap(sp.get_persons, getPersonsRequest)
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
                     homedir_id=85752, status="not_created")
