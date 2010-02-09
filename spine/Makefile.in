@@ -24,36 +24,26 @@
 .PHONY: all install install-lib clean distclean
 
 all: 
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
 	$(MAKE) -C contrib $@
 	$(MAKE) -C client $@
 	$(MAKE) -C cereweb $@
 
 install: install-lib
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
 	$(MAKE) -C contrib $@
 	$(MAKE) -C client $@
 	$(MAKE) -C cereweb $@
 
 install-lib:
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
 	$(MAKE) -C contrib $@
 	$(MAKE) -C client $@
 	$(MAKE) -C cereweb $@
 
 clean:
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
 	$(MAKE) -C contrib $@
 	$(MAKE) -C client $@
 	$(MAKE) -C cereweb $@
 
 distclean: clean
-	$(MAKE) -C server $@
-	$(MAKE) -C lib $@
 	$(MAKE) -C contrib $@
 	$(MAKE) -C client $@
 	$(MAKE) -C cereweb $@
