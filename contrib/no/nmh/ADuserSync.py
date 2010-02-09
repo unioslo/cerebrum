@@ -355,17 +355,21 @@ def del_user(chg):
     logger.debug("Disabling and moving account %s" % (chg['distinguishedName']))    
 
 def update_user(chg):
-    ret = run_cmd('bindObject',chg['distinguishedName'])
+    dName = chg['distinguishedName']
+    del chg['type']
+    del chg['distinguishedName']
+
+    ret = run_cmd('bindObject',dName)
     if not ret[0]:
-        logger.error("Could not update account %s (bindObject failed)", chg['sAMAccountName'])
+        logger.error("Could not update account %s (bindObject failed)", dName)
     else:
         ret = run_cmd('putProperties',chg)
     if not ret[0]:
-        logger.error("Could not update properties for %s (putProperties failed)", chg['distinguishedName'])
+        logger.error("Could not update properties for %s (putProperties failed)", dName)
     else:
         run_cmd('setObject')
     if not ret[0]:
-        logger.error("setObject on %s failed", chg['distinguishedName'])
+        logger.error("setObject on %s failed", dName)
 
         
 def perform_changes(changes):
