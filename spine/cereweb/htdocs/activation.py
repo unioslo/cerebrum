@@ -30,9 +30,11 @@ from lib.data.AccountDAO import AccountDAO
 from lib import utils
 from lib import Messages
 from gettext import gettext as _
+import gettext
 from lib.Main import Main
 from lib.utils import queue_message, get_messages
 from lib.utils import is_correct_referer, get_referer_error
+from lib.utils import negotiate_lang, get_translation
 from lib.templates.ActivationTemplate import ActivationTemplate
 from lib.wsidm.wsidm import WSIdm
 from lib.wsidm.wsidm import WSIdm
@@ -42,6 +44,7 @@ from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 
 logger = None
 
+_ = None
 path = ['language', 'fodselsnr', 'studentnr', 'pinkode', 'eula', 'initpassword', 'welcome']
 
 def checkParam(pname, plen, **vargs):
@@ -77,6 +80,7 @@ def has_session():
 def index(**vargs):
     global logger
     global path
+    global _
     logger  = Factory.get_logger('root')
     if not has_session():
         cherrypy.session['timeout'] = get_timeout()
@@ -88,6 +92,8 @@ def index(**vargs):
         ## print 'vargs =', vargs
         ## print 'session =', cherrypy.session
         return _retry_page(**vargs).respond()
+    lang = negotiate_lang(**vargs)
+    _ = get_translation('userclients', 'locale/', lang)
     currentPage = vargs.get('page', '')
     if currentPage == 'fodselsnr':
         if not checkParam('fnr', 11, **vargs):
@@ -141,10 +147,10 @@ def index(**vargs):
             queue_message(_('Password is too short. Min. 8 characters or more.'), title=_('Password too short'), error=True)
             return _retry_page(**vargs).respond()
         elif pw1 != pw2:
-            queue_message(_('Passwords do not match. Please try again.'), title=_('Mismatch'), error=True)
+            queue_message(_('Passwords do not match. Please try again.'), title=_('Passwords do not match'), error=True)
             return _retry_page(**vargs).respond()
         elif not pw1 or not pw2:
-            queue_message(_('Passwords do not match. Please try again.'), title=_('Mismatch'), error=True)
+            queue_message(_('Passwords do not match. Please try again.'), title=_('Passwords do not match'), error=True)
             return _retry_page(**vargs).respond()
     elif currentPage == 'pinkode':
         pin = vargs.get('pin', '')
@@ -189,9 +195,11 @@ def _get_next_page(**vargs):
 
 def _get_page(name, **vargs):
     ## print 'name =', name
+    global _
     try:
         page = ActivationTemplate()
         page.vargs = vargs
+        page._ = _
         page.content = getattr(page, name)
     except Exception, e:
         page = object

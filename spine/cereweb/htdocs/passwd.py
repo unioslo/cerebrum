@@ -2,12 +2,14 @@ import time
 import cherrypy
 
 from gettext import gettext as _
+import gettext
 
 import cerebrum_path
 import cereconf
 
 from lib.Main import Main
 from lib.utils import is_correct_referer, get_referer_error
+from lib.utils import negotiate_lang, get_translation
 from lib import utils
 from lib.templates.UserTemplate import UserTemplate
 from Cerebrum.Utils import Factory
@@ -15,9 +17,13 @@ from lib.data.AccountDAO import AccountDAO
 from gettext import gettext as _
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 
-def index():
+def index(**vargs):
+    
+    lang = negotiate_lang(**vargs)
+    _ = get_translation('userclients', 'locale/', lang)
     template = UserTemplate()
     template.messages = []
+    template._ = _
     return template.respond()
 index.exposed = True
 
@@ -25,8 +31,10 @@ def savepw(**vargs):
     logger = Factory.get_logger("root")
     remote = cherrypy.request.headerMap.get("Remote-Addr", '')
 
-     
+    lang = negotiate_lang(**vargs)
+    _ = get_translation('userclient', 'locale/', lang)
     template = UserTemplate()
+    temlate._ = _
     template.messages = []
     orakel_msg = _('If the server remains unavailable, call (735) 91500 and notify Orakeltjenesten of the situation.')
     if not is_correct_referer():

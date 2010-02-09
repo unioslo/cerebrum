@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
+import gettext
 import time
 import urllib
 import urlparse
@@ -585,3 +586,37 @@ def timer_decorator(fn):
         print "%s used %s seconds." % (fn.__name__, delta)
         return retval
     return func
+
+def get_translation(name, localedir, lang):
+    tr = None
+    try:
+        tr = gettext.translation(name, localedir, languages=[lang])
+        cherrypy.session['lang'] = lang
+    except Exception, e:
+        ## fall back to default translation
+        tr = gettext
+    return tr.gettext
+
+def negotiate_lang(**vargs):
+    default_lang = 'en'
+    legal_langs = ['no', 'en']
+    lang = vargs.get('lang')
+    if lang:
+        lang = lang.lower()
+        if lang in legal_langs:
+            return lang
+        else:
+            return default_lang
+    lang = cherrypy.session.get('lang')
+    if lang:
+        return lang.lower()
+    header_langs = cherrypy.request.headerMap.get('Accept-Language')
+    tmp = [c.strip().lower() for c in header_langs.split(';')]
+    accepted_langs = []
+    for part in tmp:
+        dd = [c.strip().lower() for c in part.split(',')]
+        accepted_langs += dd
+    for legal in legal_langs:
+        if legal in accepted_langs:
+            return legal
+    return default_lang

@@ -1,15 +1,22 @@
 # -*- encoding: utf-8 -*-
 import os.path
+import os
 import cherrypy
 import passwd
 import activation
 import cerebrum_path
 import cereconf
+import locale
+import gettext
 from lib.utils import get_content_type
-from gettext import gettext as _
+from lib.utils import negotiate_lang, get_translation
 
-def index():
+    
+def index(**vargs):
+
     content_type = get_content_type()
+    lang = negotiate_lang(**vargs)
+    _ = get_translation('userclients', 'locale/', lang)
     cherrypy.response.headerMap['Content-Type'] = content_type
     return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">\n' + \
 '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">\n' + \
@@ -43,8 +50,17 @@ def index():
                 _('Activate your user account at NTNU') + \
           '</a>\n' + \
         '</div>\n' + \
+        '<br /><br />' + \
+        '<div class="text">\n' + \
+            choose_link(lang) + '\n' + \
+        '</div>\n' + \
     '</div>\n' + \
   '</div>\n' + \
 '</body>\n' + \
 '</html>\n'
 index.exposed = True
+
+def choose_link(lang):
+    if lang == 'en':
+        return 'Velg <a href="/?lang=no">norsk</a> språk.'
+    return  'Choose <a href="/?lang=en">english</a> language.'

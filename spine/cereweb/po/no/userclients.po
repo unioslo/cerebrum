@@ -1,0 +1,351 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2010-02-09 14:01+0100\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: Trond Kandal <trond.kandal@ntnu.no>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: lib/templates/ActivationTemplate.tmpl:179
+msgid ""
+"<em>NB!</em>The password will not be shown again. Make sure that you "
+"remember the username and password."
+msgstr "<em>NB!</em>Passordet vil ikke bli vist p&aring; nytt. Kontroller at du husker brukernavnet og passordet."
+
+#: lib/templates/ActivationTemplate.tmpl:57
+msgid "Activate user account"
+msgstr "Aktiver brukerkonto"
+
+#: htdocs/userclient.py:50
+msgid "Activate your user account at NTNU"
+msgstr "Aktiver din brukerkonto ved NTNU"
+
+#: lib/templates/ActivationTemplate.tmpl:271
+msgid "Bokm&aring;l"
+msgstr "Bokm&aring;l"
+
+#: htdocs/userclient.py:45 lib/templates/UserTemplate.tmpl:112
+msgid "Change password for an existing user account"
+msgstr "Skift passord for en eksisterende brukerkonto"
+
+#: lib/templates/ActivationTemplate.tmpl:221
+msgid "Choose a generated password:"
+msgstr "Velg et ferdiglaget passord:"
+
+#: lib/templates/ActivationTemplate.tmpl:216
+msgid "Choose password:"
+msgstr "Velg passord:"
+
+#: lib/templates/ActivationTemplate.tmpl:140
+msgid "Congratulations!"
+msgstr "Gratulerer!"
+
+#: lib/templates/ActivationTemplate.tmpl:398
+msgid "Could not find the user account..."
+msgstr "Fant ikke en brukerkonto..."
+
+#: lib/templates/ActivationTemplate.tmpl:265
+msgid "End user license agreement (4/5)"
+msgstr "Lisensavtale for brukere (4/5)"
+
+#: lib/templates/ActivationTemplate.tmpl:379
+msgid "End user license agreement is not approved..."
+msgstr "Lisensavtalen er ikke godkjent..."
+
+#: lib/templates/ActivationTemplate.tmpl:272
+msgid "English"
+msgstr "English"
+
+#: lib/templates/ActivationTemplate.tmpl:296
+msgid "Enter your student identification number (2/5)"
+msgstr "Skriv inn ditt studentnummeret (2/5)"
+
+#: htdocs/activation.py:157
+msgid "Error in PIN-code"
+msgstr "Feil i PIN-koden"
+
+#: htdocs/activation.py:99 htdocs/activation.py:104
+#: lib/templates/ActivationTemplate.tmpl:388
+msgid "Error in input-data"
+msgstr "Feil i inndataene"
+
+#: lib/templates/ActivationTemplate.tmpl:381
+msgid "Good luck with your studies at NTNU."
+msgstr "Lykke til med studiene ved NTNU."
+
+#: lib/templates/ActivationTemplate.tmpl:279
+msgid ""
+"I also give permission to that log-information can be used to indentify my "
+"use of all it-equipment with those boundaries as stated in the IT "
+"regulations paragraph 5.10."
+msgstr "Jeg gir tillatelse til at logg-informasjon kan blir brukt til &aring; identifisere min bruk av alt datautstyr med de begrensninger som er oppgitt i IT-reglementet i paragraf 5.10."
+
+#: lib/templates/ActivationTemplate.tmpl:276
+msgid ""
+"I confirm that i have read the IT regulations at NTNU and i accept those "
+"oligations as the regulations to any moment demands. I also accepts the "
+"sanctions that NTNU can put into action when the IT regulations have been "
+"violated as stated in the IT regulations paragraph 4.3, 7.1 and 7.2."
+msgstr "Jeg bekrefter at jeg har lest IT-reglementet ved NTNU og jeg aksepterer de forpliktelser som reglementet til enhver tid krever.  Jeg aksepterer ogs&aring; sanksjonene som NTNU kan sette i verk dersom IT-reglementet er brutt som beskrevet i IT-reglementet i paragrafene 4.3, 7.1 og 7.2."
+
+#: htdocs/activation.py:108
+msgid ""
+"If the server remains unavailable, call (735) 91500 and notify "
+"Orakeltjenesten of the situation."
+msgstr "Dersom tjeneren er fortsetter &aring; v&aelig;re utilgjengelig, ring (735) 91500 og gi Orakeltjenesten en bekjed."
+
+#: lib/templates/ActivationTemplate.tmpl:342
+msgid ""
+"In case you have not received an invoice, contact <a href=\"www.ntnu.no/"
+"studentservice/\">Studentservice</a>."
+msgstr "Dersom du ikke har mottatt en faktura, kontakt <a href=\"www.ntnu.no/studentservice/\">Studentservice</a>."
+
+#: lib/templates/UserTemplate.tmpl:139
+#: lib/templates/ActivationTemplate.tmpl:203
+msgid "Lowercase letters (a-z)"
+msgstr "Sm&aring; bokstaver (a-z)"
+
+#: htdocs/userclient.py:27 htdocs/userclient.py:41
+#: lib/templates/UserTemplate.tmpl:53 lib/templates/UserTemplate.tmpl:110
+#: lib/templates/ActivationTemplate.tmpl:118
+msgid "NTNU&apos;s database for administering user accounts"
+msgstr "NTNUs database for administrasjon av brukerkontoer"
+
+#: htdocs/activation.py:99
+msgid ""
+"National identification number is not legal. Must be 11 numerals "
+"(NNNNNNNNNNN)."
+msgstr "F&oslash;dselsnummeret har ikke riktig format. 11 siffer (NNNNNNNNNNN)."
+
+#: lib/templates/ActivationTemplate.tmpl:366
+msgid "National identification number:"
+msgstr "F&oslash;dselsnummer:"
+
+#: lib/templates/UserTemplate.tmpl:163
+msgid "New Password"
+msgstr "Nytt passord"
+
+#: lib/templates/ActivationTemplate.tmpl:350
+msgid "Norwegian national identification number (1/5)"
+msgstr "F&oslash;dselsnummer (1/5)"
+
+#: lib/templates/UserTemplate.tmpl:140
+#: lib/templates/ActivationTemplate.tmpl:204
+msgid "Numerals (0-9)"
+msgstr "Siffer (0-9)"
+
+#: lib/templates/UserTemplate.tmpl:160
+msgid "Old Password"
+msgstr "Eksisterende passord"
+
+#: lib/templates/UserTemplate.tmpl:142
+#: lib/templates/ActivationTemplate.tmpl:205
+msgid "Other characters that are permitted to use (!#()*+,.=?@[]_{}~-)"
+msgstr "Andre tegn som kan brukes (!#()*+,.=?@[]_{}~-)"
+
+#: lib/templates/ActivationTemplate.tmpl:319
+msgid "PIN-code (3/5)"
+msgstr "PIN-kode (3/5)"
+
+#: htdocs/activation.py:157
+msgid "PIN-code is not legal. Must be 4 numerals (NNNN)"
+msgstr "PIN_koden har ikke riktig format.  4 siffer (NNNN)"
+
+#: lib/templates/ActivationTemplate.tmpl:329
+msgid "PIN-code:"
+msgstr "PIN-kode:"
+
+#: htdocs/activation.py:127
+msgid "Password is not strong enough"
+msgstr "Passordet er ikke sterkt nok"
+
+#: htdocs/activation.py:127
+msgid "Password is not strong enough. Please, try to make a stronger password."
+msgstr "Passordet er ikke sterkt nok. Pr&oslash;v å lage et sterkere passord."
+
+#: htdocs/activation.py:146
+msgid "Password is too short. Min. 8 characters or more."
+msgstr "Passordet er for kort. Minimum 8 tegn eller mer."
+
+#: htdocs/activation.py:146
+msgid "Password too short"
+msgstr "Passordet er for kort"
+
+#: lib/templates/ActivationTemplate.tmpl:229
+msgid "Password:"
+msgstr "Passord:"
+
+#: htdocs/activation.py:149 htdocs/activation.py:152
+msgid "Passwords do not match"
+msgstr "Passordene er ulike"
+
+#: htdocs/activation.py:149 htdocs/activation.py:152
+msgid "Passwords do not match. Please try again."
+msgstr "Passordene er ulike. Vennligst, pr&oslash;v igjen."
+
+#: lib/templates/ActivationTemplate.tmpl:158
+msgid "Please enter the password you want to use (5/5)"
+msgstr "Vennligst, skriv inn passord (5/5)"
+
+#: lib/templates/ActivationTemplate.tmpl:362
+msgid ""
+"Please enter your norwegian national identification number (11 numerals)."
+msgstr "Vennligst, skriv inn ditt f&oslash;dselsnummer (11 siffer)."
+
+#: lib/templates/ActivationTemplate.tmpl:326
+msgid "Please, enter your PIN-code (4 numerals)."
+msgstr "Vennligst, skriv inn din PIN-kode (4 siffer)."
+
+#: lib/templates/ActivationTemplate.tmpl:406
+msgid "Please, try again later."
+msgstr "Vennligst, pr&oslash;v igjen senere."
+
+#: lib/templates/UserTemplate.tmpl:166
+msgid "Retype Password"
+msgstr "Gjenta passord"
+
+#: lib/templates/ActivationTemplate.tmpl:234
+msgid "Retype password:"
+msgstr "Gjenta passord:"
+
+#: lib/templates/ActivationTemplate.tmpl:403
+msgid ""
+"Some will experience a delay of minimum 1 day before an user account is "
+"available."
+msgstr "Enkelte vil oppleve en forsinkelse på minst 1 d&oslash;gn f&oslash;r en brukerkonto er ferdig opprettet."
+
+#: lib/templates/ActivationTemplate.tmpl:400
+msgid "Sorry, but an user account was not found."
+msgstr "Beklager, fant ikke en brukerkonto."
+
+#: lib/templates/ActivationTemplate.tmpl:390
+msgid "Sorry, there must be an error in the input-data..."
+msgstr "Beklagar, det m&aring; v&aelig;re en feil i inndataene..."
+
+#: lib/templates/ActivationTemplate.tmpl:420
+msgid "Spr&aring;k/Language:"
+msgstr "Spr&aring;k/Language:"
+
+#: lib/templates/ActivationTemplate.tmpl:306
+msgid "Student identification number:"
+msgstr "Studentnummer:"
+
+#: htdocs/activation.py:104
+msgid ""
+"Student indentification number is not legal. Must be 6 numerals (NNNNNN)."
+msgstr "Studentnummeret har ikke et lovlig format. 6 siffer (NNNNNN)."
+
+#: lib/templates/UserTemplate.tmpl:168
+msgid "Submit:"
+msgstr "Send:"
+
+#: lib/templates/UserTemplate.tmpl:119
+msgid ""
+"The following rules apply to ensure high quality standards for a password "
+"and that the password can be used on different systems at NTNU (e.g. on both "
+"MS Windows and UNIX):"
+msgstr "Disse reglene m&aring; f&oslash;lges for &aring; sikre at passord har en h&oslash;y kvalitet og at passord kan benyttes p&aring; forskjellige datasystemer ved NTNU (f.eks b&aring;de på MS Windows og UNIX):"
+
+#: lib/templates/UserTemplate.tmpl:125
+msgid "The length of the password must be at least 8 characters or more."
+msgstr "Lengden på passordet m&aring; v&aelig;re minst 8 tegn eller mer."
+
+#: lib/templates/UserTemplate.tmpl:115
+msgid ""
+"The new password must be typed in twice. No passwords will be shown in clear "
+"text on the screen, therefore it must be typed in twice for your own safety."
+msgstr "Det nye passordet m&aring; skrives inn 2 ganger.  Ingen av passordene vil bli vist på skjerm, derfor må passordet skrives inn 2 ganger."
+
+#: lib/templates/UserTemplate.tmpl:131
+msgid ""
+"The new password must contain at least one character from 3 of the following "
+"4 groups:"
+msgstr "Det nye passordet må innholde minst ett tegn fra 3 of de f&oslash;lgenede 4 gruppene:"
+
+#: lib/templates/ActivationTemplate.tmpl:191
+msgid "The password must be at least 8 characters or more."
+msgstr "Passordet m&aring; best&aring; av minst 8 tegn eller mer."
+
+#: lib/templates/ActivationTemplate.tmpl:194
+msgid "The password must be different from your existing password."
+msgstr "Passordet må v&aelig;re forskjellig fra ditt eksisterende passord."
+
+#: lib/templates/ActivationTemplate.tmpl:196
+msgid ""
+"The password must contain at least one character from three of the four "
+"groups:"
+msgstr "Passordet m&aring; inneholde minst 1 tegn fra 3 av de f&oslash;lgende 4 gruppene:"
+
+#: lib/templates/ActivationTemplate.tmpl:339
+msgid ""
+"The pin-code can be found on the invoice for semester fee you have received."
+msgstr "PIN-koden skal finnes på fakturaen for semesteravgift som du har mottatt."
+
+#: htdocs/activation.py:107
+msgid "The server is unavailable"
+msgstr "Tjeneren er utilgjengelig"
+
+#: lib/templates/ActivationTemplate.tmpl:359
+msgid "This procedure is done in 5 steps."
+msgstr "Denne prosedyren blir gjort i 5 steg."
+
+#: lib/templates/UserTemplate.tmpl:138
+msgid "Uppercase letters (A-Z)"
+msgstr "Store bokstaver (A-Z)"
+
+#: lib/templates/ActivationTemplate.tmpl:202
+msgid "Uppercase letters(A-Z)"
+msgstr "Store bokstaver(A-Z)"
+
+#: lib/templates/UserTemplate.tmpl:157
+msgid "Username"
+msgstr "Brukernavn"
+
+#: lib/templates/ActivationTemplate.tmpl:413
+msgid "Vennligst velg spr&aring;k/Please choose language."
+msgstr "Vennligst velg spr&aring;k/Please choose language."
+
+#: lib/templates/ActivationTemplate.tmpl:356
+msgid "You have now entered a service that needs authentication."
+msgstr "Du er n&aring; kommet til en tjeneste som krever autentisering."
+
+#: lib/templates/ActivationTemplate.tmpl:444
+msgid ""
+"You have now reached the page used to activate your user account at "
+"NTNU&apos;s computer-systems."
+msgstr "Du er n&aring; kommet til siden som lar deg aktivere din brukerkonto på NTNUs datasystemer."
+
+#: lib/templates/ActivationTemplate.tmpl:146
+msgid ""
+"You may use the URL <a href=\"http://bas.ntnu.no/\"> (http://bas.ntnu.no/)</"
+"a> to examin your accounts, membership of groups, manage groups (if you own "
+"several)."
+msgstr "Du kan bruke <a href=\"http://bas.ntnu.no/\"> (http://bas.ntnu.no/)</a> til &aring; unders&oslash;ke dine brukerkontoer, medlemskap av grupper og administerere grupper (dersom du eier flere grupper)."
+
+#: lib/templates/ActivationTemplate.tmpl:149
+msgid ""
+"You must change your password every N. months,- and of course you may do it "
+"right here at this web-page."
+msgstr "Du m&aring; skifte passord hver N. m&aring;ned,- og selvsagt kan du gj&oslash;re p&aring; denne siden."
+
+#: lib/templates/ActivationTemplate.tmpl:302
+msgid "You need to enter your student identification number (6 numerals)."
+msgstr "Du trenger &aring; oppgi studentnummeret ditt (6 siffer)."
+
+#: lib/templates/ActivationTemplate.tmpl:143
+msgid "Your are now welcomed to use your account here at NTNU."
+msgstr "Du er n&aring; vekommen til &aring; benytte din brukerkonto her ved NTNU."
+
+#: lib/templates/ActivationTemplate.tmpl:169
+msgid "Your username is:"
+msgstr "Ditt brukernavn er:"

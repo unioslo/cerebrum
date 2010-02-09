@@ -23,7 +23,7 @@
 #from lib.utils import get_content_type, get_pragma, get_cache_control
 #import cherrypy
 #from gettext import gettext as _
-
+#import gettext
 #extends Main
 
 #implements respond
@@ -31,6 +31,7 @@
 
 #attr $jscripts = ['base.js', 'search.js', 'error.js', 'motd.js']
 #attr $messages = []
+## #attr $_ = gettext.gettext
 
 ## The following hack removes the bottom div
 #def page_bottom
@@ -114,7 +115,7 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
       <img src="/img/BAS_ntnu_logo.png" alt="NTNU" />
     </div>
     <div id="page">
-        <h1>$_('NTNU&apos;s database for administering accounts')</h1>
+        <h1>$_('NTNU&apos;s database for administering user accounts')</h1>
     #if $messages
         <div class="text">
         #for $mesg in $messages
@@ -201,7 +202,7 @@ $header()
                         <li>$_('Uppercase letters(A-Z)')</li>
                         <li>$_('Lowercase letters (a-z)')</li>
                         <li>$_('Numerals (0-9)')</li>
-                        <li>$_('Other characters that are permitted to use (!#()*+,.=?@[]_{}~-) ')</li>
+                        <li>$_('Other characters that are permitted to use (!#()*+,.=?@[]_{}~-)')</li>
                        </ol>
                 </div>
             </td>
@@ -384,7 +385,7 @@ $footer()
 
 #def errorInInput()
 $header()
-<h2>$_('Error in the input-data')</h2>
+<h2>$_('Error in input-data')</h2>
     <div class="content_text">
         $_('Sorry, there must be an error in the input-data...')
     </div>
@@ -409,7 +410,7 @@ $footer()
 
 
 #def choose_language()
-<h2>$_('Vennglist velg spr&aring;k/Please choose language.')</h2>
+<h2>$_('Vennligst velg spr&aring;k/Please choose language.')</h2>
 
   <form method="post" action="/activation/">
     <div>

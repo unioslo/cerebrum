@@ -22,12 +22,14 @@
 
 #implements respond
 #from FormWidgets import FormWidgets
-#from gettext import gettext as _
+## #from gettext import gettext as _
+#import gettext
 #import cherrypy
 #from lib.utils import get_content_type, get_pragma, get_cache_control
 #attr $form_widgets = FormWidgets()
 #attr $messages = []
 #attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'error.js']
+#attr $_ = gettext.gettext
 
 <%
 content_type=get_content_type()
@@ -48,7 +50,7 @@ cherrypy.response.headerMap['Cache-Control']=cache_control
         <meta http-equiv="Pragma" content="$pragma" />
         <meta http-equiv="Cache-Control" content="$cache_control" />
         <link rel="shortcut icon" type="image/gif" href="/img/litenmedtekst72.gif"/>
-        <title>$_('NTNU&apos; for administering user accounts')</title>
+        <title>$_('NTNU&apos;s database for administering user accounts')</title>
         <!-- Include yui styles -->
         <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/reset-fonts-grids/reset-fonts-grids.css"/>
         <link rel="stylesheet" type="text/css" charset="utf-8" href="/yui/container/assets/container.css"/>
@@ -137,7 +139,7 @@ cherrypy.response.headerMap['Cache-Control']=cache_control
         <li>$_('Lowercase letters (a-z)')</li>
         <li>$_('Numerals (0-9)')</li>
         <li>
-            $_('Other characters that are permitted to use (!#()*+,.=?@[]_{}~-)i')
+            $_('Other characters that are permitted to use (!#()*+,.=?@[]_{}~-)')
         </li>
     </ol>
     </div>
