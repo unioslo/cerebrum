@@ -147,30 +147,34 @@ class _AdsiBack(object):
         """Initializes the Active Directory synchronization"""
         self.encoding= encoding
         self.incr = incr
+        self.bulk = not incr
         self.do_add= incr or bulk_add
         self.do_update= incr or bulk_update
         self.do_delete= incr or bulk_delete
         self._connect() # reconnect
         
-        # Find all existing objects
-        if not self.incr:
-            self._remains = set()
-            # Don't touch objects of other classes than our
-            # (Scenario: groups and users in same OU, both handled
-            #  by different subclass)
-            for o in self.ou.search("objectClass='%s'" %
-                                    self.objectClass):
-                # FIXME: should use SUBTREE something to avoid returning
-                # self.ou
-                if not 'user' in o.objectClass:
-                    continue
-                
-                # Supports both cn=name, ou=name, etc.                    
-                self._remains.add(o.name.split("=")[1])
+        if self.bulk:
+            self._remains = self._find_existing_objects()
+
+    def _find_existing_objects(self):
+        existing = set()
+        # Don't touch objects of other classes than our
+        # (Scenario: groups and users in same OU, both handled
+        #  by different subclass)
+        for o in self.ou.search("objectClass='%s'" %
+                                self.objectClass):
+            # FIXME: should use SUBTREE something to avoid returning
+            # self.ou
+            if not 'user' in o.objectClass:
+                continue
+            
+            # Supports both cn=name, ou=name, etc.                    
+            existing.add(o.name.split("=")[1])
+        return existing
 
     def close(self):
         """Close the connection to AD"""
-        if not self.incr:
+        if self.bulk:
             while self._remains:
                 accountname= self._remains.pop()
                 if self.do_delete:
@@ -194,7 +198,7 @@ class _AdsiBack(object):
         ad_obj = self._find(obj.name)
         log.info("deleting '%s'.",obj.name)
         self._nuke(ad_obj)
-        if not self.incr:
+        if self.bulk:
             if obj.name in self._remains:
                 self._remains.remove(obj.name)
 
@@ -243,6 +247,7 @@ class _ADAccount(_AdsiBack):
             ou = self.ou
         if not objectClass:
             objectClass = self.objectClass    
+
         query = "saMAccountName='%s'" % accountname
         for u in ou.search(query):
             # There's really just one hit, if any. So we can
@@ -258,7 +263,7 @@ class _ADAccount(_AdsiBack):
         # Not found, might he be outside our ou? If so, raise an
         # OutsideOUError exception
         domain = self._domain()
-        for u in domain.search("saMAccountName='%s'" % accountname):
+        for u in domain.search(query):
             # There's only one, so let's raise it
             raise OutsideOUError, (u, accountname)
             
@@ -268,60 +273,45 @@ class _ADAccount(_AdsiBack):
     def add(self, obj):
         """Adds an object to AD. If it already exist, the existing
            AD object will be updated instead."""
-        if not self.incr:
+
+        if self.bulk:
             if obj.name in self._remains:
                 self._remains.remove(obj.name)
+
         try:
             already_exists = self._find(obj.name)
         except OutsideOUError, e:
-            dn, accountname= e
-            if self.do_update:
-                log.info(u"moving %s from %s to %s",
-                    accountname, 
-                    dn.path(),
-                    self.ou_path,
-                )
-                self._move_here(dn, accountname)
-            already_exists = True
-        if already_exists:
-            # FIXME: Proper logging, and maybe hint caller that he
-            # should do a full sync instead
-            if self.incr:
-                # in non-incr (full-sync) mode, everything will be
-                # add(), so we won't report those
-                log.debug("'%s' Already exists, updating instead", obj.name)
-            if self.do_update:
-                return self.update(obj)
+            dn, accountname = e
+            log.warning("Didn't add '%s', it exists outside the managed OU (%s).", (accountname, dn))
             return None
+
+        if already_exists:
+            if self.do_update:
+                log.debug("Didn't add '%s', it already exists, updating instead", obj.name)
+                return self._update(obj)
+            else:
+                log.debug("Didn't add '%s', it already exists, skipping", obj.name)
+                return None
         
         if self.do_add:
             ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)
             ad_obj.sAMAccountName = obj.name
             ad_obj.setInfo()
-            # update should fetch object again for auto-generated values 
+
+            # fetch object again for auto-generated values 
             ad_obj = self._find(obj.name)
-            if not ad_obj:
+            if ad_obj is None:
                 log.warning("Failed to add account '%s'", obj.name)
-                return ad_obj
+                return None
             self._update_attributes(obj, ad_obj)
-            # update() will also remove from self._remains if necessary
             return ad_obj
     
-    def update(self, obj):
-        """Updates an object in AD. If it does not already exist, the
-           AD object will be added instead."""
-        # Do the specialization here, always return for subclasses to
-        # do more work on object
-        if not self.incr:
-            if obj.name in self._remains:
-                self._remains.remove(obj.name)
+    def _update(self, obj):
+        """Will only be called by add."""
         ad_obj = self._find(obj.name)
-        if not ad_obj:
-            # FIXME: Proper logging, and maybe hint caller that he
-            # should do a full sync instead
-            log.warn("Did not exist %s, adding instead", obj.name)
-            return self.add(obj)
+        self._update_attributes(obj, ad_obj)
         return ad_obj    
+
     def _update_attributes(self, obj, ad_obj):
         pass
 
@@ -376,14 +366,22 @@ class ADUser(_ADAccount):
             log.warning("Failed to set password on '%s': %s", obj.name, e)
             return False
 
-    def update(self, obj):
-        ad_obj = super(ADUser, self).update(obj)
-        if not ad_obj.distinguishedName.split(',')[0].split('=')[1]==obj.name:
-            # TODO: log message
+    def _update(self, obj):
+        if self._should_change_dn(obj):
+            log.info(u"moving %s from %s to %s",
+                obj.name, 
+                ad_obj.path(),
+                self.ou.path(),
+            )
             self._move_here(ad_obj, obj.name)
-            ad_obj = super(ADUser, self).update(obj)
-        self._update_attributes(obj, ad_obj)
-        return ad_obj
+
+        return super(ADUser, self)._update(obj)
+
+    def _should_change_dn(self, obj):
+        ad_obj = self._find(obj.name)
+        existing_dn = ad_obj.distinguishedName
+        new_dn = 'CN=%s,%s' % (obj.name, self.ou.distinguishedName)
+        return new_dn != existing_dn
 
     def add(self, obj):
         """Adds an object to AD. If it already exist, the existing
@@ -404,17 +402,16 @@ class ADUser(_ADAccount):
         try:
             ad_obj = self._find(obj.name)
         except OutsideOUError, e:
-            dn, accountname= e
-            self.ou_path='LDAP://'+str(dn).split(',',1)[1]
-            self._connect()
-            ad_obj = self._find(obj.name)
+            dn, accountname = e
+            log.warning("Didn't delete '%s', it is outside the managed OU (%s).", (accountname, dn))
+            return None
             
         if not ad_obj:
             return None
         ad_obj.getInfo()
         if not ad_obj.userAccountControl & 0x00002:
             ad_obj.userAccountControl |= 0x00002
-        if not self.incr:
+        if self.bulk:
             if obj.name in self._remains:
                 self._remains.remove(obj.name)
 
@@ -425,11 +422,12 @@ class ADGroup(_ADAccount):
     """
     objectClass = "group"
 
-    def update(self, obj):
-        ad_obj = super(ADGroup, self).update(obj)
+    def _update(self, obj):
+        ad_obj = super(ADGroup, self)._update(obj)
         ad_obj.groupType = (constants.ADS_GROUP_TYPE_SECURITY_ENABLED | 
                             constants.ADS_GROUP_TYPE_GLOBAL_GROUP)
         ad_obj.setInfo()
+
         def check_members():
             # FIXME: Should supports groups as members of groups
             ad_members = Set(ad_obj.members())
@@ -1063,7 +1061,7 @@ class TestADUser(TestOUFramework):
         oldgid = self.accountGID(user.name)
         time.sleep(2) # Make sure we have time diff
         first_change = self.lastChangedPassword(user.name)
-        self.aduser.update(user)
+        self.aduser._update(user)
         last_change = self.lastChangedPassword(user.name)
         newgid = self.accountGID(user.name)
         self.assertEqual(oldgid, newgid)
@@ -1100,7 +1098,7 @@ class TestADUser(TestOUFramework):
             passwords = {'cleartext': 'fishsoup'}
             gecos = "The 1337 User"
         user = User()      
-        self.aduser.update(user)
+        self.aduser._update(user)
         self.hasAccount(user.name)
         self.assertEqual(self.lastLog(), 
         "WARNING: Did not exist user1337, adding instead\n")
@@ -1139,7 +1137,7 @@ class TestADGroup(TestOUFramework):
             name = "temp1337"
             members = ["user1337", "user31337"]
         group = Group()
-        self.adgroup.update(group)    
+        self.adgroup._update(group)    
         new_gid = self.accountGID()
         self.assertEqual(self.groupMembers(), group.members)
         self.assertEqual(old_gid, new_gid)
@@ -1155,7 +1153,7 @@ class TestADGroup(TestOUFramework):
             name = "temp1337"
             members = ["user31337"]
         group = Group()
-        self.adgroup.update(group)
+        self.adgroup._update(group)
         new_gid = self.accountGID()
         self.assertEqual(self.groupMembers(), group.members)
         self.assertEqual(old_gid, new_gid)
@@ -1183,7 +1181,7 @@ class TestADGroup(TestOUFramework):
             name = "temp1337"
             members = ["user1337", "user31337"]
         group = Group()
-        self.adgroup.update(group)
+        self.adgroup._update(group)
         self.assertEqual(self.groupMembers(), group.members)
     
     def testAddGroupAsMember(self):
@@ -1196,7 +1194,7 @@ class TestADGroup(TestOUFramework):
         group = Group()
         # should skip other31337 as group.members
         # is the EXPANDED list of members
-        self.adgroup.update(group)
+        self.adgroup._update(group)
         # Actually supporting groups-in-groups requires 
         # spine support
         self.assertEqual(self.groupMembers(), ["user1337"])
@@ -1210,7 +1208,7 @@ class TestADGroup(TestOUFramework):
             name = "temp1337"
             members = ["user1337"]
         group = Group()
-        self.adgroup.update(group)
+        self.adgroup._update(group)
         self.assertEqual(self.groupMembers(), group.members)
 
     def tearDown(self):
@@ -1241,7 +1239,7 @@ class TestHardcore(TestOUFramework):
                     print "\010\010" + bars[(x/5)%4],
                 user.name = "userX%s" % x
                 if round == 3:
-                    adaccount.update(user)
+                    adaccount._update(user)
                 else:    
                     adaccount.add(user)
             stop = time.time()    
