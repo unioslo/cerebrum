@@ -29,6 +29,7 @@ from Cerebrum.lib.cerews.cerews_services import *
 from Cerebrum.lib.cerews.SignatureHandler import SignatureHandler
 from Cerebrum import Errors
 from Cerebrum.modules.bofhd.errors import PermissionDenied
+from Cerebrum.modules import Email
 
 from SocketServer import ForkingMixIn
 
@@ -610,7 +611,7 @@ class group_members:
         return d
 
 
-def search_aliases(db, co, changelog_id=None):
+def search_aliases(db, co, emailserver, changelog_id=None):
     select=["email_address.local_part AS local_part",
             "email_domain.domain AS domain",
             "email_target.target_id AS target_id",
@@ -625,6 +626,7 @@ def search_aliases(db, co, changelog_id=None):
             ]
     tables=["email_address"]
     order_by=""
+    where=[]
     
     if changelog_id is not None:
         tables.append("""JOIN change_log
@@ -632,7 +634,6 @@ def search_aliases(db, co, changelog_id=None):
             AND change_log.change_id > :changelog_id)""")
         order_by=" ORDER BY change_log.change_id"
         binds["changelog_id"]=changelog_id
-        
         
     tables.append("""JOIN email_domain
   ON (email_domain.domain_id = email_address.domain_id)
@@ -657,10 +658,17 @@ LEFT JOIN email_domain primary_address_domain
         'account_namespace': co.account_namespace,
         'host_namespace': co.host_namespace,
         }
+
+    if emailserver is not None:
+        where.append("email_target.server_id = :emailserver_id")
+        binds["emailserver_id"] = emailserver.entity_id
+        
         
     
     sql = "SELECT " + ",\n".join(select)
     sql += " FROM " + "\n".join(tables)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
     sql += order_by
 
     return db.query(sql, binds)
@@ -979,12 +987,19 @@ class cerews(ServiceSOAPBinding):
 
     @logmethod(getAliasesRequest)
     def get_aliases(self, db, operator_id, request):
-        co=Factory.get("Constants")()
-        auth=bofhd_auth.BofhdAuth(db)
+        co = Factory.get("Constants")()
+        auth = bofhd_auth.BofhdAuth(db)
 
         incremental_from = int_or_none(request._incremental_from)
 
-        auth.can_syncread_alias(operator_id)
+        if request._emailserver is None:
+            emailserver = None
+        else:
+            emailserver = Email.EmailServer(db)
+            emailserver.clear()
+            emailserver.find_by_name(str(request._emailserver))
+        
+        auth.can_syncread_alias(operator_id, emailserver)
 
         self.check_incremental(db, incremental_from)
 
@@ -992,7 +1007,7 @@ class cerews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
 
         response._alias = []
-        for row in search_aliases(db, co, incremental_from):
+        for row in search_aliases(db, co, emailserver, incremental_from):
             a=AliasDTO(row, atypes)
             response._alias.append(a)
         db.rollback()
@@ -1192,6 +1207,9 @@ def test():
     sp=cerews()
     db = Factory.get("Database")(client_encoding='UTF-8')
     fromid = db.get_last_changelog_id() - 40000
+    print test_soap(sp.get_aliases, getAliasesRequest,
+                    emailserver="emanuel.itea.ntnu.no")
+    print test_soap(sp.get_aliases, getAliasesRequest)
     print test_soap(sp.get_accounts, getAccountsRequest,
                     accountspread="user@stud", auth_type="MD5-crypt",
                     incremental_from=fromid)
@@ -1202,7 +1220,6 @@ def test():
     print test_soap(sp.set_homedir_status, setHomedirStatusRequest,
                     homedir_id=85752, status="not_created")
     print test_soap(sp.get_ous, getOUsRequest)
-    print test_soap(sp.get_aliases, getAliasesRequest)
     print test_soap(sp.get_groups, getGroupsRequest, 
                     accountspread="user@stud", groupspread="group@ntnu")
     print test_soap(sp.get_homedirs, getHomedirsRequest,

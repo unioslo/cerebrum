@@ -446,8 +446,12 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         raise PermissionDenied("Can't bulk read OUs")
 
-    def can_syncread_alias(self, operator):
+    def can_syncread_alias(self, operator, host=None):
         if self.is_superuser(operator):
+            return True
+        if host is not None and self._has_target_permissions(
+            operator, self.const.auth_alias_syncread,
+            self.const.auth_target_type_host, host.entity_id, None):
             return True
         if self._has_global_access(
             operator, self.const.auth_alias_syncread,

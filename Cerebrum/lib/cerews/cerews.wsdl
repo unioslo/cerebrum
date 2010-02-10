@@ -236,6 +236,7 @@
     <xs:complexType>
       <xs:sequence>
 	<xs:element name="incremental_from" type="xs:integer" minOccurs="0"/>
+	<xs:element name="emailserver" type="xs:string" minOccurs="0"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>
