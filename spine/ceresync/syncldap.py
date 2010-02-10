@@ -168,29 +168,33 @@ def get_ldapbackend(s, system):
     filter = get_conf(system, "filter", default="(objectClass='*')")
     backend = getattr(ldapbackend, backend_class)
 
-    if backend_class in ("Person",):
+    if backend_class in ("Person", "OracleCalendar"):
         register = OURegister()
         for ou in s.get_ous():
             register.add(ou)
 
         return backend(base=base, filter=filter, ouregister=register)
+
+    if backend_class in ("AccessCardHolder",):
+        affiliations = get_conf(system, "affiliations").strip().split(" ")
+        return backend(base=base, filter=filter, affiliations=affiliations)
         
     log.debug("Initializing %s backend with base %s", backend_class, base)
     return backend(base=base, filter=filter)
 
-cache = {}
 def get_entities(s, system, sync_options):
     entity = get_conf(system, "entity")
-    if entity in cache:
-        return cache[entity]
+    backend_class = get_conf(system, "backend")
 
     my_options = sync_options.copy()
+
+    if backend_class in ("OracleCalendar",):
+        my_options['include_affiliations'] = True
 
     if entity == 'account':
         my_options['spread'] = get_conf(system, "spread")
 
-    cache[entity] = entities = getattr(s, "get_%ss" % entity)(**my_options)
-    return entities
+    return getattr(s, "get_%ss" % entity)(**my_options)
 
 if __name__ == "__main__":
     main()

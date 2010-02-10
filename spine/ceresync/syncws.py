@@ -281,7 +281,7 @@ class Sync(object):
 
     def get_accounts(self, accountspread=None, auth_type=None, incr_from=None,
                      encode_to=None, account_xml_in=None, account_xml_out=None,
-                     **kwargs):
+                     include_affiliations=False, **kwargs):
         """
         encode_to is a valid string encoding that the unicode attributes we get
         from ZSI will be encoded to.  If it's None the attributes remain
@@ -289,20 +289,21 @@ class Sync(object):
         encoded to the given encoding.
         """
         try:
-            accountspread= accountspread or config.get("sync","account_spread")
+            accountspread = accountspread or config.get("sync","account_spread")
         except ConfigParser.Error, e:
             log.error("Missing account_spread: %s",e)
             sys.exit(1)
         try:
-            auth_type= auth_type or config.get("sync","auth_type")
+            auth_type = auth_type or config.get("sync","auth_type")
         except ConfigParser.Error, e:
             log.error("Missing auth_type: %s", e)
             sys.exit(1)
-        request= cerews_services.getAccountsRequest()
-        request._accountspread= accountspread
-        request._auth_type= auth_type
-        request._incremental_from= incr_from
-        port= self._get_ceresync_port()
+        request = cerews_services.getAccountsRequest()
+        request._accountspread = accountspread
+        request._auth_type = auth_type
+        request._incremental_from = incr_from
+        request._include_affiliations = include_affiliations
+        port = self._get_ceresync_port()
         response = self._perform_request(request, port.get_accounts,
                                          load_file=account_xml_in,
                                          save_file=account_xml_out)

@@ -20,7 +20,6 @@
 # Windows/ActiveDirectory-only
 import sys
 import os
-#from win32com.client import GetObject
 from ceresync.backend.adsi.ad_types import constants
 from ceresync.backend.adsi import ad_errors
 from ceresync.backend.adsi import active_directory as ad
@@ -391,10 +390,11 @@ class ADUser(_ADAccount):
            AD object will be updated instead."""
         
         obj_path= config.get('affiliations', obj.primary_affiliation)
-        if obj_path == 'None':
+        if obj_path is None or obj_path == 'None':
             log.warning("Not adding account '%s' with primary affiliation '%s'",
                 obj.name, obj.primary_affiliation)
             return
+
         if self.ou_path != obj_path:
             self.ou_path= obj_path
             self._connect()

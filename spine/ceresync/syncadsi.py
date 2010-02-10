@@ -89,7 +89,7 @@ def main():
         log.error("Unable to connect to web service: %s", e)
         sys.exit(1)
 
-    sync_options = {}
+    sync_options = {'include_affiliations': True}
     set_incremental_options(sync_options, incr, server_id, changelog_file)
     config.set_testing_options(sync_options)
     set_encoding_options(sync_options, config)

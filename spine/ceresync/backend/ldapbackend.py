@@ -489,7 +489,9 @@ class OracleCalendar(AccountLdapBack):
     calendar in addition to disabling accounts that it no longer finds in the
     tree.
     """
-    def __init__(self, base=None, filter='(objectClass=*)'):
+    def __init__(self, base=None, filter='(objectClass=*)', ouregister=None):
+        self.ouregister = ouregister
+
         LdapBack.__init__(self)
 
         if base == None:
@@ -517,19 +519,34 @@ class OracleCalendar(AccountLdapBack):
         return "%s@%s" % (self.get_uid(obj), 'ntnu.no')
 
     def get_ou(self, obj):
-        return "OI-ITAVD:OI:RE:NTNU"
+        acronyms = self.ouregister.get_acronym_list(obj.primary_ou_id)
+        return ":".join(reversed(acronyms))
 
 class AccessCardHolder(PersonLdapBack):
     """
     Module for populating an ntnuAccessCardHolder branch.  Used for the
     equictrac print system at NTNU.
     """
-    def __init__(self, base=None, filter='(objectClass=*)'):
+    def __init__(self, base=None, filter='(objectClass=*)', affiliations=None):
         LdapBack.__init__(self)
 
         self.base = base
         self.filter = filter
         self.obj_class = ('top', 'person', 'inetOrgPerson', 'ntnuAccessCardHolder')
+        self.affiliations = affiliations
+
+    def add(self, obj):
+        if self._should_add(obj):
+            super(AccessCardHolder, self).add(obj)
+
+    def _should_add(self, obj):
+        for affiliation in self._get_affiliations(obj):
+            if affiliation in self.affiliations:
+                return True
+        return False
+
+    def _get_affiliations(self, obj):
+        return [Affiliation(x).affiliation for x in obj.affiliations]
 
     def get_attributes(self, obj):
         return {
