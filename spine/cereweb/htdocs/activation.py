@@ -70,7 +70,7 @@ def negotiate_encoding():
 
 def get_timeout():
     """Returns the time it takes in seconds for _a_ session to time out."""
-    return getattr(cereconf, 'SPINE_SESSION_TIMEOUT', 300)
+    return getattr(cereconf, 'SPINE_SESSION_TIMEOUT', 900)
 
 def has_session():
     return cherrypy.session.get('timeout', '') and \
