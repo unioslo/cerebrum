@@ -16,6 +16,7 @@ def index(**vargs):
 
     content_type = get_content_type()
     lang = negotiate_lang(**vargs)
+    cherrypy.session['lang'] = lang
     _ = get_translation('userclients', 'locale/', lang)
     cherrypy.response.headerMap['Content-Type'] = content_type
     return '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">\n' + \
@@ -52,7 +53,7 @@ def index(**vargs):
         '</div>\n' + \
         '<br /><br />' + \
         '<div class="text">\n' + \
-            choose_link(lang) + '\n' + \
+            choose_lang(lang) + '\n' + \
         '</div>\n' + \
     '</div>\n' + \
   '</div>\n' + \
@@ -60,7 +61,7 @@ def index(**vargs):
 '</html>\n'
 index.exposed = True
 
-def choose_link(lang):
+def choose_lang(lang):
     if lang == 'en':
-        return 'Velg <a href="/?lang=no">norsk</a> språk.'
+        return 'Velg <a href="/?lang=no">norsk</a> spr&aring;k.'
     return  'Choose <a href="/?lang=en">english</a> language.'

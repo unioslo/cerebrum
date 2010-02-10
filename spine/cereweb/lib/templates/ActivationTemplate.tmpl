@@ -21,17 +21,18 @@
 #from lib.Main import Main
 #from lib.utils import randpasswd
 #from lib.utils import get_content_type, get_pragma, get_cache_control
+#from FormWidgets import FormWidgets
 #import cherrypy
-#from gettext import gettext as _
 #import gettext
 #extends Main
 
 #implements respond
 #encoding utf8
 
+#attr $form_widgets = FormWidgets()
 #attr $jscripts = ['base.js', 'search.js', 'error.js', 'motd.js']
 #attr $messages = []
-## #attr $_ = gettext.gettext
+#attr $_ = gettext.gettext
 
 ## The following hack removes the bottom div
 #def page_bottom
@@ -193,13 +194,13 @@ $header()
                          <li>
                             $_('The password must be different from your existing password.')
                         </li>
-                        <li>$_('The password must contain at least one character from three of the four groups:')
+                        <li>$_('The new password must contain at least one character from 3 of the following 4 groups:')
                         </li>
                       </ul>
                 </div>
                 <div class="text">
                       <ol>
-                        <li>$_('Uppercase letters(A-Z)')</li>
+                        <li>$_('Uppercase letters (A-Z)')</li>
                         <li>$_('Lowercase letters (a-z)')</li>
                         <li>$_('Numerals (0-9)')</li>
                         <li>$_('Other characters that are permitted to use (!#()*+,.=?@[]_{}~-)')</li>
@@ -226,13 +227,11 @@ $header()
           <td>
 
             <div class="required">
-	      <label for="passwd1" >$_('Password:')</label>
-	      <input type="password" id="passwd1" name="pw1" />
+                $form_widgets.password('pw1', $_('Password'))
             </div>
 
             <div class="required">
-	      <label for="passwd2">$_('Retype password:')</label>
-              <input type="password" id="passwd2" name="pw2" />
+                $form_widgets.password('pw2', $_('Retype Password'))
             </div>
 
           </td>
@@ -280,7 +279,7 @@ $header()
       </div>
 
         <div class="required">
-	   <label for="godkjent">$('I accept:')</label>
+	   <label for="godkjent">$_('I accept:')</label>
 	   <input type="checkbox" id="godkjent" name="godkjent_logger" />
 	 </div>
 

@@ -1,7 +1,6 @@
 import time
 import cherrypy
 
-from gettext import gettext as _
 import gettext
 
 import cerebrum_path
@@ -20,6 +19,7 @@ from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 def index(**vargs):
     
     lang = negotiate_lang(**vargs)
+    cherrypy.session['lang'] = lang
     _ = get_translation('userclients', 'locale/', lang)
     template = UserTemplate()
     template.messages = []
@@ -32,9 +32,10 @@ def savepw(**vargs):
     remote = cherrypy.request.headerMap.get("Remote-Addr", '')
 
     lang = negotiate_lang(**vargs)
-    _ = get_translation('userclient', 'locale/', lang)
+    cherrypy.session['lang'] = lang
+    _ = get_translation('userclients', 'locale/', lang)
     template = UserTemplate()
-    temlate._ = _
+    template._ = _
     template.messages = []
     orakel_msg = _('If the server remains unavailable, call (735) 91500 and notify Orakeltjenesten of the situation.')
     if not is_correct_referer():
@@ -59,7 +60,9 @@ def savepw(**vargs):
     if pwd1 and pwd2 and pwd1 == pwd2 and len(pwd1) < 8:
         template.messages.append(_('Passwords too short (min. 8 characters).'))
         return template.respond()
-
+    if pwd1 == oldpwd:
+        template.messages.append(_('Old and new password are the same.'))
+        return template.respond()
     try:
         db = Factory.get("Database")()
         db.cl_init(change_program="set_password")
@@ -101,8 +104,6 @@ def savepw(**vargs):
     except Exception, e:
         template.messages.append(_('Login failed.'))
         return template.respond()
-    # i do not know if this is necessary...
-    cherrypy.session.clear()
     logger.warn(uname + ' has changed password.  Remote-addr = ' + remote)
     template.messages.append(_('Password is changed!'))
     return template.respond()

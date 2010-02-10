@@ -70,7 +70,7 @@ def negotiate_encoding():
 
 def get_timeout():
     """Returns the time it takes in seconds for _a_ session to time out."""
-    return getattr(cereconf, 'SPINE_SESSION_TIMEOUT', 900)
+    return getattr(cereconf, 'SPINE_SESSION_TIMEOUT', 300)
 
 def has_session():
     return cherrypy.session.get('timeout', '') and \
@@ -93,6 +93,7 @@ def index(**vargs):
         ## print 'session =', cherrypy.session
         return _retry_page(**vargs).respond()
     lang = negotiate_lang(**vargs)
+    cherrypy.session['lang'] = lang
     _ = get_translation('userclients', 'locale/', lang)
     currentPage = vargs.get('page', '')
     if currentPage == 'fodselsnr':

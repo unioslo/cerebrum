@@ -22,7 +22,6 @@
 
 #implements respond
 #from FormWidgets import FormWidgets
-## #from gettext import gettext as _
 #import gettext
 #import cherrypy
 #from lib.utils import get_content_type, get_pragma, get_cache_control
@@ -91,12 +90,12 @@ cherrypy.response.headerMap['Cache-Control']=cache_control
             <div id="ie6msg">
             <h4>Du har en gammel versjon av Internet Explorer.</h4>
             <p>
-                    Cereweb støtter ikke så gamle nettlesere og vil ikke fungere 100% før du oppgraderer.
+                    Cereweb st&oslash;tter ikke s&aring; gamle nettlesere og vil ikke fungere 100% f&oslash;r du oppgraderer.
             </p>
             <p>
                     Du kan gratis <a class="getie7" href="http://www.microsoft.com/norge/windows/downloads/ie/getitnow.mspx" target="_blank">hente en nyere versjon av Internet Explorer</a>.
 
-                    Bruker du en jobb-PC bør du kontakte Orakel på telefon (735) 91500 eller e-post <a href="mailto:orakel@ntnu.no">orakel@ntnu.no</a>.
+                    Bruker du en jobb-PC b&oslash;r du kontakte Orakel p&aring; telefon (735) 91500 eller e-post <a href="mailto:orakel@ntnu.no">orakel@ntnu.no</a>.
                 </p>
             </div>
             <![endif]-->
@@ -125,7 +124,7 @@ cherrypy.response.headerMap['Cache-Control']=cache_control
             $_('The length of the password must be at least 8 characters or more.')
         </li>
         <li>
-            $('The new password must be different from your existing password.')
+            $_('The new password must be different from your existing password.')
         </li>
         <li>
             $_('The new password must contain at least one character from 3 of the following 4 groups:')
