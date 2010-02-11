@@ -63,5 +63,5 @@ index.exposed = True
 
 def choose_lang(lang):
     if lang == 'en':
-        return 'Velg <a href="/?lang=no">norsk</a> spr&aring;k.'
-    return  'Choose <a href="/?lang=en">english</a> language.'
+        return '<a href="/?lang=no"><img src="/img/norsk_flagg50.gif" alt="Norsk" /></a>'
+    return  '<a href="/?lang=en"><img src="/img/uk-flag50.gif" alt="English"/></a>'

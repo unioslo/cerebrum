@@ -272,7 +272,7 @@ $header()
       </div>
     
       <div class="text">
-        $_('I confirm that i have read the IT regulations at NTNU and i accept those oligations as the regulations to any moment demands. I also accepts the sanctions that NTNU can put into action when the IT regulations have been violated as stated in the IT regulations paragraph 4.3, 7.1 and 7.2.')
+        $_('I confirm that I have read the IT regulations at NTNU and I accept those obligations as the regulations to any moment demands. I also accepts the sanctions that NTNU can put into action when the IT regulations have been violated as stated in the IT regulations paragraph 4.3, 7.1 and 7.2.')
     </div>
     <div class="text">
         $_('I also give permission to that log-information can be used to indentify my use of all it-equipment with those boundaries as stated in the IT regulations paragraph 5.10.')
@@ -338,7 +338,7 @@ $header()
           $_('The pin-code can be found on the invoice for semester fee you have received.')
         </div>
         <div class="text">
-            $_('In case you have not received an invoice, contact <a href="www.ntnu.no/studentservice/">Studentservice</a>.')
+            $_('In case you have not received an invoice, contact <a href="http:www.ntnu.no/studentservice/">Studentservice</a>.')
         </div>
   </form>
 $footer()
@@ -396,10 +396,10 @@ $footer()
 $header()
 <h2>$_('Could not find the user account...')</h2>
     <div class="text">
-        $_('Sorry, but an user account was not found.')
+        $_('Sorry, but a user account was not found.')
     </div>
     <div class="text">
-        $_('Some will experience a delay of minimum 1 day before an user account is available.')
+        $_('Some will experience a delay of minimum 1 day before a user account is available.')
     </div>
     <div class="text">
         $_('Please, try again later.')
@@ -411,6 +411,7 @@ $footer()
 #def choose_language()
 <h2>$_('Vennligst velg spr&aring;k/Please choose language.')</h2>
 
+    #set $lang = $cherrypy.session.get('lang', 'en')
   <form method="post" action="/activation/">
     <div>
         <input type="hidden" name="page" value="language" />
@@ -419,8 +420,18 @@ $footer()
       <label for="thelang">$_('Spr&aring;k/Language:')</label>
 
       <select id="thelang" name="lang">
-        <option value="no">Norsk</option>
-        <option value="en">English</option>
+        
+        <option value="no"
+        #if $lang == 'no'
+            selected="selected"
+        #end if
+        >Norsk</option>
+        
+        <option value="en"
+        #if $lang == 'en'
+            selected="selected"
+        #end if
+        >English</option>
       </select>
     </div>
 
