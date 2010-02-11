@@ -167,8 +167,19 @@ cherrypy.response.headerMap['Cache-Control']=cache_control
                         <label class="hidden" for="submit">$_('Submit:')</label>
                         <input id="submit" type="submit" value="$_('Change password')" />
                 </form>
+        <div class="text">
+            $choose_lang($cherrypy.session.get('lang'))
+        </div>
         </div>
     </div>
 </body>
 </html>
+
+#def choose_lang($lang)
+    #if $lang == 'en'
+        #return 'Velg <a href="/passwd/index?lang=no">norsk</a> sp&aring;k'
+    #end if
+    #return 'Choose <a href="/passwd/index?lang=en">english</a> language'
+#end def
+
 ## vi: sw=4 sts=4 expandtab:
