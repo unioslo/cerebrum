@@ -329,7 +329,7 @@ def find_my_affiliations(person, selection_criteria, authoritative_system):
 
     logger.debug("Person id=%s has affiliations: %s",
                  person.entity_id,
-                 [(x, constants.PersonAffiliation(y))
+                 [(x, str(constants.PersonAffiliation(y)))
                   for x, y in my_affiliations])
     return my_affiliations
 # end find_my_affiliations
@@ -567,7 +567,14 @@ def person2fs_info(row, person, authoritative_system):
     fnr = find_fnr(person, authoritative_system)
     if fnr is None:
         return None
-    date6, pnr = fodselsnr.del_fnr(fnr)
+
+    try:
+        date6, pnr = fodselsnr.del_fnr(fnr)
+    except fodselsnr.InvalidFnrError:
+        logger.warn("Invalid fnr: %s (person_id=%s). Person will be ignored",
+                    fnr, person_id)
+        return None
+        
     date = person.birth_date
     result = SimplePerson(**{"fnr11": fnr,
                              "fnr6": date6,
@@ -665,7 +672,8 @@ def select_FS_candidates(selection_criteria, authoritative_system):
     rows = list(select_rows(selection_criteria,
                             person.list_affiliations,
                             source_system=authoritative_system))
-    logger.debug("%d db-rows match %s criteria", len(rows), selection_criteria)
+    logger.debug("%d db-rows match %s criteria",
+                 len(rows), list(map(str, x) for x in selection_criteria))
     
     for row in rows:
         person_id = int(row["person_id"])
@@ -750,7 +758,8 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
 
     fs_info = fs.person.get_fagperson(info_chunk.fnr6, info_chunk.pnr)
     if not fs_info:
-        logger.debug("Pushing new entry to FS.fagperson: %s", info_chunk)
+        logger.debug("Pushing new entry to FS.fagperson: %s pid=%s",
+                     info_chunk, person_id)
         fs.person.add_fagperson(fnr=info_chunk.fnr6, pnr=info_chunk.pnr,
                                 adr1=None, adr2=None, postnr=None, adr3=None,
                                 arbsted=None,
@@ -829,36 +838,6 @@ def make_fs_updates(person_affiliations, fagperson_affiliations, fs,
     
     
 
-def attribute2const(attribute):
-    """Remap a string attribute to the corresponding constang object
-
-    @type attribute: basestring
-    @param attribute:
-      Name of the constant object representing an affiliation or an
-      affiliation status.
-
-    @rtype: PersonAffiliation or PersonAffStatus instance
-    @return:
-
-      The proper constant instance corresponding to the L{attribute} or None
-    if no such 
-    """
-
-    if not hasattr(constants, attribute):
-        logger.error("Missing affiliation / affiliation_status %s", attribute)
-        return None
-
-    obj = getattr(constants, attribute)
-    if not isinstance(obj,
-                      (constants.PersonAffiliation, constants.PersonAffStatus)):
-        logger.error("Attribute %s is not an affiliation/status", attribute)
-        return None
-
-    return obj
-# end attribute2const
-
-
-
 def main():
     try:
         opts, junk = getopt.getopt(sys.argv[1:], 'p:f:da:o:',
@@ -873,10 +852,16 @@ def main():
 
     def append_affiliation(value, where):
         if len(value.split("/")) == 1:
-            aff, status = attribute2const(value), None
+            aff, status = (constants.human2constant(value,
+                                                   constants.PersonAffiliation),
+                           None)
         elif len(value.split("/")) == 2:
             aff, status = value.split("/")
-            aff, status = attribute2const(aff), attribute2const(status)
+            aff, status = (constants.human2constant(aff,
+                                                   constants.PersonAffiliation),
+                           constants.human2constant(status,
+                                                   constants.PersonAffStatus))
+            assert not (aff is None or status is None), "Missing aff/status"
         else:
             logger.error("Wrong syntax for affiliation %s", value)
             return
@@ -922,6 +907,7 @@ def main():
 
     make_fs_updates(person_affiliations, fagperson_affiliations, fs,
                     authoritative_system, ou_perspective)
+    logger.debug("Pushed all changes to FS")
 # end main
 
 
