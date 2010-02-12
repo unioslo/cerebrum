@@ -20,10 +20,12 @@
 
 body {
     color: black;
-    background-color: #d9e2ef;
+    background-color: white;
     margin: 0;
     text-align: center;
     min-width: 800px;
+    font-family: Verdana,Helvetica,sans-serif;
+    font-size: 10pt;
 }
 
 h1 {
@@ -36,10 +38,9 @@ h3 {
 }
 
 #container {
-    width: 800px;
     background-color: white;
     text-align: left;
-    margin: 10px auto 10px auto;
+    margin: -1px auto 20px 15px;
     border: 1px solid black;
 }
 
@@ -56,7 +57,7 @@ h3 {
     text-align: right;
     color: #456;
     font-size: 14px;
-    margin-top: 4px;
+    margin-top: 0px;
     margin-bottom: 0px;
     margin-right: 4px;
 }
@@ -869,6 +870,30 @@ div.sub-nav ul li {
 .log .create span,
 .log .mod span {
     display: none;
+}
+
+#ntnuheader {
+    background-color: #dce2ed;
+    color: black;
+    border: 1px solid black;
+    margin: 5px 0px 0px 15px;
+    text-align: left;
+    height: auto;
+    width: auto;
+}
+
+
+#pagewrap {
+    width: 975px;
+}
+
+#orginfo {
+        padding-right: 2em;
+        color: #999;
+        font-size: .75em;
+        font-weight: normal;
+        letter-spacing: 0.1em;
+        text-align: right;
 }
 
 /* vim: sw=4 sts=4 expandtab */

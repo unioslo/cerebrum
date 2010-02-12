@@ -133,9 +133,13 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
         #end for
     </head>
     <body>
-        <div class="ntnuimage">
-            <img src="/img/topplinje.gif" alt="NTNU" />
-        </div>
+    <div id="pagewrap">
+    <div id="orginfo">
+      NORGES TEKNISKE-NATURVITENSKAPLIGE UNIVERSITET
+    </div>
+    <div id="ntnuheader">
+      <img src="/img/BAS_ntnu_logo.png" alt="NTNU" />
+    </div>
         <div id="container">
             #block tabview
             <div id="tabview" class="yui-navset">
@@ -178,5 +182,6 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
             #end block page_bottom
             </div>
         </div>
+    </div>
     </body>
 </html>

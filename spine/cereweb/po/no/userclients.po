@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2010-02-10 10:28+0100\n"
+"POT-Creation-Date: 2010-02-11 13:38+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: trond kandal <trond.kandal@ntnu.no>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -101,8 +101,8 @@ msgstr ""
 
 #: lib/templates/ActivationTemplate.tmpl:275
 msgid ""
-"I confirm that i have read the IT regulations at NTNU and i accept those "
-"oligations as the regulations to any moment demands. I also accepts the "
+"I confirm that I have read the IT regulations at NTNU and I accept those "
+"obligations as the regulations to any moment demands. I also accepts the "
 "sanctions that NTNU can put into action when the IT regulations have been "
 "violated as stated in the IT regulations paragraph 4.3, 7.1 and 7.2."
 msgstr ""
@@ -121,10 +121,10 @@ msgstr ""
 
 #: lib/templates/ActivationTemplate.tmpl:341
 msgid ""
-"In case you have not received an invoice, contact <a href=\"www.ntnu.no/"
-"studentservice/\">Studentservice</a>."
+"In case you have not received an invoice, contact <a href=\"http://www.ntnu."
+"no/studentservice/\">Studentservice</a>."
 msgstr ""
-"Dersom du ikkje har mottatt en faktura, kontakt <a href=\"www.ntnu.no/"
+"Dersom du ikke har mottatt en faktura, kontakt <a href=\"http://www.ntnu.no/"
 "studentservice/\">Studentservice</a>."
 
 #: htdocs/passwd.py:102
@@ -180,7 +180,7 @@ msgstr "N&aring;v&aelig;rende passord"
 
 #: htdocs/passwd.py:64
 msgid "Old and new password are the same."
-msgstr "N&aring;v&aelig;rende og nytt passord er like."
+msgstr "N&aring;v&aelig;rende og nytt passord er identiske."
 
 #: lib/templates/UserTemplate.tmpl:141
 #: lib/templates/ActivationTemplate.tmpl:206
@@ -205,7 +205,7 @@ msgstr "Passord"
 
 #: htdocs/passwd.py:107
 msgid "Password is changed!"
-msgstr "Passord er endret."
+msgstr "Passord er endret!"
 
 #: htdocs/activation.py:128
 msgid "Password is not strong enough"
@@ -214,8 +214,8 @@ msgstr "Passordet er ikke sterkt nok"
 #: htdocs/activation.py:128
 msgid "Password is not strong enough. Please, try to make a stronger password."
 msgstr ""
-"Passordet er ikke sterkt nok. Vennligst, pr&oslash; &aring; lage et sterkere "
-"passord."
+"Passordet er ikke sterkt nok. Vennligst, pr&oslash;v &aring; lage et "
+"sterkere passord."
 
 #: htdocs/activation.py:147
 msgid "Password is too short. Min. 8 characters or more."
@@ -236,7 +236,7 @@ msgstr "Passordene er ulike"
 
 #: htdocs/passwd.py:54 htdocs/passwd.py:57
 msgid "Passwords do not match."
-msgstr "Passordene er ulik."
+msgstr "Passordene er ulike."
 
 #: htdocs/activation.py:150 htdocs/activation.py:153
 msgid "Passwords do not match. Please try again."
@@ -270,15 +270,15 @@ msgstr "Gjenta passord"
 
 #: lib/templates/ActivationTemplate.tmpl:402
 msgid ""
-"Some will experience a delay of minimum 1 day before an user account is "
+"Some will experience a delay of minimum 1 day before a user account is "
 "available."
 msgstr ""
-"Enkelte kan oppleve en forinkelse p&aring; minimum 1 dag f&oslash;r en "
+"Enkelte vil oppleve en forsinkelse på minimum ett d&oslash;gn f&oslash;r en "
 "brukerkonto er opprettet."
 
 #: lib/templates/ActivationTemplate.tmpl:399
-msgid "Sorry, but an user account was not found."
-msgstr "Beklager, men en brukerkonto ble ikke funnet."
+msgid "Sorry, but a user account was not found."
+msgstr "Beklagar, men en brukerkonto ble ikke funnet."
 
 #: lib/templates/ActivationTemplate.tmpl:389
 msgid "Sorry, there must be an error in the input-data..."
@@ -422,3 +422,23 @@ msgstr "Du er n&aring; velkommen til &aring; benytte din brukerkonto ved NTNU."
 #: lib/templates/ActivationTemplate.tmpl:170
 msgid "Your username is:"
 msgstr "Ditt brukernavn er:"
+
+#: lib/templates/ActivationTemplate.tmpl:341
+msgid ""
+"In case you have not received an invoice, contact <a href=\"http:www.ntnu.no/"
+"studentservice/\">Studentservice</a>."
+msgstr ""
+"I tilfelle du ikke har mottatt en faktura, kontakt <a href=\"http:www.ntnu."
+"no/studentservice/\">Studentservice</a>."
+
+#: lib/templates/ActivationTemplate.tmpl:402
+msgid ""
+"Some will experience a delay of minimum 1 day before an user account is "
+"available."
+msgstr ""
+"Enkelte kan oppleve en forsinkelse p&aring; minimum 1 d&oslash;gn f&oslash;r "
+"en brukerkonto er opprettet."
+
+#: lib/templates/ActivationTemplate.tmpl:399
+msgid "Sorry, but an user account was not found."
+msgstr "Beklager, men en brukerkonto ble ikke funnet."

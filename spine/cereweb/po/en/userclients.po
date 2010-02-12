@@ -8,12 +8,12 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2010-02-10 16:10+0100\n"
+"POT-Creation-Date: 2010-02-11 13:38+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: trond kandal <trond.kandal@ntnu.no>\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 #: lib/templates/ActivationTemplate.tmpl:180
@@ -96,8 +96,8 @@ msgstr ""
 
 #: lib/templates/ActivationTemplate.tmpl:275
 msgid ""
-"I confirm that i have read the IT regulations at NTNU and i accept those "
-"oligations as the regulations to any moment demands. I also accepts the "
+"I confirm that I have read the IT regulations at NTNU and I accept those "
+"obligations as the regulations to any moment demands. I also accepts the "
 "sanctions that NTNU can put into action when the IT regulations have been "
 "violated as stated in the IT regulations paragraph 4.3, 7.1 and 7.2."
 msgstr ""
@@ -110,8 +110,8 @@ msgstr ""
 
 #: lib/templates/ActivationTemplate.tmpl:341
 msgid ""
-"In case you have not received an invoice, contact <a href=\"www.ntnu.no/"
-"studentservice/\">Studentservice</a>."
+"In case you have not received an invoice, contact <a href=\"http://www.ntnu."
+"no/studentservice/\">Studentservice</a>."
 msgstr ""
 
 #: htdocs/passwd.py:105
@@ -253,19 +253,19 @@ msgstr ""
 
 #: lib/templates/ActivationTemplate.tmpl:402
 msgid ""
-"Some will experience a delay of minimum 1 day before an user account is "
+"Some will experience a delay of minimum 1 day before a user account is "
 "available."
 msgstr ""
 
 #: lib/templates/ActivationTemplate.tmpl:399
-msgid "Sorry, but an user account was not found."
+msgid "Sorry, but a user account was not found."
 msgstr ""
 
 #: lib/templates/ActivationTemplate.tmpl:389
 msgid "Sorry, there must be an error in the input-data..."
 msgstr ""
 
-#: lib/templates/ActivationTemplate.tmpl:419
+#: lib/templates/ActivationTemplate.tmpl:420
 msgid "Spr&aring;k/Language:"
 msgstr ""
 
@@ -352,7 +352,7 @@ msgstr ""
 msgid "You have now entered a service that needs authentication."
 msgstr ""
 
-#: lib/templates/ActivationTemplate.tmpl:443
+#: lib/templates/ActivationTemplate.tmpl:454
 msgid ""
 "You have now reached the page used to activate your user account at "
 "NTNU&apos;s computer-systems."
