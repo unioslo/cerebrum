@@ -23,7 +23,7 @@ INSTALL = @INSTALL@
 
 prefix = @prefix@
 
-sources = UpdateSpineConstants.py ImportOperationSets.py operation_sets.template.py
+sources = ImportOperationSets.py operation_sets.template.py
 
 .PHONY: all install install-lib clean distclean print
 
