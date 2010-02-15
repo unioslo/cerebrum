@@ -225,17 +225,10 @@ class AliasFile(CLFileBack):
 
     def format(self, addr):
         if addr.address_id == addr.primary_address_id:
-            if not addr.server_name:
-                res="%s@%s: <> %s@\n" % (
-                    self.wash(addr.local_part),
-                    self.wash(addr.domain),
-                    self.wash(addr.account_name))
-            else:
-                res="%s@%s: <> %s@%s\n" % (
-                    self.wash(addr.local_part),
-                    self.wash(addr.domain),
-                    self.wash(addr.account_name),
-                    self.wash(addr.server_name))
+            res="%s@%s: <> %s\n" % (
+                self.wash(addr.local_part),
+                self.wash(addr.domain),
+                self.wash(addr.account_name))
         else:
             res="%s@%s: %s@%s\n" % (
                 self.wash(addr.local_part),
@@ -247,6 +240,32 @@ class AliasFile(CLFileBack):
             return res.encode(self.encoding)
         else:
             return res
+
+
+class AltAliasFile(CLFileBack):
+    filename="/etc/ceresync/mailaliases"
+    def format(self, addr):
+        """Alternate alias file format:
+        alias@domain:primaryaddr@domain:accountname:servername
+        """
+        primary=""
+        if addr.primary_address_id:
+            primary="%s@%s" % (
+                self.wash(addr.primary_address_local_part),
+                self.wash(addr.primary_address_domain))
+        
+        res="%s@%s:%s:%s:%s\n" % (
+            self.wash(addr.local_part),
+            self.wash(addr.domain),
+            primary,
+            self.wash(addr.account_name),
+            self.wash(addr.server_name))
+            
+        if self.unicode:
+            return res.encode(self.encoding)
+        else:
+            return res
+
 
 class SambaFile(CLFileBack):
     """an entry in a samba passwordfile lookes like this:
@@ -310,8 +329,12 @@ def Account():
     return MultiHandler(PasswdFile(filename=config.get("file", "passwd")),
                         ShadowFile(filename=config.get("file","shadow")))
 
-def Alias():
-    return AliasFile(filename=config.get("file", "aliases"))
+def Alias(altformat=False):
+    filename=config.get("file", "aliases")
+    if altformat:
+        return AltAliasFile(filename=filename)
+    else:
+        return AliasFile(filename=filename)
 
 def PasswdWithHash():
     return PasswdFileCryptHash(filename=config.get("file","passwd"))

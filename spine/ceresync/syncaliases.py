@@ -19,18 +19,44 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys
+import sys, os
 
 from ceresync import syncws as sync
 from ceresync import config
 
 log = config.logger
 
+
+def get_altformat(config):
+    altformat = config.getboolean('alias', 'altformat', default=False)
+    return altformat
+
+def get_emailserver(config):
+    emailserver = config.get('alias', 'emailserver', default=os.uname()[1])
+    emailserver = config.get('args', 'emailserver', default=emailserver)
+    if emailserver == "" or emailserver=="*":
+        emailserver = None
+    return emailserver
+
+def make_alias_options(config):
+    return [
+        config.make_option(
+            "--emailserver",
+            action="store",
+            default=None,
+            dest="emailserver",
+            help="Fetch data for specified emailserver"),
+        ]
+
 def main():
     sync_options = {}
-    config.parse_args(config.make_testing_options())
+    options = config.make_testing_options() + make_alias_options(config)
+    config.parse_args(options)
     config.set_testing_options(sync_options)
+    sync_options['emailserver'] = get_emailserver(config)
+
     using_test_backend = config.getboolean('args', 'use_test_backend')
+    altformat = get_altformat(config)
 
     try:
         s = sync.Sync(locking=not using_test_backend)
@@ -46,14 +72,14 @@ def main():
     else:
         import ceresync.backend.file as filebackend
 
-    aliases = filebackend.Alias()
+    aliases = filebackend.Alias(altformat=altformat)
     
     log.debug("Syncronizing aliases")
     aliases.begin(unicode=True)
 
     try:
         for alias in s.get_aliases(**sync_options):
-            log.debug("Processing account '%s@%s'", alias.local_part, 
+            log.debug("Processing alias '%s@%s'", alias.local_part, 
                       alias.domain)
             aliases.add(alias)
     except Exception, e:

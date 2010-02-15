@@ -355,10 +355,12 @@ class Sync(object):
                                          save_file=person_xml_out)
         return [Person(obj, encode_to=encode_to) for obj in response._person]
 
-    def get_aliases(self, incr_from=None, encode_to=None,
+    def get_aliases(self, emailserver=None, incr_from=None, encode_to=None,
                     alias_xml_in=None, alias_xml_out=None, **kwargs):
         request= cerews_services.getAliasesRequest()
-        request._incremental_from= incr_from
+        request._incremental_from = incr_from
+        if emailserver is not None:
+            request._emailserver = emailserver
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_aliases,
                                          load_file=alias_xml_in,
