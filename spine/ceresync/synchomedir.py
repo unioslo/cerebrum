@@ -263,7 +263,7 @@ def get_testing_args():
     return args
 
 def get_hostname(config):
-    hostname = config.get('homedir', 'hostname', default=os.uname()[1]),
+    hostname = config.get('homedir', 'hostname', default=os.uname()[1])
     return config.get('args', 'hostname', default=hostname) # Allow command-line override
 
 def get_setup_script(config):
