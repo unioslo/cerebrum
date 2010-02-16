@@ -268,7 +268,7 @@ class AccountNTNUMixin(Account.Account):
             person = Person_class(self._db)
             if list(person.list_external_ids(
                     id_type = self.const.externalid_fodselsnr,
-                    entity_id = a.owner_id)):
+                    entity_id = self.owner_id)):
                 atype = "has_nin"
             else:
                 atype = "no_nin"
@@ -280,9 +280,11 @@ class AccountNTNUMixin(Account.Account):
                 status = str(self.const.PersonAffStatus(
                         aff['status']))
                 d, m = self.lookup_policy(policy, atype, source, affil, status)
-                if (defaultexpire is not None and d > defaultexpire):
+                if (defaultexpire is not None and
+                    (d is None or d > defaultexpire)):
                     defaultexpire = d
-                if (maxexpire is not None and m > maxexpire):
+                if (maxexpire is not None and 
+                    (m is None or m > maxexpire)):
                     maxexpire = m
 
         #apply default expiredate
