@@ -58,11 +58,15 @@ class AccountDAO(EntityDAO):
     def search(self, name):
         name = name.strip("*") + '*'
         account = self._get_cerebrum_obj()
-        return [self._create_from_search(r) for r in account.search(name=name)]
+        return [self._create_from_search(r)
+                for r in account.search(name=name,
+                                        expire_start=None)]
 
     def get_by_owner_ids(self, *owner_ids):
         account = self._get_cerebrum_obj()
-        return [self._create_from_search(r) for r in account.search(owner_id=owner_ids)]
+        return [self._create_from_search(r)
+                for r in account.search(owner_id=owner_ids,
+                                        expire_start=None)]
 
     def get_by_name(self, name, include_extra=True):
         account = self._find_by_name(name)
