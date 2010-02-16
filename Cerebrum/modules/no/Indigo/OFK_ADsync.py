@@ -179,7 +179,39 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['mobile'] = ''
             else:
                 v['mobile'] = phones[0]['contact_value']
-                        
+
+
+    def _update_extensionAttributes(self, user_dict):
+        """
+        Will update the three extionAttributes that ØFK uses to generate 
+        addresslists in Exchange based on affiliation
+
+        @param user_dict: account_id -> account info mapping
+        @type user_dict: dict
+        """
+        #These are the strings ØFK wants in the Attributes according to the spec
+        #if user have affiliation_ansatt
+        extAttr1 = "Employee"
+        #if user have affiliation_tilknyttet
+        extAttr2 = "Affiliate"
+        #if user have affiliation_elev
+        extAttr3 = "Pupil"
+        
+        #Get dicts of accounts with the different affiliations
+        employe_dict = self.ac.list_accounts_by_type(affiliation=self.co.affiliation_ansatt)
+        affiliate_dict = self.ac.list_accounts_by_type(affiliation=self.co.affiliation_tilknyttet)
+        pupil_dict = self.ac.list_accounts_by_type(affiliation=self.co.affiliation_elev)
+
+        for row in employe_dict:
+            if user_dict.has_key(row['account_id']):
+                user_dict[row['account_id']]['extensionAttribute1'] = extAttr1
+        for row in affiliate_dict:
+            if user_dict.has_key(row['account_id']):
+                user_dict[row['account_id']]['extensionAttribute2'] = extAttr2
+        for row in pupil_dict:
+            if user_dict.has_key(row['account_id']):
+                user_dict[row['account_id']]['extensionAttribute3'] = extAttr3
+
 
     def get_default_ou(self):
         """
@@ -216,6 +248,9 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
           'mailNickname' : String         # brukernavn
           'proxyAddresses' : Array        # Alle gyldige epost adresser
           'ACCOUNTDISABLE'                # Flag, used by ADutilMixIn
+          'extensionAttribute1' : String  # Om brukeren har ansatt affiliation
+          'extensionAttribute2' : String  # Om brukeren er tilknyttet affiliation
+          'extensionAttribute3' : String  # Om brukeren har elev affiliation
         """
 
         self.person = Utils.Factory.get('Person')(self.db)
@@ -233,8 +268,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 'TEMPownerId': row['owner_id'],
                 'TEMPuname': row['name'],
                 'ACCOUNTDISABLE': False,
-                'proxyAddresses' : []
-                }
+                'proxyAddresses' : [],
+                'extensionAttribute1' : '',
+                'extensionAttribute2' : '',
+                'extensionAttribute3' : ''}
         self.logger.info("Fetched %i accounts with spread %s" 
                          % (len(tmp_ret),spread))
 
@@ -283,6 +320,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #
         self.logger.debug("..setting contact info..")
         self._update_contact_info(tmp_ret)
+
+        #
+        # Set extensionAttributes with affiliations
+        #
+        self.logger.debug("..setting extensionAttributes with affiliations..")
+        self._update_extensionAttributes(tmp_ret)
 
         #
         # Indexing user dict on username instead of entity id
@@ -583,7 +626,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             #commit changes
                             changelist.append(changes)
                             changes = {}
-                            if (not usr in exch_users) and (cerebrumusrs[usr]['Exchange']): 
+                            if (not usr in exch_users) and (cerebrumusrs.has_key(usr) and cerebrumusrs[usr]['Exchange']): 
                                 exch_users.append(usr)
                                 self.logger.info("Added to run Update-Recipient list: %s" % usr)
                         #Moving account.
@@ -656,8 +699,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         #Fetch AD-data.     
         self.logger.debug("Fetching AD data...")
         addump = self.fetch_ad_data(self.ad_ldap)       
-        self.logger.info("Fetched %i ad-users" % len(addump))
-                
+        if addump:
+            self.logger.info("Fetched %i ad-users" % len(addump))
+        else:
+            self.logger.info("Fetched 0 ad-users")
 
         #compare cerebrum and ad-data.
         exch_users = []
