@@ -130,6 +130,22 @@ def avknekk_ytlendinger(fnr):
     return fnr
 
 
+
+class spread_mapping(object):
+    def __init__(self, co, logger):
+        self.co = co
+        self.logger = logger
+        self._cache = dict()
+    def __getitem__(self, key):
+        if not key in self._cache:
+            try:
+                self._cache[key] = int(self.co.Spread("user@%s" % key))
+            except Errors.NotFoundError:
+                self.logger.warn("Spread: Unhandled BDB system spread %s" % key)
+                self._cache[key] = None
+        return self._cache[key]
+
+
 class BDBSync:
     def __init__(self):
         self.bdb = access_BDB.BDB()
@@ -160,7 +176,7 @@ class BDBSync:
         self.initial_account = self.ac.entity_id
         self.default_shell = self.const.posix_shell_bash
         self.ac.clear()
-        self.spread_mapping = self.get_spread_mapping()
+        self.spread_mapping = spread_mapping(self.const, self.logger)
 
         self.np_owner = Factory.get('Group')(self.db)
         try:
@@ -179,48 +195,6 @@ class BDBSync:
         self.default_creator_id = self.ac.entity_id
         self.ac.clear()
 
-    def get_spread_mapping(self):
-        # TBD: complete the spread-mappings
-        co = self.const
-        s = {}
-        s['ansatt'] =  int(co.Spread("user@%s" % 'ansatt'))
-        s['chembio'] =  int(co.Spread("user@%s" % 'chembio'))
-        s['fender'] =  int(co.Spread("user@%s" % 'fender'))
-        s['fysmat'] =  int(co.Spread("user@%s" % 'fysmat'))
-        s['hf'] =  int(co.Spread("user@%s" % 'hf'))
-        s['idi'] =  int(co.Spread("user@%s" % 'idi'))
-        s['ime'] =  int(co.Spread("user@%s" % 'ime'))
-        s['iptansatt'] =  int(co.Spread("user@%s" % 'iptansatt'))
-        s['ivt'] = int(co.Spread("user@%s" % 'ivt'))
-        s['ivtsan'] = int(co.Spread("user@%s" % 'ivtsan'))
-        s['kybernetikk'] =  int(co.Spread("user@%s" % 'kybernetikk'))
-        s['math'] = int(co.Spread("user@%s" % 'math'))
-        s['norgrid'] =  int(co.Spread("user@%s" % 'norgrid'))
-        s['norgrid-ny'] =  int(co.Spread("user@%s" % 'norgrid'))
-        s['ntnu_ad'] =  int(co.Spread("user@%s" % 'ntnu_ad'))
-        s['odin'] =  int(co.Spread("user@%s" % 'odin'))
-        s['petra'] =  int(co.Spread("user@%s" % 'petra'))
-        s['q2s'] =  int(co.Spread("user@%s" % 'q2s'))
-        s['samson'] =  int(co.Spread("user@%s" % 'samson'))
-        s['sol'] =  int(co.Spread("user@%s" % 'sol'))
-        s['stud'] = int(co.Spread("user@%s" % 'stud'))
-        s['studmath'] =  int(co.Spread("user@%s" % 'studmath'))
-        s['ubit'] =  int(co.Spread("user@%s" % 'ubit'))
-        s['ansoppr'] =  int(co.Spread("user@%s" % 'ansoppr'))
-        s['oppringt'] =  int(co.Spread("user@%s" % 'oppringt'))
-        s['cyrus_imap'] =  int(co.Spread("user@%s" % 'cyrus_imap'))
-        s['test2'] =  int(co.Spread("user@%s" % 'test2'))
-        s['nav'] =  int(co.Spread("user@%s" % 'nav'))
-        s['itil_cm'] =  int(co.Spread("user@%s" % 'itil_cm'))
-        s['lisens'] =  int(co.Spread("user@%s" % 'lisens'))
-        s['kalender'] =  int(co.Spread("user@%s" % 'kalender'))
-        s['vm'] =  int(co.Spread("user@%s" % 'vm'))
-        s['itea'] =  int(co.Spread("user@%s" % 'itea'))
-        s['pride'] =  int(co.Spread("user@%s" % 'pride'))
-        s['hflinux'] =  int(co.Spread("user@%s" % 'hflinux'))
-        s['ipt_soil'] =  int(co.Spread("user@%s" % 'ipt_soil'))
-        s['kerberos'] = int(co.Spread("user@%s" % 'kerberos'))
-        return s
 
     def check_commit(self, fun, *args, **kw):
         msg='syncing'
@@ -1300,7 +1274,6 @@ class BDBSync:
 
     def sync_spreads_quarantines(self):
         const=self.const
-        s_map=self.spread_mapping
         
         self.logger.debug("Fetching data from Cerebrum")
 
@@ -1328,18 +1301,19 @@ class BDBSync:
             if not account_by_name.has_key(s['username']):
                 self.logger.warn("Spread: Account %s does not exist" % s['username'])
                 continue
-            account_id=account_by_name[s['username']]
-            if not s_map.has_key(s['spread_name']):
-                self.logger.warn("Spread: Unhandled BDB system spread %s" % s['spread_name'])
-                continue
-            spread=s_map[s['spread_name']]
-            if not int(spread) in ignorespreads:
+            account_id = account_by_name[s['username']]
+
+            spread = self.spread_mapping[s['spread_name']]
+            if spread is not None and not int(spread) in ignorespreads:
                 newspreads.setdefault(account_id, set()).add(int(spread))
+
             if s['shell'] == '/bin/badpw':
                 newquarantines.setdefault(account_id, set()).add(int(const.quarantine_svakt_passord))
             if s['shell'] == '/bin/sperret':
                 if s['spread_name'] in ('oppringt', 'ansoppr'):
                     newquarantines.setdefault(account_id, set()).add(int(const.quarantine_remote))
+                else:
+                    newquarantines.setdefault(account_id, set()).add(int(const.quarantine_sperret))
 
         self.logger.debug("Spread: from %d to %d accounts with spreads" %
                           (len(oldspreads), len(newspreads)))
