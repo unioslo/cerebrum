@@ -80,7 +80,7 @@ class _AdsiBack(object):
            called.  
            """
         self.ou_path = ou_path   
-        self._connect()
+        self._ou_cache = {}
     
     def _prefix(self, uri=None):
         """Returns the URI prefix of the given URI. 
@@ -151,7 +151,7 @@ class _AdsiBack(object):
         self.do_add= incr or bulk_add
         self.do_update= incr or bulk_update
         self.do_delete= incr or bulk_delete
-        self._connect() # reconnect
+        self._connect()
         
         if self.bulk:
             self._remains = self._find_existing_objects()
@@ -202,15 +202,15 @@ class _AdsiBack(object):
             if obj.name in self._remains:
                 self._remains.remove(obj.name)
 
-    def _move_here(self, dn, accountname):
-        """move object referred to with distinguishedName, dn, to currently 
-        bound ou"""
-        ad_obj= win32com.client.GetObject(u'LDAP://'+self.ou.distinguishedName)
+    def _move_to_target_ou(self, obj):
+        ad_obj = self._find(obj.name)
+
+        target_ou = self._get_target_ou(obj)
+
         # If an account has been added manually, the CN may be the full name
         # instead of username, and the full name may contain non-ascii chars.
         # FIXME: There's probably a better way to handle this
-        ad_obj.moveHere(dn.path(), u'CN=%s' % (accountname,))
-        
+        target_ou.moveHere(ad_obj.path(), u'CN=%s' % (obj.name,))
 
 class _ADAccount(_AdsiBack):                
     """Common abstract class for ADUser and ADGroup. 
@@ -282,19 +282,21 @@ class _ADAccount(_AdsiBack):
             already_exists = self._find(obj.name)
         except OutsideOUError, e:
             dn, accountname = e
-            log.warning("Didn't add '%s', it exists outside the managed OU (%s).", (accountname, dn))
+            log.warning("Didn't add '%s', it exists outside the managed OU (%s).", accountname, dn)
             return None
 
         if already_exists:
             if self.do_update:
-                log.debug("Didn't add '%s', it already exists, updating instead", obj.name)
+                log.info("Updating '%s'", obj.name)
                 return self._update(obj)
             else:
                 log.debug("Didn't add '%s', it already exists, skipping", obj.name)
                 return None
-        
+
         if self.do_add:
-            ad_obj = self.ou.create(self.objectClass, "cn=%s" % obj.name)
+            log.info("Adding '%s'", obj.name)
+            target_ou = self._get_target_ou(obj)
+            ad_obj = target_ou.create(self.objectClass, "cn=%s" % obj.name)
             ad_obj.sAMAccountName = obj.name
             ad_obj.setInfo()
 
@@ -359,51 +361,71 @@ class ADUser(_ADAccount):
         
         dec = Pgp().decrypt(obj.passwd)
         try: 
-            log.info("Updating password on '%s'", obj.name)
+            log.debug("Updating password on '%s'", obj.name)
             ad_obj.setPassword(dec)
             return True
         except Exception,e:
             log.warning("Failed to set password on '%s': %s", obj.name, e)
             return False
 
-    def _update(self, obj):
-        if self._should_change_dn(obj):
-            log.info(u"moving %s from %s to %s",
-                obj.name, 
-                ad_obj.path(),
-                self.ou.path(),
-            )
-            self._move_here(ad_obj, obj.name)
-
-        return super(ADUser, self)._update(obj)
-
-    def _should_change_dn(self, obj):
-        ad_obj = self._find(obj.name)
-        existing_dn = ad_obj.distinguishedName
-        new_dn = 'CN=%s,%s' % (obj.name, self.ou.distinguishedName)
-        return new_dn != existing_dn
-
     def add(self, obj):
         """Adds an object to AD. If it already exist, the existing
            AD object will be updated instead."""
         
-        obj_path= config.get('affiliations', obj.primary_affiliation)
-        if obj_path is None or obj_path == 'None':
-            log.warning("Not adding account '%s' with primary affiliation '%s'",
+        if self._get_target_ou(obj) is None:
+            log.warning("Not adding account '%s' with primary affiliation '%s'.  No configured OU for given affiliation.",
                 obj.name, obj.primary_affiliation)
             return
 
-        if self.ou_path != obj_path:
-            self.ou_path= obj_path
-            self._connect()
         super(ADUser, self).add(obj)
+
+    def _get_target_dn(self, obj):
+        if not hasattr(obj, '__target_dn'):
+            target_ou = self._get_target_ou(obj)
+            obj.__target_dn = "CN=%s,%s" % (obj.name, target_ou.distinguishedName)
+
+        return obj.__target_dn
+
+    def _get_target_ou(self, obj):
+        if not hasattr(obj, '__target_ou'):
+            obj.__target_ou = config.get('affiliations', obj.primary_affiliation)
+
+            # FIXME: I suspect that this code path is dead.
+            if obj.__target_ou == 'None':
+                obj.__target_ou = None
+
+        return self._get_ou(obj.__target_ou)
+
+    def _get_ou(self, dn):
+        if dn is None:
+            return None
+
+        if not dn in self._ou_cache:
+            objectPath = dn
+            if not objectPath.lower().startswith("ldap://"):
+                objectPath = u"LDAP://%s" % dn
+
+            self._ou_cache[dn] = win32com.client.GetObject(objectPath)
+        return self._ou_cache[dn]
+
+    def _update(self, obj):
+        ad_obj = self._find(obj.name)
+        if ad_obj.distinguishedName != self._get_target_dn(obj):
+            log.info(u"moving %s from %s to %s",
+                obj.name,
+                ad_obj.distinguishedName,
+                self._get_target_dn(obj),
+            )
+            self._move_to_target_ou(obj)
+
+        return super(ADUser, self)._update(obj)
 
     def delete(self, obj):
         try:
             ad_obj = self._find(obj.name)
         except OutsideOUError, e:
             dn, accountname = e
-            log.warning("Didn't delete '%s', it is outside the managed OU (%s).", (accountname, dn))
+            log.warning("Didn't delete '%s', it is outside the managed OU (%s).", accountname, dn)
             return None
             
         if not ad_obj:
