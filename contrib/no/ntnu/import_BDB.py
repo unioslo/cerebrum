@@ -1173,65 +1173,6 @@ class BDBSync:
         self.logger.debug("%s accounts added or updated in sync_accounts." % str(num_accounts))
         return
 
-    def _sync_spread(self, username, spreads):
-        s_map = self.spread_mapping
-        ac = self.ac
-        ac.clear()
-        try:
-            ac.find_by_name(username)
-        except Errors.NotFoundError,e:
-            self.logger.warn("Account with name %s not found. Continuing." % username)
-            return
-        
-        ignorespreads = [int(self.const.Spread(s))
-                         for s in getattr(cereconf, "BDB_IGNORESPREADS", [])]
-
-        oldspreads = set([s['spread'] for s in ac.get_spread()])
-        newspreads = set()
-        for s in spreads:
-            i=s_map.get(s['spread_name'])
-            if i: newspreads.add(i)
-
-        for s in oldspreads - newspreads - ignorespreads:
-            ac.delete_spread(s)
-
-        for s in newspreads - oldspreads - ignorespreads:
-            ac.add_spread(s)
-        
-        
-
-    def _sync_quarantenes(self, username, spreads):
-        s_map = self.spread_mapping
-        ac = self.ac
-        ac.clear()
-        try:
-            ac.find_by_name(username)
-        except Errors.NotFoundError,e:
-            self.logger.warn("Account with name %s not found. Continuing." % username)
-            return
-
-        newquarantines = set()
-
-        # any /bin/badpw gives quarantine_svakt_passord
-        # /bin/sperret on opprint gives quarantine_remote
-        # other /bin/sperret gives quarantine_generell
-        for s in spreads:
-            if s['shell'] == '/bin/badpw':
-                newquarantines.add(ac.const.quarantine_svakt_passord)
-            if s['shell'] == '/bin/sperret':
-                if s['spread_name'] in ('oppringt', 'ansoppr'):
-                    newquarantines.add(ac.const.quarantine_remote)
-        
-        oldquarantines = set([q['quarantine_type']
-                              for q in ac.get_entity_quarantine()])
-        
-        for s in oldquarantines - newquarantines:
-            ac.delete_entity_quarantine(s)
-
-        for s in newquarantines - oldquarantines:
-            ac.add_entity_quarantine(s, creator=self.initial_account,
-                                     description="imported from BDB",
-                                     start=mx.DateTime.now())
         
 
     def sync_group_members(self):
@@ -1445,18 +1386,6 @@ class BDBSync:
             self.ac.add_spread(s)
 
         
-    def sync_spreads(self):
-        self.logger.debug("Fetching accounts with spreads from BDB")
-        spreads = self.bdb.get_account_spreads()
-        userspreads={}
-        for s in spreads:
-            if not userspreads.has_key(s['username']):
-                userspreads[s['username']]=[]
-            userspreads[s['username']].append(s)
-        for u in userspreads.keys():
-            self.check_commit(self._sync_spread, u, userspreads[u])
-            self.check_commit(self._sync_quarantenes, u, userspreads[u])
-
     def sync_email_domains(self):
         self.logger.debug("Fetching email-domains")
         domains = self.bdb.get_email_domains()
@@ -1672,7 +1601,6 @@ def usage():
         --affiliations (-t)   Syncronize affiliations on persons
         --email_domains       Syncronize email-domains
         --email_address (-e)  Syncronize email-addresses
-        --email_alias    Syncronize email aliases
         --verbose   (-v) Prints debug-messages to STDOUT
         --help      (-h)
 
