@@ -231,6 +231,8 @@ class Constants(Constants.Constants):
                                            'User on system "math" (IME)')
     spread_ntnu_norgrid_user = _SpreadCode('user@norgrid', Constants.Constants.entity_account,
                                            'User on system "norgrid" (ITEA)')
+    spread_ntnu_kongull_user = _SpreadCode('user@kongull', Constants.Constants.entity_account,
+                                           'User on system "kongull" (ITEA)')
     spread_ntnu_ntnu_ad_user = _SpreadCode('user@ntnu_ad', Constants.Constants.entity_account,
                                            'User on system "ntnu_ad"')
     spread_ntnu_odin_user = _SpreadCode('user@odin', Constants.Constants.entity_account,
