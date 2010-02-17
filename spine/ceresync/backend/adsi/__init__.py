@@ -26,7 +26,12 @@ from ceresync.backend.adsi import active_directory as ad
 # Wrapped version that catches ADSI errors
 ad = ad_errors.wrapComError(ad)
 from ceresync import errors
-from sets import Set
+
+try:
+    set()
+except:
+    from sets import Set as set
+
 import unittest
 import tempfile
 import win32pipe
@@ -80,7 +85,6 @@ class _AdsiBack(object):
            called.  
            """
         self.ou_path = ou_path   
-        self._ou_cache = {}
     
     def _prefix(self, uri=None):
         """Returns the URI prefix of the given URI. 
@@ -212,6 +216,8 @@ class _AdsiBack(object):
         # FIXME: There's probably a better way to handle this
         target_ou.moveHere(ad_obj.path(), u'CN=%s' % (obj.name,))
 
+        return self._find(obj.name)
+
 class _ADAccount(_AdsiBack):                
     """Common abstract class for ADUser and ADGroup. 
        They both use saMAccountName as their unique name (with a shared
@@ -307,10 +313,28 @@ class _ADAccount(_AdsiBack):
                 return None
             self._update_attributes(obj, ad_obj)
             return ad_obj
-    
+
+    def _get_target_ou(self, obj):
+        return self.ou
+
+    def _get_target_dn(self, obj):
+        if not hasattr(obj, '__target_dn'):
+            target_ou = self._get_target_ou(obj)
+            obj.__target_dn = "CN=%s,%s" % (obj.name, target_ou.distinguishedName)
+
+        return obj.__target_dn
+
     def _update(self, obj):
         """Will only be called by add."""
         ad_obj = self._find(obj.name)
+        if ad_obj.distinguishedName != self._get_target_dn(obj):
+            log.info(u"moving %s from %s to %s",
+                obj.name,
+                ad_obj.distinguishedName,
+                self._get_target_dn(obj),
+            )
+            ad_obj = self._move_to_target_ou(obj)
+
         self._update_attributes(obj, ad_obj)
         return ad_obj    
 
@@ -326,6 +350,10 @@ class ADUser(_ADAccount):
     # Reference: 
     # http://www.microsoft.com/windows2000/techinfo/howitworks/activedirectory/adsilinks.asp
     # http://search.microsoft.com/search/results.aspx?qu=adsi&View=msdn&st=b&c=4&s=1&swc=4
+
+    def begin(self, *args, **kwargs):
+        super(ADUser, self).begin(*args, **kwargs)
+        self._ou_cache = {}
 
     def _update_attributes(self, obj, ad_obj):
         """Update the ad_object, ad_obj, with the fields from the spine object,
@@ -379,13 +407,6 @@ class ADUser(_ADAccount):
 
         super(ADUser, self).add(obj)
 
-    def _get_target_dn(self, obj):
-        if not hasattr(obj, '__target_dn'):
-            target_ou = self._get_target_ou(obj)
-            obj.__target_dn = "CN=%s,%s" % (obj.name, target_ou.distinguishedName)
-
-        return obj.__target_dn
-
     def _get_target_ou(self, obj):
         if not hasattr(obj, '__target_ou'):
             obj.__target_ou = config.get('affiliations', obj.primary_affiliation)
@@ -407,18 +428,6 @@ class ADUser(_ADAccount):
 
             self._ou_cache[dn] = win32com.client.GetObject(objectPath)
         return self._ou_cache[dn]
-
-    def _update(self, obj):
-        ad_obj = self._find(obj.name)
-        if ad_obj.distinguishedName != self._get_target_dn(obj):
-            log.info(u"moving %s from %s to %s",
-                obj.name,
-                ad_obj.distinguishedName,
-                self._get_target_dn(obj),
-            )
-            self._move_to_target_ou(obj)
-
-        return super(ADUser, self)._update(obj)
 
     def delete(self, obj):
         try:
@@ -450,48 +459,45 @@ class ADGroup(_ADAccount):
                             constants.ADS_GROUP_TYPE_GLOBAL_GROUP)
         ad_obj.setInfo()
 
-        def check_members():
-            # FIXME: Should supports groups as members of groups
-            ad_members = Set(ad_obj.members())
-            old = Set([m.saMAccountName for m in ad_members])
-            spline = Set(obj.members)
-            add = spline - old
-            remove = old - spline
-            if not (add or remove):
-                # Nothing changed
-                return
-            # Ok, convert to nice ldap paths    
-            domain = self._domain()
-            # search in the whole domain, users only
-            to_add= []
-            for m in add:
-                try:
-                    res= self._find(m, ou=domain, objectClass='user')
-                    if res:
-                        to_add.append(res.ADsPath)
-                except WrongClassError, e:
-                    log.warning("%s exists in AD, but is not a user.", m)
-            # Skip None (not-existing users)
-            to_remove = [m.ADsPath for m in ad_members 
-                      if m.saMAccountName in remove]
-            for user in to_remove:
-                log.info("Removing %s from group '%s'", user, obj.name)
-                ad_obj.remove(user)
-            for user in to_add:
-                log.info("Adding %s to group '%s'", user, obj.name)
-                ad_obj.add(user)    
-            ad_obj.setInfo()
-        check_members()           
+        old_members = set(ad_obj.members())
+        old_names = set([m.saMAccountName for m in old_members])
+        new_names = set(obj.members)
+
+        names_to_add = new_names - old_names
+        names_to_del = old_names - new_names
+        
+        if not (names_to_add or names_to_del):
+            return ad_obj
+
+        members_to_add = self._get_members(names_to_add)
+        members_to_del = [m for m in old_members
+                            if m.saMAccountName in names_to_del]
+
+        for user in members_to_del:
+            log.debug("Removing %s from group '%s'", user, obj.name)
+            ad_obj.remove(user.ADsPath)
+
+        for user in members_to_add:
+            log.debug("Adding %s to group '%s'", user, obj.name)
+            ad_obj.add(user.ADsPath)
+        ad_obj.setInfo()
+
         return ad_obj
 
-#class ADOU(_AdsiBack):
-#    """Backend for OUs in Active Directory. 
-#    """
-#    objectClass = "organizationalUnit"
+    def _get_members(self, names):
+        # Ok, convert to nice ldap paths    
+        domain = self._domain()
+        # search in the whole domain, users only
 
-#class ADAlias(AdsiBack):
-#    """Handles mail-aliases (distribution lists) within Exchange/AD"""
-
+        to_add= []
+        for m in names:
+            try:
+                res= self._find(m, ou=domain, objectClass='user')
+                if res:
+                    to_add.append(res)
+            except WrongClassError, e:
+                log.warning("%s exists in AD, but is not a user.", m)
+        return to_add
 
 # The rest of the module is unit tests.
 # TODO: Move out!
