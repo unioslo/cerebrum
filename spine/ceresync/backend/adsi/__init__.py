@@ -374,7 +374,8 @@ class ADUser(_ADAccount):
 
         password_ok = self._set_password(ad_obj, obj)
         if not password_ok:
-            log.warning("No password on %s.", obj.name)
+            log.warning("Couldn't set password on %s.  Disabling account.", obj.name)
+            self._set_disabled_flag(obj)
 
         ad_obj.setInfo()
         try:
@@ -382,6 +383,11 @@ class ADUser(_ADAccount):
         except ad_errors.DSUnwillingToPerformError, e:
             log.warning(
                 "Couldn't set userAccountControl for %s to %s" % (obj.name, obj.control_flags))
+
+    def _set_disabled_flag(self, obj):
+        disabled_flag = 2
+        current_flags = str2int(obj.control_flags)
+        obj.control_flags = str(current_flags | disabled_flag)
 
     def _set_password(self, ad_obj, obj):
         if not obj.passwd:
