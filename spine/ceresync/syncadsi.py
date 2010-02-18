@@ -46,12 +46,12 @@ def set_incremental_options(options, incr, server_id, changelog_file):
     if not incr:
         return
 
-    local_id = load_changelog_id()
+    local_id = load_changelog_id(changelog_file)
     log.debug("Local id: %ld, server_id: %ld", local_id, server_id)
     if local_id > server_id:
         log.warning("local changelogid is larger than the server's!")
     elif incr and local_id == server_id:
-        log.debug("No changes to apply. Quiting.")
+        log.debug("No changes to apply. Quitting.")
         sys.exit(0)
 
     options['incr_from'] = local_id
