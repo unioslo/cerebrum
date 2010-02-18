@@ -13,7 +13,7 @@ Group: Applications/System
 BuildRequires: python-cheetah
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
-Requires: omniorb omniorbpy
+# Requires: omniorb omniorbpy
 Requires: %{pythonssl}
 Requires: python-zsi, m2crypto
 # omniORB pachages: http://www.fourpalms.org/pub/omniORB/SRPMS/
@@ -103,7 +103,6 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 %files
 %defattr(-,root,root)
 /usr/lib/python%{python_ver}/site-packages/SignatureHandler.py
-/usr/lib/python%{python_ver}/site-packages/SpineCore.idl
 /usr/lib/python%{python_ver}/site-packages/ceresync/backend/file.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/backend/__init__.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/cerelog.py*
@@ -111,9 +110,7 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 /usr/lib/python%{python_ver}/site-packages/ceresync/doc_exception.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/errors.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/__init__.py*
-/usr/lib/python%{python_ver}/site-packages/ceresync/sync.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/syncws.py*
-/usr/lib/python%{python_ver}/site-packages/SpineClient.py*
 /usr/sbin/syncfile.py*
 /usr/sbin/syncnothing.py*
 
@@ -145,6 +142,9 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 /usr/sbin/syncaliases.py*
 
 %changelog
+* Mon Feb 08 2010 Leiv Arild Andenes <laa (at) ntnu (dot) no>
+- Ceresync 2.x does not use Spine, hence omniorb is not needed
+
 * Wed Jan 20 2010 Christian H. Toldnes <chritol (at) ntnu (dot) no>
 - updated to fit new version
 
