@@ -92,7 +92,7 @@ class IPNumber(Entity.Entity):
     def find(self, ip_number_id):
         self.__super.find(ip_number_id)
 
-        (self.a_ip, self.aaaa_ip, self.ipnr
+        (self.a_ip, self.ipnr, self.aaaa_ip
          ) = self.query_1("""
         SELECT a_ip, ipnr, aaaa_ip
         FROM [:table schema=cerebrum name=dns_ip_number]
