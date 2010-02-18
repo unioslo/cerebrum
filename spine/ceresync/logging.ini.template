@@ -28,8 +28,10 @@
 
 [loggers]
 keys=root,cronjob,console,ceresync,spine
+
 [handlers]
 keys=hand_root,hand_cronjob,hand_console,hand_syslog,hand_stderr,hand_spine
+
 [formatters]
 keys=form_root,form_cronjob,form_console,form_syslog
 
