@@ -13,9 +13,9 @@ import time
 
 from httplib import HTTPConnection
 from M2Crypto import SSL
-from SignatureHandler import SignatureHandler
+from ceresync.SignatureHandler import SignatureHandler
 
-from Cerebrum.lib.cerews import cerews_services
+from ceresync import cerews_services
 
 from ZSI import FaultException
 
@@ -23,7 +23,7 @@ log = config.logger
 
 
 try:
-    from Cerebrum.lib.cerews.dom import DomletteReader as ReaderClass
+    from ceresync.dom import DomletteReader as ReaderClass
 except ImportError, e:
     log.warn("Could not import DomletteReader.  Install 4Suite for extra performance.")
     from xml.dom import expatbuilder

@@ -16,8 +16,13 @@ adsibackend = backend/adsi/__init__.py backend/adsi/active_directory.py backend/
 kerberosbackend = backend/kerberos/__init__.py backend/kerberos/kadm5.py backend/kerberos/heimdal_error.py backend/kerberos/mit_error.py
 common = cerelog.py config.py doc_exception.py errors.py syncws.py __init__.py
 
+cerews = cerews_services.py cerews_services_types.py
+deps = ../../Cerebrum/lib/cerews/dom.py ../../Cerebrum/lib/cerews/SignatureHandler.py
 
-all: 
+all: $(cerews)
+
+$(cerews): ../../Cerebrum/lib/cerews/cerews.wsdl
+	wsdl2py -f $<
 
 install: install-lib
 	$(INSTALL) -d "$(SBINDIR)"
@@ -33,10 +38,11 @@ install-lib:
 	$(INSTALL) -m 644 $(backend)  "$(pythondir)/ceresync/backend"
 	$(INSTALL) -m 644 $(kerberosbackend)  "$(pythondir)/ceresync/backend/kerberos"
 	$(INSTALL) -m 644 $(adsibackend)  "$(pythondir)/ceresync/backend/adsi"
-
-
+	$(INSTALL) -m 644 $(cerews) "$(pythondir)/ceresync"
+	$(INSTALL) -m 644 $(deps) "$(pythondir)/ceresync"
 
 clean:
+	-rm $(cerews)
 
 distclean: clean
 
