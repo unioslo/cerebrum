@@ -2,13 +2,24 @@
 #
 # Main script for building server and client packages on various platforms
 #
+# If you didn't write this script. Please don't modify it...
+#
+#
+
+#
+# Hinder idiots trying to build as root...
+#
+if [ "`id -u`" -eq "0" ]; then
+	echo "You should never run this script as root"
+	exit 1
+fi
+
 
 if (( $# < 3 )); then
         echo "Build cerebrum or ceresync packages for various platforms."
         echo "usage: $0 PLATFORM TARGET TAG-VERSION [REVISION]"
         echo "Ex: $0 ubuntu804 ceresync 2.0.1 #tag"
         echo "Ex: $0 rhel5 cerebrum 1.09 10882"
-        echo "Ex: $0 solaris10 ceresync trunk"
         echo "Ex: $0 ubuntu804 cerebrum 2.0 #branch"
         exit 1
 fi
@@ -33,14 +44,6 @@ case "$PLATFORM" in
             echo "System seems to qualify as '$PLATFORM'"
         else
             echo "/etc/issue did not identify this system as $PLATFORM"
-            exit 1
-        fi
-        ;;
-    solaris10)
-        if uname -a | grep 'SunOS .* 5\.10 .* sparc' > /dev/null 2>&1; then
-            echo "System seems to qualify as '$PLATFORM'"
-        else
-            echo "uname did not identify this system as $PLATFORM"
             exit 1
         fi
         ;;
@@ -77,7 +80,11 @@ if [ "$REV" = "latest" ]; then
 
     REV=`svn log cerebrum --limit 1 --quiet | awk '/^r[0-9]+/ {print substr($1,2); exit}'`
     echo "Detected the following revision as latest for $VER: '$REV'"
-    mv cerebrum cerebrum-ntnu-$VER-$REV
+    if [ -d cerebrum/cerebrum ]; then
+        mv cerebrum/cerebrum cerebrum-ntnu-$VER-$REV
+    else
+        mv cerebrum cerebrum-ntnu-$VER-$REV
+    fi
 else
     echo "Downloadig source for $VER-$REV from $URL"
     svn co -q -r $REV $URL cerebrum-ntnu-$VER-$REV

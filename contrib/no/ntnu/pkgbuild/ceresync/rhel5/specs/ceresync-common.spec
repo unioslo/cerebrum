@@ -15,6 +15,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
 Requires: omniorb omniorbpy
 Requires: %{pythonssl}
+Requires: python-zsi, m2crypto
 # omniORB pachages: http://www.fourpalms.org/pub/omniORB/SRPMS/
 
 
@@ -101,6 +102,7 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 
 %files
 %defattr(-,root,root)
+/usr/lib/python%{python_ver}/site-packages/SignatureHandler.py
 /usr/lib/python%{python_ver}/site-packages/SpineCore.idl
 /usr/lib/python%{python_ver}/site-packages/ceresync/backend/file.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/backend/__init__.py*
@@ -110,6 +112,7 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 /usr/lib/python%{python_ver}/site-packages/ceresync/errors.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/__init__.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/sync.py*
+/usr/lib/python%{python_ver}/site-packages/ceresync/syncws.py*
 /usr/lib/python%{python_ver}/site-packages/SpineClient.py*
 /usr/sbin/syncfile.py*
 /usr/sbin/syncnothing.py*
@@ -142,5 +145,8 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 /usr/sbin/syncaliases.py*
 
 %changelog
+* Wed Jan 20 2010 Christian H. Toldnes <chritol (at) ntnu (dot) no>
+- updated to fit new version
+
 * Mon Feb 09 2009 Christian H. Toldnes <chritol (at) ntnu (dot) no>
 - Initial spec
