@@ -74,16 +74,13 @@ AC_SUBST(CONFDIR)
 AC_CONFIG_FILES([
 	Makefile
 	testsuite/Makefile
-    spine/Makefile
-    spine/contrib/Makefile
-    spine/client/Makefile
-    spine/ceresync/Makefile
-    spine/ceresync/config.py
-    spine/cereweb/Makefile
-    spine/cereweb/htdocs/Makefile
-    spine/cereweb/htdocs/css/Makefile
-    spine/cereweb/lib/Makefile
-    spine/cereweb/lib/templates/Makefile
+    clients/ceresync/Makefile
+    clients/ceresync/config.py
+    clients/cereweb/Makefile
+    clients/cereweb/htdocs/Makefile
+    clients/cereweb/htdocs/css/Makefile
+    clients/cereweb/lib/Makefile
+    clients/cereweb/lib/templates/Makefile
 	cerebrum_path.py
 	])
 AC_OUTPUT
