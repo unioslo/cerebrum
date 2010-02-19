@@ -58,6 +58,10 @@ from random import Random
 try:
     from M2Crypto import SSL
     CRYPTO_AVAILABLE = True
+    # turn off m2crypto ssl chatter
+    import M2Crypto
+    M2Crypto.m2.SSL_CB_LOOP = 0
+    M2Crypto.m2.SSL_CB_EXIT = 0
 except ImportError:
     CRYPTO_AVAILABLE = False
 
