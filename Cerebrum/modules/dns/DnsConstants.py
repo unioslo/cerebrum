@@ -116,6 +116,9 @@ class Constants(Constants.Constants):
         ('a_ip=%(string:a_ip)s',))
     ip_number_del = _ChangeTypeCode(
         'host', 'ip_number_del', 'del %(subject)s')
+    mac_adr_set = _ChangeTypeCode(
+        'host', 'mac_adr_set', 'set %(subject)s',
+        ('mac_adr=%(string:mac_adr)s',))
     rev_override_add = _ChangeTypeCode(
         'host', 'rev_ovr_add', 'add rev-override %(subject)s -> %(dest)s')
     rev_override_del = _ChangeTypeCode(

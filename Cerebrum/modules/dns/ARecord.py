@@ -163,7 +163,7 @@ class ARecord(Entity):
         where = " AND ".join(where)
         return self.query("""
         SELECT a.a_record_id, a.ip_number_id, i.a_ip, i.ipnr, a.ttl,
-               a.mac, en.entity_name AS name, d.dns_owner_id
+               a.mac, en.entity_name AS name, d.dns_owner_id, i.mac_adr
         FROM [:table schema=cerebrum name=dns_a_record] a,
              [:table schema=cerebrum name=dns_ip_number] i,
              [:table schema=cerebrum name=dns_owner] d,

@@ -96,6 +96,10 @@ class Hinfo(Parameter):
     _type = 'hinfo'
     _help_ref = 'hinfo'
 
+class MACAdr(Parameter):
+    _type = 'mac_adr'
+    _help_ref = 'mac_adr'
+
 class MXSet(Parameter):
     _type = 'mx_set'
     _help_ref = 'mx_set'
@@ -202,6 +206,7 @@ class BofhdExtension(object):
         group_help = {
             'host': "Commands for administrating IP numbers",
             'group': "Group commands",
+            'dhcp': 'Commands for handling MAC-IP associations'
             }
 
         # The texts in command_help are automatically line-wrapped, and should
@@ -240,6 +245,11 @@ class BofhdExtension(object):
             'group_hadd': 'Add machine to a netgroup',
             'group_host': 'List groups where host is a member',
             'group_hrem': 'Remove machine from a netgroup'
+            },
+            'dhcp': {
+            'dhcp_assoc': 'Associate a MAC-address with an IP-address',
+            'dhcp_disassoc': ('Remove associattion between a '
+                           'MAC-address and an IP-address'),
             }
             }
         
@@ -311,6 +321,8 @@ class BofhdExtension(object):
             ['port', 'Enter port value'],
             'ttl':
             ['ttl', 'Enter TTL value'],
+            'mac_adr':
+            ['mac_adr', 'Enter MAC-address'],
             'force':
             ['force', 'Force the operation',
              'Enter y to force the operation']
@@ -650,7 +662,8 @@ class BofhdExtension(object):
         ("%-22s %%s\n%-22s contact=%%s\n%-22s comment=%%s" % (
         "Name:", ' ', ' '), ('dns_owner', 'contact', 'comment')),
         # A-records
-        ("  %-20s %s", ('name', 'ip'), "%-22s IP" % 'A-records'),
+        ("  %-20s %-20s %s", ('name', 'ip', 'mac'),
+         "%-22s %-20s MAC" % ('A-records', 'IP')),
         # Hinfo line
         ("%-22s %s" % ('Hinfo:', 'os=%s cpu=%s'), ('hinfo.os', 'hinfo.cpu')),
         # MX
@@ -675,7 +688,8 @@ class BofhdExtension(object):
                 host_id, dns.IP_NUMBER)
             ret = []
             for a in arecord.list_ext(ip_number_id=owner_id):
-                ret.append({'ip': a['a_ip'], 'name': a['name']})
+                ret.append({'ip': a['a_ip'], 'name': a['name'],
+                            'mac': a['mac_adr']})
 
             ip = IPNumber.IPNumber(self.db)
             added_rev = False
@@ -725,7 +739,8 @@ class BofhdExtension(object):
         tmp = []
         for a in arecord.list_ext(dns_owner_id=owner_id):
             forward_ips.append((a['a_ip'], a['ip_number_id']))
-            tmp.append({'ip': a['a_ip'], 'name': a['name']})
+            tmp.append({'ip': a['a_ip'], 'name': a['name'],
+                        'mac': a['mac_adr']})
         tmp.sort(lambda x, y: cmp(IPCalc.ip_to_long(x['ip']),
                                   IPCalc.ip_to_long(y['ip'])))
         ret.extend(tmp)
@@ -999,6 +1014,75 @@ class BofhdExtension(object):
         operation = self.mb_utils.alter_general_dns_record(
             owner_id, int(self.const.field_type_txt), txt)
         return "OK, %s TXT record for %s" % (operation, host_name)
+
+
+    all_commands['dhcp_assoc'] = Command(
+        ("dhcp", "assoc"), HostId(), MACAdr(), Force(optional=True),
+        perm_filter='is_dns_superuser')
+    def dhcp_assoc(self, operator, host_id, mac_adr, force=False):
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+        
+        arecord = ARecord.ARecord(self.db)
+        ipnumber = IPNumber.IPNumber(self.db)
+
+        # Identify the host we are dealing with, and retrieve the A-records
+        tmp = host_id.split(".")
+        if host_id.find(":") == -1 and tmp[-1].isdigit():
+            owner_id = self._find.find_target_by_parsing(host_id, dns.IP_NUMBER)
+            arecords = arecord.list_ext(ip_number_id=owner_id)
+        else:
+            owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
+            arecords = arecord.list_ext(dns_owner_id=owner_id)
+
+        # Cannot associate a MAC-address unless we have a single
+        # specific address to associate with.
+        if len(arecords) != 1:
+            raise CerebrumError("Must have 1 and only 1 IP-address to associate "
+                                "MAC-adr (%s has %i)." % (host_id, len(arecords)))
+
+        # Retrive IPNumber-interface and set new MAC-address
+        ipnumber.find(arecords[0]['ip_number_id'])
+        if ipnumber.mac_adr is not None and not force:
+            # Already has MAC = reassign => force required
+            raise CerebrumError("%s already associated with %s, use force to "
+                                "re-assign" % (host_id, ipnumber.mac_adr))
+        ipnumber.mac_adr = mac_adr
+        ipnumber.write_db() # Will raise DNSError if malformed MAC
+
+        return "MAC-adr '%s' associated with host '%s'" % (ipnumber.mac_adr, host_id)
+
+
+    all_commands['dhcp_disassoc'] = Command(
+        ("dhcp", "disassoc"), HostId(),
+        perm_filter='is_dns_superuser')
+    def dhcp_disassoc(self, operator, host_id):
+        self.ba.assert_dns_superuser(operator.get_entity_id())
+        
+        arecord = ARecord.ARecord(self.db)
+        ipnumber = IPNumber.IPNumber(self.db)
+            
+        # Identify the host we are dealing with, and retrieve the A-record(s)
+        tmp = host_id.split(".")
+        if host_id.find(":") == -1 and tmp[-1].isdigit():
+            owner_id = self._find.find_target_by_parsing(host_id, dns.IP_NUMBER)
+            arecords = arecord.list_ext(ip_number_id=owner_id)
+        else:
+            owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
+            arecords = arecord.list_ext(dns_owner_id=owner_id)
+
+        # For this host to have a MAC-address, it most likely has only
+        # one A-record/AP, let's assume it is so.
+        ipnumber.find(arecords[0]['ip_number_id'])
+        if ipnumber.mac_adr is None:
+            # How can we delete something that isn't there?
+            raise CerebrumError("No MAC-adr found for host %s" % host_id)
+
+        old_mac = ipnumber.mac_adr # For informational purposes only
+        ipnumber.mac_adr = None
+        ipnumber.write_db() 
+
+        return "MAC-adr '%s' no longer associated with %s" % (old_mac, host_id) 
+        
 
     def get_format_suggestion(self, cmd):
         return self.all_commands[cmd].get_fs()
