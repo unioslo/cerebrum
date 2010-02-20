@@ -37,7 +37,7 @@ conf = ConfigParser.ConfigParser()
 cereweb_config, cereweb_template = read_conf(conf, 'cereweb.conf')
 
 cherrypy_template = os.path.join(path, 'cherrypy.conf.template')
-cherrypy = os.path.join(path, 'cherrypy_user.conf')
+cherrypy = os.path.join(path, 'cherrypy.conf')
 
 default_options = ConfigParser.ConfigParser()
 option_config, option_template = read_conf(default_options, 'options.conf')
