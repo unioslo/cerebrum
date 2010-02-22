@@ -263,17 +263,27 @@ class PersonQuery(BaseQuery):
         self.select.append("account_type.ou_id AS ou_id")
         self.select.append("account_type.affiliation AS affiliation")
         self.select.append("account_type.account_id AS account_id")
+        self.select.append("affiliation.status AS status")
         self.select.append("account_name.entity_name AS account_name")
         self.select.append("account_type.priority AS priority")
         self.select.append("account_authentication.auth_data AS account_passwd")
         self.tables.append("""JOIN account_type account_type
           ON (account_type.person_id = person_info.person_id)""")
+        self.tables.append("""JOIN person_affiliation_source affiliation
+          ON (affiliation.person_id = account_type.person_id
+              AND affiliation.ou_id = account_type.ou_id
+              AND affiliation.affiliation = account_type.affiliation)""")
         self.tables.append("""JOIN entity_name account_name
           ON (account_name.entity_id = account_type.account_id
              AND account_name.value_domain = :account_namespace)""")
+        self.tables.append("""JOIN account_info account_info
+          ON (account_info.account_id = account_type.account_id)""")
         self.tables.append("""LEFT JOIN account_authentication
           ON (account_authentication.method = :authentication_method
              AND account_authentication.account_id = account_type.account_id)""")
+        self.where.append("affiliation.deleted_date IS NULL")
+        self.where.append("""account_info.expire_date > [:now]
+          OR account_info.expire_date IS NULL""")
 
 
 # Merge this with Account.search()....
@@ -785,6 +795,8 @@ class AffiliationDTO(DTO):
         self._attrs = {}
         self._attrs['affiliation'] = str(co.PersonAffiliation(row['affiliation']))
         self._attrs['ou_id'] = row['ou_id']
+        if row.has_key('status'):
+            self._attrs['status'] = co.PersonAffStatus(row['status']).str
 
 def get_node_value(node):
     if not node:
@@ -1155,6 +1167,7 @@ class cerews(ServiceSOAPBinding):
                 p._attrs['primary_account_name'] = primary['account_name']
                 p._attrs['primary_account_password'] = primary['account_passwd']
                 p._attrs['primary_affiliation'] = str(co.PersonAffiliation(primary['affiliation']))
+                p._attrs['primary_affiliation_status'] = co.PersonAffStatus(primary['status']).str
                 p._attrs['primary_ou_id'] = primary['ou_id']
                 p._affiliation = [
                     AffiliationDTO(ap, co) for ap in my_account_priorities.values()]

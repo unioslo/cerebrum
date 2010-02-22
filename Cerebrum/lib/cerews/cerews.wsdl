@@ -52,6 +52,7 @@
   <xs:complexType name="AffiliationType">
     <xs:attribute name="affiliation" type="xs:string"/>
     <xs:attribute name="ou_id" type="xs:integer"/>
+    <xs:attribute name="status" type="xs:string"/>
   </xs:complexType>
 
   <xs:complexType name="PersonType">
@@ -77,6 +78,7 @@
     <xs:attribute name="primary_account_name" type="xs:string"/>
     <xs:attribute name="primary_account_password" type="xs:string"/>
     <xs:attribute name="primary_affiliation" type="xs:string"/>
+    <xs:attribute name="primary_affiliation_status" type="xs:string"/>
     <xs:attribute name="primary_ou_id" type="xs:integer"/>
     <xs:attribute name="email" type="xs:string"/>
     <xs:attribute name="address_text" type="xs:string"/>
