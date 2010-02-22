@@ -334,6 +334,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 v['givenName'] = firstName.strip()
                 v['sn'] = lastName.strip()
                 v['displayName'] = "%s %s" % (firstName, lastName)
+            else:
+                v['displayName'] = v['TEMPuname']
         self.logger.info("Fetched %i person names" % len(pid2names))
 
         #
@@ -791,6 +793,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         "displayName" : "Forward for %s (%s)" % (values['uname'],fwrd_addr),
                         "targetAddress" : "SMTP:%s" % fwrd_addr,
                         "proxyAddresses" : [("SMTP:%s" % fwrd_addr)],
+                        "mail" : fwrd_addr,
                         "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                         "msExchHideFromAddressLists" : True,
                         "mailNickname" : "%s_forward=%s" % (values['uname'],fwrd_addr.replace("@",".")),
@@ -1650,6 +1653,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 if len(changes):
                     changes['distinguishedName'] = 'CN=%s,%s' % (grp,ou)
                     changes['type'] = 'alter_object'
+                    if cerebrum_dict[grp]['Exchange']:
+                        exch_changes.append(grp)
+                        self.logger.info("Added to run Update-Recipient list: %s" % grp)
                     changelist.append(changes)
                     changes = {}
             else:
@@ -1658,10 +1664,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 changes = copy.copy(cerebrum_dict[grp])
                 changes['type'] = 'create_object'
                 changes['sAMAccountName'] = grp
-                if changes.has_key('Exchange'):
+                if changes['Exchange']:
                     exch_changes.append(grp)
                     self.logger.info("Added to run Update-Recipient list: %s" % grp)
-                    del changes['Exchange']
+                del changes['Exchange']
                 changelist.append(changes)
             
         return changelist
@@ -1959,6 +1965,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
           "targetAddress" : String,       #SMTP: <listeadresse>
           "proxyAddresses" : Array,       #SMTP: <listeadresse>
           "mailNickname" : String,        #mailman.<listenavn uten @>
+          "mail" : String                 #listeadresse
           "msExchPoliciesExcluded" : Bool,
           "msExchHideFromAddressLists" : Bool,
         """
@@ -1982,6 +1989,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
                 "displayName" : "Epostliste - %s" % liste,
                 "targetAddress" : "SMTP:%s" % liste,
                 "proxyAddresses" : [("SMTP:%s" % liste)],
+                "mail" : liste,
                 "mailNickname" : "mailman.%s" % liste.replace("@","."),
                 "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                 "msExchHideFromAddressLists" : False
