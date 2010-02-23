@@ -23,7 +23,7 @@ class Adm(object):
     sted_mapping = {
         '00': 'olivia',
         '10': 'olivia',
-        '20': 'tana',   # tidligere tora
+        '20': 'katta',   # tidligere tana, enda tidligere tora
         '30': 'katta',
         '35': 'katta'
         }
