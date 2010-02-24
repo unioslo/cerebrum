@@ -10,13 +10,11 @@ Source0: cerebrum-ntnu-%{version}-%{release}.tar.gz
 Patch0: setup.py.path.patch
 License: GPL
 Group: Applications/System
-BuildRequires: python-cheetah
+BuildRequires: python-setuptools
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
-# Requires: omniorb omniorbpy
 Requires: %{pythonssl}
 Requires: python-zsi, m2crypto
-# omniORB pachages: http://www.fourpalms.org/pub/omniORB/SRPMS/
 
 
 %description
@@ -30,15 +28,6 @@ BuildArch: noarch
 
 %description -n ceresync-ldap
 The LDAP ceresync client
-
-%package -n ceresync-cyrus
-Group: Applications/System
-Summary: The Cyrus ceresync client
-Requires: ceresync-common
-BuildArch: noarch
-
-%description -n ceresync-cyrus
-The Cyrus ceresync client
 
 %package -n ceresync-kerberos
 Group: Applications/System
@@ -111,6 +100,12 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 /usr/lib/python%{python_ver}/site-packages/ceresync/errors.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/__init__.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/syncws.py*
+/usr/lib/python%{python_ver}/site-packages/Cerebrum/__init__.py
+/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/__init__.py
+/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/cerews/__init__.py
+/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/cerews/cerews_services.py
+/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/cerews/cerews_services_types.py
+/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/cerews/dom.py
 /usr/sbin/syncfile.py*
 /usr/sbin/syncnothing.py*
 
@@ -118,11 +113,6 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 %defattr(-,root,root)
 /usr/sbin/synckerberos.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/backend/kerberos/
-
-%files -n ceresync-cyrus
-%defattr(-,root,root)
-/usr/sbin/synccyrus.py*
-/usr/lib/python%{python_ver}/site-packages/ceresync/backend/cyrus/
 
 %files -n ceresync-ldap
 %defattr(-,root,root)

@@ -7,7 +7,7 @@ Standards-Version: 3.7.2
 
 Package: cerebrum-ntnu
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-cheetah, python-cherrypy, omniorb4, openssl, postgresql, gnupg, python, python-omniorb, yui, apache2, python-egenix-mxdatetime, python-psycopg, omniidl4-python, python-imaging, python-reportlab-accel, python-zsi, python-ldap, cx-oracle, python-smbpasswd, python-cjson, python-m2crypto, python-4suite-xml
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, python-cheetah, python-cherrypy, openssl, postgresql, gnupg, python, yui, apache2, python-egenix-mxdatetime, python-psycopg, python-imaging, python-reportlab-accel, python-zsi, python-ldap, cx-oracle, python-smbpasswd, python-cjson, python-m2crypto, python-4suite-xml
 Description: Cerebrum server-installasjon
  .
  Oppdateres slik:
