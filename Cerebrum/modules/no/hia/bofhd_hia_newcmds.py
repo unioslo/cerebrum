@@ -903,7 +903,12 @@ class BofhdExtension(object):
         num_ok = 0
         for n in self._parse_range(selection):
             n -= 1
-            account = self._get_account(cache[n]['account_id'])
+
+            try:
+                account = self._get_account(cache[n]['account_id'])
+            except IndexError:
+                raise CerebrumError("Number not in valid range")
+            
             mapping = {'uname': cache[n]['account_id'],
                        'password': cache[n]['password'],
                        'account_id': account.entity_id,
