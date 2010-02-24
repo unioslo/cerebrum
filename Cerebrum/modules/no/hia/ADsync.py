@@ -638,10 +638,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             #commit changes
                             changelist.append(changes)
                             changes = {}
-                            if (not usr in exch_users) and (cerebrumusrs[usr]['Exchange'] 
-                                                            or cerebrumusrs[usr]['imap']): 
-                                exch_users.append(usr)
-                                self.logger.info("Added to run Update-Recipient list: %s" % usr)
+                            exch_users.append(usr)
+                            self.logger.info("Added to run Update-Recipient list: %s" % usr)
                         #Moving account.
                         if (adusrs[usr]['distinguishedName'] != 
                             "CN=%s,OU=%s,%s" % 
