@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2008 University of Oslo, Norway
+# Copyright 2008-2009 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -59,7 +59,9 @@ users = {
         # david ought not to be touched
         'david': [now - dt.oneDay],
         # emma should get her trait removed
-        'emma': [now - dt.oneDay, now - w5, now - w2]
+        'emma': [now - dt.oneDay, now - w5, now - w2],
+        # frank should be splatted
+        'frank': [now - (age + w5 + dt.oneDay), (now - (w5 + dt.oneDay),)],
         }
 
 
@@ -252,12 +254,20 @@ def create_users(db):
         for r in a.get_entity_quarantine():
             a.delete_entity_quarantine(r['quarantine_type'])
         if len(val) > 1:
+            if isinstance(val[1], tuple):
+                numval = 0
+                date = val[1][0]
+                strval = val[1][0].strftime("Failed: %Y-%m-%d")
+            else:
+                numval = len(val) - 1
+                date = val[1]
+                strval = val[1].strftime("%Y-%m-%d")
             trait = {
                 'code': c.trait_passwordnotifier_notifications,
                 'target_id': None,
-                'date': val[1],
-                'numval': len(val)-1,
-                'strval': val[1].strftime("%Y-%m-%d")
+                'date': date,
+                'numval': numval,
+                'strval': strval
                 }
             if len(val) == 3:
                 trait['strval'] = trait['strval'] + ", " + val[2].strftime("%Y-%m-%d")
@@ -297,11 +307,11 @@ class test_PasswordNotifier(object):
     def test_get_old_account_ids(self):
         """
         Fetch the old account ids
-        The users alice, bob, and charlie does
+        The users alice, bob, charlie, and frank does
         have old passwords or no history.
         """
         ids = set(self.notifier.get_old_account_ids())
-        for u in ['alice', 'bob', 'charlie']:
+        for u in ['alice', 'bob', 'charlie', 'frank']:
             self.account.find_by_name(u)
             assert self.account.entity_id in ids, "%s (%s) is not in old_account_ids" % (
                         u, self.notifier.get_notification_time(self.account))
@@ -312,11 +322,11 @@ class test_PasswordNotifier(object):
     def test_get_notified_ids(self):
         """
         Get previously notified users
-        alice, charlie, and emma are previously notified.
+        alice, charlie, emma, and frank are previously notified.
         Assert that they, and nobody else are returned.
         """
         ids = set(self.notifier.get_notified_ids())
-        for u in ['alice', 'charlie', 'emma']:
+        for u in ['alice', 'charlie', 'emma', 'frank']:
             self.account.find_by_name(u)
             assert self.account.entity_id in ids, "%s is not in old_account_ids" % u
             ids.remove(self.account.entity_id)
@@ -344,7 +354,11 @@ class test_PasswordNotifier(object):
             self.account.clear()
             self.account.find_by_name(u)
             n = self.notifier.get_num_notifications(self.account)
-            assert n == len(v)-1, "Wrong number of notifications for %s" % self.account.account_name
+            expect = len(v) - 1
+            # Handle failed account
+            if len(v) == 2 and isinstance(v[1], tuple):
+                expect = 0
+            assert n == expect, "Wrong number of notifications for %s" % self.account.account_name
 
     def test_inc_num_notifications(self):
         """
@@ -357,7 +371,10 @@ class test_PasswordNotifier(object):
             self.account.find_by_name(u)
             self.notifier.inc_num_notifications(self.account)
             tr = self.account.get_trait(c.trait_passwordnotifier_notifications)
-            assert tr['numval'] == len(v), "Wrong number of notifications for %s" % u
+            expect = len(v)
+            if len(v) == 2 and isinstance(v[1], tuple):
+                expect = 1
+            assert tr['numval'] == expect, "Wrong number of notifications for %s" % u
             dat = now
             if len(v) > 1:
                 dat = v[1]
@@ -380,7 +397,26 @@ class test_PasswordNotifier(object):
             self.account.clear()
             self.account.find_by_name(u)
             tm = self.notifier.get_notification_time(self.account)
-            assert v[1] ==  tm, "Wrong date for %s: expected %s, got %s" % (u, v[1], tm)
+            expect = v[1]
+            if isinstance(expect, tuple):
+                expect = expect[0]
+            assert expect ==  tm, "Wrong date for %s: expected %s, got %s" % (u, v[1], tm)
+
+    def test_rec_fail_notification(self):
+        """
+        Test that fail_notification works
+        """
+        for u, v in users.iteritems():
+            if len(v) == 1:
+                self.account.clear()
+                self.account.find_by_name(u)
+                self.notifier.rec_fail_notification(self.account)
+                self.account.clear()
+                self.account.find_by_name(u)
+                tr = self.account.get_trait(c.trait_passwordnotifier_notifications)
+                assert tr['numval'] == 0, "Wrong number of notifications after fail for %s" % u
+                assert tr['date'] == now, "wrong date for %s: expected %s, got %s" %(
+                        u, now, type(tr['date']))
 
     def test_get_deadline(self):
         """
@@ -390,7 +426,12 @@ class test_PasswordNotifier(object):
             self.account.clear()
             self.account.find_by_name(u)
             tm = self.notifier.get_deadline(self.account)
-            ex = len(v) > 1 and v[1] + w5 or now + w5
+            ex = now + w5
+            if len(v) > 1:
+                if isinstance(v[1], tuple):
+                    ex = v[1][0] + w5
+                else:
+                    ex = v[1] + w5
             assert tm == ex, "Wrong deadline for %s: expected %s, got %s" % (u, ex, tm)
 
     def test_remind_ok(self):
@@ -400,7 +441,12 @@ class test_PasswordNotifier(object):
         for u, v in users.iteritems():
             self.account.clear()
             self.account.find_by_name(u)
-            ex = len(v) == 2 and now >= v[1] + w2
+            ex = False
+            if len(v) == 2:
+                if isinstance(v[1], tuple):
+                    ex = False
+                else:
+                    ex = now >= v[1] + w2
             assert ex == self.notifier.remind_ok(self.account)
 
     def test_splat_user(self):
@@ -451,6 +497,12 @@ class test_PasswordNotifier(object):
                 "david should have his trait removed"
         assert not _send_mail.find_word('david'), \
             "david should not have been mailed"
+        self.account.clear()
+        self.account.find_by_name('frank')
+        q = self.account.get_entity_quarantine(c.quarantine_autopassord)
+        assert q, "frank should be splatted"
+        assert not _send_mail.find_word('frank'), \
+            "frank should not have been mailed"
 
     def test_process_accounts_fail(self):
         """
@@ -476,9 +528,13 @@ class test_PasswordNotifier(object):
         assert self.notifier.get_num_notifications(self.account) == 0, \
                 "emma should not have been touched"
         self.account.clear()
-        self.account.find_by_name('emma')
+        self.account.find_by_name('david')
         assert self.notifier.get_num_notifications(self.account) == 0, \
                 "david should have his trait removed"
+        self.account.clear()
+        self.account.find_by_name('frank')
+        q = self.account.get_entity_quarantine(c.quarantine_autopassord)
+        assert q, "frank should be splatted"
 
     def test_except_user(self):
         """
