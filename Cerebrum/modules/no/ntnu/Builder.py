@@ -76,7 +76,7 @@ class Builder():
                     self.ou_recursive_cache[id].append(ou_by_id[p]['acronym'])
                 p = parents.get(p)
             
-    def _map(self, confmap, ou_id, affiliation):
+    def _parse_config_map(self, confmap, ou_id, affiliation):
         acronyms = self.ou_recursive_cache[ou_id]
         for acronym in acronyms:
             if (affiliation, acronym) in confmap:
@@ -90,13 +90,16 @@ class Builder():
             yield confmap[None, None]
 
     def map_affiliation_to_groups(self, ou_id, affiliation):
-        return self._map(cereconf.BUILD_EMAIL, ou_id, affiliation).next()
+        return self._parse_config_map(cereconf.BUILD_EMAIL,
+                                      ou_id, affiliation).next()
 
     def map_affiliation_to_spread(self, ou_id, affiliation):
-        return self._map(cereconf.BUILD_SPREAD, ou_id, affiliation).next()
+        return self._parse_config_map(cereconf.BUILD_SPREAD,
+                                      ou_id, affiliation).next()
 
     def map_affiliation_to_email(self, ou_id, affiliation):
-        return self._map(cereconf.BUILD_EMAIL, ou_id, affiliation).next()
+        return self._parse_config_map(cereconf.BUILD_EMAIL,
+                                      ou_id, affiliation).next()
 
     
     def rebuild_all_accounts(self):
