@@ -23,6 +23,7 @@ Once mismatched users a collected, compile a report and e-mail it to NMH.
 from cStringIO import StringIO
 import getopt
 import sys
+import textwrap
 
 import cerebrum_path
 import cereconf
@@ -202,6 +203,19 @@ def prepare_report(affiliations, accountless, multi_account, mismatched):
 # end prepare_report
 
 
+def send_report(report):
+    """E-mail report to the designated recipients.
+    """
+
+    # For now, we'll just output this to stdout:
+    wrapper = textwrap.TextWrapper(width=76,
+                                   subsequent_indent="\t",)
+    for chunk in report.split("\n"):
+        print wrapper.fill(chunk)
+    # print wrapper.fill(report)
+# end send_report
+
+
 
 def main():
     global logger
@@ -234,7 +248,7 @@ def main():
     accountless, multi_account, mismatched = collect_mismatched_users(persons)
     report = prepare_report(affiliations, accountless, multi_account,
                             mismatched)
-    logger.debug(report)
+    send_report(report)
 # end main
 
 
