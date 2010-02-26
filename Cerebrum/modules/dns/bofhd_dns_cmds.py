@@ -1025,6 +1025,11 @@ class BofhdExtension(object):
         arecord = ARecord.ARecord(self.db)
         ipnumber = IPNumber.IPNumber(self.db)
 
+        
+        if ipnumber.find_by_mac(mac_adr) and not force:
+            raise CerebrumError("MAC-adr '%s' already in use, "
+                                "must force (y)" % mac_adr)
+            
         # Identify the host we are dealing with, and retrieve the A-records
         tmp = host_id.split(".")
         if host_id.find(":") == -1 and tmp[-1].isdigit():
@@ -1041,6 +1046,7 @@ class BofhdExtension(object):
                                 "MAC-adr (%s has %i)." % (host_id, len(arecords)))
 
         # Retrive IPNumber-interface and set new MAC-address
+        ipnumber.clear()
         ipnumber.find(arecords[0]['ip_number_id'])
         if ipnumber.mac_adr is not None and not force:
             # Already has MAC = reassign => force required
@@ -1053,14 +1059,14 @@ class BofhdExtension(object):
 
 
     all_commands['dhcp_disassoc'] = Command(
-        ("dhcp", "disassoc"), HostId(),
+        ("dhcp", "disassoc"), HostId(), Force(optional=True),
         perm_filter='is_dns_superuser')
-    def dhcp_disassoc(self, operator, host_id):
+    def dhcp_disassoc(self, operator, host_id, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         
         arecord = ARecord.ARecord(self.db)
         ipnumber = IPNumber.IPNumber(self.db)
-            
+
         # Identify the host we are dealing with, and retrieve the A-record(s)
         tmp = host_id.split(".")
         if host_id.find(":") == -1 and tmp[-1].isdigit():
@@ -1070,18 +1076,27 @@ class BofhdExtension(object):
             owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
             arecords = arecord.list_ext(dns_owner_id=owner_id)
 
-        # For this host to have a MAC-address, it most likely has only
-        # one A-record/AP, let's assume it is so.
-        ipnumber.find(arecords[0]['ip_number_id'])
-        if ipnumber.mac_adr is None:
-            # How can we delete something that isn't there?
+        if len(arecords) != 1 and not force:
+            raise CerebrumError("Host has multiple A-records, must force (y)")
+
+        old_macs = set()
+        for arecord_row in arecords:
+            ipnumber.clear()
+            ipnumber.find(arecord_row['ip_number_id'])
+            if ipnumber.mac_adr is None:
+                continue
+
+            old_macs.add(ipnumber.mac_adr) # For informational purposes only
+            ipnumber.mac_adr = None
+            ipnumber.write_db()
+
+        if not old_macs:
+            # Why would someone run this command for a host with no
+            # MACs? Better let them know something's weird
             raise CerebrumError("No MAC-adr found for host %s" % host_id)
 
-        old_mac = ipnumber.mac_adr # For informational purposes only
-        ipnumber.mac_adr = None
-        ipnumber.write_db() 
-
-        return "MAC-adr '%s' no longer associated with %s" % (old_mac, host_id) 
+        return ("MAC-adr '%s' " % "','".join(old_macs) + 
+                "no longer associated with %s" % host_id)
         
 
     def get_format_suggestion(self, cmd):

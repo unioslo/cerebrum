@@ -54,7 +54,6 @@ class IPNumber(Entity.Entity):
         if not self.__updated:
             return
         is_new = not self.__in_db
-        print "write_db:", self.entity_id,self.a_ip,self.aaaa_ip,self.ipnr,self.mac_adr
 
         if 'a_ip' in self.__updated:  # numeric ipnr can only be calculated
             if (len(self.a_ip.split('.')) != 4 or 
@@ -127,6 +126,13 @@ class IPNumber(Entity.Entity):
         FROM [:table schema=cerebrum name=dns_ip_number]
         WHERE a_ip=:a_ip""", {'a_ip': a_ip})
         self.find(ip_number_id)
+
+
+    def find_by_mac(self, mac):
+        return self.query("""
+        SELECT a_ip, ipnr, aaaa_ip, mac_adr
+        FROM [:table schema=cerebrum name=dns_ip_number]
+        WHERE mac_adr=:mac_adr""", {'mac_adr': mac})
 
 
     def find_in_range(self, start, stop):
