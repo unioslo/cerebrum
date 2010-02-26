@@ -85,39 +85,26 @@ def warn_users(fromdate, todate, template, smtp_server, bounce_address):
     s.quit()
 
 def main():
-    try:
-        days = cereconf.MAIL_EXPIRE_ACCOUNTS_DAYSBEFORE
-    except AttributeError:
-        days = 14
-
-    try:
-        lastfile = cereconf.MAIL_EXPIRE_ACCOUNTS_TIMESTAMP
-    except AttributeError:
-        lastfile = '/var/log/cerebrum/mail_expire_accounts.timestamp'
+    days = getattr(cereconf, 'MAIL_EXPIRE_ACCOUNTS_DAYSBEFORE', 14)
+    lastfile = getattr(cereconf, 'MAIL_EXPIRE_ACCOUNTS_TIMESTAMP',
+                       '/var/log/cerebrum/mail_expire_accounts.timestamp')
 
     now = mx.DateTime.now()
     warntime = now - days
+    
     try:
         last = mx.DateTime.DateFrom(open(lastfile).read())
     except IOError:
         last = warntime - 1 # Assume daily
 
-    try:
-        template = cereconf.MAIL_EXPIRE_ACCOUNTS_TEMPLATE
-    except AttributeError:
-        template = '/etc/cerebrum/mail_expire_accounts.template'
-
-    try:
-        bounce_address = cereconf.MAIL_EXPIRE_ACCOUNTS_BOUNCE
-    except AttributeError:
-        bounce_address = "devnull@ntnu.no"
-
-    try:
-        smtp_server = cereconf.SMTP_SERVER
-    except AttributeError:
-        smtp_server = "localhost"
-
+    template = getattr(cereconf, 'MAIL_EXPIRE_ACCOUNTS_TEMPLATE',
+                       '/etc/cerebrum/mail_expire_accounts.template')
     template = Template(open(template).read())
+
+    bounce_address = getattr(cereconf, 'MAIL_EXPIRE_ACCOUNTS_BOUNCE',
+                             "devnull@ntnu.no")
+    smtp_server = getattr(cereconf, 'SMTP_SERVER', "localhost")
+
 
     warn_users(last, warntime, template, smtp_server, bounce_address)
     
