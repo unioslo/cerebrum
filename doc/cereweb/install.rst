@@ -5,18 +5,15 @@ Installation instructions for Cereweb (Cerebrum web interface)
 Requirements
 ============
 
-* Python 2.2 or newer
+* Python 2.4 or newer
 
-* omniORB
-
-* Cheetah 1.0
+* Cheetah 2.*
   http://www.cheetahtemplate.org/
 
-* CherryPy 2.1
+* CherryPy 2.2.*
   http://www.cherrypy.org/
 
-* forgetHTML
-  http://forgethtml.sourceforge.net/
+* cjson 1.*
 
 Install
 =======
