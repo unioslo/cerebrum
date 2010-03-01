@@ -23,7 +23,6 @@
 import sys
 from ceresync import syncws as sync
 from ceresync import config
-import omniORB # for the exceptions
 
 log = config.logger
 

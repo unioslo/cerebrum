@@ -26,7 +26,6 @@ import traceback
 import urllib
 import config
 import utils 
-import omniORB
 import Messages
 from templates.ErrorTemplate import ErrorTemplate
 from Cerebrum.Errors import NotFoundError
