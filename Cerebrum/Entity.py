@@ -274,7 +274,7 @@ class EntitySpread(Entity):
         sel = ""
         if spreads:
             sel = """WHERE spread """
-            if isinstance(spreads, (list, tuple)):
+            if isinstance(spreads, (set, list, tuple)):
                 sel += "IN (%s)" % ", ".join(map(str, map(int, spreads)))
             else:
                 sel += "= %d" % spreads
