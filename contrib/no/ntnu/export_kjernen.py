@@ -33,7 +33,6 @@ class Export2Kjernen(object):
             self.co.affiliation_alumni:         'alumni',
             self.co.affiliation_student:        'student'
         }
-        ## not used at the moment, maybe later...
         self.affiliations_status = {
             self.co.affiliation_status_tilknyttet_bilag:        'bilag',
             self.co.affiliation_status_ansatt_ansatt:           'ansatt',
@@ -122,14 +121,11 @@ class Export2Kjernen(object):
         aff_created = {}
         for row in self._person.list_affiliations():
             affs[row['person_id']] = row['affiliation']
-            ## affiliation status is not used at the moment, maybe later...
-            ## affs_status[row['person_id']] = row['status']
+            affs_status[row['person_id']] = row['status']
             ous[row['person_id']] = row['ou_id']
             aff_created[row['person_id']] = row['create_date'].strftime(self._iso_format)
             
-        ## affiliation status is not used at the moment, maybe later...
-        ## return (affs, ous, affs_status, aff_created)
-        return (affs, ous, aff_created)
+        return (affs, ous, affs_status, aff_created)
  
     def write_file(self):
         if self.verbose:
@@ -137,9 +133,7 @@ class Export2Kjernen(object):
         i = 0
         f = open(self.outfile, fileMode, bufferSize)
         for k in self.nins.keys():
-            ## affiliation status is not used at the moment, maybe later...
-            ## out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
-            out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
+            out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
                     (k,
                     self.nins[k][:6],
                     self.nins[k][6:],
@@ -148,7 +142,7 @@ class Export2Kjernen(object):
                     self.lastnames.get(k, ''),
                     self.emails.get(k, ''),
                     self.affiliations.get(self.affs.get(k, ''), ''),
-                    ## self.affiliations_status.get(self.affs_status.get(k, ''),''),
+                    self.affiliations_status.get(self.affs_status.get(k, ''),''),
                     self.stedkoder.get(self.ous.get(k, ''), ''),
                     self.accounts.get(k, ''),
                     self.created.get(k, ''))
@@ -188,9 +182,7 @@ class Export2Kjernen(object):
         if self.doTiming and self.verbose:
             self.print_time(before)
             before = time.time()
-        ## affiliation status is not used at the moment, maybe later...
-        ## (self.affs, self.ous, self.affs_status, self.created) = self.get_affiliations()
-        (self.affs, self.ous, self.created) = self.get_affiliations()
+        (self.affs, self.ous, self.affs_status, self.created) = self.get_affiliations()
         if self.doTiming and self.verbose:
             self.print_time(before)
             before = time.time()
