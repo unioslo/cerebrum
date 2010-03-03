@@ -293,7 +293,7 @@ class EntitySpread(Entity):
             sel = """
             JOIN [:table schema=cerebrum name=entity_info] ei
               ON ei.entity_id = es.entity_id AND ei.entity_type """
-            if isinstance(entity_types, (list, tuple)):
+            if isinstance(entity_types, (set, list, tuple)):
                 sel += "IN (%s)" % ", ".join(map(str, map(int, entity_types)))
             else:
                 sel += "= %d" % entity_types
