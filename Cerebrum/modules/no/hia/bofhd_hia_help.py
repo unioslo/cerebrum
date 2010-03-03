@@ -67,6 +67,7 @@ command_help = {
     'email_delete_list': "Remove a Mailman list's addresses",
     'email_delete_multi': "Remove a multi target and all its addresses",
     'email_migrate': 'Migrate users from old to new e-mail service',
+    'email_exchange_migrate': 'Migrate email account from IMAP to Exchange',
     'email_move': 'Move a user\'s e-mail to another server',
     'email_quota': "Change a user's storage quota for e-mail",
     'email_spam_action': "How to handle user's spam",
