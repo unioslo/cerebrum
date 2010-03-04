@@ -455,7 +455,7 @@ class BofhdUtils(object):
                                 # 2008-08-27, jazz
                                 # we need to decide whether this
                                 # should be allowed and to what extent
-                                #"external_id": None,}
+                                "external_id": None,}
 
         def get_target_find_lookup(name, default_lookup):
             if isinstance(name, int):
