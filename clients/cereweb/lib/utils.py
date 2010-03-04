@@ -42,7 +42,10 @@ def get_referer():
     return cherrypy.request.headers.get('Referer','')
     
 def get_host():
-    return cherrypy.request.headers.get('Host', '')
+    host = cherrypy.request.headers.get('X-Forwarded-Host', '')
+    if not host:
+        host = cherrypy.request.headers.get('Host', '')
+    return host
 
 def get_method():
     return cherrypy.request.method.strip()
