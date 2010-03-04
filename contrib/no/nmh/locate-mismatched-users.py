@@ -18,6 +18,12 @@ Specifically, for each person P in Cerebrum carrying a specific affiliation:
   report an error.
 
 Once mismatched users a collected, compile a report and e-mail it to NMH.
+
+For example, a typical run is to check for mismatches between employees and
+their respective accounts:
+
+  python contrib/no/nmh/locate-mismatched-users.py \
+         -a ANSATT -s system_sap
 """
 
 from cStringIO import StringIO
@@ -30,6 +36,7 @@ import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import simple_memoize
+from Cerebrum.Utils import sendmail
 
 
 
@@ -203,16 +210,19 @@ def prepare_report(affiliations, accountless, multi_account, mismatched):
 # end prepare_report
 
 
-def send_report(report):
+def send_report(report, to, cc=None):
     """E-mail report to the designated recipients.
     """
 
-    # For now, we'll just output this to stdout:
+    # The wrapper magic makes the e-mail slightly easier on the eyes.
     wrapper = textwrap.TextWrapper(width=76,
                                    subsequent_indent="\t",)
-    for chunk in report.split("\n"):
-        print wrapper.fill(chunk)
-    # print wrapper.fill(report)
+    pretty_message = "\n".join(wrapper.fill(x)
+                               for x in report.split("\n"))
+    sendmail(to, "cerebrum-nmh@usit.uio.no",
+             "Forskjell i tilknytninger mellom personer og brukere",
+             pretty_message,
+             cc=cc)
 # end send_report
 
 
@@ -222,12 +232,15 @@ def main():
     logger = Factory.get_logger("cronjob")
 
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "a:s:",
+                                  "a:s:t:c:",
                                   ("affiliation=",
-                                   "source-system=",))
+                                   "source-system=",
+                                   "to=",
+                                   "cc=",))
 
     affiliations = set()
     source = None
+    to = cc = None
     
     const = Factory.get("Constants")()
     for option, value in options:
@@ -240,15 +253,20 @@ def main():
         elif option in ("-s", "--source-system",):
             source_system = const.human2constant(value,
                                                  const.AuthoritativeSystem)
+        elif option in ("-t", "--to",):
+            to = value
+        elif option in ("-c", "--cc",):
+            cc = value
 
     assert source_system is not None, "Missing source system"
     assert len(affiliations) > 0, "Missing affiliation filter"
+    assert to is not None, "Missing report recipient"
     
     persons = fetch_persons(affiliations, source)
     accountless, multi_account, mismatched = collect_mismatched_users(persons)
     report = prepare_report(affiliations, accountless, multi_account,
                             mismatched)
-    send_report(report)
+    send_report(report, to, cc)
 # end main
 
 
