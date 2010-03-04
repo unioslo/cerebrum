@@ -260,7 +260,7 @@ def populate_enhet_groups(enhet_id, role_mapping):
                 act_resp[account_id] = 1
                 logger.debug("act_resp: '%s'" % act_resp)
         except KeyError:
-            logger.warning("Unable to find any responsibles for '%s-%s'" % (kurs_id, act_code))
+            logger.info("Unable to find any responsibles for '%s-%s'" % (kurs_id, act_code))
         sync_group(kurs_id, mk_gname("%s:%s:ansvar" % (enhet_id, act_code)),
                    "Ansvarlige %s %s %s%s %s" % (emnekode, termk, aar, enhet_suffix,
                                              importer.UndervEnhet[enhet_id]['aktivitet'][act_code]),
