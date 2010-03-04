@@ -26,10 +26,13 @@ import cereconf
 import Cerebrum.Errors
 import types
 from Cerebrum.Utils import Factory
-from sets import Set
-from Cerebrum.spine.SpineLib import Builder
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.bofhd.auth import *
+
+try:
+    set()
+except NameError:
+    from sets import Set as set
 
 class AuthEntities(object):
     def __init__(self, db):
@@ -237,8 +240,8 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
     def add_operation_sets(self):
         # Add and update op_sets in the config file.
         for key, new in self.op_sets.items():
-            new = Set(new)
-            old = Set(self.old_op_sets.get(key))
+            new = set(new)
+            old = set(self.old_op_sets.get(key))
 
             self._add_ops_to_set(key, new - old)
             self._remove_ops_from_set(key, old - new)
