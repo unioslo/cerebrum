@@ -28,6 +28,7 @@ group_help = {
     'quarantine': 'Quarantine related commands',
     'spread': 'Spread related commands',
     'user': 'Account building and manipulation',
+    'trait': 'Trait related commands',
     'perm': 'Control of Privileges in Cerebrum'
     }
 
@@ -154,6 +155,16 @@ command_help = {
     'spread_add': 'Assign a new spread for an entity',
     'spread_list': 'List all defined spreads',
     'spread_remove': 'Remove a spread from an entity',
+    },
+    'trait': {
+    'trait_info':
+        "Display all traits associated with an entity",
+    'trait_list':
+        "List all entities which have specified trait",
+    'trait_remove':
+        "Remove a trait from an entity",
+    'trait_set':
+        "Add or update an entity's trait",
     },
     'user': {
     'user_affiliation_add': 'Add affiliation for an account',
@@ -409,6 +420,20 @@ Example:
     'string_why':
         ['why', 'Why?',
          'You should type a text indicating why you perform the operation'],
+    'trait':
+        ['trait', 'Name of trait'],
+    'trait_val':
+        ['value', 'Trait value',
+         """Enter the trait value as key=value.  'key' is one of
+
+ * target_id -- value is an entity, entered as type:name
+ * date -- value is on format YYYY-MM-DD
+ * numval -- value is an integer
+ * strval -- value is a string
+
+The key name may be abbreviated.  If value is left empty, the value
+associated with key will be cleared.  Updating an existing trait will
+blank all unnamed keys."""],
     'tripnote_text':
         ['text', 'Tripnote',
          'Enter message to be sent.  You may use \\n to separate lines of text.'],

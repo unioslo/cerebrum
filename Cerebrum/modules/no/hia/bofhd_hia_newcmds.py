@@ -162,6 +162,10 @@ class BofhdExtension(object):
         '_email_delete_list', '_check_mailman_official_name',
         '_get_mailman_list', '_create_mailing_list_in_cerebrum', '_is_ok_mailing_list_name',
         #
+        # copy trait-functions
+        #
+        'trait_info', 'trait_list', 'trait_set', 'trait_remove',
+        #
         # copy relevant helper-functions
         #
          '_find_persons', '_get_account', '_get_ou', '_format_ou_name',
