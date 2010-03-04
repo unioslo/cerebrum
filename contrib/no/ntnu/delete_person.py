@@ -64,7 +64,7 @@ def delete_person_by_externalid(id, type, source):
 
 def do_delete_person(person):
     # Remove traits
-    for t in person.get_traits():
+    for t in list(person.get_traits()):
         person.delete_trait(t)
         person.write_db()
     # Remote spreads
@@ -73,7 +73,7 @@ def do_delete_person(person):
         person.write_db()
     # Remove address
     for ea in person.get_entity_address():
-        person.delete_entity_address(ea['source_type'], ea['a_type'])
+        person.delete_entity_address(ea['source_system'], ea['address_type'])
         person.write_db()
     # Remove all affiliations
     for a in person.get_affiliations():
@@ -84,7 +84,7 @@ def do_delete_person(person):
         person.write_db()
     # Remove contact info
     for c in person.get_contact_info():
-        person.delete_contact_info(source, type, pref='ALL')
+        person.delete_contact_info(c['source_system'], c['contact_type'])
         person.write_db()
     person.delete()
 
@@ -96,7 +96,7 @@ def main():
     opts,args = getopt.getopt(sys.argv[1:],
                        'hvdc',['help','dryrun', 'verbose',
                                'type=', 'source=', 'list=', 'personid='])
-    type=None
+    typ=None
     source=None
     delete_list=[]
     
@@ -108,8 +108,8 @@ def main():
         elif opt in ('-v','--verbose'):
             verbose = True
         elif opt in ('--type',):
-            type = const.EntityExternalId(val)
-            int(type)
+            typ = const.EntityExternalId(val)
+            int(typ)
         elif opt in ('--source',):
             source = const.AuthoritativeSystem(val)
             int(source)
@@ -119,9 +119,9 @@ def main():
         elif opt in ('--personid',):
             delete_list.append(val)
 
-    if type is not None:
+    if typ is not None:
         for i in delete_list:
-            check_commit(delete_person_by_externalid, i, type, source)
+            check_commit(delete_person_by_externalid, i, typ, source)
     else:
         for i in delete_list:
             check_commit(delete_person, int(i))
