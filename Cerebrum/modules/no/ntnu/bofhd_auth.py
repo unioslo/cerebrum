@@ -109,12 +109,12 @@ class BofhdAuth(auth.BofhdAuth):
         
         if self._has_global_access(operator,
                                    operation,
-                                   self.const.auth_target_type_global_email_domain,
+                                   self.const.auth_target_type_global_maildomain,
                                    domain_id):
             return True
 
         return self._has_target_permissions(
-            operator, operation, self.const.auth_target_type_email_domain,
+            operator, operation, self.const.auth_target_type_maildomain,
             domain_id, None)
 
 
@@ -273,7 +273,7 @@ class BofhdAuth(auth.BofhdAuth):
 
         return self._has_global_access(
             operator, self.const.auth_email_domain_create,
-            self.const.auth_target_type_global_email_domain, victim_id=None)
+            self.const.auth_target_type_global_maildomain, victim_id=None)
 
     def can_edit_email_domain(self, operator, target):
         operation = self.const.auth_email_domain_edit

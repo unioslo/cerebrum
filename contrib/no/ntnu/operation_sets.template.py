@@ -12,7 +12,7 @@ op_roles = [
     ('group', 'cereweb_nt_drift', 'admin_resources', ('host', 'gren.nt.ntnu.no')),
     ('group', 'cereweb_nt_drift', 'admin_resources', ('host', 'mail.nt.ntnu.no')),
     ('group', 'cereweb_nt_drift', 'admin_resources', ('host', 'ratbert.itea.ntnu.no')),
-    ('group', 'cereweb_nt_drift', 'admin_resources', ('maildomain', 'nt.ntnu.no')),
+    ('group', 'cereweb_nt_drift', 'admin_resources', ('maildom', 'nt.ntnu.no')),
     ('group', 'cereweb_nt_drift', 'admin_resources', ('spread', 'user@chembio')),
     ('group', 'cereweb_nt_drift', 'admin_resources', ('group', 'kall')),
     ('group', 'cereweb_nt_drift', 'admin_resources', ('group', 'kall_s')),

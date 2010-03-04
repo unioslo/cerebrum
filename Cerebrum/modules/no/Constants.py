@@ -80,6 +80,9 @@ class ConstantsHigherEdu(Constants.Constants):
     externalid_uname = _EntityExternalIdCode('UNAME',
                                              Constants.Constants.entity_person,
                                              'User name (external system)')
+    externalid_stedkode = _EntityExternalIdCode('STEDKODE',
+						Constants.Constants.entity_ou,
+						'Stedkode')
 
     # OU-structure perspectives
     perspective_fs = _OUPerspectiveCode('FS', 'FS')
