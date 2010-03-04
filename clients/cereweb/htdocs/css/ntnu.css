@@ -118,3 +118,7 @@ form input:focus, form textarea:focus {
     background: #ffd;
 }
 
+div.buttons {
+    margin-top: 20px;
+    margin-left: 80px;
+}
