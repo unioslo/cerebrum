@@ -1051,10 +1051,11 @@ class BDBSync:
 
         # ... we'll update expire-date 
         logger.info('Updating account %s on person cerebrum-%s' % (username,person_entity))
-        create_date = mx.DateTime.DateFrom(account_info.get('creation_date'))
-        if ac.create_date != create_date:
-            ac.create_date = create_date
-            ac.write_db()
+        create_date = account_info.get('creation_date')
+        if create_date:
+            create_date = mx.DateTime.DateFrom(create_date)
+            if ac.create_date != create_date:
+                ac.set_create_date(create_date)
         
         expire_date = account_info.get('expire_date',None)
         if expire_date:

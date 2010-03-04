@@ -308,3 +308,16 @@ class AccountNTNUMixin(Account.Account):
         self.apply_expiredate_policy()
 
         return self.__super.write_db()
+
+    # Temporary support for channging create_date to
+    # sync correct dates from BDB.
+    def set_create_date(self, create_date):
+        self.create_date = create_date
+        self.execute("""
+        UPDATE [:table schema=cerebrum name=account_info]
+        SET create_date=:create_date
+        WHERE account_id=:acc_id""",
+                     {'create_date' : create_date,
+                      'acc_id' : self.entity_id})
+        self._db.log_change(self.entity_id, self.const.account_mod,
+                            None, change_params={'create_date': create_date})
