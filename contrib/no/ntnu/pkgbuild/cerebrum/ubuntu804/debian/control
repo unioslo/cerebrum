@@ -13,15 +13,11 @@ Description: Cerebrum server-installasjon
  Oppdateres slik:
  .
  For stable versions:
-   VER=1.08
-   REV=HEAD
-   VERSION=$VER
+   VER=1.08; REV=HEAD; VERSION=$VER
    REPOS=https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/tags/ntnu-prod-$VERSION
  .
  For SVN updates:
-   VER=1.08
-   REV=10371
-   VERSION=$VER+svn$REV
+   VER=1.08; REV=10371; VERSION=$VER-$REV
    REPOS=https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum
  .
  Check out with:
@@ -33,15 +29,14 @@ Description: Cerebrum server-installasjon
    cd $OLD_PACKAGE_DIRECTORY
    uupdate -v $VERSION -u ../$NAME.tar.gz
    cd ../$NAME
-   # (Fiks eventuelle mangler i debian/{control,rules} eller annet
-   dch                           # Oppdater changelog
-   sudo apt-get build-dep cerebrum-ntnu # Installer dependencies
-   dpkg-buildpackage -rfakeroot  # Kompiler pakken
-   ubuntu-mirror-add             # Last opp til mirror
+   # (Fix or add new things in debian/{control,rules} etc.
+   dch                           # Update the change log
+   sudo apt-get build-dep cerebrum-ntnu # Install dependencies
+   dpkg-buildpackage -rfakeroot  # Compile the package(s)
+   ubuntu-mirror-add             # Upload to mirror (production)
  .
  Other useful commands:
-   # Increment version number, for use when making a new package with the same
-   # source version
+   # Increment version number, when making a new package with the same source version
    dch -i 
    # Download the latest source package
    sudo aptitude update && apt-get source cerebrum-ntnu  
