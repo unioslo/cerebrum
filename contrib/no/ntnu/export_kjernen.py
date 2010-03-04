@@ -27,26 +27,6 @@ class Export2Kjernen(object):
         self.outfile = outfile
         self.verbose = verbose
         self.doTiming = doTiming
-        self.affiliations = {
-            self.co.affiliation_tilknyttet :    'tilknyttet',
-            self.co.affiliation_ansatt:         'ansatt',
-            self.co.affiliation_alumni:         'alumni',
-            self.co.affiliation_student:        'student'
-        }
-        self.affiliations_status = {
-            self.co.affiliation_status_tilknyttet_bilag:        'bilag',
-            self.co.affiliation_status_ansatt_ansatt:           'ansatt',
-            self.co.affiliation_status_student_student:         'student',
-            self.co.affiliation_status_student_bachelor:        'bachelor',
-            self.co.affiliation_status_tilknyttet_annen:        'annen',
-            self.co.affiliation_status_student_aktiv:           'master',
-            self.co.affiliation_status_tilknyttet_gjest:        'gjest',
-            self.co.affiliation_status_tilknyttet_fagperson:    'fagperson',
-            self.co.affiliation_status_ansatt_vit:              'vitenskaplig',
-            self.co.affiliation_status_alumni_aktiv:            'alumni',
-            self.co.affiliation_status_student_drgrad:          'drgrad',
-            self.co.affiliation_status_ansatt_tekadm:           'tekadm'
-        }
 
     def get_stedkoder(self):
         if self.verbose:
@@ -120,10 +100,13 @@ class Export2Kjernen(object):
         ous = {}
         aff_created = {}
         for row in self._person.list_affiliations():
-            affs[row['person_id']] = row['affiliation']
-            affs_status[row['person_id']] = row['status']
+            affs[row['person_id']] = \
+                self._person.const.PersonAffiliation(row['affiliation']).str.lower()
+            affs_status[row['person_id']] = \
+                self._person.const.PersonAffStatus(row['status']).str.lower()
             ous[row['person_id']] = row['ou_id']
-            aff_created[row['person_id']] = row['create_date'].strftime(self._iso_format)
+            aff_created[row['person_id']] = \
+                row['create_date'].strftime(self._iso_format)
             
         return (affs, ous, affs_status, aff_created)
  
@@ -141,8 +124,8 @@ class Export2Kjernen(object):
                     self.firstnames.get(k,''),
                     self.lastnames.get(k, ''),
                     self.emails.get(k, ''),
-                    self.affiliations.get(self.affs.get(k, ''), ''),
-                    self.affiliations_status.get(self.affs_status.get(k, ''),''),
+                    self.affs.get(k, ''),
+                    self.affs_status.get(k, ''),
                     self.stedkoder.get(self.ous.get(k, ''), ''),
                     self.accounts.get(k, ''),
                     self.created.get(k, ''))
