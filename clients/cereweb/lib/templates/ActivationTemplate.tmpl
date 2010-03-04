@@ -283,7 +283,7 @@ $header()
 	   <input type="checkbox" id="godkjent" name="godkjent_logger" />
 	 </div>
 
-      <div>
+      <div class="buttons">
         <input type="submit" name="submit_btn" value="$_('Continue')" />
       </div>
   </form>
@@ -301,12 +301,12 @@ $header()
             $_('You need to enter your student identification number (6 numerals).')
         </div>
 
-        <div>
+        <div class="required">
 	  <label for="studentnummer">$_('Student identification number:')</label>
           <input type="text" id="studentnummer" name="studentnr" />
         </div>
 
-        <div>
+        <div class="buttons">
             <input type="submit" name="blapp" value="$_('Continue')" />
 	</div>
   </form>
@@ -324,13 +324,13 @@ $header()
         <div class="text">
             $_('Please, enter your PIN-code (4 numerals).')
         </div>
-        <div>
+        <div class="required">
             <label for="pincode">$_('PIN-code:')</label>
             <input maxlength="4" id="pincode" type="text" name="pin" />
 
         </div>
 
-        <div>
+        <div class="buttons">
             <input type="submit" id="pinkodeok" name="blapp" value="$_('Continue')" />
 	</div>
 
@@ -361,12 +361,12 @@ $header()
         $_('Please enter your norwegian national identification number (11 numerals).')
       </div>
 
-        <div class="text">
+        <div class="required">
         <label for="fnummer">$_('National identification number:')</label>
         <input maxlength="11" type="text" id="fnummer" name="fnr" />
       </div>
 
-        <div>
+        <div class="buttons">
         <input type="submit" id="fodselsnrok" name="submit" value="$_('Continue')" />
       </div>
   </form>
@@ -416,7 +416,7 @@ $footer()
     <div>
         <input type="hidden" name="page" value="language" />
     </div>
-    <div>
+    <div class="required">
       <label for="thelang">$_('Spr&aring;k/Language:')</label>
 
       <select id="thelang" name="lang">
@@ -435,7 +435,7 @@ $footer()
       </select>
     </div>
 
-    <div>
+    <div class="buttons">
       <input type="submit" id="thelangbutton" name="language" value="$_('Continue')" />
     </div>
   </form>

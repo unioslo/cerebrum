@@ -152,6 +152,7 @@ cherrypy.response.headerMap['Cache-Control']=cache_control
         #end if
     </div>
      <form action="/passwd/savepw/" method="post">
+                <fieldset>
                     <div class="required">
                         $form_widgets.input('username', $_('Username'))
                     </div>
@@ -164,8 +165,11 @@ cherrypy.response.headerMap['Cache-Control']=cache_control
                     <div class="required">
                         $form_widgets.password('password2', $_('Retype Password'))
                     </div>
+                    <div class="buttons">
                         <label class="hidden" for="submit">$_('Submit:')</label>
                         <input id="submit" type="submit" value="$_('Change password')" />
+                    </div>
+                </fieldset>
                 </form>
         <div class="text">
             $choose_lang($cherrypy.session.get('lang'))
