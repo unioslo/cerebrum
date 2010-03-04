@@ -450,7 +450,7 @@ class BofhdUtils(object):
                                 "host": ("Host",),
                                 "disk": ("Disk",),
                                 "entity_id": None,
-                                "id": None,}
+                                "id": None,
                                 #
                                 # 2008-08-27, jazz
                                 # we need to decide whether this
