@@ -202,6 +202,7 @@ class ConstantsUniversityColleges(Constants.Constants):
     country_is = _CountryCode("IS", "Island", "345", "Iceland")    
     country_fr = _CountryCode("FR", "France", "33", "France")
     country_ch = _CountryCode("CH", "Switzerland", "41", "Switzerland")
+    country_mx = _CountryCode("MX", "Mexico", "52", "Mexico")
 
     ## Spread definitions - user related
     spread_ldap_account = _SpreadCode(
