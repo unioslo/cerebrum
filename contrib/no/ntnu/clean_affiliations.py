@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# -*- coding: iso8859-1 -*-
+# -*- coding: iso-8859-1 -*-
 #
 # Copyright 2007 University of Oslo, Norway
 #
@@ -37,66 +37,129 @@ db = Factory.get('Database')()
 co = Factory.get('Constants')(db)
 db.cl_init(change_program='clean_affs')
 
-p = Factory.get('Person')(db)
-
-auto = sets.Set()
-manual = sets.Set()
+person = Factory.get('Person')(db)
+account = Factory.get('Account')(db)
+logger = Factory.get_logger("console")
 
 def main():
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'v:d:h',['verbose','dryrun','help'])
+        opts,args = getopt.getopt(sys.argv[1:],'v:d:h',
+                                  ['verbose','dryrun','help','remove_bdb_affs'])
     except getopt.GetoptError:
         usage()
 
+    global dryrun
+    global remove_bdb_affs
+
     dryrun = False
     verbose = False
-    
+    remove_bdb_affs = False
 
     for opt,val in opts:
         if opt in ('-d','--dryrun'):
             dryrun = True
-        if opt in ('-v','--verbose'):
-            verbose = True
+        if opt in ('--remove_bdb_affs'):
+            remove_bdb_affs = True
         if opt in ('-h','--help'):
             usage()
 
-    for person,ou,aff,source,status,dd,cd in p.list_affiliations():
+    if verbose:
+        logger = Factory.get_logger("console")
+    else:
+        logger = Factory.get_logger("cronjob")
+        
+    clean_inferior_affiliations()
+    clean_deleted_affiliations()
+
+
+def clean_deleted_affiliations():
+    active = set()
+    for paff in person.list_affiliations():
+        afftup = (paff['person_id'], paff['ou_id'], paff['affiliation'])
+        active.add(afftup)
+
+    to_delete = {}
+    for at in account.list_accounts_by_type(filter_expired=False):
+        afftup = (at['person_id'], at['ou_id'], at['affiliation'])
+        if not afftup in active:
+            to_delete.setdefault(at['account_id'], []).append(
+                (at['ou_id'], at['affiliation']))
+    
+    count = 0
+    acount = 0
+    for account_id, ats in to_delete.items():
+        account.clear()
+        account.find(account_id)
+        logger.info("Removing affiliations from %s: %s",
+                    account.account_name,
+                    ", ".join("%s:%d" % (co.PersonAffiliation(aff), ou_id)
+                              for ou_id, aff in ats))
+        acount += 1
+        for ou_id, aff in ats:
+            account.del_account_type(ou_id, aff)
+            count += 1
+
+    if dryrun:
+        logger.info("%d affiliations would have been removed in %d accounts",
+                    count, acount)
+        db.rollback()
+    else:
+        logger.info("%d affiliations removed from %d accounts",
+                    count, acount)
+        db.commit()
+
+
+def clean_inferior_affiliations():
+    auto = set()
+    manual = set()
+    bdb = set()
+
+    for paff in person.list_affiliations():
+        afftup = (paff['person_id'], paff['ou_id'], paff['affiliation'])
+        source = paff['source_system']
+
         if source == co.system_manual:
-            manual.add((person, ou, aff))
+            manual.add(afftup)
         elif source == co.system_bdb:
-            manual.add((person, ou, aff))
+            bdb.add(afftup)
         else:
-            auto.add((person, ou, aff))
+            auto.add(afftup)
 
     count=0
     # If you have 2 affiliations of same type and ou and one of them
     # is added manually, it will be marked for deletion
-    for person,ou,aff in manual.intersection(auto):
+    todelete=[]
+    for person_id, ou_id, aff in (manual & (auto | bdb)):
+        todelete.append((person_id, ou_id, aff, co.system_manual))
+    # Also do the same if an affiliation comes from BDB and also a
+    # better source.
+    if remove_bdb_affs:
+        for person_id, ou_id, aff in (bdb & auto):
+            todelete.append((person_id, ou_id, aff, co.system_bdb))
+
+    for person_id, ou_id, aff, source in todelete:
         try:
-            # Use delete_date?
-            p.clear()
-            p.find(person)
-            if verbose:
-                print "Deleting affiliation %s on %s of type manual for entity %s" % (aff,ou,person)
-            p.delete_affiliation(ou, aff, co.system_manual)
-            p.write_db()
+            person.clear()
+            person.find(person_id)
+            logger.info("Deleting affiliation %s on %s of type %s for person %s",
+                        co.PersonAffiliation(aff), ou_id,
+                        co.AuthoritativeSystem(source), person_id)
+            person.delete_affiliation(ou_id, aff, source)
+            person.write_db()
             count+=1
         except Errors.NotFoundError:
             pass
             
     if dryrun:
-        if verbose:
-            print "%d manual affiliations would have been removed" % count
+        logger.info("%d manual affiliations would have been removed" % count)
         db.rollback()
     else:
-        if verbose:
-            print "%d manual affiliations removed from database" % count
+        logger.info("%d manual affiliations removed from database" % count)
         db.commit()
 
 def usage():
     print """Usage: %s
     -d | --dry-run : if you only want to show which would have been marked for deletion - use this option.
-    -v | --verbose : print out the affiliation on ou for person that would/will be marked for deletion.
     -h | --help    : duh
     """ % sys.argv[0]
     sys.exit(1)
