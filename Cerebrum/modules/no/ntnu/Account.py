@@ -170,7 +170,8 @@ class AccountNTNUMixin(Account.Account):
                                             include_deleted=True):
             if row['ou_id'] == ou_id and row['affiliation'] == affiliation:
                 status = self.const.PersonAffStatus(
-                    row['status'])._get_status()
+                    row['status']).str
+                source = self.const.AuthoritativeSystem(row['source_system'])
                 break
         if status is None:
             raise ValueError, "Person don't have that affiliation"
@@ -186,6 +187,10 @@ class AccountNTNUMixin(Account.Account):
             status = '*'
         pri_min, pri_max = pri_ranges[affiliationstr][status]
 
+        if source == self.const.system_bdb:
+            pri_min += 20
+            pri_max += 20
+
         person.find(self.owner_id)
         primary_trait = person.get_trait(self.const.trait_primary_account)
         if primary_trait is not None:
@@ -193,10 +198,7 @@ class AccountNTNUMixin(Account.Account):
             isprimary = (primary_account == self.entity_id)
         else:
             isprimary = False
-        
-        if not isprimary and pri_min <= current_pri < pri_max:
-            return current_pri
-        
+
         # Find taken values in this range and sort them
         taken = []
         thisaff = []
@@ -208,25 +210,40 @@ class AccountNTNUMixin(Account.Account):
         taken = [x for x in taken if x >= pri_min and x < pri_max]
         taken.sort()
         thisaff.sort()
+
+        # Leave some extra room for primary ids from BDB
+        if not isprimary:
+            pri_min += 5
         
-
-        if isprimary and len(thisaff) > 0:
-            # Keep if this account already has the lowest pri
-            if (current_pri == thisaff[0] and
-                pri_min <= current_pri < pri_max):
+        # Is the old priority usable?
+        if current_pri and pri_min <= current_pri < pri_max:
+            if not isprimary:
                 return current_pri
-            # Try to lower the priority
-            new_pri = thisaff[0] - 1
-        else:
-            if (not taken):
-                taken.append(pri_min)
-            new_pri = taken[-1] + 2
-            if new_pri < pri_max:
-                return new_pri
 
-            # In the unlikely event that the previous taken value was at the
-            # end of the range
-            new_pri = pri_max - 1
+            if len(thisaff) > 0 and current_pri == thisaff[0]:
+                return current_pri
+           
+        # We need a new priority    
+        if isprimary:
+            # For primary ids, use the lowest possible value
+            new_pri = pri_min
+            while new_pri < pri_max:
+                if new_pri not in taken:
+                    return new_pri
+                new_pri += 1
+            raise ValueError, "No free priorities for that account_type!"
+
+        # For non primary ids start after the highest taken value,
+        # and leave some room in between.
+        if (not taken):
+            taken.append(pri_min)
+        new_pri = taken[-1] + 2
+        if new_pri < pri_max:
+            return new_pri
+
+        # In the unlikely event that the previous taken value was at the
+        # end of the range
+        new_pri = pri_max - 1
         while new_pri >= pri_min:
             if new_pri not in taken:
                 return new_pri
