@@ -447,11 +447,7 @@ class Constants(Constants.Constants):
 
     auth_homedir_set_status = _AuthRoleOpCode(
         'homedir_set_status', "Operation code for changing home directory status")
-
-    auth_target_type_spread="spread"
     auth_target_type_cereweb="cereweb"
-    auth_target_type_email_domain="email_domain"
-    auth_target_type_global_email_domain="global_email_domain"
 
     auth_login = _AuthRoleOpCode(
         'login_access', "Operation code for granting login access")
