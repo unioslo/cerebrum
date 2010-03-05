@@ -32,14 +32,17 @@ from Cerebrum.modules.no.Indigo.Cweb import Errors
 import re
 
 class Controller(object):
-    def __init__(self, logger, available_actions):
+    def __init__(self, logger, available_actions, unavailable_commands=()):
         self.logger = logger
         self.available_actions = available_actions
+        self.unavailable_commands = unavailable_commands
         
     def process_request(self):
         self.state = State.StateClass(self)
         self.html_util = Utils.HTMLUtil(self.logger, self.state)
-        self.cerebrum = CerebrumProxy(self.logger, url=cereconf.CWEB_BOFH_SERVER_URL)
+        self.cerebrum = CerebrumProxy(self.logger,
+                                url=cereconf.CWEB_BOFH_SERVER_URL,
+                                unavailable_commands=self.unavailable_commands)
         self.user_cmd = Commands.UserCommands(self.state, self.cerebrum)
         self.group_cmd = Commands.GroupCommands(self.state, self.cerebrum)
         self.person_cmd = Commands.PersonCommands(self.state, self.cerebrum)

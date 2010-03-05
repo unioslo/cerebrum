@@ -350,11 +350,9 @@ class PersonCommands(VirtualCommands):
                 u['email'] = self.cerebrum.get_default_email(u['entity_id'])
             except:
                 u['email'] = '<ukjent>'
-
-            if u['email'] is '<ukjent>':
-                u['email_addresses'] = ()
-            else:
-                email_info = self.cerebrum.email_info(uname=u['username'])
+            u['email_addresses'] = None
+            email_info = self.cerebrum.email_info(uname=u['username'])
+            if email_info:
                 u['email_addresses'] = email_info['valid_addr']
                 if u['email'] in u['email_addresses']:
                     u['email_addresses'].remove(u['email'])

@@ -42,9 +42,10 @@ class CerebrumProxy(object):
     LIVE_MODE = 1
     PLAYBACK_MODE = 2
     
-    def __init__(self, logger, url=None, recfile=None):
+    def __init__(self, logger, url=None, recfile=None, unavailable_commands=()):
         self._logger = logger
         self._session_id= None
+        self._unavailable_commands = unavailable_commands
         if recfile is not None:
             self.data = pickle.load(open(recfile))
             self.mode = self.PLAYBACK_MODE
@@ -68,6 +69,9 @@ class CerebrumProxy(object):
             self._logger.debug("run_command returned None")
             return None
         else:
+            if cmd in self._unavailable_commands:
+                self._logger.debug("run_command: command %s unavailable" % cmd)
+                return ()
             self._logger.debug("run_command: %s" % repr(
                 (self._session_id, cmd, args)))
             r = self.conn.run_command(self._session_id, cmd, *args)
