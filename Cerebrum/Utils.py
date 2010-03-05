@@ -105,7 +105,9 @@ def sendmail(toaddr, fromaddr, subject, body, cc=None,
     msg['To'] = toaddr.strip()
     msg['Date'] = formatdate(localtime=True)
     if cc:
-        msg['Cc'] = cc
+        toaddr = [toaddr]
+        toaddr.append(cc.strip())
+        msg['Cc'] = cc.strip()
     if debug:
         return msg.as_string()
     smtp = smtplib.SMTP(cereconf.SMTP_HOST)
