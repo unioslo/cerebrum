@@ -22,6 +22,7 @@ import cerebrum_path
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules import Email
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 Database = Utils.Factory.get("Database")
 Constants = Utils.Factory.get("Constants")

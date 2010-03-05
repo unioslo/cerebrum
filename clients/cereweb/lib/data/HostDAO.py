@@ -23,6 +23,7 @@ from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules import Email
 from Cerebrum.modules.no.ntnu.bofhd_auth import BofhdAuth
+from Cerebrum.modules.bofhd.errors import PermissionDenied
 
 from lib.data.DTO import DTO
 
