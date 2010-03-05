@@ -367,7 +367,7 @@ class BofhdAuth(DatabaseAccessor):
         if query_run_any:
             return self._has_operation_perm_somewhere(operator,
                                               self.const.auth_set_password)
-	return False
+        return False
         
     def is_postmaster(self, operator, query_run_any=False):
         # Rather than require an operation as an argument, we pick a
@@ -511,7 +511,7 @@ class BofhdAuth(DatabaseAccessor):
                                          self.const.auth_create_user,
                                          self.const.auth_target_type_disk,
                                          None, None) or
-            self._has_ou_permissions(operator,
+            self._query_ou_permissions(operator,
                                      self.const.auth_create_user,
                                      ou, affiliation, None)):
             return True
