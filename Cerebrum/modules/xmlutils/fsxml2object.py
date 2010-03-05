@@ -203,7 +203,8 @@ class EduDataGetter(XMLDataGetter):
                                          "instituttnr_kontroll",
                                          "gruppenr_kontroll",
                                          "emnenavn_bokmal",
-                                         "emnenavnfork"))
+                                         "emnenavnfork",
+                                         "lmsrommalkode",))
     def iter_undakt(self, tag="aktivitet"):
         return self.__fix_iterator(tag, ("institusjonsnr",
                                          "terminnr",
@@ -217,7 +218,8 @@ class EduDataGetter(XMLDataGetter):
                                          "institusjonsnr_kontroll",
                                          "faknr_kontroll",
                                          "instituttnr_kontroll",
-                                         "gruppenr_kontroll"))
+                                         "gruppenr_kontroll",
+                                         "lmsrommalkode",))
     def iter_evu(self, tag="evu"):
         return self.__fix_iterator(tag, ("kurstidsangivelsekode",
                                          "etterutdkurskode",
@@ -226,13 +228,15 @@ class EduDataGetter(XMLDataGetter):
                                          "faknr_adm_ansvar",
                                          "instituttnr_adm_ansvar",
                                          "gruppenr_adm_ansvar",
-                                         "etterutdkursnavn"))
+                                         "etterutdkursnavn",
+                                         "lmsrommalkode",))
     def iter_kursakt(self, tag="kursakt"):
         return self.__fix_iterator(tag, ("kurstidsangivelsekode",
                                          "etterutdkurskode",
                                          "aktivitetskode",
                                          "status_eksport_lms",
-                                         "aktivitetsnavn"))
+                                         "aktivitetsnavn",
+                                         "lmsrommalkode",))
     def iter_kull(self, tag="kull"):
         return self.__fix_iterator(tag, ("arstall",
                                          "studieprogramkode",
@@ -241,7 +245,8 @@ class EduDataGetter(XMLDataGetter):
                                          "faknr_studieansv",
                                          "instituttnr_studieansv",
                                          "gruppenr_studieansv",
-                                         "studiekullnavn"))
+                                         "studiekullnavn",
+                                         "lmsrommalkode",))
 # end FSXMLDataGetter
 
 

@@ -730,7 +730,8 @@ class UiOUndervisning(access_FS.Undervisning):
           ue.institusjonsnr, ue.emnekode, ue.versjonskode, ue.terminkode,
           ue.arstall, ue.terminnr, e.institusjonsnr_kontroll,
           e.faknr_kontroll, e.instituttnr_kontroll, e.gruppenr_kontroll,
-          e.emnenavn_bokmal, e.emnenavnfork, ue.status_eksport_lms
+          e.emnenavn_bokmal, e.emnenavnfork, ue.status_eksport_lms,
+          ue.lmsrommalkode
         FROM
           fs.undervisningsenhet ue, fs.emne e, fs.arstermin t
         WHERE
@@ -992,7 +993,8 @@ class UiOStudieInfo(access_FS.StudieInfo):
           k.studieprogramkode, k.terminkode, k.arstall, k.studiekullnavn, 
           k.kulltrinn_start, k.terminnr_maks, k.status_generer_epost,
           s.institusjonsnr_studieansv, s.faknr_studieansv,
-          s.instituttnr_studieansv, s.gruppenr_studieansv
+          s.instituttnr_studieansv, s.gruppenr_studieansv,
+          k.lmsrommalkode
         FROM  fs.kull k, fs.studieprogram s
         WHERE
           k.status_aktiv = 'J' AND

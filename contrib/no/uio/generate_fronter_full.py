@@ -106,9 +106,16 @@ class Fronter(object):
         # Cache av undakt -> romprofil, siden vi ønsker å ha spesialiserte
         # romprofiler.
         self.akt2room_profile = {}
+
+        # A mapping from an internal unique key to 'LMSrommalkode'
+        # (i.e. Fronter profile) specified for that particular entity (undenh,
+        # undakt, evu, kursakt or kull).
+        self.entity2room_profile = dict()
         if 'FS' in [x[0:2] for x in self.export]:
             self.read_kurs_data(undenh_file, undakt_file, evu_file,
                                 kursakt_file, kull_file)
+        self.logger.debug("entity2room_profile has %d elements",
+                          len(self.entity2room_profile))
 
         # ugh!
         t = time.localtime()[0:3]
@@ -371,6 +378,9 @@ class Fronter(object):
             if key not in kurs:
                 continue
 
+            if undenh["lmsrommalkode"]:
+                self.entity2room_profile[key] = undenh["lmsrommalkode"]
+
             self.logger.debug("registrerer undenh <%s> (key: %s)", id_seq, key)
 
             self.kurs2enhet.setdefault(kurs_id, []).append(key)
@@ -446,8 +456,9 @@ class Fronter(object):
             self.enhet2akt.setdefault(enhet_id, []).append(
                 (undakt['aktivitetkode'], undakt['aktivitetsnavn'],
                  undakt['terminkode'], undakt['arstall'], undakt['terminnr']))
-            if undakt.get("lmsrommalkode"):
-                self.akt2room_profile[key] = undakt["lmsrommalkode"]
+
+            if undakt["lmsrommalkode"]:
+                self.entity2room_profile[key] = undakt["lmsrommalkode"]
     # end _read_undakt_data
 
 
@@ -478,6 +489,9 @@ class Fronter(object):
             # The correct name for EVU-kurs is always readily available (as
             # opposed to multisemester subjects (flersemesteremner)).
             self.kurs2navn[key] = evu['etterutdkursnavn']
+            
+            if evu["lmsrommalkode"]:
+                self.entity2room_profile[key] = evu["lmsrommalkode"]
     # end _read_evu_data
 
 
@@ -511,6 +525,9 @@ class Fronter(object):
                               id_seq, akt_id)
             self.enhet2akt.setdefault(key, []).append(
                 (kursakt['aktivitetskode'], kursakt['aktivitetsnavn']))
+
+            if kursakt["lmsrommalkode"]:
+                self.entity2room_profile[key] = kursakt["lmsrommalkode"]
     # end _read_kursakt_data
 
             
@@ -543,6 +560,9 @@ class Fronter(object):
                 int(kull["gruppenr_studieansv"]),)
             self.kurs2navn[key] = kull["studiekullnavn"]
             self.logger.debug("registrerer kull <%s> (key: %s)", id_seq, key)
+
+            if kull["lmsrommalkode"]:
+                self.entity2room_profile[key] = kull["lmsrommalkode"]
     # end _read_kull_data
 
                     
@@ -1510,7 +1530,7 @@ def build_structure(sko, allow_room=False, allow_contact=False):
 # end build_structure
 
 
-def make_profile(enhet_id, aktkode):
+def make_profile(*rest):
     """Make a room profile (for undakt).
 
     DML requested non-standard room profiles for undakt, to be fetched from
@@ -1519,8 +1539,8 @@ def make_profile(enhet_id, aktkode):
     back to the default profile.
     """
 
-    akt_id = ":".join((enhet_id, aktkode))
-    return fronter.akt2room_profile.get(akt_id)
+    key = ":".join(rest)
+    return fronter.entity2room_profile.get(key)
 # end make_profile
 
 
@@ -1679,7 +1699,7 @@ def process_kurs2enhet():
             fellesrom_id = "ROOM/Felles:%s" % struct_id
             larerrom_id = "ROOM/Larer:%s" % struct_id
             register_room("%s - Fellesrom %s" % (emnekode.upper(), term_title),
-                          fellesrom_id, enhet_node)
+                          fellesrom_id, enhet_node, make_profile(enh_id))
             register_room("%s - Lærerrom %s" % (emnekode.upper(), term_title),
                           larerrom_id, enhet_node)
 
@@ -1723,7 +1743,7 @@ def process_kurs2enhet():
 
                 # Just like undenh, EVU-kurs have one fellesrom and one lærerrom.
                 register_room("%s - Fellesrom" % kurskode.upper(),
-                              fellesrom_id, enhet_node)
+                              fellesrom_id, enhet_node, make_profile(enhet_id))
                 register_room("%s - Lærerrom" % kurskode.upper(),
                               "ROOM/Larer:%s" % struct_id, enhet_node)
                 process_single_enhet_id(enhet_id, struct_id,
@@ -1742,7 +1762,7 @@ def process_kurs2enhet():
                                stprog_node, sko_node, allow_room=True)
                 register_room("Kullrom for %s, %s %s %s" %
                               (fronter.kurs2navn[kurs_id], stprog, termkode, aar),
-                              kull_node, stprog_node)
+                              kull_node, stprog_node, make_profile(enhet_id))
                 kullstud = "uio.no:fs:%s:student" % enhet_id.lower()
 
                 template_id = "uio.no:fs:%s:%s" % (enhet_id.lower(), "%s")
