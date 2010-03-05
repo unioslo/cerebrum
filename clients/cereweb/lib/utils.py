@@ -295,31 +295,31 @@ def get_links(page):
             ('/entity/global_historylog', _('View recent changes')),
         ),
         'person': (
-            ('search', _('Search')),
-            ('create', _('Create')),
+            ('/person/search/', _('Search')),
+            ('/person/create/', _('Create')),
         ),
         'account': (
-            ('search', _('Search')),
+            ('/account/search/', _('Search')),
         ),
         'group': (
-            ('search', _('Search')),
-            ('create', _('Create')),
+            ('/group/search/', _('Search')),
+            ('/group/create/', _('Create')),
         ),
         'ou': (
-            ('tree', _('Tree')),
-            ('create', _('Create')),
+            ('/ou/tree/', _('Tree')),
+            ('/ou/create/', _('Create')),
         ),
         'host': (
-            ('search', _('Search')),
-            ('create', _('Create')),
+            ('/host/search/', _('Search')),
+            ('/host/create/', _('Create')),
         ),
         'disk': (
-            ('search', _('Search')),
-            ('create', _('Create')),
+            ('/disk/search/', _('Search')),
+            ('/disk/create/', _('Create')),
         ),
         'email': (
-            ('search', _('Search')),
-            ('create', _('Create')),
+            ('/email/search/', _('Search')),
+            ('/email/create/', _('Create')),
         ),
     }
     section = get_section(page)
