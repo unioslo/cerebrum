@@ -20,6 +20,7 @@ class Builder():
         self.emaildomain = Email.EmailDomain(db)
         self.creator_id = creator_id
         self._make_ou_cache(db)
+        self.const = self.account.const
 
     def generate_email_addresses(self, fname, lname):
         lname = self.account.simplify_name(lname, alt=0)
@@ -52,11 +53,11 @@ class Builder():
             id = o['ou_id']
             ou_by_id[id] = o
             if acronym:
-                self.ou_acronym[ou_id] = acronym
+                self.ou_acronym[id] = acronym
                 assert acronym not in ou_acros
                 ou_acros.add(acronym)
             else:
-                self.ou_acronym[ou_id] = str(ou_id)
+                self.ou_acronym[id] = str(id)
                 
 
         parents = {}
@@ -78,6 +79,7 @@ class Builder():
             
     def _parse_config_map(self, confmap, ou_id, affiliation):
         acronyms = self.ou_recursive_cache[ou_id]
+        affiliation = self.const.PersonAffiliation(affiliation).str
         for acronym in acronyms:
             if (affiliation, acronym) in confmap:
                 yield confmap[affiliation, acronym]
@@ -90,22 +92,31 @@ class Builder():
             yield confmap[None, None]
 
     def map_affiliation_to_groups(self, ou_id, affiliation):
-        return self._parse_config_map(cereconf.BUILD_EMAIL,
-                                      ou_id, affiliation).next()
+        try:
+            return self._parse_config_map(cereconf.BUILD_GROUP,
+                                          ou_id, affiliation).next()
+        except StopIteration:
+            return ()
 
     def map_affiliation_to_spread(self, ou_id, affiliation):
-        return self._parse_config_map(cereconf.BUILD_SPREAD,
-                                      ou_id, affiliation).next()
+        try:
+            return self._parse_config_map(cereconf.BUILD_SPREAD,
+                                          ou_id, affiliation).next()
+        except StopIteration:
+            return ()
 
     def map_affiliation_to_email(self, ou_id, affiliation):
-        return self._parse_config_map(cereconf.BUILD_EMAIL,
-                                      ou_id, affiliation).next()
+        try:
+            return self._parse_config_map(cereconf.BUILD_EMAIL,
+                                          ou_id, affiliation).next()
+        except StopIteration:
+            return None
 
     
     def rebuild_all_accounts(self):
         for a in self.account.list():
             if not a['np_type']:
-                self.build_account(a['account_id'])
+                self.rebuild_account(a['account_id'])
 
     def build_from_owner(self, owner_id):
         self.person.clear()
@@ -121,12 +132,12 @@ class Builder():
                 self.account.clear()
                 self.account.find(a['account_id'])
                 self._add_account_affiliations(uninheritedaffs)
-                #self._build_account()
+                self._build_account()
         else:
             self.account.clear()
             self._create_account()
             self._add_account_affiliations(personaffs)
-            #self._build_account()
+            self._build_account()
         self.db.rollback()
 
 
@@ -143,7 +154,7 @@ class Builder():
         uninheritedaffs = personaffs - allaccountaffs
 
         self._add_account_affiliations(uninheritedaffs)
-        #self._build_account()
+        self._build_account()
         self.db.rollback()
             
     def _build_account(self):
@@ -151,14 +162,17 @@ class Builder():
         accountprio = list(self.account.get_account_types())
         accountprio.sort(key=lambda ap: ap['priority'])
         # Last affiliation is primary (lowest number)
+        if not accountprio:
+            return
         primaryaff = accountprio[-1]
 
         primarygroup_id = self._build_group_membership(accountprio)
         if primarygroup_id is not None:
             self._build_posix(primarygroup_id)
         else:
-            logger.warn("Cannot find a primary group for account %s.",
-                        self.account.account_name)
+            #logger.warn("Cannot find a primary group for account %s.",
+            #            self.account.account_name)
+            pass
 
         self._build_spreads(accountprio)
         self._build_email(primaryaff)
@@ -177,14 +191,14 @@ class Builder():
             account_affs.add((aff['affiliation'], aff['ou_id']))
         return account_affs
 
-    def _clean_account_affiliations(self, affs):
+    def _remove_account_affiliations(self, affs):
         const = self.account.const
         for aff in self.account.get_account_types():
             if (aff['affiliation'], aff['ou_id']) not in affs:
                 logger.info("Removing affiliation for %s: %s:%s",
                             self.account.account_name,
                             const.PersonAffiliation(aff),
-                            self.ou_name.get(ou_id, ou_id))
+                            self.ou_acronym.get(ou_id, ou_id))
                 self.account.del_account_type(aff['ou_id'], aff['affiliation'])
                 
         
@@ -196,7 +210,7 @@ class Builder():
                         self.account.account_name,
                         ", ".join(["%s:%s" % (
                             const.PersonAffiliation(aff),
-                            self.ou_name(ou_id, ou_id))
+                            self.ou_acronym.get(ou_id, ou_id))
                                    for aff, ou_id in affs]))
             for aff, ou_id in affs:
                 self.account.set_account_type(ou_id, aff)
@@ -237,7 +251,7 @@ class Builder():
                 primary_group_id = aff_groups[0]
         old_groups = set([g['group_id'] for g in self.group.search_members(
                     member_id=self.account.entity_id)])
-        for g in new_groups - old_groups:
+        for group_id in new_groups - old_groups:
             self.group.clear()
             self.group.find(group_id)
             logger.info("Adding %s to group %s",
@@ -267,20 +281,20 @@ class Builder():
         """Add spreads requested by config for accountprio"""
         new_spreads = set()
         for ap in accountprio:
-            new_spreads |= set(self.map_affiliation_to_spread(
-                    ap['ou_id'], ap['affiliation']))
+            s = self.map_affiliation_to_spread(ap['ou_id'], ap['affiliation'])
+            new_spreads |= set(map(self.const.Spread, s))
         
         old_spreads = set([s['spread'] for s in self.account.get_spread()])
         add_spreads = new_spreads - old_spreads
         if add_spreads:
             logger.info("Adding spreads for %s: %s",
                         self.account.account_name,
-                        ", ".join([str(s) for s in spreads]))
+                        ", ".join([str(s) for s in add_spreads]))
             for s in add_spreads:
-                self.account.add_spread(new_spreads)
+                self.account.add_spread(s)
             self.account.write_db()
         # XXX Delete/expire some managed spreads later?
-                              
+
     def _build_email(self, primaryaff):
         """Build email for user."""
         const = self.account.const
@@ -288,8 +302,8 @@ class Builder():
         emailconf = self.map_affiliation_to_email(
             primaryaff['ou_id'], primaryaff['affiliation'])
         if not emailconf:
-            logger.warn("No email for account %s",
-                        self.account.account_name)
+            logger.debug("No email for account %s",
+                         self.account.account_name)
             return
         (emailserver, emaildomain, addrtype) = emailconf
 
@@ -298,6 +312,8 @@ class Builder():
         self.emailtarget.clear()
         try:
             self.emailtarget.find_by_target_entity(self.account.entity_id)
+            logger.debug("Using existing emailtarget for account %s",
+                         self.account.account_name);
         except Errors.NotFoundError:
             logger.info("Adding emailtarget for %s on server %s",
                         self.account.account_name,
@@ -315,7 +331,11 @@ class Builder():
         # Find or make an email address on the requested domain.
         for addr in self.emailtarget.get_addresses():
             if addr['domain'] == emaildomain:
-                self.emailaddress.find(addr['address_id'])
+                logger.debug("Account %s already has address %s@%s",
+                             self.account.account_name,
+                             addr['local_part'], emaildomain)
+                self.emailaddr.clear()
+                self.emailaddr.find(addr['address_id'])
                 break
         else:
             if addrtype == "uname":
@@ -325,47 +345,47 @@ class Builder():
                                              const.name_first)
                 lname = self.person.get_name(const.system_cached,
                                              const.name_last)
-                local_parts = self.generate_email_adresses(fname, lname)
+                local_parts = self.generate_email_addresses(fname, lname)
             self.emaildomain.clear()
             self.emaildomain.find_by_domain(emaildomain)
             for local_part in local_parts:
                 try:
-                    self.emailaddress.clear()
-                    self.emailaddress.find_by_local_part_and_domain(
+                    self.emailaddr.clear()
+                    self.emailaddr.find_by_local_part_and_domain(
                         local_part, self.emaildomain.entity_id)
                 except Errors.NotFoundError:
-                    logger.info("Creating email address for %s: %s",
+                    logger.info("Creating email address for %s: %s@%s",
                                 self.account.account_name,
-                                self.emailaddress.get_address())
-                    self.emailaddress.populate(
+                                local_part,
+                                self.emaildomain.email_domain_name)
+                    self.emailaddr.populate(
                         local_part=local_part,
                         domain_id=self.emaildomain.entity_id,
                         target_id=self.emailtarget.entity_id)
-                    self.emailaddress.write_db()
+                    self.emailaddr.write_db()
+                    break
                 else:
-                    # local_part suggestions exhausted
+                    logger.warn("Could not create email for %s: "+
+                                "local_part suggestions exhausted",
+                                self.account.account_name);
                     return
 
         self.emailprimaryaddr.clear()
         # Set primary address of target if required
         try:
-            self.emailprimaryaddr.find(et.entity_id)
-            # XXX IF FORCE-mode
+            self.emailprimaryaddr.find(self.emailtarget.entity_id)
+            logger.debug("Account %s already has primary email address, "+
+                         "leaving untouched",
+                         self.account.account_name)
         except Errors.NotFoundError:
             logger.info("Setting primary address for %s to %s",
                         self.account.account_name,
-                        self.emailaddress.get_address())
+                        self.emailaddr.get_address())
             self.emailprimaryaddr.populate(
-                self.emailaddress.entity_id,
+                self.emailaddr.entity_id,
                 self.emailtarget.entity_id)
             self.emailprimaryaddr.write_db()
                 
-
-        
-                       
-
-            
-                                
                                 
                                 
             
