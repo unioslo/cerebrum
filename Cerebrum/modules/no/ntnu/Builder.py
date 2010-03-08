@@ -22,26 +22,49 @@ class Builder():
         self._make_ou_cache(db)
         self.const = self.account.const
 
-    def generate_email_addresses(self, fname, lname):
-        lname = self.account.simplify_name(lname, alt=0)
-        lnames = lname.split(" ")
+    def build_from_owner(self, owner_id):
+        self.person.clear()
+        self.person.find(owner_id)
+        personaffdict = self._get_person_affiliations()
+        personaffs = set(personaffdict.keys())
+        allaccountaffs = self._get_all_account_affiliations()
+        uninheritedaffs = personaffs - allaccountaffs
 
-        fname = self.account.simplify_name(fname, alt=0)
-        fnames = fname.split(" ")
-        fname = fnames[0]
-        mnames = fnames[1:]
-        initials = [i[0] for i in mnames]
+        accounts = account.search(owner_id=owner_id)
+        if accounts:
+            for a in accounts:
+                self.account.clear()
+                self.account.find(a['account_id'])
+                self._add_account_affiliations(uninheritedaffs)
+                self._build_account()
+        else:
+            self.account.clear()
+            self._create_account()
+            self._add_account_affiliations(personaffs)
+            self._build_account()
+        self.db.rollback()
+    
+    def rebuild_all_accounts(self):
+        for a in self.account.list():
+            if not a['np_type']:
+                self.rebuild_account(a['account_id'])
 
-        for i in range(len(mnames)+1):
-            yield ".".join([fname] + mnames[:i] +
-                           initials[i:] + lnames)
+    def rebuild_account(self, account_id):
+        self.account.clear()
+        self.person.clear()
 
-        yield ".".join([fname]+lnames)
-        i=2
-        while True:
-            yield ".".join([fname]+[str(i)]+lnames)
-            i+=1
+        self.account.find(account_id)
+        self.person.find(self.account.owner_id)
+        
+        personaffdict = self._get_person_affiliations()
+        personaffs = set(personaffdict.keys())
+        allaccountaffs = self._get_all_account_affiliations()
+        uninheritedaffs = personaffs - allaccountaffs
 
+        self._add_account_affiliations(uninheritedaffs)
+        self._build_account()
+        self.db.rollback()
+            
     def _make_ou_cache(self, db):
         ou = Factory.get("OU")(db)
 
@@ -91,72 +114,6 @@ class Builder():
         if (None, None) in confmap:
             yield confmap[None, None]
 
-    def map_affiliation_to_groups(self, ou_id, affiliation):
-        try:
-            return self._parse_config_map(cereconf.BUILD_GROUP,
-                                          ou_id, affiliation).next()
-        except StopIteration:
-            return ()
-
-    def map_affiliation_to_spread(self, ou_id, affiliation):
-        try:
-            return self._parse_config_map(cereconf.BUILD_SPREAD,
-                                          ou_id, affiliation).next()
-        except StopIteration:
-            return ()
-
-    def map_affiliation_to_email(self, ou_id, affiliation):
-        try:
-            return self._parse_config_map(cereconf.BUILD_EMAIL,
-                                          ou_id, affiliation).next()
-        except StopIteration:
-            return None
-
-    
-    def rebuild_all_accounts(self):
-        for a in self.account.list():
-            if not a['np_type']:
-                self.rebuild_account(a['account_id'])
-
-    def build_from_owner(self, owner_id):
-        self.person.clear()
-        self.person.find(owner_id)
-        personaffdict = self._get_person_affiliations()
-        personaffs = set(personaffdict.keys())
-        allaccountaffs = self._get_all_account_affiliations()
-        uninheritedaffs = personaffs - allaccountaffs
-
-        accounts = account.search(owner_id=owner_id)
-        if accounts:
-            for a in accounts:
-                self.account.clear()
-                self.account.find(a['account_id'])
-                self._add_account_affiliations(uninheritedaffs)
-                self._build_account()
-        else:
-            self.account.clear()
-            self._create_account()
-            self._add_account_affiliations(personaffs)
-            self._build_account()
-        self.db.rollback()
-
-
-    def rebuild_account(self, account_id):
-        self.account.clear()
-        self.person.clear()
-
-        self.account.find(account_id)
-        self.person.find(self.account.owner_id)
-        
-        personaffdict = self._get_person_affiliations()
-        personaffs = set(personaffdict.keys())
-        allaccountaffs = self._get_all_account_affiliations()
-        uninheritedaffs = personaffs - allaccountaffs
-
-        self._add_account_affiliations(uninheritedaffs)
-        self._build_account()
-        self.db.rollback()
-            
     def _build_account(self):
         # Add new personaffiliations to account!
         accountprio = list(self.account.get_account_types())
@@ -386,11 +343,43 @@ class Builder():
                 self.emailtarget.entity_id)
             self.emailprimaryaddr.write_db()
                 
-                                
-                                
-            
+    def map_affiliation_to_groups(self, ou_id, affiliation):
+        try:
+            return self._parse_config_map(cereconf.BUILD_GROUP,
+                                          ou_id, affiliation).next()
+        except StopIteration:
+            return ()
 
-        
-        
-        
+    def map_affiliation_to_spread(self, ou_id, affiliation):
+        try:
+            return self._parse_config_map(cereconf.BUILD_SPREAD,
+                                          ou_id, affiliation).next()
+        except StopIteration:
+            return ()
 
+    def map_affiliation_to_email(self, ou_id, affiliation):
+        try:
+            return self._parse_config_map(cereconf.BUILD_EMAIL,
+                                          ou_id, affiliation).next()
+        except StopIteration:
+            return None
+
+    def generate_email_addresses(self, fname, lname):
+        lname = self.account.simplify_name(lname, alt=0)
+        lnames = lname.split(" ")
+
+        fname = self.account.simplify_name(fname, alt=0)
+        fnames = fname.split(" ")
+        fname = fnames[0]
+        mnames = fnames[1:]
+        initials = [i[0] for i in mnames]
+
+        for i in range(len(mnames)+1):
+            yield ".".join([fname] + mnames[:i] +
+                           initials[i:] + lnames)
+
+        yield ".".join([fname]+lnames)
+        i=2
+        while True:
+            yield ".".join([fname]+[str(i)]+lnames)
+            i+=1
