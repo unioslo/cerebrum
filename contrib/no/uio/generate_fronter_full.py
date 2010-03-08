@@ -1757,12 +1757,16 @@ def process_kurs2enhet():
                 struct_id = enhet_id.upper()
                 stprog_node = "STRUCTURE/Studieprogramkorridor:%s" % struct_id
                 kull_node = "ROOM/Studieprogram:%s" % struct_id
-                
                 register_group("Studieprogramkorridor for %s" % (stprog,),
                                stprog_node, sko_node, allow_room=True)
-                register_room("Kullrom for %s, %s %s %s" %
-                              (fronter.kurs2navn[kurs_id], stprog, termkode, aar),
-                              kull_node, stprog_node, make_profile(enhet_id))
+                room_title = ("Kullrom for %s, %s, start %s %s - %s %s" %
+                              (fronter.kurs2navn[kurs_id], stprog,
+                               termkode.upper(), aar,
+                               fronter.semester.upper(), fronter.year))
+                register_room(room_title,
+                              kull_node, stprog_node,
+                              make_profile(enhet_id))
+
                 kullstud = "uio.no:fs:%s:student" % enhet_id.lower()
 
                 template_id = "uio.no:fs:%s:%s" % (enhet_id.lower(), "%s")
