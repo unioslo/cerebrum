@@ -103,6 +103,7 @@
 #end def
 
 #def editAccount($account)
+    #set help = ["* Format: YYYY-MM-DD"]
     <div class="edit box" style="display:none;">
         <h3>$_('Edit info')</h3>
         <form action="/account/save" method="post">
@@ -110,7 +111,7 @@
                 <input type="hidden" name="id" value="$account.id" />
             </div>
             <div class="optional">
-                <label for="expire_date">Expire date:</label>
+                <label for="expire_date">Expire date *:</label>
                 <input  type="text" name="expire_date" id="expire_date" value="$quotedate($account.expire_date)" />
             </div>
             #if $account.is_posix
@@ -128,6 +129,7 @@
                     $form_widgets.generate_loption($_('shell'), $_('Shell'), $shells, $account.shell)
                 </div>
             #end if
+            $form_widgets.showHelp($help)
             <div class="buttons">
                 <input type="submit" value="$_('Add')" />&#x0020;
                 <input type="button" value="$_('Cancel')" class="cancel" />
