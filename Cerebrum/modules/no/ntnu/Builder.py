@@ -30,7 +30,7 @@ class Builder():
         allaccountaffs = self._get_all_account_affiliations()
         uninheritedaffs = personaffs - allaccountaffs
 
-        accounts = account.search(owner_id=owner_id)
+        accounts = self.account.search(owner_id=owner_id)
         if accounts:
             for a in accounts:
                 self.account.clear()
@@ -103,6 +103,7 @@ class Builder():
     def _parse_config_map(self, confmap, ou_id, affiliation):
         acronyms = self.ou_recursive_cache[ou_id]
         affiliation = self.const.PersonAffiliation(affiliation).str
+        logger.debug("Checking rules for %s %s", "/".join(acronyms), affiliation)
         for acronym in acronyms:
             if (affiliation, acronym) in confmap:
                 yield confmap[affiliation, acronym]
@@ -121,7 +122,7 @@ class Builder():
         # Last affiliation is primary (lowest number)
         if not accountprio:
             return
-        primaryaff = accountprio[-1]
+        primaryaff = accountprio[0]
 
         primarygroup_id = self._build_group_membership(accountprio)
         if primarygroup_id is not None:
@@ -173,7 +174,7 @@ class Builder():
                 self.account.set_account_type(ou_id, aff)
             self.account.write_db()
 
-    def _create_account():
+    def _create_account(self):
         const = self.person.const
 
         fname = self.person.get_name(const.system_cached,
@@ -190,7 +191,8 @@ class Builder():
                               owner_type=self.person.entity_type,
                               owner_id=self.person.entity_id,
                               np_type=None,
-                              creator_is=self.creator_id)
+                              creator_id=self.creator_id,
+                              expire_date=None)
         self.account.write_db()
 
     def _build_group_membership(self, accountprio):
@@ -199,22 +201,30 @@ class Builder():
         The last entries of accountprio are the first priorites. 
         """
         primary_group_id = None
+        primary_group_name = None
         new_groups = set()
-        for ap in accountprio:
+        for ap in reversed(accountprio):
             aff_groups = self.map_affiliation_to_groups(
                 ap['ou_id'], ap['affiliation'])
             new_groups.update(aff_groups)
             if aff_groups:
-                primary_group_id = aff_groups[0]
-        old_groups = set([g['group_id'] for g in self.group.search_members(
-                    member_id=self.account.entity_id)])
-        for group_id in new_groups - old_groups:
+                primary_group_name = aff_groups[0]
+        old_groups = set()
+        for g in self.group.search_members(member_id=self.account.entity_id):
+            old_groups.add(g['group_name'])
+            if g['group_name'] == primary_group_name:
+                primary_group_id = g['group_id']
+                              
+        
+        for group_name in new_groups - old_groups:
             self.group.clear()
-            self.group.find(group_id)
+            self.group.find_by_name(group_name)
             logger.info("Adding %s to group %s",
                         self.account.account_name,
                         self.group.group_name)
             self.group.add_member(self.account.entity_id)
+            if group_name == primary_group_name:
+                primary_group_id = self.group.entity_id
         return primary_group_id
 
     def _build_posix(self, primarygroup_id):
