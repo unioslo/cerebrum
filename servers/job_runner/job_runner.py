@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2009 University of Oslo, Norway
+# Copyright 2003-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -53,9 +53,6 @@ import time
 import os
 import signal
 import sys
-import popen2
-import fcntl
-import select
 import getopt
 import threading
 import traceback
@@ -64,9 +61,7 @@ import string
 import cerebrum_path
 import cereconf
 
-from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
-from Cerebrum import Errors
 from Cerebrum.modules.job_runner.job_utils import SocketHandling, JobQueue
 from Cerebrum.modules.job_runner.job_actions import CallableAction, LockExists
 
@@ -190,13 +185,20 @@ class JobRunner(object):
                         logger.error("%s (pid %d) has run for %d seconds, "
                                      "sending SIGTERM" %
                                      (job['name'], job['pid'], run_for))
-                        os.kill(job['pid'], signal.SIGTERM)
-                        # By setting did_wait to True, the main loop
-                        # will immediately call this function again to
-                        # reap the job we just killed.  (If we don't,
-                        # the SIGCHLD may be delivered before we reach
-                        # sigpause)
-                        did_wait = True
+                        try:
+                            os.kill(job['pid'], signal.SIGTERM)
+                            # By setting did_wait to True, the main loop
+                            # will immediately call this function again to
+                            # reap the job we just killed.  (If we don't,
+                            # the SIGCHLD may be delivered before we reach
+                            # sigpause)
+                            did_wait = True
+                        except OSError, msg:
+                            # Don't die if we're not allowed to kill
+                            # the job. The reason is probably that the
+                            # process is run by root (sudo)
+                            logger.error("Couldn't kill job %s (pid %d): %s" %
+                                         (job['name'], job['pid'], msg))
             else:
                 did_wait = True
                 if isinstance(ret, tuple):
@@ -463,4 +465,3 @@ def main():
 if __name__ == '__main__':
     main()
 
-# arch-tag: 94976576-39a7-4369-8edf-1ab792183a6e
