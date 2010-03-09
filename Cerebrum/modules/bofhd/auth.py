@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -428,9 +428,10 @@ class BofhdAuth(DatabaseAccessor):
                 return True
         disk = self._get_user_disk(entity.entity_id)
         if disk and disk['disk_id']:
-            self._query_disk_permissions(operator, operation,
-                                         self._get_disk(disk['disk_id']),
-                                         entity.entity_id, operation_attr=operation_attr)
+            return self._query_disk_permissions(operator, operation,
+                                                self._get_disk(disk['disk_id']),
+                                                entity.entity_id,
+                                                operation_attr=operation_attr)
         else:
             if self._has_global_access(operator, operation,
                                        self.const.auth_target_type_global_host,
