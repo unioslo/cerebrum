@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from gettext import gettext as _
+from Cerebrum.Database import IntegrityError
 from lib.utils import queue_message, session_required_decorator
 from lib.utils import redirect, get_database, redirect_entity
 from lib.utils import is_correct_referer, get_referer_error
@@ -49,7 +50,7 @@ def edit(*args, **kwargs):
         if is_correct_referer():
             return save(**form.get_values())
         else:
-            queueu_message(get_referer_error(), error=True, title='Edit failed')
+            queue_message(get_referer_error(), error=True, title='Edit failed')
     return form.respond()
 edit.exposed = True
 
@@ -63,7 +64,7 @@ def create(*args, **kwargs):
         if is_correct_referer():
             return make(**form.get_values())
         else:
-            queueu_message(get_referer_error(), error=True, title='Create failed')
+            queue_message(get_referer_error(), error=True, title=_('Create failed'))
     return form.respond()
 create.exposed = True
 
@@ -82,12 +83,14 @@ def save(id, entity, target_type, alias):
 def make(entity_id, target_type, host_id):
     db = get_database()
     dao = EmailTargetDAO(db)
-    dao.create(entity_id, target_type, host_id)
-    db.commit()
-
-    queue_message(
-        _("Added email target successfully."),
-        title=_("Change succeeded"))
+    try:
+        dao.create(entity_id, target_type, host_id)
+        db.commit()
+        queue_message(
+            _("Added email target successfully."),
+            title=_("Change succeeded"))
+    except IntegrityError, e:
+        queue_message(_('An emailtarget already exist at this host.'), error=True, title=_('Add emailtarget failed'))
     redirect_entity(entity_id)
 
 @session_required_decorator
