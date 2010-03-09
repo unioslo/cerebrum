@@ -211,7 +211,7 @@ def global_historylog(n=50, offset=0):
     db = get_database()
     dto = DTO()
     dto.id = None
-    dto.history = HistoryDAO(db).get_history(n, offset)
+    dto.history = HistoryDAO(db).get_history(int(n), int(offset))
 
     page = EntityViewTemplate()
     page.links = ()
