@@ -62,6 +62,7 @@ def main():
 
     cfg = {}
     debug_enabled = False
+    template_set =  False
 
     for opt, val in opts:
         if opt in ('--help', '-h'):
@@ -81,7 +82,10 @@ def main():
         elif opt in ('--debug',):
             debug_enabled = True
         elif opt in ('--template',):
-            cfg.get('template', []).append(val)
+            if not template_set:
+                template_set = True
+                cfg['template'] = []
+            cfg['template'].append(val)
         elif opt in ('--max-password-age',):
             cfg['max_password_age'] = parse_time(val)
         elif opt in ('--grace-period',):
