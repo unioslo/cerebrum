@@ -578,7 +578,19 @@ class BofhdExtension(object):
                     data.append({'extid': row['external_id'],
                                  'extid_src': str(
                         self.const.AuthoritativeSystem(row['source_system']))})
-            # Show address
+        # Show address
+        # Can only be shown by those that can set passwords for one of the
+        # persons accounts
+        can_show_address = False
+        for a in account_ids:
+            try:
+                self.ba.can_set_password(operator.get_entity_id(),
+                                        self._get_account(a, idtype='id'))
+                can_show_address = True
+                break
+            except PermissionDenied:
+                pass
+        if can_show_address:
             for source, kind in ((self.const.system_sap, self.const.address_post),
                                  (self.const.system_fs, self.const.address_post),
                                  (self.const.system_sap, self.const.address_post_private),
