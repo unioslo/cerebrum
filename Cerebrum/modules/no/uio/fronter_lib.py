@@ -251,3 +251,24 @@ class XMLWriter(object):   # TODO: Move to separate file
     def endDocument(self):
         self.gen.endDocument()
 # end XMLWriter
+
+
+
+def semester_number(start_year, start_semester,
+                    current_year, current_semester):
+    """Return the semester number given a specific start point.
+
+    For entities spanning multiple semester we need to know the semester
+    number of (current_year, current_semester) relative to the starting
+    point. 
+    """
+    cs = current_semester.lower()
+    ss = start_semester.lower()
+    years = int(current_year) - int(start_year)
+    correction = 0
+    if cs == 'høst' and ss == 'vår':
+        correction = 1
+    elif cs == 'vår' and ss == 'høst':
+        correction = -1
+    return years*2 + correction+1
+# end semester_number

@@ -51,6 +51,7 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.no.uio.fronter_lib \
      import XMLWriter, UE2KursID, key2fields, fields2key, host_config
+from Cerebrum.modules.no.uio.fronter_lib import semester_number
 from Cerebrum.modules.xmlutils.fsxml2object import EduDataGetter
 
 
@@ -1759,9 +1760,17 @@ def process_kurs2enhet():
                 kull_node = "ROOM/Studieprogram:%s" % struct_id
                 register_group("Studieprogramkorridor for %s" % (stprog,),
                                stprog_node, sko_node, allow_room=True)
-                room_title = ("Kullrom for %s, %s, start %s %s - %s %s" %
+
+                snumber = semester_number(aar, termkode,
+                                          fronter.year, fronter.semester)
+                if snumber > 0:
+                    semester_segment = "%s. semester" % snumber
+                else:
+                    semester_segment = "start"
+
+                room_title = ("Kullrom for %s, %s, %s - %s %s" %
                               (fronter.kurs2navn[kurs_id], stprog,
-                               termkode.upper(), aar,
+                               semester_segment,
                                fronter.semester.upper(), fronter.year))
                 register_room(room_title,
                               kull_node, stprog_node,
@@ -1776,8 +1785,8 @@ def process_kurs2enhet():
                                         None, None)
 
         else:
-            raise ValueError, \
-                  "Unknown type <%s> for course <%s>" % (ktype, kurs_id)
+            raise ValueError("Unknown type <%s> for course <%s>" %
+                             (ktype, kurs_id))
 
 
 def usage(exitcode):
