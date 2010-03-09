@@ -208,12 +208,15 @@ def save(**kwargs):
     db = get_database()
     dao = AccountDAO(db)
     dto = dao.get(account_id)
-    populate(dto, **kwargs)
-    populate_posix(dto, **kwargs)
-    dao.save(dto)
-    db.commit()
-    msg = _("Account successfully updated.")
-    queue_message(msg, title=_("Operation succeded"), error=False)
+    try:
+        populate(dto, **kwargs)
+        populate_posix(dto, **kwargs)
+        dao.save(dto)
+        db.commit()
+        msg = _("Account successfully updated.")
+        queue_message(msg, title=_("Operation succeded"), error=False)
+    except Exception, e:
+        queue_message(e, error=True, title=_('Save information failed'))
     redirect_entity(dto)
 save.exposed = True
 
@@ -230,7 +233,11 @@ def populate_posix(dto, uid=None, shell=None, gecos=None, group=None, **kwargs):
 
 def clean_expire_date(expire_date):
     if not expire_date: return None
-    return parse_date(expire_date)
+    try:
+        return parse_date(expire_date)
+    except Exception, e:
+        raise Exception(_('Expire-date is not a legal date. Format: YYYY-mm-dd.'))
+        
 
 def clean_uid(uid):
     if not uid: return None
