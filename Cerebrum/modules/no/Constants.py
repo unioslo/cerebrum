@@ -64,6 +64,18 @@ class ConstantsCommon(Constants.Constants):
                        Constants.Constants.entity_ou,
                        'OUs publishable in online directories')
 
+    trait_auto_group = _EntityTraitCode(
+        'auto_group',
+        Constants.Constants.entity_group,
+        "Trait marking automatically administrated groups with person members.")
+
+    trait_auto_meta_group = _EntityTraitCode(
+        'auto_meta_group',
+        Constants.Constants.entity_group,
+        "Trait marking automatically administrated groups with group members.")
+
+    
+
 class ConstantsHigherEdu(Constants.Constants):
 
     # authoritative source systems (FS = student registry, SAP = common HR-system)
