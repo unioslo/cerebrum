@@ -44,6 +44,7 @@ from lib.data.ConstantsDAO import ConstantsDAO
 from lib.PersonSearcher import PersonSearcher
 from lib.forms import PersonCreateForm, PersonEditForm
 from lib.templates.PersonViewTemplate import PersonViewTemplate
+from Cerebrum.modules.no.ntnu.Builder import Builder
 
 @session_required_decorator
 def search(**kwargs):
@@ -372,3 +373,26 @@ def print_contract(id, lang, printpw='off'):
         queue_message(msg, title="Could not print contract", error=True)
         redirect_entity(id)
 print_contract.exposed = True
+
+@session_required_decorator
+def build_account(owner_id):
+    db = get_database()
+    creator_id = int(cherrypy.session.get('userid'))
+    accounts = PersonDAO(db).get_accounts(owner_id)
+    builder = Builder(db, creator_id)
+    try:
+        builder.build_from_owner(owner_id)
+        db.commit()
+        if accounts:
+            queue_message(
+                _('Account updated to the latest default settings.'),
+                title=_("Account updated"))
+        else:
+            queue_message(
+                _('A default account is created.'),
+                title=_('Account created'))
+    except Exception, e:
+        db.rollback()
+        queue_message(e, error=True, title=_('Creating account failed'))
+    redirect_entity(owner_id)
+build_account.exposed = True
