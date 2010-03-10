@@ -10,3 +10,6 @@ class HistoryDTO(DTO):
         self.message = event_type.type
         self.category = event_type.category
         self.timestamp = event['tstamp']
+        self.subject_entity = event['subject_entity']
+        self.dest_entity = event['dest_entity']
+        self.change_params = event['change_params']
