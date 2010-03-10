@@ -96,14 +96,19 @@ def make(entity_id, target_type, host_id):
 @session_required_decorator
 def delete(id, entity_id=None):
     db = get_database()
-    dao = EmailTargetDAO(db)
-    dao.delete(id)
-    db.commit()
+    try:
+        dao = EmailTargetDAO(db)
+        dao.delete(id)
+        db.commit()
 
-    queue_message(
-        _('Email target successfully deleted.'),
-        title=_("Change succeeded"))
-
+        queue_message(
+            _('Email target successfully deleted.'),
+            title=_("Change succeeded"))
+    except IntegrityError, e:
+        queue_message(
+            _('This emailtarget contains the primary email-address and cannot be deleted.'),
+            error=True,
+            title=_('Could not delete emailtarget'))
     if entity_id:
         redirect_entity(entity_id)
     redirect('/index')
