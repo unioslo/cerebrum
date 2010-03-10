@@ -53,6 +53,12 @@ class OURegister(object):
     def get_acronym_list(self, key):
         return [ou.acronym.encode("utf-8") for ou in self.get_path(key)]
 
+    def get_acronym(self, key):
+        ou = self.__data.get(key)
+        if ou:
+            return ou.acronym.encode("utf-8")
+        return ""
+
 def load_changelog_id(changelog_file):
     local_id = 0
     if os.path.isfile(changelog_file):
@@ -176,8 +182,12 @@ def get_ldapbackend(s, system):
         return backend(base=base, filter=filter, ouregister=register)
 
     if backend_class in ("AccessCardHolder",):
+        register = OURegister()
+        for ou in s.get_ous():
+            register.add(ou)
+
         affiliations = get_conf(system, "affiliations").strip().split(" ")
-        return backend(base=base, filter=filter, affiliations=affiliations)
+        return backend(base=base, filter=filter, affiliations=affiliations, ouregister=register)
         
     log.debug("Initializing %s backend with base %s", backend_class, base)
     return backend(base=base, filter=filter)
@@ -192,8 +202,7 @@ def get_entities(s, system, sync_options):
         my_options['include_affiliations'] = True
 
     if entity == 'account':
-        my_options['spread'] = get_conf(system, "spread")
-
+        my_options['accountspread'] = get_conf(system, "spread")
     return getattr(s, "get_%ss" % entity)(**my_options)
 
 if __name__ == "__main__":

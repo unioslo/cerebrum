@@ -312,7 +312,16 @@ class AccountLdapBack(LdapBack):
         return "{%s}%s" % (config.get('ldap','hash').upper(), obj.passwd)
 
     def toAscii(self, utf8string):
-        return unicodedata.normalize('NFKD', utf8string.decode('utf-8')).encode('ASCII', 'ignore')
+        result = utf8string.decode("utf-8")
+        # Special case characers that aren't handled correctly by decomposing
+        # then stripping
+        result = result.replace(u"\xc6", u'A') # Æ
+        result = result.replace(u"\xe6", u'a') # æ
+        result = result.replace(u"\xd8", u'O') # ø
+        result = result.replace(u"\xf8", u'o') # Ø
+
+        # Decompose then strip the remaining.
+        return unicodedata.normalize('NFKD', result).encode('ASCII', 'ignore')
 
 class PersonLdapBack(LdapBack):
     def get_uid(self, obj):
@@ -433,6 +442,7 @@ class Person(PersonLdapBack):
         }
 
     def get_affiliations(self, obj):
+        """Legal values: faculty, student, staff, alum, member, affiliate, employee"""
         affiliations = set()
         for holder in obj.affiliations:
             aff = Affiliation(holder)
@@ -440,14 +450,25 @@ class Person(PersonLdapBack):
                 affiliations.add('student')
                 affiliations.add('member')
             elif aff.affiliation == 'ANSATT':
+                if aff.status == "vitenskapelig":
+                    affiliations.add("faculty")
+                elif aff.status == "tekadm":
+                    affiliations.add("staff")
+                    
                 affiliations.add('employee')
                 affiliations.add('member')
-            elif aff.affiliation == 'TILKNYTTET':
-                affiliations.add('affiliate')
             elif aff.affiliation == 'ALUMNI':
                 affiliations.add('alum')
+            elif aff.affiliation == 'TILKNYTTET':
+                # Don't add the affiliate here.  It will be added below iff
+                # the person doesn't have any other affiliations.
+                pass 
             else:
                 log.warn("Unknown affiliation: %s" % aff.affiliation)
+
+        if not affiliations:
+            affiliations.add("affiliate")
+
         return list(affiliations)
 
     def get_birthdate(self, obj):
@@ -527,13 +548,14 @@ class AccessCardHolder(PersonLdapBack):
     Module for populating an ntnuAccessCardHolder branch.  Used for the
     equictrac print system at NTNU.
     """
-    def __init__(self, base=None, filter='(objectClass=*)', affiliations=None):
+    def __init__(self, base=None, filter='(objectClass=*)', affiliations=None, ouregister=None):
         LdapBack.__init__(self)
 
         self.base = base
         self.filter = filter
         self.obj_class = ('top', 'person', 'inetOrgPerson', 'ntnuAccessCardHolder')
         self.affiliations = affiliations
+        self.ouregister = ouregister
 
     def add(self, obj):
         if self._should_add(obj):
@@ -549,19 +571,34 @@ class AccessCardHolder(PersonLdapBack):
         return [Affiliation(x).affiliation for x in obj.affiliations]
 
     def get_attributes(self, obj):
-        return {
+        result = {
             'objectClass': self.obj_class,
             'cn': obj.full_name,
             'description': "Adgangskort ved NTNU for Uniflow-utskriftsystem.",
             'sn': obj.last_name,
             'uid': self.get_uid(obj),
             'mail': obj.email,
-            'ntnuAccessCardId': self.get_access_card_ids(obj),
+            'ntnuPrintDepartment': self.get_print_department(obj),
         }
+
+        for i, cardId in enumerate(self.get_access_card_ids(obj)):
+            result['ntnuAccessCardId%s' % i] = cardId
+
+        return result
 
     def get_access_card_ids(self, obj):
         access_cards = set([obj.keycardid0, obj.keycardid1])
         return [card for card in access_cards if card]
+
+    def get_print_department(self, obj):
+        ntnuPrintDepartment = self.get_acronym(obj)
+        if 'student' in self._get_affiliations(obj):
+            return [ntnuPrintDepartment + "-STUD"]
+        else:
+            return [ntnuPrintDepartment + "-ANSATT"]
+
+    def get_acronym(self, obj):
+        return self.ouregister.get_acronym(obj.primary_ou_id)
 
 ###
 ### UnitTesting is good for you

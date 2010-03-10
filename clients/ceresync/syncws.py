@@ -191,7 +191,7 @@ class Person(Entity):
 class Affiliation(Entity):
     entity_type= "affiliation"
     attributes= [
-        "affiliation", "ou_id",
+        "affiliation", "ou_id", "status",
     ]
 
 class CeresyncHTTPSConnection(HTTPConnection):
