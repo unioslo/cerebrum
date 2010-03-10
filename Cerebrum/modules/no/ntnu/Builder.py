@@ -6,7 +6,7 @@ from Cerebrum import Errors
 
 logger = Factory.get_logger("console")
 
-class Builder():
+class Builder(object):
     def __init__(self, db, creator_id):
         self.db = db
         self.account = Factory.get("Account")(db)
