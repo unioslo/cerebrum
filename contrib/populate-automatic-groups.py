@@ -620,7 +620,44 @@ def add_members(group, member_sequence):
     
 
 
-def synchronise_groups(groups_from_cerebrum, groups_from_data):
+def synchronise_spreads(group, spreads):
+    """Force a specific spread set for group.
+
+    Each automatic group must have a specific set of spreads. Exactly that
+    spread set is forced upon all groups administered by this script.
+
+    @param group:
+      Group proxy bound to a specific group_id
+
+    @param spreads:
+      A set of tuples, (prefix, spread), where prefix is matched against
+      group.group_name. A match indicates 
+    """
+
+    if spreads is None:
+        return 
+
+    group_name = group.group_name
+    own_spreads = set(constants.Spread(x["spread"])
+                      for x in group.get_spread())
+    given_spreads = set(constants.Spread(x[1])
+                        for x in spreads
+                        if x[0] in group_name)
+    
+    for spread in given_spreads.difference(own_spreads):
+        logger.debug("Assigning spread %s to group %s (id=%s)",
+                     str(spread), group_name, group.entity_id)
+        group.add_spread(spread)
+
+    for spread in own_spreads.difference(given_spreads):
+        logger.debug("Removing spread %s to group %s (id=%s)",
+                     str(spread), group_name, group.entity_id)
+        group.delete_spread(spread)
+# end synchronise_spreads
+
+
+
+def synchronise_groups(groups_from_cerebrum, groups_from_data, spreads):
     """Synchronise current in-memory representation of groups with the db.
 
     The groups (through the rules) are built in-memory. This function
@@ -635,6 +672,10 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data):
 
     @type groups_from_data: dict
     @param: Cf. L{populate_groups_from_rule}.
+
+    @type spreads: set of tuples
+    @param spreads:
+      Spreads to assign for our auto-groups.
 
     @rtype: type(groups_from_cerebrum)
     @return:
@@ -651,6 +692,8 @@ def synchronise_groups(groups_from_cerebrum, groups_from_data):
         except Errors.NotFoundError:
             logger.warn("group_id=%s disappeared from Cerebrum.", group_id)
             continue
+
+        synchronise_spreads(group, spreads)
 
         # select just the entity_ids (we don't care about entity_type)
         group_members = set(int(x["member_id"]) for x in
@@ -794,7 +837,7 @@ def delete_defunct_groups(groups):
 
 
 
-def perform_sync(select_criteria, perspective, source_system):
+def perform_sync(select_criteria, perspective, source_system, spreads):
     """Set up the environment for synchronisation and synch all groups.
 
     @type select_criteria: a dict (aff/status constant -> str)
@@ -856,7 +899,7 @@ def perform_sync(select_criteria, perspective, source_system):
         populate_groups_from_rule(person_generator, row2groups,
                                   current_groups, new_groups)
 
-    current_groups = synchronise_groups(current_groups, new_groups)
+    current_groups = synchronise_groups(current_groups, new_groups, spreads)
 
     # As the last step of synchronisation, empty all groups for which we could
     # find no members.
@@ -1183,14 +1226,15 @@ def build_complete_group_forest():
 
 def main():
     options, junk = getopt.getopt(sys.argv[1:],
-                                  "p:ds:c:of:",
+                                  "p:ds:c:of:r:",
                                   ("perspective=",
                                    "dryrun",
                                    "source_system=",
                                    "remove-all-auto-groups",
                                    "collect=",
                                    "output-groups",
-                                   "filters=",))
+                                   "filters=",
+                                   "spread=",))
 
     dryrun = False
     perspective = None
@@ -1199,6 +1243,9 @@ def main():
     select_criteria = dict()
     output_groups = False
     output_filters = list()
+    const = Factory.get("Constants")()
+    spreads = None
+    
     for option, value in options:
         if option in ("-p", "--perspective",):
             perspective = int(constants.OUPerspective(value))
@@ -1215,6 +1262,12 @@ def main():
             output_filters.append(value)
         elif option in ("-o", "--output-groups",):
             output_groups = True
+        elif option in ("-r", "--spread",):
+            prefix, spread = value.split(":")
+            spread = const.human2constant(spread, const.Spread)
+            if spreads is None:
+                spreads = set()
+            spreads.add((prefix, spread))
 
     if output_groups:
         output_group_forest(output_filters, perspective)
@@ -1223,7 +1276,7 @@ def main():
         perform_delete()
     else:
         select_criteria = load_registration_criteria(select_criteria)
-        perform_sync(select_criteria, perspective, source_system)
+        perform_sync(select_criteria, perspective, source_system, spreads)
 
     if dryrun:
         database.rollback()
