@@ -42,7 +42,6 @@ class Builder():
             self._create_account()
             self._add_account_affiliations(personaffs)
             self._build_account()
-        self.db.rollback()
     
     def rebuild_all_accounts(self):
         for a in self.account.list():
@@ -63,7 +62,6 @@ class Builder():
 
         self._add_account_affiliations(uninheritedaffs)
         self._build_account()
-        self.db.rollback()
             
     def _make_ou_cache(self, db):
         ou = Factory.get("OU")(db)
