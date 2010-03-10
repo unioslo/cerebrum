@@ -33,19 +33,21 @@ class Builder():
             account_id = self._create_account(owner)
             self._build_account(account_id, owner)
     
+    def rebuild_account(self, account_id):
+        self._build_account(account_id)
+            
     def rebuild_all_accounts(self):
         for a in self.account.list():
             if not a['np_type']:
-                self.rebuild_account(a['account_id'])
+                self._build_account(a['account_id'])
 
-    def rebuild_account(self, account_id):
-        owner = self._get_owner(owner_id)
-        self._build_account(account_id, owner)
-            
-    def _build_account(self, account_id, owner):
+    def _build_account(self, account_id, owner=None):
         # Add new personaffiliations to account!
         self.account.clear()
         self.account.find(account_id)
+        
+        if not owner:
+            owner = self._get_owner(self.account.owner_id)
 
         personaffs = self._get_person_affiliations(owner['id'])
         allaccountaffs = self._get_all_account_affiliations(owner['id'])
