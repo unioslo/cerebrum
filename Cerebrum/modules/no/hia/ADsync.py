@@ -2,7 +2,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006, 2007 University of Oslo, Norway
+# Copyright 2006-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1992,6 +1992,18 @@ class ADFullContactSync(ADutilMixIn.ADutil):
                 "msExchPoliciesExcluded" : cereconf.AD_EX_POLICIES_EXCLUDED,
                 "msExchHideFromAddressLists" : False
                 }
+
+        # Filter -admin and request email addresses (not a pretty hack)
+        for email_address in maillists_dict.keys():
+            local_part, domain = email_address.rsplit('@')
+            if local_part.endswith('-admin'):
+                # local_part is on the form foo-admin. if also foo-request
+                # and foo-exists, filter foo-admin and foo-request.
+                tmp = '@'.join((local_part.rsplit('-admin')[0], domain))
+                tmp_r = email_address.replace('-admin', '-request')
+                if tmp in maillists_dict.keys() and tmp_r in maillists_dict.keys():
+                    maillists_dict.pop(email_address)
+                    maillists_dict.pop(tmp_r)
             
         return maillists_dict
 
