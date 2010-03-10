@@ -25,24 +25,13 @@ class Builder():
     def build_from_owner(self, owner_id):
         owner = self._get_owner(owner_id)
 
-        personaffdict = self._get_person_affiliations(owner_id)
-        personaffs = set(personaffdict.keys())
-
         accounts = self.account.search(owner_id=owner_id)
         if accounts:
-            allaccountaffs = self._get_all_account_affiliations(owner_id)
-            uninheritedaffs = personaffs - allaccountaffs
-
             for a in accounts:
-                self.account.clear()
-                self.account.find(a['account_id'])
-                self._add_account_affiliations(uninheritedaffs)
-                self._build_account(owner)
+                self._build_account(a['account_id'], owner)
         else:
-            self.account.clear()
-            self._create_account(owner)
-            self._add_account_affiliations(personaffs)
-            self._build_account(owner)
+            account_id = self._create_account(owner)
+            self._build_account(account_id, owner)
     
     def rebuild_all_accounts(self):
         for a in self.account.list():
@@ -50,74 +39,21 @@ class Builder():
                 self.rebuild_account(a['account_id'])
 
     def rebuild_account(self, account_id):
+        owner = self._get_owner(owner_id)
+        self._build_account(account_id, owner)
+            
+    def _build_account(self, account_id, owner):
+        # Add new personaffiliations to account!
         self.account.clear()
         self.account.find(account_id)
 
-        personaffdict = self._get_person_affiliations(self.account.owner_id)
-        personaffs = set(personaffdict.keys())
-        allaccountaffs = self._get_all_account_affiliations(self.account.owner_id)
+        personaffs = self._get_person_affiliations(owner['id'])
+        allaccountaffs = self._get_all_account_affiliations(owner['id'])
         uninheritedaffs = personaffs - allaccountaffs
-
         self._add_account_affiliations(uninheritedaffs)
-        
-        owner = self._get_owner(owner_id)
-        self._build_account(owner)
-            
-    def _make_ou_cache(self, db):
-        ou = Factory.get("OU")(db)
 
-        ou_by_id = {}
-        ou_acros = set()
-        self.ou_acronym = {}
-        for o in ou.list_all():
-            acronym = o['acronym']
-            id = o['ou_id']
-            ou_by_id[id] = o
-            if acronym:
-                self.ou_acronym[id] = acronym
-                assert acronym not in ou_acros
-                ou_acros.add(acronym)
-            else:
-                self.ou_acronym[id] = str(id)
-                
-
-        parents = {}
-        for m in ou.get_structure_mappings(ou.const.perspective_kjernen):
-            parents[m['ou_id']] = m['parent_id']
-        
-        self.ou_recursive_cache = {}
-        for o in ou_by_id.values():
-            id = o['ou_id']
-            
-            self.ou_recursive_cache[id] = []
-            if o['acronym']:
-                self.ou_recursive_cache[id].append(o['acronym'])
-            p = parents.get(id)
-            while p:
-                if ou_by_id[p]['acronym']:
-                    self.ou_recursive_cache[id].append(ou_by_id[p]['acronym'])
-                p = parents.get(p)
-            
-    def _parse_config_map(self, confmap, ou_id, affiliation):
-        acronyms = self.ou_recursive_cache[ou_id]
-        affiliation = self.const.PersonAffiliation(affiliation).str
-        logger.debug("Checking rules for %s %s", "/".join(acronyms), affiliation)
-        for acronym in acronyms:
-            if (affiliation, acronym) in confmap:
-                yield confmap[affiliation, acronym]
-        if (affiliation, None) in confmap:
-            yield confmap[affiliation, None]
-        for acronym in acronyms:
-            if (None, acronym) in confmap:
-                yield confmap[None, acronym]
-        if (None, None) in confmap:
-            yield confmap[None, None]
-
-    def _build_account(self, owner):
-        # Add new personaffiliations to account!
         accountprio = list(self.account.get_account_types())
         accountprio.sort(key=lambda ap: ap['priority'])
-        # Last affiliation is primary (lowest number)
         if not accountprio:
             return
         primaryaff = accountprio[0]
@@ -132,62 +68,6 @@ class Builder():
 
         self._build_spreads(accountprio)
         self._build_email(primaryaff, owner)
-
-    def _get_person_affiliations(self, owner_id):
-        self.person.clear()
-        self.person.find(owner_id)
-
-        person_affs = {}
-        for aff in self.person.get_affiliations():
-            person_affs[(aff['affiliation'], aff['ou_id'])]=aff
-        return person_affs
-    
-    def _get_all_account_affiliations(self, owner_id):
-        account_affs = set()
-        for aff in self.account.get_account_types(
-              all_persons_types=True,
-              owner_id=owner_id):
-            account_affs.add((aff['affiliation'], aff['ou_id']))
-        return account_affs
-
-    def _remove_account_affiliations(self, affs):
-        const = self.account.const
-        for aff in self.account.get_account_types():
-            if (aff['affiliation'], aff['ou_id']) not in affs:
-                logger.info("Removing affiliation for %s: %s:%s",
-                            self.account.account_name,
-                            const.PersonAffiliation(aff),
-                            self.ou_acronym.get(ou_id, ou_id))
-                self.account.del_account_type(aff['ou_id'], aff['affiliation'])
-                
-        
-
-    def _add_account_affiliations(self, affs):
-        const = self.account.const
-        if affs:
-            logger.info("Adding affiliations for %s: %s",
-                        self.account.account_name,
-                        ", ".join(["%s:%s" % (
-                            const.PersonAffiliation(aff),
-                            self.ou_acronym.get(ou_id, ou_id))
-                                   for aff, ou_id in affs]))
-            for aff, ou_id in affs:
-                self.account.set_account_type(ou_id, aff)
-            self.account.write_db()
-
-    def _create_account(self, owner):
-        uname = self.account.suggest_unames(
-            self.const.account_namespace,
-            owner['fname'], owner['lname'], maxlen=8)[0]
-        logger.info("Creating account %s", uname)
-            
-        self.account.populate(name=uname, 
-                              owner_type=owner['type'],
-                              owner_id=owner['id'],
-                              np_type=None,
-                              creator_id=self.creator_id,
-                              expire_date=None)
-        self.account.write_db()
 
     def _build_group_membership(self, accountprio):
         """Add group memberships requested by accountprio/config.
@@ -222,7 +102,6 @@ class Builder():
         return primary_group_id
 
     def _build_posix(self, primarygroup_id):
-        const = self.account.const
         self.posixuser.clear()
         try:
             self.posixuser.find(self.account.entity_id)
@@ -234,7 +113,7 @@ class Builder():
             self.posixuser.populate(posix_uid=posix_uid,
                                     gid_id=primarygroup_id,
                                     gecos=None,
-                                    shell=const.posix_shell_bash,
+                                    shell=self.const.posix_shell_bash,
                                     parent=self.account.entity_id)
             self.posixuser.write_db()
         
@@ -343,6 +222,113 @@ class Builder():
                 self.emailtarget.entity_id)
             self.emailprimaryaddr.write_db()
                 
+    def _make_ou_cache(self, db):
+        ou = Factory.get("OU")(db)
+
+        ou_by_id = {}
+        ou_acros = set()
+        self.ou_acronym = {}
+        for o in ou.list_all():
+            acronym = o['acronym']
+            id = o['ou_id']
+            ou_by_id[id] = o
+            if acronym:
+                self.ou_acronym[id] = acronym
+                assert acronym not in ou_acros
+                ou_acros.add(acronym)
+            else:
+                self.ou_acronym[id] = str(id)
+                
+
+        parents = {}
+        for m in ou.get_structure_mappings(ou.const.perspective_kjernen):
+            parents[m['ou_id']] = m['parent_id']
+        
+        self.ou_recursive_cache = {}
+        for o in ou_by_id.values():
+            id = o['ou_id']
+            
+            self.ou_recursive_cache[id] = []
+            if o['acronym']:
+                self.ou_recursive_cache[id].append(o['acronym'])
+            p = parents.get(id)
+            while p:
+                if ou_by_id[p]['acronym']:
+                    self.ou_recursive_cache[id].append(ou_by_id[p]['acronym'])
+                p = parents.get(p)
+            
+    def _parse_config_map(self, confmap, ou_id, affiliation):
+        acronyms = self.ou_recursive_cache[ou_id]
+        affiliation = self.const.PersonAffiliation(affiliation).str
+        logger.debug("Checking rules for %s %s", "/".join(acronyms), affiliation)
+        for acronym in acronyms:
+            if (affiliation, acronym) in confmap:
+                yield confmap[affiliation, acronym]
+        if (affiliation, None) in confmap:
+            yield confmap[affiliation, None]
+        for acronym in acronyms:
+            if (None, acronym) in confmap:
+                yield confmap[None, acronym]
+        if (None, None) in confmap:
+            yield confmap[None, None]
+
+    def _get_person_affiliations(self, owner_id):
+        self.person.clear()
+        self.person.find(owner_id)
+
+        person_affs = set()
+        for aff in self.person.get_affiliations():
+            person_affs.add((aff['affiliation'], aff['ou_id']))
+        return person_affs
+    
+    def _get_all_account_affiliations(self, owner_id):
+        account_affs = set()
+        for aff in self.account.get_account_types(
+              all_persons_types=True,
+              owner_id=owner_id):
+            account_affs.add((aff['affiliation'], aff['ou_id']))
+        return account_affs
+
+    def _remove_account_affiliations(self, affs):
+        const = self.account.const
+        for aff in self.account.get_account_types():
+            if (aff['affiliation'], aff['ou_id']) not in affs:
+                logger.info("Removing affiliation for %s: %s:%s",
+                            self.account.account_name,
+                            const.PersonAffiliation(aff),
+                            self.ou_acronym.get(ou_id, ou_id))
+                self.account.del_account_type(aff['ou_id'], aff['affiliation'])
+                
+        
+
+    def _add_account_affiliations(self, affs):
+        if affs:
+            logger.info("Adding affiliations for %s: %s",
+                        self.account.account_name,
+                        ", ".join(["%s:%s" % (
+                            self.const.PersonAffiliation(aff),
+                            self.ou_acronym.get(ou_id, ou_id))
+                                   for aff, ou_id in affs]))
+            for aff, ou_id in affs:
+                self.account.set_account_type(ou_id, aff)
+            self.account.write_db()
+
+    def _create_account(self, owner):
+        uname = self.account.suggest_unames(
+            self.const.account_namespace,
+            owner['fname'], owner['lname'], maxlen=8)[0]
+        logger.info("Creating account %s", uname)
+            
+        self.account.clear()
+        self.account.populate(name=uname, 
+                              owner_type=owner['type'],
+                              owner_id=owner['id'],
+                              np_type=None,
+                              creator_id=self.creator_id,
+                              expire_date=None)
+        self.account.write_db()
+        return self.account.entity_id
+
     def map_affiliation_to_groups(self, ou_id, affiliation):
         try:
             return self._parse_config_map(cereconf.BUILD_GROUP,
