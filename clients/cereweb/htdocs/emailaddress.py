@@ -27,6 +27,7 @@ from lib.utils import is_correct_referer, get_referer_error
 from lib.forms import EmailAddressEditForm, EmailAddressCreateForm
 from lib.data.EmailTargetDAO import EmailTargetDAO
 from lib.data.EmailAddressDAO import EmailAddressDAO
+from Cerebrum.Database import IntegrityError
 
 @session_required_decorator
 def edit(*args, **kwargs):
@@ -57,13 +58,19 @@ create.exposed = True
 @session_required_decorator
 def delete(address_id, target_id):
     db = get_database()
-    dao = EmailAddressDAO(db)
-    dao.delete(address_id)
-    db.commit()
+    try:
+        dao = EmailAddressDAO(db)
+        dao.delete(address_id)
+        db.commit()
 
-    queue_message(
-        _('Email address successfully deleted.'),
-        title=_("Change succeeded"))
+        queue_message(
+            _('Email address successfully deleted.'),
+            title=_("Change succeeded"))
+    except IntegrityError, e:
+        queue_message(
+            _('The primary email-address cannot be deleted.'),
+            error=True,
+            title=_('Delete failed'))
     redirect_entity(target_id)
 delete.exposed = True
 
