@@ -49,8 +49,19 @@ class EntityDAO(object):
         raise NotImplementedError("This method should be overloaded.")
 
     def get_entity(self, entity_id):
-        entity = self._find(entity_id)
+        try:
+            entity = self._find(entity_id)
+        except NotFoundError, e:
+            return self._create_null_object(entity_id)
         return self._create_entity_dto(entity)
+
+    def _create_null_object(self, entity_id):
+        dto = EntityDTO()
+        dto.id = entity_id
+        dto.name = "Not found"
+        dto.type_name = self._get_type_name()
+        dto.type_id = self._get_type_id()
+        return dto
 
     def get_entity_by_name(self, name):
         entity = self._find_by_name(name)
