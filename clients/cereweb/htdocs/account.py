@@ -416,6 +416,7 @@ def update(account_id):
             _('Account is updated to the latest default settings.'),
             title=_('Account updated'))
     except Exception, e:
+        db.rollback()
         queue_message(e, error=True, title=_('Updated failed.'))
     redirect_entity(account_id)
 update.exposed = True
