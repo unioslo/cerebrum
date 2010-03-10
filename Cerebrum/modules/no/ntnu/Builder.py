@@ -23,25 +23,26 @@ class Builder():
         self.const = self.account.const
 
     def build_from_owner(self, owner_id):
-        self.person.clear()
-        self.person.find(owner_id)
-        personaffdict = self._get_person_affiliations()
+        owner = self._get_owner(owner_id)
+
+        personaffdict = self._get_person_affiliations(owner_id)
         personaffs = set(personaffdict.keys())
-        allaccountaffs = self._get_all_account_affiliations()
-        uninheritedaffs = personaffs - allaccountaffs
 
         accounts = self.account.search(owner_id=owner_id)
         if accounts:
+            allaccountaffs = self._get_all_account_affiliations(owner_id)
+            uninheritedaffs = personaffs - allaccountaffs
+
             for a in accounts:
                 self.account.clear()
                 self.account.find(a['account_id'])
                 self._add_account_affiliations(uninheritedaffs)
-                self._build_account()
+                self._build_account(owner)
         else:
             self.account.clear()
-            self._create_account()
+            self._create_account(owner)
             self._add_account_affiliations(personaffs)
-            self._build_account()
+            self._build_account(owner)
     
     def rebuild_all_accounts(self):
         for a in self.account.list():
@@ -50,18 +51,17 @@ class Builder():
 
     def rebuild_account(self, account_id):
         self.account.clear()
-        self.person.clear()
-
         self.account.find(account_id)
-        self.person.find(self.account.owner_id)
-        
-        personaffdict = self._get_person_affiliations()
+
+        personaffdict = self._get_person_affiliations(self.account.owner_id)
         personaffs = set(personaffdict.keys())
-        allaccountaffs = self._get_all_account_affiliations()
+        allaccountaffs = self._get_all_account_affiliations(self.account.owner_id)
         uninheritedaffs = personaffs - allaccountaffs
 
         self._add_account_affiliations(uninheritedaffs)
-        self._build_account()
+        
+        owner = self._get_owner(owner_id)
+        self._build_account(owner)
             
     def _make_ou_cache(self, db):
         ou = Factory.get("OU")(db)
@@ -113,7 +113,7 @@ class Builder():
         if (None, None) in confmap:
             yield confmap[None, None]
 
-    def _build_account(self):
+    def _build_account(self, owner):
         # Add new personaffiliations to account!
         accountprio = list(self.account.get_account_types())
         accountprio.sort(key=lambda ap: ap['priority'])
@@ -131,19 +131,22 @@ class Builder():
             pass
 
         self._build_spreads(accountprio)
-        self._build_email(primaryaff)
+        self._build_email(primaryaff, owner)
 
-    def _get_person_affiliations(self):
+    def _get_person_affiliations(self, owner_id):
+        self.person.clear()
+        self.person.find(owner_id)
+
         person_affs = {}
         for aff in self.person.get_affiliations():
             person_affs[(aff['affiliation'], aff['ou_id'])]=aff
         return person_affs
     
-    def _get_all_account_affiliations(self):
+    def _get_all_account_affiliations(self, owner_id):
         account_affs = set()
         for aff in self.account.get_account_types(
               all_persons_types=True,
-              owner_id=self.person.entity_id):
+              owner_id=owner_id):
             account_affs.add((aff['affiliation'], aff['ou_id']))
         return account_affs
 
@@ -172,22 +175,15 @@ class Builder():
                 self.account.set_account_type(ou_id, aff)
             self.account.write_db()
 
-    def _create_account(self):
-        const = self.person.const
-
-        fname = self.person.get_name(const.system_cached,
-                                     const.name_first)
-        lname = self.person.get_name(const.system_cached,
-                                     const.name_last)
-
+    def _create_account(self, owner):
         uname = self.account.suggest_unames(
-            const.account_namespace,
-            fname, lname, maxlen=8)[0]
+            self.const.account_namespace,
+            owner['fname'], owner['lname'], maxlen=8)[0]
         logger.info("Creating account %s", uname)
             
         self.account.populate(name=uname, 
-                              owner_type=self.person.entity_type,
-                              owner_id=self.person.entity_id,
+                              owner_type=owner['type'],
+                              owner_id=owner['id'],
                               np_type=None,
                               creator_id=self.creator_id,
                               expire_date=None)
@@ -260,10 +256,8 @@ class Builder():
             self.account.write_db()
         # XXX Delete/expire some managed spreads later?
 
-    def _build_email(self, primaryaff):
+    def _build_email(self, primaryaff, owner):
         """Build email for user."""
-        const = self.account.const
-
         emailconf = self.map_affiliation_to_email(
             primaryaff['ou_id'], primaryaff['affiliation'])
         if not emailconf:
@@ -286,7 +280,7 @@ class Builder():
             self.emailserver.clear()
             self.emailserver.find_by_name(emailserver)
             self.emailtarget.populate(
-                type=const.email_target_account,
+                type=self.const.email_target_account,
                 target_entity_id=self.account.entity_id,
                 target_entity_type=self.account.entity_type,
                 using_uid=self.account.entity_id,
@@ -306,10 +300,8 @@ class Builder():
             if addrtype == "uname":
                 local_parts = [self.account.account_name]
             elif addrtype == "fullname":
-                fname = self.person.get_name(const.system_cached,
-                                             const.name_first)
-                lname = self.person.get_name(const.system_cached,
-                                             const.name_last)
+                fname = owner['fname']
+                lname = owner['lname']
                 local_parts = self.generate_email_addresses(fname, lname)
             self.emaildomain.clear()
             self.emaildomain.find_by_domain(emaildomain)
@@ -391,3 +383,19 @@ class Builder():
         while True:
             yield ".".join([fname]+[str(i)]+lnames)
             i+=1
+
+    def _get_owner(self, owner_id):
+        self.person.clear()
+        self.person.find(owner_id)
+
+        fname = self.person.get_name(self.const.system_cached,
+                                     self.const.name_first)
+        lname = self.person.get_name(self.const.system_cached,
+                                     self.const.name_last)
+
+        return {
+            'id': owner_id,
+            'type': self.person.entity_type,
+            'fname': fname,
+            'lname': lname,
+        }
