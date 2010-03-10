@@ -87,7 +87,7 @@ def main():
             if not fail: 
                 accounts.add(account)
             else:
-                log.warning("Skipping account '%s', reason: %s",
+                log.info("Skipping account '%s', reason: %s",
                             account.name,fail) 
     except Exception,e:
         log.error("Exception %s occured, aborting",e)
@@ -106,7 +106,7 @@ def main():
             if not fail:
                 groups.add(group)
             else:
-                log.warning("Skipping group '%s', reason: %s",group.name, fail)
+                log.info("Skipping group '%s', reason: %s",group.name, fail)
     except Exception, e:
         log.error("Exception %s occured, aborting",e)
         groups.abort()
