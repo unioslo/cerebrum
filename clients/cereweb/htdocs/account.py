@@ -29,6 +29,7 @@ from lib.templates.AccountViewTemplate import AccountViewTemplate
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.Database import IntegrityError
+from Cerebrum.modules.no.ntnu.Builder import Builder
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.ConstantsDAO import ConstantsDAO
@@ -402,3 +403,19 @@ def remove_affil(account_id, ou_id, affil_id):
     queue_message(_("Affiliation successfully removed."), title=_("Change succeeded"))
     redirect_entity(account_id)
 remove_affil.exposed = True
+    
+@session_required_decorator
+def update(account_id):
+    db = get_database()
+    creator_id = int(cherrypy.session.get('userid'))
+    builder = Builder(db, creator_id)
+    try:
+        builder.rebuild_account(int(account_id))
+        db.commit()
+        queue_message(
+            _('Account is updated to the latest default settings.'),
+            title=_('Account updated'))
+    except Exception, e:
+        queue_message(e, error=True, title=_('Updated failed.'))
+    redirect_entity(account_id)
+update.exposed = True
