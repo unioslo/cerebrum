@@ -112,7 +112,6 @@ def try_login(username=None, password=None, **kwargs):
     if account.np_type is not None:
         realname = str(const.Account(account.np_type))
     else:
-        print account.account_name, account.owner_id
         person = Person(db)
         person.find(account.owner_id)
         realname = person.get_name(const.system_cached,
@@ -135,9 +134,12 @@ def create_cherrypy_session(username, realname, userid):
 
 def negotiate_encoding():
     prefered_charset = default_charset = 'utf-8'
+
     allowed_charsets = cherrypy.request.headerMap.get('Accept-Charset', '')
-    
     if not allowed_charsets:
+        user_agent = cherrypy.request.headerMap.get('User-Agent','')
+        if user_agent.rfind('MSIE') != -1:
+            return 'windows-1252'
         return default_charset
 
     charsets = [c.strip().lower() for c in allowed_charsets.split(',')]
