@@ -49,27 +49,39 @@ class Builder(object):
         if not owner:
             owner = self._get_owner(self.account.owner_id)
 
-        personaffs = self._get_person_affiliations(owner['id'])
-        allaccountaffs = self._get_all_account_affiliations(owner['id'])
-        uninheritedaffs = personaffs - allaccountaffs
-        self._add_account_affiliations(uninheritedaffs)
+        self._build_account_affiliations(owner)
 
         accountprio = list(self.account.get_account_types())
         accountprio.sort(key=lambda ap: ap['priority'])
         if not accountprio:
             return
-        primaryaff = accountprio[0]
 
         primarygroup_id = self._build_group_membership(accountprio)
-        if primarygroup_id is not None:
-            self._build_posix(primarygroup_id)
-        else:
-            #logger.warn("Cannot find a primary group for account %s.",
-            #            self.account.account_name)
-            pass
+        if not primarygroup_id:
+            logger.warn("Cannot find a primary group for account %s.",
+                        self.account.account_name)
+            return
 
-        self._build_spreads(accountprio)
-        self._build_email(primaryaff, owner)
+        self._build_posix(primarygroup_id)
+        self._build_email(owner, accountprio)
+
+    def _build_account_affiliations(self, owner):
+        personaffs = self._get_person_affiliations(owner['id'])
+        allaccountaffs = self._get_all_account_affiliations(owner['id'])
+        uninheritedaffs = personaffs - allaccountaffs
+        self._add_account_affiliations(uninheritedaffs)
+
+    def _add_account_affiliations(self, affs):
+        if affs:
+            logger.info("Adding affiliations for %s: %s",
+                        self.account.account_name,
+                        ", ".join(["%s:%s" % (
+                            self.const.PersonAffiliation(aff),
+                            self.ou_acronym.get(ou_id, ou_id))
+                                   for aff, ou_id in affs]))
+            for aff, ou_id in affs:
+                self.account.set_account_type(ou_id, aff)
+            self.account.write_db()
 
     def _build_group_membership(self, accountprio):
         """Add group memberships requested by accountprio/config.
@@ -137,8 +149,10 @@ class Builder(object):
             self.account.write_db()
         # XXX Delete/expire some managed spreads later?
 
-    def _build_email(self, primaryaff, owner):
+    def _build_email(self, owner, accountprio):
         """Build email for user."""
+        primaryaff = accountprio[0]
+
         emailconf = self.map_affiliation_to_email(
             primaryaff['ou_id'], primaryaff['affiliation'])
         if not emailconf:
@@ -302,18 +316,6 @@ class Builder(object):
                 self.account.del_account_type(aff['ou_id'], aff['affiliation'])
                 
         
-
-    def _add_account_affiliations(self, affs):
-        if affs:
-            logger.info("Adding affiliations for %s: %s",
-                        self.account.account_name,
-                        ", ".join(["%s:%s" % (
-                            self.const.PersonAffiliation(aff),
-                            self.ou_acronym.get(ou_id, ou_id))
-                                   for aff, ou_id in affs]))
-            for aff, ou_id in affs:
-                self.account.set_account_type(ou_id, aff)
-            self.account.write_db()
 
     def _create_account(self, owner):
         uname = self.account.suggest_unames(
