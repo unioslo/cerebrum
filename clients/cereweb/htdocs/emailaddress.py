@@ -92,11 +92,19 @@ def make(target_id, local, domain, expire):
     expire_date = parse_date(expire)
 
     db = get_database()
-    dao = EmailAddressDAO(db)
-    dao.create(target_id, domain, local_part, expire_date)
-    db.commit()
-
-    queue_message(_("Email address successfully created."), title=_("Change succeeded"))
+    try:
+        dao = EmailAddressDAO(db)
+        dao.create(target_id, domain, local_part, expire_date)
+        db.commit()
+        queue_message(_("Email address successfully created."),
+            title=_("Change succeeded"))
+    except IntegrityError, e:
+        db.rollback()
+        queue_message(
+            _('This emailaddress is already occupied.'),
+            error=True,
+            title=_('Create failed'))
+        
     redirect_entity(target_id)
 
 @session_required_decorator
