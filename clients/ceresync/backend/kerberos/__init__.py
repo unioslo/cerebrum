@@ -89,7 +89,7 @@ class Account:
         """
         Close connection to local or remote kadmin. 
         """
-        log.debug("Closing backend")
+        log.info("Closing backend")
         if not self.incr and allow_delete:
             # Could possibly just check for a '/' instead ...
             regex= re.compile('^([a-z0-9]+)@%s$' % self.k.realm)
@@ -120,7 +120,7 @@ class Account:
         password= account.passwd
         options= None # or some defaults from config in dict-format
         if not password:
-            log.warning("'%s' has blank password.", princ)
+            log.warning("'%s' has blank password.  Ignoring.", princ)
             return
         if allow_add:
             try: 
@@ -138,7 +138,7 @@ class Account:
                     except IOError,ioe:
                         log.error("%s. Exiting",ioe)
                         sys.exit(512)
-                log.info("'%s' added",princ)
+                log.debug("'%s' added",princ)
         if (not self.incr):
             self.added_princs.add(princ)
 
@@ -150,7 +150,7 @@ class Account:
         try:
             if not self.dryrun: 
                 self.k.SetPassword(princ, self.pgp.decrypt(account.passwd))
-            log.info("password updated for '%s'",princ)
+            log.debug("password updated for '%s'",princ)
             if not self.incr:
                 self.added_princs.add(princ)
         except IOError,ioe:
@@ -166,9 +166,9 @@ class Account:
         try:
             if not self.dryrun: 
                 self.k.DeletePrincipal(princ)
-            log.info("'%s' removed.",princ)
+            log.debug("'%s' removed.",princ)
         except heimdal_error.KADM5_UNK_PRINC, e:
-            log.debug("attempted to remove '%s', but principal did not exist."+
+            log.warning("attempted to remove '%s', but principal did not exist."+
                       " Ignoring", princ)
 
 class User:

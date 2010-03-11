@@ -63,13 +63,13 @@ def load_changelog_id(changelog_file):
     local_id = 0
     if os.path.isfile(changelog_file):
         local_id = long(open(changelog_file).read())
-        log.debug("Loaded changelog-id %ld", local_id)
+        log.info("Loaded changelog-id %ld", local_id)
     else:
-        log.debug("Default changelog-id %ld", local_id)
+        log.info("Default changelog-id %ld", local_id)
     return local_id
 
 def save_changelog_id(server_id, changelog_file):
-    log.debug("Storing changelog-id %ld", server_id)
+    log.info("Storing changelog-id %ld", server_id)
     open(changelog_file, 'w').write(str(server_id))
 
 def set_incremental_options(options, incr, server_id, changelog_file):
@@ -81,7 +81,7 @@ def set_incremental_options(options, incr, server_id, changelog_file):
     if local_id > server_id:
         log.warning("local changelogid is larger than the server's!")
     elif incr and local_id == server_id:
-        log.debug("No changes to apply. Quiting.")
+        log.info("No changes to apply. Quiting.")
         sys.exit(0)
 
     options['incr_from'] = local_id
@@ -105,12 +105,12 @@ def main():
         log.error("Invalid arguments. You must provide either the --bulk or the --incremental option")
         sys.exit(1)
 
-    log.debug("Setting up CereWS connection")
+    log.info("Setting up CereWS connection")
     try:
         s = sync.Sync(locking=not using_test_backend)
         server_id = s.get_changelogid()
     except sync.AlreadyRunningWarning, e:
-        log.warning(str(e))
+        log.error(str(e))
         sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
@@ -126,7 +126,7 @@ def main():
 
     systems = config.get('ldap', 'sync', default='').split()
     for system in systems:
-        log.debug("Syncing system %s", system)
+        log.info("Syncing system %s", system)
         if using_test_backend:
             backend = get_testbackend(s, system)
         else:
@@ -189,7 +189,7 @@ def get_ldapbackend(s, system):
         affiliations = get_conf(system, "affiliations").strip().split(" ")
         return backend(base=base, filter=filter, affiliations=affiliations, ouregister=register)
         
-    log.debug("Initializing %s backend with base %s", backend_class, base)
+    log.info("Initializing %s backend with base %s", backend_class, base)
     return backend(base=base, filter=filter)
 
 def get_entities(s, system, sync_options):

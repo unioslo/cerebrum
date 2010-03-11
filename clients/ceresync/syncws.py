@@ -25,7 +25,7 @@ log = config.logger
 try:
     from ceresync.dom import DomletteReader as ReaderClass
 except ImportError, e:
-    log.warn("Could not import DomletteReader.  Install 4Suite for extra performance.")
+    log.warning("Could not import DomletteReader.  Install 4Suite for extra performance.")
     from xml.dom import expatbuilder
     class ReaderClass(object):
         fromString = staticmethod(expatbuilder.parseString)

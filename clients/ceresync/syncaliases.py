@@ -61,7 +61,7 @@ def main():
     try:
         s = sync.Sync(locking=not using_test_backend)
     except sync.AlreadyRunningWarning, e:
-        log.warning(str(e))
+        log.error(str(e))
         sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
@@ -74,7 +74,7 @@ def main():
 
     aliases = filebackend.Alias(altformat=altformat)
     
-    log.debug("Syncronizing aliases")
+    log.info("Syncronizing aliases")
     aliases.begin(unicode=True)
 
     try:
@@ -83,7 +83,7 @@ def main():
                       alias.domain)
             aliases.add(alias)
     except Exception, e:
-        log.error("Exception %s occured, aborting",e)
+        log.exception("Exception %s occured, aborting",e)
         aliases.abort()
     else:
         aliases.close()

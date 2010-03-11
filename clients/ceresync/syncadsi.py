@@ -33,13 +33,13 @@ def load_changelog_id(changelog_file):
     local_id = 0
     if os.path.isfile(changelog_file):
         local_id = long(open(changelog_file).read())
-        log.debug("Loaded changelog-id %ld", local_id)
+        log.info("Loaded changelog-id %ld", local_id)
     else:
-        log.debug("Default changelog-id %ld", local_id)
+        log.info("Default changelog-id %ld", local_id)
     return local_id
 
 def save_changelog_id(server_id, changelog_file):
-    log.debug("Storing changelog-id %ld", server_id)
+    log.info("Storing changelog-id %ld", server_id)
     open(changelog_file, 'w').write(str(server_id))
 
 def set_incremental_options(options, incr, server_id, changelog_file):
@@ -51,7 +51,7 @@ def set_incremental_options(options, incr, server_id, changelog_file):
     if local_id > server_id:
         log.warning("local changelogid is larger than the server's!")
     elif incr and local_id == server_id:
-        log.debug("No changes to apply. Quitting.")
+        log.info("No changes to apply. Quitting.")
         sys.exit(0)
 
     options['incr_from'] = local_id
@@ -80,7 +80,7 @@ def main():
         s = sync.Sync(locking=not using_test_backend)
         server_id = s.get_changelogid()
     except sync.AlreadyRunningWarning, e:
-        log.warning(str(e))
+        log.error(str(e))
         sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
@@ -116,16 +116,16 @@ def main():
     userAD = adsibackend.ADUser( config.get("ad_ldap","userdn") )
     groupAD = adsibackend.ADGroup( config.get("ad_ldap","groupdn") )
 
-    log.debug("Synchronizing accounts")
+    log.info("Synchronizing accounts")
     encoding= 'utf-8'
     userAD.begin(encoding, incr, add, update, delete)
     for account in accounts:
         log.debug("Processing account '%s'", account.name)
         userAD.add(account)
     userAD.close()
-    log.debug("Done synchronizing accounts")
+    log.info("Done synchronizing accounts")
 
-    log.debug("Synchronizing groups")
+    log.info("Synchronizing groups")
     groupAD.begin(encoding, incr)
     try:
         for group in groups:
@@ -135,7 +135,7 @@ def main():
         log.exception("Exception %s occured, aborting", e)
     else:
         groupAD.close()
-    log.debug("Done synchronizing groups")
+    log.info("Done synchronizing groups")
 
     if incr or (add and update and delete):
         save_changelog_id(server_id, changelog_file)

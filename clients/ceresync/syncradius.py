@@ -42,12 +42,12 @@ def main():
                 "MD4-NT",
                 "LANMAN-DES"
                 ]
-    log.debug("Creating sync object")
+    log.info("Creating sync object")
 
     try:
         s = sync.Sync(locking=not using_test_backend)
     except sync.AlreadyRunningWarning, e:
-        log.warning(str(e))
+        log.error(str(e))
         sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
@@ -81,7 +81,7 @@ def main():
         log.error("Exception %s occured, aborting",e)
         sys.exit(1)
 
-    log.debug("Parsing and creating files")
+    log.info("Parsing and creating files")
 
     smbfile = Samba()
     smbfile.begin(unicode=True)
@@ -92,9 +92,11 @@ def main():
     try:
         for account in acclist:
             if len(account.quarantines) > 0:
-                log.info("Skipping account %s with quarantines: %s", 
+                log.debug("Skipping account %s with quarantines: %s", 
                             account.name, account.quarantines)
                 continue
+
+            log.debug("Processing account %s" % account.name)
 
             ntlmhash = pwdict[account.name].get('MD4-NT')
             lmhash =   pwdict[account.name].get('LANMAN-DES')
@@ -112,7 +114,7 @@ def main():
         smbfile.close()
         accounts.close()
 
-    log.debug("Syncronization done")
+    log.info("Syncronization done")
 
 if __name__ == "__main__":
     main()

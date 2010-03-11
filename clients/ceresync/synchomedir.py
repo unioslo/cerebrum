@@ -94,20 +94,20 @@ class HomedirSync(object):
 
     def _make_homedir(self, homedir):
         path = self._get_path(homedir)
-        log.debug("Creating homedir for %s: %s",
+        log.info("Making homedir for %s: %s",
             homedir.account_name, path)
 
         result_status = 'on_disk'
         try:
             self._run_create_script(path, homedir)
-            log.info("Created homedir %s for %s" % (
+            log.debug("Created homedir %s for %s" % (
                 path, homedir.account_name))
         except Exception, e:
             result_status = 'create_failed'
-            log.info("Failed creating homedir for %s: %s" % (
+            log.debug("Failed creating homedir for %s: %s" % (
                 homedir.account_name, e))
 
-        log.info("Setting status for homedir for %s to %s",
+        log.debug("Setting status for homedir for %s to %s",
             homedir.account_name, result_status)
         self._set_homedir_status(homedir, result_status)
 
@@ -134,7 +134,7 @@ class HomedirSync(object):
             str(homedir.account_name),
         )
 
-        log.info("Running create script: %s", cmd)
+        log.debug("Running create script: %s", cmd)
 
         returncode = self._do_run_create_script(cmd)
         if returncode != 0:

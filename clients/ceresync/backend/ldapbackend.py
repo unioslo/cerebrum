@@ -82,7 +82,7 @@ class LdapBack(object):
         self.bindpw= bindpw or config.get("ldap", "bindpw")
 
         try:
-            log.debug("Connecting to %s", self.uri)
+            log.info("Connecting to %s", self.uri)
             self.l = ldap.initialize(self.uri)
             self.l.simple_bind_s(self.binddn,self.bindpw)
             self.insync = []
@@ -112,7 +112,7 @@ class LdapBack(object):
         try:
             self.l.unbind_s()
         except ldap.LDAPError,e:
-            log.error("Error occured while closing LDAPConnection: %s" % (e))
+            log.warning("Error occured while closing LDAPConnection: %s" % (e))
 
     def _cmp(self,x,y):
         """Comparator for sorting hierarchical DNs for ldapsearch-result"""
@@ -129,7 +129,7 @@ class LdapBack(object):
         if self.incr:
             return
 
-        log.debug("Syncronizing LDAP database")
+        log.info("Syncronizing LDAP database")
         self.indirectory = []
         res = self.search(filterstr=self.filter,attrslist=["dn"]) # Only interested in attribute dn to be received
         for (dn,attrs) in res:
@@ -138,7 +138,7 @@ class LdapBack(object):
             try:
                 self.indirectory.remove(entry)
             except:
-                log.info("Info: Didn't find entry: %s." % entry)
+                log.debug("Info: Didn't find entry: %s." % entry)
         # Sorts the list so children are deleted before parents.
         self.indirectory.sort(self._cmp)
         for entry in self.indirectory:
@@ -146,9 +146,9 @@ class LdapBack(object):
             if entry.lower() == 'ou=organization,dc=ntnu,dc=no':
                 continue
             else:
-                log.info("Found %s in database.. should not be here.. removing" % entry)
+                log.debug("Found %s in database.. should not be here.. removing" % entry)
                 self.delete(dn=entry)
-        log.debug("Done syncronizing")
+        log.info("Done syncronizing")
 
     def abort(self):
         """
@@ -157,7 +157,7 @@ class LdapBack(object):
         try:
             self.l.unbind_s()
         except ldap.LDAPError,e:
-            log.error("Error occured while closing LDAPConnection: %s" % (e))
+            log.warning("Error occured while closing LDAPConnection: %s" % (e))
 
     def add(self, obj, update_if_exists=True):
         """
@@ -180,7 +180,7 @@ class LdapBack(object):
             sys.exit(1)
         try:
             self.l.add_s(dn,mod_attrs)
-            log.info("Added '%s'", dn)
+            log.debug("Added '%s'", dn)
             self.insync.append(dn)
         except ldap.ALREADY_EXISTS,e:
             self.update(obj)
@@ -228,7 +228,7 @@ class LdapBack(object):
             # Only update if there are changes. python_ldap seems to complain when given empty modlists
             if (mod_attrs != []): 
                 self.l.modify_s(dn,mod_attrs)
-                log.info("Updated '%s'", dn)
+                log.debug("Updated '%s'", dn)
             self.insync.append(dn)
         except ldap.LDAPError,e:
             log.exception("An error occured while modifying %s" % (dn))
@@ -243,11 +243,11 @@ class LdapBack(object):
             dn=self.get_dn(obj)
         try:
             self.l.delete_s(dn)
-            log.info("Deleted '%s'", dn)
+            log.debug("Deleted '%s'", dn)
         except ldap.NO_SUCH_OBJECT,e:
-            log.error("%s not found when trying to remove from database" % (dn))
+            log.warning("%s not found when trying to remove from database" % (dn))
         except ldap.LDAPError,e:
-            log.error("Error occured while trying to remove %s from database: %s" % (dn,e))
+            log.warning("Error occured while trying to remove %s from database: %s" % (dn,e))
 
     def search(self,base=None,scope=ldap.SCOPE_SUBTREE,filterstr='(objectClass=*)',attrslist=None,attrsonly=0):
         if base == None:
@@ -256,7 +256,7 @@ class LdapBack(object):
             result = self.l.search_s(base,scope,filterstr,attrslist,attrsonly)
         except ldap.LDAPError,e:
             # FIXME: Returns error when on no entries found... (bug or feature?)
-            log.error("Error occured while searching with filter: %s" % (filterstr))
+            log.warning("Error occured while searching with filter: %s" % (filterstr))
             return [] # Consider raise exception later
         return result
 
@@ -464,7 +464,7 @@ class Person(PersonLdapBack):
                 # the person doesn't have any other affiliations.
                 pass 
             else:
-                log.warn("Unknown affiliation: %s" % aff.affiliation)
+                log.warning("Unknown affiliation: %s" % aff.affiliation)
 
         if not affiliations:
             affiliations.add("affiliate")

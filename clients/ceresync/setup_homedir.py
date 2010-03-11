@@ -102,18 +102,18 @@ class Homedir(object):
             self._fix_permissions(parent, 0755)
 
     def _create_dir(self, path, mode):
-        logger.info("Creating directory: %s", path)
+        logger.debug("Creating directory: %s", path)
         os.mkdir(path, mode)
 
         def undo():
-            logger.info("Removing directory: %s", path)
+            logger.debug("Removing directory: %s", path)
             if os.path.isdir(self.path):
                 os.rmdir(self.path)
         self.undolist.insert(0, undo)
 
     def _fix_owner(self, path):
         if not self._is_superuser():
-            logger.debug("Not changing ownership since user is not root.")
+            logger.warning("Not changing ownership since user is not root.")
             return
 
         logger.debug("Changing owner and group of path: %s", path)
@@ -167,7 +167,7 @@ class Homedir(object):
         os.symlink(target, name)
 
         def undo():
-            logger.info("Removing symlink: %s", name)
+            logger.debug("Removing symlink: %s", name)
             os.unlink(name)
         self.undolist.insert(0, undo)
 

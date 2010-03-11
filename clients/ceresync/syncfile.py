@@ -59,7 +59,7 @@ def main():
     try:
         s = sync.Sync(locking=not using_test_backend)
     except sync.AlreadyRunningWarning, e:
-        log.warning(str(e))
+        log.error(str(e))
         sys.exit(1)
     except sync.AlreadyRunning, e:
         log.error(str(e))
@@ -77,7 +77,7 @@ def main():
     groups = filebackend.Group()
     primary_group = {}
 
-    log.debug("Syncronizing accounts")
+    log.info("Syncronizing accounts")
     accounts.begin(unicode=True)
     try:
         for account in s.get_accounts(**sync_options):
@@ -87,7 +87,7 @@ def main():
             if not fail: 
                 accounts.add(account)
             else:
-                log.info("Skipping account '%s', reason: %s",
+                log.warning("Skipping account '%s', reason: %s",
                             account.name,fail) 
     except Exception,e:
         log.error("Exception %s occured, aborting",e)
@@ -95,7 +95,7 @@ def main():
     else:
         accounts.close()
 
-    log.debug("Syncronizing groups")
+    log.info("Syncronizing groups")
     groups.begin(unicode=True)
     try:
         for group in s.get_groups(**sync_options):
@@ -106,7 +106,7 @@ def main():
             if not fail:
                 groups.add(group)
             else:
-                log.info("Skipping group '%s', reason: %s",group.name, fail)
+                log.warning("Skipping group '%s', reason: %s",group.name, fail)
     except Exception, e:
         log.error("Exception %s occured, aborting",e)
         groups.abort()
