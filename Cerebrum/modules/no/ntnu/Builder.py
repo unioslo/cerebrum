@@ -71,18 +71,6 @@ class Builder(object):
         uninheritedaffs = personaffs - allaccountaffs
         self._add_account_affiliations(uninheritedaffs)
 
-    def _add_account_affiliations(self, affs):
-        if affs:
-            logger.info("Adding affiliations for %s: %s",
-                        self.account.account_name,
-                        ", ".join(["%s:%s" % (
-                            self.const.PersonAffiliation(aff),
-                            self.ou_acronym.get(ou_id, ou_id))
-                                   for aff, ou_id in affs]))
-            for aff, ou_id in affs:
-                self.account.set_account_type(ou_id, aff)
-            self.account.write_db()
-
     def _build_group_membership(self, accountprio):
         """Add group memberships requested by accountprio/config.
         Return suggestion for default group.
@@ -159,6 +147,7 @@ class Builder(object):
             logger.debug("No email for account %s",
                          self.account.account_name)
             return
+
         (emailserver, emaildomain, addrtype) = emailconf
 
         # Find or make an emailtarget.
@@ -238,6 +227,18 @@ class Builder(object):
                 self.emailtarget.entity_id)
             self.emailprimaryaddr.write_db()
                 
+    def _add_account_affiliations(self, affs):
+        if affs:
+            logger.info("Adding affiliations for %s: %s",
+                        self.account.account_name,
+                        ", ".join(["%s:%s" % (
+                            self.const.PersonAffiliation(aff),
+                            self.ou_acronym.get(ou_id, ou_id))
+                                   for aff, ou_id in affs]))
+            for aff, ou_id in affs:
+                self.account.set_account_type(ou_id, aff)
+            self.account.write_db()
+
     def _make_ou_cache(self, db):
         ou = Factory.get("OU")(db)
 
