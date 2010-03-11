@@ -191,10 +191,6 @@ def has_valid_session():
 def session_required_decorator(method):
     def fn(*args, **vargs):
         if not has_valid_session():
-            Messages.queue_message(
-                    title="Session Expired",
-                    message='Your session is no longer available.  Please log in again.',
-                    is_error=True)
             redirect_to_login()
 
         cherrypy.session['timestamp'] = time.time()
