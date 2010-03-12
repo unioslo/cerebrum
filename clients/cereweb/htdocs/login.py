@@ -124,7 +124,6 @@ def create_cherrypy_session(username, realname, userid):
     cherrypy.session['realname'] = realname
     cherrypy.session['username'] = username
     cherrypy.session['userid'] = userid
-    cherrypy.session['timeout'] = get_timeout()
     cherrypy.session['client_encoding'] = negotiate_encoding()
     cherrypy.session['spine_encoding'] = 'iso-8859-1'
     cherrypy.session['options'] = Options(username)
@@ -162,7 +161,3 @@ def get_next(redirect=None, **kwargs):
     if next is not None:
         return utils.clean_url(next)
     return '/index'
-
-def get_timeout():
-    """Returns the time it takes in seconds for _a_ session to time out."""
-    return getattr(cereconf, 'SPINE_SESSION_TIMEOUT', 900)

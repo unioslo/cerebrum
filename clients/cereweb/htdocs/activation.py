@@ -68,14 +68,9 @@ def negotiate_encoding():
         return prefered_charset
     return charsets[0]
 
-def get_timeout():
-    """Returns the time it takes in seconds for _a_ session to time out."""
-    return getattr(cereconf, 'SPINE_SESSION_TIMEOUT', 900)
-
 def has_session():
-    return cherrypy.session.get('timeout', '') and \
-        cherrypy.session.get('client_encoding', '')  and \
-        cherrypy.session.get('spine_encoding', '')
+    return cherrypy.session.get('client_encoding', '')  and \
+           cherrypy.session.get('spine_encoding', '')
         
 def index(**vargs):
     global logger
@@ -83,7 +78,6 @@ def index(**vargs):
     global _
     logger  = Factory.get_logger('root')
     if not has_session():
-        cherrypy.session['timeout'] = get_timeout()
         cherrypy.session['client_encoding'] = negotiate_encoding()
         cherrypy.session['spine_encoding'] = 'iso-8859-1'
     if not is_correct_referer():

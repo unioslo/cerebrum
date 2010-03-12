@@ -25,7 +25,7 @@ from sets import Set
 
 from Cerebrum.Errors import NotFoundError
 from gettext import gettext as _
-from lib.utils import *
+from lib import utils
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.PersonDAO import PersonDAO
@@ -33,9 +33,19 @@ from lib.data.GroupDAO import GroupDAO
 
 max_results = 20
 
-@session_required_decorator
+def has_valid_session(nocache=None):
+    """Returns true or false
+    
+    nocache allows the client to create unique request URIs
+    so that the request doesn't get cached by IE or opera.
+    """
+    return cjson.encode(utils.has_valid_session())
+has_valid_session.exposed = True
+
+
+@utils.session_required_decorator
 def search(query=None, type=None, output=None):
-    query = from_web_decode(query).strip()
+    query = utils.from_web_decode(query).strip()
 
     if not type:
         type, query = divine_type_from_query(query)
@@ -44,7 +54,7 @@ def search(query=None, type=None, output=None):
     if not is_valid_query(query, type):
         return cjson.encode(None)
 
-    query = to_spine_encode(query)
+    query = utils.to_spine_encode(query)
 
     if type == "account":
         result = search_account(query, output)
@@ -62,7 +72,7 @@ def search(query=None, type=None, output=None):
 search.exposed = True
 
 def search_account(query, output):
-    db = get_database()
+    db = utils.get_database()
     dao = AccountDAO(db)
     accounts = dao.search(query)
 
@@ -78,7 +88,7 @@ def search_account(query, output):
     return result.values()
 
 def search_person(query, output):
-    db = get_database()
+    db = utils.get_database()
     dao = PersonDAO(db)
     people = dao.search(query)
 
@@ -108,7 +118,7 @@ def search_person(query, output):
     return result.values()
 
 def search_group(query):
-    db = get_database()
+    db = utils.get_database()
     dao = GroupDAO(db)
     groups = dao.search(query)
 
@@ -120,7 +130,7 @@ def search_group(query):
 def dto_to_dict(dto):
     return {
             "id": dto.id,
-            "name": html_quote(dto.name),
+            "name": utils.html_quote(dto.name),
             "type": dto.type_name,
     }
 
