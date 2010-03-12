@@ -24,6 +24,7 @@ import re
 import string
 import sys
 import time
+import mx.DateTime
 try:
     set()
 except:
@@ -193,7 +194,7 @@ class LdapBack(object):
             log.debug("Modifylist: %s" % mod_attrs)
             sys.exit()
 
-    def update(self,obj,old=None, ignore_oldexistent=True):
+    def update(self,obj):
         """
         Update object in LDAP. If the object does not exist, we add the object. 
         """
@@ -212,18 +213,7 @@ class LdapBack(object):
             return
         old_attrs = res[0][1]
 
-        # Make shure we don't remove existing objectclasses, as long
-        # as we get to add the ones we need to have
-        missing_objectclasses = set(attrs['objectClass']) - set(old_attrs['objectClass'])
-        # If we have 0 missing values, ignore attr objectclass
-        # If we have N misssing, fetch the old ones and add missing ones
-        # into the  updated list of values for attr objectclass
-        if len(missing_objectclasses) == 0:
-            ignore_attr_types.append('objectClass')
-        else:
-            attrs['objectClass'] = old_attrs['objectClass'] + list(missing_objectclasses)
-
-        mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,ignore_oldexistent)
+        mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types)
         try:
             # Only update if there are changes. python_ldap seems to complain when given empty modlists
             if (mod_attrs != []): 
@@ -472,11 +462,10 @@ class Person(PersonLdapBack):
         return list(affiliations)
 
     def get_birthdate(self, obj):
-        # Expecting birth_date from spine on the form "%Y-%m-%d 00:00:00.00"
-        # Ldap wants the form "%Y%m%d".
-        # FIXME: Should probably use datetime or mx.DateTime
-        birth_date= obj.birth_date.split()[0].replace('-','')
-        return ["%s"     %  birth_date]
+        # birth_date is on the form "%Y-%m-%d 00:00:00.00" which is handled by
+        # the DateFromString method.
+        birth_date = mx.DateTime.Parser.DateFromString(obj.birth_date)
+        return [birth_date.strftime("%Y%m%d")]
 
     def get_title(self, obj):
         affiliations = self.get_affiliations(obj)
@@ -502,6 +491,18 @@ class Person(PersonLdapBack):
 
     def get_acronym_list(self, obj):
         return self.ouregister.get_acronym_list(obj.primary_ou_id)
+
+class FeidePerson(Person):
+    def get_social_security_number(self, obj):
+        """Feide requires NIN.  For now we deliver a fake 0-padded one based on
+        the birth date if we don't have a NIN."""
+        nin = super(FeidePerson, self).get_social_security_number(obj)
+        if not nin:
+            # birth_date is on the form "%Y-%m-%d 00:00:00.00" which is handled by
+            # the DateFromString method.
+            d = mx.DateTime.Parser.DateFromString(obj.birth_date)
+            nin = d.strftime("%d%m%y") + "00000"
+        return nin
 
 class OracleCalendar(AccountLdapBack):
     """
@@ -574,7 +575,7 @@ class AccessCardHolder(PersonLdapBack):
         result = {
             'objectClass': self.obj_class,
             'cn': obj.full_name,
-            'description': "Adgangskort ved NTNU for Uniflow-utskriftsystem.",
+            'description': "Adgangskort ved NTNU for Equitrac-utskriftsystem.",
             'sn': obj.last_name,
             'uid': self.get_uid(obj),
             'mail': obj.email,

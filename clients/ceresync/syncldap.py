@@ -159,7 +159,7 @@ def get_testbackend(s, system):
         return testbackend.Account()
     elif (backend_class == "PosixGroup"):
         return testbackend.Group()
-    elif (backend_class == "Person"):
+    elif (backend_class in ("Person", "FeidePerson")):
         return testbackend.Person()
     elif (backend_class == "OU"):
         return testbackend.OU()
@@ -174,7 +174,7 @@ def get_ldapbackend(s, system):
     filter = get_conf(system, "filter", default="(objectClass='*')")
     backend = getattr(ldapbackend, backend_class)
 
-    if backend_class in ("Person", "OracleCalendar"):
+    if backend_class in ("Person", "FeidePerson", "OracleCalendar"):
         register = OURegister()
         for ou in s.get_ous():
             register.add(ou)
