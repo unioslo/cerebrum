@@ -126,7 +126,7 @@ def make(ou, status, firstname, lastname, externalid, gender, birthdate, descrip
 
     db.commit()
 
-    queue_message(_("Person successfully created.  Now he probably needs an account."), title="Person created")
+    queue_message(_("Person successfully created.  You can create an account by selecting the appropriate action from the Actions-list."), title="Person created")
     redirect_entity(dto.id)
 
 def populate_name(person, firstname, lastname):
