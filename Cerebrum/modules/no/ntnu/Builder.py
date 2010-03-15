@@ -63,6 +63,7 @@ class Builder(object):
             return
 
         self._build_posix(primarygroup_id)
+        self._build_spreads(accountprio)
         self._build_email(owner, accountprio)
 
     def _build_account_affiliations(self, owner):
