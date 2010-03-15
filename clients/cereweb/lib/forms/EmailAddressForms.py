@@ -18,6 +18,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import operator
 from gettext import gettext as _
 from lib.forms.FormBase import CreateForm, EditForm
 
@@ -71,7 +72,8 @@ class EmailAddressCreateForm(CreateForm):
 
     def get_domain_options(self):
         domain_dao = EmailDomainDAO(self.db)
-        return [(d.id, d.name) for d in domain_dao.search()]
+        domains =  [(d.id, d.name.lower()) for d in domain_dao.search()]
+        return sorted(domains, key=operator.itemgetter(1))
 
     def check_local(self, local_name):
         """
