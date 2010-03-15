@@ -369,11 +369,17 @@ def set_password(id, passwd1, passwd2):
         return
 
     db = get_database()
-    dao = AccountDAO(db)
-    dao.set_password(id, passwd1)
-    db.commit()
-
-    queue_message(_("Password successfully set."), title=_("Change succeeded"))
+    try:
+        dao = AccountDAO(db)
+        dao.set_password(id, passwd1)
+        db.commit()
+        queue_message(_("Password successfully set."), title=_("Change succeeded"))
+    except PasswordGoodEnoughException, e:
+        db.rollback()
+        queue_message(
+            _('Passord is not strong enough. Please try to make a stronger password.'),
+            error=True,
+            title=_('Password is not changed'))
     redirect_entity(id)
 set_password.exposed = True
 
