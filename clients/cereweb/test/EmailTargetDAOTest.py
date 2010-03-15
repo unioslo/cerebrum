@@ -29,7 +29,7 @@ class EmailTargetDAOTest(CerebrumTestCase):
         super(EmailTargetDAOTest, self).setUp()
         self.dao = EmailTargetDAO(self.db)
 
-   def test_that_get_from_entity_returns_correct_data(self):
+    def test_that_get_from_entity_returns_correct_data(self):
         entity_id = 173691
         target = self.dao.get_from_entity(entity_id)
         self.assertEqual(None, target.alias)

@@ -30,8 +30,7 @@ Database = Utils.Factory.get("Database")
 class CerebrumTestCase(unittest.TestCase):
     def setUp(self):
         self.db = Database()
-        self.db.change_program = "unit test"
-        self.db.change_by = 2
+        self.db.cl_init(change_by=2)
 
     def tearDown(self):
         self.db.rollback()
