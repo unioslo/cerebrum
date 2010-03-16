@@ -59,6 +59,9 @@ class LdapBack(object):
     """
     l = None
 
+    # Are we the only client that write to the ldap branch?
+    _is_only_client = True
+
     def __init__(self):
         self.l = None # Holds the authenticated ldapConnection object
         self.ignore_attr_types = [] # To be overridden by subclasses
@@ -213,7 +216,22 @@ class LdapBack(object):
             return
         old_attrs = res[0][1]
 
-        mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types)
+        if self._is_only_client:
+            # We can remove all attributes we don't know about.
+            mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types)
+        else:
+            # Make sure we don't remove existing objectclasses
+            missing_objectclasses = set(attrs['objectClass']) - set(old_attrs['objectClass'])
+            # If we have 0 missing values, ignore attr objectclass
+            # If we have N misssing, fetch the old ones and add missing ones
+            # into the  updated list of values for attr objectclass
+            if len(missing_objectclasses) == 0:
+                ignore_attr_types.append('objectClass')
+            else:
+                attrs['objectClass'] = old_attrs['objectClass'] + list(missing_objectclasses)
+
+            mod_attrs = modlist.modifyModlist(old_attrs,attrs,ignore_attr_types,1)
+
         try:
             # Only update if there are changes. python_ldap seems to complain when given empty modlists
             if (mod_attrs != []): 
@@ -511,6 +529,8 @@ class OracleCalendar(AccountLdapBack):
     calendar in addition to disabling accounts that it no longer finds in the
     tree.
     """
+    _is_only_client = False
+
     def __init__(self, base=None, filter='(objectClass=*)', ouregister=None):
         self.ouregister = ouregister
 
