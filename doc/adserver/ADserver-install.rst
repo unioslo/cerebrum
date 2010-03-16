@@ -1,30 +1,27 @@
 ==============================================
-Installing the ADserver.
+Installing the Cerebrum ADserver.
 ==============================================
 
-This documentation is written for and tested with revision 9935 of the 
+This documentation is written for and tested with revision 12264 of the 
 code.
 
-ADserver was tested on Windows Vista x86 and 2008 server x64. The code was very 
-slow on 2008 server x64, unknown why, this platform is presently not advised.  
+ADserver was tested on Windows Server 2008 x64, Windows Server 2008 R2 x64 and Windows Server 2003 x86.
 
-A problem with x64, there is currently no x64 support for pywin32:-(
-Therefore all binaries must use 32bit versions.  
-
+A problem with x64 and python means there is currently no x64 support for Python for Windows Extensions (PyWin32), therefore all binaries must use 32bit versions.  
 
 Install the following components on a domain member machine:
 
-ActivePython-2.5.1.1-win32-x86.msi from 
+ActivePython-2.5.4.4-win32-x86.msi from 
 http://downloads.activestate.com/ActivePython/windows/2.5/
-(A newer version will most probably work)
+(A newer version 2.5 will most probably work)
 
-pywin32-212.win32-py2.5.exe from
+pywin32-214.win32-py2.5.exe from
 http://sourceforge.net/project/showfiles.php?group_id=78018&package_id=79063&release_id=616849
 
 pyOpenSSL-0.8.winxp32-py2.5.exe from 
 http://sourceforge.net/project/showfiles.php?group_id=31249&package_id=90289
 
-Win32 OpenSSL v0.9.8i Light
+Win32 OpenSSL v0.9.8k Light
 http://www.slproweb.com/products/Win32OpenSSL.html
 
 If OpenSSL is complaining about missing DLL, try to install 
@@ -44,7 +41,7 @@ ADConstants.py
 Download page:
 http://cerebrum.svn.sourceforge.net/viewvc/cerebrum/trunk/cerebrum/servers/ad/
 
-place them in a suitable place(c:\cerebrum\python)
+place them in a suitable place (c:\cerebrum\python)
 
 
 Settings in ADconstants.py 
@@ -75,7 +72,7 @@ each setting.
   autentication header sent in the XML-RPC request is used to autenticate the 
   specified user.
 
-* Configure the logger(see documentation of the python logger module) 
+* Configure the logger (see documentation of the python logger module) 
 
 * Configure the MixIn class. This class defines what modules the server will 
   use. Here you can write your own classes and make them available for 
@@ -87,13 +84,12 @@ each setting.
 Recomended settings on the Domain Controller:
 =============================================
 
-* Create a user in AD, place the user in the Builtin OU or the 
-  OU specified in the AD_DO_NOT_TOUCH variable in cerebrum. Give this user 
-  the necessary rights to perform actions in Active Directory. Run the 
+* Create an user in AD, place the user in an OU Cerebrum is configured not to touch.
+  Give this user the necessary rights to perform actions in Active Directory. Run the 
   service in the context of this user. Remember to change password on the 
   service if password is changed on the user AD. For security reasons
   This user should not be the user specified in the AUTH variable in the 
-  constants file. For test purposes it is advised that the user is a member og 
+  constants file. For test purposes it is advised that the user is a member of 
   Domain Admins.    
  
 * Domain Functional level must be above 2000mixed mode to allow groups as 
@@ -110,12 +106,8 @@ Recomended settings on the Domain Controller:
   Administrative Template -> System -> Ctrl+Alt+Del Options -> 
   Remove Change Password should be disabled.   
 
-* Create an OU matching the AD_DO_NOT_TOUCH value in cerebrum, 
-  default value is 'Cerebrum_dont_touch'.
-
-* Create an OU matching the AD_LOST_AND_FOUND value in cerebrum, 
-  default value is 'lost-n-found'. This is the place where deleted objects is 
-  placed if syncronization is run without the delete option.
+* Create OUs matching the AD_OU values in cerebrum for deleted objects, 
+  groups, user and so on. 
 
 * Remember to configure the firewall and accept communication through port 
   8000, or the port specified by the PORT variable.
@@ -155,11 +147,11 @@ Some exsamples:
   The server is writing output from the script to console. 
 
 * Install the server as a service:
-  ADserver.py --service --startup auth install
+  ADserver.py --service --startup auto install
  
   Remember to configure the service to Log On as a user with the autorization 
-  to make changes i Active Directory. The server run in the context of this 
-  user. Running as Local System Account will only work on a domain controller.
+  to make changes i Active Directory after install. The server run in the context 
+  of this user. Running as Local System Account will only work on a domain controller.
 
 * Start the service:
   ADserver.py --service start
