@@ -257,13 +257,19 @@ def make_testing_options():
             action="store",
             dest="homedir_xml_out",
             help="Save homedir data to specified file"),
+        make_option(
+            "--pretty-xml",
+            action="store_true",
+            dest="pretty_xml",
+            help="Prettify the xml before writing it to file.  Disabled by default since it's slower."),
         ]
 
 def set_testing_options(options):
     args = ('account_xml_in', 'account_xml_out', 'group_xml_in',
             'group_xml_out', 'ou_xml_in', 'ou_xml_out',
             'person_xml_in', 'person_xml_out', 'alias_xml_in',
-            'alias_xml_out', 'homedir_xml_in', 'homedir_xml_out')
+            'alias_xml_out', 'homedir_xml_in', 'homedir_xml_out',
+            'pretty_xml')
 
     for arg in args:
         options[arg] = get('args', arg, allow_none=True)

@@ -306,7 +306,8 @@ class Sync(object):
         port = self._get_ceresync_port()
         response = self._perform_request(request, port.get_accounts,
                                          load_file=account_xml_in,
-                                         save_file=account_xml_out)
+                                         save_file=account_xml_out,
+                                         pretty_xml=kwargs.get("pretty_xml"))
         return [Account(obj, encode_to=encode_to) for obj in response._account]
 
     def get_groups(self, accountspread=None, groupspread=None, incr_from=None,
@@ -329,7 +330,8 @@ class Sync(object):
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_groups,
                                          load_file=group_xml_in,
-                                         save_file=group_xml_out)
+                                         save_file=group_xml_out,
+                                         pretty_xml=kwargs.get("pretty_xml"))
         return [Group(obj, encode_to=encode_to) for obj in response._group]
 
     def get_ous(self, incr_from=None, encode_to=None,
@@ -339,7 +341,8 @@ class Sync(object):
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_ous,
                                          load_file=ou_xml_in,
-                                         save_file=ou_xml_out)
+                                         save_file=ou_xml_out,
+                                         pretty_xml=kwargs.get("pretty_xml"))
         return [Ou(obj, encode_to=encode_to) for obj in response._ou]
 
     def get_persons(self, personspread=None, incr_from=None, encode_to=None,
@@ -352,7 +355,8 @@ class Sync(object):
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_persons,
                                          load_file=person_xml_in,
-                                         save_file=person_xml_out)
+                                         save_file=person_xml_out,
+                                         pretty_xml=kwargs.get("pretty_xml"))
         return [Person(obj, encode_to=encode_to) for obj in response._person]
 
     def get_aliases(self, emailserver=None, incr_from=None, encode_to=None,
@@ -364,7 +368,8 @@ class Sync(object):
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_aliases,
                                          load_file=alias_xml_in,
-                                         save_file=alias_xml_out)
+                                         save_file=alias_xml_out,
+                                         pretty_xml=kwargs.get("pretty_xml"))
         return [Alias(obj, encode_to=encode_to) for obj in response._alias]
        
     def get_homedirs(self, status, hostname, encode_to=None,
@@ -375,10 +380,11 @@ class Sync(object):
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_homedirs,
                                          load_file=homedir_xml_in,
-                                         save_file=homedir_xml_out)
+                                         save_file=homedir_xml_out,
+                                         pretty_xml=kwargs.get("pretty_xml"))
         return [Homedir(obj, encode_to=encode_to) for obj in response._homedir]
 
-    def _perform_request(self, request, method, load_file=None, save_file=None):
+    def _perform_request(self, request, method, load_file=None, save_file=None, pretty_xml=False):
         """
         load_file is the name of a file containing the xml that should be
         injected into the ZSI framework.  This will cause ZSI to believe that
@@ -402,7 +408,13 @@ class Sync(object):
             response= method(request)
 
             if save_file:
-                open(save_file, 'w').write(port.binding.data)
+                data = port.binding.data
+                if pretty_xml:
+                    import xml.dom.minidom
+                    data = xml.dom.minidom.parseString(data).toprettyxml()
+                    data = data.encode('utf-8')
+
+                open(save_file, 'w').write(data)
 
             return response
         except FaultException, e:
