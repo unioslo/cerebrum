@@ -72,6 +72,10 @@ def view(id, **vargs):
     page.quarantines = ConstantsDAO(db).get_quarantines()
     page.targets = EmailTargetDAO(db).get_from_entity(id)
 
+    # Hack to avoid listing more than a pre-set amount of group members unless
+    # specifically asked for by the user.  This is neccessarry since it takes
+    # several minutes to list big groups.
+    page.show_all = vargs.get("show_all")
     return page.respond()
 view.exposed = True
 

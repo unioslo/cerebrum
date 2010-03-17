@@ -25,6 +25,7 @@
 #from lib.utils import spine_to_web
 #from lib.utils import entity_link
 #from lib.utils import nl2br
+#from config import conf
 
 #from Widgets import Widgets
 #attr $widgets = Widgets()
@@ -145,10 +146,21 @@
     $widgets.viewInfo($info, $notice)
 #end def
 
+#def get_max_members($membercount)
+    #if $show_all
+        #return $membercount
+    #end if
+
+    #set $default = {'max_members': '10'}
+    #set maxvalue = $conf.get('cereweb', 'max_members', vars=$default)
+    #return $int($maxvalue)
+#end def
+
 #def viewMembers()
     #if $group.members
+        #set $membercount = $len($group.members)
         <div class="list box">
-            <h3>$_('Members') ($len($group.members))</h3>
+            <h3>$_('Members') ($membercount)</h3>
 
             <div id="member-container">
                 <table id="member-table">
@@ -160,7 +172,13 @@
                         </tr>
                     </thead>
                     <tbody>
-                        #for $member in $group.members
+
+                        #set $max = $get_max_members($membercount)
+                        #for $c, $member in $enumerate($group.members)
+                            #if $c >= $max
+                                <tr><td colspan="99">More than $max members.  <a href="/group/view?id=$group.id&amp;show_all=1">Show all</a></td></tr>
+                                #break
+                            #end if
                         <tr>
                             <td>
                                 $member.type_name.capitalize()
