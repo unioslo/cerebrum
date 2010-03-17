@@ -414,5 +414,6 @@ class AccountDAO(EntityDAO):
 
     def _get_np_type_name(self, account):
         if account.np_type:
-            return self.constants.Account(account.np_type).description
+            np_type = int(account.np_type)
+            return self.constants.Account(np_type).description
         return None
