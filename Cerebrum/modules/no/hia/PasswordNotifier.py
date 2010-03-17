@@ -95,7 +95,9 @@ Reminded users:
 
         # Find all employees. This might return the same person more than once,
         # so we cache the used ones in personids.
-        for row in person.list_affiliations(affiliation=self.constants.affiliation_ansatt):
+        for row in person.list_affiliations(
+                affiliation=(self.constants.affiliation_ansatt,
+                    self.constants.affiliation_tilknyttet)):
             perid = row['person_id']
             if not perid in personids:
                 self.logger.debug("Checking employee %s", perid)
