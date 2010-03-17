@@ -325,6 +325,8 @@ class CleanChangeLog(object):
             {'columns': ('subject_entity', ),
              'triggers': (co.ip_number_add, co.ip_number_del, co.ip_number_update, )},
             {'columns': ('subject_entity', ),
+             'triggers': (co.mac_adr_set, )},
+            {'columns': ('subject_entity', ),
              'triggers': (co.srv_record_add, co.srv_record_del)},
             {'columns': ('subject_entity', ),
              'triggers': (co.cname_add, co.cname_del, co.cname_update)},
