@@ -1764,14 +1764,15 @@ def process_kurs2enhet():
                 snumber = semester_number(aar, termkode,
                                           fronter.year, fronter.semester)
                 if snumber > 0:
-                    semester_segment = "%s. semester" % snumber
+                    room_title = ("Kullrom for %s, %s, %s. semester - %s %s" %
+                                  (fronter.kurs2navn[kurs_id], stprog,
+                                   snumber,
+                                   fronter.semester.upper(), fronter.year))
                 else:
-                    semester_segment = "start"
+                    room_title = ("Kullrom for %s, %s, start - %s %s" %
+                                  (fronter.kurs2navn[kurs_id], stprog,
+                                   aar, termkode))
 
-                room_title = ("Kullrom for %s, %s, %s - %s %s" %
-                              (fronter.kurs2navn[kurs_id], stprog,
-                               semester_segment,
-                               fronter.semester.upper(), fronter.year))
                 register_room(room_title,
                               kull_node, stprog_node,
                               make_profile(enhet_id))
