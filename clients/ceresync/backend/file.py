@@ -181,7 +181,7 @@ class PasswdFile(CLFileBack):
             self.wash(account.posix_uid),
             self.wash(account.posix_gid),
             self.wash(account.gecos),
-            self.wash(account.homedir) or "/dev/null",
+            self.wash(account.homedir),
             self.wash(account.shell) or "/bin/false")
         if self.unicode:
             return res.encode(self.encoding)
@@ -314,7 +314,7 @@ class PasswdFileCryptHash(CLFileBack):
             self.wash(account.posix_uid),
             self.wash(account.posix_gid),
             self.wash(account.gecos),
-            self.wash(account.homedir) or "/dev/null",
+            self.wash(account.homedir),
             self.wash(account.shell) or "/bin/false")
 
         if self.unicode:
