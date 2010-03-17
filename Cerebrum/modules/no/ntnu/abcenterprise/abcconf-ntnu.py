@@ -133,20 +133,9 @@ import sys
 import cerebrum_path
 import cereconf
 
-## for cls in cereconf.CLASS_CONSTANTS:
-##     print '==========================> ', cls
-
-## print 'ffffffffffffffffffffffffffffffffffffffffff'
-
 from Cerebrum.Utils import Factory
 co = Factory.get('Constants')(Factory.get('Database')())
 
-## print 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
-
-## SOURCE={'datasource'   : "Example SAS",
-##         'target'       : "Example BAS",
-##         'source_system': "Kjernen",
-##         }
 SOURCE={'datasource'   : "kjernen",
         'target'       : "cerebrum",
         'source_system': co.system_kjernen,
@@ -238,6 +227,17 @@ OU_PERSPECTIVE=co.perspective_kjernen
 ##                       }
 ##            }
 ## 
+## AFF_STATUS={ co.affiliation_elev : co.affiliation_status_elev_aktiv,
+##              co.affiliation_ansatt : co.affiliation_status_ansatt_tekadm
+##              }
+##
+
+##
+## check python-code for abc-import.
+## we use relations to find affilation from affiliation-status.
+## origionally it was intended to do it the opposite way
+## (check the lines above).
+##
 RELATIONS={'ou' : {'person' : { 'tekadm' : ('affiliation',
                                              co.affiliation_status_ansatt_tekadm),
                                 'bilag': ('affiliation',
@@ -287,8 +287,5 @@ RELATIONS={'ou' : {'person' : { 'tekadm' : ('affiliation',
                              }
                  }
          }
-## AFF_STATUS={ co.affiliation_elev : co.affiliation_status_elev_aktiv,
-##              co.affiliation_ansatt : co.affiliation_status_ansatt_tekadm
-##              }
 
 # arch-tag: fe6dc034-6995-11da-8b95-70cd30d8e9fc
