@@ -317,7 +317,7 @@ class XMLPerson2ObjectExt(XMLPerson2Object):
                     raise ABCTypesError, "error in personid: %s" % value
                 type = sub.attrib.get("personidtype")
                 if type == "fnr_closed":
-                    result.fnr_closed.append(int(value))
+                    result.fnr_closed.append(value)
                 else:
                     result.add_id(ABCTypesExt.get_type("personidtype",(type,)),
                               value)
