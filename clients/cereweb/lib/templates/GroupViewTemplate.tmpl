@@ -78,6 +78,7 @@
     $viewSpreads($group)
     $joinGroup($group)
     $addMember()
+    $removeMember()
     $viewMembers()
     $viewHistoryLog($group)
 #end def
@@ -215,6 +216,10 @@
             <div class="required">
                 $form_widgets.generate_loption('member_type', 'Member type', $types, 'account')
             </div>
+            <div class="buttons">
+                <input type="submit" id="do_add_member" value="$_('Add member')" />&#x0020;
+                <input type="button" value="$_('Cancel')" class="cancel" />
+            </div>
             <script type="text/javascript">
                 /* <![CDATA[ */
                 (function() {
@@ -223,11 +228,31 @@
                     };
 
                     var show = function(name) {
+                        enable(name);
                         get(name).style.display = "";
                     };
 
                     var hide = function(name) {
+                        disable(name);
                         get(name).style.display = "none";
+                    };
+
+                    var enable = function(name) {
+                        set_disabled(name, false);
+                    };
+
+                    var disable = function(name) {
+                        set_disabled(name, true);
+                    };
+
+                    var set_disabled = function(name, value) {
+                        var el = get(name);
+                        var children = el.getElementsByTagName("input");
+                        var l = children.length;
+
+                        for (var i=0; i < l; i++) {
+                            children[i].disabled = value;
+                        }
                     };
 
                     var el = YD.get("member_type");
@@ -239,15 +264,89 @@
                         show(el.value);
                     }
 
-                    update();
                     YAHOO.util.Event.addListener("member_type", "change", update);
+                    YAHOO.util.Event.addListener("do_add_member", "click", update);
+
+                    update();
                 })();
                 /* ]]> */
             </script>
+        </form>
+    </div>
+#end def
+
+#def removeMember()
+    <div class="edit box" style="display:none;">
+        <h3>$_('Remove member')</h3>
+        <form action="remove_member" method="post">
+            <div class="hidden">
+                <input type="hidden" name="group_id" value="$group.id" />
+            </div>
+            <div id="remove_account" class="required">
+                $form_widgets.input('account_member_name', $_('Remove account'), $klass="ac_account")
+            </div>
+            <div id="remove_group" class="required">
+                $form_widgets.input('group_member_name', $_('Remove group'), $klass="ac_group")
+            </div>
+            #set $types = (('account', $_('Account')), ('group', $_('Group')))
+            <div class="required">
+                $form_widgets.generate_loption('remove_member_type', 'Member type', $types, 'account')
+            </div>
             <div class="buttons">
-                <input type="submit" value="$_('Add member')" />&#x0020;
+                <input type="submit" id="do_remove_member" value="$_('Remove member')" />&#x0020;
                 <input type="button" value="$_('Cancel')" class="cancel" />
             </div>
+            <script type="text/javascript">
+                /* <![CDATA[ */
+                (function() {
+                    var get = function(name) {
+                        return YD.get("remove_" + name);
+                    };
+
+                    var show = function(name) {
+                        enable(name);
+                        get(name).style.display = "";
+                    };
+
+                    var hide = function(name) {
+                        disable(name);
+                        get(name).style.display = "none";
+                    };
+
+                    var enable = function(name) {
+                        set_disabled(name, false);
+                    };
+
+                    var disable = function(name) {
+                        set_disabled(name, true);
+                    };
+
+                    var set_disabled = function(name, value) {
+                        var el = get(name);
+                        var children = el.getElementsByTagName("input");
+                        var l = children.length;
+
+                        for (var i=0; i < l; i++) {
+                            children[i].disabled = value;
+                        }
+                    };
+
+                    var el = YD.get("remove_member_type");
+
+                    var update = function() {
+                        for (var i=0; i < el.options.length; i++) {
+                            hide(el.options[i].value);
+                        }
+                        show(el.value);
+                    }
+
+                    YAHOO.util.Event.addListener("remove_member_type", "change", update);
+                    YAHOO.util.Event.addListener("do_remove_member", "click", update);
+
+                    update();
+                })();
+                /* ]]> */
+            </script>
         </form>
     </div>
 #end def

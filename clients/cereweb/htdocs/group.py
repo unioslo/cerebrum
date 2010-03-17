@@ -104,7 +104,7 @@ def join_group(entity_id, group_name, selected_id=None, **kwargs):
 join_group.exposed = True
 
 @session_required_decorator
-def add_member(group_id, account_member_name, group_member_name, member_type, selected_id, **kwargs):
+def add_member(group_id, selected_id, member_type, account_member_name=None, group_member_name=None, **kwargs):
     """Add a member to a group."""
     if not is_correct_referer():
         queue_message(get_referer_error(), error=True, title='Add member failed')
@@ -132,7 +132,10 @@ def add_member(group_id, account_member_name, group_member_name, member_type, se
 add_member.exposed = True
 
 @session_required_decorator
-def remove_member(group_id, member_id):
+def remove_member(group_id, member_id=None, selected_id=None, **kwargs):
+    if selected_id:
+        member_id = int(selected_id)
+
     db = get_database()
     try:
         member = EntityFactory(db).get_entity(member_id)
