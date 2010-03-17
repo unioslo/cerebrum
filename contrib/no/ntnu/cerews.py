@@ -756,10 +756,14 @@ class GroupDTO(DTO):
 class AccountDTO(DTO):
     def __init__(self, row, atypes, account):
         super(AccountDTO, self).__init__(row, atypes)
-        self._attrs["homedir"] = account.resolve_homedir(
+        homedir = account.resolve_homedir(
             account_name=row['name'],
             disk_path=row['disk_path'],
             home=row['home'])
+
+        # None gets encoded as the string None which causes problems for the
+        # clients.  Fix this by replacing None with the empty string instead.
+        self._attrs["homedir"] = homedir or ''
         # TDB: extend get_gecos() to do this job.
         if not row["gecos"]:
             if row["full_name"]:
