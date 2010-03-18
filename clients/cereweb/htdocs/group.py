@@ -88,7 +88,7 @@ def join_group(entity_id, group_name, selected_id=None, **kwargs):
     dao = GroupDAO(db)
 
     if selected_id is None:
-        selected_id = get_selected_id(group_name, 'group')
+        selected_id = get_selected_id(db, group_name, 'group')
 
     if selected_id is None:
         msg = _("Group '%s' not found") % group_name
@@ -104,26 +104,21 @@ def join_group(entity_id, group_name, selected_id=None, **kwargs):
 join_group.exposed = True
 
 @session_required_decorator
-def add_member(group_id, selected_id, member_type, account_member_name=None, group_member_name=None, **kwargs):
+def add_member(group_id, member_type, member_name=None, **kwargs):
     """Add a member to a group."""
     if not is_correct_referer():
         queue_message(get_referer_error(), error=True, title='Add member failed')
         redirect_entity(group_id)
+
     db = get_database()
+    member_id = get_selected_id(db, member_name, member_type)
 
-    member_name = "[unknown]"
-    if member_type == 'account':
-        member_name = account_member_name
-    elif member_type == 'group':
-        member_name = group_member_name
-    selected_id = get_selected_id(member_name, member_type)
-
-    if not selected_id:
+    if not member_id:
         msg = _("Member '%s' not found") % member_name
         queue_message(msg, True, entity_link(group_id), title="Not Found")
         redirect_entity(group_id)
 
-    GroupDAO(db).add_member(selected_id, group_id)
+    GroupDAO(db).add_member(member_id, group_id)
     db.commit()
 
     msg = _("%s added as a member to group.") % member_name
@@ -132,11 +127,21 @@ def add_member(group_id, selected_id, member_type, account_member_name=None, gro
 add_member.exposed = True
 
 @session_required_decorator
-def remove_member(group_id, member_id=None, selected_id=None, **kwargs):
-    if selected_id:
-        member_id = int(selected_id)
+def remove_member(group_id, member_id=None, member_name=None, member_type=None, **kwargs):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Remove member failed')
+        redirect_entity(group_id)
 
     db = get_database()
+
+    if not member_id:
+        member_id = get_selected_id(db, member_name, member_type)
+
+    if not member_id:
+        msg = _("Member '%s' not found") % member_name
+        queue_message(msg, True, entity_link(group_id), title="Not Found")
+        redirect_entity(group_id)
+
     try:
         member = EntityFactory(db).get_entity(member_id)
     except NotFoundError, e:
@@ -316,8 +321,7 @@ def validate(name, description, expire):
 
     return True, ""
 
-def get_selected_id(entity_name, entity_type_name):
-    db = get_database()
+def get_selected_id(db, entity_name, entity_type_name):
     try:
         entity = EntityFactory(db).get_entity_by_name(entity_type_name, entity_name)
         return entity.id

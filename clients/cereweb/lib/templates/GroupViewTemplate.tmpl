@@ -200,21 +200,23 @@
 #end def
 
 #def addMember()
-    <div class="edit box" style="display:none;">
+    <div class="edit box">
         <h3>$_('Add member')</h3>
         <form action="add_member" method="post">
             <div class="hidden">
                 <input type="hidden" name="group_id" value="$group.id" />
             </div>
             <div id="add_account" class="required">
-                $form_widgets.input('account_member_name', $_('Add account'), $klass="ac_account")
+                <label for="account_member_name">$_('Name')</label>
+                <input type="input" name="member_name" id="account_member_name" class="ac_account" />
             </div>
-            <div id="add_group" class="required">
-                $form_widgets.input('group_member_name', $_('Add group'), $klass="ac_group")
+            <div id="add_group" class="required" style="display: none;">
+                <label for="group_member_name">$_('Name')</label>
+                <input type="input" name="member_name" id="group_member_name" class="ac_group" disabled="disabled" />
             </div>
             #set $types = (('account', $_('Account')), ('group', $_('Group')))
             <div class="required">
-                $form_widgets.generate_loption('member_type', 'Member type', $types, 'account')
+                $form_widgets.generate_loption('member_type', 'Member type', $types, 'account', 'add_member_type')
             </div>
             <div class="buttons">
                 <input type="submit" id="do_add_member" value="$_('Add member')" />&#x0020;
@@ -255,7 +257,7 @@
                         }
                     };
 
-                    var el = YD.get("member_type");
+                    var el = YD.get("add_member_type");
 
                     var update = function() {
                         for (var i=0; i < el.options.length; i++) {
@@ -264,7 +266,7 @@
                         show(el.value);
                     }
 
-                    YAHOO.util.Event.addListener("member_type", "change", update);
+                    YAHOO.util.Event.addListener("add_member_type", "change", update);
                     YAHOO.util.Event.addListener("do_add_member", "click", update);
 
                     update();
@@ -276,21 +278,23 @@
 #end def
 
 #def removeMember()
-    <div class="edit box" style="display:none;">
+    <div class="edit box">
         <h3>$_('Remove member')</h3>
         <form action="remove_member" method="post">
             <div class="hidden">
                 <input type="hidden" name="group_id" value="$group.id" />
             </div>
             <div id="remove_account" class="required">
-                $form_widgets.input('account_member_name', $_('Remove account'), $klass="ac_account")
+                <label for="rem_account_member_name">$_('Name')</label>
+                <input type="input" name="member_name" id="rem_account_member_name" class="ac_account" />
             </div>
-            <div id="remove_group" class="required">
-                $form_widgets.input('group_member_name', $_('Remove group'), $klass="ac_group")
+            <div id="remove_group" class="required" style="display: none;">
+                <label for="rem_group_member_name">$_('Name')</label>
+                <input type="input" name="member_name" id="rem_group_member_name" class="ac_group" disabled="disabled" />
             </div>
             #set $types = (('account', $_('Account')), ('group', $_('Group')))
             <div class="required">
-                $form_widgets.generate_loption('remove_member_type', 'Member type', $types, 'account')
+                $form_widgets.generate_loption('member_type', 'Member type', $types, 'account', 'remove_member_type')
             </div>
             <div class="buttons">
                 <input type="submit" id="do_remove_member" value="$_('Remove member')" />&#x0020;
