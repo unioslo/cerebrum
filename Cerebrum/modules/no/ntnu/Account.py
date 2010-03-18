@@ -229,6 +229,8 @@ class AccountNTNUMixin(Account.Account):
             new_pri = pri_min
             while new_pri < pri_max:
                 if new_pri not in taken:
+                    if current_pri and new_pri > current_pri and pri_min <= current_pri < pri_max:
+                        return current_pri
                     return new_pri
                 new_pri += 1
             raise ValueError, "No free priorities for that account_type!"
