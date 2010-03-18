@@ -39,16 +39,16 @@ const = Factory.get("Constants")(db)
 logger = Factory.get_logger("console")
 all_accounts = {}
 
-def range_priorities(affiliation=None, add_person_affiliations=False):
+def range_priorities(affiliation=None, add_person_affiliations=False, filter_expired=False):
     old_account_types = {}
     new_account_types = {}
 
     logger.debug("Getting all accounts")
 
     if affiliation:
-        all_accounts = account.list_accounts_by_type(affiliation=affiliation)
+        all_accounts = account.list_accounts_by_type(affiliation=affiliation, filter_expired=filter_expired)
     else:
-        all_accounts = account.list(filter_expired=True)
+        all_accounts = account.list(filter_expired=filter_expired)
 
     logger.debug("Done getting all accounts")
 
@@ -67,7 +67,7 @@ def range_priorities(affiliation=None, add_person_affiliations=False):
 
         logger.debug("Getting account types")
 
-        old_account_types = account.get_account_types()
+        old_account_types = account.get_account_types(filter_expired=filter_expired)
         old_pri={}
         for a in old_account_types:
             old_pri[int(a['ou_id']), int(a['affiliation'])] = a['priority']
@@ -85,8 +85,8 @@ def range_priorities(affiliation=None, add_person_affiliations=False):
 
             new_pri = account._calculate_account_priority(ou_id, affiliation, priority)
             if new_pri != priority:
-                logger.info("Setting new priority for affiliation |%d| and ou |%d|" % 
-                            (affiliation, ou_id))
+                logger.info("Setting new priority for %s affiliation |%d| and ou |%d| %d->%d" % 
+                            (account.account_name, affiliation, ou_id, priority, new_pri))
                 try:
                     account.set_account_type(ou_id, affiliation, new_pri)
                     account.write_db()
@@ -105,6 +105,7 @@ def usage(e):
     print """Usage: [options]
     --affiliation A   Run only for affiliation A
     --newfromperson   Add new affiliations from owner
+    --expired         Also fix expired accounts
     """
     exit(e)
 
@@ -112,14 +113,15 @@ def main():
     import getopt
     import sys
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'a:n',
-                                   ['help', 'affiliation=', 'fromperson'])
+        opts, args = getopt.getopt(sys.argv[1:], 'a:ne',
+                                   ['help', 'affiliation=', 'fromperson', 'expired'])
     except getopt.GetoptError, e:
         print e
         usage(1)
 
     affiliation = None
     newfromperson = False
+    filter_expired = True
     
     for opt, val in opts:
         if opt in ('--help',):
@@ -128,8 +130,10 @@ def main():
             affiliation = int(const.PersonAffiliation(val))
         elif opt in ('--newfromperson','-n'):
             newfromperson = True
+        elif opt in ('--expired','-e'):
+            filter_expired = False
     
-    range_priorities(affiliation, newfromperson)
+    range_priorities(affiliation, newfromperson, filter_expired)
 
 if __name__ == '__main__':
     main()
