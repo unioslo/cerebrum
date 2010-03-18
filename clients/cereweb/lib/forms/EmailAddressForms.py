@@ -90,7 +90,7 @@ class EmailAddressCreateForm(CreateForm):
 
         return True
 
-    def check_expire(expire_date):
+    def check_expire(self, expire_date):
         """
         Validates the expire date and returns None if valid, else
         the error message that should be displayed.
