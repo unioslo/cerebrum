@@ -103,6 +103,7 @@ class PersonCreateForm(Form):
     def get_status_options(self):
         options = [(t.id, t.name) for t in ConstantsDAO(self.db).get_affiliation_statuses()]
         options.sort(lambda x,y: cmp(x[1], y[1]))
+        options.insert(0, ('empty', 'Choose affiliation'))
         return options
 
     def get_ou_options(self):

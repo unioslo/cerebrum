@@ -96,7 +96,7 @@ def create(**kwargs):
                 queue_message(get_referer_error(), error=True, title='Person not created')
                 redirect('/person/create/')
         except ValueError, e:
-            message = spine_to_web(_(e.message))
+            queue_message(e, error=True, title=_('Create person failed'))
         except IntegrityError, e:
             message = _("The person can not be created because it violates the integrity of the database.  Try changing the NIN.")
             queue_message(message, error=True, title=_("Create failed"))
@@ -115,6 +115,8 @@ def make(ou, status, firstname, lastname, externalid, gender, birthdate, descrip
     populate_name(dto, firstname, lastname)
 
     dao.create(dto)
+    if status == 'empty':
+        raise ValueError(_('You must choose an affiliation type.'))
     dao.add_affiliation_status(dto.id, ou, status)
 
     if externalid:
