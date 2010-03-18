@@ -28,7 +28,7 @@ from lib.utils import entity_link, get_database, spine_to_web
 
 class EmailTargetCreateForm(CreateForm):
     action = '/emailtarget/create/'
-    title = _('Create a new email target')
+    title = _('New email target')
     form_class = "edit box"
 
     Fields = {
