@@ -1,13 +1,19 @@
 <project name="ephorte" default="dist" basedir=".">
-    <description>Compile ephorte web service client</description>
+  <description>Compile ephorte web service client</description>
   <!-- set global properties for this build -->
   <property name="src" location="src"/>
   <property name="build" location="/tmp/ephorte/build"/>
-  <property name="dist"  location="/tmp/ephorte/dist"/>
+  <property name="dist"  location="/site/ephorte"/>
+  <property name="axis.lib" location="/site/axis-1_4/lib"/>
+  <property name="ephorte.lib" location="/site/ephorte/lib/"/>
 
+  <path id="classpath">
+    <fileset dir="${axis.lib}" includes="*.jar"/>
+    <pathelement location="${ephorte.lib}/ephorte-stubs.jar"/>
+  </path>
+
+  
   <target name="init">
-    <!-- Create the time stamp -->
-    <tstamp/>
     <!-- Create the build directory structure used by compile -->
     <mkdir dir="${build}"/>
   </target>
@@ -15,21 +21,26 @@
   <target name="compile" depends="init"
         description="compile the source">
     <!-- Compile the java code from ${src} into ${build} -->
-    <javac srcdir="${src}" destdir="${build}"/>
+    <javac srcdir="${src}" destdir="${build}" classpathref="classpath"/>
   </target>
 
   <target name="dist" depends="compile"
         description="generate the distribution">
-    <!-- Create the distribution directory -->
-    <mkdir dir="${dist}/lib"/>
-    <!-- Put everything in ${build} into the MyProject-${DSTAMP}.jar file -->
-    <jar jarfile="${dist}/lib/ephorte-${DSTAMP}.jar" basedir="${build}"/>
+    <!-- Put everything in ${build} into the ephorte.jar file -->
+    <!-- The log4j.properties file must be bundled in ephorte.jar -->
+    <copy file="src/log4j.properties" todir="${build}"/>
+    <!-- Copy also the source code into the jar file such that we know
+    what version of the files that's actualy running. -->
+    <copy todir="${build}">
+          <fileset dir="${src}">
+            <include name="**/*.java" />
+          </fileset>
+    </copy>
+    <jar jarfile="${dist}/lib/ephorte.jar" basedir="${build}"/>
   </target>
 
-  <target name="clean"
-        description="clean up">
+  <target name="clean" description="clean up">
     <!-- Delete the ${build} and ${dist} directory trees -->
     <delete dir="${build}"/>
-    <delete dir="${dist}"/>
   </target>
 </project>
