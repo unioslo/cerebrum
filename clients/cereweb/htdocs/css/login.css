@@ -23,41 +23,70 @@
  * [1]: Centering of a div: http://bluerobot.com/web/css/center1.html
  */
 
-/* The styling of the login page */
 body {
-    /* Centering the content div */
-    margin: 50px 0px; /* 1 */
-    padding: 0px; /* 1 */
-    text-align: center; /* 1 */
-
-    color:  black;
+    color: black;
     background-color: white;
+    margin: 0;
+    text-align: center;
+    min-width: 800px;
+    font-family: Verdana,Helvetica,sans-serif;
+    font-size: 10pt;
 }
 
+
+#orginfo {
+        color: #999;
+        font-size: .75em;
+        font-weight: normal;    
+        letter-spacing: 0.1em;
+        margin-top: 1em;
+        padding-right: 2em;
+        text-align: right;
+}
+
+#ntnuheader {
+    background-color: #dce2ed;
+    color: black;
+    border: 1px solid black;
+    margin: 5px 0px 0px 15px;
+    text-align: left;
+    height: auto;
+    width: auto;
+}
+
+#pagewrap {
+    width: 975px;
+}
+
+#container {
+    background-color: white;
+    border: 1px solid black;
+    margin: -1px auto 20px 15px;
+    padding-bottom: 4em;
+    text-align: left;
+}
+
+
 #content {
-    /* Centering the div */
-    width: 700px; /* 1 */
+    width: auto;
     margin: 0px auto; /* 1 */
     text-align: left; /* 1 */
     padding: 15px; /* 1 */
-    border: 1px dashed blue; /* 1 */
 }
 
 #login h1 {
+    margin-bottom: 1em;
     text-align: center;
 }
 
 #login div {
-    /* Make sure each form element is on a new "line" */
     clear: both;
-
-    /* Center the line */
     margin: 0px auto;
     width: 300px;
 }
 
 #login label {
-    text-align: right;
+    text-align: left;
     margin-right: 5px;
     float: left;
     width: 7em;
@@ -73,6 +102,8 @@ body {
 }
 
 #submit {
+    margin-bottom: 2em;
+    margin-top: 2em;
     text-align: center;
 }
 

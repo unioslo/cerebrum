@@ -59,7 +59,14 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
         <title>Log in to Cereweb</title>
     </head>
     <body>
-        <div id="content">
+    <div id="pagewrap">
+    <div id="orginfo">
+      NORGES TEKNISKE-NATURVITENSKAPLIGE UNIVERSITET
+    </div>
+    <div id="ntnuheader">
+      <img src="/img/BAS_ntnu_logo.png" alt="NTNU" />
+    </div>
+        <div id="container">
             <!--[if lte IE 6]>
             <style type="text/css">
                 #ie6msg{border:3px solid #090; margin:8px 0; background:#cfc; color:#000;}
@@ -79,11 +86,13 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
                 </p>
             </div>
             <![endif]-->
-            <div id="messages">
-            #for $msg in $messages
-                $msg
-            #end for
-            </div>
+            #if $messages
+                <div id="messages">
+                    #for $msg in $messages
+                        $msg
+                    #end for
+                </div>
+            #end if
             <div id="login">
                 <h1>Log in to Cereweb</h1>
                 <form method="post" action="/login">
@@ -100,6 +109,7 @@ cherrypy.response.headerMap['Cache-Control'] = cache_control
                 </form>
             </div>
         </div>
+    </div>
     </body>
 </html>
 ## vi: sw=4 sts=4 expandtab:
