@@ -198,11 +198,12 @@ class BofhdSession(object):
     _short_timeout = _get_short_timeout()
 
 
-    def __init__(self, database, session_id=None):
+    def __init__(self, database, session_id=None, remote_address=None):
         self._db = database
         self._id = session_id
         self._entity_id = None
         self._owner_id = None
+        self.remote_address = remote_address
     # end __init__
 
 
@@ -312,24 +313,33 @@ class BofhdSession(object):
         self._id = session_id
         return session_id
 
+
+    def get_session_id(self):
+        """Return session_id that self is bound to.
+        """
+        
+        return self._id
+    # end get_session_id
+
+
     def get_entity_id(self):
-        if self._id is None:
+        if self.get_session_id() is None:
             # TBD: Proper exception class?
-            raise RuntimeError, \
-                  "Unable to get entity_id; not associated with any session."
+            raise RuntimeError("Unable to get entity_id; "
+                               "not associated with any session.")
         if self._entity_id is not None:
             return self._entity_id
         try:
             self._entity_id = self._db.query_1("""
             SELECT account_id
             FROM [:table schema=cerebrum name=bofhd_session]
-            WHERE session_id=:session_id""", {'session_id': self._id})
+            WHERE session_id=:session_id""", {'session_id': self.get_session_id()})
 
             # Log that there was an activity from the client.
             self._db.execute("""
             UPDATE [:table schema=cerebrum name=bofhd_session]
             SET last_seen=[:now]
-            WHERE session_id=:session_id""", {'session_id': self._id})
+            WHERE session_id=:session_id""", {'session_id': self.get_session_id()})
         except Errors.NotFoundError:
             raise SessionExpiredError("Authentication failure: session expired."
                                       " You must login again")
@@ -350,7 +360,7 @@ class BofhdSession(object):
         INSERT INTO [:table schema=cerebrum name=bofhd_session_state]
           (session_id, state_type, entity_id, state_data, set_time)
         VALUES (:session_id, :state_type, :entity_id, :state_data, [:now])""",
-                        {'session_id': self._id,
+                        {'session_id': self.get_session_id(),
                          'state_type': state_type,
                          'entity_id': entity_id,
                          'state_data': pickle.dumps(state_data)
@@ -367,7 +377,7 @@ class BofhdSession(object):
         FROM [:table schema=cerebrum name=bofhd_session_state]
         WHERE session_id=:session_id %s
         ORDER BY set_time""" % where, {
-            'session_id': self._id,
+            'session_id': self.get_session_id(),
             'state_type': state_type})
         for r in ret:
             r['state_data'] = pickle.loads(r['state_data'])
@@ -385,14 +395,19 @@ class BofhdSession(object):
             """
             if state != '*':
                 sql += " AND state_type=:state"
-            self._db.execute(sql, {'session_id': self._id,
+            self._db.execute(sql, {'session_id': self.get_session_id(),
                                    'state': state})
             if state == '*':
                 self._db.execute("""
                 DELETE FROM [:table schema=cerebrum name=bofhd_session]
                 WHERE session_id=:session_id
-                """, {'session_id': self._id})
+                """, {'session_id': self.get_session_id()})
         self._remove_old_sessions()
+    # end clear_state
+
+# end class BofhdSession
+
+
 
 class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                           object):
@@ -724,6 +739,34 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
                 new_args = args[:next_tuple] + (x,) + args[next_tuple+1:]
                 self._run_command_with_tuples(func, session, new_args, myret)
 
+
+    def check_session_validity(self, session):
+        """Make sure that session has not expired.
+
+        @type session: instance of BofhdSession
+        @param session: session object we are checking.
+
+        @rtype: int
+        @return:
+          entity_id of the entity owning the session (i.e. which account is
+          associated with that specific session_id)
+        """
+
+        session_id = session.get_session_id()
+        # This is throw an exception, when session_id has expired
+        entity_id = session.get_entity_id()
+        if session.remote_address is None:
+            session.remote_address = self.client_address
+
+        if session_id not in self.server.known_sessions:
+            self.server.known_sessions[session_id] = 1
+            raise ServerRestartedError()
+
+        return entity_id
+    # end check_session_validity
+        
+    
+
     def bofhd_run_command(self, session_id, cmd, *args):
         """Execute the callable function (in the correct module) with
         the given name after mapping session_id to username"""
@@ -734,12 +777,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         session = BofhdSession(self.server.db)
         session.remove_short_timeout_sessions()
 
-        session = BofhdSession(self.server.db, session_id)
-        entity_id = session.get_entity_id()
-        session.remote_address=self.client_address
-        if not self.server.known_sessions.has_key(session_id):
-            self.server.known_sessions[session_id] = 1
-            raise ServerRestartedError()
+        session = BofhdSession(self.server.db, session_id, self.client_address)
+        entity_id = self.check_session_validity(session)
         self.server.db.cl_init(change_by=entity_id)
         logger.debug("Run command: %s (%s) by %i" % (cmd, args, entity_id))
         if not self.server.cmd2instance.has_key(cmd):
@@ -785,12 +824,16 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
           (("%5s %s", 'foo', 'bar'), return-value).  The first row is
           used as header
         - raw : don't use map after all"""
-        session = BofhdSession(self.server.db, session_id)
+
+        session = BofhdSession(self.server.db, session_id, self.client_address)
         instance, cmdObj = self.server.get_cmd_info(cmd)
+        self.check_session_validity(session)
         if cmdObj._prompt_func is not None:
             logger.debug("prompt_func: %s" % str(args))
             return getattr(instance, cmdObj._prompt_func.__name__)(session, *args)
-        raise CerebrumError, "Command has no prompt func"
+        raise CerebrumError("Command %s has no prompt func" % (cmd,))
+    # end bofhd_call_prompt_func
+    
         
     def bofhd_get_default_param(self, session_id, cmd, *args):
         """Get default value for a parameter.  Returns a string.  The
