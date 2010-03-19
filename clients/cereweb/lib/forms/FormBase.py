@@ -22,6 +22,7 @@ import sys
 from gettext import gettext as _
 import cgi
 from lib.utils import legal_date, web_to_spine
+from lib.utils import queue_message
 
 from lib.templates.FormTemplate import FormTemplate
 from lib.templates.SearchTemplate import SearchTemplate
@@ -134,7 +135,9 @@ class Form(object):
                     self.fields[key]['value'] = cgi.escape(field['value'])
                 if 'reject' == field.get('quote'):
                     if field['value'] != cgi.escape(field['value']):
-                        self.error_message = _("Field '%s' is unsafe.") % field ['label']
+                        msg= _("Field '%s' is unsafe.") % field ['label']
+                        queue_message(msg, error=True,
+                            title=_('Error in input-data'))
                         self._is_quoted_correctly = False
                         break
 
@@ -152,7 +155,9 @@ class Form(object):
         for field in self.fields.values():
             if field['required'] and not field['value']:
                 res = False
-                self.error_message = _("Required field '%s' is empty.") % field['label']
+                msg = _("Required field '%s' is empty.") % field['label']
+                queue_message(msg, error=True,
+                    title=_('Error in input-data'))
                 break
         return res
 
@@ -176,7 +181,9 @@ class Form(object):
                 func = getattr(self, 'check_%s' % name, None)
                 if func and not func(field['value']):
                     args = (field.get('label', name), self.error_message)
-                    self.error_message = "Field '%s': %s" % args
+                    msg = "Field '%s': %s" % args
+                    queue_message(msg, error=True,
+                        title=_('Error in input-data'))
                     correct = False
                     break
 
@@ -201,7 +208,7 @@ class Form(object):
         if legal_date(date):
             return True
 
-        self.error_message = 'not a legal date.'
+        self.error_message = 'is not a legal date.'
         return False
 
     def get_action(self):
@@ -234,7 +241,6 @@ class Form(object):
         page.form_fields = self.get_fields()
         page.form_values = self.get_values()
         page.form_help = self.get_help()
-        page.error_message = self.error_message
 
         page.form_class = self.form_class
         page.submit_value = self.submit_value
