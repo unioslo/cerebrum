@@ -89,7 +89,7 @@ class PersonDAO(EntityDAO):
         id = ids[0]
 
         person = self._find(id)
-        account_ids = [a["account_id"] for a in person.get_accounts()]
+        account_ids = [a["account_id"] for a in person.get_accounts(filter_expired=False)]
         account_dtos = AccountDAO(self.db).get_accounts(*account_ids)
         primary_id = person.get_primary_account()
         for dto in account_dtos:

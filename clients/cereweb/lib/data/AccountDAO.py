@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import cerebrum_path
+import mx.DateTime
 from Cerebrum import Utils
 from Cerebrum.Errors import NotFoundError
 from Cerebrum.modules.bofhd.errors import PermissionDenied
@@ -331,6 +332,7 @@ class AccountDAO(EntityDAO):
         dto.type_id = self._get_type_id()
         dto.expire_date = account.expire_date
         dto.create_date = account.create_date
+        dto.is_expired = mx.DateTime.now() > account.expire_date
 
     def _populate_posix(self, dto, account, include_extra=True):
         paccount = self._get_posix_account(account.entity_id)
