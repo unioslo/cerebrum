@@ -168,7 +168,6 @@ class Builder(object):
                 type=self.const.email_target_account,
                 target_entity_id=self.account.entity_id,
                 target_entity_type=self.account.entity_type,
-                using_uid=self.account.entity_id,
                 server_id=self.emailserver.entity_id)
             self.emailtarget.write_db()
 
