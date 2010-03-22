@@ -44,9 +44,6 @@ def add_external_id(id, external_id, id_type):
     if not external_id:
         queue_message('External identifier is empty.  Identifier not set.', error=True)
         redirect_entity(id)
-    if not external_id.isdigit():
-        queue_message('External identifier should contain only digits.', error=True)
-        redirect_entity(id)
 
     db = get_database()
     dao = EntityFactory(db).get_dao_by_entity_id(id)
