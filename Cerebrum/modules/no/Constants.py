@@ -67,12 +67,12 @@ class ConstantsCommon(Constants.Constants):
     trait_auto_group = _EntityTraitCode(
         'auto_group',
         Constants.Constants.entity_group,
-        "Trait marking automatically administrated groups with person members.")
+        "Trait marking automatically administered groups with person members.")
 
     trait_auto_meta_group = _EntityTraitCode(
         'auto_meta_group',
         Constants.Constants.entity_group,
-        "Trait marking automatically administrated groups with group members.")
+        "Trait marking automatically administered groups with group members.")
 
     
 

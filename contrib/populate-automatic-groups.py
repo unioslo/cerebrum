@@ -63,20 +63,15 @@ populate-automatic-groups.py --dryrun -s system_sap -p SAP \
         -c affiliation_status_ansatt_bil:ansatt-bilag \
         -c affiliation_ansatt:ansatt
 
-Or, if you want to see which groups exist for sko 13-xx-xx and 33-15-xx and
-how they are structured:
+If you want to look at the resulting structure, issue this:
+
+populate-automatic-groups.py -p SAP -o
+
+... or, if you want to see which groups exist for sko 13-xx-xx and 33-15-xx
+and how they are structured:
 
 populate-automatic-groups.py -p SAP -o -f '^13' -f '^3315'
 
-FIXME: We need a possibility for assigning spreads to groups. The most
-flexible solution is probably spreads based on names in some configuration
-variable. Something like this, perhaps:
-
-{'ansatt': (NIS_uio@ng, group@ldap),
- 'ansatt-tekadm-33': (NIS_ifi@ng),
-}
-
-FIXME: don't need a deque -- a list would do quite nicely
 FIXME: Profile this baby.
 """
 
@@ -629,20 +624,22 @@ def synchronise_spreads(group, spreads):
     @param group:
       Group proxy bound to a specific group_id
 
+    @type spreads: set of tuples (str, const.Spread) or NotSet.
     @param spreads:
       A set of tuples, (prefix, spread), where prefix is matched against
-      group.group_name. A match indicates 
+      group.group_name. If the value is NotSet, leave the spreads of this
+      specific group unchanged.
     """
 
-    if spreads is None:
-        return 
+    if spreads is NotSet:
+        return
 
     group_name = group.group_name
     own_spreads = set(constants.Spread(x["spread"])
                       for x in group.get_spread())
     given_spreads = set(constants.Spread(x[1])
                         for x in spreads
-                        if x[0] in group_name)
+                        if group_name.startswith(x[0]))
     
     for spread in given_spreads.difference(own_spreads):
         logger.debug("Assigning spread %s to group %s (id=%s)",
@@ -1244,7 +1241,7 @@ def main():
     output_groups = False
     output_filters = list()
     const = Factory.get("Constants")()
-    spreads = None
+    spreads = NotSet
     
     for option, value in options:
         if option in ("-p", "--perspective",):
@@ -1265,7 +1262,11 @@ def main():
         elif option in ("-r", "--spread",):
             prefix, spread = value.split(":")
             spread = const.human2constant(spread, const.Spread)
-            if spreads is None:
+            if spread is None:
+                logger.warn("Unknown spread value %s", value)
+                continue
+
+            if spreads is NotSet:
                 spreads = set()
             spreads.add((prefix, spread))
 
