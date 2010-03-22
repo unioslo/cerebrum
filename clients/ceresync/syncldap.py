@@ -199,7 +199,7 @@ def get_entities(s, system, sync_options):
     my_options = sync_options.copy()
 
     if backend_class in ("OracleCalendar",):
-        my_options['include_affiliations'] = True
+        my_options['accountspread'] = get_conf(system, "spread")
 
     if entity == 'account':
         my_options['accountspread'] = get_conf(system, "spread")

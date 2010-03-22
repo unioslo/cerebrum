@@ -345,12 +345,14 @@ class Sync(object):
                                          pretty_xml=kwargs.get("pretty_xml"))
         return [Ou(obj, encode_to=encode_to) for obj in response._ou]
 
-    def get_persons(self, personspread=None, incr_from=None, encode_to=None,
+    def get_persons(self, personspread=None, accountspread=None,
+                    incr_from=None, encode_to=None,
                     person_xml_in=None, person_xml_out=None, **kwargs):
         personspread= personspread or \
             config.get("sync", "person_spread", allow_none=True)
         request= cerews_services.getPersonsRequest()
         request._personspread= personspread
+        request._accountspread= accountspread
         request._incremental_from= incr_from
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_persons,
