@@ -122,16 +122,18 @@ class BaseQuery(object):
         return self.db.query(sql, self.binds)
         
 class PersonQuery(BaseQuery):
-    def __init__(self, db, co, spread=None, changelog_id=None):
+    def __init__(self, db, co, personspread=None, accountspread=None, changelog_id=None):
         BaseQuery.__init__(self, db, co)
         self.tables = ["person_info"]
         self.select = ["person_info.person_id AS id"]
         self.where = ["(person_info.deceased_date IS NULL)"]
-        self._spread = spread
         self._changelog_id = changelog_id
 
-        if spread:
-            self._set_spread(spread)
+        if personspread:
+            self._set_spread(personspread)
+        if accountspread:
+            self._set_accountspread(accountspread)
+
         if changelog_id:
             self._set_changelogid(changelog_id)
 
@@ -160,6 +162,17 @@ class PersonQuery(BaseQuery):
           AND person_spread.entity_id = person_info.person_id)""")
         self.binds["person_spread"] = spread
         
+    def _set_accountspread(self, spread):
+        self.select.append("accounts.account_id AS spread_account_id")
+        self.tables.append("""JOIN account_info accounts
+          ON (accounts.owner_id = person_info.person_id)
+        JOIN entity_spread account_spread
+          ON (account_spread.spread = :account_spread
+            AND account_spread.entity_id = accounts.account_id)""")
+        self.where.append("""accounts.expire_date > [:now]
+          OR accounts.expire_date IS NULL""")
+        self.binds["account_spread"] = spread
+    
     def _include_data(self):
         self.select += [
             "person_info.export_id AS export_id",
@@ -223,24 +236,22 @@ class PersonQuery(BaseQuery):
       AND entity_address.source_system = :address_source
       AND entity_address.address_type = :contact_post_address)""")
 
-        self.binds = {
-            "externalid_nin": self.co.externalid_fodselsnr,
-            "nin_source": self.co.system_bdb,
-            "system_cached": self.co.system_cached,
-            "system_bdb": self.co.system_bdb,
-            "address_source": self.co.system_fs,
-            "name_first": self.co.name_first,
-            "name_last": self.co.name_last,
-            "name_full": self.co.name_full,
-            "name_display": self.co.name_display,
-            "name_personal_title": self.co.name_personal_title,
-            "name_work_title": self.co.name_work_title,
-            "contact_email": self.co.contact_email,
-            "contact_url": self.co.contact_url,
-            "contact_phone": self.co.contact_phone,
-            "contact_email": self.co.contact_email,
-            "contact_post_address": self.co.address_post,
-            }
+        self.binds["externalid_nin"] = self.co.externalid_fodselsnr
+        self.binds["nin_source"] = self.co.system_bdb
+        self.binds["system_cached"] = self.co.system_cached
+        self.binds["system_bdb"] = self.co.system_bdb
+        self.binds["address_source"] = self.co.system_fs
+        self.binds["name_first"] = self.co.name_first
+        self.binds["name_last"] = self.co.name_last
+        self.binds["name_full"] = self.co.name_full
+        self.binds["name_display"] = self.co.name_display
+        self.binds["name_personal_title"] = self.co.name_personal_title
+        self.binds["name_work_title"] = self.co.name_work_title
+        self.binds["contact_email"] = self.co.contact_email
+        self.binds["contact_url"] = self.co.contact_url
+        self.binds["contact_phone"] = self.co.contact_phone
+        self.binds["contact_email"] = self.co.contact_email
+        self.binds["contact_post_address"] = self.co.address_post
 
     def _include_keycard(self):
         self.select.append("keycard_employee.external_id AS keycardid0")
@@ -273,18 +284,30 @@ class PersonQuery(BaseQuery):
           ON (affiliation.person_id = account_type.person_id
               AND affiliation.ou_id = account_type.ou_id
               AND affiliation.affiliation = account_type.affiliation)""")
-        self.tables.append("""JOIN entity_name account_name
-          ON (account_name.entity_id = account_type.account_id
-             AND account_name.value_domain = :account_namespace)""")
         self.tables.append("""JOIN account_info account_info
           ON (account_info.account_id = account_type.account_id)""")
+        self.tables.append("""JOIN entity_name account_name
+          ON (account_name.entity_id = account_info.account_id
+             AND account_name.value_domain = :account_namespace)""")
         self.tables.append("""LEFT JOIN account_authentication
           ON (account_authentication.method = :authentication_method
-             AND account_authentication.account_id = account_type.account_id)""")
+             AND account_authentication.account_id = account_info.account_id)""")
         self.where.append("affiliation.deleted_date IS NULL")
         self.where.append("""account_info.expire_date > [:now]
           OR account_info.expire_date IS NULL""")
 
+    def _include_account_data(self):
+        self.binds["account_namespace"] = self.co.account_namespace
+        self.binds["authentication_method"] = self.co.auth_type_ssha
+        self.select.append("account_info.account_id AS account_id")
+        self.select.append("account_name.entity_name AS account_name")
+        self.select.append("account_authentication.auth_data AS account_passwd")
+        self.tables.append("""JOIN entity_name account_name
+          ON (account_name.entity_id = account_info.account_id
+             AND account_name.value_domain = :account_namespace)""")
+        self.tables.append("""LEFT JOIN account_authentication
+          ON (account_authentication.method = :authentication_method
+             AND account_authentication.account_id = account_info.account_id)""")
 
 # Merge this with Account.search()....
 
@@ -1138,10 +1161,16 @@ class cerews(ServiceSOAPBinding):
         co=Factory.get("Constants")()
         auth=bofhd_auth.BofhdAuth(db)
 
+        personspread = None
         if request._personspread is not None:
             personspread = int(co.Spread(str(request._personspread)))
-        else:
-            personspread = None
+        accountspread = None
+        if request._accountspread is not None:
+            accountspread = int(co.Spread(str(request._accountspread)))
+            
+        if personspread and accountspread:
+            raise Error("Huh?")
+
         incremental_from = int_or_none(request._incremental_from)
         self.check_incremental(db, incremental_from)
 
@@ -1153,17 +1182,20 @@ class cerews(ServiceSOAPBinding):
         
         account_priorities={}
         for row in PersonQuery(
-               db, co, personspread, incremental_from).search_affiliations():
+               db, co, personspread, accountspread, incremental_from).search_affiliations():
             account_priorities.setdefault(row['id'], {})[row['priority']]=row
             
         q=quarantines(db, co)
         for row in PersonQuery(
-               db, co, personspread,
+               db, co, personspread, accountspread,
                incremental_from).search_data(include_keycard=True):
             
             p=PersonDTO(row, atypes)
             p._quarantine = q.get_quarantines(row['id'])
             my_account_priorities = account_priorities.get(row['id'])
+            if accountspread and my_account_priorities:
+                my_account_priorities = dict([(pri,ap) for pri,ap in my_account_priorities.items()
+                                              if row['spread_account_id'] == ap['account_id']]) or None
             if my_account_priorities is not None:
                 primary_prio = min(my_account_priorities.keys())
                 primary = my_account_priorities[primary_prio]
@@ -1224,6 +1256,9 @@ def test():
     sp=cerews()
     db = Factory.get("Database")(client_encoding='UTF-8')
     fromid = db.get_last_changelog_id() - 40000
+
+    print test_soap(sp.get_persons, getPersonsRequest,
+                    accountspread="user@kalender")
     print test_soap(sp.get_aliases, getAliasesRequest,
                     emailserver="emanuel.itea.ntnu.no")
     print test_soap(sp.get_aliases, getAliasesRequest)

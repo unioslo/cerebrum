@@ -220,6 +220,7 @@
     <xs:complexType>
       <xs:sequence>
 	<xs:element name="personspread" type="xs:string" minOccurs="0"/>
+	<xs:element name="accountspread" type="xs:string" minOccurs="0"/>
 	<xs:element name="incremental_from" type="xs:integer" minOccurs="0"/>
       </xs:sequence>
     </xs:complexType>
