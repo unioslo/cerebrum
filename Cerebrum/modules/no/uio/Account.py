@@ -133,6 +133,7 @@ class AccountUiOMixin(Account.Account):
             for f in cereconf.EMAIL_DEFAULT_FILTERS[tt_str]:
                 f_id = int(Email._EmailTargetFilterCode(f))
                 try:
+                    etf.clear()
                     etf.find(t_id, f_id)
                 except Errors.NotFoundError:
                     etf.clear()
