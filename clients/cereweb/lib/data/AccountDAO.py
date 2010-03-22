@@ -332,7 +332,7 @@ class AccountDAO(EntityDAO):
         dto.type_id = self._get_type_id()
         dto.expire_date = account.expire_date
         dto.create_date = account.create_date
-        dto.is_expired = mx.DateTime.now() > account.expire_date
+        dto.is_expired = account.expire_date and mx.DateTime.now() > account.expire_date
 
     def _populate_posix(self, dto, account, include_extra=True):
         paccount = self._get_posix_account(account.entity_id)
