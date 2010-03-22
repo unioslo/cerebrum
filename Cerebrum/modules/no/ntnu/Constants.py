@@ -139,6 +139,8 @@ class Constants(Constants.Constants):
         "<URL:http://www.openldap.org/faq/data/cache/347.html>")
     auth_type_bdb_blowfish = _AuthenticationCode('BDB-blowfish',
         "BDB transfer-encrypted passwd with blowfish")
+    auth_type_admin_md5_crypt = _AuthenticationCode('admin-MD5-crypt',
+        "MD5-crypt style password for admin access authentication")
 
     affiliation_ansatt = _PersonAffiliationCode(
         'ANSATT', 'Ansatt ved NTNU (i følge Kjernen)')

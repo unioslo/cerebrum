@@ -340,3 +340,14 @@ class AccountNTNUMixin(Account.Account):
                       'acc_id' : self.entity_id})
         self._db.log_change(self.entity_id, self.const.account_mod,
                             None, change_params={'create_date': create_date})
+
+    def set_admin_password(self, plaintext):
+        self.affect_auth_types(self.const.auth_type_admin_md5_crypt)
+        enc = self.encrypt_password(self.const.auth_type_md5_crypt, plaintext)
+        self.populate_authentication_type(self.const.auth_type_admin_md5_crypt, enc)
+
+    def verify_admin_auth(self, plaintext):
+        cryptstring = self.get_account_authentication(self.const.auth_type_admin_md5_crypt)
+        salt = cryptstring
+        data2 = self.encrypt_password(self.const.auth_type_md5_crypt, plaintext, salt=salt)
+        return (data2 == cryptstring)

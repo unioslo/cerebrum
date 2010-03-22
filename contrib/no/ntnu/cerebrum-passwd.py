@@ -20,6 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import cerebrum_path
+import getopt
 from Cerebrum.Utils import Factory
 from getpass import getpass
 import sys
@@ -28,7 +29,14 @@ db=Factory.get("Database")()
 db.cl_init(change_program="set_password")
 ac=Factory.get("Account")(db)
 
-user=sys.argv[1]
+opts,args = getopt.getopt(sys.argv[1:], 'a')
+
+set_admin_password = False
+for opt, val in opts:
+    if opt=='-a':
+        set_admin_password=True
+
+user = args[0]
 
 ac.find_by_name(user)
 
@@ -37,7 +45,10 @@ pass2 = getpass("Repeat password:")
 
 assert pass1 == pass2
 
-ac.set_password(pass1)
+if set_admin_password:
+    ac.set_admin_password(pass1)
+else:
+    ac.set_password(pass1)
 
 ac.write_db()
 db.commit()
