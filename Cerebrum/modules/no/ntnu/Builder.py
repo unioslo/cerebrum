@@ -67,9 +67,7 @@ class Builder(object):
         self._build_email(owner, accountprio)
 
     def _build_account_affiliations(self, owner):
-        personaffs = self._get_person_affiliations(owner['id'])
-        allaccountaffs = self._get_all_account_affiliations(owner['id'])
-        uninheritedaffs = personaffs - allaccountaffs
+        uninheritedaffs = owner['personaffs'] - owner['allaccountaffs']
         self._add_account_affiliations(uninheritedaffs)
 
     def _build_group_membership(self, accountprio):
@@ -383,10 +381,14 @@ class Builder(object):
                                      self.const.name_first)
         lname = self.person.get_name(self.const.system_cached,
                                      self.const.name_last)
+        personaffs = self._get_person_affiliations(owner['id'])
+        allaccountaffs = self._get_all_account_affiliations(owner['id'])
 
         return {
             'id': owner_id,
             'type': self.person.entity_type,
             'fname': fname,
             'lname': lname,
+            'personaffs': personaffs,
+            'allaccountaffs': allaccountaffs,
         }
