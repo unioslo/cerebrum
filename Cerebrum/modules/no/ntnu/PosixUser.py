@@ -22,18 +22,19 @@
 from Cerebrum.modules import PosixUser
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
+import cereconf
 
 class UidRangeException(Exception):
     """Exception raised for Uids out of legal range"""
     pass
 
 class PosixUserNTNUMixin(PosixUser.PosixUser):
-    allranges = [
-        (1000, 50000),
-        (53001, 65000),
-        (1048576, 2097152)
-        ]
-    currentrange = (1048576, 2097152)
+    allranges = getattr(cereconf, "ALL_UID_RANGES", [
+            (1000, 50000),
+            (53001, 65000),
+            (1048576, 2097152)
+            ])
+    currentrange = getattr(cereconf, "CURRENT_UID_RANGE", (1114112, 2097152))
     
     def _reset_uid_sequence_hack(self, min, max):
         # We're resetting the sequence ourselves. Ugly!
@@ -45,10 +46,15 @@ class PosixUserNTNUMixin(PosixUser.PosixUser):
     def get_free_uid(self):
         uid=self.__super.get_free_uid()
         if uid<self.currentrange[0] or uid>self.currentrange[1]:
-            self._reset_uid_sequence_hack(self.currentrange[0],
-                                          self.currentrange[1])
+            try:
+                self._reset_uid_sequence_hack(self.currentrange[0],
+                                              self.currentrange[1])
+            except:
+                raise UidRangeException(
+                    "Uid out of range: Please reset posix_uid_seq to %d" %
+                    self.currentrange[0])
             uid=self.__super.get_free_uid()
-            if uid<=self.currentrange[0] or uid>=self.currentrange[1]:
+            if uid<self.currentrange[0] or uid>self.currentrange[1]:
                 raise UidRangeException(
                     "Uid out of range: Please reset posix_uid_seq to %d" %
                     self.currentrange[0])
