@@ -56,8 +56,7 @@ def range_priorities(affiliation=None, add_person_affiliations=False, filter_exp
         account.clear()
         account.find(int(ac['account_id']))
         logger.debug("*******************START***********************************")
-        logger.debug("Found account |%s| for |%s|" % (account.account_name,
-        						 account.owner_id))
+        logger.debug("Found account |%s| for |%s|", account.account_name, account.owner_id)
     
         person.clear()
         try:
@@ -85,19 +84,18 @@ def range_priorities(affiliation=None, add_person_affiliations=False, filter_exp
 
             new_pri = account._calculate_account_priority(ou_id, affiliation, priority)
             if new_pri != priority:
-                logger.info("Setting new priority for %s affiliation |%d| and ou |%d| %d->%d" % 
-                            (account.account_name, affiliation, ou_id, priority, new_pri))
+                logger.info("Setting new priority for %s affiliation |%d| and ou |%d| %s->%d",
+                            account.account_name, int(affiliation), int(ou_id), priority, int(new_pri))
                 try:
                     account.set_account_type(ou_id, affiliation, new_pri)
                     account.write_db()
                 except Exception,msg:
-                    logger.warning("Manual intervention required for this user\nReason:%s" % msg)
+                    logger.warning("Manual intervention required for this user\nReason: %s", msg)
 
         new_account_types = account.get_account_types()
         for n in new_account_types:
-    	    logger.debug("New priority %d for affiliation %d to ou %d" % (int(n['priority']),
-                                                                         int(n['affiliation']),
-                                                                         int(n['ou_id'])))
+    	    logger.debug("New priority %d for affiliation %d to ou %d",
+                         int(n['priority']), int(n['affiliation']), int(n['ou_id']))
         logger.debug("*******************END*************************************")
         db.commit()
 
