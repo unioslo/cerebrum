@@ -149,6 +149,29 @@ def join_primary_group(db, account, **kwargs):
     if primary_group.is_posix:
         AccountDAO(db).promote_posix(account.id, primary_group.id)
 
+def set_pw(db, id, pw):
+    dao = AccountDAO(db)
+    dao.set_password(id, pw)
+
+@session_required_decorator
+def randpassword(id):
+    if not is_correct_referer():
+        queue_message(get_referer_error(), error=True, title='Change password failed')
+        redirect_entity(id)
+    db = get_database()
+    randpw = randpasswd()
+    try:
+        set_pw(db, id, randpw)
+        db.commit()
+        msg = _('The new password is: ') + randpw
+        queue_message(msg, title=_('Password changed'))
+    except PasswordGoodEnoughException, e:
+        db.rollback()
+        msg = _('Password is not strong enough.')
+        queue_message(msg, error=True, title=_('Change passord failed'))
+    redirect_entity(id)
+randpassword.exposed = True
+
 def set_account_password(db, account, **kwargs):
     # We've already verified that password0 == password1.
     if not is_correct_referer():
@@ -161,9 +184,10 @@ def set_account_password(db, account, **kwargs):
         raise CreationFailedError(msg)
 
     try:
-        dao = AccountDAO(db)
-        dao.set_password(account.id, password)
+        set_pw(db, account.id, password)
+        db.commit()
     except PasswordGoodEnoughException, e:
+        db.rollback()
         msg = _('Account creation failed.  Password is not strong enough.')
         raise CreationFailedError(msg, e)
 
