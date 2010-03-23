@@ -17,11 +17,11 @@ kerberosbackend = backend/kerberos/__init__.py backend/kerberos/kadm5.py backend
 common = cerelog.py config.py doc_exception.py errors.py syncws.py __init__.py
 
 cerews = cerews_services.py cerews_services_types.py
-deps = ../../Cerebrum/lib/cerews/dom.py ../../Cerebrum/lib/cerews/SignatureHandler.py
+deps = ../../servers/cerews/lib/dom.py ../../servers/cerews/lib/SignatureHandler.py
 
 all: $(cerews)
 
-$(cerews): ../../Cerebrum/lib/cerews/cerews.wsdl
+$(cerews): ../../servers/cerews/lib/cerews.wsdl
 	wsdl2py -f $<
 
 install: install-lib
