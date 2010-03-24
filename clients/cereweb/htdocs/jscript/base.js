@@ -398,8 +398,12 @@ cereweb.events.sessionError.subscribe(cereweb.action.clear, cereweb.action, true
 cereweb.tooltip = {
     init: function() {
         var els = YD.getElementsByClassName('tt', null, 'container');
-        for (var i=0; i<els.length; i++)
-            els[i].setAttribute('title', els[i].nextSibling.innerHTML);
+        for (var i=0; i<els.length; i++) {
+            el = els[i];
+            if (!el.getAttribute('title')) {
+                el.setAttribute('title', el.nextSibling.innerHTML);
+            }
+        }
         this.tt = new YAHOO.widget.Tooltip('tt', {context:els});
     }
 }
