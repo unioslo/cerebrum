@@ -128,9 +128,12 @@ def search_group(query):
     return result.values()
 
 def dto_to_dict(dto):
+    desc = utils.html_quote(dto.name)
+    if hasattr(dto,"description") and dto.description:
+        desc += ": " + utils.html_quote(dto.description)
     return {
             "id": dto.id,
-            "name": utils.html_quote(dto.name),
+            "name": desc,
             "type": dto.type_name,
     }
 
