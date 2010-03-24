@@ -29,7 +29,12 @@ body {
 }
 
 h1 {
-    font-size: 200%;
+    /* font-size: 200%; */
+    font-size: 24px;
+    font-weight: 600;
+    /* margin-left: 1em; */
+    margin-left: 7em;
+    margin-bottom: 1em;
 }
 
 h3 {
@@ -53,10 +58,10 @@ h3 {
     overflow: visible;
 }
 #container div.loggedin {
-    font-weight: bold;
+    font-weight: normal;
     text-align: right;
     color: #456;
-    font-size: 14px;
+    font-size: 12px;
     margin-top: 0px;
     margin-bottom: 0px;
     margin-right: 4px;
@@ -105,22 +110,42 @@ img.upperRight {
 
 #actions {
     float: left;
+    font-size: 12px;
+    font-weight: 500;
+    /* margin-left: 5px; */
     margin-left: 5px;
     margin-right: 1em;
+    margin-top: 1em;
+    /* padding: 5px 5px 5px 5px; */
     padding: 5px 5px 5px 5px;
-    border:1px solid #404040;
-    width: 135px;
+    /* border:1px solid #404040; */
+    /* width: 135px; */
+    width: 150px;
 }
 
 #actions ul {
-    padding-left: 0px;
-    list-style: none;
+    margin-top: 0px;
+    padding-top: 0px;
+    padding-left: 1em;
+    /* list-style: none; */
+}
+
+#actions ul li{
+    margin-bottom: 5px;
+    list-style: square;
+}
+
+#actions ul li a{
+    /* background: white;
+    color: black; */
+    text-decoration: none;
 }
 
 #actions h3,h4 {
     margin: 0;
     padding-bottom: 8px;
 }
+
 
 #actions a.action:before,
 #actions a.action:after { content: ""; }
@@ -145,14 +170,17 @@ div.title {
     overflow: visible;
     border-bottom: 1px solid gray;
     margin-bottom: 0.7em;
+    margin-top: 0px;
     padding-left: 5px;
     width: auto;
     clear: both;
 }
 
+/*
 div.title h1 {
     margin: 0.1em;
 }
+*/
 
 div.help {
     border: 1px dotted black;
@@ -271,7 +299,7 @@ div.view_content div.notice {
     font-size: 125%;
 }
 
-/**
+/*
  * Forms should be styled using CSS, not tables.
  * This is accomplished using a floated label with
  * a specified width.
@@ -288,7 +316,7 @@ form label {
     padding-right: 0.5em;
 }
 
-/**
+/*
  * Input fields should be styled so that it's obvious which
  * field has focus and what is required and not.
  */
@@ -307,7 +335,7 @@ form select {
     /* clip: auto; */
 }
 
-/**
+/*
  * Form fields can be either optional or required.
  */
 div.optional label {
@@ -321,14 +349,14 @@ div.required label {
     margin-left: 10px;
     text-align: left;
 }
-/**
+/*
  * Make the buttons start after the labels.
  */
 div.buttons {
     margin-left: 9.5em;
 }
 
-/**
+/*
  * The class hidden should set visibility to hidden.
  * It's not limited to labels.
  */
@@ -450,7 +478,7 @@ div.important div.item {
     border-color: #da9;
 }
 
-/**
+/*
  * Boxes for editing items on view-pages.
  */
 div.edit {
@@ -622,7 +650,7 @@ div.motd label {
     width: 5em;
 }
 
-/**
+/*
  * Classes used for styling the Account Create Form.
  */
 .usernamechoice { float: left; }
@@ -631,7 +659,7 @@ div.motd label {
 .lastchoice { clear: left; }
 
 
-/**
+/*
  * Style the quicksearch box
  */
 #quicksearch {
@@ -719,7 +747,7 @@ div.buttons,
 div.optional {
     clear: left;
 }
-/**
+/*
  * Classes used for styling the autocomplete input
  */
 .autocomplete_container { position:relative; }
@@ -888,12 +916,15 @@ div.sub-nav ul li {
 }
 
 #orginfo {
-        padding-right: 2em;
         color: #999;
         font-size: .75em;
         font-weight: normal;
         letter-spacing: 0.1em;
+        margin-top: 1em;
+        padding-right: 2em;
         text-align: right;
 }
 
-/* vim: sw=4 sts=4 expandtab */
+/* a:link {color:  #0e2c8e;} */
+a:link {color:  black;}
+a:hover { color:    #336699;}
