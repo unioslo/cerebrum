@@ -522,7 +522,7 @@ class FeidePerson(Person):
             nin = d.strftime("%d%m%y") + "00000"
         return nin
 
-class OracleCalendar(AccountLdapBack):
+class OracleCalendar(PersonLdapBack):
     """
     Module for handling ldap entries for Oracle Calendar.  The Calendar
     periodically runs a diff against this ldap tree and adds new entries to the
@@ -556,9 +556,6 @@ class OracleCalendar(AccountLdapBack):
             'ou': self.get_ou(obj),
             'o': "NTNU",
         }
-
-    def get_email(self, obj):
-        return "%s@%s" % (self.get_uid(obj), 'ntnu.no')
 
     def get_ou(self, obj):
         acronyms = self.ouregister.get_acronym_list(obj.primary_ou_id)
@@ -594,11 +591,11 @@ class AccessCardHolder(PersonLdapBack):
     def get_attributes(self, obj):
         result = {
             'objectClass': self.obj_class,
-            'cn': obj.full_name,
+            'cn': self.get_cn(obj),
             'description': "Adgangskort ved NTNU for Equitrac-utskriftsystem.",
-            'sn': obj.last_name,
+            'sn': self.get_sn(obj),
             'uid': self.get_uid(obj),
-            'mail': obj.email,
+            'mail': self.get_email(obj),
             'ntnuPrintDepartment': self.get_print_department(obj),
         }
 
