@@ -183,6 +183,9 @@ def parse_date(date):
     if not date: return None
     return get_date(None, date)
 
+def is_admin():
+    return cherrypy.session.get("is_admin")
+
 def has_valid_session():
     """Tries to ping the server.  Returns True if we've got
     contact, False otherwise."""

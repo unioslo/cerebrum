@@ -29,6 +29,7 @@ from lib.data.AccountDAO import AccountDAO
 Database = Factory.get("Database")
 Account = Factory.get("Account")
 Person = Factory.get("Person")
+Group = Factory.get("Group")
 Constants = Factory.get("Constants")
 
 import cgi
@@ -116,14 +117,18 @@ def try_login(username=None, password=None, **kwargs):
         person.find(account.owner_id)
         realname = person.get_name(const.system_cached,
                                    const.name_full)
-    return create_cherrypy_session(username, realname, account.entity_id)
 
-def create_cherrypy_session(username, realname, userid):
+    group = Group(db)
+    group.find_by_name('bootstrap_group')
+    is_admin = group.has_member(account.entity_id) and True or False
+    return create_cherrypy_session(username, realname, account.entity_id, is_admin)
+
+def create_cherrypy_session(username, realname, userid, is_admin):
     global logger
-
     cherrypy.session['realname'] = realname
     cherrypy.session['username'] = username
     cherrypy.session['userid'] = userid
+    cherrypy.session['is_admin'] = is_admin
     cherrypy.session['client_encoding'] = negotiate_encoding()
     cherrypy.session['spine_encoding'] = 'iso-8859-1'
     cherrypy.session['options'] = Options(username)

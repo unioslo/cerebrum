@@ -21,7 +21,7 @@
 import time
 import cherrypy
 
-from utils import get_messages
+from utils import get_messages, is_admin
 from ActivityLog import ActivityLog
 from templates.FramesTemplate import FramesTemplate
 
@@ -68,6 +68,7 @@ class Main(FramesTemplate):
         """
         self.activitylog = ActivityLog()
         self.action = []
+        self.is_admin = is_admin()
 
     def prepare_messages(self):
         """Prepares messages for display.

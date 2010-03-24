@@ -37,16 +37,22 @@
 <div id="actions">
     <h3>$_('Actions')</h3>
     <ul>
-        <li><a href="/confirm/account/delete?account_id=$account.id">$_("Delete account")</a></li>
-        #if $account.is_posix
-            <li><a href="/confirm/account/demote_posix?account_id=$account.id">$_("Demote from posix")</a></li>
-        #else
-            <li><a href="/confirm/account/promote_posix?account_id=$account.id">$_("Promote to posix")</a></li>
-        #end if
         <li><a href="/confirm/account/update?account_id=$account.id">$_('Update account')</a></li>
         <li><a href="/confirm/account/randpassword?id=$account.id">$_('Generate password')</a></li>
         <li><a href="/entity/full_historylog?id=$account.id">$_('View full history log')</a> </li>
     </ul>
+
+    #if $is_admin
+        <h3 class="admin_actions">$_('Admin actions')</h3>
+        <ul>
+            #if $account.is_posix
+                <li><a href="/confirm/account/demote_posix?account_id=$account.id">$_("Demote from posix")</a></li>
+            #else
+                <li><a href="/confirm/account/promote_posix?account_id=$account.id">$_("Promote to posix")</a></li>
+            #end if
+            <li><a href="/confirm/account/delete?account_id=$account.id">$_("Delete account")</a></li>
+        </ul>
+    #end if
 </div>
 #end def
 
