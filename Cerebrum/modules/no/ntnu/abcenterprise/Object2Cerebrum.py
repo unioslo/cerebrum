@@ -226,7 +226,8 @@ class Object2CerebrumExt(Object2Cerebrum):
         self._add_entity_addresses(self._person, person._address)
         self._add_entity_contact_info(self._person, person._contacts)
         # (re)build account(s) for person
-        self._builder.build_from_owner(self._person.entity_id)
+        ## remove this for now, will come back later
+        ## self._builder.build_from_owner(self._person.entity_id)
         ret = self._person.write_db()
         return ret
 
