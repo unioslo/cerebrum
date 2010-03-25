@@ -109,6 +109,12 @@ Reminded users:
                 accid = person.get_primary_account()
                 if accid:
                     self.logger.debug("Checking acc %s", accid)
+                    account.clear()
+                    account.find(accid)
+                    quara = account.get_entity_quarantine(self.constants.quarantine_autopassord)
+                    if quara:
+                        self.logger.debug("User has autopassord")
+                        continue
                     # get last password date
                     history = [x['set_at'] for x in ph.get_history(accid)]
                     if history:
@@ -119,6 +125,4 @@ Reminded users:
                             old_ids.add(accid)
         return old_ids
     # end get_old_account_ids
-
-
 
