@@ -21,8 +21,7 @@
 import os
 import ConfigParser
 
-path = '#CONFDIR#' or '.'
-
+path = os.environ.get("CERECONF_DIR", '#CONFDIR#')
 
 def read_conf(conf, name):
 	tmpl = os.path.join(path, "%s.template" % name)
