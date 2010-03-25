@@ -24,7 +24,7 @@ all: $(cerews)
 $(cerews): ../../servers/cerews/lib/cerews.wsdl
 	wsdl2py -f $<
 
-install: install-lib
+install: $(cerews) install-lib
 	$(INSTALL) -d "$(SBINDIR)"
 	$(INSTALL) -m 755 $(progs) "$(SBINDIR)/"
 
