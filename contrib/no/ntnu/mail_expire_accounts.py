@@ -79,9 +79,14 @@ def warn_users(fromdate, todate, template, smtp_server, bounce_address):
             }
 
         mailtext = template.safe_substitute(mapping)
-        s.sendmail(bounce_address, [address], mailtext)
-        logger.info("Account %s will expire, warned by email to %s",
+	try:
+           s.sendmail(bounce_address, [address], mailtext)
+        except Exception, e:
+           logger.warning("Account %s will expire, warning email to %s failed %s", a['name'], address, str(e))
+        else:
+           logger.info("Account %s will expire, warned by email to %s",
                     a['name'], address)
+        
     s.quit()
 
 def main():
