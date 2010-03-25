@@ -42,6 +42,10 @@ h3 {
     margin-left: 2px;
 }
 
+acronym:hover {
+    color: gray;
+}
+
 #container {
     background-color: white;
     text-align: left;

@@ -65,6 +65,9 @@ def is_correct_referer():
         approved = True
     return approved
 
+def make_acronym(title, text):
+    return "<acronym title=\"%s\">%s</acronym>" % ( title, text)
+
 def get_content_type():
     client_charset = cherrypy.session.get('client_encoding', 'utf-8')
     content_type = 'application/xhtml+xml; charset=%s' % client_charset
