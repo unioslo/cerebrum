@@ -5072,8 +5072,7 @@ Addresses and settings:
                               ('owner_type', 'owner', 'opset')),
                              ("Gid:          %i",
                               ('gid',)),
-                             ("Members:      %i groups, %i accounts, %i persons",
-                              ('c_group', 'c_account', 'c_person'))]))
+                             ("Members:      %s", ("members",))]))
     def group_info(self, operator, groupname):
         # TODO: Group visibility should probably be checked against
         # operator for a number of commands
@@ -5105,16 +5104,22 @@ Addresses and settings:
                         'owner': owner,
                         'opset': aos.name})
 
-        # Count group members of different types
-        members = list(grp.search_members(group_id=grp.entity_id))
-        tmp = {}
-        for ret_pfix, entity_type in (
-            ('c_group', int(self.const.entity_group)),
-            ('c_account', int(self.const.entity_account)),
-            ('c_person', int(self.const.entity_person))):
-            tmp[ret_pfix] = len([x for x in members
-                                 if int(x["member_type"]) == entity_type])
-        ret.append(tmp)
+
+        # Member stats are a bit complex, since any entity may be a
+        # member. Collect them all and sort them by members.
+        members = dict()
+        for row in grp.search_members(group_id=grp.entity_id):
+            members[row["member_type"]] = members.get(row["member_type"], 0) + 1
+
+        # Produce a list of members sorted by member type
+        ET = self.const.EntityType
+        entries = ["%d %s(s)" % (members[x], str(ET(x)))
+                   for x in sorted(members,
+                                   lambda it1, it2:
+                                     cmp(str(ET(it1)),
+                                         str(ET(it2))))]
+
+        ret.append({"members": ", ".join(entries)})
         return ret
     # end group_info
     
