@@ -27,6 +27,7 @@
 #from lib.utils import spine_to_web
 #from lib.utils import entity_link
 #from lib.utils import nl2br
+#from lib.utils import make_acronym
 
 #from lib.forms import EmailTargetCreateForm
 #from lib.forms import NoteCreateForm
@@ -43,7 +44,8 @@
     #end if
 
     <div class="info box">
-        <h3>$_('Email targets')</h3>
+        #set h3=$make_acronym($_('Storage host(s) for user&apos;s email folders.'), $_('Email targets'))
+        <h3>$h3</h3>
         #for $target in $targets
             <div class="item">
                 <em>$_("Name"):</em> <a href="/emailtarget/view?id=$target.id">$target.name</a><br />
@@ -152,7 +154,8 @@
     #end if
 
     <div class="info box">
-        <h3>$_('Spreads')</h3>
+        #set h3=$make_acronym($_('Distribution of the account (equivalent to &quot;kontoer&quot; in BDB)'), $_('Spreads'))
+        <h3>$h3</h3>
         #for $spread in $entity.spreads
             <div class="item">
                 <div class="actions">
@@ -469,7 +472,7 @@
 #end if
 
 <div class="info box">
-    <h3>$_('External identifiers')</h3>
+    <h3>$_('External Identifiers')</h3>
     <table>
     <tr>
       <th>$_('Type')</th>

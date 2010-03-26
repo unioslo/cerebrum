@@ -22,6 +22,7 @@
 #from lib.utils import url_quote, create_ou_selection_tree, nl2br
 #from lib.utils import web_to_spine, spine_to_web
 #from lib.utils import get_lastname_firstname
+#from lib.utils import make_acronym
 #import operator
 #from Widgets import Widgets
 
@@ -102,11 +103,12 @@
 #end if
 
 <div class="info box">
-    <h3>$_('Affiliations')</h3>
+    #set $h3=$make_acronym($_('How a person is officially connected to an organisational unit.'), $_('Affiliations'))
+    <h3>$h3</h3>
     <table>
         <tr class="headers">
         <th>$_('Affiliation')</th>
-        <th>$_('OU')</th>
+        <th>$_('Organisation Unit')</th>
         <th>$_('Additional Info')</th>
         <th>$_('Source')</th>
         <th>$_('Actions')</th>
