@@ -44,7 +44,7 @@
     #end if
 
     <div class="info box">
-        #set h3=$make_acronym($_('Storage host(s) for user&apos;s email folders. It is possible have several addresses on the same host.'), $_('Email targets'))
+        #set h3=$make_acronym($_('Storage host(s) for user&apos;s email folders. It is possible have several addresses on the same host.'), $_('Email Targets'))
         <h3>$h3</h3>
         #for $target in $targets
             <div class="item">
@@ -199,7 +199,7 @@
             #if $entity.id is not None
                 <a href="/entity/full_historylog?id=$entity.id">$_('History log')</a>
             #else
-                $_('History log')
+                $_('History Log')
             #end if
         </h3>
 

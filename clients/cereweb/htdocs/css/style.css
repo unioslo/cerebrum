@@ -124,7 +124,7 @@ img.upperRight {
     padding: 5px 5px 5px 5px;
     /* border:1px solid #404040; */
     /* width: 135px; */
-    width: 150px;
+    width: 170px;
 }
 
 #actions ul {
@@ -134,9 +134,13 @@ img.upperRight {
     /* list-style: none; */
 }
 
+#actions ul li:before {
+    content: "- \0020";
+}
+
 #actions ul li{
     margin-bottom: 5px;
-    list-style: square;
+    /* list-style: &#187; */
 }
 
 #actions ul li a{
