@@ -107,11 +107,11 @@ def main():
             # unless we're explicitly asked to do so.
             do_drop = True
         elif opt == '--only-insert-codes':
-            insert_code_values(db)
+            insert_code_values(db, debug=debug)
             check_schema_versions(db)
             sys.exit()
         elif opt == '--update-codes':
-            insert_code_values(db, delete_extra_codes=True)
+            insert_code_values(db, delete_extra_codes=True, debug=debug)
             check_schema_versions(db)
             sys.exit()
         elif opt == '--stage':
@@ -181,7 +181,7 @@ def read_country_file(fname):
             code_obj.insert()
     const.commit()
 
-def insert_code_values(db, delete_extra_codes=False):
+def insert_code_values(db, delete_extra_codes=False, debug=False):
     const = Factory.get('Constants')()
     print "Inserting code values."
     try:
@@ -191,13 +191,14 @@ def insert_code_values(db, delete_extra_codes=False):
         print "Error initializing constants, check that you include "+\
               "the sql files referenced by CLASS_CONSTANTS"
         sys.exit(1)
-    print stats['total']
     if delete_extra_codes:
         print "  Inserted %(inserted)d new codes (new total: %(total)d), "\
             "updated %(updated)d, deleted %(deleted)d" % stats
     else:
         print "  Inserted %(inserted)d new codes (new total: %(total)d), "\
             "updated %(updated)d, superfluous %(superfluous)d" % stats
+    if debug and stats['details']:
+        print "  Details:\n    %s" % "\n    ".join(stats['details'])
     const.commit()
 
 def makeInitialUsers(db):

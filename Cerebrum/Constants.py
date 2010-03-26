@@ -331,6 +331,8 @@ class _CerebrumCode(DatabaseAccessor):
         if new_desc != db_desc:
             self._desc = new_desc
             stats['updated'] += 1
+            stats['details'].append("Updated description for '%s': '%s'"
+                                    % (self, new_desc))
             self.sql.execute("UPDATE %s SET %s=:desc WHERE %s=:code" %
                              (self._lookup_table, self._lookup_desc_column,
                               self._lookup_code_column),
@@ -675,7 +677,7 @@ class ConstantsBase(DatabaseAccessor):
                 order[dep][cls][str(attr)]=attr
         if not order.has_key(None):
             raise ValueError, "All code values have circular dependencies."
-        stats = {'total': 0, 'inserted': 0, 'updated': 0}
+        stats = {'total': 0, 'inserted': 0, 'updated': 0, 'details': []}
         if delete:
             stats['deleted'] = 0
         else:
@@ -696,6 +698,7 @@ class ConstantsBase(DatabaseAccessor):
                         raise
                     code.insert()
                     stats['inserted'] += 1
+                    stats['details'].append("Inserted code: %s ('%s')" % (code, cls))
                 rows = self._db.query(
                     """SELECT * FROM %s""" % cls._lookup_table)
                 if cls_code_count != len(rows):
@@ -705,11 +708,15 @@ class ConstantsBase(DatabaseAccessor):
                     code_vals.sort()
                     for c in table_vals:
                         if c not in code_vals:
+                            #print cls(c)
+                            #print cls.__dict__
                             if delete:
                                 cls(c).delete()
                                 stats['deleted'] += 1
+                                stats['details'].append("Deleted code: %s ('%s')" % (cls(c), cls))
                             else:
                                 stats['superfluous'] += 1
+                                stats['details'].append("Superfluous code: %s ('%s')" % (cls(c), cls))
                 del order[root][cls]
                 if order.has_key(cls):
                     insert(cls, update)
