@@ -222,12 +222,15 @@
 
     <div class="info box">
         #set $h3=$make_acronym($_('Password encryption methods for this account.'), $_('Password Encryption Methods'))
-        <h3>$h3</h3>
-        #for $method in $account.authentications
-        <div class="item">
-            $spine_to_web($method.name)
-        </div>
-        #end for
+        #set $hashes = $spine_to_web(', '.join([$method.name for $method in $account.authentications]))
+        <table>
+            <tr>
+                <th>$h3</th>
+            </tr>
+            <tr>
+                <td>$hashes</td>
+            </tr>
+        </table>
     </div>
 #end def
 
