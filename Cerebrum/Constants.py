@@ -708,8 +708,6 @@ class ConstantsBase(DatabaseAccessor):
                     code_vals.sort()
                     for c in table_vals:
                         if c not in code_vals:
-                            #print cls(c)
-                            #print cls.__dict__
                             if delete:
                                 cls(c).delete()
                                 stats['deleted'] += 1
