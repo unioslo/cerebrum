@@ -27,7 +27,7 @@ from lib.utils import entity_link, get_database, spine_to_web
 
 class NoteCreateForm(CreateForm):
     action = '/entity/add_note/'
-    title = _('Add Note')
+    title = _('Add note')
     form_class = "edit box"
 
     Order = [
