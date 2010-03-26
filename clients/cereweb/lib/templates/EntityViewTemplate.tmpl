@@ -44,7 +44,7 @@
     #end if
 
     <div class="info box">
-        #set h3=$make_acronym($_('Storage host(s) for user&apos;s email folders.'), $_('Email targets'))
+        #set h3=$make_acronym($_('Storage host(s) for user&apos;s email folders. It is possible have several addresses on the same host.'), $_('Email targets'))
         <h3>$h3</h3>
         #for $target in $targets
             <div class="item">
@@ -52,7 +52,7 @@
                 #if $target.alias
                     <em>$_("Alias"):</em> $target.alias <br />
                 #end if
-                <em>$_("Primary address"):</em> $target.primary.address
+                <em>$_("Primary Address"):</em> $target.primary.address
                 <div class="actions">
                     <a class="action" href="/emailtarget/view?id=$target.id">$_('Add email-address')</a> &#x0020;
                     <a class="action" href="/confirm/emailtarget/delete?id=$target.id&amp;entity_id=$entity.id">$_('Delete')</a>
@@ -273,7 +273,8 @@
     #end if
 
     <div class="important box">
-        <h3>$_('Quarantines')</h3>
+        #set $h3=$make_acronym($_('Shows if the person/account is locked down for some reason, e.g. abuse, break-in, weak password(s), ...'), $_('Quarantines'))
+        <h3>$h3</h3->
         #for $q in $entity.quarantines
             <div class="item">
                 #set $type = $url_quote($q.type_name)
@@ -413,7 +414,7 @@
 #end if
 
 <div class="info box">
-    <h3>$_('Contact info')</h3>
+    <h3>$_('Contact Info')</h3>
     <table>
     <tr>
       <th>$_('Type')</th>
@@ -472,7 +473,8 @@
 #end if
 
 <div class="info box">
-    <h3>$_('External Identifiers')</h3>
+    #set $h3=$make_acronym($_('Identifiers that are imported from external systems( e.g. national identity number from kjernen)'), $_('External Identifiers'))
+    <h3>$h3</h3>
     <table>
     <tr>
       <th>$_('Type')</th>

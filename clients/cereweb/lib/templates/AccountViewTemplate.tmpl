@@ -221,7 +221,8 @@
     #end if
 
     <div class="info box">
-        <h3>$_('Current authentication types')</h3>
+        #set $h3=$make_acronym($_('Password encryption methods for this account.'), $_('Password Encryption Methods'))
+        <h3>$h3</h3>
         #for $method in $account.authentications
         <div class="item">
             $spine_to_web($method.name)
