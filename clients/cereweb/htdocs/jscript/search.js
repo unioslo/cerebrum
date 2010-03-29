@@ -243,16 +243,16 @@ cereweb.ac_quicksearch.prototype.closeSearch = function(args) {
 
 cereweb.ac_quicksearch.prototype.updateLabel = function(state) {
     if (state === "close" && this.input.value !== '')
-        this.label.style.left = '-10000px';
+        this.label.style.textIndent = '-10000px';
     else
-        this.label.style.left = '';
+        this.label.style.textIndent = '0px';
 }
 
 
 cereweb.ac_quicksearch.prototype.handleSessionError = function() {
     this.disable();
     this.input.value = "Session error.";
-    this.label.style.left = '-10000px';
+    this.label.style.textIndent = '-10000px';
 }
 
 cereweb.ac_quicksearch.prototype.formatResult = function(aResultItem, sQuery) {

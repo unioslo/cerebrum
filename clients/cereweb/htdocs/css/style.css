@@ -717,6 +717,7 @@ div.motd label {
     text-align: left;
     font-style: normal;
     font-weight: normal;
+    width: 2em;
 }
 #quicksearch.open label {
     color: #000;
