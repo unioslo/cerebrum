@@ -156,7 +156,8 @@
 #def viewAffiliation($account)
     #if $account.affiliations
     <div class="info box">
-        <h3>$_('Affiliations')</h3>
+        #set $h3=$make_acronym($_('How a person is officially connected to an organisational unit.'), $_('Affiliations'))
+        <h3>$h3</h3>
         <table>
             <tr class="headers">
                 <th>$_('Affiliation')</th>
@@ -246,28 +247,26 @@
     #if not $account.homes
         #return
     #end if
-
     <div class="info box">
-        <h3>$_('Home Directories')</h3>
+    <h3>$_('Home Directories')</h3>
+    <table>
+        <tr>
+            <th>$_('Spread')</th>
+            <th>$_('Disk')</th>
+            <th>$_('Path')</th>
+            <th>$_('Status')</th>
+            <th>$_('&nbsp;')</th>
+        </tr>
         #for $home in $account.homes
-            <div class="item">
-                <div class="actions">
-                    <a class="action" href="/confirm/account/remove_home?account_id=$account.id&amp;spread_id=$home.spread.id">$_('remove')</a>
-                </div>
-
-                <span class="name">$_("Spread"):</span>
-                <span class="value">$spine_to_web($home.spread.name)</span>
-                <br />
-
-                #if $home.disk
-                    <span class="name">$_("Disk"):</span>
-                    <span class="value">$spine_to_web("%s:%s" % ($home.disk.host.name, $home.disk.path))</span>
-                    <br />
-                #end if
-                <span class="name">$_("Path"):</span> <span class="value">$spine_to_web($home.path)</span><br />
-                <span class="name">$_("Status"):</span> <span class="value">$spine_to_web($home.status.description)</span>
-            </div>
+        <tr>
+            <td>$spine_to_web($home.spread.name)</td>
+            <td>$spine_to_web("%s:%s" % ($home.disk.host.name, $home.disk.path))</td>
+            <td>$spine_to_web($home.path)</td>
+            <td>$spine_to_web($home.status.description)</td>
+            <td><a class="action" href="/confirm/account/remove_home?account_id=$account.id&amp;spread_id=$home.spread.id">$_('remove')</a></td>
+        </tr>
         #end for
+    </table>
     </div>
 #end def
 
