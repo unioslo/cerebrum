@@ -240,7 +240,8 @@
     #end if
 
     <div class="info box">
-        <h3>$_('Traits')</h3>
+        #set $h3=$make_acronym($_('Properties or characteristics belonging to this person.'), $_('Traits'))
+        <h3>$h3</h3>
         <table>
             <tr>
                 <th>$_('Trait')</th>
