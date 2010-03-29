@@ -248,7 +248,8 @@
         #return
     #end if
     <div class="info box">
-    <h3>$_('Home Directories')</h3>
+    #set $h3=$make_acronym($_('Storage location(s) for the user&apos;s personal files, directories and programs.'),$_('Home Directories'))
+    <h3>$h3</h3>
     <table>
         <tr>
             <th>$_('Spread')</th>
