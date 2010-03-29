@@ -664,7 +664,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
             """
             result = set()
             if isinstance(start_id_set, (tuple, set, list)):
-                workset = start_id_set.copy()
+                workset = set(start_id_set)
             else:
                 workset = set((start_id_set,))
 
