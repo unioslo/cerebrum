@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import operator
+import re
 from gettext import gettext as _
 from lib.forms.FormBase import CreateForm, EditForm
 
@@ -73,7 +74,9 @@ class EmailAddressCreateForm(CreateForm):
     def get_domain_options(self):
         domain_dao = EmailDomainDAO(self.db)
         domains =  [(d.id, d.name.lower()) for d in domain_dao.search()]
-        return sorted(domains, key=operator.itemgetter(1))
+        sorted_domain = sorted(domains, key=operator.itemgetter(1))
+        sorted_domain.insert(0, ('empty', 'Choose a domain'))
+        return sorted_domain
 
     def check_local(self, local_name):
         """
@@ -88,6 +91,12 @@ class EmailAddressCreateForm(CreateForm):
             self.error_message = _('Local is not a legal name.')
             return False
 
+        return True
+    def check_domain(self, domain):
+        p = re.compile('\d+')
+        if not p.match(domain):
+            self.error_message = _('Please, choose a domain.')
+            return False
         return True
 
     def check_expire(self, expire_date):
