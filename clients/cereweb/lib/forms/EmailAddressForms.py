@@ -93,7 +93,7 @@ class EmailAddressCreateForm(CreateForm):
 
         return True
     def check_domain(self, domain):
-        p = re.compile('\d+')
+        p = re.compile('^\d+$')
         if not p.match(domain):
             self.error_message = _('Please, choose a domain.')
             return False
