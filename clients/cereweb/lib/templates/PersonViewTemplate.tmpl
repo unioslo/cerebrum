@@ -177,7 +177,8 @@
 
 #def viewNames($person)
     <div class="info box">
-        <h3>$_('Names')</h3>
+        #set $h3=$make_acronym($_('All names, personal titles and work-titles that are registered for this person, and their origin source.'), $_('Names'))
+        <h3>$h3</h3>
         <table>
             <tr>
               <th>$_('Type')</th>
