@@ -610,7 +610,7 @@ class AccessCardHolder(PersonLdapBack):
 
     def get_print_department(self, obj):
         ntnuPrintDepartment = self.get_acronym(obj)
-        if 'student' in self._get_affiliations(obj):
+        if 'STUDENT' in self.affiliations:
             return [ntnuPrintDepartment + "-STUD"]
         else:
             return [ntnuPrintDepartment + "-ANSATT"]

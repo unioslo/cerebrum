@@ -48,10 +48,11 @@ class OURegister(object):
             path.append(value)
             return self.get_path(value.parent_id, path)
 
-        return reversed(path)
+        return path
 
     def get_acronym_list(self, key):
-        return [ou.acronym.encode("utf-8") for ou in self.get_path(key)]
+        return [ou.acronym.encode("utf-8")
+            for ou in self.get_path(key) if ou.acronym]
 
     def get_acronym(self, key):
         ou = self.__data.get(key)
