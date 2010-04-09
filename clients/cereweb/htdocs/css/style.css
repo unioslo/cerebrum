@@ -135,7 +135,7 @@ img.upperRight {
 }
 
 #actions ul li:before {
-    content: "- \0020";
+    content: "-\0020";
 }
 
 #actions ul li{
@@ -147,6 +147,11 @@ img.upperRight {
     /* background: white;
     color: black; */
     text-decoration: none;
+}
+
+#actions ul li a:hover{
+    background-color: #FFFF66;
+    color: black;
 }
 
 #actions h3,h4 {
