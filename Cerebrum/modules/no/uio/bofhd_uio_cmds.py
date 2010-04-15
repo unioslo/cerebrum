@@ -8887,6 +8887,8 @@ Addresses and settings:
             if idtype == 'name':
                 group.find_by_name(id)
             elif idtype == 'id':
+                if not (isinstance(id, (int, long)) or id.isdigit()):
+                    raise CerebrumError, "Non-numeric id lookup (%s)" % id
                 group.find(id)
             else:
                 raise CerebrumError, "Unknown idtype: '%s', did you mean name:%s:%s?" % (
