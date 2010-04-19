@@ -140,6 +140,7 @@ class CleanChangeLog(object):
     max_ages = {
         int(co.account_create): AGE_FOREVER,
         int(co.account_delete): AGE_FOREVER,
+        int(co.account_destroy): AGE_FOREVER,
         int(co.group_create): AGE_FOREVER,
         int(co.ou_create): AGE_FOREVER,
         int(co.person_create): AGE_FOREVER,
@@ -214,6 +215,9 @@ class CleanChangeLog(object):
         # Account delete
         {'columns': ('subject_entity', ),
          'triggers': (co. account_delete,)},
+        # Account destroy
+        {'columns': ('subject_entity', ),
+         'triggers': (co. account_destroy,)},
         # Account passwords
         {'columns': ('subject_entity', ),
          'triggers': (co.account_password, )},
