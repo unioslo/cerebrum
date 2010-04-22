@@ -347,7 +347,10 @@ class AccountNTNUMixin(Account.Account):
         self.populate_authentication_type(self.const.auth_type_admin_md5_crypt, enc)
 
     def verify_admin_auth(self, plaintext):
-        cryptstring = self.get_account_authentication(self.const.auth_type_admin_md5_crypt)
+        try:
+            cryptstring = self.get_account_authentication(self.const.auth_type_admin_md5_crypt)
+        except Errors.NotFoundError:
+            return False
         salt = cryptstring
         data2 = self.encrypt_password(self.const.auth_type_md5_crypt, plaintext, salt=salt)
         return (data2 == cryptstring)
