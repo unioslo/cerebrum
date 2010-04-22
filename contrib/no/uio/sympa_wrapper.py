@@ -34,16 +34,36 @@ import os
 import re
 import sys
 
+import cerebrum_path
+import cereconf
+from Cerebrum import Utils
+
+Factory = Utils.Factory
+logger = Factory.get_logger("cronjob")
+
+
 # IVR 2008-08-08 FIXME: code duplication (contrib/no/uio/mailman.py)
 def validate_address(addr, mode="any"):
-    """Make sure e-mail addresses are valid.
-    """
-    if (re.match(r'[a-z0-9][a-z0-9._-]*[a-z0-9](@|$)', addr) and
-        (mode == 'rmlist' or
+    """Make sure e-mail addresses are valid."""
+    # For more extensive info on e-mail-addresses:
+    #    http://en.wikipedia.org/wiki/Email_address
+    logger.info("Checking address '%s'; mode: %s" % (addr, mode))
+    if (re.match(r"""^                   # Start of string
+                     [                   # Allow the following characters...
+                     \w                  # - alphanumerics
+                     !#-\'*+./=?^`{-~-   # - these special characters
+                     ]+                  # ... to occur in any order, at least 1 char
+                     (@|$)               # Must be followed by "@" or end-of-string
+                     """, addr, re.VERBOSE) and (mode == 'rmlist' or
          (addr.count('@') == 1 and
-          re.search(r'@[a-z0-9-]+(\.[a-z0-9]+)+$', addr)))):
+          re.search(r"""@            # Adding a list must always provide a domain
+                        ([\w-]+\.)+  # At least two parts, parts separated by '.'
+                        ([\w-]+)     # Each part consists of alphanumerics and/or '-'
+                        $            # And nothing more than that.
+                        """, addr, re.VERBOSE)))):
         return True
-    raise ValueError("illegal address: '%s'" % addr)
+    logger.error("Illegal address: '%s'" % addr)
+    raise ValueError("Illegal address: '%s'" % addr)
 # end validate_address
 
 
@@ -72,8 +92,10 @@ def main():
 
     args.insert(0, "PKG=" + host)
     to_exec = " ".join(args)
+    logger.info("Complete command to be run on remote host: '%s'" % to_exec)
     args = ["/local/bin/ssh", host, "su", "-", "sympa", "-c",
-            "'" + to_exec + ">/dev/null 2>&1" + "'"]
+            "'" + to_exec + " > /dev/null 2>&1" + "'"]
+    logger.info("Executing command: '%s'" % " ".join(args))
     os.execv(args[0], args)
 # end main
 
