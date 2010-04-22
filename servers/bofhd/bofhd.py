@@ -34,6 +34,7 @@ import mx
 import re
 import socket
 import struct
+import types
 
 import cerebrum_path
 import cereconf
@@ -200,7 +201,10 @@ class BofhdSession(object):
 
     def __init__(self, database, session_id=None, remote_address=None):
         self._db = database
-        self._id = session_id
+        if not isinstance(session_id, (types.NoneType, str, unicode)):
+            raise CerebrumError("Wrong session id type: %s,"
+                                " expected str or None" % type(session_id))
+        self._id = str(session_id)
         self._entity_id = None
         self._owner_id = None
         self.remote_address = remote_address
@@ -311,14 +315,20 @@ class BofhdSession(object):
             })
         self._entity_id = entity_id
         self._id = session_id
-        return session_id
+        return self.get_session_id()
 
 
     def get_session_id(self):
         """Return session_id that self is bound to.
         """
-        
-        return self._id
+
+        if self._id is None:
+            return self._id
+
+        # IVR 2010-04-22: We want to always force session_id to be a string.
+        # I.e. this function must not return anything else, so that
+        # BofhdSession's users can rely on the session being a string.
+        return str(self._id)
     # end get_session_id
 
 
