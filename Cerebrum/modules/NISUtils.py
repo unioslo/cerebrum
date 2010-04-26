@@ -251,8 +251,8 @@ class NISGroupUtil(object):
         included regardles of spread, but if they are of a different
         spread, the groups members are expanded.
         """
-        ret_groups = []
-        ret_non_groups = []
+        ret_groups = set()
+        ret_non_groups = set()
         self._group.clear()
         self._group.find(gid)
 
@@ -266,18 +266,18 @@ class NISGroupUtil(object):
                 if not self._is_new(member_id):
                     logger.warn("Was %i very recently created?", member_id)
                 continue
-            ret_non_groups.append(name)
+            ret_non_groups.add(name)
         
         # subgroups
         for row in self._group.search_members(group_id=gid,
                                               member_type=co.entity_group):
             gid = int(row["member_id"])
             if gid in self._exported_groups:
-                ret_groups.append(self._exported_groups[gid])
+                ret_groups.add(self._exported_groups[gid])
             else:
                 t_g, t_ng = self._expand_group(gid)
-                ret_groups.extend(t_g)
-                ret_non_groups.extend(t_ng)
+                ret_groups.update(t_g)
+                ret_non_groups.update(t_ng)
 
         return ret_groups, ret_non_groups
     # end _expand_groups
@@ -316,7 +316,7 @@ class NISGroupUtil(object):
         netgroups = []
         for group_id in self._exported_groups.keys():
             group_name = self._exported_groups[group_id]
-            group_members, user_members = self._expand_group(group_id)
+            group_members, user_members = map(list, self._expand_group(group_id))
             #logger.debug("%s -> g=%s, u=%s" % (
             #    group_id, group_members, user_members))
             netgroups.append((group_name,
@@ -382,7 +382,7 @@ class FileGroup(NISGroupUtil):
             harder = True
 
     def _expand_group(self, gid):
-        ret = []
+        ret = set()
         self._group.clear()
         self._group.find(gid)
         for row in self._group.search_members(group_id=self._group.entity_id,
@@ -397,8 +397,8 @@ class FileGroup(NISGroupUtil):
                 if not self._is_new(account_id):
                     logger.warn("Was %i very recently created?" % int(account_id))
                 continue
-            ret.append(name)
-        return None, list(set(ret))
+            ret.add(name)
+        return set(), ret
 
     def generate_filegroup(self):
         """Generates a list of lists. An enty looks like
@@ -413,7 +413,8 @@ class FileGroup(NISGroupUtil):
                 logger.warn("Bad groupname %s %s" % (group_name, tmp))
                 continue
             try:
-                group_members, user_members = self._expand_group(group_id)
+                group_members, user_members = map(list,
+                                                  self._expand_group(group_id))
             except Errors.NotFoundError:
                 logger.warn("Group %s has no GID", group_id)
                 continue
@@ -515,8 +516,6 @@ class HackUserNetGroupUIO(UserNetGroup):
 
 
     def _expand_group(self, gid):
-        ret_groups = []
-        ret_non_groups = []
         ret_groups, ret_non_groups = super(HackUserNetGroupUIO,
                                            self)._expand_group(gid)
         # For automatically generated groups we need to sweep person members
@@ -543,7 +542,7 @@ class HackUserNetGroupUIO(UserNetGroup):
             if not name:
                 continue
             # FIXME: Should this be an adjoin?
-            ret_non_groups.append(name)
+            ret_non_groups.add(name)
 
         return ret_groups, ret_non_groups
     # end _expand_groups
