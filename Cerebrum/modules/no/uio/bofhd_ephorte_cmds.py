@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2009 University of Oslo, Norway
+# Copyright 2003-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -125,14 +125,14 @@ class BofhdExtension(object):
             'tilgang': ['tilgang', 'Enter perm ("tilgang")',
                          'Legal values are: \n%s' % "\n".join(
             ["  %-8s : %s" % (str(c), c.description)
-             for c in self.const.fetch_constants(self.const.EphortePermission)])],            
+             for c in self.const.fetch_constants(self.const.EphortePermission)])],
             }
 
         # liste lovlige arkivdel/journalenhet
         
         return (group_help, command_help, arg_help)
 
-    def _get_role(self, code_str):
+    def _get_role_type(self, code_str):
         try:
             c = self.const.EphorteRole(code_str)
             int(c)
@@ -186,9 +186,10 @@ class BofhdExtension(object):
 
         arkivdel = self._get_arkivdel(arkivdel)
         journalenhet = self._get_journalenhet(journalenhet)
-        self.ephorte_role.add_role(person.entity_id, self._get_role(role), ou.entity_id,
+        self.ephorte_role.add_role(person.entity_id, self._get_role_type(role), ou.entity_id,
                                    arkivdel, journalenhet, auto_role='F')
         return "OK, added %s role for %s%s" % (role, person_id, extra_msg)
+
 
     all_commands['ephorte_remove_role'] = Command(("ephorte", "remove_role"), PersonId(), Rolle(), OU(), Arkivdel(), Journalenhet(), 
         perm_filter='can_remove_ephorte_role')
@@ -202,15 +203,23 @@ class BofhdExtension(object):
         ou = self._get_ou(stedkode=sko)
         arkivdel = self._get_arkivdel(arkivdel)
         journalenhet = self._get_journalenhet(journalenhet)
+        # Check that the person has the given role. 
+        if not self.ephorte_role.get_role(person.entity_id,
+                                          self._get_role_type(role),
+                                          ou.entity_id,
+                                          self._get_arkivdel(arkivdel),
+                                          self._get_journalenhet(journalenhet)):
+            raise CerebrumError("Person has no such role")
+        # Check if role is a standard role
         if (self.ephorte_role.is_standard_role(person.entity_id,
-                                               self._get_role(role),
+                                               self._get_role_type(role),
                                                ou.entity_id,
                                                arkivdel,
                                                journalenhet) and
             len(self.ephorte_role.list_roles(person_id=person.entity_id)) > 1):
             raise CerebrumError("Cannot delete standard role.")
-        self.ephorte_role.remove_role(person.entity_id, self._get_role(role), ou.entity_id,
-                                   arkivdel, journalenhet)
+        self.ephorte_role.remove_role(person.entity_id, self._get_role_type(role),
+                                      ou.entity_id, arkivdel, journalenhet)
         return "OK, removed %s role for %s" % (role, person_id)
 
     all_commands['ephorte_list_roles'] = Command(("ephorte", "list_roles"), PersonId(),
@@ -237,7 +246,7 @@ class BofhdExtension(object):
             else:
                 journalenhet = ''
             ret.append({
-                'role': str(self._get_role(row['role_type'])),
+                'role': str(self._get_role_type(row['role_type'])),
                 'adm_enhet': self._format_ou_name(ou),
                 'arkivdel': arkivdel,
                 'journalenhet': journalenhet,
@@ -268,7 +277,7 @@ class BofhdExtension(object):
         ou = self._get_ou(stedkode=sko)
         # Check that the person has the given role. 
         tmp = self.ephorte_role.get_role(person.entity_id,
-                                         self._get_role(role),
+                                         self._get_role_type(role),
                                          ou.entity_id,
                                          self._get_arkivdel(arkivdel),
                                          self._get_journalenhet(journalenhet))
@@ -293,7 +302,7 @@ class BofhdExtension(object):
                                                         'F')
         # Finally set the new standard role
         self.ephorte_role.set_standard_role_val(person.entity_id,
-                                                self._get_role(role),
+                                                self._get_role_type(role),
                                                 ou.entity_id,
                                                 self._get_arkivdel(arkivdel),
                                                 self._get_journalenhet(journalenhet),
