@@ -36,7 +36,6 @@ ephorte_perm = EphortePermission(db)
 ou = Factory.get("OU")(db)
 cl = CLHandler.CLHandler(db)
 logger = Factory.get_logger("cronjob")
-ou_map_warnings = []
 ou_mismatch_warnings = {'pols': [], 'ephorte': []}
 
 class SimpleRole(object):
@@ -217,12 +216,9 @@ class PopulateEphorte(object):
                         self.ouid2sko[ou_id],
                         self.ouid2sko.get(self.ou_id2parent.get(ou_id))))
                 ou_id = self.ou_id2parent.get(ou_id)
-            # No ePhorte OU found. Log to ou_map_warnings which is
-            # sent automatically to ephorte support.
+            # No ePhorte OU found. 
             if ou_id is None or ou_id not in self.app_ephorte_ouid2name:
                 sko = self.ouid2sko[int(row['ou_id'])]
-                person_info = self.find_person_info(row['person_id'])
-                ou_map_warnings.append(person_info)
                 tmp_msg = "Failed mapping '%s' to known ePhorte OU. " % sko
                 tmp_msg += "Skipping affiliation %s@%s for person %s" % (
                     co.affiliation_ansatt, sko, row['person_id'])
@@ -350,14 +346,6 @@ def mail_warnings(mailto, debug=False):
         if getattr(DateTime, day, None) == today.day_of_week:
             mail_today = True
     
-    if mail_today and ou_map_warnings:
-        mail_txt = '\n'.join(["%11s   %-10s   %s %s" %(
-            x['sap_ansattnr'], x['uname'], x['first_name'], x['last_name'])
-                              for x in ou_map_warnings])
-        substitute = {'WARNINGS': mail_txt}
-        send_mail(mailto, cereconf.EPHORTE_MAIL_WARNINGS, substitute,
-                  debug=debug)
-
     if mail_today and (ou_mismatch_warnings['ephorte'] or
                        ou_mismatch_warnings['pols']):
         pols_warnings = '\n'.join(["%6s  %s" % x for x in
