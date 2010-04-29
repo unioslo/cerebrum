@@ -18,7 +18,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-
 import cereconf
 from Cerebrum import Errors
 from Cerebrum import Cache
@@ -66,6 +65,7 @@ class Tilgang(Parameter):
 class BofhdExtension(object):
     all_commands = {}
     OU_class = Factory.get('OU')
+    Account_class = Factory.get('Account')
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
@@ -73,7 +73,9 @@ class BofhdExtension(object):
         from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
              UiOBofhdExtension
 
-        for func in ('get_commands', '_get_ou', 'get_format_suggestion', '_format_ou_name'):
+        for func in ('get_commands', '_get_ou', 'get_format_suggestion',
+                     '_format_changelog_entry', '_format_from_cl',
+                     '_get_entity_name', '_get_account'):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x
@@ -131,6 +133,10 @@ class BofhdExtension(object):
         # liste lovlige arkivdel/journalenhet
         
         return (group_help, command_help, arg_help)
+
+
+    def _format_ou_name(self, ou):
+        return "%02i%02i%02i" % (ou.fakultet, ou.institutt, ou.avdeling)
 
     def _get_role_type(self, code_str):
         try:
@@ -407,4 +413,39 @@ class BofhdExtension(object):
                 'end_date': end_date
                 }
                 )
+        return ret
+
+    all_commands['ephorte_history'] = Command(
+        ("ephorte", "history"),
+        PersonId(),
+        Integer(optional=True, help_ref="limit_number_of_results"),
+        fs=FormatSuggestion("%s [%s]: %s",
+                            ("timestamp", "change_by", "message")),
+        #perm_filter='can_add_ephorte_perm')
+        # Only available for superusers for now.
+        perm_filter='is_superuser')
+    def ephorte_history(self, operator, person_id, limit=100):
+        if not self.ba.can_list_ephorte_perm(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to ephorte admins")
+        try:
+            person = self.util.get_target(person_id, restrict_to=['Person'])
+        except Errors.TooManyRowsError:
+            raise CerebrumError("Unexpectedly found more than one person")
+
+        try:
+            limit = int(limit)
+        except ValueError:
+            raise CerebrumError, "Limit must be a number"
+        
+        # Only certain tyeps of changes are relevant for ephorte history
+        types = ["ephorte_role_add", "ephorte_role_upd", "ephorte_role_rem",
+                 "ephorte_perm_add", "ephorte_perm_rem", "person_aff_add",
+                 "person_aff_del", "person_aff_mod", "person_aff_src_add",
+                 "person_aff_src_del", "person_aff_src_mod", "person_create"]
+        ret = []
+
+        rows = list(self.db.get_log_events(0, subject_entity=person.entity_id,
+                                           types=[getattr(self.const, t) for t in types]))
+        for r in rows[-limit:]:
+            ret.append(self._format_changelog_entry(r))
         return ret

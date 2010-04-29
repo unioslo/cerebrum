@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007-2009 University of Oslo, Norway
+# Copyright 2007-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -128,19 +128,23 @@ class EphorteConstants(ConstantsBase):
     
     # ChangeLog constants
     ephorte_role_add = _ChangeTypeCode(
-        'ephorte', 'role_add', 'add ephorte role @ %(dest)s')
+        'ephorte', 'role_add', 'add ephorte role @ %(dest)s',
+        ('type=%(rolle_type:rolle_type)s',))
 
     ephorte_role_upd = _ChangeTypeCode(
         'ephorte', 'role_upd', 'update ephorte role @ %(dest)s')
 
     ephorte_role_rem = _ChangeTypeCode(
-        'ephorte', 'role_rem', 'remove ephorte role @ %(dest)s')
+        'ephorte', 'role_rem', 'remove ephorte role @ %(dest)s',
+        ('type=%(rolle_type:rolle_type)s',))
 
     ephorte_perm_add = _ChangeTypeCode(
-        'ephorte', 'perm_add', 'add ephorte perm')
+        'ephorte', 'perm_add', 'add ephorte perm @ %(dest)s',
+        ('type=%(perm_type:perm_type)s',))
 
     ephorte_perm_rem = _ChangeTypeCode(
-        'ephorte', 'perm_rem', 'remove ephorte perm')    
+        'ephorte', 'perm_rem', 'remove ephorte perm @ %(dest)s',
+        ('type=%(perm_type:perm_type)s',))
 
 
 ##
@@ -187,7 +191,6 @@ class EphorteRole(DatabaseAccessor):
         self._db.log_change(person_id, self.co.ephorte_role_add,
                             sko, change_params={
             'arkivdel': arkivdel and str(arkivdel) or '',
-#            'adm_enhet': adm_enhet and str(adm_enhet) or '',
             'rolle_type': str(role)})
 
     # Wrapper for _add_role.

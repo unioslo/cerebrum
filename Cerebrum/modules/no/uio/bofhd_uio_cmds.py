@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2009 University of Oslo, Norway
+# Copyright 2002-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -9081,6 +9081,9 @@ Addresses and settings:
             person.find(id)
             return person.get_name(self.const.system_cached,
                                    self.const.name_full)
+        elif entity_type == self.const.entity_ou:
+            ou = self._get_ou(ou_id=id)
+            return self._format_ou_name(ou)
         
         # Okey, we've run out of good options. Let's try a sensible fallback:
         # many entities have a generic name in entity_name. Let's use that:
@@ -9329,6 +9332,14 @@ Addresses and settings:
             return str(self.const.EntityTrait(val))
         elif format == 'value_domain':
             return str(self.const.ValueDomain(val))
+        elif format == 'rolle_type':
+            try:
+                val = int(val)
+            except ValueError:
+                pass
+            return str(self.const.EphorteRole(val))
+        elif format == 'perm_type':
+            return str(self.const.EphortePermission(val))
         else:
             self.logger.warn("bad cl format: %s", repr((format, val)))
             return ''
