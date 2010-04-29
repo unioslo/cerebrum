@@ -114,9 +114,13 @@ class Export2Kjernen(object):
         if self.verbose:
             print 'Writing persons to', self.outfile
         i = 0
+        no_account = 0
         f = open(self.outfile, fileMode, bufferSize)
         for k in self.nins.keys():
-            out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
+            ## export only persons that has an account.
+            account = self.accounts.get(k, '')
+            if account:
+                out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
                     (k,
                     self.nins[k][:6],
                     self.nins[k][6:],
@@ -127,17 +131,20 @@ class Export2Kjernen(object):
                     self.affs.get(k, ''),
                     self.affs_status.get(k, ''),
                     self.stedkoder.get(self.ous.get(k, ''), ''),
-                    self.accounts.get(k, ''),
+                    account,
                     self.created.get(k, ''))
 
-            f.write(out_line)
-            i += 1
+                f.write(out_line)
+                i += 1
+            else:
+                no_account += 1
 
         f.flush()
         f.close()
         if self.verbose:
             print '--------------------------------------------------------------------------------'
             print 'Total persons written:',i
+            print 'Persons with no account:',no_account
             print '================================================================================'
 
     def print_time(self, before):
