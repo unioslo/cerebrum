@@ -393,27 +393,3 @@ class OUEntityExpireMixin(EntityExpire, OU):
                          ee.expire_date IS NULL)"
             
         return self.query(sql, locals())
-
-
-    def get_stedkoder_by_name(self, pattern, expired_before=None):
-        """
-        Overridden method. See L{Stedkode} for functionality.
-        
-        @param expired_before: See L{EntityExpire.is_expired}.
-       
-        """
-        sql = """
-          SELECT oi.ou_id
-          FROM [:table schema=cerebrum name=ou_info] oi
-          LEFT JOIN [:table schema=cerebrum name=entity_expire] ee
-            ON oi.ou_id = ee.entity_id
-          WHERE
-            lower(oi.short_name) LIKE :pattern"""
-        if expired_before is None:
-            sql += "AND (ee.expire_date >= [:now] OR \
-                         ee.expire_date IS NULL)"
-        elif expired_before is not None:
-            sql += "AND (ee.expire_date >= :expired_before OR \
-                         ee.expire_date IS NULL)"
-            
-        return self.query(sql, locals())

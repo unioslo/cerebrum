@@ -2957,7 +2957,7 @@ class BofhdExtension(object):
         else:
             if pattern.count('%') == 0:
                 pattern = '%' + pattern + '%'
-            for r in ou.get_stedkoder_by_name(pattern):
+            for r in ou.search(short_name=pattern):
                 ou.clear()
                 ou.find(r['ou_id'])
                 output.append({'stedkode':
