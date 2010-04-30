@@ -424,6 +424,7 @@ class BofhdUtils(object):
              'group' (name of group => Group or PosixGroup)
              'host' (name of host => Host)
              'id' (entity ID => any)
+             'external_id' (i.e. employee or studentnr)
 
         If name is actually an integer, 'id' lookup is always chosen.
 
@@ -451,10 +452,6 @@ class BofhdUtils(object):
                                 "disk": ("Disk",),
                                 "entity_id": None,
                                 "id": None,
-                                #
-                                # 2008-08-27, jazz
-                                # we need to decide whether this
-                                # should be allowed and to what extent
                                 "external_id": None,}
 
         def get_target_find_lookup(name, default_lookup):
