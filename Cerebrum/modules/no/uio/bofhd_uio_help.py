@@ -213,7 +213,7 @@ command_help = {
     'group_gremove': 'Remove src_group(s) from given dest_group(s)',
     'group_info': 'View information about a spesific group',
     'group_list': 'List direct members of a group',
-    'group_list_expanded': 'List all members of a group, direct og indirect',
+    'group_list_expanded': 'List all members of a group, both direct and indirect',
     'group_memberships': 'List all groups an entity is a member of',
     'group_padd': 'Let a person join a group',
     'group_personal': 'Create a new personal filegroup for an account',
