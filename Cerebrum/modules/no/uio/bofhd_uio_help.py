@@ -448,7 +448,7 @@ affiliation status codes"""],
     'group_name_src':
         ['src_gname', 'Enter the source group'],
     'group_name_moderator':
-	['gname', 'Enter the name of the moderator group'],
+	['gname', 'Enter the name(s) of the moderator group(s)'],
     'group_operation':
         ['op', 'Enter group operation',
          """Three values are legal: union, intersection and difference.

@@ -4877,11 +4877,12 @@ Addresses and settings:
         else:
             raise CerebrumError("Group %s already exists" % (groupname))
 
-        # checking if moderator group exists
-        try:
-            self._get_group(moderator)
-        except CerebrumError:
-            raise CerebrumError("Moderator group %s not found" % (moderator))
+        # checking if moderator groups exist
+        for mod in moderator.split(' '):
+            try:
+                self._get_group(mod)
+            except CerebrumError:
+                raise CerebrumError("Moderator group %s not found" % (mod))
         
         fromaddr = acc.get_primary_mailaddress()
         toaddr = cereconf.GROUP_REQUESTS_SENDTO
