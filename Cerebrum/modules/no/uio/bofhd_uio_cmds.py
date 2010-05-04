@@ -2009,7 +2009,8 @@ class BofhdExtension(object):
             raise CerebrumError, "%s is not connected to a pipe or RT target" % addr
         if not cmd.startswith('|'):
             cmd = '|' +  cmd
-        if not re.match(self._rt_patt, cmd):
+        if et.email_target_type == self.const.email_target_RT and \
+           not re.match(self._rt_patt, cmd):
             raise CerebrumError("'%s' is not a valid RT command" % cmd)
         et.email_target_alias = cmd
         et.write_db()
