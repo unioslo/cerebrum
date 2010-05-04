@@ -71,6 +71,10 @@ class test_IPNumber_verify_mac_format(unittest.TestCase):
         assert self.ipnumber._verify_mac_format("0123 4567 89ab") == "01:23:45:67:89:ab"
 
 
+    def test_valid_mac_adr_with_no_seperators(self):
+        assert self.ipnumber._verify_mac_format("0123456789ab") == "01:23:45:67:89:ab"
+
+
     def test_valid_mac_adr_with_uppercase(self):
         """Valid MAC-address with uppercase characters"""
         assert self.ipnumber._verify_mac_format("AB:CD:EF:AB:CD:EF") == "ab:cd:ef:ab:cd:ef"
@@ -85,11 +89,6 @@ class test_IPNumber_verify_mac_format(unittest.TestCase):
         """Raise exception when MAC-adr has incorrect length"""
         assert_raises(DNSError, self.ipnumber._verify_mac_format, "01:23:45:67:89:ab:cd")
         assert_raises(DNSError, self.ipnumber._verify_mac_format, "01:23:45:67:89")
-
-
-    def test_invalid_mac_adr_with_no_seperators(self):
-        """Raise exception when MAC-adr has no seperator characters"""
-        assert_raises(DNSError, self.ipnumber._verify_mac_format, "0123456789ab")
 
 
     def test_invalid_mac_adr_with_invalid_seperators(self):

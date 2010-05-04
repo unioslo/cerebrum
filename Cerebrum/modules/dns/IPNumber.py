@@ -203,7 +203,7 @@ class IPNumber(Entity.Entity):
         for char in ('-', '.', ' '):
             mac_adr = mac_adr.replace(char, ":")
         # Standardize if using Cisco format
-        for index in (2, 8, 14):
+        for index in (2, 5, 8, 11, 14):
             try:
                 if not mac_adr[index] == ':':
                     mac_adr = mac_adr[0:index] + ':' + mac_adr[index:]
