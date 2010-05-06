@@ -109,6 +109,20 @@ legal_prefixes = {
 
 
 
+class group_attributes(object):
+    """This is named-tuple like object for holding a few of group's cached
+    attributes in memory.
+    """
+
+    def __init__(self, group_proxy):
+        self.group_id = group_proxy.entity_id
+        self.group_name = group_proxy.group_name
+        self.description = group_proxy.description
+    # end __init__
+# end group_attributes
+    
+
+
 def format_sko(*rest):
     """Format stedkode in a suitable fashion.
 
@@ -261,10 +275,16 @@ def find_all_auto_groups():
     """
 
     def slurp_data(result, trait):
-        for row in entity.list_traits(code=trait, return_name=True):
+        group = Factory.get("Group")(database)
+        for row in entity.list_traits(code=trait):
             group_id = int(row["entity_id"])
-            group_name = row["name"]
-            result[group_name] = group_id
+            try:
+                group.clear()
+                group.find(group_id)
+            except Errors.NotFoundError:
+                continue
+
+            result[group.group_name] = group_attributes(group)
     # end slurt_data
 
     result = dict()
@@ -324,9 +344,31 @@ def group_name2group_id(group_name, description, current_groups, trait=NotSet):
 
         logger.debug("Created a new auto group. Id=%s, name=%s, description=%s",
                      group.entity_id, group_name, description)
-        current_groups[group_name] = group.entity_id
+        current_groups[group_name] = group_attributes(group)
 
-    return current_groups[group_name]
+    # If the OU that the group is linked to changed its name, the group's
+    # description should reflect that change. It does not happen often, but it
+    # is a possibility and the group should be adapted accordingly.
+    elif description != current_groups[group_name].description:
+        group = Factory.get("Group")(database)
+        try:
+            group.find_by_name(group_name)
+        except Errors.NotFoundError:
+            logger.error("This is impossible -- auto-group %s vanished"
+                         "from the database while syncing",
+                         group_name)
+            return current_groups[group_name]
+        
+        logger.debug("Group %s (id=%s) changes description (%s -> %s)",
+                     group_name, group.entity_id,
+                     current_groups[group_name].description,
+                     description)
+        group.description = description
+        group.write_db()
+        current_groups[group_name].description = description
+        
+
+    return current_groups[group_name].group_id
 # end group_name2group_id
 
 
@@ -459,7 +501,7 @@ def affiliation2groups(row, current_groups, select_criteria, perspective):
             continue
 
         group_prefix = select_criteria[key]
-        description = legal_prefixes[group_prefix] % ou_info["sko"]
+        description = legal_prefixes[group_prefix] % ou_info["name"]
         group_name = group_prefix + suffix
         group_id = group_name2group_id(group_name,
                                        description,
@@ -747,7 +789,8 @@ def empty_defunct_groups(groups_from_cerebrum):
     group = Factory.get("Group")(database)
     # These are groups that would not have existed, given today's data
     # situation. What should we do with them?
-    for group_name, group_id in groups_from_cerebrum.iteritems():
+    for group_name in groups_from_cerebrum:
+        group_id = groups_from_cerebrum[group_name].group_id
         logger.info("Group id=%s, name=%s should no longer have members.",
                     group_id, group_name)
         # Remove all members
@@ -793,7 +836,8 @@ def delete_defunct_groups(groups):
     ou = Factory.get("OU")(database)
     logger.debug("Looking for groups to delete")
 
-    for group_name, group_id in groups.iteritems():
+    for group_name in groups:
+        group_id = groups[group_name].group_id
         logger.debug("Considering group id=%s, name=%s for deletion",
                      group_id, group_name)
         
@@ -932,10 +976,10 @@ def perform_delete():
     group = Factory.get("Group")(database)
     logger.debug("Looking for groups to delete")
 
-    for group_name, group_id in existing_groups.iteritems():
+    for group_name in existing_groups:
+        group_id = existing_groups[group_name].group_id
         logger.debug("Considering group id=%s, name=%s for deletion",
                      group_id, group_name)
-        
         try:
             group.clear()
             group.find(group_id)
@@ -1175,7 +1219,7 @@ def build_complete_group_forest():
     scratch = dict()
     existing_groups = find_all_auto_groups()
     for gname in existing_groups:
-        gid = existing_groups[gname]
+        gid = existing_groups[gname].group_id
         node = gnode(gid, gname)
         scratch[gid] = node
 
