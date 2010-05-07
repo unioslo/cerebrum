@@ -78,6 +78,7 @@ def usage(exitcode = 0, message = None):
     --ignore-students   Since a lot of students are unregistered before they're
                         disabled, this option can be used to ignore these
                         persons.
+    --ignore-quarantined
     --ignore-sko        If some OUs are to be ignored. Can be a commaseparated 
                         list of stedkoder. Can add sub-OUs by only adding the 
                         first digits in the sko. E.g. '33' gives all OUs at 
@@ -90,8 +91,8 @@ def usage(exitcode = 0, message = None):
     sys.exit(exitcode)
 
 
-def process_report(stream, ou_level = 0, summary = False, 
-                        ignore_students = False, ignore_sko = ()):
+def process_report(stream, ou_level = 0, summary = False, ignore_sko = (),
+                        ignore_students = False, ignore_quarantined = False):
     '''
     Generating the report and send it to logger.
     '''
@@ -134,7 +135,8 @@ def process_report(stream, ou_level = 0, summary = False,
 
     for pid in all_persons:
         process_person(pid=int(pid['person_id']), unregistered=unregistered,
-                       ous=ous, ignore_students=ignore_students)
+                       ous=ous, ignore_students=ignore_students,
+                       ignore_quarantined=ignore_quarantined)
 
 
     logger.debug("Search is done, go for report")
@@ -146,6 +148,7 @@ def process_report(stream, ou_level = 0, summary = False,
     stream.write(" - Without any affiliation:       %8d\n" % len(unregistered[None]))
     stream.write("\n")
     if ignore_students: stream.write("Filter: Ignoring students\n")
+    if ignore_quarantined: stream.write("Filter: Ignoring quarantined\n")
     if ignore_sko: stream.write("Filter: Ignoring sko(prefix): %s\n" % ignore_sko)
     stream.write("\n")
 
@@ -192,7 +195,8 @@ def process_report(stream, ou_level = 0, summary = False,
     logger.info("Generating report of persons not registered in auth_source - done")
 
 
-def process_person(pid, unregistered, ous, ignore_students=False):
+def process_person(pid, unregistered, ous, ignore_students=False,
+                                           ignore_quarantined=False):
     '''
     Checks if a given person validates as an unregistered person, and then adds
     it to the list of unregistered.
@@ -228,9 +232,10 @@ def process_person(pid, unregistered, ous, ignore_students=False):
             if constants.affiliation_student in [type['affiliation'] for type in 
                                                    account.get_account_types()]:
                 return False
-        accounts[account.account_name] = bool(account.get_homes())
+        if ignore_quarantined and account.get_entity_quarantine(only_active=True):
+            return False
 
-    # TODO: add an ignore_quarantined?
+        accounts[account.account_name] = bool(account.get_homes())
 
     # Unregistered persons
     if len(affs) == 0:
@@ -255,6 +260,7 @@ def main():
                  "summary",
                  "faculties",
                  "ignore-students",
+                 "ignore-quarantined",
                  "ignore-sko=",
                  "institutes"])
     except getopt.GetoptError:
@@ -263,7 +269,7 @@ def main():
     outputstream = sys.stdout
     ou_level = 0
     summary = False
-    ignore_students = False
+    ignore_students = ignore_quarantined = False
     ignore_sko = []
 
     for opt, val in opts:
@@ -279,13 +285,17 @@ def main():
             ou_level = 1
         elif opt == '--ignore-students':
             ignore_students = True
+        elif opt == '--ignore-quarantined':
+            ignore_quarantined = True
         elif opt == '--ignore-sko':
             ignore_sko = val.split(',')
         else:
             usage(1, "Unknown parameter '%s'" % opt)
 
     process_report(outputstream, ou_level=ou_level, summary=summary, 
-            ignore_students=ignore_students, ignore_sko=ignore_sko)
+                        ignore_students=ignore_students,
+                        ignore_quarantined=ignore_quarantined,
+                        ignore_sko=ignore_sko)
 
     if outputstream not in (sys.stdout, sys.stderr):
         outputstream.close()
