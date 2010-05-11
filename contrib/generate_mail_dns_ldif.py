@@ -146,7 +146,7 @@ def get_hosts_and_cnames():
     # Find hosts that both have an A record
     # and has its 'best' MX record in cereconf.LDAP_MAIL_DNS['mx_hosts'].
     hosts = {}
-    hosts_no_a = {}
+    hosts_only_mx = {}
     accept_mx = dict(zip(*((cereconf.LDAP_MAIL_DNS['mx_hosts'],) * 2))).has_key
     for host, mx_dict in host2mx.items():
         prio = 99.0e9
@@ -165,7 +165,7 @@ def get_hosts_and_cnames():
                     hosts[host] = ()
             else:
                 # no A/AAAA record, but MX
-                hosts_no_a[host] = True
+                hosts_only_mx[host] = True
                 
 
     # Remove cnames that do not appear in host2cnames ??? should be hosts[]?
@@ -173,13 +173,13 @@ def get_hosts_and_cnames():
         if not host2cnames.has_key(cname2host[cname]):
             del cname2host[cname]
 
-    return hosts, cname2host, lower2host, hosts_no_a
+    return hosts, cname2host, lower2host, hosts_only_mx
 
 
 def write_mail_dns():
     f = ldif_outfile('MAIL_DNS')
 
-    hosts, cnames, lower2host, hosts_no_a = get_hosts_and_cnames()
+    hosts, cnames, lower2host, hosts_only_mx = get_hosts_and_cnames()
 
     db = Factory.get('Database')()
     co = Factory.get('Constants')(db)
@@ -188,21 +188,28 @@ def write_mail_dns():
     email_domain = {}
     for dom_entry in email.list_email_domains():
         email_domain[int(dom_entry['domain_id'])] = dom_entry['domain']
-        # Valid email domains require no A/AAAA record
-        if hosts_no_a.has_key(dom_entry['domain']):
-            del hosts_no_a[dom_entry['domain']]
 
-    for host in hosts_no_a:
-        logger.warn("MX defined but no A/AAAA record or valid email domain: %s" % host)
-            
     for no_exp_dom in email.list_email_domains_with_category(co.email_domain_category_noexport):
         del email_domain[int(no_exp_dom['domain_id'])]
+
     domains = email_domain.values()
     domains.sort()
     domain_dict = {}
     for domain in domains:
         domain_dict[domain.lower()] = True
+        # Verify that domains have a MX-record.
+        for arg in cereconf.LDAP_MAIL_DNS['dig_args']:
+            zone = arg[0]
+            if domain.endswith(zone) and not (domain in hosts_only_mx or
+               domain in hosts):
+                logger.warn("email domain without MX defined: %s" % domain)
+        # Valid email domains only requires MX
+        if domain in hosts_only_mx:
+            del hosts_only_mx[domain]
 
+    for host in hosts_only_mx:
+        logger.warn("MX defined but no A/AAAA record or valid email domain: %s" % host)
+            
     def handle_domain_host(host):
         f.write("host: %s\n" % lower2host[host])
         for cname in hosts[host]:
