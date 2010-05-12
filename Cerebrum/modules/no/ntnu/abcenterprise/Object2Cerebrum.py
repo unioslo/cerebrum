@@ -122,7 +122,6 @@ class Object2CerebrumExt(Object2Cerebrum):
             self._ou.clear()
             self._ou.find(entity_id)
             self._populate_ou(ou, stedkode)
-            populated = True
         else:
             ## try to find by stedkode, stedkode may
             ## not be uniq and we have to loop thru
