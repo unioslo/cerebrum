@@ -31,6 +31,7 @@ from Cerebrum.modules.abcenterprise.Object2Cerebrum import ABCMultipleEntitiesEx
 from Cerebrum.modules.abcenterprise.Object2Cerebrum import ABCErrorInData
 
 from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsExt import DataPersonExt
+from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsExt import DataOUExt
 from Cerebrum.modules.no.ntnu.Builder import Builder
 
 class Object2CerebrumExt(Object2Cerebrum):
@@ -41,7 +42,7 @@ class Object2CerebrumExt(Object2Cerebrum):
         super(Object2CerebrumExt, self).__init__(source_system, logger)
         account = Factory.get("Account")(self.db)
         account.find_by_name("bootstrap_account")
-        self._builder = Builder(self.db, account.entity_id)
+        ## self._builder = Builder(self.db, account.entity_id)
 
     def _find_lowest(self, kodes):
         if len(kodes) == 0:
@@ -68,31 +69,6 @@ class Object2CerebrumExt(Object2Cerebrum):
             saved_kodes.sort()
         return saved_kodes[0]
 
-    def _populate_ou(self, ou, stedkode):
-        if stedkode:
-            country = int(stedkode[:2])
-            institution= int(stedkode[2:5])
-            faculty = int(stedkode[5:7])
-            department = int(stedkode[7:9])
-            workgroup = int(stedkode[9:])
-        else:
-            country = self._ou.landkode
-            institution = self._ou.institusjon
-            faculty = self._ou.fakultet
-            department = self._ou.institutt
-            workgroup = self._ou.avdeling
-        self._ou.populate(ou.ou_names['name'],
-                            faculty,
-                            department,
-                            workgroup,
-                            institusjon = institution,
-                            landkode = country,
-                            acronym = ou.ou_names['acronym'],
-                            short_name = ou.ou_names['acronym'],
-                            display_name = ou.ou_names['name'],
-                            sort_name = ou.ou_names['name'],
-                            parent=None)
-
     def _find_replacedby(self, kjerne_id):
         entity_id = None
         replacedby = Factory.get("OU")(self.db)
@@ -112,16 +88,19 @@ class Object2CerebrumExt(Object2Cerebrum):
         if self._ou is None:
             self._ou = Factory.get("OU")(self.db)
         self._ou.clear()
-        ##self.co = Factory.get('Constants')()
-        stedkode = None
         entity_id = self._check_entity(self._ou, ou)
         if entity_id:
             ## ou has an uniq external identifier
             ##  and an entity_id
-            stedkode = None
             self._ou.clear()
             self._ou.find(entity_id)
-            self._populate_ou(ou, stedkode)
+            self._ou.populate(ou.ou_names['name'],
+                            acronym = ou.ou_names['acronym'],
+                            short_name = ou.ou_names['acronym'],
+                            display_name = ou.ou_names['name'],
+                            sort_name = ou.ou_names['name'],
+                            parent=None)
+
         else:
             ## try to find by stedkode, stedkode may
             ## not be uniq and we have to loop thru
@@ -130,21 +109,18 @@ class Object2CerebrumExt(Object2Cerebrum):
             for kode in ou.stedkodes:
                 try:
                     self._ou.clear()
-                    self._ou.find_stedkode(int(kode[5:7]),
-                                           int(kode[7:9]),
-                                           int(kode[9:]),
-                                           int(kode[2:5]),
-                                           landkode = int(kode[:2]))
-                    entity_id = self._ou.entity_id
-                    stedkode = kode
-                    break
+                    copy_ou = DataOUExt()
+                    copy_ou._ids[self.co.externalid_stedkode] = kode
+                    entity_id = self._check_entity(self._ou, copy_ou)
+                    if entity_id:
+                        ## got a match
+                        break;
                 except Errors.NotFoundError, e:
                     # paranoia
-                    stedkode = None
                     entity_id = None
                     continue
-            if entity_id and stedkode:
-                self._populate_ou(ou, stedkode)
+            if entity_id:
+                self._ou.find(entity_id)
             else:
                 ## could not identify an ou from stedkodes.
                 ## pick the lowest stedkode, populate ou and
@@ -152,10 +128,16 @@ class Object2CerebrumExt(Object2Cerebrum):
                 if ou.stedkodes:
                     stedkode = self._find_lowest(ou.stedkodes)
                     if stedkode:
-                        self._populate_ou(ou, stedkode)
+                        ou._ids[self.co.externalid_stedkode] = stedkode
                 else:
                     self.logger.warning('Skipping OU %s without stedkode' % ou.ou_names['name'])
                     return (None, None)
+            self._ou.populate(ou.ou_names['name'],
+                            acronym = ou.ou_names['acronym'],
+                            short_name = ou.ou_names['acronym'],
+                            display_name = ou.ou_names['name'],
+                            sort_name = ou.ou_names['name'],
+                            parent=None)
 
         self._ou.write_db()
         self._add_external_ids(self._ou, ou._ids)
