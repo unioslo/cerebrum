@@ -78,9 +78,20 @@
     $info.append(($_('Short Name'), $spine_to_web($ou.short_name)))
     $info.append(($_('Display Name'), $spine_to_web($ou.display_name)))
     $info.append(($_('Sort Name'), $spine_to_web($ou.sort_name)))
-    $info.append(($_('Stedkode'), $spine_to_web($ou.stedkode)))
+    #if $ou.stedkode
+        $info.append(($_('Stedkode'), $spine_to_web($ou.stedkode)))
+    #end if
     $widgets.viewInfo($info)
 #end def
+
+## #def is_ou($ou)
+##     #for $id in $ou.external_ids
+##         #if $id.variant.name == 'KJERNEID_OU'
+##             #return True
+##         #end if
+##     #end for
+##     #return False
+## #end def
 
 #def viewFamily($ou)
     <div class="list box">
@@ -100,7 +111,9 @@
             #if $family.children
                 <h4>$_('Children in perspective') $spine_to_web($perspective.name)</h4>
                 #for $child in $family.children
-                    <div>$entity_link($child)</div>
+                    #if $is_ou($child)
+                        <div>$entity_link($child)</div>
+                    #end if
                 #end for
             #end if
         #end for

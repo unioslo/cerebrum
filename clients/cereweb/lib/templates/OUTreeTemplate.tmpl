@@ -60,12 +60,24 @@
 </div>
 #end def
 
+## #def is_ou($ou)
+##     #for $id in $ou.external_ids
+##         #if $id.variant.name == 'KJERNEID_OU'
+##             #return True
+##         #end if
+##     #end for
+##     #return False
+## #end def
+
 #def subtree($ou, $level=0)
-    #set $indent = "&nbsp;" * 4 * $level
-    <div class="tree">
-        $indent $entity_link($ou, text=$ou.name)
-        #for $child in $ou.children
-            $subtree($child, $level + 1)
-        #end for    
-    </div>
+    ## filter out studieprograms
+    #if $is_ou($ou)
+        #set $indent = "&nbsp;" * 4 * $level
+        <div class="tree">
+            $indent $entity_link($ou, text=$ou.name)
+            #for $child in $ou.children
+                $subtree($child, $level + 1)
+            #end for    
+        </div>
+    #end if
 #end def

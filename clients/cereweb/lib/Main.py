@@ -93,4 +93,10 @@ class Main(FramesTemplate):
     def __iter__(self):
         return iter(str(self))
 
+    def is_ou(self, ou):
+        for id in ou.external_ids:
+            if id.variant.name == 'KJERNEID_OU':
+                return True
+        return False
+
 # arch-tag: 3f246425-25b1-4e28-a969-3f04c31264c7
