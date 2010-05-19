@@ -56,17 +56,24 @@ class OuDAO(EntityDAO):
         dto.short_name = ou.short_name
         dto.display_name = ou.display_name
         dto.sort_name = ou.sort_name
-        dto.landkode = ou.landkode
-        dto.institusjon = ou.institusjon
-        dto.fakultet = ou.fakultet
-        dto.institutt = ou.institutt
-        dto.avdeling = ou.avdeling
-        dto.stedkode = "%03d%05d%02d%02d%02d"  % (ou.landkode, ou.institusjon, ou.fakultet, ou.institutt, ou.avdeling)
         dto.families = self._get_families(ou)
         dto.quarantines = QuarantineDAO(self.db).create_from_entity(ou)
         dto.notes = NoteDAO(self.db).create_from_entity(ou)
         dto.traits = TraitDAO(self.db).create_from_entity(ou)
         dto.external_ids = self._get_external_ids(ou)
+        for ext_id in dto.external_ids:
+            if ext_id.variant.name == 'STEDKODE':
+                dto.stedkode = ext_id.value
+                dto.landkode = ext_id.value[0:2]
+                dto.institusjon = ext_id.value[2:5]
+                dto.fakultet = ext_id.value[5:7]
+                dto.institutt = ext_id.value[7:9]
+                dto.avdeling = ext_id.value[9:]
+        if not dto.stedkode:
+            ## probably a studieprogram
+            dto.stedkode = ""
+            dto.landkode = dto.institusjon = dto.fakultet \
+                = dto.institutt = dto.avdeling = '0'
         dto.contacts = self._get_contacts(ou)
         dto.addresses = self._get_addresses(ou)
         dto.spreads = self._get_spreads(ou)
@@ -98,7 +105,7 @@ class OuDAO(EntityDAO):
             family.is_root = family.parent is None
 
             child_ids = ou.list_children(perspective.id, ou.entity_id)
-            family.children = [s.get_entity(c['ou_id']) for c in child_ids]
+            family.children = [self._create_dto(self._find(c['ou_id'])) for c in child_ids]
 
         return families
 
@@ -209,7 +216,8 @@ class OuDAO(EntityDAO):
         ou.unset_parent(perspective)
 
     def _create_node(self, node_id):
-        node = self.get_entity(node_id)
+        ou = self._find(node_id)
+        node = self._create_dto(ou)
         node.children = []
         return node
 
