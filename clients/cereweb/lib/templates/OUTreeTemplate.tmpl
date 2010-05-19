@@ -60,15 +60,6 @@
 </div>
 #end def
 
-## #def is_ou($ou)
-##     #for $id in $ou.external_ids
-##         #if $id.variant.name == 'KJERNEID_OU'
-##             #return True
-##         #end if
-##     #end for
-##     #return False
-## #end def
-
 #def subtree($ou, $level=0)
     ## filter out studieprograms
     #if $is_ou($ou)
