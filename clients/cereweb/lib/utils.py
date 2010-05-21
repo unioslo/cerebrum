@@ -32,11 +32,14 @@ import random
 from datetime import datetime
 import Messages
 
+import cereconf
+
 from Cerebrum import Utils
 Database = Utils.Factory.get("Database")
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.EntityFactory import EntityFactory
+from lib.data.ConstantsDAO import ConstantsDAO
 
 def get_referer():
     return cherrypy.request.headers.get('Referer','')
@@ -602,6 +605,25 @@ def get_translation(name, localedir, lang):
         tr = gettext
     return tr.gettext
 
+def get_system_lookuporder():
+    return cereconf.SYSTEM_LOOKUP_ORDER
+
+def get_system_lookupname(source_system):
+    return 'system_' + source_system.name.lower()
+
+def get_primary_affiliation(person):
+    co = ConstantsDAO(get_database())
+    affiliations = (x for x in person.affiliations if not x.is_deleted)
+    aff = None
+    if not affiliations:
+        return None
+    for system in get_system_lookuporder():
+        for aff in affiliations:
+            if system == get_system_lookupname(
+                    co.get_source_system(aff.source_system.id)):
+                return aff
+    return aff
+              
 def negotiate_lang(**vargs):
     default_lang = 'en'
     legal_langs = ['no', 'en']

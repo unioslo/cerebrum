@@ -61,6 +61,9 @@ class OuDAO(EntityDAO):
         dto.notes = NoteDAO(self.db).create_from_entity(ou)
         dto.traits = TraitDAO(self.db).create_from_entity(ou)
         dto.external_ids = self._get_external_ids(ou)
+        dto.stedkode = ''
+        dto.landkode = dto.institusjon = dto.fakultet \
+                = dto.institutt = dto.avdeling = '0'
         for ext_id in dto.external_ids:
             if ext_id.variant.name == 'STEDKODE':
                 dto.stedkode = ext_id.value
@@ -69,11 +72,6 @@ class OuDAO(EntityDAO):
                 dto.fakultet = ext_id.value[5:7]
                 dto.institutt = ext_id.value[7:9]
                 dto.avdeling = ext_id.value[9:]
-        if not dto.stedkode:
-            ## probably a studieprogram
-            dto.stedkode = ""
-            dto.landkode = dto.institusjon = dto.fakultet \
-                = dto.institutt = dto.avdeling = '0'
         dto.contacts = self._get_contacts(ou)
         dto.addresses = self._get_addresses(ou)
         dto.spreads = self._get_spreads(ou)
