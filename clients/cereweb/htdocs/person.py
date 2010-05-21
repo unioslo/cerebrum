@@ -32,6 +32,7 @@ from lib.utils import randpasswd, is_correct_referer, get_referer_error
 from lib.utils import spine_to_web, web_to_spine
 from lib.utils import from_spine_decode, session_required_decorator
 from lib.utils import get_database, parse_date, redirect_entity
+from lib.utils import get_primary_affiliation
 from lib.data.DTO import DTO
 from lib.data.EntityFactory import EntityFactory
 from lib.data.PersonDAO import PersonDAO
@@ -303,12 +304,6 @@ def get_email_address(account):
         return target.primary.address
     return ""
 
-def get_affiliation(person):
-    affiliations = (x for x in person.affiliations if not x.is_deleted)
-    for aff in affiliations:
-        return aff
-    return None
-
 def get_faculty(ou):
     db = get_database()
     faculty = OuDAO(db).get_parent(ou.id, 'Kjernen')
@@ -347,12 +342,12 @@ def print_contract(id, lang, printpw='off'):
     studyprogram = None
     year = None
     birthdate = person.birth_date.strftime('%d-%m-%Y')
-    affiliation = get_affiliation(person)
+    affiliation = get_primary_affiliation(person)
     if not affiliation:
         msg = _('The person has no affiliation.')
         queue_message(msg, title="Could not print contract", error=True)
         redirect_entity(id)
-
+    
     faculty = get_faculty(affiliation.ou)
     department = from_spine_decode(affiliation.ou.name)
 
