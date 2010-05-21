@@ -597,6 +597,9 @@ class FronterXML(object):
             self.xml.endTag('N')
             self.xml.endTag('NAME')
             self.xml.dataElement('EMAIL', data['EMAIL'])
+            if data["MOBILE"]:
+                self.xml.dataElement('TEL', data["MOBILE"],
+                                     {"teltype": "3"})
             self.xml.startTag('EXTENSION')
             if self.include_password:
                 self.xml.emptyTag('PASSWORD',

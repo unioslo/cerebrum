@@ -129,6 +129,36 @@ def get_semester():
         this_year, this_sem = next_year, next_sem
     return ((str(this_year), this_sem), (str(next_year), next_sem))
 
+
+
+def load_phone_numbers(person):
+    """Fish out cell phone numbers for Fronter export.
+
+    At UiA's request (2010-04-20), we export mobile phone numbers to
+    Fronter. It is not an error, if a person misses a number. 
+    """
+
+    person2phone = dict()
+    last = None
+    logger.debug("Preloading phone numbers")
+    for row in person.list_contact_info(
+                          source_system=const.system_fs,
+                          contact_type=const.contact_mobile_phone,
+                          entity_type=const.entity_person):
+        person_id = int(row["entity_id"])
+        # We grab the first matching cell phone
+        # The best priority takes precedence, when there are multiple rows
+        # satisfying all of the filters above.
+        if person_id == last:
+            continue
+        person2phone[person_id] = row["contact_value"]
+
+    logger.debug("Collected numbers for %s people", len(person2phone))
+    return person2phone
+# end load_phone_numbers
+    
+
+
 def load_acc2name():
     account = Factory.get('Account')(db)
     person = Factory.get('Person')(db)
@@ -147,6 +177,8 @@ def load_acc2name():
 
     ext2puname = person.getdict_external_id2primary_account(
         const.externalid_fodselsnr)
+
+    person2phone = load_phone_numbers(person)
     ret = {}
     for pers in person.list_persons_atype_extid():
 	# logger.debug("Loading person: %s" % pers['name'])
@@ -177,7 +209,8 @@ def load_acc2name():
             'USERACCESS': 2,
             # HiA har bedt om denne eksplisitt
             'PASSWORD': 'ldap1',
-            'EMAILCLIENT': 1}
+            'EMAILCLIENT': 1,
+            'MOBILE': person2phone.get(pers["person_id"])}
     return ret
 
 def get_ans_fak(fak_list, ent2uname):
