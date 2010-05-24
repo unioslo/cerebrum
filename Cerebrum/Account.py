@@ -465,7 +465,14 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
             # Remove name of account from the account namespace.
             self.delete_entity_name(self.const.account_namespace)
             self._db.log_change(self.entity_id, self.const.account_destroy, None)
-        self.__super.delete()
+
+        # AccountHome is the class "breaking" the MRO-delete() "chain".
+        # self.__super.delete()
+        # ... call will stop right at AccountHome. I.e. EntityName, etc won't
+        # have their respective delete()s called with __super/super() in this
+        # particular case. 
+        super(AccountHome, self).delete()
+    # end delete
 
     def clear(self):
         super(Account, self).clear()

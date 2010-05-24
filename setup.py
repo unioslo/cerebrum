@@ -367,6 +367,11 @@ data_files = [
       'owner': cerebrum_user,
       'mode': 0755},
      [('contrib/no/*.py', 0755)]),
+
+    ({'path': "%s/cerebrum/contrib/virthome" % sharedir,
+      'owner': cerebrum_user,
+      'mode': 0755},
+     [('contrib/virthome/*.py', 0755)]),
    
     # Indigo.  A recurse-like option would be great...
     ({'path': "%s/cerebrum/contrib/no/Indigo" % sharedir,
@@ -540,6 +545,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/lib',
                    'Cerebrum/client',
                    'Cerebrum/modules/LMS',
+                   'Cerebrum/modules/virthome',
                    ],
 
        # options override --prefix

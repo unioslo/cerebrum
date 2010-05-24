@@ -203,9 +203,6 @@ class Entity(DatabaseAccessor):
         if self.entity_id is None:
             raise Errors.NoEntityAssociationError, \
                   "Unable to determine which entity to delete."
-        if isinstance(self, EntityName):
-            for n in self.get_names():
-                self.delete_entity_name(n['domain_code'])
         self.execute("""
         DELETE FROM [:table schema=cerebrum name=entity_info]
         WHERE entity_id=:e_id""", {'e_id': self.entity_id})
@@ -336,6 +333,17 @@ class EntitySpread(Entity):
 
 class EntityName(Entity):
     "Mixin class, usable alongside Entity for entities having names."
+
+    def delete(self):
+        """Remove name traces of this entity from the database"""
+        
+        for n in self.get_names():
+            self.delete_entity_name(n['domain_code'])
+
+        self.__super.delete()
+    # end delete
+
+
     def get_name(self, domain):
         return self.query_1("""
         SELECT entity_name FROM [:table schema=cerebrum name=entity_name]
@@ -532,7 +540,8 @@ class EntityContactInfo(Entity):
                                   'pref': pref})
 
     def list_contact_info(self, entity_id=None, source_system=None,
-                          contact_type=None, entity_type=None):
+                          contact_type=None, entity_type=None,
+                          contact_value=None):
         """List entity contact information, constrained by specific filters.
 
         Without any filters, this method will return the content of the entire
@@ -560,11 +569,16 @@ class EntityContactInfo(Entity):
 
         cols = dict()
         where = list()
-        for name in ("entity_id", "source_system", "contact_type",):
+        for name in ("entity_id", "source_system", "contact_type"):
             if locals()[name] is not None:
                 where.append(argument_to_sql(locals()[name],
                                              "ec." + name,
                                              cols, int))
+
+        if contact_value is not None:
+            where.append(argument_to_sql(contact_value, "ec.contact_value",
+                                         cols))
+                
         where = " AND ".join(where)
         join = ""
         if entity_type:

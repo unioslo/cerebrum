@@ -62,8 +62,13 @@ class Parameter(object):
         return ret
 
     def getPrompt(self, bofhd_ref):
-        # print "Get: %s" % self._help_ref
-        return bofhd_ref.server.help.arg_help[self._help_ref][1]
+        arg_help = bofhd_ref.server.help.arg_help
+        if self._help_ref not in arg_help:
+            bofhd_ref.logger.info("Missing arg_help item <%s>", self._help_ref)
+            return ""
+
+        return arg_help[self._help_ref][1]
+    # end getPrompt
 
 class AccountName(Parameter):
     _tab_func = 'tab_foobar'

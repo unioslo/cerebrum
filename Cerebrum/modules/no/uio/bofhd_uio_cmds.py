@@ -60,6 +60,7 @@ from Cerebrum.modules import PasswordChecker
 from Cerebrum.modules import PasswordHistory
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import PosixUser
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.utils import BofhdRequests
@@ -147,7 +148,7 @@ class UiOAuth(BofhdAuth):
     can_rt_address_remove = can_rt_address_add
 
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     """All CallableFuncs take user as first arg, and are responsible
     for checking necessary permissions"""
 
@@ -181,7 +182,6 @@ class BofhdExtension(object):
         self.db = server.db
         self.util = server.util
         person = Utils.Factory.get('Person')(self.db)
-        self.const = person.const
         self.name_codes = {}
         for t in person.list_person_name_codes():
             self.name_codes[int(t['code'])] = t['description']
@@ -240,29 +240,10 @@ class BofhdExtension(object):
             raise ConnectException(errno.errorcode[err])
         setattr(imaplib.IMAP4, 'open', nonblocking_open)
 
-    def get_commands(self, account_id):
-        try:
-            return self._cached_client_commands[int(account_id)]
-        except KeyError:
-            pass
-        commands = {}
-        for k in self.all_commands.keys():
-            tmp = self.all_commands[k]
-            if tmp is not None:
-                if tmp.perm_filter:
-                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
-                        continue
-                commands[k] = tmp.get_struct(self)
-        self._cached_client_commands[int(account_id)] = commands
-        return commands
 
     def get_help_strings(self):
         return (bofhd_uio_help.group_help, bofhd_uio_help.command_help,
                 bofhd_uio_help.arg_help)
-
-    def get_format_suggestion(self, cmd):
-        return self.all_commands[cmd].get_fs()
-
 
     #
     # access commands
@@ -8913,21 +8894,6 @@ Addresses and settings:
     def _format_ou_name(self, ou):
         return "%02i%02i%02i (%s)" % (ou.fakultet, ou.institutt, ou.avdeling,
                                       ou.short_name)
-
-    def _get_ou(self, ou_id=None, stedkode=None):
-        ou = self.OU_class(self.db)
-        ou.clear()
-        try:
-            if ou_id is not None:
-                ou.find(ou_id)
-            else:
-                if len(stedkode) != 6 or not stedkode.isdigit():
-                    raise CerebrumError("Expected 6 digits in stedkode")
-                ou.find_stedkode(stedkode[0:2], stedkode[2:4], stedkode[4:6],
-                                 institusjon=cereconf.DEFAULT_INSTITUSJONSNR)
-            return ou
-        except Errors.NotFoundError:
-            raise CerebrumError, "Unknown stedkode"
 
     def _get_group_opcode(self, operator):
         if operator is None:

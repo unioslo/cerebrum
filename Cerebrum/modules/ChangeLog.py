@@ -19,6 +19,12 @@
 
 import pickle
 
+import cerebrum_path
+import cereconf
+from Cerebrum.Utils import argument_to_sql
+
+
+
 __version__ = "1.2"
 
 class ChangeLog(object):
@@ -85,12 +91,13 @@ class ChangeLog(object):
                        any_entity=None, change_by=None, change_program=None,
                        sdate=None):
         if any_entity and (dest_entity or subject_entity):
-            raise self.ProgrammingError, "any_entity is mutually exclusive with dest_entity or subject_entity"
+            raise self.ProgrammingError("any_entity is mutually exclusive "
+                                        "with dest_entity or subject_entity")
         where = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
         if subject_entity is not None:
-            where.append("subject_entity=:subject_entity")
-            bind['subject_entity'] = int(subject_entity)
+            where.append(argument_to_sql(subject_entity, "subject_entity",
+                                         bind, int))
         if dest_entity is not None:
             where.append("dest_entity=:dest_entity")
             bind['dest_entity'] = int(dest_entity)
@@ -108,8 +115,7 @@ class ChangeLog(object):
             where.append("change_id <= :max_id")
             bind['max_id'] = int(max_id)
         if types is not None:
-            where.append("change_type_id IN("+", ".join(
-                ["%i" % x for x in types])+")")
+            where.append(argument_to_sql(types, "change_type_id", bind, int))
         if sdate is not None:
             where.append("tstamp > :sdate")
             bind['sdate'] = sdate

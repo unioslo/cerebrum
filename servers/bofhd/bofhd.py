@@ -355,12 +355,18 @@ class BofhdSession(object):
                                       " You must login again")
         return self._entity_id
 
+
+    def _fetch_account(self, account_id):
+        ac = Account_class(self._db)
+        ac.find(account_id)
+        return ac
+    # end _fetch_account
+
+
     def get_owner_id(self):
         if self._owner_id is None:
             account_id = self.get_entity_id()
-            ac = Account_class(self._db)
-            ac.find(account_id)
-            self._owner_id = int(ac.owner_id)
+            self._owner_id = int(self._fetch_account(account_id).owner_id)
         return self._owner_id
 
     def store_state(self, state_type, state_data, entity_id=None):
@@ -415,7 +421,46 @@ class BofhdSession(object):
         self._remove_old_sessions()
     # end clear_state
 
-# end class BofhdSession
+
+    def reassign_session(self, target_id):
+        """Reassociate a new entity with current session key.
+
+        This method is the equivalent of UNIX' 'su'. We substitute current
+        session owner with target_id.
+
+        All the following commands in bofhd will be executed with the
+        permissions of target_id. Do not use this method lightly!
+
+        @type target_id: int
+        @param target_id:
+          Account id for the new session owner for *this* session
+          (i.e. self._id) 
+        """
+
+        old_session_owner = self._entity_id
+        self._entity_id = target_id
+        try:
+            # Change the session owner
+            # Log that there was an activity from the client.
+            self._db.execute("""
+            UPDATE [:table schema=cerebrum name=bofhd_session]
+            SET last_seen=[:now], account_id=:account_id
+            WHERE session_id=:session_id""",
+                             {'account_id': target_id,
+                              'session_id': self._id})
+        except Errors.NotFoundError:
+            raise SessionExpiredError("Failed to reassign session. "
+                                      "Try to login again?")
+
+        self._owner_id = self.get_owner_id()
+        logger.info("Changed session=%s entity %s (id=%s) -> %s (id=%s)",
+                    self._id,
+                    self._fetch_account(old_session_owner).account_name,
+                    old_session_owner,
+                    self._fetch_account(self._entity_id).account_name,
+                    self._entity_id)
+    # end reassign_session
+# end BofhdSession
 
 
 
@@ -571,7 +616,8 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.request.close()
         else:
             super(BofhdRequestHandler, self).finish()
-    
+
+
     def bofhd_login(self, uname, password):
         account = Account_class(self.server.db)
         try:
@@ -603,8 +649,10 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
         qh = QuarantineHandler.QuarantineHandler(self.server.db,
                                                  quarantines)
         if qh.should_skip() or qh.is_locked():
-            raise CerebrumError, "User has active lock/skip quarantines, login denied"
-
+            qua_repr = ", ".join(self.server.const.Quarantine(q).description
+                                 for q in quarantines)
+            raise CerebrumError("User has active lock/skip quarantines, login denied:"
+                                " %s" % qua_repr)
         # Check password
         enc_passwords = []
         for auth in (self.server.const.auth_type_md5_crypt,
@@ -623,7 +671,7 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             # TODO: ideally we should not hardcode charset here.
             password = password.encode('iso8859-1')
         # TODO: Add API for credential verification to Account.py.
-        mismatch = map(lambda e: e <> crypt.crypt(password, e), enc_passwords)
+        mismatch = map(lambda e: e != crypt.crypt(password, e), enc_passwords)
         if filter(None, mismatch):
             # Use same error message as above; un-authenticated
             # parties should not be told that this in fact is a valid
