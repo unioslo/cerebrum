@@ -43,7 +43,6 @@ from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
-from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
