@@ -55,6 +55,7 @@ class norEduLDIFMixin(OrgLDIF):
         '1.1': ('norEduOrgUniqueNumber',     'norEduOrgUnitUniqueNumber'),
         '1.3': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
         '1.4': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
+        '1.5': ('norEduOrgUniqueIdentifier', 'norEduOrgUnitUniqueIdentifier'),
         }[FEIDE_schema_version]
     FEIDE_class_obsolete = None
     if FEIDE_obsolete_version:
@@ -243,6 +244,8 @@ class norEduLDIFMixin(OrgLDIF):
         fnr = self.fodselsnrs.get(person_id)
         if uname and fnr:
             entry['objectClass'].append('norEduPerson')
+            if FEIDE_schema_version >= '1.5':
+                entry['norEduPersonLegalName'] = entry['cn']
             entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
             entry['norEduPersonNIN'] = (str(fnr),)
             birth_date = self.birth_dates.get(person_id)
