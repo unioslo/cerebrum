@@ -43,6 +43,7 @@ from Cerebrum.modules.no.uio import bofhd_uio_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
@@ -493,14 +494,14 @@ class BofhdExtension(BofhdCommandBase):
          ("fnr", "fnr_src")),
         ("External id:   %s [from %s]",
          ("extid", "extid_src")),
-        ("Address:       %s [from %s]",
-         ("address_line_1", "address_source")),
+        ("Address:       %s",
+         ("address_line_1",)),
         ("               %s",
          ("address_line",)),
         ("               %s %s",
          ("address_zip", "address_city")),
-        ("               %s",
-         ("address_country",)),
+        ("               %s [from %s]",
+         ("address_country", 'address_source')),
         ]))
     def person_info(self, operator, person_id):
         try:
@@ -586,22 +587,26 @@ class BofhdExtension(BofhdCommandBase):
                     break
                 address = None
             if address:
-                for nr, line in enumerate(address['address_text'].split("\n")):
-                    if nr is 0:
-                        data.append({'address_line_1': line,
-                                     'address_source':
-                                         str(self.const.AuthoritativeSystem(
-                                                    address['source_system']))})
-                    else:
-                        data.append({'address_line': line})
+                try:
+                    for nr, line in enumerate(address['address_text'].split("\n")):
+                        if nr is 0:
+                            data.append({'address_line_1': line})
+                        else:
+                            data.append({'address_line': line})
+                except AttributeError:
+                    data.append({'address_line_1': ''})
                 data.append({'address_zip':  str(address['postal_number']),
                              'address_city': address['city']})
+                address_country = ''
                 if address['country']:
                     country_codes = dict((c['code'], c['country']) for c in
                                                     person.list_country_codes())
                     if address['country'] in country_codes:
-                        data.append({'address_country': str(
-                            country_codes[address['country']])})
+                        address_country = str(country_codes[address['country']])
+                data.append({'address_country': address_country,
+                             'address_source': 
+                                        str(self.const.AuthoritativeSystem(
+                                                        address['source_system']))})
         return data
 
 
