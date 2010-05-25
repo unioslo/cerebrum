@@ -48,7 +48,8 @@ class BofhdCommandBase(object):
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60*60)
-        # FIXME: Authenticator -- what to do? Make a method that creates one?
+        # 
+        # NB! A subclass needs to create its own authenticator.
         self.ba = None
 
         self.server = server
@@ -92,7 +93,7 @@ class BofhdCommandBase(object):
             cmd = self.all_commands[key]
             if cmd is not None:
                 if cmd.perm_filter:
-                    if not getattr(self.authorisation,
+                    if not getattr(self.ba,
                                    cmd.perm_filter)(account_id, query_run_any=True):
                         continue
                 commands[key] = cmd.get_struct(self)

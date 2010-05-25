@@ -40,6 +40,7 @@ from Cerebrum.modules import Email
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.uio import bofhd_uio_help
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet
@@ -68,7 +69,7 @@ def date_to_string(date):
     
     return "%04i-%02i-%02i" % (date.year, date.month, date.day)
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -168,7 +169,7 @@ class BofhdExtension(object):
         #
         # copy relevant helper-functions
         #
-         '_find_persons', '_get_account', '_get_ou', '_format_ou_name',
+         '_find_persons', '_get_account', '_format_ou_name',
         '_get_person', '_get_disk', '_get_group', '_map_person_id', '_get_entity',
          '_get_boolean', '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
@@ -225,6 +226,8 @@ class BofhdExtension(object):
                                                            Cache.cache_timeout],
                                                    size=500,
                                                    timeout=60*60)
+    # end __init__
+
 
 
     def get_help_strings(self):
@@ -232,24 +235,6 @@ class BofhdExtension(object):
                 bofhd_uio_help.command_help,
                 bofhd_uio_help.arg_help)
     
-    def get_commands(self, account_id):
-        try:
-            return self._cached_client_commands[int(account_id)]
-        except KeyError:
-            pass
-        commands = {}
-        for k in self.all_commands.keys():
-            tmp = self.all_commands[k]
-            if tmp is not None:
-                if tmp.perm_filter:
-                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
-                        continue
-                commands[k] = tmp.get_struct(self)
-        self._cached_client_commands[int(account_id)] = commands
-        return commands
-
-    def get_format_suggestion(self, cmd):
-        return self.all_commands[cmd].get_fs()
 
     # helpers needed for spread_add, cannot be copied in the usual way
     #
