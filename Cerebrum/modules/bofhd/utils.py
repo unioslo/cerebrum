@@ -492,9 +492,9 @@ class BofhdUtils(object):
             en = Factory.get("Person")(self.db)
             # first, locate the entity_id
             candidates = en.list_external_ids(external_id=ext_id)
-            if not candidates:
-                raise CerebrumError("No entity with external id=%s", ext_id)
             only_ids = set([int(x["entity_id"]) for x in candidates])
+            if len(only_ids) < 1:
+                raise CerebrumError("No entity with external id=%s", ext_id)
             if len(only_ids) > 1:
                 raise CerebrumError("Too many targets with external id=%s"
                                     "[entity_ids=%s]", only_ids)
