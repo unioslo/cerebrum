@@ -244,7 +244,7 @@ class norEduLDIFMixin(OrgLDIF):
         fnr = self.fodselsnrs.get(person_id)
         if uname and fnr:
             entry['objectClass'].append('norEduPerson')
-            if FEIDE_schema_version >= '1.5':
+            if self.FEIDE_schema_version >= '1.5':
                 entry['norEduPersonLegalName'] = entry['cn']
             entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
             entry['norEduPersonNIN'] = (str(fnr),)
