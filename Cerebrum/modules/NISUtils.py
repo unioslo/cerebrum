@@ -172,6 +172,17 @@ class Passwd(object):
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
         logger.debug("write_passwd: "+str((filename, shadow_file, self.spread)))
+        # Jazz, 2010-05-26: extended the hack used by Nisse2 to a few accounts
+        # This should be removed as soon as the Nisse2 is ready to remove pwd.
+        # crypts for all users at UiO
+        remove_crypt_unames =['asbruvik', 'bhm', 'dag', 'eskil', 'fredrw', 'hanspv',
+                              'harad', 'hh','ifidrift', 'jb', 'joern', 'kaditlef',
+                              'kjell', 'kjetilk', 'kritisk', 'larsha', 'larssole',
+                              'malmedal', 'martbo', 'michael', 'mikaeld', 'odberg', 'oec',
+                              'olavky', 'oystelar', 'peder', 'pre', 'staalej',
+                              'stens', 'svein', 'terjek', 'tfredvik', 'thoh', 'thom',
+                              'tleifsen', 'tmm', 'tobiasvl', 'tomdaae', 'torekr',
+                              'trondham', 'unnif', 'werner', 'yngveha', 'nisse1'] 
         f = Utils.SimilarSizeWriter(filename, "w")
         f.set_size_change_limit(10)
         if shadow_file:
@@ -182,9 +193,13 @@ class Passwd(object):
         for l in user_lines:
             uname = l[0]
             passwd = l[1]
-            # TODO: Remove hack used in the UiO "NISSE"-project.
-            if uname == 'nisse1':
-                passwd = '*'
+            # Jazz, 2010-05-26: extended the hack used by Nisse2 to a few accounts,
+            # see Message-ID: <x3lq39xgi4k9.fsf@fuge.uio.no> and
+            # Message-ID: <x3lqsk5m9b07.fsf@fuge.uio.no>
+            # This should be removed as soon as the Nisse2 is ready to remove pwd.
+            # crypts for all users at UiO
+            if uname in remove_crypt_unames:
+                passwd = 'x'
             elif uname == 'nisse2':
                 try:
                     posix_user.clear()
