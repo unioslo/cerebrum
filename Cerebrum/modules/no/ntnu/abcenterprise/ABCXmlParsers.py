@@ -155,8 +155,7 @@ class XMLOrg2ObjectExt(XMLOrg2Object):
                     raise ABCTypesError, "wrong number of arguments: %s" % value
                 type = sub.attrib.get("orgidtype")
                 ## FIXME: *very*, *very* ugly...
-                ## handling studieprograms as org/ou
-                if type == 'stedkode' or type == 'studieprogram':
+                if type == 'stedkode':
                     result.stedkodes.append(value)
                 else:
                     result.add_id(ABCTypesExt.get_type("orgidtype",(type,)),
@@ -231,8 +230,7 @@ class XMLOU2ObjectExt(XMLOU2Object):
                     raise ABCTypesError, "error in ouid: %s" % value
                 type = sub.attrib.get("ouidtype")
                 ## FIXME: *very*, *very* ugly...
-                ## handling studieprograms as org/ou
-                if type == 'stedkode' or type == 'studieprogram':
+                if type == 'stedkode':
                     result.stedkodes.append(value)
                 else:
                     result.add_id(ABCTypesExt.get_type("ouidtype",(type,)),
