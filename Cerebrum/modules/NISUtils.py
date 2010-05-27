@@ -175,14 +175,14 @@ class Passwd(object):
         # Jazz, 2010-05-26: extended the hack used by Nisse2 to a few accounts
         # This should be removed as soon as the Nisse2 is ready to remove pwd.
         # crypts for all users at UiO
-        remove_crypt_unames =['asbruvik', 'bhm', 'dag', 'eskil', 'fredrw', 'hanspv',
+        remove_crypt_unames =['asbruvik', 'dag', 'eskil', 'fredrw', 'hanspv',
                               'harad', 'hh','ifidrift', 'jb', 'joern', 'kaditlef',
                               'kjell', 'kjetilk', 'kritisk', 'larsha', 'larssole',
                               'malmedal', 'martbo', 'michael', 'mikaeld', 'odberg', 'oec',
                               'olavky', 'oystelar', 'peder', 'pre', 'staalej',
                               'stens', 'svein', 'terjek', 'tfredvik', 'thoh', 'thom',
                               'tleifsen', 'tmm', 'tobiasvl', 'tomdaae', 'torekr',
-                              'trondham', 'unnif', 'werner', 'yngveha', 'nisse1'] 
+                              'trondham', 'werner', 'yngveha', 'nisse1'] 
         f = Utils.SimilarSizeWriter(filename, "w")
         f.set_size_change_limit(10)
         if shadow_file:
