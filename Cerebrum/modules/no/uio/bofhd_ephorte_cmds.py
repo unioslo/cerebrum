@@ -22,6 +22,7 @@ import cereconf
 from Cerebrum import Errors
 from Cerebrum import Cache
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
@@ -62,10 +63,8 @@ class Tilgang(Parameter):
     _type = 'tilgang'
     _help_ref = 'tilgang'
     
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     all_commands = {}
-    OU_class = Factory.get('OU')
-    Account_class = Factory.get('Account')
 
     def __new__(cls, *arg, **karg):
         # A bit hackish.  A better fix is to split bofhd_uio_cmds.py
@@ -73,28 +72,21 @@ class BofhdExtension(object):
         from Cerebrum.modules.no.uio.bofhd_uio_cmds import BofhdExtension as \
              UiOBofhdExtension
 
-        for func in ('get_commands', '_get_ou', 'get_format_suggestion',
-                     '_format_changelog_entry', '_format_from_cl',
+        for func in ('_format_changelog_entry', '_format_from_cl',
                      '_get_entity_name', '_get_account'):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x
 
     def __init__(self, server):
-        self.server = server
-        self.logger = server.logger
-        self.db = server.db
+        super(BofhdExtension, self).__init__(server)
+        
         self.util = server.util
-        self.const = Factory.get('Constants')(self.db)
         self.ephorte_role = EphorteRole(self.db)
         self.ephorte_perm = EphortePermission(self.db)
         self.ba = UiOEphorteAuth(self.db)
+    # end __init__
 
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60*60)
 
     def get_help_strings(self):
         group_help = {

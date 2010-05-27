@@ -31,6 +31,7 @@ from Cerebrum.modules.dns.Errors import DNSError
 from Cerebrum.Entity import Entity
 from Cerebrum.Utils import Factory, argument_to_sql
 
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.dns import IPNumber
@@ -477,25 +478,14 @@ class SubnetIdentifier(Parameter):
 
 
     
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     """Class to expand bofhd with commands for manipulating subnets."""
-
 
     all_commands = {}
 
     def __init__(self, server):
-        self.server = server
-        self.logger = server.logger
-        self.db = server.db
-        self.const = Factory.get('Constants')(self.db)
+        super(BofhdExtension, self).__init__(server)
         self.ba = DnsBofhdAuth(self.db)
-
-        
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60*60)
 
 
     def get_help_strings(self):
@@ -545,54 +535,6 @@ class BofhdExtension(object):
 
         return (group_help, command_help,
                 arg_help)
-
-
-    def get_commands(self, account_id):
-        try:
-            return self._cached_client_commands[int(account_id)]
-        except KeyError:
-            pass
-        commands = {}
-        for k in self.all_commands.keys():
-            tmp = self.all_commands[k]
-            if tmp is not None:
-                if tmp.perm_filter:
-                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
-                        continue
-                commands[k] = tmp.get_struct(self)
-        self._cached_client_commands[int(account_id)] = commands
-        return commands
-
-
-    def get_format_suggestion(self, cmd):
-        return self.all_commands[cmd].get_fs()
-
-
-##     all_commands['subnet_add'] = Command(
-##         ("subnet", "add"),
-##         SubnetIdentifier(),
-##         SimpleString(help_ref="subnet_description"),
-##         Integer(optional=True, help_ref="subnet_vlan"))
-##     def subnet_add(self, operator, subnet, description, vlan=None):
-##         self.ba.assert_dns_superuser(operator.get_entity_id())
-##         s = Subnet(self.db)
-##         s.populate(subnet, description, vlan=vlan)
-##         try:
-##             s.write_db()
-##         except self.db.DatabaseError, m:
-##             raise CerebrumError, "Database error: %s" % m
-##         return "Subnet added: entity ID: '%s'" % s.entity_id
-
-
-##     all_commands['subnet_remove'] = Command(
-##         ("subnet", "remove"), SubnetIdentifier())
-##     def subnet_remove(self, operator, identifier):
-##         self.ba.assert_dns_superuser(operator.get_entity_id())
-##         s = Subnet(self.db)
-##         s.find(identifier)
-##         subnet = s.subnet
-##         s.delete()
-##         return "Subnet %s deleted" % subnet
 
 
     all_commands['subnet_info'] = Command(

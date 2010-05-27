@@ -42,6 +42,13 @@ class BofhdCommandBase(object):
     - 
     """
 
+
+    # Each subclass defines its own class attribute containing the relevant
+    # commands.
+    all_commands = {}
+
+
+
     def __init__(self, server):
         self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
                                                            Cache.cache_slots,
@@ -55,10 +62,11 @@ class BofhdCommandBase(object):
         self.server = server
         self.db = server.db
         self.const = Factory.get("Constants")()
+        self.logger = server.logger
+
         self.OU_class = Factory.get("OU")
         self.Account_class = Factory.get("Account")
         self.Group_class = Factory.get("Group")
-        self.logger = server.logger
     # end __init__
 
 

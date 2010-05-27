@@ -26,6 +26,7 @@ from Cerebrum import Cache
 from Cerebrum import Constants
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.bofhd.cmd_param import Command, PersonId, SimpleString, FormatSuggestion, Integer
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.no.uio.printer_quota import PPQUtil
@@ -155,25 +156,21 @@ def format_time(field):
     fmt = "yyyy-MM-dd HH:mm"            # 16 characters wide
     return ':'.join((field, "date", fmt))
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     all_commands = {}
 
     def __init__(self, server):
-        self.server = server
+        super(BofhdExtension, self).__init__(server)
+
         self.logger = bofhd_pq_utils.SimpleLogger('pq_bofhd.log')
-        self.db = server.db
-        self.const = Factory.get('Constants')(self.db)
         self.tt_mapping = {}
         for c in self.const.fetch_constants(
             self.const.PaidQuotaTransactionTypeCode):
             self.tt_mapping[int(c)] = "%s" % c
         self.bu = bofhd_pq_utils.BofhdUtils(server)
         self.ba = PQBofhdAuth(self.db)
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60*30)
+    # end __init__
+
         
     def get_help_strings(self):
         group_help = {
@@ -226,24 +223,6 @@ The currently defined id-types are:
         return (group_help, command_help,
                 arg_help)
 
-    def get_format_suggestion(self, cmd):
-        return self.all_commands[cmd].get_fs()
-    
-    def get_commands(self, account_id):
-        try:
-            return self._cached_client_commands[int(account_id)]
-        except KeyError:
-            pass
-        commands = {}
-        for k in self.all_commands.keys():
-            tmp = self.all_commands[k]
-            if tmp is not None:
-                if tmp.perm_filter:
-                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
-                        continue
-                commands[k] = tmp.get_struct(self)
-        self._cached_client_commands[int(account_id)] = commands
-        return commands
 
     # pquota info
     all_commands['pquota_info'] = Command(

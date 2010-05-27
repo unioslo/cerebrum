@@ -29,6 +29,7 @@ from Cerebrum import Errors
 #from Cerebrum.modules import Host
 from Cerebrum.modules.bofhd.cmd_param import Parameter,Command,FormatSuggestion,GroupName
 from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import DnsOwner
 from Cerebrum.modules.dns import HostInfo
@@ -153,9 +154,7 @@ def int_or_none_as_str(val):
         return str(int(val))
     return None
 
-class BofhdExtension(object):
-    Account_class = Factory.get('Account')
-    Group_class = Factory.get('Group')
+class BofhdExtension(BofhdCommandBase):
     all_commands = {}
 
     legal_hinfo = (
@@ -177,29 +176,19 @@ class BofhdExtension(object):
              UiOBofhdExtension
 
         for func in ('_format_changelog_entry', '_format_from_cl',
-                     '_get_entity_name', '_get_account', '_get_group',
-                     '_get_group_opcode'):
+                     '_get_entity_name', '_get_account', '_get_group',):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x
 
     def __init__(self, server, default_zone='uio'):
-        self.server = server
-        self.logger = server.logger
-        self.db = server.db
-        self.const = Factory.get('Constants')(self.db)
+        super(BofhdExtension, self).__init__(server)
+        
         self.default_zone = self.const.DnsZone(default_zone)
         self.mb_utils = DnsBofhdUtils(server, self.default_zone)
         self.dns_parser = Utils.DnsParser(server.db, self.default_zone)
         self._find = Utils.Find(server.db, self.default_zone)
-        #self.ba = BofhdAuth(self.db)
         self.ba = DnsBofhdAuth(self.db)
-
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60*60)
 
 
     def get_help_strings(self):

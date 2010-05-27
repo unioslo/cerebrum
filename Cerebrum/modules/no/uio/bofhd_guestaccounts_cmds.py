@@ -25,6 +25,7 @@ from Cerebrum import Cache
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory 
 from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum.modules.bofhd.auth import BofhdAuth
@@ -32,9 +33,8 @@ from Cerebrum.modules.no.uio.bofhd_guestaccounts_utils \
      import BofhdUtils, GuestAccountException    
 
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     all_commands = {}
-    Group_class = Factory.get('Group')
 
     copy_commands = (
         #
@@ -62,16 +62,12 @@ class BofhdExtension(object):
 
 
     def __init__(self, server):
-        self.server = server
-        self.db = server.db
+        super(BofhdExtension, self).__init__(server)
+        
         self.util = server.util
-        self.const = Factory.get('Constants')(self.db)
         self.bgu = BofhdUtils(server)
         self.ba = BofhdAuth(self.db)
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500, timeout=60*30)
+    # end __init__
 
 
     def get_help_strings(self):
@@ -104,27 +100,6 @@ class BofhdExtension(object):
         return (group_help, command_help, arg_help)
 
 
-    def get_format_suggestion(self, cmd):
-        return self.all_commands[cmd].get_fs()
-    
-
-    def get_commands(self, account_id):
-        try:
-            return self._cached_client_commands[int(account_id)]
-        except KeyError:
-            pass
-        commands = {}
-        for k in self.all_commands.keys():
-            tmp = self.all_commands[k]
-            if tmp is not None:
-                if tmp.perm_filter:
-                    if not getattr(self.ba, tmp.perm_filter)(account_id, query_run_any=True):
-                        continue
-                commands[k] = tmp.get_struct(self)
-        self._cached_client_commands[int(account_id)] = commands
-        return commands
-
-    
     def user_create_guest_prompt_func(self, session, *args):
         all_args = list(args[:])
         # get number of new guest users

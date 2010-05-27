@@ -171,13 +171,11 @@ class BofhdExtension(BofhdCommandBase):
     # all_commands.
     hidden_commands = {}
     
-    OU_class = Utils.Factory.get('OU')
-    Account_class = Utils.Factory.get('Account')
-    Group_class = Utils.Factory.get('Group')
     external_id_mappings = {}
 
     def __init__(self, server):
         super(BofhdExtension, self).__init__(server)
+
         self.util = server.util
         person = Utils.Factory.get('Person')(self.db)
         self.name_codes = {}
@@ -193,12 +191,6 @@ class BofhdExtension(BofhdCommandBase):
         for r in self.db.get_changetypes():
             self.change_type2details[int(r['change_type_id'])] = [
                 r['category'], r['type'], r['msg_string']]
-
-        self._cached_client_commands = Cache.Cache(mixins=[Cache.cache_mru,
-                                                           Cache.cache_slots,
-                                                           Cache.cache_timeout],
-                                                   size=500,
-                                                   timeout=60*60)
         self.fixup_imaplib()
 
     def fixup_imaplib(self):
