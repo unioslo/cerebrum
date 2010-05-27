@@ -177,9 +177,7 @@ class BofhdExtension(BofhdCommandBase):
     external_id_mappings = {}
 
     def __init__(self, server):
-        self.server = server
-        self.logger = server.logger
-        self.db = server.db
+        super(BofhdExtension, self).__init__(server)
         self.util = server.util
         person = Utils.Factory.get('Person')(self.db)
         self.name_codes = {}

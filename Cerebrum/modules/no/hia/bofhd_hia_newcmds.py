@@ -206,11 +206,8 @@ class BofhdExtension(BofhdCommandBase):
         return x
 
     def __init__(self, server, default_zone='uia'):
-        self.server = server
-        self.logger = server.logger
+        super(BofhdExtension, self).__init__(server)
         self.util = server.util
-        self.db = server.db
-        self.const = Factory.get('Constants')(self.db)
         self.ba = BofhdAuth(self.db)
         self.external_id_mappings['fnr'] = self.const.externalid_fodselsnr
         # From uio
