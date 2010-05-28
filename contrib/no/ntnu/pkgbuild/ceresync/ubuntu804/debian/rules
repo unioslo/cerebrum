@@ -40,8 +40,7 @@ build-stamp: configure-stamp
 	dh_testdir
 
 	# Add here commands to compile the package.
-	$(MAKE) -C spine/ceresync
-	$(MAKE) -C spine/client
+	$(MAKE) -C clients/ceresync
 
 	# 
 	# Remove .pyc files, they are generated in postinst script
@@ -57,11 +56,8 @@ clean:
 	rm -f build-stamp configure-stamp
 
 	# Add here commands to clean up after the build process.
-	-$(MAKE) -C spine/ceresync clean
-	-$(MAKE) -C spine/client clean
-	-find . -name Makefile -delete
-	-rm spine/ceresync/config.py cerebrum_path.py aclocal.m4 config.log
-	-rm configure config.status
+	-$(MAKE) -C clients/ceresync clean
+	-$(MAKE) clean
 
 	dh_clean 
 
@@ -72,8 +68,7 @@ install: build
 	dh_installdirs
 
 	# Add here commands to install the package into debian/ceresync.
-	$(MAKE) -C spine/ceresync install
-	$(MAKE) -C spine/client install
+	$(make) -c clients/ceresync install
 	
 	# 
 	# This is to skip the Windows AD client on ubuntu systems :)

@@ -51,7 +51,8 @@ build-stamp: configure-stamp
 	# Add here commands to compile the package.
 	$(MAKE)
 	#docbook-to-man debian/cerebrum-ntnu.sgml > cerebrum-ntnu.1
-	$(MAKE) -C spine
+	$(MAKE) -C servers/cerews
+	$(MAKE) -C clients/cereweb
 
 	# Remove .pyc files, they are generated in postinst script
 	find . -name '*.pyc' -or -name '*.pyo' -delete
@@ -64,7 +65,8 @@ clean:
 	rm -f build-stamp configure-stamp
 
 	# Add here commands to clean up after the build process.
-	-$(MAKE) -C spine clean
+	-$(MAKE) -C servers/cerews clean
+	-$(MAKE) -C clients/cereweb clean
 	-$(MAKE) clean
 	-find . -name Makefile -delete
 	-rm -f spine/ceresync/config.py spine/cereweb/config.py cerebrum_path.py aclocal.m4 config.log
@@ -80,7 +82,8 @@ install: build
 	dh_installdirs
 
 	$(MAKE) install
-	$(MAKE) -C spine install
+	$(MAKE) -C servers/cerews install
+	$(MAKE) -C clients/cereweb install
 
         
         # 
