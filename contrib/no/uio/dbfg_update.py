@@ -208,7 +208,7 @@ def synchronize_group(external_group, cerebrum_group_name):
         # would be left out of group synchronization.
         #
         # External sources hand us usernames in uppercase.
-        account_name = string.lower(row.fields.username)
+        account_name = string.lower(row['username'])
 
         # Find it in cerebrum
         try:
