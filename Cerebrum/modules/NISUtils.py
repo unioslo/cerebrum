@@ -142,9 +142,20 @@ class Passwd(object):
         (uname, passwd, uid, gid, gecos, home, shell)."""
         if self.spread is None:
             raise ValueError, "Must set user_spread"
-        user_iter = posix_user.list_extended_posix_users(
-            auth_method=self.auth_method,
-            spread=self.spread, include_quarantines=True)
+        # NOCRYPT is not a registered auth_method, it is used to generate pwd-map
+        # with no pwd-crypt. This is not the best way to ensure that no crypt is used
+        # and should be amended in the new version of gen_nismaps.py (as should the usage
+        # of list_extended_posis_users-method). Jazz, 2010-05-31
+        if self.auth_method == 'NOCRYPT':
+            # use default value for auth_method (crypt3_des), the crypt will be
+            # removed at write
+            user_iter = posix_user.list_extended_posix_users(
+                spread=self.spread, include_quarantines=True)
+        else:
+            user_iter = posix_user.list_extended_posix_users(
+                # use given value for auth_method, crypt is used
+                auth_method=self.auth_method,
+                spread=self.spread, include_quarantines=True)            
         prev_user = None
         user_rows = []
         user_lines = []
@@ -172,17 +183,6 @@ class Passwd(object):
 
     def write_passwd(self, filename, shadow_file, e_o_f=False):
         logger.debug("write_passwd: "+str((filename, shadow_file, self.spread)))
-        # Jazz, 2010-05-26: extended the hack used by Nisse2 to a few accounts
-        # This should be removed as soon as the Nisse2 is ready to remove pwd.
-        # crypts for all users at UiO
-        remove_crypt_unames =['asbruvik', 'dag', 'eskil', 'fredrw', 'hanspv',
-                              'harad', 'hh','ifidrift', 'jb', 'joern', 'kaditlef',
-                              'kjell', 'kjetilk', 'kritisk', 'larsha', 'larssole',
-                              'malmedal', 'martbo', 'michael', 'mikaeld', 'odberg', 'oec',
-                              'olavky', 'oystelar', 'peder', 'pre', 'staalej',
-                              'stens', 'svein', 'terjek', 'tfredvik', 'thoh', 'thom',
-                              'tleifsen', 'tmm', 'tobiasvl', 'tomdaae', 'torekr',
-                              'trondham', 'werner', 'yngveha', 'nisse1'] 
         f = Utils.SimilarSizeWriter(filename, "w")
         f.set_size_change_limit(10)
         if shadow_file:
@@ -192,23 +192,12 @@ class Passwd(object):
         user_lines = self.generate_passwd()
         for l in user_lines:
             uname = l[0]
-            passwd = l[1]
-            # Jazz, 2010-05-26: extended the hack used by Nisse2 to a few accounts,
-            # see Message-ID: <x3lq39xgi4k9.fsf@fuge.uio.no> and
-            # Message-ID: <x3lqsk5m9b07.fsf@fuge.uio.no>
-            # This should be removed as soon as the Nisse2 is ready to remove pwd.
-            # crypts for all users at UiO
-            if uname in remove_crypt_unames:
+            if self.auth_method == 'NOCRYPT':
+                # substitute pwdcrypt with an 'x' if auth_method given to gen_nismaps
+                # is NOCRYPT. Jazz, 2010-05-31
                 passwd = 'x'
-            elif uname == 'nisse2':
-                try:
-                    posix_user.clear()
-                    posix_user.find_by_name(uname)
-                    passwd = posix_user.get_account_authentication(co.auth_type_md5_crypt)
-                except Errors.NotFoundError:
-                    logger.warn("Test user '%s' could not be found", uname)
-                    continue
-            # /hack
+            else:
+                passwd = l[1]
             rest = l[2:]
             if shadow_file:
                 s.write("%s:%s:::\n" % (uname, passwd))
