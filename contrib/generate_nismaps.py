@@ -52,6 +52,8 @@ def map_spread(id):
 
 
 def map_auth_method(id):
+    if id == 'NOCRYPT':
+        return 'NOCRYPT'
     try:
         return int(_AuthenticationCode(id))
     except Errors.NotFoundError:
@@ -68,7 +70,7 @@ def main():
                                     'passwd=', 'group_spread=',
                                     'user_spread=', 'netgroup=', 'auth_method=',
                                     'max_memberships=', 'shadow=',
-                                    'mnetgroup=', 'zone=', 'this-is-an-ugly-hack=',])
+                                    'mnetgroup=', 'zone=', 'this-is-an-ugly-hack='])
     except getopt.GetoptError, msg:
         usage(1)
 
