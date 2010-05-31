@@ -192,7 +192,7 @@ class Passwd(object):
         user_lines = self.generate_passwd()
         for l in user_lines:
             uname = l[0]
-            if self.auth_method == 'NOCRYPT':
+            if self.auth_method == 'NOCRYPT' and l[1] != '*locked':
                 # substitute pwdcrypt with an 'x' if auth_method given to gen_nismaps
                 # is NOCRYPT. Jazz, 2010-05-31
                 passwd = 'x'
