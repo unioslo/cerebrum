@@ -25,6 +25,7 @@ from Cerebrum.Constants import _AuthoritativeSystemCode, \
                                _PersonAffStatusCode, \
                                _AccountCode, \
                                _AuthenticationCode, \
+                               _QuarantineCode, \
                                _OUPerspectiveCode, \
                                _ContactInfoCode
 from Cerebrum.modules.EntityTrait import _EntityTraitCode
@@ -117,7 +118,10 @@ class Constants(Constants.Constants):
                                   'Brukeren kan benytte seg av FEIDE-innlogging.')
     spread_ldap_grp = _SpreadCode('group@ldap', Constants.Constants.entity_group,
                                   'Gruppen brukes i LDAP.')
-    
+
+## Quarantine codes
+    quarantine_generell = _QuarantineCode('generell',
+                                          'Generell sperring')
 ## Affiliation codes
     affiliation_ansatt = _PersonAffiliationCode('ANSATT',
                                                 'Personen er registrert som ansatt i SAS.')
