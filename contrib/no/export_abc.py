@@ -374,7 +374,13 @@ def cache_person_info(db_person, db_account):
     person_id2names = db_person.getdict_persons_names(
         source_system=constants.system_cached,
         name_types=(constants.name_full, constants.name_last,
-                    constants.name_first, constants.name_work_title))
+                    constants.name_first))
+
+    # whereas name information is selected from system_cached, title
+    # information is not. The source is probably some HR system (e.g. SAP)
+    for person_id, tmp_dict in db_person.getdict_persons_names(
+                       name_types=(constants.name_work_title,)).iteritems():
+        person_id2names.setdefault(person_id, dict()).update(tmp_dict)
 
     logger.debug("person-id -> external ids")
     # IVR 2007-11-06: We cannot blindly grab external ids, since there may be
@@ -579,7 +585,7 @@ def output_properties():
     for external_id in all_ids:
         out("personidtype", get_person_id_type(external_id))
 
-    out("partnametype", "work")
+    out("partnametype", get_name_type("work"))
 
     for group_name in ("kull", "ue", "pay"):
         out("groupidtype", get_group_id_type(group_name))
