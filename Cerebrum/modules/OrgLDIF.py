@@ -664,6 +664,25 @@ from None and LDAP_PERSON['dn'].""")
                             person_id, p_affiliations):
             attrs = self.visible_person_attrs
             alias_info = (primary_ou_dn,)
+            # BEGIN RESERVATION HACK
+            for (aff, status, ou) in p_affiliations:
+                # Ansatt/tilknyttet med reservasjon == skjules uansett
+                if aff in (self.const.affiliation_tilknyttet, self.const.affiliation_ansatt) and \
+                   self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
+                    attrs = self.invisible_person_attrs
+                    alias_info = ()
+                    break
+                # Student med status 'aktiv','evu','drgrad' som ikke har gitt
+                # samtykke skal skjules uansett
+                if aff == int(self.const.affiliation_student) and \
+                   status in (self.const.affiliation_status_student_evu,
+                              self.const.affiliation_status_student_aktiv,
+                              self.const.affiliation_status_student_drgrad) and \
+                   not self.init_person_group("FS-aktivt-samtykke").has_key(person_id):
+                    attrs = self.invisible_person_attrs
+                    alias_info = ()
+                    break
+            # END HACK
         else:
             attrs = self.invisible_person_attrs
         for key, values in attrs.items():
