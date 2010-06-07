@@ -621,6 +621,29 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
 
 
+    def __account_nuke_sequence(self, account_id):
+        """Remove information associated with account_id before it's deleted
+        from Cerebrum.
+
+        This removes the junk associated with an account that the account
+        logically should not be responsible for (permissions, change_log
+        entries, and so forth).
+        """
+
+        account = self._get_account(account_id)
+        self.__remove_auth_target(self.const.auth_target_type_account,
+                                  account.entity_id)
+        self.__remove_auth_role(account.entity_id)
+
+        # wipe the changelog -- there is a foreign key there.
+        for event in self.db.get_log_events(change_by=account.entity_id):
+            self.db.remove_log_event(event["change_id"])
+
+        account.delete()
+    # end __account_prenuke_sequence
+    
+
+
     all_commands["user_fedaccount_nuke"] = Command(
         ("user", "fedaccount_nuke"),
         AccountName())
@@ -642,11 +665,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         self.ba.can_nuke_fedaccount(operator.get_entity_id(),
                                     account.entity_id)
-        self.__remove_auth_target(self.const.auth_target_type_account,
-                                  account.entity_id)
-        self.__remove_auth_role(account.entity_id)
-        account.delete()
-        return "OK, account %s has been deleted" % (account.account_name,)
+        uname = account.account_name
+        self.__account_nuke_sequence(account.entity_id)
+        return "OK, account %s has been deleted" % (uname,)
     # end user_fedaccount_nuke
 
 
@@ -724,6 +745,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                         human_first_name, human_last_name)
             self.logger.debug("Created FA %s", account_name)
         else:
+
+            # FIXME: If we allow None names here, should the names be updated
+            # then?  We can't store NULL for None in the db schema, since it
+            # does not allow it (non null constraint). What to do?
             account = self._get_account(account_name)
             if account.get_email_address() != email:
                 account.set_email_address(email)
@@ -1716,6 +1741,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # Commands that should not be exposed to the webapp, but which are useful
     # for testing
     #######################################################################
+    all_commands["user_fedaccount_create"] = Command(
+        ("user", "fedaccount_create"),
+        AccountName(),
+        SimpleString())
     def user_fedaccount_create(self, operator, account_name, email,
                                expire_date=None,
                                human_first_name=None, human_last_name=None):
@@ -1764,6 +1793,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end user_fedaccount_create
 
 
+
+    all_commands["user_virtaccount_nuke"] = Command(
+        ("user", "virtaccount_nuke"),
+        AccountName())
     def user_virtaccount_nuke(self, operator, uname):
         """Nuke (completely) a VirtAccount from Cerebrum.
 
@@ -1783,10 +1816,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             raise CerebrumError("Did not find account %s" % uname)
             
         self.ba.can_nuke_virtaccount(operator.get_entity_id(), account.entity_id)
-        self.__remove_auth_target(self.const.auth_target_type_account,
-                                  account.entity_id)
-        self.__remove_auth_role(account.entity_id)
-        account.delete()
+        self.__account_nuke_sequence(account.entity_id)
         return "OK, account %s (id=%s) deleted" % (uname, account_id)
     # end user_virtaccount_nuke
 
