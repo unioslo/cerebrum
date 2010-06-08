@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
 
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -1020,10 +1020,13 @@ class cf_members(object):
         logger.debug("%d person_id -> name mappings", len(person_id2name))
 
         logger.debug("Caching mobile phone numbers")
+        # TBD: this code is not really correct, and should be fixed:
+        # A person can have more than one phone, and the returned value
+        # has a priority
         person_id2phone = dict((int(x["entity_id"]), x["contact_value"])
                                for x in person.list_contact_info(
-                                   contact_type=(const.contact_mobile_phone,
-                                                 const.contact_phone_cellular),
+                                   contact_type=(const.contact_private_mobile,
+                                                 const.contact_mobile_phone),
                                    entity_type=const.entity_person))
 
         logger.debug("Caching complete user records")

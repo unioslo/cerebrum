@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -341,9 +341,9 @@ def populate_communication(person, fields, const):
                   #    TLFINT
                   (const.contact_phone, 13),
                   #    TLFMOB
-                  (const.contact_phone_cellular, 14),
+                  (const.contact_mobile_phone, 14),
                   #    TLFMOBPRIV
-                  (const.contact_phone_cellular_private, 15),
+                  (const.contact_private_mobile, 15),
                   #    FAX
                   (const.contact_fax, 29))
     for comm_type, index in comm_types:

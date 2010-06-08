@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
-#
-# Cerebrum is free software; you can redistribute it and/or modify it
+# # Cerebrum is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
@@ -133,7 +132,7 @@ def process_employees(filename, db):
 
         sap_id = str(db_row.external_id)
         phone = get_contact(person, const.contact_phone, const)
-        cellphone = get_contact(person, const.contact_phone_cellular, const)
+        cellphone = get_contact(person, const.contact_mobile_phone, const)
         email = get_email(person, account)
             
         stream.write(tuple_to_sap_row((sap_id, phone, cellphone, email)))

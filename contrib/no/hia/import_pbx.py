@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2003 University of Oslo, Norway
+# Copyright 2003-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -59,7 +59,7 @@ def get_db_entr():
 def get_ldif_info(ldif_file):
     fax, fax_num = co.contact_fax,'facsimiletelephonenumber'
     phone, ph_num = co.contact_phone,'internationalisdnnumber'
-    mobile, mob_num = int(co.contact_phone_cellular),'mobile'
+    mobile, mob_num = int(co.contact_mobile_phone),'mobile'
     acc = Factory.get('Account')(db)
     con_info = {}
     lt = LDIFutils.ldif_parser(ldif_file)

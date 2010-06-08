@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2005 University of Oslo, Norway
+# Copyright 2005-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -160,9 +160,9 @@ class Constants(Constants.Constants):
     account_test = _AccountCode('test', 'Testkonto')
 
 ## Contact_types
-
+    # TBD: contact_job_mobile should be removed. contact_private_mobile is moved to 
+    # Cerebrum.Constants.CommonConstants
     contact_job_mobile = _ContactInfoCode('JOBMOBILE', 'JOBMOBILE')
-    contact_private_mobile = _ContactInfoCode('PRIVATEMOBILE', 'PRIVATEMOBILE')
     contact_private_email = _ContactInfoCode('PRIVATEEMAIL', 'PRIVATEEMAIL')
 
 ## Mail traits

@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -32,7 +32,7 @@ class OrgLDIFHiAMixin(norEduLDIFMixin):
         source = getattr(self.const, cereconf.LDAP['contact_source_system'])
         syntax = self.attr2syntax[attr]
         c = self.get_contacts(
-            contact_type  = self.const.contact_phone_cellular,
+            contact_type  = self.const.contact_mobile_phone,
             source_system = source,
             convert       = syntax[0],
             verify        = syntax[1],

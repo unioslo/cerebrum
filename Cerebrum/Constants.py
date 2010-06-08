@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2006 University of Oslo, Norway
+# Copyright 2002-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -880,6 +880,7 @@ class CommonConstants(ConstantsBase):
     contact_email = _ContactInfoCode('EMAIL', 'Email')
     contact_url = _ContactInfoCode('URL', 'URL')
     contact_mobile_phone = _ContactInfoCode('MOBILE', 'Mobile phone')
+    contact_private_mobile = _ContactInfoCode('PRIVATEMOBILE', 'Private mobile phone')
 
     address_post = _AddressCode('POST', 'Post address')
     address_post_private = _AddressCode('PRIVPOST',
