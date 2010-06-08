@@ -4,6 +4,17 @@
 """This files contains unit tests for VH's bofhd.
 
 The idea is to test all of the VH-specific bofhd commands.
+
+FIXME:
+
+- Jot down the environment requirements for these automatic tests.
+  Requirements:
+
+    - A VH database instance
+    - There must be a VH bofhd running somewhere
+    - The testing account must have access to all commands (essentially
+      superuser privileges in the test installation)
+    - VH bofhd must be reachable from the testing site.
 """
 import random
 import re
@@ -20,31 +31,46 @@ from mx.DateTime import DateTimeDelta
 
 class test_driver(object):
     """Testing class for bofhd (autodiscovered).
-
-    Requirements:
-
-      - A VH database instance
-      - There must be a VH bofhd running somewhere
-      - The testing account must have access to all commands (essentially
-        superuser privileges in the test installation)
-      - VH bofhd must be reachable from the testing site.
     """
 
     @classmethod
     def setup_class(cls):
+        """Test framework fixture. Loaded during file import.
+        """
+
         # FIXME: This should be supplied from the command line.
-        cls.url = 'https://cere-utv01.uio.no:8958'
-        cls.uname = 'bootstrap_account'
-        cls.password = 'let-me-in'
-        cls.vh_realm = "@VH"
+        cls.url = ''
+        cls.uname = ''
+        cls.password = ''
+        cls.vh_realm = ''
     # end setup_class
 
 
     def setup(self):
+        """Test framework fixture. Loaded before each test is run."""
+
+        self.login()
+    # end setup(self):
+
+
+    
+    ########################################################################
+    # Utility functions.
+    ########################################################################
+    def login(self):
         self.proxy = self.make_connection(self.url)
         self.sid = self.proxy.login(self.uname, self.password)
     # end setup
-    
+
+
+    def logout(self):
+        if self.sid is not None:
+            self.proxy.logout(self.sid)
+
+        self.sid = None
+        self.proxy = None
+    # end logout
+
 
     @staticmethod
     def make_connection(url):
@@ -58,13 +84,9 @@ class test_driver(object):
 
 
     def remote_call(self, name, *rest):
-        """Call the command 'name' in bofhd.
-        """
+        """Call the command 'name' in bofhd."""
         
-        result = self.proxy.run_command(self.sid,
-                                        name,
-                                        *rest)
-        return result
+        return self.proxy.run_command(self.sid, name, *rest)
     # end remote_call
 
 
@@ -77,6 +99,8 @@ class test_driver(object):
 
 
     def make_random_uname(self, atype):
+        """Create a username which satisfies WebID's requirements."""
+        
         digits = list(string.digits)
         random.shuffle(digits)
         random_name = "test " + ''.join(digits)
@@ -95,8 +119,7 @@ class test_driver(object):
                                expire_date = None,
                                first_name = None,
                                last_name = None):
-        """Make a scratch account that we can throw away later.
-        """
+        """Make a scratch account that we can throw away later."""
         def marshal_expire(d):
             if d is None:
                 return d
@@ -128,6 +151,7 @@ class test_driver(object):
                           expire_date = None,
                           first_name = None,
                           last_name = None):
+        """Interface to create_scratch_account for VA."""
         return self.create_scratch_account("va", email=email,
                                            password=password,
                                            expire_date=expire_date,
@@ -153,7 +177,7 @@ class test_driver(object):
             return
         
         if with_logout:
-            self.proxy.logout(self.sid)
+            self.logout()
         
         conn = self.make_connection(self.url)
         sid = conn.login(self.uname, self.password)
@@ -165,6 +189,9 @@ class test_driver(object):
         conn.run_command(sid, command, uname)
     # end kill_scratch_account
         
+
+
+
 
     ########################################################################
     # The tests themselves.
@@ -192,6 +219,48 @@ class test_driver(object):
         assert all(cmd in commands for cmd in cmds)
     # end test_get_commands
 
+
+    #
+    #
+    def test_change_mail_superuser(self):
+        """Superusers don't have e-mails"""
+
+        try:
+            self.remote_call("user_change_email", "blapp@domain.invalid")
+        except xmlrpclib.Fault:
+            self.assert_remote_fault(
+                "CerebrumError:.*possible for VirtAccounts/FEDAccounts only")
+    # end test_change_mail_superuser
+
+
+    def test_change_mail_va(self):
+        """Changing e-mail should create a request, not change e-mail"""
+
+        old = "old@address"
+        new = "new@address"
+        va = None
+        try:
+            # 1. create an account
+            va = self.create_scratch_va(email=old)
+            # 2. change session to it
+            self.remote_call("user_su", va)
+            # 3. ask for e-mail change
+            req = self.remote_call("user_change_email", new)
+            # 4. logout current session
+            self.logout()
+            # 5. login as superuser again
+            self.login()
+            # 6. check that the change request is actually there.
+            stored_request = self.remote_call("user_request_info",
+                                              req["confirmation_key"])
+            d = stored_request["change_params"]
+            assert d["new"] == new
+            assert d["old"] == old
+            assert stored_request["confirmation_key"] == req["confirmation_key"]
+        finally:
+            self.kill_scratch_account(va)
+    # end test_change_mail_va
+        
 
     #
     # user_change_password
