@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2007-2009 University of Oslo, Norway
+# Copyright 2007-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -253,7 +253,9 @@ def generate_export(fname, spread=co.spread_ephorte_person):
             continue
         tmp['address_text'] = row['address_text']
         tmp['p_o_box'] = row['p_o_box']
-        tmp['postal_number'] = row['postal_number']
+        # ephorte web service can't handle postal numbers starting
+        # with "N-". Thus strip those for now.
+        tmp['postal_number'] = row['postal_number'].lstrip("N-")
         tmp['city'] = row['city']
 
     logger.info("Fetching Feide-ID and unames...")
