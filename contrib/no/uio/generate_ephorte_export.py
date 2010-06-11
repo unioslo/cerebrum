@@ -255,7 +255,10 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         tmp['p_o_box'] = row['p_o_box']
         # ephorte web service can't handle postal numbers starting
         # with "N-". Thus strip those for now.
-        tmp['postal_number'] = row['postal_number'].lstrip("N-")
+        if row['postal_number']:
+            tmp['postal_number'] = row['postal_number'].lstrip("N-")
+        else:
+            tmp['postal_number'] = ''
         tmp['city'] = row['city']
 
     logger.info("Fetching Feide-ID and unames...")
