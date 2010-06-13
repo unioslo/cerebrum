@@ -221,7 +221,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         """Perform the necessary magic associated with letting an account join
         a group.
         """
-
         assert event["change_type_id"] == self.const.va_group_invitation
 
         params = event["change_params"]
@@ -537,7 +536,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             pwd_checker.goodenough(account, password, uname)
         except PasswordGoodEnoughException:
             _, m, _ = sys.exc_info()
-            raise CerebrumError("Password too weak: %s" % m)
+            raise CerebrumError("Password too weak: %s" % str(m))
     # end __check_password
 
 
@@ -594,6 +593,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         if request["change_type_id"] != self.const.va_group_invitation:
             raise CerebrumError("Illegal command for request type %s",
                                 str(self.const.ChangeType(request["change_type_id"])))
+
         # ... check that the group is still there...
         params = request["change_params"]
         self._get_group(int(params["group_id"]))
@@ -628,19 +628,33 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         This removes the junk associated with an account that the account
         logically should not be responsible for (permissions, change_log
         entries, and so forth).
+
+        NB! This method is akin to user_virtaccount_disable.
         """
 
         account = self._get_account(account_id)
+
+        # Drop permissions
         self.__remove_auth_target(self.const.auth_target_type_account,
                                   account.entity_id)
         self.__remove_auth_role(account.entity_id)
+
+        # Drop memberships
+        group = self.Group_class(self.db)
+        for row in group.search(member_id=account.entity_id):
+            group.find(row["group_id"])
+            group.remove_member(account.entity_id)
+
+        # Yank the spreads
+        for row in account.get_spread():
+            account.delete_spread(row["spread"])
 
         # wipe the changelog -- there is a foreign key there.
         for event in self.db.get_log_events(change_by=account.entity_id):
             self.db.remove_log_event(event["change_id"])
 
         account.delete()
-    # end __account_prenuke_sequence
+    # end __account_nuke_sequence
     
 
 
@@ -652,9 +666,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         Completely remove a FEDAccount from Cerebrum. This includes
         memberships, traits, moderator/owner permissions, etc.
-
-        FIXME: Copy the actions from user_virtaccount_disable() (or coalesce
-        into one method)
         """
 
         try:
@@ -680,8 +691,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         Essentially, this is equivalent to deletion, except that an account
         entity stays behind to keep the account name reserved.
-        """
 
+        NB! This method is akin to __account_nuke_sequence().
+        """
+ 
         account = self._get_account(uname)
         if account.np_type != self.const.virtaccount_type:
             raise CerebrumError("Only VA can be disabled")
@@ -743,7 +756,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             self.user_fedaccount_create(operator, account_name, email,
                                         expire_date, 
                                         human_first_name, human_last_name)
-            self.logger.debug("Created FA %s", account_name)
         else:
 
             # FIXME: If we allow None names here, should the names be updated
@@ -1656,7 +1668,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             # There cannot be more than 1
             url = url[0]
             answer["url"] = url["contact_value"]
-        
+
         return answer
     # end group_info
 
@@ -1821,23 +1833,28 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end user_virtaccount_nuke
 
 
+    all_commands["group_delete"] = Command(
+        ("group", "delete"),
+        AccountName())
     def group_delete(self, operator, groupname):
         """Delete a group from the database.
 
-        Drop all memberships and nuke the entity.
+        Deletion is group_disable() + group.delete(). 
         """
+
         group = self._get_group(groupname)
         gname, gid = group.group_name, group.entity_id
         self.ba.can_delete_group(operator.get_entity_id(), group.entity_id)
-        # clean up the permissions, should there be any left
-        self.__remove_auth_target(self.const.auth_target_type_group,
-                                  group.entity_id)
-        self.__remove_auth_role(group.entity_id)
+        self.group_disable(operator, groupname)
         group.delete()
         return "OK, deleted group '%s' (id=%s)" % (gname, gid)
     # end group_delete
 
 
+    all_commands["group_add_members"] = Command(
+        ("group", "add_members"),
+        AccountName(),
+        GroupName())
     def group_add_members(self, operator, uname, gname):
         """Add uname as a member of group.
         """
@@ -2188,15 +2205,6 @@ class BofhdVirthomeMiscCommands(BofhdCommandBase):
         return entity.get_traits().values()
     # end trait_show
 # end BofhdVirthomeMiscCommands
-
-
-
-    
-    
-
-
-    
-
 
     
 
