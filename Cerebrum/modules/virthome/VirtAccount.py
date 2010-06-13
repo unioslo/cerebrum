@@ -125,7 +125,7 @@ class BaseVirtHomeAccount(Account,
 
         # IVR 2009-04-11 FIXME: We need to check that at the very least the
         # email is in a valid format.
-        assert email.strip(), "VirtHome e-mail addresses cannot be empty"
+        assert email and email.strip(), "VirtHome e-mail addresses cannot be empty"
 
         Account.populate(self,
                          account_name,
