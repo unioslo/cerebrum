@@ -277,16 +277,19 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
     
 
     def can_create_group(self, account_id, query_run_any=False):
+        if self.is_superuser(account_id) or self.is_feideuser(account_id):
+            return True
 
-        return (self.is_superuser(account_id) or
-                self.is_feideuser(account_id))
+        raise PermissionDenied("Operation not allowed")
     # end can_create_group
 
 
 
     def can_own_group(self, account_id):
-        return (self.is_superuser(account_id) or
-                self.is_feideuser(account_id))
+        if self.is_superuser(account_id) or self.is_feideuser(account_id):
+            return True
+
+        raise PermissionDenied("Operation not allowed")
     # end can_own_group
     
 
