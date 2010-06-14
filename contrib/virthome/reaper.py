@@ -34,7 +34,7 @@ from Cerebrum.Database import DatabaseError
 
 
 GRACE_PERIOD = DateTimeDelta(3)
-logger = Factory.get_logger("console")
+logger = Factory.get_logger("cronjob")
 
  
 
@@ -264,6 +264,31 @@ def enforce_user_constraints(db):
 
 
 
+def get_account(ident, database):
+    """Locate and return an account.
+
+    If nothing is found, return None.
+    """
+
+    account = Factory.get("Account")(database)
+    try:
+        if (isinstance(ident, (int, long)) or 
+            isinstance(ident, str) and ident.isdigit()):
+            account.find(int(ident))
+        else:
+            account.find_by_name(ident)
+
+        return account
+    except Errors.NotFoundError:
+        logger.warn("Cannot locate account associated with: %s",
+                    ident)
+        return None
+
+    assert False, "NOTREACHED"
+# end get_account
+
+
+
 def find_and_disable_account(uname, database):
     """Force expiration date for a specific account, regardless of its
     attributes.
@@ -275,21 +300,38 @@ def find_and_disable_account(uname, database):
     """
 
     logger.debug("Trying to disable account: %s", uname)
-    account = Factory.get("Account")(database)
-    try:
-        if (isinstance(uname, (int, long)) or 
-            isinstance(uname, str) and uname.isdigit()):
-            account.find(int(uname))
-        else:
-            account.find_by_name(uname)
-    except Errors.NotFoundError:
-        logger.warn("Cannot locate account associated with: %s",
-                    uname)
+    account = get_account(uname, database)
+    if account is None:
         return
-
+    
     disable_account(account.entity_id, database)
     logger.debug("Disabled account: %s", uname)
 # end find_and_disable_account
+
+
+
+def find_and_delete_account(uname, database):
+    """Completely remove an account from the database.
+
+    This may come in handy for maintenance tasks. If for some reason we want
+    an account completely obliterated, this is the method to call.
+    """
+
+    account = get_account(uname, database)
+    if account is None:
+        return
+
+    delete_account(account, database)
+# end find_and_delete_account
+
+
+
+def find_and_delete_group(gname, database):
+    """Completely remove a group from the database.
+    """
+
+    pass
+# end find_and_delete_group
 
 
 
@@ -302,6 +344,7 @@ def main(argv):
                                    "remove-group-invitations",
                                    "disable-expired-accounts",
                                    "disable-account=",
+                                   "delete-account=",
                                    "with-commit",))
 
     db = Factory.get("Database")()
@@ -328,6 +371,9 @@ def main(argv):
         elif option in ("--disable-account",):
             uname = value
             actions.append(lambda db: find_and_disable_account(uname, db))
+        elif option in ("--delete-account",):
+            uname= value
+            actions.append(lambda db: find_and_delete_account(uname, db))
         elif option in ("--with-commit",):
             try_commit = db.commit
 
