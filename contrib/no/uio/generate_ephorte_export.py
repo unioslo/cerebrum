@@ -109,11 +109,7 @@ def _get_uname(account_id):
     ret = uname_cache.get(account_id)
     if ret is None:
         ac.clear()
-        try:
-            ac.find(account_id)
-        except Errors.NotFoundError:
-            logger.warn("Could not find account %s" % (account_id))
-            return None
+        ac.find(account_id)
         ret = ac.account_name
         uname_cache[account_id] = ret
     return ret
@@ -122,12 +118,13 @@ def _get_uname(account_id):
 def _get_feide_id(operator_id):
     ret = feide_id_cache.get(operator_id)
     if ret is None:
-        uname = _get_uname(operator_id)
-        if not uname:
-            return ""
-        ret = uname.upper() + "@UIO.NO"
-        feide_id_cache[operator_id] = ret
-    return ret
+        try:
+            uname = _get_uname(operator_id)
+            ret = uname.upper() + "@UIO.NO"
+            feide_id_cache[operator_id] = ret
+        except Errors.NotFoundError:
+            logger.warn("Could not find account with id %s" % (operator_id))
+    return ret or ""
 
 
 def _get_primary_account(person_id):
@@ -136,14 +133,13 @@ def _get_primary_account(person_id):
         pe.clear()
         try:
             pe.find(person_id)
+            account_id = pe.get_primary_account()
+            ret = _get_uname(account_id)
+            if ret:
+                primary_account_cache[person_id] = ret
         except Errors.NotFoundError:
-            logger.warn("Could not find person %s" % (person_id))
-            return ""
-        account_id = pe.get_primary_account()
-        ret = _get_uname(account_id)
-        if ret is None:
-            logger.warn("Could not find account for person %s" % (person_id))
-    return ret
+            logger.info("Could not find account for person %s" % person_id)
+    return ret or ""
 
 
 def generate_export(fname, spread=co.spread_ephorte_person):
