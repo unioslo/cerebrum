@@ -30,7 +30,8 @@ from Cerebrum.modules.bofhd.auth import BofhdAuthRole
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget
 from Cerebrum import Entity
 from Cerebrum.Database import DatabaseError
-
+from Cerebrum.Entity import EntitySpread
+from Cerebrum.Entity import EntityName
 
 
 GRACE_PERIOD = DateTimeDelta(3)
@@ -52,6 +53,160 @@ def fetch_name(entity_id, db):
 
 
 
+def get_account(ident, database):
+    """Locate and return an account.
+
+    If nothing is found, return None.
+    """
+
+    account = Factory.get("Account")(database)
+    try:
+        if (isinstance(ident, (int, long)) or 
+            isinstance(ident, str) and ident.isdigit()):
+            account.find(int(ident))
+        else:
+            account.find_by_name(ident)
+
+        return account
+    except Errors.NotFoundError:
+        logger.warn("Cannot locate account associated with: %s",
+                    ident)
+        return None
+
+    assert False, "NOTREACHED"
+# end get_account
+
+
+
+def get_group(ident, database):
+    """Locate and return a group.
+
+    If nothing suitable is found, return None.
+    """
+    
+    group = Factory.get("Group")(database)
+    try:
+        if (isinstance(ident, (int, long)) or 
+            isinstance(ident, str) and ident.isdigit()):
+            group.find(int(ident))
+        else:
+            group.find_by_name(ident)
+
+        return group
+    except Errors.NotFoundError:
+        logger.warn("Cannot locate group associated with: %s",
+                    ident)
+        return None
+
+    assert False, "NOTREACHED"
+# end get_account
+
+
+
+def remove_target_permissions(entity_id, db):
+    """Remove all permissions (group owner/moderator) GIVEN TO entity_id.
+
+    FIXME: what if entity_id is a group owner? If we yank it, the group
+    remains ownerless.
+
+    Cf bofhd_virthome_cmds.py:__remove_auth_role.
+    """
+    
+    ar = BofhdAuthRole(db)
+    aot = BofhdAuthOpTarget(db)
+    for r in ar.list(entity_id):
+        ar.revoke_auth(entity_id, r['op_set_id'], r['op_target_id'])
+        # Also remove targets if this was the last reference from
+        # auth_role.
+        remaining = ar.list(op_target_id=r['op_target_id'])
+        if len(remaining) == 0:
+            aot.clear()
+            aot.find(r['op_target_id'])
+            aot.delete()
+# end remove_permissions_on_target
+
+
+
+def remove_permissions_on_target(entity_id, db):
+    """Remove all permissions GRANTED ON entity_id.
+
+    remote_target_permissions() removes permissions held by entity_id. This
+    function removes permissions held by other on entity_id.
+
+    Cf bofhd_virthome_cmds.py:__remove_auth_target.
+    """
+
+    ar = BofhdAuthRole(db)
+    aot = BofhdAuthOpTarget(db)
+    for r in aot.list(entity_id=entity_id):
+        aot.clear()
+        aot.find(r['op_target_id'])
+        # We remove all auth_role entries pointing to this entity_id
+        # first.
+        for role in ar.list(op_target_id = r["op_target_id"]):
+            ar.revoke_auth(role['entity_id'], role['op_set_id'],
+                           r['op_target_id'])
+        aot.delete()
+# end remove_permissions_on_target
+
+
+
+def delete_common(entity_id, db):
+    """Remove information from the database common to whichever entity we are
+    deleting. 
+    """
+
+    #
+    # Remove spreads
+    # Remove traits
+    # Remove all permissions
+    # Remove from all groups
+    # Remove change_log entries
+    # 
+    const = Factory.get("Constants")()
+    logger.debug("Deleting common parts for entity %s (id=%s)",
+                 fetch_name(entity_id, db), entity_id)
+
+    es = EntitySpread(db)
+    es.find(entity_id)
+    logger.debug("Deleting spreads: %s",
+                 ", ".join(str(const.Spread(x["spread"]))
+                           for x in es.get_spread()))
+    for row in es.get_spread():
+        es.delete_spread(row["spread"])
+
+    et = EntityTrait(db)
+    et.find(entity_id)
+    logger.debug("Deleting traits: %s",
+                 ", ".join(str(x) for x in et.get_traits()))
+    # copy(), since delete_trait and get_traits work on the same dict. This is
+    # so silly.
+    for trait_code in et.get_traits().copy():
+        et.delete_trait(trait_code)
+
+    remove_target_permissions(entity_id, db)
+
+    remove_permissions_on_target(entity_id, db)
+
+    # Kill memberships
+    group = Factory.get("Group")(db)
+    for row in group.search(member_id=entity_id,
+                            filter_expired=False):
+        group.find(row["group_id"])
+        logger.debug("Removing %s as member of %s (id=%s)",
+                     entity_id, group.group_name, group.entity_id)
+        group.remove_member(entity_id)
+    
+
+    # Kill change_log entries
+    logger.debug("Cleaning change_log of references to %s", entity_id)
+    # Kill change_log entries (this includes requests linked to this entity)
+    for row in db.get_log_events(subject_entity=entity_id):
+        db.remove_log_event(row["change_id"])
+# end delete_common
+
+    
+
 def disable_account(account_id, db):
     """Disable account corresponding to account_id.
 
@@ -62,56 +217,16 @@ def disable_account(account_id, db):
     some human-'relatable' info about the account after it's disabled
     """
     
-    #
-    # Remove spreads
-    # Remove traits
-    # Remove all permissions
-    # Remove from groups
-    # Remove change_log entries
-    # Set expire date to yesterday
-    # 
+    account = get_account(account_id, db)
+    if not account:
+        return
 
-    const = Factory.get("Constants")()
-    account = Factory.get("Account")(db)
-    account.find(account_id)
-
-    # Remove all spreads
-    for row in account.get_spread():
-        account.delete_spread(row["spread"])
-
-    # Remove all traits
-    for trait_code in account.get_traits():
-        account.delete_trait(trait_code)
-
-    # Remove all permissions (group owner/moderator)
-    # FIXME: what if account is group owner? If we yank it, the group remains
-    # ownerless.
-    # Kill the permissions granted to this account
-    ar = BofhdAuthRole(db)
-    aot = BofhdAuthOpTarget(db)
-    for r in ar.list(account.entity_id):
-        ar.revoke_auth(account.entity_id, r['op_set_id'], r['op_target_id'])
-        # Also remove targets if this was the last reference from
-        # auth_role.
-        remaining = ar.list(op_target_id=r['op_target_id'])
-        if len(remaining) == 0:
-            aot.clear()
-            aot.find(r['op_target_id'])
-            aot.delete()
-
-    # Kill group memberships
-    group = Factory.get("Group")(db)
-    for row in group.search(member_id=account.entity_id,
-                            filter_expired=False):
-        group.find(row["group_id"])
-        group.remove_member(account.entity_id)
-
-    # Kill change_log entries (this includes requests)
-    for row in db.get_log_events(subject_entity=account.entity_id):
-        db.remove_log_event(row["change_id"])
+    delete_common(account.entity_id, db)
 
     account.expire_date = now() - DateTimeDelta(1)
     account.write_db()
+    logger.debug("Disabled account %s (id=%s)",
+                 account.account_name, account.entity_id)
 # end disable_account
 
 
@@ -139,6 +254,8 @@ def disable_expired_accounts(db):
     place. Users are gonna be pissed, if we nuke the expired accounts without
     advanced warning.
     """
+
+    logger.debug("Disabling expired accounts")
 
     const = Factory.get("Constants")(db)
     account = Factory.get("Account")(db)
@@ -168,6 +285,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
     deletion?
     """
 
+    logger.debug("Deleting unconfirmed accounts")
     const = Factory.get("Constants")(db)
     account = Factory.get("Account")(db)
     for row in db.get_log_events(types=const.va_pending_create):
@@ -214,7 +332,13 @@ def delete_stale_events(cl_events, db):
     this is so.
     """
 
+    if not isinstance(cl_events, (list, tuple, set)):
+        cl_events = [cl_events,]
+
     const = Factory.get("Constants")()
+    logger.debug("Deleting stale requests: %s",
+                 ", ".join(str(const.ChangeType(x))
+                           for x in cl_events))
     for event in db.get_log_events(types=cl_events):
         tstamp = event["tstamp"]
         if now() - tstamp <= GRACE_PERIOD:
@@ -264,31 +388,6 @@ def enforce_user_constraints(db):
 
 
 
-def get_account(ident, database):
-    """Locate and return an account.
-
-    If nothing is found, return None.
-    """
-
-    account = Factory.get("Account")(database)
-    try:
-        if (isinstance(ident, (int, long)) or 
-            isinstance(ident, str) and ident.isdigit()):
-            account.find(int(ident))
-        else:
-            account.find_by_name(ident)
-
-        return account
-    except Errors.NotFoundError:
-        logger.warn("Cannot locate account associated with: %s",
-                    ident)
-        return None
-
-    assert False, "NOTREACHED"
-# end get_account
-
-
-
 def find_and_disable_account(uname, database):
     """Force expiration date for a specific account, regardless of its
     attributes.
@@ -330,7 +429,15 @@ def find_and_delete_group(gname, database):
     """Completely remove a group from the database.
     """
 
-    pass
+    group = get_group(gname, database)
+    if group is None:
+        return
+
+    gname, gid = group.group_name, group.entity_id
+    delete_common(group.entity_id, database)
+
+    group.delete()
+    logger.debug("Deleting group %s (id=%s)", gname, gid)
 # end find_and_delete_group
 
 
@@ -345,6 +452,7 @@ def main(argv):
                                    "disable-expired-accounts",
                                    "disable-account=",
                                    "delete-account=",
+                                   "delete-group=",
                                    "with-commit",))
 
     db = Factory.get("Database")()
@@ -374,6 +482,9 @@ def main(argv):
         elif option in ("--delete-account",):
             uname= value
             actions.append(lambda db: find_and_delete_account(uname, db))
+        elif option in ("--delete-group",):
+            gname = value
+            actions.append(lambda db: find_and_delete_group(gname, db))
         elif option in ("--with-commit",):
             try_commit = db.commit
 
