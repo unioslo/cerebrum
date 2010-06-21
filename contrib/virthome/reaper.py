@@ -221,6 +221,11 @@ def disable_account(account_id, db):
     if not account:
         return
 
+    # If the account has already been deleted, we cannot disable it any
+    # further.
+    if account.is_deleted():
+        return
+
     delete_common(account.entity_id, db)
 
     account.expire_date = now() - DateTimeDelta(1)
@@ -248,11 +253,6 @@ def delete_account(account, db):
 
 def disable_expired_accounts(db):
     """Delete (nuke) all accounts that have expire_date in the past. 
-
-    FAT-ASS WARNING:
-    This probably should not be run, unless there is a user-warning system in
-    place. Users are gonna be pissed, if we nuke the expired accounts without
-    advanced warning.
     """
 
     logger.debug("Disabling expired accounts")
@@ -271,6 +271,8 @@ def disable_expired_accounts(db):
         # Ok, it's an expired VH. Kill it
         disable_account(row["account_id"], db)
         db.commit()
+        
+    logger.debug("Disabled all expired accounts")
 # end disable_expired_accounts
 
     
@@ -299,10 +301,12 @@ def delete_unconfirmed_accounts(account_np_type, db):
             account.find(account_id)
         except Errors.NotFoundError:
             # FIXME: is this the right thing to do? Maybe a warn()?
-            logger.info("change_id %s (event %s) points to account %s (id=%s) "
+            logger.info("change_id %s (event %s) @ date=%s points to "
+                        "account name=%s (id=%s) "
                         "that no longer exists (cl event will be deleted)",
                         row["change_id"],
                         str(const.ChangeType(row["change_type_id"])),
+                        tstamp.strftime("%F %T"),
                         fetch_name(row["subject_entity"], db),
                         row["subject_entity"])
             db.remove_log_event(row["change_id"])
@@ -319,6 +323,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
 
         delete_account(account, db)
         db.commit()
+    logger.debug("All unconfirmed accounts deleted")
 # end delete_unconfirmed_accounts
 
 
@@ -336,22 +341,24 @@ def delete_stale_events(cl_events, db):
         cl_events = [cl_events,]
 
     const = Factory.get("Constants")()
-    logger.debug("Deleting stale requests: %s",
-                 ", ".join(str(const.ChangeType(x))
-                           for x in cl_events))
+    typeset_request  = ", ".join(str(const.ChangeType(x))
+                                 for x in cl_events)
+    logger.debug("Deleting stale requests: %s", typeset_request)
     for event in db.get_log_events(types=cl_events):
         tstamp = event["tstamp"]
         if now() - tstamp <= GRACE_PERIOD:
             continue
 
-        logger.debug("Deleting stale event (@%s) %s for entity %s (id=%s)",
-                     event["tstamp"].strftime("%Y-%m-%d"),
+        logger.debug("Deleting stale event %s (@%s) for entity %s (id=%s)",
                      str(const.ChangeType(event["change_type_id"])),
+                     event["tstamp"].strftime("%Y-%m-%d"),
                      fetch_name(event["subject_entity"], db),
                      event["subject_entity"])
         
         db.remove_log_event(event["change_id"])
         db.commit()
+
+    logger.debug("Deleted all stale requests: %s", typeset_request)
 # end delete_stale_events
 
 
@@ -450,6 +457,8 @@ def main(argv):
                                    "remove-stale-email-requests",
                                    "remove-group-invitations",
                                    "disable-expired-accounts",
+                                   "remove-stale-group-modifications",
+                                   "remove-stale-password-recover",
                                    "disable-account=",
                                    "delete-account=",
                                    "delete-group=",
@@ -463,8 +472,13 @@ def main(argv):
 
     const = Factory.get("Constants")()
     actions = list()
+    #
+    # NB! We can safely ignore processing va_reset_expire_date -- if the user
+    # does not do anything, it'll be disabled (including removal of the
+    # va_reset_expire_date) within cereconf.EXPIRE_WARN_WINDOW days.
     for option, value in options:
         if option in ("--remove-unconfirmed-virtaccounts",):
+            # Handles va_pending_create
             actions.append(lambda db:
                            delete_unconfirmed_accounts(const.virtaccount_type,
                                                        db))
@@ -476,17 +490,29 @@ def main(argv):
                            delete_stale_events(const.va_group_invitation, db))
         elif option in ("--disable-expired-accounts",):
             actions.append(disable_expired_accounts)
+        elif option in ("--remove-stale-group-modifications",):
+            actions.append(lambda db:
+                           delete_stale_events((const.va_group_owner_swap,
+                                                const.va_group_moderator_add,),
+                                               db))
+        elif option in ("--remove-stale-password-recover",):
+            actions.append(lambda db:
+                           delete_stale_events(const.va_password_recover, db))
+        elif option in ("--with-commit",):
+            try_commit = db.commit
+
+        #
+        # These options are for manual runs. It makes no sense to use these
+        # in an automatic job scheduler (cron, bofhd, etc)
         elif option in ("--disable-account",):
             uname = value
             actions.append(lambda db: find_and_disable_account(uname, db))
         elif option in ("--delete-account",):
-            uname= value
+            uname = value
             actions.append(lambda db: find_and_delete_account(uname, db))
         elif option in ("--delete-group",):
             gname = value
             actions.append(lambda db: find_and_delete_group(gname, db))
-        elif option in ("--with-commit",):
-            try_commit = db.commit
 
     db.commit = try_commit
 
