@@ -66,6 +66,9 @@ def sync_feideid(feideperson):
     except Errors.NotFoundError:
         logger.warn("Username %s not in Cerebrum. Continuing.." % username)
         return
+    if account.owner_type != const.entity_person:
+        logger.debug("User %s not owned by a person. Continuing..", username)
+        return
     person.find(account.owner_id)
     ldap_feideid = feideperson.get('eduPersonPrincipalName')[0]
 
