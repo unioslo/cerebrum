@@ -34,3 +34,9 @@ popd >/dev/null 2>&1
 
 echo "Cleaning up $TEMPDIR"
 rm -rf $TEMPDIR
+
+
+
+echo "Finished build of $NAME."
+echo "You might run the following:"
+echo "# redhat-mirror-add $BUILDPATH/*/ceresync*-$VER-$REV.*.rpm /web/virtualhosts/bas-pakker.itea.ntnu.no/htdocs/test/rhel/5"
