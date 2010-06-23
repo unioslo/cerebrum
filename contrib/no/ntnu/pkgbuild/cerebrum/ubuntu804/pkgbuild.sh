@@ -39,6 +39,9 @@ echo "Building new package"
 dpkg-buildpackage -rfakeroot
 popd > /dev/null 2>&1
 
-echo "Finished build of $NAME. You might run  cd $BUILDPATH; ubuntu-mirror-add"
+echo "Finished build of $NAME."
+echo "You might run the following:"
+echo "# cd $BUILDPATH"
+echo "# ubuntu-mirror-add hardy /web/virtualhosts/bas-pakker.itea.ntnu.no/htdocs/test/ubuntu"
 echo ""
 find $DIR -name \*.deb
