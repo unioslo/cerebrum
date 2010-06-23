@@ -346,7 +346,6 @@ def main():
                 elif s == int(constants.spread_hia_edir_grpstud):
                     dn =  _group_make_dn(event['subject_entity'], 'ou=Stud')
                 else:
-                    logger.debug("Unknown spread, skipping.")
                     cl_handler.confirm_event(event)             
                     continue
                 attrs = group_make_attrs(event['subject_entity'])
