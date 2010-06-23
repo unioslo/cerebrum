@@ -5,7 +5,7 @@ if [ -z "$1" -o -z "$2" -o -z "$3" ]; then
 fi
 DIR=$1
 VERSION=$2-$3
-NAME=cerebrum-ntnu
+NAME=ceresync
 BUILDPATH=$DIR/cerebrum-ntnu-$VERSION
 PKGPATH="`dirname $0`"
 [ -d "$PKGPATH/debian" ] || PKGPATH="$BUILDPATH/contrib/no/ntnu/pkgbuild/cerebrum/ubuntu1004"

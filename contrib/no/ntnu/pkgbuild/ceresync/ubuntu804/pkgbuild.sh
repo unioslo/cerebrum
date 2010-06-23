@@ -8,23 +8,7 @@ VERSION=$2-$3
 NAME=ceresync
 BUILDPATH=$DIR/cerebrum-ntnu-$VERSION
 PKGPATH="`dirname $0`"
-[ -d "$PKGPATH/debian" ] || PKGPATH="$BUILDPATH/contrib/no/ntnu/pkgbuild/ceresync/ubuntu804"
-
-#echo "Checking build environment sanity"
-#broken=false
-#for i in python-zsi; do
-#    echo -n "Checking for package $i: "
-#    if dpkg-query -W -f='${Status}' $i 2>&1| grep -q "install ok installed"; then
-#        echo "OK"
-#    else
-#        broken=true
-#        echo "MISSING"
-#    fi
-#done
-#if [ "$broken" == true ]; then
-#    echo "Build dependencies are not met - quitting"
-#    exit 1
-#fi
+[ -d "$PKGPATH/debian" ] || PKGPATH="$BUILDPATH/contrib/no/ntnu/pkgbuild/cerebrum/ubuntu804"
 
 echo "Building DEB packages for Ubuntu 8.04 of $NAME version $VERSION"
 pushd $BUILDPATH > /dev/null 2>&1
@@ -35,10 +19,13 @@ ln -s $PKGPATH/debian debian
 echo "Adding default changelog entry"
 dch -b --newversion $VERSION "updated to $VERSION"
 
-echo "Building package in $BUILDPATH"
+echo "Building new package"
 dpkg-buildpackage -rfakeroot
 popd > /dev/null 2>&1
 
-echo "Finished build of $NAME. You might run  cd $BUILDPATH; ubuntu-mirror-add"
+echo "Finished build of $NAME."
+echo "You might run the following:"
+echo "# cd $BUILDPATH"
+echo "# ubuntu-mirror-add hardy /web/virtualhosts/bas-pakker.itea.ntnu.no/htdocs/test/ubuntu"
 echo ""
 find $DIR -name \*.deb
