@@ -1412,7 +1412,7 @@ class BofhdExtension(BofhdCommandBase):
                                             cereconf.CYRUS_ADMIN)
                 used = 'N/A'; limit = None
                 try:
-                    cyrus = imaplib.IMAP4(es.name)
+                    cyrus = imaplib.IMAP4_SSL(es.name)
                     # IVR 2007-08-29 If the server is too busy, we do not want
                     # to lock the entire bofhd.
                     # 5 seconds should be enough
