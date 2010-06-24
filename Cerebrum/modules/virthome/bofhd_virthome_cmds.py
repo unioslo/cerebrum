@@ -235,7 +235,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         if member.np_type not in (self.const.virtaccount_type,
                                   self.const.fedaccount_type):
             raise CerebrumError("Account %s (type %s) cannot join groups." %
-                                member.account_name, member.np_type)
+                                (member.account_name, member.np_type))
 
         # Now, users who have been explicitly invited must be tagged as
         # such. There is a slight point of contention here, if the same VA is
@@ -1869,7 +1869,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         if account.np_type not in (self.const.virtaccount_type,
                                    self.const.fedaccount_type):
             raise CerebrumError("Account %s (type %s) cannot join groups." %
-                                account.account_name, account.np_type)
+                                (account.account_name, account.np_type))
         
         if group.has_member(account.entity_id):
             raise CerebrumError("User %s is already a member of group %s" %
