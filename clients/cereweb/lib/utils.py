@@ -275,11 +275,10 @@ def get_tabs(current=None):
       ('Persons', 'person', '/person'),
       ('Accounts', 'account', '/account'),
       ('Groups', 'group', '/group'),
-      ('Organization units', 'ou', '/ou'),
+      ('Organizations', 'ou', '/ou'),
       ('Hosts', 'host', '/host'),
       ('Disks', 'disk', '/disk'),
       ('Email', 'email', '/email'),
-      ('Search', 'search', '/search'),
       ('Logout', 'logout', '/logout'),
     ]
 
@@ -296,8 +295,8 @@ def get_links(page):
     map = {
         'index': (
             ('/index', _('Index')),
-            ('/motd/all', _('View all messages')),
-            ('/entity/global_historylog', _('View recent changes')),
+            ('/motd/all', _('Messages')),
+            ('/entity/global_historylog', _('Recent changes')),
         ),
         'person': (
             ('/person/search/', _('Search')),

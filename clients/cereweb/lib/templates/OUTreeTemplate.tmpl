@@ -27,7 +27,7 @@
 #attr $link = "tree"
 
 #def title()
-    #return $_('OU tree view of perspective %s') % $spine_to_web($perspective.name)
+    #return $_('Organizations for perspective %s') % $spine_to_web($perspective.name)
 #end def
 
 #def links()
@@ -49,7 +49,7 @@
             "perspective", $_("Perspective"),
             [(x.id, x.name) for x in $perspectives],
             $perspective.id)
-        <input type="submit" value="View perspective tree" />
+        <input type="submit" value="View" />
     </form>
     <br />
     
