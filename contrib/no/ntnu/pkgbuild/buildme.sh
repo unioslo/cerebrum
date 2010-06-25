@@ -27,6 +27,8 @@ usage () {
 }
 # default to latest revision if not provided
 REV=latest
+# Default to 0 as package version if not provided
+VER=0
 # Parse parameters
 if (( $# < 3 )); then
 	usage $0 1
