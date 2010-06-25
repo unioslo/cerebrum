@@ -11,49 +11,107 @@ if [ "`id -u`" -eq "0" ]; then
 	exit 1
 fi
 
+usage () {
+        echo "Build cerebrum or ceresync packages for various platforms."
+        echo "usage: $1 PLATFORM TARGET <[OPTIONS]>"
+        echo "PLATFORM in ( ubuntu1004 ubuntu804 rhel5 )"
+        echo "TARGET in ( cerebrum ceresync )"
+        echo "OPTIONS:"
+        echo "	--trunk		Build packages from trunk"
+	echo "	--local		Use local build scripts"
+	echo "	--version	Package version"
+	echo "			- If X.Y.Z look for tag, if only X.Y look for branch"
+	echo "	--revision	SVN revision and package release"
+	echo "	--usage		This text"
+	exit $2
+}
+# default to latest revision if not provided
+REV=latest
 # Parse parameters
 if (( $# < 3 )); then
-        echo "Build cerebrum or ceresync packages for various platforms."
-        echo "usage: $0 PLATFORM TARGET VERSION [REVISION]"
-        echo "Ex: $0 ubuntu804 ceresync 2.0.1   #tag, last revision"
-        echo "Ex: $0 rhel5 ceresync trunk 12472 #trunk, specific revision"
-        echo "Ex: $0 ubuntu804 cerebrum 2.0     #branch, last revision"
-        exit 1
+	usage $0 1
 fi
-PLATFORM=$1
-TARGET=$2
-VER=${3:-trunk}
-REV=${4:-latest}
-TRUNK=0
 
-# Qualified quess of correctness of PLATFORM argument:
-case "$PLATFORM" in
-    ubuntu804)
-        if grep -iq 'Ubuntu 8.04' /etc/issue; then
-            echo "System seems to qualify as $PLATFORM"
-        else
-            echo "/etc/issue did not identify this system as $PLATFORM"
-            exit 1
-        fi
-        ;;
-    rhel5)
-        if grep -iq 'Red Hat Enterprise Linux Server release 5' /etc/issue; then
-            echo "System seems to qualify as $PLATFORM"
-        else
-            echo "/etc/issue did not identify this system as $PLATFORM"
-            exit 1
-        fi
-        ;;
-    *)
-        echo "Unknown platform '$PLATFORM'"
-        exit 1
-        ;;
-esac
+# Parse arguments
+while [ $# -gt 0 ]
+do
+	case "$1" in
+		--usage)  
+			usage $0 0
+			;;
+		
+		--local)  
+			LOCAL=`pwd`
+			echo "Will use build scripts local to $LOCAL"
+			;;
+		
+		--trunk)
+			echo "Will try to build packages from trunk"
+			TRUNK=1
+			;;
+		
+		--version)
+			VER=$2
+			echo "Will use $VER as version"
+			shift
+			;;
+			
+		--revision)
+			REV=$2
+			echo "Will use $REV as revision"
+			shift
+			;;
+			
+		cerebrum)
+			TARGET=$1
+			echo "Will use $TARGET as target"
+			;;
 
-if [ "$VER" = "trunk" ]; then	# trunk
-   URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum"
-   echo "Setting version to 0 for trunk"
-   VER=0
+		ceresync)
+			TARGET=$1
+			echo "Will use $TARGET as target"
+			;;
+
+		ubuntu1004)
+			PLATFORM=$1
+			if grep -iq 'Ubuntu 10.04' /etc/issue; then
+			    echo "System seems to qualify as $PLATFORM"
+			else
+			    echo "/etc/issue did not identify this system as $PLATFORM"
+			    exit 1
+			fi
+			;;
+
+		ubuntu804)
+			PLATFORM=$1
+			if grep -iq 'Ubuntu 8.04' /etc/issue; then
+			    echo "System seems to qualify as $PLATFORM"
+			else
+			    echo "/etc/issue did not identify this system as $PLATFORM"
+			    exit 1
+			fi
+			;;
+
+		rhel5)
+			PLATFORM=$1
+			if grep -iq 'Red Hat Enterprise Linux Server release 5' /etc/issue; then
+			    echo "System seems to qualify as $PLATFORM"
+			else
+			    echo "/etc/issue did not identify this system as $PLATFORM"
+			    exit 1
+			fi
+			;;
+
+		*)
+			usage $0 1
+			;;
+    	esac
+    	shift
+done
+
+if [ "$TRUNK" ]; then	# trunk
+	URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum"
+	echo "Setting version to trunk $VER"
 else	# branch or tag
    IFS=. read major medium minor <<< "$VER"
 
@@ -89,10 +147,12 @@ echo "Source downloaded into $TEMPDIR/cerebrum-ntnu-$VER-$REV"
 
 # Verify existance of platform-specific build infrastructure:
 PKGSCRIPT="`dirname $0`/$TARGET/$PLATFORM/pkgbuild.sh"
-[ -f "$PKGSCRIPT" ] || PKGSCRIPT="$TEMPDIR/cerebrum-ntnu-$VER-$REV/contrib/no/ntnu/pkgbuild/$TARGET/$PLATFORM/pkgbuild.sh"
+if [ -n "$LOCAL" ]; then
+	PKGSCRIPT="$LOCAL/$TARGET/$PLATFORM/pkgbuild.sh"
+fi
 
-COMMAND="$PKGSCRIPT $TEMPDIR $VER $REV"
-if [ ! -x "$PKGSCRIPT" ]; then
+COMMAND="bash $PKGSCRIPT $TEMPDIR $VER $REV"
+if [ ! -f "$PKGSCRIPT" ]; then
     echo "Could not find build script for next step, wanted to execute:"
     echo $COMMAND
 else
