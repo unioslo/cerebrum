@@ -13,52 +13,47 @@ fi
 
 usage () {
         echo "Build cerebrum or ceresync packages for various platforms."
-        echo "usage: $1 PLATFORM TARGET <[OPTIONS]>"
+        echo "usage: $1 <PLATFORM> <TARGET> <[OPTIONS]>"
         echo "PLATFORM in ( ubuntu1004 ubuntu804 rhel5 )"
         echo "TARGET in ( cerebrum ceresync )"
         echo "OPTIONS:"
-        echo "	--trunk		Build packages from trunk"
-	echo "	--local		Use local build scripts"
-	echo "	--version	Package version"
-	echo "			- If X.Y.Z look for tag, if only X.Y look for branch"
-	echo "	--revision	SVN revision and package release"
-	echo "	--usage		This text"
+        echo "	-t | --trunk		Build packages from trunk"
+	echo "	-l | --local		Use local build scripts"
+	echo "	-V | --version		Package version"
+	echo "				- If X.Y.Z look for tag, if only X.Y look for branch"
+	echo "	-r | --revision		SVN revision and package release"
+	echo "	-h | --help		This text"
 	exit $2
 }
 # default to latest revision if not provided
 REV=latest
 # Default to 0 as package version if not provided
 VER=0
-# Parse parameters
-if (( $# < 3 )); then
-	usage $0 1
-fi
-
 # Parse arguments
 while [ $# -gt 0 ]
 do
 	case "$1" in
-		--usage)  
+		-h|--help)  
 			usage $0 0
 			;;
 		
-		--local)  
+		-l|--local)  
 			LOCAL=`pwd`
 			echo "Will use build scripts local to $LOCAL"
 			;;
 		
-		--trunk)
+		-t|--trunk)
 			echo "Will try to build packages from trunk"
 			TRUNK=1
 			;;
 		
-		--version)
+		-V|--version)
 			VER=$2
 			echo "Will use $VER as version"
 			shift
 			;;
 			
-		--revision)
+		-r|--revision)
 			REV=$2
 			echo "Will use $REV as revision"
 			shift
@@ -111,10 +106,21 @@ do
     	shift
 done
 
+if [ -z "$TARGET" ]; then
+	echo "No target specified"
+	usage $0 1
+elif [ -z "$PLATFORM" ]; then
+	echo "No platform specified"
+	usage $0 1
+fi
 if [ "$TRUNK" ]; then	# trunk
 	URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum"
 	echo "Setting version to trunk $VER"
 else	# branch or tag
+	if [ "$VER" == "0" ]; then 
+		echo "Version must be specified if not building from trunk"
+		usage $0 1
+	fi
    IFS=. read major medium minor <<< "$VER"
 
    if [[ -n $minor ]]; then	#tag
