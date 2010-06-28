@@ -37,7 +37,6 @@ from lib.utils import is_correct_referer, get_referer_error
 from lib.utils import negotiate_lang, get_translation
 from lib.templates.ActivationTemplate import ActivationTemplate
 from lib.wsidm.wsidm import WSIdm
-from lib.wsidm.wsidm import WSIdm
 import config
 import re
 from Cerebrum.modules.PasswordChecker import PasswordGoodEnoughException
