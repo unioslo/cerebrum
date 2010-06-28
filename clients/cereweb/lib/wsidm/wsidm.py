@@ -6,10 +6,13 @@ import cereconf
 
 import Serve_services
 import Serve_services_types
+from Cerebrum.Utils import Factory
 
 from httplib import HTTPConnection
 from M2Crypto import SSL
 from Cerebrum.lib.cerews.SignatureHandler import SignatureHandler
+
+log = Factory.get_logger('root')
 
 try:
     from Cerebrum.lib.cerews.dom import DomletteReader as ReaderClass
@@ -27,10 +30,11 @@ class WSIdmHTTPSConnection(HTTPConnection):
         self.ctx= None
         self.sock= None
         self.ca_path=None
+        self.log = Factory.get_logger('root')
         if hasattr(cereconf, "WSIDM_CA_PATH"):
             self.ca_path = cereconf.WSIDM_CA_PATH
         else:
-            log.error('Missing path to CA certificates.  ' + \
+            self.log.error('Missing path to CA certificates.  ' + \
                 'Add WSIDM_CA_PATH to cereconf.py.')
             exit(1)
         self.host = host
@@ -62,20 +66,21 @@ class WSIdm(object):
         self.wsidm_username = None
         self.wsidm_password = None
         self.wsidm_url = None
+        self.log = Factory.get_logger('root')
         if hasattr(cereconf, "WSIDM_USERNAME"):
             self.wsidm_username = cereconf.WSIDM_USERNAME
         else:
-            log.error('')
+            log.error('WSIDM_USERNAME is missing in cereconf.py')
             exit(1)
         if hasattr(cereconf, "WSIDM_PASSWORD"):
             self.wsidm_password = cereconf.WSIDM_PASSWORD
         else:
-            log.error('')
+            self.log.error('WSIDM_PASSWORD is missing in cereconf.py')
             exit(2)
         if hasattr(cereconf, "WSIDM_URL"):
             self.wsidm_url = cereconf.WSIDM_URL
         else:
-            log.error('')
+            self.log.error('WSIDM_URL is missing in cereconf.py')
             exit(3)
 
         self.zsi_options = {
