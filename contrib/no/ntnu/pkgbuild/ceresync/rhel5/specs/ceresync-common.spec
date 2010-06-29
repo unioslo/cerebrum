@@ -11,6 +11,7 @@ Patch0: setup.py.path.patch
 License: GPL
 Group: Applications/System
 BuildRequires: python-setuptools
+BuildRequires: python-zsi
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 BuildArch: noarch
 Requires: %{pythonssl}
@@ -76,36 +77,34 @@ autoconf
 
 %build
 ./configure --prefix=${RPM_BUILD_ROOT}/usr \
-            --sysconfdir=${RPM_BUILD_ROOT}/etc \
-            --localstatedir=${RPM_BUILD_ROOT}/var \
-            --with-webroot=${RPM_BUILD_ROOT}/usr/lib/cereweb \
-            --disable-bofh
+            --sysconfdir=${RPM_BUILD_ROOT}/etc
 
 %install
-%{fakeroot} make -C spine/ceresync install
-%{fakeroot} make -C spine/client install
+%{fakeroot} make -C clients/ceresync install
 sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/site-packages/ceresync/config.py
+rm -f ${RPM_BUILD_ROOT}/usr/sbin/syncadsi*
+rm -rf ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/site-packages/ceresync/backend/adsi
 
 %clean
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
 
+
 %files
 %defattr(-,root,root)
-/usr/lib/python%{python_ver}/site-packages/SignatureHandler.py
+/usr/lib/python%{python_ver}/site-packages/ceresync/SignatureHandler.py
 /usr/lib/python%{python_ver}/site-packages/ceresync/backend/file.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/backend/__init__.py*
+/usr/lib/python%{python_ver}/site-packages/ceresync/backend/test.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/cerelog.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/config.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/doc_exception.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/errors.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/__init__.py*
 /usr/lib/python%{python_ver}/site-packages/ceresync/syncws.py*
-/usr/lib/python%{python_ver}/site-packages/Cerebrum/__init__.py
-/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/__init__.py
-/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/cerews/__init__.py
-/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/cerews/cerews_services.py
-/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/cerews/cerews_services_types.py
-/usr/lib/python%{python_ver}/site-packages/Cerebrum/lib/cerews/dom.py
+/usr/lib/python%{python_ver}/site-packages/ceresync/__init__.py
+/usr/lib/python%{python_ver}/site-packages/ceresync/dom.py
+/usr/lib/python%{python_ver}/site-packages/ceresync/cerews_services.py
+/usr/lib/python%{python_ver}/site-packages/ceresync/cerews_services_types.py
 /usr/sbin/syncfile.py*
 /usr/sbin/syncnothing.py*
 
@@ -132,6 +131,10 @@ sed "s|${RPM_BUILD_ROOT}||g" -i ${RPM_BUILD_ROOT}/usr/lib/python%{python_ver}/si
 /usr/sbin/syncaliases.py*
 
 %changelog
+* Tue Jun 29 2010 Christian H. Toldnes <chritol (at) ntnu (dot) no>
+- Ceresync 2.x does not use Spine, hence building it won't work
+- Minor changes in files section
+
 * Mon Feb 08 2010 Leiv Arild Andenes <laa (at) ntnu (dot) no>
 - Ceresync 2.x does not use Spine, hence omniorb is not needed
 

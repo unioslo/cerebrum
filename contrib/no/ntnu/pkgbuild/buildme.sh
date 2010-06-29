@@ -159,7 +159,7 @@ if [ -n "$LOCAL" ]; then
 	PKGSCRIPT="$LOCAL/$TARGET/$PLATFORM/pkgbuild.sh"
 fi
 
-COMMAND="bash $PKGSCRIPT $TEMPDIR $VER $REV"
+COMMAND="bash $PKGSCRIPT $TEMPDIR $VER $REV $LOCAL"
 if [ ! -f "$PKGSCRIPT" ]; then
     echo "Could not find build script for next step, wanted to execute:"
     echo $COMMAND
