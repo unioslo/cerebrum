@@ -70,7 +70,7 @@ class WSIdm(object):
         if hasattr(cereconf, "WSIDM_USERNAME"):
             self.wsidm_username = cereconf.WSIDM_USERNAME
         else:
-            log.error('WSIDM_USERNAME is missing in cereconf.py')
+            self.log.error('WSIDM_USERNAME is missing in cereconf.py')
             exit(1)
         if hasattr(cereconf, "WSIDM_PASSWORD"):
             self.wsidm_password = cereconf.WSIDM_PASSWORD
