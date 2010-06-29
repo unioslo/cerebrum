@@ -27,7 +27,7 @@ from lib.utils import entity_link, get_database, spine_to_web
 
 class OuCreateForm(CreateForm):
     action = '/ou/create/'
-    title = _('Create a new Organizarion Unit')
+    title = _('Create a new Organization')
 
     Order = [
         'name',
@@ -120,7 +120,7 @@ class OuCreateForm(CreateForm):
 
 class OuEditForm(EditForm, OuCreateForm):
     action = '/ou/edit/'
-    title = _('Edit OU')
+    title = _('Edit Organization')
     form_class = "edit box"
 
     def init_fields(self, *args, **kwargs):
@@ -153,7 +153,7 @@ class OuEditForm(EditForm, OuCreateForm):
 
 class OuPerspectiveEditForm(EditForm):
     action = '/ou/edit_perspectives/'
-    title = _("Edit OU Perspectives")
+    title = _("Edit Organization Perspectives")
     form_class = "edit box"
 
     Fields = {

@@ -271,7 +271,7 @@ def get_section(page):
 
 def get_tabs(current=None):
     tabs = [
-      ('Cereweb', 'index', '/index'),
+      ('Index', 'index', '/index'),
       ('Persons', 'person', '/person'),
       ('Accounts', 'account', '/account'),
       ('Groups', 'group', '/group'),

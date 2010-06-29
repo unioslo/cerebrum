@@ -26,11 +26,11 @@
 #attr $widgets = Widgets()
 #attr $viewBirthNo = False
 
-#attr $page = "ou"
+#attr $page = "Organization"
 #attr $link = "view"
 
 #def title()
-    #return $_('OU %s') % $spine_to_web($ou.name)
+    #return $_('Organization: %s') % $spine_to_web($ou.name)
 #end def
 
 #def links()
@@ -44,9 +44,9 @@
 <div id="actions">
     <h3>$_('Actions')</h3>
     <ul>
-        <li><a href="/ou/edit?id=$ou.id">$_("Edit Organizational Unit")</a></li>
-        <li><a href="/confirm/ou/delete?id=$ou.id">$_("delete ou")</a></li>
-        <li><a href="/entity/full_historylog?id=$ou.id">$_('view full history log')</a></li>
+        <li><a href="/ou/edit?id=$ou.id">$_("Edit")</a></li>
+        <li><a href="/confirm/ou/delete?id=$ou.id">$_("Delete")</a></li>
+        <li><a href="/entity/full_historylog?id=$ou.id">$_('Recent changes')</a></li>
     </ul>
 </div>
 #end def

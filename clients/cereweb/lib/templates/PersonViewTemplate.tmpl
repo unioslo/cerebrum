@@ -48,16 +48,16 @@
 <div id="actions">
     <h3>$_('Actions')</h3>
     <ul>
-        <li><a href="/person/edit?id=$person.id">$_("Edit info")</a></li>
-        <li><a href="/confirm/person/delete?id=$person.id">$_("Delete person")</a></li>
+        <li><a href="/person/edit?id=$person.id">$_("Edit")</a></li>
+        <li><a href="/confirm/person/delete?id=$person.id">$_("Delete")</a></li>
         #set link_text = $_('Create default account')
         #if $person.accounts
             #set link_text = $_('Update default account')
         #end if
             
         <li><a href="/person/build_account?owner_id=$person.id">$link_text</a></li>
-        <li><a href="/account/create?owner_id=$person.id">$_('Create new account')</a></li>
-        <li><a href="/entity/full_historylog?id=$person.id">$_('View full history log')</a> </li>
+        <li><a href="/account/create?owner_id=$person.id">$_('Create account')</a></li>
+        <li><a href="/entity/full_historylog?id=$person.id">$_('Recent changes')</a> </li>
     </ul>
 </div>
 #end def
