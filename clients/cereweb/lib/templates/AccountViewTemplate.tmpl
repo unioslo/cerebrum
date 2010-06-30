@@ -39,11 +39,11 @@
     <h3>$_('Actions')</h3>
     <ul>
         <li><a href="/confirm/account/update?account_id=$account.id">
-                    $_('Update account')</a></li>
+                    $_('Refresh')</a></li>
         <li><a href="/confirm/account/randpassword?id=$account.id">
                     $_('Generate password')</a></li>
         <li><a href="/entity/full_historylog?id=$account.id">
-            $_('View full history log')</a> </li>
+            $_('Recent changes')</a> </li>
     </ul>
 
     #if $is_admin
@@ -54,7 +54,7 @@
             #else
                 <li><a href="/confirm/account/promote_posix?account_id=$account.id">$_("Promote to posix")</a></li>
             #end if
-            <li><a href="/confirm/account/delete?account_id=$account.id">$_("Delete account")</a></li>
+            <li><a href="/confirm/account/delete?account_id=$account.id">$_("Delete")</a></li>
         </ul>
     #end if
 </div>
@@ -105,7 +105,7 @@
         $info.append(($_('Account type'), $spine_to_web($account.np_type_name)))
     #end if
     #if $account.is_posix
-        #set $text=$make_acronym($_('User identification (numerical id. used by UNIX-systems)'),$_('UID'))
+        #set $text=$make_acronym($_('User identification (numerical id. used by UNIX-systems)'),$_('User ID'))
         $info.append(($text, $account.posix_uid))
         $info.append(($_('Primary group'), $entity_link($account.primary_group)))
         #set $text=$make_acronym($_('General information about this user (used by UNIX-systems and value is usually realname)'), $_('Gecos'))
@@ -120,7 +120,7 @@
 #def editAccount($account)
     #set help = ["* Format: YYYY-MM-DD"]
     <div class="edit box" style="display:none;">
-        <h3>$_('Edit info')</h3>
+        <h3>$_('Edit')</h3>
         <form action="/account/save" method="post">
             <div class="hidden">
                 <input type="hidden" name="id" value="$account.id" />
@@ -264,7 +264,7 @@
             <td>$spine_to_web("%s:%s" % ($home.disk.host.name, $home.disk.path))</td>
             <td>$spine_to_web($home.path)</td>
             <td>$spine_to_web($home.status.description)</td>
-            <td><a class="action" href="/confirm/account/remove_home?account_id=$account.id&amp;spread_id=$home.spread.id">$_('remove')</a></td>
+            <td><a class="action" href="/confirm/account/remove_home?account_id=$account.id&amp;spread_id=$home.spread.id">$_('Delete')</a></td>
         </tr>
         #end for
     </table>
