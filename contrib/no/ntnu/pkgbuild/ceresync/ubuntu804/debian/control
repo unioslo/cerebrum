@@ -7,5 +7,5 @@ Standards-Version: 3.7.2
 
 Package: ceresync
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, python, python-ldap, python-m2crypto, python-zsi
+Depends: ${shlibs:Depends}, ${misc:Depends}, python, python-ldap, python-m2crypto, python-zsi, python-egenix-mxdatetime
 Description: Cerebrum clients
