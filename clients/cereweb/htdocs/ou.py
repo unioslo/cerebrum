@@ -75,7 +75,7 @@ def edit(id, **kwargs):
         if utils.is_correct_referer():
             return save(**form.get_values())
         else:
-            utils.queue_message(utils.get_referer_error(), error=True, title='Edit OU failed')
+            utils.queue_message(utils.get_referer_error(), error=True, title='Edit organization failed')
     return form.respond()
 edit.exposed = True
 
@@ -86,7 +86,7 @@ def create(**kwargs):
         if utils.is_correct_referer():
             return make(**form.get_values())
         else:
-            utils.queue_message(utils.get_referer_error(), error=True, title='Create OU failed')
+            utils.queue_message(utils.get_referer_error(), error=True, title='Create organization failed')
     return form.respond()
 create.exposed = True
 
@@ -122,7 +122,7 @@ def make(
         sort_name)
     db.commit()
 
-    utils.queue_message(_("Organization Unit successfully created."), title="OU created")
+    utils.queue_message(_("Organization successfully created."), title="Organization created")
     utils.redirect_entity(entity_id)
 
 def save(
@@ -146,7 +146,7 @@ def save(
 
     db.commit()
 
-    utils.queue_message(_("Organization Unit successfully modified."), title="OU changed")
+    utils.queue_message(_("Organization successfully modified."), title="Organization changed")
     utils.redirect_entity(ou)
 
 @utils.session_required_decorator
@@ -156,7 +156,7 @@ def edit_perspectives(id, **kwargs):
         if utils.is_correct_referer():
             return save_perspective(**form.get_values())
         else:
-            utils.queue_message(utils.get_referer_error(), error=True, title="Edit OU failed")
+            utils.queue_message(utils.get_referer_error(), error=True, title="Edit organization failed")
             
     return form.respond()
 edit_perspectives.exposed = True
@@ -176,7 +176,7 @@ def save_perspective(id, **kwargs):
                 dao.set_parent(id, perspective, int(value))
 
     db.commit()
-    utils.queue_message(_("Organization Unit successfully modified."), title="OU changed")
+    utils.queue_message(_("Organization successfully modified."), title="Organization changed")
     utils.redirect_entity(id)
 
 @utils.session_required_decorator
@@ -186,7 +186,7 @@ def delete(id):
     ou = dao.get(id)
     dao.delete(id)
     db.commit()
-    utils.queue_message(_("OU '%s' successfully deleted.") % ou.name, title="Change succeeded")
+    utils.queue_message(_("Organization '%s' successfully deleted.") % ou.name, title="Change succeeded")
     utils.redirect('/ou/')
 delete.exposed = True
 

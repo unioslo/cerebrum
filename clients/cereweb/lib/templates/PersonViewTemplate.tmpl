@@ -45,21 +45,21 @@
 #end def
 
 #def actions()
-<div id="actions">
-    <h3>$_('Actions')</h3>
-    <ul>
-        <li><a href="/person/edit?id=$person.id">$_("Edit")</a></li>
-        <li><a href="/confirm/person/delete?id=$person.id">$_("Delete")</a></li>
-        #set link_text = $_('Create default account')
-        #if $person.accounts
-            #set link_text = $_('Update default account')
-        #end if
-            
-        <li><a href="/person/build_account?owner_id=$person.id">$link_text</a></li>
-        <li><a href="/account/create?owner_id=$person.id">$_('Create account')</a></li>
-        <li><a href="/entity/full_historylog?id=$person.id">$_('Recent changes')</a> </li>
-    </ul>
-</div>
+	<div id="actions">
+	    <h3>$_('Actions')</h3>
+	    <ul>
+	        <li><a href="/person/edit?id=$person.id">$_("Edit")</a></li>
+	        <li><a href="/confirm/person/delete?id=$person.id">$_("Delete")</a></li>
+	        #set link_text = $_('Create default account')
+	        #if $person.accounts
+	            #set link_text = $_('Update default account')
+	        #end if
+	            
+	        <li><a href="/person/build_account?owner_id=$person.id">$link_text</a></li>
+	        <li><a href="/account/create?owner_id=$person.id">$_('Create account')</a></li>
+	        <li><a href="/entity/full_historylog?id=$person.id">$_('Recent changes')</a> </li>
+	    </ul>
+	</div>
 #end def
 
 ## Page for viewing information about a person.
@@ -98,37 +98,37 @@
 #end def
 
 #def viewAffiliation($person)
-#if not $person.affiliations
-    #return
-#end if
+	#if not $person.affiliations
+	    #return
+	#end if
 
-<div class="info box">
-    #set $h3=$make_acronym($_('How a person is officially connected to an organization.'), $_('Affiliations'))
-    <h3>$h3</h3>
-    <table>
-        <tr class="headers">
-        <th>$_('Affiliation')</th>
-        <th>$_('Organization')</th>
-        <th>$_('Additional Info')</th>
-        <th>$_('Source')</th>
-        <th>$_('Actions')</th>
-        </tr>
-        #set $active = [x for x in $person.affiliations if not x.is_deleted]
-        #set $deleted = [x for x in $person.affiliations if x.is_deleted]
-
-        $writeAffiliations($person, $active)
-        $writeAffiliations($person, $deleted)
-    </table>
-</div>
+	<div class="info box">
+	    #set $h3=$make_acronym($_('How a person is officially connected to an organization.'), $_('Affiliations'))
+	    <h3>$h3</h3>
+	    <table>
+	        <tr class="headers">
+	        <th>$_('Affiliation')</th>
+	        <th>$_('Organization')</th>
+	        <th>$_('Additional Info')</th>
+	        <th>$_('Source')</th>
+	        <th>$_('Actions')</th>
+	        </tr>
+	        #set $active = [x for x in $person.affiliations if not x.is_deleted]
+	        #set $deleted = [x for x in $person.affiliations if x.is_deleted]
+	
+	        $writeAffiliations($person, $active)
+	        $writeAffiliations($person, $deleted)
+	    </table>
+	</div>
 #end def
 
 #def writeAffiliations($person, $affiliations)
-#for $aff in $affiliations
-#if $aff.is_deleted
-    <tr class="item deleted">
-#else    
-    <tr class="item">
-#end if
+	#for $aff in $affiliations
+	#if $aff.is_deleted
+	    <tr class="item deleted">
+	#else    
+	    <tr class="item">
+	#end if
         <td>$spine_to_web($aff.name)</td>
         <td>$entity_link($aff.ou)</td>
         <td>
@@ -144,35 +144,35 @@
                             $aff.id,
                             $aff.source_system.id)
                 #if not $aff.is_deleted
-                    <a class="action" href="/confirm/person/remove_affil?$args">delete</a>
+                    <a class="action" href="/confirm/person/remove_affil?$args">Delete</a>
                 #end if
         </td>
     </tr>
-#end for
+	#end for
 #end def
 
 #def addAffiliation($person)
-#set $status = [($s.id, $spine_to_web($s.name)) for $s in $affiliation_types]
-
-#set $ou_options = $create_ou_selection_tree($ou_tree)
-<div class="edit box">
-    <h3 id="affil">$_('Add an affiliation')</h3>
-    <form action="add_affil" method="post">
-        <div class="hidden">
-            <input type="hidden" name="id" value="$person.id" />
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption("status", "Affiliation", $status)
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption("ou", "Organization Unit", $ou_options, $quote=False)
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Add')" />&#x0020;
-            <input type="button" value="$_('Cancel')" class="cancel" />
-        </div>
-    </form>
-</div>
+	#set $status = [($s.id, $spine_to_web($s.name)) for $s in $affiliation_types]
+	
+	#set $ou_options = $create_ou_selection_tree($ou_tree)
+	<div class="edit box">
+	    <h3 id="affil">$_('Add an affiliation')</h3>
+	    <form action="add_affil" method="post">
+	        <div class="hidden">
+	            <input type="hidden" name="id" value="$person.id" />
+	        </div>
+	        <div class="required">
+	            $form_widgets.generate_loption("status", "Affiliation", $status)
+	        </div>
+	        <div class="required">
+	            $form_widgets.generate_loption("ou", "Organization Unit", $ou_options, $quote=False)
+	        </div>
+	        <div class="buttons">
+	            <input type="submit" value="$_('Add')" />&#x0020;
+	            <input type="button" value="$_('Cancel')" class="cancel" />
+	        </div>
+	    </form>
+	</div>
 #end def
 
 #def viewNames($person)
@@ -191,7 +191,7 @@
                <td>$spine_to_web($name.value)</td>
                <td>
                     #for $source in $name.source_systems
-                    <div>$spine_to_web($source.name) - <a class="action" href="/confirm/person/remove_name?id=$name.id&amp;variant=$name.variant.id&amp;ss=$source.id">delete</a></div>
+                    <div>$spine_to_web($source.name) - <a class="action" href="/confirm/person/remove_name?id=$name.id&amp;variant=$name.variant.id&amp;ss=$source.id">Delete</a></div>
                     #end for
                </td>
             </tr>
@@ -201,46 +201,46 @@
 #end def
 
 #def setName($person, $name_types)
-<div class="edit box">
-    <h3>$_('Set a name')</h3>
-    <form action="add_name" method="post">
-        <div class="hidden">
-            <input type="hidden" name="id" value="$person.id" />
-        </div>
-        <div class="required">
-            $form_widgets.input("name", "Name")
-        </div>
-        <div class="required">
-            $form_widgets.generate_loption("name_type", "Name type",
-                    [($spine_to_web($i.name), $spine_to_web($i.description)) for $i in $name_types])
-        </div>
-        <div class="buttons">
-            <input type="submit" value="$_('Set name')" />&#x0020;
-            <input type="button" value="$_('Cancel')" class="cancel" />
-        </div>
-    </form>
-</div>
+	<div class="edit box">
+	    <h3>$_('Set a name')</h3>
+	    <form action="add_name" method="post">
+	        <div class="hidden">
+	            <input type="hidden" name="id" value="$person.id" />
+	        </div>
+	        <div class="required">
+	            $form_widgets.input("name", "Name")
+	        </div>
+	        <div class="required">
+	            $form_widgets.generate_loption("name_type", "Name type",
+	                    [($spine_to_web($i.name), $spine_to_web($i.description)) for $i in $name_types])
+	        </div>
+	        <div class="buttons">
+	            <input type="submit" value="$_('Set name')" />&#x0020;
+	            <input type="button" value="$_('Cancel')" class="cancel" />
+	        </div>
+	    </form>
+	</div>
 #end def
 
 #def printDialog($person)
-#set $langs= [ ('no', 'Norwegian'),('en', 'English')]
-<div class="edit box">
-    <h3>$_('Print contract')</h3>
-        <form action="print_contract" method="post">
-            <div>
-                <input type="hidden" name="id" value="$person.id" />
-                <div>
-                    $form_widgets.generate_loption("lang", "Language", $langs)
-                </div>
-                <div>
-                    <label for="printpw">Generate new password:</label>
-                    <input type="checkbox" name="printpw" value="on" />
-                </div>
-                <div class="buttons">
-                    <input type="submit" value="$_('Print')" />
-                    <input type="button" value="$_('Cancel')" class="cancel" />
-                </div>
-            </div>
-        </form>
-</div>
+	#set $langs= [ ('no', 'Norwegian'),('en', 'English')]
+	<div class="edit box">
+	    <h3>$_('Print contract')</h3>
+	        <form action="print_contract" method="post">
+	            <div>
+	                <input type="hidden" name="id" value="$person.id" />
+	                <div>
+	                    $form_widgets.generate_loption("lang", "Language", $langs)
+	                </div>
+	                <div>
+	                    <label for="printpw">Generate new password:</label>
+	                    <input type="checkbox" name="printpw" value="on" />
+	                </div>
+	                <div class="buttons">
+	                    <input type="submit" value="$_('Print')" />
+	                    <input type="button" value="$_('Cancel')" class="cancel" />
+	                </div>
+	            </div>
+	        </form>
+	</div>
 #end def

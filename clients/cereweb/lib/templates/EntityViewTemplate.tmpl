@@ -63,40 +63,39 @@
 #end def
 
 #def viewAccounts($entity)
-<div class="list box">
-    <h3>$_('Accounts &amp; Groups')</h3>
-    <form action="accounts" method="post">
-        <input type="hidden" value="$entity.id" name="owner_id" />
-        #for $account in $entity.accounts
-
-        #if $account.is_primary
-        <div class="item primary">
-        #else
-        <div class="item">
-        #end if
-            <input type="checkbox" name="account_$account.id" />
-            <em>$_('Account'):</em>$account.name
-            $entity_link($account, "view", _class="action")
-            ## no point in checking unless we have a primary
-            #if $account.is_primary
-                <span class="extra">(primary)</span>
-            #end if
-            #if $account.is_posix
-                <span class="extra">(posix)</span>
-            #end if
-            #if $account.is_expired
-                <span class="extra">(expired)</span>
-            #end if
-        </div>
-        $listGroups($account)
-        #end for
-
-        #if $entity.accounts
-        <input type="submit" value="$_('Delete')" name="delete" />&#x0020;
-        #end if
-        <a href="/account/create?owner_id=$entity.id">$_('Create new account')</a>
-    </form>
-</div>
+	<div class="list box">
+	    <h3>$_('Accounts and Groups')</h3>
+	    <form action="accounts" method="post">
+	        <input type="hidden" value="$entity.id" name="owner_id" />
+	        #for $account in $entity.accounts
+		        #if $account.is_primary
+		        	<div class="item primary">
+		        #else
+		        	<div class="item">
+			    #end if
+		            <input type="checkbox" name="account_$account.id" />
+		            <em>$_('Account'):</em>$account.name
+		            $entity_link($account, "View", _class="action")
+		            ## no point in checking unless we have a primary
+		            #if $account.is_primary
+		                <span class="extra">(primary)</span>
+		            #end if
+		            #if $account.is_posix
+		                <span class="extra">(posix)</span>
+		            #end if
+		            #if $account.is_expired
+		                <span class="extra">(expired)</span>
+		            #end if
+		        </div>
+		        $listGroups($account)
+	        #end for
+	
+	        #if $entity.accounts
+	        	<input type="submit" value="$_('Delete')" name="delete" />&#x0020;
+	        #end if
+	        <a href="/account/create?owner_id=$entity.id">$_('Create new account')</a>
+	    </form>
+	</div>
 #end def
 
 #def setEmail($entity)
@@ -381,7 +380,7 @@
         #set $input_name = "member_%s_%s" % ($account.id, $group.id)
         <input type="checkbox" name="$input_name" disabled="disabled" />
         <em>$_("Group"):</em> $spine_to_web($group.name)
-        $entity_link($group, text="view", _class="action")
+        $entity_link($group, text="View", _class="action")
 
         <span class="extra">(primary)</span>
         <span class="extra">(posix)</span>
@@ -401,7 +400,7 @@
         #set $input_name = "member_%s_%s" % ($account.id, $group.id)
         <input type="checkbox" name="$input_name" $disabled />
         <em>$_($header):</em> $spine_to_web($group.name)
-        $entity_link($group, text="view", _class="action")
+        $entity_link($group, text="View", _class="action")
 
         #if $group.is_posix
             <span class="extra">(posix)</span>
@@ -410,99 +409,99 @@
 #end def
 
 #def viewContactInfos($entity)
-#if not $entity.contacts
-    #return
-#end if
+	#if not $entity.contacts
+	    #return
+	#end if
 
-<div class="info box">
-    <h3>$_('Contact Info')</h3>
-    <table>
-    <tr>
-      <th>$_('Type')</th>
-      <th>$_('Value')</th>
-      <th>$_('Sources')</th>
-    </tr>
-    #for $contact in $entity.contacts
-    <tr>
-       <td>$spine_to_web($contact.variant.name)</td>
-       <td>$spine_to_web($contact.value)</td>
-       <td>
-           $spine_to_web(",".join([$s.name for $s in $contact.source_systems]))
-       </td>
-    </tr>
-    #end for
-    </table>
-</div>
+	<div class="info box">
+	    <h3>$_('Contact Info')</h3>
+	    <table>
+	    <tr>
+	      <th>$_('Type')</th>
+	      <th>$_('Value')</th>
+	      <th>$_('Sources')</th>
+	    </tr>
+	    #for $contact in $entity.contacts
+		    <tr>
+		       <td>$spine_to_web($contact.variant.name)</td>
+		       <td>$spine_to_web($contact.value)</td>
+		       <td>
+		           $spine_to_web(",".join([$s.name for $s in $contact.source_systems]))
+		       </td>
+		    </tr>
+	    #end for
+	    </table>
+	</div>
 #end def
 
 #def viewAddresses($entity)
-#if not $entity.addresses
-    #return
-#end if
-<div class="info box">
-    <h3>$_('Addresses')</h3>
-    <table>
-    <tr>
-      <th>$_('Type')</th>
-      <th>$_('Address')</th>
-      <th>$_('P O Box')</th>
-      <th>$_('P nr')</th>
-      <th>$_('City')</th>
-      <th>$_('Country')</th>
-      <th>$_('Sources')</th>
-    </tr>
-    #for $address in $entity.addresses
-    <tr>
-       <td>$spine_to_web($address.variant.name)</td>
-       <td>$spine_to_web($address.value.address_text)</td>
-       <td>$spine_to_web($address.value.p_o_box)</td>
-       <td>$spine_to_web($address.value.postal_number)</td>
-       <td>$spine_to_web($address.value.city)</td>
-       <td>$spine_to_web($address.value.country)</td>
-       <td>
-           $spine_to_web(",".join([$s.name for $s in $address.source_systems]))
-       </td>
-    </tr>
-    #end for
-    </table>
-</div>
+	#if not $entity.addresses
+	    #return
+	#end if
+	<div class="info box">
+	    <h3>$_('Addresses')</h3>
+	    <table>
+	    <tr>
+	      <th>$_('Type')</th>
+	      <th>$_('Address')</th>
+	      <th>$_('P O Box')</th>
+	      <th>$_('P nr')</th>
+	      <th>$_('City')</th>
+	      <th>$_('Country')</th>
+	      <th>$_('Sources')</th>
+	    </tr>
+	    #for $address in $entity.addresses
+		    <tr>
+		       <td>$spine_to_web($address.variant.name)</td>
+		       <td>$spine_to_web($address.value.address_text)</td>
+		       <td>$spine_to_web($address.value.p_o_box)</td>
+		       <td>$spine_to_web($address.value.postal_number)</td>
+		       <td>$spine_to_web($address.value.city)</td>
+		       <td>$spine_to_web($address.value.country)</td>
+		       <td>
+		           $spine_to_web(",".join([$s.name for $s in $address.source_systems]))
+		       </td>
+		    </tr>
+	    #end for
+	    </table>
+	</div>
 #end def
 
 #def viewExternalIds($entity, $viewBirthNo)
-#if not $entity.external_ids
-    #return
-#end if
+	#if not $entity.external_ids
+	    #return
+	#end if
 
-<div class="info box">
-    #set $h3=$make_acronym($_('Identifiers that are imported from external systems( e.g. national identity number from kjernen)'), $_('External Identifiers'))
-    <h3>$h3</h3>
-    <table>
-    <tr>
-      <th>$_('Type')</th>
-      <th>$_('Value')</th>
-      <th>$_('Sources')</th>
-    </tr>
-    #for $external_id in $entity.external_ids
-        <tr>
-            <td>$spine_to_web($external_id.variant.name)</td>
-            <td>
-            #if $external_id.variant.name == 'NO_BIRTHNO'
-                #if $viewBirthNo
-                    $html_quote($external_id.value)&#x0020;<a href="/person/view?id=$entity.id">[Hide value]</a>
-                #else
-                    <a href="/person/view?id=$entity.id&amp;birthno=True">[Show value]</a>
-                #end if
-            #else
-               $html_quote($external_id.value)
-            #end if
-            </td>
-           <td>
-               $spine_to_web(",".join([$s.name for $s in $external_id.source_systems]))
-           </td>
-        </tr>
-    #end for
-    </table>
-</div>
+	<div class="info box">
+	    #set $h3=$make_acronym($_('Identifiers that are imported from external systems( e.g. national identity number from kjernen)'), $_('External Identifiers'))
+	    <h3>$h3</h3>
+	    <table>
+	    <tr>
+	      <th>$_('Type')</th>
+	      <th>$_('Value')</th>
+	      <th>$_('Sources')</th>
+	    </tr>
+	    #for $external_id in $entity.external_ids
+	        <tr>
+	            <td>$spine_to_web($external_id.variant.name)</td>
+	            <td>
+	            #if $external_id.variant.name == 'NO_BIRTHNO'
+	                #if $viewBirthNo
+	                    $html_quote($external_id.value)&#x0020;<a href="/person/view?id=$entity.id">[Hide value]</a>
+	                #else
+	                    <a href="/person/view?id=$entity.id&amp;birthno=True">[Show]</a>
+	                #end if
+	            #else
+	               $html_quote($external_id.value)
+	            #end if
+	            </td>
+	           <td>
+	               $spine_to_web(",".join([$s.name for $s in $external_id.source_systems]))
+	           </td>
+	        </tr>
+	    #end for
+	    </table>
+	</div>
 #end def
 
 #def setExternalId($entity, $id_types)
