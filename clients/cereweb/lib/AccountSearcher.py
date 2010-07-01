@@ -35,8 +35,8 @@ class AccountSearcher(CoreSearcher):
     )
 
     headers = [
-            (_('Name'), 'name'),
-            (_('Owner'), 'owner.name'),
+            (_('Account'), 'name'),
+            (_('Person'), 'owner.name'),
         ]
 
     orderby_default = 'name'

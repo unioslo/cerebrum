@@ -32,14 +32,14 @@
 #end def
 
 #def actions()
-<div id="actions">
-    <h3>$_("Actions")</h3>
-    <ul>
-        <li><a href="/emailtarget/edit?id=$target.id">$_("edit info")</a></li>
-        <li><a href="/confirm/emailtarget/delete?id=$target.id">$_("delete target")</a></li>
-        <li><a href="/entity/full_historylog?id=$target.id">$_('view full history log')</a></li>
-    </ul>
-</div>
+    <div id="actions">
+        <h3>$_("Actions")</h3>
+        <ul>
+            <li><a href="/emailtarget/edit?id=$target.id">$_("Edit")</a></li>
+            <li><a href="/confirm/emailtarget/delete?id=$target.id">$_("Delete")</a></li>
+            <li><a href="/entity/full_historylog?id=$target.id">$_('Recent changes')</a></li>
+        </ul>
+    </div>
 #end def
 
 #def content()
@@ -67,31 +67,31 @@
         #else
             <table>
                 <tr>
-		<th>$_('Address')</th>
-		<th>$_('Is primary address')</th>
-		<th>$_('Expires')</th>
+                    <th>$_('Address')</th>
+		            <th>$_('Is primary address')</th>
+		            <th>$_('Expires')</th>
                 </tr>
                 #for $address in $target.addresses
                     #if $address.is_primary
                         <tr class="primary item">
-		    #else
+		            #else
                         <tr class="item">
-		    #end if
-			<td>$html_quote($address.address)</td>
+                    #end if
+                        <td>$html_quote($address.address)</td>
                         <td>$_($address.is_primary)</td>
-			<td>
+                        <td>
                             #if not $address.expire
                                 $_("Never")
                             #else
                                 $quotedate($address.expire)
                             #end if
-                            </td>
+                        </td>
                         <td>
                             <a class="action" href="/confirm/emailaddress/delete?target_id=$target.id&amp;address_id=$address.id">Delete</a>
                             <a class="action" href="/emailaddress/edit?target_id=$target.id&amp;address_id=$address.id">Edit</a>
-			    #if not $address.is_primary
+            			    #if not $address.is_primary
                                 <a class="action" href="/confirm/emailaddress/setprimary?target_id=$target.id&amp;address_id=$address.id">Primary</a>
-			    #end if
+            			    #end if
                         </td>
                     </tr>
                 #end for

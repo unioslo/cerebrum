@@ -40,8 +40,8 @@
     #for $motd in $motds
         <div class="motd box">
             <div class="actions">
-                <a class="action" href="/motd/edit?id=$motd.id">$_('edit')</a>
-                <a class="action" href="/confirm/motd/delete?id=$motd.id">$_('delete')</a>
+                <a class="action" href="/motd/edit?id=$motd.id">$_('Edit')</a>
+                <a class="action" href="/confirm/motd/delete?id=$motd.id">$_('Delete')</a>
             </div>
             <div class="subject">$spine_to_web($motd.subject)</div>
             $spine_to_web($motd.message).replace('\n', '<br />')

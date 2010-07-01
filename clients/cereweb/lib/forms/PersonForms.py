@@ -52,7 +52,7 @@ class PersonCreateForm(Form):
 
     Fields = {
         'ou': {
-            'label': _('OU'),
+            'label': _('Organization'),
             'required': True,
             'type': 'select',
             'quote': 'reject',
