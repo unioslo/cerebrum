@@ -87,10 +87,10 @@ class PersonCreateForm(Form):
             'help': _('Date must be in YYYY-MM-DD format.'),
         },
         'externalid': {
-            'label': '<abbr title="%s">%s</abbr>' % (_('National Identity Number'), _('NIN')),
-            'required': False,
+            'label': _('National Identity Number'),
+            'required': True,
             'type': 'text',
-            'help': _('Norwegian "Fødselsnummer", 11 digits'),
+            'help': _('11 digits'),
         },
         'description': {
             'label': _('Description'),
