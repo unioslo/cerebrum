@@ -458,9 +458,16 @@ class Cursor(object):
         object.  The no-op should result in an exception being raised
         if the cursor is no longer able to communicate with the
         database.
-
+        
+        Caveat: note that a SELECT sent to the database at this point will
+        start a new transaction. If autocommit is off, this new transaction
+        will remain idle until another query is sent. Be careful about the
+        context in which this method is invoked.
         """
         self.execute("""SELECT 1 AS foo [:from_dual]""")
+    # end ping
+# end class Cursor
+        
 
 
 class RowIterator(object):
@@ -824,11 +831,18 @@ class Database(object):
         Force the underlying database driver module to raise an
         exception if the database communication channel represented by
         this object for some reason isn't working properly.
-
         """
         c = self.cursor()
         c.ping()
         c.close()
+
+        # IVR 2010-07-02: At this point ping()-ing has potentially started a
+        # new transaction. That in itself is problematic if we have a
+        # module-wide db connection (like in Constants.py) and a server that
+        # loads that module -- we risk having a transaction that remains open
+        # and idle as long as the server runs. This is not something we want.
+        self.rollback()
+    # end ping
 
     def sql_repr(self, op, *args):
         """Translate SQL portability item to SQL dialect of this driver."""
