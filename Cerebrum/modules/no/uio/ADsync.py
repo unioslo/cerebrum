@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: iso-8859-1 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2006, 2007 University of Oslo, Norway
+# Copyright 2006-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -526,30 +526,42 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
     
     def get_pwds_from_cl(self, adusrs, dry_run, spread, commit_changes=False):
         cl = CLHandler.CLHandler(self.db)
-        answer = cl.get_events('ad', (self.co.account_password,))
+
+        # We reverse the set of events, so that if the same account
+        # has multiple password changes, only the last will be updated.
+        # If we didn't reverse, and if the first password update fails,
+        # then this would be retried in the next run, and the next password
+        # update(s) will not be rerun afterwards, leaving the user with
+        # an older password than the last.
+        answer = reversed(cl.get_events('ad', (self.co.account_password,)))
+        handled = set()
         for ans in answer:
-            if ans['change_type_id'] == self.co.account_password:
+            confirm = True
+            if ans['change_type_id'] == self.co.account_password and not ans['subject_entity'] in handled:
+                handled.add(ans['subject_entity'])
                 self.ac.clear()
                 self.ac.find(ans['subject_entity'])
                 #if usr exists in ad change pwd, else password set when created
                 if adusrs.has_key(self.ac.account_name):
                     pw = pickle.loads(ans['change_params'])['password']
-                    self.change_pwd(self.ac.account_name, pw, dry_run)
+                    confirm = self.change_pwd(self.ac.account_name, pw, dry_run)
                 #but for now we dont get the password when user is created so we also
                 #check if user is a user with AD-spread and asume these are just created
                 elif self.ac.has_spread(self.co.Spread(spread)):
                     pw = pickle.loads(ans['change_params'])['password']
-                    self.change_pwd(self.ac.account_name, pw, dry_run)
+                    confirm = self.change_pwd(self.ac.account_name, pw, dry_run)
             else:
-                self.logger.debug("unknown change_type_id %i",
+                self.logger.debug("unknown change_type_id %i or user already updated",
                                   ans['change_type_id'])
-            cl.confirm_event(ans)
+            if confirm:
+                cl.confirm_event(ans)
         if commit_changes:                
             cl.commit_confirmations()
             self.logger.info("Commited changes, updated c_l_handler.")
             
 
     def change_pwd(self, uname, pw, dry_run):
+        """Change password in AD, return True on success, False on fail"""
         dn = self.server.findObject(uname)
         ret = self.run_cmd('bindObject', dry_run, dn)
         self.logger.debug("Binding %s", ret[0])
@@ -558,10 +570,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         if ret[0]:
             self.logger.info('Changed password for %s in domain %s' %
                              (uname, self.ad_ldap))
+            return True
         else:
             #Something went wrong.
             self.logger.error('Failed change password for %s in domain %s.' % (
                     uname, self.ad_ldap))
+            return False
 
     
     def full_sync(self, delete=False, spread=None, dry_run=True, 
