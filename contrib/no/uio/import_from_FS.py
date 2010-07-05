@@ -37,16 +37,16 @@ from Cerebrum.Utils import AtomicFileWriter, SimilarSizeWriter
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 
-default_person_file = "/cerebrum/dumps/FS/persons.xml"
-default_emne_file = "/cerebrum/dumps/FS/emner.xml"
-default_role_file = "/cerebrum/dumps/FS/roles.xml"
-default_topics_file = "/cerebrum/dumps/FS/topics.xml"
-default_studieprogram_file = "/cerebrum/dumps/FS/studieprogrammer.xml"
-default_regkort_file = "/cerebrum/dumps/FS/regkort.xml"
-default_ou_file = "/cerebrum/dumps/FS/ou.xml"
-default_fnrupdate_file = "/cerebrum/dumps/FS/fnr_udpate.xml"
-default_betalt_papir_file = "/cerebrum/dumps/FS/betalt_papir.xml"
-default_netpubl_file = "/cerebrum/dumps/FS/nettpublisering.xml"
+default_person_file = "/cerebrum/uio/dumps/FS/persons.xml"
+default_emne_file = "/cerebrum/uio/dumps/FS/emner.xml"
+default_role_file = "/cerebrum/uio/dumps/FS/roles.xml"
+default_topics_file = "/cerebrum/uio/dumps/FS/topics.xml"
+default_studieprogram_file = "/cerebrum/uio/dumps/FS/studieprogrammer.xml"
+default_regkort_file = "/cerebrum/uio/dumps/FS/regkort.xml"
+default_ou_file = "/cerebrum/uio/dumps/FS/ou.xml"
+default_fnrupdate_file = "/cerebrum/uio/dumps/FS/fnr_udpate.xml"
+default_betalt_papir_file = "/cerebrum/uio/dumps/FS/betalt_papir.xml"
+default_netpubl_file = "/cerebrum/uio/dumps/FS/nettpublisering.xml"
 
 xml = XMLHelper()
 fs = None
