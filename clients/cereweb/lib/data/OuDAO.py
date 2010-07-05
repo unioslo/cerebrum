@@ -136,7 +136,7 @@ class OuDAO(EntityDAO):
                 parent = data[parent_id]
                 parent.children.append(node)
 
-        return [root for root in roots.values()]
+        return roots.values()
 
     def get_trees(self):
         perspectives = ConstantsDAO(self.db).get_ou_perspective_types()
