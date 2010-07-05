@@ -303,15 +303,15 @@ def prepare_user_mismatch_report(affiliations, accountless, multi_account, misma
 
 
 
-def groups_matching_person_affs(person_affs, aff2groups):
-    """Collect group_ids matching (aff, status, ou_id) in person_affs.
+def groups_matching_user_affs(user_affs, aff2groups):
+    """Collect group_ids matching (aff, status, ou_id) in user_affs.
 
-    Return all group_ids where the owner of person_affs must be a member
+    Return all group_ids where the owner of user_affs must be a member
     according to the current rule set.
     """
 
     required = set()
-    for aff, status, ou_id in person_affs:
+    for aff, status, ou_id in user_affs:
         required.add(aff2groups.get((aff, None, None)))
         required.add(aff2groups.get((aff, status, None)))
         required.add(aff2groups.get((aff, None, ou_id)))
@@ -327,7 +327,7 @@ def load_group_members(aff2groups):
     """Collect all members of specified groups.
 
     @return:
-      A mapping group_id -> set of entity_ids
+      A mapping group_id -> set of (member) entity_ids
     """
 
     def fetch_group_name(group_id):
@@ -359,46 +359,78 @@ def load_group_members(aff2groups):
 
 
 
-def person_group_mismatch(person2affiliations, aff2groups):
-    """Return which groups which people should be a member of (but aren't).
+def remap_people_to_accounts(person2affiliations):
+    """Remap person_id to the corresponding account.
+
+    person2affiliation is a dict from person_id to the set of
+    affiliations. This function remaps person_id to account_id and returns a
+    similar data structure. Since NMH has a one-to-one correspondance between
+    account_ids and person_ids, this is a meaningful operation.
+    """
+
+    account = Factory.get("Account")(database)
+    result = dict()
+    # person_id -> account_id
+    person2account = dict((r["owner_id"], r["account_id"])
+                          for r in account.search())
+    for person_id in person2affiliations:
+        value = person2affiliations[person_id]
+        if person_id not in person2account:
+            logger.info("Person %s (id=%s) has no account",
+                        person_id2report(person_id), person_id)
+            continue
+
+        # FIXME: copy.deepcopy(value)?
+        result[person2account[person_id]] = value
+
+    logger.debug("Remapped %d people->aff-seq to %s account->aff-seq",
+                 len(person2affiliations),
+                 len(result))
+    return result
+# end remap_people_to_accounts
+
+
+
+def user_group_mismatch(user2affiliations, aff2groups):
+    """Return which groups which accounts should be a member of (but aren't).
 
     @param aff2groups:
       Mapping key -> group_id, where key designates an affiliation
       (i.e. (aff,), (aff,status), (aff,ou_id) or (aff,status,ou_id)).
 
     @return:
-      A dict mapping person_id to a set of group_ids where person_id should
+      A dict mapping user_id to a set of group_ids where user_id should
       have been a member.
     """
 
-    # group_id -> set of person_id
+    # group_id -> set of member_ids
     members = load_group_members(aff2groups)
-    # person_id -> set of group_id where person_id should have been a member,
+    # account_id -> set of group_id where account_id should have been a member,
     # but is not
-    mismatched_people = dict()
+    mismatched_users = dict()
 
-    for person_id in person2affiliations:
-        person_affs = person2affiliations[person_id]
-        groups_required = groups_matching_person_affs(person_affs, aff2groups)
+    for account_id in user2affiliations:
+        user_affs = user2affiliations[account_id]
+        groups_required = groups_matching_user_affs(user_affs, aff2groups)
         missing = set(group_id
                       for group_id in groups_required
-                      if person_id not in members[group_id])
+                      if account_id not in members[group_id])
         if missing:
-            mismatched_people[person_id] = missing
+            mismatched_users[account_id] = missing
 
-    return mismatched_people
-# end person_group_mismatch
+    return mismatched_users
+# end user_group_mismatch
 
 
 
-def prepare_person_group_mismatch_report(aff2groups, mismatches):
-    """Generate a report for person<->group mismatches.
+def prepare_user_group_mismatch_report(aff2groups, mismatches):
+    """Generate a report for user<->group mismatches.
 
     @aff2groups:
       Data structure mapping affiliations to group memberships.
 
     @param mismatches:
-      A mapping from person_id to a sequence of group_ids where the person
+      A mapping from account_id to a sequence of group_ids where the person
       should have been a member but is not.
     """
 
@@ -417,21 +449,21 @@ def prepare_person_group_mismatch_report(aff2groups, mismatches):
     
     const = Factory.get("Constants")()
     sink = StringIO()
-    sink.write("Person-group mismatch report for affiliations %s\n" %
+    sink.write("User-group mismatch report for affiliations %s\n" %
                ", ".join(sorted(set(affkey2string(x)
                                     for x in aff2groups))))
-    sink.write("\nThere are %s people in total who are not members of "
+    sink.write("\nThere are %s accounts in total who are not members of "
                "all groups they should be members of:\n\n" % len(mismatches))
 
-    for person_id in mismatches:
-        missing_groups = mismatches[person_id]
+    for account_id in mismatches:
+        missing_groups = mismatches[account_id]
         missing = ", ".join("group %s (id=%s)" % (g.group_name, g.entity_id)
                             for g in (get_group(x) for x in missing_groups))
-        sink.write("* Person %s (id=%s) should have been a member of: "
-                   "%s\n" % (person_id2report(person_id), person_id, missing))
+        sink.write("* Account %s (id=%s) should have been a member of: "
+                   "%s\n" % (account_id2report(account_id), account_id, missing))
 
     return sink.getvalue()
-# end prepare_person_group_mismatch_report
+# end prepare_user_group_mismatch_report
 
 
 
@@ -537,7 +569,7 @@ def send_report(report, subject, to, cc=None):
 def main(argv):
     opts, junk = getopt.getopt(argv[1:],
                                "g:u:s:",
-                               ("person-group-mismatch=",
+                               ("user-group-mismatch=",
                                 "person-user-mismatch=",
                                 "source-system=",
                                 "to=",
@@ -554,7 +586,7 @@ def main(argv):
         elif option in ("-s", "--source-system",):
             source_system = const.human2constant(value,
                                                  const.AuthoritativeSystem)
-        elif option in ("-g", "--person-group-mismatch",):
+        elif option in ("-g", "--user-group-mismatch",):
             group_mismatch.add(value)
         elif option in ("--to",):
             recipient = value
@@ -571,9 +603,10 @@ def main(argv):
         # The first element of every key is always the affilation
         affiliations = tuple(x[0] for x in group_mismatch_rules)
         persons = fetch_persons(affiliations, source_system)
-        mismatched = person_group_mismatch(persons, group_mismatch_rules)
-        reports.append(prepare_person_group_mismatch_report(group_mismatch_rules,
-                                                            mismatched))
+        accounts = remap_people_to_accounts(persons)
+        mismatched = user_group_mismatch(accounts, group_mismatch_rules)
+        reports.append(prepare_user_group_mismatch_report(group_mismatch_rules,
+                                                          mismatched))
     if user_mismatch:
         affiliations = tuple(const.human2constant(x, const.PersonAffiliation)
                              for x in user_mismatch)
