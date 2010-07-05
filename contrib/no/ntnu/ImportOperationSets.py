@@ -241,7 +241,7 @@ please run UpdateSpineConstants.py""" % (operation, sys.argv[1])
         # Add and update op_sets in the config file.
         for key, new in self.op_sets.items():
             new = set(new)
-            old = set(self.old_op_sets.get(key))
+            old = set(self.old_op_sets.get(key, []))
 
             self._add_ops_to_set(key, new - old)
             self._remove_ops_from_set(key, old - new)
