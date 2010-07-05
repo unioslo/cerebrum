@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
@@ -28,14 +27,11 @@ and Exchange 2007.
 """
 
 import cerebrum_path
-import sys
 import cereconf
-from Cerebrum.Constants import _SpreadCode
 from Cerebrum import Utils
 from Cerebrum import QuarantineHandler
 from Cerebrum.modules import ADutilMixIn
 from Cerebrum import Errors
-import cPickle
 import copy
 import time
 
@@ -1983,6 +1979,12 @@ class ADFullContactSync(ADutilMixIn.ADutil):
         maillists_dict = {}
         for liste in mail_lists:
             objectname = "mailman.%s" % liste
+            # According to RFC 5322 the length og the local_part may
+            # be up to 64 characters. Thus check that maillists we
+            # export are no longer than 64 - len('mailman.')
+            local_part = liste.split('@')[0]
+            if len(local_part) > 56:
+                continue
             maillists_dict[objectname] = {
                 "displayName" : "Epostliste - %s" % liste,
                 "targetAddress" : "SMTP:%s" % liste,
@@ -1998,7 +2000,7 @@ class ADFullContactSync(ADutilMixIn.ADutil):
             local_part, domain = email_address.rsplit('@')
             if local_part.endswith('-admin'):
                 # local_part is on the form foo-admin. if also foo-request
-                # and foo-exists, filter foo-admin and foo-request.
+                # and foo exists, filter foo-admin and foo-request.
                 tmp = '@'.join((local_part.rsplit('-admin')[0], domain))
                 tmp_r = email_address.replace('-admin', '-request')
                 if tmp in maillists_dict.keys() and tmp_r in maillists_dict.keys():
