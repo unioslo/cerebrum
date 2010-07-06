@@ -113,14 +113,14 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def init_person_course(self):
         """Populate dicts with a person's course information."""
         timer = self.make_timer("Processing person courses...")
-        fn = "/cerebrum/dumps/LDAP/ownerid2urnlist.pickle"
+        fn = "/cerebrum/uio/dumps/LDAP/ownerid2urnlist.pickle"
         self.ownerid2urnlist = pickle.load(file(fn))
         timer("...person courses done.") 
 
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
         timer = self.make_timer("Processing person groups...")
-        fn = "/cerebrum/dumps/LDAP/personid2group.pickle"
+        fn = "/cerebrum/uio/dumps/LDAP/personid2group.pickle"
         self.person2group = pickle.load(file(fn))
         timer("...person groups done.") 
 
