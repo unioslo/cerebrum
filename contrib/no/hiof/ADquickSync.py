@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003-2008 University of Oslo, Norway
+# Copyright 2003-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -23,7 +23,6 @@
 import getopt, sys, pickle
 import xmlrpclib
 import cerebrum_path
-import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import ADutilMixIn
@@ -40,19 +39,26 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
         self.cl = CLHandler.CLHandler(db)
 
     def quick_sync(self, spread, dry_run, commit_changes=False):
-        answer = self.cl.get_events('ad', (self.co.account_password,))
+        # We reverse the set of events, so that if the same account
+        # has multiple password changes, only the last will be updated.
+        # If we didn't reverse, and if the first password update fails,
+        # then this would be retried in the next run, and the next password
+        # update(s) will not be rerun afterwards, leaving the user with
+        # an older password than the last.
+        handled = set()
+        answer = reversed(self.cl.get_events('ad', (self.co.account_password,)))
         for ans in answer:
-            if ans['change_type_id'] == self.co.account_password:
+            confirm = True
+            if (ans['change_type_id'] == self.co.account_password and
+                not ans['subject_entity'] in handled):
+                handled.add(ans['subject_entity'])
                 pw = pickle.loads(ans['change_params'])['password']
-                try:
-                    self.change_pw(ans['subject_entity'],spread, pw, dry_run)
-                except xmlrpclib.ProtocolError, xpe:
-                    self.logger.critical("Error connecting to AD service. Giving up!: %s %s" %
-                                         (xpe.errcode, xpe.errmsg))
+                confirm = self.change_pw(ans['subject_entity'],spread, pw, dry_run)
             else:
-                self.logger.debug("unknown change_type_id %i",
+                self.logger.debug("unknown change_type_id %i or user already updated",
                                   ans['change_type_id'])
-            self.cl.confirm_event(ans)
+            if confirm:
+                self.cl.confirm_event(ans)
         if commit_changes:                
             self.cl.commit_confirmations()
             self.logger.info("Commited all changes, updated c_l_handler.")
@@ -136,9 +142,14 @@ def main():
                             url=url,
                             ad_ldap=ad_ldap)
     
-    ADquickUser.quick_sync(user_spread,
-                           dry_run,
-                           commit_changes=commit_changes)
+    try:
+        ADquickUser.quick_sync(user_spread,
+                               dry_run,
+                               commit_changes=commit_changes)
+    except xmlrpclib.ProtocolError, xpe:
+        logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                        (xpe.errcode, xpe.errmsg))
+        
 
 if __name__ == '__main__':
     main()
