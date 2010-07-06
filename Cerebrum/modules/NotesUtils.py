@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2003-2008 University of Oslo, Norway
+# Copyright 2003-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -128,11 +128,20 @@ def get_cerebrum_ou_path(ou_id):
         ou.clear()
         ou.find(ou_id)
         path = ou.structure_path(co.perspective_sap)
+        # Don't include the root OU name since it is implicit. Also
+        # check if an idiot[tm] have altered the OU structure in such
+        # a way that we have several root nodes. If so chop of all
+        # root nodes.
+        ou_struct = path.split('/')
+        # FIXME: This code is crap, because we really don't know if
+        # root node acronyms == 'UIO', but since we don't know how to
+        # recognise these we have to do a lame hack like this.
+        while ou_struct[-1] == 'UIO':
+            ou_struct.pop(-1)
         # Notes can only take 4 OU levels, if there are more, we chop
-        # off the more specific levels.  We also don't include the
-        # root OU name since it is implicit.
+        # off the more specific levels.  
         # "A/B/C/D/E/F" -> ["B", "C", "D", E"]
-        return path.split('/')[-5:-1]
+        return ou_struct[-4:]
     except Errors.NotFoundError:
         logger.warn("Could not find OU with id %s", ou_id)
 
