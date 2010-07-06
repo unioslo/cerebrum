@@ -665,7 +665,9 @@ from None and LDAP_PERSON['dn'].""")
             attrs = self.visible_person_attrs
             alias_info = (primary_ou_dn,)
             # BEGIN RESERVATION HACK
+            affs = []
             for (aff, status, ou) in p_affiliations:
+                affs.append(aff)
                 # Ansatt/tilknyttet med reservasjon == skjules uansett
                 if aff in (self.const.affiliation_tilknyttet, self.const.affiliation_ansatt) and \
                    self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
@@ -675,13 +677,19 @@ from None and LDAP_PERSON['dn'].""")
                 # Student med status 'aktiv','evu','drgrad' som ikke har gitt
                 # samtykke skal skjules uansett
                 if aff == int(self.const.affiliation_student) and \
-                   status in (self.const.affiliation_status_student_evu,
-                              self.const.affiliation_status_student_aktiv,
+                   status in (self.const.affiliation_status_student_aktiv,
                               self.const.affiliation_status_student_drgrad) and \
                    not self.init_person_group("FS-aktivt-samtykke").has_key(person_id):
                     attrs = self.invisible_person_attrs
                     alias_info = ()
                     break
+            # Er personen EVU-student så får han ikke gitt samtykke, og skal heller ikke vises.
+            # Er personen også ansatt så skal ikke EVU-reservasjonen overstyre dette. Ansatt-
+            # reservasjoner settes over i koden.
+            if self.const.affiliation_status_student_evu in affs and \
+               not (self.const.affiliation_tilknyttet in affs or self.const.affiliation_ansatt in affs):
+                attrs = self.invisible_person_attrs
+                alias_info = ()
             # END HACK
         else:
             attrs = self.invisible_person_attrs
