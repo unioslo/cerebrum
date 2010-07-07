@@ -136,7 +136,10 @@ def get_cerebrum_ou_path(ou_id):
         # FIXME: This code is crap, because we really don't know if
         # root node acronyms == 'UIO', but since we don't know how to
         # recognise these we have to do a lame hack like this.
-        while ou_struct[-1] == 'UIO':
+        # Another thing is that UIO-specific code really shouldn't be
+        # in Cerebrum/module directory. Oh well, this hack should be
+        # removed soon.
+        while ou_struct and ou_struct[-1] == 'UIO':
             ou_struct.pop(-1)
         # Notes can only take 4 OU levels, if there are more, we chop
         # off the more specific levels.  
