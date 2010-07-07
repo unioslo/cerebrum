@@ -462,7 +462,8 @@ class Cursor(object):
         Caveat: note that a SELECT sent to the database at this point will
         start a new transaction. If autocommit is off, this new transaction
         will remain idle until another query is sent. Be careful about the
-        context in which this method is invoked.
+        context in which this method is invoked. This concern must be
+        addressed in database-specific manner.
         """
         self.execute("""SELECT 1 AS foo [:from_dual]""")
     # end ping
@@ -835,13 +836,6 @@ class Database(object):
         c = self.cursor()
         c.ping()
         c.close()
-
-        # IVR 2010-07-02: At this point ping()-ing has potentially started a
-        # new transaction. That in itself is problematic if we have a
-        # module-wide db connection (like in Constants.py) and a server that
-        # loads that module -- we risk having a transaction that remains open
-        # and idle as long as the server runs. This is not something we want.
-        self.rollback()
     # end ping
 
     def sql_repr(self, op, *args):
@@ -1078,6 +1072,26 @@ class PsycoPG2(PsycoPGBase):
 
 
 class PsycoPGCursor(Cursor):
+
+    def ping(self):
+        """Check if the database is still reachable.
+
+        Caveat: regardless of the autocommit settings, we want to make sure
+        that ping-ing happens as its own transaction and DOES NOT affect the
+        state of the environment in which ping has been invoked.
+        """
+
+        # We need a completely random savepoint identifier
+        import uuid
+        identifier = str(uuid.uuid4()).replace('-', '_')
+        self.execute("SAVEPOINT %s" % identifier)
+        try:
+            super(PsycoPGCursor, self).ping()
+        finally:
+            self.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
+    # end ping
+    
+    
     def execute(self, operation, parameters=()):
         # IVR 2008-10-30 TBD: This is not really how the psycopg framework
         # is supposed to be used. There is an adapter mechanism, and we should
@@ -1637,6 +1651,12 @@ class SQLiteCursor(Cursor):
 
         return retval
     # end execute
+
+    def ping(self):
+        """Check that communication with the database works."""
+        # it's SQLite -- we are always on!
+        pass
+    # end ping
 # end SQLiteCursor
 
 
