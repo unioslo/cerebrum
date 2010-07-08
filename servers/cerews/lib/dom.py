@@ -43,9 +43,12 @@ from ZSI.wstools.Utility import NamespaceError, MessageInterface, ElementProxy
 class DomletteReader(NonvalidatingReaderBase):
     '''Used with ZSI.parse.ParsedSoap
     '''
-    fromString = NonvalidatingReaderBase.parseString
-    fromStream = NonvalidatingReaderBase.parseStream
-
+    def fromString(self, string):
+        return NonvalidatingReaderBase.parseString(self, string,
+                                                   uri='urn:bogus')
+    def fromStream(self, stream):
+        return NonvalidatingReaderBase.parseStream(self, stream, 
+                                                   uri='urn:bogus')
 
 class DomletteElementProxy(ElementProxy):
     expression_dict = {}
