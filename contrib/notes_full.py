@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2009 University of Oslo, Norway
+# Copyright 2009-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -91,6 +91,14 @@ def fetch_cerebrum_data(spread):
                 # can be None or empty list
                 logger.debug("Didn't find a ou_path for user %s" %
                              aid2ainfo[account_id]['uname'])
+                ou_path[ou_id] = 'ANDRE'
+            elif '' in [x.strip() for x in path]:
+                # If path contains empty strings then some part of ou
+                # hierarchy lacks an acronym. Then something's
+                # probably wrong and we should investigate.
+                logger.warn("Empty element in ou path for user %s: %s" %
+                            (aid2ainfo[account_id]['uname'], path) +
+                            "Setting ou path to: ANDRE")
                 ou_path[ou_id] = 'ANDRE'
             else:
                 ou_path[ou_id] = "/".join(path)
