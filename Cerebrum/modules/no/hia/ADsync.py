@@ -1982,8 +1982,13 @@ class ADFullContactSync(ADutilMixIn.ADutil):
             # According to RFC 5322 the length og the local_part may
             # be up to 64 characters. Thus check that maillists we
             # export are no longer than 64 - len('mailman.')
+            # Seems like the limit is less for Exchange, but can't
+            # find the excact limit. Let's do som (un)qualified
+            # guessing. 
             local_part = liste.split('@')[0]
-            if len(local_part) > 56:
+            if len(local_part) > 51:
+                self.logger.debug("Localpart too long for %s. Skipping this list" %
+                                  liste)
                 continue
             maillists_dict[objectname] = {
                 "displayName" : "Epostliste - %s" % liste,
