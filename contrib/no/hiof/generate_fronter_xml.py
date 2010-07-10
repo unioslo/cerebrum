@@ -193,6 +193,27 @@ class cf_tree(object):
     # end register_structure_group
 
 
+    def create_associated_siblings(self, cf_group):
+        """Create sibling nodes stemming from a given node.
+
+        NB! This creates cf_structure_groups only.
+        """
+
+        for s_name, s_id in cf_group.cf_yield_siblings():
+            if self.get_cf_group(s_id):
+                continue
+
+            parent = self.get_cf_group(cf_group.cf_parent_id())
+            assert parent is not None
+            nn = cf_structure_group(s_name, s_id, parent)
+            self.register_structure_group(nn)
+            parent.add_child(nn)
+            logger.debug("Created sibling %s from %s under parent %s",
+                         str(nn), str(cf_group), str(parent))
+    # end create_associated_siblings
+            
+
+
     def create_associated_structures(self, cf_group, multisemester_map):
         """Given a cf_member/structure_group, create *ALL* the necessary
         associated groups upwards in the structure tree.
@@ -222,6 +243,7 @@ class cf_tree(object):
             return None
         if self.get_cf_group(structure_id):
             self.get_cf_group(structure_id).add_child(cf_group)
+            self.create_associated_siblings(cf_group)
             return self.get_cf_group(structure_id)
 
         # No parent -> create new one
@@ -235,6 +257,8 @@ class cf_tree(object):
                                       None)
         self.register_structure_group(new_node)
         new_node.add_child(cf_group)
+        self.create_associated_siblings(cf_group)
+
         # This will eventually stop at a node that already exist, since we
         # have several static nodes in the tree.
         grandparent_node = self.create_associated_structures(new_node,
@@ -293,7 +317,7 @@ class cf_tree(object):
 
 
 class cf_group_interface(object):
-    """An interface capture the common functionality of person- and structure
+    """An interface capturing the common functionality of person- and structure
     groups.
     """
 
@@ -341,6 +365,12 @@ class cf_group_interface(object):
     def cf_template(self):
         raise NotImplementedError("N/A")
 
+
+    def kull_room_title(self, stprog, semester, year):
+        return "Rom for kull %s %s %s" % (stprog, semester, year)
+    # end kull_room_title
+    
+
     def cf_parent_title(self):
         """Figure out the title of the group where self is a member"""
         
@@ -362,10 +392,9 @@ class cf_group_interface(object):
         if "kull" in parent_components:
             # fellesrom is for student-kull group's parent only ...
             if self.cf_group_type() == "student-kull":
-                return "Rom for kull %s %s %s" % (
-                    parent_components[-4],
-                    parent_components[-1],
-                    parent_components[-2],)
+                return self.kull_room_title(parent_components[-4],
+                                            parent_components[-1],
+                                            parent_components[-2])
 
             # 2 possibilities here -- self is either a ROOM or a group with a
             # kull role holder. In all cases the parent is the same - kull
@@ -407,6 +436,20 @@ class cf_group_interface(object):
 
         assert False, "This cannot happen: parent_id=%s" % parent_id
     # end cf_parent_id
+
+
+    def cf_yield_siblings(self):
+        """Return sibling node information to create alongside self.
+
+        This may come in handy when a creation of one node (be it
+        cf_member_group or cf_structure_group) necessarily entails creating
+        additional nodes at the same level.
+
+        By default, no action is performed. This method returns a generator.
+        """
+        
+        return ((cf_name, cf_id) for (cf_name, cf_id) in ())
+    # end cf_yield_siblings.
 # end cf_node_interface
 
 
@@ -653,7 +696,9 @@ class cf_structure_group(cf_group_interface):
 
     def __str__(self):
         return "CFSG id=%s (parent=%s), %d structure members, %d perm groups" % (
-            self.cf_id(), self._parent.cf_id(), len(self._structure_children),
+            self.cf_id(),
+            self._parent and self._parent.cf_id() or "No parent",
+            len(self._structure_children),
             len(self._permissions))
     # end __str__
 # end cf_structure_group
@@ -764,6 +809,24 @@ class cf_member_group(cf_group_interface):
 
 
 
+    def cf_yield_siblings(self):
+        if self.cf_group_type() != "kull":
+            return
+
+        # Holding a role with 'kull' implies that the corresponding
+        # ROOM/Felles:...:kull MUST be created.
+        components = self.cf_id().split(":")
+        k_title = self.kull_room_title(components[5], # stprog
+                                       components[8], # semester
+                                       components[7]) # year
+        k_id = ":".join(["ROOM",] + components[:-2])
+
+        for cf_name, cf_id in ((k_title, k_id),):
+            yield cf_name, cf_id
+    # end cf_yield_siblings
+
+
+
     def _role_code(self):
         """What kind of role code does self correspond to?
         
@@ -777,10 +840,9 @@ class cf_member_group(cf_group_interface):
             if marker in components:
                 return marker
 
-        assert (False,
-                "This cannot happen: unknown role code for cd id=%s" %
-                self.cf_id())
-    # end _role_code
+        assert False, \
+               "Impossible: unknown role code for cd id=%s" % self.cf_id()
+    # end _role_code 
         
 
     def get_cf_permission(self, structure_group):
@@ -806,15 +868,6 @@ class cf_member_group(cf_group_interface):
             "undenh": cf_permission.ROLE_WRITE,
             "undakt": cf_permission.ROLE_WRITE,
             "avdeling": cf_permission.ROLE_WRITE,
-        }
-
-        all_delete = {
-            "stprog": cf_permission.ROLE_DELETE,
-            "kull": cf_permission.ROLE_DELETE,
-            "kullklasse": cf_permission.ROLE_DELETE,
-            "undenh": cf_permission.ROLE_DELETE,
-            "undakt": cf_permission.ROLE_DELETE,
-            "avdeling": cf_permission.ROLE_DELETE,
         }
 
         all_change = {
@@ -1283,7 +1336,7 @@ def output_people(db, tree, printer):
     twice.
     """
 
-    logger.debug("Outputting all people register in CF-tree (in-memory)")
+    logger.debug("Outputting all people registered in the CF-tree (in-memory)")
     member_info = cf_members(db).member_info()
     processed = set()
     for group in tree.iterate_groups(cf_member_group):
