@@ -901,6 +901,33 @@ class Database(object):
         else:
             operand = "="
         return "%s %s :%s" % (column, operand, ref_name), value
+    # end sql_pattern
+# end class Database
+
+
+
+def get_pg_savepoint_id():
+    """Return a unique identifier suitable for savepoints.
+
+    A valid identifier in Postgres is:
+
+    * <= 63 characters
+    * SQL identifiers and key words must begin with a letter (a-z, but also
+      letters with diacritical marks and non-Latin letters) or an underscore
+      (_). Subsequent characters in an identifier or key word can be letters,
+      underscores, digits (0-9) (...)
+
+    Source:
+    <http://www.postgresql.org/docs/8.1/static/sql-syntax.html#SQL-SYNTAX-IDENTIFIERS>
+
+    UUID4 is an easy choice, provided we manipulate it somewhat.
+    """
+    import uuid
+
+    identifier = "unique" + str(uuid.uuid4()).replace('-', '_')
+    return identifier
+# end get_pg_savepoint_id
+
 
 
 class PostgreSQLBase(Database):
@@ -934,6 +961,27 @@ class PostgreSQLBase(Database):
 
     def _sql_port_now(self):
         return ['NOW()']
+
+    def ping(self):
+        """Check that communication with the database works.
+
+        ping()-ing must happen as an atomic action. The easiest way of
+        accomplishing that is a nested transaction, and the easiest way of
+        accomplishing THAT in postgres is via SAVEPOINTs.
+        """
+
+        # Bypass all layers of abstraction with translate() and what not. We
+        # don't need it (and those layers will force nesting of nested
+        # transactions). 
+        channel = self.cursor().driver_cursor()
+        identifier = get_pg_savepoint_id()
+        channel.execute("SAVEPOINT %s" % identifier)
+        try:
+            channel.execute("""SELECT 1 AS foo""")
+        finally:
+            channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
+    # end ping
+# end PostgreSQLBase
 
 class PgSQL(PostgreSQLBase):
     """PostgreSQL driver class."""
@@ -1081,14 +1129,13 @@ class PsycoPGCursor(Cursor):
         state of the environment in which ping has been invoked.
         """
 
-        # We need a completely random savepoint identifier
-        import uuid
-        identifier = str(uuid.uuid4()).replace('-', '_')
-        self.execute("SAVEPOINT %s" % identifier)
+        identifier = get_pg_savepoint_id()
+        channel = self.driver_cursor()
+        channel.execute("SAVEPOINT %s" % identifier)
         try:
-            super(PsycoPGCursor, self).ping()
+            channel.execute("""SELECT 1 AS foo""")
         finally:
-            self.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
+            channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
     # end ping
     
     
