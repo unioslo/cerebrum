@@ -481,7 +481,7 @@ def main():
     parent_ou = Factory.get("OU")(db)
     logger = Factory.get_logger("cronjob")
 
-    dump_directory = '/cerebrum/dumps/BASWAREPM/'
+    dump_directory = '/cerebrum/uio/dumps/BASWAREPM/'
 
     now = DateTime.now()
     datetime = now.Format("%Y%m%d")
