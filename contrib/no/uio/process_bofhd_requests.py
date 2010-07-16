@@ -59,6 +59,8 @@ ou_perspective = None
 
 SUDO_CMD = "/usr/bin/sudo"
 WRAPPER_CMD = '/cerebrum/share/cerebrum/contrib/no/uio/run_privileged_command.py'
+SUDO_CEREBELLUM = "/local/bin/ssh cerebrum@cerebellum sudo"
+
 ldapconns = None
 
 EXIT_SUCCESS = 0
@@ -250,10 +252,6 @@ def process_requests(types):
          (const.bofh_email_hquota, proc_email_hquota, 0),
          (const.bofh_email_delete, proc_email_delete, 4*60),
          ],
-        'mailman':
-        [(const.bofh_mailman_create, proc_mailman_create, 2*60),
-         (const.bofh_mailman_add_admin, proc_mailman_add_admin, 1*60),
-         (const.bofh_mailman_remove, proc_mailman_remove, 2*60)],
         'sympa':
         [(const.bofh_sympa_create, proc_sympa_create, 2*60),
          (const.bofh_sympa_remove, proc_sympa_remove, 2*60)],
@@ -641,24 +639,6 @@ def archive_cyrus_data(uname, mail_server, generation):
     return spawn_and_log_output(cmd, connect_to=[mail_server]) == EXIT_SUCCESS
 
 
-def proc_mailman_create(r):
-    try:
-        listname = get_address(r['entity_id'])
-    except Errors.NotFoundError:
-        logger.warn("List address %s deleted!  It probably wasn't "+
-                    "needed anyway.", listname)
-        return True
-    try:
-        admin = get_address(r['destination_id'])
-    except Errors.NotFoundError:
-        logger.error("Admin address deleted for %s!  Ask postmaster "+
-                     "to create list manually.", listname)
-        return True
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-           'mailman', 'newlist', listname, admin]
-    return spawn_and_log_output(cmd) == EXIT_SUCCESS
-
-
 def proc_sympa_create(request):
     """Execute the request for creating a sympa mailing list.
 
@@ -698,25 +678,6 @@ def proc_sympa_create(request):
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 # end proc_sympa_create
         
-
-def proc_mailman_add_admin(r):
-    if dependency_pending(r['state_data']):
-        return False
-    listname = get_address(r['entity_id'])
-    admin = get_address(r['destination_id'])
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-           'mailman', 'add_admin', listname, admin ]
-    return spawn_and_log_output(cmd) == EXIT_SUCCESS
-
-
-def proc_mailman_remove(r):
-    listname = r['state_data']
-    #
-    # Mailman wrapper always takes 3 arguments. Thus the 'dummy' arg.
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-           'mailman', 'rmlist', listname, "dummy"]
-    return spawn_and_log_output(cmd) == EXIT_SUCCESS
-
 
 def proc_sympa_remove(request):
     """Execute the request for removing a sympa mailing list.
@@ -1065,7 +1026,7 @@ def delete_user(uname, old_host, old_home, operator, mail_server):
         generation = generation['numval'] + 1
     else:
         generation = 1
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'aruser', uname,
+    cmd = [SUDO_CEREBELLUM, cereconf.RMUSER_SCRIPT, uname,
            operator, old_home, mail_server, str(generation)]
     if spawn_and_log_output(cmd, connect_to=[old_host]) == EXIT_SUCCESS:
         account.populate_trait(const.trait_account_generation,
@@ -1079,7 +1040,7 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
               operator):
     mailto = operator
     # Last argument is "on_mailspool?" and obsolete
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'mvuser', uname, uid, gid,
+    cmd = [SUDO_CEREBELLUM, cereconf.MVUSER_SCRIPT, uname, uid, gid,
            old_disk, new_disk, spread, mailto, 0]
     cmd = ["%s" % x for x in cmd]
     return (spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
@@ -1182,7 +1143,7 @@ def main():
         elif opt in ('-p', '--process'):
             if not types:
                 types = ['quarantine', 'delete', 'move',
-                         'email', 'mailman', 'sympa',]
+                         'email', 'sympa',]
             process_requests(types)
         elif opt in ('--ou-perspective',):
             ou_perspective = const.OUPerspective(val)
@@ -1207,7 +1168,6 @@ def usage(exitcode=0):
 
     Legal values for --type:
       email
-      mailman
       sympa
       move
       quarantine

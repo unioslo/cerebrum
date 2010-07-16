@@ -32,11 +32,11 @@ import cereconf
 # future versions could provide more restrictions on the legal arguments
 commands = {
     # uname, home, uid, gid, gecos
-    'mkhome': [cereconf.CREATE_USER_SCRIPT, 5],
+    # 'mkhome': [cereconf.CREATE_USER_SCRIPT, 5],
     # uname, uid, gid, old_disk, new_disk, spread, mailto, receipt
-    'mvuser': [cereconf.MVUSER_SCRIPT, 8],
+    # 'mvuser': [cereconf.MVUSER_SCRIPT, 8],
     # uname, operator, old_home, mail_server
-    'aruser': [cereconf.RMUSER_SCRIPT, 5],
+    #'aruser': [cereconf.RMUSER_SCRIPT, 5],
     # server, uname
     'archivemail': [cereconf.ARCHIVE_MAIL_SCRIPT, 3],
     # action, server, uname
