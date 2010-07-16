@@ -70,6 +70,7 @@ def validate_address(addr, mode="any"):
 def main():
     host, command, listname = sys.argv[1:4]
     admin = profile = description = None
+    remote_user = "cerebrum"
     validate_address(listname, mode=command)
     
     if command == "newlist":
@@ -93,7 +94,7 @@ def main():
     args.insert(0, "PKG=" + host)
     to_exec = " ".join(args)
     logger.info("Complete command to be run on remote host: '%s'" % to_exec)
-    args = ["/local/bin/ssh", host, "su", "-", "sympa", "-c",
+    args = ["/local/bin/ssh", "%s@%s" (remote_user, host), "sudo",
             "'" + to_exec + " > /dev/null 2>&1" + "'"]
     logger.info("Executing command: '%s'" % " ".join(args))
     os.execv(args[0], args)

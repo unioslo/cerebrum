@@ -57,9 +57,8 @@ logger = Factory.get_logger("bofhd_req")
 max_requests = 999999
 ou_perspective = None
 
-SUDO_CMD = "/usr/bin/sudo"
-WRAPPER_CMD = '/cerebrum/share/cerebrum/contrib/no/uio/run_privileged_command.py'
-SUDO_CEREBELLUM = "/local/bin/ssh cerebrum@cerebellum sudo"
+SSH_CMD = "/local/bin/ssh"
+SUDO_CEREBELLUM = "%s cerebrum@cerebellum sudo" % SSH_CMD
 
 ldapconns = None
 
@@ -395,9 +394,7 @@ def email_move_child(host, r):
     # Disable quota while copying so the move doesn't fail
     cyrus_set_quota(acc.entity_id, 0, host=new_server, local_db=local_db)
     # Call the script
-    cmd = [SUDO_CMD, WRAPPER_CMD, '-c', 'imap_move',
-           '--', host,
-           cereconf.IMAPSYNC_SCRIPT,
+    cmd = [SSH_CMD, '--', host, cereconf.IMAPSYNC_SCRIPT,
            '--user1', acc.account_name, '--host1', old_server.name,
            '--user2', acc.account_name, '--host2', new_server.name,
            '--authusing', cereconf.CYRUS_ADMIN,
@@ -634,7 +631,7 @@ def cyrus_set_quota(user_id, hq, host=None, local_db=db):
 
 
 def archive_cyrus_data(uname, mail_server, generation):
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'archivemail',
+    cmd = [SUDO_CEREBELLUM, cereconf.ARCHIVE_MAIL_SCRIPT,
            mail_server, uname, str(generation)]
     return spawn_and_log_output(cmd, connect_to=[mail_server]) == EXIT_SUCCESS
 
@@ -673,7 +670,7 @@ def proc_sympa_create(request):
         return True
 
     # 2008-08-01 IVR FIXME: Safe quote everything fished out from state.
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c', 'sympa', host, 'newlist',
+    cmd = [cereconf.SYMPA_SCRIPT, host, 'newlist',
            listname, admins, profile, description]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 # end proc_sympa_create
@@ -703,10 +700,7 @@ def proc_sympa_remove(request):
                      request["request_id"])
         return True
 
-    # dummy params are specified, since we have a fixed number of
-    # arguments per command type (all sympa commands must pass 6 args)
-    cmd = [SUDO_CMD, cereconf.WRAPPER_CMD, '-c',
-           'sympa', host, 'rmlist', listname, "dummy", "dummy", "dummy"]
+    cmd = [cereconf.SYMPA_SCRIPT, host, 'rmlist', listname]
     return spawn_and_log_output(cmd) == EXIT_SUCCESS
 # end proc_sympa_remove
 

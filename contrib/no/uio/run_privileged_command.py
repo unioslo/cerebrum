@@ -38,23 +38,21 @@ commands = {
     # uname, operator, old_home, mail_server
     #'aruser': [cereconf.RMUSER_SCRIPT, 5],
     # server, uname
-    'archivemail': [cereconf.ARCHIVE_MAIL_SCRIPT, 3],
+    # 'archivemail': [cereconf.ARCHIVE_MAIL_SCRIPT, 3],
     # action, server, uname
     'subscribeimap': [cereconf.SUBSCRIBE_SCRIPT, 3],
     # uname, home, mailto, hquota, from_host, from_type, to_host, to_type
     'mvmail': [cereconf.MVMAIL_SCRIPT, 8],
     # uname, home, uid, dfg
     'convertmail': [cereconf.CONVERT_MAILCONFIG_SCRIPT, 4],
-    # mode, listname, admin
-    'mailman': [cereconf.MAILMAN_SCRIPT, 3],
     # host, mode, listname, admin, profile, description
-    'sympa': [cereconf.SYMPA_SCRIPT, 6],
+    # 'sympa': [cereconf.SYMPA_SCRIPT, 6],
     # operation
     'clean_rmuser': [cereconf.CLEAN_RMUSER_SCRIPT, 1],
     # dist Notes ID files
     'dist_NotesID': [cereconf.DIST_NOTESID_SCRIPT, 4],
     # move IMAP users
-    'imap_move': ["/local/bin/ssh", 21],
+    # 'imap_move': ["/local/bin/ssh", 21],
     # sync src from external servers
     'sync_files': ["/local/bin/rsync", 3],
     # need to chown synced files
