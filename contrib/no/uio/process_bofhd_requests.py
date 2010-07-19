@@ -394,7 +394,7 @@ def email_move_child(host, r):
     # Disable quota while copying so the move doesn't fail
     cyrus_set_quota(acc.entity_id, 0, host=new_server, local_db=local_db)
     # Call the script
-    cmd = [SSH_CMD, '--', host, cereconf.IMAPSYNC_SCRIPT,
+    cmd = [SSH_CMD, "cerebrum@%s" % host, cereconf.IMAPSYNC_SCRIPT,
            '--user1', acc.account_name, '--host1', old_server.name,
            '--user2', acc.account_name, '--host2', new_server.name,
            '--authusing', cereconf.CYRUS_ADMIN,
