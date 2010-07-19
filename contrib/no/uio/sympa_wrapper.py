@@ -79,7 +79,7 @@ def main():
         for a in admin:
             validate_address(a)
 
-        args = ["/site/bin/createlist",
+        args = ["/usr/bin/sudo", "/site/bin/createlist",
                 "--listname", listname,
                 "--type", '"' + profile + '"',
                 "--subject", '"' + description + '"',]
@@ -87,15 +87,15 @@ def main():
             args.extend(("--owner", a))
             
     elif command == "rmlist":
-        args = ["/site/bin/closelist", listname]
+        args = ["/usr/bin/sudo", "/site/bin/closelist", listname]
     else:
         raise ValueError("Unknown command <%s> for sympa list" % command)
 
     args.insert(0, "PKG=" + host)
     to_exec = " ".join(args)
     logger.info("Complete command to be run on remote host: '%s'" % to_exec)
-    args = ["/local/bin/ssh", "%s@%s" % (remote_user, host), "sudo",
-            "'" + to_exec + " > /dev/null 2>&1" + "'"]
+    args = ["/local/bin/ssh", "%s@%s" % (remote_user, host),
+            "" + to_exec + " > /dev/null 2>&1" + ""]
     logger.info("Executing command: '%s'" % " ".join(args))
     os.execv(args[0], args)
 # end main
