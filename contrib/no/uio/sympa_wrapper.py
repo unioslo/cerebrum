@@ -94,7 +94,7 @@ def main():
     args.insert(0, "PKG=" + host)
     to_exec = " ".join(args)
     logger.info("Complete command to be run on remote host: '%s'" % to_exec)
-    args = ["/local/bin/ssh", "%s@%s" (remote_user, host), "sudo",
+    args = ["/local/bin/ssh", "%s@%s" % (remote_user, host), "sudo",
             "'" + to_exec + " > /dev/null 2>&1" + "'"]
     logger.info("Executing command: '%s'" % " ".join(args))
     os.execv(args[0], args)
