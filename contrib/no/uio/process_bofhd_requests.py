@@ -58,7 +58,8 @@ max_requests = 999999
 ou_perspective = None
 
 SSH_CMD = "/local/bin/ssh"
-SUDO_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum",  "sudo"]
+SUDO_CMD = "sudo"
+SSH_CEREBELLUM = [SSH_CMD, "cerebrum@cerebellum"]
 
 ldapconns = None
 
@@ -631,8 +632,10 @@ def cyrus_set_quota(user_id, hq, host=None, local_db=db):
 
 
 def archive_cyrus_data(uname, mail_server, generation):
-    cmd = SUDO_CEREBELLUM + [cereconf.ARCHIVE_MAIL_SCRIPT,
+    args = [SUDO_CMD, cereconf.ARCHIVE_MAIL_SCRIPT,
            mail_server, uname, str(generation)]
+    to_exec = " ".join(args)
+    cmd = SSH_CEREBELLUM + [to_exec,]
     return spawn_and_log_output(cmd, connect_to=[mail_server]) == EXIT_SUCCESS
 
 
@@ -1020,8 +1023,12 @@ def delete_user(uname, old_host, old_home, operator, mail_server):
         generation = generation['numval'] + 1
     else:
         generation = 1
-    cmd = SUDO_CEREBELLUM + [cereconf.RMUSER_SCRIPT, uname,
+
+    args = [SUDO_CMD, cereconf.RMUSER_SCRIPT, uname,
            operator, old_home, mail_server, str(generation)]
+    to_exec = " ".join(args)
+    cmd = SSH_CEREBELLUM + [to_exec,]
+    
     if spawn_and_log_output(cmd, connect_to=[old_host]) == EXIT_SUCCESS:
         account.populate_trait(const.trait_account_generation,
                                numval=generation)
@@ -1034,8 +1041,10 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
               operator):
     mailto = operator
     # Last argument is "on_mailspool?" and obsolete
-    cmd = SUDO_CEREBELLUM + [cereconf.MVUSER_SCRIPT, uname, uid, gid,
+    args = [SUDO_CMD, cereconf.MVUSER_SCRIPT, uname, uid, gid,
            old_disk, new_disk, spread, mailto, 0]
+    to_exec = " ".join(args)
+    cmd = SSH_CEREBELLUM + [to_exec,]
     cmd = ["%s" % x for x in cmd]
     return (spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
             EXIT_SUCCESS)
