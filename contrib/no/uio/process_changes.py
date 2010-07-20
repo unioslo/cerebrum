@@ -60,7 +60,8 @@ host = Factory.get('Host')(db)
 disk = Factory.get('Disk')(db)
 debug_hostlist = None
 
-SUDO_CMD = ["/local/bin/ssh", "cerebrum@cerebellum", "sudo"]
+SUDO_CMD = "sudo"
+SSH_CEREBELLUM = ["/local/bin/ssh", "cerebrum@cerebellum"]
 
 
 class EvtHandler(object):
@@ -179,11 +180,13 @@ class MakeUser(EvtHandler):
             logger.warn("No home for %s" % entity_id)
             return
 
-        cmd = SUDO_CMD + [cereconf.CREATE_USER_SCRIPT,
+        args = [SUDO_CMD, cereconf.CREATE_USER_SCRIPT,
                # info['host'],  # the mkhome script figures out the host
                info['uname'], info['homedir'], info['uid'], info['gid'],
                info['gecos']]
 
+        to_exec = " ".join(args)
+        cmd = SSH_CEREBELLUM + [to_exec,]
         #cmd = cmd[1:]  # DEBUG
 
         logger.debug("Doing: %s" % str(cmd))
