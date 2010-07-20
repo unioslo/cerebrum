@@ -59,7 +59,8 @@ posix_group = PosixGroup.PosixGroup(db)
 host = Factory.get('Host')(db)
 disk = Factory.get('Disk')(db)
 debug_hostlist = None
-SUDO_CMD = "/local/bin/ssh cerebrum@cerebellum sudo"     # TODO: move to cereconf
+
+SUDO_CMD = ["/local/bin/ssh", "cerebrum@cerebellum", "sudo"]
 
 
 class EvtHandler(object):
@@ -178,7 +179,7 @@ class MakeUser(EvtHandler):
             logger.warn("No home for %s" % entity_id)
             return
 
-        cmd = [SUDO_CMD, cereconf.CREATE_USER_SCRIPT,
+        cmd = SUDO_CMD + [cereconf.CREATE_USER_SCRIPT,
                # info['host'],  # the mkhome script figures out the host
                info['uname'], info['homedir'], info['uid'], info['gid'],
                info['gecos']]
