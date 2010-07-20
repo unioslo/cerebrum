@@ -183,7 +183,7 @@ class MakeUser(EvtHandler):
         args = [SUDO_CMD, cereconf.CREATE_USER_SCRIPT,
                # info['host'],  # the mkhome script figures out the host
                info['uname'], info['homedir'], info['uid'], info['gid'],
-               info['gecos']]
+               '"' + info['gecos'] + '"']
 
         to_exec = " ".join(args)
         cmd = SSH_CEREBELLUM + [to_exec,]
