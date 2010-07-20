@@ -30,7 +30,7 @@ from Cerebrum.Utils import Factory
 sock = NotesUtils.SocketCom()
 logger = Factory.get_logger("cronjob")
 users=[]
-IDFILEDIR="/cerebrum/dumps/Notes-IDs/"
+IDFILEDIR="/cerebrum/uio/dumps/NOTES_IDS/"
 
 if sock.send('LISTNEWIDFILES\n'):
    line=sock.readline()
