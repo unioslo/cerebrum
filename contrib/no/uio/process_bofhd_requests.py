@@ -1025,7 +1025,7 @@ def delete_user(uname, old_host, old_home, operator, mail_server):
         generation = 1
 
     args = [SUDO_CMD, cereconf.RMUSER_SCRIPT, uname,
-           operator, old_home, mail_server, str(generation)]
+           operator, old_home, str(generation), mail_server]
     to_exec = " ".join(args)
     cmd = SSH_CEREBELLUM + [to_exec,]
     
