@@ -1043,9 +1043,9 @@ def move_user(uname, uid, gid, old_host, old_disk, new_host, new_disk, spread,
     # Last argument is "on_mailspool?" and obsolete
     args = [SUDO_CMD, cereconf.MVUSER_SCRIPT, uname, uid, gid,
            old_disk, new_disk, spread, mailto, 0]
+    args = ["%s" % x for x in args]
     to_exec = " ".join(args)
     cmd = SSH_CEREBELLUM + [to_exec,]
-    cmd = ["%s" % x for x in cmd]
     return (spawn_and_log_output(cmd, connect_to=[old_host, new_host]) ==
             EXIT_SUCCESS)
 
