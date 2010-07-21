@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006, 2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -25,9 +25,7 @@ import cerebrum_path
 import cereconf
 import xmlrpclib
 
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum import Entity
 from Cerebrum.modules import CLHandler
 
 
@@ -45,17 +43,28 @@ def run_cmd(command, arg1=None, arg2=None, arg3=None):
 
 
 def quick_sync(spread, dry_run):
-    answer = cl.get_events('adpwd', (co.account_password,))
+    # We reverse the set of events, so that if the same account has
+    # multiple password changes, only the last will be updated. If we
+    # didn't reverse, and if the first password update fails, then
+    # this would be retried in the next run, and the next password
+    # update(s) will not be rerun afterwards, leaving the user with an
+    # older password than the last.
+    handled = set()
+    answer = reversed(cl.get_events('adpwd', (co.account_password,)))
     for ans in answer:
-        if ans['change_type_id'] == co.account_password:
+        confirm = True
+        if (ans['change_type_id'] == co.account_password and
+            not ans['subject_entity'] in handled):
+            handled.add(ans['subject_entity'])
             pw = pickle.loads(ans['change_params'])['password']
-            change_pw(ans['subject_entity'], spread, pw, dry_run)
+            confirm = change_pw(ans['subject_entity'], spread, pw, dry_run)
         else:
             logger.debug("Unknown change_type_id %i" % ans['change_type_id'])
-        # We always confirm event. Assume fullsync clean missed events.
-        #
-        cl.confirm_event(ans)
+
+        if confirm:
+            cl.confirm_event(ans)
     cl.commit_confirmations()    
+    logger.info("Commited all changes, updated c_l_handler.")
 
 
 def change_pw(account_id, spread, pw, dry_run):
@@ -66,22 +75,19 @@ def change_pw(account_id, spread, pw, dry_run):
         dn = server.findObject(ac.account_name)
         logger.debug("Found object %s.", ac.account_name)
         ret = run_cmd('bindObject', dn)
-
         pwUnicode = unicode(pw, 'iso-8859-1')
         if not dry_run:
             ret = run_cmd('setPassword', pwUnicode)
         if ret[0]:
             logger.info('Changed password: %s' % ac.account_name)
             return True
-        else:
-            # Account without ADspread, do nothing and return.
-            #
-            return True
+    else:
+        # Account without ADspread, do nothing and return.
+        return True
 
-        # Something went wrong.
-        #
-        logger.error('Failed change password: %s' % ac.account_name)
-        return False
+    # Something went wrong.
+    logger.error('Failed change password: %s' % ac.account_name)
+    return False
 
 
 def main():
