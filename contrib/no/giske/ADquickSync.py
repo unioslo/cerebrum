@@ -100,8 +100,7 @@ def main():
                         'help',
                         'dry_run'])
     except getopt.GetoptError:
-        # usage finnes ikke
-        usage(1)
+        usage()
 
     delete_objects = False
     dry_run = False
@@ -110,7 +109,7 @@ def main():
         if opt == '--user_spread':
             user_spread = getattr(co, val)  # TODO: Need support in Util.py
         elif opt == '--help':
-            usage(1)
+            usage()
         elif opt == '--dry_run':
             dry_run = True
 
