@@ -50,7 +50,10 @@ class Constants(Constants.Constants):
     ## Spread definitions - user related
     spread_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
-        'Brukeren kjent i AD ved HiH')
+        'Brukeren kjent i hih-domenet i AD ved HiH')
+    spread_ad_account_stud = _SpreadCode(
+        'account@ad_stud', Constants.Constants.entity_account,
+        'Brukeren kjent i stud-domentet i AD ved HiH')
     spread_exchange_account = _SpreadCode(
         'account@exchange', Constants.Constants.entity_account,
         'Brukeren kjent i AD ved HiH')
@@ -58,10 +61,16 @@ class Constants(Constants.Constants):
     ## Spread definitions - group related
     spread_ad_group = _SpreadCode(
         'group@ad', Constants.Constants.entity_group,
-        'Gruppe kjent i AD ved HiH')
+        'Gruppe kjent i hih-domenet i AD ved HiH')
+    spread_ad_group_stud = _SpreadCode(
+        'group@ad_stud', Constants.Constants.entity_group,
+        'Gruppe kjent i stud-domenet i AD ved HiH')
     spread_lms_group = _SpreadCode(
         'group@lms', Constants.Constants.entity_group,
         'Gruppe kjent i LMSen til HiH') 
+    spread_exchange_group = _SpreadCode(
+        'group@exchange', Constants.Constants.entity_group,
+        'Group exported to Exchange')       
 
     ## Spread definitions - person related
     spread_adgang_person = _SpreadCode(
