@@ -3,9 +3,6 @@
 class BofhFormTest extends PHPUnit_Framework_TestCase {
 
     public static function setUpBeforeClass() {
-        # TODO: include like this, relative to where the tests are put, or just 
-        # include directly, hoping that include_path has it? The latter doesn't 
-        # guarantee that we include the correct file.
         include_once(TEST_PREFIX_CEREBRUM . '/clients/web/phplib/view/BofhForm.php');
     }
     public static function tearDownAfterClass() {

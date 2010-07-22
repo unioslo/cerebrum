@@ -14,10 +14,6 @@ class InitTest extends PHPUnit_Framework_TestCase {
         # environment, so we need to use the relative paths for including code 
         # files:
         include_once(TEST_PREFIX_CEREBRUM . '/clients/web/phplib/controller/InitBase.php');
-        #if(@include_once(dirname(__FILE__) . '/../../../../../system/phplib/controller/InitBase.php')) {
-        #    # Try the include_path as a fallback
-        #    include_once('InitBase.php');
-        #}
     }
     public static function tearDownAfterClass() { }
 
@@ -33,20 +29,20 @@ class InitTest extends PHPUnit_Framework_TestCase {
 
 
     public function testConstruction() {
-        $init = new InitBase();
+        $init = new HelperInit();
     }
 
     public function testAutoloadMethod() {
         $this->assertTrue(HelperInit::autoload('Text'),
-            'Couldn\'t autoload class View');
+            'Couldn\'t autoload class Text');
         $this->assertFalse(HelperInit::autoload('vakjkajskdjfkasdfA_ASDFSDF__ASDF'),
             'InitBase::autoload claims to have loaded a nonexisting class');
     }
 
     public function testAutoloading() {
-        $init = new InitBase();
+        $init = new HelperInit();
         try {
-            $t = new Text('invalidlanguagetag');
+            Text::setLocation('/');
         } catch (LanguageTagInvalidException $e) {
             return true;
         }
@@ -63,4 +59,8 @@ class HelperInit extends InitBase {
     public static function addAutoloadDir($dir) {
         self::$autoload_dirs[] = $dir;
     }
+
+    public static function getView() {}
+    public static function getUser() {}
+
 }
