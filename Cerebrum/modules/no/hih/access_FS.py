@@ -22,30 +22,35 @@ import time
 from Cerebrum.modules.no import access_FS
 
 class HIHStudent(access_FS.Student):
-    def list_aktiv_midlertidig(self):
-        """ Hent opplysninger om studenter som anses som aktive for
-            midlertidig import fra HiHs FS.En aktiv student er en
-            student som har et gyldig opptak til et studieprogram der
-            studentstatuskode er 'AKTIV' eller 'PERMISJON' og
-            sluttdatoen er enten i fremtiden eller ikke satt."""
-        qry= """
-          SELECT DISTINCT
-          s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
-          s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
-          s.adrlin3_semadr, s.adresseland_semadr, sps.studieprogramkode,
-          sps.studierettstatkode, sps.studentstatkode,
-          p.kjonn, p.telefonnr_mobil, s.studentnr_tildelt
-        FROM fs.studieprogramstudent sps, fs.person p, fs.student s
-        WHERE p.fodselsdato = sps.fodselsdato AND
-          p.personnr = sps.personnr AND
-          p.fodselsdato = s.fodselsdato AND
-          p.personnr = s.personnr AND
-          %s AND
-          sps.status_privatist = 'N' AND
-          sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
-          NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE;
-          """ % (self._is_alive())
-        return self.db.query(qry)
+##
+## HiH ønsket i utganspunktet å benytte en midlertidig utplukk som ble
+## laget men aldri tatt i bruk. Utplukket kan antagelig fjernes nå,
+## men vi lar det stå enn så lenge. Jazz, 2010-07-22
+
+##    def list_aktiv_midlertidig(self):
+##         """ Hent opplysninger om studenter som anses som aktive for
+##             midlertidig import fra HiHs FS.En aktiv student er en
+##             student som har et gyldig opptak til et studieprogram der
+##             studentstatuskode er 'AKTIV' eller 'PERMISJON' og
+##             sluttdatoen er enten i fremtiden eller ikke satt."""
+##         qry= """
+##           SELECT DISTINCT
+##           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
+##           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+##           s.adrlin3_semadr, s.adresseland_semadr, sps.studieprogramkode,
+##           sps.studierettstatkode, sps.studentstatkode,
+##           p.kjonn, p.telefonnr_mobil, s.studentnr_tildelt
+##         FROM fs.studieprogramstudent sps, fs.person p, fs.student s
+##         WHERE p.fodselsdato = sps.fodselsdato AND
+##           p.personnr = sps.personnr AND
+##           p.fodselsdato = s.fodselsdato AND
+##           p.personnr = s.personnr AND
+##           %s AND
+##           sps.status_privatist = 'N' AND
+##           sps.studentstatkode IN ('AKTIV', 'PERMISJON') AND
+##           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE;
+##           """ % (self._is_alive())
+##         return self.db.query(qry)
     
     def list_aktiv(self):
         """ Hent opplysninger om studenter definert som aktive 
@@ -108,10 +113,6 @@ class HIHStudent(access_FS.Student):
         return self.db.query(qry)
 
 class HIHUndervisning(access_FS.Undervisning):
-    ## TBD: avskaffe UiO-spesifikke søk for list_undervisningsenheter
-    ##      og list_studenter_underv_enhet.
-    ##      Prøve å lage generell list_studenter_kull.
-    ##      Prøve å fjerne behov for override-metoder her 
     def list_undervisningenheter(self, sem="current"):
         """ Metoden som henter data om undervisningsenheter
             i nåverende (current) eller neste (next) semester. Default
@@ -224,6 +225,21 @@ class HIHStudieInfo(access_FS.StudieInfo):
               NVL(e.arstall_eks_siste, %s) >= %s - 1""" % (self.institusjonsnr, self.year, self.year)
         return self.db.query(qry)
 
+    def list_ou(self, institusjonsnr=0): # GetAlleOUer
+        """Hent data om stedskoder registrert i FS"""
+        qry = """
+        SELECT DISTINCT
+          institusjonsnr, faknr, instituttnr, gruppenr, stedakronym,
+          stednavn_bokmal, faknr_org_under, instituttnr_org_under,
+          gruppenr_org_under, adrlin1, adrlin2, postnr, adrlin3,
+          stedkortnavn, telefonnr, faxnr, adrlin1_besok, emailadresse,
+          adrlin2_besok, postnr_besok, url, bibsysbeststedkode,
+          stedkode_konv
+        FROM fs.sted
+        WHERE institusjonsnr=%s AND
+          stedkode_konv IS NOT NULL
+        """ % self.institusjonsnr
+        return self.db.query(qry)
 
 
 class FS(access_FS.FS):
