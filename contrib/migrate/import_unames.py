@@ -194,7 +194,7 @@ def process_weird_user(owner_id, uname):
                               constants.externalid_uname)
     person.populate_external_id(constants.system_migrate, constants.externalid_uname,
                                 uname)
-    person.write_db():
+    person.write_db()
     logger.info("Registered user name %s as external id for %s!" % (uname, owner_id))
         
     a_id = account.entity_id
