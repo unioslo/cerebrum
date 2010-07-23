@@ -287,7 +287,11 @@ class SocketHandling(object):
                     ret += '\n%-35s %s\n' % ('Known jobs', '  Last run  Last duration')
                     for k in tmp:
                         t2 = job_runner.job_queue._last_run[k]
-                        self.logger.debug("Last run of '%s' is '%s'" % (k, t2))
+                        human_part = ""
+                        if t2:
+                            human_part = " (" + time.strftime("%F %T", time.localtime(t2)) + ")"
+                        self.logger.debug("Last run of '%s' is '%s'%s" %
+                                          (k, t2, human_part))
                         if t2:
                             t = time.strftime('%H:%M.%S', time.localtime(t2))
                             days = int((time.time()-t2)/(3600*24))
