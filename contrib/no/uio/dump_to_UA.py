@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004-2007 University of Oslo, Norway
+# Copyright 2004-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -79,7 +79,6 @@ def locate_fnr(person, const):
     for system in systems:
         for fnr in person.get_external_id(system, const.externalid_fodselsnr):
             return str(fnr['external_id'])
-    # od
 
     return None
 # end locate_fnr
@@ -100,8 +99,6 @@ def fnr2names(person, const, fnr):
             return locate_names(person, const)
         except Errors.NotFoundError:
             pass
-        # yrt
-    # od
 
     return None, None
 # end locate_person_id
@@ -123,8 +120,6 @@ def locate_names(person, const):
             break
         except Cerebrum.Errors.NotFoundError:
             pass
-        # yrt
-    # od
 
     for system in systems:
         try:
@@ -132,16 +127,12 @@ def locate_names(person, const):
             break
         except Cerebrum.Errors.NotFoundError:
             pass
-        # yrt
-    # od
 
     if not first:
         logger.debug("No first name for %s", person.entity_id)
-    # fi
 
     if not last:
         logger.debug("No last name for %s", person.entity_id)
-    # fi
 
     return first, last
 # end locate_names
@@ -157,7 +148,6 @@ def locate_stedkode(ou, ou_id):
     ou_id = int(ou_id)
     if __ou_cache.has_key(ou_id):
         return __ou_cache[ou_id]
-    # fi
 
     try:
         ou.clear()
@@ -169,7 +159,6 @@ def locate_stedkode(ou, ou_id):
     except Cerebrum.Errors.NotFoundError:
         logger.warn("No such ou_id exists: %s", ou_id)
         return ""
-    # yrt
 # end locate_stedkode
 
 
@@ -237,7 +226,6 @@ def locate_common(person, const):
     if fnr is None:
         logger.warn("Person %s lacks NO_SSN (fnr)", person.entity_id)
         return (fnr, first_name, last_name)
-    # fi
         
     # Now, let's look for the names
     first_name, last_name = locate_names(person, const)
@@ -258,7 +246,6 @@ def leave_covered(xml_person, employment):
     now = time.strftime("%Y%m%d")
     for l in employment.leave:
         total += int(l['percentage'])
-    # od
 
     return total >= 100
 
@@ -282,21 +269,17 @@ def process_employee(db_person, ou, const, xml_person, fnr, stream):
             logger.debug("%s has tilsetting %s which has >= 100%% coverage",
                          fnr, employment)
             return
-        # fi
 
         if not employment.place:
             logger.warning("No SKO for %s: %s" % (fnr, employment))
-        # fi
         stedkode = "%02d%02d%02d" % employment.place[1]
 
         startdato = ""
         if employment.start:
             startdato = employment.start.strftime("%d.%m.%Y")
-        # fi
         sluttdato = ""
         if employment.end:
             sluttdato= employment.end.strftime("%d.%m.%Y")
-        # fi
 
         # systemnr == 2 for employees
         stream.write(prepare_entry(fnr = fnr,
@@ -307,7 +290,6 @@ def process_employee(db_person, ou, const, xml_person, fnr, stream):
                                    arbeidssted = stedkode,
                                    startdato = startdato,
                                    sluttdato = sluttdato))
-    # od
 # end process_employee
 
 
@@ -325,7 +307,6 @@ def process_student(person, ou, const, db_row, stream):
     fnr, first_name, last_name = locate_common(person, const)
     if not fnr:
         return
-    # fi
     
     stedkode = locate_stedkode(ou, db_row.fields.ou_id)
 
@@ -372,8 +353,6 @@ def generate_output(stream, do_employees, do_students, sysname, person_file):
 
             process_employee(db_person, ou, const, xml_person, fnr, stream)
             db_person.clear()
-        # od
-    # fi
 
     if do_students:
         logger.info("Processing all student affiliations")
@@ -390,11 +369,8 @@ def generate_output(stream, do_employees, do_students, sysname, person_file):
                 logger.exception("Aiee! No person with %s exists, although "
                                  "list_affiliations() returned it", person_id)
                 continue
-            # yrt
 
             process_student(person, ou, const, db_row, stream)
-        # od
-    # fi
 # end generate_output
 
 
@@ -410,7 +386,6 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
         os.link(os.path.join(dirname, newfile),
                 os.path.join(dirname, outfile))
         return
-    # yrt
 
     old_dict = dict()
     while line:
@@ -420,7 +395,6 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
         
         line = oldfile.readline()        
         line = line.rstrip()
-    # od
     oldfile.close()
 
     out = AtomicFileWriter(os.path.join(dirname, outfile), 'w')
@@ -436,17 +410,13 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
                 out.write(newline + "\n")
             else:
                 old_dict[pnr].remove(data)
-            # fi
             
             # If nothing else is left, delete the key from the dictionary
             if not old_dict[pnr]:
                 del old_dict[pnr]
-            # fi
         else:
             # completely new entry, output unconditionally
             out.write(newline + "\n")
-        # fi
-    # od
 
     # Now, there is one problem left: we cannot output the old data blindly,
     # as people's names might have changed. So, we force *every* old record to
@@ -463,7 +433,6 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
                         "entry(ies) will be skipped",
                         leftpnr[:-1], len(old_dict[leftpnr]))
             continue
-        # fi
                         
         for entry in old_dict[leftpnr]:
             vals = entry.split(";")
@@ -472,8 +441,6 @@ def do_sillydiff(dirname, oldfile, newfile, outfile):
             vals[13] = today
             vals[17] = ""
             out.write("%s;%s\n" % (leftpnr, ";".join(vals)))
-        # od
-    # od
 
     out.close()    
     newin.close()
@@ -525,7 +492,7 @@ def main():
     try:
         options, rest = getopt.getopt(sys.argv[1:],
                                       "i:o:hdes",
-                                      ["input-file",
+                                      ["input-file=",
                                        "output-directory=",
                                        "help",
                                        "distribute",
@@ -534,7 +501,6 @@ def main():
     except getopt.GetoptError:
         logger.exception("foo")
         usage(1)
-    # yrt
 
     output_directory = None
     sysname = None
@@ -555,8 +521,6 @@ def main():
             do_employees = True
         elif option in ("-s", "--students"):
             do_students = True
-        # fi
-    # od
 
     output_file = AtomicFileWriter(os.path.join(output_directory, "uadata.new"), "w")
     generate_output(output_file, do_employees, do_students, sysname, person_file)
@@ -573,7 +537,6 @@ def main():
                cereconf.UA_FTP_UNAME,
                passwd,
                output_directory, diff_file, "ua-lt")
-    # fi
 # end main
 
 
@@ -582,6 +545,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-# fi
-
-# arch-tag: 6834d2c9-5bd3-4aa2-9a77-638c524e36b7
