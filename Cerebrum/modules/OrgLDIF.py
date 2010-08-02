@@ -666,23 +666,29 @@ from None and LDAP_PERSON['dn'].""")
             alias_info = (primary_ou_dn,)
             # BEGIN RESERVATION HACK
             affs = []
+            # employee or affiliated with SAP-registration
+            is_empl_affil = False
             for (aff, status, ou) in p_affiliations:
                 affs.append(aff)
+                if (self.const.affiliation_tilknyttet in affs or self.const.affiliation_ansatt in affs):
+                    is_empl_affil = True
                 # Ansatt/tilknyttet med reservasjon == skjules uansett
-                if aff in (self.const.affiliation_tilknyttet, self.const.affiliation_ansatt) and \
-                   self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
+                if is_empl_affil and self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
                     attrs = self.invisible_person_attrs
                     alias_info = ()
                     break
                 # Student med status 'aktiv','evu','drgrad' som ikke har gitt
-                # samtykke skal skjules uansett
+                # samtykke skal skjules med mindre de også er registrert i SAP
+                # som ansatt eller tilknyttet uten reservasjon
                 if aff == int(self.const.affiliation_student) and \
                    status in (self.const.affiliation_status_student_aktiv,
-                              self.const.affiliation_status_student_drgrad) and \
-                   not self.init_person_group("FS-aktivt-samtykke").has_key(person_id):
-                    attrs = self.invisible_person_attrs
-                    alias_info = ()
-                    break
+                              self.const.affiliation_status_student_drgrad):
+                    if is_empl_affil and not self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
+                        break
+                    if not self.init_person_group("FS-aktivt-samtykke").has_key(person_id):
+                        attrs = self.invisible_person_attrs
+                        alias_info = ()
+                        break
             # Er personen EVU-student så får han ikke gitt samtykke, og skal heller ikke vises.
             # Er personen også ansatt så skal ikke EVU-reservasjonen overstyre dette. Ansatt-
             # reservasjoner settes over i koden.
