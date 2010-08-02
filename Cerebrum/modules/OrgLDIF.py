@@ -668,6 +668,7 @@ from None and LDAP_PERSON['dn'].""")
             affs = []
             # employee or affiliated with SAP-registration
             is_empl_affil = False
+            is_active_stud = False
             for (aff, status, ou) in p_affiliations:
                 affs.append(aff)
                 if (self.const.affiliation_tilknyttet in affs or self.const.affiliation_ansatt in affs):
@@ -683,6 +684,7 @@ from None and LDAP_PERSON['dn'].""")
                 if aff == int(self.const.affiliation_student) and \
                    status in (self.const.affiliation_status_student_aktiv,
                               self.const.affiliation_status_student_drgrad):
+                    is_active_stud = True
                     if is_empl_affil and not self.init_person_group("SAP-elektroniske-reservasjoner").has_key(person_id):
                         break
                     if not self.init_person_group("FS-aktivt-samtykke").has_key(person_id):
@@ -693,7 +695,7 @@ from None and LDAP_PERSON['dn'].""")
             # Er personen også ansatt så skal ikke EVU-reservasjonen overstyre dette. Ansatt-
             # reservasjoner settes over i koden.
             if self.const.affiliation_status_student_evu in affs and \
-               not is_empl_affil:
+               not (is_empl_affil or is_active_stud):
                 attrs = self.invisible_person_attrs
                 alias_info = ()
             # END HACK
