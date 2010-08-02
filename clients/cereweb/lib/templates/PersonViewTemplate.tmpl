@@ -225,7 +225,7 @@
 #def printDialog($person)
 	#set $langs= [ ('no', 'Norwegian'),('en', 'English')]
 	<div class="edit box">
-	    <h3>$_('Print contract')</h3>
+	    <h3>$_('Generate contract')</h3>
 	        <form action="print_contract" method="post">
 	            <div>
 	                <input type="hidden" name="id" value="$person.id" />
@@ -237,7 +237,7 @@
 	                    <input type="checkbox" name="printpw" value="on" />
 	                </div>
 	                <div class="buttons">
-	                    <input type="submit" value="$_('Print')" />
+	                    <input type="submit" value="$_('Generate')" />
 	                    <input type="button" value="$_('Cancel')" class="cancel" />
 	                </div>
 	            </div>
