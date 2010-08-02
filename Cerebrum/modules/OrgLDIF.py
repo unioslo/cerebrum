@@ -693,7 +693,7 @@ from None and LDAP_PERSON['dn'].""")
             # Er personen også ansatt så skal ikke EVU-reservasjonen overstyre dette. Ansatt-
             # reservasjoner settes over i koden.
             if self.const.affiliation_status_student_evu in affs and \
-               not (self.const.affiliation_tilknyttet in affs or self.const.affiliation_ansatt in affs):
+               not is_empl_affil:
                 attrs = self.invisible_person_attrs
                 alias_info = ()
             # END HACK
