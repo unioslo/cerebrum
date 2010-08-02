@@ -66,16 +66,28 @@ def declarationText():
     return """Declaration:"""
 
 def bullet10():
-    return  """I hereby declare to have read NTNU's IT regulations and
-    understand that I have to act according to the regulations at any
-    time.  I also accept the means that NTNU may use if the IT
-    regulations are violated, as mentioned in the computer regulations
-    paragraph 4.3, 7.1 and 7.2."""
+    return  """I hereby confirm that I have read and accept NTNU's IT-regulations
+    contract.  I assume all restrictions and conditions that said contract
+    applies to me when using the NTNU system, or any system which this contract
+    covers. I am aware of all sanctions that can be imposed upon me by breach of
+    contract as stated in the IT-regulations contract section 4.3, 7.1 and 7.2."""
 
 def bullet11():
-     return """I hereby consent that administrative logs may be used
-     to identify my actions on the computer systems with the
-     limitations specified in the IT regulations paragraph 5.10."""
+     return """I hereby give consent for approved parties to review activity logs to
+    identify my use of the computer system within limitations as specified in
+    the IT-regulations contract section 5.10."""
+
+def bullet12():
+    return """I am aware that evidence acquired from security incidents are
+    retained by NTNU and may also be released to police and/or other prosecuting
+    authorities when requested by court order as defined in NTNU's Instructions
+    for release of electronic data to police or prosecuting authorities."""
+
+def bullet13():
+    return """I am aware that NTNU retains the right to gain access to my e-mail
+    and stored files with reservation as defined in Norway's Personal
+    Information Act, Personal Information Guidelines, and within NTNU's own
+    routines for such access."""
 
 def pageTwoTitle():
     return  """<u>Assignment of user account on NTNU's computer systems.</u>"""

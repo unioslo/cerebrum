@@ -93,7 +93,7 @@ class CerebrumUserSchema:
         self.pageNumberPosX = (self.width/2)
         ## page-number is centered on the page
         self.pageNumberPosY = 1 * cm
-        self.bottomMargin = 4 * cm
+        self.bottomMargin = 2 * cm
         self.city = 'Trondheim'
         ## day of month, full month-name, and YYYY
         self.dateAndTimeFormat = self.city + ', %d. %B, %Y'
@@ -203,7 +203,7 @@ class CerebrumUserSchema:
         self.makeHead(canvas, doc)
         canvas.saveState()
 
-        dateLinePosY = self.bottomMargin + (6 * cm)
+        dateLinePosY = self.bottomMargin + (5 * cm)
         signatureLinePosY = dateLinePosY
         dateLineLength = 4 *cm
         signatureLinePosX = self.leftMargin + (6 * cm)
@@ -423,6 +423,13 @@ class CerebrumUserSchema:
 
         allLines.append(Paragraph(self.lang.bullet11(), self.bulletSty,
                                   bulletText=self.bulletText))
+        
+        allLines.append(Paragraph(self.lang.bullet12(), self.bulletSty,
+                                  bulletText=self.bulletText))
+        
+        allLines.append(Paragraph(self.lang.bullet13(), self.bulletSty,
+                                  bulletText=self.bulletText))
+        
         ## flush the 1. page
         allLines.append(PageBreak())
 

@@ -66,16 +66,28 @@ def declarationText():
     return """Erklæring:"""
 
 def bullet10():
-    return  """Jeg bekrefter herved å ha lest NTNUs IT-reglement
-          og påtar meg de forpliktelser som reglementet til enhver tid
-          legger på meg.  Jeg aksepterer også de sanksjonsmuligheter
-          som NTNU har ved brudd på IT-reglementet slik det er angitt
-          iIT-reglementets punkt 4.3, 7.1 og 7.2"""
+    return  """Jeg bekrefter herved å ha lest og akseptert NTNUs IT-reglement,
+        og jeg påtar meg de forpliktelser som IT-reglementet til enhver tid
+        legger på meg. Jeg er også kjent med de sanksjonsmuligheter som NTNU
+        har ved brudd på IT-reglementet slik det er angitt i IT-reglementets
+        punkt 4.3, 7.1 og 7.2."""
 
 def bullet11():
-     return """Jeg gir herved tillatelse til at det kan benyttes
-          driftslogger for å identifisere min bruk av dataanlegget med
-          de begrensninger som er spesifisert i IT-reglementets punkt 5.10."""
+     return """Jeg gir herved tillatelse til at det kan benyttes driftslogger
+         for å identifisere min bruk av dataanlegget med de begrensninger som er
+         spesifisert i IT-reglementets punkt 5.10."""
+
+def bullet12():
+     return """Jeg er kjent med at bevis fra sikkerhetshendelser tas vare på
+        og overleveres til politi og påtalemyndighet ved rettslige krav slik
+        det er spesifisert i NTNUs Instruks for utlevering av elektronisk
+        lagret materiale til politi eller påtalemyndighet."""
+
+def bullet13():
+    return """Jeg er kjent med at NTNU kan få tilgang til min e-post og mine
+        filer slik det er regulert i Personalopplysningsloven,
+        Personalopplysningsforskriften og i NTNUs rutiner for slik tilgang."""
+
 
 def pageTwoTitle():
     return  """<u>Tildeling av brukerkonto på NTNUs dataanlegg.</u>"""
