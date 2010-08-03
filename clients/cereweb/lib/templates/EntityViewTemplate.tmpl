@@ -526,3 +526,26 @@
     </form>
 </div>
 #end def
+
+#def generateContractDialog($person)
+    #set $langs= [ ('no', 'Norwegian'),('en', 'English')]
+    <div class="edit box">
+        <h3>$_('Generate contract')</h3>
+            <form action="print_contract" method="post">
+                <div>
+                    <input type="hidden" name="id" value="$person.id" />
+                    <div>
+                        $form_widgets.generate_loption("lang", "Language", $langs)
+                    </div>
+                    <div>
+                        <label for="printpw">Generate new password:</label>
+                        <input type="checkbox" name="printpw" value="on" />
+                    </div>
+                    <div class="buttons">
+                        <input type="submit" value="$_('Generate')" />
+                        <input type="button" value="$_('Cancel')" class="cancel" />
+                    </div>
+                </div>
+            </form>
+    </div>
+#end def

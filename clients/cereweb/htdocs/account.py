@@ -44,6 +44,7 @@ from lib.data.EntityFactory import EntityFactory
 
 from lib.utils import get_database, is_correct_referer, get_referer_error
 from lib.Error import CreationFailedError
+from person import print_contract
 
 @session_required_decorator
 def search(**kwargs):
@@ -216,6 +217,7 @@ def view(id=None, name=None, **kwargs):
 
     page.account.history = HistoryDAO(db).get_entity_history_tail(id)
     page.affiliations = PersonDAO(db).get_affiliations(page.account.owner.id)
+    page.account.owner = PersonDAO(db).get(page.account.owner.id)
     page.shells = ConstantsDAO(db).get_shells()
     page.disks = DiskDAO(db).search()
     page.targets = EmailTargetDAO(db).get_from_entity(id)
