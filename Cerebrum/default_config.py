@@ -781,3 +781,12 @@ DB_DRIVER_ORACLE = "cx_Oracle"
 # E.g. {'affiliation_status_ansatt_tekadm': 'ansatt-tekadm'}
 # 
 AUTOMATIC_GROUPS = {}
+
+###
+### SMS gateway
+###
+SMS_URL    = ''
+# The "system", used by the gateway at logon
+SMS_SYSTEM = ''
+# The username for authentication at the gateway
+SMS_USER   = ''

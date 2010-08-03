@@ -33,6 +33,7 @@ import string
 import sys
 import time
 import traceback
+import urllib2, urllib, urlparse
 
 # 2.2 and 2.3 compatibility cruft
 try:
@@ -1478,3 +1479,77 @@ def prepare_string(value, transform=str.lower):
     if transform is not None:
         value = transform(value)
     return value
+
+
+class SMSSender():
+    """
+    Communicates with a Short Messages Service (SMS) gateway for sending out SMS
+    messages.
+
+    This class is meant to be used with UiOs SMS gateway, which uses basic http
+    requests for communicating, and not in a much standardized way. This might
+    not be the solution other institutions want to use if they have their own
+    gateway.
+    """
+
+    '''The string to search for, to check if a message got sent ok'''
+    _ok_message = 'OK Message'
+
+    def __init__(self, url = None, user = None, system = None):
+        self._logger = Factory.get_logger("cronjob")
+        self._url    = cereconf.SMS_URL
+        self._system = cereconf.SMS_SYSTEM
+        self._user   = cereconf.SMS_USER
+
+    def __call__(self, phone_to, message, confirm = False):
+        """
+        Sends an SMS message to the given phone number.
+
+        @type phone_to: basestring
+        @param phone_to:
+          The phone number to send the message to.
+
+        @type message: basestring
+        @param message:
+          The message to send to the given phone number.
+
+        @type confirm: boolean
+        @param confim:
+          If the gateway should wait for the message to be sent before it
+          confirms it being sent.
+        """
+        hostname = urlparse.urlparse(self._url).hostname
+        password = read_password(user = self._user, system = hostname)
+        postdata = urllib.urlencode({'b': self._user,
+                                     'p': password,
+                                     's': self._system,
+                                     't': phone_to,
+                                     'm': message})
+        self._logger.debug("Sending SMS to %s (user: %s, system: %s)"
+                % (phone_to, self._user, self._system))
+
+        ret = urllib2.urlopen(self._url, postdata) #, self.timeout)
+        if ret.code is not 200:
+            self._logger.warning("SMS gateway responded with code "
+                "%s - %s" % (ret.code, ret.msg))
+
+        # TODO: need to parse for ok message in a better way. For now, we get
+        # false positives if the message contains self._ok_message. The text we
+        # are looking for are, for now, located in a second <h1> tag in the
+        # return: 
+        #
+        #  ...
+        #  <body>
+        #  <h1>Send SMS</h1><h1>Message not sent</h1>
+        #  <form ...
+        #
+        # The best would be a header status, but this is not implemented in the
+        # gateway, at the moment.
+        text = '\n'.join(ret.readlines())
+        if self._ok_message in text:
+            self._logger.debug("SMS to %s sent ok" % (phone_to))
+            return True
+        else:
+            self._logger.warning("SMS to %s could not be sent" % phone_to)
+            return False
+
