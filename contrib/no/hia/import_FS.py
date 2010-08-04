@@ -128,11 +128,12 @@ def _calc_address(person_info):
     # FS.STUDENT    *_semadr (2)
     # FS.FAGPERSON  *_arbeide (3)
     # FS.DELTAKER   *_job (4)
-    # FS.DELTAKER   *_hjem (5) 
+    # FS.DELTAKER   *_hjem (5)
+    # FS.SOKNAD     *_kontakt(6)
     rules = [
+        ('tilbud', ('_kontakt', '_hjemsted', None)
         ('aktiv', ('_semadr', '_hjemsted', None)),
         ('evu', ('_job', '_hjem', None)),
-        ('tilbud', ('None', '_hjemsted', None)),
         ('privatist_studieprogram', ('_semadr', '_hjemsted', None)),
         ]
     adr_map = {
@@ -147,6 +148,8 @@ def _calc_address(person_info):
                  'adresseland_job'),
         '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
                   'postnr_hjem', 'adresseland_hjem'),
+        '_kontakt': ('adrlin1_kontakt', 'adrlin2_kontakt', 'adrlin3_kontakt',
+                     'postnr_kontakt', 'adresseland_kontakt')
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
 
@@ -301,9 +304,9 @@ def process_person_callback(person_info):
                     'adresseland_hjemsted')
             elif dta_type in ('tilbud',):
 		address_info = _ext_address_info(p,
-		'adrlin1_hjemsted', 'adrlin2_hjemsted',
-                'adrlin3_hjemsted', 'postnr_hjemsted',
-                'adresseland_hjemsted')
+		'adrlin1_kontakt', 'adrlin2_kontakt',
+                'adrlin3_kontakt', 'postnr_kontakt',
+                'adresseland_kontakt')
 
         # Get affiliations
         # Lots of changes here compared to import_FS.py @ uio
