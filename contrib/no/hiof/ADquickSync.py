@@ -84,6 +84,8 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
                 return False
         else:
             #Account without ADspread, do nothing and return.
+            self.logger.debug('Account %s does not have spread %s, not updating', 
+                              self.ac.account_name, spread)
             return True
 
 
