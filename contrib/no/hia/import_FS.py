@@ -149,7 +149,7 @@ def _calc_address(person_info):
         '_hjem': ('adrlin1_hjem', 'adrlin2_hjem', 'adrlin3_hjem',
                   'postnr_hjem', 'adresseland_hjem'),
         '_kontakt': ('adrlin1_kontakt', 'adrlin2_kontakt', 'adrlin3_kontakt',
-                     'postnr_kontakt', 'adresseland_kontakt')
+                     'postnr_kontakt', 'adresseland_kontakt'),
         '_besok_adr': ('institusjonsnr', 'faknr', 'instituttnr', 'gruppenr')
         }
 
