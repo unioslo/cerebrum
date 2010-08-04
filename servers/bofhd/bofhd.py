@@ -53,13 +53,13 @@ import SocketServer
 import SimpleXMLRPCServer
 import xmlrpclib
 import getopt
-import traceback
 from random import Random
 
 try:
     from M2Crypto import SSL
     CRYPTO_AVAILABLE = True
-    # turn off m2crypto ssl chatter
+    # Turn off m2crypto ssl chatter. These flags are NOT documented anywhere
+    # in m2crypto, so use with care :)
     import M2Crypto
     M2Crypto.m2.SSL_CB_LOOP = 0
     M2Crypto.m2.SSL_CB_EXIT = 0
@@ -862,9 +862,6 @@ class BofhdRequestHandler(SimpleXMLRPCServer.SimpleXMLRPCRequestHandler,
             self.server.db.rollback()
             raise CerebrumError, "DatabaseError: %s" % m
         except Exception:
-            # ret = "Feil: %s" % sys.exc_info()[0]
-            # print "Error: %s: %s " % (sys.exc_info()[0], sys.exc_info()[1])
-            # traceback.print_tb(sys.exc_info()[2])
             self.server.db.rollback()
             raise
 
@@ -1199,8 +1196,9 @@ if __name__ == '__main__':
         usage()
         sys.exit()
         
-    logger.info("Server connected to DB '%s' starting at port: %d" %
-                (cereconf.CEREBRUM_DATABASE_NAME, port))
+    logger.info("Server (%s) connected to DB '%s' starting at port: %d" %
+                (multi_threaded and "multi-threaded" or "single-threaded", 
+                 cereconf.CEREBRUM_DATABASE_NAME, port))
     if multi_threaded:
         db = ProxyDBConnection(Utils.Factory.get('Database'))
     else:
@@ -1252,5 +1250,3 @@ if __name__ == '__main__':
             server = BofhdServer(
                 (host, port), BofhdRequestHandler, db, conffile)
     server.serve_forever()
-
-# arch-tag: 65c53099-96e5-4d49-aa19-18b9800f26d6
