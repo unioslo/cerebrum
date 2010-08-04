@@ -961,26 +961,6 @@ class PostgreSQLBase(Database):
 
     def _sql_port_now(self):
         return ['NOW()']
-
-    def ping(self):
-        """Check that communication with the database works.
-
-        ping()-ing must happen as an atomic action. The easiest way of
-        accomplishing that is a nested transaction, and the easiest way of
-        accomplishing THAT in postgres is via SAVEPOINTs.
-        """
-
-        # Bypass all layers of abstraction with translate() and what not. We
-        # don't need it (and those layers will force nesting of nested
-        # transactions). 
-        channel = self.cursor().driver_cursor()
-        identifier = get_pg_savepoint_id()
-        channel.execute("SAVEPOINT %s" % identifier)
-        try:
-            channel.execute("""SELECT 1 AS foo""")
-        finally:
-            channel.execute("ROLLBACK TO SAVEPOINT %s" % identifier)
-    # end ping
 # end PostgreSQLBase
 
 class PgSQL(PostgreSQLBase):
@@ -1113,6 +1093,29 @@ class PsycoPG(PsycoPGBase):
 
 class PsycoPG2(PsycoPGBase):
     _db_mod = "psycopg2"
+
+
+    def ping(self):
+        """psycopg2-specific version of ping.
+
+        The main issue here is that psycopg2 opens a new transaction upon the
+        first execute(). Unless autocommit is on (which it is not for us),
+        that transaction remains open until a commit/rollback. Constants.py
+        uses its own private connection and that connection+transaction could
+        remain in the <IDLE> state indefinitely.
+        """
+
+        import psycopg2.extensions as ext
+        conn = self.driver_connection()
+        status = conn.get_transaction_status()
+        c = self.cursor()
+        c.ping()
+        c.close()
+        # It is NOT safe to roll back, unless there are just this cursor's
+        # actions in the transaction...
+        if status in (ext.TRANSACTION_STATUS_IDLE,):
+            self.rollback()
+    # end ping
 
     def cursor(self):
         return PsycoPG2Cursor(self)
