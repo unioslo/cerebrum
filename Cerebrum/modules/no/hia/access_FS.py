@@ -77,7 +77,7 @@ class HiAStudent(access_FS.Student):
               p.personnr = sa.personnr AND
               p.fodselsdato = s.fodselsdato AND
               p.personnr = s.personnr AND
-              sa.institusjonsnr = % AND 
+              sa.institusjonsnr = %s AND 
               sa.tilbudstatkode IN ('I', 'S') AND
               sa.svarstatkode_svar_pa_tilbud='J' AND
               sa.studietypenr = osp.studietypenr AND
