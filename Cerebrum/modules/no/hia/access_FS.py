@@ -57,7 +57,44 @@ class HiAStudent(access_FS.Student):
           NVL(sps.dato_studierett_gyldig_til,SYSDATE)>= SYSDATE
           """ % (extra, self._is_alive())
         return self.db.query(qry, locals())
-    
+
+    def list_jasvar(self):
+        """ Hent opplysninger om personer som har takket ja til
+        til tilbud om studieplass ved UiA. Skal kun brukes en gang,
+        høsten 2010. Jazz"""
+        qry = """
+        SELECT DISTINCT
+          p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+          p.adrlin1_hjemsted, p.adrlin2_hjemsted, p.postnr_hjemsted,
+          p.adrlin3_hjemsted, p.adresseland_hjemsted,
+          p.status_reserv_nettpubl, p.sprakkode_malform, p.telefonnr_mobil,
+          s.adrlin1_kontakt, s.adrlin2_kontakt, s.postnr_kontakt,
+          s.adrlin3_kontakt, s.adresseland_kontakt,
+          sp.studieprogramkode
+        FROM fs.soknadsalternativ sa, fs.person p, fs.opptakstudieprogram osp,
+             fs.opptakstudieprogramtermin ost, fs.soknad s, fs.studieprogram sp
+        WHERE p.fodselsdato = sa.fodselsdato AND
+              p.personnr = sa.personnr AND
+              p.fodselsdato = s.fodselsdato AND
+              p.personnr = s.personnr AND
+              sa.institusjonsnr = % AND 
+              sa.tilbudstatkode IN ('I', 'S') AND
+              sa.svarstatkode_svar_pa_tilbud='J' AND
+              sa.studietypenr = osp.studietypenr AND
+              sa.institusjonsnr = osp.institusjonsnr AND
+              sa.opptakstypekode = osp.opptakstypekode AND
+              sa.opptakstypekode <> 'SOMMER' AND
+              sa.terminkode = 'HØST' AND
+              sa.arstall = 2010 AND
+              osp.opptakstypekode = ost.opptakstypekode AND
+              osp.studietypenr = ost.studietypenr AND
+              osp.institusjonsnr = ost.institusjonsnr AND
+              ost.terminkode = sa.terminkode AND
+              ost.arstall = sa.arstall AND
+              ost.studieprogramkode = sp.studieprogramkode AND
+              %s""" % (cereconf.DEFAULT_INSTITUSJONSNR, self._is_alive())
+        return self.db.query(qry, locals())
+        
     def list_aktiv_deprecated(self):
 	""" Hent opplysninger om studenter definert som aktive 
 	ved HiA. En aktiv student er enten med i et aktivt kull og
