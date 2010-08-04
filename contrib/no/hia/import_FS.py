@@ -131,7 +131,7 @@ def _calc_address(person_info):
     # FS.DELTAKER   *_hjem (5)
     # FS.SOKNAD     *_kontakt(6)
     rules = [
-        ('tilbud', ('_kontakt', '_hjemsted', None)
+        ('tilbud', ('_kontakt', '_hjemsted', None)),
         ('aktiv', ('_semadr', '_hjemsted', None)),
         ('evu', ('_job', '_hjem', None)),
         ('privatist_studieprogram', ('_semadr', '_hjemsted', None)),
