@@ -1,9 +1,25 @@
 <?php
+# Copyright 2010 University of Oslo, Norway
+# 
+# This file is part of Cerebrum.
+# 
+# Cerebrum is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# Cerebrum is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum. If not, see <http://www.gnu.org/licenses/>.
 
 class BofhFormTest extends PHPUnit_Framework_TestCase {
 
     public static function setUpBeforeClass() {
-        include_once(TEST_PREFIX_CEREBRUM . '/clients/web/phplib/view/BofhForm.php');
+        include_once TEST_PREFIX_CEREBRUM . '/clients/web/phplib/view/BofhForm.php';
     }
     public static function tearDownAfterClass() {
     }
@@ -51,6 +67,12 @@ class BofhFormTest extends PHPUnit_Framework_TestCase {
     public function testElements() {
         $form = new BofhForm('namn');
         $form->addElement('text', 'textEleName', 'Label info:', 'attributes="2"');
+        $form->addElement('text', 'textEleName', 'Label info:', 'attributes="2"');
+        $form->addElement('text', 'textEleName', 'Label info:', 'attributes="2"');
+        $form->addElement('text', 'textEleName', 'Label info:', 'attributes="2"');
+        $form->addElement('text', 'textEleName', 'Label info:', 'attributes="2"');
+        $form->addElement('text', 'textEleName', 'Label info:', 'attributes="2"');
+        $form->addElement('text', 'textEleName', 'Label info:', 'attributes="2"');
         $form->addElement('textarea', 'textareaEleName', 'Label info:', 'attributes="2"');
 
         $this->markTestIncomplete('Not implemented yet.');
@@ -72,6 +94,7 @@ class BofhFormTest extends PHPUnit_Framework_TestCase {
 
     public function testReCaptcha() {
         $form = new BofhForm('testForm');
+        $form->addElement('recaptcha');
         $this->markTestIncomplete('Should test reCaptcha more thorough, as its not a part of HTML_QuickForm');
     }
 
@@ -159,4 +182,17 @@ class BofhFormTest extends PHPUnit_Framework_TestCase {
     }
 
 
+    public function testSecurityCallback() {
+
+        $this->called_back = false;
+        BofhForm::addSecurityCallback(array($this, 'callbackTester'));
+        $this->markTestIncomplete('more to do');
+
+    }
+    public function callbackTester() {
+        $this->called_back = true;
+
+    }
+
 }
+?>

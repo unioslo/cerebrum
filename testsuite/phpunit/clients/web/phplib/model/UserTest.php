@@ -1,4 +1,20 @@
 <?php
+# Copyright 2010 University of Oslo, Norway
+# 
+# This file is part of Cerebrum.
+# 
+# Cerebrum is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# Cerebrum is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum. If not, see <http://www.gnu.org/licenses/>.
 
 class UserTest extends PHPUnit_Framework_TestCase {
 
@@ -55,7 +71,7 @@ class UserTest extends PHPUnit_Framework_TestCase {
 
     public function testLoggedOut() {
         $u = new User($this->getMock('AuthenticateCom'));
-        $this->assertFalse($u->is_logged_on());
+        $this->assertFalse($u->isLoggedOn());
     }
 
     /**
@@ -71,7 +87,7 @@ class UserTest extends PHPUnit_Framework_TestCase {
         $u = new User($comm);
         $this->assertFalse($u->logOn('username', 'password'),
                            "Logon didn't fail");
-        $this->assertFalse($u->is_logged_on(), 
+        $this->assertFalse($u->isLoggedOn(), 
                            "Logon didn't fail");
     }
 
@@ -92,7 +108,7 @@ class UserTest extends PHPUnit_Framework_TestCase {
                            "Logon failed, but should work");
         restore_error_handler();
 
-        $this->assertTrue($u->is_logged_on(), "Logon status not updated");
+        $this->assertTrue($u->isLoggedOn(), "Logon status not updated");
     }
 
     public function testLogOff() {
@@ -108,7 +124,7 @@ class UserTest extends PHPUnit_Framework_TestCase {
         $u = new User($comm);
         @$u->logOn('bobby', 'secret');
         $this->assertTrue($u->logoff());
-        $this->assertFalse($u->is_logged_on(), 
+        $this->assertFalse($u->isLoggedOn(), 
                            "User not logged out after calling logout");
     }
 
@@ -136,7 +152,7 @@ class UserTest extends PHPUnit_Framework_TestCase {
         $u = new User($comm);
         @$u->logOn('bobby', 'secret');
         // set timeout and change time somehow...
-        #$this->assertFalse($u->is_logged_on(), 'Not logged out after timeout');
+        #$this->assertFalse($u->isLoggedOn(), 'Not logged out after timeout');
         $this->markTestIncomplete('Need a way to change time to check timeout');
     }
 
