@@ -92,7 +92,7 @@ class HiAStudent(access_FS.Student):
               ost.terminkode = sa.terminkode AND
               ost.arstall = sa.arstall AND
               ost.studieprogramkode = sp.studieprogramkode AND
-              %s""" % (cereconf.DEFAULT_INSTITUSJONSNR, self._is_alive())
+              %s""" % (self.institusjonsnr, self._is_alive())
         return self.db.query(qry, locals())
         
     def list_aktiv_deprecated(self):
