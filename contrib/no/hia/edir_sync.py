@@ -264,7 +264,11 @@ def group_mod(mod_type, group_id, member_id):
             member_name = cereconf.NW_GROUP_PREFIX + '-' + grp.group_name
     elif subj_ent.entity_type == constants.entity_account:
         acc.clear()
-        acc.find(member_id)
+        try:
+            acc.find(member_id)
+        except Errors.NotFoundError:
+            logger.error("No such account, %s", member_id)
+            return
         member_name = acc.account_name
     else:
         logger.warn("Only groups or accounts may be members!")
