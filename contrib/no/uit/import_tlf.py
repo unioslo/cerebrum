@@ -232,7 +232,7 @@ def process_telefoni(filename,checknames,checkmail):
     reader=csv.reader(open(filename,'r'), delimiter=';')
     phonedata=dict()
     for row in reader:
-        if row[RESERVATION].lower()=='kat' and row[USERID]:
+        if row[RESERVATION].lower()=='kat' and row[USERID].strip():
             data = {'phone': row[PHONE],'mobile': row[MOB], 'room': row[ROOM],
                     'mail':row[MAIL], 'fax':row[FAX],'phone_2':row[PHONE_2],
                     'firstname': row[FNAME], 'lastname': row[LNAME],
