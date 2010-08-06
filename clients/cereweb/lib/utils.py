@@ -274,13 +274,17 @@ def get_tabs(current=None):
       ('Index', 'index', '/index'),
       ('Persons', 'person', '/person'),
       ('Accounts', 'account', '/account'),
-      ('Groups', 'group', '/group'),
-      ('Organizations', 'ou', '/ou'),
-      ('Hosts', 'host', '/host'),
-      ('Disks', 'disk', '/disk'),
-      ('Email', 'email', '/email'),
-      ('Logout', 'logout', '/logout'),
+      ('Groups', 'group', '/group')
     ]
+    
+    if cherrypy.session['is_admin']:
+        tabs.extend([
+                     ('Organizations', 'ou', '/ou'),
+                     ('Hosts', 'host', '/host'),
+                     ('Disks', 'disk', '/disk'),
+                     ('Email', 'email', '/email')])
+    
+    tabs.append(('Logout', 'logout', '/logout'))
 
     html = '<li%s><a href="%s"><em>%s</em></a></li>'
     res = []
