@@ -56,7 +56,6 @@ class OuDAO(EntityDAO):
         dto.short_name = ou.short_name
         dto.display_name = ou.display_name
         dto.sort_name = ou.sort_name
-        dto.families = self._get_families(ou)
         dto.quarantines = QuarantineDAO(self.db).create_from_entity(ou)
         dto.notes = NoteDAO(self.db).create_from_entity(ou)
         dto.traits = TraitDAO(self.db).create_from_entity(ou)
@@ -104,7 +103,7 @@ class OuDAO(EntityDAO):
 
             child_ids = ou.list_children(perspective.id, ou.entity_id)
             family.children = [self._create_dto(self._find(c['ou_id'])) for c in child_ids]
-
+            
         return families
 
     def get_entities(self):
@@ -119,22 +118,31 @@ class OuDAO(EntityDAO):
         return dtos
 
     def get_tree(self, perspective):
+        """Get a tree structure containing all organizations within the given
+        perspective."""
         entity = self._get_cerebrum_obj()
         if isinstance(perspective, (str, int)):
             perspective = ConstantsDAO(self.db).get_ou_perspective_type(perspective)
+        # get pairs of organization id's, in the format:
+        # {child_id: parent_id,....}
         structure_mappings = entity.get_structure_mappings(perspective.id)
         roots = {}
-        data = {}
-        for node_id, parent_id in structure_mappings:
-            node = data.setdefault(node_id, self._create_node(node_id))
-
-            if not parent_id: 
-                roots[node_id] = node
-            else:
-                if not parent_id in data:
-                    data[parent_id] = self._create_node(parent_id)
-                parent = data[parent_id]
+        cached_nodes = {}
+        for child_id, parent_id in structure_mappings:
+            # cache the node
+            node = cached_nodes.setdefault(child_id, self._create_node(child_id))
+            # organization node has a parent?
+            if parent_id:
+                # cache the parent
+                if not parent_id in cached_nodes:
+                    cached_nodes[parent_id] = self._create_node(parent_id)
+                parent = cached_nodes[parent_id]
+                
+                # add child to the parent's children
                 parent.children.append(node)
+            else:
+                # it's a root node
+                roots[child_id] = node
 
         return roots.values()
 
@@ -213,8 +221,9 @@ class OuDAO(EntityDAO):
         perspective = int(self.constants.OUPerspective(perspective))
         ou.unset_parent(perspective)
 
-    def _create_node(self, node_id):
-        ou = self._find(node_id)
+    def _create_node(self, ou_id):
+        """Get an organization with no children, given an id."""
+        ou = self._find(ou_id)
         node = self._create_dto(ou)
         node.children = []
         return node
