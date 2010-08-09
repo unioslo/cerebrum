@@ -129,7 +129,11 @@
 	    <tr class="item">
 	#end if
         <td>$spine_to_web($aff.name)</td>
-        <td>$entity_link($aff.ou)</td>
+        #if $is_admin
+            <td>$entity_link($aff.ou)</td>
+        #else
+            <td>$aff.ou.name</td>
+        #end if
         <td>
         #if not $aff.is_deleted
             $_('active')
@@ -142,7 +146,7 @@
                             $aff.ou.id,
                             $aff.id,
                             $aff.source_system.id)
-                #if not $aff.is_deleted
+                #if not $aff.is_deleted and $is_admin
                     <a class="action" href="/confirm/person/remove_affil?$args">Delete</a>
                 #end if
         </td>
@@ -190,7 +194,11 @@
                <td>$spine_to_web($name.value)</td>
                <td>
                     #for $source in $name.source_systems
-                    	<div>$spine_to_web($source.name) - <a class="action" href="/confirm/person/remove_name?id=$name.id&amp;variant=$name.variant.id&amp;ss=$source.id">Delete</a></div>
+                    	<div>$spine_to_web($source.name)
+                        #if $is_admin
+                            - <a class="action" href="/confirm/person/remove_name?id=$name.id&amp;variant=$name.variant.id&amp;ss=$source.id">Delete</a>
+                        #end if
+                        </div>
                     #end for
                </td>
             </tr>
