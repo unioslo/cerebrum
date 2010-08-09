@@ -38,6 +38,10 @@
 #from FormWidgets import FormWidgets
 #attr $form_widgets = FormWidgets()
 
+#def is_admin()
+    return $cherrypy.session['is_admin']
+#end def
+
 #def viewEmail($entity)
     #if not $targets
         #return
@@ -65,15 +69,19 @@
 #def viewAccounts($entity)
 	<div class="list box">
 	    <h3>$_('Accounts and Groups')</h3>
-	    <form action="accounts" method="post">
-	        <input type="hidden" value="$entity.id" name="owner_id" />
+        #if $is_admin
+	       <form action="accounts" method="post">
+	            <input type="hidden" value="$entity.id" name="owner_id" />
+        #end if
 	        #for $account in $entity.accounts
 		        #if $account.is_primary
 		        	<div class="item primary">
 		        #else
 		        	<div class="item">
 			    #end if
-		            <input type="checkbox" name="account_$account.id" />
+                    #if $is_admin
+		              <input type="checkbox" name="account_$account.id" />
+                    #end if
 		            <em>$_('Account'):</em>$account.name
 		            $entity_link($account, "View", _class="action")
 		            ## no point in checking unless we have a primary
@@ -89,12 +97,16 @@
 		        </div>
 		        $listGroups($account)
 	        #end for
-	
-	        #if $entity.accounts
-	        	<input type="submit" value="$_('Delete')" name="delete" />&#x0020;
-	        #end if
-	        <a href="/account/create?owner_id=$entity.id">$_('Create new account')</a>
-	    </form>
+	        
+            #if $is_admin
+    	        #if $entity.accounts
+    	        	<input type="submit" value="$_('Delete')" name="delete" />&#x0020;
+    	        #end if
+    	        <a href="/account/create?owner_id=$entity.id">$_('Create new account')</a>
+            #end if
+        #if $is_admin
+	       </form>
+        #end if
 	</div>
 #end def
 
@@ -378,7 +390,9 @@
 
     <div class="item primary">
         #set $input_name = "member_%s_%s" % ($account.id, $group.id)
-        <input type="checkbox" name="$input_name" disabled="disabled" />
+        #if $is_admin
+            <input type="checkbox" name="$input_name" disabled="disabled" />
+        #end if
         <em>$_("Group"):</em> $spine_to_web($group.name)
         $entity_link($group, text="View", _class="action")
 
@@ -398,7 +412,9 @@
         #end if
         
         #set $input_name = "member_%s_%s" % ($account.id, $group.id)
-        <input type="checkbox" name="$input_name" $disabled />
+        #if $is_admin
+            <input type="checkbox" name="$input_name" $disabled />
+        #end if
         <em>$_($header):</em> $spine_to_web($group.name)
         $entity_link($group, text="View", _class="action")
 
