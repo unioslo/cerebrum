@@ -40,7 +40,7 @@ targets = {
              'rel_0_9_10', 'rel_0_9_11', 'rel_0_9_12', 'rel_0_9_13',
              'rel_0_9_14',),
     'bofhd': ('bofhd_1_1', 'bofhd_1_2', 'bofhd_1_3',),
-    'changelog': ('changelog_1_2', ),
+    'changelog': ('changelog_1_2', 'changelog_1_3'),
     'email': ('email_1_0', 'email_1_1', 'email_1_2', 'email_1_3'),
     'ephorte': ('ephorte_1_1', 'ephorte_1_2'),
     'stedkode': ('stedkode_1_1', ),
@@ -546,6 +546,18 @@ def migrate_to_changelog_1_2():
     meta = Metainfo.Metainfo(db)
     meta.set_metainfo("sqlmodule_changelog", "1.2")
     print "Migration to changelog 1.2 completed successfully"
+    db.commit()
+
+def migrate_to_changelog_1_3():
+    print "\ndone."
+    assert_db_version("1.2", component='changelog')
+    print "The statement for migrating to 1.3 might fail if your database was first created with"
+    print "module changelog 1.2 (CONSTRAINT evthdlr_key_pk does not exist)."
+    print "This is not an error."
+    makedb('changelog_1_3', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_changelog", "1.3")
+    print "Migration to changelog 1.3 completed successfully"
     db.commit()
 
 def migrate_to_email_1_1():

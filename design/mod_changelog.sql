@@ -21,7 +21,7 @@
 category:metainfo;
 name=changelog;
 category:metainfo;
-version=1.2;
+version=1.3;
 category:drop;
 drop TABLE change_handler_data;
 category:drop;
@@ -100,8 +100,7 @@ indicates holes in the sequence.
 category:main;
 CREATE TABLE change_handler_data
 (
-  evthdlr_key    CHAR VARYING(20) NOT NULL
-                 CONSTRAINT evthdlr_key_pk PRIMARY KEY,
+  evthdlr_key    CHAR VARYING(20) NOT NULL,
   first_id       NUMERIC(12,0) NOT NULL,
   last_id        NUMERIC(12,0) NOT NULL
 );
