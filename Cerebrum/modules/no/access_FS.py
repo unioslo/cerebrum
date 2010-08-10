@@ -1360,6 +1360,7 @@ class roles_xml_parser(non_nested_xml_parser):
             'undplanlopenr': ['timeplan',],
             'status_publisering': None,
             'status_default_veileder': None,
+            'institusjonsnr_eier': None,
             }
         data = attrs.copy()
         target = None
