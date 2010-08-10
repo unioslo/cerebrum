@@ -342,6 +342,9 @@ def read_password(user, system, host=None):
     # "hosts" starting with a '/' are local sockets, and should use
     # this host's password files, i.e. don't qualify password filename
     # with hostname.
+    # TODO: lowercasing user names may not be a good
+    # idea, e.g. FS operates with usernames starting with capital
+    # 'i'...
     if host is not None and not host.startswith("/"):
         fmt.append('@%s')
         var.append(host.lower())
