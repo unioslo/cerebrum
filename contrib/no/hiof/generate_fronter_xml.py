@@ -1340,17 +1340,17 @@ def output_people(db, tree, printer):
     member_info = cf_members(db).member_info()
     processed = set()
     for group in tree.iterate_groups(cf_member_group):
-        for member_id in group.iterate_members():
-            if member_id in processed:
-                continue
+        processed.update(group.iterate_members())
 
-            processed.add(member_id)
-            xml_data = member_info.get(member_id)
-            if xml_data is None:
-                logger.warn("No data about account_id=%s", member_id)
-                continue
+    # We want to output the users sorted by id for the ease of by-human
+    # comparison.
+    for member_id in sorted(processed):
+        xml_data = member_info.get(member_id)
+        if xml_data is None:
+            logger.warn("No data about account_id=%s", member_id)
+            continue
 
-            output_person_element(xml_data, printer)
+        output_person_element(xml_data, printer)
 # end output_people
 
 
