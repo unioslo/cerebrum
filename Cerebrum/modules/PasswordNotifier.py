@@ -369,7 +369,7 @@ Users with new passwords: %d
             try:
                 prim_email = account.get_primary_mailaddress()
             except Errors.NotFoundError:
-                self.logger.warn("No email-address for %i" % account_id)
+                self.logger.warn("No email-address for %i" % account.entity_id)
                 return
             subject = self.mail_info[mail_type]['Subject']
             subject = subject.replace('${USERNAME}', account.account_name)
@@ -450,6 +450,9 @@ def _send_mail(mail_to, mail_from, subject, body, logger, mail_cc=None, debug_en
         return False
     except smtplib.SMTPException, msg:
         logger.error("Error when notifying %s: %s" % (mail_to, msg))
+        return False
+    except Exception, e:
+        logger.error("Error when notifying %s: %s" % (mail_to, e))
         return False
     return True
 
