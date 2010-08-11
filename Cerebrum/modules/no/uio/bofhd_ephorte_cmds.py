@@ -73,7 +73,7 @@ class BofhdExtension(BofhdCommandBase):
              UiOBofhdExtension
 
         for func in ('_format_changelog_entry', '_format_from_cl',
-                     '_get_entity_name', '_get_account'):
+                     '_format_ou_name', '_get_entity_name', '_get_account'):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
         x = object.__new__(cls)
         return x
@@ -126,9 +126,6 @@ class BofhdExtension(BofhdCommandBase):
         
         return (group_help, command_help, arg_help)
 
-
-    def _format_ou_name(self, ou):
-        return "%02i%02i%02i" % (ou.fakultet, ou.institutt, ou.avdeling)
 
     def _get_role_type(self, code_str):
         try:
