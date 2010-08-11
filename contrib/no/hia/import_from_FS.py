@@ -56,11 +56,6 @@ def write_hia_person_info(outfile):
     for a in hiastudent:
 	fix_float(a)
         f.write(xml.xmlify_dbrow(a, xml.conv_colnames(cols),'aktiv') + "\n")
-    # studenter som har takket ja til tilbud
-    # skal kun brukes høsten 2010 (Jazz, 2010-08-04)
-    cols, hiastudent = _ext_cols(fs.student.list_jasvar())
-    for j in hiastudent:
-        f.write(xml.xmlify_dbrow(j, xml.conv_colnames(cols), 'tilbud') + "\n")
     # Eksamensmeldinger
     cols, hiastudent = _ext_cols(fs.student.list_eksamensmeldinger())
     for s in hiastudent:
