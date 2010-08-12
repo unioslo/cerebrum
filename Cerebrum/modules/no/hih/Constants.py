@@ -27,7 +27,8 @@ Address, Gender etc. type."""
 from Cerebrum import Constants
 from Cerebrum.Constants import _SpreadCode, \
                                _PersonAffiliationCode, \
-                               _PersonAffStatusCode
+                               _PersonAffStatusCode, \
+                               _EntityExternalIdCode
 
 
 class Constants(Constants.Constants):
@@ -76,3 +77,8 @@ class Constants(Constants.Constants):
     spread_adgang_person = _SpreadCode(
         'person@adgang', Constants.Constants.entity_person,
         'Person kjent i adgangssystemet til HiH')
+
+    ## External IDs - person related
+    externalid_bewatorid = _EntityExternalIdCode(
+        'Bewator', Constants.Constants.entity_person,
+        "Bewator ID for person")
