@@ -116,15 +116,17 @@ def process_person(fnr, card_id):
     year, mon, day = fodselsnr.fodt_dato(fnr)
     person.populate(db.Date(year, mon, day), gender)
     person.affect_external_id(constants.system_migrate,
-                              (constants.externalid_fodselsnr,
-                               constants.externalid_bewatorid)
+                              constants.externalid_fodselsnr,
+                              constants.externalid_bewatorid)
     person.populate_external_id(constants.system_migrate,
                                 constants.externalid_fodselsnr,
                                 fnr)
-    if card_id is not None:
+    if card_id is not None and card_id != '':
         person.populate_external_id(constants.system_migrate,
                                     constants.externalid_bewatorid,
                                     card_id)
+    else:
+        logger.debug("No Bewator-ID found for person %s" % fnr)
         
     person.write_db()
     logger.debug("Created new person with fnr %s and card-ID %s" % (fnr, card_id))
@@ -141,7 +143,7 @@ def check_uname(uname):
 
     if not uname.islower():
         uname = uname.lower()
-    if len(uname) > 10 or len(uname) < 6:
+    if len(uname) > 10 or len(uname) < 4:
         logger.error("Uname too short or too long %s.", uname)
         return None
 
@@ -225,7 +227,7 @@ def main():
 
     fix_unames = False
 
-    logger = Factory.get_logger("cronjob")
+    logger = Factory.get_logger("console")
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
