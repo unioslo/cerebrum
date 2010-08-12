@@ -25,7 +25,7 @@ from Cerebrum.Utils import argument_to_sql
 
 
 
-__version__ = "1.2"
+__version__ = "1.3"
 
 class ChangeLog(object):
     # Don't want to override the Database constructor
