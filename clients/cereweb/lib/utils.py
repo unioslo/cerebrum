@@ -348,17 +348,9 @@ def ou_selects(elem, perspective_type, indent=""):
        output += ou_selects(ou, perspective_type, "&nbsp;&nbsp;&nbsp;" + indent)
     return output
 
-# Multiple calls to the method below gives redundant OU's.
-# Why? Because of the default value: "output=[]"
-# The recursive counter is a temporary hack to fix that bug. 
-recursive_depth = 0
-def create_ou_selection_tree(elem, indent="", output=[]):
-    global recursive_depth
-    if recursive_depth == 0:
-        # we just called this function (i.e. we're not deep into recursion).
-        # therefore, clear the output.
+def create_ou_selection_tree(elem, indent="", output=None):
+    if output is None:
         output = []
-    recursive_depth += 1
     if isinstance(elem, list):
         for root in elem:
             create_ou_selection_tree(root, indent, output)
@@ -370,9 +362,7 @@ def create_ou_selection_tree(elem, indent="", output=[]):
     indent = ("&nbsp;" * 3) + indent;
     for child in elem.children:
         create_ou_selection_tree(child, indent, output)
-    
-    # we're about to leave this method, so decrease the recursion depth
-    recursive_depth -= 1
+
     return output
 
 #
