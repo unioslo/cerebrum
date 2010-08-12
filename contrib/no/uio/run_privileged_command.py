@@ -48,7 +48,7 @@ commands = {
     # host, mode, listname, admin, profile, description
     # 'sympa': [cereconf.SYMPA_SCRIPT, 6],
     # operation
-    'clean_rmuser': [cereconf.CLEAN_RMUSER_SCRIPT, 1],
+    # 'clean_rmuser': [cereconf.CLEAN_RMUSER_SCRIPT, 1],
     # dist Notes ID files
     'dist_NotesID': [cereconf.DIST_NOTESID_SCRIPT, 4],
     # move IMAP users
