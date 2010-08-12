@@ -1,13 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Copyright 2010 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 import sys
 import getopt
 import SoapListener
 
 import cerebrum_path
 import cereconf
-#from Cerebrum.modules.cis import Individuation
+from Cerebrum.modules.cis import Individuation
 
 from soaplib.service import soapmethod
 from soaplib.serializers.primitive import String, Integer, Array, Boolean
@@ -43,7 +61,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     """
 
     @soapmethod(String, String, _returns=Array(Array(String)))
-    def get_usernames(self, id_type, my_id):
+    def get_usernames(self, id_type, ext_id):
         """
         Based on id-type and the id, identify a person in Cerebrum and
         return a list of the persons account and their status.
@@ -52,15 +70,11 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         list. I no person match id_type, my_id, throw a ...Exception.
         """
         # TBD: check parameters here?
+        accounts = Individuation.get_person_accounts(id_type, ext_id)
         # TBD: decide what data structure to return
         # TBD: which exception do we throw if person doesn't exists
-
-        # Silly test
-        if  my_id == '25311':
-            return [('rh','active'), ('rogerha','active')]
-        else:
-            return []
-
+        return accounts
+        
 
     @soapmethod(String, String, String, String, String, _returns=Boolean)
     def generate_token(self, id_type, my_id, username, phone_no, browser_token):
@@ -71,7 +85,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         Return True if the person can be identified and phone_no is
         correct according to Cerebrum. Else return False
         """
-        return True
+        return Individuation.generate_token(id_type, ext_id, username,
+                                            phone_no, browser_token)
 
 
     @soapmethod(String, String, String, String, String, String, _returns=Boolean)
