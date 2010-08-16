@@ -57,6 +57,7 @@ co = Factory.get('Constants')(db)
 aff_status_pri_order = [int(x) for x in (  # Most significant first
     co.affiliation_status_student_drgrad,
     co.affiliation_status_student_aktiv,
+    co.affiliation_status_student_emnestud,
     co.affiliation_status_student_evu,
     co.affiliation_status_student_privatist,
 ##
@@ -163,6 +164,7 @@ def _calc_address(person_info):
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
         ('aktiv', ('_semadr', '_hjemsted', None)),
+        ('emnestud', ('_semadr', '_hjemsted', None)),
         ('evu', ('_job', '_hjem', None)),
         ('drgrad', ('_semadr', '_hjemsted', None)),
         ('privatist_emne', ('_semadr', '_hjemsted', None)),
@@ -193,8 +195,9 @@ def _calc_address(person_info):
             # Henter ikke adresseinformasjon for aktiv, men vi vil
             # alltid ha minst et opptak når noen er aktiv.
             if not (person_info.has_key('opptak') or
-                    person_info.has_key('privatist_studieprogram')):
-                logger.error("Har aktiv tag uten opptak/privatist tag! (fnr: %s %s)" % (
+                    person_info.has_key('privatist_studieprogram') or
+                    person_info.has_key('emnestud')):
+                logger.error("Har aktiv tag uten opptak/privatist/emnestud tag! (fnr: %s %s)" % (
                     person_info['fodselsdato'], person_info['personnr']))
                 continue
             tmp = person_info['opptak'][0].copy()
@@ -272,6 +275,7 @@ def process_person_callback(person_info):
     affiliations = []
     address_info = None
     aktiv_sted = []
+    aktivemne_sted = []
 
     # Iterate over all person_info entries and extract relevant data    
     if person_info.has_key('aktiv'):
@@ -279,6 +283,11 @@ def process_person_callback(person_info):
             if studieprog2sko[row['studieprogramkode']] is not None:
                 aktiv_sted.append(int(studieprog2sko[row['studieprogramkode']]))
                 logger.debug("App2akrivts")
+    if person_info.has_key('emnestud'):
+        for row in person_info['emnestud']:
+            if emne2sko[row['emnekode']] is not None:
+                aktivemne_sted.append(int(emne2sko[row['emnekode']]))
+                logger.debug('Add sko based on emne')
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
@@ -287,7 +296,7 @@ def process_person_callback(person_info):
             continue
         # Get name
         if dta_type in ('fagperson', 'opptak', 'tilbud', 'evu', 'privatist_emne',
-                        'privatist_studieprogram', 'alumni'):
+                        'privatist_studieprogram', 'alumni', 'emnestud'):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
@@ -311,6 +320,32 @@ def process_person_callback(person_info):
                     subtype = co.affiliation_status_student_drgrad
                 _process_affiliation(co.affiliation_student, subtype,
                                      affiliations, studieprog2sko[row['studieprogramkode']])
+        elif dta_type in ('emnestud',):
+            for row in x:
+                subtype = co.affiliation_status_student_emnestud
+                if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
+                    subtype = co.affiliation_status_student_aktiv
+                    sko = studieprog2sko[p['studieprogramkode']]
+                elif row['studierettstatkode'] == 'EVU':
+                    subtype = co.affiliation_status_student_evu
+                    _get_sko(p, 'faknr_adm_ansvar',
+                             'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar')
+                elif row['studierettstatkode'] == 'FULLFØRT':
+                    subtype = co.affiliation_status_student_alumni
+                    sko = studieprog2sko[p['studieprogramkode']]
+                elif int(row['studienivakode']) >= 980:
+                    subtype = co.affiliation_status_student_drgrad
+                    sko = studieprog2sko[p['studieprogramkode']]
+                else:
+                    try:
+                        sko = emne2sko[p['emnekode']]
+                    except KeyError:
+                        logger.warn("Fant ingen emner med koden %s" % p['emnekode'])
+                        continue  
+                if sko in aktiv_sted:
+                    subtype = co.affiliation_status_student_aktiv
+                _process_affiliation(co.affiliation_student, subtype,
+                                     affiliations, sko)
         elif dta_type in ('privatist_studieprogram',):
             _process_affiliation(co.affiliation_student,
                                  co.affiliation_status_student_privatist,
@@ -338,6 +373,8 @@ def process_person_callback(person_info):
                                  co.affiliation_status_student_evu,
                                  affiliations, _get_sko(p, 'faknr_adm_ansvar',
                                  'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar'))
+        else:
+            logger.warn("No such affiliation type: %s, skipping", dta_type)
             
     if etternavn is None:
         logger.debug("Ikke noe navn på %s" % fnr)
