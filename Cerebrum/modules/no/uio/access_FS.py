@@ -1,5 +1,4 @@
 # -*- coding: iso-8859-1 -*-
-
 # Copyright 2002, 2003 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
@@ -340,6 +339,48 @@ class UiOStudent(access_FS.Student):
                self._is_alive())
         return self.db.query(qry, locals())
 
+    def list_aktiv_emnestud(self, fodselsdato=None, personnr=None):
+
+        """Hent informasjon om personer som anses som aktive studenter
+           på grunnlag av eksisterende gyldig undervisningsmelding og
+           gyldig semesterkort i inneværende semester. Merk at disse
+           ikke nødvendigvis har studierett på noen studieprogrammer
+           og at det derfor må hentes ut personopplysninger i tillegg
+           til opplysninger om studieaktivitet."""
+
+        extra = ""
+        if fodselsdato and personnr:
+            extra = "p.fodselsdato=:fodselsdato AND p.personnr=:personnr AND"
+
+        qry = """
+        SELECT p.fodselsdato, p.personnr, p.etternavn, p.fornavn,
+               s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
+               s.adrlin3_semadr, s.adresseland_semadr, p.adrlin1_hjemsted,
+               p.adrlin2_hjemsted, p.postnr_hjemsted, p.adrlin3_hjemsted,
+               p.adresseland_hjemsted, p.status_reserv_nettpubl,
+               p.sprakkode_malform, p.kjonn, p.status_dod,
+               s.studentnr_tildelt, u.emnekode, u.versjonskode,
+               u.terminkode, u.arstall
+        FROM fs.person p, fs.student s, fs.registerkort r, fs.undervisningsmelding u
+        WHERE p.fodselsdato=s.fodselsdato AND
+              p.personnr=s.personnr AND
+              p.fodselsdato=r.fodselsdato AND
+              p.personnr=r.personnr AND
+              p.fodselsdato = u.fodselsdato AND
+              p.personnr = u.personnr AND
+              %s AND
+              r.status_reg_ok = 'J' AND
+              r.status_bet_ok = 'J' AND
+              NVL(r.status_ugyldig, 'N') = 'N' AND
+              %s AND
+              %s AND
+              u.terminkode = r.terminkode AND
+              u.arstall = r.arstall AND
+              NVL(u.status_svar_pa_tilbud, 'N') = 'J' AND
+              NVL(u.status_opptatt, 'N') = 'J'
+              """ % (self._is_alive(), self._get_termin_aar(only_current=1), extra)
+        return self.db.query(qry, locals())
+ 
     def list_privatist_emne(self, fodselsdato=None, personnr=None):  # GetStudentPrivatistEmne_50
         """Hent personer som er uekte privatister, dvs. som er
 	eksamensmeldt til et emne i et studieprogram de ikke har
