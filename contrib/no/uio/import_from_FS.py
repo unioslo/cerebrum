@@ -155,6 +155,11 @@ def write_person_info(outfile):
     for s in students:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'aktiv') + "\n")
 
+    # Aktive emnestudenter
+    cols, students = _ext_cols(fs.student.list_aktiv_emnestud())
+    for s in students:
+        f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'emnestud') + "\n")
+
     # Semester-registrering
     cols, students = _ext_cols(fs.student.list_semreg())
     for s in students:
