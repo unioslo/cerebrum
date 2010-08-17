@@ -229,7 +229,7 @@ def compare(adusers,cerebrumusers):
                 #if changes['profilePath'] != None:
                 #changes['profilePath'] = None
 
-             if cerebrumusers[usr]['ACCOUNTDISABLE'] and not dta['ACCOUNTDISABLE']:
+            if cerebrumusers[usr]['ACCOUNTDISABLE'] and not dta['ACCOUNTDISABLE']:
                 changes['ACCOUNTDISABLE'] = True
                 logger.debug("Updating account %s, registering active quarantine", usr)
                 newchg = True
@@ -284,7 +284,6 @@ def compare(adusers,cerebrumusers):
             changes['sAMAccountName'] = cusr
             changelist.append(changes)
 
-    print changelist
     return changelist
 
 def create_user(elem):
