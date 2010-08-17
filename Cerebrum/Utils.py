@@ -1498,11 +1498,11 @@ class SMSSender():
     '''The string to search for, to check if a message got sent ok'''
     _ok_message = 'OK Message'
 
-    def __init__(self, url = None, user = None, system = None):
-        self._logger = Factory.get_logger("cronjob")
-        self._url    = cereconf.SMS_URL
-        self._system = cereconf.SMS_SYSTEM
-        self._user   = cereconf.SMS_USER
+    def __init__(self, logger = None, url = None, user = None, system = None):
+        self._logger = logger or Factory.get_logger("cronjob")
+        self._url    = url    or cereconf.SMS_URL
+        self._system = system or cereconf.SMS_SYSTEM
+        self._user   = user   or cereconf.SMS_USER
 
     def __call__(self, phone_to, message, confirm = False):
         """
