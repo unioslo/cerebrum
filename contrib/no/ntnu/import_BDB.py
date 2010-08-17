@@ -504,14 +504,14 @@ class BDBSync:
         except:
             self.logger.warn("Person with bdb-external-id %s has bad birthdate" % person['id'])
             return False
-        if person['no_nin'] is None:
-            if not person.get("person_number"):
-                self.logger.warn("Person with bdb-external-id %s has no person-number" % person['id'])
-                return False
-            try:
-                fnr = self.__get_fodselsnr(person)
-            except fodselsnr.InvalidFnrError,e:
-                return False
+        if not person.get("person_number"):
+            if person['no_nin'] is None:
+                self.logger.warn("Person with bdb-external-id %s is not on no_nin and has no person-number" % person['id'])
+        try:
+            fnr = self.__get_fodselsnr(person)
+        except fodselsnr.InvalidFnrError,e:
+            return False
+        
         return True
 
     def __get_gender(self,person):

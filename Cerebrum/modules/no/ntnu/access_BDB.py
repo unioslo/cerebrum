@@ -81,8 +81,6 @@ class BDB:
                 p.epost_adr IS NOT NULL AND
                 b.status = 1 AND
                 n.person (+) = p.id AND
-                (p.personnr IS NOT NULL
-                   OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
                 p.mail_domain = m.id AND
                 s.id(+) = m.system
         """
@@ -116,11 +114,8 @@ class BDB:
           k.system, b.brukernavn , s.navn as spread_name,
           sk.navn as shell
         FROM person p,konto k, bruker b, gruppe g,
-          bdb.system s, skall sk, no_nin_persons n
+          bdb.system s, skall sk
         WHERE p.id = b.person AND
-          p.id = n.person (+) AND
-          (p.personnr IS NOT NULL
-            OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
           k.bruker = b.id AND
           k.gruppe = g.id AND
           k.system = s.id AND
@@ -153,12 +148,9 @@ class BDB:
         cursor.execute("""
         SELECT v.id,v.person,v.subject,v.message,to_char(p.fodselsdato,'YYYY-MM-DD'),
           p.personnr, p.fornavn, p.etternavn
-        FROM vacation v, person p, bruker b, no_nin_persons n
+        FROM vacation v, person p, bruker b
         WHERE v.person = p.id AND
           p.id = b.person AND
-          p.id = n.person (+) AND
-          (p.personnr IS NOT NULL
-            OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL)) AND
           b.user_domain = 1
         """)
         bdb_vacations = cursor.fetchall()
@@ -192,9 +184,7 @@ class BDB:
             FROM person p,bruker b, no_nin_persons n
             WHERE b.person = p.id AND
               b.user_domain=1 AND
-              p.id = n.person (+) AND
-              (p.personnr IS NOT NULL
-                OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL))
+              p.id = n.person (+)
             """)
         elif bdbid:
             cursor.execute("""
@@ -272,8 +262,6 @@ class BDB:
               h.konto IS NULL AND
               b.person = p.id AND
               p.id = n.person (+) AND
-              (p.personnr IS NOT NULL
-                OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
               b.gruppe = g.id (+)
             """ % int(last))
                               
@@ -289,8 +277,6 @@ class BDB:
             WHERE b.user_domain=1 AND
               b.person = p.id AND
               p.id = n.person (+) AND
-              (p.personnr IS NOT NULL
-                OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
               b.gruppe =  g.id (+)
             """) 
         # user_domain=1 is NTNU
@@ -361,12 +347,9 @@ class BDB:
           t.familie, f.navn, f.alltidsluttdato, k.kode, b.brukernavn,
           k.kjerneid
         FROM tilknyttet t, person p, bruker b, tilkn_former f,
-             c_ksted k, no_nin_persons n
+             c_ksted k
         WHERE t.person = p.id AND
           b.person = p.id AND
-          p.id = n.person (+) AND
-          (p.personnr IS NOT NULL
-            OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate) AND n.account_type IS NULL)) AND
           b.user_domain = 1 AND
           b.status = 1 AND
           t.tilkn_form = f.id AND
@@ -406,15 +389,13 @@ class BDB:
                             e.mail_domain,
                             d.navn,
                             s.navn
-            FROM aliases e,person p,bruker b,no_nin_persons n,mail_domain d,
+            FROM aliases e, person p, bruker b, mail_domain d,
                  system s
             WHERE
                 b.user_domain = 1 AND
                 b.person = p.id AND
                 b.status = 1 AND
                 p.id = n.person (+) AND
-                (p.personnr IS NOT NULL
-                  OR (n.person IS NOT NULL AND (n.utloper IS NULL OR n.utloper > sysdate))) AND
                 p.id = e.person AND
                 e.mail_domain = d.id AND
                 s.id (+) = d.system
