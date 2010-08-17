@@ -142,7 +142,7 @@ def sync_groups(cerebrumgroups, dry_run):
             server.bindObject(dn)
             res = server.syncMembers(members, False)
             if not res[0]:
-                logger.warn("Failed to syncronize members for %s", dn)
+                logger.warn("Failed to syncronize members for %s: %s", dn, res[1])
             else:
                 logger.info("Succesfully syncronized group %s", dn)
 
