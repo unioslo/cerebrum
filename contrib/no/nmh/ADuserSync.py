@@ -70,7 +70,17 @@ def get_cerebrum_data():
             count = count +1
     logger.info("Added %d students", count)
 
-    # Faculty (overrides information registered for students)
+    # Staff (fs-registration, overrides information registered for students)
+    #
+    count = 0
+    for row in ac.list_accounts_by_type(affiliation=co.affiliation_tilknyttet, status=co.affiliation_status_tilknyttet_fagpersonf):
+        if aid2ainfo.has_key(int(row['account_id'])):
+            logger.debug2("Faculty emp. %s at %s" % (row['account_id'], row['ou_id']))
+            aid2ainfo[int(row['account_id'])]['affiliation'] = cereconf.AD_FAGANSATT_OU
+            count = count +1
+    logger.info("Added %d staff", count)
+    
+    # Faculty (overrides information registered for students and staff)
     #
     count = 0
     for row in ac.list_accounts_by_type(affiliation=co.affiliation_ansatt):
@@ -219,6 +229,11 @@ def compare(adusers,cerebrumusers):
                 #if changes['profilePath'] != None:
                 #changes['profilePath'] = None
 
+             if cerebrumusers[usr]['ACCOUNTDISABLE'] and not dta['ACCOUNTDISABLE']:
+                changes['ACCOUNTDISABLE'] = True
+                logger.debug("Updating account %s, registering active quarantine", usr)
+                newchg = True
+           
             if newchg:
                 changes['type'] = 'UPDATEUSR'
                 changes['distinguishedName'] = adusers[usr]['distinguishedName']
@@ -268,7 +283,8 @@ def compare(adusers,cerebrumusers):
             changes['type'] = 'NEWUSR'
             changes['sAMAccountName'] = cusr
             changelist.append(changes)
-            
+
+    print changelist
     return changelist
 
 def create_user(elem):
