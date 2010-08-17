@@ -45,6 +45,8 @@ import person
 import ajax
 import motd
 from search import search
+import userclient
+import passwd
 
 @session_required_decorator
 def index():

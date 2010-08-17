@@ -9,8 +9,9 @@ import Serve_services_types
 from Cerebrum.Utils import Factory
 
 from httplib import HTTPConnection
-from M2Crypto import SSL
-from Cerebrum.lib.cerews.SignatureHandler import SignatureHandler
+#from M2Crypto import SSL
+#from Cerebrum.lib.cerews.SignatureHandler import SignatureHandler
+from servers.cerews.lib.SignatureHandler import SignatureHandler
 
 log = Factory.get_logger('root')
 
