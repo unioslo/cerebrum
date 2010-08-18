@@ -385,10 +385,14 @@ def remove_home(account_id, spread_id):
 remove_home.exposed = True
 
 @session_required_decorator
-def set_password(id, passwd1, passwd2):
+def set_password(id, passwd1, passwd2, generate_password="no", generate_contract="no"):
     if not is_correct_referer():
         queue_message(get_referer_error(), error=True, title='Set password failed')
         redirect_entity(id)
+    
+    if generate_password == "yes":
+        passwd1 = passwd2 = randpasswd()
+    
     if passwd1 != passwd2:
         queue_message(_("Passwords does not match."), title=_("Change failed"), error=True)
         redirect_entity(id)
@@ -399,13 +403,23 @@ def set_password(id, passwd1, passwd2):
         dao = AccountDAO(db)
         dao.set_password(id, passwd1)
         db.commit()
-        queue_message(_("Password successfully set."), title=_("Change succeeded"))
+        if generate_password == "yes":
+            queue_message(_("Password successfully set. New password is: " + passwd1), title=_("Change succeeded"))
+        else:
+            queue_message(_("Password successfully set."), title=_("Change succeeded"))
     except PasswordGoodEnoughException, e:
         db.rollback()
         queue_message(
             _('Passord is not strong enough. Please try to make a stronger password.'),
             error=True,
             title=_('Password is not changed'))
+    
+    if generate_contract == "yes":
+        from person import print_contract
+        db = get_database()
+        dao = AccountDAO(db)
+        return print_contract(dao.get_owner(id).id, "english", "on") 
+    
     redirect_entity(id)
 set_password.exposed = True
 

@@ -40,8 +40,6 @@
     <ul>
         <li><a href="/confirm/account/update?account_id=$account.id">
                     $_('Refresh')</a></li>
-        <li><a href="/confirm/account/randpassword?id=$account.id">
-                    $_('Generate password')</a></li>
         <li><a href="/entity/full_historylog?id=$account.id">
             $_('Recent changes')</a> </li>
     </ul>
@@ -74,14 +72,14 @@
     $joinGroup($account)
     $addAffiliation($account)
     $setEmail($account)
-    $setPassword($account)
+    $changePassword($account)
     $viewTraits($account)
     $setHomeDirectory($account)
     $viewHomeDirectories($account)
     $addSpread($account, $spreads)
     $viewPasswords($account)
     $viewHistoryLog($account)
-    $generateContractDialog($account.owner)
+    $generateContractDialog($account)
 #end def
 
 
@@ -238,10 +236,10 @@
     </div>
 #end def
 
-#def setPassword($account)
+#def changePassword($account)
 #set help = ["Password must be exactly 8 characters long. Must be different from the existing password. Legal chars: [a-z],[A-Z],[0-9] and [!#()*+,.=?@[]_{}~-]. Must contain at least 1 character from 3 of these 4 groups."]
 <div class="edit box">
-    <h3>$_('Set password')</h3>
+    <h3>$_('Change password')</h3>
     $form_widgets.changePassword($account.id, $help)
 </div>
 #end def
