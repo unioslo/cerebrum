@@ -47,6 +47,7 @@ import motd
 from search import search
 import userclient
 import passwd
+import activation
 
 @session_required_decorator
 def index():
