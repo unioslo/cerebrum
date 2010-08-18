@@ -76,11 +76,13 @@ class Object2Cerebrum(object):
                                         id_dict[id_type])
         # Remove external IDs not seen in the ABC file but present in the database
         # with source_system equal to ours.
-        for row in entity.get_external_id(source_system=self.source_system):
-            id_type = row['id_type']
-            if id_type not in id_dict.keys():
-                entity._delete_external_id(self.source_system, id_type)
-                self.logger.info("Entity: '%d' removed external ID type '%s'." % (entity.entity_id,id_type)) 
+        # New entities have no entity_id but have no depricated ext IDs either.
+        if hasattr(entity, 'entity_id'):
+            for row in entity.get_external_id(source_system=self.source_system):
+                id_type = row['id_type']
+                if id_type not in id_dict.keys():
+                    entity._delete_external_id(self.source_system, id_type)
+                    self.logger.info("Entity: '%d' removed external ID type '%s'." % (entity.entity_id,id_type)) 
 
     def _process_tags(self, entity, tag_dict):
         """Process an entity's tags."""
