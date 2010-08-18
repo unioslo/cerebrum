@@ -40,7 +40,7 @@ default_studieprogram_file = "/cerebrum/hih/dumps/FS/studieprog.xml"
 default_ou_file = "/cerebrum/hih/dumps/FS/ou.xml"
 default_emne_file = "/cerebrum/hih/dumps/FS/emner.xml"
 default_fnr_update_file = "/cerebrum/hih/dumps/FS/fnr_update.xml"
-default_evu_kursinfo_file = "/cerebrum/nhh/dumps/FS/evu_kursinfo.xml"
+default_evu_kursinfo_file = "/cerebrum/hih/dumps/FS/evu_kursinfo.xml"
 
 xml = XMLHelper()
 fs = None
