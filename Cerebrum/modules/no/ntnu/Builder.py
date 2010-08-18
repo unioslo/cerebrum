@@ -6,6 +6,9 @@ from Cerebrum import Errors
 
 logger = Factory.get_logger("console")
 
+class MissingPrimaryGroup(Errors.CerebrumError):
+    """Missing primary group"""
+
 class Builder(object):
     def __init__(self, db, creator_id):
         self.db = db
@@ -60,9 +63,11 @@ class Builder(object):
         if not primarygroup_id:
             logger.warn("Cannot find a primary group for account %s.",
                         self.account.account_name)
-            return
 
-        self._build_posix(primarygroup_id)
+        try:
+            self._build_posix(primarygroup_id)
+        except MissingPrimaryGroup:
+            return
         self._build_spreads(accountprio)
         self._build_email(owner, accountprio)
 
@@ -106,7 +111,14 @@ class Builder(object):
         self.posixuser.clear()
         try:
             self.posixuser.find(self.account.entity_id)
+            if self.posixuser.gid_id != primarygroup_id:
+                logger.debug("primary group of account %s differ from config",
+                             self.account.account_name)
         except Errors.NotFoundError:
+            if not primarygroup_id:
+                logger.warn("No primary group for account %s",
+                            self.account.account_name)
+                raise MissingPrimaryGroup()
             posix_uid = self.posixuser.get_free_uid()
             logger.info("Promoting %s to posix, uid %d, group %d",
                         self.account.account_name,
