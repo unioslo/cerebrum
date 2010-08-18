@@ -381,8 +381,8 @@ class Builder(object):
                                      self.const.name_first)
         lname = self.person.get_name(self.const.system_cached,
                                      self.const.name_last)
-        personaffs = self._get_person_affiliations(owner['id'])
-        allaccountaffs = self._get_all_account_affiliations(owner['id'])
+        personaffs = self._get_person_affiliations(owner_id)
+        allaccountaffs = self._get_all_account_affiliations(owner_id)
 
         return {
             'id': owner_id,
