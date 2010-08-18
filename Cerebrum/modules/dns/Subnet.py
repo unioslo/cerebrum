@@ -282,7 +282,7 @@ class Subnet(Entity):
         if res_adr_in_use:
             res_adr_in_use.sort()
             raise SubnetError, ("The following reserved ip's are already in use " +
-                                "on subnet %s/%s: " % (self.subnet_ip, self.subnet_mask) +
+                                "on (new?) subnet %s/%s: " % (self.subnet_ip, self.subnet_mask) +
                                 "'%s'." % (', '.join(res_adr_in_use)))
 
             
@@ -387,7 +387,8 @@ class Subnet(Entity):
     def delete(self, perform_checks=True):
         if perform_checks:
             if self.has_adresses_in_use():
-                raise SubnetError, ("Subnet '%s/%s' has addresses in use" %
+                raise SubnetError, ("Subnet '%s/%s' cannot be deleted; " +
+                                    "it has addresses in use" %
                                     (self.subnet_ip, self.subnet_mask))
         
         self._db.log_change(self.entity_id, self.const.subnet_delete, None)
