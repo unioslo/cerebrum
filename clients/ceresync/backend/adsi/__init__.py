@@ -182,7 +182,7 @@ class _AdsiBack(object):
             while self._remains:
                 accountname= self._remains.pop()
                 if self.do_delete:
-                    log.debug("Disabling %s",accountname)
+                    log.info("Disabling '%s'", accountname)
                     self.delete(_Dummy(accountname))
         self._remains = None
         self.ou = None
@@ -200,7 +200,7 @@ class _AdsiBack(object):
 
     def nuke(self, obj):
         ad_obj = self._find(obj.name)
-        log.debug("deleting '%s'.",obj.name)
+        log.info("Deleting '%s'", obj.name)
         self._nuke(ad_obj)
         if self.bulk:
             if obj.name in self._remains:
@@ -293,14 +293,14 @@ class _ADAccount(_AdsiBack):
 
         if already_exists:
             if self.do_update:
-                log.debug("Updating '%s'", obj.name)
+                log.info("Updating '%s'", obj.name)
                 return self._update(obj)
             else:
                 log.debug("Didn't add '%s', it already exists, skipping", obj.name)
                 return None
 
         if self.do_add:
-            log.debug("Adding '%s'", obj.name)
+            log.info("Adding '%s'", obj.name)
             target_ou = self._get_target_ou(obj)
             ad_obj = target_ou.create(self.objectClass, "cn=%s" % obj.name)
             ad_obj.sAMAccountName = obj.name
@@ -328,7 +328,7 @@ class _ADAccount(_AdsiBack):
         """Will only be called by add."""
         ad_obj = self._find(obj.name)
         if ad_obj.distinguishedName != self._get_target_dn(obj):
-            log.debug(u"moving %s from %s to %s",
+            log.info(u"Moving '%s' from %s to %s",
                 obj.name,
                 ad_obj.distinguishedName,
                 self._get_target_dn(obj),
@@ -480,11 +480,11 @@ class ADGroup(_ADAccount):
                             if m.saMAccountName in names_to_del]
 
         for user in members_to_del:
-            log.debug("Removing %s from group '%s'", user, obj.name)
+            log.info("Removing '%s' from group '%s'", user, obj.name)
             ad_obj.remove(user.ADsPath)
 
         for user in members_to_add:
-            log.debug("Adding %s to group '%s'", user, obj.name)
+            log.info("Adding '%s' to group '%s'", user, obj.name)
             ad_obj.add(user.ADsPath)
         ad_obj.setInfo()
 
