@@ -100,7 +100,7 @@
     $info.append(($_('Owned by'), $entity_link($account.owner)))
     $info.append(($_('Expire date'), $quotedate($account.expire_date)))
     $info.append(($_('Date created'), $quotedate($account.create_date)))
-    $info.append(($_('Created by'), $entity_link($account.creator)))
+    $info.append(($_('Created by'), $spine_to_web(($account.creator.name))))
 
     #if $account.np_type
         $info.append(($_('Account type'), $spine_to_web($account.np_type_name)))
