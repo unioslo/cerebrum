@@ -296,16 +296,20 @@ def get_tabs(current=None):
     return "\n".join(res)
 
 def get_links(page):
+    # only admins should be able to create a user
+    if is_admin():
+        person_links = (('/person/search/', _('Search')),
+                        ('/person/create/', _('Create')),)
+    else:
+        person_links = (('/person/search/', _('Search')),)
+        
     map = {
         'index': (
             ('/index', _('Index')),
             ('/motd/all', _('Messages')),
             ('/entity/global_historylog', _('Recent changes')),
         ),
-        'person': (
-            ('/person/search/', _('Search')),
-            ('/person/create/', _('Create')),
-        ),
+        'person': person_links,
         'account': (
             ('/account/search/', _('Search')),
         ),
