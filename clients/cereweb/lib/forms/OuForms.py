@@ -188,18 +188,6 @@ class OuPerspectiveEditForm(EditForm):
         self.set_value("id", id)
         self.ou = self.ou_dao.get(id)
 
-        for perspective, family in self.ou.families.items():
-            name = 'parent_%s' % perspective.name
-
-            if not family.in_perspective:
-                self.set_value(name, "not_in")
-            elif family.is_root:
-                self.set_value(name, "root")
-            else:
-                value = kwargs.get(name, family.parent.id)
-                self.set_value(name, value)
-
-
     def get_parent_options(self, perspective):
         options = [
             ("not_in", _("Not in perspective")),
