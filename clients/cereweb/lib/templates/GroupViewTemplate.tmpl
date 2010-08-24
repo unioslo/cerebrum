@@ -52,13 +52,15 @@
     <div id="actions">
         <h3>$_('Actions')</h3>
         <ul>
-            <li><a href="/confirm/group/delete?id=$group.id">$_("Delete")</a></li>
-            #if $group.is_posix
-                <li><a href="/confirm/group/posix_demote?id=$group.id">$_("Demote from posix")</a></li>
-            #else
-                <li><a href="/confirm/group/posix_promote?id=$group.id">$_("Promote to posix")</a></li>
+            #if $is_admin
+                <li><a href="/confirm/group/delete?id=$group.id">$_("Delete")</a></li>
+                #if $group.is_posix
+                    <li><a href="/confirm/group/posix_demote?id=$group.id">$_("Demote from posix")</a></li>
+                #else
+                    <li><a href="/confirm/group/posix_promote?id=$group.id">$_("Promote to posix")</a></li>
+                #end if
+                <li><a href="/account/create?owner_id=$group.id">$_('Create group account')</a> </li>
             #end if
-            <li><a href="/account/create?owner_id=$group.id">$_('Create group account')</a> </li>
             <li><a href="/entity/full_historylog?id=$group.id">$_('View full history log')</a> </li>
         </ul>
     </div>
@@ -66,10 +68,14 @@
 
 #def content()
     $viewInfo()
-    $editGroup()
+    #if $is_admin
+        $editGroup()
+    #end if
     $viewAccounts($group)
     $viewQuarantines($group)
-    $addQuarantine($group, $quarantines)
+    #if $is_admin
+        $addQuarantine($group, $quarantines)
+    #end if
     $addNote($group)
     $viewNotes($group)
     $setEmail($group)
@@ -77,9 +83,11 @@
     $viewTraits($group)
     $addSpread($group, $spreads)
     $viewSpreads($group)
-    $joinGroup($group)
-    $addMember()
-    $removeMember()
+    #if $is_admin
+        $joinGroup($group)
+        $addMember()
+        $removeMember()
+    #end if
     $viewMembers()
     $viewHistoryLog($group)
 #end def
