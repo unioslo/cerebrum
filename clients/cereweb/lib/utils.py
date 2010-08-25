@@ -40,6 +40,7 @@ Database = Utils.Factory.get("Database")
 from lib.data.AccountDAO import AccountDAO
 from lib.data.EntityFactory import EntityFactory
 from lib.data.ConstantsDAO import ConstantsDAO
+import datetime
 
 def get_referer():
     return cherrypy.request.headers.get('Referer','')
@@ -657,3 +658,8 @@ def negotiate_lang(**vargs):
         if legal in accepted_langs:
             return legal
     return default_lang
+
+def date_in_the_future(years):
+    """ What's the date x year(s) from now?"""
+    #well, not all years contains 365 days. But it's accurate enough.
+    return datetime.date.today() + datetime.timedelta(days=365 * years)

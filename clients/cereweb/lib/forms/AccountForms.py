@@ -24,8 +24,7 @@ from lib.forms.FormBase import SearchForm
 
 from lib.data.AccountDAO import AccountDAO
 from lib.data.ConstantsDAO import ConstantsDAO
-from lib.utils import randpasswd, entity_link, get_database
-import datetime
+from lib.utils import randpasswd, entity_link, get_database, date_in_the_future
 
 class AccountCreateForm(Form):
     action = '/account/create/'
@@ -89,16 +88,11 @@ class AccountCreateForm(Form):
         },
     }
     
-    def date_one_year_from_now(self):
-        """ What's the date one year from now?"""
-        #well, not all years contains 365 days. But it's accurate enough.
-        return datetime.date.today() + datetime.timedelta(days=365)
-    
     def init_values(self, owner, *args, **kwargs):
         self.owner = owner
         self.set_value('owner_id', owner.id)
         self.set_value('randpwd', [randpasswd() for i in range(10)]),
-        self.set_value("expire_date", self.date_one_year_from_now())
+        self.set_value("expire_date", date_in_the_future(years=1))
 
         self._random_password = kwargs.get('randpwd')
             

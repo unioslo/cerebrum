@@ -27,6 +27,7 @@ from lib.utils import get_database
 from lib.utils import strftime
 from lib.utils import entity_link
 from lib.utils import create_ou_selection_tree
+from lib.utils import date_in_the_future
 
 from lib.data.ConstantsDAO import ConstantsDAO
 from lib.data.PersonDAO import PersonDAO
@@ -142,6 +143,9 @@ class PersonCreateForm(Form):
             self.set_value("description",
                 'Registered by: %s on %s\n' % (username, create_date) + desc)
         return True
+    
+    def init_values(self, *args, **kwargs):        
+        self.set_value("birthdate", date_in_the_future(years=-25))
 
 class PersonEditForm(PersonCreateForm):
     action = '/person/edit/'
