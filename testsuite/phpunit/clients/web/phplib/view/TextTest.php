@@ -1,25 +1,45 @@
 <?php
+# Copyright 2010 University of Oslo, Norway
+# 
+# This file is part of Cerebrum.
+# 
+# Cerebrum is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# Cerebrum is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum. If not, see <http://www.gnu.org/licenses/>.
 
-class TextTest extends PHPUnit_Framework_TestCase {
 
-    public static function setUpBeforeClass() {
+class TextTest extends PHPUnit_Framework_TestCase
+{
+
+    public static function setUpBeforeClass()
+    {
         # TODO: include like this, relative to where the tests are put, or just 
         # include directly, hoping that include_path has it? The latter doesn't 
         # guarantee that we include the correct file.
-        include_once(TEST_PREFIX_CEREBRUM . '/clients/web/phplib/view/Text.php');
+        include_once TEST_PREFIX_CEREBRUM . '/clients/web/phplib/view/Text.php';
 
         # create directory for the test language files 
         @mkdir(self::example_path());
     }
 
-    public static function tearDownAfterClass() {
-
+    public static function tearDownAfterClass()
+    {
         # remove the text examples dir
         self::help_rmdir(self::example_path());
         
     }
 
-    public function setUp() {
+    public function setUp()
+    {
         Text::flushCache();
         $dir = self::example_path();
         @mkdir($dir . '/testinst');
@@ -32,7 +52,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
 
         @mkdir($dir . '/empty');
     }
-    public function tearDown() {
+    public function tearDown()
+    {
         $dir = self::example_path();
         self::help_rmdir($dir . '/testinst');
         self::help_rmdir($dir . '/inst2');
@@ -42,7 +63,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
      * Helper function to remove a directory recursive. Use with caution, and 
      * only for files that has been created by the test environment!
      */
-    public static function help_rmdir($dir) {
+    public static function help_rmdir($dir)
+    {
         $d = opendir($dir);
         while (($l = readdir($d)) !== false) {
             if ($l == '..' || $l == '.') continue;
@@ -50,13 +72,13 @@ class TextTest extends PHPUnit_Framework_TestCase {
             else unlink("$dir/$l");
         }
         rmdir($dir);
-
     }
 
     /**
      * Helper function to generate the path to the example files.
      */
-    public static function example_path() {
+    public static function example_path()
+    {
         return sprintf('/tmp/%s_PHPUnit_TestText_examples', $_SERVER['USER']);
     }
 
@@ -68,7 +90,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /// TESTING CONSTRUCTOR AND STATIC SETTINGS ///
     ///////////////////////////////////////////////
 
-    public function testConstruct() {
+    public function testConstruct()
+    {
         $dir = self::example_path() . '/testinst';
 
         $t = new Text('en',     $dir);
@@ -81,7 +104,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
      * Should throw error:
      * @expectedException TextDirException
      */
-    public function testConstructWithNotExistingTextDir() {
+    public function testConstructWithNotExistingTextDir()
+    {
         $dir = self::example_path() . '/notexisting_test';
 
         $t = new Text('en', $dir);
@@ -90,14 +114,16 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /**
      * @expectedException TextFileException
      */
-    public function testConstructWithNotExistingTextFile() {
+    public function testConstructWithNotExistingTextFile()
+    {
         $dir = self::example_path() . '/testinst';
 
         Text::setLocation($dir);
         $t = new Text('cs', $dir);
     }
 
-    public function testConstructWithNotExistingDefaultTextFile() {
+    public function testConstructWithNotExistingDefaultTextFile()
+    {
         $dir = self::example_path() . '/testinst';
 
         Text::setLocation($dir);
@@ -110,14 +136,16 @@ class TextTest extends PHPUnit_Framework_TestCase {
         $this->fail('Construct should fail if default language file doesn\'t exist');
     }
 
-    public function testNoDefaultLanguage() {
+    public function testNoDefaultLanguage()
+    {
         $this->assertTrue((bool) Text::getDefaultLanguage(),
                     'Default language should not be empty');
     }
 
     /// SET/GET LOCATION
 
-    public function testSetOkLocation() {
+    public function testSetOkLocation()
+    {
         $this->assertTrue(Text::setLocation(self::example_path() . '/inst2'));
         $this->assertEquals(self::example_path().'/inst2', Text::getLocation(),
             'Language location not set correctly');
@@ -126,11 +154,13 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /**
      * @expectedException TextDirException
      */
-    public function testSetBadLocation() {
+    public function testSetBadLocation()
+    {
         Text::setLocation(self::example_path().'/tmpklajsdflkjasdfklasjf/kljaskdf');
     }
 
-    public function testSetBadLocationNotChanging() {
+    public function testSetBadLocationNotChanging()
+    {
         $dir = self::example_path() . '/inst2';
         Text::setLocation($dir);
         try {
@@ -143,14 +173,16 @@ class TextTest extends PHPUnit_Framework_TestCase {
         $this->fail('Setting nonexisting location didn\'t throw TextDirException.');
     }
 
-    public function testLocationWithoutSlashLast() {
+    public function testLocationWithoutSlashLast()
+    {
         $dir = self::example_path() . '/' . __FUNCTION__ . 'test1';
         mkdir($dir);
         Text::setLocation($dir);
         $this->assertEquals($dir, Text::getLocation(), 
             'Location not set correctly');
     }
-    public function testLocationWithSlashLast() {
+    public function testLocationWithSlashLast()
+    {
         $dir = self::example_path() . '/' . __FUNCTION__ . 'test1';
         mkdir($dir);
         Text::setLocation($dir . '/');
@@ -162,7 +194,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /// GENERATE_FILE_PATH
 
 
-    public function testGeneratingPath() {
+    public function testGeneratingPath()
+    {
         $dir  = self::example_path() . '/inst2';
         $lang = 'no';
         Text::setLocation($dir);
@@ -174,7 +207,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
      * It's not possible to generate a valid path as long as setting the path 
      * throws an exception.
      */
-    public function testGeneratingInvalidPath() {
+    public function testGeneratingInvalidPath()
+    {
         $dir  = self::example_path() . '/' . __FUNCTION__;
         # directory not created
         $lang = 'no';
@@ -197,12 +231,14 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /**
      * Test if valid language tags are accepted.
      */
-    public function testValidLanguageTags() {
+    public function testValidLanguageTags()
+    {
         $valids = array('en', 'no', 'NO', 'nn-no', 'en-gb', 'en-GB', 'EN-gb');
         foreach ($valids as $v) $this->assertTrue(Text::is_valid_tag($v));
     }
 
-    public function testInvalidLanguageTags() {
+    public function testInvalidLanguageTags()
+    {
         foreach(array('tjalla', 'tj-tjalla', 'no-nn', 'nn-no-en', 'nn ', ' no', 
                  '*', '#', 'en-', '', '..', '../', '/..', '/../') as $invalid) {
             $this->assertFalse(Text::is_valid_tag($invalid));              
@@ -212,7 +248,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
 
     /// SET/GET LANGUAGE
     
-    public function testSetOkLanguage() {
+    public function testSetOkLanguage()
+    {
         $t = new Text('nn-no', self::example_path() . '/testinst');
         $t->setLang('en');
         $t->setLang('nn-no');
@@ -221,7 +258,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /**
      * @expectedException LanguageTagInvalidException
      */
-    public function testSetBadLanguage() {
+    public function testSetBadLanguage()
+    {
         $t = new Text('nn-no', self::example_path() . '/testinst');
         $t->setLang('tjalla');
         $this->fail('Setting bad language tags should throw LanguageTagInvalidException');
@@ -230,7 +268,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /**
      * @expectedException TextFileException
      */
-    public function testSetLanguageWithoutFile() {
+    public function testSetLanguageWithoutFile()
+    {
         $t = new Text('nn-no', self::example_path() . '/testinst');
         $t->setLang('sk');
         $this->fail('Setting language with nonexisting file should throw TextFileException');
@@ -238,7 +277,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
 
     /// SET/GET DEFAULT LANGUAGE
 
-    public function testDefaultLanguage() {
+    public function testDefaultLanguage()
+    {
         $dir = self::example_path() . '/testinst';
         Text::setLocation($dir);
         Text::setDefaultLanguage('nn-no');
@@ -247,11 +287,13 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /**
      * @expectedException LanguageTagInvalidException
      */
-    public function testDefaultBadParsedLanguage() {
+    public function testDefaultBadParsedLanguage()
+    {
         Text::setDefaultLanguage('tjallabing');
     }
 
-    public function testSetDefaultBadLanguageNotChanged() {
+    public function testSetDefaultBadLanguageNotChanged()
+    {
         Text::setDefaultLanguage('nn-no');
         try {
             Text::setDefaultLanguage('tjallabingo');
@@ -263,7 +305,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
         $this->fail('Setting bad default language tag should throw LanguageTagInvalidException');
     }
 
-    public function testSetDefaultBadLanguageByConstruct() {
+    public function testSetDefaultBadLanguageByConstruct()
+    {
         $dir = self::example_path() . '/testinst';
         Text::setLocation($dir);
         Text::setDefaultLanguage('en');
@@ -280,14 +323,16 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /**
      * @expectedException TextFileException
      */
-    public function testDefaultLanguageWithoutFile() {
+    public function testDefaultLanguageWithoutFile()
+    {
         $dir = self::example_path() . '/testinst';
         Text::setLocation($dir);
         Text::setDefaultLanguage('se');
         $this->fail('Setting default language with nonexisting file should throw TextFileException');
     }
 
-    public function testDefaultLanguageWithoutFileNotChanged() {
+    public function testDefaultLanguageWithoutFileNotChanged()
+    {
         $dir = self::example_path() . '/testinst';
         Text::setLocation($dir);
         Text::setDefaultLanguage('nn-no');
@@ -305,7 +350,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
 
     /// AVAILALBLE LANGUAGES
 
-    public function testAvailableLangs() {
+    public function testAvailableLangs()
+    {
         $dir = self::example_path() . '/new';
         mkdir($dir);
         Text::setLocation($dir);
@@ -323,7 +369,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
         }
     }
 
-    public function testNotAvailableLangs() {
+    public function testNotAvailableLangs()
+    {
         Text::setLocation(self::example_path() . '/empty');
         $langs = Text::getAvailableLanguages();
         $this->assertEquals(0, sizeof($langs));
@@ -336,7 +383,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
      *
      * @expectedException PHPUnit_Framework_Error
      */
-    public function testUndefinedLang() {
+    public function testUndefinedLang()
+    {
         $dir = self::example_path() . '/empty';
         Text::setLocation($dir);
         # create some random language files
@@ -359,20 +407,24 @@ class TextTest extends PHPUnit_Framework_TestCase {
 
     /// PARSE OF ACCEPT-LANGUAGE
 
-    public function testParseEmptyLang() {
+    public function testParseEmptyLang()
+    {
         $lang = Text::parseAcceptLanguage('');
         $this->assertEquals(0, sizeof($lang));
     }
-    public function testParseOneLang() {
+    public function testParseOneLang()
+    {
         $lang = Text::parseAcceptLanguage('no');
         $this->assertEquals(1, sizeof($lang));
         $this->assertEquals('no', $lang[0]);
     }
-    public function testParseBadLangs() {
+    public function testParseBadLangs()
+    {
         $lang = Text::parseAcceptLanguage('enruskjd,tjallabing,asadfas');
         $this->assertEquals(0, sizeof($lang));
     }
-    public function testParseManyLangs() {
+    public function testParseManyLangs()
+    {
         $lang = Text::parseAcceptLanguage('ru,en,no,en-gb,en-us');
         $this->assertEquals(5, sizeof($lang), 'Languages not parsed correctly');
         $this->assertEquals('ru',       $lang[0]);
@@ -382,7 +434,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('en-us',    $lang[4]);
     }
 
-    public function testParseLangsWithQuality() {
+    public function testParseLangsWithQuality()
+    {
         $lang = Text::parseAcceptLanguage('tlh;q=1,no;q=0.7,en-gb;q=0.498,'.
                                           'nb;q=0.01,en-us;q=0.');
         $this->assertEquals(4, sizeof($lang), 
@@ -397,7 +450,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
      * Test parsing language tags with quality addition 'q=N', and which needs 
      * to be sorted.
      */
-    public function testParseLangsWithQualityUnsorted() {
+    public function testParseLangsWithQualityUnsorted()
+    {
         $lang = Text::parseAcceptLanguage('nn-no,tlh;q=1,q=0.7,en-gb;q=0.498,'.
                                           'da;q=0.,nb;q=0,en-us;q=0.1,en');
         $this->assertEquals(5, sizeof($lang));
@@ -407,7 +461,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('en-gb',    $lang[3]);
         $this->assertEquals('en-us',    $lang[4]);
     }
-    public function testParseLangsWithSpaces() {
+    public function testParseLangsWithSpaces()
+    {
         $lang = Text::parseAcceptLanguage('nn-no;q=0.7, en-gb;q=0.2, en-us;q= 0.5,en');
         $this->assertEquals(4, sizeof($lang));
         $this->assertEquals('en',       $lang[0]); # q 1
@@ -415,7 +470,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('en-us',    $lang[2]); # q 0.5
         $this->assertEquals('en-gb',    $lang[3]); # q 0.2
     }
-    public function testParseLangsWithWildcard() {
+    public function testParseLangsWithWildcard()
+    {
         $lang = Text::parseAcceptLanguage('nn-no;q=0.7,en-gb;q=0.2,en-us;q=0.5,*;q=0.1');
         $this->assertEquals(4, sizeof($lang));
         $this->assertEquals('nn-no',    $lang[0]); # q 0.7
@@ -423,14 +479,16 @@ class TextTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('en-gb',    $lang[2]); # q 0.2
         $this->assertEquals('*',        $lang[3]); # q 0.1
     }
-    public function testParseLangsWithWildcards() {
+    public function testParseLangsWithWildcards()
+    {
         $lang = Text::parseAcceptLanguage('nn-no,en-*;q=0.2,no;q=0.1');
         $this->assertEquals(3, sizeof($lang));
         $this->assertEquals('nn-no',    $lang[0]); # q 1.0
         $this->assertEquals('en-*',     $lang[1]); # q 0.2
         $this->assertEquals('no',       $lang[2]); # q 0.1
     }
-    public function testParseGarbageLang() {
+    public function testParseGarbageLang()
+    {
         $lang = Text::parseAcceptLanguage('afdsfsdafsdafasdf');
         $this->assertEquals(sizeof($lang), 0);
         $lang = Text::parseAcceptLanguage('"!#&"_G,153t1');
@@ -443,7 +501,8 @@ class TextTest extends PHPUnit_Framework_TestCase {
     /**
      * Getting text from a valid, standard xml file.
      */
-    public function testGetText() {
+    public function testGetText()
+    {
         $dir = self::example_path() . '/empty';
         $lang = 'no';
         $xml =  <<<EOF
@@ -471,7 +530,8 @@ EOF;
     }
 
 
-    public function testGetTextFromEmptyFile() {
+    public function testGetTextFromEmptyFile()
+    {
         $dir = self::example_path() . '/empty';
         $lang = 'no';
         touch($dir."/$lang.xml");
@@ -486,7 +546,8 @@ EOF;
      * TODO: how to test if it _actually_ logs it?
      * @expectedException PHPUnit_Framework_Error
      */
-    public function testGetTextFromDefault() {
+    public function testGetTextFromDefault()
+    {
         $dir = self::example_path() . '/empty';
         $lang = 'no';
         $deflang = 'en';
@@ -508,7 +569,8 @@ EOF;
             'Text not correctly returned from default language');
     }
 
-    public function testGetTextTrimmed() {
+    public function testGetTextTrimmed()
+    {
         $dir = self::example_path() . '/' . __FUNCTION__;
         mkdir($dir);
         $lang = 'no';
@@ -524,7 +586,8 @@ EOF;
                             'Text not trimmed correctly');
     }
 
-    public function testTextParser() {
+    public function testTextParser()
+    {
 
         $this->markTestIncomplete('Not implemented yet.');
 
@@ -535,13 +598,15 @@ EOF;
      * Need to test the getValue, but since it should be done in another way 
      * than before, we only test that it works in general by now.
      */
-    public function testGetValue() {
+    public function testGetValue()
+    {
 
         $this->markTestIncomplete('Need to check that values work correctly.');
 
     }
 
-    public function testGetValueSetGet() {
+    public function testGetValueSetGet()
+    {
 
         $this->markTestIncomplete('Need to check the functionality of setting' .
             ' and getting the values used in the text, but have to figure out' .
@@ -550,7 +615,8 @@ EOF;
     }
 
 
-    public function testChangeOf() {
+    public function testChangeOf()
+    {
         $this->markTestIncomplete('Need to check that values work correctly.');
     }
 

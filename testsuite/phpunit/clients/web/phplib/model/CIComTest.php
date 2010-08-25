@@ -17,20 +17,37 @@
 # along with Cerebrum. If not, see <http://www.gnu.org/licenses/>.
 
 
-class SoapComTest extends PHPUnit_Framework_TestCase {
+class CIComTest extends PHPUnit_Framework_TestCase
+{
 
-    public static function setUpBeforeClass() {
+    public static function setUpBeforeClass()
+    {
         include_once TEST_PREFIX_CEREBRUM . '/clients/web/phplib/model/CerebrumCommunication.php';
-        include_once TEST_PREFIX_CEREBRUM . '/clients/web/phplib/model/SoapCom.php';
+        include_once TEST_PREFIX_CEREBRUM . '/clients/web/phplib/model/CICom.php';
     }
 
     public function setUp() {}
 
 
+    /**
+     * @expectedException RuntimeException
+     * @runInSeparateProcess
+     */
+    public function testBadUrl()
+    {
+        try {
+            $soap = new CICom('htp:// bad url ... :899x999');
+        } catch (Exception $e) {
+            return;
+        }
+        $this->markTestIncomplete('This should not throw a fatal error...');
+    }
+
+
+
     public function testConstruct() {
 
-        $soap = new SoapCom('url to wsdl file');
-        $this->markTestIncomplete('Not done yet');
+        //$soap = new CICom('http://localhost:8999'); $this->markTestIncomplete('Not done yet');
 
     }
 
