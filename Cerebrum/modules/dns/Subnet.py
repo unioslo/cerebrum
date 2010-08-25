@@ -387,8 +387,7 @@ class Subnet(Entity):
     def delete(self, perform_checks=True):
         if perform_checks:
             if self.has_adresses_in_use():
-                raise SubnetError, ("Subnet '%s/%s' cannot be deleted; " +
-                                    "it has addresses in use" %
+                raise SubnetError, ("Subnet '%s/%s' cannot be deleted; it has addresses in use" %
                                     (self.subnet_ip, self.subnet_mask))
         
         self._db.log_change(self.entity_id, self.const.subnet_delete, None)
