@@ -452,7 +452,12 @@ def list_users_for_fronter_export():
             logger.error("No primary address for %s", account.account_name)
             email_addr = "N/A"
         person.clear()
-        person.find(account.owner_id)
+        try:
+            person.find(account.owner_id)
+        except Errors.NotFoundError:
+            logger.error("Account %s is impersonal, but has lms spread.",
+                         account.account_name)
+            continue
         pwd = account.get_account_authentication(const.auth_type_md5_unsalt)
         roletype = 'Student'
         for a in person.get_affiliations():
