@@ -477,14 +477,16 @@ class ADGroup(_ADAccount):
 
         members_to_add = self._get_members(names_to_add)
         members_to_del = [m for m in old_members
-                            if m.saMAccountName in names_to_del]
+                            if m.sAMAccountName in names_to_del]
 
         for user in members_to_del:
-            log.info("Removing '%s' from group '%s'", user, obj.name)
+            log.info("Removing '%s' from group '%s'", 
+                     user.sAMAccountName, obj.name)
             ad_obj.remove(user.ADsPath)
 
         for user in members_to_add:
-            log.info("Adding '%s' to group '%s'", user, obj.name)
+            log.info("Adding '%s' to group '%s'", 
+                     user.sAMAccountName, obj.name)
             ad_obj.add(user.ADsPath)
         ad_obj.setInfo()
 
