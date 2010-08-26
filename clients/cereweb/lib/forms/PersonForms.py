@@ -144,8 +144,9 @@ class PersonCreateForm(Form):
                 'Registered by: %s on %s\n' % (username, create_date) + desc)
         return True
     
-    def init_values(self, *args, **kwargs):        
-        self.set_value("birthdate", date_in_the_future(years=-25))
+    def init_values(self, *args, **kwargs):
+        if self.get_value("birthdate") is None:    
+            self.set_value("birthdate", date_in_the_future(years=-25))
 
 class PersonEditForm(PersonCreateForm):
     action = '/person/edit/'

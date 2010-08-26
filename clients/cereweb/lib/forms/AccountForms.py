@@ -92,7 +92,8 @@ class AccountCreateForm(Form):
         self.owner = owner
         self.set_value('owner_id', owner.id)
         self.set_value('randpwd', [randpasswd() for i in range(10)]),
-        self.set_value("expire_date", date_in_the_future(years=1))
+        if self.get_value("expire_date") is None:
+            self.set_value("expire_date", date_in_the_future(years=1))
 
         self._random_password = kwargs.get('randpwd')
             
