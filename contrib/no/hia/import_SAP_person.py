@@ -67,7 +67,6 @@ from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 from Cerebrum.modules.no import fodselsnr
 
 import getopt
-import mx.DateTime
 import sys
 
 FIELDS_IN_ROW = 39
@@ -97,7 +96,6 @@ def locate_person(person, sap_id, no_ssn, const):
         person_id_from_sap = int(person.entity_id)
     except Errors.NotFoundError:
         logger.debug("No person matches SAP id «%s»", sap_id)
-    # yrt
 
     try:
         person.clear()
@@ -106,7 +104,6 @@ def locate_person(person, sap_id, no_ssn, const):
         person_id_from_no_ssn = int(person.entity_id)
     except Errors.NotFoundError:
         logger.debug("No person matches NO_SSN «%s»", no_ssn)
-    # yrt
 
     # Now, we can compare person_id_from_*. If they are both set, they must
     # point to the same person (otherwise, we'd have two IDs in the *same
@@ -128,7 +125,6 @@ def locate_person(person, sap_id, no_ssn, const):
         id = person_id_from_sap
         if id is None: id = person_id_from_no_ssn
         person.find(id)
-    # fi
 
     return already_exists
 # end locate_person
@@ -236,7 +232,9 @@ def populate_external_ids(person, fields, const, expired):
         logger.exception("Lookup for (sap_id; no_ssn) == (%s; %s) failed",
                          sap_id, no_ssn)
         return False
-    # yrt
+    except Errors.TooManyRowsError:
+        logger.exception("More than one person matches NO_SSN «%s»", no_ssn)
+        return False
 
     if already_exists:
         logger.debug("A person owning IDs (%s, %s) already exists",
@@ -247,10 +245,8 @@ def populate_external_ids(person, fields, const, expired):
         # exactly or be absent.
         if not match_external_ids(person, sap_id, no_ssn, const):
             return False
-        # fi
     else:
         logger.debug("New person for IDs (%s, %s)", sap_id, no_ssn)
-    # fi
     try:
         fodselsnr.personnr_ok(no_ssn)
     except fodselsnr.InvalidFnrError:
@@ -265,7 +261,6 @@ def populate_external_ids(person, fields, const, expired):
     gender = const.gender_male
     if fodselsnr.er_kvinne(no_ssn):
         gender = const.gender_female
-    # fi
 
     # This would allow us to update birthdays and gender information for
     # both new and existing people.
@@ -324,7 +319,6 @@ def populate_names(person, fields, const):
 
             person.populate_name(name_type, value)
             logger.debug("Populated name type %s with «%s»", name_type, value)
-        # od
     person.populate_name(const.name_first, fname)
 # end populate_names
     
@@ -350,11 +344,9 @@ def populate_communication(person, fields, const):
         value = fields[index].strip()
         if not value:
             continue
-        # fi
 
         person.populate_contact_info(const.system_sap, comm_type, value)
         logger.debug("Populated comm type %s with «%s»", comm_type, value)
-    # od
 # end populate_communication
 
 
@@ -416,7 +408,6 @@ def populate_SAP_misc(person, fields, const):
     # No code, no action
     if not fo_kode_external:
         return
-    # fi
     
     fo_kode_internal = int(SAPForretningsOmradeKode(fo_kode_external))
     person.populate_forretningsomrade(fo_kode_internal)
@@ -487,7 +478,6 @@ def process_people(filename):
         if len(fields) != FIELDS_IN_ROW:
             logger.warn("Strange line: «%s»", entry)
             continue
-        # fi
 
         # If the IDs are inconsistent with Cerebrum, skip the record
         if not populate_external_ids(person, fields, const, expired):
@@ -514,7 +504,6 @@ def process_people(filename):
         # Sync person object with the database
         person.write_db()
 
-    # od  
 # end process_people
 
 
@@ -539,8 +528,6 @@ def main():
             input_name = value
         elif option in ("-d", "--dryrun"):
             dryrun = True
-        # fi
-    # od
 
     global database
     database = Factory.get("Database")()
