@@ -8233,7 +8233,11 @@ Addresses and settings:
             if int(r['quarantine_type']) == self.const.quarantine_svakt_passord:
                 account.delete_entity_quarantine(self.const.quarantine_svakt_passord)
 
-        if account.get_entity_quarantine(only_active=True):
+        if account.is_deleted():
+            return "OK.  Warning: user is deleted"
+        elif account.is_expired():
+            return "OK.  Warning: user is expired"
+        elif account.get_entity_quarantine(only_active=True):
             return "OK.  Warning: user has an active quarantine"
         return "Password altered. Please use misc list_password to print or view the new password."
     
