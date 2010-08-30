@@ -69,10 +69,6 @@ class Constants(Constants.Constants):
         Constants.Constants.entity_ou,
         'Kjernens internal ID for entities (persons and ous)')
 
-    externalid_studieprogram = _EntityExternalIdCode('STUDPROG_ID',
-        Constants.Constants.entity_ou,
-        'FS internal code for identifying studieprograms')
-
     externalid_fodselsnr = _EntityExternalIdCode('NO_BIRTHNO',
         Constants.Constants.entity_person,
         'Norwegian birth number')

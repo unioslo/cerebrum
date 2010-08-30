@@ -32,13 +32,11 @@ class Export2Kjernen(object):
         if self.verbose:
             print 'Fetching stedkoder...'
         koder = {}
-        ## only ous with stedkode
-        for row in self._ou.list_external_ids(id_type=self.co.externalid_stedkode, entity_type=self.co.entity_ou, source_system=self.co.system_kjernen):
-            koder[row['entity_id']] = row['external_id'][2:]
+        for row in self._ou.get_stedkoder():
+            koder[row['ou_id']] = '%03d%02d%02d%02d' %(row['institusjon'], row['fakultet'], row['institutt'], row['avdeling'])
         return koder
 
     def get_birthdates(self):
-        """Fetch all birthdates as YYYY.mm.dd."""
         if self.verbose:
             print 'Fetching birthdates...'
         bdates = {}
@@ -47,7 +45,6 @@ class Export2Kjernen(object):
         return bdates
 
     def get_nins(self):
-        """Link person til her/his norwegian national identity numbers."""
         if self.verbose:
             print 'Fetching nins...'
         nins = {}
@@ -56,7 +53,6 @@ class Export2Kjernen(object):
         return nins
 
     def get_emails(self):
-        """Link person til her/his email-address."""
         if self.verbose:
             print 'Fetching emailaddreses...'
         emails = {}
@@ -65,7 +61,6 @@ class Export2Kjernen(object):
         return emails
      
     def get_lastnames(self):
-        """Link person til her/his surname."""
         if self.verbose:
             print 'Fetching lastnames...'
         lastnames = {}
@@ -74,7 +69,6 @@ class Export2Kjernen(object):
         return lastnames
 
     def get_firstnames(self):
-        """Link person til her/his givenname(s)."""
         if self.verbose:
             print 'Fetching firstnames...'
         firstnames = {}
@@ -83,7 +77,6 @@ class Export2Kjernen(object):
         return firstnames
 
     def get_entities(self):
-        """Fetch all usernames."""
         if self.verbose:
             print 'Fetching entities...'
         entities = {}
@@ -91,102 +84,67 @@ class Export2Kjernen(object):
             entities[row['entity_id']] = row['entity_name']
         return entities
 
-    def get_traits(self):
-        """Fetch all usernames that are defined as a primary username."""
-        if self.verbose:
-            print 'Fetching traits...'
-        traits = {}
-        for row in self._account.list_traits(code=self.co.trait_primary_account):
-            traits[row['entity_id']] = row['target_id']
-        return traits
-
-    def get_accounts(self, entities, traits):
-        """Link person and username."""
+    def get_accounts(self, entities):
         if self.verbose:
             print 'Fetching accounts...'
         accounts = {}
         for row in self._account.list():
-            ## fetch only usernames.
-            if entities.get(traits.get(row['owner_id'], ''), ''):
-                accounts[row['owner_id']] = \
-                    entities.get(traits.get(row['owner_id'], ''), '')
+            accounts[row['owner_id']] = entities[row.get('account_id', '')]
         return accounts
 
     def get_affiliations(self):
-        """Connect person to her/his affilations.
-            
-            Affiliations are returned as:
-            affs = {
-                personid: [('aff','aff_status', 'ouid', 'created'), ...],
-                personid1 : [(),],
-             }
-        """
         if self.verbose:
             print 'Fetching affiliations...'
         affs = {}
+        affs_status = {}
+        ous = {}
+        aff_created = {}
         for row in self._person.list_affiliations():
-            if not affs.get(row['person_id'], None):
-                affs[row['person_id']] = []
-            ## filter out affiliations to studieprograms.
-            ## persons may be affilitaed to studieprograms,
-            ## and a studieprogram has not stedkode.
-            if self.stedkoder.get(row['ou_id'], None):
-                affs[row['person_id']].append( \
-                    (self._person.const.PersonAffiliation(row['affiliation']).str.lower(), self._person.const.PersonAffStatus(row['status']).str.lower(), row['ou_id'], row['create_date'].strftime(self._iso_format)))
-        return affs
-
-    def format_line(self, key, birthno, persno, bdate, fname, lname, email,
-                    aff, aff_status, ou, account, since):
-        out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
-            (key, birthno, persno, bdate, fname, lname, email,
-            aff, aff_status, ou, account, since)
-        return out_line
-    
-    def get_affs(self, key):
-        # get a person's affiliations
-        all_affs = self.affs.get(key, None)
-        if all_affs is None:
-            ## Make a dummy affiiation for those that have none,-
-            ## to force writing of at least one record.
-            all_affs = [('','','','')]
-        return all_affs
-        
+            affs[row['person_id']] = \
+                self._person.const.PersonAffiliation(row['affiliation']).str.lower()
+            affs_status[row['person_id']] = \
+                self._person.const.PersonAffStatus(row['status']).str.lower()
+            ous[row['person_id']] = row['ou_id']
+            aff_created[row['person_id']] = \
+                row['create_date'].strftime(self._iso_format)
+            
+        return (affs, ous, affs_status, aff_created)
+ 
     def write_file(self):
         if self.verbose:
             print 'Writing persons to', self.outfile
-        num_recs = 0
-        num_no_account = 0
+        i = 0
+        no_account = 0
         f = open(self.outfile, fileMode, bufferSize)
-        for pkey in self.nins.keys():
-            ## export only persons that has a username.
-            account = self.accounts.get(pkey, '')
+        for k in self.nins.keys():
+            ## export only persons that has an account.
+            account = self.accounts.get(k, '')
             if account:
-                ret=''
-                # print a record for every affilation
-                for aff in self.get_affs(pkey):
-                    ret += self.format_line(pkey,
-                        self.nins[pkey][:6],
-                        self.nins[pkey][6:],
-                        self.birthdates.get(pkey, ''),
-                        self.firstnames.get(pkey,''),
-                        self.lastnames.get(pkey, ''),
-                        self.emails.get(pkey, ''),
-                        aff[0],
-                        aff[1],
-                        self.stedkoder.get(aff[2], ''),
-                        account,
-                        aff[3])
-                    num_recs += 1
-                f.write(ret)
+                out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
+                    (k,
+                    self.nins[k][:6],
+                    self.nins[k][6:],
+                    self.birthdates.get(k, ''),
+                    self.firstnames.get(k,''),
+                    self.lastnames.get(k, ''),
+                    self.emails.get(k, ''),
+                    self.affs.get(k, ''),
+                    self.affs_status.get(k, ''),
+                    self.stedkoder.get(self.ous.get(k, ''), ''),
+                    account,
+                    self.created.get(k, ''))
+
+                f.write(out_line)
+                i += 1
             else:
-                num_no_account += 1
+                no_account += 1
 
         f.flush()
         f.close()
         if self.verbose:
             print '--------------------------------------------------------------------------------'
-            print 'Total records written:',num_recs
-            print 'Persons with no account:',num_no_account
+            print 'Total persons written:',i
+            print 'Persons with no account:',no_account
             print '================================================================================'
 
     def print_time(self, before):
@@ -214,7 +172,7 @@ class Export2Kjernen(object):
         if self.doTiming and self.verbose:
             self.print_time(before)
             before = time.time()
-        self.affs = self.get_affiliations()
+        (self.affs, self.ous, self.affs_status, self.created) = self.get_affiliations()
         if self.doTiming and self.verbose:
             self.print_time(before)
             before = time.time()
@@ -226,7 +184,7 @@ class Export2Kjernen(object):
         if self.doTiming and self.verbose:
             self.print_time(before)
             before = time.time()
-        self.accounts = self.get_accounts(self.get_entities(), self.get_traits())
+        self.accounts = self.get_accounts(self.get_entities())
         if self.doTiming and self.verbose:
             self.print_time(before)
             before = time.time()

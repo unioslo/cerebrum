@@ -310,14 +310,12 @@ class BDBSync:
         for k in kjerneider:
             kjerne_map[k['external_id']] = k['entity_id']
 
-        stedkoder = self.ou.list_external_ids(
-            id_type=self.const.externalid_stedkode,
-            entity_type=self.const.entity_ou,
-            source_system=self.const.system_kjernen)
+        stedkoder=self.ou.get_stedkoder()
         sted_map = {}
         for s in stedkoder:
-            kode = s['external_id'][5:]
-            sted_map[kode] = s['entity_id']
+            kode = "%02d%02d%02d" % (
+                s['fakultet'], s['institutt'], s['avdeling'])
+            sted_map[kode] = s['ou_id']
 
         bdb_pers_ids = self.new_person.list_external_ids(
             source_system=const.system_bdb,
@@ -343,7 +341,8 @@ class BDBSync:
                 try:
                     ou_id = sted_map["%06d" % a['ou_code']]
                 except KeyError:
-                    self.logger.warning("Affiliation: OU (stedkode %06d, kjerneid %d) does not exist" % (a['ou_code'], a['ou_kjcode']))
+                    self.logger.warning("Affiliation: OU (stedkode %06d, kjerneid %d) does not exist" %
+                                        a['ou_code'], a['ou_kjcode'])
                     continue
             try:
                 status = int(aff_map[a['aff_type']])
