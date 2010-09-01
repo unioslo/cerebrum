@@ -286,7 +286,7 @@
 
     <div class="important box">
         #set $h3=$make_acronym($_('Shows if the person/account is locked down for some reason, e.g. abuse, break-in, weak password(s), ...'), $_('Quarantines'))
-        <h3>$h3</h3->
+        <h3>$h3</h3>
         #for $q in $entity.quarantines
             <div class="item">
                 #set $type = $url_quote($q.type_name)
