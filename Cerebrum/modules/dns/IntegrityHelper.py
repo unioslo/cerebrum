@@ -69,7 +69,7 @@ class Validator(object):
 
 
     def legal_dns_owner_name(self, name, record_type):
-        uber_hyphen = re.compile(r'--+')
+        uber_hyphen = re.compile(r'---+')
         uber_underscore = re.compile(r'__+')
         if record_type == dns.SRV_OWNER:
             valid_chars = re.compile(r'^[a-zA-Z\-_0-9]*$')
@@ -83,7 +83,7 @@ class Validator(object):
             if n.startswith("-") or n.endswith("-"):
                 raise DNSError, "Illegal name: '%s'; Cannot start or end with '-'" % name
             if uber_hyphen.search(n):
-                raise DNSError, "Illegal name: '%s'; More than one '-' in a row" % name
+                raise DNSError, "Illegal name: '%s'; More than two '-' in a row" % name
             if not valid_chars.search(n):
                 raise DNSError, "Illegal name: '%s'; Invalid character(s)" % name
             if record_type == dns.SRV_OWNER:
