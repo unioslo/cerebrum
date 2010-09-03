@@ -66,7 +66,7 @@ def get_person_accounts(id_type, ext_id):
         else:
             status = "Active"
         ret.append({'uname': ac2.account_name,
-                    'priority': int(row['priority']),
+                    'priority': row['priority'],
                     'status': status})
     # Sort by priority
     ret.sort(key=lambda x: x['priority'])

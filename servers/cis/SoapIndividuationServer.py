@@ -29,6 +29,7 @@ from Cerebrum.modules.cis import Individuation
 
 from soaplib.service import soapmethod
 from soaplib.serializers.primitive import String, Integer, Array, Boolean
+from soaplib.serializers.clazz import ClassSerializer
 
 from twisted.web.server import Site
 from twisted.web.resource import Resource
@@ -51,6 +52,11 @@ TODO: The skeleton of a running server. All the SOAP actions must be
 written for this server to do something useful.
 """
 
+class Account(ClassSerializer):
+    class types:
+        uname = String
+        priority = String
+        status = String
 
 
 class IndividuationServer(SoapListener.BasicSoapServer):
@@ -60,7 +66,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     what parameters the methods accept, types and what is returned.
     """
 
-    @soapmethod(String, String, _returns=Array(Array(String)))
+    @soapmethod(String, String, _returns=Array(Account))
     def get_usernames(self, id_type, ext_id):
         """
         Based on id-type and the id, identify a person in Cerebrum and
@@ -70,14 +76,21 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         list. I no person match id_type, my_id, throw a ...Exception.
         """
         # TBD: check parameters here?
-        accounts = Individuation.get_person_accounts(id_type, ext_id)
-        # TBD: decide what data structure to return
-        # TBD: which exception do we throw if person doesn't exists
-        return accounts
+
+        ret = []
+        # get_person_accounts returns a list of dicts on the form:
+        # [{'uname': '...', 'priority': '...', 'status': '...'}, ...]
+        for acc in Individuation.get_person_accounts(id_type, ext_id):
+            a = Account()
+            for k, v in acc.items():
+                setattr(a, k, v)
+            ret.append(a)
+            
+        return ret
         
 
     @soapmethod(String, String, String, String, String, _returns=Boolean)
-    def generate_token(self, id_type, my_id, username, phone_no, browser_token):
+    def generate_token(self, id_type, ext_id, username, phone_no, browser_token):
         """
         Send a token by SMS to the persons phone and store the token
         in Cerebrum.
@@ -90,7 +103,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
 
     @soapmethod(String, String, String, String, String, String, _returns=Boolean)
-    def check_token(self, id_type, my_id, username, phone_no, browser_token, token):
+    def check_token(self, id_type, ext_id, username, phone_no, browser_token, token):
         """
         Check the validity of a given token.
         """
@@ -106,7 +119,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
 
     @soapmethod(String, String, String, String, String, String, String, _returns=Boolean)
-    def set_password(self, id_type, my_id, username, phone_no, browser_token,
+    def set_password(self, id_type, ext_id, username, phone_no, browser_token,
                      token, new_password):
         """
         Set new password for a user if all information is verified and
@@ -193,6 +206,7 @@ if __name__=='__main__':
     resource = WSGIResource(reactor, reactor.getThreadPool(), service)
     root = Resource()
     root.putChild('SOAP', resource)
+    # TODO: Print url of service
     if use_encryption:
         # TODO: we need to set up SSL properly
         sslcontext = ssl.DefaultOpenSSLContextFactory(
