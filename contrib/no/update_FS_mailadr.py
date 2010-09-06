@@ -206,7 +206,7 @@ def main():
         sys.exit(2)
     # yrt
 
-    user = "ureg2000"
+    user = "I0185_ureg2000"
     service = "fsprod.uio.no"
     dryrun = False
     email = False
