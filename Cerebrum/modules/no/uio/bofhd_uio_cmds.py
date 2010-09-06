@@ -6963,7 +6963,7 @@ Addresses and settings:
         har_opptak = {}
         ret = []
         try:
-            db = Database.connect(user="ureg2000", service="FSPROD.uio.no",
+            db = Database.connect(user="I0185_ureg2000", service="FSPROD.uio.no",
                                   DB_driver=cereconf.DB_DRIVER_ORACLE)
         except Database.DatabaseError, e:
             self.logger.warn("Can't connect to FS (%s)" % e)
