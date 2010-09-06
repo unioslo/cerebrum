@@ -82,8 +82,7 @@
                     #if $is_admin
 		              <input type="checkbox" name="account_$account.id" />
                     #end if
-		            <em>$_('Account'):</em>$account.name
-		            $entity_link($account, "View", _class="action")
+		            <em>$_('Account'):</em>$entity_link($account)
 		            ## no point in checking unless we have a primary
 		            #if $account.is_primary
 		                <span class="extra">(primary)</span>
@@ -384,21 +383,18 @@
 #end def
 
 #def printPrimaryGroup($account, $group)
-    #if not $group
-        #return
+    #if $group
+        <div class="item primary">
+            #set $input_name = "member_%s_%s" % ($account.id, $group.id)
+            #if $is_admin
+                <input type="checkbox" name="$input_name" disabled="disabled" />
+            #end if
+            <em>$_("Group"):</em> $entity_link($group)
+    
+            <span class="extra">(primary)</span>
+            <span class="extra">(posix)</span>
+        </div>
     #end if
-
-    <div class="item primary">
-        #set $input_name = "member_%s_%s" % ($account.id, $group.id)
-        #if $is_admin
-            <input type="checkbox" name="$input_name" disabled="disabled" />
-        #end if
-        <em>$_("Group"):</em> $spine_to_web($group.name)
-        $entity_link($group, text="View", _class="action")
-
-        <span class="extra">(primary)</span>
-        <span class="extra">(posix)</span>
-    </div>
 #end def
 
 #def printGroup($account, $group)
@@ -415,8 +411,7 @@
         #if $is_admin
             <input type="checkbox" name="$input_name" $disabled />
         #end if
-        <em>$_($header):</em> $spine_to_web($group.name)
-        $entity_link($group, text="View", _class="action")
+        <em>$_($header):</em>$entity_link($group)
 
         #if $group.is_posix
             <span class="extra">(posix)</span>
