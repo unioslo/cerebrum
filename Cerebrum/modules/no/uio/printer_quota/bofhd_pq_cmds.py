@@ -248,7 +248,7 @@ The currently defined id-types are:
                     # TBD: Can this happen?
                     return person + ": Quota has been blocked, person not in FS"
                 try:
-                    fs = Database.connect(user="ureg2000",
+                    fs = Database.connect(user="I0185_ureg2000",
                                           service="FSPROD.uio.no",
                                           DB_driver=cereconf.DB_DRIVER_ORACLE)
                 except Database.DatabaseError, e:
