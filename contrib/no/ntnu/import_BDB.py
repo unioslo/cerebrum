@@ -935,8 +935,13 @@ class BDBSync:
         bdb_source_type = const.system_bdb
         np_type = None
 
-        if account_info.get('account_type') == 'programvare':
-            np_type = const.Account('programvare')
+        np_type_str = account_info.get('account_type')
+        if np_type_str is not None:
+            try:
+                np_type = int(const.Account(np_type_str))
+            except Errors.NotFoundError:
+                raise BDBImportError('Fail syncronizing account %s: accounttype "%s" unknown',
+                                     account_info['name'], np_type_str)
             owner = self.np_owner
         elif account_info.get("posix_uid") == "0":
             np_type = const.Account('programvare')
