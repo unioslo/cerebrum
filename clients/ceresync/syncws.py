@@ -146,7 +146,10 @@ class Group(Entity):
     attributes= [
         "name","posix_gid",
     ]
-    lists= { "_quarantine": "quarantines", "_member": "members", }
+    lists= {
+        "_quarantine": "quarantines", "_member": "members",
+        "_member_group": "member_groups"
+    }
     
 class Ou(Entity):
     entity_type= "ou"
@@ -312,7 +315,7 @@ class Sync(object):
 
     def get_groups(self, accountspread=None, groupspread=None, incr_from=None,
                    encode_to=None, group_xml_in=None, group_xml_out=None,
-                   **kwargs):
+                   flatten_group=True, **kwargs):
         try: 
             accountspread= accountspread or config.get("sync","account_spread")
         except ConfigParser.Error, e:
@@ -323,10 +326,11 @@ class Sync(object):
         except ConfigParser.Error, e:
             log.error("Missing group_spread: %s",e)
             sys.exit(1)
-        request= cerews_services.getGroupsRequest()
-        request._accountspread= accountspread
-        request._groupspread= groupspread
-        request._incremental_from= incr_from
+        request = cerews_services.getGroupsRequest()
+        request._accountspread = accountspread
+        request._groupspread = groupspread
+        request._incremental_from = incr_from
+        request._flatten_group = flatten_group
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_groups,
                                          load_file=group_xml_in,

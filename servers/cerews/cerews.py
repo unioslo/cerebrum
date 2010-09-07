@@ -578,7 +578,7 @@ def search_ous(db, co, changelog_id=None):
 
 
 
-class group_members:
+class group_members(object):
     def __init__(self, group, types=None):
         self.co=group.const
         self.db=group._db
@@ -630,15 +630,22 @@ class group_members:
         elif type in types:
             members.append(id)
     
-    def get_members(self, id, type=None, types=None):
+    def get_members(self, id, type=None, types=None, flatten_group=True):
         members=[]
         groups=set()
         if types==None: types=self.types
-        self._get_members(id, groups, members, type, types)
+        if flatten_group:
+            self._get_members(id, groups, members, type, types)
+        else:
+            if id in self.group_members:
+                for t,i in self.group_members[id]:
+                    if t in types:
+                        members.append(i)
         return members
     
-    def get_members_name(self, id):
-        return [self.member_names[i] for i in self.get_members(id)]
+    def get_members_name(self, id, types=None, flatten_group=True):
+        return [self.member_names[i] for i in self.get_members(id, types=types,
+                    flatten_group=flatten_group)]
     def addto_group(self, d):
         d['members']=self.get_members_name(d['id'])
         return d
@@ -1085,6 +1092,7 @@ class cerews(ServiceSOAPBinding):
         groupspread = co.Spread(str(request._groupspread))
         accountspread = co.Spread(str(request._accountspread))
         incremental_from = int_or_none(request._incremental_from)
+        flatten_group = bool_default(request._flatten_group, True)
         self.check_incremental(db, incremental_from)
 
         auth.can_syncread_group(operator_id, groupspread)
@@ -1097,7 +1105,13 @@ class cerews(ServiceSOAPBinding):
         q=quarantines(db, co)
         for row in search_groups(group, groupspread, incremental_from):
             g=GroupDTO(row, atypes)
-            g._member = members.get_members_name(row['id'])
+            g._member = members.get_members_name(row['id'],
+                    types=[int(co.entity_account)],
+                    flatten_group=flatten_group)
+            if not flatten_group:
+                g._member_group = members.get_members_name(row['id'],
+                        types=[int(co.entity_group)],
+                        flatten_group=flatten_group)
             g._quarantine = q.get_quarantines(row['id'])
             response._group.append(g)
         db.rollback()

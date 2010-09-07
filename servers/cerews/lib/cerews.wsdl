@@ -16,6 +16,8 @@
     <xs:sequence>
       <xs:element name="member" type="xs:string"
 		  minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="member_group" type="xs:string"
+		  minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="quarantine" type="xs:string"
 		  minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
@@ -197,8 +199,10 @@
       <xs:sequence>
         <xs:element name="groupspread" type="xs:string" />
         <xs:element name="accountspread" type="xs:string" />
-	<xs:element name="incremental_from" type="xs:integer"
-		    minOccurs="0"/> 
+        <xs:element name="incremental_from" type="xs:integer"
+            minOccurs="0"/> 
+        <xs:element name="flatten_group" type="xs:integer"
+            minOccurs="0"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>
