@@ -13,7 +13,7 @@ fi
 
 usage () {
         echo "Build cerebrum or ceresync packages for various platforms."
-        echo "usage: $1 <PLATFORM> <TARGET> <[OPTIONS]>"
+        echo "usage: $0 $1 <PLATFORM> <TARGET> <[OPTIONS]>"
         echo "PLATFORM in ( ubuntu1004 ubuntu804 rhel5 )"
         echo "TARGET in ( cerebrum ceresync )"
         echo "OPTIONS:"
@@ -23,8 +23,15 @@ usage () {
 	echo "				- If X.Y.Z look for tag, if only X.Y look for branch"
 	echo "	-r | --revision		SVN revision and package release"
 	echo "	-h | --help		This text"
+	echo ""
+	echo "Redirect all output to 'tee' to make a decent buildlog:"
+	echo " 2>&1 | tee /someplace/buildme.log"
+	echo ""
 	exit $2
 }
+# Keep this for possible local build:
+SCRIPTPATH=`dirname $0`
+
 # default to latest revision if not provided
 REV=latest
 # Default to 0 as package version if not provided
@@ -38,7 +45,7 @@ do
 			;;
 		
 		-l|--local)  
-			LOCAL=`pwd`
+			LOCAL=$SCRIPTPATH
 			echo "Will use build scripts local to $LOCAL"
 			;;
 		
@@ -124,10 +131,10 @@ else	# branch or tag
    IFS=. read major medium minor <<< "$VER"
 
    if [[ -n $minor ]]; then	#tag
-       URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/tags/ntnu-prod-$VER/cerebrum"
+       URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/tags/ntnu-prod-$VER"
        echo "Setting version to tag $VER"
    else	# branch
-       URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/branches/ntnu-prod-$VER/cerebrum"
+       URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/branches/ntnu-prod-$VER"
        echo "Setting version to branch $VER"
    fi
 fi

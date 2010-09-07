@@ -30,6 +30,8 @@ echo "Building DEB packages for Ubuntu 8.04 of $NAME version $VERSION"
 pushd $BUILDPATH > /dev/null 2>&1
 
 echo "Adding symlink to debian build infrastructure at base of source"
+echo "Source: $PKGPATH/debian"
+echo "Target: `pwd`/debian"
 ln -s $PKGPATH/debian debian
 
 echo "Adding default changelog entry"
