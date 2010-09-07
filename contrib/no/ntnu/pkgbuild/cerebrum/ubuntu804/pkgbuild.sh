@@ -10,21 +10,6 @@ BUILDPATH=$DIR/cerebrum-ntnu-$VERSION
 PKGPATH="`dirname $0`"
 [ -d "$PKGPATH/debian" ] || PKGPATH="$BUILDPATH/contrib/no/ntnu/pkgbuild/cerebrum/ubuntu804"
 
-# echo "Checking build environment sanity"
-# broken=false
-# for i in python-cjson python-zsi python-cheetah openjdk-6-jdk; do
-#     echo -n "Checking for package $i: "
-#     if dpkg-query -W -f='${Status}' $i 2>&1 | grep -q "install ok installed"; then
-#         echo "OK"
-#     else
-#         broken=true
-#         echo "MISSING"
-#     fi
-# done
-# if [ "$broken" == true ]; then
-#     echo "Build dependencies are not met - quitting"
-#     exit 1
-# fi
 
 echo "Building DEB packages for Ubuntu 8.04 of $NAME version $VERSION"
 pushd $BUILDPATH > /dev/null 2>&1
@@ -35,7 +20,14 @@ echo "Target: `pwd`/debian"
 ln -s $PKGPATH/debian debian
 
 echo "Adding default changelog file"
-dch --create -b --newversion $VERSION "updated to $VERSION"
+cat > debian/changelog << EOF
+$NAME (0.0-0) UNRELEASED; urgency=low
+
+  * Initial release.
+
+ -- Christian Haugan Toldnes <chritol@hackney.itea.ntnu.no>  Tue, 07 Sep 2010 11:40:40 +0200
+EOF
+dch --newversion $VERSION "updated to $VERSION"
 
 echo "Building new package"
 dpkg-buildpackage -rfakeroot
