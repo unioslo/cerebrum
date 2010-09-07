@@ -34,8 +34,8 @@ echo "Source: $PKGPATH/debian"
 echo "Target: `pwd`/debian"
 ln -s $PKGPATH/debian debian
 
-echo "Adding default changelog entry"
-dch -b --newversion $VERSION "updated to $VERSION"
+echo "Adding default changelog file"
+dch --create -b --newversion $VERSION "updated to $VERSION"
 
 echo "Building new package"
 dpkg-buildpackage -rfakeroot
