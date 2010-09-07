@@ -1808,23 +1808,25 @@ class AccountEmailMixin(Account.Account):
         # creation of email addresses) for such users.
         if not et.email_server_id:
             return
+        self._update_email_address_domains(et)
+        
+    def _update_email_address_domains(self, et):
         # Figure out which domain(s) the user should have addresses
         # in.  Primary domain should be at the front of the resulting
         # list.
         ed = EmailDomain(self._db)
+        ea = EmailAddress(self._db)
         ed.find(self.get_primary_maildomain())
-        domains = [ed.email_domain_name]
-        if cereconf.EMAIL_DEFAULT_DOMAIN not in domains:
-            domains.append(cereconf.EMAIL_DEFAULT_DOMAIN)
+        domains = self.get_prospect_maildomains()
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
         primary_set = False
         epat = EmailPrimaryAddressTarget(self._db)
         for domain in domains:
-            if ed.email_domain_name <> domain:
+            if ed.entity_id <> domain:
                 ed.clear()
-                ed.find_by_domain(domain)
+                ed.find(domain)
             # Check for 'cnaddr' category before 'uidaddr', to prefer
             # 'cnaddr'-style primary addresses for users in
             # maildomains that have both categories.
@@ -1940,6 +1942,45 @@ class AccountEmailMixin(Account.Account):
         p.find(self.owner_id)
         full = p.get_name(self.const.system_cached, self.const.name_full)
         return full
+
+    def get_prospect_maildomains(self):
+        """Return correct `domain_id's for the account's account_types regardless
+        of what's populated in email_address.
+
+        Domains will be sorted based on account_type priority and have
+        cereconf.EMAIL_DEFAULT_DOMAIN last in the list."""
+        dom = EmailDomain(self._db)
+        dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        entdom = EntityEmailDomain(self._db)
+        domains = []
+        # Find OU and affiliation for this account.
+        for row in self.get_account_types():
+            ou, aff = row['ou_id'], row['affiliation']
+            # If a maildomain is associated with this (ou, aff)
+            # combination, then that is the user's default maildomain.
+            entdom.clear()
+            try:
+                entdom.find(ou, affiliation=aff)
+                # If the default domain is specified, ignore this
+                # affiliation.
+                if entdom.entity_email_domain_id == dom.entity_id:
+                    continue
+                domains.append(entdom.entity_email_domain_id)
+            except Errors.NotFoundError:
+                pass
+            # Otherwise, try falling back to tha maildomain associated
+            # with (ou, None).
+            entdom.clear()
+            try:
+                entdom.find(ou)
+                if entdom.entity_email_domain_id == dom.entity_id:
+                    continue
+                domains.append(entdom.entity_email_domain_id)
+            except Errors.NotFoundError:
+                pass
+        # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild domain always
+        domains.append(dom.entity_id)
+        return domains
 
     def get_primary_maildomain(self):
         """Return correct `domain_id' for account's primary address."""
