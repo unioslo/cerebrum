@@ -55,7 +55,7 @@ def text11():
 
 def text12():
     ## must be on one line or else a space will get inserted
-    return """<link href="https://sikkerhet.ntnu.no/itsikkerhet/itreglement.html"><u>https://sikkerhet.ntnu.no/itsikkerhet/itreglement.html</u></link>"""
+    return """<link href="http://www.ntnu.no/adm/it/dokumenter/Sikkerhet/ITreglement.pdf"><u>http://www.ntnu.no/adm/it/dokumenter/Sikkerhet/ITreglement.pdf</u></link>"""
 
 def text13():
     return """The different institutions may have additional
@@ -122,7 +122,7 @@ def text21():
     at:"""
 
 def bullet23():
-    return """<link href="https://sikkerhet.ntnu.no/itsikkerhet/itreglement.html"><u>https://sikkerhet.ntnu.no/itsikkerhet/itreglement.html</u></link>""" 
+    return """<link href="http://www.ntnu.no/adm/it/dokumenter/Sikkerhet/ITreglement.pdf"><u>http://www.ntnu.no/adm/it/dokumenter/Sikkerhet/ITreglement.pdf</u></link>""" 
 
 def text22():
     return """If there exists local rules and regulations they will be
