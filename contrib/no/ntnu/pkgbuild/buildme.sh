@@ -11,9 +11,10 @@ if [ "`id -u`" -eq "0" ]; then
 	exit 1
 fi
 
-usage () {
+usage () {	# exitcode [error message]
+        [ -n "$2" ] && echo -e "$2\n"
         echo "Build cerebrum or ceresync packages for various platforms."
-        echo "usage: $0 $1 <PLATFORM> <TARGET> <[OPTIONS]>"
+        echo "usage: $0 <PLATFORM> <TARGET> <[OPTIONS]>"
         echo "PLATFORM in ( ubuntu1004 ubuntu804 rhel5 )"
         echo "TARGET in ( cerebrum ceresync )"
         echo "OPTIONS:"
@@ -27,7 +28,7 @@ usage () {
 	echo "Redirect all output to 'tee' to make a decent buildlog:"
 	echo " 2>&1 | tee /someplace/buildme.log"
 	echo ""
-	exit $2
+	exit $1
 }
 # Keep this for possible local build:
 SCRIPTPATH=`dirname $0`
@@ -41,7 +42,7 @@ while [ $# -gt 0 ]
 do
 	case "$1" in
 		-h|--help)  
-			usage $0 0
+			usage 0
 			;;
 		
 		-l|--local)  
@@ -51,7 +52,7 @@ do
 		
 		-t|--trunk)
 			echo "Will try to build packages from trunk"
-			TRUNK=1
+			TYPE="trunk"
 			;;
 		
 		-V|--version)
@@ -107,55 +108,55 @@ do
 			;;
 
 		*)
-			usage $0 1
+			usage 1
 			;;
     	esac
     	shift
 done
 
 if [ -z "$TARGET" ]; then
-	echo "No target specified"
-	usage $0 1
+	usage 1 "No target specified"
 elif [ -z "$PLATFORM" ]; then
-	echo "No platform specified"
-	usage $0 1
+	usage 1 "No platform specified"
 fi
-if [ "$TRUNK" ]; then	# trunk
-	URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk/cerebrum"
-	echo "Setting version to trunk $VER"
+if [ "$TYPE" == "trunk" ]; then
+	URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/trunk"
 else	# branch or tag
 	if [ "$VER" == "0" ]; then 
-		echo "Version must be specified if not building from trunk"
-		usage $0 1
+		usage 1 "Version must be specified if not building from trunk"
 	fi
    IFS=. read major medium minor <<< "$VER"
 
-   if [[ -n $minor ]]; then	#tag
+   if [[ -n $minor ]]; then
+       TYPE="tag"
        URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/tags/ntnu-prod-$VER"
-       echo "Setting version to tag $VER"
-   else	# branch
+   else
+       TYPE="branch"
        URL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum/branches/ntnu-prod-$VER"
-       echo "Setting version to branch $VER"
    fi
 fi
 
 TEMPDIR="`mktemp -d /tmp/cerebuild.XXXXXXXXX`"
-echo "Building $PLATFORM packages for $TARGET, version $VER, using temp-dir $TEMPDIR"
+echo "Building $PLATFORM packages for $TARGET, $TYPE version $VER into $TEMPDIR"
 pushd $TEMPDIR >/dev/null 2>&1 || exit
 if [ "$REV" = "latest" ]; then
     echo "Downloading source for $VER, latest revision from $URL"
-    svn co -q $URL cerebrum
+    svn co -q $URL svn.tmp
 
-    REV=`svn log cerebrum --limit 1 --quiet | awk '/^r[0-9]+/ {print substr($1,2); exit}'`
+    REV=`svn log svn.tmp -q --limit 1 | awk '/^r[0-9]+ /{print substr($1,2); exit}'`
     echo "Detected revision '$REV' as latest for $VER"
-    if [ -d cerebrum/cerebrum ]; then
-        mv cerebrum/cerebrum cerebrum-ntnu-$VER-$REV
-    else
-        mv cerebrum cerebrum-ntnu-$VER-$REV
-    fi
 else
     echo "Downloading source for $VER-$REV from $URL"
-    svn co -q -r $REV $URL cerebrum-ntnu-$VER-$REV
+    svn co -q -r $REV $URL svn.tmp
+fi
+if [ ! -d svn.tmp ]; then
+    echo "svn checkout error, terminating"
+    popd >/dev/null 2>&1
+    exit 1
+elif [ -d svn.tmp/cerebrum ]; then
+    mv svn.tmp/cerebrum cerebrum-ntnu-$VER-$REV && rm -rf svn.tmp
+else	# This happens only when tagging wrong directory level
+    mv svn.tmp cerebrum-ntnu-$VER-$REV
 fi
 popd >/dev/null 2>&1
 echo "Source downloaded into $TEMPDIR/cerebrum-ntnu-$VER-$REV"
