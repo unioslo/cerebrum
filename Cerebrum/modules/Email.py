@@ -1967,17 +1967,16 @@ class AccountEmailMixin(Account.Account):
                     continue
                 domains.append(entdom.entity_email_domain_id)
             except Errors.NotFoundError:
-                pass
-            # Otherwise, try falling back to tha maildomain associated
-            # with (ou, None).
-            entdom.clear()
-            try:
-                entdom.find(ou)
-                if entdom.entity_email_domain_id == dom.entity_id:
-                    continue
-                domains.append(entdom.entity_email_domain_id)
-            except Errors.NotFoundError:
-                pass
+                # Otherwise, try falling back to tha maildomain associated
+                # with (ou, None).
+                entdom.clear()
+                try:
+                    entdom.find(ou)
+                    if entdom.entity_email_domain_id == dom.entity_id:
+                        continue
+                    domains.append(entdom.entity_email_domain_id)
+                except Errors.NotFoundError:
+                    pass
         # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild domain always
         domains.append(dom.entity_id)
         return domains
