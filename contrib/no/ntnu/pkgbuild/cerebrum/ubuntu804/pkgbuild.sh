@@ -5,11 +5,17 @@ if [ -z "$1" -o -z "$2" -o -z "$3" ]; then
 fi
 DIR=$1
 VERSION=$2-$3
+LOCAL=$4
 NAME=cerebrum-ntnu
 BUILDPATH=$DIR/cerebrum-ntnu-$VERSION
-PKGPATH="`dirname $0`"
-[ -d "$PKGPATH/debian" ] || PKGPATH="$BUILDPATH/contrib/no/ntnu/pkgbuild/cerebrum/ubuntu804"
 
+# Determine which debian directory to use
+PKGPATH="`dirname $0`"
+if [ -n "$LOCAL" -a -d $PKGPATH/debian ]; then
+    [ ${PKGPATH:0:1} != "/" ] && PKGPATH="`pwd`/$PKGPATH"
+else
+    PKGPATH="contrib/no/ntnu/pkgbuild/cerebrum/ubuntu804"
+fi
 
 echo "Building DEB packages for Ubuntu 8.04 of $NAME version $VERSION"
 pushd $BUILDPATH > /dev/null 2>&1
