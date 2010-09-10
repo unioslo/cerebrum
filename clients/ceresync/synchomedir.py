@@ -80,12 +80,20 @@ class HomedirSync(object):
         for homedir in self._get_homedirs(status):
             self._make_homedir(homedir)
 
+    def delete_homedirs(self):
+        for homedir in self._get_homedirs("on_disk", 550):
+            path = self._get_path(homedir)
+            print "  %-9s %s" % (homedir.account_name, path)
+            #XXX
+
     def _get_path(self, homedir):
         return self._chroot_path(self.root, homedir.homedir)
 
-    def _get_homedirs(self, status):
+    def _get_homedirs(self, status, expired_by=None):
         testing_options = self._get_testing_options(status)
-        return self.cerews.get_homedirs(status, self.hostname, **testing_options)
+        return self.cerews.get_homedirs(status, self.hostname,
+                                        expired_by=expired_by,
+                                        **testing_options)
 
     def _get_create_status(self):
         if self.retry_failed:
@@ -302,6 +310,11 @@ def main():
             default=False,
             help="retry homedirs with creation failed status"),
         config.make_option(
+            "--delete",
+            action="store_true",
+            default=False,
+            help="delete expired homedirs"),
+        config.make_option(
             "-s", "--show-db",
             action="store_true",
             default=False,
@@ -330,6 +343,8 @@ def main():
         sync.lint_homedirs()
     elif config.getboolean('args', 'show_db'):
         sync.show_homedirs()
+    elif config.getboolean('args', 'delete'):
+        sync.delete_homedirs()
     else:
         sync.make_homedirs()
 

@@ -254,6 +254,7 @@
       <xs:sequence>
 	<xs:element name="status" type="xs:string"/>
 	<xs:element name="hostname" type="xs:string"/>
+	<xs:element name="expired_by" type="xs:integer" minOccurs="0"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>

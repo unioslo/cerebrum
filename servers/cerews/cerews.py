@@ -19,6 +19,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import os, sys, socket, time, md5
+import mx.DateTime
 
 import cerebrum_path
 
@@ -714,7 +715,7 @@ LEFT JOIN email_domain primary_address_domain
     return db.query(sql, binds)
 
 
-def search_homedirs(host, status):
+def search_homedirs(host, status, expired_by=None):
     include_posix=True
     co=host.const
     db=host._db
@@ -745,6 +746,10 @@ def search_homedirs(host, status):
           LEFT JOIN posix_group posix_group
             ON (posix_group.group_id = posix_user.gid)
         """)
+
+    if expired_by is not None:
+        where.append("account.expire_date < :expired_before")
+        binds['expired_before'] = mx.DateTime.now() - expired_by
 
     sql = "SELECT " + ",\n".join(select)
     sql += " FROM " + "\n".join(tables)
@@ -899,7 +904,7 @@ def check_username_password(db, username, password):
         account.find_by_name(str(username))
     except Errors.NotFoundError:
         raise AuthenticationError('Unauthorized, wrong username or password')
-    if not account.verify_auth(password):
+    if not account.verify_admin_auth(password):
         raise AuthenticationError('Unauthorized, wrong username or password')
     return account.entity_id
 
@@ -1014,6 +1019,7 @@ class cerews(ServiceSOAPBinding):
         
         status = str(request._status)
         hostname = str(request._hostname)
+        expired_by = int_or_none(request._expired_by)
 
         host.clear()
         host.find_by_name(hostname)
@@ -1024,7 +1030,7 @@ class cerews(ServiceSOAPBinding):
         atypes = response.typecode.ofwhat[0].attribute_typecode_dict
         
         response._homedir = []
-        for row in search_homedirs(host, status):
+        for row in search_homedirs(host, status, expired_by):
             h=HomedirDTO(row, atypes, account)
             response._homedir.append(h)
         db.rollback()

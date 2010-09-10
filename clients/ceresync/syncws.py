@@ -378,11 +378,12 @@ class Sync(object):
                                          pretty_xml=kwargs.get("pretty_xml"))
         return [Alias(obj, encode_to=encode_to) for obj in response._alias]
        
-    def get_homedirs(self, status, hostname, encode_to=None,
+    def get_homedirs(self, status, hostname, expired_by=None, encode_to=None,
                      homedir_xml_in=None, homedir_xml_out=None, **kwargs):
         request= cerews_services.getHomedirsRequest()
-        request._status= status
-        request._hostname= hostname
+        request._status = status
+        request._hostname = hostname
+        request._expired_by = expired_by
         port= self._get_ceresync_port()
         response = self._perform_request(request, port.get_homedirs,
                                          load_file=homedir_xml_in,
