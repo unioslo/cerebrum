@@ -43,7 +43,7 @@ logger = Factory.get_logger("console")
 
 def main():
     try:
-        opts,args = getopt.getopt(sys.argv[1:],'v:d:h',
+        opts,args = getopt.getopt(sys.argv[1:],'vdh',
                                   ['verbose','dryrun','help','remove_bdb_affs'])
     except getopt.GetoptError:
         usage()
@@ -56,6 +56,8 @@ def main():
     remove_bdb_affs = False
 
     for opt,val in opts:
+        if opt in ('-v','--verbose'):
+            verbose = True
         if opt in ('-d','--dryrun'):
             dryrun = True
         if opt in ('--remove_bdb_affs'):
@@ -68,6 +70,7 @@ def main():
     else:
         logger = Factory.get_logger("cronjob")
         
+    clean_expired_accounts()
     clean_inferior_affiliations()
     clean_deleted_affiliations()
 
@@ -107,6 +110,44 @@ def clean_deleted_affiliations():
         logger.info("%d affiliations removed from %d accounts",
                     count, acount)
         db.commit()
+
+
+def clean_expired_accounts():
+    all_account_types = set([(at['account_id'], at['ou_id'], at['affiliation'])
+                              for at in account.list_accounts_by_type(filter_expired=False)])
+    active_account_types = set([(at['account_id'], at['ou_id'], at['affiliation'])
+                              for at in account.list_accounts_by_type(filter_expired=False)])
+    expired_account_types = all_account_types - active_account_types
+    
+    to_delete = {}
+    for at in expired_account_types:
+        to_delete.setdefault(at[0], []).append(
+            (at[1], at[2]))
+
+    count = 0
+    acount = 0
+    for account_id, ats in to_delete.items():
+        account.clear()
+        account.find(account_id)
+        logger.info("Removing affiliations from %s: %s",
+                    account.account_name,
+                    ", ".join("%s:%d" % (co.PersonAffiliation(aff), ou_id)
+                              for ou_id, aff in ats))
+        acount += 1
+        for ou_id, aff in ats:
+            account.del_account_type(ou_id, aff)
+            count += 1
+
+    if dryrun:
+        logger.info("%d affiliations would have been removed in %d expired accounts",
+                    count, acount)
+        db.rollback()
+    else:
+        logger.info("%d affiliations removed from %d expired accounts",
+                    count, acount)
+        db.commit()
+
+        
 
 
 def clean_inferior_affiliations():
