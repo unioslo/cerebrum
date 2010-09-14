@@ -206,6 +206,7 @@ YAHOO.lang.extend(cereweb.ac_quicksearch, cereweb.ac_account);
 cereweb.ac_quicksearch.prototype.initTooltip = function(el) {
     new YAHOO.widget.Tooltip("tt1", {context: el, text: '\
                         <ul class="help"> \
+                        	<li>Enter at least three characters</li> \
                             <li>Search for accounts by using only small letters or by prepending the search text with <em>a:</em></li> \
                             <li>Search for people by writing the first character in uppercase or by prepending the search text with <em>p:</em></li> \
                             <li>Search for groups by prepending the search text with <em>g:</em></li> \
