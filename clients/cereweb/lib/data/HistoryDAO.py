@@ -43,7 +43,7 @@ class HistoryDAO(object):
             events.append(event)
         
         # we want that list in reverse, to give us newest items first.
-        return reversed(events)
+        return list(reversed(events))
 
     def _get_event_type(self, event):
         change_type_id = event['change_type_id']
