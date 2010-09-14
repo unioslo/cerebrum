@@ -17,7 +17,7 @@ class HistoryDAO(object):
         self.ac = AccountDAO(self.db)
 
     def get_entity_history_tail(self, id):
-        return self.get_entity_history(id)[:5]
+        return reversed(self.get_entity_history(id)[-5:])
 
     def get_history(self, n=50, offset=0):
         last_id = self.db.get_last_changelog_id()
@@ -41,7 +41,9 @@ class HistoryDAO(object):
             event = HistoryDTO(cerebrum_event, event_type)
             event.creator = self._get_creator(cerebrum_event)
             events.append(event)
-        return events
+        
+        # we want that list in reverse, to give us newest items first.
+        return reversed(events)
 
     def _get_event_type(self, event):
         change_type_id = event['change_type_id']
