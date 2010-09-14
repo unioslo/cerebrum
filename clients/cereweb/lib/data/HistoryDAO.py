@@ -17,7 +17,7 @@ class HistoryDAO(object):
         self.ac = AccountDAO(self.db)
 
     def get_entity_history_tail(self, id):
-        return self.get_entity_history(id)[-5:]
+        return self.get_entity_history(id)[:5]
 
     def get_history(self, n=50, offset=0):
         last_id = self.db.get_last_changelog_id()
