@@ -376,7 +376,6 @@ class UiOStudent(access_FS.Student):
               %s AND
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
-              NVL(u.status_svar_pa_tilbud, 'N') = 'J' AND
               NVL(u.status_opptatt, 'N') = 'J'
               """ % (self._is_alive(), self._get_termin_aar(only_current=1), extra)
         return self.db.query(qry, locals())
