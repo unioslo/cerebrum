@@ -284,8 +284,6 @@ def get_tabs(current=None):
                      ('Hosts', 'host', '/host'),
                      ('Disks', 'disk', '/disk'),
                      ('Email', 'email', '/email')])
-    
-    tabs.append(('Logout', 'logout', '/logout'))
 
     html = '<li%s><a href="%s"><em>%s</em></a></li>'
     res = []
