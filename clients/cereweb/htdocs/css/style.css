@@ -114,7 +114,7 @@ img.upperRight {
 
 #actions {
     float: left;
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 500;
     /* margin-left: 5px; */
     margin-left: 5px;
@@ -146,9 +146,14 @@ img.upperRight {
 #actions ul li a{
     /* background: white;
     color: black; */
+    color: blue;
     text-decoration: none;
 }
 
+#actions ul li a:visited {
+	color: blue;
+}
+	
 #actions ul li a:hover{
     background-color: #FFFF66;
     color: black;
