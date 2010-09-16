@@ -373,7 +373,7 @@ class UiOStudent(access_FS.Student):
               r.status_bet_ok = 'J' AND
               NVL(r.status_ugyldig, 'N') = 'N' AND
               %s AND
-              %s AND
+              %s 
               u.terminkode = r.terminkode AND
               u.arstall = r.arstall AND
               NVL(u.status_opptatt, 'N') = 'J'
