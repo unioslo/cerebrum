@@ -136,7 +136,7 @@ class AccountDAO(EntityDAO):
         account = self._find(account_id)
         if not self.auth.can_set_password(self.db.change_by, account):
             raise PermissionDenied("Not authorized to set password")
-
+        account.expire_date = account.expire_date.strftime("%Y-%m-%d")
         account.set_password(new_password)
         account.write_db()
 
