@@ -37,9 +37,9 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.modules.no.uio import AutoStud
 
-default_personfile = "/cerebrum/uio/dumps/FS/merged_persons.xml"
-default_studieprogramfile = "/cerebrum/uio/dumps/FS/studieprogrammer.xml"
-default_emnefile = "/cerebrum/uio/dumps/FS/emner.xml"
+default_personfile = "/site/mocca/cerebrum_uio/dumps/FS/merged_persons.xml"
+default_studieprogramfile = "/site/mocca/cerebrum_uio/dumps/FS/studieprogrammer.xml"
+default_emnefile = "/site/mocca/cerebrum_uio/dumps/FS/emner.xml"
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
 
@@ -323,25 +323,14 @@ def process_person_callback(person_info):
         elif dta_type in ('emnestud',):
             for row in x:
                 subtype = co.affiliation_status_student_emnestud
-                if studieprog2sko[row['studieprogramkode']] in aktiv_sted:
-                    subtype = co.affiliation_status_student_aktiv
-                    sko = studieprog2sko[p['studieprogramkode']]
-                elif row['studierettstatkode'] == 'EVU':
-                    subtype = co.affiliation_status_student_evu
-                    _get_sko(p, 'faknr_adm_ansvar',
-                             'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar')
-                elif row['studierettstatkode'] == 'FULLFØRT':
-                    subtype = co.affiliation_status_student_alumni
-                    sko = studieprog2sko[p['studieprogramkode']]
-                elif int(row['studienivakode']) >= 980:
-                    subtype = co.affiliation_status_student_drgrad
-                    sko = studieprog2sko[p['studieprogramkode']]
-                else:
-                    try:
-                        sko = emne2sko[p['emnekode']]
-                    except KeyError:
-                        logger.warn("Fant ingen emner med koden %s" % p['emnekode'])
-                        continue  
+                # We may have some situations here where students get
+                # emnestud and aonther affiliation to the same sko,
+                # but this seems to work for now.
+                try:
+                    sko = emne2sko[p['emnekode']]
+                except KeyError:
+                    logger.warn("Fant ingen emner med koden %s" % p['emnekode'])
+                    continue  
                 if sko in aktiv_sted:
                     subtype = co.affiliation_status_student_aktiv
                 _process_affiliation(co.affiliation_student, subtype,
@@ -374,7 +363,7 @@ def process_person_callback(person_info):
                                  affiliations, _get_sko(p, 'faknr_adm_ansvar',
                                  'instituttnr_adm_ansvar', 'gruppenr_adm_ansvar'))
         else:
-            logger.warn("No such affiliation type: %s, skipping", dta_type)
+            logger.debug2("No such affiliation type: %s, skipping", dta_type)
             
     if etternavn is None:
         logger.debug("Ikke noe navn på %s" % fnr)
