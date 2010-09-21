@@ -1065,8 +1065,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         #
         # FIXME: Do we need a permission trap here?
-        missing_msg = ("Unable to recover password for uname=%s, %s: "
-                       "mismatched/unknown uname/e-mail." % (uname, email))
+        missing_msg = "Unable to recover password, unknown username and/or e-mail"
         try:
             account = self._get_account(uname)
         except CerebrumError:
