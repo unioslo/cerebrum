@@ -1823,9 +1823,19 @@ class SAPConstants(Constants.Constants):
         "K810 AKAN"
     )
 
+    sap_akanutvalget = SAPUtvalgsKode(
+        "AKAN-utvalg",
+        "K810 AKAN-utvalg"
+    )
+
     sap_arbeidsmiljoutvalg = SAPUtvalgsKode(
         "Arbeidsmiljøutvalg",
         "K810 Arbeidsmiljøutvalg"
+    )
+
+    sap_AMUutvalget = SAPUtvalgsKode(
+        "AMU-utvalg",
+        "K810 AMU-utvalg"
     )
 
     sap_tilsettingsradet_for_administrative_tekn = SAPUtvalgsKode(
@@ -1847,4 +1857,3 @@ class SAPConstants(Constants.Constants):
         "Kallelser",
         "K810 Kallelser"
     )
-
