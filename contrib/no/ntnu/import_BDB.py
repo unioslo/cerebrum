@@ -12,6 +12,7 @@ from Cerebrum.modules.no.ntnu import access_BDB
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
 from Cerebrum.modules import Email
+from Cerebrum.modules.no.ntnu.Builder import Builder
 
 import mx.DateTime
 from Cerebrum.modules.no.ntnu import util
@@ -194,6 +195,8 @@ class BDBSync:
         self.ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
         self.default_creator_id = self.ac.entity_id
         self.ac.clear()
+
+        self.builder = Builder(self.db, self.default_creator_id)
 
 
     def check_commit(self, fun, *args, **kw):
@@ -985,6 +988,7 @@ class BDBSync:
             else:
                 self._copy_account_data(account_info, ac, owner, np_type)
                 self._sync_account_password(account_info, ac)
+        self.builder.rebuild_account(ac.entity_id)
 
         if _is_primary(account_info) and np_type is None:
             person.clear()

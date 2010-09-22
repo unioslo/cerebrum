@@ -86,11 +86,7 @@ def auto_ldap_spread():
 
     for u in pu.list_posix_users():
         if not u["account_id"] in hasspread:
-            logger.info("Adding spread %d for account %d",
-                        spread, u["account_id"])
-            acc.clear()
-            acc.find(u["account_id"])
-            acc.add_spread(spread)
+            continue
 
         paff=None
         saffs=sorted(affs.get(u["account_id"], []),
