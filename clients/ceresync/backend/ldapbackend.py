@@ -555,11 +555,39 @@ class OracleCalendar(PersonLdapBack):
             'mail': self.get_email(obj),
             'ou': self.get_ou(obj),
             'o': "NTNU",
+            'description': "active",
         }
 
     def get_ou(self, obj):
         acronyms = self.ouregister.get_acronym_list(obj.primary_ou_id)
         return ":".join(reversed(acronyms))
+
+    def delete(self, obj=None, dn=None):
+        """
+        Disable object in the calendar tree by setting "description" to 
+        "inactive". 
+        """
+        if not self.do_delete:
+            return
+        if obj:
+            dn = self.get_dn(obj)
+        res = self.search(base=dn)
+        if not res:
+            log.warning("%s not found when trying to deactivate from calendar",
+                        dn)
+            return
+        old_attrs = res[0][1]
+        attrs = old_attrs.copy()
+        attrs['description'] = ["inactive",]
+        mod_attrs = modlist.modifyModlist(old_attrs, attrs, 
+                                          self.ignore_attr_types)
+        try:
+            self.l.modify_s(dn, mod_attrs)
+            log.debug("Deactivated '%s'", dn)
+        except ldap.NO_SUCH_OBJECT,e:
+            log.warning("%s not found when trying to disable in calendar", dn)
+        except ldap.LDAPError,e:
+            log.warning("Error occured while trying to disable %s: %s", dn, e)
 
 class AccessCardHolder(PersonLdapBack):
     """
