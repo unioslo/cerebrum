@@ -23,11 +23,15 @@
 #from lib.utils import html_quote, url_quote, spine_to_web, from_spine_decode
 
 ## Creates a drop-down option list where 'selected' is preselected.
-#def generate_option($name, $types, $selected=None, $id=None, $quote=True)
+#def generate_option($name, $types, $selected=None, $id=None, $quote=True, $multiple_selections=False)
     #if not $id
         #set $id = $name
     #end if
-    <select name="$name" id="$id">
+    #if $multiple_selections
+        <select name="$name" id="$id" multiple="multiple">
+    #else
+        <select name="$name" id="$id">
+    #end if
     #for $name, $desc in $types
         #if type($desc) == tuple
             #set $desc, $disabled = $desc
@@ -52,12 +56,12 @@
 #end def
 
 ## Creates a drop-down option list with a label.
-#def generate_loption($name, $label, $types, $selected=None, $id=None, $quote=True)
+#def generate_loption($name, $label, $types, $selected=None, $id=None, $quote=True, $multiple_selections=False)
     #if not $id
         #set $id = $name
     #end if
     <label for="$id">$_($label):</label>
-    $generate_option($name, $types, $selected, $id, $quote)
+    $generate_option($name, $types, $selected, $id, $quote, $multiple_selections)
 #end def
 
 #def generate_td2loption($name, $label, $types, $selected=None,$tdattrs={'align': {'left': 'left','right' :'left'}})

@@ -142,13 +142,13 @@
     #set $spreads = [($s.name, $s.name) for $s in $spreads if $s not in $entity.spreads]
 
     <div class="edit box">
-        <h3>$_('Add a spread')</h3>
+        <h3>$_('Add spread(s)')</h3>
         <form action="/entity/add_spread" method="post">
             <div class="hidden">
                 <input type="hidden" name="id" value="$entity.id" />
             </div>
             <div class="required">
-                $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread")
+                $form_widgets.generate_loption("spread", "Spread", $spreads, $id="add_spread", $quote=False, $multiple_selections=True)
             </div>
             <div class="buttons">
                 <input type="submit" value="$_('Add')" />&#x0020;

@@ -108,6 +108,11 @@ class EntityDAO(object):
 
         entity.add_spread(spread_type)
         entity.write_db()
+    
+    def add_multiple_spreads(self, entity_id, spreads):
+        """ Add each spread to the entity """ 
+        for spread in spreads:
+            self.add_spread(entity_id, spread)
 
     def remove_spread(self, entity_id, spread):
         entity = self._find(entity_id)

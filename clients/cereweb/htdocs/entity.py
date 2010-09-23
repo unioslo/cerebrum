@@ -70,15 +70,20 @@ remove_external_id.exposed = True
 @session_required_decorator
 def add_spread(id, spread):
     if not is_correct_referer():
-        queue_message(get_referer_error(), error=True, title='Adding spread failed')
+        queue_message(get_referer_error(), error=True, title='Adding spread(s) failed')
         redirect_entity(id)
         
     db = get_database()
     dao = EntityFactory(db).get_dao_by_entity_id(id)
-    dao.add_spread(id, spread)
+    
+    if isinstance(spread, list):
+        dao.add_multiple_spreads(id, spread)
+        msg = _("Spreads successfully added.")
+    else:
+        dao.add_spread(id, spread)
+        msg = _("Spread successfully added.")
     db.commit()
 
-    msg = _("Spread successfully added.")
     queue_message(msg, title=_("Operation succeeded"))
     redirect_entity(id)
 add_spread.exposed = True
