@@ -33,8 +33,8 @@ class Export2Kjernen(object):
             print 'Fetching stedkoder...'
         koder = {}
         ## only ous with stedkode
-        for row in self._ou.list_external_ids(id_type=self.co.externalid_stedkode, entity_type=self.co.entity_ou, source_system=self.co.system_kjernen):
-            koder[row['entity_id']] = row['external_id'][2:]
+        for row in self._ou.get_stedkoder():
+            koder[row['ou_id']] = '%03d%02d%02d%02d' %(row['institusjon'], row['fakultet'], row['institutt'], row['avdeling'])
         return koder
 
     def get_birthdates(self):
