@@ -144,27 +144,32 @@ class Export2Kjernen(object):
             print 'Writing persons to', self.outfile
         i = 0
         no_account = 0
+        alumni_counter = 0
         f = open(self.outfile, fileMode, bufferSize)
         for k in self.nins.keys():
             ## export only persons that has an account.
             account = self.accounts.get(k, '')
             if account:
-                out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
-                    (k,
-                    self.nins[k][:6],
-                    self.nins[k][6:],
-                    self.birthdates.get(k, ''),
-                    self.firstnames.get(k,''),
-                    self.lastnames.get(k, ''),
-                    self.emails.get(k, ''),
-                    self.affs.get(k, ''),
-                    self.affs_status.get(k, ''),
-                    self.stedkoder.get(self.ous.get(k, ''), ''),
-                    account,
-                    self.created.get(k, ''))
+                # ignore alumnis
+                if self.affs.get(k, '') == "alumni":
+                    alumni_counter += 1
+                else:
+                    out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
+                        (k,
+                        self.nins[k][:6],
+                        self.nins[k][6:],
+                        self.birthdates.get(k, ''),
+                        self.firstnames.get(k,''),
+                        self.lastnames.get(k, ''),
+                        self.emails.get(k, ''),
+                        self.affs.get(k, ''),
+                        self.affs_status.get(k, ''),
+                        self.stedkoder.get(self.ous.get(k, ''), ''),
+                        account,
+                        self.created.get(k, ''))
 
-                f.write(out_line)
-                i += 1
+                    f.write(out_line)
+                    i += 1
             else:
                 no_account += 1
 
@@ -173,6 +178,7 @@ class Export2Kjernen(object):
         if self.verbose:
             print '--------------------------------------------------------------------------------'
             print 'Total persons written:',i
+            print 'Total alumnis excluded from the list: ', alumni_counter
             print 'Persons with no account:',no_account
             print '================================================================================'
 
