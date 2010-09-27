@@ -68,7 +68,11 @@ def remove_external_id(id, id_type):
 remove_external_id.exposed = True
 
 @session_required_decorator
-def add_spread(id, spread):
+def add_spread(id, spread=None):
+    if spread is None:
+        queue_message("You have to select at least one spread.", error=True, title="Error")
+        redirect_entity(id)
+        
     if not is_correct_referer():
         queue_message(get_referer_error(), error=True, title='Adding spread(s) failed')
         redirect_entity(id)
