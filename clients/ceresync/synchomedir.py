@@ -112,8 +112,8 @@ class HomedirSync(object):
                 path, homedir.account_name))
         except Exception, e:
             result_status = 'create_failed'
-            log.debug("Failed creating homedir for %s: %s" % (
-                homedir.account_name, e))
+            log.warn("Failed creating homedir for %s: %s" % (
+                    homedir.account_name, e))
 
         log.debug("Setting status for homedir for %s to %s",
             homedir.account_name, result_status)
