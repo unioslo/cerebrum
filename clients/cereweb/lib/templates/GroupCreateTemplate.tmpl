@@ -34,7 +34,7 @@
 #def content()
 <div class="view">
 <h3>$_('Create a new group:')</h3>
-    <form action="make" method="post">
+    <form action="/group/make/" method="post">
         <div class="required">
             $form_widgets.input("name", "Name #", $data['name'])
         </div>
