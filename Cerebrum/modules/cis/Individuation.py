@@ -48,8 +48,13 @@ def get_person_accounts(id_type, ext_id):
     """
 
     pe.clear()
-    pe.find_by_external_id(getattr(co, id_type), ext_id)
-
+    try:
+        pe.find_by_external_id(getattr(co, id_type), ext_id)
+    except AttributeError:
+        raise Errors.CerebrumError("Wrong id_type: %s" % id_type)
+    except Errors.NotFoundError:
+        raise Errors.CerebrumError("Couldn't find person with ext_id %s" % ext_id)
+    
     ret = list()
     for row in ac.get_account_types(all_persons_types=True,
                                     owner_id=pe.entity_id,
@@ -66,7 +71,7 @@ def get_person_accounts(id_type, ext_id):
         else:
             status = "Active"
         ret.append({'uname': ac2.account_name,
-                    'priority': row['priority'],
+                    'priority': int(row['priority']),
                     'status': status})
     # Sort by priority
     ret.sort(key=lambda x: x['priority'])
