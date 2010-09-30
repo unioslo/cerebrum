@@ -5,19 +5,35 @@ if [ -z "$1" -o -z "$2" -o -z "$3" ]; then
 fi
 DIR=$1
 VERSION=$2-$3
+LOCAL=$4
 NAME=ceresync
 BUILDPATH=$DIR/cerebrum-ntnu-$VERSION
+
+# Determine which debian directory to use
 PKGPATH="`dirname $0`"
-[ -d "$PKGPATH/debian" ] || PKGPATH="$BUILDPATH/contrib/no/ntnu/pkgbuild/cerebrum/ubuntu1004"
+if [ -n "$LOCAL" -a -d $PKGPATH/debian ]; then
+    [ ${PKGPATH:0:1} != "/" ] && PKGPATH="`pwd`/$PKGPATH"
+else
+    PKGPATH="contrib/no/ntnu/pkgbuild/ceresync/ubuntu1004"
+fi
 
 echo "Building DEB packages for Ubuntu 10.04 of $NAME version $VERSION"
 pushd $BUILDPATH > /dev/null 2>&1
 
 echo "Adding symlink to debian build infrastructure at base of source"
+echo "Source: $PKGPATH/debian"
+echo "Target: `pwd`/debian"
 ln -s $PKGPATH/debian debian
 
-echo "Adding default changelog entry"
-dch -b --newversion $VERSION "updated to $VERSION"
+echo "Adding default changelog file"
+cat > debian/changelog << EOF
+$NAME (0.0-0) UNRELEASED; urgency=low
+
+  * Initial release.
+
+ -- Christian Haugan Toldnes <chritol@hackney.itea.ntnu.no>  Tue, 07 Sep 2010 11:40:40 +0200
+EOF
+dch --newversion $VERSION "updated to $VERSION"
 
 echo "Building new package"
 dpkg-buildpackage -rfakeroot
