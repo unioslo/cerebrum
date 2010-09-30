@@ -395,7 +395,6 @@ class BDB:
                 b.user_domain = 1 AND
                 b.person = p.id AND
                 b.status = 1 AND
-                p.id = n.person (+) AND
                 p.id = e.person AND
                 e.mail_domain = d.id AND
                 s.id (+) = d.system
