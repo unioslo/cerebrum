@@ -27,9 +27,10 @@ import cerebrum_path
 import cereconf
 from Cerebrum.modules.cis import Individuation
 
-from soaplib.service import soapmethod
-from soaplib.serializers.primitive import String, Integer, Array, Boolean
-from soaplib.serializers.clazz import ClassSerializer
+from soaplib.service import rpc
+from soaplib.serializers.primitive import String, Integer, Boolean
+from soaplib.serializers.clazz import ClassSerializer, Array
+from soaplib.wsgi import Application
 
 from twisted.web.server import Site
 from twisted.web.resource import Resource
@@ -44,29 +45,30 @@ except ImportError:
     CRYPTO_AVAILABLE = False
 
 """
-This file provides a SOAP server for the Indivudiation service at UiO.
+This file provides a SOAP server for the Individuation service at UiO.
 
 TODO: Describe ...
 
-TODO: The skeleton of a running server. All the SOAP actions must be
-written for this server to do something useful.
+TODO: This is just a skeleton of a running server. All the SOAP
+actions must be written for this server to do something useful.
 """
 
 class Account(ClassSerializer):
-    class types:
-        uname = String
-        priority = String
-        status = String
+    # FIXME: define namespace properly 
+    __namespace__ = 'tns'
+    uname = String
+    priority = Integer
+    status = String
 
 
 class IndividuationServer(SoapListener.BasicSoapServer):
     """
     This class defines the SOAP actions that should be available to
-    clients. All those actions are decorated as a soapmethod, defining
+    clients. All those actions are decorated as a rpc, defining
     what parameters the methods accept, types and what is returned.
     """
 
-    @soapmethod(String, String, _returns=Array(Account))
+    @rpc(String, String, _returns=Array(Account))
     def get_usernames(self, id_type, ext_id):
         """
         Based on id-type and the id, identify a person in Cerebrum and
@@ -75,8 +77,6 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         If person exist but doesn't have any accounts return an empty
         list. I no person match id_type, my_id, throw a ...Exception.
         """
-        # TBD: check parameters here?
-
         ret = []
         # get_person_accounts returns a list of dicts on the form:
         # [{'uname': '...', 'priority': '...', 'status': '...'}, ...]
@@ -87,9 +87,9 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             ret.append(a)
             
         return ret
-        
 
-    @soapmethod(String, String, String, String, String, _returns=Boolean)
+
+    @rpc(String, String, String, String, String, _returns=Boolean)
     def generate_token(self, id_type, ext_id, username, phone_no, browser_token):
         """
         Send a token by SMS to the persons phone and store the token
@@ -102,7 +102,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
                                             phone_no, browser_token)
 
 
-    @soapmethod(String, String, String, String, String, String, _returns=Boolean)
+    @rpc(String, String, String, String, String, String, _returns=Boolean)
     def check_token(self, id_type, ext_id, username, phone_no, browser_token, token):
         """
         Check the validity of a given token.
@@ -110,7 +110,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return True
 
 
-    @soapmethod(String, _returns=Boolean)
+    @rpc(String, _returns=Boolean)
     def abort_token(self, token):
         """
         Remove token in from Cerebrum
@@ -118,7 +118,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return True
 
 
-    @soapmethod(String, String, String, String, String, String, String, _returns=Boolean)
+    @rpc(String, String, String, String, String, String, String, _returns=Boolean)
     def set_password(self, id_type, ext_id, username, phone_no, browser_token,
                      token, new_password):
         """
@@ -128,46 +128,12 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return True
 
 
-    @soapmethod(String, _returns=Boolean)
+    @rpc(String, _returns=Boolean)
     def validate_password(self, password):
         """
         Check if a given password is good enough.
         """
         return True
-
-    ##
-    ## Hooks for soaplib, used for logging and debugging 
-    ##
-    def onCall(self, environ):
-        '''This is the first method called when this WSGI app is invoked'''
-        print "Calling SOAP server from address %s" % environ['REMOTE_ADDR']
-        print 'environ:', environ
-    
-
-    def onWsdl(self, environ, wsdl):
-        '''This is called when a wsdl is requested'''
-        print "wsdl requested from address %s" % (environ['REMOTE_ADDR'])
-    
-
-    def onMethodExec(self, environ, body, py_params, soap_params):
-        '''Called BEFORE the service implementing the functionality is called'''
-        print "Calling SOAP action %s from address %s" % (environ['HTTP_SOAPACTION'],
-                                                          environ['REMOTE_ADDR'])
-        print 'body:', body
-        print 'py_params:', py_params
-        print 'soap_params:', soap_params
-        
-    
-    def onResults(self, environ, py_results, soap_results):
-        '''Called AFTER the service implementing the functionality is called'''
-        print 'onResults: '
-        print 'py_results:', py_results
-        print 'soap_results:', soap_results
-    
-    
-    def onReturn(self, environ, returnString):
-        '''Called before the application returns'''
-        print 'returnString:', returnString
 
 
 
@@ -202,7 +168,7 @@ if __name__=='__main__':
     # Init twisted logger
     log_observer = startLogging(file(logfile, 'w'))
     # Run service
-    service = IndividuationServer()
+    service = Application([IndividuationServer], 'tns')
     resource = WSGIResource(reactor, reactor.getThreadPool(), service)
     root = Resource()
     root.putChild('SOAP', resource)
@@ -210,8 +176,8 @@ if __name__=='__main__':
     if use_encryption:
         # TODO: we need to set up SSL properly
         sslcontext = ssl.DefaultOpenSSLContextFactory(
-            'privkey.pem',
-            'cacert.pem')
+            cereconf.SSL_PRIVATE_KEY_FILE,
+            cereconf.SSL_CERTIFICATE_FILE)
         reactor.listenSSL(int(port), Site(root), contextFactory=sslcontext)
     else:
         reactor.listenTCP(int(port), Site(root))
