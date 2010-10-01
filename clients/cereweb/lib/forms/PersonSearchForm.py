@@ -27,12 +27,26 @@ class PersonSearchForm(SearchForm):
 
     Order = [
         'name',
+        'first_name',
+        'last_name',
         'birth_date',
     ]
 
     Fields = {
         'name': {
             'label': _('Name'),
+            'required': False,
+            'type': 'text',
+            'quote': 'reject',
+        },
+        'first_name': {
+            'label': _('First name'),
+            'required': False,
+            'type': 'text',
+            'quote': 'reject',
+        },
+        'last_name': {
+            'label': _('Last name'),
             'required': False,
             'type': 'text',
             'quote': 'reject',
@@ -51,9 +65,14 @@ class PersonSearchForm(SearchForm):
         values = self.get_values()
 
         name = values.get('name')
+        first_name = values.get('first_name')
+        last_name = values.get('last_name')
         birth_date = values.get('birth_date')
 
-        is_valid = self._is_not_empty(name) or self._is_not_empty(birth_date)
+        is_valid = self._is_not_empty(name) or \
+            self._is_not_empty(first_name) or \
+            self._is_not_empty(last_name) or \
+            self._is_not_empty(birth_date)
         if not is_valid:
             self.error_message = _("Search form can't be empty.")
 

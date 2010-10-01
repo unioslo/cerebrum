@@ -894,7 +894,8 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
 
 
     def search(self, spread=None, name=None, description=None, birth_date=None,
-               entity_id=None, exclude_deceased=False, name_variants=[]):
+               entity_id=None, exclude_deceased=False, name_variants=[],
+               first_name=None, last_name=None):
         """
         Retrieves a list over Persons filtered by the given criterias.
 
@@ -934,6 +935,18 @@ class Person(EntityContactInfo, EntityExternalId, EntityAddress,
                 tables.append("[:table schema=cerebrum name=person_name] pn_%s" % vid)
                 where.append("pn_%s.name_variant = %i" % (vid, vid))
                 where.append("pi.person_id=pn_%s.person_id" % vid)
+                
+                # restrict search based on first name (if given)
+                if first_name is not None and vname == "first_name":
+                    first_name = prepare_string(first_name)
+                    where.append("LOWER(pn_%s.name) LIKE :first_name" % (vid,))
+                    binds['first_name'] = first_name
+                
+                # restrict search based on last name (if given)
+                if last_name is not None and vname == "last_name":
+                    last_name = prepare_string(last_name)
+                    where.append("LOWER(pn_%s.name) LIKE :last_name" % (vid,))
+                    binds['last_name'] = last_name
 
         if spread is not None:
             tables.append("[:table schema=cerebrum name=entity_spread] es")

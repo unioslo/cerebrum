@@ -29,13 +29,21 @@ class PersonDAO(EntityDAO):
 
         return self._create_dto(person, include_extra)
 
-    def search(self, name, birth_date=None, person_id=None):
+    def search(self, name, birth_date=None, person_id=None, first_name=None, last_name=None):
         name = name or None
+        first_name = first_name or None
+        last_name = last_name or None
         birth_date = birth_date or None
         person_id = person_id or None
 
         if name:
             name = name.rstrip("*") + '*'
+        
+        if first_name:
+            first_name = first_name.rstrip("*") + '*'
+        
+        if last_name:
+            last_name = last_name.rstrip("*") + '*'
 
         results = []
         name_variants = [self.constants.name_last, self.constants.name_first, self.constants.name_full]
@@ -45,7 +53,9 @@ class PersonDAO(EntityDAO):
                                         birth_date=birth_date,
                                         name_variants=name_variants,
                                         entity_id=person_id,
-                                        exclude_deceased=True):
+                                        exclude_deceased=True,
+                                        first_name=first_name,
+                                        last_name=last_name):
             dto = DTO.from_row(result)
             dto.id = dto.person_id
             dto.name = dto.full_name
