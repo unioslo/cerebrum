@@ -37,9 +37,9 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.uio.AutoStud import StudentInfo
 from Cerebrum.modules.no.uio import AutoStud
 
-default_personfile = "/site/mocca/cerebrum_uio/dumps/FS/merged_persons.xml"
-default_studieprogramfile = "/site/mocca/cerebrum_uio/dumps/FS/studieprogrammer.xml"
-default_emnefile = "/site/mocca/cerebrum_uio/dumps/FS/emner.xml"
+default_personfile = "/cerebrum/uio/dumps/FS/merged_persons.xml"
+default_studieprogramfile = "/cerebrum/uio/dumps/FS/studieprogrammer.xml"
+default_emnefile = "/cerebrum/uio/dumps/FS/emner.xml"
 group_name = "FS-aktivt-samtykke"
 group_desc = "Internal group for students which will be shown online."
 
