@@ -122,6 +122,79 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end _get_account
 
 
+
+    def _get_owner_name(self, account, name_type):
+        """Fetch human owner's name, if account is of the proper type.
+
+        For FA/VA return the human owner's name. For everything else return
+        None.
+
+        @param account: account proxy or account_id.
+
+        @param name_type: which names to fetch
+        """
+
+        if isinstance(account, (int, long)):
+            try:
+                account = self._get_account(account)
+            except Errors.NotFoundError:
+                return None
+
+        owner_name = None
+        if account.np_type in (self.const.fedaccount_type,
+                               self.const.virtaccount_type):
+            owner_name = account.get_owner_name(name_type)
+
+        return owner_name
+    # end _get_owner_name
+
+
+    def _get_group_resource(self, group):
+        """Fetch a resource associated with group.
+
+        This is typically a URL.
+
+        @param group: group proxy or group_id.
+        """
+
+        if isinstance(group, (int, long)):
+            try:
+                group = self._get_group(group)
+            except Errors.NotFoundError:
+                return None
+
+        resource = group.get_contact_info(self.const.system_virthome,
+                                          self.const.virthome_group_url)
+        if resource:
+            # There cannot be more than 1
+            resource = resource[0]["contact_value"]
+
+        return resource
+    # end _get_group_resource
+
+
+    def _get_email_address(self, account):
+        """Fetch account's e-mail address, if it exists.
+
+        @param account: See _get_owner_name.
+        """
+
+        if isinstance(account, (int, long)):
+            try:
+                account = self._get_account(account)
+            except Errors.NotFoundError:
+                return None
+
+        email = None
+        if account.np_type in (self.const.fedaccount_type,
+                               self.const.virtaccount_type):
+            email = account.get_email_address()
+
+        return email
+    # end _get_email_address
+
+
+
     def __get_request(self, magic_key):
         """Return (decoded) about a request associated with magic_key.
 
@@ -902,12 +975,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                        types=(self.const.va_pending_create,))):
             pending = "pending confirmation"
 
-        # FIXME: This is so ugly.
-        owner_name = "No owner specified"
-        if (isinstance(account, (self.virtaccount_class,
-                                 self.fedaccount_class))):
-            owner_name = account.get_owner_name(self.const.human_full_name)
-
         user_eula = account.get_trait(self.const.trait_user_eula)
         if user_eula:
             user_eula = user_eula.get("date")
@@ -922,7 +989,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                account.get_contact_info(self.const.system_virthome,
                                                         self.const.virthome_contact_email))
                        or "N/A",
-                  "humanname": owner_name,
+                  "humanname": self._get_owner_name(account,
+                                                    self.const.human_full_name),
                   "spread":  self._get_entity_spreads(account.entity_id)
                              or "<not set>",
                   "trait": list(str(self.const.EntityTrait(x).description)
@@ -1438,10 +1506,15 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         result = list()
         for x in group.search_members(group_id=group.entity_id,
                                       indirect_members=indirect_members):
-            result.append({"member_id": x["member_id"],
-                           "member_type": str(self.const.EntityType(x["member_type"])),
-                           "member_name": self._get_entity_name(x["member_id"],
-                                                                x["member_type"]),})
+            tmp = {"member_id": x["member_id"],
+                   "member_type": str(self.const.EntityType(x["member_type"])),
+                   "member_name": self._get_entity_name(x["member_id"],
+                                                        x["member_type"]),
+                   "owner_name": self._get_owner_name(
+                                     x["member_id"],
+                                     self.const.human_full_name),
+                   "email_address": self._get_email_address(x["member_id"]),}
+            result.append(tmp)
 
         result.sort(lambda x, y: cmp(x["member_name"], y["member_name"]))
         return result
@@ -1479,8 +1552,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         opset = self._get_opset(opset_name)
         account = self._get_account(account)
-        return list(self.ba.get_permission_holders_on_groups(
+        tmp = list(self.ba.get_permission_holders_on_groups(
             opset.op_set_id, account_id=account.entity_id))
+        for entry in tmp:
+            entry["url"] = self._get_group_resource(entry["group_id"])
+        
+        return tmp
     # end _opset_group_lister
 
 
@@ -1510,7 +1587,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         group = self.Group_class(self.db)
         result = list()
         for row in group.search(member_id=operator.get_entity_id()):
-            result.append(row.dict())
+            tmp = row.dict()
+            tmp["url"] = self._get_group_resource(tmp["group_id"])
+            result.append(tmp)
 
         return result
     # end user_list_memberships
@@ -1653,7 +1732,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                                           "group-moderator"),
                   "owner": self._opset_account_lister(gname,
                                                       "group-owner"),
-                  "url": None}
+                  "url": self._get_group_resource(group)}
 
         members = dict()
         for row in group.search_members(group_id=group.entity_id,
@@ -1665,13 +1744,6 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                      (str(self.const.EntityType(key)),
                                       members[key])
                                      for key in members)
-        url = group.get_contact_info(self.const.system_virthome,
-                                     self.const.virthome_group_url)
-        if url:
-            # There cannot be more than 1
-            url = url[0]
-            answer["url"] = url["contact_value"]
-
         return answer
     # end group_info
 
