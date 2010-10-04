@@ -25,7 +25,12 @@
 ##
 #attr $title = "Cereweb"
 #attr $messages = []
-#attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'error.js']
+#attr $jscripts = ['base.js', 'timeout.js', 'error.js']
+
+#if $is_admin
+    $jscripts.insert(1, 'search.js')
+#end if
+
 ## #attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'error.js']
 #attr $links = ()
 #attr $action = []
