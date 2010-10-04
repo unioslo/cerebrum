@@ -120,11 +120,11 @@ def try_login(username=None, password=None, **kwargs):
 
     group = Group(db)
     group.find_by_name('bootstrap_group')
-    is_admin = group.has_member(account.entity_id)
+    is_admin = group.has_member(account.entity_id) and True or False
     
     group = Group(db)
     group.find_by_name('cereweb_drift')
-    is_admin = group.has_member(account.entity_id) or is_admin
+    is_admin = (group.has_member(account.entity_id) and True or False) or is_admin
     
     return create_cherrypy_session(username, realname, account.entity_id, is_admin)
 
