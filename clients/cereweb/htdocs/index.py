@@ -18,44 +18,43 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import time
-import cherrypy
-
 from gettext import gettext as _
-
-from lib.Main import Main
-from lib.utils import session_required_decorator
 from lib import utils
+from lib.AccountSearcher import AccountSearcher
+from lib.Main import Main
+from lib.PersonSearcher import PersonSearcher
 from lib.templates.ActivityLogTemplate import ActivityLogTemplate
 from lib.templates.Confirm import Confirm
-
+from lib.templates.NewSearchTemplate import NewSearchTemplate
+from lib.utils import session_required_decorator
 from login import login, logout
-
+from search import search
 import account
+import activation
+import ajax
+import cherrypy
 import disk
 import email
-import emailtarget
 import emailaddress
+import emailtarget
 import entity
 import error
 import group
 import host
-import ou
-import person
-import ajax
 import motd
-from search import search
-import userclient
+import ou
 import passwd
-import activation
+import person
+import time
+import userclient
 
 @session_required_decorator
 def index():
-    db = utils.get_database()
-
-    page = motd.get_page(3)
-    page.title = _("Welcome to Cereweb")
-    page.add_jscript("motd.js")
+    # as a front page, we want easy access to search functionality
+    page = NewSearchTemplate()
+    page.forms = [PersonSearcher.SearchForm(),
+                  AccountSearcher.SearchForm()]
+    page.page = "index"
     return page.respond()
 index.exposed = True
 
