@@ -39,10 +39,10 @@ from Cerebrum.Utils import Factory
 from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
 from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
 from Cerebrum.modules.no.Constants import SAPUtvalgsKode
+from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 
 import sys
 import getopt
-import string
 
 FIELDS_IN_ROW = 7
 
@@ -79,6 +79,12 @@ def populate_utvalg(person, ou, fields, const):
         
     (sap_id, orgeh, fo_kode,
      utvalg, start_date, end_date, rolle) = fields
+
+    if (fo_kode and 
+        int(SAPForretningsOmradeKode(fo_kode)) ==
+        int(const.sap_eksterne_tilfeldige)):
+        logger.debug("Ignored external person: sap_id=«%s»", sap_id)
+        return False
 
     if not locate_person(person, sap_id, const):
         logger.warn("Aiee! Cannot locate person with SAP id «%s»",
@@ -137,12 +143,10 @@ def process_utvalg(filename, db):
         if len(fields) != FIELDS_IN_ROW:
             logger.warn("Strange line: |%s|", entry)
             continue
-        # fi
 
         if not populate_utvalg(person, ou, fields, const):
-            logger.warn("Skipping utvalg record %s", entry.strip())
+            logger.debug("Skipping utvalg record %s", entry.strip())
             continue
-        # fi
 
         success += 1
     # od
@@ -189,7 +193,6 @@ def main():
     else:
         db.commit()
         logger.info("Committed all changes")
-    # fi
 # end main
 
 
@@ -198,6 +201,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# fi
-
-# arch-tag: f1afcda1-8800-470b-843d-fb79aaa2e8f7
