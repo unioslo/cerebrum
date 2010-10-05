@@ -78,7 +78,8 @@ def main():
     aliases.begin(unicode=True)
 
     try:
-        for alias in s.get_aliases(**sync_options):
+        for alias in sorted(s.get_aliases(**sync_options),
+                            cmp=lambda x,y:cmp(x.account_name,y.account_name)):
             log.debug("Processing alias '%s@%s'", alias.local_part, 
                       alias.domain)
             aliases.add(alias)

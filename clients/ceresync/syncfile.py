@@ -80,7 +80,8 @@ def main():
     log.info("Syncronizing accounts")
     accounts.begin(unicode=True)
     try:
-        for account in s.get_accounts(**sync_options):
+        for account in sorted(s.get_accounts(**sync_options),
+                              cmp=lambda x,y:cmp(x.posix_uid, y.posix_uid)):
             log.debug("Processing account '%s'", account.name)
             primary_group[account.name] = account.primary_group
             fail = check_account(account)
