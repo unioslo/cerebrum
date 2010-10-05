@@ -52,8 +52,8 @@ import userclient
 def index():
     # as a front page, we want easy access to search functionality
     page = NewSearchTemplate()
-    page.forms = [PersonSearcher.SearchForm(),
-                  AccountSearcher.SearchForm()]
+    page.forms = [AccountSearcher.SearchForm(),
+                  PersonSearcher.SearchForm()]
     page.page = "index"
     return page.respond()
 index.exposed = True
