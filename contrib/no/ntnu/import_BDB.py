@@ -617,9 +617,12 @@ class BDBSync:
                 else:
                     found_person=True
                     self.logger.debug("Found person by fnr")
+            else:
+                found_person=False
+                self.logger.debug("Could not find BDB-id %s in cerebrum" % person['id'])
         else:
             found_person=True
-            self.logger.debug("Found BDB-id %s in cerebrum" % person['id'])
+            self.logger.debug("Did find BDB-id %s in cerebrum" % person['id'])
 
         if found_person:
             self.logger.info("Updating cerebrum person %s from BDB-person %s" %
