@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004, 2006 University of Oslo, Norway
+# Copyright 2004-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -18,6 +18,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import pickle
+from os.path import join as join_paths
 from Cerebrum.modules.no.OrgLDIF import *
 from Cerebrum.modules import LDIFutils
 
@@ -113,15 +114,15 @@ class OrgLDIFUiOMixin(norEduLDIFMixin):
     def init_person_course(self):
         """Populate dicts with a person's course information."""
         timer = self.make_timer("Processing person courses...")
-        fn = "/cerebrum/uio/dumps/LDAP/ownerid2urnlist.pickle"
-        self.ownerid2urnlist = pickle.load(file(fn))
+        self.ownerid2urnlist = pickle.load(file(
+            join_paths(ldapconf(None, 'dump_dir'), "ownerid2urnlist.pickle")))
         timer("...person courses done.") 
 
     def init_person_groups(self):
         """Populate dicts with a person's group information."""
         timer = self.make_timer("Processing person groups...")
-        fn = "/cerebrum/uio/dumps/LDAP/personid2group.pickle"
-        self.person2group = pickle.load(file(fn))
+        self.person2group = pickle.load(file(
+            join_paths(ldapconf(None, 'dump_dir'), "personid2group.pickle")))
         timer("...person groups done.") 
 
     def init_person_dump(self, use_mail_module):
