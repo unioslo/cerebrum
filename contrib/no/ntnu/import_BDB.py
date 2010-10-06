@@ -513,7 +513,8 @@ class BDBSync:
         try:
             fnr = self.__get_fodselsnr(person)
         except fodselsnr.InvalidFnrError,e:
-            return False
+            self.logger.warn("Unable to validate fodselsnr for person with bdb-external-id %s " % person['id'])
+            return True
         
         return True
 
@@ -574,6 +575,7 @@ class BDBSync:
         new_person = self.new_person
 
         if not self.__validate_person(person):
+            self.logger.debug("Could not validate BDB person %s" %person['id'])
             return
 
         gender = self.__get_gender(person)
