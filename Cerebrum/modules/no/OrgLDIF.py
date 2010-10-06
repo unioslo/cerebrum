@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2004, 2007 University of Oslo, Norway
+# Copyright 2004-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -82,7 +82,7 @@ class norEduLDIFMixin(OrgLDIF):
         self.FEIDE_ou_common_attrs = {}
         if (self.FEIDE_obsolete_version or self.FEIDE_schema_version) == '1.1':
             self.FEIDE_ou_common_attrs = {
-                self.FEIDE_attr_org_id: self.norEduOrgUniqueID}
+                'norEduOrgUniqueNumber': self.norEduOrgUniqueID}
         # '@<security domain>' for the eduPersonPrincipalName attribute.
         self.eduPPN_domain = '@' + cereconf.INSTITUTION_DOMAIN_NAME
 
