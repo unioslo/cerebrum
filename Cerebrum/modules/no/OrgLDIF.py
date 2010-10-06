@@ -245,7 +245,8 @@ class norEduLDIFMixin(OrgLDIF):
         if uname and fnr:
             entry['objectClass'].append('norEduPerson')
             if self.FEIDE_schema_version >= '1.5':
-                entry['norEduPersonLegalName'] = entry['cn']
+                entry['displayName'] = entry['norEduPersonLegalName'] = \
+                                       entry['cn']
             entry['eduPersonPrincipalName'] = (uname[0] + self.eduPPN_domain,)
             entry['norEduPersonNIN'] = (str(fnr),)
             birth_date = self.birth_dates.get(person_id)
