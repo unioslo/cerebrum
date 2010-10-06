@@ -87,7 +87,7 @@
 		            #if $account.is_primary
 		                <span class="extra">(primary)</span>
 		            #end if
-		            #if $account.is_posix
+		            #if $account.is_posix and $is_admin
 		                <span class="extra">(posix)</span>
 		            #end if
 		            #if $account.is_expired
@@ -392,7 +392,9 @@
             <em>$_("Group"):</em> $entity_link($group)
     
             <span class="extra">(primary)</span>
-            <span class="extra">(posix)</span>
+            #if $is_admin
+                <span class="extra">(posix)</span>
+            #end if
         </div>
     #end if
 #end def
@@ -413,7 +415,7 @@
         #end if
         <em>$_($header):</em>$entity_link($group)
 
-        #if $group.is_posix
+        #if $group.is_posix and $is_admin
             <span class="extra">(posix)</span>
         #end if
     </div>

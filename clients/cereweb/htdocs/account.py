@@ -96,6 +96,11 @@ def make(owner, **kwargs):
     db = get_database()
     account = create_account(db, owner, **kwargs)
     join_owner_group(db, owner, account)
+    
+    # new accounts should join 'posixgroup' as default
+    if kwargs['group'] == "":
+        kwargs['group'] = "posixgroup"
+        
     join_primary_group(db, account, **kwargs)
     set_account_password(db, account, **kwargs)
     db.commit()
