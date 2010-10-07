@@ -593,7 +593,7 @@ def main():
                                   "report_accessor" : "list_applsys_usernames",
                                   "ceregroup" : "ofprod" },
                      "fsprod" : { "dbname"    : "FSPROD.uio.no",
-                                  "dbuser"    : "ureg2000",
+                                  "dbuser"    : "I0185_ureg2000",
                                   "class"     : FS,
                                   "sync_accessor"  : "list_dbfg_usernames",
                                   "report_accessor" : "list_dba_usernames",
