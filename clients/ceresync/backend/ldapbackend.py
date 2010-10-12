@@ -560,7 +560,7 @@ class OracleCalendar(PersonLdapBack):
 
     def get_ou(self, obj):
         acronyms = self.ouregister.get_acronym_list(obj.primary_ou_id)
-        return ":".join(reversed(acronyms))
+        return ":".join(acronyms)
 
     def delete(self, obj=None, dn=None):
         """
