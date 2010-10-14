@@ -48,11 +48,13 @@ class Builder(object):
         # Add new personaffiliations to account!
         self.account.clear()
         self.account.find(account_id)
-        
-        if not owner:
-            owner = self._get_owner(self.account.owner_id)
-
-        self._build_account_affiliations(owner)
+        try: 
+            if not owner:
+                owner = self._get_owner(self.account.owner_id)
+            self._build_account_affiliations(owner)
+        except:
+            logger.warn("Unable to build account affiliations for %s.",
+                        self.account.account_name)
 
         accountprio = list(self.account.get_account_types())
         accountprio.sort(key=lambda ap: ap['priority'])
