@@ -142,14 +142,25 @@ class Constants(Constants.Constants):
     auth_type_admin_md5_crypt = _AuthenticationCode('admin-MD5-crypt',
         "MD5-crypt style password for admin access authentication")
 
-    affiliation_ansatt = _PersonAffiliationCode(
-        'ANSATT', 'Ansatt ved NTNU (i følge Kjernen)')
-    affiliation_status_ansatt_ansatt = _PersonAffStatusCode(
-        affiliation_ansatt, 'ansatt', 'Ansatt, type ukjent')
-    affiliation_status_ansatt_vit = _PersonAffStatusCode(
-        affiliation_ansatt, 'vitenskapelig', 'Vitenskapelig ansatt')
-    affiliation_status_ansatt_tekadm = _PersonAffStatusCode(
-        affiliation_ansatt, 'tekadm', 'Teknisk/administrativt ansatt')
+    affiliation_oppdragstaker = _PersonAffiliationCode(
+        'OPPDRAGSTAKER', 'Person med avtale om oppdrag for NTNU')
+    affiliation_status_oppdragstaker_ansatt = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'ansatt', 'Ansatt, kun importert fra BDB')
+    affiliation_status_oppdragstaker_vit = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'vitenskapelig', 'Vitenskapelig')
+    affiliation_status_oppdragstaker_tekadm = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'tekadm', 'Teknisk/administrativ')
+    affiliation_status_oppdragstaker_intern = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'intern', 'Oppdragstaker ved annen orgenhet')
+    affiliation_status_oppdragstaker_ekstern = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'ekstern', 'Ekstern oppdragstaker')
+    affiliation_status_oppdragstaker_fagperson = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'fagperson', 'Fagperson fra FS')
+    affiliation_status_oppdragstaker_bilag = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'bilag', 'Registrert i Kjernen med "timelønnet"')
+    affiliation_status_oppdragstaker_emeritus = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'emeritus', 'Emeritus')
+
 
     affiliation_student = _PersonAffiliationCode(
         'STUDENT', 'Student ved NTNU (i følge FS)')
@@ -161,23 +172,31 @@ class Constants(Constants.Constants):
         affiliation_student, 'master', 'Aktiv student på høyere grad')
     affiliation_status_student_drgrad = _PersonAffStatusCode(
         affiliation_student, 'drgrad', 'Registrert student på doktorgrad')
+    affiliation_status_student_intern = _PersonAffStatusCode(
+        affiliation_student, 'intern', 'Student ved annen orgenhet')
 
     affiliation_tilknyttet = _PersonAffiliationCode(
-        'TILKNYTTET', 'Tilknyttet NTNU uten å være student eller ansatt')
-    affiliation_status_tilknyttet_fagperson = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'fagperson', 'Registrert som fagperson i FS')
-    affiliation_status_tilknyttet_bilag = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'bilag',
-        'Registrert i Kjernen med "timelønnet"')
+        'TILKNYTTET', 'Tilknyttet NTNU')
     affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(
         affiliation_tilknyttet, 'gjest', 'Gjest')
     affiliation_status_tilknyttet_annen = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'annen', 'Annen tilknytning (Husk kommentar)')
+        affiliation_tilknyttet, 'leverandør', 'Leverandør, typisk produktsupport')
 
     affiliation_alumni = _PersonAffiliationCode(
-        'ALUMNI', 'Tidligere student')
+        'ALUMNI', 'Alumnibrukere')
     affiliation_status_alumni_aktiv = _PersonAffStatusCode(
-        affiliation_alumni, 'aktiv', 'Registert alumni')
+        affiliation_alumni, 'aktiv', 'Registert via alumnitjenesten')
+
+    #
+    # Backward compatible?
+    #
+    affiliation_ansatt = affiliation_oppdragstaker
+    affiliation_status_ansatt_ansatt = affiliation_status_oppdragstaker_ansatt
+    affiliation_status_ansatt_vit = affiliation_status_oppdragstaker_vit
+    affiliation_status_ansatt_tekadm = affiliation_status_oppdragstaker_tekadm
+    affiliation_status_tilknyttet_bilag = affiliation_status_oppdragstaker_bilag
+    affiliation_status_tilknyttet_fagperson = affiliation_status_oppdragstaker_fagperson
+    
 
     #affiliation_upersonlig = _PersonAffiliationCode(
     #    'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
