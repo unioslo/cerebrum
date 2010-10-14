@@ -180,7 +180,7 @@ class Constants(Constants.Constants):
     affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(
         affiliation_tilknyttet, 'gjest', 'Gjest')
     affiliation_status_tilknyttet_annen = _PersonAffStatusCode(
-        affiliation_tilknyttet, 'leverandør', 'Leverandør, typisk produktsupport')
+        affiliation_tilknyttet, 'leverandor', 'Leverandør, typisk produktsupport')
 
     affiliation_alumni = _PersonAffiliationCode(
         'ALUMNI', 'Alumnibrukere')
