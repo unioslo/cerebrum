@@ -34,6 +34,11 @@ configure-stamp:
 	# setup.py is also broken, so we mess with that one as well..
 	#
 	patch -p1 < debian/setup.py_path.patch
+        #
+        # This is a timesaver. FIXME
+        #
+        #
+        patch -p1 < debian/Constants.py_ansatt.patch
         
 	# 
 	# Here comes ugly! :)
