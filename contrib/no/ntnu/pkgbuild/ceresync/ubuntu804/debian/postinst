@@ -1,5 +1,5 @@
 #!/bin/sh
-# postinst script for cerebrum-ntnu
+# postinst script for ceresync
 #
 # see: dh_installdeb(1)
 
@@ -20,9 +20,6 @@ set -e
 
 case "$1" in
     configure)
-        #echo "Running /usr/sbin/makedb.py --update-codes..."
-        #PYTHONPATH=/usr/share/python-support/cerebrum-ntnu /usr/sbin/makedb.py --update-codes
-        
          # lets give them a cerebrum user/group in all cases.
          getent group cerebrum >/dev/null 2>&1 || addgroup --gid 311 cerebrum
          getent passwd cerebrum >/dev/null 2>&1 ||
