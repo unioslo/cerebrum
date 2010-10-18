@@ -1,10 +1,7 @@
 #! /usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
-import os
-import sys
 import time
-import getopt
-import mx
+from optparse import OptionParser
 
 import cerebrum_path
 import cereconf
@@ -16,7 +13,7 @@ fileMode = 'w'
 bufferSize = 16384
 
 class Export2Kjernen(object):
-    def __init__(self, outfile, verbose, doTiming):
+    def __init__(self, outfile, verbose, doTiming, oppdragstaker):
         self.db = Factory.get('Database')()
         self.co = Factory.get('Constants')(self.db)
         self._person = Factory.get('Person')(self.db)
@@ -26,6 +23,7 @@ class Export2Kjernen(object):
         self.outfile = outfile
         self.verbose = verbose
         self.doTiming = doTiming
+        self.oppdragstaker = oppdragstaker
     
     def get_stedkoder(self):
         if self.verbose:
@@ -144,7 +142,10 @@ class Export2Kjernen(object):
         """ Persons with alumni as the only affiliation should be
         excluded from the export. We don't care whether the person might have
         alumni as a secondary affiliation """
-        return (len(affiliations) == 1 and affiliations[0][0] == "alumni")
+        for affiliation in affiliations:
+            if affiliation[0] != "alumni":
+                return False
+        return True
     
     def contains_gjest(self, affiliations):
         """ Persons having 'gjest' affiliations should be treated differently
@@ -158,6 +159,10 @@ class Export2Kjernen(object):
                    affiliations, lastnames, firstnames, accounts, affs_for_person):
         for affiliation in affs_for_person:
             if affiliation[0] != "alumni":
+                if not self.oppdragstaker and affiliation[0] == "oppdragstaker":
+                    temp_aff = "ansatt"
+                else:
+                    temp_aff = affiliation[0]
                 out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
                     (personid,
                     nins[personid][:6],
@@ -166,7 +171,7 @@ class Export2Kjernen(object):
                     firstnames.get(personid,''),
                     lastnames.get(personid, ''),
                     emails.get(personid, ''),
-                    affiliation[0],
+                    temp_aff,
                     affiliation[2],
                     stedkoder.get(affiliation[1], ''),
                     account,
@@ -298,42 +303,24 @@ class Export2Kjernen(object):
             self.print_time(before)
             print 'Total time = %.2f secs' % (time.time() - totalBefore)
 
-def usage(p):
-    print '\nUsage: %s [OPTIONS]\n\n    OPTIONS\n\t-h, --help\t\tshow this help and exit.\n\t-o FILE, --output=FILE\twrite report to FILE.\n\t-t  --time\t\tcombination with verbose will show seconds\n\t\t\t\tper. operation and total; otherwise just\n\t\t\t\ttotal time.\n\t-v, --verbose\t\tshow status-messages to stdout.\n' % p
-
-
-def main(argv):
-    opts = None
-    args = None
-    prog = os.path.basename(argv[0])
-    try:
-        opts, args = getopt.getopt(argv[1:], 'ho:tv', ['help', 'output=', 'time', 'verbose'])
-    except getopt.GetoptError, err:
-        print str(err)
-        usage(prog)
-        sys.exit(1)
-    output = None
-    verbose = False
-    doTiming = False
-    for opt, arg in opts:
-        if opt in ('-h', '--help'):
-            usage(prog)
-            sys.exit(0)
-        elif opt in ('-v', '--verbose'):
-            verbose = True
-        elif opt in ('-o', '--output'):
-            output = arg
-        elif opt in ('-t', '--time'):
-            doTiming = True
-        else:
-            assert False, "unhandled option"
-            sys.exit(2)
-    if not output:
-        usage(prog)
-        sys.exit(3)
-    export_kj = Export2Kjernen(output, verbose, doTiming)
-    export_kj.export_persons()
-    
-
 if __name__ == '__main__':
-    main(sys.argv)
+    parser = OptionParser()
+    parser.add_option("-o", "--output", dest="output", metavar="FILE",
+                      help="write report to FILE.")
+    parser.add_option("-t", "--time", dest="timing", action="store_true",
+                      help="""combination with verbose will show seconds per. operation and total; otherwise just total time.""")
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
+                      help="show status-messages to stdout.")
+    parser.add_option("--oppdragstaker", dest="oppdragstaker",
+                      action="store_true", help="""Don't rename affiliation 'oppdragstaker' to 'ansatt'""")
+    
+    (opts, args) = parser.parse_args()
+
+    if opts.output is None:
+        print "'output' option required!\n"
+        parser.print_help()
+        exit()
+        
+    export_kj = Export2Kjernen(opts.output, opts.verbose, opts.timing,
+                               opts.oppdragstaker)
+    export_kj.export_persons()

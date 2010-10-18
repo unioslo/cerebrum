@@ -9,7 +9,7 @@ class ExportKjernenTests(unittest.TestCase):
     """
     def setUp(self):
         self.export_kjernen = Export2Kjernen(
-            "output.txt", True, True)
+            "output.txt", True, True, False)
         self.personid = 1234
         
         self.export_kjernen.get_birthdates = \
@@ -110,9 +110,7 @@ class ExportKjernenTests(unittest.TestCase):
         
         self.run_test(exp_res, affiliations)
 
-    def test_ansatt_og_gjest_likt_sted(self):
-        #hipp som happ hvem av dem jeg exporterer
-        
+    def test_ansatt_og_gjest_likt_sted(self):        
         affiliations = [('tilknyttet', 51168, 'gjest', '2009.08.20'),
                         ('ansatt', 51168, 'ansatt', '2009.08.20')]
         
@@ -139,7 +137,31 @@ class ExportKjernenTests(unittest.TestCase):
         exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n"]
         
         self.run_test(exp_res, affiliations)
+    
+    def est_rename_studentintern_to_tilknyttet_gjest(self):
+        affiliations = [('student', 51168, 'intern', '2010.08.10')]
         
+        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n"]
+        
+        self.run_test(exp_res, affiliations)
+    
+    def test_oppdragstaker_disabled(self):
+        affiliations = [('oppdragstaker', 51168, 'ansatt', '2009.08.20'),
+                        ('student', 51168, 'student', '2009.08.20')]
+        
+        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;ansatt;ansatt;194672500;testulfsen;2009.08.20;\n"]
+        
+        self.run_test(exp_res, affiliations)
+    
+    def test_oppdragstaker_enabled(self):
+        affiliations = [('oppdragstaker', 51168, 'ansatt', '2009.08.20'),
+                        ('student', 51168, 'student', '2009.08.20')]
+        
+        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;oppdragstaker;ansatt;194672500;testulfsen;2009.08.20;\n"]
+        
+        self.export_kjernen.oppdragstaker = True
+        self.run_test(exp_res, affiliations)
+        self.export_kjernen.oppdragstaker = False
         
 if __name__ == '__main__':
     unittest.main()
