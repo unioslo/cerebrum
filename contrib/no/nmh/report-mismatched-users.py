@@ -1,6 +1,24 @@
 #!/usr/bin/env python
 # -*- encoding: latin-1 -*-
 
+# Copyright 2010 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
 """Report breaches of business rules for person/account/group population.
 
 During a meeting on 2010-02-23, NMH expressed an interest in an automatic
@@ -27,6 +45,10 @@ A typical run for NMH would look something like this:
          -g ANSATT:vitenskapelig:011510:fagsekblas \
          -g ANSATT:vitenskapelig:011540:fagsekdir \
          -g ANSATT:vitenskapelig:011520:fagsekstryk
+
+-u lists the affiliations to consider for person-user mismatches.
+-g lists groups to scan for memberships based on affiliations.
+Multiple options of either kind may be provided.
 """
 
 
@@ -54,7 +76,8 @@ logger = None
 
 @simple_memoize
 def get_group(ident):
-
+    """Fetch a group based on its id (name or entity_id)."""
+    
     db = Factory.get("Database")()
     group = Factory.get("Group")(db)
     if isinstance(ident, str):
@@ -76,6 +99,8 @@ def get_group(ident):
 
 @simple_memoize
 def get_ou(ident):
+    "Fetch an OU based on its id (stedkode, acronym or entity_id)."
+    
     ou = Factory.get("OU")(database)
     if isinstance(ident, str):
         ident = ident.strip()
@@ -110,8 +135,7 @@ def get_ou(ident):
 
 @simple_memoize
 def ou_id2report(ou_id):
-    """Produce a human-friendly OU designation from its ID.
-    """
+    """Produce a human-friendly OU designation from its ID."""
 
     try:
         ou = get_ou(ou_id)
@@ -192,6 +216,33 @@ def fetch_persons(affiliations, source):
 
     logger.debug("Collected %d people matching affiliation%s%s",
                  len(result),                 
+                 len(set(affiliations)) != 1 and "s " or " ",
+                 ", ".join(set(str(const.PersonAffiliation(x))
+                               for x in affiliations)))
+
+    #
+    # Alas, we can't look at people alone. A person maybe without an affiliation
+    # (say, it has been deleted) whereas his/her account may still have the
+    # affiliation. I.e. we need to scan the accounts with affiliations from
+    # L{affiliations} AND adjoin the correponding person entries to the result.
+    additional = 0
+    account = Factory.get("Account")(db)
+    for row in account.list_accounts_by_type(affiliation=affiliations):
+        person_id = row["person_id"]
+        # we've already registered affs for this person...
+        if person_id in result:
+            continue
+
+        # at this point account_id has the right affs, but person_id does NOT
+        # have a single affiliation of the right kind.
+        person_affs = person.list_affiliations(person_id=row["person_id"])
+        result.setdefault(row["person_id"], set()).update(
+            (x["affiliation"], x["status"], x["ou_id"])
+            for x in person_affs)
+        additional += 1
+
+    logger.debug("Collected %d additional people from users's affiliation%s%s",
+                 additional,
                  len(set(affiliations)) != 1 and "s " or " ",
                  ", ".join(set(str(const.PersonAffiliation(x))
                                for x in affiliations)))
@@ -614,11 +665,19 @@ def main(argv):
         reports.append(prepare_user_mismatch_report(affiliations,
                                                     *person_user_mismatch(persons)))
 
-    if reports and recipient and subject:
-        send_report("\n".join(reports),
-                    subject,
-                    recipient,
-                    cc_recipient)
+    if reports:
+        if recipient and subject:
+            send_report("\n".join(reports),
+                        subject,
+                        recipient,
+                        cc_recipient)
+        else:
+            message_width = 76
+            wrapper = textwrap.TextWrapper(width=message_width,
+                                           subsequent_indent="  ",)
+            pretty_message = "\n".join(wrapper.fill(x)
+                                       for x in "\n".join(reports).split("\n"))
+            logger.debug("Report to send:\n%s", pretty_message)
 # end main
 
 
