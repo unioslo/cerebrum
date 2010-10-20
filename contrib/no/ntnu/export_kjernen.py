@@ -147,47 +147,31 @@ class Export2Kjernen(object):
                 return False
         return True
     
-    def contains_gjest(self, affiliations):
-        """ Persons having 'gjest' affiliations should be treated differently
-        than others."""
-        for affiliation in affiliations:
-            if affiliation[0] == "tilknyttet" and affiliation[2] == "gjest":
-                return True
-        return False 
+    def affiliation_renamer(self, affiliation_name):
+        """ 'Oppdragstaker' is a newly created affiliation that should be
+        renamed to 'Ansatt' before the export, since Kjernen doesn't support
+        it yet."""
+        if not self.oppdragstaker and affiliation_name == "oppdragstaker":
+            return "ansatt"
+        else:
+            return affiliation_name
     
-    def get_one_line(self, personid, account, stedkoder, birthdates, nins, emails,
-                   affiliations, lastnames, firstnames, accounts, affs_for_person):
-        for affiliation in affs_for_person:
+    def exclude_alumnis(self, affiliations):
+        """ Alumnis shouldn't be exported to Kjernen, so we'll ignore them"""
+        for affiliation in affiliations:
             if affiliation[0] != "alumni":
-                if not self.oppdragstaker and affiliation[0] == "oppdragstaker":
-                    temp_aff = "ansatt"
-                else:
-                    temp_aff = affiliation[0]
-                out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
-                    (personid,
-                    nins[personid][:6],
-                    nins[personid][6:],
-                    birthdates.get(personid, ''),
-                    firstnames.get(personid,''),
-                    lastnames.get(personid, ''),
-                    emails.get(personid, ''),
-                    temp_aff,
-                    affiliation[2],
-                    stedkoder.get(affiliation[1], ''),
-                    account,
-                    affiliation[3])
-                return out_line
-                    
+                yield affiliation
+    
     def write_file(self, stedkoder, birthdates, nins, emails,
                    affiliations, lastnames, firstnames, accounts):
         if self.verbose:
             print 'Writing persons to', self.outfile
-        i = 0
+        total_lines_written = 0
         no_account_counter = 0
-        alumni_counter = 0
         f = open(self.outfile, fileMode, bufferSize)
         
-        for personid in nins.keys():
+        for personid in nins:
+            already_exported_line = False
             # person should have account(s)
             if accounts.has_key(personid):
                 account = accounts[personid]
@@ -195,37 +179,25 @@ class Export2Kjernen(object):
                 # person should have affiliation(s)
                 if affiliations.has_key(personid):
                     affs_for_person = affiliations[personid]
-                    
-                    if not self.exclusively_alumni(affs_for_person):
-                        if self.contains_gjest(affs_for_person):
-                            for affiliation in affs_for_person:
-                                # only export tilknyttet/gjest
-                                if affiliation[0] == "tilknyttet" and affiliation[2] == "gjest":
-                                    out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
-                                        (personid,
-                                        nins[personid][:6],
-                                        nins[personid][6:],
-                                        birthdates.get(personid, ''),
-                                        firstnames.get(personid,''),
-                                        lastnames.get(personid, ''),
-                                        emails.get(personid, ''),
-                                        affiliation[0],
-                                        affiliation[2],
-                                        stedkoder.get(affiliation[1], ''),
-                                        account,
-                                        affiliation[3])
-            
-                                    f.write(out_line)
-                                    i += 1
-                        else:
-                            # doesn't contain 'gjest'
-                            out_line = self.get_one_line(personid, account, stedkoder, birthdates, nins, emails,
-                                                         affiliations, lastnames, firstnames, accounts, affs_for_person)
+                    for affiliation in self.exclude_alumnis(affs_for_person):                  
+                        if (affiliation[0] == "tilknyttet" and affiliation[2] == "gjest") or not already_exported_line:
+                            out_line = '%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;%s;\n' % \
+                                (personid,
+                                nins[personid][:6],
+                                nins[personid][6:],
+                                birthdates.get(personid, ''),
+                                firstnames.get(personid,''),
+                                lastnames.get(personid, ''),
+                                emails.get(personid, ''),
+                                self.affiliation_renamer(affiliation[0]),
+                                affiliation[2],
+                                stedkoder.get(affiliation[1], ''),
+                                account,
+                                affiliation[3])
                             f.write(out_line)
-                            i += 1
-                            
-                    else:
-                        alumni_counter += 1
+                            if not (affiliation[0] == "tilknyttet" and affiliation[2] == "gjest"):
+                                already_exported_line = True
+                            total_lines_written += 1
             else:
                 no_account_counter += 1
 
@@ -233,14 +205,13 @@ class Export2Kjernen(object):
         f.close()
         if self.verbose:
             print '--------------------------------------------------------------------------------'
-            print 'Total lines written:',i
-            print 'Total alumnis excluded from the list: ', alumni_counter
+            print 'Total lines written:',total_lines_written
             print 'Persons with no account:',no_account_counter
             print '================================================================================'
 
     def print_time(self, before):
         print 'Time = %.2f secs' % (time.time() - before)
-
+    
     def export_persons(self):
         totalBefore = 0
         before = 0
@@ -311,8 +282,8 @@ if __name__ == '__main__':
                       help="""combination with verbose will show seconds per. operation and total; otherwise just total time.""")
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
                       help="show status-messages to stdout.")
-    parser.add_option("--oppdragstaker", dest="oppdragstaker",
-                      action="store_true", help="""Don't rename affiliation 'oppdragstaker' to 'ansatt'""")
+    parser.add_option("--oppdragstaker", dest="oppdragstaker", action="store_true",
+                      help="Don't rename affiliation 'oppdragstaker' to 'ansatt'")
     
     (opts, args) = parser.parse_args()
 

@@ -9,7 +9,7 @@ class ExportKjernenTests(unittest.TestCase):
     """
     def setUp(self):
         self.export_kjernen = Export2Kjernen(
-            "output.txt", True, True, False)
+            "output.txt", False, False, False)
         self.personid = 1234
         
         self.export_kjernen.get_birthdates = \
@@ -102,19 +102,32 @@ class ExportKjernenTests(unittest.TestCase):
     
     def test_ansatt_and_student(self):
         """ Should export only one of them """
-        #hipp som happ hvem av dem jeg exporterer
+        # doesn't matter which one of them we export
         affiliations = [('ansatt', 51168, 'ansatt', '2009.08.20'),
                         ('student', 51168, 'student', '2009.08.20')]
         
         exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;ansatt;ansatt;194672500;testulfsen;2009.08.20;\n"]
         
         self.run_test(exp_res, affiliations)
+    
+    def test_2x_alumni_and_oppdragstaker(self):
+        """ Should export only one of them """
+        #should choose 'ansatt'
+        affiliations = [('alumni', 51168, 'aktiv', '2009.08.20'),
+                        ('alumni', 51168, 'aktiv', '2009.08.20'),
+                        ('oppdragstaker', 51168, 'fagperson', '2009.08.20')]
+        
+        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;ansatt;fagperson;194672500;testulfsen;2009.08.20;\n"]
+        
+        self.run_test(exp_res, affiliations)
+    
 
     def test_ansatt_og_gjest_likt_sted(self):        
         affiliations = [('tilknyttet', 51168, 'gjest', '2009.08.20'),
                         ('ansatt', 51168, 'ansatt', '2009.08.20')]
         
-        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n"]
+        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n",
+                   "1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;ansatt;ansatt;194672500;testulfsen;2009.08.20;\n"]
         
         self.run_test(exp_res, affiliations)
         
@@ -123,8 +136,9 @@ class ExportKjernenTests(unittest.TestCase):
     def test_ansatt_og_gjest_ulikt_sted(self):
         affiliations = [('tilknyttet', 51168, 'gjest', '2009.08.20'),
                         ('ansatt', 316590, 'ansatt', '2009.08.20')]
-        
-        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n"]
+
+        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n",
+                   "1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;ansatt;ansatt;194999901;testulfsen;2009.08.20;\n"]
         
         self.run_test(exp_res, affiliations)
     
@@ -134,14 +148,8 @@ class ExportKjernenTests(unittest.TestCase):
                         ('ansatt', 316590, 'ansatt', '2009.08.20'),
                         ('student', 51168, 'student', '2009.08.20')]
         
-        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n"]
-        
-        self.run_test(exp_res, affiliations)
-    
-    def est_rename_studentintern_to_tilknyttet_gjest(self):
-        affiliations = [('student', 51168, 'intern', '2010.08.10')]
-        
-        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n"]
+        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n",
+                   "1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;ansatt;ansatt;194999901;testulfsen;2009.08.20;\n"]
         
         self.run_test(exp_res, affiliations)
     
@@ -162,6 +170,17 @@ class ExportKjernenTests(unittest.TestCase):
         self.export_kjernen.oppdragstaker = True
         self.run_test(exp_res, affiliations)
         self.export_kjernen.oppdragstaker = False
+        
+        
+
+
+
+    def DISABLED_test_rename_studentintern_to_tilknyttet_gjest(self):
+        affiliations = [('student', 51168, 'intern', '2010.08.10')]
+        
+        exp_res = ["1234;010150;12345;1950.01.01;Testulf;Testulfsen;testing@email.com;tilknyttet;gjest;194672500;testulfsen;2009.08.20;\n"]
+        
+        self.run_test(exp_res, affiliations)
         
 if __name__ == '__main__':
     unittest.main()
