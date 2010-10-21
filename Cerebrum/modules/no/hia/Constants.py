@@ -66,7 +66,7 @@ class Constants(Constants.Constants):
 ## AFFILIATIONS FOR ANDRE
     affiliation_manuell = _PersonAffiliationCode(
         'MANUELL',
-        ('Tilknyttet HiA uten å være registrert i et av de'
+        ('Tilknyttet UiA uten å være registrert i et av de'
          ' autoritative kildesystemene'))
     affiliation_status_manuell_ekstern = _PersonAffStatusCode(
         affiliation_manuell, 'ekstern',
@@ -85,24 +85,24 @@ class Constants(Constants.Constants):
         'Person tilknyttet Agderforskning')
     affiliation_status_manuell_statsbygg = _PersonAffStatusCode(
         affiliation_manuell, 'statsbygg',
-        'Person tilknyttet Statsbygg ved HiA')
+        'Person tilknyttet Statsbygg ved UiA')
     affiliation_status_manuell_pensjonist = _PersonAffStatusCode(
         affiliation_manuell, 'pensjonist',
-        'Pensjonist ved HiA, ikke registrert i SAP')
+        'Pensjonist ved UiA, ikke registrert i SAP')
     affiliation_status_manuell_gjest = _PersonAffStatusCode(
-        affiliation_manuell, 'gjest', 'Gjesteopphold ved HiA')
+        affiliation_manuell, 'gjest', 'Gjesteopphold ved UiA')
     affiliation_status_manuell_ans_uten_sap = _PersonAffStatusCode(
         affiliation_manuell, 'ans_uten_sap',
         'Ansatt som ikke er lagt inn i SAP. En midlertidig status for folk')
     affiliation_status_manuell_gjest_ikke_epost = _PersonAffStatusCode(
         affiliation_manuell, 'gjest_no_epost', 
-	'Gjesteopphold som ansatt ved HiA. Skal ikke ha epost')
+	'Gjesteopphold som ansatt ved UiA. Skal ikke ha epost')
     affiliation_status_manuell_gjest_student = _PersonAffStatusCode(
         affiliation_manuell, 'gjest_student', 
-	'Gjesteopphold for student ved HiA. Epost skal tildeles')
+	'Gjesteopphold for student ved UiA. Epost skal tildeles')
     affiliation_status_manuell_gjest_student_ikke_epost = _PersonAffStatusCode(
 	affiliation_manuell, 'gj_st_no_epost', 
-	'Gjesteopphold for student ved HiA. Epost skal ikke tildeles')
+	'Gjesteopphold for student ved UiA. Epost skal ikke tildeles')
 
     affiliation_upersonlig = _PersonAffiliationCode(
         'UPERSONLIG', 'Fellesbrukere, samt andre brukere uten eier')
@@ -114,7 +114,7 @@ class Constants(Constants.Constants):
         affiliation_upersonlig, 'pvare', 'Programvarekonti')
     affiliation_upersonlig_studentforening = _PersonAffStatusCode(       
 	affiliation_upersonlig, 'studorg', 
-	'Studentforening eller -aktivitet ved HiA')
+	'Studentforening eller -aktivitet ved UiA')
 
 ## DEFINISJON AV SHELL 
     # We override the default Cerebrum paths for shells, thus this
@@ -127,22 +127,22 @@ class Constants(Constants.Constants):
 ## DEFINISJON AV SPREAD
     spread_hia_novell_user = _SpreadCode(
         'account@edir', Constants.Constants.entity_account,
-        'User in Novell domain "hia"')
+        'User in Novell domain "uia"')
     spread_hia_novell_empl = _SpreadCode(
         'employee@edir', Constants.Constants.entity_account,
-        'Employee in Novell domain "hia"')
+        'Employee in Novell domain "uia"')
     spread_hia_novell_labuser = _SpreadCode(
         'account@edirlab', Constants.Constants.entity_account,
-        'User in Novell domain "hia", employee lab-users only')
+        'User in Novell domain "uia", employee lab-users only')
     spread_hia_novell_group = _SpreadCode(
         'group@edir', Constants.Constants.entity_group,
-        'Group in Novell domain "hia"')
+        'Group in Novell domain "uia"')
     spread_hia_edir_grpemp = _SpreadCode(
         'group@ediremp', Constants.Constants.entity_group,
-        'Group in Novell domain "HiA", ou=grp,ou=Ans')
+        'Group in Novell domain "UiA", ou=grp,ou=Ans')
     spread_hia_edir_grpstud = _SpreadCode(
         'group@edirstud', Constants.Constants.entity_group,
-        'Group in Novell domain "HiA", ou=grp,ou=Stud')    
+        'Group in Novell domain "UiA", ou=grp,ou=Stud')    
     spread_nis_user = _SpreadCode(
         'account@nis', Constants.Constants.entity_account,
         'User in NIS domain "stud"')
@@ -166,7 +166,7 @@ class Constants(Constants.Constants):
         'Person exported to Adgang system')
     spread_hia_email = _SpreadCode(
         'account@imap', Constants.Constants.entity_account,
-        'Email user at HiA')
+        'Email user at UiA')
     spread_hia_bibsys = _SpreadCode(
         'account@bibsys', Constants.Constants.entity_person,
         'Person exported to BIBSYS')
@@ -215,10 +215,10 @@ class Constants(Constants.Constants):
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
 
 ##     spread_hia_fs = _SpreadCode(
-##         'FS@hia', Constants.Constants.entity_account,
+##         'FS@uia', Constants.Constants.entity_account,
 ##         'Account exported to FS')
 ##     spread_hia_sap = _SpreadCode(
-##         'SAP@hia', Constants.Constants.entity_account,
+##         'SAP@uia', Constants.Constants.entity_account,
 ##         'Account exported to SAP')
 
 ## KARANTENEGRUPPER
