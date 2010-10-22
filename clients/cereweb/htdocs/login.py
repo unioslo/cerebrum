@@ -134,7 +134,7 @@ def create_cherrypy_session(username, realname, userid, is_admin):
     cherrypy.session['username'] = username
     cherrypy.session['userid'] = userid
     cherrypy.session['is_admin'] = is_admin
-    cherrypy.session['client_encoding'] = negotiate_encoding()
+    cherrypy.session['client_encoding'] = "iso-8859-1" #negotiate_encoding()
     cherrypy.session['spine_encoding'] = 'iso-8859-1'
     cherrypy.session['options'] = Options(username)
     remote = cherrypy.request.headerMap.get("Remote-Addr", '')
