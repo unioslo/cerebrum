@@ -26,7 +26,7 @@
 #attr $title = "Cereweb"
 #attr $messages = []
 
-#attr $jscripts = ['base.js', 'timeout.js', 'error.js']
+#attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'error.js']
 
 ## #attr $jscripts = ['base.js', 'search.js', 'timeout.js', 'error.js']
 #attr $links = ()
@@ -74,7 +74,7 @@ if user_agent.rfind('MSIE') != -1:
 cherrypy.response.headerMap['Content-Type']= content_type
 
 pragma = 'no-cache'
-cache_control='private, no-cache, no-store, must-revalidate, max-age=0'
+cache_control='private, no-cache, no-store, must-revalidate'
 
 cherrypy.response.headerMap['Pragma'] = pragma
 cherrypy.response.headerMap['Cache-Control'] = cache_control
