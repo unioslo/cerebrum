@@ -170,8 +170,8 @@ class PersonQuery(BaseQuery):
         JOIN entity_spread account_spread
           ON (account_spread.spread = :account_spread
             AND account_spread.entity_id = accounts.account_id)""")
-        self.where.append("""accounts.expire_date > [:now]
-          OR accounts.expire_date IS NULL""")
+        self.where.append("""(accounts.expire_date > [:now]
+          OR accounts.expire_date IS NULL)""")
         self.binds["account_spread"] = spread
     
     def _include_data(self):
@@ -294,8 +294,8 @@ class PersonQuery(BaseQuery):
           ON (account_authentication.method = :authentication_method
              AND account_authentication.account_id = account_info.account_id)""")
         self.where.append("affiliation.deleted_date IS NULL")
-        self.where.append("""account_info.expire_date > [:now]
-          OR account_info.expire_date IS NULL""")
+        self.where.append("""(account_info.expire_date > [:now]
+          OR account_info.expire_date IS NULL)""")
 
     def _include_account_data(self):
         self.binds["account_namespace"] = self.co.account_namespace
