@@ -21,6 +21,7 @@
 
 from Cerebrum import Person
 from Cerebrum import Errors
+from Cerebrum import Utils
 from Cerebrum.modules.no import fodselsnr
 import cereconf
 import re
@@ -81,6 +82,15 @@ class PersonNTNUMixin(Person.Person):
         if not re.match(self.person_name_regex, name):
             raise ValueError, "Malformed name `%s'" % name
         self.__super.populate_name(variant, name)
+
+    def get_primary_account(self):
+        """Returns the target_id of the primary_account trait"""
+        co = Utils.Factory.get("Constants")(self._db)
+        primary_account = self.get_trait(co.trait_primary_account)
+        if primary_account:
+            return primary_account['target_id']
+        else:
+            return None
 
 
 # This seems to be a bug in python 2.3
