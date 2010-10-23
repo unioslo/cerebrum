@@ -9,8 +9,8 @@
 BASEURL="https://cerebrum.svn.sourceforge.net/svnroot/cerebrum"
 BRANCH=$1
 TAG=$2
-BURL="$BASEURL/branches/ntnu-prod-$BRANCH/cerebrum"
-TURL="$BASEURL/tags/ntnu-prod-$TAG/"
+BURL="$BASEURL/branches/ntnu-prod-$BRANCH"
+TURL="$BASEURL/tags/ntnu-prod-$TAG"
 
 usage() {
 	echo "Usage:"
