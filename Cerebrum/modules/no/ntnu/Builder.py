@@ -315,7 +315,8 @@ class Builder(object):
         for aff in self.account.get_account_types(
               all_persons_types=True,
               owner_id=owner_id):
-            account_affs.add((aff['affiliation'], aff['ou_id']))
+            if aff['account_id'] == self.account.entity_id:
+                account_affs.add((aff['affiliation'], aff['ou_id']))
         return account_affs
 
     def _remove_account_affiliations(self, affs):
