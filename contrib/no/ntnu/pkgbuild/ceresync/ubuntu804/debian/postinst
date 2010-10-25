@@ -21,11 +21,10 @@ set -e
 case "$1" in
     configure)
          # lets give them a cerebrum user/group in all cases.
-         getent group cerebrum >/dev/null 2>&1 || addgroup --gid 311 cerebrum
-         getent passwd cerebrum >/dev/null 2>&1 ||
-         adduser --uid 311 --home /home/local/cerebrum \
-                 --disabled-password --ingroup cerebrum cerebrum
-
+         addgroup --quiet --system --gid 311 cerebrum
+         adduser --quiet --system --uid 311 --gid 311 \
+                 --home /home/local/cerebrum --shell /bin/bash \
+                 --gecos "Systembruker for Cerebrum" cerebrum
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
