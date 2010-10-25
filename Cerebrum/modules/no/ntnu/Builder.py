@@ -32,7 +32,7 @@ class Builder(object):
         if accounts:
             for a in accounts:
                 self._build_account(a['account_id'], owner)
-        else:
+        elif cereconf.BUILD_CREATE_ACCOUNTS:
             account_id = self._create_account(owner)
             self._build_account(account_id, owner)
     
