@@ -169,10 +169,16 @@ class PersonQuery(BaseQuery):
           ON (accounts.owner_id = person_info.person_id)
         JOIN entity_spread account_spread
           ON (account_spread.spread = :account_spread
-            AND account_spread.entity_id = accounts.account_id)""")
+            AND account_spread.entity_id = accounts.account_id)
+        JOIN entity_trait
+          ON (entity_trait.entity_id = accounts.owner_id
+            AND entity_trait.target_id = accounts.account_id)""")
         self.where.append("""(accounts.expire_date > [:now]
           OR accounts.expire_date IS NULL)""")
+        self.where.append("""(entity_trait.code = :trait_primary_account)""")
         self.binds["account_spread"] = spread
+        self.binds["trait_primary_account"] = \
+            int(self.co.trait_primary_account)
     
     def _include_data(self):
         self.select += [
