@@ -101,8 +101,14 @@
     	        #if $entity.accounts
     	        	<input type="submit" value="$_('Delete')" name="delete" />&#x0020;
     	        #end if
-    	        <a href="/account/create?owner_id=$entity.id">$_('Create new account')</a>
+                <a href="/account/create?owner_id=$entity.id">$_('Create new account')</a>
+            
+            #else
+                #if not $entity.accounts
+                    <a href="/account/create?owner_id=$entity.id">$_('Create new account')</a>
+                #end if
             #end if
+            
         #if $is_admin
 	       </form>
         #end if
