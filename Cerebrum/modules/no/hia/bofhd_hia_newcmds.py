@@ -635,7 +635,7 @@ class BofhdExtension(BofhdCommandBase):
         fodselsdato, pnum = fodselsnr.del_fnr(fnr[0]['external_id'])
         har_opptak = {}
         ret = []
-        db = Database.connect(user="cerebrum", service="FSUIA.uio.no",
+        db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                               DB_driver='cx_Oracle')
         fs = FS(db)
         for row in fs.student.get_studierett(fodselsdato, pnum):

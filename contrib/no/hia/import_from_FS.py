@@ -281,7 +281,7 @@ def usage(exitcode=0):
     """
     sys.exit(exitcode)
 
-def assert_connected(user="CEREBRUM", service="FSUIA.uio.no"):
+def assert_connected(user, service):
     global fs
     if fs is None:
         DB_driver = getattr(cereconf, 'DB_DRIVER_ORACLE', 'cx_Oracle')
