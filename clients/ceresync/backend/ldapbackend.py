@@ -457,7 +457,7 @@ class Person(PersonLdapBack):
             if aff.affiliation == 'STUDENT':
                 affiliations.add('student')
                 affiliations.add('member')
-            elif aff.affiliation == 'ANSATT':
+            elif aff.affiliation == 'OPPDRAGSTAKER':
                 if aff.status == "vitenskapelig":
                     affiliations.add("faculty")
                 elif aff.status == "tekadm":
