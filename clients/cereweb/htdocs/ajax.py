@@ -65,7 +65,7 @@ def search(query=None, type=None, output=None):
 
     if result:
         result.sort(lambda x,y: cmp(x['name'], y['name']))
-        result = {'ResultSet': result}
+        result = {'ResultSet': result[:max_results]}
 
     ## cjson will convert to browser's charset
     return cjson.encode(result or None)
@@ -77,7 +77,7 @@ def search_account(query, output):
     accounts = dao.search(query)
 
     result = {}
-    for account in accounts[:max_results]:
+    for account in accounts:
         data = dto_to_dict(account)
         if output == "account":
             owner = dao.get_owner(account.id)
@@ -123,7 +123,7 @@ def search_group(query):
     groups = dao.search(query)
 
     result = {}
-    for group in groups[:max_results]:
+    for group in groups:
         result[group.id] = dto_to_dict(group)
     return result.values()
 
