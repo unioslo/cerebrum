@@ -505,7 +505,7 @@ def prepare_kull():
     to link up people to their respective 'kull's (i.e. <group>s).
     """
 
-    db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
+    db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 
@@ -549,7 +549,7 @@ def prepare_ue():
     The procedure is the same as for kull (prepare_kull).
     """
 
-    db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
+    db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 
@@ -899,17 +899,6 @@ def generate_report():
     
     person_info = output_people()
 
-    # This is for testing purposes only -- generating the list of all people
-    # takes too long; it's much faster to eval a data structure from file.
-    # f = open("foobar.info", "w")
-    # f.write("{")
-    # for k, value in person_info.items():
-    #     f.write("%d : (%d, '%s'),\n" % (k, value[0], value[1]))
-    # # od
-    # f.write("}")
-    # f.close()
-    # person_info = eval(open("foobar.info", "r").read())
-
     kull_info = prepare_kull()
 
     ue_info = prepare_ue()
@@ -918,7 +907,7 @@ def generate_report():
 
     #
     # All the relations
-    db = Database.connect(user="cerebrum", service="FSHIA.uio.no",
+    db = Database.connect(user="I0201_cerebrum", service="FSUIA.uio.no",
                           DB_driver=cereconf.DB_DRIVER_ORACLE)
     fs = FS(db)
 
