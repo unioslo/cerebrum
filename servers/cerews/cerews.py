@@ -129,6 +129,7 @@ class PersonQuery(BaseQuery):
         self.select = ["person_info.person_id AS id"]
         self.where = ["(person_info.deceased_date IS NULL)"]
         self._changelog_id = changelog_id
+        self.accountspread = accountspread
 
         if personspread:
             self._set_spread(personspread)
@@ -136,7 +137,7 @@ class PersonQuery(BaseQuery):
             self._set_accountspread(accountspread)
 
         if changelog_id:
-            self._set_changelogid(changelog_id)
+            self._set_changelogid(changelog_id, accountspread)
 
     def search_data(self, include_keycard=False):
         self._include_data()
@@ -291,8 +292,13 @@ class PersonQuery(BaseQuery):
           ON (affiliation.person_id = account_type.person_id
               AND affiliation.ou_id = account_type.ou_id
               AND affiliation.affiliation = account_type.affiliation)""")
-        self.tables.append("""JOIN account_info account_info
-          ON (account_info.account_id = account_type.account_id)""")
+        if self.accountspread:
+            self.tables.append("""JOIN account_info account_info
+              ON (account_info.account_id = account_type.account_id
+                AND account_info.account_id = accounts.account_id)""")
+        else:
+            self.tables.append("""JOIN account_info account_info
+              ON (account_info.account_id = account_type.account_id)""")
         self.tables.append("""JOIN entity_name account_name
           ON (account_name.entity_id = account_info.account_id
              AND account_name.value_domain = :account_namespace)""")
