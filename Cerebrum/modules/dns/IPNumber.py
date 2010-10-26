@@ -202,7 +202,7 @@ class IPNumber(Entity.Entity):
         # Standardize seperator character
         for char in ('-', '.', ' '):
             mac_adr = mac_adr.replace(char, ":")
-        # Standardize if using Cisco format
+        # Standardize if using Cisco format or no seperators at all
         for index in (2, 5, 8, 11, 14):
             try:
                 if not mac_adr[index] == ':':
