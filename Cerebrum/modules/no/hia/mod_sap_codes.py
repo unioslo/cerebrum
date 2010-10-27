@@ -1857,3 +1857,8 @@ class SAPConstants(Constants.Constants):
         "Kallelser",
         "K810 Kallelser"
     )
+
+    sap_mobiltelefonutvalget = SAPUtvalgsKode(
+        "Mobiltelefon",
+        "K810 Mobiltelefon"
+    )
