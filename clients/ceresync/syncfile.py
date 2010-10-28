@@ -99,11 +99,12 @@ def main():
     log.info("Syncronizing groups")
     groups.begin(unicode=True)
     try:
-        for group in s.get_groups(**sync_options):
+        for group in sorted(s.get_groups(**sync_options),
+                            cmp=lambda x,y:cmp(x.posix_gid, y.posix_gid)):
             fail = check_group(group)
-            group.members = [m for m in group.members
+            group.members = sorted([m for m in group.members
                              if (primary_group.get(m) is not None and
-                                 primary_group.get(m) != group.name)]
+                                 primary_group.get(m) != group.name)])
             if not fail:
                 groups.add(group)
             else:
