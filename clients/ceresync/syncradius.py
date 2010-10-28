@@ -67,7 +67,8 @@ def main():
 
     try:
         for hashtype in hashtypes:
-            for acc in s.get_accounts(auth_type=hashtype, **sync_options):
+            for acc in sorted(s.get_accounts(auth_type=hashtype, **sync_options),
+                              cmp=lambda x,y:cmp(x.posix_uid, y.posix_uid)):
                 if acc.passwd == None or acc.passwd == '':
                     log.warning("account %s missing auth_type %s", 
                                    acc.name, hashtype)
