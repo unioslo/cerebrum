@@ -357,28 +357,34 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
         cols = [ ("%s" % x, ":%s" % x) for x in binds.keys() ]
         return cols, binds
 
+
     def add_srv_record(self, service_owner_id, pri, weight, port, ttl,
                        target_owner_id):
         cols, binds = self.__fill_coldata(locals())
-        self.execute("""
+        ret_value = self.execute("""
         INSERT INTO [:table schema=cerebrum name=dns_srv_record] (%(tcols)s)
         VALUES (%(binds)s)""" % {'tcols': ", ".join([x[0] for x in cols]),
                                  'binds': ", ".join([x[1] for x in cols])},
-                     binds)
+                                 binds)
         self._db.log_change(service_owner_id, self.const.srv_record_add,
                             target_owner_id)
+        return ret_value
+    
 
     def delete_srv_record(self, service_owner_id, pri, weight, port,
                           target_owner_id):
         cols, binds = self.__fill_coldata(locals())
-        return self.execute("""
+        ret_value = self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_srv_record]
         WHERE %s""" % " AND ".join(["%s=%s" % (x[0], x[1])
                                     for x in cols]), binds)
         self._db.log_change(service_owner_id, self.const.srv_record_del,
                             target_owner_id)
+        return ret_value
+        
 
-    def list_srv_records(self, owner_id=None, target_owner_id=None, zone=None):
+    def list_srv_records(self, owner_id=None, target_owner_id=None, zone=None,
+                         pri=None, weight=None, port=None):
         where = ['srv.target_owner_id=d_tgt.dns_owner_id',
                  'srv.service_owner_id=d_own.dns_owner_id',
                  'srv.target_owner_id=en_tgt.entity_id',
@@ -390,6 +396,15 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
         if zone is not None:
             where.append("d_own.zone_id=:zone")
             zone = int(zone)
+        if pri is not None:
+            where.append("srv.pri=:pri")
+            pri = int(pri)
+        if weight is not None:
+            where.append("srv.weight=:weight")
+            weight = int(weight)
+        if port is not None:
+            where.append("srv.port=:port")
+            port = int(port)
         where = " AND ".join(where)
         return self.query("""
         SELECT service_owner_id, pri, weight, port, ttl,
@@ -404,7 +419,11 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
         ORDER BY pri, weight, target_owner_id""" % where, {
             'owner_id': owner_id,
             'target_owner_id': target_owner_id,
-            'zone': zone} )
+            'zone': zone,
+            'pri': pri,
+            'weight': weight,
+            'port': port} )
+
 
     # We don't support a general update_srv_record as the PK is too wide.
     def update_srv_record_ttl(self, owner_id, ttl):

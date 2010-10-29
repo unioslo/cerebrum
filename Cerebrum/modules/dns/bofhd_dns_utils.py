@@ -247,6 +247,7 @@ class DnsBofhdUtils(object):
             self._dns_owner.entity_id, ttl_type, ttl, dta)
         return "updated"
 
+
     def alter_srv_record(self, operation, service_name, pri,
                          weight, port, target, ttl=None, force=False):
         service_name = self._parser.qualify_hostname(service_name)
@@ -259,17 +260,26 @@ class DnsBofhdUtils(object):
             self._dns_owner.find_by_name(service_name)
             #TBD: raise error if operation==add depending on type of existing data?
             if operation == 'del':
-                self._dns_owner.delete_srv_record(
-                    self._dns_owner.entity_id, pri, weight, port,
-                    target)
+                # Make sure it exists first, otherwise we say we
+                # delete things that aren't there
+                if self._dns_owner.list_srv_records(owner_id=self._dns_owner.entity_id,
+                                                    target_owner_id=target, pri=pri,
+                                                    weight=weight, port=port):
+                    self._dns_owner.delete_srv_record(
+                        self._dns_owner.entity_id, pri, weight, port, target)
+                else:
+                    raise CerebrumError("No service with given parameters found")
         except Errors.NotFoundError:
             if operation == 'add':
                 self.alloc_dns_owner(service_name, warn_other=True, force=force)
+            if operation == 'del':
+                raise CerebrumError("No service '%s' found" % service_name)
 
         if operation == 'add':
             self._dns_owner.add_srv_record(
                 self._dns_owner.entity_id, pri, weight, port, ttl,
                 target)
+
 
     def mx_set_add(self, mx_set, priority, target_id, ttl=None):
         self._validator.legal_mx_target(target_id)
