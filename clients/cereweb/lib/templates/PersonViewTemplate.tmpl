@@ -134,8 +134,10 @@
             <td>$aff.ou.name</td>
         #end if
         <td>
-        #if not $aff.is_deleted
-            $_('active')
+        #if $aff.is_deleted
+            $_('deactived')
+        #else
+            $_('activated')
         #end if
         </td>
         <td>$spine_to_web($aff.source_system.name)</td>
