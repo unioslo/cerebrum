@@ -169,7 +169,13 @@
             #for $affil in $account.affiliations
                 <tr class="item">
                     <td>$spine_to_web($affil.name)</td>
-                    <td>$entity_link($affil.ou)</td>
+                    <td>
+                        #if $is_admin
+                            $entity_link($affil.ou)
+                        #else
+                            $affil.ou
+                        #end if
+                    </td>
                     <td>$spine_to_web($affil.priority)</td>
                     <td class="actions">
                         #set $args = "account_id=%s&amp;ou_id=%s&amp;affil_id=%s" % (
