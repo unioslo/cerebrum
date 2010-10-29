@@ -347,7 +347,7 @@ class BDB:
           t.familie, f.navn, f.alltidsluttdato, k.kode, b.brukernavn,
           k.kjerneid
         FROM tilknyttet t, person p, bruker b, tilkn_former f,
-             c_ksted k
+             cereksted k
         WHERE t.person = p.id AND
           b.person = p.id AND
           b.user_domain = 1 AND
