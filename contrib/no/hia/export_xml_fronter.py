@@ -684,7 +684,7 @@ def main():
 
     # Registrer en del semi-statiske strukturnoder.
     root_node_id = "STRUCTURE:ClassFronter structure root node"
-    register_group('Høyskolen i Agder', root_node_id, root_node_id)
+    register_group('Universitetet i Agder', root_node_id, root_node_id)
 
     manuell_node_id = 'STRUCTURE:%s:manuell' % \
                       cereconf.INSTITUTION_DOMAIN_NAME_LMS
