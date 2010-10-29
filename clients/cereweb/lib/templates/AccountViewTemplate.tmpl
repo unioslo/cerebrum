@@ -237,7 +237,7 @@
 #end def
 
 #def changePassword($account)
-#set help = ["Password must be exactly 8 characters long. Must be different from the existing password. Legal chars: [a-z],[A-Z],[0-9] and [!#()*+,.=?@[]_{}~-]. Must contain at least 1 character from 3 of these 4 groups."]
+#set help = ["Password must be exactly 8 characters long.", "Must be different from the existing password.", "Legal chars: [a-z],[A-Z],[0-9] and [!#()*+,.=?@[]_{}~-].", "Must contain at least 1 character from 3 of these 4 groups."]
 <div class="edit box">
     <h3>$_('Change password')</h3>
     $form_widgets.changePassword($account.id, $help)
@@ -311,8 +311,10 @@
         #else
             <input type="submit" name="leave" value="$_('Leave group(s)')" />&#x0020;
         #end if
+        #if $is_admin
             <a href="/group/create">$_('Create a group')</a>
-            <a href="#joinGroupBox">Join existing group</a>
+        #end if
+        <a href="#joinGroupBox">Join existing group</a>
         </div>
     </form>
 </div>
