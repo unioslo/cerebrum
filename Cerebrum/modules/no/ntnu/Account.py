@@ -75,6 +75,9 @@ class AccountNTNUMixin(Account.Account):
             and not self.is_posix()):
             raise Errors.RequiresPosixError
 
+        # Trigger a changelog on the owner as well. 
+        self._db.log_change(self.owner_id, self.clconst.spread_add,
+                            None, change_params={'spread': int(spread)})
         self.__super.add_spread(spread)
 
         if spread_homedirs.has_key(str(self.const.Spread(spread))):

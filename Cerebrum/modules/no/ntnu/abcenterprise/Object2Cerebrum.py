@@ -69,7 +69,7 @@ class Object2CerebrumExt(Object2Cerebrum):
         return saved_kodes[0]
 
     def _populate_ou_without_stedkode(self, ou):
-        self._ou.__super.populate(ou.ou_names['name'],
+        self._ou.populate_without_stedkode(ou.ou_names['name'],
                             acronym = ou.ou_names['acronym'],
                             short_name = ou.ou_names['acronym'],
                             display_name = ou.ou_names['name'],
@@ -152,6 +152,7 @@ class Object2CerebrumExt(Object2Cerebrum):
                     stedkode = None
                     entity_id = None
                     continue
+            stedkode = None
             if entity_id and stedkode:
                 self._populate_ou(ou, stedkode)
             else:

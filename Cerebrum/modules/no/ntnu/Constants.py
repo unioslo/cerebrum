@@ -147,7 +147,7 @@ class Constants(Constants.Constants):
     affiliation_status_oppdragstaker_ansatt = _PersonAffStatusCode(
         affiliation_oppdragstaker, 'ansatt', 'Ansatt, kun importert fra BDB')
     affiliation_status_oppdragstaker_vit = _PersonAffStatusCode(
-        affiliation_oppdragstaker, 'vitenskapelig', 'Vitenskapelig')
+        affiliation_oppdragstaker, 'vitenskaplig', 'Vitenskaplig')
     affiliation_status_oppdragstaker_tekadm = _PersonAffStatusCode(
         affiliation_oppdragstaker, 'tekadm', 'Teknisk/administrativ')
     affiliation_status_oppdragstaker_intern = _PersonAffStatusCode(
@@ -160,6 +160,8 @@ class Constants(Constants.Constants):
         affiliation_oppdragstaker, 'bilag', 'Registrert i Kjernen med "timelønnet"')
     affiliation_status_oppdragstaker_emeritus = _PersonAffStatusCode(
         affiliation_oppdragstaker, 'emeritus', 'Emeritus')
+    affiliation_status_oppdragstaker_gjesteforsker = _PersonAffStatusCode(
+        affiliation_oppdragstaker, 'gjesteforsker', 'Gjesteforsker')
 
 
     affiliation_student = _PersonAffiliationCode(
@@ -179,7 +181,7 @@ class Constants(Constants.Constants):
         'TILKNYTTET', 'Tilknyttet NTNU')
     affiliation_status_tilknyttet_gjest = _PersonAffStatusCode(
         affiliation_tilknyttet, 'gjest', 'Gjest')
-    affiliation_status_tilknyttet_annen = _PersonAffStatusCode(
+    affiliation_status_tilknyttet_leverandor = _PersonAffStatusCode(
         affiliation_tilknyttet, 'leverandor', 'Leverandør, typisk produktsupport')
 
     affiliation_alumni = _PersonAffiliationCode(
