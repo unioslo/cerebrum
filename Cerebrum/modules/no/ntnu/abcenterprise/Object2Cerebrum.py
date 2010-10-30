@@ -68,6 +68,14 @@ class Object2CerebrumExt(Object2Cerebrum):
             saved_kodes.sort()
         return saved_kodes[0]
 
+    def _populate_ou_without_stedkode(self, ou):
+        self._ou.__super.populate(ou.ou_names['name'],
+                            acronym = ou.ou_names['acronym'],
+                            short_name = ou.ou_names['acronym'],
+                            display_name = ou.ou_names['name'],
+                            sort_name = ou.ou_names['name'],
+                            parent=None)
+        
     def _populate_ou(self, ou, stedkode):
         if stedkode:
             country = int(stedkode[:2])
@@ -155,8 +163,8 @@ class Object2CerebrumExt(Object2Cerebrum):
                     if stedkode:
                         self._populate_ou(ou, stedkode)
                 else:
-                    self.logger.warning('Skipping OU %s without stedkode' % ou.ou_names['name'])
-                    return (None, None)
+                    self.logger.warning('OU %s doesn\'t have stedkode', ou.ou_names['name'])
+                    self._populate_ou_without_stedkode(ou)
 
         self._ou.write_db()
         self._add_external_ids(self._ou, ou._ids)

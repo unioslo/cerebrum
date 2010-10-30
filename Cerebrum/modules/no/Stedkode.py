@@ -113,6 +113,9 @@ class Stedkode(OU):
         self.__super.write_db()
         if not self.__updated:
             return
+        # If we don't have a stedkode for this ou, let's ignore the rest.
+        if self.institusjon is None:
+            return
         is_new = not self.__in_db
         if is_new:
             self.execute("""
