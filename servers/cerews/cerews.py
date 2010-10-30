@@ -137,7 +137,7 @@ class PersonQuery(BaseQuery):
             self._set_accountspread(accountspread)
 
         if changelog_id:
-            self._set_changelogid(changelog_id, accountspread)
+            self._set_changelogid(changelog_id)
 
     def search_data(self, include_keycard=False):
         self._include_data()
