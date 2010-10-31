@@ -32,7 +32,6 @@ following additional properties are defined:
 from Cerebrum import Utils
 from Cerebrum.OU import OU
 import cereconf
-from Cerebrum import Errors
 
 __version__ = "1.1"
 
@@ -54,25 +53,6 @@ class Stedkode(OU):
         self.__super.clear()
         self.clear_class(Stedkode)
         self.__updated = []
-
-    def populate_without_stedkode(self, name, acronym=None, short_name=None,
-                     display_name=None, sort_name=None, parent=None):
-        """Set instance's attributes without referring to the Cerebrum DB."""
-        if parent is not None:
-            self.__xerox__(parent)
-        else:
-            self.__super.populate(name, acronym, short_name,
-                                  display_name, sort_name)
-        # If __in_db is present, it must be True; calling populate on
-        # an object where __in_db is present and False is very likely
-        # a programming error.
-        #
-        # If __in_db in not present, we'll set it to False.
-        try:
-            if not self.__in_db:
-                raise RuntimeError, "populate() called multiple times."
-        except AttributeError:
-            self.__in_db = False
 
     def populate(self, name, fakultet, institutt, avdeling,
                  institusjon=None, landkode=0, acronym=None,
@@ -133,9 +113,6 @@ class Stedkode(OU):
         self.__super.write_db()
         if not self.__updated:
             return
-        # If we don't have a stedkode for this ou, let's ignore the rest.
-        if self.institusjon is None:
-            return
         is_new = not self.__in_db
         if is_new:
             self.execute("""
@@ -175,14 +152,11 @@ class Stedkode(OU):
 
     def find(self, ou_id):
         self.__super.find(ou_id)
-        try:
-            (self.landkode, self.institusjon, self.fakultet, self.institutt,
-             self.avdeling,) = self.query_1("""
-            SELECT landkode, institusjon, fakultet, institutt, avdeling
-            FROM [:table schema=cerebrum name=stedkode]
-            WHERE ou_id = :ou_id""", locals())
-        except Errors.NotFoundError:
-            pass
+        (self.landkode, self.institusjon, self.fakultet, self.institutt,
+         self.avdeling,) = self.query_1("""
+        SELECT landkode, institusjon, fakultet, institutt, avdeling
+        FROM [:table schema=cerebrum name=stedkode]
+        WHERE ou_id = :ou_id""", locals())
         try:
             del self.__in_db
         except AttributeError:
