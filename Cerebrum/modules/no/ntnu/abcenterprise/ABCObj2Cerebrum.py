@@ -27,10 +27,28 @@ from Cerebrum.modules.abcenterprise.ABCUtils import ABCDataError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCTypesError 
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCConfigError
 from Cerebrum.modules.abcenterprise.ABCUtils import ABCFactory
-from Cerebrum.modules.abcenterprise import ABCObj2Cerebrum
+from Cerebrum.modules.abcenterprise.ABCObj2Cerebrum import ABCObj2Cerebrum as _ABCObj2Cerebrum
+from Cerebrum.modules.no.ntnu.Builder import Builder
 
-class ABCObj2Cerebrum(ABCObj2Cerebrum.ABCObj2Cerebrum):
+class ABCObj2Cerebrum(_ABCObj2Cerebrum):
     """Class for comunicationg with Cerebrum."""
+
+    def __init__(self, settings, logger):
+        _ABCObj2Cerebrum.__init__(self, settings, logger)
+        self.persons_to_build = []
+        account = Factory.get("Account")(self.db)
+        account.find_by_name("bootstrap_account")
+        self._builder = Builder(self.db, account.entity_id)
+
+    def parse_persons(self, iterator):
+        """Iterate over person objects."""
+        for person in iterator:
+            new_person = self._conv_const_person(person)
+            try:
+                person_id = self._o2c.store_person(new_person)
+                self.persons_to_build.append(person_id)
+            except Exception, e:
+                self.logger.warning("Error(person): %s, %s" % (e, list(person.iterids())))
 
     #######################################################################
     #######################################################################
@@ -117,5 +135,10 @@ class ABCObj2Cerebrum(ABCObj2Cerebrum.ABCObj2Cerebrum):
                                                                          obj, e)
                     self.logger.warning(txt)
 
+    def close(self):
+        """Close whatever you need to close and finish your business."""
+        for person_id in self.persons_to_build:
+            self._builder.build_from_owner(person_id)
+        _ABCObj2Cerebrum.close(self)
 
 # arch-tag: fc250d64-6995-11da-8e2e-62c416f986a0
