@@ -322,6 +322,10 @@ class XMLPerson2ObjectExt(XMLPerson2Object):
                     result.add_id(ABCTypesExt.get_type("personidtype",(type,)),
                               value)
             elif sub.tag == "keycardid":
+                # Ignoring keycards until we have fixed the issue with
+                # duplicate keycards.
+                # TODO: Fix and stuff
+                continue
                 if len(sub.attrib) <> 1:
                     raise ABCTypesError, "error in keycardid: %s" % value
                 type = sub.attrib.get("keycardtype")

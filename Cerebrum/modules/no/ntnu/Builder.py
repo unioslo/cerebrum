@@ -34,6 +34,11 @@ class Builder(object):
                 self._build_account(a['account_id'], owner)
         elif cereconf.BUILD_CREATE_ACCOUNTS:
             account_id = self._create_account(owner)
+            self.person.clear()
+            self.person.find(owner_id)
+            self.person.populate_trait(self.const.trait_primary_account,
+                                       target_id=account_id)
+            self.person.write_db()
             self._build_account(account_id, owner)
     
     def rebuild_account(self, account_id):
