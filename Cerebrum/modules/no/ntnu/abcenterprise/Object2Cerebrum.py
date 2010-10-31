@@ -31,6 +31,7 @@ from Cerebrum.modules.abcenterprise.Object2Cerebrum import ABCMultipleEntitiesEx
 from Cerebrum.modules.abcenterprise.Object2Cerebrum import ABCErrorInData
 
 from Cerebrum.modules.no.ntnu.abcenterprise.ABCDataObjectsExt import DataPersonExt
+from Cerebrum.modules.no.ntnu.Builder import Builder
 
 class Object2CerebrumExt(Object2Cerebrum):
 
@@ -38,6 +39,9 @@ class Object2CerebrumExt(Object2Cerebrum):
 
     def __init__(self, source_system, logger):
         super(Object2CerebrumExt, self).__init__(source_system, logger)
+        account = Factory.get("Account")(self.db)
+        account.find_by_name("bootstrap_account")
+        self._builder = Builder(self.db, account.entity_id)
 
     def _find_lowest(self, kodes):
         if len(kodes) == 0:
@@ -230,8 +234,10 @@ class Object2CerebrumExt(Object2Cerebrum):
         # Deal with addresses and contacts. 
         self._add_entity_addresses(self._person, person._address)
         self._add_entity_contact_info(self._person, person._contacts)
-        self._person.write_db()
-        return self._person.entity_id
+        # (re)build account(s) for person
+        self._builder.build_from_owner(self._person.entity_id)
+        ret = self._person.write_db()
+        return ret
 
     def _update_ou_affiliations(self):
         person = Factory.get('Person')(self.db)
