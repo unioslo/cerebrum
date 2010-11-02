@@ -785,6 +785,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # Drop memberships
         group = self.Group_class(self.db)
         for row in group.search(member_id=account.entity_id):
+            group.clear()
             group.find(row["group_id"])
             group.remove_member(account.entity_id)
 
