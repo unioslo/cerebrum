@@ -46,6 +46,7 @@ targets = {
     'stedkode': ('stedkode_1_1', ),
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
     'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2'),
+    'sap': ('sap_1_0', 'sap_1_1',),
     }
 
 # Global variables
@@ -885,7 +886,6 @@ def migrate_to_dns_1_1():
     print "Migration to DNS 1.1 completed successfully"
     db.commit()
 
-
 def migrate_to_dns_1_2():
     print "\ndone."
     assert_db_version("1.1", component='dns')
@@ -894,6 +894,19 @@ def migrate_to_dns_1_2():
     meta.set_metainfo("sqlmodule_dns", "1.2")
     print "Migration to DNS 1.2 completed successfully"
     db.commit()
+
+
+def migrate_to_sap_1_1():
+    assert_db_version("1.0", component="sap")
+    # We just need to drop a couple of tables...
+    makedb("sap_1_1", "drop")
+    # ... and add a constraint
+    makedb("sap_1_1", "post")
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sap", "1.1")
+    db.commit()
+    print "Migration to SAP 1.1 completed successfully"
+# end migrate_to_sap_1_1
 
 
 def init():

@@ -20,29 +20,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-"""
-This file is part of Cerebrum. It contains code to import HiA SAP-specific OU
-identifiers (ORGEH and GSBER) and map them to the Cerebrum-specific OU
-identifier (ou_id). This script is also applicable for HiØf-data.
+"""Populate Cerebrum with SAP OU ids.
 
-There is no deep magic or any sort of validation of this mapping. This script
-assumes that
+This file contains code to import SSØ SAP OU ids from FS (the authoritative
+system for OU structure). Typically SSØ SAP use their own OU ids in all data
+files, and since FS is authoritative, we need to remap the
+ids. fs.sted.stedkode_konv exists precisely for this purpose.
 
-fs.sted.stedkode_konv
-
-column contains the proper SAP id for an OU identified by the FS stedkode in
-the same row. The format of stedkode_konv column is:
-
-[ORGEH]-[GSBER]
-
-... where [ORGEH] is an 8-digit code and [GSBER] is a 4-digit
-forretningsområdekode, which must match one of the values in the
-sap_forretningsomrade table in mod_sap.sql.
-
-In order for this script to run successfully, it is required that:
-
-* all necessary OUs have been imported (that is, ou_info is populated)
-* all stedkode entries have been imported (that is, stedkode is populated)
+This file scans an XML file generated from FS and populates entity_external_id
+for the corresponding OUs.
 """
 
 import cerebrum_path
@@ -51,26 +37,28 @@ import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum import Database
 from Cerebrum import Errors
-from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
 from Cerebrum.modules.xmlutils.system2parser import system2parser
 
 import getopt
-import re
-import string
 import sys
+
 
 
 
 
 def process_OUs(db, parser):
     ou = Factory.get("OU")(db)
+    const = Factory.get("Constants")(db)
 
-    total = 0; success = 0
-    for elem in parser.iter_ou():
-        total += 1
+    total = 0
+    success = 0
+    no_translation = 0
+    erroneous = 0
+    for total, elem in enumerate(parser.iter_ou()):
         sko = elem.get_id(elem.NO_SKO)
         if sko is None:
             logger.error("OU %s has no sko", elem.iterids())
+            erroneous += 1
             continue
         faknr, instituttnr, gruppenr = sko
         
@@ -81,33 +69,43 @@ def process_OUs(db, parser):
         except Errors.NotFoundError:
             logger.warn("  cerebrum id: n/a for (%s, %s, %s)",
                         faknr, instituttnr, gruppenr)
+            erroneous += 1
             continue
 
         # Not every OU has SAP ids. Those that do not, cannot be mapped to SAP
         # IDs.
         stedkode_konv = elem.get_id(elem.NO_SAP_ID)
         if not stedkode_konv:
+            no_translation += 1
             continue
-
-        orgeh, gsber = stedkode_konv.split("-")
-        # This forces us to check data for sanity. However, try-catch should be
-        # unnecessary unless the data source is erroneous.
+        #
+        # Several situations are possible now:
+        #
+        # 1) stedkode_konv is an external id belonging to ou.entity_id -> OK
+        # 2) stedkode_konv is an external id belonging to another entity_id
+        #    -> FAIL (ideally, this CAN NOT happen)
+        # 3) stedkode_konv does not exist in cerebrum -> OK
         try:
-            internal_gsber = int(SAPForretningsOmradeKode(gsber))
+            ou2 = Factory.get("OU")(db)
+            ou2.find_by_external_id(const.externalid_sap_ou,
+                                    stedkode_konv)
+            if ou2.entity_id != ou.entity_id:
+                # case #2
+                logger.error("SAP OU id %s points to several OUs: "
+                             "id=%s (in the db) and id=%s (via sko on file). "
+                             "This is probably a failed registration and it "
+                             "must be corrected manually (some ninja-sql may "
+                             "be involved).",
+                             stedkode_konv, ou2.entity_id, ou.entity_id)
+                erroneous += 1
+                continue
         except Errors.NotFoundError:
-            logger.exception("Aiee! gsber «%s» does not exist in Cerebrum",
-                             gsber)
-            continue
-        
-        ou.populate_SAP_id(orgeh, internal_gsber)
-        # FIXME: This is a hack for catching up OUs that share a SAP id. It
-        # should be impossible, but it happens nonetheless. The exception
-        # thrown concerns violation of a unique constraint. The hack below
-        # should reduce the noise in the logs (at least until we change the
-        # database driver)
-        try: 
+            # case 3
+            ou.affect_external_id(const.system_sap, const.externalid_sap_ou)
+            ou.populate_external_id(const.system_sap,
+                                    const.externalid_sap_ou,
+                                    stedkode_konv)
             ou.write_db()
-            # NB! We *must* commit after each write_db()
             if dryrun:
                 db.rollback()
                 logger.debug("Rolled back all changes")
@@ -115,54 +113,29 @@ def process_OUs(db, parser):
                 db.commit()
                 logger.debug("Committed all changes")
 
-            success += 1
-        except:
-            # IVR 2007-02-16 FIXME: This is a butt-ugly hack. But there is no
-            # other easy way to detect this "impossible" error.
-            typ, value, tb = sys.exc_info()
-            if (str(value).find("duplicate key violates unique constraint")
-                != -1):
-                logger.error("Attempt to insert duplicate key «%s-%s»",
-                             orgeh, gsber)
-                # IVR 2007-12-23: This one is rather interesting -- if we
-                # attempt to insert a duplicate and trip an integrity
-                # constraint in the database, at least for some autocommit
-                # values, the database will refuse further writes until the
-                # end of the transaction (!). This means that even properly
-                # formatted OUs, following a failed one, will fail, if we do
-                # not abort the transaction here.
-                db.rollback()
-            else:
-                # If an update failed (for any reason), it makes to abort the
-                # transaction (see above).
-                db.rollback()
-                logger.exception("Failed writing SAP id «%s-%s» to the db",
-                                 orgeh, gsber)
-        else:
-            logger.debug("[%10d] <=> [%15s] <=> [%12s]",
-                         ou.entity_id, stedkode_konv,
-                         "(%d, %d, %d)" % 
-                         (ou.fakultet, ou.institutt, ou.avdeling))
+        # simple fallthru try-except would be case #1; also a successful run
+        success += 1
+        logger.debug("[%10d] <=> [%13s] <=> [%8s]",
+                     ou.entity_id, stedkode_konv,
+                     "%02d-%02d-%02d" %
+                     (ou.fakultet, ou.institutt, ou.avdeling))
 
-    logger.debug("Total: %d OUs", total)
-    logger.debug("Successful id translations: %d", success)
+    logger.debug("Total: %d OUs (%s successful, %s missing, %s erroneous)",
+                 total+1, success, no_translation, erroneous)
 # end process_OUs
 
 
 
 def main():
-    "Entry point for this script." 
-        
+    global dryrun
     global logger
     logger = Factory.get_logger("cronjob")
 
     options, rest = getopt.getopt(sys.argv[1:],
                                   "do:",
                                   ["dryrun", "ou-file="])
-
-    global dryrun
     dryrun = False
-    source_system = filename = None
+    filename = None
     for option, value in options:
         if option in ("-d", "--dryrun"):
             dryrun = True
@@ -176,7 +149,7 @@ def main():
     db = Factory.get("Database")()
     db.cl_init(change_program="import_SAP")
     
-    parser = system2parser("system_fs")
+    parser = system2parser(source_system)
     process_OUs(db, parser(filename, logger))
 # end main
 

@@ -20,8 +20,7 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
-"""
-This file is a HiA-specific extension of Cerebrum. It contains code which
+"""This file is a HiA-specific extension of Cerebrum. It contains code which
 assigns and deletes affiliations/aff. statuses for people based on their
 employment records in SAP (feide_persti)
 
@@ -47,7 +46,7 @@ usage pattern.
 """
 
 import getopt
-from mx.DateTime import strptime, today, DateTimeDelta
+from mx.DateTime import today, DateTimeDelta
 import os
 import sys
 
@@ -56,32 +55,26 @@ import cereconf
 
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.hia.mod_sap_utils import sap_row_to_tuple
-from Cerebrum.modules.no.hia.mod_sap_utils import check_field_consistency
-from Cerebrum.modules.no.hia.mod_sap_utils import slurp_expired_employees
-from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode
+from Cerebrum.Utils import simple_memoize
+from Cerebrum.modules.no.hia.mod_sap_utils import load_expired_employees
+from Cerebrum.modules.no.hia.mod_sap_utils import make_employment_iterator
 from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
-
 from Cerebrum.modules.no import fodselsnr
-from Cerebrum.extlib.sets import Set as set
 
 
 
 
 
-cerebrum_db = Factory.get("Database")()
-cerebrum_db.cl_init(change_program="import_SAP")
-cerebrum_ou = Factory.get("OU")(cerebrum_db)
-constants = Factory.get("Constants")(cerebrum_db)
+database = Factory.get("Database")()
+database.cl_init(change_program="import_SAP")
+constants = Factory.get("Constants")()
 logger = Factory.get_logger("cronjob")
 
-FIELDS_IN_ROW = 9
 
 
 
 
-
-def sap_employment2affiliation(fo_kode, sap_plans, sap_lonnstittelkode):
+def sap_employment2affiliation(sap_lonnstittelkode):
     """Decide the affiliation to assign to a particular employment entry.
 
     The rules are:
@@ -95,14 +88,6 @@ def sap_employment2affiliation(fo_kode, sap_plans, sap_lonnstittelkode):
       fo_kode != 9999
     """
 
-    if (fo_kode and
-        SAPForretningsOmradeKode(fo_kode) ==
-        constants.sap_eksterne_tilfeldige):
-        logger.debug("Ignored external person: «%s»", sap_ansattnr)
-        return None, None
-
-    # try to map sap_lonnstittelkode, it's a requirement that it exists in the
-    # db.
     try:
         lonnskode = SAPLonnsTittelKode(sap_lonnstittelkode)
         kategori = lonnskode.get_kategori()
@@ -113,41 +98,48 @@ def sap_employment2affiliation(fo_kode, sap_plans, sap_lonnstittelkode):
 
     if lonnskode != constants.sap_9999_dummy_stillingskode:
         affiliation = constants.affiliation_ansatt
-        aff_status = {'ØVR': constants.affiliation_status_ansatt_tekadm,
-                      'VIT': constants.affiliation_status_ansatt_vitenskapelig}[kategori]
+        status = {'ØVR': constants.affiliation_status_ansatt_tekadm,
+                  'VIT': constants.affiliation_status_ansatt_vitenskapelig}[kategori]
     else:
         affiliation = constants.affiliation_tilknyttet
-        aff_status = constants.affiliation_status_tilknyttet_ekstern
+        status = constants.affiliation_status_tilknyttet_ekstern
 
-    return affiliation, aff_status
+    return affiliation, status
 # end sap_employment2affiliation
 
 
 
-def sap_ou_number2ou_id(fo_kode, sap_ou_number):
-    """Return an ou_id corresponding to the SAP pair (fo_kode, nr)."""
+@simple_memoize
+def get_ou_id(sap_ou_id):
+    """Map SAP OU id to Cerebrum entity_id.
+    """
 
+    ou = Factory.get("OU")(database)
     try:
-        fo_kode_numeric = int(SAPForretningsOmradeKode(fo_kode))
+        ou.find_by_external_id(constants.externalid_sap_ou, sap_ou_id)
+        return int(ou.entity_id)
     except Errors.NotFoundError:
-        logger.warn("Forretningsområdekode <%s> is unknown in Cerebrum",
-                    fo_kode)
         return None
+# end get_ou_id
 
+
+
+def get_person(sap_person_id):
+    """Map SAP ansattnr to Cerebrum entity_id.
+    """
+
+    person = Factory.get("Person")(database)
     try:
-        cerebrum_ou.clear()
-        cerebrum_ou.find_by_SAP_id(sap_ou_number, fo_kode_numeric)
+        person.find_by_external_id(constants.externalid_sap_ansattnr,
+                                   sap_person_id)
+        return person
     except Errors.NotFoundError:
-        logger.warn("Cannot locate OU with SAP-id <%s-%s>",
-                    sap_ou_number, fo_kode)
         return None
+# end get_person_id
 
-    return int(cerebrum_ou.entity_id)
-# end sap_ou_number2ou_id
-    
-    
-    
-def cache_db_affiliations(person):
+
+
+def cache_db_affiliations():
     """Return a cache with all affilliation_ansatt.
 
     The cache itself is a mapping person_id -> person-mapping, where
@@ -155,6 +147,7 @@ def cache_db_affiliations(person):
     associate all affiliation_ansatt that the person has indexed by ou_id.
     """
 
+    person = Factory.get("Person")(database)
     # A cache dictionary mapping person -> D, where D is a mapping (ou_id,
     # affiliation) -> status. Why such a weird arrangement? Well, the API
     # makes it easier to delete all affiliations one person at a time
@@ -184,7 +177,7 @@ def remove_affiliations(cache):
 
     # cache is mapping person-id => mapping (ou-id, aff) => status. All these
     # mappings are all for affiliation_ansatt.
-    person = Factory.get("Person")(cerebrum_db)
+    person = Factory.get("Person")(database)
     logger.debug("Removing affiliations for %d people", len(cache))
 
     for person_id in cache:
@@ -209,7 +202,64 @@ def remove_affiliations(cache):
 
 
 
-def process_affiliations(employment_file, person_file):
+def synchronise_affiliations(aff_cache, person, ou_id, affiliation, status):
+    """Register/update an affiliation for a specific person.
+
+    aff_cache is updated destructively.
+
+    person must be associated with a person in the db.
+    """
+
+    # A log message has already been issued...
+    if (affiliation, status) == (None, None):
+        return
+
+    logger.debug("Registering affiliation %s/%s for person_id %s",
+                 affiliation, status, person.entity_id)
+        
+    # For accessing aff_cache
+    key_level1 = int(person.entity_id)
+    key_level2 = (int(ou_id), int(affiliation))
+
+    # Ok, now we have everything we need to register/adjusted affiliations
+    # case 1: the affiliation did not exist => make a new affiliation
+    if (key_level1 not in aff_cache or
+        key_level2 not in aff_cache[key_level1]):
+        person.add_affiliation(ou_id,
+                               affiliation,
+                               constants.system_sap,
+                               status)
+        logger.debug("New affiliation %s (status: %s) for (person_id: %s)",
+                     affiliation, status, person.entity_id)
+
+    # case 2: the affiliation did exist => update aff.status and fix the cache
+    else:
+        cached_status = aff_cache[key_level1][key_level2]
+        # Update cache info (we'll need this to delete obsolete
+        # affiliations from Cerebrum). Remember that if aff.status is the
+        # only thing changing, then we should not delete the "old"
+        # aff.status entry. Thus, regardless of the aff.status, we must
+        # clear the cache.
+        del aff_cache[key_level1][key_level2]
+        if not aff_cache[key_level1]:
+            del aff_cache[key_level1]
+
+        # The affiliation is there, but the status is different => update
+        if cached_status != int(status):
+            # add_affiliation performs aff.status updates as well
+            person.add_affiliation(ou_id,
+                                   affiliation, 
+                                   constants.system_sap,
+                                   status)
+            logger.debug("Updating affiliation status %s => %s for "
+                         "(p_id: %s)",
+                         str(constants.PersonAffStatus(cached_status)),
+                         status, person.entity_id)
+# end synchronise_affiliations
+
+
+
+def process_affiliations(employment_file, person_file, use_fok):
     """Parse employment_file and determine all affiliations.
 
     There are roughly 3 distinct parts:
@@ -221,127 +271,55 @@ def process_affiliations(employment_file, person_file):
        with the file, the cache contains those entries that were in Cerebrum 
     """
 
-    person = Factory.get("Person")(cerebrum_db)
+    expired = load_expired_employees(file(person_file), use_fok, logger)
 
-    # first we cache all existing affiliations. It's a mapping person-id =>
-    # mapping (ou-id, affiliation) => status. 
-    db_aff_cache = cache_db_affiliations(person)
+    # First we cache all existing affiliations. It's a mapping person-id =>
+    # mapping (ou-id, affiliation) => status.
+    affiliation_cache = cache_db_affiliations()
 
-    expired = slurp_expired_employees(person_file)
-    
-    # for each line in file decide what to do with affiliations
-    for row in file(employment_file, "r"):
-        tmp = sap_row_to_tuple(row)
-        assert len(tmp) == FIELDS_IN_ROW, "Error in input: %s" % row
-
-        fo_kode = tmp[4]
-        sap_ansattnr = tmp[0]
-        sap_ou_number = tmp[1]
-        sap_plans = tmp[2]
-        sap_lonnstittelkode = tmp[3]
-        date_start = strptime(tmp[5], "%Y%m%d")
-        date_end = strptime(tmp[6], "%Y%m%d")
-
-        #
-        # Records associated with this fo_kode are invalid by design.
-        if (fo_kode and
-            SAPForretningsOmradeKode(fo_kode) ==
-            constants.sap_eksterne_tilfeldige):
-            logger.debug("Ignored external person: «%s»", sap_ansattnr)
-            continue 
-
-        if sap_ansattnr in expired:
-            logger.debug("Person sap_id=%s is no longer an employee; "
-                         "all employment info will be ignored", sap_ansattnr)
+    for tpl in make_employment_iterator(file(employment_file), use_fok, logger):
+        if not tpl.valid():
+            logger.debug("Ignored invalid entry for person: «%s»",
+                         tpl.sap_ansattnr)
             continue
-
-        # 99999999 has always been "invalid"/"to ignore".
-        if sap_plans == "99999999":
-            logger.debug("Ignored employment %s/%s for person sap_id %s",
-                         sap_plans, sap_lonnstittelkode, sap_ansattnr)
-            continue
-
-        # Can we find the OU in Cerebrum?
-        ou_id = sap_ou_number2ou_id(fo_kode, sap_ou_number)
-        if ou_id is None:
-            logger.warn("Cannot map SAP OU %s-%s to Cerebrum ou_id",
-                        sap_ou_number, fo_kode)
-            continue
-
-        # Can we find the person in Cerebrum?
-        try:
-            person.clear()
-            person.find_by_external_id(constants.externalid_sap_ansattnr,
-                                       sap_ansattnr, constants.system_sap)
-            person_id = int(person.entity_id)
-        except Errors.NotFoundError:
-            logger.warn("Cannot map SAP ansattnr %s to cerebrum person_id",
-                        sap_ansattnr)
-            continue
-
-        # Is the entry in the valid timeframe? We deal affiliations up to 30
-        # days prior to the start day. It is like that by design.
-        # IVR 2007-03-27 HiA has requested a temporary extension of
-        # this time period to 180 days.
-        if not (date_start - DateTimeDelta(180) <= today() <= date_end):
-            logger.debug("Row %s has wrong timeframe (start: %s, end: %s)",
-                         row, date_start, date_end)
-            continue
-
-        # Decide on the affiliation
-        (affiliation,
-         affiliation_status) = sap_employment2affiliation(fo_kode, 
-                                                          sap_plans,
-                                                          sap_lonnstittelkode)
         
-        # Some bogus data. skip the entry.
-        if (affiliation, affiliation_status) == (None, None):
+        if tpl.sap_ansattnr in expired:
+            logger.debug("Person sap_id=%s is no longer an employee; "
+                         "all employment info will be ignored",
+                         tpl.sap_ansattnr)
+            continue
+            
+        # is the entry within a valid time frame?
+        # The shift by 180 days has been requested by UiA around 2007-03-27
+        if not (tpl.start_date - DateTimeDelta(180) <= today() <= tpl.end_date):
+            logger.debug("Entry %s has wrong timeframe (start: %s, end: %s)",
+                         tpl, tpl.start_date, tpl.end_date)
             continue
 
-        # For accessing cache
-        key_level1 = int(person_id)
-        key_level2 = (int(ou_id), int(affiliation))
+        ou_id = get_ou_id(tpl.sap_ou_id)
+        if ou_id is None:
+            logger.warn("Cannot map SAP OU %s to Cerebrum ou_id (employment "
+                        "for person sap_id=%s).",
+                        tpl.sap_ou_id, tpl.sap_ansattnr)
+            continue
+        
+        person = get_person(tpl.sap_ansattnr)
+        if person is None:
+            logger.warn("Cannot map SAP ansattnr %s to cerebrum person_id",
+                        tpl.sap_ansattnr)
+            continue
 
-        # Ok, now we have everything we need to register/adjusted affiliations
-        # case 1: the affiliation did not exist => make a new affiliation
-        if (key_level1 not in db_aff_cache or
-            key_level2 not in db_aff_cache[key_level1]):
-            person.add_affiliation(ou_id,
-                                   affiliation,
-                                   constants.system_sap,
-                                   affiliation_status)
-            logger.debug("New affiliation %s (status: %s) for (p_id: %s; sap_nr: %s)",
-                         affiliation, affiliation_status, person_id,
-                         sap_ansattnr)
-        # case 2: the affiliation did exist => update aff.status and fix the
-        # cache
-        else:
-            cached_status = db_aff_cache[key_level1][key_level2]
-            # Update cache info (we'll need this to delete obsolete
-            # affiliations from Cerebrum). Remember that if aff.status is the
-            # only thing changing, then we should not delete the "old"
-            # aff.status entry. Thus, regardless of the aff.status, we must
-            # clear the cache.
-            del db_aff_cache[key_level1][key_level2]
-            if not db_aff_cache[key_level1]:
-                del db_aff_cache[key_level1]
+        (affiliation,
+         affiliation_status) = sap_employment2affiliation(tpl.lonnstittel)
 
-            # The affiliation is there, but the status is different => update
-            if cached_status != int(affiliation_status):
-                # add_affiliation performs aff.status updates as well
-                person.add_affiliation(ou_id,
-                                       affiliation, 
-                                       constants.system_sap,
-                                       affiliation_status)
-                logger.debug("Updating affiliation status %s => %s for "
-                             "(p_id: %s; sap_nr: %s)",
-                             cached_status, affiliation_status,
-                             person_id, sap_ansattnr)
+        synchronise_affiliations(affiliation_cache,
+                                 person,
+                                 ou_id, affiliation, affiliation_status)
 
     # We are done with fetching updates from file.
-    # All the affiliations left in cache exist in Cerebrum, but NOT in the
-    # datafile. Ergo, delete them!
-    remove_affiliations(db_aff_cache)
+    # All the affiliations left in the cache exist in Cerebrum, but NOT in the
+    # datafile. Thus delete them!
+    remove_affiliations(affiliation_cache)
 # end process_affiliations
 
 
@@ -351,10 +329,14 @@ def main():
                                   "e:dp:",
                                   ("employment-file=",
                                    "dryrun",
-                                   "person-file=",))
+                                   "person-file=",
+                                   "with-fok",
+                                   "without-fok",))
     employment_file = None
     person_file = None
     dryrun = False
+    use_fok = None
+    
     for option, value in options:
         if option in ("-e", "--employment-file"):
             employment_file = value
@@ -362,25 +344,30 @@ def main():
             dryrun = True
         elif option in ("-p", "--person-file",):
             person_file = value
+        elif option in ("--with-fok",):
+            use_fok = True
+        elif option in ("--without-fok",):
+            use_fok = False
+            
+    assert (person_file is not None and
+            os.access(person_file, os.F_OK))
+    assert (employment_file is not None and
+            os.access(employment_file, os.F_OK))
+    assert use_fok is not None, "You MUST specify --with{out}-fok"
 
-    if employment_file:
-        # We insist on all fields having the same length.
-        assert check_field_consistency(employment_file, FIELDS_IN_ROW)
-        assert (os.access(employment_file, os.F_OK) and
-                os.access(person_file, os.F_OK))
-        process_affiliations(employment_file, person_file)
+    process_affiliations(employment_file, person_file, use_fok)
 
     if dryrun:
-        cerebrum_db.rollback()
+        database.rollback()
         logger.info("All changes rolled back")
     else:
-        cerebrum_db.commit()
+        database.commit()
         logger.info("All changes committed")
 # end main
 
-            
-            
 
+            
+            
 
 if __name__ == "__main__":
     main()

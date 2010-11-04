@@ -89,6 +89,11 @@ class ConstantsHigherEdu(Constants.Constants):
     externalid_sap_ansattnr = _EntityExternalIdCode('NO_SAPNO',
                                                     Constants.Constants.entity_person,
                                                     'Employee ID number')
+
+    externalid_sap_ou = _EntityExternalIdCode("SAP_OU_ID",
+                                              Constants.Constants.entity_ou,
+                                              'SAP OU identification')
+    
     externalid_uname = _EntityExternalIdCode('UNAME',
                                              Constants.Constants.entity_person,
                                              'User name (external system)')
@@ -241,27 +246,14 @@ class ConstantsUniversityColleges(Constants.Constants):
 #
 #  SAP magic below
 #  
-#  forretningsområde	- roughly geographical locations
 #  stillingstype        - hoved/bistilling
 #  lønnstittel          - work title (sendemann, ekspedisjonssjef, etc)
-#  permisjon            - leave of absence
-#  utvalg               - commitees 
-# 
-
-class SAPForretningsOmradeKode(Constants._CerebrumCode):
-    "This class represents GSBER/forretningsområde codes."
-     
-    _lookup_table = "[:table schema=cerebrum name=sap_forretningsomrade]"
-# end SAPForretningsOmrade
-
-
 
 class SAPStillingsTypeKode(Constants._CerebrumCode):
     "This class represents HOVEDSTILLING, BISTILLING codes."
 
     _lookup_table = "[:table schema=cerebrum name=sap_stillingstype]"
 # end SAPStillingsType
-
 
 
 class SAPLonnsTittelKode(Constants._CerebrumCode):
@@ -315,34 +307,10 @@ class SAPLonnsTittelKode(Constants._CerebrumCode):
 
 
 
-class SAPPermisjonsKode(Constants._CerebrumCode):
-    "This class represents leave of absence (permisjon) codes."
-
-    _lookup_table = "[:table schema=cerebrum name=sap_permisjon]"
-# end SAPPermisjonsKode
-
-
-
-class SAPUtvalgsKode(Constants._CerebrumCode):
-    "This class represents utvalg (committee) codes."
-
-    _lookup_table = "[:table schema=cerebrum name=sap_utvalg]"
-# end SAPUtvalgsKode
-
-
-
 class SAPCommonConstants(Constants.Constants):
     """This class embodies all constants common to Cerebrum installations with
     SAP"""
 
-    # entries for this fo-kode will be ignored in all contexts. they mark
-    # records that are no longer valid.
-    sap_eksterne_tilfeldige = SAPForretningsOmradeKode(
-        "9999",
-        "Eksterne/tilfeldige"
-    )
-
-    # ----[ SAPStillingsTypeKode ]--------------------------------------
     sap_hovedstilling = SAPStillingsTypeKode(
         "H",
         "Hovedstilling"
