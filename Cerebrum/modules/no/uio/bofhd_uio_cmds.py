@@ -72,6 +72,8 @@ from Cerebrum.modules.no.uio.bofhd_auth import BofhdAuth
 from Cerebrum.modules.no.uio.access_FS import FS
 from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.templates.letters import TemplateHandler
+# Utils are already being imported; need to "rename" these:
+from Cerebrum.modules.dns import Utils as DNSUtils
 
 # TBD: It would probably be cleaner if our time formats were specified
 # in a non-Java-SimpleDateTime-specific way.
@@ -192,6 +194,8 @@ class BofhdExtension(BofhdCommandBase):
             self.change_type2details[int(r['change_type_id'])] = [
                 r['category'], r['type'], r['msg_string']]
         self.fixup_imaplib()
+        self.server = server
+        
 
     def fixup_imaplib(self):
         def nonblocking_open(self, host=None, port=None):
@@ -519,6 +523,52 @@ class BofhdExtension(BofhdCommandBase):
         # TODO: check if the opset is relevant for a group
         if attr is not None:
             raise CerebrumError, "Can't specify attribute for group access"
+
+    # These three should *really* not be here, but due to this being the
+    # place that "access grant" & friends are defined, this is where
+    # the dns-derived functions need to be too
+    def _get_access_id_dns(self, target):
+        dns_find = DNSUtils.Find(self.db, self.const.DnsZone('uio'))
+        return (dns_find.find_entity_id_of_dns_target(target),
+                self.const.auth_target_type_dns,
+                self.const.auth_dns_lita)
+    
+    def _validate_access_dns(self, opset, attr):
+        # TODO: check if the opset is relevant for a dns-target
+        if attr is not None:
+            raise CerebrumError, "Can't specify attribute for dns access"
+
+    # access dns <dns-target>
+    all_commands['access_dns'] = Command(
+        ('access', 'dns'), SimpleString(),
+        fs=FormatSuggestion("%-16s %-9s %-9s %s",
+                            ("opset", "type", "level", "name"),
+                            hdr="%-16s %-9s %-9s %s" %
+                            ("Operation set", "Type", "Level", "Name")))
+    def access_dns(self, operator, dns_target):
+        ret = []
+        if '/' in dns_target:
+            # Asking for rights on subnet; IP not of interest
+            for accessor in self._list_access("dns", dns_target,
+                                              empty_result=[]):
+                print accessor
+                accessor["level"] = "Subnet"
+                ret.append(accessor)            
+        else:
+            # Asking for rights on IP; need to provide info about
+            # rights on the IP's subnet too
+            for accessor in self._list_access("dns", dns_target + '/',
+                                              empty_result=[]):
+                print accessor
+                accessor["level"] = "Subnet"
+                ret.append(accessor)
+            for accessor in self._list_access("dns", dns_target,
+                                              empty_result=[]):
+                print accessor
+                accessor["level"] = "IP"
+                ret.append(accessor)                           
+        return ret
+
 
     def _get_access_id_global_group(self, group):
         if group is not None and group <> "":
@@ -5709,9 +5759,9 @@ Addresses and settings:
         ret = []
         # More hacks follow.
         try:
-            from Cerebrum.modules.dns.bofhd_dns_cmds \
-                 import BofhdExtension as DnsCmds
+            from Cerebrum.modules.dns.bofhd_dns_cmds import BofhdExtension as DnsCmds
             from Cerebrum.modules.dns import Utils as DnsUtils
+            from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
             zone = self.const.DnsZone("uio")
             # Avoid Python's type checking.  The BofhdExtension this
             # "self" is an instance of is different from the
@@ -5722,6 +5772,7 @@ Addresses and settings:
             # To support the API, we add some stuff to this object.
             # Ugh.  Better hope this doesn't stomp on anything.
             self._find = DnsUtils.Find(self.db, zone)
+            self.mb_utils = DnsBofhdUtils(self.server, zone)
             self.dns_parser = DnsUtils.DnsParser(self.db, zone)
             ret = host_info(self, operator, hostname)
         except CerebrumError, dns_err:

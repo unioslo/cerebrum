@@ -99,6 +99,7 @@ class DnsParser(object):
                         ret = int(m.group(1))
             return ret
 
+        name = name.lower()
         m = re.search(r'(.*?)(#+)(.*)', name)
         if not m:
             return [name]
@@ -376,6 +377,24 @@ class Find(object):
             if taken.has_key(long(sub.ip_min+n)):
                 ret.append(IPCalc.long_to_ip(n+sub.ip_min))
         return ret
+
+
+    def find_entity_id_of_dns_target(self, target):
+        """Return entity_id for given 'DNS-thing'.
+
+        Currently only able to handle subnets and IPs, but can be
+        extended further if teh need arises.
+
+        """
+        if '/' in target:
+            # Subnet.find can search both by subnet ID (x/y) and IP; opt for
+            # IP in all cases for simplicity's sake.
+            sub = Subnet.Subnet(self._db)
+            sub.find(target.split('/')[0])
+            return sub.entity_id
+        else:
+            # If not, must be an IP; other stuff will cause failures (for now)
+            return self.find_ip(target)
 
 
     def find_ip(self, a_ip):

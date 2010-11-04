@@ -21,7 +21,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.bofhd.errors import CerebrumError
+from Cerebrum.modules.bofhd.errors import CerebrumError, PermissionDenied
 from Cerebrum import Constants
 from Cerebrum import Utils
 from Cerebrum import Cache
@@ -44,9 +44,18 @@ from Cerebrum.modules import dns
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 
+
 class Constants(Constants.Constants):
     auth_dns_superuser = _AuthRoleOpCode(
         'dns_superuser', 'Perform any DNS command')
+
+    auth_dns_lita = _AuthRoleOpCode(
+        'dns_lita', 'Perform LITA-level DNS commands')
+
+    # See auth_target_type_* in Cerebrum/modules(bofhd/utils.py
+    auth_target_type_dns = "dns"
+
+
 
 class DnsBofhdAuth(BofhdAuth):
     def assert_dns_superuser(self, operator, query_run_any=False):
@@ -54,11 +63,63 @@ class DnsBofhdAuth(BofhdAuth):
             not (self.is_superuser(operator))):
             raise PermissionDenied("Currently limited to dns_superusers")
 
+
     def is_dns_superuser(self, operator, query_run_any=False):
         if self.is_superuser(operator):
             return True
         return self._has_operation_perm_somewhere(
             operator, self.const.auth_dns_superuser)
+
+    
+    def can_do_lita_dns_by_ip(self, operator, target):
+        """Check if operator is allowed to perform DNS operations at
+        'LITA level' on the target in question.
+
+        It checks whether the operator has permissions on the subnet
+        where the IP (host) resides, or, lacking that, if the operator
+        has permissions for the specific IP.
+
+        @type operator: int
+        @param operator: Entity ID of the user performing the operation
+
+        @type target: string
+        @param target: The IP address in question.        
+
+        @rtype: boolean        
+        @return: Whether or not the operatior has permission to do
+                 DNS operations on the ip in question
+        
+        """
+        db = Factory.get('Database')()
+        const = Factory.get('Constants')(db)
+        
+        # These guys always get to do stuff
+        #if self.is_dns_superuser(operator):
+        #    return True
+
+        # First, check if operator has permissions on the subnet the IP is on
+        s = Subnet.Subnet(db)
+        s.find(target)
+        target_id = s.entity_id
+        if self._list_target_permissions(operator,
+                                         self.const.auth_dns_lita,
+                                         self.const.auth_target_type_dns,
+                                         target_id):
+            return True
+
+        # OK, didn't have that; check for permissions on the specific host
+        dns_finder = Utils.Find(db, const.DnsZone('uio'))
+        target_id = dns_finder.find_target_by_parsing(target, dns.IP_NUMBER)
+        if self._list_target_permissions(operator,
+                                         self.const.auth_dns_lita,
+                                         self.const.auth_target_type_dns,
+                                         target_id):
+            return True
+
+        # Apparently, neither was the case. Bummer.
+        return False
+
+    
 
 def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
@@ -228,6 +289,8 @@ class BofhdExtension(BofhdCommandBase):
             'host_srv_add': 'Add a SRV record',
             'host_srv_remove': 'Remove a SRV record',
             'host_ttl_set': 'Set TTL for a host',
+            'host_ttl_unset': 'Revert TTL for a host back to default',
+            'host_ttl_show': 'Display TTL for a host',
             'host_txt_set': 'Set TXT for a host',
             },
             'group': {
@@ -342,8 +405,6 @@ class BofhdExtension(BofhdCommandBase):
                 return v
         raise CerebrumError("Illegal HINFO '%s'" % code_str)
 
-#    def _alloc_arecord(self, host_name, subnet, ip, force):
-#        return self.mb_utils.alloc_arecord(host_name, subnet, ip, force)
 
     # group hadd
     all_commands['group_hadd'] = Command(
@@ -406,6 +467,7 @@ class BofhdExtension(BofhdCommandBase):
     def host_a_add(self, operator, host_name, subnet_or_ip, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
         force = self.dns_parser.parse_force(force)
+        host_name = host_name.lower()
 
         s = Subnet.Subnet(self.db)
         subnet_ip = None
@@ -499,6 +561,7 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter='is_dns_superuser')
     def host_cname_add(self, operator, cname_name, target_name, force=False):
         self.ba.assert_dns_superuser(operator.get_entity_id())
+        cname_name = cname_name.lower()
         force = self.dns_parser.parse_force(force)
         try:
             self.mb_utils.alloc_cname(cname_name, target_name, force)
@@ -657,6 +720,8 @@ class BofhdExtension(BofhdCommandBase):
         ("%-22s %s" % ('Hinfo:', 'os=%s cpu=%s'), ('hinfo.os', 'hinfo.cpu')),
         # MX
         ("%-22s %s" % ("MX-set:", "%s"), ('mx_set',)),
+        # TTL
+        ("%-22s %s" % ("TTL:", "%s"), ('ttl',)),
         # TXT
         ("%-22s %s" % ("TXT:", "%s"), ('txt', )),
         # Cnames
@@ -744,6 +809,14 @@ class BofhdExtension(BofhdCommandBase):
             mx_set = DnsOwner.MXSet(self.db)
             mx_set.find(dns_owner.mx_set_id)
             ret.append({'mx_set': mx_set.name})
+
+        # TTL settings
+        ttl = self.mb_utils.get_ttl(owner_id)
+        if ttl is None:
+            ret.append({'ttl': '(Default)'})
+        else:
+            ret.append({'ttl': str(ttl)})
+
         # CNAME records with this as target, or this name
         cname = CNameRecord.CNameRecord(self.db)
         tmp = cname.list_ext(target_owner=owner_id)
@@ -768,7 +841,9 @@ class BofhdExtension(BofhdCommandBase):
     # host unused_list
     all_commands['host_unused_list'] = Command(
         ("host", "unused_list"), SubNetOrIP(),
-        fs=FormatSuggestion("%s", ('ip',), hdr="Ip"))
+        fs=FormatSuggestion([("%s", ('ip',)),
+                            ("In total: %s", ('unused',))],
+                            hdr="Ip"))
     def host_unused_list(self, operator, subnet):
         # TODO: Skal det være mulig å få listet ut ledige reserved IP?
         subnet = self.dns_parser.parse_subnet_or_ip(subnet)[0]
@@ -777,13 +852,15 @@ class BofhdExtension(BofhdCommandBase):
         ret = []
         for ip in self._find.find_free_ip(subnet):
             ret.append({'ip': ip})
+        ret.append({"unused": str(len(self._find.find_free_ip(subnet)))})
         return ret
 
 
     # host used_list
     all_commands['host_used_list'] = Command(
         ("host", "used_list"), SubNetOrIP(),
-        fs=FormatSuggestion("%-15s  %s", ('ip', 'hostname'),
+        fs=FormatSuggestion([("%-15s  %s", ('ip', 'hostname'),),
+                             ("In total: %s", ('used',))],
                             hdr = "%-15s  %s" % (('Ip', 'Hostname'))))
     def host_used_list(self, operator, subnet_or_ip):
         arecord = ARecord.ARecord(self.db)
@@ -800,6 +877,7 @@ class BofhdExtension(BofhdCommandBase):
                 # Need to expand how names are looked for, but this needs testing
                 name = "(Unknown)"
             ret.append({'ip': ip, 'hostname': name})
+        ret.append({"used": str(len(self._find.find_used_ips(s.subnet_ip)))})
         return ret
 
 
@@ -884,6 +962,7 @@ class BofhdExtension(BofhdCommandBase):
                             'target': row['target_name']})
         return ret
 
+
     # host rename
     all_commands['host_rename'] = Command(
         ("host", "rename"), HostId(), HostId(), Force(optional=True),
@@ -892,6 +971,9 @@ class BofhdExtension(BofhdCommandBase):
         if old_id == "" or new_id == "" :
             raise CerebrumError, "Cannot rename without both an old and a new name."
         self.ba.assert_dns_superuser(operator.get_entity_id())
+        # Make sure that any subnet-formatted "new_ip" gets recognized as such later
+        if new_id.find('/') > 0:
+            new_id = new_id.split('/')[0] + "/"
         lastpart = new_id.split(".")[-1]
         # Rename by IP-number
         if (new_id.find(":") == -1 and lastpart and
@@ -975,7 +1057,7 @@ class BofhdExtension(BofhdCommandBase):
         self.mb_utils.alter_srv_record(
             'del', service_name, int(priority), int(weight),
             int(port), target_id)
-        return "OK, deletded SRV record %s -> %s" % (service_name, target_name)
+        return "OK, deleted SRV record %s -> %s" % (service_name, target_name)
 
 
     # host ttl_set
@@ -993,6 +1075,43 @@ class BofhdExtension(BofhdCommandBase):
             owner_id, ttl)
         return "OK, set TTL record for %s to %s" % (host_name, ttl)
 
+
+    # host ttl_unset
+    all_commands['host_ttl_unset'] = Command(
+        ("host", "ttl_unset"), HostName(), perm_filter='is_dns_superuser')
+    def host_ttl_unset(self, operator, host_name):
+        """Utility command for unsetting TTL, i.e. resetting to default.
+
+        Acts as a proxy to 'host_ttl_set' since its way of resetting
+        to default can be somewhat obscure. Provides error-message if
+        no TTL is set for given host.
+
+        """
+        owner_id = self._find.find_target_by_parsing(host_name, dns.DNS_OWNER)
+        if self.mb_utils.get_ttl(owner_id) is None:
+            raise CerebrumError("Host '%s' has no explicit TTL set" % host_name)
+        self.host_ttl_set(operator, host_name, "")
+        return "OK, TTL record for %s reverted to default value" % host_name
+
+
+    # host ttl_show
+    all_commands['host_ttl_show'] = Command(
+        ("host", "ttl_show"), HostName())
+    def host_ttl_show(self, operator, host_name):
+        """Display TTL for given host.
+
+        If no specific TTL has been set, TTL is given as 'default',
+        rather than listing what the default is.
+
+        """
+        owner_id = self._find.find_target_by_parsing(host_name, dns.DNS_OWNER)
+        ttl = self.mb_utils.get_ttl(owner_id)
+        if ttl is None:
+            return "TTL:    Default"
+        else:
+            return "TTL:    %s" % str(ttl)
+
+
     # host txt
     all_commands['host_txt_set'] = Command(
         ("host", "txt_set"), HostName(), TXT(), perm_filter='is_dns_superuser')
@@ -1006,19 +1125,18 @@ class BofhdExtension(BofhdCommandBase):
 
 
     all_commands['dhcp_assoc'] = Command(
-        ("dhcp", "assoc"), HostId(), MACAdr(), Force(optional=True),
-        perm_filter='is_dns_superuser')
+        ("dhcp", "assoc"), HostId(), MACAdr(), Force(optional=True))
     def dhcp_assoc(self, operator, host_id, mac_adr, force=False):
-        self.ba.assert_dns_superuser(operator.get_entity_id())
-        
+        """Assign/reassign which MAC-address the given host/IP should
+        be associated with.
+
+        If there already is a MAC-address associated with the host/IP,
+        the change must be forced.
+
+        """
         arecord = ARecord.ARecord(self.db)
         ipnumber = IPNumber.IPNumber(self.db)
-
         
-        if ipnumber.find_by_mac(mac_adr) and not force:
-            raise CerebrumError("MAC-adr '%s' already in use, "
-                                "must force (y)" % mac_adr)
-            
         # Identify the host we are dealing with, and retrieve the A-records
         tmp = host_id.split(".")
         if host_id.find(":") == -1 and tmp[-1].isdigit():
@@ -1028,15 +1146,24 @@ class BofhdExtension(BofhdCommandBase):
             owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
             arecords = arecord.list_ext(dns_owner_id=owner_id)
 
+        # Retrive IPNumber-interface
+        ipnumber.clear()
+        ipnumber.find(arecords[0]['ip_number_id'])
+
+        # Now that we have the IP, ensure operator has proper permissions to do this
+        if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(), arecords[0]['a_ip']):
+            raise PermissionDenied("You are not allowed to do this for '%s'" % host_id)
+        
+        if ipnumber.find_by_mac(mac_adr) and not force:
+            raise CerebrumError("MAC-adr '%s' already in use, "
+                                "must force (y)" % mac_adr)
+            
         # Cannot associate a MAC-address unless we have a single
         # specific address to associate with.
         if len(arecords) != 1:
             raise CerebrumError("Must have 1 and only 1 IP-address to associate "
                                 "MAC-adr (%s has %i)." % (host_id, len(arecords)))
-
-        # Retrive IPNumber-interface and set new MAC-address
-        ipnumber.clear()
-        ipnumber.find(arecords[0]['ip_number_id'])
+        
         if ipnumber.mac_adr is not None and not force:
             # Already has MAC = reassign => force required
             raise CerebrumError("%s already associated with %s, use force to "
@@ -1048,11 +1175,13 @@ class BofhdExtension(BofhdCommandBase):
 
 
     all_commands['dhcp_disassoc'] = Command(
-        ("dhcp", "disassoc"), HostId(), Force(optional=True),
-        perm_filter='is_dns_superuser')
+        ("dhcp", "disassoc"), HostId(), Force(optional=True))
     def dhcp_disassoc(self, operator, host_id, force=False):
-        self.ba.assert_dns_superuser(operator.get_entity_id())
-        
+        """Remove any MAC-addresses registred for the given host/IP.
+
+        If the host has multiple IPs, the removal must be forced.
+
+        """
         arecord = ARecord.ARecord(self.db)
         ipnumber = IPNumber.IPNumber(self.db)
 
@@ -1064,6 +1193,14 @@ class BofhdExtension(BofhdCommandBase):
         else:
             owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
             arecords = arecord.list_ext(dns_owner_id=owner_id)
+
+        ips = []
+        for arecord_row in arecords:
+            ips.append(arecord_row['ip_number_id'])
+
+        # Now that we have the IP, ensure operator has proper permissions to do this
+        if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(), arecords[0]['a_ip']):
+            raise PermissionDenied("You are not allowed to do this for '%s'" % host_id)
 
         if len(arecords) != 1 and not force:
             raise CerebrumError("Host has multiple A-records, must force (y)")
@@ -1082,7 +1219,7 @@ class BofhdExtension(BofhdCommandBase):
         if not old_macs:
             # Why would someone run this command for a host with no
             # MACs? Better let them know something's weird
-            raise CerebrumError("No MAC-adr found for host %s" % host_id)
+            raise CerebrumError("No MAC-adr found for host '%s'" % host_id)
 
         return ("MAC-adr '%s' " % "','".join(old_macs) + 
                 "no longer associated with %s" % host_id)

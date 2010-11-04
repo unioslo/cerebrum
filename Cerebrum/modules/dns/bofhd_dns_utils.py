@@ -367,6 +367,23 @@ class DnsBofhdUtils(object):
             dns_owner.update_srv_record_ttl(owner_id, ttl)
 
 
+    def get_ttl(self, owner_id):
+        """Retrieve TTL ('Time to Live') setting for the records
+        associated with gievn DNS-owner.
+
+        """
+        # Caveat: if TTL is set for one of the host's A-records, it is
+        # set for the host in general
+        dns_owner = DnsOwner.DnsOwner(self.db)
+        dns_owner.find(owner_id)
+
+        arecord = ARecord.ARecord(self.db)
+        arecord.clear()
+        arecords = arecord.list_ext(dns_owner_id=owner_id)
+        arecord.find(arecords[0]['a_record_id'])
+        return arecord.ttl        
+
+
     #
     # A-Records, reverse-map
     #
@@ -380,7 +397,8 @@ class DnsBofhdUtils(object):
         # If we now have two A-records for the same IP, register an
         # override for the previous ip.
         if len(old_a_records) == 1:
-            if len(self._ip_number.list_override(ip_number_id=ip_id, dns_owner_id=old_a_records[0]['dns_owner_id'])) < 1:
+            if len(self._ip_number.list_override(ip_number_id=ip_id,
+                                                 dns_owner_id=old_a_records[0]['dns_owner_id'])) < 1:
                 self._ip_number.add_reverse_override(
                     ip_id, old_a_records[0]['dns_owner_id'])
         return self._arecord.entity_id

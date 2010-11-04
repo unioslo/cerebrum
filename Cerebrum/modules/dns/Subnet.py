@@ -483,9 +483,13 @@ class BofhdExtension(BofhdCommandBase):
 
     all_commands = {}
 
-    def __init__(self, server):
+    def __init__(self, server, default_zone='uio'):
         super(BofhdExtension, self).__init__(server)
         self.ba = DnsBofhdAuth(self.db)
+        self.default_zone = self.const.DnsZone(default_zone)
+        # Circular dependencies are bad, m'kay
+        from Cerebrum.modules.dns import Utils
+        self._find = Utils.Find(server.db, self.default_zone)
 
 
     def get_help_strings(self):
@@ -552,7 +556,10 @@ class BofhdExtension(BofhdCommandBase):
                               ("subnet", "entity_id", "netmask", "desc",
                                "name_prefix", "vlan", "delegated",
                                "ip_range", "no_of_res_adr", "res_adr1")),
-                             ("                        %s", ('res_adr',)),]))
+                             ("                        %s", ('res_adr',)),
+                             ("Used addresses:         %s\n"+
+                              "Unused addresses:       %s (excluding reserved adr.)",
+                              ('used', 'unused'))]))
     def subnet_info(self, operator, identifier):
         """Lists the following information about the given subnet:
 
@@ -590,6 +597,11 @@ class BofhdExtension(BofhdCommandBase):
 
         data['ip_range'] = "%s - %s" % (IPCalc.long_to_ip(s.ip_min),
                                         IPCalc.long_to_ip(s.ip_max))
+
+        # Calculate number of used and unused IP-addresses on this subnet
+        #                              ^^^^^^ excluding reserved addresses
+        data['used'] = str(len(self._find.find_used_ips(s.subnet_ip)))
+        data['unused'] = str(len(self._find.find_free_ip(s.subnet_ip)))
 
         reserved_adresses = list(s.reserved_adr)
 
