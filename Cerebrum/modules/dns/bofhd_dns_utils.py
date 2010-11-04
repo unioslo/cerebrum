@@ -475,5 +475,3 @@ class DnsBofhdUtils(object):
     def remove_revmap_override(self, ip_host_id, dest_host_id):
         self._update_helper.remove_reverse_override(
             ip_host_id, dest_host_id)
-
-# arch-tag: 48c70550-12e8-11da-887a-7c4bc003c8ee

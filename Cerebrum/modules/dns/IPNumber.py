@@ -281,6 +281,3 @@ class IPNumber(Entity.Entity):
                ovr.dns_owner_id=en.entity_id
         """ % where, {'ip_number_id': ip_number_id, 'dns_owner_id': dns_owner_id,
                       'start': start, 'stop': stop})
-
-
-# arch-tag: 8f5892d4-5af8-45a7-acc1-92e91250cbf3

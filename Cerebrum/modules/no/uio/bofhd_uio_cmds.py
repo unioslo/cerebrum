@@ -9417,5 +9417,3 @@ Addresses and settings:
 
         return str(date)
     # end _date_human_readable
-
-# arch-tag: 98930b8a-4170-453a-a5db-34177f3ac40f

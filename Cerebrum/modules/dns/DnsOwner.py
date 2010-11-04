@@ -432,6 +432,3 @@ class DnsOwner(GeneralDnsRecord, EntityName, Entity_class):
         SET ttl=:ttl
         WHERE service_owner_id=:owner_id""", {
             'owner_id': owner_id, 'ttl': ttl})
-     
-
-# arch-tag: 5956ec5e-b6e7-4747-9188-233ed7a8007a

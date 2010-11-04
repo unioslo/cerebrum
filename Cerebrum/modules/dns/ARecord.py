@@ -175,4 +175,3 @@ class ARecord(Entity):
             'start': start, 'stop': stop,
             'zone': zone} )
 
-# arch-tag: 655bcc55-d41d-4e27-9c21-18993232895e

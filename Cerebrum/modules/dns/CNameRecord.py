@@ -145,5 +145,3 @@ class CNameRecord(Entity):
         self._db.log_change(self.cname_owner_id, self.const.cname_del,
                             self.target_owner_id)
         self.__super.delete()
-
-# arch-tag: 1f20a221-a237-420b-b4b3-2e12be8a06ce
