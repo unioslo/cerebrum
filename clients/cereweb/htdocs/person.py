@@ -204,8 +204,12 @@ def add_affil(id, status, ou, description=""):
         queue_message(get_referer_error(), error=True, title='Affiliation not added')
         redirect_entity(id)
     db = get_database()
+    creator_id = int(cherrypy.session.get('userid'))
+    builder = Builder(db, creator_id)
     dao = PersonDAO(db)
     dao.add_affiliation_status(id, ou, status)
+    for account in dao.get_accounts(id):
+        builder.rebuild_account(account.id)
     db.commit()
 
     msg = _("Affiliation successfully added.")
@@ -216,8 +220,12 @@ add_affil.exposed = True
 @session_required_decorator
 def remove_affil(id, ou, affil, ss):
     db = get_database()
+    creator_id = int(cherrypy.session.get('userid'))
+    builder = Builder(db, creator_id)
     dao = PersonDAO(db)
     dao.remove_affiliation_status(id, ou, affil, ss)
+    for account in dao.get_accounts(id):
+        builder.rebuild_account(account.id)
     db.commit()
 
     msg = _("Affiliation successfully removed.")

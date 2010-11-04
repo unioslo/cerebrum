@@ -52,7 +52,7 @@
 	        <li><a href="/confirm/person/delete?id=$person.id">$_("Delete")</a></li>
 	        #set link_text = $_('Create default account')
 	        #if $person.accounts
-	            #set link_text = $_('Update default account')
+	            #set link_text = $_('Update accounts')
 	        #end if
 	            
 	        <li><a href="/person/build_account?owner_id=$person.id">$link_text</a></li>
