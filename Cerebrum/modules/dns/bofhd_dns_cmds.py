@@ -94,8 +94,8 @@ class DnsBofhdAuth(BofhdAuth):
         const = Factory.get('Constants')(db)
         
         # These guys always get to do stuff
-        #if self.is_dns_superuser(operator):
-        #    return True
+        if self.is_dns_superuser(operator):
+            return True
 
         # First, check if operator has permissions on the subnet the IP is on
         s = Subnet.Subnet(db)
