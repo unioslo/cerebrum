@@ -970,6 +970,7 @@ class BofhdExtension(BofhdCommandBase):
     def host_rename(self, operator, old_id, new_id, force=False):
         if old_id == "" or new_id == "" :
             raise CerebrumError, "Cannot rename without both an old and a new name."
+        new_id = new_id.lower() # All hostnames need to be lowercased; IP's? meh...
         self.ba.assert_dns_superuser(operator.get_entity_id())
         # Make sure that any subnet-formatted "new_ip" gets recognized as such later
         if new_id.find('/') > 0:
