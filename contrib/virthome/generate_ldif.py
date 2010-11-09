@@ -49,8 +49,10 @@ class LDIFHelper(object):
         self.db = Factory.get("Database")()
         self.const = Factory.get("Constants")()
 
-        self.users = self._load_users()
+        # groups must be populated before users, since the latter relies on the
+        # former due to data precaching.
         self.groups = self._load_groups()
+        self.users = self._load_users()
     # end __init__
 
 
@@ -88,21 +90,8 @@ class LDIFHelper(object):
     
 
     def _load_users(self):
-        """Cache a dict with account_id -> account_name for all
-        LDAP-exportable accounts.
+        """Cache enough user information for the export to progress."""
 
-        We probably want to carry these around in memory all the time, since
-        both user AND group exports require lists of DNs (group/user names, at
-        least) for entities with the right spread. There is no getting around
-        this, unless paying the clear() + find() penalty for _each_ entry is
-        acceptable later.
-
-        @rtype: dict (int -> str)
-        @return:
-          A dict mapping account_id to account_name for all accounts with
-          LDAP-exportable spreads. The latter is controlled by
-          cereconf.LDAP_USER.
-        """
 
         account = Factory.get("Account")(self.db)
         spreads = tuple(self.const.human2constant(x)
@@ -113,17 +102,97 @@ class LDIFHelper(object):
         account = Factory.get("Account")(self.db)
         for spread in spreads:
             for row in account.search(spread=spread):
-                users[row["account_id"]] = row["name"]
+                users[row["account_id"]] = {"uname": row["name"],
+                                            "np_type": row["np_type"],}
 
+        users = self._get_contact_info(users)
+        users = self._get_password_info(users)
+        users = self._get_membership_info(users)
         return users
-    # end generate_users
-# end LDIFHelper
+    # end _load_users
 
 
+    def _get_contact_info(self, users):
+        """Update users with name and e-mail data."""
 
-class GroupLDIF(LDIFHelper):
-    """LDIF generator for VirtHome groups.
-    """
+
+        def _mangle(account_id, contact_type, contact_value, users):
+            if contact_type not in (self.const.human_first_name, 
+                                    self.const.human_last_name,
+                                    self.const.human_full_name):
+                return contact_value
+
+            account_type = users.get(account_id, {}).get("np_type")
+            if account_type == self.const.virtaccount_type:
+                return contact_value + " (unverified)"
+
+            return contact_value
+        # end _mangle
+        
+        account = Factory.get("Account")(self.db)
+        contact2tag = {self.const.virthome_contact_email: "email",
+                       self.const.human_first_name: "givenName",
+                       self.const.human_last_name: "sn",
+                       self.const.human_full_name: "cn",}
+                
+        logger.debug("Collecting email/name info for LDAP export")
+        for eci in account.list_contact_info(
+                       source_system=self.const.system_virthome,
+                       contact_type=tuple(contact2tag)):
+            account_id = eci["entity_id"]
+            if account_id not in users:
+                continue
+
+            contact_type = int(eci["contact_type"])
+            contact_value = _mangle(account_id, contact_type,
+                                    eci["contact_value"], users)
+            tag = contact2tag[contact_type]
+            users[account_id][tag] = contact_value
+            
+        return users
+    # end _get_contact_info
+
+
+    def _get_password_info(self, users):
+        """Collect md5 hashes for VA-s."""
+
+        logger.debug("Collecting password information")
+        account = Factory.get("Account")(self.db)
+        for row in account.list_account_authentication(
+                              auth_type=self.const.auth_type_md5_crypt):
+            account_id = row["account_id"]
+            if account_id not in users:
+                continue
+
+            if users[account_id]["np_type"] != self.const.virtaccount_type:
+                continue
+            
+            users[account_id]["userPassword"] = (row["auth_data"],)
+        return users
+    # end _get_password_info
+
+
+    def _get_membership_info(self, users):
+        """Collect group memberships information."""
+        
+        group = Factory.get("Group")(self.db)
+        logger.debug("Collecting user membership information")
+
+        # crap. this is going to be VERY expensive...
+        for row in group.search_members(member_type=self.const.entity_account):
+            group_id = row["group_id"]
+            if group_id not in self.groups:
+                continue
+
+            account_id = row["member_id"]
+            if account_id not in users:
+                continue
+
+            gname = self._gname2dn(self.groups[group_id]["name"])
+            users[account_id].setdefault("membership", list()).append(gname)
+        return users
+    # end _get_membership_info
+
 
     def yield_groups(self):
         """Generate group dicts with all LDAP-relevant information.
@@ -137,12 +206,12 @@ class GroupLDIF(LDIFHelper):
                      "cn": (group_name,),
                      "objectClass": ldapconf("GROUP", "objectClass"),
                      "description": (gi["description"],),}
-            entry.update(self._get_membership_info(group_id, group))
+            entry.update(self._get_member_info(group_id, group))
             yield entry
     # end _extend_group_information
 
 
-    def _get_membership_info(self, group_id, group):
+    def _get_member_info(self, group_id, group):
         """Retrieve all members of a group.
 
         We need to respect LDAP-spreads for users and groups alike.
@@ -153,183 +222,84 @@ class GroupLDIF(LDIFHelper):
           respective group.
         """
 
-        members = tuple(self._uname2dn(self.users[x["member_id"]])
+        # TBD: Maybe this ought to be cached? 
+        members = tuple(self._uname2dn(self.users[x["member_id"]]["uname"])
                                 for x in group.search_members(group_id=group_id)
                                 if x["member_id"] in self.users)
         if members:
             return {"member": members}
         return {}
-    # end _get_membership_info
-# end GroupLDIF
-    
+    # end _get_member_info
 
-
-class UserLDIF(LDIFHelper):
-    """LDIF generator for VirtHome users.
-    """
 
     def yield_users(self):
-        """Yield all users qualified for export to LDAP.
-        """
+        """Yield all users qualified for export to LDAP."""
 
+        def _mangle(attrs):
+            if not isinstance(attrs, (list, set, tuple)):
+                return (attrs,)
+            return attrs
+        
         for user_id in self.users:
-            uname = self.users[user_id]
-            yield self._extend_user_information(user_id, uname)
+            attrs = self.users[user_id]
+            tmp = {"dn": (self._uname2dn(attrs["uname"]),),
+                   "uid": (attrs["uname"],),
+                   "email": (attrs["email"],),
+                   "objectClass": ldapconf("USER", "objectClass"),}
+
+            for key in ("cn", "sn", "givenName", "userPassword", "membership",):
+                if key in attrs:
+                    tmp[key] = _mangle(attrs[key])
+
+            yield tmp
     # end generate_users
-
-
-    def _extend_user_information(self, user_id, uname):
-        """Return a dict with all of user's relevant LDAP information.
-
-        @rtype: dict (str -> sequence of str)
-        @return:
-          A dict mapping LDIF attributes to their respective values.
-        """
-
-        account = Factory.get("Account")(self.db)
-        account.find(user_id)
-                
-        entry = {"dn": (self._uname2dn(uname),),
-                 "uid": (uname,),
-                 "email": (account.get_email_address(),),
-                 "objectClass": ldapconf("USER", "objectClass"),}
-        entry.update(self._get_user_names(account))
-        entry.update(self._get_password_info(account))
-        entry.update(self._get_membership_info(account))
-        return entry
-    # end extend_user_information
-
-
-    def _get_membership_info(self, account):
-        """Retrieve all group memberships for account.
-        
-        We fetch _ONLY_ the groups possessing a certain spread (see _gid2dn).
-        """
-
-        group = Factory.get("Group")(self.db)
-        memberships = tuple(self._gname2dn(x["name"])
-                            for x in group.search(member_id=account.entity_id)
-                            if x["group_id"] in self.groups)
-        if memberships:
-            return {"membership": memberships}
-        return {}
-    # end _get_membership_info
-
-
-
-    def _get_password_info(self, account):
-        """Retrieve password information for account.
-
-        Since we store passwords for VAs only, they are the only kind of
-        accounts for which we actually /can/ return password hashes.
-        """
-
-        if account.np_type != self.const.virtaccount_type:
-            return {}
-
-        try:
-            crypt = account.get_account_authentication(
-                               self.const.auth_type_md5_crypt)
-            return {"userPassword": (crypt,)}
-        except Errors.NotFoundError:
-            logger.warn("VA %s (id=%s) is missing auth info (%s)",
-                        account.account_name, account.entity_id,
-                        str(self.const.auth_type_md5_crypt))
-            return {}
-    # end _get_password_info
-        
-
-
-    def _get_user_names(self, account):
-        """Retrieve all names pertinent to the specified account.
-
-        @param account: Account-proxy associated with the proper account.
-        """
-
-        const = self.const
-        def mangler(name):
-            """Re-write all names, since export to LDAP _must_ mark
-            non-federated accounts as 'untrusted'.
-            """
-
-            # FIXME: is this an error?
-            if not name or not name.strip():
-                return "(not available)"
-
-            if account.np_type == const.virtaccount_type:
-                return name + " (unverified)"
-
-            return name
-        # end name_mangler
-
-        names = dict()
-        names["cn"] = (mangler(account.get_owner_name(const.human_full_name)),)
-        names["sn"] = (mangler(account.get_owner_name(const.human_last_name)),)
-        names["givenName"] = (mangler(account.get_owner_name(const.human_first_name)),)
-        return names
-    # end _get_user_names
 # end UserLDIF
 
 
 
-def generate_user_ldif(fname):
-    """Output all users matching the LDIF criteria.
-    """
+def generate_all(fname):
+    """Generate user + group LDIF to fname. """
 
-    logger.debug("Generating user ldif into %s", fname)
-    out = ldif_outfile("USER", fname)
-    userldif = UserLDIF()
+    logger.debug("Generating ldif into %s", fname)
+
+    out = ldif_outfile("ORG", fname)
+
+    out.write(container_entry_string("ORG"))
+
+    helper = LDIFHelper()
     out.write(container_entry_string("USER"))
-    for user in userldif.yield_users():
+    for user in helper.yield_users():
         dn = user["dn"][0]
         del user["dn"]
         out.write(entry_string(dn, user, False))
+    end_ldif_outfile("USER", out, out)
 
-    end_ldif_outfile("USER", out)
-# end generate_user_ldif
-
-
-
-def generate_group_ldif(fname):
-    """Output all groups matching the LDIF criteria.
-    """
-
-    logger.debug("Generating group ldif into %s", fname)
-    out = ldif_outfile("GROUP", fname)
-    groupldif = GroupLDIF()
+    logger.debug("Generating group ldif...")
     out.write(container_entry_string("GROUP"))
-    for group in groupldif.yield_groups():
+    for group in helper.yield_groups():
         dn = group["dn"][0]
         del group["dn"]
         out.write(entry_string(dn, group, False))
 
     end_ldif_outfile("GROUP", out)
-# end generate_group_ldif
-
+    logger.debug("Done with group ldif (all done)")
+# end generate_all
+    
 
 
 def main(argv):
     opts, junk = getopt.getopt(argv[1:],
-                               "u:g:",
-                               ("user-file=",
-                                "userfile=",
-                                "user_file=",
-                                "group-file=",
-                                "groupfile=",
-                                "group_file=",))
+                               "f:",
+                               ("file=",))
 
-    user_file = None
-    group_file = None
+
+    filename = None
     for option, value in opts:
-        if option in ('-u', '--user-file', "--userfile", "--user_file",):
-            user_file = value
-        elif option in ('-g', '--group-file', "--groupfile", "--group_file",):
-            group_file = value
+        if option in ('-f', '--file',):
+            filename = value
 
-    if user_file:
-        generate_user_ldif(user_file)
-    if group_file:
-        generate_group_ldif(group_file)
+    if filename:
+        generate_all(filename)
 # end main
 
 

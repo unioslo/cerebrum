@@ -1316,5 +1316,6 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         return self.query("""
         SELECT DISTINCT ai.account_id AS account_id, en.entity_name AS name,
                         ai.owner_id AS owner_id, ai.owner_type AS owner_type,
-                        ai.expire_date AS expire_date
+                        ai.expire_date AS expire_date,
+                        ai.np_type AS np_type
         FROM %s %s""" % (','.join(tables), where_str), binds)
