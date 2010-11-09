@@ -208,8 +208,7 @@ def add_affil(id, status, ou, description=""):
     builder = Builder(db, creator_id)
     dao = PersonDAO(db)
     dao.add_affiliation_status(id, ou, status)
-    for account in dao.get_accounts(id):
-        builder.rebuild_account(account.id)
+    builder.build_from_owner(id)
     db.commit()
 
     msg = _("Affiliation successfully added.")
@@ -224,8 +223,7 @@ def remove_affil(id, ou, affil, ss):
     builder = Builder(db, creator_id)
     dao = PersonDAO(db)
     dao.remove_affiliation_status(id, ou, affil, ss)
-    for account in dao.get_accounts(id):
-        builder.rebuild_account(account.id)
+    builder.build_from_owner(id)
     db.commit()
 
     msg = _("Affiliation successfully removed.")

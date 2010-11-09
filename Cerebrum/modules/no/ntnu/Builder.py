@@ -28,10 +28,8 @@ class Builder(object):
     def build_from_owner(self, owner_id):
         owner = self._get_owner(owner_id)
 
-        accounts = self.account.search(owner_id=owner_id)
-        if accounts:
-            for a in accounts:
-                self._build_account(a['account_id'], owner)
+        if owner['primary_account_id']:
+            self._build_account(owner['primary_account_id'], owner)
         elif cereconf.BUILD_CREATE_ACCOUNTS:
             account_id = self._create_account(owner)
             self.person.clear()
@@ -397,6 +395,7 @@ class Builder(object):
         self.person.clear()
         self.person.find(owner_id)
 
+        primary_account_id = sef.person.get_primary_account()
         fname = self.person.get_name(self.const.system_cached,
                                      self.const.name_first)
         lname = self.person.get_name(self.const.system_cached,
@@ -411,4 +410,5 @@ class Builder(object):
             'lname': lname,
             'personaffs': personaffs,
             'allaccountaffs': allaccountaffs,
+            'primary_account_id': primary_account_id,
         }

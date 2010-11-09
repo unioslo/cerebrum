@@ -50,9 +50,9 @@
 	    <ul>
 	        <li><a href="/person/edit?id=$person.id">$_("Edit")</a></li>
 	        <li><a href="/confirm/person/delete?id=$person.id">$_("Delete")</a></li>
-	        #set link_text = $_('Create default account')
+	        #set link_text = $_('Create primary account')
 	        #if $person.accounts
-	            #set link_text = $_('Update accounts')
+	            #set link_text = $_('Update primary account')
 	        #end if
 	            
 	        <li><a href="/person/build_account?owner_id=$person.id">$link_text</a></li>
