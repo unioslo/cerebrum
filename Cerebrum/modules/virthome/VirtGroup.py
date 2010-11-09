@@ -27,6 +27,7 @@ This module mimicks some of the functionality of Cerebrum/Group.py and relies
 on Cerebrum/{Entity.py,Group.py} and a few others.
 """
 
+import string
 import urlparse
 
 from mx.DateTime import now
@@ -56,6 +57,16 @@ class VirtGroup(Group_class, EntityContactInfo):
     DEFAULT_GROUP_LIFETIME = DateTimeDelta(180)
     
 
+
+    def __init__(self, *rest, **kw):
+        self.__super.__init__(*rest, **kw)
+
+        self.legal_chars = set(string.letters + string.digits +
+                               "".join(chr(x) for x in range(0xc0, 0x100)) +
+                               " .@")
+    # end __init__
+    
+    
 
     def populate(self, creator_id, name, description, url):
         """Populate a VirtGroup's instance, subject to some constraints."""
@@ -90,9 +101,14 @@ class VirtGroup(Group_class, EntityContactInfo):
         if not name.strip():
             return "Group name is empty"
 
+        if (name.startswith(" ") or name.endswith(" ")):
+            return "Group name cannot start/end with space"
+
+        if any(x not in self.legal_chars for x in name):
+            return "Illegal character in group name"
+        
         if name.count("@") != 1:
             return "Group name is missing a realm"
-
 
         tmp_name, tmp_realm = name.split("@")
         if tmp_realm != cereconf.VIRTHOME_REALM:

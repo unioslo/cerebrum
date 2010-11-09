@@ -94,7 +94,8 @@ class BaseVirtHomeAccount(Account,
                                      self.const.account_namespace)
         self.initial_account = initial_account.entity_id
         self.legal_chars = set(string.letters + string.digits +
-                               "".join(chr(x) for x in range(0xc0, 0x100)))
+                               "".join(chr(x) for x in range(0xc0, 0x100)) +
+                               " .@")
     # end __init__
 
 
