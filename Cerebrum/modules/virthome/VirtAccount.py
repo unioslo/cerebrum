@@ -93,6 +93,8 @@ class BaseVirtHomeAccount(Account,
         initial_account.find_by_name(cereconf.INITIAL_ACCOUNTNAME,
                                      self.const.account_namespace)
         self.initial_account = initial_account.entity_id
+        self.legal_chars = set(string.letters + string.digits +
+                               "".join(chr(x) for x in range(0xc0, 0x100)))
     # end __init__
 
 
@@ -167,6 +169,30 @@ class BaseVirtHomeAccount(Account,
 
         return self.__super.validate_new_uname(domain, uname)
     # end validate_new_uname
+
+
+
+    def illegal_name(self, uname):
+        """Check whether username is compliant with webid guidelines.
+
+        This method implements checks common for *all* accounts in webid.
+        """
+
+        if not uname.strip():
+            return "Account name is empty"
+        
+        if (uname.startswith(" ") or uname.endswith(" ")):
+            return "Username cannot start/end with space"
+
+        if any(x not in self.legal_chars
+               for x in uname):
+            return "Illegal character in uname"
+        
+        if uname.count("@") != 1:
+            return "Account name misses a realm"
+
+        return False
+    # end illegal_uname
 
 
 
@@ -290,9 +316,6 @@ class VirtAccount(BaseVirtHomeAccount):
 
     def __init__(self, *rest, **kw):
         self.__super.__init__(*rest, **kw)
-
-        # @. for the domain/realm part
-        self.valid_uname_characters = string.letters + string.digits + "@. "
         self.account_type = self.const.virtaccount_type
     # end __init__
 
@@ -319,16 +342,9 @@ class VirtAccount(BaseVirtHomeAccount):
 
 
     def illegal_name(self, uname):
-        if not uname.strip():
-            return "Account name is empty"
-        
-        if any([x not in self.valid_uname_characters
-                for x in uname]):
-            return "Account name contains invalid characters"
-
-        if uname.count("@") != 1:
-            return "Account name misses a realm"
-
+        if self.__super.illegal_name(uname):
+            return self.__super.illegal_name(uname)
+            
         # Present, but erroneous realm
         if uname.split("@")[1] != cereconf.VIRTHOME_REALM:
             return "Wrong realm <%s> for VirtAccount" % (uname.split("@")[1],)
@@ -362,7 +378,6 @@ class FEDAccount(BaseVirtHomeAccount):
     def __init__(self, *rest, **kw):
         self.__super.__init__(*rest, **kw)
 
-        self.valid_uname_characters = string.letters + string.digits + "@. "
         self.account_type = self.const.fedaccount_type
     # end __init__
 
@@ -389,20 +404,10 @@ class FEDAccount(BaseVirtHomeAccount):
 
 
     def illegal_name(self, uname):
-        if not uname.strip():
-            return "Account name is empty"
-        
-        if any([x not in self.valid_uname_characters
-                for x in uname]):
-            return "Account name contains invalid characters: %s" % (
-                [x for x in uname if x not in self.valid_uname_characters],)
-
-        if uname.count("@") != 1:
-            return "Account name misses a realm"
+        if self.__super.illegal_name(uname):
+            return self.__super.illegal_name(uname)
 
         # Present, but erroneous realm. How do we check this, exactly?
-
-        # The rest is good.
         return False
     # end illegal_name
 
