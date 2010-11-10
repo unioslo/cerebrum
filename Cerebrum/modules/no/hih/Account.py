@@ -61,11 +61,12 @@ class AccountHiHMixin(Account.Account):
         """
         if len(name) > 10:
             return "too long (%s); max 10 chars allowed" % name
-        if re.search("[^a-z]", name):
-            return "contains illegal characters (%s); only a-z allowed" % name
-        # TBD: How does this mix with student account automation?
-        if re.search("^\d{6}$", name):
-            return "disallowed due to possible conflict with FS-based usernames" % name
+        # TBD: How do these mix with student account automation?
+        # ... and migration? Disable for now.
+        #if re.search("[^a-z]", name):
+        #    return "contains illegal characters (%s); only a-z allowed" % name
+        #if re.search("^\d{6}$", name):
+        #    return "disallowed due to possible conflict with FS-based usernames" % name
                 
         return False
 
