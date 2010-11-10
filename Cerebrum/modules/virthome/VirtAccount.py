@@ -93,9 +93,7 @@ class BaseVirtHomeAccount(Account,
         initial_account.find_by_name(cereconf.INITIAL_ACCOUNTNAME,
                                      self.const.account_namespace)
         self.initial_account = initial_account.entity_id
-        self.legal_chars = set(string.letters + string.digits +
-                               "".join(chr(x) for x in range(0xc0, 0x100)) +
-                               " .@")
+        self.legal_chars = set(string.letters + string.digits + " .@")
     # end __init__
 
 
