@@ -67,7 +67,7 @@ class Constants(Constants.Constants):
     ## Spread definitions - group related
     # AD/Exchange Ansatte
     spread_ad_group_ans = _SpreadCode(
-        'group@ad', Constants.Constants.entity_group,
+        'group@ad_ans', Constants.Constants.entity_group,
         'Gruppe kjent i ansattdomenet i AD ved HiH')
     spread_exchange_group_ans = _SpreadCode(
         'group@ex_ans', Constants.Constants.entity_group,
