@@ -20,7 +20,7 @@
 
 /*
  * This file is a Cerebrum extension. It contains the schema necessary to
- * support SAP-SSØ functionality in Cerebrum.
+ * support SAP-SSÃ˜ functionality in Cerebrum.
  */
 category:metainfo;
 name=sap;
@@ -60,7 +60,7 @@ CREATE TABLE sap_stillingstype
 
 
 /* 
- * sap_lonnstittel -- codes describing employments (SAP.STELL, lønnstittel). 
+ * sap_lonnstittel -- codes describing employments (SAP.STELL, lÃ¸nnstittel). 
  * This is a magic number uniquely identifying the specific position
  * (lecturer, professor, librarian, janitor, etc.) 
  */
@@ -78,5 +78,5 @@ CREATE TABLE sap_lonnstittel
         kategori        CHAR(3)
                         NOT NULL
                         CONSTRAINT lonnstittel_kategori_values 
-                          CHECK kategori IN ('VIT', 'ØVR')
+                          CHECK (kategori IN ('VIT', 'Ã˜VR'))
 );
