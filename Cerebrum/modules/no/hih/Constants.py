@@ -54,14 +54,14 @@ class Constants(Constants.Constants):
         'account@ad_ans', Constants.Constants.entity_account,
         'Brukeren kjent i ansattdomenet i AD ved HiH')
     spread_exchange_account_ans = _SpreadCode(
-        'account@exchange_ans', Constants.Constants.entity_account,
+        'account@ex_ans', Constants.Constants.entity_account,
         'Exchange-enabled account i ansattdomenet ved HiH')
     # AD/Exchange Studenter
     spread_ad_account_stud = _SpreadCode(
         'account@ad_stud', Constants.Constants.entity_account,
         'Brukeren kjent i studentdomenet i AD ved HiH')
     spread_exchange_account_stud = _SpreadCode(
-        'account@exchange_stud', Constants.Constants.entity_account,
+        'account@ex_stud', Constants.Constants.entity_account,
         'Exchange-enabled account i studentdomenet ved HiH')
 
     ## Spread definitions - group related
@@ -70,14 +70,14 @@ class Constants(Constants.Constants):
         'group@ad', Constants.Constants.entity_group,
         'Gruppe kjent i ansattdomenet i AD ved HiH')
     spread_exchange_group_ans = _SpreadCode(
-        'group@exchange_ans', Constants.Constants.entity_group,
+        'group@ex_ans', Constants.Constants.entity_group,
         'Gruppe kjent i ansattdomenet i Exchange ved HiH')       
     # AD/Exchange Studenter
     spread_ad_group_stud = _SpreadCode(
         'group@ad_stud', Constants.Constants.entity_group,
         'Gruppe kjent i studentdomenet i AD ved HiH')
     spread_exchange_group_stud = _SpreadCode(
-        'group@exchange_stud', Constants.Constants.entity_group,
+        'group@ex_stud', Constants.Constants.entity_group,
         'Gruppe kjent i studentdomenet i Exchange ved HiH')       
 
     ## Spread definitions - person related
