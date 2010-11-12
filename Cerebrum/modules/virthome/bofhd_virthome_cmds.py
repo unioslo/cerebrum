@@ -1536,8 +1536,16 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         opset = self._get_opset(opset_name)
         group = self._get_group(gname)
-        return list(self.ba.get_permission_holders_on_groups(
-                        opset.op_set_id, group_id=group.entity_id))
+
+        tmp = list(self.ba.get_permission_holders_on_groups(
+            opset.op_set_id, group_id=group.entity_id))
+        for entry in tmp:
+            account_id = entry["account_id"]
+            entry["owner_name"] = self._get_owner_name(account_id,
+                                                       self.const.human_full_name)
+            entry["email_address"] = self._get_email_address(account_id)
+            
+        return tmp
     # end _opset_account_lister
 
 
