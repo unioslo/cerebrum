@@ -96,7 +96,7 @@ def get_sko((fakultet, institutt, gruppe), system):
                 address_text = addr_street['address_text']
                 if not addr_street['country']:
                     address_text = "\n".join(
-                        filter(None, (ou.short_name, address_text)))
+                        filter(None, (ou.name, address_text)))
                 addr_street = {'address_text': address_text,
                                'p_o_box': addr_street['p_o_box'],
                                'postal_number': addr_street['postal_number'],
