@@ -356,6 +356,28 @@ class BofhdAuth(DatabaseAccessor):
                                            size=500,
                                            timeout=60*60)
 
+    def _get_uname(self, entity_id):
+        """Return a human-friendly representation of entity_id."""
+
+        try:
+            account = Factory.get("Account")(self._db)
+            account.find(int(entity_id))
+            return account.account_name
+        except Errors.NotFoundError:
+            return "id=" + str(entity_id)
+    # end _get_uname
+
+
+    def _get_gname(self, entity_id):
+        try:
+            group = Factory.get("Group")(self._db)
+            group.find(int(entity_id))
+            return group.group_name
+        except Errors.NotFoundError:
+            return "id=" + str(entity_id)
+    # end _get_gname
+        
+
     def is_superuser(self, operator_id, query_run_any=False):
         if operator_id in self._get_group_members(cereconf.BOFHD_SUPERUSER_GROUP):
             return True
@@ -399,7 +421,11 @@ class BofhdAuth(DatabaseAccessor):
                                    entity.entity_id,
                                    operation_attr=operation_attr):
             return True
-        raise PermissionDenied("No access to group")
+
+        raise PermissionDenied("%s has no access to group %s" %
+                               (self._get_uname(operator),
+                                self._get_gname(entity.entity_id)))
+    # end is_group_owner
         
     def is_group_member(self, operator, groupname):
         if operator in self._get_group_members(groupname):
@@ -663,7 +689,12 @@ class BofhdAuth(DatabaseAccessor):
                                         self.const.auth_target_type_group,
                                         group.entity_id, group.entity_id):
             return True
-        raise PermissionDenied("No access to group")
+
+        raise PermissionDenied("%s has no access to group %s" %
+                               (self._get_uname(operator),
+                                group is None and "N/A" or
+                                self._get_gname(group.entity_id)))
+    # end can_alter_group
 
 
     def list_alterable_entities(self, operator, target_type):

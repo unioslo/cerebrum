@@ -5062,8 +5062,8 @@ Addresses and settings:
                 pu = PosixUser.PosixUser(self.db)
                 pu.find(member.entity_id)
                 if pu.gid_id == group.entity_id:
-                    raise CerebrumError, ("Can't remove %s from primary group" %
-                                          member_name)
+                    raise CerebrumError("Can't remove %s from primary group %s" %
+                                        (member_name, group.group_name))
             except Errors.NotFoundError:
                 pass
         try:
