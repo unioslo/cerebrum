@@ -72,10 +72,11 @@ def write_person_info(outfile):
     cols, student = _ext_cols(fs.student.list_eksamensmeldinger())
     for s in student:
         f.write(xml.xmlify_dbrow(s, xml.conv_colnames(cols), 'eksamen') + "\n")
-    # EVU-studenter ved HIH
-    cols, student = _ext_cols(fs.evu.list())
-    for e in student:
-        f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
+     # EVU-studenter ved HIH
+     # For now, HiH does not want to import information about EVU students
+     # cols, student = _ext_cols(fs.evu.list())
+     # for e in student:
+     #     f.write(xml.xmlify_dbrow(e, xml.conv_colnames(cols), 'evu') + "\n")
 
     f.write("</data>\n")
     f.close()
