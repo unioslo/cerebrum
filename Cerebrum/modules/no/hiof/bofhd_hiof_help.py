@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2008 University of Oslo, Norway
+# Copyright 2003-2010 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -161,8 +161,8 @@ command_help = {
     'user_affiliation_remove': 'Remove an affiliation for an account',
     'user_create': 'Create a user account',
     'user_delete': 'Delete an account',
-    'user_delete_ad_attrs': 'Delete ad attributes for a user',
     'user_list_ad_attrs': 'View ad attributes for a user',
+    'user_remove_ad_attrs': 'Delete ad attributes for a user',
     'user_find': 'Search for users',
     'user_history': "Show history of the account with uname. Limited to users subordinate to a privilege group the BOFH user is a member of",
     'user_info': 'View general information about an account',
