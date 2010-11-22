@@ -27,11 +27,22 @@ public class XMLUtil {
 
     public void writeElement(String element, String data) {
         if(data == null) data = "";
-        xmlData.append("<" + element + ">" + data + "</" + element + ">\n");
+        xmlData.append("<" + element + ">" + xmlify(data) + "</" + element + ">\n");
     }
 
     public String toString() {
         return xmlData.toString() /* .replaceAll("\n", "") */;
+    }
+
+    protected String xmlify(String data) {
+	// Not very clever, but this class is kind of silly anyway.
+	// We need to escape certain characters in xml data.
+	data = data.replaceAll("&", "&amp;");
+	data = data.replaceAll("<", "&lt;");
+	data = data.replaceAll(">", "&gt;");
+	data = data.replaceAll("\"", "&quot;");
+	data = data.replaceAll("'", "&#39;");
+	return data;
     }
 
     public static boolean equals(Object a, Object b) {
