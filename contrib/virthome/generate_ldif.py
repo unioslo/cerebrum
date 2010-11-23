@@ -189,7 +189,7 @@ class LDIFHelper(object):
             if users[account_id]["np_type"] != self.const.virtaccount_type:
                 continue
             
-            users[account_id]["userPassword"] = (row["auth_data"],)
+            users[account_id]["userPassword"] = ("{crypt}" + row["auth_data"],)
         return users
     # end _get_password_info
 
