@@ -247,7 +247,7 @@ class LDIFHelper(object):
                    "email": (attrs["email"],),
                    "objectClass": ldapconf("USER", "objectClass"),}
 
-            for key in ("cn", "sn", "givenName", "userPassword", "membership",):
+            for key in ("cn", "sn", "givenName", "userPassword", "uioMemberOf",):
                 if key in attrs:
                     tmp[key] = _mangle(attrs[key])
 
