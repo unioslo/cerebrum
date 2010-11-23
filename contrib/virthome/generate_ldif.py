@@ -189,7 +189,7 @@ class LDIFHelper(object):
                 continue
 
             gname = self._gname2dn(self.groups[group_id]["name"])
-            users[account_id].setdefault("membership", list()).append(gname)
+            users[account_id].setdefault("uioMemberOf", list()).append(gname)
         return users
     # end _get_membership_info
 
