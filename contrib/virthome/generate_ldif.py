@@ -40,6 +40,24 @@ from Cerebrum import Errors
 
 
 
+
+def object2utf8(obj):
+    """Force all string-like values in obj to be utf-8 encoded."""
+    
+    if isinstance(obj, str):
+        return unicode(obj, "latin-1").encode("utf-8")
+    if isinstance(obj, unicode):
+        return obj.encode("utf-8")
+    if isinstance(obj, (tuple, list, set)):
+        return type(obj)(object2utf8(x) for x in obj)
+    if isinstance(obj, dict):
+        return dict((object2utf8(key), object2utf8(obj[key]))
+                    for key in obj)
+    return obj
+# end object2utf8
+
+
+
 class LDIFHelper(object):
     """Utility class for common functionality in LDIF exports. 
     """
@@ -211,6 +229,10 @@ class LDIFHelper(object):
                      "objectClass": ldapconf("GROUP", "objectClass"),
                      "description": (gi["description"],),}
             entry.update(self._get_member_info(group_id, group))
+            if not entry.get("member"):
+                continue
+
+            entry = object2utf8(entry)
             yield entry
     # end _extend_group_information
 
@@ -255,6 +277,7 @@ class LDIFHelper(object):
                 if key in attrs:
                     tmp[key] = _mangle(attrs[key])
 
+            tmp = object2utf8(tmp)
             yield tmp
     # end generate_users
 # end UserLDIF
