@@ -115,25 +115,10 @@ class LDIFHelper(object):
     def _get_contact_info(self, users):
         """Update users with name and e-mail data."""
 
-
-        def _mangle(account_id, contact_type, contact_value, users):
-            if contact_type not in (self.const.human_first_name, 
-                                    self.const.human_last_name,
-                                    self.const.human_full_name):
-                return contact_value
-
-            account_type = users.get(account_id, {}).get("np_type")
-            if account_type == self.const.virtaccount_type:
-                return contact_value + " (unverified)"
-
-            return contact_value
-        # end _mangle
-        
         account = Factory.get("Account")(self.db)
         contact2tag = {self.const.virthome_contact_email: "email",
                        self.const.human_first_name: "givenName",
-                       self.const.human_last_name: "sn",
-                       self.const.human_full_name: "cn",}
+                       self.const.human_last_name: "sn",}
                 
         logger.debug("Collecting email/name info for LDAP export")
         for eci in account.list_contact_info(
@@ -144,10 +129,29 @@ class LDIFHelper(object):
                 continue
 
             contact_type = int(eci["contact_type"])
-            contact_value = _mangle(account_id, contact_type,
-                                    eci["contact_value"], users)
+            contact_value = eci["contact_value"]
             tag = contact2tag[contact_type]
             users[account_id][tag] = contact_value
+
+        logger.debug("Calculating cn and adjusting VA names")
+        suffix = " (unverified)"
+        for account_id in users:
+            vals = users[account_id]
+            first = vals.get("givenName") or ""
+            last = vals.get("sn") or ""
+            if not first and not last:
+                full = vals["uname"]
+            else:
+                full = " ".join((first, last))
+
+            if vals["np_type"] == self.const.virtaccount_type:
+                first = first + suffix
+                last = last + suffix
+                full = full + suffix
+
+            vals["givenName"] = first
+            vals["sn"] = last
+            vals["cn"] = full
             
         return users
     # end _get_contact_info
