@@ -116,7 +116,7 @@ class LDIFHelper(object):
         """Update users with name and e-mail data."""
 
         account = Factory.get("Account")(self.db)
-        contact2tag = {self.const.virthome_contact_email: "email",
+        contact2tag = {self.const.virthome_contact_email: "mail",
                        self.const.human_first_name: "givenName",
                        self.const.human_last_name: "sn",}
                 
@@ -248,7 +248,7 @@ class LDIFHelper(object):
             attrs = self.users[user_id]
             tmp = {"dn": (self._uname2dn(attrs["uname"]),),
                    "uid": (attrs["uname"],),
-                   "email": (attrs["email"],),
+                   "mail": (attrs["mail"],),
                    "objectClass": ldapconf("USER", "objectClass"),}
 
             for key in ("cn", "sn", "givenName", "userPassword", "uioMemberOf",):
