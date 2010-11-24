@@ -270,6 +270,7 @@ class LDIFHelper(object):
             attrs = self.users[user_id]
             tmp = {"dn": (self._uname2dn(attrs["uname"]),),
                    "uid": (attrs["uname"],),
+                   "eduPersonPrincipalName": (attrs["uname"],),
                    "mail": (attrs["mail"],),
                    "objectClass": ldapconf("USER", "objectClass"),}
 
