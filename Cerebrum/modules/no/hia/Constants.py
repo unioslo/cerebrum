@@ -215,11 +215,11 @@ class Constants(Constants.Constants):
 
 ## Definisjon av traits
     trait_accept_nondisc = _EntityTraitCode(
-        'accept_non_disclosure',
+        'acc_non_disc',
         Constants.Constants.entity_person,
         "Trait marking a person who has accepted a non-disclosure agreement with UiA.")
     trait_reject_nondisc = _EntityTraitCode(
-        'reject_non_disclosure',
+        'rej_non_disc',
         Constants.Constants.entity_person,
         "Trait marking a person who has rejected a non-disclosure agreement with UiA.")
 ## Kommenteres ut foreløpig, er usikkert om vi skal ha dem 
