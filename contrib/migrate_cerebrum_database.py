@@ -47,6 +47,7 @@ targets = {
     'posixuser': ('posixuser_1_0', 'posixuser_1_1', ),
     'dns': ('dns_1_0', 'dns_1_1', 'dns_1_2'),
     'sap': ('sap_1_0', 'sap_1_1',),
+    'printer_quota': ('printer_quota_1_1', 'printer_quota_1_2',),
     }
 
 # Global variables
@@ -907,6 +908,16 @@ def migrate_to_sap_1_1():
     db.commit()
     print "Migration to SAP 1.1 completed successfully"
 # end migrate_to_sap_1_1
+
+
+def migrate_to_printer_quota_1_2():
+    print "\ndone."
+    assert_db_version("1.1", component='printer_quota')
+    makedb('printer_quota_1_2', 'pre')
+    meta = Metainfo.Metainfo(db)
+    meta.set_metainfo("sqlmodule_printer_quota", "1.2")
+    print "Migration to printer_quota 1.2 completed successfully"
+    db.commit()
 
 
 def init():
