@@ -379,7 +379,8 @@ class PaidPrinterQuotas(DatabaseAccessor):
 
     def get_history(self, job_id=None, person_id=None, tstamp=None,
                     target_job_id=None, before=None, after_job_id=None,
-                    transaction_type=None):
+                    transaction_type=None, priss_queue_id=None, printer_queue=None,
+                    job_name=None):
         # In theory we could have one big LEFT JOIN search, but there
         # is a chance that it would give us a performance hit with
         # +1 million records in the database
@@ -389,8 +390,12 @@ class PaidPrinterQuotas(DatabaseAccessor):
                  'person_id': person_id,
                  'tstamp': tstamp,
                  'before': before,
-                 'target_job_id': target_job_id}
+                 'target_job_id': target_job_id,
+                 'priss_queue_id': priss_queue_id,
+                 'printer_queue': printer_queue,
+                 'job_name': job_name}
         where = []
+        print_only = False
         if isinstance(person_id, str) and person_id == 'NULL':   # TODO: We need a generic way for this
             where.append("person_id is NULL")            
         elif person_id:
@@ -407,19 +412,32 @@ class PaidPrinterQuotas(DatabaseAccessor):
             where.append("tstamp >= :tstamp")
         if before:
             where.append("tstamp < :before")
+        if priss_queue_id:
+            where.append("priss_queue_id = :priss_queue_id")
+            print_only = True
+        if printer_queue:
+            where.append("printer_queue = :printer_queue")
+            print_only = True
+        if job_name:
+            where.append("job_name like :job_name")
+            print_only = True
         if where:
             where = "AND "+" AND ".join(where)
         else:
             where = ""
-        ret = [r for r in self.query(
-            """SELECT pqh.job_id, transaction_type, person_id, tstamp,
-                  update_by, update_program, pageunits_free,
-                  pageunits_paid, pageunits_accum, pageunits_total,
-                  target_job_id, description, bank_id, kroner, payment_tstamp
-            FROM [:table schema=cerebrum name=paid_quota_history] pqh,
-                 [:table schema=cerebrum name=paid_quota_transaction] pqt
-            WHERE pqh.job_id=pqt.job_id %s""" % where, binds,
-            fetchall=False)]
+
+        if print_only:
+            ret = []
+        else:
+            ret = [r for r in self.query(
+                """SELECT pqh.job_id, transaction_type, person_id, tstamp,
+                      update_by, update_program, pageunits_free,
+                      pageunits_paid, pageunits_accum, pageunits_total,
+                      target_job_id, description, bank_id, kroner, payment_tstamp
+                FROM [:table schema=cerebrum name=paid_quota_history] pqh,
+                     [:table schema=cerebrum name=paid_quota_transaction] pqt
+                WHERE pqh.job_id=pqt.job_id %s""" % where, binds,
+                fetchall=False)]
 
         if not target_job_id:
             for r in self.query(
