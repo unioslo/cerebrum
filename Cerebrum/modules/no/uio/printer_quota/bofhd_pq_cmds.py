@@ -194,7 +194,9 @@ class BofhdExtension(BofhdCommandBase):
                 'pquota_undo':
                     'Undo a whole, or part of a job',
                 'pquota_job_info':
-                    'Show details about a job'
+                    'Show details about a job',
+                'pquota_find':
+                    'Search for job'
                 },
             }
 
@@ -218,7 +220,9 @@ The currently defined id-types are:
                 ['why', 'Why',
                  'Why do you want to undo this job?'],
             'int_when':
-                ['when', 'Number of past days']
+                ['when', 'Number of past days'],
+            'pquota_find_terms':
+                ['terms', 'PRISS QID']
             }
         return (group_help, command_help,
                 arg_help)
@@ -486,6 +490,128 @@ The currently defined id-types are:
             if ret.has_key(c):
                 ret[c] = str(ret[c])
         ret['transaction_type'] = self.tt_mapping[ret['transaction_type']]
+        return ret
+
+    all_commands['pquota_find'] = Command(
+    ("pquota", "find"), SimpleString(help_ref='pquota_find_terms'),
+    perm_filter='can_pquota_list_history',
+    fs=FormatSuggestion("%8i %-7s %16s %-10s %-20s %5i %6i %5i %6.2f",
+                        ('job_id', 'transaction_type',
+                         format_time('tstamp'), 'update_by',
+                         'data', 'pageunits_free', 'pageunits_accum',
+                         'pageunits_paid', 'kroner'),
+                        hdr="%-8s %-7s %-16s %-10s %-20s %-5s %-6s %-5s %s" %
+                        ("JobId", "Type", "When", "By", "Data", "#Free",
+                         "#Afree", "#Paid", "Kroner")))
+    def pquota_find(self, operator, *terms):
+        """Look up in history"""
+        from mx.DateTime import DateTime, DateTimeDeltaFromSeconds, ISO
+        if len(terms) == 0:
+            raise CerebrumError("Please enter one or more search terms")
+        # Case one: lookup a PRISS QID (priss_queue_id)
+        if len(terms) == 1:
+            binds = [('qid', terms[0])]
+        elif len(terms) % 2 != 0:
+            raise CerebrumError("Syntax error")
+        else:
+            binds = zip(terms[0::2], terms[1::2])
+        
+        keys = {
+                'qid': 'priss_queue_id',
+                'prissqid': 'priss_queue_id',
+                'owner': 'person_id',
+                'after': 'tstamp',
+                'before': 'before',
+                'succeeding': 'after_job_id',
+                'target': 'target_job_id',
+                'queue': 'printer_queue',
+                'printer': 'printer_queue',
+                'jobname': 'job_name',
+                'name': 'job_name'
+                }
+        indices = set(['priss_queue_id', 'person_id', 'target_job_id'])
+        args = dict()
+        found_index = False
+        for i, j in binds:
+            try:
+                if not found_index and keys[i] in indices:
+                    found_index = True
+                args[keys[i]] = j
+            except KeyError:
+                raise CerebrumError("Key type %s unknown, select one of {%s}" %
+                        (i, ", ".join(sorted(keys.keys()))))
+        if not found_index:
+            raise CerebrumError("Please use one of the indexed keys: {qid, owner, target}")
+
+        min_date = time.time() - cereconf.PQ_MAX_LIGHT_HISTORY_WHEN*24*3600
+        min_date = DateTime(*(time.localtime(min_date)[:3]))
+        if not 'tstamp' in args:
+            args['tstamp'] = min_date
+            check_perms = self.ba.can_pquota_list_history
+        else:
+            tmptime = ISO.ParseAny(args['tstamp'])
+            if tmptime < min_date:
+                check_perms = self.ba.can_pquota_list_history
+            else:
+                check_perms = self.ba.can_pquota_list_extended_history
+
+        person_id = None
+        if 'person_id' in args:
+            person_id = args['person_id']
+            if person_id == 'NULL':
+                person_id = None
+            else:
+                args['person_id'] = person_id = self.bu.find_person(person_id)
+                self.bu.get_pquota_status(person_id)
+                check_perms(operator, person_id)
+        ret = []
+        ppq = PaidPrinterQuotas.PaidPrinterQuotas(self.db)
+        for row in ppq.get_history(**args):
+            t = row.dict()
+            t['transaction_type'] = self.tt_mapping[int(t['transaction_type'])]
+            if t['update_by']:
+                t['update_by'] = self.bu.get_uname(int(t['update_by']))
+            tstamp = t['tstamp']
+
+            if person_id is None and not check_perms(operator, t['person_id'], query_run_any=True):
+                continue
+
+            trace = t.get('trace', '') or ""
+            # Only consider the last hop of the trace.
+            if trace.count(","):
+                trace = trace.split(",")[-1]
+            # Ignore trace values including space, they're on the
+            # obsoleted human-readable format.
+            if trace.count(":") and not trace.count(" "):
+                # TODO: what is this code supposed to do? last_event
+                # is not defiend. Fix!
+                time_t = int(last_event.split(":")[-1])
+                tstamp = DateTime(1970) + DateTimeDeltaFromSeconds(time_t)
+                tstamp += tstamp.gmtoffset()
+            tmp = {
+                'job_id': t['job_id'],
+                'transaction_type': t['transaction_type'],
+                'tstamp': tstamp,
+                'pageunits_free': t['pageunits_free'],
+                'pageunits_accum': t['pageunits_accum'],
+                'pageunits_paid': t['pageunits_paid'],
+                'kroner': float(t['kroner'])}
+            if not t['update_by']:
+                t['update_by'] = t['update_program']
+            tmp['update_by'] = t['update_by'][:10]
+            if t['transaction_type'] == str(self.const.pqtt_printout):
+                tmp['data'] = (
+                    "%s:%s" % (t['printer_queue'][:10], t['job_name']))[:20]
+            elif t['transaction_type'] == str(self.const.pqtt_quota_fill_pay):
+                tmp['data'] = "%s:%s kr" % (t['description'][:10], t['kroner'])
+            elif t['transaction_type'] == str(self.const.pqtt_quota_fill_free):
+                tmp['data'] = t['description']
+            elif t['transaction_type'] == str(self.const.pqtt_undo):
+                tmp['data'] = ("undo %s: %s" % (t['target_job_id'],
+                                                t['description']))[:20]
+            elif t['transaction_type'] == str(self.const.pqtt_balance):
+                tmp['data'] = "balance"
+            ret.append(tmp)
         return ret
 
     all_commands['pquota_off'] = Command(
