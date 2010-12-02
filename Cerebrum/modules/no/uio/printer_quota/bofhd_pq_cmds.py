@@ -539,13 +539,13 @@ The currently defined id-types are:
                 args[keys[i]] = j
             except KeyError:
                 raise CerebrumError("Key type %s unknown, select one of {%s}" %
-                        (i, ", ".join(sorted(keys.keys()))))
+                        (i, ", ".join(sorted(keys))))
         if not found_index:
             raise CerebrumError("Please use one of the indexed keys: {qid, owner, target}")
 
         min_date = time.time() - cereconf.PQ_MAX_LIGHT_HISTORY_WHEN*24*3600
         min_date = DateTime(*(time.localtime(min_date)[:3]))
-        if not 'tstamp' in args:
+        if 'tstamp' not in args:
             args['tstamp'] = min_date
             check_perms = self.ba.can_pquota_list_history
         else:
@@ -576,18 +576,6 @@ The currently defined id-types are:
             if person_id is None and not check_perms(operator, t['person_id'], query_run_any=True):
                 continue
 
-            trace = t.get('trace', '') or ""
-            # Only consider the last hop of the trace.
-            if trace.count(","):
-                trace = trace.split(",")[-1]
-            # Ignore trace values including space, they're on the
-            # obsoleted human-readable format.
-            if trace.count(":") and not trace.count(" "):
-                # TODO: what is this code supposed to do? last_event
-                # is not defiend. Fix!
-                time_t = int(last_event.split(":")[-1])
-                tstamp = DateTime(1970) + DateTimeDeltaFromSeconds(time_t)
-                tstamp += tstamp.gmtoffset()
             tmp = {
                 'job_id': t['job_id'],
                 'transaction_type': t['transaction_type'],
