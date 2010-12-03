@@ -588,7 +588,9 @@ class BofhdUtils(object):
             if len(found) == 0:
                 raise CerebrumError, "No person with fnr %s" % id
             if len(found) > 1:
-                raise CerebrumError, "More than one person with fnr %s found" % id
+                raise CerebrumError("More than one person with fnr %s found "
+                                    "(all ids: %s)" % (id, ", ".join(str(x)
+                                                                     for x in found)))
             person.clear()
             person.find(found[0])
             return person
