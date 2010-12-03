@@ -940,7 +940,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         fs=FormatSuggestion("Username:      %s\n"
                             "Confirmation:  %s\n"
                             "E-mail:        %s\n"
-                            "Owner:         %s\n"
+                            "First name:    %s\n"
+                            "Last name:     %s\n"
                             "Spreads:       %s\n"
                             "Traits:        %s\n"
                             "Expire:        %s\n"
@@ -953,7 +954,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                ("username",
                 "confirmation",
                 "email_address",
-                "humanname",
+                "first_name",
+                "last_name",
                 "spread",
                 "trait",
                 "expire",
@@ -990,8 +992,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                account.get_contact_info(self.const.system_virthome,
                                                         self.const.virthome_contact_email))
                        or "N/A",
-                  "humanname": self._get_owner_name(account,
-                                                    self.const.human_full_name),
+                  "first_name": self._get_owner_name(account,
+                                                    self.const.human_first_name),
+                  "last_name": self._get_owner_name(account,
+                                                    self.const.human_last_name),
                   "spread":  self._get_entity_spreads(account.entity_id)
                              or "<not set>",
                   "trait": list(str(self.const.EntityTrait(x).description)
