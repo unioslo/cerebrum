@@ -1628,6 +1628,23 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end group_change_owner
 
 
+    all_commands["group_change_description"] = Command(
+        ("group", "change_description"),
+        GroupName(),
+        SimpleString())
+    def group_change_description(self, operator, gname, description):
+        """Change gname's description."""
+
+        group = self._get_group(gname)
+        self.ba.can_change_description(operator.get_entity_id(), group.entity_id)
+        old, new = group.description, description
+        group.description = description
+        group.write_db()
+        return "OK, changed %s (id=%s) description '%s' -> '%s'" % (
+            group.group_name, group.entity_id, old, new)
+    # end group_change_description
+    
+
 
     all_commands["group_invite_moderator"] = Command(
         ("group", "invite_moderator"),

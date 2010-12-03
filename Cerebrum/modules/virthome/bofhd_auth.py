@@ -334,16 +334,28 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
 
 
     def can_change_owners(self, account_id, group_id):
-        """Can an account change (add/remove) moderators from a group?
+        """Can an account change group_id's owner?
 
-        Group owners and moderators are allowed to alter moderator lists.
+        Group owners are allowed to change owners.
         """
 
-        # can_delete_group() is available for owner/moderators only.
+        # can_delete_group() is available for owners only.
         return self.can_delete_group(account_id, group_id)
     # end can_change_moderators
 
 
+
+    def can_change_description(self, account_id, group_id):
+        """Can an account change group_id's description?
+
+        Group owners are allowed to change description.
+        """
+
+        # can_delete_group() is available for owners only.
+        return self.can_delete_group(account_id, group_id)
+    # end can_change_moderators
+
+    
 
     def can_manipulate_spread(self, account_id, entity_id):
         """Can an account change entity_id's spreads?
