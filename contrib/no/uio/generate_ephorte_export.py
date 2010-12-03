@@ -308,7 +308,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
         try:
             arkivdel = str(co.EphorteArkivdel(row['arkivdel']))
             journalenhet = str(co.EphorteJournalenhet(row['journalenhet']))
-        except TypeError, Errors.NotFoundError:
+        except (TypeError, Errors.NotFoundError):
             logger.warn("Wrong arkivdel or journalenhet. Skipping this role %s" % row)
             continue
 
