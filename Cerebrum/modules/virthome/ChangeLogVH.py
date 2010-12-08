@@ -176,8 +176,7 @@ class ChangeLogVH(ChangeLog):
         return self.query("""
         SELECT cl.*, pcl.confirmation_key
         FROM [:table schema=cerebrum name=change_log] cl
-        LEFT OUTER JOIN 
-          [:table schema=cerebrum name=pending_change_log] pcl
+        JOIN [:table schema=cerebrum name=pending_change_log] pcl
           ON cl.change_id = pcl.change_id
         %s
         """ % where_str, binds)
