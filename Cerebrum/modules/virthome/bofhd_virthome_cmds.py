@@ -290,7 +290,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     
 
 
-    def __process_group_invitation_request(self, issuer_id, event):
+    def __process_group_invitation_request(self, invitee_id, event):
         """Perform the necessary magic associated with letting an account join
         a group.
         """
@@ -298,13 +298,12 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         params = event["change_params"]
         group_id = int(params["group_id"])
-        inviter_id = int(params["issuer_id"])
-        # FIXME: as a precaution, check invitee_mail against issuer_id's
-        # email? They ought to match...
+        inviter_id = int(params["inviter_id"])
         invitee_mail = params["invitee_mail"]
 
         group = self._get_group(group_id)
-        member = self._get_account(issuer_id)
+        assert group.entity_id == int(event["subject_entity"])
+        member = self._get_account(invitee_id)
         if member.np_type not in (self.const.virtaccount_type,
                                   self.const.fedaccount_type):
             raise CerebrumError("Account %s (type %s) cannot join groups." %
@@ -349,6 +348,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         new_owner = self._get_account(issuer_id)
         old_owner = self._get_account(params["old"])
         group = self._get_group(params["group_id"])
+        assert group.entity_id == int(event["subject_entity"])
 
         self.ba.can_own_group(new_owner.entity_id)
         self.ba.can_change_owners(old_owner.entity_id, group.entity_id)
@@ -387,6 +387,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         new_moderator = self._get_account(issuer_id)
         inviter = self._get_account(params["inviter_id"])
         group = self._get_group(params["group_id"])
+        assert group.entity_id == int(event["subject_entity"])
 
         self.ba.can_moderate_group(new_moderator.entity_id)
 
@@ -1619,7 +1620,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(gname)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
-        magic_key = self.__setup_request(operator.get_entity_id(),
+        magic_key = self.__setup_request(group.entity_id,
                                          self.const.va_group_owner_swap,
                                          params={"old": operator.get_entity_id(),
                                                  "group_id": group.entity_id,
@@ -1658,11 +1659,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_moderate_group(operator.get_entity_id())
         self.ba.can_change_moderators(operator.get_entity_id(), group.entity_id)
 
-        magic_key = self.__setup_request(operator.get_entity_id(),
+        magic_key = self.__setup_request(group.entity_id,
                                          self.const.va_group_moderator_add,
                                          params={"inviter_id": operator.get_entity_id(),
                                                  "group_id": group.entity_id,
-                                                 "new": email,})
+                                                 "invitee_mail": email,})
         return {"confirmation_key": magic_key}
     # end group_invite_moderator
 
@@ -1673,7 +1674,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         AccountName(),
         GroupName())
     def group_remove_moderator(self, operator, moderator, gname):
-        """L{group_add_moderator}'s counterpart.
+        """L{group_invite_moderator}'s counterpart.
         """
 
         group = self._get_group(gname)
@@ -1711,15 +1712,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # If you can't add members, you can't invite...
         self.ba.can_add_to_group(operator.get_entity_id(), group.entity_id)
 
-        # FIXME: validate e-mail
-        magic_key = self.__setup_request(operator.get_entity_id(),
+        magic_key = self.__setup_request(group.entity_id,
                                          self.const.va_group_invitation,
-                                         {"issuer_id": operator.get_entity_id(),
+                                         {"inviter_id": operator.get_entity_id(),
                                           "group_id": group.entity_id,
                                           "invitee_mail": email,})
         return {"confirmation_key": magic_key}
     # end group_invite_user
-    
 
 
     all_commands["group_info"] = Command(
@@ -1734,6 +1733,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                             "Moderator(s): %s\n"
                             "Owner:        %s\n"
                             "Member(s):    %s\n"
+                            "Pending (mod) %s\n"
+                            "Pending (mem) %s\n"
                             "Resource:     %s",
                             ("group_name",
                              "expire",
@@ -1744,6 +1745,8 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                              "moderator",
                              "owner",
                              "member",
+                             "pending_moderator",
+                             "pending_member",
                              "url",)))
     def group_info(self, operator, gname):
         """Fetch basic info about a specific group.
@@ -1762,8 +1765,13 @@ class BofhdVirthomeCommands(BofhdCommandBase):
                                                           "group-moderator"),
                   "owner": self._opset_account_lister(gname,
                                                       "group-owner"),
-                  "url": self._get_group_resource(group)}
-
+                  "url": self._get_group_resource(group),
+                  "pending_moderator": self.__load_group_pending_events(
+                                                  group,
+                                                  self.const.va_group_moderator_add),
+                  "pending_member": self.__load_group_pending_events(
+                                                  group,
+                                                  self.const.va_group_invitation), }
         members = dict()
         for row in group.search_members(group_id=group.entity_id,
                                         indirect_members=False):
@@ -1778,6 +1786,35 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     # end group_info
 
 
+
+    def __load_group_pending_events(self, group, event_types):
+        """Load inconfirmed invitations associated with group.
+
+        This is a help function for colleting such things as unconfirmed
+        moderator invitations or requests to join group.
+        """
+
+        result = list()
+        for row in self.db.get_pending_events(subject_entity=group.entity_id,
+                                              types=event_types):
+            magic_key = row["confirmation_key"]
+            request = self.__get_request(magic_key)
+            params = request["change_params"]
+            entry = {"invitee_mail": params["invitee_mail"],
+                     "timestamp": row["tstamp"].strftime("%F %T"),}
+            try:
+                inviter = self._get_account(params["inviter_id"])
+                inviter = inviter.account_name
+            except (Errors.NotFoundError, CerebrumError, KeyError):
+                inviter = None
+
+            entry["inviter"] = inviter
+            result.append(entry)
+
+        return result
+    # end __load_group_pending_events
+
+    
 
     all_commands["user_virtaccount_create"] = Command(
             ("user", "virtaccount_create"),
