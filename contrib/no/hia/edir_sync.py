@@ -21,18 +21,13 @@
 
 # sync account info and group memberships
 # probably a temporary solution
-import sys, os, getopt, time, string, pickle, re, ldap, ldif
+import sys, time, pickle
 
 import cerebrum_path
 import cereconf
-from Cerebrum import Constants
 from Cerebrum.modules.no.hia import EdirUtils
 from Cerebrum.modules.no.hia import EdirLDAP
 from Cerebrum import Errors
-from Cerebrum import Group
-from Cerebrum import Entity
-from Cerebrum.Constants import _SpreadCode
-from Cerebrum.extlib import logging
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import CLHandler
 
