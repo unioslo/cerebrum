@@ -201,8 +201,8 @@ def write_mail_dns():
         for arg in cereconf.LDAP_MAIL_DNS['dig_args']:
             zone = arg[0]
             if domain.endswith(zone) and not (domain in hosts_only_mx or
-               domain in hosts):
-                logger.warn("email domain without MX defined: %s" % domain)
+                                              domain in hosts):
+                logger.error("email domain without MX defined: %s" % domain)
         # Valid email domains only requires MX
         if domain in hosts_only_mx:
             del hosts_only_mx[domain]
