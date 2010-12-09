@@ -88,7 +88,7 @@ def _person_account_make_dn(account_id):
                            cereconf.NW_LDAP_STUDOU,
                            cereconf.NW_LDAP_ROOT)
     dn = unicode(tmp, 'iso-8859-1').encode('utf-8')
-    return dn
+    return account.account_name, dn
 
 
 def _is_employee(owner_id):
@@ -316,12 +316,19 @@ def main():
             if event['change_type_id'] == constants.spread_add:
                 s = pickle.loads(event['change_params'])['spread']
                 if s == int(constants.spread_hia_novell_user):
-                    dn =  _person_account_make_dn(event['subject_entity'])
+                    uname, dn = _person_account_make_dn(event['subject_entity'])
                     tmp_attrs = account_make_attrs(event['subject_entity'])
                     if tmp_attrs:
-                        edir_util.object_edir_create(dn, tmp_attrs)
-                        time.sleep(1)
-            elif event['change_type_id'] in [constants.person_name_add, constants.person_name_mod]:
+                        # Check if user exists first
+                        if edir_util._find_object(uname, edir_util.c_person):
+                            logger.debug("Account %s already extist in Edir." %
+                                         uname)
+                        else:
+                            edir_util.object_edir_create(dn, tmp_attrs)
+                            time.sleep(1)
+                        
+            elif event['change_type_id'] in [constants.person_name_add,
+                                             constants.person_name_mod]:
                 person_mod_names(event['subject_entity'])
             cl_handler.confirm_event(event)
     except TypeError, e:
