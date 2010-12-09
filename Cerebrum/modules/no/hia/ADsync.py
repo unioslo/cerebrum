@@ -483,104 +483,78 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         changelist = []     
 
-        for usr, dta in adusrs.iteritems():
+        for usr, ad_user in adusrs.iteritems():
             changes = {}        
             if cerebrumusrs.has_key(usr):
+                cere_user = cerebrumusrs[usr]
                 #User is both places, we want to check correct data.
-
                 #Checking for correct OU.
                 ou = cerebrumusrs.get("OU", self.get_default_ou())
-                if adusrs[usr]['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
+                if ad_user['distinguishedName'] != 'CN=%s,%s' % (usr,ou):
                     changes['type'] = 'move_object'
                     changes['OU'] = ou
-                    changes['distinguishedName'] = \
-                                adusrs[usr]['distinguishedName']
+                    changes['distinguishedName'] = ad_user['distinguishedName']
                     #Submit list and clean.
                     changelist.append(changes)
                     changes = {}
 
                 for attr in cereconf.AD_ATTRIBUTES:            
                     #Catching special cases.
-                    # xmlrpclib appends chars [' and '] to 
-                    # this attribute for some reason
                     if attr == 'msExchPoliciesExcluded':
-                        if adusrs[usr].has_key('msExchPoliciesExcluded'):
-                            tempstring = str(adusrs[usr]
-                                             ['msExchPoliciesExcluded']).replace("['","")
-                            tempstring = tempstring.replace("']","")
-                            if  (tempstring == cerebrumusrs[usr]
-                                 ['msExchPoliciesExcluded']):
-                                pass
-                            else:
-                                changes['msExchPoliciesExcluded'] = \
-                                    cerebrumusrs[usr]['msExchPoliciesExcluded']
-                        else:
-                            changes['msExchPoliciesExcluded'] = \
-                                cerebrumusrs[usr]['msExchPoliciesExcluded']
+                        # xmlrpclib appends chars [' and '] to 
+                        # this attribute for some reason
+                        tmpstring = str(ad_user[attr]).replace("['","")
+                        tmpstring = tmpstring.replace("']","")
+                        if attr not in ad_user or tmpstring != cere_user[attr]:
+                            changes[attr] = cere_user[attr]
                     #only change these attributes if forward sync has been run
                     elif attr in ('altRecipient', 'deliverAndRedirect'):
                         if forwarding_sync:
-                            if cerebrumusrs[usr].has_key(attr) and \
-                                   adusrs[usr].has_key(attr):
-                                if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
-                                    changes[attr] = cerebrumusrs[usr][attr]
-                            else:
-                                if cerebrumusrs[usr].has_key(attr):
-                                    if cerebrumusrs[usr][attr] != "": 
-                                        changes[attr] = cerebrumusrs[usr][attr] 
-                                elif adusrs[usr].has_key(attr):
-                                    changes[attr] = ''      
-                            
+                            if (attr in cere_user and attr in ad_user and
+                                ad_user[attr] != cere_user[attr]):
+                                changes[attr] = cere_user[attr]
+                            elif attr in cere_user and cere_user[attr] != "":
+                                changes[attr] = cere_user[attr]
+                            elif attr in ad_user:
+                                changes[attr] = ''                            
                     #Treating general cases
                     else:
-                        if cerebrumusrs[usr].has_key(attr) and \
-                               adusrs[usr].has_key(attr):
-                            if isinstance(cerebrumusrs[usr][attr], (list)):
+                        if attr in cere_user and attr in ad_user:
+                            if isinstance(cere_user[attr], (list)):
                                 # Multivalued, it is assumed that a
                                 # multivalue in cerebrumusrs always is
                                 # represented as a list.h
-                                if (isinstance(adusrs[usr][attr],
+                                if (isinstance(ad_user[attr],
                                                (str,int,long,unicode))):
                                     #Transform single-value to a list for comp.
                                     val2list = []
-                                    val2list.append(adusrs[usr][attr])
-                                    adusrs[usr][attr] = val2list
+                                    val2list.append(ad_user[attr])
+                                    ad_user[attr] = val2list
                                 
                                 #sort and compare
-                                cerebrumusrs[usr][attr].sort()
-                                adusrs[usr][attr].sort()
-                                if cerebrumusrs[usr][attr] != adusrs[usr][attr]:
-                                    changes[attr] = cerebrumusrs[usr][attr]
-
+                                cere_user[attr].sort()
+                                ad_user[attr].sort()
+                                if cere_user[attr] != ad_user[attr]:
+                                    changes[attr] = cere_user[attr]
                             else:
-                                if adusrs[usr][attr] != cerebrumusrs[usr][attr]:
-                                    changes[attr] = cerebrumusrs[usr][attr]
-
+                                if ad_user[attr] != cere_user[attr]:
+                                    changes[attr] = cere_user[attr]
                         else:
-                            if cerebrumusrs[usr].has_key(attr):
-                                # A blank value in cerebrum and <not
-                                # set> in AD -> do nothing.
-                                if cerebrumusrs[usr][attr] != "": 
-                                    changes[attr] = cerebrumusrs[usr][attr] 
-                            elif adusrs[usr].has_key(attr):
+                            # A blank value in cerebrum and <not set>
+                            # in AD -> do nothing.
+                            if attr in cere_user and cere_user[attr] != "":
+                                changes[attr] = cere_user[attr]
+                            elif attr in ad_user:
                                 #Delete value
-                                changes[attr] = ''      
+                                changes[attr] = ''                            
 
                 for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
-                    
-                    if cerebrumusrs[usr].has_key(acc):
-                        if adusrs[usr].has_key(acc) and \
-                               adusrs[usr][acc] == cerebrumusrs[usr][acc]:
-                            pass
-                        else:
-                            changes[acc] = cerebrumusrs[usr][acc]   
-                    else: 
-                        if adusrs[usr].has_key(acc) and adusrs[usr][acc] == \
-                               value:
-                            pass
-                        else:
-                            changes[acc] = value
-                                                
+                    if acc in cere_user:
+                        if acc not in ad_user or ad_user[acc] != cere_user[acc]:
+                            changes[acc] = cere_user[acc]   
+                    elif acc not in ad_user or ad_user[acc] != value:
+                        changes[acc] = value
+
                 #Submit if any changes.
                 if len(changes):
                     changes['distinguishedName'] = 'CN=%s,%s' % (usr,ou)
@@ -590,8 +564,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                         if attribute in cereconf.AD_EXCHANGE_RELATED_ATTRIBUTES:
                             exchange_change = True
                     if (exchange_change and (not usr in exch_users)
-                        and (cerebrumusrs[usr]['Exchange'] 
-                             or cerebrumusrs[usr]['imap'])): 
+                        and (cere_user['Exchange'] or cere_user['imap'])):
                         exch_users.append(usr)
                         self.logger.info("Added to run Update-Recipient list: %s" % usr)
 
@@ -601,34 +574,26 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             else:
                 #Account not in Cerebrum, but in AD.                
                 if [s for s in cereconf.AD_ALL_CEREBRUM_OU if
-                    adusrs[usr]['distinguishedName'].upper().find(s.upper()) >= 0]:
+                    ad_user['distinguishedName'].upper().find(s.upper()) >= 0]:
                     #ac.is_deleted() or ac.is_expired() pluss a small rest of 
                     #accounts created in AD, but that do not have AD_spread. 
                     if delete_users == True:
                         changes['type'] = 'delete_object'
-                        changes['distinguishedName'] = (adusrs[usr]
-                                                        ['distinguishedName'])
+                        changes['distinguishedName'] = ad_user['distinguishedName']
                     else:
                         #Disable account.
-                        if adusrs[usr]['ACCOUNTDISABLE'] == False:
-                            changes['distinguishedName'] =(adusrs[usr]
-                                                           ['distinguishedName'])
+                        if ad_user['ACCOUNTDISABLE'] == False:
+                            changes['distinguishedName'] = ad_user['distinguishedName']
                             changes['type'] = 'alter_object'
                             changes['ACCOUNTDISABLE'] = True
                             #commit changes
                             changelist.append(changes)
                             changes = {}
-                        #Hide Account from Exchange
-                        hideAddr = False
-                        if adusrs[usr].has_key('msExchHideFromAddressLists'):
-                            if (adusrs[usr]['msExchHideFromAddressLists'] 
-                                == False):
-                                hideAddr = True
-                        else:
-                            hideAddr = True
-                        if hideAddr:
-                            changes['distinguishedName'] =(adusrs[usr]
-                                                           ['distinguishedName'])
+                        #Hide Account from Exchange? 
+                        hideAddr = ad_user.get('msExchHideFromAddressLists')
+                        if hideAddr is None or hideAddr is False:
+                            # msExchHideFromAddressLists is either not set or False
+                            changes['distinguishedName'] = ad_user['distinguishedName']
                             changes['type'] = 'alter_object'
                             changes['msExchHideFromAddressLists'] = True
                             #commit changes
@@ -637,12 +602,10 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             exch_users.append(usr)
                             self.logger.info("Added to run Update-Recipient list: %s" % usr)
                         #Moving account.
-                        if (adusrs[usr]['distinguishedName'] != 
-                            "CN=%s,OU=%s,%s" % 
+                        if (ad_user['distinguishedName'] != "CN=%s,OU=%s,%s" % 
                             (usr, cereconf.AD_LOST_AND_FOUND,self.ad_ldap)):
                             changes['type'] = 'move_object'
-                            changes['distinguishedName'] =(adusrs[usr]
-                                                           ['distinguishedName'])
+                            changes['distinguishedName'] = ad_user['distinguishedName']
                             changes['OU'] = ("OU=%s,%s" % 
                                              (cereconf.AD_LOST_AND_FOUND,self.ad_ldap))
 
@@ -691,6 +654,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     self.logger.warning("bindObject on %s failed: %r" % \
                                    (chg['distinguishedName'], ret))
                 else:
+                    # TODO. Don't exec. Get method from self. call
+                    # method with args.
                     exec('self.' + chg['type'] + '(chg, dry_run)')
 
 
