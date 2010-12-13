@@ -2161,13 +2161,6 @@ class BofhdExtension(BofhdCommandBase):
         ed.write_db()
         return "OK, description for domain '%s' updated" % domainname
 
-    def _get_boolean(self, onoff):
-        if onoff.lower() in ('on', 'true', 'yes'):
-            return True
-        elif onoff.lower() in ('off', 'false', 'no'):
-            return False
-        raise CerebrumError, "Enter one of ON or OFF, not %s" % onoff
-
     def _onoff(self, enable):
         if enable:
             return 'on'

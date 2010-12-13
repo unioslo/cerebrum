@@ -120,11 +120,17 @@ def entry_string(dn, attrs, add_rdn = True):
             old = attrs.get(ava[0])
             if old:
                 norm = normalize_string(ava[1])
-                for val in old:
-                    if normalize_string(val) == norm:
-                        break
+                if type(old) in (tuple,list):
+                    for val in old:
+                        if normalize_string(val) == norm:
+                            break
+                        else:
+                            attrs[ava[0]] = (ava[1],) + tuple(old)
                 else:
-                    attrs[ava[0]] = (ava[1],) + tuple(old)
+                    if normalize_string(old) == norm:
+                        break
+                    else:
+                        attrs[ava[0]] = (ava[1], old)
             else:
                 attrs[ava[0]] = (ava[1],)
     need_b64 = needs_base64
@@ -136,11 +142,17 @@ def entry_string(dn, attrs, add_rdn = True):
     attrs = attrs.items()
     attrs.sort()         # not necessary, but minimizes changes in file
     for attr, vals in attrs:
-        for val in vals:
-            if attr in base64_attrs or need_b64(val):
-                extend((attr, ":: ", _base64encode(val)))
+        if type(vals) in (tuple,list):
+            for val in vals:
+                if attr in base64_attrs or need_b64(val):
+                    extend((attr, ":: ", _base64encode(val)))
+                else:
+                    extend((attr, ": ", val, "\n"))
+        elif vals <> None:
+            if attr in base64_attrs or need_b64(vals):
+                    extend((attr, ":: ", _base64encode(vals)))
             else:
-                extend((attr, ": ", val, "\n"))
+                extend((attr, ": ", vals, "\n"))
     result.append("\n")
     return "".join(result)
 
@@ -179,7 +191,7 @@ def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
             f = _Utils.SimilarSizeWriter(filename, 'w')
             f.set_size_change_limit(max_change)
         else:
-            f = file(filename, 'w')
+            f = _Utils.AtomicFileWriter(filename, 'w')
         return f
     if default:
         return default

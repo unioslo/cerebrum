@@ -140,7 +140,21 @@ class BofhdCommandBase(object):
 
 
 
-    def __human_repr2id(self, human_repr):
+    def _get_boolean(self, onoff):
+        """Convert a human-friendly representation of boolean to the proper
+        Python object.
+        """
+        
+        if onoff.lower() in ('on', 'true', 'yes'):
+            return True
+        elif onoff.lower() in ('off', 'false', 'no'):
+            return False
+        raise CerebrumError("Enter one of ON or OFF, not %s" % str(onoff))
+    # end _get_boolean
+
+
+
+    def _human_repr2id(self, human_repr):
         """Convert a human representation of an id, to a suitable pair.
 
         We want to treat ids like these:
@@ -182,9 +196,6 @@ class BofhdCommandBase(object):
             raise CerebrumError("Unknown id type %s for id %s" %
                                 (type(human_repr), human_repr))
 
-        assert id_type in ("id",
-                           "name",), "Invalid id type %s for id %s" % (id_type,
-                                                                       ident)
         if id_type == "id":
             try:
                 ident = int(ident)
@@ -213,7 +224,7 @@ class BofhdCommandBase(object):
         if entity_type == 'stedkode':
             return self._get_ou(stedkode=ident)
         if entity_type is None:
-            id_type, ident = self.__human_repr2id(ident)
+            id_type, ident = self._human_repr2id(ident)
             if id_type == "id":
                 ent = Entity.Entity(self.db)
                 ent.find(ident)
@@ -263,6 +274,8 @@ class BofhdCommandBase(object):
             raise CerebrumError("Unknown OU (%s)" %
                                 (ou_id and ("id=%s" % ou_id)
                                         or ("sko=%s" % stedkode)))
+
+        assert False, "NOTREACHED"
     # end _get_ou
 
 
@@ -295,7 +308,7 @@ class BofhdCommandBase(object):
         account.clear()
         try:
             if idtype is None:
-                idtype, account_id = self.__human_repr2id(account_id)
+                idtype, account_id = self._human_repr2id(account_id)
 
             if idtype == 'name':
                 account.find_by_name(account_id, self.const.account_namespace)
@@ -337,7 +350,7 @@ class BofhdCommandBase(object):
         group = self.Group_class(self.db)
         try:
             if idtype is None:
-                idtype, group_id = self.__human_repr2id(group_id)
+                idtype, group_id = self._human_repr2id(group_id)
 
             if idtype == "name":
                 group.find_by_name(group_id)

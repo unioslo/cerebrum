@@ -20,7 +20,7 @@
 
 
 # Current Cerebrum version as a (major, minor, micro) tuple.
-_version = (0, 9, 13)
+_version = (0, 9, 15)
 
 __version__ = ".".join(map(str, _version))
 

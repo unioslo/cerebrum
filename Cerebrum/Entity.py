@@ -431,7 +431,7 @@ class EntityContactInfo(Entity):
         self.__super.delete()
 
     def add_contact_info(self, source, type, value, pref=None,
-                         description=None):
+                         description=None, alias=None):
         # TBD: Should pref=None imply use of the default pref from the
         # SQL table definition, i.e. should we avoid supplying an
         # explicit value for pref in the INSERT statement?
@@ -442,32 +442,36 @@ class EntityContactInfo(Entity):
         self.execute("""
         INSERT INTO [:table schema=cerebrum name=entity_contact_info]
           (entity_id, source_system, contact_type, contact_pref,
-           contact_value, description)
-        VALUES (:e_id, :src, :type, :pref, :value, :desc)""",
+           contact_value, description, contact_alias)
+        VALUES (:e_id, :src, :type, :pref, :value, :desc, :alias)""",
                      {'e_id': self.entity_id,
                       'src': int(source),
                       'type': int(type),
                       'pref': pref,
                       'value': value,
-                      'desc': description})
+                      'desc': description,
+                      'alias': alias})
         self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None)
+
 
     def get_contact_info(self, source=None, type=None):
         return Utils.keep_entries(
             self.query("""
-            SELECT * FROM [:table schema=cerebrum name=entity_contact_info]
-            WHERE entity_id=:e_id ORDER BY contact_pref""",
-                       {'e_id': self.entity_id}),
+            SELECT *
+            FROM [:table schema=cerebrum name=entity_contact_info]
+            WHERE entity_id=:e_id
+            ORDER BY contact_pref""", {'e_id': self.entity_id}),
             ('source_system', source),
             ('contact_type', type))
 
+
     def populate_contact_info(self, source_system, type=None, value=None,
-                              contact_pref=50, description=None):
+                              contact_pref=50, description=None, alias=None):
         if not hasattr(self, '_src_sys'):
             self._src_sys = source_system
-        elif self._src_sys <> source_system:
-            raise ValueError, \
-                  "Can't populate multiple `source_system`s w/o write_db()."
+        elif self._src_sys != source_system:
+            raise ValueError("Can't populate multiple `source_system`s "
+                             "w/o write_db().")
         try:
             foo = self.__data
         except AttributeError:
@@ -489,6 +493,7 @@ class EntityContactInfo(Entity):
         # To avoid such problems, the 'value' argument is always
         # converted to a string before being stored in self.__data.
         self.__data[idx] = {'value': str(value),
+                            'alias': alias and str(alias) or None,
                             'description': description}
 
     def write_db(self):
@@ -505,6 +510,7 @@ class EntityContactInfo(Entity):
             if data.has_key(row_idx):
                 tmp = data[row_idx]
                 if (tmp['value'] == row['contact_value'] and
+                    tmp['alias'] == row['contact_alias'] and
                     tmp['description'] == row['description']):
                     del data[row_idx]
                     do_del = False
@@ -516,32 +522,37 @@ class EntityContactInfo(Entity):
                                          # PgNumeric with value zero
                                          # is treated as NULL.
                                          int(row['contact_pref']))
-        for idx in data.keys():
+        for idx in data:
             type, pref = [int(x) for x in idx.split(":", 1)]
             self.add_contact_info(self._src_sys,
                                   type,
                                   data[idx]['value'],
                                   pref,
-                                  data[idx]['description'])
+                                  data[idx]['description'],
+                                  data[idx]['alias'])
+    # end write_db
+    
 
-    def delete_contact_info(self, source, type, pref='ALL'):
+    def delete_contact_info(self, source, contact_type, pref='ALL'):
         sql = """
         DELETE FROM [:table schema=cerebrum name=entity_contact_info]
         WHERE
           entity_id=:e_id AND
           source_system=:src AND
           contact_type=:c_type"""
-        if str(pref) <> 'ALL':
+        if str(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
         self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None)
         return self.execute(sql, {'e_id': self.entity_id,
                                   'src': int(source),
-                                  'c_type': int(type),
+                                  'c_type': int(contact_type),
                                   'pref': pref})
+    # end delete_contact_info
+    
 
     def list_contact_info(self, entity_id=None, source_system=None,
                           contact_type=None, entity_type=None,
-                          contact_value=None):
+                          contact_value=None, contact_alias=None):
         """List entity contact information, constrained by specific filters.
 
         Without any filters, this method will return the content of the entire
@@ -567,34 +578,38 @@ class EntityContactInfo(Entity):
           persons' contact info, rather than OUs')
         """
 
-        cols = dict()
+        binds = dict()
         where = list()
-        for name in ("entity_id", "source_system", "contact_type"):
+        for name, transform in (("entity_id", int),
+                                ("source_system", int),
+                                ("contact_type", int),
+                                ("contact_value", str),
+                                ("contact_alias", str)):
             if locals()[name] is not None:
                 where.append(argument_to_sql(locals()[name],
                                              "ec." + name,
-                                             cols, int))
-
-        if contact_value is not None:
-            where.append(argument_to_sql(contact_value, "ec.contact_value",
-                                         cols))
-                
+                                             binds,
+                                             transform))
         where = " AND ".join(where)
         join = ""
-        if entity_type:
-            chunk = argument_to_sql(entity_type, "e.entity_type", cols, int)
+        if entity_type is not None:
+            chunk = argument_to_sql(entity_type, "e.entity_type", binds, int)
             join = """
             JOIN [:table schema=cerebrum name=entity_info] e
               ON ec.entity_id = e.entity_id AND
             """ + chunk
-        if len(where) > 0:
-            where = "WHERE %s" % where
+
+        if where:
+            where = "WHERE " + where
+
         return self.query("""
-        SELECT ec.entity_id, ec.contact_type, ec.contact_value, ec.contact_pref,
-           ec.source_system
-        FROM [:table schema=cerebrum name=entity_contact_info] ec
-        %s %s order by ec.entity_id, ec.contact_pref""" % (join, where), cols)
+        SELECT ec.*
+        FROM  [:table schema=cerebrum name=entity_contact_info] ec
+        %s   /* inner join with entity_info, if any */
+        %s   /* where clause, if any */
+        ORDER BY ec.entity_id, ec.contact_pref""" % (join, where), binds)
     # end list_contact_info
+# end EntityContactInfo
 
 
 

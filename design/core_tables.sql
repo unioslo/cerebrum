@@ -22,7 +22,7 @@
 category:metainfo;
 name=cerebrum_database_schema_version;
 category:metainfo;
-version=0.9.14;
+version=0.9.15;
 
 /* Define role hierarchy used for granting access to various database
    objects.
@@ -564,6 +564,8 @@ CREATE TABLE entity_contact_info
 		DEFAULT 50,
   contact_value	CHAR VARYING(255)
 		NOT NULL,
+  contact_alias	CHAR VARYING(255)
+		NULL,
   description	CHAR VARYING(512),
   CONSTRAINT entity_contact_info_pk
     PRIMARY KEY (entity_id, source_system, contact_type, contact_pref)
