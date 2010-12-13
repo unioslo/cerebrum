@@ -601,7 +601,10 @@ class BofhdExtension(BofhdCommandBase):
         # Calculate number of used and unused IP-addresses on this subnet
         #                              ^^^^^^ excluding reserved addresses
         data['used'] = str(len(self._find.find_used_ips(s.subnet_ip)))
-        data['unused'] = str(len(self._find.find_free_ip(s.subnet_ip)))
+        try:
+            data['unused'] = str(len(self._find.find_free_ip(s.subnet_ip)))
+        except CerebrumError:
+            data['unused'] = "0"
 
         reserved_adresses = list(s.reserved_adr)
 
