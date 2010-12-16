@@ -144,7 +144,7 @@ Use the '--force' argument to force this change."""
         person.clear()
         person.find(person_id)
         person.delete_contact_info(source=co.system_folk_uio_no,
-                                   type=co.contact_url)
+                                   contact_type=co.contact_url)
 
     db.commit()
 
