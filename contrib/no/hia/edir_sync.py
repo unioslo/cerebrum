@@ -72,13 +72,13 @@ def _person_account_make_dn(account_id):
                                cereconf.NW_LDAP_STUDOU,
                                cereconf.NW_LDAP_ROOT)
         dn = unicode(tmp, 'iso-8859-1').encode('utf-8')
-        return dn
+        return account.account_name, dn
     if _is_employee(account.owner_id):
         tmp = "cn=%s,%s,%s" % (account.account_name,
                                cereconf.NW_LDAP_ANSOU,
                                cereconf.NW_LDAP_ROOT)
         dn = unicode(tmp, 'iso-8859-1').encode('utf-8')
-        return dn
+        return account.account_name, dn
     tmp = "cn=%s,%s,%s" % (account.account_name,
                            cereconf.NW_LDAP_STUDOU,
                            cereconf.NW_LDAP_ROOT)
