@@ -145,8 +145,7 @@ def main():
             usage()
 
     output_encoding = "utf-8"
-    fd = ldif_outfile('VOIP', ofile)
-    f = ldif_outfile('VOIP', ofile, fd)
+    f = ldif_outfile('VOIP', ofile)
     f.write(container_entry_string('VOIP'))
     addr_id2dn = generate_voip_addresses(f, output_encoding)
     generate_voip_clients(f, addr_id2dn, output_encoding)
