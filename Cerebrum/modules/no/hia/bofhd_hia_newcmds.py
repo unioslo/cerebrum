@@ -1299,9 +1299,12 @@ class BofhdExtension(BofhdCommandBase):
         account = self._get_account(uname)
         if account.is_expired():
             raise CerebrumError, "Account %s has expired" % account.account_name
+        # Set new mdb value
         account.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
+        # Mark that account is migrated to new exchange server
+        account.populate_trait(self.const.trait_exchange_migrate)
         account.write_db()
-        return "Mdb stored for user %s" % uname
+        return "OK, mdb stored for user %s" % uname
 
 
     # email set_primary_address account lp@dom
