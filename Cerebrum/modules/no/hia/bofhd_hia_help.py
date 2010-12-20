@@ -183,7 +183,8 @@ command_help = {
     'user_set_np_type': 'Set/remove np-type for an account (i.e. program, system etc)',
     'user_set_owner': 'Assign ownership for an account',
     'user_shell': 'Set login-shell for a POSIX user account',
-    'user_student_create': 'Create a user for a student'
+    'user_student_create': 'Create a user for a student',
+    'user_migrate_exchange': 'Migrate echange user',
     },
     }
 
@@ -375,6 +376,8 @@ printer."""],
 	['spread', 'Enter spread. Example: AD_group NIS_fg@uio'],
     'string_email_host':
         ['hostname', 'Enter e-mail server.  Example: mail-sg2'],
+    'string_mdb':
+        ['mdb', 'Enter mdb. Example: MailboxDatabase01'],
     'string_filename':
         ['filename', 'Enter filename'],
     'string_group_filter':

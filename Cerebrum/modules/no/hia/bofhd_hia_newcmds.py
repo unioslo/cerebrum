@@ -1289,6 +1289,21 @@ class BofhdExtension(BofhdCommandBase):
         account.write_db()
         return "Ok, user %s moved." % accountname        
 
+
+    all_commands['user_migrate_exchange'] = Command(
+	("user", "migrate_exchange"), 
+        AccountName(help_ref="account_name", repeat=False),
+        SimpleString(help_ref='string_mdb'),        
+	perm_filter='is_superuser')
+    def user_migrate_exchange(self, operator, uname, mdb):
+        account = self._get_account(uname)
+        if account.is_expired():
+            raise CerebrumError, "Account %s has expired" % account.account_name
+        account.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
+        account.write_db()
+        return "Mdb stored for user %s" % uname
+
+
     # email set_primary_address account lp@dom
     #
     all_commands['email_set_primary_address'] = Command(
