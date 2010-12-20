@@ -136,7 +136,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 mdb_trait = self.ac.get_trait(self.co.trait_exchange_mdb)
                 if self.ac.get_trait(self.co.trait_exchange_migrate):
                     # Migrated users
-                    v[''] = cereconf.AD_EXC_HOME_SERVER
+                    v['msExchHomeServerName'] = cereconf.AD_EXC_HOME_SERVER
                     v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
                                                  cereconf.AD_EX_HOME_MDB)
                 elif mdb_trait and mdb_trait["strval"]:
