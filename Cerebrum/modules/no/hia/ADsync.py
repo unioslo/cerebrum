@@ -134,7 +134,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 # non-migrated users we need some extra check here
                 # until migration is completed.
                 mdb_trait = self.ac.get_trait(self.co.trait_exchange_mdb)
-                if self.ac.get_trait(self.co.trait_exchange_migrate):
+                if self.ac.get_trait(self.co.trait_exchange_migrated):
                     # Migrated users
                     v['msExchHomeServerName'] = cereconf.AD_EXC_HOME_SERVER
                     v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
@@ -266,12 +266,23 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         self.person = Utils.Factory.get('Person')(self.db)
 
+        ## FIXME: Temporary code. Remove when UiA have finished exchange migration
+        # Don't sync accounts with the trait_exchange_under_migration trait
+        under_migration = [int(row['entity_id']) for row in
+                           self.ac.list_traits(code=self.const.trait_exchange_under_migration)]
         #
         # Find all users with relevant spread
         #
         tmp_ret = {}
         spread_res = list(self.ac.search(spread=spread))
         for row in spread_res:
+            # FIXME: Temporary code. Remove when UiA have finished exchange migration
+            # Don't sync accounts that are being migrated (exchange)
+            if int(row['account_id']) in under_migration:
+                logger.debug("Account %s is being migrated in exchange. "
+                             "Not syncing. " % row['account_id'])
+                continue
+            
             tmp_ret[int(row['account_id'])] = {
                 'Exchange' : False,
                 'imap' : False,
