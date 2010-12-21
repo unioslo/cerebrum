@@ -274,8 +274,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         # Find all users with relevant spread
         #
         tmp_ret = {}
-        spread_res = list(self.ac.search(spread=spread))
-        for row in spread_res:
+        for row in self.ac.search(spread=spread):
             # FIXME: Temporary code. Remove when UiA have finished exchange migration
             # Don't sync accounts that are being migrated (exchange)
             if int(row['account_id']) in under_migration:
@@ -302,23 +301,19 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Fetched %i accounts with spread %s" 
                          % (len(tmp_ret),spread))
 
-        set1 = set([row['account_id'] for row in spread_res])
-        set2 = set([row['account_id'] for row in 
-                    list(self.ac.search(spread=exchange_spread))])
-        set_res = set1.intersection(set2)
+        set_res = set(tmp_ret.keys()) & set([int(row['account_id']) for row in 
+                                             self.ac.search(spread=exchange_spread)])
         for count, row_account_id in enumerate(set_res):
             tmp_ret[int(row_account_id)]['Exchange'] = True
         self.logger.info("Fetched %i accounts with both spread %s and %s" % 
                          (len(set_res), spread, exchange_spread))
-        set2 = set([row['account_id'] for row in 
-                    list(self.ac.search(spread=imap_spread))])
-        set_res = set1.intersection(set2)
+        set_res = set(tmp_ret.keys()) & set([int(row['account_id']) for row in 
+                                             self.ac.search(spread=imap_spread)])
         for count, row_account_id in enumerate(set_res):
             tmp_ret[int(row_account_id)]['imap'] = True
         self.logger.info("Fetched %i accounts with both spread %s and %s" % 
                          (len(set_res), spread, imap_spread))
         
-
         #
         # Remove/mark quarantined users
         #
