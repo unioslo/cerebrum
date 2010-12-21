@@ -185,6 +185,7 @@ command_help = {
     'user_shell': 'Set login-shell for a POSIX user account',
     'user_student_create': 'Create a user for a student',
     'user_migrate_exchange': 'Migrate echange user',
+    'user_migrate_exchange_finished': 'Mark that migration of user is finished',
     },
     }
 
