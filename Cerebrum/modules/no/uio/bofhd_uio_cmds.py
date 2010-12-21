@@ -8285,9 +8285,6 @@ Addresses and settings:
             return "OK.  Warning: user is expired"
         elif account.get_entity_quarantine(only_active=True):
             return "Warning: user has an active quarantine"
-        
-        if account.is_deleted() or account.is_expired():
-            return "Warning: user is deleted or expired"
         return "Password altered. Please use misc list_password to print or view the new password."
     
     # user promote_posix
