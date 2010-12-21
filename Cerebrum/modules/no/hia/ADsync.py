@@ -269,7 +269,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         ## FIXME: Temporary code. Remove when UiA have finished exchange migration
         # Don't sync accounts with the trait_exchange_under_migration trait
         under_migration = [int(row['entity_id']) for row in
-                           self.ac.list_traits(code=self.const.trait_exchange_under_migration)]
+                           self.ac.list_traits(code=self.co.trait_exchange_under_migration)]
         #
         # Find all users with relevant spread
         #
