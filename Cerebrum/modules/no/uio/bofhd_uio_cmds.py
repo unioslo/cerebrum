@@ -7396,7 +7396,7 @@ Addresses and settings:
         ret = []
         ety_type = str(self.const.EntityType(trait.entity_type))
         for row in ety.list_traits(trait, return_name=True):
-            # TODO: Host and Disk don't use entity_name, so name will
+            # TODO: Host, Disk and Person don't use entity_name, so name will
             # be <not set>
             ret.append({'trait': str(trait),
                         'type': ety_type,
@@ -7416,6 +7416,8 @@ Addresses and settings:
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
         if isinstance(ety, Utils.Factory.get('Disk')):
             ety_name = ety.path
+        elif isinstance(ety, Utils.Factory.get('Person')):
+            ety_name = ety.get_name(self.const.system_cached, self.const.name_full)
         else:
             ety_name = ety.get_names()[0][0]
         if ety.get_trait(trait) is None:
@@ -8282,7 +8284,10 @@ Addresses and settings:
         elif account.is_expired():
             return "OK.  Warning: user is expired"
         elif account.get_entity_quarantine(only_active=True):
-            return "OK.  Warning: user has an active quarantine"
+            return "Warning: user has an active quarantine"
+        
+        if account.is_deleted() or account.is_expired():
+            return "Warning: user is deleted or expired"
         return "Password altered. Please use misc list_password to print or view the new password."
     
     # user promote_posix
