@@ -527,11 +527,12 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     #only change these attributes if forward sync has been run
                     elif attr in ('altRecipient', 'deliverAndRedirect'):
                         if forwarding_sync:
-                            if (attr in cere_user and attr in ad_user and
-                                ad_user[attr] != cere_user[attr]):
-                                changes[attr] = cere_user[attr]
-                            elif attr in cere_user and cere_user[attr] != "":
-                                changes[attr] = cere_user[attr]
+                            if attr in cere_user and attr in ad_user:
+                                if ad_user[attr] != cere_user[attr]:
+                                    changes[attr] = cere_user[attr]
+                            elif attr in cere_user:
+                                if cere_user[attr] != "":
+                                    changes[attr] = cere_user[attr]
                             elif attr in ad_user:
                                 changes[attr] = ''                            
                     #Treating general cases
