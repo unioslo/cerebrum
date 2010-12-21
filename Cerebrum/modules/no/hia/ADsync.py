@@ -279,8 +279,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             # FIXME: Temporary code. Remove when UiA have finished exchange migration
             # Don't sync accounts that are being migrated (exchange)
             if int(row['account_id']) in under_migration:
-                logger.debug("Account %s is being migrated in exchange. "
-                             "Not syncing. " % row['account_id'])
+                self.logger.debug("Account %s is being migrated in exchange."
+                                  " Not syncing. " % row['account_id'])
                 continue
             
             tmp_ret[int(row['account_id'])] = {
