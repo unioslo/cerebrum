@@ -19,15 +19,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-#
-# FIXME:
-#
-# * Uniform id handling with bofhd_uio_cmds.py. This will require
-#   refactoring. 
-# * contact info priority manipulation support
-# * List all (non-personal) voip_addresses for an OU
-#
-
 """This module implements a bofhd extension for the voip module."""
 
 import cerebrum_path
@@ -72,7 +63,7 @@ from Cerebrum.modules.bofhd.errors import CerebrumError
 
 
 
-class BofhdVoipCommands(BofhdCommandBase, object):
+class BofhdVoipCommands(BofhdCommandBase):
     """Bofhd extension with voip commands."""
 
     all_commands = dict()
@@ -124,6 +115,13 @@ class BofhdVoipCommands(BofhdCommandBase, object):
             return int(value)
         return None
     # end _get_entity_id
+
+
+
+    def _is_numeric_id(self, value):
+        return (isinstance(value, (int, long)) or
+                isinstance(value, (str, unicode)) and value.isdigit())
+    # end _is_numeric_id
 
 
     
@@ -179,8 +177,7 @@ class BofhdVoipCommands(BofhdCommandBase, object):
 
         We try to be a bit lax when it comes to identifying voip_services. A
         numeric designation is interpreted as entity_id. Everything else is
-        interpreted as description, and we first try a non-exact and then an
-        exact match.
+        interpreted as description.
         """
 
         service = VoipService(self.db)
@@ -192,22 +189,11 @@ class BofhdVoipCommands(BofhdCommandBase, object):
                 raise CerebrumError("Could not find voip service with id=%s" %
                                     str(designation))
 
-        for exact_match in (False, True):
-            results = service.search_voip_service_by_description(
-                designation, exact_match=exact_match)
-
-            # No matches at all, let's hope the next match type is more
-            # successful...'
-            if len(results) < 1:
-                continue
-
-            # Exactly one approximate match -- pick it (we are done)
-            if len(results) == 1:
-                service.find(results[0]["entity_id"])
-                return service
-
-            # Too many matches -- not precise enough. Continue to next
-            # 'exactness'
+        ids = service.search_voip_service_by_description(designation,
+                                                         exact_match=True)
+        if len(ids) == 1:
+            service.find(ids[0]["entity_id"])
+            return service
 
         raise CerebrumError("Could not uniquely determine voip_service "
                             "from description %s" % str(designation))
@@ -215,51 +201,125 @@ class BofhdVoipCommands(BofhdCommandBase, object):
 
 
 
-    def _get_voip_address(self, designation):
-        """Locate a voip_address, identified by 'designation'.
+    def _get_voip_address_by_service_description(self, designation):
+        try:
+            service = self._get_voip_service(designation)
+            return self._get_voip_address_by_owner_entity_id(service.entity_id)            
+        except (CerebrumError, Errors.NotFoundError):
+            return list()
+    # end _get_voip_address_by_service_description
 
-        We are very relaxed wrt how voip_addresses are
-        identified. L{designation} could be one of:
+    
 
-          + entity_id -- direct lookup. Simplest case.
-          + owner_id -- look by owner id.
-          + contact info -- locate the contact info, locate the entity
-                            owning it, locate by owner id.
-          + some kind of owner's identifier (e.g. fnr for people, or account
-            name).
+    def _get_voip_address_by_owner_account(self, designation):
+        try:
+            account = self._get_account(designation)
+            return self._get_voip_address_by_owner_entity_id(account.owner_id)
+        except (CerebrumError, Errors.NotFoundError):
+            return list()
+    # end _get_voip_address_by_owner_account
+
+
+
+    def _get_voip_address_by_contact_info(self, designation):
+        try:
+            ids = set(x["entity_id"] for x in
+                      self._get_contact_info(designation))
+            result = list()
+            for x in ids:
+                result.extend(self._get_voip_address_by_owner_entity_id(x))
+            return result
+        except Errors.NotFoundError:
+            return list()
+
+        assert False, "NOTREACHED"
+    # end _get_voip_address_by_contact_info
+
+    
+
+    def _get_voip_address_by_owner_entity_id(self, designation):
+        if not self._is_numeric_id(designation):
+            return list()
+
+        value = int(designation)
+        try:
+            va = VoipAddress(self.db)
+            va.find_by_owner_id(value)
+            return [va,]
+        except Errors.NotFoundError:
+            return list()
+
+        assert False, "NOTREACHED"
+    # end _get_voip_address_by_owner_entity_id
+            
+
+    
+    def _get_voip_address_by_entity_id(self, designation):
+        """Return all voip_addresses matching the specified entity_id."""
+
+        if not self._is_numeric_id(designation):
+            return list()
+
+        value = int(designation)
+        try:
+            va = VoipAddress(self.db)
+            va.find(value)
+            return [va,]
+        except Errors.NotFoundError:
+            return list()
+
+        assert False, "NOTREACHED"
+    # end _get_voip_address_by_entity_id
+
+
+
+    def _get_voip_address(self, designation, all_matches=False):
+        """Collect voipAddress instance(s) matching designation.
+
+        Crap. This turned out to be extremely complicated, since there are so
+        many ways we could interpret the meaning of 'give a voip_address for
+        <doohickey>'.
+        
+        @param all_matches:
+          Controls whether to collect all possible matches, or just the first
+          one. Note that the default case is to collect the single voipAddress
+          that matches the first of the search criteria below. Even though
+          previous searches may have matched multiple addresses, the first
+          search yielding exactly one answer will be used. 
         """
 
-        va = VoipAddress(self.db)
-        if self._get_entity_id(designation):
-            e_id = int(self._get_entity_id(designation))
-            for method in (va.find, va.find_by_owner_id, va.find_by_contact_info):
-                try:
-                    va.clear()
-                    method(e_id)
-                    return va
-                except Errors.NotFoundError:
-                    pass
+        search_names = ("by_entity_id", "by_owner_entity_id",
+                        "by_contact_info", "by_owner_account",
+                        "by_service_description",)
+        id_type, value =  self._human_repr2id(designation)
+        result = list()
+        collected_ids = set()
+        for partial_name in search_names:
+            caller_name = "_get_voip_address_" + partial_name
+            caller = getattr(self, caller_name)
+            addrs = caller(value)
+            # self.logger.debug("Searcher %s returned %d VA(s)", caller_name,
+            #                   len(addrs))
+            result.extend(x for x in addrs
+                          if x.entity_id not in collected_ids)
+            collected_ids.update(x.entity_id for x in addrs)
+            # If an exact match is requested, grab the first search that yields
+            # exactly 1 answer.
+            if not all_matches and len(addrs) == 1:
+                return addrs[0]
 
-        if isinstance(designation, str):
-            try:
-                va.find_by_contact_info(designation)
-                return va
-            except (Errors.NotFoundError, Errors.TooManyRowsError):
-                pass
-
-        try:
-            owner = self._get_voip_owner(designation)
-            va.clear()
-            va.find_by_owner_id(owner.entity_id)
-            return va
-        except (Errors.NotFoundError, CerebrumError):
-            pass
-
-        raise CerebrumError("Could not uniquely determine voip_address "
-                            "from designation %s" % str(designation))
+        if len(result) == 0:
+            raise CerebrumError("No voip_address matches designation %s" %
+                                (designation,))
+        if not all_matches and len(result) > 1:
+            raise CerebrumError("Cannot uniquely determine voip_address from "
+                                "designation %s: matching ids=%s" %
+                                (designation, ", ".join(str(x.entity_id)
+                                                        for x in result)))
+        return result
     # end _get_voip_address
-
-
+        
+            
 
     def _get_or_create_voip_address(self, owner_id, with_softphone=True):
         """Much like _get_voip_address(), except this one creates it as well
@@ -402,7 +462,7 @@ class BofhdVoipCommands(BofhdCommandBase, object):
           appropriate is found.
         """
 
-        for method in (self._get_voip_service, self._get_voip_person):
+        for method in (self._get_voip_person, self._get_voip_service):
             try:
                 return method(designation)
             except CerebrumError:
@@ -1251,6 +1311,37 @@ class BofhdVoipCommands(BofhdCommandBase, object):
             self.const.EntityType(owner.entity_type),
             owner.entity_id)
     # end voip_address_delete
+
+
+    
+    all_commands["voip_address_find"] = Command(
+        ("voip", "address_find"),
+        SimpleString(),
+        fs=FormatSuggestion("%8i   %8i",
+                            ("entity_id", "owner_entity_id",),
+                            hdr="%8s   %8s" %
+                               ("EntityId", "Owner EntityId")))
+    def voip_address_find(self, operator, designation):
+        """List all voip_addresses matched in some way by designation.
+
+        This has been requested to ease up searching for specific
+        voip_addresses.
+        """
+
+        vas = self._get_voip_address(designation, all_matches=True)
+        # Finally, the presentation layer
+        if len(vas) > cereconf.BOFHD_MAX_MATCHES:
+            raise CerebrumError("More than %d (%d) matches, please narrow down"
+                                "the search criteria" %
+                                (cereconf.BOFHD_MAX_MATCHES, len(vas)))
+
+        answer = [{"entity_id": va.entity_id,
+                   "owner_entity_id": va.owner_entity_id,}
+                  for va in vas]
+        return answer
+    # end voip_service_find
+   
+
 # end BofhdVoipCommands    
     
     

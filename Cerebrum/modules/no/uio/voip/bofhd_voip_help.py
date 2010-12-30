@@ -57,6 +57,7 @@ command_help = {
         "voip_address_migration": "Change voip_address' voip migration status.",
         "voip_address_info": "Display information about a voip address.",
         "voip_address_delete": "Delete a voip_address from Cerebrum.",
+        "voip_address_find": "Display all voip_addresses matching a key.",
     }
 }
 
