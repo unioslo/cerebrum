@@ -72,25 +72,29 @@ class VirtGroup(Group_class, EntityContactInfo):
         assert not self.illegal_name(name), "Invalid group name %s" % (name,)
         assert description.strip()
 
-        if url is not None:
-            url = url.strip()
-
-        if url:
-            resource = urlparse.urlparse(url)
-            if resource.scheme not in ("http", "https", "ftp",):
-                raise ValueError("Invalid url for group <%s>: <%s>" % (name, url))
-
         self.__super.populate(creator_id,
                               self.const.group_visibility_all,
                               name,
                               description)
         self.expire_date = now() + self.DEFAULT_GROUP_LIFETIME
+
         if url:
+            self.verify_group_url(url)
             self.populate_contact_info(self.const.system_virthome,
                                        self.const.virthome_group_url,
                                        url)
     # end populate
 
+    
+
+    def verify_group_url(self, url):
+        resource = urlparse.urlparse(url)
+        if resource.scheme not in ("http", "https", "ftp",):
+            raise ValueError("Invalid url for group <%s>: <%s>" %
+                             (self.group_name, url))
+
+        return True
+    # end verify_group_url
 
 
     def illegal_name(self, name):

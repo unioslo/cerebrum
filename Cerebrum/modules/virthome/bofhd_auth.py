@@ -355,6 +355,16 @@ class BofhdVirtHomeAuth(auth.BofhdAuth):
         return self.can_delete_group(account_id, group_id)
     # end can_change_moderators
 
+
+
+    def can_change_resource(self, account_id, group_id):
+        """Can an account change group_id's resources (url, etc)?
+
+        Group owners are allowed to do that.
+        """
+        
+        return self.can_delete_group(account_id, group_id)
+    # end can_change_url
     
 
     def can_manipulate_spread(self, account_id, entity_id):
