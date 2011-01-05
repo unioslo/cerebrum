@@ -66,7 +66,7 @@ class VirtGroup(Group_class, EntityContactInfo):
     
     
 
-    def populate(self, creator_id, name, description, url):
+    def populate(self, creator_id, name, description):
         """Populate a VirtGroup's instance, subject to some constraints."""
 
         assert not self.illegal_name(name), "Invalid group name %s" % (name,)
@@ -77,17 +77,43 @@ class VirtGroup(Group_class, EntityContactInfo):
                               name,
                               description)
         self.expire_date = now() + self.DEFAULT_GROUP_LIFETIME
+    # end populate
+
+
+
+    def set_group_resource(self, url):
+        """Unconditionally reassign a new URL to this group.
+
+        If URL is None (or ''), we'll remove whatever URL was in the database.
+        """
+
+        # Check the URL's validity before doing anything to the database.
+        if url:
+            self._verify_group_url(url)
+
+        resources = self.get_contact_info(self.const.system_virthome,
+                                          self.const.virthome_group_url)
+        if resources:
+            # There can be at most one URL...
+            r = resources[0]
+            # If the old value matches the new one, there is nothing to do.
+            if r["contact_value"] == url:
+                return
+
+            # If the old value doesn't match the new one, we delete the old one
+            # first. Helps us avoid multiple URLs for one group.
+            self.delete_contact_info(self.const.system_virthome,
+                                     self.const.virthome_group_url)
 
         if url:
-            self.verify_group_url(url)
-            self.populate_contact_info(self.const.system_virthome,
-                                       self.const.virthome_group_url,
-                                       url)
-    # end populate
+            self.add_contact_info(self.const.system_virthome,
+                                  self.const.virthome_group_url,
+                                  url)
+    # end set_group_resource
 
     
 
-    def verify_group_url(self, url):
+    def _verify_group_url(self, url):
         resource = urlparse.urlparse(url)
         if resource.scheme not in ("http", "https", "ftp",):
             raise ValueError("Invalid url for group <%s>: <%s>" %

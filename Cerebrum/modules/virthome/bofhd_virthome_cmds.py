@@ -1435,10 +1435,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         
         group = self.Group_class(self.db)
         try:
-            group.populate(operator.get_entity_id(), group_name, description, url)
+            group.populate(operator.get_entity_id(), group_name, description)
+            group.write_db()
+            group.set_group_resource(url)
         except ValueError:
             raise CerebrumError(str(sys.exc_info()[1]))
-        group.write_db()
         for spread in getattr(cereconf, "BOFHD_NEW_GROUP_SPREADS", ()):
             group.add_spread(self.const.human2constant(spread,
                                                        self.const.Spread))
@@ -1647,7 +1648,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
     
 
 
-    all_commands["group_change_url"] = Command(
+    all_commands["group_change_resource"] = Command(
         ("group", "change_resource"),
         GroupName(),
         SimpleString())
@@ -1656,33 +1657,9 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(gname)
         self.ba.can_change_resource(operator.get_entity_id(), group.entity_id)
-
-        # IVR 2011-01-04 FIXME: Refactor this away (should happen
-        # automatically). Also, ValueError -> CerebrumError?
-        try:
-            group.verify_group_url(url)
-        except ValueError:
-            raise CerebrumError("Invalid URL: %s" % (url,))
-        
-        resources = group.get_contact_info(self.const.system_virthome,
-                                           self.const.virthome_group_url)
-        if not resources:
-            group.populate_contact_info(self.const.system_virthome,
-                                        self.const.virthome_group_url,
-                                        url)
-        else:
-            # There can be only one... if it exists, we want to keep the
-            # priority and such...
-            r = resources[0]
-            group.populate_contact_info(self.const.system_virthome,
-                                        self.const.virthome_group_url,
-                                        url,
-                                        contact_pref=r["contact_pref"],
-                                        description=r["description"],
-                                        alias=r["contact_alias"])
-        group.write_db()
+        group.set_group_resource(url)
         return "OK, changed resource for Group %s to %s" % (group.group_name,
-                                                            url,)
+                                                            url)
     # end group_change_resource
 
 
