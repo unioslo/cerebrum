@@ -310,6 +310,7 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         owner = self.get_owner()
         result = dict((key, None) for key in self._required_voip_attributes)
         result.update(self._get_owner_voip_attributes(owner))
+        result["owner_type"] = self.const.EntityType(owner.entity_type)
         
         if self.is_migrated():
             result["voipAddressType"] = "account"

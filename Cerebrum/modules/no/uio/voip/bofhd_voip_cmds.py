@@ -1317,10 +1317,12 @@ class BofhdVoipCommands(BofhdCommandBase):
     all_commands["voip_address_find"] = Command(
         ("voip", "address_find"),
         SimpleString(),
-        fs=FormatSuggestion("%8i   %8i",
-                            ("entity_id", "owner_entity_id",),
-                            hdr="%8s   %8s" %
-                               ("EntityId", "Owner EntityId")))
+        fs=FormatSuggestion("%9i %14i %13s %25s",
+                            ("entity_id", "owner_entity_id",
+                             "owner_type", "cn"),
+                            hdr="%9s %14s %13s %25s" %
+                               ("EntityId", "OwnerEntityId",
+                                "Owner type", "CN")))
     def voip_address_find(self, operator, designation):
         """List all voip_addresses matched in some way by designation.
 
@@ -1334,10 +1336,17 @@ class BofhdVoipCommands(BofhdCommandBase):
             raise CerebrumError("More than %d (%d) matches, please narrow down"
                                 "the search criteria" %
                                 (cereconf.BOFHD_MAX_MATCHES, len(vas)))
-
-        answer = [{"entity_id": va.entity_id,
-                   "owner_entity_id": va.owner_entity_id,}
-                  for va in vas]
+        answer = list()
+        for va in vas:
+            # NB! This call is pretty expensive. We may want to revise
+            # BOFHD_MAX_MATCHES-cutoff here (and rather replace it with
+            # something more stringent)
+            voip_attrs = va.get_voip_attributes()
+            answer.append({"entity_id": va.entity_id,
+                           "owner_entity_id": va.owner_entity_id,
+                           "owner_type": str(voip_attrs["owner_type"]),
+                           "cn": voip_attrs["cn"],
+                           "address_type": voip_attrs["voipAddressType"],})
         return answer
     # end voip_service_find
    
