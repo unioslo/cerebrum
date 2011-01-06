@@ -88,9 +88,7 @@ class VirtGroup(Group_class, EntityContactInfo):
         """
 
         # Check the URL's validity before doing anything to the database.
-        if url:
-            self._verify_group_url(url)
-
+        self.verify_group_url(url)
         resources = self.get_contact_info(self.const.system_virthome,
                                           self.const.virthome_group_url)
         if resources:
@@ -113,7 +111,14 @@ class VirtGroup(Group_class, EntityContactInfo):
 
     
 
-    def _verify_group_url(self, url):
+    def verify_group_url(self, url):
+        """Check that the URL at least looks sane.
+
+        We allow empty/None values here.
+        """
+        if not url:
+            return True
+        
         resource = urlparse.urlparse(url)
         if resource.scheme not in ("http", "https", "ftp",):
             raise ValueError("Invalid url for group <%s>: <%s>" %
@@ -123,6 +128,7 @@ class VirtGroup(Group_class, EntityContactInfo):
     # end verify_group_url
 
 
+    
     def illegal_name(self, name):
         """Return a string with error message if groupname is illegal"""
 

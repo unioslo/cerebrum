@@ -1657,6 +1657,11 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(gname)
         self.ba.can_change_resource(operator.get_entity_id(), group.entity_id)
+        try:
+            group.verify_group_url(url)
+        except ValueError:
+            raise CerebrumError("Invalid URL for group <%s>: <%s>" %
+                                (group.group_name, url))
         group.set_group_resource(url)
         return "OK, changed resource for Group %s to %s" % (group.group_name,
                                                             url)
