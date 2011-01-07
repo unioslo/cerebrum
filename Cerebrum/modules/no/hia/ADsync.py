@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006-2010 University of Oslo, Norway
+# Copyright 2006-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -136,7 +136,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                 mdb_trait = self.ac.get_trait(self.co.trait_exchange_mdb)
                 if self.ac.get_trait(self.co.trait_exchange_migrated):
                     # Migrated users
-                    v['msExchHomeServerName'] = cereconf.AD_EXC_HOME_SERVER
+                    v['msExchHomeServerName'] = cereconf.AD_EX_HOME_SERVER
                     v['homeMDB'] = "CN=%s,%s" % (mdb_trait["strval"],
                                                  cereconf.AD_EX_HOME_MDB)
                 elif mdb_trait and mdb_trait["strval"]:
@@ -266,10 +266,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
 
         self.person = Utils.Factory.get('Person')(self.db)
 
-        ## FIXME: Temporary code. Remove when UiA have finished exchange migration
-        # Don't sync accounts with the trait_exchange_under_migration trait
-        under_migration = [int(row['entity_id']) for row in
-                           self.ac.list_traits(code=self.co.trait_exchange_under_migration)]
         #
         # Find all users with relevant spread
         #
@@ -277,7 +273,8 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         for row in self.ac.search(spread=spread):
             # FIXME: Temporary code. Remove when UiA have finished exchange migration
             # Don't sync accounts that are being migrated (exchange)
-            if int(row['account_id']) in under_migration:
+            self.uname2id[row['name']] = int(row['account_id'])
+            if int(row['account_id']) in self.under_migration:
                 self.logger.debug("Account %s is being migrated in exchange."
                                   " Not syncing. " % row['account_id'])
                 continue
@@ -501,6 +498,13 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         changelist = []     
 
         for usr, ad_user in adusrs.iteritems():
+            # FIXME: Temporary code. Remove when UiA have finished exchange migration
+            # Don't sync accounts that are being migrated (exchange)
+            entity_id = self.uname2id.get(usr, None)
+            if entity_id and entity_id in self.under_migration:
+                self.logger("User %s is under migration. Skipping" % usr)
+                continue
+
             changes = {}        
             if cerebrumusrs.has_key(usr):
                 cere_user = cerebrumusrs[usr]
@@ -557,21 +561,21 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                             else:
                                 if ad_user[attr] != cere_user[attr]:
                                     changes[attr] = cere_user[attr]
-                        else:
+                        elif attr in cere_user:
                             # A blank value in cerebrum and <not set>
                             # in AD -> do nothing.
-                            if attr in cere_user and cere_user[attr] != "":
+                            if cere_user[attr] != "":
                                 changes[attr] = cere_user[attr]
-                            elif attr in ad_user:
-                                #Delete value
-                                changes[attr] = ''                            
+                        elif attr in ad_user:
+                            #Delete value
+                            changes[attr] = ''                            
 
-                for acc, value in cereconf.AD_ACCOUNT_CONTROL.items():
-                    if acc in cere_user:
-                        if acc not in ad_user or ad_user[acc] != cere_user[acc]:
-                            changes[acc] = cere_user[acc]   
-                    elif acc not in ad_user or ad_user[acc] != value:
-                        changes[acc] = value
+                for attr, value in cereconf.AD_ACCOUNT_CONTROL.items():
+                    if attr in cere_user:
+                        if attr not in ad_user or ad_user[attr] != cere_user[attr]:
+                            changes[attr] = cere_user[attr]   
+                    elif attr not in ad_user or ad_user[attr] != value:
+                        changes[attr] = value
 
                 #Submit if any changes.
                 if len(changes):
@@ -1315,6 +1319,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.logger.info("Starting user-sync(forwarding_sync = %s, spread = %s, exchange_spread = %s, imap_spread = %s, delete = %s, dry_run = %s, store_sid = %s)" % \
                              (forwarding_sync, spread, exchange_spread, imap_spread, delete, dry_run, store_sid))     
 
+        ## FIXME: Temporary code. Remove when UiA have finished exchange migration
+        # Don't sync accounts with the trait_exchange_under_migration trait
+        self.uname2id = dict()
+        self.under_migration = [int(row['entity_id']) for row in
+                                self.ac.list_traits(code=self.co.trait_exchange_under_migration)]
         #Fetch cerebrum data for users.
         self.logger.debug("Fetching cerebrum user data...")
         cerebrumdump = self.fetch_cerebrum_data(spread, exchange_spread, imap_spread)
