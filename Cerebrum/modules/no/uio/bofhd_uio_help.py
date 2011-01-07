@@ -57,6 +57,8 @@ command_help = {
        "List who's authorised to operate on group <gname>",
     'access_host':
        "List who's authorised to operate on host <hostname>",
+    'access_dns':
+       "List who's authorised to operate on given dns target",
     'access_list':
        "List everything an account or group can operate on.  Only direct "
        "ownership is reported: the entities an account can access "
