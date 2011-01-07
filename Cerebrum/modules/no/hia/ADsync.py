@@ -502,7 +502,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
             # Don't sync accounts that are being migrated (exchange)
             entity_id = self.uname2id.get(usr, None)
             if entity_id and entity_id in self.under_migration:
-                self.logger("User %s is under migration. Skipping" % usr)
+                self.logger.debug("User %s is under migration. Skipping" % usr)
                 continue
 
             changes = {}        
