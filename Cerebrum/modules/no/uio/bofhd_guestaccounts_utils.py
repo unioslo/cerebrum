@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2005-2009 University of Oslo, Norway
+# Copyright 2005-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -48,16 +48,29 @@ class BofhdUtils(object):
         self.co = Factory.get('Constants')(self.db)
         self.logger = server.logger
 
-    # TODO: pydocify
-    def request_guest_users(self, num, end_date, comment,
-                            owner_type, owner_id, operator_id):
+
+    def request_guest_users(self, num, end_date, comment, owner_id, operator_id):
         """Reserve num guest users until they're manually released or
         until end_date. If the function fails because there are not
         enough guest users available, GuestAccountException is raised.
 
         @param num: number of guest users to reserve
-        @ type num: int
+        @type num: int
 
+        @param end_date: end date of guest preiod
+        @type end_date: str
+
+        @param comment: Information about the use of the account
+        @type comment: str 
+
+        @param owner_id: entity id of owner group
+        @type owner_id: int
+
+        @param operator_id: entity id of operator
+        @type operator_id: int
+
+        @return: list of tuples, containg (uname, comment, entity id,
+        password) for each guest user requested.
         """
         if num > self.num_available_accounts():
             raise GuestAccountException, ("Not enough available guest users.\n"
@@ -79,11 +92,11 @@ class BofhdUtils(object):
         for p, n in prefix2num.items():
             for guest in self._find_guests(n, prefix=p):
                 e_id, passwd = self._alloc_guest(guest, end_date, comment,
-                                                 owner_type, owner_id, operator_id)
+                                                 owner_id, operator_id)
                 ret.append((guest, comment, e_id, passwd))
         return ret
 
-    # TODO: pydocify
+
     def release_guest(self, guest, operator_id):
         """Release a guest account from temporary owner.
 
@@ -91,7 +104,12 @@ class BofhdUtils(object):
         release it from owner. The guest account is now in
         release_quarantine and will be available for new allocations
         when the quarantine period is due.
+
+        @param guest: uname of guest account
+        @type guest: str 
         
+        @param operator_id: entity id of operator
+        @type operator_id: int
         """
         ac = Factory.get('Account')(self.db)
         ac.find_by_name(guest)
@@ -123,9 +141,16 @@ class BofhdUtils(object):
         self.logger.debug("Added archive_user request for %s" % guest)
         
 
-    # TODO: pydocify
     def get_owner(self, guestname):
-        "Check that guestname is a guest account and that it has an owner."
+        """
+        Find owner for the given guest account.
+
+        @param guestname: uname of guest account
+        @type guestname: str
+
+        @rtype: int
+        @return: entity_id of owner
+        """
         ac = Factory.get('Account')(self.db)    
         ac.find_by_name(guestname)
         owner = ac.get_trait(self.co.trait_guest_owner)
@@ -157,6 +182,9 @@ class BofhdUtils(object):
         @param prefix: list guests users with given prefix. If prefix
         is None, list users with any prefix.
         
+        @return: A list of lists to suit the method _pretty_print.
+        Each inner list has three elements containing guest uname, end
+        date or None, comment or None.
         """
         ac = Factory.get('Account')(self.db)
         ret = []
@@ -181,8 +209,13 @@ class BofhdUtils(object):
 
 
     def list_guests_info(self):
-        """Find status of all guest accounts.
-        Status can be either allocated, free or release_quarantine.
+        """Find status of all guest accounts. Status can be either
+        allocated, free or release_quarantine This is a convenience
+        method for the command user guest_status verbose.
+
+        @return: A list of lists to suit the method _pretty_print.
+        Each inner list has three elements containing guest uname,
+        None, comment.
         """
         ret = []
         ownerid2name = {}
@@ -269,8 +302,7 @@ class BofhdUtils(object):
                 return q['start_date'].date
         return None
 
-    def _alloc_guest(self, guest, end_date, comment, owner_type, owner_id,
-                     operator_id):
+    def _alloc_guest(self, guest, end_date, comment, owner_id, operator_id):
         """Allocate a guest account.
 
         Make sure that the guest account requested actually exists and
@@ -404,9 +436,8 @@ class BofhdUtils(object):
 
         # get length, start- and end-position of shortest subset in las
         slen, start, end = las.pop(0) 
-        if num_subsets == 1:              
-            if num_requested <= slen:
-                return start, start+num_requested-1
+        if num_subsets == 1 and num_requested <= slen:
+            return start, start+num_requested-1
 
         l = slen
         i = 1
@@ -460,5 +491,3 @@ def _flatten(tup):
             else:
                 res.extend(_flatten(item))
     return res
-
-# arch-tag: bd3d80d8-6272-11da-9a93-7a2e47a48ea3
