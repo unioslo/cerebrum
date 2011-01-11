@@ -20,7 +20,8 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
-List statistical information about ephorte persons.
+List statistical information about ephorte persons. 
+
 
 """
 
@@ -79,6 +80,45 @@ def generate_ephorte_statistics(output_stream):
     output_stream.write("\nNumber of people with one or more ephorte roles: %s\n" %
                         result)
 
+    # List number of people with ANSATT AFF from SAP with a non-expired account
+    result = db.query_1("""SELECT count(foo.person_id)
+    FROM (SELECT person_id FROM [:table schema=cerebrum name=person_affiliation_source]
+          WHERE affiliation = :ansatt_aff AND source_system = :sap_source
+          INTERSECT
+          SELECT owner_id FROM [:table schema=cerebrum name=account_info]
+          WHERE owner_type = :person_owner AND (expire_date is null or expire_date > now())) as foo
+          """,
+                        {"ansatt_aff":int(const.affiliation_ansatt),
+                         "sap_source":int(const.system_sap),
+                         "person_owner":int(const.entity_person)})
+    output_stream.write("\nNumber of people with ANSATT aff from SAP and active acounts : %s\n" %
+                        result)
+
+    # List number of people with only TILKNYTTET AFF and ephorte roles
+    result = db.query("""SELECT foo.person_id
+    FROM (((SELECT person_id FROM [:table schema=cerebrum name=person_affiliation_source]
+           WHERE affiliation = :tilknyttet_aff 
+           INTERSECT
+           SELECT owner_id FROM [:table schema=cerebrum name=account_info]
+           WHERE owner_type = :person_owner AND (expire_date is null or expire_date > now()))
+          EXCEPT
+          (SELECT person_id FROM [:table schema=cerebrum name=person_affiliation_source]
+           WHERE affiliation = :ansatt_aff AND source_system = :sap_source
+           INTERSECT
+           SELECT owner_id FROM [:table schema=cerebrum name=account_info]
+           WHERE owner_type = :person_owner AND (expire_date is null or expire_date > now())))
+          INTERSECT
+          SELECT person_id FROM [:table schema=cerebrum name=ephorte_role])
+           as foo
+          """, 
+                        {"ansatt_aff":int(const.affiliation_ansatt),
+                         "tilknyttet_aff":int(const.affiliation_tilknyttet),
+                         "sap_source":int(const.system_sap),
+                         "person_owner":int(const.entity_person)})
+    if result:
+        present_multi_results(output_stream, result,
+                              "Number of people with only TLKNYTTET aff and ephorte_roles")
+
     # Get people with ephorte spread, but no roles
     result = db.query("""SELECT entity_id
     FROM [:table schema=cerebrum name=entity_spread]
@@ -93,26 +133,14 @@ def generate_ephorte_statistics(output_stream):
                               "Number of people with ephorte spread, but no roles")
 
     # Get number of people with only manually given roles
-    result = db.query("""SELECT person_id
+    result = db.query("""SELECT distinct person_id
     FROM [:table schema=cerebrum name=ephorte_role] EXCEPT
-    SELECT person_id FROM [:table schema=cerebrum name=ephorte_role]
+    SELECT distinct person_id FROM [:table schema=cerebrum name=ephorte_role]
     WHERE auto_role = 'T'""")
-    output_stream.write("\nNumber of people with only manually given roles: %s\n" %
-                        len(result))
+    if result:
+        present_multi_results(output_stream, result,
+                              "Number of people with only manually given roles")
 
-    # List number of people with ANSATT AFF from SAP with a non-expired account
-    result = db.query_1("""SELECT count(foo.person_id)
-    FROM (SELECT person_id FROM [:table schema=cerebrum name=person_affiliation_source]
-          WHERE affiliation = :ansatt_aff AND source_system = :sap_source
-          INTERSECT
-          SELECT owner_id FROM [:table schema=cerebrum name=account_info]
-          WHERE owner_type = :person_owner AND (expire_date is null or expire_date > now())) as foo
-          """,
-                        {"ansatt_aff":int(const.affiliation_ansatt),
-                         "sap_source":int(const.system_sap),
-                         "person_owner":int(const.entity_person)})
-    output_stream.write("\nNumber of people with ANSATT aff from SAP and active acounts : %s\n" %
-                        result)
 
     # List people with ephorte spread but no ANSATT aff
     result = db.query("""SELECT distinct entity_id
@@ -129,8 +157,9 @@ def generate_ephorte_statistics(output_stream):
                          "ansatt_aff":int(const.affiliation_ansatt),
                          "sap_source":int(const.system_sap),
                          "person_owner":int(const.entity_person)})
-    present_multi_results(output_stream, result,
-                          "Number of people with ephorte spread, but no ANSATT aff")
+    if result:
+        present_multi_results(output_stream, result,
+                              "Number of people with ephorte spread, but no ANSATT aff")
 
     
 
