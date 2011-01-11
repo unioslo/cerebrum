@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2009 University of Oslo, Norway
+# Copyright 2002-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -303,11 +303,15 @@ class BofhdExtension(BofhdCommandBase):
         ret = ""
         if args and args[0] == "verbose" and self.ba.is_superuser(
             operator.get_entity_id()):
+            tmp = self.bgu.list_guests_info()
             # Find status for all guests
             ret = "%-12s   %s:\n%s\n" % (
                 "Guest users", "Status",
-                self._pretty_print(self.bgu.list_guests_info(),
-                                   include_comment=True))
+                self._pretty_print(tmp, include_comment=True))
+            ret += "%d allocated guest users.\n" % len(
+                [1 for x in tmp if x[2].startswith("allocated")])
+            ret += "%d guest users in release_quarantine.\n" % len(
+                [1 for x in tmp if x[2].startswith("in release_quarantine")])
         ret += "%d guest users available." % self.bgu.num_available_accounts()
         return ret
 
