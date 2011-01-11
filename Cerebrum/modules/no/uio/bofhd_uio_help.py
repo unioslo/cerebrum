@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2003-2005, 2009 University of Oslo, Norway
+# Copyright 2003-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -347,6 +347,8 @@ command_help = {
     'user_gecos': 'Set gecos field for a user account',
     'user_history': "Show history of the account with uname. Limited to users subordinate to a privilege group the BOFH user is a member of",
     'user_info': 'View general information about an account',
+    'user_migrate_exchange': 'Migrate echange user',
+    'user_migrate_exchange_finished': 'Mark that migration of user is finished',
     'user_move': 'Move a users home directory to another disk',
     'user_password': 'Set a new password for an account',
     'user_promote_posix': 'Make a Cerebrum account into a POSIX user account',
@@ -702,6 +704,8 @@ Example:
     'string_why':
         ['why', 'Why?',
          'You should type a text indicating why you perform the operation'],
+    'string_mdb':
+        ['mdb', 'Enter mdb. Example: MailboxDatabase01'],
     'trait':
         ['trait', 'Name of trait'],
     'trait_val':
