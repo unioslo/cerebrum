@@ -49,13 +49,16 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
         answer = reversed(self.cl.get_events('ad', (self.co.account_password,)))
         for ans in answer:
             confirm = True
-            if (ans['change_type_id'] == self.co.account_password and
-                not ans['subject_entity'] in handled):
-                handled.add(ans['subject_entity'])
-                pw = pickle.loads(ans['change_params'])['password']
-                confirm = self.change_pw(ans['subject_entity'],spread, pw, dry_run)
+            if ans['change_type_id'] == self.co.account_password:
+                if not ans['subject_entity'] in handled:
+                    handled.add(ans['subject_entity'])
+                    pw = pickle.loads(ans['change_params'])['password']
+                    confirm = self.change_pw(ans['subject_entity'],spread, pw, dry_run)
+                else:
+                    self.logger.debug("user %s already updated" %
+                                      ans['subject_entity'])
             else:
-                self.logger.debug("unknown change_type_id %i or user already updated",
+                self.logger.debug("unknown change_type_id %i" %
                                   ans['change_type_id'])
             if confirm:
                 self.cl.confirm_event(ans)
