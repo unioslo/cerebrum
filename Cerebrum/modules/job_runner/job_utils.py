@@ -172,10 +172,11 @@ class SocketHandling(object):
     """Simple class for handling client and server communication to
     job_runner"""
 
-    Timeout = 'timeout'
+    class Timeout(Exception):
+        """Raised by send_cmd() to interrupt a hanging socket call"""
     
     def timeout(sig, frame) :
-        raise SocketHandling.Timeout
+        raise SocketHandling.Timeout("Timeout")
     timeout = staticmethod(timeout)
 
     def __init__(self, logger):
@@ -345,7 +346,11 @@ class SocketHandling(object):
         sock.send("%s\n.\n" % msg)
 
     def send_cmd(self, cmd, timeout=2):
-        """Send command, decode and return response"""
+        """
+        Send command, decode and return response.
+        Raises SocketHandling.Timeout if no response has come
+        in timeout seconds.
+        """
         signal.alarm(timeout)
         try:
             self.socket = socket.socket(socket.AF_UNIX)
