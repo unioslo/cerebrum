@@ -128,7 +128,6 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         """
         return "%s" % (cereconf.AD_USER_OU)
 
-            
 
     def fetch_cerebrum_data(self, spread):
         """
@@ -351,14 +350,24 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         @rtype: unicode string
         @return: password
         """
-        #TBD Write code that gets password from database api
-
-        #Try to get passwd from auth table
-        #else log error and return random password:
-
-        return unicode(self.ac.make_passwd(uname),
-                       'iso-8859-1')
-
+        # TODO: move passwords to auth-table and fetch from there
+        self.ac.clear()
+        # need the account_id which is not passed to create_object
+        self.ac.find_by_name(uname)
+        pwd = None
+        pwd_pickle = None
+        # get the last pwd-change entry from change_log for this account
+        # and user it to populate AD
+        tmp = [self.get_log_events(types=(self.co.account_password,),
+                                   subject_entity=self.ac.entity_id,
+                                   return_last_only=True)]
+        if len(tmp) < 1:
+            # if no passwaord is found in change_log set random password in AD
+            return unicode(self.ac.make_passwd(uname),
+                           'iso-8859-1')            
+        pwd_pickle = tmp[0].next()['change_params']
+        return pickle.loads(pwd_pickle)['password']
+        
     
     def compare(self, delete_users, cerebrumusrs, adusrs):
         """
