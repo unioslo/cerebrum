@@ -89,12 +89,16 @@ class ChangeLog(object):
     def get_log_events(self, start_id=0, max_id=None, types=None,
                        subject_entity=None, dest_entity=None,
                        any_entity=None, change_by=None, change_program=None,
-                       sdate=None):
+                       sdate=None, return_last_only=False):
         if any_entity and (dest_entity or subject_entity):
             raise self.ProgrammingError("any_entity is mutually exclusive "
                                         "with dest_entity or subject_entity")
+        if return_last_only and not types:
+            raise self.ProgrammingError("you need to choose at least one change type "
+                                        "to deliver last cl entry for")
         where = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
+        order_by = 'ORDER BY change_id'
         if subject_entity is not None:
             where.append(argument_to_sql(subject_entity, "subject_entity",
                                          bind, int))
@@ -119,12 +123,14 @@ class ChangeLog(object):
         if sdate is not None:
             where.append("tstamp > :sdate")
             bind['sdate'] = sdate
+        if return_last_only:
+            order_by = 'ORDER BY tstamp DESC LIMIT 1'
         where = "WHERE (" + ") AND (".join(where) + ")"
         return self.query("""
         SELECT tstamp, change_id, subject_entity, change_type_id, dest_entity,
                change_params, change_by, change_program
         FROM [:table schema=cerebrum name=change_log] %s
-        ORDER BY change_id""" % where, bind, fetchall=False)
+        %s""" % where, order_by, bind, fetchall=False)
 
     def get_log_events_date(self, type=None, sdate=None, edate=None):
         where = []
