@@ -98,7 +98,6 @@ class ChangeLog(object):
                                         "to deliver last cl entry for")
         where = ["change_id >= :start_id"]
         bind = {'start_id': int(start_id)}
-        order_by = 'ORDER BY change_id'
         if subject_entity is not None:
             where.append(argument_to_sql(subject_entity, "subject_entity",
                                          bind, int))
@@ -123,14 +122,16 @@ class ChangeLog(object):
         if sdate is not None:
             where.append("tstamp > :sdate")
             bind['sdate'] = sdate
-        if return_last_only:
-            order_by = 'ORDER BY tstamp DESC LIMIT 1'
         where = "WHERE (" + ") AND (".join(where) + ")"
+        if return_last_only:
+            where = where + 'ORDER BY tstamp DESC LIMIT 1'
+        else:
+            where = where + 'ORDER BY change_id'
         return self.query("""
         SELECT tstamp, change_id, subject_entity, change_type_id, dest_entity,
                change_params, change_by, change_program
         FROM [:table schema=cerebrum name=change_log] %s
-        %s""" % where, order_by, bind, fetchall=False)
+        """ % where, bind, fetchall=False)
 
     def get_log_events_date(self, type=None, sdate=None, edate=None):
         where = []
