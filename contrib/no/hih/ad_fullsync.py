@@ -32,7 +32,6 @@ Usage: [options]
   --user-sync: sync users to AD and Exchange
   --group-sync: sync groups to AD and Exchange
   --maillists-sync: sync mailing lists to AD and Exchange
-  --forward-sync: sync forwarding rules to AD and Exchange
   --exchange-sync: Only sync to exhange if exchange-sync is set
   --user_spread SPREAD: overrides cereconf.AD_ACCOUNT_SPREAD
   --group_spread SPREAD: overrides cereconf.AD_GROUP_SPREAD
@@ -89,7 +88,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hd",  [
 
-            "user-sync", "group-sync", "maillist-sync", "forward-sync",
+            "user-sync", "group-sync", "maillist-sync", 
             "exchange-sync", "user_spread=", "group_spread=","exchange_spread=",
             "store-sid", "domain=", "delete", "host=", "port=", 
             "logger-level=", "logger-name=", "dryrun", "help"])
@@ -140,8 +139,6 @@ def main():
             sync_type = "group"
         elif opt in ('--maillist-sync',):
             sync_type = "maillist"
-        elif opt in ('--forward-sync',):
-            config_args["forward_sync"] = True
         # spreads
         elif opt == "--user_spread":
             user_spread = val
@@ -212,9 +209,8 @@ def main():
     
 
 def true_false(arg):
-    for f in ("t", "true", "y", "yes", ):
-        if arg.lower() == f:
-            return True
+    if arg.lower() in ("t", "true", "y", "yes", ):
+        return True
     return False
 
 
