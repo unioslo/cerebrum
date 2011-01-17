@@ -70,7 +70,6 @@ class ADUtils(ADutilMixIn.ADutil):
         password = read_password(ad_domain_admin, host)
         url = "https://%s:%s@%s:%s" % (ad_domain_admin, password, host, port)
         self.server = xmlrpclib.Server(url)
-        self.changes = dict()
 
 
     # def run_cmd(self, command, *args):
@@ -91,45 +90,46 @@ class ADUtils(ADutilMixIn.ADutil):
     #         self.logger.debug("Command: %s%s" % (command, args))
             
 
-    
-    def move_user(self, ad_user, ou):
-        self.logger.info("Moving user %s to %s" % (
-            ad_user["distinguishedName"], ou))
-        #self.run_cmd("bindObject", ad_user["distinguishedName"])
-        #self.run_cmd("moveObject", ou)
-
-        self.add_change("OU", ou)
-        self.commit_changes(ad_user["distinguishedName"], op_type="move_object")
+    def move_user(self, dn, ou):
+        self.logger.info("Moving user %s to %s" % (dn, ou))
+        changes = {"distinguishedName": dn,
+                   "OU": ou,
+                   "type": "move_object"}
+        self.perform_changes(changes, self.dryrun)
 
 
-    def deactivate_user(self, ad_user):
+    def deactivate_user(self, dn):
         """
         Delete or deactivate user in Cerebrum-controlled OU.
         """
         # Delete or move?
         if self.delete_users:
-            self.delete_user(ad_user)
+            self.delete_user(dn)
         else:
             # disable and move to AD_LOST_AND_FOUND OU
-            self.disable_user(ad_user)
-            self.move_user(ad_user, cereconf.AD_LOST_AND_FOUND)
+            self.disable_user(dn)
+            self.move_user(dn, cereconf.AD_LOST_AND_FOUND)
 
 
-    def delete_user(self, ad_user):
+    def delete_user(self, dn):
         """
         Delete user object in AD.
         """
-        self.logger.info("Deleting user %s" % ad_user["distinguishedName"])
-        self.commit_changes(ad_user["distinguishedName"], op_type="delete_object")
+        self.logger.info("Deleting user %s" % dn)
+        changes = {"distinguishedName": dn,
+                   "type": "delete_object"}
+        self.perform_changes(changes, self.dryrun)
 
 
-    def disable_user(self, ad_user):
+    def disable_user(self, dn):
         """
         Disable user in AD.
         """
-        self.logger.info("Disabling user %s" % ad_user["distinguishedName"])
-        self.add_change("ACCOUNTDISABLE", True)
-        self.commit_changes(ad_user["distinguishedName"])
+        self.logger.info("Disabling user %s" % dn)
+        changes = {"distinguishedName": dn,
+                   "ACCOUNTDISABLE": True,
+                   "type": "alter_object"}
+        self.perform_changes(changes, self.dryrun)
 
 
     def create_ad_account(self, attrs, ou):
@@ -191,19 +191,10 @@ class ADUtils(ADutilMixIn.ADutil):
                          len(ad_objs))
         
 
-    def add_change(self, attr_type, value):
-        # TBD check if key exists?
-        self.changes[attr_type] = value
-
-
-    def commit_changes(self, dname, op_type="alter_object"):
-        #self.logger.debug("commit_changes")
-        self.changes["distinguishedName"] = dname
-        self.changes["type"] = op_type
-        self.perform_changes((self.changes, ), self.dryrun)
-        # After committing changes dict must be empty to be ready for
-        # new changes.
-        self.changes = dict()
+    def commit_changes(self, changes, dn, op_type="alter_object"):
+        changes["distinguishedName"] = dn
+        changes["type"] = op_type
+        self.perform_changes(changes, self.dryrun)
         
 
 
@@ -249,13 +240,15 @@ class ADGroupUtils(ADUtils):
             self.logger.error("create group %s failed: %r", gname, ret)
 
 
-    def delete_group(self, ad_group):
+    def delete_group(self, dn):
         """
         Delete group object in AD.
         """
-        self.logger.info("Deleting group %s" % ad_group["distinguishedName"])
-        self.commit_changes(ad_group["distinguishedName"], op_type="delete_object")
-    
+        self.logger.info("Deleting group %s" % dn)
+        changes = {"distinguishedName": dn,
+                   "type": "delete_object"}
+        self.perform_changes(changes, self.dryrun)
+
 
     def sync_members(self, dn, members):
         # Send dn instead of doing findObject for each group. Saves

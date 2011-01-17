@@ -24,6 +24,12 @@ Module with functions for cerebrum export to Active Directory at HiH.
 
 TODO:
 
+* Distibution groups. What to do with them? They are just groups with
+  different spreads that have some attributes that exchange like to
+  know about.
+
+  TBD: make subclass of CerebrumGroup and ADGroupSync to deal with this?
+
 * Mer dok.
 
 * La all tekst være unicode før sammenligning. Fetch_ad_data og
@@ -53,7 +59,30 @@ from Cerebrum.modules.no.hih.ADUtils import ADUtils, ADGroupUtils
 from Cerebrum import Errors
 
 
-class CerebrumAccount(object):
+class CerebrumEntity(object):
+    """
+    Represent a Cerebrum entity which may be exported to AD, depending
+    wether the info in AD differs. This is a base class with common
+    methods and attributes for users and groups.
+    """
+    @classmethod
+    def initialize(cls, ou, domain):
+        cls.default_ou = ou
+        cls.domain = domain
+
+    def __init__(self):
+        # Default state
+        self.quarantined = False      # quarantined in Cerebrum?
+        self.in_ad = False            # entity exists in AD?
+        self.to_exchange = False      # entity has exchange spread?
+        self.update_recipient = False # run update_Recipients?
+        # ad_attrs contains values calculated from cerebrum data
+        self.ad_attrs = dict()
+        # changes contains attributes that should be updated in AD
+        self.changes = dict()
+
+
+class CerebrumAccount(CerebrumEntity):
     """
     Represent a Cerebrum Account which may be exported to AD,
     depending wether the account info in AD differs.
@@ -61,21 +90,15 @@ class CerebrumAccount(object):
     An instance contains information from Cerebrum and methods for
     comparing this information with the data from AD.
     """
-    @classmethod
-    def initialize(cls, ou, domain):
-        cls.default_ou = ou
-        cls.domain = domain
 
     def __init__(self, account_id, owner_id, uname):
+        CerebrumEntity.__init__(self)
         self.account_id = account_id
         self.owner_id = owner_id
         self.uname = uname
 
         # default values
-        self.quarantined = False
-        self.in_ad = False 
-        self.to_exchange = False
-        self.primary_mail = ""
+        self.email = list()
         self.name_last = ""
         self.name_first = ""
         
@@ -117,14 +140,16 @@ class CerebrumAccount(object):
         ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
         ad_attrs["title"] = self.title
         ad_attrs["telephoneNumber"] = self.contact_phone
-        ad_attrs["mail"] = self.primary_mail
+        ad_attrs["mail"] = ""
+        if self.email:
+            ad_attrs["mail"] = self.email[0]
 
         # Convert str to unicode before comparing with AD
         for attr_type, attr_val in ad_attrs.iteritems():
             if type(attr_val) is str:
                 ad_attrs[attr_type] = unicode(attr_val, encoding)
 
-        self.ad_attrs = ad_attrs
+        self.ad_attrs.update(ad_attrs)
 
 
     def calc_exchange_attrs(self):
@@ -145,14 +170,22 @@ class CerebrumAccount(object):
         # Do the hardcoding for this sync. 
         self.ad_attrs["mailNickname"] = self.uname
         # set proxyAddresses attr
-        tmp = ["SMTP:" + self.ad_attrs["mail"]]
-        for alias_addr in self.mail_addresses:
-            if alias_addr != self.ad_attrs["mail"]:
-                tmp.append(("smtp:" + alias_addr))
-        self.ad_attrs["proxyAddresses"] = tmp
+        if self.email:
+            tmp = ["SMTP:" + self.email[0]]
+            for alias_addr in self.email[1:]:
+                if alias_addr != self.ad_attrs["mail"]:
+                    tmp.append(("smtp:" + alias_addr))
+            self.ad_attrs["proxyAddresses"] = tmp
+    
+    
+    def add_change(self, attr_type, value):
+        self.changes[attr_type] = value
+        # Should update_Recipients be run for this account?
+        if not self.update_recipient and attr_type in cereconf.AD_EX_ATTRIBUTES:
+            self.update_recipient = True
 
 
-class CerebrumGroup(object):
+class CerebrumGroup(CerebrumEntity):
     """
     Represent a Cerebrum group which may be exported to AD, depending
     wether the account info in AD differs.
@@ -160,19 +193,12 @@ class CerebrumGroup(object):
     An instance contains information from Cerebrum and methods for
     comparing this information with the data from AD.
     """
-    @classmethod
-    def initialize(cls, ou, domain):
-        cls.default_ou = ou
-        cls.domain = domain
 
     def __init__(self, name, group_id, description):
+        CerebrumEntity.__init__(self)
         self.name = name
         self.group_id = group_id
         self.description = description
-        # default values
-        self.quarantined = False
-        self.in_ad = False 
-        self.to_exchange = False
 
 
     def calc_ad_attrs(self, encoding="ISO-8859-1", **config_args):
@@ -186,9 +212,10 @@ class CerebrumGroup(object):
         # Read which attrs to calculate from cereconf
         ad_attrs = dict().fromkeys(cereconf.AD_GRP_ATTRIBUTES, None)
         ad_attrs.update(cereconf.AD_GRP_DEFAULTS)
+        # Update with with the given attrs from config_args
+        ad_attrs.update(config_args)
         
         # Do the hardcoding for this sync.
-        ad_attrs["groupType"] = cereconf.AD_GROUP_TYPE
         ad_attrs["displayName"] = self.name
         ad_attrs["displayNamePrintable"] = self.name
         ad_attrs["group_id"] = self.group_id
@@ -199,17 +226,26 @@ class CerebrumGroup(object):
         ad_attrs["OU"] = self.default_ou
 
         # Exchange
-        if self.to_exchange:
-            ad_attrs["proxyAddresses"] = ["SMTP:" + self.name + "@" +
-                                          self.domain]
-            ad_attrs["mailNickname"] = self.name
-            ad_attrs["mail"] = self.name + "@" + self.domain
+        # if self.to_exchange:
+        #     ad_attrs["proxyAddresses"] = ["SMTP:" + self.name + "@" +
+        #                                   self.domain]
+        #     ad_attrs["mailNickname"] = self.name
+        #     ad_attrs["mail"] = self.name + "@" + self.domain
 
         # Convert str to unicode before comparing with AD
         for attr_type, attr_val in ad_attrs.iteritems():
             if type(attr_val) is str:
                 ad_attrs[attr_type] = unicode(attr_val, encoding)
-        self.ad_attrs = ad_attrs
+        
+        self.ad_attrs.update(ad_attrs)
+
+
+    def add_change(self, attr_type, value):
+        self.changes[attr_type] = value
+        # Should update_Recipients be run for this group?
+        # Dist-groups
+        #if not self.update_recipient and attr_type in cereconf.AD_EX_ATTRIBUTES:
+        #    self.update_recipient = True
 
 
 class ADUserSync(ADUtils):
@@ -232,8 +268,9 @@ class ADUserSync(ADUtils):
         for k in ("user_spread", "user_exchange_spread",
                   "exchange_sync", "delete_users", "dryrun",
                   "ad_ldap", "store_sid"):
-            setattr(self, k, config_args.pop(k))
-            
+            if k in config_args:
+                setattr(self, k, config_args.pop(k))
+        
         # Set which attrs that are to be compared with AD
         self.sync_attrs = cereconf.AD_ATTRIBUTES
         if self.exchange_sync:
@@ -245,7 +282,7 @@ class ADUserSync(ADUtils):
                                    config_args.pop("ad_domain"))
         self.config_args = config_args
         self.logger.info("Configuration done. Will compare attributes: %s" %
-                         str(cereconf.AD_ATTRIBUTES))
+                         str(self.sync_attrs))
         
 
     def fullsync(self):
@@ -267,7 +304,7 @@ class ADUserSync(ADUtils):
         for uname, ad_user in addump.items():
             if uname in self.accounts:
                 self.accounts[uname].in_ad = True
-                self.compare(ad_user, self.accounts[uname].ad_attrs)
+                self.compare(ad_user, self.accounts[uname])
             else:
                 self.logger.debug("User %s (%s) in AD, but not in Cerebrum" %
                                   (uname, str(ad_user)))
@@ -279,10 +316,15 @@ class ADUserSync(ADUtils):
 
         # Users exist in Cerebrum and has ad spread, but is not in AD.
         # Create user if it's not quarantined
-        for cere_acc in [acc for acc in self.accounts.values() if
-                         acc.in_ad is False and acc.quarantined is False]:
-            self.create_ad_account(cere_acc.ad_attrs, self.get_default_ou())
-            
+        for cb_acc in [acc for acc in self.accounts.values() if
+                       acc.in_ad is False and acc.quarantined is False]:
+            self.create_ad_account(cb_acc.ad_attrs, self.get_default_ou())
+
+        #updating Exchange
+        if self.exchange_sync:
+            self.update_Exchange([a.uname for a in self.accounts.itervalues()
+                                  if a.update_recipient])
+        
         self.logger.info("User-sync finished")
 
 
@@ -319,6 +361,11 @@ class ADUserSync(ADUtils):
         self.logger.debug("..fetch email info..")
         self.fetch_email_info()
         
+        # Finally, calculate attribute values based on Cerebrum data
+        # for comparison with AD
+        for acc in self.accounts.itervalues():
+            acc.calc_ad_attrs(**self.config_args)
+
         # Fetch exchange data and calculate attributes
         if self.exchange_sync:
             for row in self.ac.search(spread=self.user_exchange_spread):
@@ -329,10 +376,6 @@ class ADUserSync(ADUtils):
                 len([1 for acc in self.accounts.itervalues() if acc.to_exchange]),
                 self.user_spread, self.user_exchange_spread))
 
-        # Finally, calculate attribute values based on Cerebrum data
-        # for comparison with AD
-        for acc in self.accounts.itervalues():
-            acc.calc_ad_attrs(**self.config_args)
 
     
 
@@ -399,7 +442,7 @@ class ADUserSync(ADUtils):
         Get primary email addresses from Cerebrum. If syncing to
         Exchange also get additional email info.
         """
-        # Find primary addresses and set mail attribute
+        # Find primary addresses
         for uname, prim_mail in self.ac.getdict_uname2mailaddr(
             filter_expired=True, primary_only=True).iteritems():
             acc = self.accounts.get(uname, None)
@@ -410,11 +453,11 @@ class ADUserSync(ADUtils):
         if not self.exchange_sync:
             return
 
-        #Find all valid addresses and set proxyaddresses attribute
+        #Find all valid addresses
         for uname, all_mail in self.ac.getdict_uname2mailaddr(
             filter_expired=True, primary_only=False).iteritems():
             acc = self.accounts.get(uname, None)
-            if acc and acc.to_exchange:
+            if acc:
                 acc.mail_addresses = all_mail
 
         # TODO: homeMDB, mangler spesifikasjon
@@ -447,78 +490,71 @@ class ADUserSync(ADUtils):
         @param search_ou: LDAP path to base ou for search
         @type search_ou: String
         """
-        # Setting the userattributes to be fetched.
-        self.server.setUserAttributes(cereconf.AD_ATTRIBUTES,
+        # Setting the user attributes to be fetched.
+        self.server.setUserAttributes(self.sync_attrs,
                                       cereconf.AD_ACCOUNT_CONTROL)
         return self.server.listObjects("user", True, search_ou)
 
 
-    def compare(self, ad_user, cere_user):
+    def compare(self, ad_user, cb_user):
         """
         Compare Cerebrum user with the AD attributes listed in
         cereconf.AD_ATTRIBUTES and decide if AD must be updated or not.
         """
+        cb_attrs = cb_user.ad_attrs
         # First check if user is quarantined. If so, disable
-        if cere_user["ACCOUNTDISABLE"] and not ad_user["ACCOUNTDISABLE"]:
+        if cb_attrs["ACCOUNTDISABLE"] and not ad_user["ACCOUNTDISABLE"]:
             self.disable_user(ad_user)
         
         # Check if user has correct OU. If not, move user
-        if ad_user["distinguishedName"] != cere_user["distinguishedName"]:
-            self.move_user(ad_user, ou=cere_user["ou"])
+        if ad_user["distinguishedName"] != cb_attrs["distinguishedName"]:
+            self.move_user(ad_user, ou=cb_attrs["ou"])
             
         # Sync attributes
-        #for attr in cere_user:
-        for attr in cereconf.AD_ATTRIBUTES:
-            # Some attribuets need special attention
-            if attr in ("altRecipient", "deliverAndRedirect"):
-                # Ignore these attributes if not doing forward sync
-                if not self.forward_sync:
-                    continue
+        for attr in self.sync_attrs:
             # Now, compare values from AD and Cerebrum
-            cere_attr = cere_user.get(attr, None)
+            cb_attr = cb_attrs.get(attr, None)
             ad_attr   = ad_user.get(attr, None)
-            if cere_attr and ad_attr:
+            if cb_attr and ad_attr:
                 # value both in ad and cerebrum => compare
-                result = self.attr_cmp(attr, cere_attr, ad_attr)
+                result = self.attr_cmp(attr, cb_attr, ad_attr)
                 if result: 
                     self.logger.debug("Changing attr %s from %s to %s",
-                                      attr, ad_attr, cere_attr)
-                    self.add_change(attr, result)
-            elif cere_attr:
+                                      attr, ad_attr, cb_attr)
+                    cb_user.add_change(attr, result)
+            elif cb_attr:
                 # attribute is not in AD and cerebrum value is set => update AD
-                self.add_change(attr, cere_attr)
+                cb_user.add_change(attr, cb_attr)
             elif ad_attr:
                 # value only in ad => delete value in ad
-                self.add_change(attr,"")
+                cb_user.add_change(attr,"")
 
         # TBD: Sett default versjon i cereconf og sammenligne i løkka over?
         for attr, value in cereconf.AD_ACCOUNT_CONTROL.items():
-            if attr in cere_user:
-                if attr not in ad_user or ad_user[attr] != cere_user[attr]:
-                    self.add_change(attr, cere_user[attr])
+            if attr in cb_attrs:
+                if attr not in ad_user or ad_user[attr] != cb_attrs[attr]:
+                    cb_user.add_change(attr, cb_attrs[attr])
             elif attr not in ad_user or ad_user[attr] != value:
-                self.add_change(attr, value)
+                cb_user.add_change(attr, value)
                 
         # Commit changes
-        if self.changes:
-            self.commit_changes(ad_user["distinguishedName"])
+        if cb_user.changes:
+            self.commit_changes(cb_user.changes, ad_user["distinguishedName"])
 
 
-    def attr_cmp(self, attr_type, cere_attr, ad_attr):
+    def attr_cmp(self, attr_type, cb_attr, ad_attr):
         """
         Compare new and old ad attributes. Most of the time it is a
         simple string comparison, but there are exceptions.
         """
-        if attr_type == "msExchPoliciesExcluded":
-            # xmlrpclib appends chars [' and '] to 
-            # this attribute for some reason
-            tmpstring = ad_attr.replace("['","")
-            tmpstring = tmpstring.replace("']","")
-            if tmpstring != cere_attr:
-                return cere_attr
+        #if attr_type == "msExchPoliciesExcluded":
+        if isinstance(ad_attr, list):
+            ad_attr = ad_attr[0]
+            if ad_attr != cb_attr:
+                return cb_attr
         else:
-            if cere_attr != ad_attr:
-                return cere_attr
+            if cb_attr != ad_attr:
+                return cb_attr
 
 
     def get_default_ou(self):
@@ -544,27 +580,26 @@ class ADGroupSync(ADGroupUtils):
         for k in ("group_spread", "group_exchange_spread", "user_spread"):
             # Group.search() must have spread constant or int to work,
             # unlike Account.search()
-            setattr(self, k, self.co.Spread(config_args.pop(k)))
+            if k in config_args:
+                setattr(self, k, self.co.Spread(config_args.pop(k)))
         for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
                   "ad_ldap"):
             setattr(self, k, config_args.pop(k))
+
+        # Set which attrs that are to be compared with AD
+        self.sync_attrs = cereconf.AD_GRP_ATTRIBUTES
+
+        # The rest of the config args goes to the CerebrumGroup class
+        # and instances
         CerebrumGroup.initialize(self.get_default_ou(),
                                  config_args.pop("ad_domain"))
         self.config_args = config_args
-        # The rest of the config args goes to the CerebrumGroup class
-        # and instances
-        self.ad_attributes = config_args
         self.logger.info("Configuration done. Will compare attributes: %s" %
-                         str(cereconf.AD_ATTRIBUTES))
+                         str(self.sync_attrs))
 
 
     def fullsync(self):
-        self.logger.info("Starting group-sync(group_spread = %s, "
-                         #"exchange_spread = %s, user_spread = %s, "
-                         "delete = %s, dry_run = %s, store_sid = %s)" %
-                         #(self.group_spread, self.exchange_spread, self.user_spread, self.delete,
-                         (self.group_spread, self.delete_groups,
-                          self.dryrun, self.store_sid))
+        self.logger.info("Starting group-sync")
         # Fetch AD-data 
         self.logger.debug("Fetching AD group data...")
         addump = self.fetch_ad_data()
@@ -583,7 +618,7 @@ class ADGroupSync(ADGroupUtils):
             gname = gname[len(cereconf.AD_GROUP_PREFIX):]
             if gname in self.groups:
                 self.groups[gname].in_ad = True
-                self.compare(ad_group, self.groups[gname].ad_attrs)
+                self.compare(ad_group, self.groups[gname])
             else:
                 self.logger.debug("Group %s in AD, but not in Cerebrum" % gname)
                 # Group in AD, but not in Cerebrum:
@@ -602,9 +637,9 @@ class ADGroupSync(ADGroupUtils):
         self.sync_group_members()
         
         #updating Exchange
-        if self.exchange_sync:
-            self.update_Exchange([g.name for g in self.groups.itervalues()
-                                  if g.to_exchange])
+        #if self.exchange_sync:
+        #    self.update_Exchange([g.name for g in self.groups.itervalues()
+        #                          if g.update_recipient])
         
         #Commiting changes to DB (SID external ID) or not.
         if self.store_sid:
@@ -622,13 +657,8 @@ class ADGroupSync(ADGroupUtils):
         @returm ad_dict : group name -> group info mapping
         @type ad_dict : dict
         """
-        self.server.setGroupAttributes(cereconf.AD_GRP_ATTRIBUTES)
-        ad_groups = self.server.listObjects('group', True, self.get_default_ou())
-        if filter_forward_groups:
-            for grp_name in ad_groups:
-                if grp_name.startswith(cereconf.AD_FORWARD_GROUP_PREFIX):
-                    del ad_groups[grp_name]
-        return ad_groups
+        self.server.setGroupAttributes(self.sync_attrs)
+        return self.server.listObjects('group', True, self.get_default_ou())
 
 
     def fetch_cerebrum_data(self):
@@ -674,44 +704,41 @@ class ADGroupSync(ADGroupUtils):
                           self.group_spread, self.group_exchange_spread))
         # Set attr values for comparison with AD
         for g in self.groups.itervalues():
-            g.calc_ad_attrs(**self.ad_attributes)
+            g.calc_ad_attrs(**self.config_args)
 
 
-    def compare(self, ad_group, cere_group):
+    def compare(self, ad_group, cb_group):
         """ Sync group info with AD
 
         Check if any values about groups other than group members
         should be updated in AD.
         """
-        # Sjekke plassering? Vi henter jo data fra
-        # OU=Groups,OU=Cerebrum,DC=... uansett. Da er det ingen andre
-        # steder å flytte til. Hvis vi i stedet skal hente grupper fra
-        # et videre OU, så er saken annerledes.
+        cb_attrs = cb_group.ad_attrs
         for attr in cereconf.AD_GRP_ATTRIBUTES:            
-            cere_attr = cere_group.get(attr, None)
+            cb_attr = cb_attrs.get(attr, None)
             ad_attr   = ad_group.get(attr, None)
             #self.logger.debug("attr: %s, c: %s, %s, a: %s, %s" % (
-            #    attr, type(cere_attr), cere_attr, type(ad_attr), ad_attr))
-            if cere_attr and ad_attr:
+            #    attr, type(cb_attr), cb_attr, type(ad_attr), ad_attr))
+            if cb_attr and ad_attr:
                 # value both in ad and cerebrum => compare
-                result = self.attr_cmp(attr, cere_attr, ad_attr)
+                result = self.attr_cmp(attr, cb_attr, ad_attr)
                 if result: 
                     self.logger.debug("Changing attr %s from %s to %s",
-                                      attr, ad_attr, cere_attr)
-                    self.add_change(attr, result)
-            elif cere_attr:
+                                      attr, ad_attr, cb_attr)
+                    cb_group.add_change(attr, result)
+            elif cb_attr:
                 # attribute is not in AD and cerebrum value is set => update AD
-                self.add_change(attr, cere_attr)
+                cb_group.add_change(attr, cb_attr)
             elif ad_attr:
                 # value only in ad => delete value in ad
-                self.add_change(attr,"")
+                cb_group.add_change(attr,"")
                 
         # Commit changes
-        if self.changes:
-            self.commit_changes(ad_group["distinguishedName"])
+        if cb_group.changes:
+            self.commit_changes(cb_group.changes, ad_group["distinguishedName"])
 
 
-    def attr_cmp(self, attr_type, cere_attr, ad_attr):
+    def attr_cmp(self, attr_type, cb_attr, ad_attr):
         """
         Compare new and old ad attributes. Most of the time it is a
         simple string comparison, but there are exceptions.
@@ -720,8 +747,8 @@ class ADGroupSync(ADGroupUtils):
         if isinstance(ad_attr, list):
             # self.logger.debug("attr %s is a list from AD %s" % (attr_type, ad_attr))
             ad_attr = ad_attr[0]
-        if cere_attr != ad_attr:
-            return cere_attr
+        if cb_attr != ad_attr:
+            return cb_attr
 
         
 
