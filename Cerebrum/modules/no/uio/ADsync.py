@@ -358,7 +358,7 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         pwd_pickle = None
         # get the last pwd-change entry from change_log for this account
         # and user it to populate AD
-        tmp = [self.get_log_events(types=(self.co.account_password,),
+        tmp = [self.db.get_log_events(types=(self.co.account_password,),
                                    subject_entity=self.ac.entity_id,
                                    return_last_only=True)]
         if len(tmp) < 1:
