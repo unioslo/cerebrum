@@ -354,21 +354,18 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
         self.ac.clear()
         # need the account_id which is not passed to create_object
         self.ac.find_by_name(uname)
-        pwd = None
-        pwd_pickle = None
         # get the last pwd-change entry from change_log for this account
         # and user it to populate AD
-        tmp = [self.db.get_log_events(types=(self.co.account_password,),
-                                      subject_entity=self.ac.entity_id,
-                                      return_last_only=True)]
-        pwd_pickle = tmp[0].next()['change_params']
-        try:
-            # try to set the last password from change_log as AD-password
-            pwd = pickle.loads(pwd_pickle)['password']
-        except KeyError:
-            # if no password is found in change_log set random password in AD
-            pwd = unicode(self.ac.make_passwd(uname), 'iso-8859-1')
-        return pwd
+        tmp = list(self.db.get_log_events(types=(self.co.account_password,),
+                                          subject_entity=self.ac.entity_id,
+                                          return_last_only=True))
+        if tmp:
+            params = pickle.loads(tmp[0]["change_params"])
+            if "password" in params:
+                return params["password"]
+            
+        return unicode(self.ac.make_passwd(uname), "iso-8859-1")
+    # end get_password
         
     
     def compare(self, delete_users, cerebrumusrs, adusrs):
