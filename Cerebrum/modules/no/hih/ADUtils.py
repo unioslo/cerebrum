@@ -72,25 +72,15 @@ class ADUtils(ADutilMixIn.ADutil):
         self.server = xmlrpclib.Server(url)
 
 
-    # def run_cmd(self, command, *args):
-    #     """
-    #     Chech if command is a AD service method. Run command unless dryrun is set
-    #     """
-    #     if self.dryrun:
-    #         self.logger.debug('server.%s%s' % (command, args))
-    #         return
-    #     try:
-    #         cmd = getattr(self.server, command)
-    #         return cmd(args)
-    #     except xmlrpclib.ProtocolError, xpe:
-    #         self.logger.critical("Error connecting to AD service. Giving up!: %s %s" %
-    #                              (xpe.errcode, xpe.errmsg))
-    #     except Exception, e:
-    #         self.logger.warn("Unexpected exception", exc_info=1)
-    #         self.logger.debug("Command: %s%s" % (command, args))
-            
-
     def move_user(self, dn, ou):
+        """
+        Move given user in Ad to given ou.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
+        @param ou: LDAP path to base ou for the entity type
+        @type ou: str        
+        """
         self.logger.info("Moving user %s to %s" % (dn, ou))
         changes = {"distinguishedName": dn,
                    "OU": ou,
@@ -101,6 +91,9 @@ class ADUtils(ADutilMixIn.ADutil):
     def deactivate_user(self, dn):
         """
         Delete or deactivate user in Cerebrum-controlled OU.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
         """
         # Delete or move?
         if self.delete_users:
@@ -114,6 +107,9 @@ class ADUtils(ADutilMixIn.ADutil):
     def delete_user(self, dn):
         """
         Delete user object in AD.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
         """
         self.logger.info("Deleting user %s" % dn)
         changes = {"distinguishedName": dn,
@@ -124,6 +120,9 @@ class ADUtils(ADutilMixIn.ADutil):
     def disable_user(self, dn):
         """
         Disable user in AD.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
         """
         self.logger.info("Disabling user %s" % dn)
         changes = {"distinguishedName": dn,
@@ -135,6 +134,11 @@ class ADUtils(ADutilMixIn.ADutil):
     def create_ad_account(self, attrs, ou):
         """
         Create AD account, set password and default properties. 
+
+        @param attrs: AD attrs to be set for the account
+        @type attrs: dict        
+        @param ou: LDAP path to base ou for the entity type
+        @type ou: str        
         """
         # This will be a bit ugly since we depend on old code...
         uname = attrs.pop("sAMAccountName")
@@ -169,7 +173,6 @@ class ADUtils(ADutilMixIn.ADutil):
         
         @param ad_objs : objects to run command on
         @type  ad_objs: list
-        @param dry_run : Flag
         """
         if not ad_objs:
             return
@@ -191,6 +194,32 @@ class ADUtils(ADutilMixIn.ADutil):
                          len(ad_objs))
         
 
+    def attr_cmp(self, cb_attr, ad_attr):
+        """
+        Compare new (attribute calculated from Cerebrum data) and old
+        ad attributes. 
+
+        @param cb_attr: attribute calculated from Cerebrum data
+        @type cb_attr: unicode 
+        @param ad_attr: Attribute fetched from AD
+        @type ad_attr: list || unicode || str
+        
+        @rtype: str or None
+        @return: cb_attr if attributes differ. None if no difference or
+        comparison cannot be made.
+        """
+        
+        if isinstance(ad_attr, list):
+            if len(ad_attr) != 1:
+                self.logger.warn("Attr %s from ad is a list. Cannot compare" %
+                                 str(ad_attr))
+                return
+            else:
+                ad_attr = ad_attr[0]
+        if cb_attr != ad_attr:
+            return cb_attr
+
+
     def commit_changes(self, changes, dn, op_type="alter_object"):
         changes["distinguishedName"] = dn
         changes["type"] = op_type
@@ -199,22 +228,20 @@ class ADUtils(ADutilMixIn.ADutil):
 
 
 class ADGroupUtils(ADUtils):
-    def alter_object(self, chg, dry_run):
+    def alter_object(self, chg, dryrun):
         """
         Binds to AD group objects and updates given attributes
 
         @param chg: group_name -> group info mapping
         @type chg: dict
-        @param dry_run: Flag
+        @param dryrun: Flag
+        @type dryrun: bool 
         """
-        distName = chg['distinguishedName']                 
-        #Already bound
+        # AD object is already bound
+        dn = chg.pop('distinguishedName')
         del chg['type']             
-        del chg['distinguishedName']
 
-        #ret = self.run_cmd('putGroupProperties', dry_run, chg)
-        #run_cmd in ADutilMixIn.py not written for group updates
-        if not dry_run:
+        if not dryrun:
             ret = self.server.putGroupProperties(chg)
         else:
             ret = (True, 'putGroupProperties')
@@ -222,7 +249,7 @@ class ADGroupUtils(ADUtils):
             self.logger.warning("putGroupProperties on %s failed: %r",
                                 distName, ret)
         else:
-            ret = self.run_cmd('setObject', dry_run)
+            ret = self.run_cmd('setObject', dryrun)
             if not ret[0]:
                 self.logger.warning("setObject on %s failed: %r",
                                     distName, ret)         
@@ -230,6 +257,11 @@ class ADGroupUtils(ADUtils):
     def create_ad_group(self, attrs, ou):
         """
         Create AD group.
+
+        @param attrs: AD attrs to be set for the account
+        @type attrs: dict        
+        @param ou: LDAP path to base ou for the entity type
+        @type ou: str        
         """
         gname = attrs.pop("name")
         ret = self.run_cmd("createObject", self.dryrun, "Group", ou, gname)
@@ -243,6 +275,9 @@ class ADGroupUtils(ADUtils):
     def delete_group(self, dn):
         """
         Delete group object in AD.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
         """
         self.logger.info("Deleting group %s" % dn)
         changes = {"distinguishedName": dn,
@@ -251,6 +286,15 @@ class ADGroupUtils(ADUtils):
 
 
     def sync_members(self, dn, members):
+        """
+        Sync members for a group to AD.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
+        @param members: List of account and group names
+        @type members: list
+        
+        """
         # Send dn instead of doing findObject for each group. Saves
         # quite some time
         #dn = self.server.findObject(gname)
