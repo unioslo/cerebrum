@@ -113,7 +113,8 @@ class CerebrumAccount(CerebrumEntity):
         self.email = list()
         self.name_last = ""
         self.name_first = ""
-        
+        self.title = ""
+        self.contact_phone = ""
 
     def __str__(self):
         return "%s (%s)" % (self.uname, self.account_id)
@@ -322,6 +323,7 @@ class ADUserSync(ADUtils):
                             command line options.
         @type config_args: dict
         """
+        self.logger.info("Starting user-sync")
         # Sync settings for this module
         for k in ("user_spread", "user_exchange_spread",
                   "exchange_sync", "delete_users", "dryrun",
@@ -340,14 +342,13 @@ class ADUserSync(ADUtils):
                                    config_args.pop("ad_domain"))
         self.config_args = config_args
         self.logger.info("Configuration done. Will compare attributes: %s" %
-                         str(self.sync_attrs))
+                         ", ".join(self.sync_attrs))
         
 
     def fullsync(self):
         """
         This method defines what will be done in the sync.
         """
-        self.logger.info("Starting user-sync")
         # Fetch AD-data for users.     
         self.logger.debug("Fetching AD user data...")
         addump = self.fetch_ad_data(self.ad_ldap)
@@ -433,8 +434,6 @@ class ADUserSync(ADUtils):
             self.logger.info("Fetched %i cerebrum users with spreads %s and %s" % (
                 len([1 for acc in self.accounts.itervalues() if acc.to_exchange]),
                 self.user_spread, self.user_exchange_spread))
-
-
     
 
     def filter_quarantines(self):
@@ -462,6 +461,7 @@ class ADUserSync(ADUtils):
                              self.co.name_last]):
             pid2names.setdefault(int(row["person_id"]), {})[
                 int(row["name_variant"])] = row["name"]
+        # Set names
         for acc in self.accounts.itervalues():
             names = pid2names.get(acc.owner_id)
             if names:
@@ -475,29 +475,28 @@ class ADUserSync(ADUtils):
         """
         Get contact info: phonenumber and title. Personal title takes precedence.
         """
-        # list.contact_info is probably faster
-        for acc in self.accounts.itervalues(): 
-            self.pe.clear()
-            try:
-                self.pe.find(acc.owner_id)
-            except Errors.NotFoundError:
-                self.logger.info("Getting contact info: Skipping user=%s,"
-                                 "owner (id=%s) is not a person entity." 
-                                 % (acc.uname, acc.owner_id))
-                continue
-            phones = self.pe.get_contact_info(type=self.co.contact_phone)
-            acc.contact_phone = ""
-            if phones:
-                acc.contact_phone = phones[0]["contact_value"]
-
-            acc.title = ""
-            for title_type in (self.co.name_work_title, 
-                               self.co.name_personal_title):
-                try:
-                    acc.title = self.pe.get_name(self.co.system_sap, title_type)
-                except Errors.NotFoundError:
-                    pass
-
+        pid2data = {}
+        # Get phone number
+        for row in self.pe.list_contact_info(source_system=self.co.system_sap,
+                                             entity_type=self.co.entity_person,
+                                             contact_type=self.co.contact_phone):
+            pid2data.setdefault(int(row["entity_id"]), {})[
+                int(row["contact_type"])] = row["contact_value"]
+        # Get title
+        for row in self.pe.list_persons_name(
+            source_system = self.co.system_sap,
+            name_type     = [self.co.name_personal_title,
+                             self.co.name_work_title]):
+            pid2data.setdefault(int(row["person_id"]), {})[
+                int(row["name_variant"])] = row["name"]
+        # set data
+        for acc in self.accounts.itervalues():
+            data = pid2data.get(acc.owner_id)
+            if data:
+                acc.contact_phone = data.get(int(self.co.contact_phone), "")
+                acc.title = (data.get(int(self.co.name_personal_title), "") or
+                             data.get(int(self.co.name_work_title), ""))
+                
 
     def fetch_email_info(self):
         """
