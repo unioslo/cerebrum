@@ -10,23 +10,28 @@ Relevant docs:
 * <http://frida.usit.uio.no/prosjektet/dok/import/institusjonsdata/index.html>
 * CVS: cerebrum-sites/doc/intern/uio/archive/frida
 * <http://www.cristin.no/import/institusjonsdata/eksempel.xml>
-* <http://www.cristin.no/import/institusjonsdata/                                                     
+* <http://www.cristin.no/import/institusjonsdata/>
 
 Things we can't fetch from Cerebrum:
 
 * OUs:
-    + 'NSDkode' (not a problem, since UiO has not exported it since SAP came
-       online)
-    + datoAktivFra/datoAktivTil (these dates are not registered in Cerebrum)
+    + NSDkode (not a problem, since UiO has not exported it since SAP came
+      online and it's not a required element).
+    + datoAktivFra/datoAktivTil (not a problem. Although these dates are not
+      registered in Cerebrum, they are not required required elements XML)
 
 * People:
 
-    + stillingskode (for each employment)
-    + datoFra (for each employment)
-    + datoTil (for each employment)
-    + percentage (for each employment)
+    + stillingskode (This is a real issue -- the data are on file only, and the
+      element is required).
+    + datoFra (for each employment, use create_date for affiliation as an
+      approximation)
+    + datoTil (Not a problem, since it's not a required element)
+    + percentage (Not a problemm since it's not a required element)
 
-The rest is available in Cerebrum. 
+The rest is available in Cerebrum.
+
+Essentially, the only real issue is the 4-digit employment code.
 """
 
 import getopt
@@ -92,7 +97,7 @@ def output_headers(writer, root_ou):
 
 
 def _cache_ou_data(perspective):
-    """Fetch all relevant info for our OUs"""
+    """Fetch all relevant info for our OUs."""
 
     logger.debug("Starting caching ou_data")
     
@@ -280,6 +285,9 @@ def _cache_person_reservation_data(cache, source_system):
     db = Factory.get("Database")()
     group = Factory.get("Group")(db)
     try:
+        if not hasattr(cereconf, "HIDDEN_PERSONS_GROUP"):
+            return cache
+        
         group.find_by_name(cereconf.HIDDEN_PERSONS_GROUP)
     except Errors.NotFoundError:
         return cache
