@@ -179,6 +179,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1068_fullmektig = SAPLonnsTittelKode(
+        "20001068",
+        "1068 Fullmektig",
+        "ØVR"
+    )
+
     sap_1069_forstefullmektig = SAPLonnsTittelKode(
         "20001069",
         "1069 Førstefullmektig",
