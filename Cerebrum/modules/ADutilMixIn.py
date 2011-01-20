@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
-# Copyright 2006-2008 University of Oslo, Norway
+# Copyright 2006-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -31,10 +31,13 @@ class ADutil(object):
     def __init__(self, db, co, logger,
              host=cereconf.AD_SERVER_HOST, port=cereconf.AD_SERVER_PORT,
              url=None, ad_ldap=cereconf.AD_LDAP):
-
+        """
+        Initialize AD syncronization, i.e. connect to AD service on
+        given host.
+        """
         self.db = db
         self.co = co
-        ad_domain_admin = getattr(cereconf, "AD_DOMAIN_ADMIN_USER")
+        ad_domain_admin = cereconf.AD_DOMAIN_ADMIN_USER
         if url is None:
             password = read_password(ad_domain_admin, host)
             url = "https://%s:%s@%s:%i" % (ad_domain_admin, password,
@@ -128,7 +131,8 @@ class ADutil(object):
 
 
     def perform_changes(self, changelist, dry_run):
-
+        if isinstance(changelist, dict):
+            changelist = (changelist,)
         for chg in changelist:      
             self.logger.debug("Process change: %s" % repr(chg))
             if chg['type'] == 'create_object':
@@ -140,7 +144,8 @@ class ADutil(object):
                     self.logger.warning("bindObject on %s failed: %r" % \
                                    (chg['distinguishedName'], ret))
                 else:
-                    exec('self.' + chg['type'] + '(chg, dry_run)')
+                    ad_server_cmd = getattr(self, chg['type'])
+                    ad_server_cmd(chg, dry_run)
                         
 
     def full_sync(self, type, delete, spread, dry_run, user_spread=None):
@@ -359,11 +364,11 @@ class ADuserUtil(ADutil):
             ou = self.get_default_ou(chg)
 
         ret = self.run_cmd('createObject', dry_run, 'User', ou,
-                              chg['sAMAccountName'])
+                           chg['sAMAccountName'])
 
         if not ret[0]:
             self.logger.warning("create user %s failed: %r" % \
-                           (chg['sAMAccountName'], ret))
+                                (chg['sAMAccountName'], ret))
         else:
             if not dry_run:
                 self.logger.info("created user %s" % ret)
@@ -374,7 +379,7 @@ class ADuserUtil(ADutil):
             ret = self.run_cmd('setPassword', dry_run, pw)
             if not ret[0]:
                 self.logger.warning("setPassword on %s failed: %s" % \
-                               (chg['sAMAccountName'], ret))
+                                    (chg['sAMAccountName'], ret))
             else:
                 #Important not to enable a new account if setPassword
                 #fail, it will have a blank password.
