@@ -358,7 +358,7 @@ class Host(EntityName, EntitySpread, Entity_class):
                                 change_params={'old_name': self.name})
         self.__super.delete()
 
-    def search(self, name=None, description=None):
+    def search(self, host_id=None, name=None, description=None):
         """Retrieves a list of Hosts filtered by the given criterias.
 
         Returns a list of tuples with the info (host_id, name, description).
@@ -367,6 +367,13 @@ class Host(EntityName, EntitySpread, Entity_class):
         expanded for "any chars" and "one char"."""
 
         where = []
+
+        if host_id is not None:
+            if isinstance(host_id, (list, tuple, set)):
+                where.append("host_id IN (%s)" % \
+                             ", ".join(map(str, map(int, host_id))))
+            else:
+                where.append("host_id = %d" % int(host_id))
 
         if name is not None:
             name = prepare_string(name)
