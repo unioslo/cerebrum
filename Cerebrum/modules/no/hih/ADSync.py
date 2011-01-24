@@ -359,7 +359,7 @@ class ADUserSync(ADUtils):
         self.fetch_cerebrum_data()
 
         # Compare AD data with Cerebrum data
-        for uname, ad_user in addump.items():
+        for uname, ad_user in addump.iteritems():
             if uname in self.accounts:
                 self.accounts[uname].in_ad = True
                 self.compare(ad_user, self.accounts[uname])
@@ -372,16 +372,19 @@ class ADUserSync(ADUtils):
                     self.ad_ldap.upper()):
                     self.deactivate_user(ad_user)
 
-        # Users exist in Cerebrum and has ad spread, but is not in AD.
+        # Users exist in Cerebrum and has ad spread, but not in AD.
         # Create user if it's not quarantined
-        for cb_acc in [acc for acc in self.accounts.values() if
-                       acc.in_ad is False and acc.quarantined is False]:
-            self.create_ad_account(cb_acc.ad_attrs, self.get_default_ou())
+        for acc in self.accounts.itervalues():
+            if acc.in_ad is False and acc.quarantined is False:
+                self.create_ad_account(acc.ad_attrs, self.get_default_ou())
 
         #updating Exchange
         if self.exchange_sync:
-            self.update_Exchange([a.uname for a in self.accounts.itervalues()
-                                  if a.update_recipient])
+            #self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+            #time.sleep(5)
+            for acc in self.accounts.itervalues():
+                if acc.update_recipient:
+                    self.update_Exchange(acc.uname)
         
         self.logger.info("User-sync finished")
 
@@ -406,7 +409,7 @@ class ADUserSync(ADUtils):
         # Remove/mark quarantined users
         self.filter_quarantines()
         self.logger.info("Found %i quarantined users" % len(
-            [1 for v in self.accounts.itervalues() if v.quarantined is True]))
+            [1 for v in self.accounts.itervalues() if v.quarantined]))
 
         # fetch names
         self.logger.debug("..fetch name information..")
@@ -428,7 +431,7 @@ class ADUserSync(ADUtils):
         # Fetch exchange data and calculate attributes
         if self.exchange_sync:
             for row in self.ac.search(spread=self.user_exchange_spread):
-                uname = self.id2uname.get(int(row["account_id"]), None)
+                uname = self.id2uname.get(int(row["account_id"]))
                 if uname:
                     self.accounts[uname].calc_exchange_attrs()
             self.logger.info("Fetched %i cerebrum users with spreads %s and %s" % (
@@ -517,7 +520,7 @@ class ADUserSync(ADUtils):
         #Find all valid addresses
         for uname, all_mail in self.ac.getdict_uname2mailaddr(
             filter_expired=True, primary_only=False).iteritems():
-            acc = self.accounts.get(uname, None)
+            acc = self.accounts.get(uname)
             if acc:
                 acc.mail_addresses = all_mail
 
@@ -528,7 +531,8 @@ class ADUserSync(ADUtils):
         # cereconf.AD_EX_ATTRIBUTES before doing this?
         from Cerebrum.modules.Email import EmailQuota
         equota = EmailQuota(self.db)
-        
+
+        # TBD: Can vi avvoid the equota.clear() ... equota.find() loop?
         for acc in self.accounts.itervalues():
             if not acc.to_exchange:
                 continue
@@ -579,8 +583,8 @@ class ADUserSync(ADUtils):
         # Sync attributes
         for attr in self.sync_attrs:
             # Now, compare values from AD and Cerebrum
-            cb_attr = cb_attrs.get(attr, None)
-            ad_attr   = ad_user.get(attr, None)
+            cb_attr = cb_attrs.get(attr)
+            ad_attr   = ad_user.get(attr)
             if cb_attr and ad_attr:
                 # value both in ad and cerebrum => compare
                 result = self.attr_cmp(cb_attr, ad_attr)
@@ -595,12 +599,9 @@ class ADUserSync(ADUtils):
                 # value only in ad => delete value in ad
                 cb_user.add_change(attr,"")
 
-        # TBD: Sett default versjon i cereconf og sammenligne i løkka over?
-        for attr, value in cereconf.AD_ACCOUNT_CONTROL.items():
-            if attr in cb_attrs:
-                if attr not in ad_user or ad_user[attr] != cb_attrs[attr]:
-                    cb_user.add_change(attr, cb_attrs[attr])
-            elif attr not in ad_user or ad_user[attr] != value:
+        # Special AD control attributes
+        for attr, value in cereconf.AD_ACCOUNT_CONTROL.iteritems():
+            if attr not in ad_user or ad_user[attr] != value:
                 cb_user.add_change(attr, value)
                 
         # Commit changes
@@ -651,16 +652,16 @@ class ADGroupSync(ADGroupUtils):
             # Group.search() must have spread constant or int to work,
             # unlike Account.search()
             if k in config_args:
-                setattr(self, k, self.co.Spread(config_args.pop(k)))
+                setattr(self, k, self.co.Spread(config_args[k]))
         for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
                   "ad_ldap"):
-            setattr(self, k, config_args.pop(k))
+            setattr(self, k, config_args[k])
 
         # Set which attrs that are to be compared with AD
         self.sync_attrs = cereconf.AD_GRP_ATTRIBUTES
 
         CerebrumGroup.initialize(self.get_default_ou(),
-                                 config_args.pop("ad_domain"))
+                                 config_args.get("ad_domain"))
         self.logger.info("Configuration done. Will compare attributes: %s" %
                          str(self.sync_attrs))
 
@@ -680,7 +681,7 @@ class ADGroupSync(ADGroupUtils):
         self.fetch_cerebrum_data()
 
         # Compare AD data with Cerebrum data (not members)
-        for gname, ad_group in addump.items():
+        for gname, ad_group in addump.iteritems():
             if not gname.startswith(cereconf.AD_GROUP_PREFIX):
                 self.logger.debug("Group %s doesn't start with correct prefix" %
                                   (gname))
@@ -697,10 +698,10 @@ class ADGroupSync(ADGroupUtils):
                     ad_group["distinguishedName"].upper().endswith(self.ad_ldap.upper())):
                     self.delete_group(ad_group)
 
-        # Group exist in Cerebrum and has ad spread, but is not in AD. Create.
-        for cb_group in [grp for grp in self.groups.itervalues() if
-                         grp.in_ad is False and grp.quarantined is False]:
-            self.create_ad_group(cb_group.ad_attrs, self.get_default_ou())
+        # Create group if it exists in Cerebrum but is not in AD
+        for grp in self.groups.itervalues():
+            if grp.in_ad is False and grp.quarantined is False:
+                self.create_ad_group(grp.ad_attrs, self.get_default_ou())
             
         #Syncing group members
         self.logger.info("Starting sync of group members")
@@ -746,7 +747,7 @@ class ADGroupSync(ADGroupUtils):
                          len(self.groups), self.group_spread)
         # Fetch groups with exchange spread
         for row in self.group.search(spread=self.group_exchange_spread):
-            g = self.groups.get(row["name"], None)
+            g = self.groups.get(row["name"])
             if g:
                 g.to_exchange = True
         self.logger.info("Fetched %i groups with both spread %s and %s" % 
@@ -769,8 +770,8 @@ class ADGroupSync(ADGroupUtils):
         """
         cb_attrs = cb_group.ad_attrs
         for attr in self.sync_attrs:            
-            cb_attr = cb_attrs.get(attr, None)
-            ad_attr   = ad_group.get(attr, None)
+            cb_attr = cb_attrs.get(attr)
+            ad_attr   = ad_group.get(attr)
             #self.logger.debug("attr: %s, c: %s, %s, a: %s, %s" % (
             #    attr, type(cb_attr), cb_attr, type(ad_attr), ad_attr))
             if cb_attr and ad_attr:
@@ -804,39 +805,23 @@ class ADGroupSync(ADGroupUtils):
         Update group memberships in AD.
         """
         # TBD: Should we compare before sending members or just send them all?
-        
-        #To reduce traffic, we send current list of groupmembers to AD, and the
-        #server ensures that each group have correct members.   
-        entity2name = dict([(x["entity_id"], x["entity_name"]) for x in 
-                           self.group.list_names(self.co.account_namespace)])
-        entity2name.update([(x["entity_id"], x["entity_name"]) for x in
-                           self.group.list_names(self.co.group_namespace)])    
-
         # Check all cerebrum groups with given spread
         for grp in self.groups.itervalues():
             # Find account members
             members = list()
             for usr in self.group.search_members(group_id=grp.group_id,
-                                                 member_spread=self.user_spread):
-                user_id = usr["member_id"]
-                if user_id not in entity2name:
-                    self.logger.warning("Missing name for account id=%s", user_id)
-                    continue
-                members.append(entity2name[user_id])
-                #self.logger.debug("Try to sync member account id=%s, name=%s",
-                #                  user_id, entity2name[user_id])
-
+                                                 member_spread=self.user_spread,
+                                                 include_member_entity_name=True):
+                uname = usr['member_name']
+                if uname:
+                    members.append(uname)
+            
             # Find group members
             for memgrp in self.group.search_members(group_id=grp.group_id,
                                                     member_spread=self.group_spread):
-                memgrp_id = memgrp["member_id"]
-                if memgrp_id not in entity2name:
-                    self.logger.warning("Missing name for group id=%s", memgrp_id)
-                    continue
-                members.append('%s%s' % (cereconf.AD_GROUP_PREFIX,
-                                         entity2name[memgrp_id]))            
-                #self.logger.debug("Try to sync member group id=%s, name=%s",
-                #                   memgrp_id, entity2name[memgrp_id])
+                gname = memgrp['member_name']
+                if gname:
+                    members.append('%s%s' % (cereconf.AD_GROUP_PREFIX, gname))
             
             # Sync members
             self.sync_members(grp.ad_attrs.get("distinguishedName"), members)

@@ -48,7 +48,6 @@ TODO:
 """
 
 
-import time
 import xmlrpclib
 import cerebrum_path
 import cereconf
@@ -77,14 +76,14 @@ class ADUtils(ADutilMixIn.ADutil):
         Run the given command with arguments on th AD service
         """
         if self.dryrun:
-            self.logger.debug('Not running: server.%s(%s)' % (command, args))
+            self.logger.debug('Not executing: server.%s(%s)' % (command, args))
             return
 
         try:
             cmd = getattr(self.server, command)
             ret = cmd(*args)
         except xmlrpclib.ProtocolError, xpe:
-            self.logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+            self.logger.critical("Error connecting to AD service: %s %s" %
                                  (xpe.errcode, xpe.errmsg))
         except Exception, e:
             self.logger.warn("Unexpected exception", exc_info=1)
@@ -93,8 +92,8 @@ class ADUtils(ADutilMixIn.ADutil):
         # ret is a list in the form [bool, msg] where the first
         # element tells if the command was succesful or not
         if not ret[0]:
-            logger.warn("Server couldn't execute %s(%s): %s" %
-                        (command, args, ret[1]))
+            self.logger.warn("Server couldn't execute %s(%s): %s" %
+                             (command, args, ret[1]))
         return ret[0]
 
 
@@ -182,28 +181,20 @@ class ADUtils(ADutilMixIn.ADutil):
         self.run_cmd("setObject")
 
 
-    def update_Exchange(self, ad_objs):
+    def update_Exchange(self, ad_obj):
         """
         Telling the AD-service to start the Windows Power Shell command
         Update-Recipient on object in order to prep them for Exchange.
         
-        @param ad_objs : objects to run command on
-        @type  ad_objs: list
+        @param ad_objs : object to run command on
+        @type  ad_objs: str
         """
-        if not ad_objs:
-            return
-        
-        self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
-        time.sleep(5)
-        for obj in ad_objs:
-            self.logger.info("Running Update-Recipient for object '%s' "
-                             "against Exchange" % obj)
-            if cereconf.AD_DC:
-                self.run_cmd('run_UpdateRecipient', obj, cereconf.AD_DC)
-            else:
-                self.run_cmd('run_UpdateRecipient', obj)
-        self.logger.info("Ran Update-Recipient against Exchange for %i objects", 
-                         len(ad_objs))
+        self.logger.info("Running Update-Recipient for object '%s' "
+                         "against Exchange" % ad_obj)
+        if cereconf.AD_DC:
+            self.run_cmd('run_UpdateRecipient', ad_obj, cereconf.AD_DC)
+        else:
+            self.run_cmd('run_UpdateRecipient', ad_obj)
         
 
     def attr_cmp(self, cb_attr, ad_attr):
@@ -220,7 +211,6 @@ class ADUtils(ADutilMixIn.ADutil):
         @return: cb_attr if attributes differ. None if no difference or
         comparison cannot be made.
         """
-        
         if isinstance(ad_attr, list):
             if len(ad_attr) != 1:
                 self.logger.warn("Attr %s from ad is a list. Cannot compare" %
