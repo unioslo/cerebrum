@@ -72,6 +72,32 @@ class ADUtils(ADutilMixIn.ADutil):
         self.server = xmlrpclib.Server(url)
 
 
+    def run_cmd(self, command, *args):
+        """
+        Run the given command with arguments on th AD service
+        """
+        if self.dryrun:
+            self.logger.debug('Not running: server.%s(%s)' % (command, args))
+            return
+
+        try:
+            cmd = getattr(self.server, command)
+            ret = cmd(*args)
+        except xmlrpclib.ProtocolError, xpe:
+            self.logger.critical("Error connecting to AD service. Giving up!: %s %s" %
+                                 (xpe.errcode, xpe.errmsg))
+        except Exception, e:
+            self.logger.warn("Unexpected exception", exc_info=1)
+            self.logger.debug("Command: %s" % repr((command, args)))
+
+        # ret is a list in the form [bool, msg] where the first
+        # element tells if the command was succesful or not
+        if not ret[0]:
+            logger.warn("Server couldn't execute %s(%s): %s" %
+                        (command, args, ret[1]))
+        return ret[0]
+
+
     def move_user(self, dn, ou):
         """
         Move given user in Ad to given ou.
@@ -140,30 +166,20 @@ class ADUtils(ADutilMixIn.ADutil):
         @param ou: LDAP path to base ou for the entity type
         @type ou: str        
         """
-        # This will be a bit ugly since we depend on old code...
         uname = attrs.pop("sAMAccountName")
-        ret = self.run_cmd("createObject", self.dryrun, "User", ou, uname)
-        if not ret[0]:
-            self.logger.error("create user %s failed: %r", uname, ret)
+        if not self.run_cmd("createObject", "User", ou, uname):
+            # Don't continue if createObject fails
             return
-        elif not self.dryrun:
-            self.logger.info("created user %s" % ret)
+        self.logger.info("created user %s" % uname)
 
         # Set password
-        pw = unicode(self.ac.make_passwd(uname), "iso-8859-1")
-        ret = self.run_cmd("setPassword", self.dryrun, pw)
-        if not ret[0]:
-            self.logger.warning("setPassword on %s failed: %s", uname, ret)
-            return
+        pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
+        self.run_cmd("setPassword", pw)
         # Set other properties
         if attrs.has_key("distinguishedName"):
             del attrs["distinguishedName"]
-        ret = self.run_cmd("putProperties", self.dryrun, attrs)
-        if not ret[0]:
-            self.logger.warning("putproperties on %s failed: %r", uname, ret)
-        ret = self.run_cmd("setObject", self.dryrun)
-        if not ret[0]:
-            self.logger.warning("setObject on %s failed: %r", uname, ret)
+        self.run_cmd("putProperties", attrs)
+        self.run_cmd("setObject")
 
 
     def update_Exchange(self, ad_objs):
@@ -183,13 +199,9 @@ class ADUtils(ADutilMixIn.ADutil):
             self.logger.info("Running Update-Recipient for object '%s' "
                              "against Exchange" % obj)
             if cereconf.AD_DC:
-                ret = self.run_cmd('run_UpdateRecipient', self.dryrun, obj,
-                                   cereconf.AD_DC)
+                self.run_cmd('run_UpdateRecipient', obj, cereconf.AD_DC)
             else:
-                ret = self.run_cmd('run_UpdateRecipient', self.dryrun, obj)
-            if not ret[0]:
-                self.logger.error("run_UpdateRecipient on %s failed: %r", 
-                                    obj, ret)
+                self.run_cmd('run_UpdateRecipient', obj)
         self.logger.info("Ran Update-Recipient against Exchange for %i objects", 
                          len(ad_objs))
         
@@ -228,31 +240,20 @@ class ADUtils(ADutilMixIn.ADutil):
 
 
 class ADGroupUtils(ADUtils):
-    def alter_object(self, chg, dryrun):
+    def alter_object(self, chg):
         """
         Binds to AD group objects and updates given attributes
 
         @param chg: group_name -> group info mapping
         @type chg: dict
-        @param dryrun: Flag
-        @type dryrun: bool 
         """
         # AD object is already bound
         dn = chg.pop('distinguishedName')
         del chg['type']             
 
-        if not dryrun:
-            ret = self.server.putGroupProperties(chg)
-        else:
-            ret = (True, 'putGroupProperties')
-        if not ret[0]:
-            self.logger.warning("putGroupProperties on %s failed: %r",
-                                distName, ret)
-        else:
-            ret = self.run_cmd('setObject', dryrun)
-            if not ret[0]:
-                self.logger.warning("setObject on %s failed: %r",
-                                    distName, ret)         
+        self.server.putGroupProperties(chg)
+        self.run_cmd('setObject')
+
 
     def create_ad_group(self, attrs, ou):
         """
@@ -264,12 +265,8 @@ class ADGroupUtils(ADUtils):
         @type ou: str        
         """
         gname = attrs.pop("name")
-        ret = self.run_cmd("createObject", self.dryrun, "Group", ou, gname)
-        if ret[0]:
-            if not self.dryrun:
-                self.logger.info("created group %s" % ret)
-        else:
-            self.logger.error("create group %s failed: %r", gname, ret)
+        if not self.dryrun and self.run_cmd("createObject", "Group", ou, gname):
+            self.logger.info("created group %s" % gname)
 
 
     def delete_group(self, dn):
@@ -295,21 +292,13 @@ class ADGroupUtils(ADUtils):
         @type members: list
         
         """
-        # Send dn instead of doing findObject for each group. Saves
-        # quite some time
-        #dn = self.server.findObject(gname)
         if not dn:
             self.logger.debug("unknown group: %s", dn)
-        elif self.dryrun:
-            self.logger.debug("Dryrun: don't sync members for group %s" %
-                              dn)
-        else:
-            self.server.bindObject(dn)
-            res = self.server.syncMembers(members, False, False)
-            if not res[0]:
-                self.logger.warning("syncMembers %s failed for:%r" %
-                                  (dn, res[1:]))
-            else:
-                self.logger.info("Synced members for group %s" % dn)
+            return
+
+        # We must bind to object before calling syncMembers
+        self.server.bindObject(dn)
+        if self.run_cmd("syncMembers", members, False, False):
+            self.logger.info("Synced members for group %s" % dn)
     
 
