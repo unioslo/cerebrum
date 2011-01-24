@@ -1291,6 +1291,8 @@ class BofhdAuth(DatabaseAccessor):
 
     def can_email_address_delete(self, operator, account=None, domain=None,
                                  query_run_any=False):
+        # TBD: should the full email address be added to the parameters, instead
+        #      of just its domain?
         return self._is_local_postmaster(operator, self.const.auth_email_delete,
                                          account, domain, query_run_any)
 
