@@ -82,7 +82,7 @@ def generate_automount(f):
         dns = 'uio.no'
         if p[0] == 'ifi':
             dns = 'ifi.uio.no'
-        entry['automountInformation'] = "-fstype=nfs,tcp,vers=3,rsize=32768,wsize=32768,rw,intr,hard,nodev,nosuid,noacl %s.%s:/%s/%s/&" % (h_id2name[paths[p]], dns, p[0], p[1])
+        entry['automountInformation'] = "-fstype=nfs,tcp,vers=3,rw,intr,hard,nodev,nosuid,noacl %s.%s:/%s/%s/&" % (h_id2name[paths[p]], dns, p[0], p[1])
         f.write(entry_string(dn, entry))
 
 def main():
