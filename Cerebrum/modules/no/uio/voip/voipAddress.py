@@ -670,7 +670,17 @@ class VoipAddress(EntityAuthentication, EntityTrait):
             if aid not in primary2pid:
                 continue
             pid = primary2pid[aid]
-            assert pid == row["owner_id"]
+            if pid != row["owner_id"]:
+                # This could happen if somebody yanks a person object out of the
+                # database while we scan the accounts. Typically --
+                # join_persons.py. Another possibility is a manual update of
+                # account's owner_id (that may occur, but quite rarely). 
+                #
+                # The only (?) sensible strategy is to drop the old person_id
+                # from owner_data. Even if it's unfair, the next run would yield
+                # the proper data.
+                # Ideally, there should be a message here somewhere...
+                continue
             owner_data.setdefault(pid, {})["uid"] = row["name"]
             owner_data[pid]["mail"] = a_id2primary_mail.get(aid)
 
