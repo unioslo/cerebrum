@@ -903,7 +903,7 @@ class BofhdExtension(BofhdCommandBase):
         et, acc = self.__get_email_target_and_account(uname)
         lp, dom = self._split_email_address(address, with_checks=False)
         ed = self._get_email_domain(dom)
-        self.ba.can_email_address_add(operator.get_entity_id(),
+        self.ba.can_email_address_delete(operator.get_entity_id(),
                                       account=acc, domain=ed)
         return self._remove_email_address(et, address)
 
