@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #
-# Copyright 2007-2010 University of Oslo, Norway
+# Copyright 2007-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -76,7 +76,7 @@ class ExtXMLHelper(XMLHelper):
         ret = "<%s " % tag
         attrs = []
         children = []
-        for k, v in dta.items():
+        for k, v in dta.iteritems():
             if v is None:
                 #attrs.append(k)
                 pass
@@ -223,13 +223,15 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     for entity_id, dta in pe.getdict_persons_names(
         source_system=co.system_cached,
         name_types=(co.name_first,
-                    co.name_last, co.name_full)).items():
+                    co.name_last, co.name_full)).iteritems():
         tmp = persons.get(entity_id, None)
         if tmp is None:
             continue
         # first name can't be longer then 30 chars in ephorte...
         tmp['first_name'] = Utils.shorten_name(dta[int(co.name_first)],
-                                               max_length=30, method='initials')
+                                               max_length=30,
+                                               method='initials',
+                                               encoding='iso-8859-1')
         tmp['last_name'] = dta[int(co.name_last)]
         tmp['full_name'] = dta[int(co.name_full)]
 
@@ -326,7 +328,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
 
     # Check standard role. If a person has more than one role, then
     # one of them should be set as standard role
-    for e_id, p in persons.items():
+    for e_id, p in persons.iteritems():
         if not 'roles' in p:
             logger.debug("No roles for person %s" % p)
             continue
@@ -365,7 +367,7 @@ def generate_export(fname, spread=co.spread_ephorte_person):
     # RH 2008-02-01: we don't export ous until ephorte is ready
     #for ou in ous.values():
     #    f.write(xml.xmlify_tree("ou", ou))
-    for p in persons.values():
+    for p in persons.itervalues():
         if not p.has_key('feide_id'):
             continue
         f.write(xml.xmlify_tree("person", p))
