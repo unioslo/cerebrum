@@ -144,8 +144,8 @@ class ADutil(object):
                     self.logger.warning("bindObject on %s failed: %r" % \
                                    (chg['distinguishedName'], ret))
                 else:
-                    ad_server_cmd = getattr(self, chg['type'])
-                    ad_server_cmd(chg, dry_run)
+                    func = getattr(self, chg['type'])
+                    func(chg, dry_run)
                         
 
     def full_sync(self, type, delete, spread, dry_run, user_spread=None):
