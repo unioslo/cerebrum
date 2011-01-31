@@ -146,14 +146,15 @@ class CerebrumAccount(CerebrumEntity):
         ad_attrs.update(config_attrs)
         
         # Do the hardcoding for this sync.
-        # Name and case of should be how they appear in AD
+        # Name and case of attributes should be as they are in AD
         ad_attrs["sAMAccountName"] = self.uname
         ad_attrs["sn"] = self.name_last
         ad_attrs["givenName"] = self.name_first
-        # Cn is a RDN attribute and must be changed similar like OU
+        # Cn is a RDN attribute and must be changed similarly as OU
         ad_attrs["Cn"] = self.name_first
         ad_attrs["displayName"] = "%s %s" % (self.name_first, self.name_last)
-        ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.uname, self.default_ou)
+        ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.uname,
+                                                      self.default_ou)
         ad_attrs["ou"] = self.default_ou
         ad_attrs["ACCOUNTDISABLE"] = self.quarantined
         ad_attrs["homeDirectory"] %= self.uname 
