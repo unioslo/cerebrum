@@ -1390,6 +1390,17 @@ class BofhdExtension(BofhdCommandBase):
             ret += self._email_info_detail(acc)
             ret += self._email_info_forwarding(et, addrs)
             ret += self._email_info_filters(et)
+
+            # Tell what addresses can be deleted:
+            ea = Email.EmailAddress(self.db)
+            domains = acc.get_prospect_maildomains()
+            deletables = []
+            for addr in et.get_addresses(special=True):
+                ea.clear()
+                ea.find(addr['address_id'])
+                if ea.email_addr_domain_id not in domains:
+                    deletables.append(ea.get_address())
+            ret.append({'deletable': deletables})
         return ret
 
     def __get_valid_email_addrs(self, et, special=False, sort=False):
