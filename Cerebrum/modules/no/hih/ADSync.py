@@ -47,7 +47,7 @@ TODO:
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import Factory
-from Cerebrum.modules.no.hih.ADUtils import ADUtils, ADGroupUtils
+from Cerebrum.modules.no.hih.ADUtils import ADUserUtils, ADGroupUtils
 from Cerebrum import Errors
 
 
@@ -145,10 +145,13 @@ class CerebrumAccount(CerebrumEntity):
         # Update with with the given attrs from config_attrs
         ad_attrs.update(config_attrs)
         
-        # Do the hardcoding for this sync. 
+        # Do the hardcoding for this sync.
+        # Name and case of should be how they appear in AD
         ad_attrs["sAMAccountName"] = self.uname
         ad_attrs["sn"] = self.name_last
         ad_attrs["givenName"] = self.name_first
+        # Cn is a RDN attribute and must be changed similar like OU
+        ad_attrs["Cn"] = self.name_first
         ad_attrs["displayName"] = "%s %s" % (self.name_first, self.name_last)
         ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.uname, self.default_ou)
         ad_attrs["ou"] = self.default_ou
@@ -288,7 +291,7 @@ class CerebrumGroup(CerebrumEntity):
         self.changes[attr_type] = value
 
 
-class ADUserSync(ADUtils):
+class ADUserSync(ADUserUtils):
     def __init__(self, db, logger, host, port, ad_domain_admin):
         """
         Connect to AD agent on host:port and initialize user sync.
@@ -305,7 +308,7 @@ class ADUserSync(ADUtils):
         @type ad_domain_admin: str
         """
 
-        ADUtils.__init__(self, logger, host, port, ad_domain_admin)
+        ADUserUtils.__init__(self, logger, host, port, ad_domain_admin)
         self.db = db
         self.co = Factory.get("Constants")(self.db)
         self.ac = Factory.get("Account")(self.db)
@@ -364,12 +367,11 @@ class ADUserSync(ADUtils):
                 self.accounts[uname].in_ad = True
                 self.compare(ad_user, self.accounts[uname])
             else:
-                self.logger.debug("User %s (%s) in AD, but not in Cerebrum" %
-                                  (uname, str(ad_user)))
+                dn = ad_user["distinguishedName"]
+                self.logger.debug("User %s in AD, but not in Cerebrum" % dn)
                 # User in AD, but not in Cerebrum:
                 # If user is in Cerebrum OU then deactivate
-                if ad_user["distinguishedName"].upper().endswith(
-                    self.ad_ldap.upper()):
+                if dn.upper().endswith(self.ad_ldap.upper()):
                     self.deactivate_user(ad_user)
 
         # Users exist in Cerebrum and has ad spread, but not in AD.
@@ -574,11 +576,11 @@ class ADUserSync(ADUtils):
         cb_attrs = cb_user.ad_attrs
         # First check if user is quarantined. If so, disable
         if cb_attrs["ACCOUNTDISABLE"] and not ad_user["ACCOUNTDISABLE"]:
-            self.disable_user(ad_user)
+            self.disable_user(ad_user["distinguishedName"])
         
         # Check if user has correct OU. If not, move user
         if ad_user["distinguishedName"] != cb_attrs["distinguishedName"]:
-            self.move_user(ad_user, ou=cb_attrs["ou"])
+            self.move_user(ad_user["distinguishedName"], cb_attrs["ou"])
             
         # Sync attributes
         for attr in self.sync_attrs:
@@ -606,7 +608,7 @@ class ADUserSync(ADUtils):
                 
         # Commit changes
         if cb_user.changes:
-            self.commit_changes(cb_user.changes, ad_user["distinguishedName"])
+            self.commit_changes(ad_user["distinguishedName"], **cb_user.changes)
 
 
     def get_default_ou(self):
@@ -696,7 +698,7 @@ class ADGroupSync(ADGroupUtils):
                 # Delete group if it's in Cerebrum OU and delete flag is True
                 if (self.delete_groups and
                     ad_group["distinguishedName"].upper().endswith(self.ad_ldap.upper())):
-                    self.delete_group(ad_group)
+                    self.delete_group(ad_group["distinguishedName"])
 
         # Create group if it exists in Cerebrum but is not in AD
         for grp in self.groups.itervalues():
@@ -790,7 +792,7 @@ class ADGroupSync(ADGroupUtils):
                 
         # Commit changes
         if cb_group.changes:
-            self.commit_changes(cb_group.changes, ad_group["distinguishedName"])
+            self.commit_changes(ad_group["distinguishedName"], **cb_group.changes)
 
 
     def get_default_ou(self):
@@ -819,7 +821,7 @@ class ADGroupSync(ADGroupUtils):
             # Find group members
             for memgrp in self.group.search_members(group_id=grp.group_id,
                                                     member_spread=self.group_spread):
-                gname = memgrp['member_name']
+                gname = memgrp.get('member_name')
                 if gname:
                     members.append('%s%s' % (cereconf.AD_GROUP_PREFIX, gname))
             

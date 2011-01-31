@@ -31,20 +31,10 @@ TODO:
   deprecated module there with the name ADutils.py. Need to find out
   if I can remove that module first. (or rename this one)
 
-* Command API is flawed. The run_cmd method and the other methods in
-  ADutilMixIn.py are quite bad, but then again the AD service's API
-  is also quite stupid. So where to begin to clean up?
-
-  At the moment we just adapt to the existing API, but there are a
-  couple of thing's I'd like to improve in the future:
-
-   * the AD service should use exceptions instead of returning a
-     list on the form: [<succes flag>, <Message>]
-     Transmitting exceptions through XML-RPC is a bit of a hassle,
-     but is doable. And should be worth investigating at least.
-
-   * Split to different classes for User, Group, etc?
-
+* the AD service should use exceptions instead of returning a list on
+  the form: [<succes flag>, <Message>] Transmitting exceptions through
+  XML-RPC is a bit of a hassle, but is doable. And should be worth
+  investigating at least.
 """
 
 
@@ -52,12 +42,12 @@ import xmlrpclib
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import read_password
-from Cerebrum.modules import ADutilMixIn
 
 
-class ADUtils(ADutilMixIn.ADutil):
+class ADUtils(object):
     """
-    HiH extension of ADutilMixIn.ADutil
+    This class provides utility methods and an API for some commands
+    accessible by the Cerebrum AD agent running on AD DC.
     """
 
     def __init__(self, logger, host, port, ad_domain_admin):
@@ -69,116 +59,6 @@ class ADUtils(ADutilMixIn.ADutil):
         password = read_password(ad_domain_admin, host)
         url = "https://%s:%s@%s:%s" % (ad_domain_admin, password, host, port)
         self.server = xmlrpclib.Server(url)
-
-
-    def run_cmd(self, command, *args):
-        """
-        Run the given command with arguments on th AD service
-        """
-        if self.dryrun:
-            self.logger.debug('Not executing: server.%s(%s)' % (command, args))
-            return
-
-        try:
-            cmd = getattr(self.server, command)
-            ret = cmd(*args)
-        except xmlrpclib.ProtocolError, xpe:
-            self.logger.critical("Error connecting to AD service: %s %s" %
-                                 (xpe.errcode, xpe.errmsg))
-        except Exception, e:
-            self.logger.warn("Unexpected exception", exc_info=1)
-            self.logger.debug("Command: %s" % repr((command, args)))
-
-        # ret is a list in the form [bool, msg] where the first
-        # element tells if the command was succesful or not
-        if not ret[0]:
-            self.logger.warn("Server couldn't execute %s(%s): %s" %
-                             (command, args, ret[1]))
-        return ret[0]
-
-
-    def move_user(self, dn, ou):
-        """
-        Move given user in Ad to given ou.
-
-        @param dn: AD attribute distinguishedName 
-        @type dn: str
-        @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
-        """
-        self.logger.info("Moving user %s to %s" % (dn, ou))
-        changes = {"distinguishedName": dn,
-                   "OU": ou,
-                   "type": "move_object"}
-        self.perform_changes(changes, self.dryrun)
-
-
-    def deactivate_user(self, dn):
-        """
-        Delete or deactivate user in Cerebrum-controlled OU.
-
-        @param dn: AD attribute distinguishedName 
-        @type dn: str
-        """
-        # Delete or move?
-        if self.delete_users:
-            self.delete_user(dn)
-        else:
-            # disable and move to AD_LOST_AND_FOUND OU
-            self.disable_user(dn)
-            self.move_user(dn, cereconf.AD_LOST_AND_FOUND)
-
-
-    def delete_user(self, dn):
-        """
-        Delete user object in AD.
-
-        @param dn: AD attribute distinguishedName 
-        @type dn: str
-        """
-        self.logger.info("Deleting user %s" % dn)
-        changes = {"distinguishedName": dn,
-                   "type": "delete_object"}
-        self.perform_changes(changes, self.dryrun)
-
-
-    def disable_user(self, dn):
-        """
-        Disable user in AD.
-
-        @param dn: AD attribute distinguishedName 
-        @type dn: str
-        """
-        self.logger.info("Disabling user %s" % dn)
-        changes = {"distinguishedName": dn,
-                   "ACCOUNTDISABLE": True,
-                   "type": "alter_object"}
-        self.perform_changes(changes, self.dryrun)
-
-
-    def create_ad_account(self, attrs, ou):
-        """
-        Create AD account, set password and default properties. 
-
-        @param attrs: AD attrs to be set for the account
-        @type attrs: dict        
-        @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
-        """
-        uname = attrs.pop("sAMAccountName")
-        if not self.run_cmd("createObject", "User", ou, uname):
-            # Don't continue if createObject fails
-            return
-        self.logger.info("created user %s" % uname)
-
-        # Set password
-        pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
-        self.run_cmd("setPassword", pw)
-        # Set other properties
-        if attrs.has_key("distinguishedName"):
-            del attrs["distinguishedName"]
-        self.run_cmd("putProperties", attrs)
-        self.run_cmd("setObject")
 
 
     def update_Exchange(self, ad_obj):
@@ -196,6 +76,22 @@ class ADUtils(ADutilMixIn.ADutil):
         else:
             self.run_cmd('run_UpdateRecipient', ad_obj)
         
+
+    def commit_changes(self, dn, **changes):
+        """
+        Set attributes for account
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
+        @param changes: attributes that shoudl be changed in AD
+        @type changes: dict (keyword args)
+        """
+        if not self.dryrun and self.run_cmd('bindObject', dn):
+            self.logger.info("Setting attributes for %s: %s" % (dn, changes))
+            # Set attributes in AD
+            self.run_cmd('putProperties', changes)
+            self.run_cmd('setObject')
+
 
     def attr_cmp(self, cb_attr, ad_attr):
         """
@@ -222,29 +118,134 @@ class ADUtils(ADutilMixIn.ADutil):
             return cb_attr
 
 
-    def commit_changes(self, changes, dn, op_type="alter_object"):
-        changes["distinguishedName"] = dn
-        changes["type"] = op_type
-        self.perform_changes(changes, self.dryrun)
+    def run_cmd(self, command, *args):
+        """
+        Run the given command with arguments on th AD service
+
+        @param command: command to run via rpc on AD server
+        @type command: str
+        @param args: args to command
+        @type args: tuple 
+        """
+        cmd = getattr(self.server, command)
+        try:
+            ret = cmd(*args)
+        except xmlrpclib.ProtocolError, xpe:
+            self.logger.critical("Error connecting to AD service: %s %s" %
+                                 (xpe.errcode, xpe.errmsg))
+            return False
+        except xmlrpclib.Fault, msg:
+            self.logger.warn("Exception from AD service:", msg)
+            return False
+        # ret is a list in the form [bool, msg] where the first
+        # element tells if the command was succesful or not
+        if not ret[0]:
+            self.logger.warn("Server couldn't execute %s(%s): %s" %
+                             (command, args, ret[1]))
+        return ret[0]
+
+
+class ADUserUtils(ADUtils):
+    """
+    User specific methods
+    """
+
+    def move_user(self, dn, ou):
+        """
+        Move given user in Ad to given ou.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
+        @param ou: LDAP path to base ou for the entity type
+        @type ou: str        
+        """
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not moving user %s to %s" % (dn, ou))
+            return
+
+        if self.run_cmd('bindObject', dn):
+            self.logger.info("Moving user %s to %s" % (dn, ou))
+            self.run_cmd('moveObject', ou)
+
+
+    def deactivate_user(self, dn):
+        """
+        Delete or deactivate user in Cerebrum-controlled OU.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
+        """
+        # Delete or disable?
+        if self.delete_users:
+            self.delete_user(dn)
+        else:
+            self.disable_user(dn)
+            # Disabled users lives in AD_LOST_AND_FOUND OU
+            self.move_user(dn, cereconf.AD_LOST_AND_FOUND)
+
+
+    def delete_user(self, dn):
+        """
+        Delete user object in AD.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
+        """
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not deleting user %s" % dn)
+            return
         
+        if self.run_cmd('bindObject', dn):
+            self.logger.info("Deleting user %s" % dn)
+            self.run_cmd('deleteObject')
+
+
+    def disable_user(self, dn):
+        """
+        Disable user in AD.
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
+        """
+        self.logger.info("Disabling user %s" % dn)
+        self.commit_changes(dn, ACCOUNTDISABLE=True)
+         
+
+    def create_ad_account(self, attrs, ou):
+        """
+        Create AD account, set password and default properties. 
+
+        @param attrs: AD attrs to be set for the account
+        @type attrs: dict        
+        @param ou: LDAP path to base ou for the entity type
+        @type ou: str        
+        """
+        uname = attrs.pop("sAMAccountName")
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not creating user %s" % uname)
+            return
+        
+        if not self.run_cmd("createObject", "User", ou, uname):
+            # Don't continue if createObject fails
+            return
+        self.logger.info("created user %s" % uname)
+
+        # Set password
+        pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
+        self.run_cmd("setPassword", pw)
+        # Set other properties
+        if attrs.has_key("distinguishedName"):
+            del attrs["distinguishedName"]
+        self.run_cmd("putProperties", attrs)
+        self.run_cmd("setObject")
+
 
 
 class ADGroupUtils(ADUtils):
-    def alter_object(self, chg):
-        """
-        Binds to AD group objects and updates given attributes
-
-        @param chg: group_name -> group info mapping
-        @type chg: dict
-        """
-        # AD object is already bound
-        dn = chg.pop('distinguishedName')
-        del chg['type']             
-
-        self.server.putGroupProperties(chg)
-        self.run_cmd('setObject')
-
-
+    """
+    Group specific methods
+    """
+    
     def create_ad_group(self, attrs, ou):
         """
         Create AD group.
@@ -255,7 +256,10 @@ class ADGroupUtils(ADUtils):
         @type ou: str        
         """
         gname = attrs.pop("name")
-        if not self.dryrun and self.run_cmd("createObject", "Group", ou, gname):
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not creating group %s" % group)
+
+        if self.run_cmd("createObject", "Group", ou, gname):
             self.logger.info("created group %s" % gname)
 
 
@@ -266,10 +270,13 @@ class ADGroupUtils(ADUtils):
         @param dn: AD attribute distinguishedName 
         @type dn: str
         """
-        self.logger.info("Deleting group %s" % dn)
-        changes = {"distinguishedName": dn,
-                   "type": "delete_object"}
-        self.perform_changes(changes, self.dryrun)
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not deleting %s" % dn)
+            return
+
+        if nself.run_cmd('bindObject', dn):
+            self.logger.info("Deleting group %s" % dn)
+            self.run_cmd('deleteObject')
 
 
     def sync_members(self, dn, members):
@@ -282,13 +289,9 @@ class ADGroupUtils(ADUtils):
         @type members: list
         
         """
-        if not dn:
-            self.logger.debug("unknown group: %s", dn)
-            return
-
         # We must bind to object before calling syncMembers
-        self.server.bindObject(dn)
-        if self.run_cmd("syncMembers", members, False, False):
-            self.logger.info("Synced members for group %s" % dn)
-    
+        if not self.dryrun and self.run_cmd('bindObject', dn):
+            if self.run_cmd("syncMembers", members, False, False):
+                self.logger.info("Synced members for group %s" % dn)
+
 
