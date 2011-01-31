@@ -4912,6 +4912,7 @@ Addresses and settings:
         
         fromaddr = acc.get_primary_mailaddress()
         toaddr = cereconf.GROUP_REQUESTS_SENDTO
+        if spread is None: spread = ""
         spreadstring = "(" + spread + ")"
         spreads = []
         spreads = re.split(" ", spread)
