@@ -193,7 +193,8 @@ def archive_files(name_pattern='', dirname='', archive_name='',
         archive_pattern = os.path.basename(archive_name) + postfix_re
         logger.info("Delete archives of type %s older than %d days" % (
             archive_pattern, min_age))
-        delete_files(archive_pattern, os.path.dirname(archive_name), file_type,
+        # Archives made by this script are files. Thus file_type == 'file'
+        delete_files(archive_pattern, os.path.dirname(archive_name), 'file',
                      min_age, dryrun=dryrun)
     # Check if new files should be archived
     files_to_archive = find_files(name_pattern, dirname, file_type, archive_age)
