@@ -24,8 +24,7 @@ Cerebrum -- mod_sap.
 """
 
 from Cerebrum import Constants
-from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode, \
-                                          SAPLonnsTittelKode, \
+from Cerebrum.modules.no.Constants import SAPLonnsTittelKode, \
                                           SAPPermisjonsKode, \
                                           SAPUtvalgsKode
 
@@ -36,12 +35,6 @@ class SAPConstants(Constants.Constants):
     This class embodies all constants that we need to address HR-related
     tables in NIH.
     """
-
-    # ----[ SAPForretningsOmradeKode ]----------------------------------
-    sap_gimlemoen = SAPForretningsOmradeKode(
-        "0400",
-        "NIH"
-    )
 
     # ----[ SAPLonnsTittelKode ]----------------------------------------
     sap_0001_statsradens_kontorsekretaer = SAPLonnsTittelKode(
