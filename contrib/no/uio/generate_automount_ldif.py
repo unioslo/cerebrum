@@ -65,7 +65,7 @@ def generate_automount(f):
         entry['objectClass'] = ['top','automount']
         dn = "cn=%s,%s" % ("/%s/%s" % (p[0], p[1]), 
                           ldapconf('AUTOMOUNT_MASTER', 'dn', None))
-        entry['automountInformation'] = "ldap:auto.%s-%s,%s" %(p[1],p[0],
+        entry['automountInformation'] = "ldap:ou=auto.%s-%s,%s" %(p[1],p[0],
                                                               ldapconf('AUTOMOUNT', 'dn', None))
         f.write(entry_string(dn, entry))
 
