@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2006-2010 University of Oslo, Norway
+# Copyright 2006-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -409,11 +409,11 @@ class ADFullUserSync(ADutilMixIn.ADuserUtil):
                     changelist.append(changes)
                     changes = {}
 
-                for attr in cereconf.AD_ATTRIBUTES:            
+                for attr in cereconf.AD_ATTRIBUTES:
                     #Catching special cases.
                     #Check against home drive.
                     if attr == 'homeDrive':
-                        home_drive = self.get_home_drive(cerebrumusrs[usr])         
+                        home_drive = self.get_home_drive(cerebrumusrs[usr])
                         if adusrs[usr].has_key('homeDrive'):
                             if adusrs[usr]['homeDrive'] != home_drive:
                                 changes['homeDrive'] = home_drive
@@ -649,7 +649,6 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         'displayName': String,          # gruppenavn
         'displayNamePrintable' : String # gruppenavn
         'description' : String          # beskrivelse
-        'groupType' : Int               # type gruppe
         """
         #
         # Get groups with spread
@@ -659,15 +658,11 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         for row in spread_res:
             gname = unicode(row["name"],'ISO-8859-1') + cereconf.AD_GROUP_POSTFIX
             grp_dict[gname] = {
-                'groupType' : cereconf.AD_GROUP_TYPE,             
                 'description' : unicode(row["description"], 'ISO-8859-1'),
                 'grp_id' : row["group_id"],
                 'displayName' : gname,
                 'displayNamePrintable' : gname,
                 }
-        self.logger.info("Fetched %i groups with spread %s", 
-                         len(grp_dict),spread)
-                
         return grp_dict
 
 
@@ -678,7 +673,6 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         'displayName': String,          # gruppenavn
         'displayNamePrintable' : String # gruppenavn
         'description' : String          # beskrivelse
-        'groupType' : Int               # type gruppe
         'distinguishedName' : String    # AD-LDAP path to object
  
         @returm ad_dict : group name -> group info mapping
@@ -906,10 +900,12 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         @param dry_run: Flag
         @param store_sid: Flag
         """
+        # RH 2011-02-02: groupType should just be set for new groups
+        chg['groupType'] = cereconf.AD_GROUP_TYPE
         ou = chg.get("OU", self.get_default_ou())
         self.logger.info('Create group %s', chg)
         ret = self.run_cmd('createObject', dry_run, 'Group', ou, 
-                      chg['sAMAccountName'])
+                           chg['sAMAccountName'])
         if not ret[0]:
             self.logger.warning("create group %s failed: %r",
                                 chg['sAMAccountName'],ret[1])
@@ -1074,7 +1070,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                     else:
                         self.server.bindObject(dn)
                         self.logger.info("Too many members(%i) or empty AD group. Doing" 
-                                         "fullsync of memberships for group %s", 
+                                         " fullsync of memberships for group %s", 
                                          len(members), grp)
                         if sendDN_boost:
                             res = self.server.syncMembers(members, True, False)
@@ -1232,7 +1228,9 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         #Fetch cerebrum data.
         self.logger.info("Fetching cerebrum data...")
         cerebrumdump = self.fetch_cerebrum_data(group_spread)
-        self.logger.info("Fetched %i cerebrum groups" % len(cerebrumdump))
+        self.logger.info("Fetched %i groups with spread %s", 
+                         len(cerebrumdump), group_spread)
+                
 
         #Fetch AD data
         self.logger.info("Fetching AD data...")
