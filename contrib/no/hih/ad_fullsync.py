@@ -33,15 +33,18 @@ Usage: [options]
   --group-sync: sync groups to AD and Exchange
   --maillists-sync: sync mailing lists to AD and Exchange
   --exchange-sync: Only sync to exhange if exchange-sync is set
-  --user_spread SPREAD: overrides cereconf.AD_ACCOUNT_SPREAD
-  --group_spread SPREAD: overrides cereconf.AD_GROUP_SPREAD
-  --user_exchange_spread SPREAD: overrides cereconf.AD_EXCHANGE_SPREAD
-  --group_exchange_spread SPREAD: overrides cereconf.AD_GROUP_EXCHANGE_SPREAD
+  --user_spread SPREAD: overrides spread from cereconf
+  --group_spread SPREAD: overrides spread from cereconf
+  --user_exchange_spread SPREAD: overrides spread from cereconf
+  --group_exchange_spread SPREAD: overrides spread from cereconf
   --store-sid: write sid of new AD objects to cerebrum databse as external ids.
                default is _not_ to write sid to database.
   --delete-groups: this option ensures deleting superfluous groups. default
                    is _not_ to delete groups.
   --delete-users: Should obsolete users be disabled or deleted?
+  --cb_subset: Only sync users/groups from subset
+  --ad_subset: Only compare users from this subset. Only usable if
+               cb_subset is set.
   --dryrun: report changes that would have been done without --dryrun.
   --logger-level LEVEL: default is INFO
   --logger-name NAME: default is console
@@ -87,12 +90,11 @@ def run_sync(logger, host, port, config_args):
 def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hd",  [
-
             "user-sync", "group-sync", "maillist-sync", 
-            "exchange-sync", "user_spread=", "group_spread=","exchange_spread=",
+            "exchange-sync", "user_spread=", "group_spread=",
+            "exchange_spread=", "cb_subset=", "ad_subset=",
             "store-sid", "domain=", "delete", "host=", "port=", 
             "logger-level=", "logger-name=", "dryrun", "help"])
-
     except getopt.GetoptError, e:
         print e
         usage(1)
@@ -110,7 +112,9 @@ def main():
     # user input.
     config_args = {"dryrun": False,
                    "store_sid": False,
-                   "exchange_sync": False}
+                   "exchange_sync": False,
+                   "ad_subset": None,
+                   "cb_subset": None}
     
     for opt, val in opts:
         # General options
@@ -118,16 +122,22 @@ def main():
             usage()
         elif opt in ("--dryrun", "-d"):
             config_args["dryrun"] = True
-        elif opt in ("--host",):
+        elif opt == "--host":
             host = val
-        elif opt in ("--port",):
+        elif opt == "--port":
             port = val
-        elif opt in ("--domain",):
+        elif opt == "--domain":
             domain  = val
         elif opt == "--delete":
             delete = true_false(val)
-        elif opt in ("--store-sid"):
+        elif opt == "--store-sid":
             config_args["store_sid"] = True
+        elif opt in ("ad_subset", "cb_subset"):
+            try:
+                unames = [line.strip() for line in file(val) if line.strip()]
+            except IOError:
+                unames = [f.strip() for f in val.split(",")]
+            config_args[opt] = unames
         elif opt == "--logger-name":
             logger_name = val
         elif opt == "--logger-level":

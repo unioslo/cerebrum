@@ -331,7 +331,7 @@ class ADUserSync(ADUserUtils):
         # Sync settings for this module
         for k in ("user_spread", "user_exchange_spread",
                   "exchange_sync", "delete_users", "dryrun",
-                  "ad_ldap", "store_sid"):
+                  "ad_ldap", "store_sid", "ad_subset", "cb_subset"):
             if k in config_args:
                 setattr(self, k, config_args.pop(k))
         
@@ -401,6 +401,10 @@ class ADUserSync(ADUserUtils):
         # Find all users with relevant spread
         for row in self.ac.search(spread=self.user_spread):
             uname = row["name"].strip()
+            # For testing or special cases where we only want to sync
+            # a subset
+            if self.cb_subset and uname not in self.cb_subset:
+                continue
             self.accounts[uname] = CerebrumAccount(int(row["account_id"]),
                                                    int(row["owner_id"]),
                                                    uname)
@@ -552,16 +556,23 @@ class ADUserSync(ADUserUtils):
 
     def fetch_ad_data(self, search_ou):
         """
-        Returns full LDAP path to AD objects of type 'user' in search_ou and 
-        child ous of this ou.
+        Fetch all or a subset of users in search_ou from AD.
         
         @param search_ou: LDAP path to base ou for search
         @type search_ou: str
+        
+        @return: AD attributes and values for AD objects of type
+                 'user' in search_ou and child ous of this ou.
+        @rtype: dict (uname -> {attr type: value} mapping)
         """
         # Setting the user attributes to be fetched.
         self.server.setUserAttributes(self.sync_attrs,
                                       cereconf.AD_ACCOUNT_CONTROL)
-        return self.server.listObjects("user", True, search_ou)
+        ret = self.server.listObjects("user", True, search_ou)
+        if self.ad_subset:
+            return dict(zip(self.ad_subset,
+                            (ret.get(u) for u in self.ad_subset)))
+        return ret
 
 
     def compare(self, ad_user, cb_user):
