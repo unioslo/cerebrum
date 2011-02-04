@@ -117,10 +117,11 @@ def generate_voip_addresses(sink, encoding):
         entry['objectClass'] = ['top','voipAddress']
         dn = "uid=%s,%s" % (entry['uid'], 
                             ldapconf('VOIP_ADDRESS', 'dn', None))
-                            
         entity_id = entry.pop("entity_id")
         addr_id2dn[entity_id] = dn
         entry = object2encoding(entry, encoding)
+        if not entry.get("cn"):
+            entry["cn"] = ()
         sink.write(entry_string(object2encoding(dn, encoding), entry))
 
     return addr_id2dn
