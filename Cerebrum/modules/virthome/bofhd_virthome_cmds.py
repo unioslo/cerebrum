@@ -209,6 +209,10 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         if event["change_params"]:
             event["change_params"] = pickle.loads(event["change_params"])
+
+        if "change_type_id" in event:
+            event["change_type"] = str(
+                self.const.ChangeType(event["change_type_id"]))
         return event
     # end __get_request
 
