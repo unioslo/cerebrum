@@ -148,12 +148,20 @@ def output_OUs(writer, perspective):
     It's recommended to include contact info and addresses.
 
     So, the easiest is probably to collect info in multiple passes.
+
+    + NSDkode (not a problem, since UiO has not exported it since SAP came
+      online and it's not a required element).
+    + datoAktivFra/datoAktivTil (not a problem. Although these dates are not
+      registered in Cerebrum, they are not required required elements XML)
+   
     """
 
     logger.debug("Outputting all OUs")
     ous = _cache_ou_data(perspective)
     db = Factory.get("Database")()
     ou = Factory.get("OU")(db)
+
+    writer.startElement("organisasjon")
     for row in ou.list_all(filter_quarantined=True):
         ou_id = row["ou_id"]
         if ou_id not in ous:
@@ -182,6 +190,10 @@ def output_OUs(writer, perspective):
                                ("gruppenrUnder", parent["avdeling"])):  
             output_element(element, value)
 
+        # FIXME: Remove this hardcoded junk (this is for testing only)
+        output_element("datoAktivFra", "2007-01-01")
+        output_element("datoAktivTil", "9999-12-31")
+
         output_element("navnBokmal", row["name"])
         for element in ("postadresse", "postnrOgPoststed", "land",):
             if element in data:
@@ -189,6 +201,7 @@ def output_OUs(writer, perspective):
             
         writer.endElement("enhet")
 
+    writer.endElement("organisasjon")
     logger.debug("OU output complete")
 # end output_OUs
 
@@ -353,7 +366,8 @@ def _cache_person_info(source_system):
 
 
 def output_employment(writer, employment, ou_cache):
-    """Output one complete employment element"""
+    """Output one complete employment element.
+    """
 
     ou_id = employment["ou_id"]
     ou = ou_cache[ou_id]
@@ -365,7 +379,12 @@ def output_employment(writer, employment, ou_cache):
                            ("gruppenr", ou["avdeling"]),
                            # 
                            # FIXME: This MUST BE FIXED.
-                           # ("stillingskode", ???),
+                           # FIXME: Hardcoded stuff for the sake of testing
+                           ("stillingskode", "1011"),
+                           ("stillingsbetegnelse", "Førsteamanuensis"),
+                           ("datoTil", "9999-12-31"),
+                           ("stillingsandel", "100.0"),
+                           
                            ("datoFra", employment["create_date"].strftime("%F"))):
         output_element(element, value)
     writer.endElement("ansettelse")
@@ -374,6 +393,8 @@ def output_employment(writer, employment, ou_cache):
 
 
 def output_guest(writer, entry, ou_cache):
+    """Output one complete guest element (associated, ph.d students, etc).
+    """
     
     ou_id = entry["ou_id"]
     ou = ou_cache[ou_id]
@@ -383,6 +404,12 @@ def output_guest(writer, entry, ou_cache):
                            ("avdnr", ou["fakultet"]),
                            ("undavdnr", ou["institutt"]),
                            ("gruppenr", ou["avdeling"]),
+                           #
+                           # FIXME: This MUST BE FIXED.
+                           # FIXME: Hardcoded stuffo for the sake of testing.
+                           ("gjestebetegnelse", "GJ-FORSKER"),
+                           ("datoTil", "9999-12-31"),
+
                            ("datoFra", entry["create_date"].strftime("%F"))):
         output_element(element, value)
     writer.endElement("gjest")
