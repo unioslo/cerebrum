@@ -27,10 +27,11 @@ import cerebrum_path
 import cereconf
 from Cerebrum.modules.cis import Individuation
 
-from soaplib.service import rpc
-from soaplib.serializers.primitive import String, Integer, Boolean
-from soaplib.serializers.clazz import ClassSerializer, Array
-from soaplib.wsgi import Application
+from soaplib.core import Application
+from soaplib.core.service import rpc
+from soaplib.core.model.primitive import String, Integer, Boolean
+from soaplib.core.model.clazz import ClassModel, Array
+from soaplib.core.server import wsgi
 
 from twisted.web.server import Site
 from twisted.web.resource import Resource
@@ -53,7 +54,7 @@ TODO: This is just a skeleton of a running server. All the SOAP
 actions must be written for this server to do something useful.
 """
 
-class Account(ClassSerializer):
+class Account(ClassModel):
     # FIXME: define namespace properly 
     __namespace__ = 'tns'
     uname = String
@@ -169,7 +170,8 @@ if __name__=='__main__':
     log_observer = startLogging(file(logfile, 'w'))
     # Run service
     service = Application([IndividuationServer], 'tns')
-    resource = WSGIResource(reactor, reactor.getThreadPool(), service)
+    wsgi_application = wsgi.Application(service)
+    resource = WSGIResource(reactor, reactor.getThreadPool(), wsgi_application)
     root = Resource()
     root.putChild('SOAP', resource)
     # TODO: Print url of service
