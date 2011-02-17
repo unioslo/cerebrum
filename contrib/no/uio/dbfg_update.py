@@ -465,7 +465,6 @@ def report_users(stream_name, external_dbs):
     db_cerebrum = Factory.get("Database")()
     person = Factory.get("Person")(db_cerebrum)
     constants = Factory.get("Constants")(db_cerebrum)
-    user = "ureg2000"
 
     report_stream = AtomicFileWriter(stream_name, "w")
 
@@ -473,7 +472,7 @@ def report_users(stream_name, external_dbs):
     # Report expired users for all databases
     for dbname in ("ajprod",):
         item = external_dbs[dbname]
-        message = report_no_exc(user, False, item, item["sync_accessor"],
+        message = report_no_exc(item['dbuser'], False, item, item["sync_accessor"],
                                      check_expired)
         if message:
             report_stream.write("%s contains these expired accounts:\n" %
@@ -489,7 +488,7 @@ def report_users(stream_name, external_dbs):
                    "basware-users", "basware-masters"):
         logger.debug("Accessing db %s", dbname)
         item = external_dbs[dbname]
-        message = report_no_exc(user, True, item, item["report_accessor"],
+        message = report_no_exc(item['dbuser'], True, item, item["report_accessor"],
                       check_expired,
                       lambda acc: check_spread(acc,
                                                constants.spread_uio_nis_user),
