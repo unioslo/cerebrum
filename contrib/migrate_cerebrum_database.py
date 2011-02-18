@@ -914,7 +914,7 @@ def migrate_to_sap_1_1():
     # ... and add a constraint
     makedb("sap_1_1", "post")
     meta = Metainfo.Metainfo(db)
-    meta.set_metainfo("sap", "1.1")
+    meta.set_metainfo("sqlmodule_sap", "1.1")
     db.commit()
     print "Migration to SAP 1.1 completed successfully"
 # end migrate_to_sap_1_1

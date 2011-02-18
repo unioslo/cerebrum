@@ -2,6 +2,22 @@
 # -*- coding: iso-8859-1 -*-
 #
 # Copyright 2010 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """This file generates an XML file destined for the Cristin publishing system.
 
@@ -11,27 +27,6 @@ Relevant docs:
 * CVS: cerebrum-sites/doc/intern/uio/archive/frida
 * <http://www.cristin.no/import/institusjonsdata/eksempel.xml>
 * <http://www.cristin.no/import/institusjonsdata/>
-
-Things we can't fetch from Cerebrum:
-
-* OUs:
-    + NSDkode (not a problem, since UiO has not exported it since SAP came
-      online and it's not a required element).
-    + datoAktivFra/datoAktivTil (not a problem. Although these dates are not
-      registered in Cerebrum, they are not required required elements XML)
-
-* People:
-
-    + stillingskode (This is a real issue -- the data are on file only, and the
-      element is required).
-    + datoFra (for each employment, use create_date for affiliation as an
-      approximation)
-    + datoTil (Not a problem, since it's not a required element)
-    + percentage (Not a problemm since it's not a required element)
-
-The rest is available in Cerebrum.
-
-Essentially, the only real issue is the 4-digit employment code.
 """
 
 import getopt
@@ -317,7 +312,41 @@ def _cache_person_reservation_data(cache, source_system):
     
 
 
-def _cache_person_info(source_system):
+def _cache_person_primary_account(cache, source_system):
+    """Locate primary accounts for everybody in cache."""
+
+    #
+    # Ugh, this is so inelegant...
+    logger.debug("Caching primary accounts")
+    
+    # 1. cache person_id -> primary account_id
+    db = Factory.get("Database")()
+    account = Factory.get("Account")(db)
+    const = Factory.get("Constants")()
+    pid2aid = dict((x["person_id"], x["account_id"])
+                   for x in
+                   account.list_accounts_by_type(primary_only=True))
+    # 2. load all account_id -> account_name
+    aid2uname = dict((x["entity_id"], x["entity_name"])
+                     for x in
+                     account.list_names(const.account_namespace))
+    # 3. finally, fixup the cache
+
+    for pid in cache:
+        uname = aid2uname.get(pid2aid.get(pid))
+        if not uname:
+            continue
+        
+        data = cache[pid]
+        data["account_name"] = uname
+
+    logger.debug("Caching primary accounts complete")
+    return cache
+# end _cache_person_primary_account
+    
+
+
+def _cache_person_info(perspective, source_system):
     """Preload info for all of our eligible bachelors...
 
     There is no elegant way of collecting all of the required info. The easiest
@@ -334,31 +363,46 @@ def _cache_person_info(source_system):
     const = Factory.get("Constants")()
 
     logger.debug("Caching person info")
+    ous = _cache_ou_data(perspective)
     
     # person_id -> <dict with attributes>
     cache = dict()
 
-    # First pass collects the interesting affiliations...
-    # TBD: Will this choke us on memory?
+    # First, collect everybody of value...
+    # ... the employees...
+    for row in person.search_employment(source_system=source_system):
+        person_id = row["person_id"]
+        if row["ou_id"] not in ous:
+            logger.info("Skipping employment %s, since ou_id=%s is absent "
+                        "from output", str(row), row["ou_id"])
+            continue
+
+        if person_id not in cache:
+            cache[person_id] = {"employments": list()}
+        cache[person_id]["employments"].append(row.dict())
+    
+    # ... and the "rest" -- ph.d students and the like.
+    # IVR 2011-02-17 FIXME: Should this be affiliation-based?
     for row in person.list_affiliations(source_system=source_system,
-                                        affiliation=(const.affiliation_ansatt,
-                                            const.affiliation_tilknyttet)):
-        affiliation = row["affiliation"]
-        status = row["status"]
-        if (affiliation == const.affiliation_ansatt and 
-            status == const.affiliation_status_tilknyttet_bilag):
+                                        affiliation=const.affiliation_tilknyttet):
+        if row["ou_id"] not in ous:
+            logger.info("Skipping affiliation %s, since ou_id=%s is absent "
+                        "from output", str(row), row["ou_id"])
             continue
 
         person_id = row["person_id"]
         if person_id not in cache:
             cache[person_id] = {"affiliations": list()}
+        if "affiliations" not in cache[person_id]:
+            cache[person_id]["affiliations"] = list()
         cache[person_id]["affiliations"].append(row.dict())
-
+    
     cache = _cache_person_names(cache, source_system)
     cache = _cache_person_contact_info(cache, source_system)
     cache = _cache_person_external_id(cache, source_system)
     cache = _cache_person_reservation_data(cache, source_system)
-
+    cache = _cache_person_primary_account(cache, source_system)
+    
     logger.debug("Caching person data complete: %d entries", len(cache))
     return cache
 # end _cache_person_info
@@ -371,21 +415,16 @@ def output_employment(writer, employment, ou_cache):
 
     ou_id = employment["ou_id"]
     ou = ou_cache[ou_id]
-
     writer.startElement("ansettelse")
-    for element, value in (("institusjosnr", cereconf.DEFAULT_INSTITUSJONSNR),
+    for element, value in (("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR),
                            ("avdnr", ou["fakultet"]),
                            ("undavdnr", ou["institutt"]),
                            ("gruppenr", ou["avdeling"]),
-                           # 
-                           # FIXME: This MUST BE FIXED.
-                           # FIXME: Hardcoded stuff for the sake of testing
-                           ("stillingskode", "1011"),
-                           ("stillingsbetegnelse", "Førsteamanuensis"),
-                           ("datoTil", "9999-12-31"),
-                           ("stillingsandel", "100.0"),
-                           
-                           ("datoFra", employment["create_date"].strftime("%F"))):
+                           ("stillingskode", employment["employment_code"]),
+                           ("stillingsbetegnelse", employment["description"]),
+                           ("datoTil", employment["end_date"].strftime("%F")),
+                           ("stillingsandel", employment["percentage"]),
+                           ("datoFra", employment["start_date"].strftime("%F"))):
         output_element(element, value)
     writer.endElement("ansettelse")
 # end output_employment
@@ -398,9 +437,8 @@ def output_guest(writer, entry, ou_cache):
     
     ou_id = entry["ou_id"]
     ou = ou_cache[ou_id]
-
     writer.startElement("gjest")
-    for element, value in (("institusjosnr", cereconf.DEFAULT_INSTITUSJONSNR),
+    for element, value in (("institusjonsnr", cereconf.DEFAULT_INSTITUSJONSNR),
                            ("avdnr", ou["fakultet"]),
                            ("undavdnr", ou["institutt"]),
                            ("gruppenr", ou["avdeling"]),
@@ -422,8 +460,15 @@ def output_person(writer, chunk, ou_cache):
 
     const = Factory.get("Constants")()
     rstatus = {True: "J", False: "N"}
+
+    if const.externalid_fodselsnr not in chunk:
+        logger.info("Person %s is missing fnr. Will be skipped from output",
+                    repr(chunk))
+        return 
+    
     writer.startElement("person", {"fnr": chunk[const.externalid_fodselsnr],
-                                   "reserved": rstatus[chunk.get("reserved", False)]})
+                                   "reserved": rstatus[chunk.get("reserved",
+                                                                 False)]})
     for element, key in (("etternavn", const.name_last),
                          ("fornavn", const.name_first),
                          ("personligTittel", const.name_work_title)):
@@ -431,6 +476,8 @@ def output_person(writer, chunk, ou_cache):
             continue
         output_element(element, chunk[key])
 
+    output_element("brukernavn", chunk.get("account_name"))
+        
     for element, key in (("telefonnr", const.contact_phone),
                          ("telefaxnr", const.contact_fax),
                          ("URL", const.contact_url)):
@@ -439,8 +486,7 @@ def output_person(writer, chunk, ou_cache):
             continue
         output_element(element, contact_block["contact_value"])
 
-    employments = [x for x in chunk.get("affiliations", ())
-                   if x["affiliation"] == const.affiliation_ansatt]
+    employments = chunk.get("employments", tuple())
     if employments:
         writer.startElement("ansettelser")
         for entry in employments:
@@ -480,15 +526,13 @@ def output_people(writer, perspective, source_system):
 
     logger.debug("Output people started")
     ous = _cache_ou_data(perspective)
-    people = _cache_person_info(source_system)
-
-    # cache keys:
-    # 'affiliations', const.name_{first, last, work_title},
-    # const.contact_{phone, fax, url}, 'reserved'
+    people = _cache_person_info(perspective, source_system)
+    writer.startElement("personer")
     for pid in people:
         data = people[pid]
         output_person(writer, data, ous)
 
+    writer.endElement("personer")
     logger.debug("Output people complete")
 # end output_people
 
@@ -539,7 +583,8 @@ def find_root_ou(identifier):
             try:
                 ou.find_stedkode(identifier[:2],
                                  identifier[2:4],
-                                 identifier[4:6])
+                                 identifier[4:6],
+                                 cereconf.DEFAULT_INSTITUSJONSNR)
                 return ou
             except Errors.NotFoundError:
                 pass
@@ -549,11 +594,12 @@ def find_root_ou(identifier):
     def typesetter(x):
         ou.clear()
         ou.find(x)
-        return "%s (%s)" % (ou.ou_id,
-                            "-".join("%02d" % y
-                                     for y in (ou.fakultet,
-                                               ou.institutt,
-                                               ou.avdeling)))
+        return "%s id=%s (%s)" % (ou.acronym,
+                                  ou.ou_id,
+                                  "-".join("%02d" % y
+                                           for y in (ou.fakultet,
+                                                     ou.institutt,
+                                                     ou.avdeling)))
     logger.error("Could not find root ou for designation '%s'. "
                  "Available roots: %s", identifier,
                  ", ".join(typesetter(x) for x in
@@ -565,7 +611,7 @@ def find_root_ou(identifier):
 
 def main(argv):
     global logger
-    logger = Factory.get_logger("console")
+    logger = Factory.get_logger("cronjob")
 
     root_ou = None
     output_file = None

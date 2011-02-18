@@ -24,9 +24,9 @@ Cerebrum -- mod_sap.
 """
 
 from Cerebrum import Constants
-from Cerebrum.modules.no.Constants import SAPForretningsOmradeKode, \
-                                          SAPLonnsTittelKode, \
-                                          SAPPermisjonsKode
+from Cerebrum.modules.no.Constants import SAPLonnsTittelKode
+
+
 
 
 
@@ -35,40 +35,6 @@ class SAPConstants(Constants.Constants):
     This class embodies all constants that we need to address HR-related
     tables in HiA.
     """
-
-    # ----[ SAPForretningsOmradeKode ]----------------------------------
-    #
-    # IVR 2007-03-01 FIXME: what is this? 
-    sap_omrade0001 = SAPForretningsOmradeKode(
-        "0001",
-        "Forretningsområde 0001"
-    )
-
-    sap_remmen = SAPForretningsOmradeKode(
-        "0110",
-        "Remmen"
-    )
-
-    sap_tune = SAPForretningsOmradeKode(
-        "0120",
-        "Sarpsborg"
-    )
-
-    sap_krakeroy = SAPForretningsOmradeKode(
-        "0130",
-        "Kråkerøy",
-    )
-    
-    sap_gamlebyen = SAPForretningsOmradeKode(
-        "0135",
-        "Gamlebyen",
-    )
-
-    sap_sykehuset = SAPForretningsOmradeKode(
-        "0140",
-        "Tønsberg",
-    )
-
 
     # ----[ SAPLonnsTittelKode ]----------------------------------
     sap_1004_rektor = SAPLonnsTittelKode(

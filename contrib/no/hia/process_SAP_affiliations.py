@@ -324,18 +324,117 @@ def process_affiliations(employment_file, person_file, use_fok):
 
 
 
+def cache_db_employments():
+    """Preload all existing employment data.
+
+    Note that we just need the primary keys here.
+    """
+
+    logger.debug("Preloading all existing employments")
+    result = set()
+    person = Factory.get("Person")(database)
+    for row in person.search_employment(source_system=constants.system_sap):
+        key = (row["person_id"], row["ou_id"], row["description"],
+               row["source_system"])
+        result.add(key)
+
+    logger.debug("Done preloading all existing employments")
+    return result
+# end cache_db_employments
+
+
+
+def remove_db_employments(remaining_employments):
+    """Nuke whatever remains of employments.
+
+    Whichever keys remain in remaining_employments, they exist in the db, but
+    not in the source file.
+    """
+
+    logger.debug("Will delete %s remaining employments",
+                 len(remaining_employments))
+    person = Factory.get("Person")(database)
+    for (pid, ou_id, title, source) in remaining_employments:
+        person.find(pid)
+        person.delete_employment(ou_id, title, source)
+
+    logger.debug("Completed deletion")
+# end remove_db_employments
+
+
+
+def synchronise_employment(employment_cache, tpl, person, ou_id):
+    """Synchronise a specific employment entry with the database.
+
+    Updates employment_cache destructively.
+    """
+
+    employment = SAPLonnsTittelKode(tpl.lonnstittel)
+    description = employment.description
+    if " " not in description:
+        logger.debug("Employment type %s for person %s missing code/description",
+                     description, person.entity_id)
+        return
+
+    code, title = description.split(" ", 1)
+    if not code.isdigit():
+        logger.debug("Employment for %s is missing code/title: %s",
+                     person.entity_id, description)
+        return
+
+    key = (person.entity_id, ou_id, title, constants.system_sap)
+    if key in employment_cache:
+        employment_cache.remove(key)
+
+    # This will either insert or update
+    person.add_employment(ou_id, title, constants.system_sap,
+                          tpl.percentage, tpl.start_date, tpl.end_date,
+                          code, tpl.stillingstype == 'H')
+# end synchronise_employment
+
+
+
+def process_employments(employment_file, use_fok):
+    "Synchronise the data in person_employment based on the latest SAP file."
+
+
+    logger.debug("processing employments")
+    employment_cache = cache_db_employments()
+    for tpl in make_employment_iterator(file(employment_file), use_fok, logger):
+        # just like process_affiliations
+        ou_id = get_ou_id(tpl.sap_ou_id)
+        if ou_id is None:
+            logger.debug("No OU registered for SAP ou_id=%s", tpl.sap_ou_id)
+            continue
+
+        person = get_person(tpl.sap_ansattnr)
+        if person is None:
+            logger.debug("No person is registered for SAP ansatt# %s",
+                         tpl.sap_ansattnr)
+            continue
+        
+        synchronise_employment(employment_cache, tpl, person, ou_id)
+
+    remove_db_employments(employment_cache)
+    logger.debug("done with employments")
+# end process_employments
+
+
+
 def main():
     options, rest = getopt.getopt(sys.argv[1:],
                                   "e:dp:",
                                   ("employment-file=",
                                    "dryrun",
                                    "person-file=",
-                                   "with-fok",
-                                   "without-fok",))
+                                   "with-fok", 
+                                   "without-fok",
+                                   "with-employment",))
     employment_file = None
     person_file = None
     dryrun = False
     use_fok = None
+    sync_employment = False
     
     for option, value in options:
         if option in ("-e", "--employment-file"):
@@ -348,12 +447,17 @@ def main():
             use_fok = True
         elif option in ("--without-fok",):
             use_fok = False
+        elif option in ("--with-employment",):
+            sync_employment = True
             
     assert (person_file is not None and
             os.access(person_file, os.F_OK))
     assert (employment_file is not None and
             os.access(employment_file, os.F_OK))
     assert use_fok is not None, "You MUST specify --with{out}-fok"
+
+    if sync_employment:
+        process_employments(employment_file, use_fok)
 
     process_affiliations(employment_file, person_file, use_fok)
 
