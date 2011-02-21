@@ -398,6 +398,7 @@ class BofhdExtension(BofhdCommandBase):
             es.find(et.email_server_id)
             used = 'N/A'
             limit = None
+            homemdb = None
             tmp = acc.get_trait(self.const.trait_exchange_mdb)
             homemedb = tmp['strval']
             if homemdb == None:
