@@ -1470,6 +1470,6 @@ class BofhdExtension(BofhdCommandBase):
                 params[key] = int(value)
             elif key == 'strval':
                 params[key] = value
-        ent.populate_trait(trait5A5A, **params)
+        ent.populate_trait(trait, **params)
         ent.write_db()
         return "Ok, set trait %s for %s" % (trait_name, ent_name)    
