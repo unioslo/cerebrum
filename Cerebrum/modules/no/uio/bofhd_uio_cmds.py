@@ -1224,6 +1224,8 @@ class BofhdExtension(BofhdCommandBase):
          ("quota_hard", "quota_soft", "quota_used")),
         ("                  (currently %d MiB on server)",
          ("quota_server",)),
+        ("HomeMDB:          %s",
+         ("homemdb", )),
         # TODO: change format so that ON/OFF is passed as separate value.
         # this must be coordinated with webmail code.
         ("Forwarding:       %s",
