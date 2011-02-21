@@ -278,7 +278,7 @@ class _SAPTupleBase(object):
                 setattr(self, slot_name, value)
             except:
                 if logger is not None:
-                    logger.warn("Failed to set value %s for attribute %s in "
+                    logger.info("Failed to set value %s for attribute %s in "
                                 "tuple (%s): %s. Assuming None",
                                 ",".join(tpl[index] for index in indices),
                                 slot_name,
