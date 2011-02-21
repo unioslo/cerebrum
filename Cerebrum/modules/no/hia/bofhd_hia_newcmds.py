@@ -1443,8 +1443,7 @@ class BofhdExtension(BofhdCommandBase):
     all_commands['trait_set'] = Command(
         ("trait", "set"), Id(help_ref="id:target:account"),
         SimpleString(help_ref="trait"),
-        SimpleString(help_ref="trait_val", repeat=True),
-        perm_filter="is_superuser")
+        SimpleString(help_ref="trait_val", repeat=True))
     def trait_set(self, operator, ent_name, trait_name, *values):
         if not self.ba.can_set_person_disclosure_trait(operator.get_entity_id()):
             raise PermissionDenied("Currently limited to account owner and superuser")
