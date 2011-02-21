@@ -400,7 +400,7 @@ class BofhdExtension(BofhdCommandBase):
             limit = None
             homemdb = None
             tmp = acc.get_trait(self.const.trait_exchange_mdb)
-            homemedb = tmp['strval']
+            homemdb = tmp['strval']
             if homemdb == None:
                 homemebd = 'N/A'
             info.append({'quota_hard': eq.email_quota_hard,
@@ -1445,9 +1445,9 @@ class BofhdExtension(BofhdCommandBase):
         SimpleString(help_ref="trait"),
         SimpleString(help_ref="trait_val", repeat=True))
     def trait_set(self, operator, ent_name, trait_name, *values):
-        if not self.ba.can_set_person_disclosure_trait(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to account owner and superuser")
         ent = self.util.get_target(ent_name, restrict_to=[])
+        if not self.ba.can_set_person_disclosure_trait(operator.get_entity_id(), ent):
+            raise PermissionDenied("Currently limited to account owner and superuser")
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
         params = {}
         for v in values:
