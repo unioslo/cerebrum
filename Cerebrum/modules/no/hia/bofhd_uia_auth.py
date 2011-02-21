@@ -37,7 +37,7 @@ class BofhdAuth(auth.BofhdAuth):
     This class only contains special cases for UiA.
     """
     # allow account owner to set disclosure traits
-    def can_set_person_disclosure_trait(self, operator, query_run_any=False):
+    def can_set_person_disclosure_trait(self, operator, person=None, query_run_any=False):
         if query_run_any:
             return True
         # superuser can set traits
