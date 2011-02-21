@@ -400,14 +400,16 @@ class BofhdExtension(BofhdCommandBase):
             limit = None
             homemdb = None
             tmp = acc.get_trait(self.const.trait_exchange_mdb)
-            homemdb = tmp['strval']
-            if homemdb == None:
-                homemebd = 'N/A'
+            if tmp != None:
+                homemdb = tmp['strval']
+            else:
+                homemdb = 'N/A'
             info.append({'quota_hard': eq.email_quota_hard,
                          'quota_soft': eq.email_quota_soft,
                          'quota_used': used})
             info.append({'dis_quota_hard': eq.email_quota_hard,
                          'dis_quota_soft': eq.email_quota_soft})
+            # should not be shown for accounts without exchange-spread, needs fixin', Jazz 2011-02-21
             info.append({'homemdb': homemdb})
         except Errors.NotFoundError:
             pass
