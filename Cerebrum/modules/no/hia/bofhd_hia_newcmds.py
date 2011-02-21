@@ -45,6 +45,7 @@ from Cerebrum.modules.bofhd.utils import BofhdRequests
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth, BofhdAuthOpSet
 from Cerebrum.modules.bofhd.auth import BofhdAuthOpTarget, BofhdAuthRole
+from Cerebrum.modules.no.hia.bofhd_uia_auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 from Cerebrum.modules.no import fodselsnr
 from mx import DateTime
@@ -165,7 +166,9 @@ class BofhdExtension(BofhdCommandBase):
         #
         # copy trait-functions
         #
-        'trait_info', 'trait_list', 'trait_set', 'trait_remove',
+        'trait_info', 'trait_list', 'trait_remove',
+        #
+        # UiA needs a local version of 'trait_set' 
         #
         # copy relevant helper-functions
         #
@@ -395,11 +398,16 @@ class BofhdExtension(BofhdCommandBase):
             es.find(et.email_server_id)
             used = 'N/A'
             limit = None
+            tmp = acc.get_trait(self.const.trait_exchange_mdb)
+            homemedb = tmp['strval']
+            if homemdb == None:
+                homemebd = 'N/A'
             info.append({'quota_hard': eq.email_quota_hard,
                          'quota_soft': eq.email_quota_soft,
                          'quota_used': used})
             info.append({'dis_quota_hard': eq.email_quota_hard,
                          'dis_quota_soft': eq.email_quota_soft})
+            info.append({'homemdb': homemdb})
         except Errors.NotFoundError:
             pass
         return info
@@ -1424,3 +1432,43 @@ class BofhdExtension(BofhdCommandBase):
 
         return result
     # end __get_all_related_maillist_targets
+
+    #
+    # UiA needs a local version of the trait command in order to let
+    # users control the traits related to the disclosure agreement
+    # Jazz, 2011-02-21
+    #
+    # trait set -- add or update a trait
+    all_commands['trait_set'] = Command(
+        ("trait", "set"), Id(help_ref="id:target:account"),
+        SimpleString(help_ref="trait"),
+        SimpleString(help_ref="trait_val", repeat=True),
+        perm_filter="is_superuser")
+    def trait_set(self, operator, ent_name, trait_name, *values):
+        if not self.ba.can_set_person_disclosure_trait(operator.get_entity_id()):
+            raise PermissionDenied("Currently limited to account owner and superuser")
+        ent = self.util.get_target(ent_name, restrict_to=[])
+        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        params = {}
+        for v in values:
+            if v.count('='):
+                key, value = v.split('=', 1)
+            else:
+                key = v; value = ''
+            key = self.util.get_abbr_type(key, ('target_id', 'date', 'numval',
+                                                'strval'))
+            if value == '':
+                params[key] = None
+            elif key == 'target_id':
+                target = self.util.get_target(value, restrict_to=[])
+                params[key] = target.entity_id
+            elif key == 'date':
+                # TODO: _parse_date only handles dates, not hours etc.
+                params[key] = self._parse_date(value)
+            elif key == 'numval':
+                params[key] = int(value)
+            elif key == 'strval':
+                params[key] = value
+        ent.populate_trait(trait5A5A, **params)
+        ent.write_db()
+        return "Ok, set trait %s for %s" % (trait_name, ent_name)    
