@@ -355,6 +355,7 @@ def remove_db_employments(remaining_employments):
                  len(remaining_employments))
     person = Factory.get("Person")(database)
     for (pid, ou_id, title, source) in remaining_employments:
+        person.clear()
         person.find(pid)
         person.delete_employment(ou_id, title, source)
 
