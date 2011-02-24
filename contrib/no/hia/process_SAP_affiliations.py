@@ -387,6 +387,13 @@ def synchronise_employment(employment_cache, tpl, person, ou_id):
     if key in employment_cache:
         employment_cache.remove(key)
 
+    try:
+        float(tpl.percentage)
+    except TypeError:
+        logger.debug("Invalid employment fraction specification in %s",
+                     str(tpl))
+        return 
+        
     # This will either insert or update
     person.add_employment(ou_id, title, constants.system_sap,
                           tpl.percentage, tpl.start_date, tpl.end_date,
