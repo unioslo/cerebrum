@@ -19,6 +19,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+from lxml import etree
 from soaplib.core.service import DefinitionBase
 
 """
@@ -36,57 +37,63 @@ class BasicSoapServer(DefinitionBase):
     This class defines general setup useful for SOAP services.
     No SOAP actions are defined here. Define the actions in subclasses.
     """
-    pass
 
-    #
+    
     # Hooks, nice for logging etc.
-    # def on_method_call(self, environ, method_name, py_params, soap_params):
-    #     """
-    #     Called BEFORE the service implementing the functionality is called
-    #     @param the wsgi environment
-    #     @param the method name
-    #     @param the body element of the soap request
-    #     @param the tuple of python params being passed to the method
-    #     @param the soap elements for each params
-    #     """
-    #     print "Call method %s with params %s" % (method_name, py_params)
-    # 
-    # def on_method_return(self, environ, py_results, soap_results,
-    #                      http_resp_headers):
-    #     """
-    #     Called AFTER the service implementing the functionality is called
-    #     @param the wsgi environment
-    #     @param the python results from the method
-    #     @param the xml element containing the return value(s) from the method
-    #     @param http response headers as a dict of strings
-    #     """
-    #     pass
-    #     
-    #     
-    # def on_method_exception_object(self, environ, exc):
-    #     '''
-    #     Called BEFORE the exception is serialized, when an error occurs durring
-    #     execution
-    #     @param the wsgi environment
-    #     @param the exception object
-    #     '''
-    #     pass
-    # 
-    # def on_method_exception_xml(self, environ, fault_xml):
-    #     '''
-    #     Called AFTER the exception is serialized, when an error occurs durring
-    #     execution
-    #     @param the wsgi environment
-    #     @param the xml element containing the exception object serialized to a
-    #     soap fault
-    #     '''
-    #     pass
-    # 
-    # def call_wrapper(self, call, params):
-    #     '''
-    #     Called in place of the original method call.
-    #     @param the original method call
-    #     @param the arguments to the call
-    #     '''
-    #     return call(*params)
 
+    def on_method_call(self, method_name, py_params, soap_params):
+        '''Called BEFORE the service implementing the functionality is called
+
+        @param the method name
+        @param the tuple of python params being passed to the method
+        @param the soap elements for each argument
+        '''
+        print "Calling method %s(%s)" % (method_name, ', '.join(py_params))
+
+
+    def on_method_return_object(self, py_results):
+        '''Called AFTER the service implementing the functionality is called,
+        with native return object as argument
+        
+        @param the python results from the method
+        '''
+        pass
+
+    def on_method_return_xml(self, soap_results):
+        '''Called AFTER the service implementing the functionality is called,
+        with native return object serialized to Element objects as argument.
+        
+        @param the xml element containing the return value(s) from the method
+        '''
+        pass
+
+    def on_method_exception_object(self, exc):
+        '''Called BEFORE the exception is serialized, when an error occurs
+        during execution.
+    
+        @param the exception object
+        '''
+        pass
+        
+
+    def on_method_exception_xml(self, fault_xml):
+        '''Called AFTER the exception is serialized, when an error occurs
+        during execution.
+        
+        @param the xml element containing the exception object serialized to a
+        soap fault
+        '''
+        msg = "Exception occured: "
+        for el in fault_xml.iter('faultstring'):
+            msg += el.text
+        print msg
+        
+
+    def call_wrapper(self, call, params):
+        '''Called in place of the original method call.
+
+        @param the original method call
+        @param the arguments to the call
+        '''
+        return call(*params)
+    
