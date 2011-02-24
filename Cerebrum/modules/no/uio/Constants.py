@@ -421,3 +421,12 @@ automatically generated from FS.''')
     trait_student_disk = _EntityTraitCode(
         'student_disk', Constants.Constants.entity_disk,
         "When set, the disk in question is designated as hosting students' home areas")
+
+    # Trait for Individuation service
+    trait_password_token = _EntityTraitCode(
+        "password_token", Constants.Constants.entity_account,
+        "Store a individuation password token for an account")
+    trait_browser_token = _EntityTraitCode(
+        "browser_token", Constants.Constants.entity_account,
+        "Store a individuation browser token for an account")
+    
