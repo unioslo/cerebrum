@@ -162,7 +162,7 @@ def create_token():
     Return random sample of alphanumeric characters
     """
     alphanum = map(str, range(0,10)) + map(chr, range(97,123))
-    return ''.join(random.sample(alphanum, cerconf.INDIVIDUATION_TOKEN_LENGTH))
+    return ''.join(random.sample(alphanum, cereconf.INDIVIDUATION_TOKEN_LENGTH))
 
 
 def send_token(phone_no, token):
