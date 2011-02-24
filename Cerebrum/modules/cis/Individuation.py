@@ -150,7 +150,7 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
         return False
 
     # store password token as a trait
-    ac.populate_trait(co.trait_password_token, strval=token)
+    ac.populate_trait(co.trait_password_token, strval=token, date=now())
     # store browser token as a trait
     ac.populate_trait(co.trait_browser_token, strval=browser_token)
     ac.write_db()
@@ -188,19 +188,19 @@ def check_token(id_type, ext_id, uname, phone_no, browser_token, token):
 
     # Check browser_token
     bt = ac.get_trait(co.trait_browser_token)
-    if not bt or bt != browser_token:
+    if not bt or bt['strval'] != browser_token:
         log.error("Given browser_token %s not equal to stored %s" % (
             browser_token, bt))
         return False
 
     # Check password token
     pt = ac.get_trait(co.trait_password_token)
-    if not pt or pt != token:
-        log.error("Given token %s not equal to stored %s" % (token, bt))
+    if not pt or pt['strval'] != token:
+        log.error("Given token %s not equal to stored %s" % (token, pt))
         return False
     # Check if we're within time limit
     time_limit = now() - RelativeDateTime(minutes=cereconf.INDIVIDUATION_TOKEN_LIFETIME)
-    if pt.date < time_limit:
+    if pt['date'] < time_limit:
         log.info("Password tokens timelimit for %s exceeded" % uname)
         return False
     # All is fine
