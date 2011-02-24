@@ -665,8 +665,10 @@ class VoipAddress(EntityAuthentication, EntityTrait):
                                  for r in
                                  et.list_email_target_primary_addresses(
                                      target_type=self.const.email_target_account))
+        person2unames = dict()
         for row in account.search(owner_type=self.const.entity_person):
             aid = row["account_id"]
+            person2unames.setdefault(row["owner_id"], list()).append(row["name"])
             if aid not in primary2pid:
                 continue
             pid = primary2pid[aid]
@@ -686,59 +688,26 @@ class VoipAddress(EntityAuthentication, EntityTrait):
 
         del primary2pid
         del a_id2primary_mail
-        return self._cache_owner_person_sip_uris(owner_data)
+        return self._cache_owner_person_sip_uris(owner_data, person2unames)
     # end _cache_owner_person_attrs
 
-    
 
-    def _cache_owner_person_sip_uris(self, owner_data):
+
+    def _cache_owner_person_sip_uris(self, owner_data, person2unames):
         """Preload the person owner sipURI attributes for all voipAddresses."""
-        
-        # Now, voipSipURI
-        ea = Email.EmailAddress(self._db)
-        et = Email.EmailTarget(self._db)
+
         account = Factory.get("Account")(self._db)
+        uname2mails = account.getdict_uname2mailaddr(primary_only=False)
 
-        # target_id -> account_id
-        t_id2account_id = dict((r["target_id"], r["target_entity_id"])
-                               for r in et.list_email_targets_ext()
-                               if r["target_entity_type"] ==
-                                  self.const.entity_account)
-        # account_id -> person_id
-        # account_id -> account_name
-        account_id2pid = dict()
-        account_id2uname = dict()
-        for row in account.search(owner_type=self.const.entity_person):
-            account_id2pid[row["account_id"]] = row["owner_id"]
-            account_id2uname[row["account_id"]] = row["name"]
-        
-        for row in ea.list_email_addresses_ext():
-            t_id = row["target_id"]
-            # target does not belong to an account -> skip it
-            if t_id not in t_id2account_id:
-                continue
-            # account does not belong to a person -> skip it
-            account_id = t_id2account_id[t_id]
-            if account_id not in account_id2pid:
-                continue
+        key = 'voipSipUri'
+        for person_id in owner_data:
+            chunk = owner_data[person_id]
+            for uname in person2unames.get(person_id, ()):
+                chunk.setdefault(key, list()).append(self._voipify(uname, None))
+                for address in uname2mails.get(uname, ()):
+                    chunk[key].append(self._voipify(address, None))
 
-            # person_id has no name/primary account/primary mail -> skip
-            person_id = account_id2pid[account_id]
-            if person_id not in owner_data:
-                continue
-            
-            # It's a personal account and we have an e-mail address -> update
-            address = self._join_address(row["local_part"], row["domain"])
-            address = self._voipify(address, None)
-            owner_data[person_id].setdefault("voipSipUri",
-                                             list()).append(address)
-            uname = self._voipify(account_id2uname[account_id], None)
-            if uname not in owner_data[person_id]["voipSipUri"]:
-                owner_data[person_id]["voipSipUri"].append(uname)
-
-        del account_id2pid
-        del account_id2uname
-        del t_id2account_id
+        del uname2mails
         return owner_data
     # end _cache_owner_person_sip_uris
 # end class VoipAddress
