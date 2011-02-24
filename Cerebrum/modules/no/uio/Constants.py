@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002, 2003 University of Oslo, Norway
+# Copyright 2002-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -83,8 +83,6 @@ class Constants(Constants.Constants):
         affiliation_student, 'opptak', 'Registrert med gyldig studierett i FS ')
     affiliation_status_student_aktiv = _PersonAffStatusCode(
         affiliation_student, 'aktiv', 'Registrert som aktiv student i FS')
-    affiliation_status_student_emnestud = _PersonAffStatusCode(
-        affiliation_student, 'emnestud', 'Registrert som aktiv emnestudent i FS')    
     affiliation_status_student_drgrad = _PersonAffStatusCode(
         affiliation_student, 'drgrad', 'Registrert som aktiv doktorgradsstudent i FS')
     affiliation_status_student_privatist = _PersonAffStatusCode(
