@@ -25,11 +25,25 @@ class TestIndividuationService:
         res = self.client.service.get_usernames("externalid_sap_ansattnr",
                                                 "10001626")
 
-    # def test_get_person_data_2(self):
-    #     "get_person_data must handle persons without (active) accounts"
-    #     res = self.client.service.get_usernames("externalid_studentnr",
-    #                                               "12345")
+    def test_generate_token(self):
+        "Generate and store password token for a user"
+        res = self.client.service.generate_token("externalid_sap_ansattnr",
+                                                 "10001626",
+                                                 "rogerha",
+                                                 "98765432",
+                                                 "123qwe")
+        
 
+    # These tests should fail
     # TBD: se om vi kan sette opp feilsituasjoner som logges på en
     # fornuftig måte.
+    def test_get_person_data_2(self):
+        "get_person_data must handle wrong parameters"
+        res = self.client.service.get_usernames("externalid_studentnr",
+                                                  "12345")
+
+    def test_get_person_data_3(self):
+        "get_person_data must handle wrong parameters"
+        res = self.client.service.get_usernames("sdexternalid_studentnr",
+                                                "12345")
 
