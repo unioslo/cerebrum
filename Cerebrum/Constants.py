@@ -855,6 +855,14 @@ class CommonConstants(ConstantsBase):
         "MD5-derived password hash as implemented by crypt(3) on some Unix"
         " variants passed a `salt` that starts with '$1$'.  See <URL:http:"
         "//www.users.zetnet.co.uk/hopwood/crypto/scan/algs/md5crypt.txt>.")
+    auth_type_sha256_crypt = _AuthenticationCode(
+        'SHA-256-crypt',
+        "SHA-256 derived password as implemented by crypt(3) in the GNU C library"
+        " http://www.akkadia.org/drepper/SHA-crypt.txt")
+    auth_type_sha512_crypt = _AuthenticationCode(
+        'SHA-512-crypt',
+        "SHA-512 derived password as implemented by crypt(3) in the GNU C library"
+        " http://www.akkadia.org/drepper/SHA-crypt.txt")
     auth_type_crypt3_des = _AuthenticationCode(
         'crypt3-DES',
         "Password hash generated with the 'traditional' Unix crypt(3)"

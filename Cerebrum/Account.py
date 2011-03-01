@@ -577,11 +577,17 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_crypt3_des,
+                      self.const.auth_type_sha256_crypt,
+                      self.const.auth_type_sha512_crypt,
                       self.const.auth_type_ssha):
             if salt is None:
                 saltchars = string.ascii_letters + string.digits + "./"
                 if method == self.const.auth_type_md5_crypt:
                     salt = "$1$" + Utils.random_string(8, saltchars)
+                elif method == self.const.auth_type_sha256_crypt:
+                    salt = "$5$" + Utils.random_string(16, saltchars)
+                elif method == self.const.auth_type_sha512_crypt:
+                    salt = "$6$" + Utils.random_string(16, saltchars)
                 else:
                     salt = Utils.random_string(2, saltchars)
             if method == self.const.auth_type_ssha:
@@ -611,6 +617,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
         """
         if method in (self.const.auth_type_md5_crypt,
                       self.const.auth_type_crypt3_des,
+                      self.const.auth_type_sha256_crypt,
+                      self.const.auth_type_sha512_crypt,
                       self.const.auth_type_md4_nt):
             raise NotImplementedError, "Can't decrypt %s" % method
         elif method == self.const.auth_type_plaintext:
@@ -626,6 +634,8 @@ class Account(AccountType, AccountHome, EntityName, EntityQuarantine,
                       self.const.auth_type_crypt3_des,
                       self.const.auth_type_md4_nt,
                       self.const.auth_type_ssha,
+                      self.const.auth_type_sha256_crypt,
+                      self.const.auth_type_sha512_crypt,
                       self.const.auth_type_plaintext):
             salt = cryptstring
             if method == self.const.auth_type_ssha:
