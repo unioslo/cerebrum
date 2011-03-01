@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright 2009-2010 University of Oslo, Norway
+# Copyright 2009-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -174,8 +174,8 @@ def compare_users(notesdata, cerebrumdata):
                             user['uname'], user['fullname'], notes_name)
                 rename_notes_user(sock, user)
             # Compare OU
-            cere_ou_path = user['ou_path'].rstrip('/')
-            notes_ou_path = ou_clean(notes_ou_path)
+            cere_ou_path = ou_clean(user['ou_path'])
+            notes_ou_path = ou_clean(notes_ou_path, from_notes=True)
             if not cere_ou_path == notes_ou_path:
                 # If only case differs don't move user
                 if cere_ou_path.upper() == notes_ou_path.upper():
@@ -197,17 +197,20 @@ def compare_users(notesdata, cerebrumdata):
     sock.close()
 
 
-def ou_clean(ou_path):
+def ou_clean(ou_path, from_notes=False):
     # Strip away trailing /
     ou_path = ou_path.rstrip('/')
     # Strip away any leading CN=
     ou_path = ou_path.split("CN=")[-1]
-    # Strip ou suffix from notes_path
-    for ou_suffix in cereconf.NOTES_OU_SUFFIX:
-        ou_path = ou_path.rstrip('/')
-        if ou_path.endswith(ou_suffix):
-            ou_path = ou_path[:-len(ou_suffix)-1]
-            break
+    # & must be escaped
+    ou_path.replace('&', '%26')
+    # Strip ou suffix from notes_path    
+    if from_notes:
+        for ou_suffix in cereconf.NOTES_OU_SUFFIX:
+            ou_path = ou_path.rstrip('/')
+            if ou_path.endswith(ou_suffix):
+                ou_path = ou_path[:-len(ou_suffix)-1]
+                break
     return ou_path
 
 
