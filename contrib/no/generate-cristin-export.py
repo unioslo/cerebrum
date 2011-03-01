@@ -75,11 +75,11 @@ def output_element_helper(xml, element, value, attributes=dict()):
 
 
 
-def output_headers(writer, root_ou):
+def output_headers(writer, tag, root_ou):
     """Generate a header with (mostly) static data"""
 
     writer.startElement("beskrivelse")
-    output_element("kilde", root_ou.acronym)
+    output_element("kilde", tag)
     output_element("dato", time.strftime("%Y-%m-%d %H:%M:%S"))
     writer.endElement("beskrivelse")
 
@@ -538,7 +538,7 @@ def output_people(writer, perspective, source_system):
 
 
 
-def output_xml(sink, root_ou, perspective, source_system):
+def output_xml(sink, tag, root_ou, perspective, source_system):
     writer = xmlprinter.xmlprinter(sink,
                                    indent_level=2,
                                    data_mode=True,
@@ -550,7 +550,7 @@ def output_xml(sink, root_ou, perspective, source_system):
     writer.startDocument(encoding="iso8859-1")
     writer.startElement("fridaImport")
     
-    output_headers(writer, root_ou)
+    output_headers(writer, tag, root_ou)
     output_OUs(writer, perspective)
     output_people(writer, perspective, source_system)
     
@@ -617,12 +617,14 @@ def main(argv):
     output_file = None
     perspective = None
     source_system = None
+    tag = None
     args, junk = getopt.getopt(argv[1:],
-                               "o:r:p:s:",
+                               "o:r:p:s:t:",
                                ("output-file=",
                                 "root-ou=",
                                 "perspective=",
-                                "source-system=",))
+                                "source-system=",
+                                "tag=",))
     for option, value in args:
         if option in ("-o", "--output-file",):
             output_file = value
@@ -632,6 +634,8 @@ def main(argv):
             perspective = value
         elif option in ("-s", "--source-system",):
             source_system = value
+        elif option in ("-t", "--tag",):
+            tag = value
 
     if output_file is None:
         logger.error("No output file name specified.")
@@ -641,6 +645,10 @@ def main(argv):
         logger.error("No root OU is specified.")
         sys.exit(1)
 
+    if tag is None:
+        logger.error("No tag is specified. Can't deduce value for <kilde>")
+        sys.exit(1)
+        
     const = Factory.get("Constants")()
     if (not perspective or 
         not const.human2constant(perspective, const.OUPerspective)):
@@ -663,7 +671,7 @@ def main(argv):
     root_ou = find_root_ou(root_ou)
     sink = SimilarSizeWriter(output_file)
     sink.set_size_change_limit(15)
-    output_xml(sink, root_ou, perspective, source_system)
+    output_xml(sink, tag, root_ou, perspective, source_system)
     sink.close()
 # end main
 
