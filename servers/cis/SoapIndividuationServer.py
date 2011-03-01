@@ -131,7 +131,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         Set new password for a user if all information is verified and
         the token is still valid.
         """
-        return True
+        return Individuation.set_password(id_type, ext_id, username, phone_no,
+                                          browser_token, token, new_password)
 
 
     @rpc(String, _returns=Boolean)
@@ -139,7 +140,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         """
         Check if a given password is good enough.
         """
-        return True
+        return Individuation.validate_password(password)
 
 
 

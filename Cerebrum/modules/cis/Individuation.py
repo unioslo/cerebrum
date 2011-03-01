@@ -32,10 +32,12 @@ Interface to Cerebrum for the Individuation service.
 """
 
 import random
+import string
 from mx.DateTime import RelativeDateTime, now
 import cereconf
-from Cerebrum.Utils import Factory, SMSSender
 from Cerebrum import Errors
+from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.modules import PasswordChecker
 
 
 class SimpleLogger(object):
@@ -150,7 +152,8 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
         return False
 
     # store password token as a trait
-    ac.populate_trait(co.trait_password_token, strval=token, date=now())
+    ac.populate_trait(co.trait_password_token, strval=token, date=now(),
+                      numval=0)
     # store browser token as a trait
     ac.populate_trait(co.trait_browser_token, strval=browser_token)
     ac.write_db()
@@ -161,7 +164,7 @@ def create_token():
     """
     Return random sample of alphanumeric characters
     """
-    alphanum = map(str, range(0,10)) + map(chr, range(97,123))
+    alphanum = string.digits + string.ascii_letters
     return ''.join(random.sample(alphanum, cereconf.INDIVIDUATION_TOKEN_LENGTH))
 
 
@@ -193,11 +196,20 @@ def check_token(id_type, ext_id, uname, phone_no, browser_token, token):
             browser_token, bt))
         return False
 
-    # Check password token
+    # Check password token. Keep track of how many times a token is
+    # checked to protect against brute force attack.
     pt = ac.get_trait(co.trait_password_token)
-    if not pt or pt['strval'] != token:
-        log.error("Given token %s not equal to stored %s" % (token, pt))
+    no_checks = int(pt['numval'])
+    if no_checks > cereconf.INDIVIDUATION_NO_CHECKS:
+        log.warn("No of legal token checks is exceeded")
         return False
+    if not pt or pt['strval'] != token.upper():
+        log.error("Given token %s not equal to stored %s" % (token, pt))
+        ac.populate_trait(co.trait_password_token, strval=pt['strval'],
+                          date=pt['date'], numval=no_checks+1)
+        ac.write_db()
+        return False
+    
     # Check if we're within time limit
     time_limit = now() - RelativeDateTime(minutes=cereconf.INDIVIDUATION_TOKEN_LIFETIME)
     if pt['date'] < time_limit:
@@ -220,6 +232,45 @@ def delete_token(uname):
         return False
     return True
 
+
+def validate_password(password):
+    pc = PasswordChecker.PasswordChecker(db)
+    try:
+        pc.goodenough(None, password, uname="foobar")
+    except PasswordChecker.PasswordGoodEnoughException, m:
+        raise Errors.CerebrumError, "Bad password: %s" % m
+    else:
+        return True
+
+
+def set_password(id_type, ext_id, uname, phone_no, browser_token, token,
+                 new_password):
+    if not check_token(id_type, ext_id, uname, phone_no, browser_token, token):
+        return False
+    # All data is good. Set password
+    ac = get_account(uname)
+    ac.set_password(new_password)
+    try:
+        ac.write_db()
+        log.info("Password for %s altered." % uname)
+    except db.DatabaseError, m:
+        raise Errors.CerebrumError, "Database error: %s" % m
+    # Remove "weak password" quarantine
+    for r in ac.get_entity_quarantine():
+        for qua in (co.quarantine_autopassord, co.quarantine_svakt_passord):
+            if int(r['quarantine_type']) == qua:
+                ac.delete_entity_quarantine(qua)
+    
+    if ac.is_deleted():
+        log.warn("user is deleted")
+    elif ac.is_expired():
+        log.warn("user is expired")
+    elif ac.get_entity_quarantine(only_active=True):
+        log.warn("user has an active quarantine")
+
+    return True
+    
+    
 
 def get_person(id_type, ext_id):
     pe = Factory.get('Person')(db)
