@@ -112,7 +112,6 @@ def get_person_accounts(id_type, ext_id):
     return ret
 
 
-# TODO: hvordan er browser_token tenkt brukt?
 def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     """
     Generate a token that functions as a short time password.
@@ -125,8 +124,8 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     @type  uname: string
     @param phone_no: phone number
     @type  phone_no: string
-    @param browser_token:
-    @type  browser_token:
+    @param browser_token: browser id
+    @type  browser_token: string
     @return: True if success, False otherwise
     @rtype: bool
     """
@@ -157,6 +156,7 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     # store browser token as a trait
     ac.populate_trait(co.trait_browser_token, strval=browser_token)
     ac.write_db()
+    db.commit()
     return True
 
 
@@ -203,11 +203,12 @@ def check_token(id_type, ext_id, uname, phone_no, browser_token, token):
     if no_checks > cereconf.INDIVIDUATION_NO_CHECKS:
         log.warn("No of legal token checks is exceeded")
         return False
-    if not pt or pt['strval'] != token.upper():
-        log.error("Given token %s not equal to stored %s" % (token, pt))
+    if not pt or pt['strval'] != token:
+        log.error("Given token %s not equal to stored %s" % (token, pt['strval']))
         ac.populate_trait(co.trait_password_token, strval=pt['strval'],
                           date=pt['date'], numval=no_checks+1)
         ac.write_db()
+        db.commit()
         return False
     
     # Check if we're within time limit
@@ -227,8 +228,9 @@ def delete_token(uname):
         ac = get_account(uname)
         ac.delete_trait(co.trait_password_token)
         ac.write_db()
-    except:
-        log.error("Couldn't dele password token trait for %s" % uname)
+        db.commit()
+    except Errors.NotFoundError, m:
+        log.error("Couldn't delete password token trait for %s. %s" % (uname, m))
         return False
     return True
 
@@ -252,6 +254,7 @@ def set_password(id_type, ext_id, uname, phone_no, browser_token, token,
     ac.set_password(new_password)
     try:
         ac.write_db()
+        db.commit()
         log.info("Password for %s altered." % uname)
     except db.DatabaseError, m:
         raise Errors.CerebrumError, "Database error: %s" % m
@@ -279,10 +282,10 @@ def get_person(id_type, ext_id):
         pe.find_by_external_id(getattr(co, id_type), ext_id)
     except AttributeError:
         log.error("Wrong id_type: %s" % id_type)
-        raise Errors.CerebrumError("Wrong id_type or id_type")
+        raise Errors.CerebrumError("Wrong id_type or id")
     except Errors.NotFoundError:
         log.error("Couldn't find person with ext_id %s" % ext_id)
-        raise Errors.CerebrumError("Wrong id_type or id_type")
+        raise Errors.CerebrumError("Wrong id_type or id")
     else:
         return pe
 

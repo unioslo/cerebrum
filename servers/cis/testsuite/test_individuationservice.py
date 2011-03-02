@@ -5,10 +5,12 @@
 Test SAP service using a simple suds client.
 
 """
+import random
 import suds
 from suds.cache import Cache
 import logging
-
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
 
 
 class TestIndividuationService:
@@ -20,30 +22,76 @@ class TestIndividuationService:
         self.client.set_options(cache=None)
     
 
-    def test_get_usernames(self):
+    def test_1_get_usernames(self):
         "Get person data for person with active account(s)"
         res = self.client.service.get_usernames("externalid_sap_ansattnr",
                                                 "10001626")
+        print res
 
-    def test_generate_token(self):
+    def test_2_get_usernames2(self):
+        "Get person data for person2 with active account(s)"
+        res = self.client.service.get_usernames("externalid_studentnr",
+                                                "476611")
+        print res
+
+    def test_3_generate_token(self):
         "Generate and store password token for a user"
         res = self.client.service.generate_token("externalid_sap_ansattnr",
                                                  "10001626",
-                                                 "rogerha",
-                                                 "98765432",
+                                                 "rogertst",
+                                                 "91726078",
                                                  "123qwe")
         
+
+    def test_4_check_token(self):
+        "check token for a user"
+        res = self.client.service.check_token("externalid_sap_ansattnr",
+                                              "10001626",
+                                              "rogertst",
+                                              "91726078",
+                                              "123qwe",
+                                              get_token("rogertst"))
+        
+        
+    def test_5_validate_password(self):
+        pwd = ''.join(random.sample(map(chr, range(33,126)), 8))
+        res = self.client.service.validate_password(pwd)
+
+    def test_6_set_password(self):
+        pwd = ''.join(random.sample(map(chr, range(33,126)), 8))
+        res = self.client.service.set_password("externalid_sap_ansattnr",
+                                               "10001626",
+                                               "rogertst",
+                                               "91726078",
+                                               "123qwe",
+                                               get_token("rogertst"),
+                                               pwd)
+        
+    def test_7_abort_token(self):
+        "Delete token for a user"
+        res = self.client.service.abort_token("rogertst")
+
+
 
     # These tests should fail
     # TBD: se om vi kan sette opp feilsituasjoner som logges på en
     # fornuftig måte.
-    def test_get_person_data_2(self):
-        "get_person_data must handle wrong parameters"
-        res = self.client.service.get_usernames("externalid_studentnr",
-                                                  "12345")
+    # def test_get_person_data_2(self):
+    #     "get_person_data must handle wrong parameters"
+    #     res = self.client.service.get_usernames("externalid_studentnr",
+    #                                               "12345")
+    # 
+    # def test_get_person_data_3(self):
+    #     "get_person_data must handle wrong parameters"
+    #     res = self.client.service.get_usernames("sdexternalid_studentnr",
+    #                                             "12345")
 
-    def test_get_person_data_3(self):
-        "get_person_data must handle wrong parameters"
-        res = self.client.service.get_usernames("sdexternalid_studentnr",
-                                                "12345")
 
+def get_token(uname):
+    db = Factory.get('Database')()
+    co = Factory.get('Constants')(db)
+    ac = Factory.get('Account')(db)
+    ac.find_by_name(uname)
+    return ac.get_trait(co.trait_password_token)['strval']
+    
+    
