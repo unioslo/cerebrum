@@ -54,7 +54,10 @@ class Constants(Constants.Constants):
 
     # See auth_target_type_* in Cerebrum/modules(bofhd/utils.py
     auth_target_type_dns = "dns"
+    auth_target_type_global_dns = "global_dns"
 
+    auth_grant_dns = _AuthRoleOpCode(
+        'grant_dns', 'Grant access to operate on DNS targets')
 
 
 class DnsBofhdAuth(BofhdAuth):
