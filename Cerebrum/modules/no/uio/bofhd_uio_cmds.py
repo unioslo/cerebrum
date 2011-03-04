@@ -5520,7 +5520,10 @@ Addresses and settings:
                                     password)
         md5 = ac.encrypt_password(self.const.Authentication("MD5-crypt"),
                                   password)
-        return "OK.  crypt3-DES: %s   MD5-crypt: %s" % (crypt, md5)
+        sha256 = ac.encrypt_password(self.const.auth_type_sha256_crypt, password)
+        sha512 = ac.encrypt_password(self.const.auth_type_sha512_crypt, password)
+        return ("OK.\n  crypt3-DES:   %s\n  MD5-crypt:    %s\n" % (crypt, md5) +
+                "  SHA256-crypt: %s\n  SHA512-crypt: %s" % (sha256, sha512))
 
     # misc clear_passwords
     all_commands['misc_clear_passwords'] = Command(
