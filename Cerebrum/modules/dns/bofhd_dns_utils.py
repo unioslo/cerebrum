@@ -373,15 +373,19 @@ class DnsBofhdUtils(object):
 
         """
         # Caveat: if TTL is set for one of the host's A-records, it is
-        # set for the host in general
+        # set for the host in general. If no A-record exists, we don't
+        # acknowledge any other TTL than "default"
         dns_owner = DnsOwner.DnsOwner(self.db)
         dns_owner.find(owner_id)
 
         arecord = ARecord.ARecord(self.db)
         arecord.clear()
         arecords = arecord.list_ext(dns_owner_id=owner_id)
-        arecord.find(arecords[0]['a_record_id'])
-        return arecord.ttl        
+        if arecords:
+            arecord.find(arecords[0]['a_record_id'])
+            return arecord.ttl
+        else:
+            return None
 
 
     #

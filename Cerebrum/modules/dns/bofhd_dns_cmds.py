@@ -32,6 +32,7 @@ from Cerebrum.modules.dns.bofhd_dns_utils import DnsBofhdUtils
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.modules.dns import ARecord
 from Cerebrum.modules.dns import DnsOwner
+from Cerebrum.modules.dns import CNameRecord
 from Cerebrum.modules.dns import HostInfo
 from Cerebrum.modules.dns import IPNumber
 from Cerebrum.modules.dns import Subnet
@@ -761,8 +762,19 @@ class BofhdExtension(BofhdCommandBase):
                             'rev_name': "using default PTR from A-record"})
             return ret
 
-        owner_id = self._find.find_target_by_parsing(
-            host_id, dns.DNS_OWNER)
+        owner_id = self._find.find_target_by_parsing(host_id, dns.DNS_OWNER)
+
+        # Wait a moment; we need to check if this is a Cname
+        try:           
+            cname_record = CNameRecord.CNameRecord(self.db)
+            cname_record.find_by_cname_owner_id(owner_id)
+            # It is! Then we need the main entry to proceed
+            owner_id = cname_record.target_owner_id
+        except Errors.NotFoundError:
+            # It wasn't; then it must be the main host we're dealing with
+            # Sorry for the inconvenience; carry on
+            pass
+
         dns_owner = DnsOwner.DnsOwner(self.db)
         dns_owner.find(owner_id)
 
