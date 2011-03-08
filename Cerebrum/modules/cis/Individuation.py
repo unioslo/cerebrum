@@ -177,17 +177,12 @@ def send_token(phone_no, token):
     return True
 
 
-def check_token(id_type, ext_id, uname, phone_no, browser_token, token):
+def check_token(uname, token, browser_token=None):
     """
     Check if token and other data from user is correct
     """
     # Check if person exists
-    pe = get_person(id_type, ext_id)
     ac = get_account(uname)
-    if not ac.owner_id == pe.entity_id:
-        log.error("Account %s doesn't belong to person %d" % (uname,
-                                                              pe.entity_id))
-        return False
 
     # Check browser_token
     bt = ac.get_trait(co.trait_browser_token)
@@ -245,9 +240,8 @@ def validate_password(password):
         return True
 
 
-def set_password(id_type, ext_id, uname, phone_no, browser_token, token,
-                 new_password):
-    if not check_token(id_type, ext_id, uname, phone_no, browser_token, token):
+def set_password(uname, new_password, token, browser_token):
+    if not check_token(uname, token, browser_token):
         return False
     # All data is good. Set password
     ac = get_account(uname)

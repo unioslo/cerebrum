@@ -107,13 +107,12 @@ class IndividuationServer(SoapListener.BasicSoapServer):
                                             phone_no, browser_token)
 
 
-    @rpc(String, String, String, String, String, String, _returns=Boolean)
-    def check_token(self, id_type, ext_id, username, phone_no, browser_token, token):
+    @rpc(String, String, String, _returns=Boolean)
+    def check_token(self, username, browser_token, token):
         """
         Check the validity of a given token.
         """
-        return Individuation.check_token(id_type, ext_id, username, phone_no,
-                                         browser_token, token)
+        return Individuation.check_token(username, token, browser_token=None)
 
 
     @rpc(String, _returns=Boolean)
