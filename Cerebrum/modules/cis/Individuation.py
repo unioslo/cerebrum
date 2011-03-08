@@ -177,18 +177,20 @@ def send_token(phone_no, token):
     return True
 
 
-def check_token(uname, token, browser_token=None):
+def check_token(uname, token, browser_token):
     """
-    Check if token and other data from user is correct
+    Check if token and other data from user is correct.
     """
     # Check if person exists
     ac = get_account(uname)
 
-    # Check browser_token
+    # Check browser_token. The given browser_token may be "" but if so
+    # the stored browser_token must be "" as well for the test to pass.
+    
     bt = ac.get_trait(co.trait_browser_token)
     if not bt or bt['strval'] != browser_token:
         log.error("Given browser_token %s not equal to stored %s" % (
-            browser_token, bt))
+            browser_token, bt['strval']))
         return False
 
     # Check password token. Keep track of how many times a token is
@@ -257,6 +259,8 @@ def set_password(uname, new_password, token, browser_token):
         for qua in (co.quarantine_autopassord, co.quarantine_svakt_passord):
             if int(r['quarantine_type']) == qua:
                 ac.delete_entity_quarantine(qua)
+                ac.write_db()
+                db.commit()
     
     if ac.is_deleted():
         log.warn("user is deleted")

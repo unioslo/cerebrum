@@ -108,11 +108,11 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
 
     @rpc(String, String, String, _returns=Boolean)
-    def check_token(self, username, browser_token, token):
+    def check_token(self, username, token, browser_token):
         """
         Check the validity of a given token.
         """
-        return Individuation.check_token(username, token, browser_token=None)
+        return Individuation.check_token(username, token, browser_token)
 
 
     @rpc(String, _returns=Boolean)
@@ -123,15 +123,13 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return Individuation.delete_token(username)
 
 
-    @rpc(String, String, String, String, String, String, String, _returns=Boolean)
-    def set_password(self, id_type, ext_id, username, phone_no, browser_token,
-                     token, new_password):
+    @rpc(String, String, String, String, _returns=Boolean)
+    def set_password(self, username, new_password, token, browser_token):
         """
         Set new password for a user if all information is verified and
         the token is still valid.
         """
-        return Individuation.set_password(id_type, ext_id, username, phone_no,
-                                          browser_token, token, new_password)
+        return Individuation.set_password(username, new_password, token, browser_token)
 
 
     @rpc(String, _returns=Boolean)

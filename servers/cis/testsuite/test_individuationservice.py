@@ -42,17 +42,12 @@ class TestIndividuationService:
                                                  "91726078",
                                                  "123qwe")
         
-
     def test_4_check_token(self):
         "check token for a user"
-        res = self.client.service.check_token("externalid_sap_ansattnr",
-                                              "10001626",
-                                              "rogertst",
-                                              "91726078",
-                                              "123qwe",
-                                              get_token("rogertst"))
-        
-        
+        res = self.client.service.check_token("rogertst",
+                                              get_token("rogertst"),
+                                              "123qwe")
+            
     def test_5_validate_password(self):
         pwd = ''.join(random.sample(map(chr, range(33,126)), 8))
         res = self.client.service.validate_password(pwd)
@@ -71,21 +66,20 @@ class TestIndividuationService:
         "Delete token for a user"
         res = self.client.service.abort_token("rogertst")
 
-
-
-    # These tests should fail
-    # TBD: se om vi kan sette opp feilsituasjoner som logges på en
-    # fornuftig måte.
-    # def test_get_person_data_2(self):
-    #     "get_person_data must handle wrong parameters"
-    #     res = self.client.service.get_usernames("externalid_studentnr",
-    #                                               "12345")
-    # 
-    # def test_get_person_data_3(self):
-    #     "get_person_data must handle wrong parameters"
-    #     res = self.client.service.get_usernames("sdexternalid_studentnr",
-    #                                             "12345")
-
+    def test_8_generate_token(self):
+        "Generate and store password token for a user"
+        res = self.client.service.generate_token("externalid_studentnr",
+                                                 "476611",
+                                                 "joakiho",
+                                                 "22840195",
+                                                 "")
+    
+    def test_9_check_token(self):
+        "check token for a user"
+        res = self.client.service.check_token("joakiho",
+                                              get_token("joakiho"),
+                                              "")
+        
 
 def get_token(uname):
     db = Factory.get('Database')()
