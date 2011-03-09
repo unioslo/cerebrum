@@ -203,7 +203,7 @@ def ou_clean(ou_path, from_notes=False):
     # Strip away any leading CN=
     ou_path = ou_path.split("CN=")[-1]
     # & must be escaped
-    ou_path.replace('&', '%26')
+    ou_path = ou_path.replace('&', '%26')
     # Strip ou suffix from notes_path    
     if from_notes:
         for ou_suffix in cereconf.NOTES_OU_SUFFIX:
