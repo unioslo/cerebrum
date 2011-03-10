@@ -146,7 +146,8 @@ Så, i rekkefølge:
                           --extra-file design/mod_virthome.sql \
                           --extra-file design/bofhd_tables.sql \
                           --extra-file design/bofhd_auth.sql \
-                          --extra-file design/mod_password_history.sql 
+                          --extra-file design/mod_password_history.sql \
+                          --extra-file design/mod_job_runner.sql 
 
   #. Sette passord på boostrap_account, slik at vi har en bruker med
      rettigheter til å tildele andre rettigheter gjennom bofhd. Dette gjøres
