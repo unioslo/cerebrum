@@ -30,9 +30,8 @@ import time
 import xml.sax
 
 from Cerebrum import Database
-from Cerebrum import Errors
 from Cerebrum.Utils import Factory
-from Cerebrum.extlib import sets
+from Cerebrum.Utils import NotSet
 
 # TODO: En del funksjoner finnes både som get_ og list_ variant.  Det
 # kunne være en fordel om man etablerte en mekanisme for å slå sammen
@@ -41,7 +40,7 @@ from Cerebrum.extlib import sets
 
 # Note: The oracle database-driver does not support dates before 1970.
 # Thus TO_DATE must be used when inserting dates
-NOT_SET = 'ThisInputParameterIsNotSet'
+
 
 class FSObject(object):
     """Parent class that all other fs-access methods inherit.
@@ -127,7 +126,7 @@ class Person(FSObject):
           NVL(dato_til,SYSDATE) >= sysdate""", {'fnr': fnr,
                                                 'pnr': pnr})
 
-    def get_fagperson(self, fnr, pnr):
+    def get_fagperson(self, fodselsdato, personnr):
         return self.db.query("""
         SELECT
           fodselsdato, personnr, adrlin1_arbeide, adrlin2_arbeide,
@@ -136,57 +135,38 @@ class Person(FSObject):
           gruppenr_ansatt, stillingstittel_norsk, telefonnr_fax_arb,
           status_aktiv
         FROM fs.fagperson
-        WHERE fodselsdato=:fnr AND personnr=:pnr""", {'fnr': fnr, 'pnr': pnr})
+        WHERE fodselsdato=:fodselsdato AND personnr=:personnr
+        """, {"fodselsdato": fodselsdato, "personnr": personnr,})
+    # end get_fagperson
+    
 
-    def add_fagperson(self, fnr, pnr, adr1, adr2, postnr, adr3,
-                      arbsted, institusjonsnr, fakultetnr, instituttnr,
-                      gruppenr, tlf, tittel, fax, status):
+    def add_fagperson(self, fodselsdato, personnr, **rest):
+        binds = {"fodselsdato": fodselsdato, "personnr": personnr,}
+        binds.update(rest)
         return self.db.execute("""
         INSERT INTO fs.fagperson
-          (fodselsdato, personnr, adrlin1_arbeide, adrlin2_arbeide,
-           postnr_arbeide, adrlin3_arbeide, telefonnr_arbeide, arbeidssted,
-           institusjonsnr_ansatt, faknr_ansatt, instituttnr_ansatt,
-           gruppenr_ansatt, stillingstittel_norsk, telefonnr_fax_arb,
-           status_aktiv)
+          (%s)
         VALUES
-          (:fnr, :pnr, :adr1, :adr2, :postnr, :adr3, :tlf, :arbsted,
-           :institusjonsnr, :fakultetnr, :instituttnr, :gruppenr, :tittel, :fax,
-           :status)""", {
-            'fnr': fnr, 'pnr': pnr,
-            'adr1': adr1, 'adr2': adr2, 'postnr': postnr, 'adr3': adr3,
-            'tlf': tlf, 'arbsted': arbsted,
-            'institusjonsnr': institusjonsnr , 'fakultetnr': fakultetnr,
-            'instituttnr': instituttnr, 'gruppenr':gruppenr,
-            'tittel': tittel, 'fax': fax, 'status': status})
+          (%s)
+        """ % (", ".join(binds),
+               ", ".join(":" + x for x in binds)), binds)
+    # end add_fagperson
 
-    def update_fagperson(self, fnr, pnr, adr1=NOT_SET, adr2=NOT_SET,
-                         postnr=NOT_SET, adr3=NOT_SET,
-                         arbsted=NOT_SET, institusjonsnr=NOT_SET,
-                         fakultetnr=NOT_SET, instiuttnr=NOT_SET,
-                         gruppenr=NOT_SET, tlf=NOT_SET,
-                         tittel=NOT_SET, fax=NOT_SET, status=NOT_SET):
+    
+    def update_fagperson(self, fodselsdato, personnr, **rest):
         """Updates the specified columns in fagperson"""
-        col_map = {
-            'adrlin1_arbeide': 'adr1', 'adrlin2_arbeide': 'adr2',
-            'postnr_arbeide': 'postnr', 'adrlin3_arbeide': 'adr3',
-            'telefonnr_arbeide': 'tlf', 'arbeidssted': 'arbsted',
-            'institusjonsnr_ansatt': 'institusjonsnr',
-            'faknr_ansatt': 'fakultetnr', 'instituttnr_ansatt': 'instiuttnr',
-            'gruppenr_ansatt': 'gruppenr', 'stillingstittel_norsk': 'tittel',
-            'telefonnr_fax_arb': 'fax', 'status_aktiv': 'status'
-            }
-        binds = {'fnr': fnr, 'pnr': pnr}
-        set = []
-        for col, arg in col_map.items():
-            tmp = locals()[arg]
-            if tmp != NOT_SET:
-                set.append("%s=:%s"% (col, arg))
-                binds[arg] = tmp
 
+        binds = {"fodselsdato": fodselsdato, "personnr": personnr, }
+        names_to_set = ["%s = :%s" % (x, x) for x in rest]
+        binds.update(rest)
         return self.db.execute("""
         UPDATE fs.fagperson
         SET %s
-        WHERE fodselsdato=:fnr AND personnr=:pnr""" % ", ".join(set), binds)
+        WHERE fodselsdato = :fodselsdato AND personnr = :personnr
+        """ % ", ".join(names_to_set), binds)
+    # end update_fagperson
+                               
+
 
     def list_dead_persons(self): # GetDod
         """Henter en liste med de personer som ligger i FS og som er
@@ -1364,8 +1344,8 @@ class roles_xml_parser(non_nested_xml_parser):
             }
         data = attrs.copy()
         target = None
-        not_target = sets.Set()
-        possible_targets = sets.Set()
+        not_target = set()
+        possible_targets = set()
         for col, targs in col2target.iteritems():
             if col in data:
                 del data[col]
@@ -1376,7 +1356,7 @@ class roles_xml_parser(non_nested_xml_parser):
                     # Har ikke sett noen kolonner som har med
                     # spesifisering av target å gjøre før; target
                     # må være en av de angitt i 'targs'.
-                    target = sets.Set(targs)
+                    target = targs and set(targs) or set()
                 else:
                     # Target må være i snittet mellom 'targs' og
                     # 'target'.

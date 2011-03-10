@@ -757,31 +757,43 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
         return
 
     fs_info = fs.person.get_fagperson(info_chunk.fnr6, info_chunk.pnr)
+    values2push = {"fodselsdato": info_chunk.fnr6,
+                   "personnr": info_chunk.pnr,
+                   "adrlin1_arbeide": None, "adrlin2_arbeide": None,
+                   "postnr_arbeide": None,
+                   "adrlin3_arbeide": None,
+                   "arbeidssted": None,
+                   "institusjonsnr_ansatt": primary_sko[0],
+                   "faknr_ansatt": primary_sko[1],
+                   "instituttnr_ansatt": primary_sko[2],
+                   "gruppenr_ansatt": primary_sko[3],
+                   "telefonnr_arbeide": info_chunk.phone,
+                   "stillingstittel_norsk": info_chunk.work_title,
+                   "telefonnr_fax_arb": info_chunk.fax,
+                   "status_aktiv": 'J',}
     if not fs_info:
         logger.debug("Pushing new entry to FS.fagperson: %s pid=%s",
                      info_chunk, person_id)
-        fs.person.add_fagperson(fnr=info_chunk.fnr6, pnr=info_chunk.pnr,
-                                adr1=None, adr2=None, postnr=None, adr3=None,
-                                arbsted=None,
-                                institusjonsnr=primary_sko[0],
-                                fakultetnr=primary_sko[1],
-                                instituttnr=primary_sko[2],
-                                gruppenr=primary_sko[3],
-                                tlf=info_chunk.phone,
-                                tittel=info_chunk.work_title,
-                                fax=info_chunk.fax,
-                                status='J')
+        try:
+            fs.person.add_fagperson(**values2push)
+        except:
+            logger.exception("Failed updating person %s (fnr=%s)",
+                             person_id, info_chunk.fnr11)
     else:
-        # update phone/fax only. It is like that by design
         logger.debug("Fagperson fnr=%s exists in FS", info_chunk.fnr11)
         tmp = fs_info[0]
-        fs_phone, fs_fax = tmp["telefonnr_arbeide"], tmp["telefonnr_fax_arb"]
-        if (info_chunk.phone, info_chunk.fax) != (fs_phone, fs_fax):
-            logger.debug("Updating phone/fax of person fnr=%s",
+        for key in values2push:
+            val_in_cerebrum = values2push[key]
+            val_in_fs = tmp[key]
+            if val_in_fs != val_in_cerebrum:
+                break
+        else:
+            logger.debug("Fagperson fnr=%s does not need updating",
                          info_chunk.fnr11)
-            fs.person.update_fagperson(fnr=info_chunk.fnr6, pnr=info_chunk.pnr,
-                                       tlf=info_chunk.phone,
-                                       fax=info_chunk.fax)
+            return
+
+        logger.debug("Updating data for fagperson fnr=%s", info_chunk.fnr11)
+        fs.person.update_fagperson(**values2push)
 # end export_fagperson
 
 
@@ -845,7 +857,8 @@ def main():
                                     'fagperson-affiliation=',
                                     'dryrun',
                                     'authoritative-system=',
-                                    'ou-perspective='))
+                                    'ou-perspective=',
+				    'with-cache-email',))
     except getopt.GetoptError:
         print "Wrong option", sys.exc_info()
         return
@@ -882,9 +895,11 @@ def main():
         elif option in ('-d', '--dryrun',):
             dryrun = True
         elif option in ('-a', '--authoritative-system',):
-            authoritative_system = getattr(constants, value)
+            authoritative_system = constants.human2constant(value, 
+							    constants.AuthoritativeSystem)
         elif option in ('-o', '--ou-perspective',):
-            ou_perspective = getattr(constants, value)
+            ou_perspective = constants.human2constant(value,
+						      constants.OUPerspective)
         elif option in ('--with-cache-email',):
             email_cache = True
             
