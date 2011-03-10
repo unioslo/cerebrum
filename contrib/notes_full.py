@@ -101,7 +101,9 @@ def fetch_cerebrum_data(spread):
                             "Setting ou path to: ANDRE")
                 ou_path[ou_id] = 'ANDRE'
             else:
-                ou_path[ou_id] = "/".join(path)
+                # If '&' is a part of ou path, then we must escape it
+                ou_path[ou_id] = "/".join(path).replace('&', '%26')
+                
         aid2ainfo[account_id]['ou_path'] = ou_path[ou_id]
         done_person[person_id] = True
 
@@ -174,8 +176,8 @@ def compare_users(notesdata, cerebrumdata):
                             user['uname'], user['fullname'], notes_name)
                 rename_notes_user(sock, user)
             # Compare OU
-            cere_ou_path = ou_clean(user['ou_path'])
-            notes_ou_path = ou_clean(notes_ou_path, from_notes=True)
+            cere_ou_path = user['ou_path'].rstrip('/')
+            notes_ou_path = ou_clean(notes_ou_path)
             if not cere_ou_path == notes_ou_path:
                 # If only case differs don't move user
                 if cere_ou_path.upper() == notes_ou_path.upper():
@@ -197,20 +199,17 @@ def compare_users(notesdata, cerebrumdata):
     sock.close()
 
 
-def ou_clean(ou_path, from_notes=False):
+def ou_clean(ou_path):
     # Strip away trailing /
     ou_path = ou_path.rstrip('/')
     # Strip away any leading CN=
     ou_path = ou_path.split("CN=")[-1]
-    # & must be escaped
-    ou_path = ou_path.replace('&', '%26')
-    # Strip ou suffix from notes_path    
-    if from_notes:
-        for ou_suffix in cereconf.NOTES_OU_SUFFIX:
-            ou_path = ou_path.rstrip('/')
-            if ou_path.endswith(ou_suffix):
-                ou_path = ou_path[:-len(ou_suffix)-1]
-                break
+    # Strip ou suffix from notes_path
+    for ou_suffix in cereconf.NOTES_OU_SUFFIX:
+        ou_path = ou_path.rstrip('/')
+        if ou_path.endswith(ou_suffix):
+            ou_path = ou_path[:-len(ou_suffix)-1]
+            break
     return ou_path
 
 
