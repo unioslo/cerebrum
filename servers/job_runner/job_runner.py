@@ -67,8 +67,8 @@ from Cerebrum.modules.job_runner.job_actions import CallableAction, LockExists
 
 
 debug_time = 0        # increase time by N seconds every second
-max_sleep = 300
-noia_sleep_seconds = 310  # trap missing SIGCHLD (known race-condition,
+max_sleep = 60
+noia_sleep_seconds = 70 # trap missing SIGCHLD (known race-condition,
                           # see comment in run_job_loop)
 current_time = time.time()
 db = Factory.get('Database')()
@@ -149,6 +149,7 @@ class JobRunner(object):
         # for a SIGUSR1 to be delivered instead
         runner_cw.acquire()
         if not self.timer_wait:  # Only have one signal-sleep thread
+            logger.debug("Signalling sleep: %s seconds" % str(seconds))
             self.timer_wait = threading.Timer(seconds, self.wake_runner_signal)
             self.timer_wait.setDaemon(True)
             self.timer_wait.start()
