@@ -207,7 +207,8 @@ def write_kull_info(outfile):
 
     for xml_tag, generator in (
         ("kullklasse", fs.undervisning.list_studenter_alle_kullklasser),
-        ("kull", fs.undervisning.list_studenter_alle_kull)):
+        ("kulldeltaker", fs.undervisning.list_studenter_alle_kull),
+        ("kull", fs.info.list_kull)):
         for row in generator():
             keys = row.keys()
             f.write(xml.xmlify_dbrow(row, keys, xml_tag) + "\n")
