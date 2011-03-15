@@ -201,7 +201,6 @@ def write_kull_info(outfile):
       - kull
     """
 
-    logger.info("Writing kull info for all students")
     f = MinimumSizeWriter(outfile)
     f.set_minimum_size_limit(0)
     f.write(xml.xml_hdr + "<data>\n")
@@ -209,7 +208,6 @@ def write_kull_info(outfile):
     for xml_tag, generator in (
         ("kullklasse", fs.undervisning.list_studenter_alle_kullklasser),
         ("kull", fs.undervisning.list_studenter_alle_kull)):
-        logger.debug("Processing %s entries", xml_tag)
         for row in generator():
             keys = row.keys()
             f.write(xml.xmlify_dbrow(row, keys, xml_tag) + "\n")
