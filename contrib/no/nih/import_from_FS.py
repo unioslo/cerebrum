@@ -42,6 +42,7 @@ default_ou_file = "/cerebrum/nih/dumps/FS/ou.xml"
 default_emne_file = "/cerebrum/nih/dumps/FS/emner.xml"
 default_fnr_update_file = "/cerebrum/nih/dumps/FS/fnr_update.xml"
 default_evu_kursinfo_file = "/cerebrum/nih/dumps/FS/evu_kursinfo.xml"
+default_kull_info_file = "/cerebrum/nih/dumps/FS/kull_info.xml"
 
 xml = XMLHelper()
 fs = None
@@ -191,6 +192,32 @@ def write_undenh_student(outfile):
     f.write("</data>\n")
     f.close()
 
+def write_kull_info(outfile):
+    """Lag en fil med informasjon om alle studentenes kulldeltakelse
+    registrert i FS.
+
+    Spesifikt, lister vi opp alle deltagelser ved:
+      - kullklasser
+      - kull
+    """
+
+    logger.info("Writing kull info for all students")
+    f = MinimumSizeWriter(outfile)
+    f.set_minimum_size_limit(0)
+    f.write(xml.xml_hdr + "<data>\n")
+
+    for xml_tag, generator in (
+        ("kullklasse", fs.undervisning.list_studenter_alle_kullklasser),
+        ("kull", fs.undervisning.list_studenter_alle_kull)):
+        logger.debug("Processing %s entries", xml_tag)
+        for row in generator():
+            keys = row.keys()
+            f.write(xml.xmlify_dbrow(row, keys, xml_tag) + "\n")
+
+    f.write("</data>\n")
+    f.close()
+# end write_edu_info
+
 def write_studprog_info(outfile):
     """Lager fil med informasjon om alle definerte studieprogrammer"""
     f = MinimumSizeWriter(outfile)
@@ -322,6 +349,7 @@ def main():
     evu_kursinfo_file = default_evu_kursinfo_file
     fnr_update_file = default_fnr_update_file
     undenh_student_file = default_undenh_student_file
+    kull_info_file = default_kull_info_file
     db_user = None         # TBD: cereconf value?
     db_service = None      # TBD: cereconf value?
     for o, val in opts:
@@ -341,6 +369,8 @@ def main():
             undenh_student_file = val
 	elif o in ('--fnr-update-file',):
 	    fnr_update_file = val
+        elif o in ('--kull-info-file',):
+            kull_info_file = val
         elif o in ('--ou-file',):
             ou_file = val
         elif o in ('--db-user',):
@@ -365,6 +395,8 @@ def main():
 	    write_fnrupdate_info(fnr_update_file)
         elif o in ('-o',):
             write_ou_info(ou_file)
+        elif o in ('-k',):
+            write_kull_info(kull_info_file)
         elif o in ('-E',):
             write_evukurs_info(evu_kursinfo_file)
         # We want misc-* to be able to produce multiple file in one script-run
