@@ -327,7 +327,7 @@ def assert_connected(user="CEREBRUM", service="FSNIH.uio.no"):
 
 def main():
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeE",
+        opts, args = getopt.getopt(sys.argv[1:], "fpsruUoeEk",
                                    ["personinfo-file=", "studprog-file=", 
 				    "roleinfo-file=", "undenh-file=",
                                     "student-undenh-file=",
@@ -335,6 +335,7 @@ def main():
                                     "evukursinfo-file=",
 				    "fnr-update-file=", "misc-func=", 
                                     "misc-file=", "misc-tag=",
+                                    "kull-info-file=",
                                     "ou-file=", "db-user=", "db-service="])
     except getopt.GetoptError:
         usage()
