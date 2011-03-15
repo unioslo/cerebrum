@@ -391,6 +391,7 @@ class CreatePersonProcessor(EventProcessor):
                 except IndexError:
                     # Person has no external IDs, so we can't find any source; ignore
                     logger.debug("Unable to source for person with entity-id '%s'" % current_entity)
+                    source = "Unknown"
             
                 logger.debug("Source for entity '%s' determined to be %s " % (current_entity, source))
                 self._add_to_affiliation(no_affiliation + " (source: " + source + ")")
