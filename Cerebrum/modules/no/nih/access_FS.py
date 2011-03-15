@@ -168,6 +168,39 @@ class NIHUndervisning(access_FS.Undervisning):
                              )
 
 
+    def list_studenter_alle_kullklasser(self):
+        """Hent alle studenter fordelt på kullklasser.
+        """
+        
+        query = """
+        SELECT DISTINCT
+            kks.fodselsdato, kks.personnr,
+            kks.studieprogramkode, kks.terminkode, kks.arstall, kks.klassekode
+        FROM
+            fs.kullklassestudent kks,
+            fs.studieprogramstudent sps,
+            fs.kull k
+        WHERE
+            sps.fodselsdato = kks.fodselsdato AND
+            sps.personnr = kks.personnr AND
+            sps.studieprogramkode = kks.studieprogramkode AND
+            sps.terminkode_start = kks.terminkode_start AND
+            sps.arstall_start = kks.arstall_start AND
+            /*
+             * vi vil ha studenter knyttet til aktive kull. resten er
+             * uinteressant
+             */
+            kks.studieprogramkode = k.studieprogramkode AND
+            kks.terminkode = k.terminkode AND
+            kks.arstall = k.arstall AND
+            k.status_aktiv = 'J' AND
+            sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID')
+        """
+
+        return self.db.query(query)
+    # end list_studenter_alle_kull
+
+
     def list_studenter_kull(self, studieprogramkode, terminkode, arstall):
         """Hent alle studentene som er oppført på et gitt kull."""
 
@@ -188,6 +221,38 @@ class NIHUndervisning(access_FS.Undervisning):
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
 
+
+    def list_studenter_alle_kull(self):
+        """Hent alle studenter fordelt på kull.
+
+        Dette er noe annet enn alle studenter fordelt på kullklasser. En
+        student kan gjerne være meldt opp i et kull, uten å være tilordnet en
+        kullklasse (hos hiof er mesteparten av kullstudentene ikke med i en
+        kullklasse).
+        """
+
+        query = """
+        SELECT DISTINCT
+            sps.fodselsdato, sps.personnr,
+            sps.studieprogramkode, sps.terminkode_kull as terminkode,
+            sps.arstall_kull as arstall
+        FROM
+            fs.studieprogramstudent sps,
+            fs.kull k
+        WHERE
+            /*
+             * vi vil ha studenter knyttet til aktive kull. resten er
+             * uinteressant.
+             */
+            sps.studieprogramkode = k.studieprogramkode AND
+            sps.terminkode_kull = k.terminkode AND
+            sps.arstall_kull = k.arstall AND
+            k.status_aktiv = 'J' AND
+            sps.studentstatkode IN ('AKTIV', 'PERMISJON', 'DELTID')
+        """
+
+        return self.db.query(query)
+    # end list_studenter_alle_kull
 
 
 class NIHStudieInfo(access_FS.StudieInfo):
