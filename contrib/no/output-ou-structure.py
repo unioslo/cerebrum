@@ -24,6 +24,8 @@
 This script presents the OU structure in a human-friendly fashion. We look at
 either the OU structure from the specified data file OR from Cerebrum. The
 latter version fetches additional data (such as associated people affiliations).
+
+FIXME: fix recursive OU chains during output.
 """
 
 import copy
@@ -35,6 +37,12 @@ import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.xmlutils.system2parser import system2parser
+
+
+
+def sko2str(fak, inst, grp):
+    return "%02d%02d%02d" % (fak, inst, grp)
+# end sko2str
 
 
 
@@ -130,12 +138,12 @@ def build_node_from_file(xml_ou):
       A representation of the XML OU data on file -- xml2object.DataOU instance. 
     """
 
-    node_id = "%02d%02d%02d" % xml_ou.get_id(xml_ou.NO_SKO)
+    node_id = sko2str(*xml_ou.get_id(xml_ou.NO_SKO))
     acronym = xml_ou.get_name(xml_ou.NAME_ACRONYM)
     if acronym:
         acronym = acronym.value
     if xml_ou.parent:
-        parent_id = "%02d%02d%02d" % xml_ou.parent[1]
+        parent_id = sko2str(*xml_ou.parent[1])
         assert xml_ou.parent[0] == xml_ou.NO_SKO
     else:
         parent_id = None
@@ -143,6 +151,28 @@ def build_node_from_file(xml_ou):
     return Node(node_id, acronym, parent_id,
                 tuple(x[1] for x in xml_ou.iterids()))
 # end build_node_from_file
+
+
+
+def create_root_set(nodes):
+    """Link up all the parent-child nodes and return the root set."""
+
+    # Re-link parent information and return the root set -- all root OUs.
+    # Sweep nodes, collect all those without parent_id
+    root_set = set()
+    for node_id in nodes:
+        node = nodes[node_id]
+        if (not node._parent_id) or (node.node_id == node._parent_id):
+            root_set.add(node)
+
+        parent_node = nodes.get(node._parent_id)
+        if parent_node:
+            parent_node.add_child(node)
+
+    print "Collected %d nodes (%d in the root set)" % (len(nodes),
+                                                       len(root_set))
+    return root_set
+# end create_root_set
 
 
 
@@ -162,22 +192,43 @@ def build_tree_from_file(source_system, source_file):
         node = build_node_from_file(xml_ou)
         nodes[node.node_id] = node
 
-    # Re-link parent information and return the root set -- all root OUs.
-    # Sweep nodes, collect all those without parent_id
-    root_set = set()
-    for node_id in nodes:
-        node = nodes[node_id]
-        if (not node._parent_id) or (node.node_id == node._parent_id):
-            root_set.add(node)
-
-        parent_node = nodes[node._parent_id]
-        parent_node.add_child(node)
-
-    print "Collected %d nodes (%d in the root set)" % (len(nodes),
-                                                       len(root_set))
-    return root_set
+    return create_root_set(nodes)
 # end build_tree_from_file
     
+
+
+def build_tree_from_db(perspective):
+    """Use Cerebrum as source to build an OU root set."""
+
+    const = Factory.get("Constants")()
+    db = Factory.get("Database")()
+    perspective = const.human2constant(perspective,
+                                       const.OUPerspective)
+    ou = Factory.get("OU")(db)
+    ou_id2sko = dict((r["ou_id"], sko2str(r["fakultet"],
+                                          r["institutt"],
+                                          r["avdeling"]))
+                     for r in ou.get_stedkoder())
+    
+    nodes = dict()
+    for row in ou.search():
+        ou.clear()
+        ou.find(row["ou_id"])
+        sko = sko2str(ou.fakultet, ou.institutt, ou.avdeling)
+        ids = set((ou.entity_id, sko))
+        ids.update(x["external_id"] for x in ou.get_external_id())
+        try:
+            parent = ou_id2sko.get(ou.get_parent(perspective))
+        except:
+            parent = None
+        
+        node = Node(sko, ou.acronym, parent, ids)
+        nodes[node.node_id] = node
+
+    return create_root_set(nodes)
+# end build_node_from_file
+
+
 
 def output_tree(root_set, indent=0):
     """Output a tree in a human-friendly fashion."""

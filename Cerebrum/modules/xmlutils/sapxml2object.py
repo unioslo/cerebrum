@@ -36,7 +36,6 @@ from Cerebrum.modules.xmlutils.xml2object import \
      XMLDataGetter, XMLEntity2Object, HRDataPerson, DataAddress, \
      DataEmployment, DataOU, DataContact, DataName
 from Cerebrum.modules.no.fodselsnr import personnr_ok
-from Cerebrum.extlib.sets import Set as set
 
 
 

@@ -32,13 +32,10 @@ def system2parser(system_name):
     """
 
     obj = {"system_lt": ltxml2object.LTXMLDataGetter,
+           "LT": ltxml2object.LTXMLDataGetter,
            "system_sap": sapxml2object.SAPXMLDataGetter,
-           "system_fs": fsxml2object.FSXMLDataGetter}.get(system_name)
+           "SAP": sapxml2object.SAPXMLDataGetter,
+           "system_fs": fsxml2object.FSXMLDataGetter,
+           "FS": fsxml2object.FSXMLDataGetter,}.get(system_name)
     return obj
 # end system2parser
-
-
-
-
-
-# arch-tag: b3a719c0-12a0-403b-b2e2-7c0dc763fe7e
