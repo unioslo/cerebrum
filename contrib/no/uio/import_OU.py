@@ -282,10 +282,10 @@ def get_cere_ou_table():
     stedkode = OU_class(db)
     sted_tab = {}
     for entry in stedkode.get_stedkoder():
-	value = "%02d%02d%02d" % (entry['fakultet'], entry['institutt'],
+        value = "%02d%02d%02d" % (entry['fakultet'], entry['institutt'],
                                   entry['avdeling'])
-	key = int(entry['ou_id'])
-	sted_tab[key] = value
+        key = int(entry['ou_id'])
+        sted_tab[key] = value
     
     return sted_tab
 # end get_cere_ou_table
@@ -312,9 +312,9 @@ def set_quaran(cer_ou_tab):
     acc = Factory.get("Account")(db)
     acc.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     for k in cer_ou_tab.keys():
-	ous.clear()
-	ous.find(k)
-	if (ous.get_entity_quarantine(type=co.quarantine_ou_notvalid) == []):
+        ous.clear()
+        ous.find(k)
+        if (ous.get_entity_quarantine(type=co.quarantine_ou_notvalid) == []):
             ous.add_entity_quarantine(co.quarantine_ou_notvalid,
                                       acc.entity_id,
                                       description='import_OU',
@@ -469,7 +469,7 @@ def usage(exitcode=0):
 Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
 
     -v | --verbose              increase verbosity
-    -c | --clean		quarantine invalid OUs
+    -c | --clean                quarantine invalid OUs
     -f | --file SPEC            colon-separated (source-system, filename) pair
     -t | --target-system NAME   authoritative system the data is supplied for
     -l | --ldap-visibility
@@ -505,14 +505,14 @@ def main():
     for opt, val in opts:
         if opt in ('-v', '--verbose'):
             verbose += 1
-	elif opt in ('-c','--clean'):
-	    clean_obsolete_ous = True
+        elif opt in ('-c','--clean'):
+            clean_obsolete_ous = True
         elif opt in ('-f', '--file'):
             # sysname decides which parser to use
             sysname, filename = val.split(":")
             sources.append((sysname, filename))
-	elif opt in ('-l', '--ldap-visibility',):
-	    def_kat_merke = True
+        elif opt in ('-l', '--ldap-visibility',):
+            def_kat_merke = True
         elif opt in ('--dump-perspective',):
             do_perspective = True
         elif opt in ('-t', '--target-system',):
@@ -524,7 +524,7 @@ def main():
         sys.exit(0)
 
     if clean_obsolete_ous:
-	cer_ou_tab = get_cere_ou_table()
+        cer_ou_tab = get_cere_ou_table()
         logger.debug("Collected %d ou_id->sko mappings from Cerebrum",
                      len(cer_ou_tab))
     if sources:
