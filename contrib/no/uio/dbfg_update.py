@@ -92,7 +92,7 @@ import Cerebrum
 from Cerebrum import Database
 from Cerebrum.Utils import Factory
 from Cerebrum.Utils import AtomicFileWriter
-from Cerebrum.modules.no.uio.access_FS import FS
+from Cerebrum.modules.no.uio.access_FS import FS, FSvpd
 from Cerebrum.modules.no.uio.access_OF import OF
 from Cerebrum.modules.no.uio.access_AJ import AJ
 from Cerebrum.modules.no.uio.access_OA import OA
@@ -593,7 +593,7 @@ def main():
                                   "ceregroup" : "ofprod" },
                      "fsprod" : { "dbname"    : "FSPROD.uio.no",
                                   "dbuser"    : "I0185_ureg2000",
-                                  "class"     : FS,
+                                  "class"     : FSvpd,
                                   "sync_accessor"  : "list_dbfg_usernames",
                                   "report_accessor" : "list_dba_usernames",
                                   "ceregroup" : "fsprod" },

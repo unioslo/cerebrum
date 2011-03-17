@@ -1071,13 +1071,7 @@ class FS(access_FS.FS):
         NB! This function does *not* return a 2-tuple. Only a sequence of
         all usernames (the column names can be obtains from db_row objects)
         """
-
-        # Get the username prefix, if defined
-        prefix = ''
-        try: 
-            prefix = self.db.query_1("SELECT brukerprefiks FROM fs.systemverdier")
-        except self.db.DatabaseError:
-            pass
+        prefix = self.get_username_prefix()
         ret = ({'username': row['username'][len(prefix):]} for row in 
                         self.db.query("""
                             SELECT username as username
@@ -1102,4 +1096,37 @@ class FS(access_FS.FS):
         """
 
         return self.db.query(query, fetchall=fetchall)
+
+    def get_username_prefix(self):
+        """Get the database' defined username prefix, or '' if not defined."""
+        try: 
+            return self.db.query_1("SELECT brukerprefiks FROM fs.systemverdier")
+        except self.db.DatabaseError:
+            pass
+        return ''
+
+class FSvpd(FS):
+    """Subclass of FS for handling Virtual Private Databases (VPD)."""
+
+    def list_dba_usernames(self, fetchall = False):
+        """Get all usernames for internal statistics. In VPD, a 'View' is
+        created for only returning the institution's users instead of
+        dba_users."""
+
+        prefix = self.get_username_prefix()
+        query = """
+        SELECT
+           LOWER(username) AS username
+        FROM
+           FS.View_FS_Bruker
+        WHERE
+           default_tablespace = 'USERS' AND account_status = 'OPEN' 
+           AND username LIKE :prefixed
+        """
+        ret = ({'username': row['username'][len(prefix):]} for row in 
+                    self.db.query(query, {'prefixed': '%s%%' % prefix}, 
+                                  fetchall=fetchall))
+        if fetchall:
+            return list(ret)
+        return ret
 
