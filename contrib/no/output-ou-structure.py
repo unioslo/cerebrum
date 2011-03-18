@@ -192,10 +192,7 @@ class Node(object):
 
 
     def typeset(self, boss_mode):
-        """
-        FIXME: --simple-output/--boss-output - droppe id-ene.
-        FIXME: --acronym/--name -- control name output.
-        """
+        """Create a human-friendly representation of self."""
         if boss_mode:
             return "%s %s %d child node(s)" % (self.node_id, self.name,
                                                len(self._children))
@@ -238,7 +235,7 @@ def build_node_from_file(xml_ou):
 
 
 def create_root_set(nodes):
-    """Link up all the parent-child nodes and return the root set."""
+    """Link up all the parent-child nodes and return the resulting root set."""
 
     # Re-link parent information and return the root set -- all root OUs.
     # Sweep nodes, collect all those without parent_id
@@ -283,19 +280,25 @@ def build_tree_from_file(source_system, source_file):
     
 
 
-def build_tree_from_db(perspective):
+def build_tree_from_db(ou_perspective):
     """Use Cerebrum as source to build an OU root set."""
 
     const = Factory.get("Constants")()
     db = Factory.get("Database")()
-    perspective = const.human2constant(perspective,
+    perspective = const.human2constant(ou_perspective,
                                        const.OUPerspective)
+    if not perspective:
+        print "No match for perspective «%s». Available options: %s" % (
+            ou_perspective,
+            ", ".join(str(x)
+                      for x in const.fetch_constants(const.OUPerspective)))
+        return set()
+        
     ou = Factory.get("OU")(db)
     ou_id2sko = dict((r["ou_id"], sko2str(r["fakultet"],
                                           r["institutt"],
                                           r["avdeling"]))
                      for r in ou.get_stedkoder())
-    
     nodes = dict()
     for row in ou.search():
         ou.clear()
