@@ -77,6 +77,12 @@ def get_person_accounts(id_type, ext_id):
     Find Person given by id_type and external id and return a list of
     dicts with username, status and priority. 
 
+    The status should say if the user is:
+      - Inactive: reserved, deleted, expired or with quarantines other than
+        autopassord
+      - PasswordQuarantined: if only with quarantine autopassord 
+      - Active: active account
+
     @param id_type: type of external id
     @type  id_type: string 
     @param ext_id: external id
@@ -89,28 +95,40 @@ def get_person_accounts(id_type, ext_id):
     # Check if person exists
     ac = Factory.get('Account')(db)
     pe = get_person(id_type, ext_id)
-    ret = list()
+    accounts = dict((a['account_id'], 9999999) for a in
+                     ac.list_accounts_by_owner_id(owner_id=pe.entity_id,
+                                                  filter_expired=False))
     for row in ac.get_account_types(all_persons_types=True,
                                     owner_id=pe.entity_id,
                                     filter_expired=False):
+        if accounts[row['account_id']] > int(row['priority']):
+            accounts[row['account_id']] = int(row['priority'])
+    ret = list()
+    for (ac_id, pri) in accounts.iteritems():
         ac.clear()
         try:
-            ac.find(row['account_id'])
+            ac.find(ac_id)
         except Errors.NotFoundError:
-            log.error("Couldn't find account with id %s" % row['account_id'])
+            log.error("Couldn't find account with id %s" % ac_id)
             continue
-        
         if ac.is_expired() or ac.is_deleted():
-            status = "Expired"
+            status = "Inactive"
         else:
-            status = "Active"
+            quartypes = [q['quarantine_type'] for q in
+                         ac.get_entity_quarantine(only_active=True)]
+            if len(quartypes) == 0:
+                status = "Active"
+            elif (len(quartypes) == 1 and int(co.quarantine_autopassord) in
+                    quartypes):
+                status = "PasswordQuarantined"
+            else:
+                status = "Inactive"
         ret.append({'uname': ac.account_name,
-                    'priority': int(row['priority']),
+                    'priority': pri,
                     'status': status})
     # Sort by priority
     ret.sort(key=lambda x: x['priority'])
     return ret
-
 
 def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     """
@@ -197,7 +215,7 @@ def check_token(uname, token, browser_token):
     # checked to protect against brute force attack.
     pt = ac.get_trait(co.trait_password_token)
     no_checks = int(pt['numval'])
-    if no_checks > cereconf.INDIVIDUATION_NO_CHECKS:
+    if no_checks > getattr(cereconf, 'INDIVIDUATION_NO_CHECKS', 100):
         log.warn("No of legal token checks is exceeded")
         return False
     if not pt or pt['strval'] != token:
