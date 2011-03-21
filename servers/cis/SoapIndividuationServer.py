@@ -72,15 +72,22 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     what parameters the methods accept, types and what is returned.
     """
 
-
     @rpc(String, String, _returns=Array(Account))
     def get_usernames(self, id_type, ext_id):
         """
-        Based on id-type and the id, identify a person in Cerebrum and
-        return a list of the persons account and their status.
+        Based on id-type and the id, identify a person in Cerebrum and return a
+        list of the persons accounts and their status. If person exist but
+        doesn't have any accounts an empty list is returned.  If no person match
+        the id_type and id an exception is thrown.
 
-        If person exist but doesn't have any accounts return an empty
-        list. I no person match id_type, my_id, throw a ...Exception.
+        The list is sorted by the person's user priorities, the primary account
+        listed first. The types of user status are:
+
+          - *Inactive*: if the account is reserved, deleted or expired, or if it
+            has an active quarantine other than autopassord.
+          - *PasswordQuarantined*: if the account is not inactive, but has a
+            quarantine of type 'autopassord'.
+          - *Active*: if the account isn't inactive and hasn't any quarantine.
         """
         ret = []
         # get_person_accounts returns a list of dicts on the form:
@@ -90,52 +97,49 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             for k, v in acc.items():
                 setattr(a, k, v)
             ret.append(a)
-            
         return ret
-
 
     @rpc(String, String, String, String, String, _returns=Boolean)
     def generate_token(self, id_type, ext_id, username, phone_no, browser_token):
         """
-        Send a token by SMS to the persons phone and store the token
-        in Cerebrum.
-
-        Return True if the person can be identified and phone_no is
-        correct according to Cerebrum. Else return False
+        Send a token by SMS to the persons phone and store the token in
+        Cerebrum. The input must be matched to only one existing person in
+        Cerebrum, including the phone number.
         """
         return Individuation.generate_token(id_type, ext_id, username,
                                             phone_no, browser_token)
 
-
     @rpc(String, String, String, _returns=Boolean)
     def check_token(self, username, token, browser_token):
         """
-        Check the validity of a given token.
+        Check if a given token is correct for the given user.
+
+        Throws an exception if the token is too old, or in case of too many
+        failed attempts.
         """
         return Individuation.check_token(username, token, browser_token)
-
 
     @rpc(String, _returns=Boolean)
     def abort_token(self, username):
         """
-        Remove token in from Cerebrum
+        Remove token for given user from Cerebrum. Used in case the user wants
+        to abort the process.
         """
         return Individuation.delete_token(username)
-
 
     @rpc(String, String, String, String, _returns=Boolean)
     def set_password(self, username, new_password, token, browser_token):
         """
-        Set new password for a user if all information is verified and
-        the token is still valid.
+        Set new password for a user if the tokens are valid and the password is
+        good enough.
         """
         return Individuation.set_password(username, new_password, token, browser_token)
-
 
     @rpc(String, _returns=Boolean)
     def validate_password(self, password):
         """
-        Check if a given password is good enough.
+        Check if a given password is good enough. Returns either True or throws
+        exceptions with an explanation of what is wrong with the password.
         """
         return Individuation.validate_password(password)
 

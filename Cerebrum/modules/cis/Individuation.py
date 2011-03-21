@@ -31,7 +31,7 @@
 Interface to Cerebrum for the Individuation service.
 """
 
-import random
+import random, md5
 import string
 from mx.DateTime import RelativeDateTime, now
 import cereconf
@@ -76,12 +76,6 @@ def get_person_accounts(id_type, ext_id):
     """
     Find Person given by id_type and external id and return a list of
     dicts with username, status and priority. 
-
-    The status should say if the user is:
-      - Inactive: reserved, deleted, expired or with quarantines other than
-        autopassord
-      - PasswordQuarantined: if only with quarantine autopassord 
-      - Active: active account
 
     @param id_type: type of external id
     @type  id_type: string 
@@ -132,7 +126,8 @@ def get_person_accounts(id_type, ext_id):
 
 def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     """
-    Generate a token that functions as a short time password.
+    Generate a token that functions as a short time password for the
+    user and send it by SMS.
     
     @param id_type: type of external id
     @type  id_type: string 
@@ -163,20 +158,20 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
         return False
     # Create and send token
     token = create_token()
-    log.debug("Generated token: " + token)
+    log.debug("Generated token %s for %s" % (token, uname))
     if not send_token(phone_no, token):
-        log.error("Couldn't send token to %s" % phone_no)
+        log.error("Couldn't send token to %s for %s" % (phone_no, uname))
         return False
 
     # store password token as a trait
-    ac.populate_trait(co.trait_password_token, strval=token, date=now(),
-                      numval=0)
+    ac.populate_trait(co.trait_password_token, date=now(), numval=0,
+                      strval=hash_token(token, uname))
     # store browser token as a trait
-    ac.populate_trait(co.trait_browser_token, strval=browser_token)
+    ac.populate_trait(co.trait_browser_token, date=now(),
+                      strval=hash_token(browser_token, uname))
     ac.write_db()
     db.commit()
     return True
-
 
 def create_token():
     """
@@ -184,7 +179,6 @@ def create_token():
     """
     alphanum = string.digits + string.ascii_letters
     return ''.join(random.sample(alphanum, cereconf.INDIVIDUATION_TOKEN_LENGTH))
-
 
 def send_token(phone_no, token):
     """
@@ -194,6 +188,11 @@ def send_token(phone_no, token):
     #sms(phone_no, token)
     return True
 
+def hash_token(token, uname):
+    """
+    Generates a hash of a given token, to avoid storing tokens in plaintext.
+    """
+    return md5.new(uname + token).hexdigest()
 
 def check_token(uname, token, browser_token):
     """
@@ -206,9 +205,8 @@ def check_token(uname, token, browser_token):
     # the stored browser_token must be "" as well for the test to pass.
     
     bt = ac.get_trait(co.trait_browser_token)
-    if not bt or bt['strval'] != browser_token:
-        log.error("Given browser_token %s not equal to stored %s" % (
-            browser_token, bt['strval']))
+    if not bt or bt['strval'] != hash_token(browser_token, uname):
+        log.error("Incorrect browser_token %s for user %s" % (browser_token, uname))
         return False
 
     # Check password token. Keep track of how many times a token is
@@ -216,20 +214,19 @@ def check_token(uname, token, browser_token):
     pt = ac.get_trait(co.trait_password_token)
     no_checks = int(pt['numval'])
     if no_checks > getattr(cereconf, 'INDIVIDUATION_NO_CHECKS', 100):
-        log.warn("No of legal token checks is exceeded")
-        return False
-    if not pt or pt['strval'] != token:
-        log.error("Given token %s not equal to stored %s" % (token, pt['strval']))
+        log.warning("No. of token checks exceeded for user %s" % uname)
+        raise Errors.CerebrumError, "Too many attempts, token invalid"
+    # Check if we're within time limit
+    time_limit = now() - RelativeDateTime(minutes=cereconf.INDIVIDUATION_TOKEN_LIFETIME)
+    if pt['date'] < time_limit:
+        log.info("Password token's timelimit for user %s exceeded" % uname)
+        raise Errors.CerebrumError, "Timeout, token invalid"
+    if not pt or pt['strval'] != hash_token(token, uname):
+        log.warning("Token %s incorrect for user %s" % (token, uname))
         ac.populate_trait(co.trait_password_token, strval=pt['strval'],
                           date=pt['date'], numval=no_checks+1)
         ac.write_db()
         db.commit()
-        return False
-    
-    # Check if we're within time limit
-    time_limit = now() - RelativeDateTime(minutes=cereconf.INDIVIDUATION_TOKEN_LIFETIME)
-    if pt['date'] < time_limit:
-        log.info("Password tokens timelimit for %s exceeded" % uname)
         return False
     # All is fine
     return True
@@ -263,6 +260,8 @@ def validate_password(password):
 def set_password(uname, new_password, token, browser_token):
     if not check_token(uname, token, browser_token):
         return False
+    if not validate_password(new_password):
+        return False
     # All data is good. Set password
     ac = get_account(uname)
     ac.set_password(new_password)
@@ -281,11 +280,11 @@ def set_password(uname, new_password, token, browser_token):
                 db.commit()
     
     if ac.is_deleted():
-        log.warn("user is deleted")
+        log.warning("user is deleted")
     elif ac.is_expired():
-        log.warn("user is expired")
+        log.warning("user is expired")
     elif ac.get_entity_quarantine(only_active=True):
-        log.warn("user has an active quarantine")
+        log.warning("user has an active quarantine")
 
     return True
     
