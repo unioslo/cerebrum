@@ -24,6 +24,25 @@
 This script presents the OU structure in a human-friendly fashion. We look at
 either the OU structure from the specified data file OR from Cerebrum. The
 latter version fetches additional data (such as associated people affiliations).
+
+A typical usage is to check the OU structure for obvious organizational errors
+or to generate (part of) a report.
+
+To check a file, use something like this:
+
+python output-ou-structure.py -f system_fs:ou.xml
+
+To check Cerebrum content, use something like this:
+
+python output-ou-structure.py -p perspective_fs
+
+This script will detect all cycles in the structure if any are present and will
+output them all. However, if the cycle is large, it may prove difficult to make
+sense of it.
+
+Multiple files may be supplied (even from multiple sources -- system_fs,
+system_lt, system_sap). However, only one perspective may be specified, and
+perspective-as-source and files-as-source are mutually exclusive.
 """
 
 from collections import deque
@@ -88,60 +107,62 @@ def sort_nodes(node_seq):
 
 
 
-def set_has_cycles(nodes):
-    """Determine if the node set has cycles in it."""
+def detect_cycles_from_node(n, remaining):
+    """Determine if there is a cycle with n in it."""
 
-    processed = set()
-    def dump_cycle(n):
-        """Print a cycle initiated at node n."""
-
+    def output_cycle(n):
         print "Cycle detected at node", n
-        tmp = n
-        while tmp.parent_id != n.node_id:
+        tmp = n._parent
+        while tmp != n:
             print "->", tmp
-            tmp = tmp.parent
-    # end dump_cycle
-    
-    if not nodes:
-        return 
+            tmp = tmp._parent
+        print "->", n
+    # end output_cycle
 
-    # Collect roots, if any
-    queue = deque(x for x in nodes.itervalues()
-                  if x.parent_id is None or x.parent_id == x.node_id)
-    # If we don't have a root set, than NO matter where we start, the WILL be a
-    # cycle. There may be multiple cycles, but there is at least one.
-    if not queue:
-        k, v = nodes.popitem()
-        nodes[k] = v
-        queue.append(v)
-
-    # let's go -- BFS
+    # nodes currently being processed
+    marked = set()
+    # queue for BFS
+    queue = deque((n,))
+    has_cycles = False
     while queue:
-        n = queue.popleft()
-        if n in processed:
-            dump_cycle(n)
-        else:
-            queue.extend(n.children())
-            processed.add(n)
+        x = queue.popleft()
+        if x in remaining:
+            remaining.remove(x)
+        if x in marked:
+            has_cycles = True
+            output_cycle(x)
+            continue
 
-    # Ok, the work queue is empty. What happened?
-    if len(processed) != len(nodes):
-        print "%d OUs have not been reached. Cyclic dependency below?" % (
-            len(nodes) - len(processed))
-        for node in nodes.itervalues():
-            if node not in processed:
-                print "\t%s" % (node,)
-        return True
+        marked.add(x)
+        queue.extend(x.children())
 
-    return False
-# end check_cycles
+    return has_cycles
+# end detect_cycles_from_node
+    
+
+
+def set_has_cycles(nodes):
+    """Determine if the node set has cycles in it.
+
+    We will detect and output all cycles present in the node graph.
+    """
+
+    has_cycles = False
+    remaining = set(nodes.itervalues())
+    while remaining:
+        n = remaining.pop()
+        has_cycles |= detect_cycles_from_node(n, remaining)
+    
+    return has_cycles
+# end set_has_cycles
 
 
 
 class Node(object):
     """OU-representation for this script."""
 
-    def __init__(self, node_id, name, acronym, parent_id, all_ids=None):
+    def __init__(self, node_id, name, acronym, parent_id,
+                 all_ids=None, has_affiliations=False):
         self.node_id = node_id
         self.name = name
         self.acronym = acronym
@@ -150,6 +171,7 @@ class Node(object):
         self.parent_id = parent_id
         self._parent = None
         self._children = dict()
+        self._has_affiliations = has_affiliations
     # end __init__
 
 
@@ -184,26 +206,44 @@ class Node(object):
 
 
     def __str__(self):
-        return "%s %s %s %d child node(s)" % (
-            self.node_id, self.name,
+        return "%s %s %d child(ren)" % (
+            self.node_id,
             sorted(tuple(x for x in self._all_ids if x != self.node_id)),
             len(self._children))
     # end __str__
 
 
+    def is_root(self):
+        """Is self a root node?
+
+        Root nodes are those without parent_id or with parent_id equal to own
+        id.
+        """
+
+        return self.parent_id is None or self.parent_id == self.node_id
+    # end is_root
+    
+
     def typeset(self, boss_mode):
         """Create a human-friendly representation of self."""
+
+        prefix = "%s %s %s" % (
+            self._has_affiliations and '*' or ' ',
+            self.node_id, self.name,)
+        postfix = " %d child node(s)" % len(self._children)
+        
         if boss_mode:
-            return "%s %s %d child node(s)" % (self.node_id, self.name,
-                                               len(self._children))
-        return str(self)
+            return prefix + postfix
+
+        ids = "%s" % sorted(tuple(x for x in self._all_ids if x != self.node_id))
+        return prefix + ids + postfix
     # end typeset
     
     
     def children(self):
         """Return all children nodes sorted by node_id."""
         
-        return sort_nodes(list(self._children.itervalues()))
+        return sort_nodes(self._children.itervalues())
     # end children
 # end Node
         
@@ -216,13 +256,17 @@ def build_node_from_file(xml_ou):
       A representation of the XML OU data on file -- xml2object.DataOU instance.
     """
 
+    def extract_value(thing):
+        if thing:
+            if isinstance(thing, (list, tuple)):
+                return thing[0].value
+            return thing.value
+        return None
+    
     node_id = sko2str(*xml_ou.get_id(xml_ou.NO_SKO))
-    acronym = xml_ou.get_name(xml_ou.NAME_ACRONYM)
-    if acronym:
-        acronym = acronym.value
-    name = xml_ou.get_name(xml_ou.NAME_LONG) or xml_ou.get_name(xml_ou.NAME_SHORT)
-    if name:
-        name = name.value
+    acronym = extract_value(xml_ou.get_name(xml_ou.NAME_ACRONYM))
+    name = extract_value(xml_ou.get_name(xml_ou.NAME_LONG) or
+                         xml_ou.get_name(xml_ou.NAME_SHORT))
     if xml_ou.parent:
         parent_id = sko2str(*xml_ou.parent[1])
         assert xml_ou.parent[0] == xml_ou.NO_SKO
@@ -242,7 +286,7 @@ def create_root_set(nodes):
     root_set = set()
     for node_id in nodes:
         node = nodes[node_id]
-        if (not node.parent_id) or (node.node_id == node.parent_id):
+        if node.is_root():
             root_set.add(node)
 
         parent_node = nodes.get(node.parent_id)
@@ -256,28 +300,30 @@ def create_root_set(nodes):
 
 
 
-def build_tree_from_file(source_system, source_file):
-    """Scan the source file and build an OU tree structure for that file."""
+def build_tree_from_files(sources):
+    """Scan sources and build the OU tree structure for that file."""
 
     const = Factory.get("Constants")()
-    source = const.human2constant(source_system, const.AuthoritativeSystem)
-    parser = system2parser(str(source)) or system2parser(source_system)
-    if not parser:
-        raise RuntimeError("Cannot determine source system from %s" %
-                           str(source_system))
-    parser = parser(source_file, None)
-
     nodes = dict()
-    for xml_ou in parser.iter_ou():
-        node = build_node_from_file(xml_ou)
-        nodes[node.node_id] = node
+    
+    for (source_system, filename) in sources:
+        source = const.human2constant(source_system, const.AuthoritativeSystem)
+        parser = system2parser(str(source)) or system2parser(source_system)
+        if not parser:
+            raise RuntimeError("Cannot determine source system from %s" %
+                               str(source_system))
+
+        parser = parser(filename, None)
+        for xml_ou in parser.iter_ou():
+            node = build_node_from_file(xml_ou)
+            nodes[node.node_id] = node
 
     rs = create_root_set(nodes)
     if set_has_cycles(nodes):
         return set()
     return rs
-# end build_tree_from_file
-    
+# end build_tree_from_files
+
 
 
 def build_tree_from_db(ou_perspective):
@@ -295,9 +341,9 @@ def build_tree_from_db(ou_perspective):
         return set()
         
     ou = Factory.get("OU")(db)
-    ou_id2sko = dict((r["ou_id"], sko2str(r["fakultet"],
-                                          r["institutt"],
-                                          r["avdeling"]))
+    person = Factory.get("Person")(db)
+    ou_id2sko = dict((r["ou_id"],
+                      sko2str(r["fakultet"], r["institutt"], r["avdeling"]))
                      for r in ou.get_stedkoder())
     nodes = dict()
     for row in ou.search():
@@ -312,7 +358,8 @@ def build_tree_from_db(ou_perspective):
         except:
             parent = None
         
-        node = Node(sko, ou.name, ou.acronym, parent, ids)
+        node = Node(sko, ou.name, ou.acronym, parent, ids,
+                    bool(person.list_affiliations(ou_id=ou.entity_id)))
         nodes[node.node_id] = node
 
     rs = create_root_set(nodes)
@@ -341,23 +388,23 @@ def main():
                                 "perspective=",
                                 "boss-mode",))
 
-    source_system = None
-    source_file = None
+    sources = list()
     perspective = None
     boss_mode = False
     for option, value in opts:
         if option in ("-f", "--file",):
             source_system, source_file = value.split(":", 1)
+            sources.append((source_system, source_file))
         elif option in ("-p", "--perspective",):
             perspective = value
         elif option in ("-b", "--boss-mode",):
             boss_mode = True
     
-    assert not (source_file and perspective), \
+    assert not (sources and perspective), \
            "You cannot specify *both* perspective and source"
 
-    if source_file:
-        root_set = build_tree_from_file(source_system, source_file)
+    if sources:
+        root_set = build_tree_from_files(sources)
     else:
         root_set = build_tree_from_db(perspective)
 

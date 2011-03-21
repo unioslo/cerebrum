@@ -323,147 +323,6 @@ def set_quaran(cer_ou_tab):
 # end set_quaran
 
 
-def dump_perspective(sources, target_system):
-    """Displays the OU hierarchy in a fairly readable way.
-
-    For information about sources, see import_org_units.
-    """
-
-    logger.info("OU tree for %s", sources)
-    
-    class Node(object):
-        def __init__(self, name, parent):
-            self.name = name
-            self.parent = parent
-            self.children = []
-        # end __init__
-    # end class
-
-
-    ou = Factory.get("OU")(db)
-    person = Factory.get("Person")(db)
-    def make_prefix(key, level):
-        """Make a pretty prefix for each output line."""
-
-        xmlou = org_units.get(key)
-        if xmlou is not None and getattr(xmlou, "publishable", False):
-            katalogmerke = 'T'
-        else:
-            katalogmerke = ' '
-
-        # And now we find out if there are people with affiliations to this
-        # place
-        people_mark = " "
-        if key is not None and xmlou is not None:
-            try:
-                fakultet, institutt, avdeling = xmlou.get_id(xmlou.NO_SKO)
-                ou.clear()
-                ou.find_stedkode(int(fakultet), int(institutt), int(avdeling),
-                                 cereconf.DEFAULT_INSTITUSJONSNR)
-                if person.list_affiliations(ou_id = ou.entity_id):
-                    people_mark = "*"
-                # fi
-            except Errors.NotFoundError:
-                pass
-            # yrt
-        # fi
-            
-        return "%s%s %s" % (katalogmerke, people_mark, level)
-    # end make_prefix
-    
-
-    def dump_part(parent, level):
-        """dump part of the OU tree rooted at parent."""
-        lang_pri = ("no", "nb", "nn", "en")
-        xmlou = org_units.get(parent)
-        if xmlou:
-            name = xmlou.get_name_with_lang(xmlou.NAME_LONG, *lang_pri)
-            values = { "akronym" : xmlou.get_name_with_lang(xmlou.NAME_ACRONYM,
-                                                          *lang_pri) or "N/A",
-                       "stednavn" : name or "N/A" }
-        else:
-            values = { "akronym" : "N/A",
-                       "stednavn" : "N/A", }
-        # fi
-
-        print "%s%s %s %s (%s)" % (make_prefix(parent, level),
-                                   " " * (level * 4),
-                                   str(parent),
-                                   values["akronym"], values["stednavn"])
-        children = list()
-        for t in tree_info.keys():
-            if tree_info[t].parent == parent:
-                if t == parent:
-                    print "WARNING: circular for %s" % t
-                else:
-                    children.append(t)
-                # fi
-            # fi
-        # od
-
-        children.sort()
-        for t in children:
-            dump_part(t, level + 1)
-        # od
-    # end dump_part
-
-    source_system = getattr(co, target_system)
-    perspective = source2perspective[source_system]
-    for system, filename in sources:
-        # These are used to help build OU structure information
-        tree_info = dict()
-        org_units = dict()
-
-        # Slurp in data
-        parser = system2parser(system)(filename, logger, False)
-        for xmlou in parser.iter_ou():
-            sko = format_sko(xmlou)
-            if sko is None:
-                print ("Missing sko for OU %s (names: %s). Skipped!" %
-                           (list(xmlou.iterids()), list(xmlou.iternames())))
-                continue
-            # fi
-            org_units[sko] = xmlou
-        # od
-            
-        # Fill tree_info with parent/child relationships
-        for k in org_units.keys():
-            parent_sko = format_parent_sko(org_units[k])
-            if parent_sko is None:
-                print "%s has no parent" % k
-            # fi
-
-            if parent_sko not in tree_info:
-                if parent_sko not in org_units or parent_sko is None:
-                    parent2x = None
-                else:
-                    parent2x = format_parent_sko(org_units[parent_sko])
-                # fi
-
-                tree_info[parent_sko] = Node(parent_sko, parent2x)
-            # fi
-
-            tree_info[k] = Node(k, parent_sko)
-            tree_info[parent_sko].children.append(k)
-        # od
-
-        # Display structure
-        # A root node (we can have many) is either the one where it is its own
-        # parent, or it is assumed to be the one, the parent of which is
-        # unknown. The latter may happen if a given file contains only a
-        # 'part' of the hierarchy. Naturally, this interpretation would
-        # consider typos in parent information to potentially be roots. 
-        top_keys = tree_info.keys(); top_keys.sort()
-        for t in top_keys:
-            if (tree_info[t].parent == tree_info[t].name or
-                tree_info[t].parent not in tree_info):
-                dump_part(t, 0)
-            # fi
-        # od
-    # od
-# end dump_perspective
-
-
 def usage(exitcode=0):
     print """Usage: [options] [file ...]
 Imports OU data from systems that use 'stedkoder' (e.g. SAP, FS or LT)
@@ -490,7 +349,6 @@ def main():
                                ['verbose',
                                 'clean',
                                 'file=',
-                                'dump-perspective',
                                 'ldap-visibility',
                                 'target-system=',])
     
@@ -513,16 +371,10 @@ def main():
             sources.append((sysname, filename))
         elif opt in ('-l', '--ldap-visibility',):
             def_kat_merke = True
-        elif opt in ('--dump-perspective',):
-            do_perspective = True
         elif opt in ('-t', '--target-system',):
             target_system = val
 
     assert target_system
-    if do_perspective:
-        dump_perspective(sources, target_system)
-        sys.exit(0)
-
     if clean_obsolete_ous:
         cer_ou_tab = get_cere_ou_table()
         logger.debug("Collected %d ou_id->sko mappings from Cerebrum",
