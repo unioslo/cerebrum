@@ -185,7 +185,8 @@ def send_token(phone_no, token):
     Send token as a SMS message to phone_no
     """
     #sms = SMSSender(logger=log)
-    #sms(phone_no, token)
+    #msg = "Your one time password: %s \nUniversity of Oslo" % token
+    #return sms(phone_no, msg)
     return True
 
 def hash_token(token, uname):

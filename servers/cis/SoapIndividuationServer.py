@@ -45,6 +45,9 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
+# TODO: how to import this correctly?
+from OpenSSL import SSL
+
 """
 This file provides a SOAP server for the Individuation service at UiO.
 
@@ -153,6 +156,15 @@ def usage(exitcode=0):
   """
     sys.exit(exitcode)
 
+def clientVerificationCallbackTest(connection, x509, errnum, errdepth, ok):
+    """TODO: this might be removed later, when done testing its purpose."""
+    if not ok:
+        print 'invalid cert from subject:', x509.get_subject()
+        return False
+    else:
+        print "Certs are fine"
+    return True
+
 if __name__=='__main__':
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'p:l:',
@@ -187,6 +199,13 @@ if __name__=='__main__':
         sslcontext = ssl.DefaultOpenSSLContextFactory(
             cereconf.SSL_PRIVATE_KEY_FILE,
             cereconf.SSL_CERTIFICATE_FILE)
+        # If the clients' certificate should be checked:
+        if getattr(cereconf, 'INDIVIDUATION_CLIENT_CERT', None):
+            ctx = sslcontext.getContext()
+            ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                                  clientVerificationCallbackTest)
+            # Tell the server what certicates it should trust:
+            ctx.load_verify_locations(cereconf.INDIVIDUATION_CLIENT_CERT)
         reactor.listenSSL(int(port), Site(root), contextFactory=sslcontext)
     else:
         reactor.listenTCP(int(port), Site(root))
