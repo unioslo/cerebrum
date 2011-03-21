@@ -31,7 +31,7 @@
 Interface to Cerebrum for the Individuation service.
 """
 
-import random, md5
+import random, hashlib
 import string
 from mx.DateTime import RelativeDateTime, now
 import cereconf
@@ -193,7 +193,7 @@ def hash_token(token, uname):
     """
     Generates a hash of a given token, to avoid storing tokens in plaintext.
     """
-    return md5.new(uname + token).hexdigest()
+    return hashlib.md5(uname + token).hexdigest()
 
 def check_token(uname, token, browser_token):
     """
