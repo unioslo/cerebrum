@@ -216,12 +216,12 @@ def check_token(uname, token, browser_token):
     no_checks = int(pt['numval'])
     if no_checks > getattr(cereconf, 'INDIVIDUATION_NO_CHECKS', 100):
         log.warning("No. of token checks exceeded for user %s" % uname)
-        raise Errors.CerebrumError, "Too many attempts, token invalid"
+        raise Errors.CerebrumError("Too many attempts, token invalid")
     # Check if we're within time limit
     time_limit = now() - RelativeDateTime(minutes=cereconf.INDIVIDUATION_TOKEN_LIFETIME)
     if pt['date'] < time_limit:
         log.info("Password token's timelimit for user %s exceeded" % uname)
-        raise Errors.CerebrumError, "Timeout, token invalid"
+        raise Errors.CerebrumError("Timeout, token invalid")
     if not pt or pt['strval'] != hash_token(token, uname):
         log.warning("Token %s incorrect for user %s" % (token, uname))
         ac.populate_trait(co.trait_password_token, strval=pt['strval'],
@@ -253,7 +253,7 @@ def validate_password(password):
     try:
         pc.goodenough(None, password, uname="foobar")
     except PasswordChecker.PasswordGoodEnoughException, m:
-        raise Errors.CerebrumError, "Bad password: %s" % m
+        raise Errors.CerebrumError("Bad password: %s" % m)
     else:
         return True
 
@@ -271,7 +271,7 @@ def set_password(uname, new_password, token, browser_token):
         db.commit()
         log.info("Password for %s altered." % uname)
     except db.DatabaseError, m:
-        raise Errors.CerebrumError, "Database error: %s" % m
+        raise Errors.CerebrumError("Database error: %s" % m)
     # Remove "weak password" quarantine
     for r in ac.get_entity_quarantine():
         for qua in (co.quarantine_autopassord, co.quarantine_svakt_passord):
@@ -322,10 +322,10 @@ def check_phone(phone_no, person_id):
     Check if given phone_no belongs to person. 
     """
     pe = Factory.get('Person')(db)
+    phone_types = [getattr(co, t) for t
+                   in getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES')]
     for row in pe.list_contact_info(entity_id=person_id,
-                                    contact_type=(co.contact_phone,
-                                                  co.contact_mobile_phone,
-                                                  co.contact_phone_private)):
+                                    contact_type=phone_types):
         # Crude test. We should probably do this more carefully
         if phone_no == row['contact_value']:
             return True
