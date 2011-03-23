@@ -139,6 +139,25 @@ class MXSet(DatabaseAccessor):
             'mx_set_id': self.mx_set_id, 'target_id': target_id,
             'ttl': ttl, 'pri': pri})
 
+    def list_mx_set_dns_owner_members(self, mx_set_id=None, dns_owner_id=None):
+        """List dns_owners and mx_sets defined in dns_owner."""
+        where = ["mxs.mx_set_id=d.mx_set_id",
+                 "d.dns_owner_id=en.entity_id"]
+        if mx_set_id:
+            where.append('mx_set_id=:mx_set_id')
+        if dns_owner_id:
+            where.append('dns_owner_id=:dns_owner_id')
+        where = " AND ".join(where)
+        return self.query("""
+        SELECT mxs.mx_set_id, name, dns_owner_id, entity_name as host_name
+        FROM [:table schema=cerebrum name=dns_mx_set] mxs,
+             [:table schema=cerebrum name=dns_owner] d,
+             [:table schema=cerebrum name=entity_name] en
+        WHERE %s
+        ORDER BY dns_owner_id, name""" % where, {
+            'mx_set_id': mx_set_id,
+            'dns_owner_id': dns_owner_id})
+
     def delete(self):
         return self.execute("""
         DELETE FROM [:table schema=cerebrum name=dns_mx_set]
