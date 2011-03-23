@@ -195,12 +195,16 @@ class DataEmployment(object):
     def is_active(self, date = Date(*time.localtime()[:3])):
         # IVR 2009-04-29 Lars Gustav Gudbrandsen requested on 2009-04-22 that
         # all employment-related info should be considered active 14 days
-        # prior to the actual start day. 
+        # prior to the actual start day.
+        # Jazz 2011-03-23: In order to avoid revoking affiliations/priviledges
+        # for people changing role/position at UiO we should let the
+        # affiliation be valid for a few days after it has been revoked
+        # in the authoritative source
         if self.start:
             return ((self.start - DateTimeDelta(14) <= date) and
-                    ((not self.end) or (date <= self.end)))
+                    ((not self.end) or (date <= self.end + DateTimeDelta(3))))
 
-        return ((not self.end) or (date <= self.end))
+        return ((not self.end) or (date <= self.end + DateTimeDelta(3)))
     # end is_active
 
 
