@@ -142,6 +142,7 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     @return: True if success, False otherwise
     @rtype: bool
     """
+    # TODO: need to throw exceptions with explanations instead of returning False
 
     # Check if person exists
     pe = get_person(id_type, ext_id)
@@ -150,7 +151,14 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
         log.error("Account %s doesn't belong to person %d" % (uname,
                                                               pe.entity_id))
         return False
-    
+    # Check if account is blocked
+    if not check_account(ac):
+        log.error("Account %s is blocked" % (ac.account_name))
+        return False
+    # Check if person/account is reserved
+    if not check_reserved(account=ac, person=pe):
+        log.error("Account %s (or person) is reserved" % (ac.account_name))
+        return False
     # Check phone_no
     if not check_phone(phone_no, pe.entity_id):
         log.error("phone_no %s is not registered for person %s" % (phone_no,
@@ -322,12 +330,55 @@ def check_phone(phone_no, person_id):
     Check if given phone_no belongs to person. 
     """
     pe = Factory.get('Person')(db)
-    phone_types = [getattr(co, t) for t
-                   in getattr(cereconf, 'INDIVIDUATION_PHONE_TYPES')]
-    for row in pe.list_contact_info(entity_id=person_id,
-                                    contact_type=phone_types):
-        # Crude test. We should probably do this more carefully
-        if phone_no == row['contact_value']:
-            return True
+    for system, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
+        phone_types = [getattr(co, t) for t in types]
+        for row in pe.list_contact_info(entity_id=person_id,
+                                    contact_type=phone_types,
+                                    source_system=getattr(co, system)):
+            # Crude test. We should probably do this more carefully
+            if phone_no == row['contact_value']:
+                return True
     return False
 
+def check_account(account):
+    """
+    Check if the account is not blocked from changing password.
+    """
+    if account.is_deleted() or account.is_expired():
+        return False
+    # Check quarantines
+    quars = [int(getattr(co, q)) for q in
+             getattr(cereconf, 'INDIVIDUATION_ACCEPTED_QUARANTINES', ())]
+    for q in account.get_entity_quarantine(only_active=True):
+        if q['quarantine_type'] not in quars:
+            return False
+    # TODO: more to check?
+    return True
+    
+def check_reserved(account, person):
+    """
+    Check that the person/account isn't reserved from using the service.
+    """
+    group = Factory.get('Group')(db)
+
+    # Check if superuser or in any reserved group
+    for gname in (getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ()) +
+                  (cereconf.BOFHD_SUPERUSER_GROUP,)):
+        group.clear()
+        group.find_by_name(gname) # TODO: if groups doesn't exist it should fail!
+        if account.entity_id in (int(row["member_id"]) for row in
+                                 group.search_members(group_id=group.entity_id,
+                                                      indirect_members=True,
+                                                      member_type=co.entity_account)):
+            return False
+        # TODO: these two loops should be merged!
+        if person.entity_id in (int(row["member_id"]) for row in
+                                 group.search_members(group_id=group.entity_id,
+                                                      indirect_members=True,
+                                                      member_type=co.entity_account)):
+            return False
+
+    # TODO: Check if person is self reserved, but how? By traits?
+
+    # TODO: other checks?
+    return True
