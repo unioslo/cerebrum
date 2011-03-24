@@ -305,11 +305,11 @@ def get_person(id_type, ext_id):
     try:
         pe.find_by_external_id(getattr(co, id_type), ext_id)
     except AttributeError:
-        log.error("Wrong id_type: %s" % id_type)
-        raise Errors.CerebrumError("Wrong id_type or id")
+        log.error("Wrong id_type: '%s'" % id_type)
+        raise Errors.CerebrumError("Wrong id_type")
     except Errors.NotFoundError:
-        log.error("Couldn't find person with ext_id %s" % ext_id)
-        raise Errors.CerebrumError("Wrong id_type or id")
+        log.error("Couldn't find person with %s='%s'" % (id_type, ext_id))
+        raise Errors.CerebrumError("Could not <find person")
     else:
         return pe
 
@@ -365,9 +365,8 @@ def check_reserved(account, person):
     """
     Check that the person/account isn't reserved from using the service.
     """
-    group = Factory.get('Group')(db)
-
     # Check if superuser or in any reserved group
+    group = Factory.get('Group')(db)
     for gname in (getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ()) +
                   (cereconf.BOFHD_SUPERUSER_GROUP,)):
         group.clear()
@@ -384,7 +383,11 @@ def check_reserved(account, person):
                                                       member_type=co.entity_account)):
             return False
 
-    # TODO: Check if person is self reserved, but how? By traits?
+    # Check if person is self reserved
+    for reservation in person.list_traits(code=co.trait_reservation_sms_password,
+                                          target_id=person.entity_id):
+        if reservation['numval'] > 0:
+            return False
 
     # TODO: other checks?
     return True
