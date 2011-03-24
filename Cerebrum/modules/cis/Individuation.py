@@ -160,9 +160,9 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
         log.error("Account %s (or person) is reserved" % (ac.account_name))
         return False
     # Check phone_no
-    if not check_phone(phone_no, pe.entity_id):
-        log.error("phone_no %s is not registered for person %s" % (phone_no,
-                                                                   pe.entity_id))
+    if not check_phone(phone_no, pe):
+        log.error("phone_no %s is not found in source systems for person %s" % (
+                                                        phone_no, pe.entity_id))
         return False
     # Create and send token
     token = create_token()
@@ -325,16 +325,22 @@ def get_account(uname):
         return ac
 
 
-def check_phone(phone_no, person_id):
+def check_phone(phone_no, person):
     """
-    Check if given phone_no belongs to person. 
+    Check if given phone_no belongs to person. The phone number is only searched
+    for in source systems and contact types as defined in
+    INDIVIDUATION_PHONE_TYPES, the rest is ignored.
     """
-    pe = Factory.get('Person')(db)
-    for system, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
+    pe_systems = [int(af['source_system']) for af in
+                  person.list_affiliations(person_id=person.entity_id)]
+    for sys, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
+        system = getattr(co, sys)
+        if int(system) not in pe_systems:
+            continue
         phone_types = [getattr(co, t) for t in types]
-        for row in pe.list_contact_info(entity_id=person_id,
+        for row in person.list_contact_info(entity_id=person.entity_id,
                                     contact_type=phone_types,
-                                    source_system=getattr(co, system)):
+                                    source_system=system):
             # Crude test. We should probably do this more carefully
             if phone_no == row['contact_value']:
                 return True
