@@ -65,6 +65,21 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      account)
+
+    def can_set_trait(self, operator, trait=None, target=None,
+                      query_run_any=False):
+        if query_run_any:
+            return True
+        if self.is_superuser(operator):
+            return True
+        # Persons are allowed to set their own reservation traits
+        if (target.entity_type in (self.const.entity_person,)):
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+            if (target.entity_id == account.owner_id and 
+                    trait in (self.const.trait_reservation_sms_password,)):
+                return True
+        raise PermissionDenied("Not allowed to set trait")
     
     def can_email_address_delete(self, operator_id, account=None, domain=None,
                                  query_run_any=False):

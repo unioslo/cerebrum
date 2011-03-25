@@ -516,6 +516,12 @@ class BofhdAuth(DatabaseAccessor):
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      account)
 
+    def can_set_trait(self, operator, trait=None, target=None,
+                      query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        raise PermissionDenied("Not allowed to set trait")
+
     def can_get_student_info(self, operator, person=None, query_run_any=False):
         if self.is_superuser(operator):
             return True

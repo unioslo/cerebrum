@@ -7447,12 +7447,12 @@ Addresses and settings:
         ("trait", "set"), Id(help_ref="id:target:account"),
         SimpleString(help_ref="trait"),
         SimpleString(help_ref="trait_val", repeat=True),
-        perm_filter="is_superuser")
+        perm_filter="can_set_trait")
     def trait_set(self, operator, ent_name, trait_name, *values):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
         ent = self.util.get_target(ent_name, restrict_to=[])
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        self.ba.can_set_trait(operator=operator.get_entity_id(), trait=trait,
+                              target=ent)
         params = {}
         for v in values:
             if v.count('='):

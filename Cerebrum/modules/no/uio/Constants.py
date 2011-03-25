@@ -430,3 +430,8 @@ automatically generated from FS.''')
         "browser_token", Constants.Constants.entity_account,
         "Store a individuation browser token for an account")
     
+    # Trait for reservation from the Individuation service
+    # TODO: should be replaced by a reservation table later
+    trait_reservation_sms_password = _EntityTraitCode(
+        'reserve_passw', Constants.Constants.entity_person,
+        "Person is reserved from using the sms password service")
