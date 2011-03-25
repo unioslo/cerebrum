@@ -7363,11 +7363,14 @@ Addresses and settings:
         ("  String:      %s", ('strval',)),
         ("  Date:        %s%s", ('dummy', format_time('date'),)),
         ("  Target:      %s (%s)", ('target_name', 'target_type'))]),
-        perm_filter="is_superuser")
+        perm_filter="can_set_trait")
     def trait_info(self, operator, ety_id):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
         ety = self.util.get_target(ety_id, restrict_to=[])
+        if not self.ba.is_superuser(operator.get_entity_id()):
+            # Users might have access their own person's traits.
+            # TODO: filter out traits users aren't allowed to set?
+            if operator.get_owner_id() != ety.entity_id:
+                raise PermissionDenied("Currently limited to superusers")
         if isinstance(ety, Utils.Factory.get('Disk')):
             ety_name = ety.path
         elif isinstance(ety, Utils.Factory.get('Person')):
