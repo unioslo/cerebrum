@@ -107,15 +107,22 @@ def quick_sync():
                 # TBD: should we have a coloumn subject_entity_type in
                 # change_log so that we can know what type a deleted
                 # entity had?
-                change_params = pickle.loads(ans['change_params'])
-                if (chg_type == clco.spread_del and 
-                    change_params['spread'] != co.spread_uio_notes_account):
-                        logger.debug("%s is a deleted non-account entity. Ignoring.",
-                                     ans['subject_entity'])
+                try:
+                    change_params = pickle.loads(ans['change_params'])
+                except TypeError, e:
+                    # Some events doesn't use change_params, e.g.
+                    # quarantine_refresh
+                    logger.debug("id:%s: change_params error: %s",
+                                 ans['subject_entity'], e)
                 else:
-                    logger.warn("Could not find any *entity* with id=%s "
-                                "although there is a change_log entry for it",
-                                ans['subject_entity'])
+                    if (chg_type == clco.spread_del and 
+                        change_params['spread'] != co.spread_uio_notes_account):
+                            logger.debug("%s is a deleted non-account entity. Ignoring.",
+                                         ans['subject_entity'])
+                    else:
+                        logger.warn("Could not find any *entity* with id=%s "
+                                    "although there is a change_log entry for it",
+                                    ans['subject_entity'])
 
     cl.commit_confirmations()
 # end quick_sync
