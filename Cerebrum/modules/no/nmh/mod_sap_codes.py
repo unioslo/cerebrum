@@ -200,6 +200,12 @@ class SAPConstants(Constants.Constants):
         "ØVR"
     )
 
+    sap_1532_dosent = SAPLonnsTittelKode(
+        "20001532",
+        "1532 Dosent",
+        "VIT"
+    )
+
     # NMH er blitt informert om at 9999 er veldig spesiell.
     sap_9999_dummy_stillingskode = SAPLonnsTittelKode(
         "20009999",
