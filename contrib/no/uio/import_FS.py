@@ -128,7 +128,7 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
                 }
         else:
             ou_adr_cache[ou_id] = None
-            logger.warn("No address for %i" % ou_id)
+            logger.warn("No address for ou_id:%i" % ou_id)
     return ou_adr_cache[ou_id]
     
 def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
