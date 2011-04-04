@@ -77,6 +77,4 @@ CREATE TABLE sap_lonnstittel
                         NOT NULL,
         kategori        CHAR(3)
                         NOT NULL
-                        CONSTRAINT lonnstittel_kategori_values 
-                          CHECK (kategori IN ('VIT', 'ØVR'))
 );
