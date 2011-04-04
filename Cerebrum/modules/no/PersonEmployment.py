@@ -51,6 +51,7 @@ class PersonEmploymentMixin(object):
         DELETE FROM %s
         WHERE person_id = :person_id
         """ % self.table, {"person_id": self.entity_id})
+        super(PersonEmploymentMixin, self).delete()
     # end delete
 
     
