@@ -64,10 +64,14 @@ def process_line(infile, fix_unames):
         commit_count += 1
 
         fields = string.split(line.strip(), ":")
-        if len(fields) != 4:
+        # Pad, in case names are missing; indeed, names don't seem to
+        # be used at all, so perhaps we simply shouldn't bother with
+        # them at all? Oh well, SEP
+        fields.extend([None, None])
+        if len(fields) < 4:
             logger.error("Bad line: %s. Skipping" % line.strip())
             continue
-        fnr, uname, lname, fname = fields
+        fnr, uname, lname, fname = fields[:4]
         if not fnr == "":
             uname = check_uname(uname)
             if uname:
@@ -125,14 +129,14 @@ def process_person(fnr):
 
 
 def check_uname(uname):
-    legal_chars = string.ascii_letters + string.digits    
+    legal_chars = string.ascii_letters + string.digits + "."
     if uname == "":
         logger.warn("Nothing to do here.")
         return None
 
     if not uname.islower():
         uname = uname.lower()
-    if len(uname) > 12 or len(uname) < 3:
+    if len(uname) > 20 or len(uname) < 3:
         logger.error("Uname too short or too long %s.", uname)
         return None
 
