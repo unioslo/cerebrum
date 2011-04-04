@@ -422,7 +422,6 @@ def find_primary_sko(primary_ou_id, fs, ou_perspective):
     @param ou_perspective: Cf. L{make_fs_updates}.
     """
 
-    # IVR 2008-04-28 FIXME: is this too expensive?
     ou = Factory.get("OU")(database)
     try:
         ou.find(primary_ou_id)
@@ -769,12 +768,14 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
                    "gruppenr_ansatt": primary_sko[3],
                    "telefonnr_arbeide": info_chunk.phone,
                    "stillingstittel_norsk": info_chunk.work_title,
-                   "telefonnr_fax_arb": info_chunk.fax,
-                   "status_aktiv": 'J',}
+                   "telefonnr_fax_arb": info_chunk.fax,}
     if not fs_info:
         logger.debug("Pushing new entry to FS.fagperson: %s pid=%s",
                      info_chunk, person_id)
         try:
+            # According to mgrude, this field is to be set to 'N' for new
+            # entries and left untouched for already existing entries.
+            values2push["status_aktiv"] = 'N'
             fs.person.add_fagperson(**values2push)
         except:
             logger.exception("Failed updating person %s (fnr=%s)",
