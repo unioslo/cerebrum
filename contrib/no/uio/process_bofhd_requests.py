@@ -588,6 +588,8 @@ def cyrus_delete(host, uname, generation):
     if res == 'OK' and listresp[0]:
         for line in listresp:
             m = re.match(r'^\(.*?\) ".*?" "?([^"]+)"?$', line)
+            if not m:
+                logger.error("bofh_email_delete: invalid folder name: %s", line)
             folders += [ m.group(1) ]
     # Make sure the subfolders are deleted first by reversing the
     # sorted list.
