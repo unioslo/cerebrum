@@ -587,7 +587,7 @@ def cyrus_delete(host, uname, generation):
     res, listresp = cyradm.list("user.%s." % uname)
     if res == 'OK' and listresp[0]:
         for line in listresp:
-            m = re.match(r'^\(.*?\) ".*?" "(.*)"$', line)
+            m = re.match(r'^\(.*?\) ".*?" "?([\w\.]+)"?$', line)
             folders += [ m.group(1) ]
     # Make sure the subfolders are deleted first by reversing the
     # sorted list.
