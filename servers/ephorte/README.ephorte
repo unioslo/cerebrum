@@ -262,9 +262,10 @@ hente innholdet i tabellen adrperson.
 
 For en del tabeller vil resultatet bli trunkert ved at det inneholder
 <PartialResult>true</PartialResult>, samt en tag som forteller hvilken
-rad som var siste.  Ved å legge på f.eks ";MaxRecords=30000" i
+rad som var siste. Ved å legge på f.eks ";MaxRecords=55000" i
 CriteriaCollectionString kan man få ut flere rader, men det finnes en
-setting AbsoluteMaxRecords som likevel kan skape problemer.  Da kan
+setting AbsoluteMaxRecords i ephortes web server som likevel kan skape
+problemer. Sørg for at denne er satt høyt i konfigurasjonen. Da kan
 man legge på ";StartRowIndex=NNN" for å starte fra en gitt rad i
 "oppfølgings-søket".
 
