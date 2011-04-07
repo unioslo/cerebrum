@@ -247,7 +247,7 @@ For OU's, it is an affiliation ('STUDENT')."""],
     'auth_entity_type':
         ['auth_type', 'Authorisation entity type',
          'Possible values:\n'
-         ' - disk\n - group\n - host\n - maildom\n - ou\n - spread'],
+         ' - disk\n - dns\n - group\n - host\n - maildom\n - ou\n - spread'],
     'auth_target_entity':
         ['entity', 'Enter name of target entity',
          'The object to which access should be given'],
