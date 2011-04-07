@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: iso-8859-1 -*-
 
-# Copyright 2008 University of Oslo, Norway
+# Copyright 2008-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -20,16 +20,15 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """This scripts backports some of the data to FS from the authoritative human
-resources system (SAP, LT, something else).
+resources system (SAP, LT or something else).
 
-Specifically, FS.person and FS.fagperson are populated based on the
-affiliations that have already been assigned in Cerebrum.
+Specifically, FS.person and FS.fagperson are populated based on the affiliations
+that have already been assigned in Cerebrum.
 
 FS.person/FS.fagperson are populated based on the information from
-affiliations. The exact affiliation/status set is specified on the command
-line.
+affiliations. The exact affiliation/status set is specified on the command line.
 
-no/uio/lt2fsPerson's equivalent is:
+no/uio/lt2fsPerson.py's equivalent is:
 
 hr2fs-person.py -p affiliation_ansatt \
                 -p affiliation_tilknyttet/affiliation_tilknyttet_grlaerer \
@@ -43,8 +42,10 @@ hr2fs-person.py -p affiliation_ansatt \
 from UserDict import IterableUserDict
 import getopt
 import sys
+import traceback
 
-import cerebrum_path, cereconf
+import cerebrum_path
+import cereconf
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
 from Cerebrum import Errors
@@ -117,6 +118,23 @@ class SimplePerson(IterableUserDict, object):
             self.fnr11, self.gender, self.birth_date, self.email,
             self.name_last, self.name_first)
 # end SimplePerson
+
+
+
+def exc2message(exc_tuple):
+    """Return a human-friendly version of exception exc.
+
+    exc_tuple represents the exception to typeset, as returned by
+    sys.exc_info().
+    """
+
+    exc, exc_type, tb = exc_tuple
+    # oracle's exception object do some attribute manipulation and don't let us
+    # poke in the exception objects easily.
+    msg = traceback.format_exception_only(exc, exc_type)[0]
+    msg = msg.split("\n", 1)[0]
+    return str(msg)
+# end exc2message
 
 
 
@@ -301,7 +319,7 @@ def find_contact_info(person, contact_variant, authoritative_system):
 
 
 def find_my_affiliations(person, selection_criteria, authoritative_system):
-    """Return a list of affiliations for person matchiing the specified
+    """Return a list of affiliations for person matching the specified
     criteria.
 
     @type person: Factory.get('Person') instance
@@ -341,7 +359,7 @@ def find_primary_ou(person, selection_criteria, authoritative_system):
 
     Unfortunately this process involves a bit of a guesswork. Potentially, a
     person may hold several employments, whereas fs.fagperson allows for
-    registering one OU association only. This means we have to institute some
+    registering one OU association only. This means we have to institute a
     choice process. A primary OU for a person is derived thus:
 
     - locate ou_id from account_type with the highest priority where
@@ -469,7 +487,10 @@ def _populate_caches(selection_criteria, authoritative_system, email_cache):
         p_id = int(row["entity_id"])
         fnr = row["external_id"]
         if p_id in _person_id2fnr and _person_id2fnr[p_id] != fnr:
-            logger.warn("Mismatching fnrs for person_id=%s: %s=%s, %s=%s",
+            #
+            # These errors happen to often to be classified as errors(). We
+            # cannot influence fnr values in authoritative systems anyway.
+            logger.info("Mismatching fnrs for person_id=%s: %s=%s, %s=%s",
                         p_id, authoritative_system, _person_id2fnr[p_id],
                         constants.system_fs, fnr)
             # cannot allow the mapping to be there
@@ -672,8 +693,8 @@ def select_FS_candidates(selection_criteria, authoritative_system):
                             person.list_affiliations,
                             source_system=authoritative_system))
     logger.debug("%d db-rows match %s criteria",
-                 len(rows), list(map(str, x) for x in selection_criteria))
-    
+                 len(rows),
+                 list(str(x) for x in selection_criteria))
     for row in rows:
         person_id = int(row["person_id"])
         if person_id in result:
@@ -711,8 +732,9 @@ def export_person(person_id, info_chunk, fs):
                                  data.name_first, data.name_last, data.email,
                                  data.gender, data.birth_date)
         except Database.IntegrityError:
-            logger.exception("Insertion of fnr=%s failed. Mismatching fnrs?",
-                             data.fnr11)
+            logger.info("Insertion of id=%s (fnr=%s, email=%s) failed: %s",
+                        person_id, data.fnr11, data.email,
+                        exc2message(sys.exc_info()))
 # end export_person
 
 
@@ -778,8 +800,9 @@ def export_fagperson(person_id, info_chunk, selection_criteria, fs,
             values2push["status_aktiv"] = 'N'
             fs.person.add_fagperson(**values2push)
         except:
-            logger.exception("Failed updating person %s (fnr=%s)",
-                             person_id, info_chunk.fnr11)
+            logger.info("Failed updating person %s (fnr=%s): %s",
+                        person_id, info_chunk.fnr11,
+                        exc2message(sys.exc_info()))
     else:
         logger.debug("Fagperson fnr=%s exists in FS", info_chunk.fnr11)
         tmp = fs_info[0]
