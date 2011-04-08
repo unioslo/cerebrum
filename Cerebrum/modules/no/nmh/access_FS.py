@@ -23,12 +23,12 @@ from Cerebrum.modules.no import access_FS
 
 class NMHStudent(access_FS.Student):
     def list_aktiv(self):
-	""" Hent opplysninger om studenter definert som aktive 
-	ved NMH. En aktiv student er en student som har et gyldig
+        """ Hent opplysninger om studenter definert som aktive 
+        ved NMH. En aktiv student er en student som har et gyldig
         opptak til et studieprogram der studentstatuskode er 'AKTIV'
         eller 'PERMISJON' og sluttdatoen er enten i fremtiden eller
         ikke satt."""
-	qry = """
+        qry = """
         SELECT DISTINCT
           s.fodselsdato, s.personnr, p.etternavn, p.fornavn,
           s.adrlin1_semadr,s.adrlin2_semadr, s.postnr_semadr,
@@ -87,36 +87,43 @@ class NMHUndervisning(access_FS.Undervisning):
     ##      og list_studenter_underv_enhet.
     ##      Prøve å lage generell list_studenter_kull.
     ##      Prøve å fjerne behov for override-metoder her 
-    def list_undervisningenheter(self, sem="current"):
-	"""Metoden som henter data om undervisningsenheter
-	i nåverende (current) eller neste (next) semester. Default
-	vil være nåværende semester. For hver undervisningsenhet 
-	henter vi institusjonsnr, emnekode, versjonskode, terminkode + årstall, 
-	terminnr samt hvorvidt enheten skal eksporteres til LMS."""
-	qry = """
+    def list_undervisningenheter(self, sem=None):
+        """Henter undervisningsenheter i nåverende (current) og/eller neste
+        (next) semester. Default er både nåværende og neste semeter, så en får
+        med enhetene til undervisningsaktiviteter som går over to semester.
+
+        For hver undervisningsenhet henter vi institusjonsnr, emnekode,
+        versjonskode, terminkode + årstall, terminnr samt hvorvidt enheten skal
+        eksporteres til LMS."""
+
+        qry = """
         SELECT DISTINCT
           r.institusjonsnr, r.emnekode, r.versjonskode, e.emnenavnfork,
           e.emnenavn_bokmal, e.faknr_kontroll, e.instituttnr_kontroll, 
           e.gruppenr_kontroll, r.terminnr, r.terminkode, r.arstall,
           r.status_eksport_lms
-          FROM fs.emne e, fs.undervisningsenhet r
-          WHERE r.emnekode = e.emnekode AND
+        FROM 
+          fs.emne e, fs.undervisningsenhet r
+        WHERE
+          r.emnekode = e.emnekode AND
           r.versjonskode = e.versjonskode AND """ 
-        if (sem=="current"):
-	    qry +="""%s""" % self._get_termin_aar(only_current=1)
-        else: 
-	    qry +="""%s""" % self._get_next_termin_aar()
-	return self.db.query(qry)
-
+        if (sem == "current"):
+            qry +="""%s""" % self._get_termin_aar(only_current=1)
+        elif (sem == 'next'): 
+            qry +="""%s""" % self._get_next_termin_aar()
+        else:
+            qry +="""(%s OR %s)""" % (self._get_termin_aar(only_current=1),
+                                      self._get_next_termin_aar())
+        return self.db.query(qry)
 
     def list_aktiviteter(self, start_aar=time.localtime()[0],
                          start_semester=None):
         """Henter info om undervisningsaktiviteter for inneværende
-	semester. For hver undervisningsaktivitet henter vi
-	institusjonsnr, emnekode, versjonskode, terminkode + årstall,
-	terminnr, aktivitetskode, underpartiløpenummer, disiplinkode,
-	kode for undervisningsform, aktivitetsnavn samt hvorvidt
-	enheten skal eksporteres til LMS."""
+        semester. For hver undervisningsaktivitet henter vi
+        institusjonsnr, emnekode, versjonskode, terminkode + årstall,
+        terminnr, aktivitetskode, underpartiløpenummer, disiplinkode,
+        kode for undervisningsform, aktivitetsnavn samt hvorvidt
+        enheten skal eksporteres til LMS."""
         if start_semester is None:
             start_semester = self.semester
         return self.db.query("""
@@ -145,10 +152,10 @@ class NMHUndervisning(access_FS.Undervisning):
 
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
-	"""Finn fødselsnumrene til alle studenter på et gitt 
-	undervisningsenhet. Skal brukes til å generere grupper for
-	adgang til CF."""
-	qry = """
+        """Finn fødselsnumrene til alle studenter på et gitt 
+        undervisningsenhet. Skal brukes til å generere grupper for
+        adgang til CF."""
+        qry = """
         SELECT DISTINCT
           fodselsdato, personnr
         FROM fs.undervisningsmelding
