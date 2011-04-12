@@ -19,23 +19,20 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-import sys
+import sys, socket
 import getopt
 import SoapListener
 
-import cerebrum_path
-import cereconf
+import cerebrum_path, cereconf
 from Cerebrum.modules.cis import Individuation
 
 from soaplib.core import Application
-from soaplib.core.server import wsgi
 from soaplib.core.service import rpc
 from soaplib.core.model.primitive import String, Integer, Boolean
 from soaplib.core.model.clazz import ClassModel, Array
 
 from twisted.web.server import Site
 from twisted.web.resource import Resource
-from twisted.web.wsgi import WSGIResource
 from twisted.internet import reactor
 from twisted.python import log
 
@@ -53,12 +50,7 @@ This file provides a SOAP server for the Individuation service at UiO.
 
 TODO: Describe ...
 
-TODO: validate_password and set_password methods still missing
-
 """
-
-# TODO: authenticate
-
 
 class Account(ClassModel):
     # FIXME: define namespace properly 
@@ -66,7 +58,6 @@ class Account(ClassModel):
     uname = String
     priority = Integer
     status = String
-
 
 class IndividuationServer(SoapListener.BasicSoapServer):
     """
@@ -92,6 +83,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             quarantine of type 'autopassord'.
           - *Active*: if the account isn't inactive and hasn't any quarantine.
         """
+        # TODO: return a deferred here?
         ret = []
         # get_person_accounts returns a list of dicts on the form:
         # [{'uname': '...', 'priority': '...', 'status': '...'}, ...]
@@ -146,8 +138,6 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         """
         return Individuation.validate_password(password)
 
-
-
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
   -p | --port num: run on alternative port (default: ?)
@@ -159,10 +149,9 @@ def usage(exitcode=0):
 def clientVerificationCallbackTest(connection, x509, errnum, errdepth, ok):
     """TODO: this might be removed later, when done testing its purpose."""
     if not ok:
-        print 'invalid cert from subject:', x509.get_subject()
+        print 'Invalid cert from subject: %s, errnum=%s, errdepth=%s' % (
+                                    x509.get_subject(), errnum, errdepth)
         return False
-    else:
-        print "Certs are fine"
     return True
 
 if __name__=='__main__':
@@ -186,14 +175,21 @@ if __name__=='__main__':
 
     # Init twisted logger
     log.startLogging(file(logfile, 'w'))
+    #log.callWithLogger(logger, func, *args, **kw)
+    #        Utility method which wraps a function in a try:/except:, logs a
+    #        failure if one occurrs, and uses the system's logPrefix.
+
+
     # soaplib init
     service = Application([IndividuationServer], 'tns')
-    wsgi_application = wsgi.Application(service)
+    wsgi_application = SoapListener.WSGIApplication(service)
+
     # Run twisted service
-    resource = WSGIResource(reactor, reactor.getThreadPool(), wsgi_application)
+    resource = SoapListener.WSGIResourceSession(reactor, 
+                                                reactor.getThreadPool(),
+                                                wsgi_application)
     root = Resource()
     root.putChild('SOAP', resource)
-    # TODO: Print url of service
     if use_encryption:
         # TODO: we need to set up SSL properly
         sslcontext = ssl.DefaultOpenSSLContextFactory(
@@ -209,4 +205,12 @@ if __name__=='__main__':
         reactor.listenSSL(int(port), Site(root), contextFactory=sslcontext)
     else:
         reactor.listenTCP(int(port), Site(root))
+
+    if use_encryption:
+        url = "https://%s:%d/SOAP/" % (socket.gethostname(), port)
+    else:
+        url = "http://%s:%d/SOAP/" % (socket.gethostname(), port)
+    log.msg("Starting server at %s" % url)
+    log.msg("WSDL definition at %s?wsdl" % url)
+
     reactor.run()
