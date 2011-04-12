@@ -36,8 +36,9 @@ import string
 from mx.DateTime import RelativeDateTime, now
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.Utils import Factory, SMSSender, Messages
 from Cerebrum.modules import PasswordChecker
+import IndividuationMessages
 
 
 class SimpleLogger(object):
@@ -62,15 +63,13 @@ class SimpleLogger(object):
     def debug(self, msg):
         print "DEBUG: " + msg    
 
-    
 ## Globals
 
 db = Factory.get('Database')()
 db.cl_init(change_program='individuation_service')
 co = Factory.get('Constants')(db)
 log = SimpleLogger()
-
-
+msgs = Messages(text=IndividuationMessages.messages)
 
 def get_person_accounts(id_type, ext_id):
     """
@@ -106,17 +105,17 @@ def get_person_accounts(id_type, ext_id):
             log.error("Couldn't find account with id %s" % ac_id)
             continue
         if ac.is_expired() or ac.is_deleted():
-            status = "Inactive"
+            status = msgs['status_inactive']
         else:
             quartypes = [q['quarantine_type'] for q in
                          ac.get_entity_quarantine(only_active=True)]
             if len(quartypes) == 0:
-                status = "Active"
+                status = msgs['status_active']
             elif (len(quartypes) == 1 and int(co.quarantine_autopassord) in
                     quartypes):
-                status = "PasswordQuarantined"
+                status = msgs["status_passw_quar"]
             else:
-                status = "Inactive"
+                status = msgs["status_inactive"]
         ret.append({'uname': ac.account_name,
                     'priority': pri,
                     'status': status})
@@ -142,7 +141,6 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     @return: True if success, False otherwise
     @rtype: bool
     """
-    # TODO: need to throw exceptions with explanations instead of returning False
 
     # Check if person exists
     pe = get_person(id_type, ext_id)
@@ -150,26 +148,26 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     if not ac.owner_id == pe.entity_id:
         log.error("Account %s doesn't belong to person %d" % (uname,
                                                               pe.entity_id))
-        return False
+        raise Errors.CerebrumError(msgs['person_notfound'])
     # Check if account is blocked
     if not check_account(ac):
         log.error("Account %s is blocked" % (ac.account_name))
-        return False
+        raise Errors.CerebrumError(msgs['account_blocked'])
     # Check if person/account is reserved
     if not check_reserved(account=ac, person=pe):
         log.error("Account %s (or person) is reserved" % (ac.account_name))
-        return False
+        raise Errors.CerebrumError(msgs['account_reserved'])
     # Check phone_no
     if not check_phone(phone_no, pe):
         log.error("phone_no %s is not found in source systems for person %s" % (
                                                         phone_no, pe.entity_id))
-        return False
+        raise Errors.CerebrumError(msgs['person_notfound'])
     # Create and send token
     token = create_token()
     log.debug("Generated token %s for %s" % (token, uname))
     if not send_token(phone_no, token):
         log.error("Couldn't send token to %s for %s" % (phone_no, uname))
-        return False
+        raise Errors.CerebrumError(msgs['token_notsent'])
 
     # store password token as a trait
     ac.populate_trait(co.trait_password_token, date=now(), numval=0,
@@ -309,7 +307,7 @@ def get_person(id_type, ext_id):
         raise Errors.CerebrumError("Wrong id_type")
     except Errors.NotFoundError:
         log.error("Couldn't find person with %s='%s'" % (id_type, ext_id))
-        raise Errors.CerebrumError("Could not <find person")
+        raise Errors.CerebrumError("Could not find person")
     else:
         return pe
 
