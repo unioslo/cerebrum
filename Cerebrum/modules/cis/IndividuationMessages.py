@@ -21,6 +21,8 @@
 
 # Messages used by the Individuation Server
 messages = {
+    'error_unknown':     {'en': 'An unknown error occured',
+                          'no': 'En ukjent feil oppstod'},
     'status_inactive':   {'en': 'Inactive',
                           'no': 'Inaktiv'},
     'status_active':     {'en': 'Active',
@@ -33,13 +35,14 @@ messages = {
                           'no': 'Personen har ingen registrerte mobilnummer'},
     'account_blocked':   {'en': 'Account is blocked',
                           'no': 'Brukerkontoen er blokkert'},
-    'account_reserved':  {'en': 'Account is reserved from this service',
-                          'no': 'Brukerkontoen er reservert fra denne tjenesten'},
+    'account_reserved':  {'en': 'You are reserved from using this service',
+                          'no': 'Du er reservert fra å bruke denne tjenesten'},
     'token_notsent':     {'en': 'Could not send one time password to phone',
                           'no': 'Kunne ikke sende engangspassord til telefonen'},
     'toomanyattempts_check': {'en': 'Too many attempts, one time password got invalid',
                           'no': 'For mange forsøk, engangspassordet er blitt gjort ugyldig'},
     'timeout_check':     {'en': 'Timeout, one time password got invalid',
                           'no': 'Tidsavbrudd, engangspassord ble gjort ugyldig'},
+    'password_invalid':  {'en': 'Bad password: %s',
+                          'no': 'Ugyldig passord: %s'},
 }
-

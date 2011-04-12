@@ -146,21 +146,20 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     pe = get_person(id_type, ext_id)
     ac = get_account(uname)
     if not ac.owner_id == pe.entity_id:
-        log.error("Account %s doesn't belong to person %d" % (uname,
+        log.debug("Account %s doesn't belong to person %d" % (uname,
                                                               pe.entity_id))
         raise Errors.CerebrumError(msgs['person_notfound'])
     # Check if account is blocked
     if not check_account(ac):
-        log.error("Account %s is blocked" % (ac.account_name))
+        log.info("Account %s is blocked" % (ac.account_name))
         raise Errors.CerebrumError(msgs['account_blocked'])
     # Check if person/account is reserved
     if not check_reserved(account=ac, person=pe):
-        log.error("Account %s (or person) is reserved" % (ac.account_name))
+        log.info("Account %s (or person) is reserved" % (ac.account_name))
         raise Errors.CerebrumError(msgs['account_reserved'])
     # Check phone_no
     if not check_phone(phone_no, pe):
-        log.error("phone_no %s is not found in source systems for person %s" % (
-                                                        phone_no, pe.entity_id))
+        log.debug("phone_no %s not found for %s" % (phone_no, ac.account_name))
         raise Errors.CerebrumError(msgs['person_notfound'])
     # Create and send token
     token = create_token()
@@ -205,39 +204,42 @@ def check_token(uname, token, browser_token):
     """
     Check if token and other data from user is correct.
     """
-    # Check if person exists
-    ac = get_account(uname)
+    try:
+        ac = get_account(uname)
+    except Errors.CerebrumError:
+        # shouldn't tell what went wrong
+        return False
 
     # Check browser_token. The given browser_token may be "" but if so
     # the stored browser_token must be "" as well for the test to pass.
     
     bt = ac.get_trait(co.trait_browser_token)
     if not bt or bt['strval'] != hash_token(browser_token, uname):
-        log.error("Incorrect browser_token %s for user %s" % (browser_token, uname))
+        log.info("Incorrect browser_token %s for user %s" % (browser_token, uname))
         return False
 
     # Check password token. Keep track of how many times a token is
-    # checked to protect against brute force attack.
+    # checked to protect against brute force attack (defaults to 20).
     pt = ac.get_trait(co.trait_password_token)
     no_checks = int(pt['numval'])
-    if no_checks > getattr(cereconf, 'INDIVIDUATION_NO_CHECKS', 100):
-        log.warning("No. of token checks exceeded for user %s" % uname)
-        raise Errors.CerebrumError("Too many attempts, token invalid")
+    if no_checks > getattr(cereconf, 'INDIVIDUATION_NO_CHECKS', 20):
+        log.info("No. of token checks exceeded for user %s" % uname)
+        raise Errors.CerebrumError(msgs['toomanyattempts_check'])
     # Check if we're within time limit
     time_limit = now() - RelativeDateTime(minutes=cereconf.INDIVIDUATION_TOKEN_LIFETIME)
     if pt['date'] < time_limit:
-        log.info("Password token's timelimit for user %s exceeded" % uname)
-        raise Errors.CerebrumError("Timeout, token invalid")
-    if not pt or pt['strval'] != hash_token(token, uname):
-        log.warning("Token %s incorrect for user %s" % (token, uname))
-        ac.populate_trait(co.trait_password_token, strval=pt['strval'],
-                          date=pt['date'], numval=no_checks+1)
-        ac.write_db()
-        db.commit()
-        return False
-    # All is fine
-    return True
+        log.debug("Password token's timelimit for user %s exceeded" % uname)
+        raise Errors.CerebrumError(msgs['timeout_check'])
 
+    if pt and pt['strval'] == hash_token(token, uname):
+        # All is fine
+        return True
+    log.debug("Token %s incorrect for user %s" % (token, uname))
+    ac.populate_trait(co.trait_password_token, strval=pt['strval'],
+                      date=pt['date'], numval=no_checks+1)
+    ac.write_db()
+    db.commit()
+    return False
 
 def delete_token(uname):
     """
@@ -253,31 +255,33 @@ def delete_token(uname):
         return False
     return True
 
-
 def validate_password(password):
+    return _check_password(password)
+
+def _check_password(password, account=None):
     pc = PasswordChecker.PasswordChecker(db)
     try:
-        pc.goodenough(None, password, uname="foobar")
+        pc.goodenough(account, password, uname="foobar")
     except PasswordChecker.PasswordGoodEnoughException, m:
-        raise Errors.CerebrumError("Bad password: %s" % m)
+        raise Errors.CerebrumError(msgs['password_invalid'] % m)
     else:
         return True
-
 
 def set_password(uname, new_password, token, browser_token):
     if not check_token(uname, token, browser_token):
         return False
-    if not validate_password(new_password):
+    ac = get_account(uname)
+    if not _check_password(new_password, ac):
         return False
     # All data is good. Set password
-    ac = get_account(uname)
     ac.set_password(new_password)
     try:
         ac.write_db()
         db.commit()
         log.info("Password for %s altered." % uname)
     except db.DatabaseError, m:
-        raise Errors.CerebrumError("Database error: %s" % m)
+        log.error("Error when setting password for %s: %s" % (uname, m))
+        raise Errors.CerebrumError(msgs['error_unknown'])
     # Remove "weak password" quarantine
     for r in ac.get_entity_quarantine():
         for qua in (co.quarantine_autopassord, co.quarantine_svakt_passord):
@@ -285,32 +289,27 @@ def set_password(uname, new_password, token, browser_token):
                 ac.delete_entity_quarantine(qua)
                 ac.write_db()
                 db.commit()
-    
     if ac.is_deleted():
-        log.warning("user is deleted")
+        log.warning("user %s is deleted" % uname)
     elif ac.is_expired():
-        log.warning("user is expired")
+        log.warning("user %s is expired" % uname)
     elif ac.get_entity_quarantine(only_active=True):
-        log.warning("user has an active quarantine")
-
+        log.info("user %s has an active quarantine" % uname)
     return True
-    
-    
 
 def get_person(id_type, ext_id):
     pe = Factory.get('Person')(db)
     pe.clear()
     try:
         pe.find_by_external_id(getattr(co, id_type), ext_id)
-    except AttributeError:
+    except AttributeError, e:
         log.error("Wrong id_type: '%s'" % id_type)
-        raise Errors.CerebrumError("Wrong id_type")
+        raise e # unknown error
     except Errors.NotFoundError:
         log.error("Couldn't find person with %s='%s'" % (id_type, ext_id))
-        raise Errors.CerebrumError("Could not find person")
+        raise Errors.CerebrumError(msgs['person_notfound'])
     else:
         return pe
-
 
 def get_account(uname):
     ac = Factory.get('Account')(db)
@@ -319,15 +318,16 @@ def get_account(uname):
         ac.find_by_name(uname)
     except Errors.NotFoundError:
         log.error("Couldn't find account %s" % uname)
+        raise Errors.CerebrumError(msgs['person_notfound'])
     else:
         return ac
-
 
 def check_phone(phone_no, person):
     """
     Check if given phone_no belongs to person. The phone number is only searched
-    for in source systems and contact types as defined in
-    INDIVIDUATION_PHONE_TYPES, the rest is ignored.
+    for in source systems that the person has active affiliations from and
+    contact types as defined in INDIVIDUATION_PHONE_TYPES. Other numbers are
+    ignored.
     """
     pe_systems = [int(af['source_system']) for af in
                   person.list_affiliations(person_id=person.entity_id)]
@@ -337,8 +337,8 @@ def check_phone(phone_no, person):
             continue
         phone_types = [getattr(co, t) for t in types]
         for row in person.list_contact_info(entity_id=person.entity_id,
-                                    contact_type=phone_types,
-                                    source_system=system):
+                                            contact_type=phone_types,
+                                            source_system=system):
             # Crude test. We should probably do this more carefully
             if phone_no == row['contact_value']:
                 return True
@@ -381,11 +381,14 @@ def check_reserved(account, person):
                                                       member_type=co.entity_account)):
             return False
 
-    # Check if person is self reserved
+    # Check if person is reserved
     for reservation in person.list_traits(code=co.trait_reservation_sms_password,
                                           target_id=person.entity_id):
         if reservation['numval'] > 0:
             return False
-
-    # TODO: other checks?
+    # Check if account is reserved
+    for reservation in account.list_traits(code=co.trait_reservation_sms_password,
+                                           target_id=account.entity_id):
+        if reservation['numval'] > 0:
+            return False
     return True
