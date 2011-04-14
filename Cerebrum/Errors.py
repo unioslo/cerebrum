@@ -55,7 +55,7 @@ class DocstringException(Exception):
        """
     def __str__(self):
         args = Exception.__str__(self) # Get our arguments
-        
+
         # We'll only include the docstring if it has been defined in
         # our direct class. This avoids printing "General Error" when
         # a class SpecificError(GeneralError) just forgot to specify a
@@ -125,6 +125,14 @@ class PolicyException(CerebrumError):
     
     The argument should be a complete explanation of
     what policy is broken."""
+
+class CerebrumRPCException(CerebrumError):
+    """RPC exceptions has to be in Unicode (as RPC wants utf-8), but python
+    2.x doesn't support such exceptions. This is a small workaround for some
+    use cases, just dont try to run `str(e)` on it (use e.__str__()
+    instead)."""
+    def __str__(self):
+        return "CerebrumRPCException: " + u", ".join(self.args)
 
 def _test():
     import doctest,Errors 
