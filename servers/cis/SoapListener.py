@@ -22,6 +22,8 @@
 from lxml import etree
 from soaplib.core.service import DefinitionBase
 
+import traceback
+
 """
 This class provides the core functionality for SOAP services running
 in the CIS framework. CIS is based on the twisted framework and
@@ -71,7 +73,11 @@ class BasicSoapServer(DefinitionBase):
     
         @param the exception object
         '''
-        pass
+        print "Exception occured: '%s'" % exc.faultstring
+        if exc.faultactor != 'individuation':
+            traceback.print_exc()
+            # TBD: exchange error messages with default message, to avoid
+            # letting people read data they shouldn't read?
 
     def on_method_exception_xml(self, fault_xml):
         '''Called AFTER the exception is serialized, when an error occurs
@@ -80,11 +86,7 @@ class BasicSoapServer(DefinitionBase):
         @param the xml element containing the exception object serialized to a
         soap fault
         '''
-        msg = "Exception occured: "
-        for el in fault_xml.iter('faultstring'):
-            msg += el.text
-        print msg
-        
+        pass
 
     def call_wrapper(self, call, params):
         '''Called in place of the original method call.
@@ -94,6 +96,10 @@ class BasicSoapServer(DefinitionBase):
         '''
         return call(*params)
 
+### Hacks at Soaplib/Twisted
+### Below is collections of different hacks of the soaplib and twisted to fix
+### certain behaviour as we want. It should be put here to be able to locate any
+### changes when upgrading to newer versions of the packages.
 
 #
 # Hack of WSGI/soaplib to support sessions.
@@ -143,9 +149,55 @@ class WSGIResourceSession(WSGIResource):
         response = _WSGIResponse(self._reactor, self._threadpool,
                                  self._application, request)
         if request.method == 'POST':
-            response.environ['cis.session'] = request.getSession()
+            response.environ['cis.session'] = ISessionCache(request.getSession())
             log.msg("DEBUG: session id = %s" % request.getSession().uid)
         # The service can be reached at self._application.app.services[0] - are
         # there other ways of giving IndividuationServer the session?
         response.start()
         return NOT_DONE_YET
+
+# To make use of the session, we need to give it functionality, either by
+# adaption or subclassing, depending on what we need.
+
+# To use the session as a simple (cached) dict, you could do:
+# 
+#   cache = ISessionCache(request.getSession())
+#   
+from zope.interface import Interface, implements, Attribute
+from twisted.python import components
+from twisted.web.server import Session
+
+class ISessionCache(Interface):
+    """Simple class for storing data onto a session object."""
+    data = Attribute("For testing")
+
+class SessionCache(dict):
+    """A simple class for using the session as a normal dict."""
+    implements(ISessionCache)
+    def __init__(self, test):
+        dict.__init__(self)
+components.registerAdapter(SessionCache, Session, ISessionCache)
+
+# Session could also be subclassed, e.g. for setting the timeout, like:
+#
+#   class BasicSession(Session):
+#       sessionTimeout = 60 # in seconds
+#   site = Site(rootResource)
+#   site.sessionFactory = BasicSession
+
+
+#
+# Unicode/exception problem fix in twisted. We need to change safe_str's default
+# behaviour to also be able to encode unicode objects to strings, since we could
+# raise unicode exceptions.
+#
+from twisted.python import reflect
+def safer_str(o):
+    """Safer than safe_str, as it doesn't seem to handle unicode objects."""
+    if isinstance(o, unicode):
+        try:
+            return unicode(o).encode('utf-8')
+        except Exception, e:
+            print "Error Unicode: %s" % e
+    return reflect._safeFormat(str, o)
+reflect.safe_str = safer_str
