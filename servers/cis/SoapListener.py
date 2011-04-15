@@ -74,7 +74,7 @@ class BasicSoapServer(DefinitionBase):
         @param the exception object
         '''
         print "Exception occured: '%s'" % exc.faultstring
-        if exc.faultactor != 'individuation':
+        if not exc.faultstring.startswith('CerebrumRPCException: '):
             traceback.print_exc()
             # TBD: exchange error messages with default message, to avoid
             # letting people read data they shouldn't read?
@@ -125,36 +125,18 @@ class BasicSoapServer(DefinitionBase):
 # If you do not put in these lines in your server setup, the soap server will be
 # unaffected by this hack, but you wouldn't have session-support.
 #
-from soaplib.core.server import wsgi
 from twisted.web.server import NOT_DONE_YET
 from twisted.web.wsgi import WSGIResource, _WSGIResponse
-from twisted.python import log
-
-class WSGIApplication(wsgi.Application):
-    def on_wsgi_call(self, req_env):
-        """Using the hook to give the current session to every service in the
-        application. This is a hack, as we tighten the coupling to CIS. CIS
-        should be able to handle no defined sessions here.
-        """
-        for service in self.app.services:
-            service.session = req_env.get('cis.session', None)
 
 class WSGIResourceSession(WSGIResource):
     def render(self, request):
-        """We are changing the default behaviour by calling our subclass of
-        _WSGIResponse, so we can include the session to environ.
-        
-        We can't call the method's super() here, so we have to copy-paste in the
-        super method's code."""
-        response = _WSGIResponse(self._reactor, self._threadpool,
-                                 self._application, request)
+        """Creates the session, leaving the rest up to WSGIResource."""
         if request.method == 'POST':
-            response.environ['cis.session'] = ISessionCache(request.getSession())
-            log.msg("DEBUG: session id = %s" % request.getSession().uid)
-        # The service can be reached at self._application.app.services[0] - are
-        # there other ways of giving IndividuationServer the session?
-        response.start()
-        return NOT_DONE_YET
+            # Creates the session if it doesn't exist. When created, twisted
+            # automatically creates a cookie for it.
+            ISessionCache(request.getSession())
+            print "DEBUG: session id = %s" % request.getSession().uid
+        return super(WSGIResourceSession, self).render(request)
 
 # To make use of the session, we need to give it functionality, either by
 # adaption or subclassing, depending on what we need.
@@ -174,7 +156,7 @@ class ISessionCache(Interface):
 class SessionCache(dict):
     """A simple class for using the session as a normal dict."""
     implements(ISessionCache)
-    def __init__(self, test):
+    def __init__(self, instance=None):
         dict.__init__(self)
 components.registerAdapter(SessionCache, Session, ISessionCache)
 
@@ -196,7 +178,7 @@ def safer_str(o):
     """Safer than safe_str, as it doesn't seem to handle unicode objects."""
     if isinstance(o, unicode):
         try:
-            return unicode(o).encode('utf-8')
+            return o.encode('utf-8')
         except Exception, e:
             print "Error Unicode: %s" % e
     return reflect._safeFormat(str, o)
