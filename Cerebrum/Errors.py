@@ -127,12 +127,8 @@ class PolicyException(CerebrumError):
     what policy is broken."""
 
 class CerebrumRPCException(CerebrumError):
-    """RPC exceptions has to be in Unicode (as RPC wants utf-8), but python
-    2.x doesn't support such exceptions. This is a small workaround for some
-    use cases, just dont try to run `str(e)` on it (use e.__str__()
-    instead)."""
-    def __str__(self):
-        return "CerebrumRPCException: " + u", ".join(self.args)
+    """CerebrumRPCException"""
+    # The message should be a text code, to be used by a Message object.
 
 def _test():
     import doctest,Errors 
