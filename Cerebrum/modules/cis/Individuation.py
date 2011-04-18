@@ -36,10 +36,8 @@ import string
 from mx.DateTime import RelativeDateTime, now
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SMSSender, Messages
+from Cerebrum.Utils import Factory, SMSSender
 from Cerebrum.modules import PasswordChecker
-import IndividuationMessages
-
 
 class SimpleLogger(object):
     """
@@ -69,7 +67,6 @@ db = Factory.get('Database')()
 db.cl_init(change_program='individuation_service')
 co = Factory.get('Constants')(db)
 log = SimpleLogger()
-msgs = Messages(text=IndividuationMessages.messages)
 
 def get_person_accounts(id_type, ext_id):
     """
@@ -148,25 +145,25 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     if not ac.owner_id == pe.entity_id:
         log.debug("Account %s doesn't belong to person %d" % (uname,
                                                               pe.entity_id))
-        raise Errors.CerebrumError(msgs['person_notfound'])
+        raise Errors.CerebrumRPCException('person_notfound')
     # Check if account is blocked
     if not check_account(ac):
         log.info("Account %s is blocked" % (ac.account_name))
-        raise Errors.CerebrumError(msgs['account_blocked'])
+        raise Errors.CerebrumRPCException('account_blocked')
     # Check if person/account is reserved
     if not check_reserved(account=ac, person=pe):
         log.info("Account %s (or person) is reserved" % (ac.account_name))
-        raise Errors.CerebrumError(msgs['account_reserved'])
+        raise Errors.CerebrumRPCException('account_reserved')
     # Check phone_no
     if not check_phone(phone_no, pe):
         log.debug("phone_no %s not found for %s" % (phone_no, ac.account_name))
-        raise Errors.CerebrumError(msgs['person_notfound'])
+        raise Errors.CerebrumRPCException('person_notfound')
     # Create and send token
     token = create_token()
     log.debug("Generated token %s for %s" % (token, uname))
     if not send_token(phone_no, token):
         log.error("Couldn't send token to %s for %s" % (phone_no, uname))
-        raise Errors.CerebrumError(msgs['token_notsent'])
+        raise Errors.CerebrumRPCException('token_notsent')
 
     # store password token as a trait
     ac.populate_trait(co.trait_password_token, date=now(), numval=0,
@@ -206,7 +203,7 @@ def check_token(uname, token, browser_token):
     """
     try:
         ac = get_account(uname)
-    except Errors.CerebrumError:
+    except Errors.CerebrumRPCException:
         # shouldn't tell what went wrong
         return False
 
@@ -224,12 +221,12 @@ def check_token(uname, token, browser_token):
     no_checks = int(pt['numval'])
     if no_checks > getattr(cereconf, 'INDIVIDUATION_NO_CHECKS', 20):
         log.info("No. of token checks exceeded for user %s" % uname)
-        raise Errors.CerebrumError(msgs['toomanyattempts_check'])
+        raise Errors.CerebrumRPCException('toomanyattempts_check')
     # Check if we're within time limit
     time_limit = now() - RelativeDateTime(minutes=cereconf.INDIVIDUATION_TOKEN_LIFETIME)
     if pt['date'] < time_limit:
         log.debug("Password token's timelimit for user %s exceeded" % uname)
-        raise Errors.CerebrumError(msgs['timeout_check'])
+        raise Errors.CerebrumRPCException('timeout_check')
 
     if pt and pt['strval'] == hash_token(token, uname):
         # All is fine
@@ -263,7 +260,7 @@ def _check_password(password, account=None):
     try:
         pc.goodenough(account, password, uname="foobar")
     except PasswordChecker.PasswordGoodEnoughException, m:
-        raise Errors.CerebrumError(msgs['password_invalid'] % m)
+        raise Errors.CerebrumRPCException('password_invalid', m)
     else:
         return True
 
@@ -281,7 +278,7 @@ def set_password(uname, new_password, token, browser_token):
         log.info("Password for %s altered." % uname)
     except db.DatabaseError, m:
         log.error("Error when setting password for %s: %s" % (uname, m))
-        raise Errors.CerebrumError(msgs['error_unknown'])
+        raise Errors.CerebrumRPCException('error_unknown')
     # Remove "weak password" quarantine
     for r in ac.get_entity_quarantine():
         for qua in (co.quarantine_autopassord, co.quarantine_svakt_passord):
@@ -306,19 +303,18 @@ def get_person(id_type, ext_id):
         log.error("Wrong id_type: '%s'" % id_type)
         raise e # unknown error
     except Errors.NotFoundError:
-        log.error("Couldn't find person with %s='%s'" % (id_type, ext_id))
-        raise Errors.CerebrumError(msgs['person_notfound'])
+        log.debug("Couldn't find person with %s='%s'" % (id_type, ext_id))
+        raise Errors.CerebrumRPCException('person_notfound')
     else:
         return pe
 
 def get_account(uname):
     ac = Factory.get('Account')(db)
-    ac.clear()
     try:
         ac.find_by_name(uname)
     except Errors.NotFoundError:
-        log.error("Couldn't find account %s" % uname)
-        raise Errors.CerebrumError(msgs['person_notfound'])
+        log.info("Couldn't find account %s" % uname)
+        raise Errors.CerebrumRPCException('person_notfound')
     else:
         return ac
 
