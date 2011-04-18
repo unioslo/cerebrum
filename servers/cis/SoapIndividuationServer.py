@@ -24,12 +24,16 @@ import getopt
 import SoapListener
 
 import cerebrum_path, cereconf
-from Cerebrum.modules.cis import Individuation
+from Cerebrum.modules.cis import Individuation, IndividuationMessages
+from Cerebrum.Utils import Messages
+from Cerebrum import Errors
 
 from soaplib.core import Application
+from soaplib.core.server import wsgi
 from soaplib.core.service import rpc
 from soaplib.core.model.primitive import String, Integer, Boolean
 from soaplib.core.model.clazz import ClassModel, Array
+from soaplib.core.model.exception import Fault
 
 from twisted.web.server import Site
 from twisted.web.resource import Resource
@@ -66,8 +70,49 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     what parameters the methods accept, types and what is returned.
     """
 
-    @rpc(String, String, _returns=Array(Account))
-    def get_usernames(self, id_type, ext_id):
+    def _get_cache(self, session_id):
+        """Get the cache which is stored in the session. A temporary cache is
+        created if the session doesn't exist (happens at server restarts)."""
+        global site # TODO: this is spaghetti-wrong!
+        # Besides, the client could send its previous session id according to
+        # what is created by request.getSession() at the same request. This
+        # might only happen when the server restarts, so it might not be a real
+        # problem.
+        try:
+            cache = SoapListener.ISessionCache(site.getSession(session_id))
+        except KeyError:
+            # Session doesn't exists, creating default one. Affects only the
+            # first call.
+            # TODO: This will be fixed when we're able to get hold of the
+            # session from the request, and not as a soap-parameter.
+            cache = SoapListener.SessionCache()
+        if not cache.has_key('msgs'):
+            cache['msgs'] = Messages(text=IndividuationMessages.messages)
+        return cache
+
+    def call_wrapper(self, call, params):
+        """Subclassing the call wrapper to raise Faults instead of Cerebrum
+        errors. Also translates the error message for the user."""
+        self.cache = self._get_cache(params.session_id)
+        try:
+            return super(IndividuationServer, self).call_wrapper(call, params)
+        except Errors.CerebrumRPCException, e:
+            msg = self.cache['msgs'][e.args[0]] % e.args[1:]
+            raise Fault(faultstring=e.__doc__ + ': ' + msg)
+
+    @rpc(String, String, _returns=Boolean)
+    def set_language(self, language, session_id=None):
+        """
+        Sets what language feedback messages should be returned in.
+        """
+        # TODO: improve validation of the language code 
+        if language not in ('en', 'no'):
+            return False
+        self.cache['msgs'].lang = language
+        return True
+
+    @rpc(String, String, String, _returns=Array(Account))
+    def get_usernames(self, id_type, ext_id, session_id=None):
         """
         Based on id-type and the id, identify a person in Cerebrum and return a
         list of the persons accounts and their status. If person exist but
@@ -83,7 +128,6 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             quarantine of type 'autopassord'.
           - *Active*: if the account isn't inactive and hasn't any quarantine.
         """
-        # TODO: return a deferred here?
         ret = []
         # get_person_accounts returns a list of dicts on the form:
         # [{'uname': '...', 'priority': '...', 'status': '...'}, ...]
@@ -94,8 +138,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             ret.append(a)
         return ret
 
-    @rpc(String, String, String, String, String, _returns=Boolean)
-    def generate_token(self, id_type, ext_id, username, phone_no, browser_token):
+    @rpc(String, String, String, String, String, String, _returns=Boolean)
+    def generate_token(self, id_type, ext_id, username, phone_no, browser_token, session_id=None):
         """
         Send a token by SMS to the persons phone and store the token in
         Cerebrum. The input must be matched to only one existing person in
@@ -104,8 +148,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         return Individuation.generate_token(id_type, ext_id, username,
                                             phone_no, browser_token)
 
-    @rpc(String, String, String, _returns=Boolean)
-    def check_token(self, username, token, browser_token):
+    @rpc(String, String, String, String, _returns=Boolean)
+    def check_token(self, username, token, browser_token, session_id=None):
         """
         Check if a given token is correct for the given user.
 
@@ -114,24 +158,25 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         """
         return Individuation.check_token(username, token, browser_token)
 
-    @rpc(String, _returns=Boolean)
-    def abort_token(self, username):
+    @rpc(String, String, _returns=Boolean)
+    def abort_token(self, username, session_id=None):
         """
         Remove token for given user from Cerebrum. Used in case the user wants
         to abort the process.
         """
         return Individuation.delete_token(username)
 
-    @rpc(String, String, String, String, _returns=Boolean)
-    def set_password(self, username, new_password, token, browser_token):
+    @rpc(String, String, String, String, String, _returns=Boolean)
+    def set_password(self, username, new_password, token, browser_token,
+                     session_id=None):
         """
         Set new password for a user if the tokens are valid and the password is
         good enough.
         """
         return Individuation.set_password(username, new_password, token, browser_token)
 
-    @rpc(String, _returns=Boolean)
-    def validate_password(self, password):
+    @rpc(String, String, _returns=Boolean)
+    def validate_password(self, password, session_id=None):
         """
         Check if a given password is good enough. Returns either True or throws
         exceptions with an explanation of what is wrong with the password.
@@ -179,10 +224,9 @@ if __name__=='__main__':
     #        Utility method which wraps a function in a try:/except:, logs a
     #        failure if one occurrs, and uses the system's logPrefix.
 
-
     # soaplib init
     service = Application([IndividuationServer], 'tns')
-    wsgi_application = SoapListener.WSGIApplication(service)
+    wsgi_application = wsgi.Application(service)
 
     # Run twisted service
     resource = SoapListener.WSGIResourceSession(reactor, 
@@ -190,6 +234,9 @@ if __name__=='__main__':
                                                 wsgi_application)
     root = Resource()
     root.putChild('SOAP', resource)
+    site = Site(root)
+    # If sessions' behaviour should be changed (e.g. timeout):
+    # site.sessionFactory = BasicSession
     if use_encryption:
         # TODO: we need to set up SSL properly
         sslcontext = ssl.DefaultOpenSSLContextFactory(
@@ -202,9 +249,9 @@ if __name__=='__main__':
                                   clientVerificationCallbackTest)
             # Tell the server what certicates it should trust:
             ctx.load_verify_locations(cereconf.INDIVIDUATION_CLIENT_CERT)
-        reactor.listenSSL(int(port), Site(root), contextFactory=sslcontext)
+        reactor.listenSSL(int(port), site, contextFactory=sslcontext)
     else:
-        reactor.listenTCP(int(port), Site(root))
+        reactor.listenTCP(int(port), site)
 
     if use_encryption:
         url = "https://%s:%d/SOAP/" % (socket.gethostname(), port)
