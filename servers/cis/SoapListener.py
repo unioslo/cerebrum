@@ -50,7 +50,7 @@ class BasicSoapServer(DefinitionBase):
         @param the soap elements for each argument
         '''
         print "Calling method %s(%s)" % (method_name, 
-                                        ', '.join([repr(p) for p in py_params]))
+                                         ', '.join(repr(p) for p in py_params))
 
     def on_method_return_object(self, py_results):
         '''Called AFTER the service implementing the functionality is called,
