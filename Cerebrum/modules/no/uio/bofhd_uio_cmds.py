@@ -2672,8 +2672,9 @@ class BofhdExtension(BofhdCommandBase):
         ("email", "create_sympa_list_alias"),
         EmailAddress(help_ref="mailing_list_exist"),
         EmailAddress(help_ref="mailing_list"),
+        YesNo(help_ref="yes_no_force", optional=True),
         perm_filter="can_email_list_create")
-    def email_create_sympa_list_alias(self, operator, listname, address):
+    def email_create_sympa_list_alias(self, operator, listname, address, force=False):
         """Create a secondary name for an existing Sympa list."""
 
         # The first thing we have to do is to locate the delivery
@@ -2697,7 +2698,7 @@ class BofhdExtension(BofhdCommandBase):
         
         return self._create_list_alias(operator, listname, address,
                                        self.const.email_target_Sympa,
-                                       delivery_host)
+                                       delivery_host, force_alias=force)
     # end email_create_sympa_list_alias
 
 
