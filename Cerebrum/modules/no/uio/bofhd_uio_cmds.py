@@ -2677,6 +2677,7 @@ class BofhdExtension(BofhdCommandBase):
     def email_create_sympa_list_alias(self, operator, listname, address, force=False):
         """Create a secondary name for an existing Sympa list."""
 
+        force = self._get_boolean(force)
         # The first thing we have to do is to locate the delivery
         # host. Postmasters do NOT want to allow people to specify a different
         # delivery host for alias than for the list that is being aliased. So,
