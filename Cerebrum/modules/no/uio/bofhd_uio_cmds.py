@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2010 University of Oslo, Norway
+# Copyright 2002-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -2676,8 +2676,8 @@ class BofhdExtension(BofhdCommandBase):
         perm_filter="can_email_list_create")
     def email_create_sympa_list_alias(self, operator, listname, address, force=False):
         """Create a secondary name for an existing Sympa list."""
-
-        force = self._get_boolean(force)
+        if isinstance(force, str):
+            force = self._get_boolean(force)
         # The first thing we have to do is to locate the delivery
         # host. Postmasters do NOT want to allow people to specify a different
         # delivery host for alias than for the list that is being aliased. So,
