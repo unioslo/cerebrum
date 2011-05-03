@@ -85,6 +85,13 @@ def get_person_accounts(id_type, ext_id):
     # Check if person exists
     ac = Factory.get('Account')(db)
     pe = get_person(id_type, ext_id)
+
+    # Check reservation
+    if is_reserved_publication(pe):
+        log.info("Person id=%s is reserved from publication" % pe.entity_id)
+        # Returns same error message as for non existing persons, to avoid
+        # leaking information that a person actually exists in our systems.
+        raise Errors.CerebrumRPCException('person_notfound')
     accounts = dict((a['account_id'], 9999999) for a in
                      ac.list_accounts_by_owner_id(owner_id=pe.entity_id,
                                                   filter_expired=False))
@@ -102,17 +109,17 @@ def get_person_accounts(id_type, ext_id):
             log.error("Couldn't find account with id %s" % ac_id)
             continue
         if ac.is_expired() or ac.is_deleted():
-            status = msgs['status_inactive']
+            status = 'status_inactive'
         else:
             quartypes = [q['quarantine_type'] for q in
                          ac.get_entity_quarantine(only_active=True)]
             if len(quartypes) == 0:
-                status = msgs['status_active']
+                status = 'status_active'
             elif (len(quartypes) == 1 and int(co.quarantine_autopassord) in
                     quartypes):
-                status = msgs["status_passw_quar"]
+                status = 'status_passw_quar'
             else:
-                status = msgs["status_inactive"]
+                status = 'status_inactive'
         ret.append({'uname': ac.account_name,
                     'priority': pri,
                     'status': status})
@@ -151,7 +158,7 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
         log.info("Account %s is blocked" % (ac.account_name))
         raise Errors.CerebrumRPCException('account_blocked')
     # Check if person/account is reserved
-    if not check_reserved(account=ac, person=pe):
+    if is_reserved(account=ac, person=pe):
         log.info("Account %s (or person) is reserved" % (ac.account_name))
         raise Errors.CerebrumRPCException('account_reserved')
     # Check phone_no
@@ -186,10 +193,10 @@ def send_token(phone_no, token):
     """
     Send token as a SMS message to phone_no
     """
-    #sms = SMSSender(logger=log)
-    #msg = "Your one time password: %s \nUniversity of Oslo" % token
-    #return sms(phone_no, msg)
-    return True
+    sms = SMSSender(logger=log)
+    msg = getattr(cereconf, 'INDIVIDUATION_SMS_MESSAGE', 
+                            'Your one time password: %s')
+    return sms(phone_no, msg % token)
 
 def hash_token(token, uname):
     """
@@ -355,7 +362,7 @@ def check_account(account):
     # TODO: more to check?
     return True
     
-def check_reserved(account, person):
+def is_reserved(account, person):
     """
     Check that the person/account isn't reserved from using the service.
     """
@@ -369,22 +376,35 @@ def check_reserved(account, person):
                                  group.search_members(group_id=group.entity_id,
                                                       indirect_members=True,
                                                       member_type=co.entity_account)):
-            return False
+            return True
         # TODO: these two loops should be merged!
         if person.entity_id in (int(row["member_id"]) for row in
                                  group.search_members(group_id=group.entity_id,
                                                       indirect_members=True,
                                                       member_type=co.entity_account)):
-            return False
+            return True
 
     # Check if person is reserved
     for reservation in person.list_traits(code=co.trait_reservation_sms_password,
                                           target_id=person.entity_id):
         if reservation['numval'] > 0:
-            return False
+            return True
     # Check if account is reserved
     for reservation in account.list_traits(code=co.trait_reservation_sms_password,
                                            target_id=account.entity_id):
         if reservation['numval'] > 0:
-            return False
-    return True
+            return True
+    return False
+
+def is_reserved_publication(person):
+    """
+    Check if a person is reserved from being published on the instance's web
+    pages.
+    """
+    return False
+
+
+
+
+
+

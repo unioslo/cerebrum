@@ -23,14 +23,12 @@
 messages = {
     'error_unknown':     {'en': u'An unknown error occured',
                           'no': u'En ukjent feil oppstod'},
-    'status_inactive':   {'en': u'Inactive',
-                          'no': u'Inaktiv'},
-    'status_active':     {'en': u'Active',
-                          'no': u'Aktiv'},
-    'status_passw_quar': {'en': u'Passwordquarantined',
-                          'no': u'Passordkarantene'},
-    'person_notfound':   {'en': u'Could not find person',
-                          'no': u'Kunne ikke finne personen'},
+    'person_notfound':   {'en': u'Could not find a person by given data, please try again. Please note that you will ' + 
+                                u'not be able to use this service if you are reserved from being published on UiO\'s ' +
+                                u'web pages.',
+                          'no': (u'Kunne ikke finne personen ut fra oppgitte data, vennligst prøv igjen. Merk at du ' + 
+                                 u'ikke kan bruke denne tjenesten om du har reservert deg fra å bli publisert på UiO ' +
+                                 u'sine nettsider.')},
     'person_nophone':    {'en': u'Person has no registered mobile numbers',
                           'no': u'Personen har ingen registrerte mobilnummer'},
     'account_blocked':   {'en': u'Account is blocked',
