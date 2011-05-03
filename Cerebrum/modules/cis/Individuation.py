@@ -108,17 +108,13 @@ def get_person_accounts(id_type, ext_id):
         except Errors.NotFoundError:
             log.error("Couldn't find account with id %s" % ac_id)
             continue
-        if ac.is_expired() or ac.is_deleted():
-            status = 'status_inactive'
-        else:
-            quartypes = [q['quarantine_type'] for q in
-                         ac.get_entity_quarantine(only_active=True)]
-            if len(quartypes) == 0:
-                status = 'status_active'
-            elif (len(quartypes) == 1 and int(co.quarantine_autopassord) in
-                    quartypes):
-                status = 'status_passw_quar'
-            else:
+        status = 'status_inactive'
+        if not (ac.is_expired() or ac.is_deleted()):
+            status = 'status_active'
+            accepted_quars = [int(getattr(co, q)) for q in
+                              cereconf.INDIVIDUATION_ACCEPTED_QUARANTINES]
+            if any(q['quarantine_type'] not in accepted_quars
+                   for q in ac.get_entity_quarantine(only_active=True)):
                 status = 'status_inactive'
         ret.append({'uname': ac.account_name,
                     'priority': pri,
@@ -401,6 +397,8 @@ def is_reserved_publication(person):
     Check if a person is reserved from being published on the instance's web
     pages.
     """
+    # TODO: how to implement this? Should it be subclassed, as it might be
+    #       implemented differently for each institution?
     return False
 
 
