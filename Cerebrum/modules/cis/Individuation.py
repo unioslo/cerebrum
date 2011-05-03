@@ -149,6 +149,10 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
         log.debug("Account %s doesn't belong to person %d" % (uname,
                                                               pe.entity_id))
         raise Errors.CerebrumRPCException('person_notfound')
+    # Check if too many attempts
+    if too_many_attempts(ac):
+        log.info("Too many attempts for %s, temporarily blocked" % (ac.account_name))
+        raise Errors.CerebrumRPCException('toomanyattempts')
     # Check if account is blocked
     if not check_account(ac):
         log.info("Account %s is blocked" % (ac.account_name))
@@ -157,7 +161,14 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     if is_reserved(account=ac, person=pe):
         log.info("Account %s (or person) is reserved" % (ac.account_name))
         raise Errors.CerebrumRPCException('account_reserved')
+    # Check if person/account is self reserved
+    if is_reserved(account=ac, person=pe):
+        log.info("Account %s (or person) is self reserved" % (ac.account_name))
+        raise Errors.CerebrumRPCException('account_self_reserved')
     # Check phone_no
+    if not has_phone(pe):
+        log.debug("No affiliation or phone registered for %s" % ac.account_name)
+        raise Errors.CerebrumRPCException('person_miss_info')
     if not check_phone(phone_no, pe):
         log.debug("phone_no %s not found for %s" % (phone_no, ac.account_name))
         raise Errors.CerebrumRPCException('person_notfound')
@@ -321,6 +332,24 @@ def get_account(uname):
     else:
         return ac
 
+def has_phone(person):
+    """
+    Check if a person has at least one phone number registered to one of its
+    active affiliations.
+    """
+    pe_systems = [int(af['source_system']) for af in
+                  person.list_affiliations(person_id=person.entity_id)]
+    for sys, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
+        system = getattr(co, sys)
+        if int(system) not in pe_systems:
+            continue
+        phone_types = [getattr(co, t) for t in types]
+        if len(person.list_contact_info(entity_id=person.entity_id,
+                                        contact_type=phone_types,
+                                        source_system=system)) > 0:
+            return True
+    return False
+
 def check_phone(phone_no, person):
     """
     Check if given phone_no belongs to person. The phone number is only searched
@@ -342,6 +371,14 @@ def check_phone(phone_no, person):
             if phone_no == row['contact_value']:
                 return True
     return False
+
+def too_many_attempts(account):
+    """
+    Check if a user has tried to use the service too many times.
+    """
+    # TODO: create/update a user trait
+    return False
+
 
 def check_account(account):
     """
@@ -379,7 +416,12 @@ def is_reserved(account, person):
                                                       indirect_members=True,
                                                       member_type=co.entity_account)):
             return True
+    return False
 
+def is_self_reserved(account, person):
+    """
+    Check if the user has reserved himself from using the service.
+    """
     # Check if person is reserved
     for reservation in person.list_traits(code=co.trait_reservation_sms_password,
                                           target_id=person.entity_id):
