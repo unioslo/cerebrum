@@ -422,16 +422,19 @@ automatically generated from FS.''')
         'student_disk', Constants.Constants.entity_disk,
         "When set, the disk in question is designated as hosting students' home areas")
 
-    # Trait for Individuation service
+    # Traits for the password service (Individuation)
     trait_password_token = _EntityTraitCode(
         "password_token", Constants.Constants.entity_account,
-        "Store a individuation password token for an account")
+        "Store a one time password for an account")
     trait_browser_token = _EntityTraitCode(
         "browser_token", Constants.Constants.entity_account,
-        "Store a individuation browser token for an account")
+        "Store a browser token for an account")
+    trait_password_failed_attempts = _EntityTraitCode(
+        "passw_attempts", Constants.Constants.entity_account,
+        "Number of times an account has tried to use sms password service")
     
-    # Trait for reservation from the Individuation service
+    # Trait for reservation from the new password service
     # TODO: should be replaced by a reservation table later
     trait_reservation_sms_password = _EntityTraitCode(
-        'reserve_passw', Constants.Constants.entity_person,
-        "Person is reserved from using the sms password service")
+        'reserve_passw', Constants.Constants.entity_account,
+        "Account is reserved from using the sms password service")

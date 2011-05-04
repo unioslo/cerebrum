@@ -142,17 +142,16 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
     @rtype: bool
     """
 
+    # Check if account exists
+    ac = get_account(uname)
+    # Check if account has been checked too many times
+    check_too_many_attempts(ac)
     # Check if person exists
     pe = get_person(id_type, ext_id)
-    ac = get_account(uname)
     if not ac.owner_id == pe.entity_id:
         log.debug("Account %s doesn't belong to person %d" % (uname,
                                                               pe.entity_id))
         raise Errors.CerebrumRPCException('person_notfound')
-    # Check if too many attempts
-    if too_many_attempts(ac):
-        log.info("Too many attempts for %s, temporarily blocked" % (ac.account_name))
-        raise Errors.CerebrumRPCException('toomanyattempts')
     # Check if account is blocked
     if not check_account(ac):
         log.info("Account %s is blocked" % (ac.account_name))
@@ -376,13 +375,27 @@ def check_phone(phone_no, person):
                 return True
     return False
 
-def too_many_attempts(account):
+def check_too_many_attempts(account):
     """
-    Check if a user has tried to use the service too many times.
+    Checks if a user has tried to use the service too many times. Creates the
+    trait if it doesn't exist, and increments the numval. Raises an exception
+    when too many attempts occur in the block period.
     """
-    # TODO: create/update a user trait
-    return False
-
+    attempts = 0
+    trait = account.get_trait(co.trait_password_failed_attempts)
+    block_period = now() - RelativeDateTime(seconds=cereconf.INDIVIDUATION_ATTEMPTS_BLOCK_PERIOD)
+    if trait and trait['date'] > block_period:
+        attempts = int(trait['numval'])
+    log.debug('User %s have tried %d times' % (account.account_name,
+                                               attempts))
+    if attempts > cereconf.INDIVIDUATION_ATTEMPTS:
+        log.info("User %s too many attempts, temporarily blocked" %
+                 account.account_name)
+        raise Errors.CerebrumRPCException('toomanyattempts')
+    account.populate_trait(code=co.trait_password_failed_attempts,
+            target_id=account.entity_id, date=now(), numval=attempts + 1)
+    account.write_db()
+    db.commit()
 
 def check_account(account):
     """
