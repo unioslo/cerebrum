@@ -162,7 +162,7 @@ def generate_token(id_type, ext_id, uname, phone_no, browser_token):
         log.info("Account %s (or person) is reserved" % (ac.account_name))
         raise Errors.CerebrumRPCException('account_reserved')
     # Check if person/account is self reserved
-    if is_reserved(account=ac, person=pe):
+    if is_self_reserved(account=ac, person=pe):
         log.info("Account %s (or person) is self reserved" % (ac.account_name))
         raise Errors.CerebrumRPCException('account_self_reserved')
     # Check phone_no
@@ -337,8 +337,10 @@ def has_phone(person):
     Check if a person has at least one phone number registered to one of its
     active affiliations.
     """
+    old_limit = now() - RelativeDateTime(days=cereconf.INDIVIDUATION_AFF_GRACE_PERIOD)
     pe_systems = [int(af['source_system']) for af in
-                  person.list_affiliations(person_id=person.entity_id)]
+                  person.list_affiliations(person_id=person.entity_id, include_deleted=True)
+                  if (af['deleted_date'] is None or af['deleted_date'] > old_limit)]
     for sys, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
         system = getattr(co, sys)
         if int(system) not in pe_systems:
@@ -357,8 +359,10 @@ def check_phone(phone_no, person):
     contact types as defined in INDIVIDUATION_PHONE_TYPES. Other numbers are
     ignored.
     """
+    old_limit = now() - RelativeDateTime(days=cereconf.INDIVIDUATION_AFF_GRACE_PERIOD)
     pe_systems = [int(af['source_system']) for af in
-                  person.list_affiliations(person_id=person.entity_id)]
+                  person.list_affiliations(person_id=person.entity_id, include_deleted=True)
+                  if (af['deleted_date'] is None or af['deleted_date'] > old_limit)]
     for sys, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
         system = getattr(co, sys)
         if int(system) not in pe_systems:
