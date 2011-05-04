@@ -231,7 +231,7 @@ class EmailLDAP(DatabaseAccessor):
         
     def read_vacation(self):
         mail_vaca = Email.EmailVacation(self._db)
-        cur = mx.DateTime.now()
+        cur = mx.DateTime.today()
         def prefer_row(row, oldval):
             o_txt, o_sdate, o_edate, o_enable = oldval
             txt, sdate, edate, enable = [row[x]
