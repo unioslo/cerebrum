@@ -26,11 +26,6 @@ layer between the AD service and the different AD syncs.
 
 TODO:
 
-* Let the module reside here for the moment. It should be general
-  enough to be in Cerebrum/modules but there's an old and probably
-  deprecated module there with the name ADutils.py. Need to find out
-  if I can remove that module first. (or rename this one)
-
 * the AD service should use exceptions instead of returning a list on
   the form: [<succes flag>, <Message>] Transmitting exceptions through
   XML-RPC is a bit of a hassle, but is doable. And should be worth
@@ -83,7 +78,7 @@ class ADUtils(object):
 
         @param dn: AD attribute distinguishedName 
         @type dn: str
-        @param changes: attributes that shoudl be changed in AD
+        @param changes: attributes that should be changed in AD
         @type changes: dict (keyword args)
         """
         if not self.dryrun and self.run_cmd('bindObject', dn):
@@ -96,7 +91,7 @@ class ADUtils(object):
     def attr_cmp(self, cb_attr, ad_attr):
         """
         Compare new (attribute calculated from Cerebrum data) and old
-        ad attributes. 
+        ad attribute. 
 
         @param cb_attr: attribute calculated from Cerebrum data
         @type cb_attr: unicode 
@@ -145,14 +140,9 @@ class ADUtils(object):
         return ret[0]
 
 
-class ADUserUtils(ADUtils):
-    """
-    User specific methods
-    """
-
-    def move_user(self, dn, ou):
+    def move_object(self, dn, ou, obj_type="user"):
         """
-        Move given user in Ad to given ou.
+        Move given object in Ad to given ou.
 
         @param dn: AD attribute distinguishedName 
         @type dn: str
@@ -160,12 +150,52 @@ class ADUserUtils(ADUtils):
         @type ou: str        
         """
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not moving user %s to %s" % (dn, ou))
+            self.logger.debug("DRYRUN: Not moving %s %s to %s" % (
+                obj_type, dn, ou))
             return
 
         if self.run_cmd('bindObject', dn):
-            self.logger.info("Moving user %s to %s" % (dn, ou))
+            self.logger.info("Moving %s %s to %s" % (obj_type, dn, ou))
             self.run_cmd('moveObject', ou)
+
+
+    def move_contact(self, dn, ou):
+        self.move_object(dn, ou, obj_type="contact")
+        
+
+    # TBD: correct placement?
+    def create_ad_contact(self, attrs, ou):
+        """
+        Create AD account, set password and default properties. 
+
+        @param attrs: AD attrs to be set for the account
+        @type attrs: dict        
+        @param ou: LDAP path to base ou for the entity type
+        @type ou: str        
+        """
+        name = attrs.pop("sAMAccountName")
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not creating contact %s" % name)
+            return
+        
+        ret = self.run_cmd("createObject", "contact", ou, name)
+        if not ret[0]:
+            # Don't continue if createObject fails
+            return
+        self.logger.info("created contact %s" % name)
+
+        self.run_cmd("putProperties", attrs)
+        self.run_cmd("setObject")
+        return ret[0]
+
+
+class ADUserUtils(ADUtils):
+    """
+    User specific methods
+    """
+
+    def move_user(self, dn, ou):
+        self.move_object(dn, ou, obj_type="user")
 
 
     def deactivate_user(self, dn):
@@ -225,7 +255,8 @@ class ADUserUtils(ADUtils):
             self.logger.debug("DRYRUN: Not creating user %s" % uname)
             return
         
-        if not self.run_cmd("createObject", "User", ou, uname):
+        ret = self.run_cmd("createObject", "User", ou, uname)
+        if not ret[0]:
             # Don't continue if createObject fails
             return
         self.logger.info("created user %s" % uname)
@@ -238,7 +269,8 @@ class ADUserUtils(ADUtils):
             del attrs["distinguishedName"]
         self.run_cmd("putProperties", attrs)
         self.run_cmd("setObject")
-
+        # createObject succeded, return sid
+        return ret[2]
 
 
 class ADGroupUtils(ADUtils):
@@ -257,7 +289,7 @@ class ADGroupUtils(ADUtils):
         """
         gname = attrs.pop("name")
         if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating group %s" % group)
+            self.logger.debug("DRYRUN: Not creating group %s" % gname)
 
         if self.run_cmd("createObject", "Group", ou, gname):
             self.logger.info("created group %s" % gname)
@@ -274,7 +306,7 @@ class ADGroupUtils(ADUtils):
             self.logger.debug("DRYRUN: Not deleting %s" % dn)
             return
 
-        if nself.run_cmd('bindObject', dn):
+        if self.run_cmd('bindObject', dn):
             self.logger.info("Deleting group %s" % dn)
             self.run_cmd('deleteObject')
 
