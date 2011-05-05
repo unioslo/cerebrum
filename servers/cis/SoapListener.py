@@ -19,15 +19,32 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import socket
+
 from lxml import etree
+import soaplib.core
+from soaplib.core.server import wsgi
 from soaplib.core.service import DefinitionBase
+
+from twisted.web.server import Site
+from twisted.web.resource import Resource
+from twisted.internet import reactor
+from twisted.python import log
+
+try:
+    from twisted.internet import ssl
+    CRYPTO_AVAILABLE = True
+except ImportError:
+    CRYPTO_AVAILABLE = False
+
+# TODO: how to import this correctly?
+from OpenSSL import SSL
 
 import traceback
 
 """
-This class provides the core functionality for SOAP services running
-in the CIS framework. CIS is based on the twisted framework and
-soaplib.
+The core functionality for SOAP services running in the CIS framework. CIS is
+based on the twisted framework and soaplib.
 
 ...
 """
@@ -96,6 +113,106 @@ class BasicSoapServer(DefinitionBase):
         @param the arguments to the call
         '''
         return call(*params)
+
+def clientVerificationCallback(connection, x509, errnum, errdepth, ok):
+    """Callback for verifying a client's certificate."""
+    if not ok:
+        print 'ERROR: Invalid cert from subject: %s, errnum=%s, errdepth=%s' % (
+                                    x509.get_subject(), errnum, errdepth)
+        return False
+    return True
+
+
+class BasicSoapStarter:
+    """
+    Basic utility class for starting a soap server with the preferred
+    settings.
+    """
+    def __init__(self):
+        pass
+
+    def run(self):
+        """Starts the soap server"""
+        pass
+
+class TwistedSoapStarter(BasicSoapStarter):
+    """
+    Basic utility class for starting a soap server through Twisted. Could be
+    subclassed or manipulated directly to change standard behaviour. Normally,
+    you would only run::
+
+      server = BasicTwistedSoapStarter(applications, port, ...)
+      server.run()
+
+    which would start Twisted's reactor for the given port.
+    """
+
+    # The namespace for soap's xml data
+    namespace = 'tns'
+
+    # The subdirectory in the server where soap is located, e.g.
+    # https://example.com/SOAP
+    soapchildpath = 'SOAP'
+
+    # Callback for verifying client's certificates
+    clientverifycallback = clientVerificationCallback
+
+    def __init__(self, applications, port, private_key_file=None,
+                 certificate_file=None, client_cert_files=None):
+        """Setting up a standard soap server. If either a key or certificate
+        file is given, it will use encryption."""
+        #super(TwistedSoapStarter, self).__init__()
+        self.setup_soaplib(applications)
+        self.setup_twisted()
+
+        if private_key_file or certificate_file: # encrypted
+            self.setup_encrypted_reactor(port, private_key_file,
+                                         certificate_file, client_cert_files)
+            url = "https://%s:%d/SOAP/" % (socket.gethostname(), port)
+        else: # unencrypted
+            self.setup_reactor(port=port)
+            url = "http://%s:%d/SOAP/" % (socket.gethostname(), port)
+        log.msg("Server set up at %s" % url)
+        log.msg("WSDL definition at %s?wsdl" % url)
+
+    def setup_soaplib(self, applications):
+        """Setting up the soaplib framework."""
+        if type(applications) not in (list, tuple, dict):
+            applications = [applications]
+        self.service = soaplib.core.Application(applications, self.namespace)
+        self.wsgi_application = wsgi.Application(self.service)
+
+    def setup_twisted(self):
+        """Setting up the twisted service. Soaplib has to be setup first."""
+        self.resource = WSGIResourceSession(reactor, reactor.getThreadPool(),
+                                            self.wsgi_application)
+        self.root = Resource()
+        self.root.putChild(self.soapchildpath, self.resource)
+        self.site = Site(self.root)
+
+    def setup_encrypted_reactor(self, port, private_key_file,
+                                certificate_file, client_cert_files=None):
+        """Setting up the reactor with encryption."""
+        sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
+                                                      certificate_file)
+        if client_cert_files:
+            ctx = sslcontext.getContext()
+            ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                           self.clientverifycallback)
+            # Tell the server what certificates it should trust:
+            # TODO: check how more than one certificate could be added
+            ctx.load_verify_locations(client_cert_files)
+        reactor.listenSSL(int(port), self.site, contextFactory=sslcontext)
+
+    def setup_reactor(self, port):
+        """Setting up the reactor, without encryption."""
+        reactor.listenTCP(int(port), self.site)
+
+    def run(self):
+        """Starts the soap server"""
+        reactor.run()
+
+
 
 ### Hacks at Soaplib/Twisted
 ### Below is collections of different hacks of the soaplib and twisted to fix

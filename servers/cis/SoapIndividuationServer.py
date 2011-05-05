@@ -28,16 +28,11 @@ from Cerebrum.modules.cis import Individuation, IndividuationMessages
 from Cerebrum.Utils import Messages
 from Cerebrum import Errors
 
-from soaplib.core import Application
-from soaplib.core.server import wsgi
 from soaplib.core.service import rpc
 from soaplib.core.model.primitive import String, Integer, Boolean
 from soaplib.core.model.clazz import ClassModel, Array
 from soaplib.core.model.exception import Fault
 
-from twisted.web.server import Site
-from twisted.web.resource import Resource
-from twisted.internet import reactor
 from twisted.python import log
 
 try:
@@ -45,9 +40,6 @@ try:
     CRYPTO_AVAILABLE = True
 except ImportError:
     CRYPTO_AVAILABLE = False
-
-# TODO: how to import this correctly?
-from OpenSSL import SSL
 
 """
 This file provides a SOAP server for the Individuation service at UiO.
@@ -191,13 +183,6 @@ def usage(exitcode=0):
   """
     sys.exit(exitcode)
 
-def clientVerificationCallbackTest(connection, x509, errnum, errdepth, ok):
-    """TODO: this might be removed later, when done testing its purpose."""
-    if not ok:
-        print 'Invalid cert from subject: %s, errnum=%s, errdepth=%s' % (
-                                    x509.get_subject(), errnum, errdepth)
-        return False
-    return True
 
 if __name__=='__main__':
     try:
@@ -207,8 +192,8 @@ if __name__=='__main__':
         usage(1)
 
     use_encryption = CRYPTO_AVAILABLE
-    port = cereconf.INDIVIDUATION_SERVICE_PORT
-    logfile = cereconf.INDIVIDUATION_SERVICE_LOGFILE
+    port = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
+    logfile = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
@@ -224,40 +209,12 @@ if __name__=='__main__':
     #        Utility method which wraps a function in a try:/except:, logs a
     #        failure if one occurrs, and uses the system's logPrefix.
 
-    # soaplib init
-    service = Application([IndividuationServer], 'tns')
-    wsgi_application = wsgi.Application(service)
-
-    # Run twisted service
-    resource = SoapListener.WSGIResourceSession(reactor, 
-                                                reactor.getThreadPool(),
-                                                wsgi_application)
-    root = Resource()
-    root.putChild('SOAP', resource)
-    site = Site(root)
+    server = SoapListener.TwistedSoapStarter(port = port,
+                applications = IndividuationServer,
+                private_key_file = cereconf.SSL_PRIVATE_KEY_FILE,
+                certificate_file = cereconf.SSL_CERTIFICATE_FILE,
+                client_cert_files = getattr(cereconf, 'INDIVIDUATION_CLIENT_CERT', None))
+    site = server.site # to make it global and reachable by Individuation (wrong, I know)
     # If sessions' behaviour should be changed (e.g. timeout):
-    # site.sessionFactory = BasicSession
-    if use_encryption:
-        # TODO: we need to set up SSL properly
-        sslcontext = ssl.DefaultOpenSSLContextFactory(
-            cereconf.SSL_PRIVATE_KEY_FILE,
-            cereconf.SSL_CERTIFICATE_FILE)
-        # If the clients' certificate should be checked:
-        if getattr(cereconf, 'INDIVIDUATION_CLIENT_CERT', None):
-            ctx = sslcontext.getContext()
-            ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
-                                  clientVerificationCallbackTest)
-            # Tell the server what certicates it should trust:
-            ctx.load_verify_locations(cereconf.INDIVIDUATION_CLIENT_CERT)
-        reactor.listenSSL(int(port), site, contextFactory=sslcontext)
-    else:
-        reactor.listenTCP(int(port), site)
-
-    if use_encryption:
-        url = "https://%s:%d/SOAP/" % (socket.gethostname(), port)
-    else:
-        url = "http://%s:%d/SOAP/" % (socket.gethostname(), port)
-    log.msg("Starting server at %s" % url)
-    log.msg("WSDL definition at %s?wsdl" % url)
-
-    reactor.run()
+    # server.site.sessionFactory = BasicSession
+    server.run()
