@@ -410,13 +410,14 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
           return groups that have expired (i.e. have group_info.expire_date in
           the past relative to the call time).
 
-        @rtype: generator (yielding db-rows with group information)
+        @rtype: iterable (yielding db-rows with group information)
         @return:
-          A generator that yields successive db-rows matching all of the
-          specified filters. Regardless of the filters, any given group_id is
-          guaranteed to occur at most once in the result. The keys available
-          in db_rows are the content of the group_info table and group's name
-          (if it does not exist, None is assigned to the 'name' key).
+          An iterable (sequence or a generator) that yields successive db-rows
+          matching all of the specified filters. Regardless of the filters,
+          any given group_id is guaranteed to occur at most once in the
+          result. The keys available in db_rows are the content of the
+          group_info table and group's name (if it does not exist, None is
+          assigned to the 'name' key).
         """
 
         # Sanity check: if indirect members is specified, then at least we
