@@ -333,7 +333,6 @@ class VoipClient(EntityAuthentication, EntityTrait):
         if self.mac_address:
             result["sipMacAddress"] = self.mac_address.replace(":", "")
         result["sipEnabled"] = bool(self.sip_enabled)
-        result["uid"] = str(self.entity_id)
         result["voip_address_id"] = self.voip_address_id
         return result
     # end get_voip_attributes
@@ -370,11 +369,10 @@ class VoipClient(EntityAuthentication, EntityTrait):
         account = Factory.get("Account")(self._db)
         primary_accounts = set(r["account_id"] for r in
                                account.list_accounts_by_type(primary_only=True))
-        pid2uname = dict((r["owner_id"], r["name"])
-                         for r in account.search(
-                             owner_type=self.const.entity_person)
-                         if r["account_id"] in primary_accounts)
-
+        owner2uname = dict((r["owner_id"], r["name"])
+                           for r in account.search(
+                               owner_type=self.const.entity_person)
+                           if r["account_id"] in primary_accounts)
         for row in self.search():
             mac = row["mac_address"]
             mac = mac.replace(":", "") if mac else None
@@ -392,8 +390,7 @@ class VoipClient(EntityAuthentication, EntityTrait):
 
             if row["client_type"] == self.const.voip_client_type_softphone:
                 owner_id = row["owner_entity_id"]
-                entry["uid"] = pid2uname.get(owner_id,
-                                             str(row["voip_address_id"]))
+                entry["uid"] = owner2uname.get(owner_id, str(owner_id))
 
             yield entry
     # end list_voip_attributes
