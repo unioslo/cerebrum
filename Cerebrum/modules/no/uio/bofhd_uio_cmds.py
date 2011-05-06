@@ -74,6 +74,7 @@ from Cerebrum.modules.no.uio.DiskQuota import DiskQuota
 from Cerebrum.modules.templates.letters import TemplateHandler
 # Utils are already being imported; need to "rename" these:
 from Cerebrum.modules.dns import Utils as DNSUtils
+from Cerebrum.modules.dns.Subnet import Subnet
 
 # TBD: It would probably be cleaner if our time formats were specified
 # in a non-Java-SimpleDateTime-specific way.
@@ -778,6 +779,11 @@ class BofhdExtension(BofhdCommandBase):
                                                     ou.institutt,
                                                     ou.avdeling,
                                                     ou.short_name)
+                elif r['target_type'] == self.const.auth_target_type_dns:
+                    s = Subnet(self.db)
+                    # TODO: should Subnet.find() support ints as input?
+                    s.find('entity_id:%s' % r['entity_id'])
+                    target_name = "%s/%s" % (s.subnet_ip, s.subnet_mask)
                 else:
                     try:
                         ety = self._get_entity(id=r['entity_id'])
