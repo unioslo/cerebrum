@@ -66,14 +66,14 @@ class BofhdAuth(auth.BofhdAuth):
         return self.is_account_owner(operator, self.const.auth_set_password,
                                      account)
 
-    def can_set_trait(self, operator, trait=None, target=None,
+    def can_set_trait(self, operator, trait=None, ety=None, target=None,
                       query_run_any=False):
         if query_run_any:
             return True
         if self.is_superuser(operator):
             return True
         # Persons/accounts are allowed to set their own reservation traits
-        if (target.entity_id == operator):
+        if (ety and ety.entity_id == operator):
             if (trait in (self.const.trait_reservation_sms_password,)):
                 return True
         raise PermissionDenied("Not allowed to set trait")

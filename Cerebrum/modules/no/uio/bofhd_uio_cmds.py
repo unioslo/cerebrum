@@ -7375,9 +7375,9 @@ Addresses and settings:
     def trait_info(self, operator, ety_id):
         ety = self.util.get_target(ety_id, restrict_to=[])
         if not self.ba.is_superuser(operator.get_entity_id()):
-            # Users might have access their own person's traits.
-            # TODO: filter out traits users aren't allowed to set?
-            if operator.get_owner_id() != ety.entity_id:
+            # Users might have access to some of their own traits.
+            if ety.entity_id not in (operator.get_entity_id(),
+                                     operator.get_owner_id()):
                 raise PermissionDenied("Currently limited to superusers")
         if isinstance(ety, Utils.Factory.get('Disk')):
             ety_name = ety.path
@@ -7391,6 +7391,12 @@ Addresses and settings:
             ety_name = ety.get_names()[0][0]
         ret = []
         for trait, values in ety.get_traits().items():
+            try:
+                self.ba.can_set_trait(operator.get_entity_id(), trait=trait,
+                                      ety=ety, target=values['target_id'])
+            except PermissionDenied:
+                continue
+
             ret.append({'trait_name': str(trait)})
             for simple in ('numval', 'strval'):
                 if values[simple] is not None:
@@ -7463,7 +7469,7 @@ Addresses and settings:
         ent = self.util.get_target(ent_name, restrict_to=[])
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
         self.ba.can_set_trait(operator=operator.get_entity_id(), trait=trait,
-                              target=ent)
+                              ety=ent)
         params = {}
         for v in values:
             if v.count('='):
@@ -7996,8 +8002,11 @@ Addresses and settings:
         for k in keys:
             for tpl in cereconf.BOFHD_TEMPLATES[k]:
                 tpls.append("%s" % (tpl[2]))
-                if num is not None and n == int(num):
-                    return (k, tpl[0], tpl[1])
+                try:
+                    if num is not None and n == int(num):
+                        return (k, tpl[0], tpl[1])
+                except ValueError:
+                    raise CerebrumError("Unknown template selected")
                 n += 1
         if num is not None:
             raise CerebrumError, "Unknown template selected"
