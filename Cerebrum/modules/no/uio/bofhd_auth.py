@@ -72,12 +72,9 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self.is_superuser(operator):
             return True
-        # Persons are allowed to set their own reservation traits
-        if (target.entity_type in (self.const.entity_person,)):
-            account = Factory.get('Account')(self._db)
-            account.find(operator)
-            if (target.entity_id == account.owner_id and 
-                    trait in (self.const.trait_reservation_sms_password,)):
+        # Persons/accounts are allowed to set their own reservation traits
+        if (target.entity_id == operator):
+            if (trait in (self.const.trait_reservation_sms_password,)):
                 return True
         raise PermissionDenied("Not allowed to set trait")
     
