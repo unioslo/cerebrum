@@ -49,10 +49,3 @@ class BofhdAuth(auth.BofhdAuth):
         if person.entity_id == account.owner_id:
             return True        
         return False
-
-    def can_set_trait(self, operator, person=None, query_run_any=False):
-        # we need to check the implementation of reservation trait, the
-        # current implementation does not work that well with copied
-        # bofhd-cmds as a can_set_trait-method is mandatory and
-        # unnecessary for UiA, Hiÿf etc
-        pass
