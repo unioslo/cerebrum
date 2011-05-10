@@ -49,3 +49,19 @@ class BofhdAuth(auth.BofhdAuth):
         if person.entity_id == account.owner_id:
             return True        
         return False
+    
+    def can_set_trait(self, operator, person=None, query_run_any=False):
+        # this should not be necessary, we have to agree on the way
+        # to use personal traits in order to avoid duplication and
+        # double work
+        if query_run_any:
+            return True
+        # superuser can set traits
+        if self.is_superuser(operator):
+            return True
+        # person can set own traits
+        account = Factory.get('Account')(self._db)
+        account.find(operator)
+        if person.entity_id == account.owner_id:
+            return True        
+        return False    
