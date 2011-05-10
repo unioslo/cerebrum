@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006 University of Oslo, Norway
+# Copyright 2006-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -35,10 +35,23 @@ import string
 
 import cerebrum_path
 import cereconf
-
 from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 from Cerebrum.modules.no import fodselsnr
+
+## Globals
+db = Factory.get('Database')()
+db.cl_init(change_program='init_import')
+constants = Factory.get('Constants')(db)
+account = Factory.get('Account')(db)
+group = Factory.get('Group')(db)
+person = Factory.get('Person')(db)
+logger = Factory.get_logger("cronjob")
+
+dryrun = False
+fnr2person_id = None
+default_creator_id = None
+default_group_id = None
 
 
 def attempt_commit():
@@ -49,9 +62,10 @@ def attempt_commit():
         db.commit()
         logger.info("Committed all changes")
 
-def process_line(infile, fix_unames):
+
+def process_line(infile, fix_unames, set_names):
     """
-    Scan all lines in INFILE and create corresponding account/e-mail entries
+    Scan all lines in INFILE and create corresponding person/account entries
     in Cerebrum.
     """
 
@@ -63,41 +77,37 @@ def process_line(infile, fix_unames):
     for line in stream:
         commit_count += 1
 
-        fields = string.split(line.strip(), ":")
-        # Pad, in case names are missing; indeed, names don't seem to
-        # be used at all, so perhaps we simply shouldn't bother with
-        # them at all? Oh well, SEP
+        fields = [x.strip() for x in line.split(":")]
         fields.extend([None, None])
         if len(fields) < 4:
             logger.error("Bad line: %s. Skipping" % line.strip())
             continue
         fnr, uname, lname, fname = fields[:4]
-        if not fnr == "":
-            uname = check_uname(uname)
-            if uname:
-                person_id = process_person(fnr)
-                if person_id:
-                    logger.debug("Processing user with person: %s", uname)
-                    if fix_unames:
-                        account_id = process_weird_user(person_id, uname)
-                    else:
-                        account_id = process_user(person_id, uname)
-                else:
-                    logger.error("Bad fnr: %s Skipping", line.strip())
-                    continue
-        else:
-            logger.debug("Processing user without person: %s", uname)
-            account_id = process_user(None, uname)
+        if not fnr:
+            logger.error("No fnr. Skipping line: %s" % line.strip())
+            continue
+
+        person_id = process_person(fnr, lname, fname, set_names)
+        if not person_id:
+            continue
+
+        uname = check_uname(uname)
+        if uname:
+            if fix_unames:
+                account_id = process_weird_user(person_id, uname)
+            else:
+                logger.debug("Processing user with person: %s", uname)
+                account_id = process_user(person_id, uname)
         
         if commit_count % commit_limit == 0:
             attempt_commit()
 
-def process_person(fnr):
+
+def process_person(fnr, lname, fname, set_names):
     """
     Find or create a person; return the person_id corresponding to
-    fnr.
-    """
-
+    fnr. Set name for new persons if set_name is True.
+    """    
     logger.debug("Processing person %s", fnr)
     try:
         fodselsnr.personnr_ok(fnr)
@@ -123,6 +133,20 @@ def process_person(fnr):
                                 fnr)
     person.write_db()
     logger.debug("Created new person with fnr %s", fnr)
+
+    if set_names:
+        if lname and fname:
+            person.affect_names(constants.system_sap,
+                                constants.name_first, constants.name_last)
+            person.populate_name(constants.name_first, fname)
+            person.populate_name(constants.name_last, lname)
+            logger.debug("Name %s %s set for person with fnr %s" % (
+                fname, lname, fnr))
+            person.write_db()
+        else:
+            logger.warn("Couldn't set name %s %s for person %s" % (
+                fname, lname, fnr))
+
     e_id = person.entity_id
     fnr2person_id[fnr] = e_id
     return e_id
@@ -136,8 +160,8 @@ def check_uname(uname):
 
     if not uname.islower():
         uname = uname.lower()
-    if len(uname) > 20 or len(uname) < 3:
-        logger.error("Uname too short or too long %s.", uname)
+    if len(uname) < 3:
+        logger.error("Uname too short %s.", uname)
         return None
 
     # check uname for special and non-ascii characters 
@@ -178,7 +202,6 @@ def process_weird_user(owner_id, uname):
     """
     owner_type = constants.entity_group
     np_type = constants.account_system
-    acc_owner_id = 1 # bootstrap_group 
     try:
         account.clear()
         account.find_by_name(uname)
@@ -186,12 +209,12 @@ def process_weird_user(owner_id, uname):
     except Errors.NotFoundError:
         account.populate(uname,
                          owner_type,
-                         acc_owner_id,
+                         default_group_id,
                          np_type,
                          default_creator_id,
                          None)
         account.write_db()
-        logger.debug("User %s created", uname)
+        logger.debug("User %s reserved", uname)
     person.clear()
     person.find(owner_id)
     person.affect_external_id(constants.system_migrate,
@@ -206,28 +229,28 @@ def process_weird_user(owner_id, uname):
 
 
 def usage():
-    print """Usage: import_uname_mail.py
-    -d, --dryrun  : Run a fake import. Rollback after run.
-    -f, --file    : File to parse.
+    print """Usage  : import_uname_mail.py
+    -d, --dryrun    : Run a fake import. Rollback after run.
+    -f, --file      : File to parse.
+    -u, --unames-fix: Fix unames
+    -s, --set-names : Set person names
     """
     sys.exit(0)
 
 
 def main():
-    global db, constants, account, person, fnr2person_id
-    global default_creator_id, default_group_id
-    global dryrun, logger
-
+    # Default behaviour
     fix_unames = False
-
+    set_names = False
     logger = Factory.get_logger("cronjob")
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'uf:d',
+                                   'uf:ds',
                                    ['file=',
                                     'dryrun',
-                                    'unames-fix'])
+                                    'unames-fix',
+                                    'set-names'])
     except getopt.GetoptError:
         usage()
 
@@ -239,17 +262,13 @@ def main():
             infile = val
         elif opt in ('-u', '--unames-fix'):
             fix_unames = True
+        elif opt in ('-s', '--set-names'):
+            set_names = True
 
     if infile is None:
         usage()
 
-    db = Factory.get('Database')()
-    db.cl_init(change_program='init_import')
-    constants = Factory.get('Constants')(db)
-    account = Factory.get('Account')(db)
-    group = Factory.get('Group')(db)
-    person = Factory.get('Person')(db)
-
+    # Fetch already existing persons
     fnr2person_id = dict()
     for p in person.list_external_ids(id_type=constants.externalid_fodselsnr):
         fnr2person_id[p['external_id']] = p['entity_id']
@@ -258,7 +277,8 @@ def main():
     default_creator_id = account.entity_id
     group.find_by_name(cereconf.INITIAL_GROUPNAME)
     default_group_id = group.entity_id
-    process_line(infile, fix_unames)
+
+    process_line(infile, fix_unames, set_names)
 
     attempt_commit()
 
