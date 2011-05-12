@@ -40,10 +40,10 @@ class AccountNIHMixin(Account.Account):
         """ NIH can only allow max 10 characters in usernames.
 
         """
-        # Max len should be 10; set to 20 to proceed with testing
-        if len(name) > 20:
+        # Max len should be 10; set to 30 to proceed with testing
+        if len(name) > 30:
             return "too long (%s); max 10 chars allowed" % name
-        if re.search("[^a-z0-9.]", name):
+        if re.search("[^a-z0-9._-]", name):
             return "contains illegal characters (%s); only a-z allowed" % name
                 
         return False
