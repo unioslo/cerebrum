@@ -20,6 +20,14 @@
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """
+Import person and account info. For migration use only.
+
+Import fnr, uname, and optionally person names if option --set-names
+is given. Accounts will either be created or reserved depending on the
+option --reserve-unames.
+
+TBD: 
+
 The input format for this job is a file with one line per
 person/account. Each line has four fields separated by ':'.
 
@@ -32,6 +40,7 @@ uname   -- account name
 import getopt
 import sys
 import string
+import mx.DateTime
 
 import cerebrum_path
 import cereconf
@@ -48,13 +57,14 @@ group = Factory.get('Group')(db)
 person = Factory.get('Person')(db)
 logger = Factory.get_logger("cronjob")
 
-dryrun = False
-fnr2person_id = None
-default_creator_id = None
-default_group_id = None
+fnr2person_id = dict()
+account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+default_creator_id = account.entity_id
+group.find_by_name(cereconf.INITIAL_GROUPNAME)
+default_group_id = group.entity_id
 
 
-def attempt_commit():
+def attempt_commit(dryrun=False):
     if dryrun:
         db.rollback()
         logger.info("Rolled back all changes")
@@ -63,10 +73,10 @@ def attempt_commit():
         logger.info("Committed all changes")
 
 
-def process_line(infile, fix_unames, set_names):
+def process_line(infile, maxlen, reserve_unames, set_names):
     """
-    Scan all lines in INFILE and create corresponding person/account entries
-    in Cerebrum.
+    Scan all lines in INFILE and create corresponding person/account
+    entries in Cerebrum.
     """
 
     stream = open(infile, 'r')
@@ -78,11 +88,15 @@ def process_line(infile, fix_unames, set_names):
         commit_count += 1
 
         fields = [x.strip() for x in line.split(":")]
-        fields.extend([None, None])
-        if len(fields) < 4:
+        if len(fields) == 2:
+            fnr, uname = fields
+            lname = fname = ''
+        elif len(fields) == 4:
+            fnr, uname, lname, fname = fields
+        else:
             logger.error("Bad line: %s. Skipping" % line.strip())
             continue
-        fnr, uname, lname, fname = fields[:4]
+
         if not fnr:
             logger.error("No fnr. Skipping line: %s" % line.strip())
             continue
@@ -91,13 +105,10 @@ def process_line(infile, fix_unames, set_names):
         if not person_id:
             continue
 
-        uname = check_uname(uname)
-        if uname:
-            if fix_unames:
-                account_id = process_weird_user(person_id, uname)
-            else:
-                logger.debug("Processing user with person: %s", uname)
-                account_id = process_user(person_id, uname)
+        if reserve_unames:
+            reserve_user(person_id, uname, maxlen)
+        else:
+            create_user(person_id, uname, maxlen)
         
         if commit_count % commit_limit == 0:
             attempt_commit()
@@ -108,7 +119,7 @@ def process_person(fnr, lname, fname, set_names):
     Find or create a person; return the person_id corresponding to
     fnr. Set name for new persons if set_name is True.
     """    
-    logger.debug("Processing person %s", fnr)
+    logger.debug("Processing person %s %s (%s)", fname, lname, fnr)
     try:
         fodselsnr.personnr_ok(fnr)
     except fodselsnr.InvalidFnrError:
@@ -132,19 +143,19 @@ def process_person(fnr, lname, fname, set_names):
                                 constants.externalid_fodselsnr,
                                 fnr)
     person.write_db()
-    logger.debug("Created new person with fnr %s", fnr)
+    logger.info("Created new person with fnr %s", fnr)
 
     if set_names:
         if lname and fname:
-            person.affect_names(constants.system_sap,
+            person.affect_names(constants.system_migrate,
                                 constants.name_first, constants.name_last)
             person.populate_name(constants.name_first, fname)
             person.populate_name(constants.name_last, lname)
-            logger.debug("Name %s %s set for person with fnr %s" % (
+            logger.info("Name %s %s set for person with fnr %s" % (
                 fname, lname, fnr))
             person.write_db()
         else:
-            logger.warn("Couldn't set name %s %s for person %s" % (
+            logger.info("Couldn't set name %s %s for person %s" % (
                 fname, lname, fnr))
 
     e_id = person.entity_id
@@ -152,116 +163,126 @@ def process_person(fnr, lname, fname, set_names):
     return e_id
 
 
-def check_uname(uname):
+def check_uname(uname, maxlen, strict=True):
+    """
+    Check if uname is acceptable
+    """
     legal_chars = string.ascii_letters + string.digits + "."
+    if not strict:
+        # Allow a few more chars for reserved accounts
+        legal_chars += '_-'
+
     if uname == "":
-        logger.warn("Nothing to do here.")
+        logger.warn("No username. Nothing to do here.")
         return None
+
+    if strict:
+        if len(uname) < 3 or len(uname) > maxlen:
+            logger.error("Uname too short or too long %s", uname)
+            return None
+
+    # check uname for special and non-ascii characters 
+    if not set(uname).issubset(legal_chars):
+        logger.error("Bad uname %s", uname)
+        return None 
 
     if not uname.islower():
         uname = uname.lower()
-    if len(uname) < 3:
-        logger.error("Uname too short %s.", uname)
-        return None
-
-    # check uname for special and non-ascii characters 
-    for u in uname:
-        if u not in legal_chars:
-            logger.error("Bad uname %s.", uname)
-            return None
+           
     return uname
-        
-    
-def process_user(owner_id, uname):
-    """
-    Locate account_id of account UNAME owned by OWNER_ID.
-    """
-    owner_type = constants.entity_person
-    np_type = None
+
+
+def populate_user(uname, owner_type, owner_id, np_type,
+                  creator_id=default_creator_id, expire_date=None):
     try:
         account.clear()
         account.find_by_name(uname)
-        logger.debug("User %s exists in Cerebrum", uname)
+        logger.warn("User %s already exists in Cerebrum", uname)
+        return False
     except Errors.NotFoundError:
         account.populate(uname,
                          owner_type,
                          owner_id,
                          np_type,
-                         default_creator_id,
-                         None)
+                         creator_id,
+                         expire_date)
         account.write_db()
+        return account.entity_id
+    
+    
+
+def create_user(owner_id, uname, maxlen):
+    """
+    Locate account_id of account UNAME owned by OWNER_ID.
+    """
+    owner_type = constants.entity_person
+    np_type = None
+    uname = check_uname(uname, maxlen)
+    if uname and populate_user(uname, owner_type, owner_id, np_type):
         logger.debug("User %s created", uname)
 
-    a_id = account.entity_id
-    return a_id
 
 
-def process_weird_user(owner_id, uname):
+def reserve_user(owner_id, uname, maxlen):
     """
     Locate account_id of account UNAME owned by OWNER_ID.
     """
     owner_type = constants.entity_group
     np_type = constants.account_system
-    try:
-        account.clear()
-        account.find_by_name(uname)
-        logger.debug("User %s exists in Cerebrum", uname)
-    except Errors.NotFoundError:
-        account.populate(uname,
-                         owner_type,
-                         default_group_id,
-                         np_type,
-                         default_creator_id,
-                         None)
-        account.write_db()
-        logger.debug("User %s reserved", uname)
-    person.clear()
-    person.find(owner_id)
-    person.affect_external_id(constants.system_migrate,
-                              constants.externalid_uname)
-    person.populate_external_id(constants.system_migrate, constants.externalid_uname,
-                                uname)
-    person.write_db()
-    logger.info("Registered user name %s as external id for %s!" % (uname, owner_id))
-        
-    a_id = account.entity_id
-    return a_id
+
+    uname = check_uname(uname, maxlen, strict=False)
+    if uname and populate_user(uname, owner_type, default_group_id, np_type,
+                               expire_date=mx.DateTime.today()):
+        logger.debug("User %s is reserved", uname)
+        person.clear()
+        person.find(owner_id)
+        person.affect_external_id(constants.system_migrate,
+                                  constants.externalid_uname)
+        person.populate_external_id(constants.system_migrate,
+                                    constants.externalid_uname,
+                                    uname)
+        person.write_db()
+        logger.info("Registered user name %s as external id for %s!" % (uname, owner_id))
+    
 
 
 def usage():
-    print """Usage  : import_uname_mail.py
-    -d, --dryrun    : Run a fake import. Rollback after run.
-    -f, --file      : File to parse.
-    -u, --unames-fix: Fix unames
-    -s, --set-names : Set person names
+    print """Usage      : import_uname.py
+    -d, --dryrun        : Run a fake import. Rollback after run.
+    -f, --file          : File to parse.
+    -r, --reserve-unames: Just reserve unames
+    -m, --maxlen        : Max length of usernames
+    -s, --set-names     : Set person names
     """
     sys.exit(0)
 
 
 def main():
-    # Default behaviour
-    fix_unames = False
-    set_names = False
-    logger = Factory.get_logger("cronjob")
-    
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'uf:ds',
+                                   'rf:m:ds',
                                    ['file=',
                                     'dryrun',
-                                    'unames-fix',
+                                    'reserve-unames',
+                                    'maxlen',
                                     'set-names'])
     except getopt.GetoptError:
         usage()
 
+    # Default behaviour
+    reserve_unames = False
+    set_names = False
     dryrun = False
+    maxlen = 8
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
         elif opt in ('-f', '--file'):
             infile = val
-        elif opt in ('-u', '--unames-fix'):
-            fix_unames = True
+        elif opt in ('-m', '--maxlen'):
+            maxlen = int(val)
+        elif opt in ('-r', '--reserve-unames'):
+            reserve_unames = True
         elif opt in ('-s', '--set-names'):
             set_names = True
 
@@ -269,18 +290,12 @@ def main():
         usage()
 
     # Fetch already existing persons
-    fnr2person_id = dict()
     for p in person.list_external_ids(id_type=constants.externalid_fodselsnr):
         fnr2person_id[p['external_id']] = p['entity_id']
 
-    account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
-    default_creator_id = account.entity_id
-    group.find_by_name(cereconf.INITIAL_GROUPNAME)
-    default_group_id = group.entity_id
+    process_line(infile, maxlen, reserve_unames, set_names)
 
-    process_line(infile, fix_unames, set_names)
-
-    attempt_commit()
+    attempt_commit(dryrun)
 
 
 if __name__ == '__main__':
