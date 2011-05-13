@@ -143,7 +143,8 @@ def process_person(fnr, lname, fname, set_names):
                                 constants.externalid_fodselsnr,
                                 fnr)
     person.write_db()
-    logger.info("Created new person with fnr %s", fnr)
+    e_id = person.entity_id
+    logger.info("Created new person with id %s and fnr %s", e_id, fnr)
 
     if set_names:
         if lname and fname:
@@ -151,14 +152,12 @@ def process_person(fnr, lname, fname, set_names):
                                 constants.name_first, constants.name_last)
             person.populate_name(constants.name_first, fname)
             person.populate_name(constants.name_last, lname)
-            logger.info("Name %s %s set for person with fnr %s" % (
-                fname, lname, fnr))
+            logger.info("Name %s %s set for person %s" fname, lname, fnr)
             person.write_db()
         else:
-            logger.info("Couldn't set name %s %s for person %s" % (
-                fname, lname, fnr))
+            logger.warn("Couldn't set name %s %s for person %s",
+                        fname, lname, fnr)
 
-    e_id = person.entity_id
     fnr2person_id[fnr] = e_id
     return e_id
 
@@ -219,7 +218,7 @@ def create_user(owner_id, uname, maxlen):
     np_type = None
     uname = check_uname(uname, maxlen)
     if uname and populate_user(uname, owner_type, owner_id, np_type):
-        logger.debug("User %s created", uname)
+        logger.info("User %s created", uname)
 
 
 
@@ -233,7 +232,7 @@ def reserve_user(owner_id, uname, maxlen):
     uname = check_uname(uname, maxlen, strict=False)
     if uname and populate_user(uname, owner_type, default_group_id, np_type,
                                expire_date=mx.DateTime.today()):
-        logger.debug("User %s is reserved", uname)
+        logger.info("User %s reserved", uname)
         person.clear()
         person.find(owner_id)
         person.affect_external_id(constants.system_migrate,
@@ -242,7 +241,7 @@ def reserve_user(owner_id, uname, maxlen):
                                     constants.externalid_uname,
                                     uname)
         person.write_db()
-        logger.info("Registered user name %s as external id for %s!" % (uname, owner_id))
+        logger.info("Registered %s as external id for %s" % uname, owner_id)
     
 
 
