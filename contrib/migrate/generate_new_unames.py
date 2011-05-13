@@ -62,7 +62,7 @@ def attempt_commit(dryrun=False):
 def usage(msg=''):
     if msg:
         print msg
-    print """Usage     : generate_unames.py
+    print """Usage     : generate_new_unames.py
     -w, --write-mapping: write mapping of new -> old usernames
     -m, --maxlen       : Maxlen of usernames must be given
     -d, --dryrun       : Rollback after run.
@@ -118,7 +118,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    'dw:m:',
-                                   ['write-mapping', 'maxlen=', 'dryrun'])
+                                   ['write-mapping=', 'maxlen=', 'dryrun'])
     except getopt.GetoptError:
         usage()
 
