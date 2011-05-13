@@ -264,7 +264,7 @@ def main():
                                    ['file=',
                                     'dryrun',
                                     'reserve-unames',
-                                    'maxlen',
+                                    'maxlen=',
                                     'set-names'])
     except getopt.GetoptError:
         usage()
