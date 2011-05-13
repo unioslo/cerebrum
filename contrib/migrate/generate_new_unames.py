@@ -118,7 +118,7 @@ def main():
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    'dw:m:',
-                                   ['write-mapping', 'maxlen', 'dryrun'])
+                                   ['write-mapping', 'maxlen=', 'dryrun'])
     except getopt.GetoptError:
         usage()
 
