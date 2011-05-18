@@ -152,7 +152,7 @@ def process_person(fnr, lname, fname, set_names):
                                 constants.name_first, constants.name_last)
             person.populate_name(constants.name_first, fname)
             person.populate_name(constants.name_last, lname)
-            logger.info("Name %s %s set for person %s" fname, lname, fnr)
+            logger.info("Name %s %s set for person %s", fname, lname, fnr)
             person.write_db()
         else:
             logger.warn("Couldn't set name %s %s for person %s",
@@ -241,7 +241,7 @@ def reserve_user(owner_id, uname, maxlen):
                                     constants.externalid_uname,
                                     uname)
         person.write_db()
-        logger.info("Registered %s as external id for %s" % uname, owner_id)
+        logger.info("Registered %s as external id for %s", uname, owner_id)
     
 
 
