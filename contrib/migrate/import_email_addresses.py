@@ -37,7 +37,6 @@ keyword -- 'defaultmail' or 'mail'
 
 import getopt
 import sys
-import string
 
 import cerebrum_path
 import cereconf
@@ -57,7 +56,7 @@ def attempt_commit():
         logger.debug("Committed all changes")
 
 
-def process_line(infile, spread):
+def process_line(infile, spread, sepchar):
     """
     Scan all lines in INFILE and create corresponding account/e-mail entries
     in Cerebrum.
@@ -72,7 +71,7 @@ def process_line(infile, spread):
         commit_count += 1
         logger.debug5("Processing %s", line)
 
-        fields = string.split(line.strip(), ";")
+        fields = [l.strip() for l in line.split(sepchar)]
         if len(fields) < 2:
             logger.error("Bad line: %s." % line)
             continue
@@ -90,18 +89,35 @@ def process_line(infile, spread):
             logger.error("No uname given. Skipping!")
             continue
     
-        try:
-            account.clear()
-            account.find_by_name(uname)
-            logger.debug3("User %s exists in Cerebrum", uname)
-        except Errors.NotFoundError:
-            logger.error("Bad uname: %s", uname)
-            continue
-
-        process_mail(account, mtype, addr, spread)
+        account = get_account(uname)
+        if account:
+            process_mail(account, mtype, addr, spread)
 
         if commit_count % commit_limit == 0:
             attempt_commit()
+
+
+def get_account(uname):
+    try:
+        account.clear()
+        account.find_by_name(uname)
+        logger.debug3("User %s exists in Cerebrum", uname)
+        return account
+    except Errors.NotFoundError:
+        logger.debug3("Didn't find a user with uname %s.", uname)
+        try:
+            person.clear()
+            person.find_by_external_id(constants.externalid_uname, uname)
+            account_id = person.get_primary_account()
+            account.clear()
+            account.find(account_id)
+            logger.debug3("Found account '%s' for user with external name '%s'",
+                          account.account_name, uname)
+            return account
+        except Errors.NotFoundError:
+            logger.debug3("Didn't find user with external name '%s'" % uname)
+            
+    return None
 
 
 def process_mail(account, mtype, addr, spread=None):
@@ -110,7 +126,7 @@ def process_mail(account, mtype, addr, spread=None):
     edom = Email.EmailDomain(db)
     epat = Email.EmailPrimaryAddressTarget(db)
 
-    addr = string.lower(addr)    
+    addr = addr.lower()
     account_id = account.entity_id
 
     fld = addr.split('@')
@@ -184,15 +200,17 @@ def main():
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:s:d',
+                                   'f:s:c:d',
                                    ['file=',
                                     'spread=',
+                                    'sepchar=',
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
 
     dryrun = False
     spread = None
+    sepchar = ";"
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
@@ -200,6 +218,8 @@ def main():
             infile = val
         elif opt in ('-s', '--spread'):
             spread = val
+        elif opt in ('-c', '--sepchar'):
+            sepchar = val
 
     if infile is None:
         usage()
@@ -220,12 +240,13 @@ def main():
     group.find_by_name(cereconf.INITIAL_GROUPNAME)
     default_group_id = group.entity_id
 
-    try:
-        email_spread = getattr(constants, spread)
-    except AttributeError:
-        logger.error("No spread %s defined", spread)
+    if spread:
+        try:
+            spread = getattr(constants, spread)
+        except AttributeError:
+            logger.error("No spread %s defined", spread)
 
-    process_line(infile, email_spread)
+    process_line(infile, spread, sepchar)
 
     attempt_commit()
 
