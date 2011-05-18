@@ -55,9 +55,6 @@ def attempt_commit():
     else:
         db.commit()
         logger.debug("Committed all changes")
-    # fi
-# end attempt_commit
-
 
 
 def process_line(infile, spread):
@@ -80,20 +77,18 @@ def process_line(infile, spread):
             logger.error("Bad line: %s." % line)
             continue
         
-        # if no type is given assume that the address should be registered
+        # if no mtype is given assume that the address should be registered
         # as default/primary address for account
         if len(fields) == 2:
-            type = 'defaultmail'
+            mtype = 'defaultmail'
             uname, addr = fields
 
         if len(fields) == 3:
-            uname, type, addr = fields
-        # fi
+            uname, mtype, addr = fields
 
         if uname == "":
             logger.error("No uname given. Skipping!")
             continue
-        # fi
     
         try:
             account.clear()
@@ -103,17 +98,13 @@ def process_line(infile, spread):
             logger.error("Bad uname: %s", uname)
             continue
 
-        process_mail(account, type, addr, spread)
+        process_mail(account, mtype, addr, spread)
 
         if commit_count % commit_limit == 0:
             attempt_commit()
-        # fi
-    # od
-# end process_line
 
 
-
-def process_mail(account, type, addr, spread=None):
+def process_mail(account, mtype, addr, spread=None):
     et = Email.EmailTarget(db)
     ea = Email.EmailAddress(db)
     edom = Email.EmailDomain(db)
@@ -126,7 +117,6 @@ def process_mail(account, type, addr, spread=None):
     if len(fld) != 2:
         logger.error("Bad address: %s. Skipping", addr)
         return None
-    # fi
     
     lp, dom = fld
     try:
@@ -134,7 +124,6 @@ def process_mail(account, type, addr, spread=None):
     except Errors.NotFoundError:
         logger.error("Domain non-existent: %s", lp + '@' + dom)
         return None
-    # yrt
 
     try:
         et.find_by_target_entity(int(account_id))
@@ -143,7 +132,6 @@ def process_mail(account, type, addr, spread=None):
                     entity_type=constants.entity_account)
         et.write_db()
         logger.debug("EmailTarget created: %s: %d", account_id, et.entity_id)
-    # yrt
 
     try:
         ea.find_by_address(addr)
@@ -155,9 +143,8 @@ def process_mail(account, type, addr, spread=None):
         if spread and not account.has_spread(spread):
             account.add_spread(spread)
             logger.debug("Added spread %s for account %s", spread, account_id)
-    # yrt
 
-    if type == "defaultmail":
+    if mtype == "defaultmail":
         try:
             epat.find(et.entity_id)
             logger.debug("EmailPrimary found: %s: %d",
@@ -172,16 +159,11 @@ def process_mail(account, type, addr, spread=None):
             else:
                 logger.error("EmailTarget mismatch: ea: %d, et: %d", 
                              ea.email_addr_target_id, et.entity_id)
-            # fi
-        # yrt
-    # fi
     
     et.clear()
     ea.clear()
     edom.clear()
     epat.clear()
-# end process_mail
-
 
 
 def usage():
@@ -191,7 +173,6 @@ def usage():
     -s, --spread  : add spread to account (optional)
     """
     sys.exit(0)
-# end usage
 
 
 def main():
@@ -209,7 +190,6 @@ def main():
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
-    # yrt
 
     dryrun = False
     spread = None
@@ -220,12 +200,9 @@ def main():
             infile = val
         elif opt in ('-s', '--spread'):
             spread = val
-        # fi
-    # od
 
     if infile is None:
         usage()
-    # fi
 
     db = Factory.get('Database')()
     db.cl_init(change_program='import_uname')
@@ -237,7 +214,6 @@ def main():
     fnr2person_id = dict()
     for p in person.list_external_ids(id_type=constants.externalid_fodselsnr):
         fnr2person_id[p['external_id']] = p['entity_id']
-    # od
 
     account.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
     default_creator_id = account.entity_id
@@ -252,7 +228,6 @@ def main():
     process_line(infile, email_spread)
 
     attempt_commit()
-# end main
 
 
 
@@ -260,4 +235,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-# fi
