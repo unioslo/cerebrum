@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006-2009 University of Oslo, Norway
+# Copyright 2006-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -424,7 +424,17 @@ def generate_cerebrum_numbers(output_stream):
                          FROM [:table schema=cerebrum name=account_info]
                          """)
     present_single_result(output_stream, result, "Number of accounts")
-    # TODO 2007-01-17 amveha: - per account_type
+
+    # ... per account_type ...
+    result = db.query("""SELECT pac.code_str, count(*)
+                         FROM [:table schema=cerebrum name=account_type] at,
+                              [:table schema=cerebrum name=person_affiliation_code] pac
+                         WHERE at.affiliation = pac.code
+                         GROUP BY pac.code_str
+                         ORDER BY pac.code_str
+                     """)
+    present_grouped_results(output_stream, result, "- distributed by account type")
+    
     # ... per spread...
     result = db.query("""SELECT sc.code_str, count(*)
                          FROM [:table schema=cerebrum name=entity_spread] es,
