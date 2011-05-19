@@ -88,6 +88,9 @@ def process_line(infile, spread, sepchar):
         if uname == "":
             logger.error("No uname given. Skipping!")
             continue
+
+        # Strip trailing comma
+        addr = addr.rstrip(',')
     
         account = get_account(uname)
         if account:
@@ -144,8 +147,9 @@ def process_mail(account, mtype, addr, spread=None):
     try:
         et.find_by_target_entity(int(account_id))
     except Errors.NotFoundError:
-        et.populate(constants.email_target_account, entity_id=int(account_id),
-                    entity_type=constants.entity_account)
+        et.populate(constants.email_target_account,
+                    target_entity_id=int(account_id),
+                    target_entity_type=constants.entity_account)
         et.write_db()
         logger.debug("EmailTarget created: %s: %d", account_id, et.entity_id)
 
