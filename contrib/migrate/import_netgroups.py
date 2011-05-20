@@ -129,7 +129,7 @@ def read_filelines(infile):
     stream = open(infile, 'r')
     for line in stream:
         line = line.rstrip('\r\n')
-        logger.debug("Processing line: '%s'", line)
+        logger.debug5("Processing line: '%s'", line)
 
         fields = string.split(line.strip(), ":")
         if len(fields) < 3:
