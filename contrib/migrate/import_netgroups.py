@@ -129,7 +129,7 @@ def read_filelines(infile):
     stream = open(infile, 'r')
     for line in stream:
         line = line.rstrip('\r\n')
-        logger.debug5("Processing line: '%s'", line)
+        logger.debug("Processing line: '%s'", line)
 
         fields = string.split(line.strip(), ":")
         if len(fields) < 3:
@@ -159,12 +159,12 @@ def create_group(groupname, description, spread):
     that spread already.
 
     """
-    logger.debug5("Processing group: '%s' (desc: '%s')" % (groupname, description))
+    logger.debug("Processing group: '%s' (desc: '%s')" % (groupname, description))
 
     try:
         group.clear()
         group.find_by_name(groupname)
-        logger.debug5("Group '%s' exists.", groupname)
+        logger.debug("Group '%s' exists.", groupname)
     except Errors.NotFoundError:	
         group.populate(default_creator_id, constants.group_visibility_all,
                        groupname, description,
@@ -179,7 +179,7 @@ def create_group(groupname, description, spread):
         group.write_db()
         if not dryrun:
             db.commit()
-            logger.debug5("Added spread '%s' to group '%s'.", spread, groupname)
+            logger.info("Added spread '%s' to group '%s'.", spread, groupname)
 
 
 def assign_memberships(groupname, members):
@@ -213,11 +213,11 @@ def assign_memberships(groupname, members):
                      groupname)
         return
         
-    logger.debug5("Adding members to group: '%s'" % groupname)
+    logger.debug("Adding members to group: '%s'" % groupname)
 
     for member in member_list:
         member = member.strip()
-        logger.debug5("Looking at potential member: '%s'" % member)
+        logger.debug("Looking at potential member: '%s'" % member)
         addee = None
         entity_type = None
 
@@ -228,31 +228,35 @@ def assign_memberships(groupname, members):
 	try:
             person.clear()
             person.find_by_external_id(constants.externalid_uname, member.lower())
-            account_id = person.get_primary_account()
+            # this is not the most robust code, but it should work for all person objects available
+            # at this point 
+            tmp = person.get_accounts()
+            if len(tmp) == 0:
+                logger.warn("Skipping, no valid accounts found for '%s'" % (member.lower()))
+                continue
+            account_id = int(tmp[0]['account_id'])
             account_member.clear()
             account_member.find(account_id)
             addee = account_member
             entity_type = constants.entity_account
-            logger.debug3("Found account '%s' for user with external name '%s'" % (addee.account_name, member.lower()))
-
+            logger.info("Found account '%s' for user with external name '%s'" % (addee.account_name, member.lower()))
 	except Errors.NotFoundError:
-            logger.debug3("Didn't find user with external name '%s'" % member.lower())
+            logger.warn("Didn't find user with external name '%s'" % member.lower())
             try:
                 account_member.clear()
                 account_member.find_by_name(member.lower())
                 addee = account_member
                 entity_type = constants.entity_account
-                logger.debug3("Found account '%s' for user with name '%s'" % (addee.account_name, member.lower()))
-
+                logger.debug("Found account '%s' for user with name '%s'" % (addee.account_name, member.lower()))
             except Errors.NotFoundError:
-                logger.debug3("Didn't find user with name '%s'" % member.lower())
+                logger.warn("Didn't find user with name '%s'" % member.lower())
                 try:
                     group_member.clear()
                     group_member.find_by_name(member)
                     addee = group_member
                     entity_type = constants.entity_group
                 except Errors.NotFoundError:
-                    logger.debug3("Didn't find group with name '%s'", member)
+                    logger.debug("Didn't find group with name '%s'", member)
                     logger.error("Trying to assign membership for a non-existing " +
                                  "entity '%s' to group '%s'" % (member, groupname))
                     unknown_entities[member] = 1 # Add to dict, so we can report all later
@@ -266,7 +270,7 @@ def assign_memberships(groupname, members):
                 db.commit()
                 logger.info("Added '%s' to group '%s'.", member, groupname)
         else:
-            logger.debug3("%s '%s' already member of  group '%s'." %
+            logger.debug("%s '%s' already member of  group '%s'." %
                           (entity_type, member, groupname))
             
 
