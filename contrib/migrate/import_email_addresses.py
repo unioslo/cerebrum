@@ -35,6 +35,12 @@ uname   -- account name
 keyword -- 'defaultmail' or 'mail'
 """
 
+##
+## TODO: This script only works for import file with old usernames
+## stored as external_id. Fix this!
+## 
+
+
 import getopt
 import sys
 
@@ -102,25 +108,23 @@ def process_line(infile, spread, sepchar):
 
 def get_account(uname):
     try:
+        person.clear()
+        person.find_by_external_id(constants.externalid_uname, uname)
+        # this is not the most robust code, but it should work for all
+        # person objects available at this point
+        tmp = person.get_accounts()
+        if len(tmp) == 0:
+            logger.warn("Skipping, no valid accounts found for '%s'" % uname)
+            return
+        account_id = int(tmp[0]['account_id'])
         account.clear()
-        account.find_by_name(uname)
-        logger.debug3("User %s exists in Cerebrum", uname)
+        account.find(account_id)
+        logger.info("Found account '%s' for user with external name '%s'",
+                    account.account_name, uname)
         return account
     except Errors.NotFoundError:
-        logger.debug3("Didn't find a user with uname %s.", uname)
-        try:
-            person.clear()
-            person.find_by_external_id(constants.externalid_uname, uname)
-            account_id = person.get_primary_account()
-            account.clear()
-            account.find(account_id)
-            logger.debug3("Found account '%s' for user with external name '%s'",
-                          account.account_name, uname)
-            return account
-        except Errors.NotFoundError:
-            logger.debug3("Didn't find user with external name '%s'" % uname)
-            
-    return None
+        logger.warn("Didn't find user with external name '%s'" % uname)
+        return 
 
 
 def process_mail(account, mtype, addr, spread=None):
