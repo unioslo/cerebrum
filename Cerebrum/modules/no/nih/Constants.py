@@ -39,6 +39,9 @@ class Constants(Constants.Constants):
     affiliation_status_manuell_inaktiv = _PersonAffStatusCode(
         affiliation_manuell, 'inaktiv',
         'Person uten ekte tilknytning til NiH. Bruk med forsiktighet!')
+    # affiliation tilknyttet
+    affiliation_tilknyttet = _PersonAffiliationCode('TILKNYTTET',
+                                                    'Assosiert, reg. i kildesystem')    
     # affiliation for FI
     affiliation_status_tilknyttet_fi = _PersonAffStatusCode(affiliation_tilknyttet,
                                                             'fi',
