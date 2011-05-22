@@ -52,18 +52,16 @@ class AccountNIHMixin(Account.Account):
         spreads = [int(r['spread']) for r in self.get_spread()]
         if not spread in spreads:  # user doesn't have this spread
             return
+                
+        # (Try to) perform the actual spread removal.
+        ret = self.__super.delete_spread(spread)
+        # Post-removal clean up
         if spread == self.const.spread_exchange_account:
             try:
                 self.delete_trait(self.const.trait_exchange_mdb)
                 self.write_db()
             except Errors.NotFoundError:
                 pass
-
-                
-        # (Try to) perform the actual spread removal.
-        ret = self.__super.delete_spread(spread)
-        # Post-removal clean up
-        if spread == self.const.spread_exchange_account:
             try:
                 et = Email.EmailTarget(self._db)
                 et.find_by_target_entity(self.entity_id)
