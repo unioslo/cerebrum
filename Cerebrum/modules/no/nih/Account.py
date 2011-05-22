@@ -24,17 +24,55 @@ import re
 import cereconf
 
 from Cerebrum import Account
+from Cerebrum import Errors
+from Cerebrum.modules import Email
 
 
 
 class AccountNIHMixin(Account.Account):
     """Account mixin class providing functionality specific to NIH."""
-    
-    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
-        # Override Account.suggest_unames as HiHH allows up to 10 chars
-        # in unames
-        return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
-    
+    def add_spread(self, spread):
+        if spread == self.const.spread_exchange_account:
+            if not self.has_spread(self.const.spread_ad_account):
+                self.add_spread(self.const.spread_ad_account)
+            mdb = self._autopick_homeMDB()
+            self.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
+            self.write_db()
+        #
+        # (Try to) perform the actual spread addition.
+        ret = self.__super.add_spread(spread)
+
+        return ret
+
+
+    def delete_spread(self, spread):
+        #
+        # Pre-remove checks
+        #
+        spreads = [int(r['spread']) for r in self.get_spread()]
+        if not spread in spreads:  # user doesn't have this spread
+            return
+        if spread == self.const.spread_exchange_account:
+            try:
+                self.delete_trait(self.const.trait_exchange_mdb)
+                self.write_db()
+            except Errors.NotFoundError:
+                pass
+
+                
+        # (Try to) perform the actual spread removal.
+        ret = self.__super.delete_spread(spread)
+        # Post-removal clean up
+        if spread == self.const.spread_exchange_account:
+            try:
+                et = Email.EmailTarget(self._db)
+                et.find_by_target_entity(self.entity_id)
+                et.email_target_type = self.const.email_target_deleted
+                et.write_db()
+            except Errors.NotFoundError:
+                pass        
+        return ret
+
 
     def illegal_name(self, name):
         """ NIH can only allow max 10 characters in usernames.
@@ -49,10 +87,83 @@ class AccountNIHMixin(Account.Account):
         return False
 
 
+    def is_employee(self):
+        for r in self.get_account_types():
+            if r['affiliation'] == self.const.affiliation_ansatt:
+                return True
+        return False
 
-class AccountNIHEmailMixin(Account.Account):
-    """Account mixin class providing email-related functionality
-    specific to NIH.
 
-    """
-    pass
+    def is_affiliate(self):
+        for r in self.get_account_types():
+            if r['affiliation'] == self.const.affiliation_tilknyttet:
+                return True
+        return False    
+
+
+    def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
+        # Override Account.suggest_unames as HiHH allows up to 10 chars
+        # in unames
+        return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
+
+
+    def update_email_addresses(self):
+        # Overriding default update_email_addresses as NIH does not require
+        # email_server, Jazz, 2011-05-22
+        # Find, create or update a proper EmailTarget for this
+        # account.
+        et = Email.EmailTarget(self._db)
+        target_type = self.const.email_target_account
+        if self.is_expired() or self.is_reserved():
+            target_type = self.const.email_target_deleted
+        changed = False
+        try:
+            et.find_by_email_target_attrs(target_entity_id = self.entity_id)
+            if et.email_target_type != target_type:
+                changed = True
+                et.email_target_type = target_type
+        except Errors.NotFoundError:
+            # We don't want to create e-mail targets for reserved or
+            # deleted accounts, but we do convert the type of existing
+            # e-mail targets above.
+            if target_type == self.const.email_target_deleted:
+                return
+            et.populate(target_type, self.entity_id, self.const.entity_account)
+        et.write_db()
+        # For deleted/reserved users, set expire_date for all of the
+        # user's addresses, and don't allocate any new addresses.
+        ea = Email.EmailAddress(self._db)
+        if changed and cereconf.EMAIL_EXPIRE_ADDRESSES is not False:
+            if target_type == self.const.email_target_deleted:
+                seconds = cereconf.EMAIL_EXPIRE_ADDRESSES * 86400
+                expire_date = self._db.DateFromTicks(time.time() + seconds)
+            else:
+                expire_date = None
+            for row in et.get_addresses():
+                ea.clear()
+                ea.find(row['address_id'])
+                ea.email_addr_expire_date = expire_date
+                ea.write_db()
+        # Active accounts shouldn't have an alias value (it is used
+        # for failure messages)
+        if changed and target_type == self.const.email_target_account:
+            if et.email_target_alias is not None:
+                et.email_target_alias = None
+                et.write_db()
+
+        if target_type == self.const.email_target_deleted:
+            return
+        self._update_email_address_domains(et)
+
+                    
+    def _autopick_homeMDB(self):
+        mdb_choice = None
+        if self.is_employee() or self.is_affiliate():
+            mdb_choice = 'Ansatte-Vanlige'
+        else:
+            mdb_choice = 'Studenter-Vanlige'
+        if mdb_choice is None:
+            raise self._db.IntegrityError, \
+                  "Cannot assign mdb"
+        return mdb_choice
+    
