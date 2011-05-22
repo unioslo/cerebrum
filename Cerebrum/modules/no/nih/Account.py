@@ -26,7 +26,7 @@ import cereconf
 from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
-
+from Cerebrum.modules import PasswordHistory
 
 
 class AccountNIHMixin(Account.Account):
@@ -99,6 +99,14 @@ class AccountNIHMixin(Account.Account):
         return False    
 
 
+
+    def set_password(self, plaintext):
+        # Override Account.set_password so that we get a copy of the
+        # plaintext password
+        self.__plaintext_password = plaintext
+        self.__super.set_password(plaintext)
+
+        
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
         # Override Account.suggest_unames as HiHH allows up to 10 chars
         # in unames
@@ -164,4 +172,15 @@ class AccountNIHMixin(Account.Account):
             raise self._db.IntegrityError, \
                   "Cannot assign mdb"
         return mdb_choice
-    
+
+
+    def write_db(self):
+        try:
+            plain = self.__plaintext_password
+        except AttributeError:
+            plain = None
+        ret = self.__super.write_db()
+        if plain is not None:
+            ph = PasswordHistory.PasswordHistory(self._db)
+            ph.add_history(self, plain)
+        return ret    
