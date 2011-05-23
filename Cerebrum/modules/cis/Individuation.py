@@ -243,7 +243,7 @@ class Individuation:
         # checked to protect against brute force attack (defaults to 20).
         pt = ac.get_trait(co.trait_password_token)
         no_checks = int(pt['numval'])
-        if no_checks > getattr(cereconf, 'INDIVIDUATION_TOKEN_CHECKS', 20):
+        if no_checks > getattr(cereconf, 'INDIVIDUATION_TOKEN_ATTEMPTS', 20):
             log.info("No. of token checks exceeded for user %s" % uname)
             raise Errors.CerebrumRPCException('toomanyattempts_check')
         # Check if we're within time limit
