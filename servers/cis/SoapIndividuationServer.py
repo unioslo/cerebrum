@@ -25,7 +25,7 @@ import SoapListener
 
 import cerebrum_path, cereconf
 from Cerebrum.modules.cis import Individuation, IndividuationMessages
-from Cerebrum.Utils import Messages
+from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
 
 from soaplib.core.service import rpc
@@ -61,6 +61,9 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     clients. All those actions are decorated as a rpc, defining
     what parameters the methods accept, types and what is returned.
     """
+
+    # The class where the Cerebrum-specific functionality is done
+    individuation = None
 
     def _get_cache(self, session_id):
         """Get the cache which is stored in the session. A temporary cache is
@@ -123,7 +126,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         ret = []
         # get_person_accounts returns a list of dicts on the form:
         # [{'uname': '...', 'priority': '...', 'status': '...'}, ...]
-        for acc in Individuation.get_person_accounts(id_type, ext_id):
+        for acc in self.individuation.get_person_accounts(id_type, ext_id):
             a = Account()
             for k, v in acc.items():
                 setattr(a, k, v)
@@ -137,7 +140,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         Cerebrum. The input must be matched to only one existing person in
         Cerebrum, including the phone number.
         """
-        return Individuation.generate_token(id_type, ext_id, username,
+        return self.individuation.generate_token(id_type, ext_id, username,
                                             phone_no, browser_token)
 
     @rpc(String, String, String, String, _returns=Boolean)
@@ -148,7 +151,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         Throws an exception if the token is too old, or in case of too many
         failed attempts.
         """
-        return Individuation.check_token(username, token, browser_token)
+        return self.individuation.check_token(username, token, browser_token)
 
     @rpc(String, String, _returns=Boolean)
     def abort_token(self, username, session_id=None):
@@ -156,7 +159,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         Remove token for given user from Cerebrum. Used in case the user wants
         to abort the process.
         """
-        return Individuation.delete_token(username)
+        return self.individuation.delete_token(username)
 
     @rpc(String, String, String, String, String, _returns=Boolean)
     def set_password(self, username, new_password, token, browser_token,
@@ -165,7 +168,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         Set new password for a user if the tokens are valid and the password is
         good enough.
         """
-        return Individuation.set_password(username, new_password, token, browser_token)
+        return self.individuation.set_password(username, new_password, token, browser_token)
 
     @rpc(String, String, _returns=Boolean)
     def validate_password(self, password, session_id=None):
@@ -173,27 +176,35 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         Check if a given password is good enough. Returns either True or throws
         exceptions with an explanation of what is wrong with the password.
         """
-        return Individuation.validate_password(password)
+        return self.individuation.validate_password(password)
 
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
-  -p | --port num: run on alternative port (default: ?)
-  -l | --logfile: where to log
-  --unencrypted: don't use https
-  """
+  -p | --port num   Run on alternative port (default: ?)
+  -l | --logfile:   Where to log
+  --instance        The individuation instance which should be used, e.g:
+                        Cerebrum.modules.cis.Individuation/Individuation
+                    or:
+                        Cerebrum.modules.cis.UiAindividuation/Individuation
+
+  --unencrypted     Don't use https
+  -h | --help       Show this and quit
+    """
     sys.exit(exitcode)
 
 
 if __name__=='__main__':
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'p:l:',
-                                   ['port=', 'unencrypted', 'logfile='])
+        opts, args = getopt.getopt(sys.argv[1:], 'p:l:h',
+                                   ['port=', 'unencrypted', 'logfile=',
+                                    'help', 'instance='])
     except getopt.GetoptError:
         usage(1)
 
     use_encryption = CRYPTO_AVAILABLE
-    port = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
-    logfile = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
+    port     = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
+    logfile  = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
+    instance = getattr(cereconf, 'INDIVIDUATION_INSTANCE', None)
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
@@ -202,6 +213,10 @@ if __name__=='__main__':
             port = int(val)
         elif opt in ('--unencrypted',):
             use_encryption = False
+        elif opt in ('--instance',):
+            instance = val
+        elif opt in ('-h', '--help'):
+            usage()
 
     # Init twisted logger
     log.startLogging(file(logfile, 'w'))
@@ -209,7 +224,15 @@ if __name__=='__main__':
     #        Utility method which wraps a function in a try:/except:, logs a
     #        failure if one occurrs, and uses the system's logPrefix.
 
-    server = SoapListener.TwistedSoapStarter(port = port,
+    # Initiate the individuation instance
+    module, classname = instance.split('/', 1)
+    mod = dyn_import(module)
+    cls = getattr(mod, classname)
+    IndividuationServer.individuation = cls()
+    # TBD: Should Individuation be started once per session instead? Takes
+    # more memory, but are there benefits we need, e.g. language control?
+
+    server = SoapListener.TwistedSoapStarter(port = int(port),
                 applications = IndividuationServer,
                 private_key_file = cereconf.SSL_PRIVATE_KEY_FILE,
                 certificate_file = cereconf.SSL_CERTIFICATE_FILE,
