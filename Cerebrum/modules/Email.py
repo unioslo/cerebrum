@@ -1944,14 +1944,15 @@ class AccountEmailMixin(Account.Account):
         full = p.get_name(self.const.system_cached, self.const.name_full)
         return full
 
-    def get_prospect_maildomains(self):
+    def get_prospect_maildomains(self, use_default_domain=True):
         """Return correct `domain_id's for the account's account_types regardless
         of what's populated in email_address.
 
         Domains will be sorted based on account_type priority and have
         cereconf.EMAIL_DEFAULT_DOMAIN last in the list."""
         dom = EmailDomain(self._db)
-        dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        if use_default_domain:
+            dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
         entdom = EntityEmailDomain(self._db)
         domains = []
         # Find OU and affiliation for this account.
@@ -1978,14 +1979,16 @@ class AccountEmailMixin(Account.Account):
                     domains.append(entdom.entity_email_domain_id)
                 except Errors.NotFoundError:
                     pass
-        # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild domain always
-        domains.append(dom.entity_id)
+        if use_defaul_domain:
+            # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild domain always
+            domains.append(dom.entity_id)
         return domains
 
-    def get_primary_maildomain(self):
+    def get_primary_maildomain(self, use_default_domain=True):
         """Return correct `domain_id' for account's primary address."""
         dom = EmailDomain(self._db)
-        dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
+        if use_default_domain:
+            dom.find_by_domain(cereconf.EMAIL_DEFAULT_DOMAIN)
         entdom = EntityEmailDomain(self._db)
         # Find OU and affiliation for this user's best-priority
         # account_type entry.
@@ -2013,9 +2016,10 @@ class AccountEmailMixin(Account.Account):
                 return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
-        # Still no proper maildomain association has been found; fall
-        # back to default maildomain.
-        return dom.entity_id
+        if use_default_domain:
+            # Still no proper maildomain association has been found; fall
+            # back to default maildomain.
+            return dom.entity_id
 
     def get_primary_mailaddress(self):
         """Return account's current primary address."""
