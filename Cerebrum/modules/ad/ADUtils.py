@@ -128,7 +128,7 @@ class ADUtils(object):
         except xmlrpclib.ProtocolError, xpe:
             self.logger.critical("Error connecting to AD service: %s %s" %
                                  (xpe.errcode, xpe.errmsg))
-            return False
+            return False,
         except xmlrpclib.Fault, msg:
             self.logger.warn("Exception from AD service:", msg)
             return False
@@ -137,7 +137,14 @@ class ADUtils(object):
         if not ret[0]:
             self.logger.warn("Server couldn't execute %s(%s): %s" %
                              (command, args, ret[1]))
-        return ret[0]
+            return False
+        # cmd was run successfully on the server.
+        # If command is create_object and an additional sid is
+        # returned we need to return sid instead of True
+        if command == "createObject" and len(ret) == 3:
+            return ret[2]
+        else:
+            return True
 
 
     def move_object(self, dn, ou, obj_type="user"):
@@ -179,14 +186,14 @@ class ADUtils(object):
             return
         
         ret = self.run_cmd("createObject", "contact", ou, name)
-        if not ret[0]:
+        if not ret:
             # Don't continue if createObject fails
             return
         self.logger.info("created contact %s" % name)
 
         self.run_cmd("putProperties", attrs)
         self.run_cmd("setObject")
-        return ret[0]
+        return ret
 
 
 class ADUserUtils(ADUtils):
@@ -255,8 +262,8 @@ class ADUserUtils(ADUtils):
             self.logger.debug("DRYRUN: Not creating user %s" % uname)
             return
         
-        ret = self.run_cmd("createObject", "User", ou, uname)
-        if not ret[0]:
+        sid = self.run_cmd("createObject", "User", ou, uname)
+        if not sid:
             # Don't continue if createObject fails
             return
         self.logger.info("created user %s" % uname)
@@ -270,7 +277,7 @@ class ADUserUtils(ADUtils):
         self.run_cmd("putProperties", attrs)
         self.run_cmd("setObject")
         # createObject succeded, return sid
-        return ret[2]
+        return sid
 
 
 class ADGroupUtils(ADUtils):
