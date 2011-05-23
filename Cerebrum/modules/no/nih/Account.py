@@ -161,6 +161,65 @@ class AccountNIHMixin(Account.Account):
             return
         self._update_email_address_domains(et)
 
+
+    def _update_email_address_domains(self, et):
+        # Figure out which domain(s) the user should have addresses
+        # in.  Primary domain should be at the front of the resulting
+        # list.
+        ed = Email.EmailDomain(self._db)
+        ea = Email.EmailAddress(self._db)
+        ed.find(self.get_primary_maildomain(use_default_domain=False))
+        domains = self.get_prospect_maildomains(use_default_domain=False)
+        # Iterate over the available domains, testing various
+        # local_parts for availability.  Set user's primary address to
+        # the first one found to be available.
+        primary_set = False
+        epat = Email.EmailPrimaryAddressTarget(self._db)
+        for domain in domains:
+            if ed.entity_id <> domain:
+                ed.clear()
+                ed.find(domain)
+            # Check for 'cnaddr' category before 'uidaddr', to prefer
+            # 'cnaddr'-style primary addresses for users in
+            # maildomains that have both categories.
+            ctgs = [int(r['category']) for r in ed.get_categories()]
+            local_parts = []
+            if int(self.const.email_domain_category_cnaddr) in ctgs:
+                local_parts.append(self.get_email_cn_local_part())
+                local_parts.append(self.account_name)
+            elif int(self.const.email_domain_category_uidaddr) in ctgs:
+                local_parts.append(self.account_name)
+            for lp in local_parts:
+                lp = self.wash_email_local_part(lp)
+                # Is the address taken?
+                ea.clear()
+                try:
+                    ea.find_by_local_part_and_domain(lp, ed.entity_id)
+                    if ea.email_addr_target_id <> et.entity_id:
+                        # Address already exists, and points to a
+                        # target not owned by this Account.
+                        #
+                        # TODO: An expired address gets removed by a
+                        # database cleaning job, and when it's gone,
+                        # the address will eventually be recreated
+                        # connected to this target.
+                        continue
+                except Errors.NotFoundError:
+                    # Address doesn't exist; create it.
+                    ea.populate(lp, ed.entity_id, et.entity_id,
+                                expire=None)
+                ea.write_db()
+                if not primary_set:
+                    epat.clear()
+                    try:
+                        epat.find(ea.email_addr_target_id)
+                        epat.populate(ea.entity_id)
+                    except Errors.NotFoundError:
+                        epat.clear()
+                        epat.populate(ea.entity_id, parent = et)
+                    epat.write_db()
+                    primary_set = True
+
                     
     def _autopick_homeMDB(self):
         mdb_choice = None
