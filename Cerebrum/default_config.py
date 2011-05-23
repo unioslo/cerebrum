@@ -790,3 +790,59 @@ SMS_URL    = ''
 SMS_SYSTEM = ''
 # The username for authentication at the gateway
 SMS_USER   = ''
+
+###
+### The Individuation daemon
+### A soap-daemon for users to change password, e.g. by SMS.
+###
+
+# The port number where an Individuation daemon should run
+INDIVIDUATION_SERVICE_PORT = 0
+# To where the Individuation daemon should log
+INDIVIDUATION_SERVICE_LOGFILE = None
+# The local individuation instance to use
+INDIVIDUATION_INSTANCE = 'Cerebrum.modules.cis.Individuation/Individuation'
+
+# The number of attempts before a user gets blocked from the service
+INDIVIDUATION_ATTEMPTS = 10
+# For how long a blocked user will stay blocked
+INDIVIDUATION_ATTEMPTS_BLOCK_PERIOD = 3600 # in seconds
+# The lifetime of one time passwords sent by SMS
+# Remember that some countries have slow mobile networks
+INDIVIDUATION_TOKEN_LIFETIME = 60 # Minutes
+# The number of characters in a one time passwords sent by SMS
+INDIVIDUATION_TOKEN_LENGTH = 8
+# The format of the message
+INDIVIDUATION_SMS_MESSAGE = "Your one time password:\n%s\nCerebrum"
+# The number of times a token can be checked before it's invalidated
+INDIVIDUATION_TOKEN_ATTEMPTS = 10
+# The location of the certificate for the php client
+#INDIVIDUATION_CLIENT_CERT = '/cerebrum/var/certs/cis_client.pem'
+# Quarantines that is accepted for password changes. Quarantines not in this
+# list blocks the user from changing password.
+INDIVIDUATION_ACCEPTED_QUARANTINES = ('quarantine_svakt_passord',
+                                      'quarantine_autopassord')
+# The number of days a deleted affiliation will still be considered active for
+# the password service. This is to let people that has just quit, or is wrongly
+# registered, to be able to use the service a short time after.
+INDIVIDUATION_AFF_GRACE_PERIOD = 7 # in days
+# The accepted phone numbers for sending SMS, specified for each source system
+INDIVIDUATION_PHONE_TYPES = {}
+# Example: {
+#    'system_sap': ('contact_phone',
+#                   'contact_mobile_phone',
+#                   'contact_phone_private',
+#                   'contact_private_mobile',),
+#    'system_fs':  ('contact_phone',
+#                   'contact_mobile_phone',
+#                   'contact_phone_private',
+#                   'contact_private_mobile',),}
+
+# Groups that should be reserved from the password service. Bofhd's superuser
+# group is automatically included here.
+INDIVIDUATION_PASW_RESERVED = ('brukerreg',)
+
+# The private key used by cerebrum's server(s).
+SSL_PRIVATE_KEY_FILE = '/cerebrum/var/password/cerebrum_key.priv'
+# Cerebrum's server(s) x509 certificate.
+SSL_CERTIFICATE_FILE = '/cerebrum/var/certs/cerebrum.pem'
