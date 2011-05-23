@@ -113,12 +113,12 @@ def main():
             delete = true_false(val)
         elif opt == "--store-sid":
             config_args["store_sid"] = True
-        elif opt in ("ad_subset", "cb_subset"):
+        elif opt in ("--ad_subset", "--cb_subset"):
             try:
                 unames = [line.strip() for line in file(val) if line.strip()]
             except IOError:
                 unames = [f.strip() for f in val.split(",")]
-            config_args[opt] = unames
+            config_args[opt[2:]] = unames
         elif opt == "--logger-name":
             logger_name = val
         elif opt == "--logger-level":
