@@ -724,13 +724,29 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         # Drop memberships
         group = self.Group_class(self.db)
         for row in group.search(member_id=account.entity_id):
+            group.clear()
             group.find(row["group_id"])
             group.remove_member(account.entity_id)
+
+        row = account.search(name=cereconf.INITIAL_ACCOUNTNAME)
+        bootstrap_id = row[0]['account_id']
+
+        # Set change_by to bootstrap_account
+        self.db.cl_init(change_by=bootstrap_id)
+
+        # Set group's creator_id to bootstrap account
+        for row in group.search(creator_id=account.entity_id):
+            group.clear()
+            group.find(row["group_id"])
+            group.creator_id = bootstrap_id
+            group.write_db()
 
         # Yank the spreads
         for row in account.get_spread():
             account.delete_spread(row["spread"])
 
+        # Write all events so they can be removed
+        self.db.commit()
         # wipe the changelog -- there is a foreign key there.
         for event in self.db.get_log_events(change_by=account.entity_id):
             self.db.remove_log_event(event["change_id"])
@@ -759,6 +775,7 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_nuke_fedaccount(operator.get_entity_id(),
                                     account.entity_id)
         uname = account.account_name
+        operator.clear_state()
         self.__account_nuke_sequence(account.entity_id)
         return "OK, account %s has been deleted" % (uname,)
     # end user_fedaccount_nuke
