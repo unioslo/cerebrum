@@ -32,10 +32,10 @@ from Cerebrum.Constants import _SpreadCode, \
 
 class Constants(Constants.Constants):
     ## affiliations for others
-##     affiliation_manuell = _PersonAffiliationCode(
-##         'MANUELL',
-##         ('Tilknyttet NiH uten å være registrert i et av de'
-##          ' autoritative kildesystemene'))
+    affiliation_manuell = _PersonAffiliationCode(
+        'MANUELL',
+        ('Tilknyttet NiH uten å være registrert i et av de'
+         ' autoritative kildesystemene'))
 ##     affiliation_status_manuell_inaktiv = _PersonAffStatusCode(
 ##         affiliation_manuell, 'inaktiv',
 ##         'Person uten ekte tilknytning til NiH. Bruk med forsiktighet!')
