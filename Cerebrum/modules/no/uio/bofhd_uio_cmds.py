@@ -4064,6 +4064,9 @@ Addresses and settings:
             when = DateTime.now()
         else:
             when = self._parse_date(when)
+            if when < DateTime.now():
+                raise CerebrumError("Request time must be in the future")
+
         if es.email_server_type == self.const.email_server_type_cyrus:
             spreads = [int(r['spread']) for r in acc.get_spread()]
             br = BofhdRequests(self.db, self.const)
