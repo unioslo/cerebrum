@@ -348,7 +348,7 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
     def search(self, group_id=None,
                member_id=None, indirect_members=False,
                spread=None, name=None, description=None,
-               filter_expired=True):
+               filter_expired=True, creator_id=None):
         """Search for groups satisfying various filters.
 
         Search **for groups** where the results are filtered by a number of
@@ -533,6 +533,11 @@ class Group(EntityQuarantine, EntityExternalId, EntityName,
         # expired filter
         if filter_expired:
             where.append("(gi.expire_date IS NULL OR gi.expire_date > [:now])")
+
+        #
+        # creator_id filter
+        if creator_id is not None:
+            where.append(argument_to_sql(creator_id, "gi.creator_id", binds, int))
 
         where_str = ""
         if where:
