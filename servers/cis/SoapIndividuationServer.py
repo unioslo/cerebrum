@@ -182,7 +182,8 @@ def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
   -p | --port num   Run on alternative port (default: ?)
   -l | --logfile:   Where to log
-  --instance        The individuation instance which should be used, e.g:
+  --instance        The individuation instance which should be used. Defaults
+                    to cereconf.INDIVIDUATION_INSTANCE. E.g:
                         Cerebrum.modules.cis.Individuation/Individuation
                     or:
                         Cerebrum.modules.cis.UiAindividuation/Individuation
@@ -229,6 +230,7 @@ if __name__=='__main__':
     mod = dyn_import(module)
     cls = getattr(mod, classname)
     IndividuationServer.individuation = cls()
+    print "Individuation is using: %s" % instance
     # TBD: Should Individuation be started once per session instead? Takes
     # more memory, but are there benefits we need, e.g. language control?
 
