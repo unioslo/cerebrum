@@ -522,6 +522,30 @@ class BofhdAuth(DatabaseAccessor):
             return True
         raise PermissionDenied("Not allowed to set trait")
 
+    def can_remove_trait(self, operator, trait=None, ety=None, target=None,
+                         query_run_any=False):
+        if self.is_superuser(operator):
+            return True
+        if query_run_any:
+            return True
+        raise PermissionDenied("Not allowed to remove trait")
+
+    def can_view_trait(self, operator, trait=None, ety=None, target=None,
+                       query_run_any=False):
+        """Access to view traits. Default is that operators can see their own
+        person's and user's traits."""
+        if query_run_any:
+            return True
+        if self.is_superuser(operator):
+            return True
+        if ety and ety.entity_id == operator:
+            return True
+        account = Factory.get('Account')(self._db)
+        account.find(operator)
+        if ety and ety.entity_id == account.owner_id:
+            return True        
+        raise PermissionDenied("Not allowed to see trait")
+
     def can_get_student_info(self, operator, person=None, query_run_any=False):
         if self.is_superuser(operator):
             return True

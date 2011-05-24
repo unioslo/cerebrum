@@ -72,12 +72,12 @@ class BofhdAuth(auth.BofhdAuth):
             return True
         if self.is_superuser(operator):
             return True
-        # Persons/accounts are allowed to set their own reservation traits
-        if (ety and ety.entity_id == operator):
-            if (trait in (self.const.trait_reservation_sms_password,)):
+        # users can set some of their own traits
+        if ety and trait in (self.const.trait_reservation_sms_password,):
+            if ety.entity_id == operator:
                 return True
         raise PermissionDenied("Not allowed to set trait")
-    
+
     def can_email_address_delete(self, operator_id, account=None, domain=None,
                                  query_run_any=False):
         """Checks if the operator can delete an address in a given domain.

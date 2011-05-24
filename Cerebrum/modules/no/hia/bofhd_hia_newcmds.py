@@ -166,7 +166,7 @@ class BofhdExtension(BofhdCommandBase):
         #
         # copy trait-functions
         #
-        'trait_info', 'trait_list', 'trait_remove',
+        'trait_info', 'trait_list', 'trait_remove', 'trait_set',
         #
         # UiA needs a local version of 'trait_set' 
         #
@@ -1435,42 +1435,3 @@ class BofhdExtension(BofhdCommandBase):
 
         return result
     # end __get_all_related_maillist_targets
-
-    #
-    # UiA needs a local version of the trait command in order to let
-    # users control the traits related to the disclosure agreement
-    # Jazz, 2011-02-21
-    #
-    # trait set -- add or update a trait
-    all_commands['trait_set'] = Command(
-        ("trait", "set"), Id(help_ref="id:target:account"),
-        SimpleString(help_ref="trait"),
-        SimpleString(help_ref="trait_val", repeat=True))
-    def trait_set(self, operator, ent_name, trait_name, *values):
-        ent = self.util.get_target(ent_name, restrict_to=[])
-        if not self.ba.can_set_person_disclosure_trait(operator.get_entity_id(), ent):
-            raise PermissionDenied("Currently limited to account owner and superuser")
-        trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
-        params = {}
-        for v in values:
-            if v.count('='):
-                key, value = v.split('=', 1)
-            else:
-                key = v; value = ''
-            key = self.util.get_abbr_type(key, ('target_id', 'date', 'numval',
-                                                'strval'))
-            if value == '':
-                params[key] = None
-            elif key == 'target_id':
-                target = self.util.get_target(value, restrict_to=[])
-                params[key] = target.entity_id
-            elif key == 'date':
-                # TODO: _parse_date only handles dates, not hours etc.
-                params[key] = self._parse_date(value)
-            elif key == 'numval':
-                params[key] = int(value)
-            elif key == 'strval':
-                params[key] = value
-        ent.populate_trait(trait, **params)
-        ent.write_db()
-        return "Ok, set trait %s for %s" % (trait_name, ent_name)    

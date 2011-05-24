@@ -7374,14 +7374,11 @@ Addresses and settings:
         ("  String:      %s", ('strval',)),
         ("  Date:        %s%s", ('dummy', format_time('date'),)),
         ("  Target:      %s (%s)", ('target_name', 'target_type'))]),
-        perm_filter="can_set_trait")
+        perm_filter="can_view_trait")
     def trait_info(self, operator, ety_id):
         ety = self.util.get_target(ety_id, restrict_to=[])
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            # Users might have access to some of their own traits.
-            if ety.entity_id not in (operator.get_entity_id(),
-                                     operator.get_owner_id()):
-                raise PermissionDenied("Currently limited to superusers")
+        self.ba.can_view_trait(operator.get_entity_id(), ety=ety)
+
         if isinstance(ety, Utils.Factory.get('Disk')):
             ety_name = ety.path
         elif isinstance(ety, Utils.Factory.get('Person')):
@@ -7395,8 +7392,8 @@ Addresses and settings:
         ret = []
         for trait, values in ety.get_traits().items():
             try:
-                self.ba.can_set_trait(operator.get_entity_id(), trait=trait,
-                                      ety=ety, target=values['target_id'])
+                self.ba.can_view_trait(operator.get_entity_id(), trait=trait,
+                                       ety=ety, target=values['target_id'])
             except PermissionDenied:
                 continue
 
@@ -7441,16 +7438,17 @@ Addresses and settings:
         ret.sort(lambda x,y: cmp(x['name'], y['name']))
         return ret
 
+#def can_remove_trait(self, operator, trait=None, ety=None, target=None, query_run_any=False):
     # trait remove -- remove trait from entity
     all_commands['trait_remove'] = Command(
         ("trait", "remove"), Id(help_ref="id:target:account"),
         SimpleString(help_ref="trait"),
-        perm_filter="is_superuser")
+        perm_filter="can_remove_trait")
     def trait_remove(self, operator, ety_id, trait_name):
-        if not self.ba.is_superuser(operator.get_entity_id()):
-            raise PermissionDenied("Currently limited to superusers")
         ety = self.util.get_target(ety_id, restrict_to=[])
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
+        self.ba.can_remove_trait(operator.get_entity_id(), ety=ety, trait=trait)
+
         if isinstance(ety, Utils.Factory.get('Disk')):
             ety_name = ety.path
         elif isinstance(ety, Utils.Factory.get('Person')):
@@ -7471,8 +7469,7 @@ Addresses and settings:
     def trait_set(self, operator, ent_name, trait_name, *values):
         ent = self.util.get_target(ent_name, restrict_to=[])
         trait = self._get_constant(self.const.EntityTrait, trait_name, "trait")
-        self.ba.can_set_trait(operator=operator.get_entity_id(), trait=trait,
-                              ety=ent)
+        self.ba.can_set_trait(operator.get_entity_id(), trait=trait, ety=ent)
         params = {}
         for v in values:
             if v.count('='):

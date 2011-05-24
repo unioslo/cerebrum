@@ -50,18 +50,33 @@ class BofhdAuth(auth.BofhdAuth):
             return True        
         return False
     
-    def can_set_trait(self, operator, person=None, query_run_any=False):
+    def can_set_trait(self, operator, trait=None, ety=None, target=None,
+                      query_run_any=False):
         # this should not be necessary, we have to agree on the way
         # to use personal traits in order to avoid duplication and
         # double work
         if query_run_any:
             return True
-        # superuser can set traits
         if self.is_superuser(operator):
             return True
-        # person can set own traits
-        account = Factory.get('Account')(self._db)
-        account.find(operator)
-        if person.entity_id == account.owner_id:
-            return True        
-        return False    
+        # persons can set some of their own traits
+        if ety and trait in (self.const.trait_accept_nondisc,):
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+            if ety.entity_id == account.owner_id:
+                return True        
+        raise PermissionDenied("Not allowed to set trait")
+
+    def can_remove_trait(self, operator, trait=None, ety=None, target=None,
+                         query_run_any=False):
+        if query_run_any:
+            return True
+        if self.is_superuser(operator):
+            return True
+        # persons can remove some of their own traits
+        if ety and trait in (self.const.trait_reject_nondisc,):
+            account = Factory.get('Account')(self._db)
+            account.find(operator)
+            if ety.entity_id == account.owner_id:
+                return True        
+        raise PermissionDenied("Not allowed to remove trait")
