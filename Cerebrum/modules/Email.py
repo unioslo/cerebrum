@@ -1979,7 +1979,7 @@ class AccountEmailMixin(Account.Account):
                     domains.append(entdom.entity_email_domain_id)
                 except Errors.NotFoundError:
                     pass
-        if use_defaul_domain:
+        if use_default_domain:
             # Append cereconf.EMAIL_DEFAULT_DOMAIN last to return a vaild domain always
             domains.append(dom.entity_id)
         return domains
