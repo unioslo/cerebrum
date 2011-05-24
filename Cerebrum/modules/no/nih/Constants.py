@@ -32,20 +32,24 @@ from Cerebrum.Constants import _SpreadCode, \
 
 class Constants(Constants.Constants):
     ## affiliations for others
-    affiliation_manuell = _PersonAffiliationCode(
-        'MANUELL',
-        ('Tilknyttet NiH uten å være registrert i et av de'
-         ' autoritative kildesystemene'))
-    affiliation_status_manuell_inaktiv = _PersonAffStatusCode(
-        affiliation_manuell, 'inaktiv',
-        'Person uten ekte tilknytning til NiH. Bruk med forsiktighet!')
+##     affiliation_manuell = _PersonAffiliationCode(
+##         'MANUELL',
+##         ('Tilknyttet NiH uten å være registrert i et av de'
+##          ' autoritative kildesystemene'))
+##     affiliation_status_manuell_inaktiv = _PersonAffStatusCode(
+##         affiliation_manuell, 'inaktiv',
+##         'Person uten ekte tilknytning til NiH. Bruk med forsiktighet!')
     # affiliation tilknyttet
     affiliation_tilknyttet = _PersonAffiliationCode('TILKNYTTET',
                                                     'Assosiert, reg. i kildesystem')    
     # affiliation for FI
     affiliation_status_tilknyttet_fi = _PersonAffStatusCode(affiliation_tilknyttet,
                                                             'fi',
-                                                            'Manuelt registrert, forsvarsinst.')    
+                                                            'Manuelt registrert, forsvarsinst.')
+    # affiliation for pensjonister
+    affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                                    'pensjonist',
+                                                                    'Manuelt registrert, pensjonist.')        
     ## Spread definitions - user related
     spread_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
