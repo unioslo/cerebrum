@@ -45,7 +45,6 @@ class AuthConstants(Constants._CerebrumCode):
 class BofhdAuthOpSet(DatabaseAccessor):
     """Methods for updating auth_operation_set, auth_operation and
     auth_op_attrs which specifies what operations may be performed."""
-
     __metaclass__ = mark_update
     __read_attr__ = ('__in_db', 'const')
     __write_attr__ = ('op_set_id', 'name')
@@ -1103,7 +1102,7 @@ class BofhdAuth(DatabaseAccessor):
                        self.const.auth_grant_group,
                        self.const.auth_grant_host,
                        self.const.auth_grant_maildomain,
-                       self.const.auth_grant_dns,
+#                       self.const.auth_grant_dns,
                        self.const.auth_grant_ou):
                 if self._has_operation_perm_somewhere(operator, op):
                     return True
@@ -1490,11 +1489,11 @@ class BofhdAuth(DatabaseAccessor):
                                            self.const.auth_target_type_global_ou,
                                            victim_id, operation_attr=operation_attr):
                     return True
-            elif target_type == self.const.auth_target_type_dns:
-                if self._has_global_access(operator, operation,
-                                           self.const.auth_target_type_dns,
-                                           victim_id, operation_attr=operation_attr):
-                    return True
+#            elif target_type == self.const.auth_target_type_dns:
+#                if self._has_global_access(operator, operation,
+#                                           self.const.auth_target_type_dns,
+#                                           victim_id, operation_attr=operation_attr):
+#                    return True
 
         if self._list_target_permissions(
             operator, operation, target_type, target_id,  operation_attr):
