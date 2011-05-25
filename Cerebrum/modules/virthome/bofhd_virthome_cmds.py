@@ -728,17 +728,17 @@ class BofhdVirthomeCommands(BofhdCommandBase):
             group.find(row["group_id"])
             group.remove_member(account.entity_id)
 
-        bootstrap_id = self._get_account(cereconf.INITIAL_ACCOUNTNAME)
+        bootstrap = self._get_account(cereconf.INITIAL_ACCOUNTNAME)
 
         # Set change_by to bootstrap_account, to avoid foreign key constraint
         # issues for change_log when e.g. deleting the entity's name
-        self.db.cl_init(change_by=bootstrap_id)
+        self.db.cl_init(change_by=bootstrap.entity_id)
 
         # Set group's creator_id to bootstrap account
         for row in group.search(creator_id=account.entity_id):
             group.clear()
             group.find(row["group_id"])
-            group.creator_id = bootstrap_id
+            group.creator_id = bootstrap.entity_id
             group.write_db()
 
         # Yank the spreads
