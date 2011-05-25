@@ -41,7 +41,7 @@ DROP TABLE person_employment;
 
 
 
-category:code;
+category:main;
 CREATE TABLE person_employment
 (
         person_id       NUMERIC(12, 0)
