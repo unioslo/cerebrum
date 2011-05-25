@@ -47,18 +47,14 @@ from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
 
 
 class Constants(Constants.Constants):
+
+    # TODO: move these to Cerebrum/modules/bofhd/utils.py?
     auth_dns_superuser = _AuthRoleOpCode(
         'dns_superuser', 'Perform any DNS command')
 
     auth_dns_lita = _AuthRoleOpCode(
         'dns_lita', 'Perform LITA-level DNS commands')
 
-    # See auth_target_type_* in Cerebrum/modules(bofhd/utils.py
-    auth_target_type_dns = "dns"
-    auth_target_type_global_dns = "global_dns"
-
-    auth_grant_dns = _AuthRoleOpCode(
-        'grant_dns', 'Grant access to operate on DNS targets')
 
 
 class DnsBofhdAuth(BofhdAuth):
