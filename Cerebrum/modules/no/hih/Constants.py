@@ -84,6 +84,9 @@ class Constants(Constants.Constants):
     spread_adgang_person = _SpreadCode(
         'person@adgang', Constants.Constants.entity_person,
         'Person kjent i adgangssystemet til HiH')
+    spread_adgang_group = _SpreadCode(
+        'group@adgang', Constants.Constants.entity_group,
+        'Gruppe kjent i adgangssystemet til HiH')    
 
     ## External IDs - person related
     externalid_bewatorid = _EntityExternalIdCode(
