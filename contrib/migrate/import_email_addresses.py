@@ -78,8 +78,12 @@ def process_line(infile, spread, sepchar, homemdb):
         logger.debug5("Processing %s", line)
 
         fields = [l.strip() for l in line.split(sepchar)]
-        if len(fields) < 2 or (homemdb and len(fields) != 4):
-            logger.error("Bad line: %s." % line)
+        if len(fields) < 2:
+            logger.error("Bad line, less than two values: %s." % line)
+            continue
+
+        if homemdb and len(fields) != 4:
+            logger.error("Bad line, mdb and not 4 values: %s." % line)
             continue
         
         # if no mtype is given assume that the address should be registered
