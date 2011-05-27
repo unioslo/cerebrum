@@ -188,7 +188,7 @@ def process_mail(account, mtype, addr, spread=None, homemdb=None):
                 logger.error("EmailTarget mismatch: ea: %d, et: %d", 
                              ea.email_addr_target_id, et.entity_id)
         if homemdb:
-            account.populate_trait(const.trait_exchange_mdb, strval=homemdb)
+            account.populate_trait(constants.trait_exchange_mdb, strval=homemdb)
             account.write_db()
 
     
