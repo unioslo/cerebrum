@@ -99,7 +99,6 @@ class AccountNIHMixin(Account.Account):
         return False    
 
 
-
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
         # plaintext password
@@ -168,13 +167,22 @@ class AccountNIHMixin(Account.Account):
         # list.
         ed = Email.EmailDomain(self._db)
         ea = Email.EmailAddress(self._db)
-        ed.find(self.get_primary_maildomain(use_default_domain=False))
+        try:
+            ed.find(self.get_primary_maildomain(use_default_domain=False))
+        except Errors.NotFoundError:
+            # no appropriate primary domain was found, no valid address may
+            # be generated
+            return
         domains = self.get_prospect_maildomains(use_default_domain=False)
         # Iterate over the available domains, testing various
         # local_parts for availability.  Set user's primary address to
         # the first one found to be available.
         primary_set = False
         epat = Email.EmailPrimaryAddressTarget(self._db)
+        if not domains:
+            # no valid domain has been found and no e-mail address
+            # can be assigned
+            return
         for domain in domains:
             if ed.entity_id <> domain:
                 ed.clear()
