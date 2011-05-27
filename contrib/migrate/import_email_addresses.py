@@ -75,7 +75,7 @@ def process_line(infile, spread, sepchar, homemdb):
     # Iterate over all persons:
     for line in stream:
         commit_count += 1
-        logger.debug5("Processing %s", line)
+        logger.debug5("Processing %s", line.strip())
 
         fields = [l.strip() for l in line.split(sepchar)]
         if len(fields) < 2:
@@ -188,7 +188,7 @@ def process_mail(account, mtype, addr, spread=None, homemdb=None):
                 logger.error("EmailTarget mismatch: ea: %d, et: %d", 
                              ea.email_addr_target_id, et.entity_id)
         if homemdb:
-            logger.info("Added exchange-mbd %s", homemdb)
+            logger.info("Added exchange-mbd %s\n", homemdb)
             account.populate_trait(constants.trait_exchange_mdb, strval=homemdb)
             account.write_db()
 
