@@ -235,7 +235,7 @@ def main():
             spread = val
         elif opt in ('-c', '--sepchar'):
             sepchar = val
-        elif ogt in ('-m', '--homemdb'):
+        elif opt in ('-m', '--homemdb'):
             homemdb = True
 
     if infile is None:
