@@ -62,7 +62,7 @@ def attempt_commit():
         logger.debug("Committed all changes")
 
 
-def process_line(infile, spread, sepchar):
+def process_line(infile, spread, sepchar, homemdb):
     """
     Scan all lines in INFILE and create corresponding account/e-mail entries
     in Cerebrum.
@@ -78,7 +78,7 @@ def process_line(infile, spread, sepchar):
         logger.debug5("Processing %s", line)
 
         fields = [l.strip() for l in line.split(sepchar)]
-        if len(fields) < 2:
+        if len(fields) < 2 or if (homemdb and len(fields) != 4):
             logger.error("Bad line: %s." % line)
             continue
         
@@ -91,16 +91,16 @@ def process_line(infile, spread, sepchar):
         if len(fields) == 3:
             uname, mtype, addr = fields
 
+        if len(fields) == 4:
+            uname, mdb, mtype, addr = fields
+
         if uname == "":
             logger.error("No uname given. Skipping!")
             continue
 
-        # Strip trailing comma
-        addr = addr.rstrip(',')
-    
         account = get_account(uname)
         if account:
-            process_mail(account, mtype, addr, spread)
+            process_mail(account, mtype, addr, spread=spread, homemdb=mdb)
 
         if commit_count % commit_limit == 0:
             attempt_commit()
@@ -127,7 +127,7 @@ def get_account(uname):
         return 
 
 
-def process_mail(account, mtype, addr, spread=None):
+def process_mail(account, mtype, addr, spread=None, homemdb=None):
     et = Email.EmailTarget(db)
     ea = Email.EmailAddress(db)
     edom = Email.EmailDomain(db)
@@ -183,6 +183,10 @@ def process_mail(account, mtype, addr, spread=None):
             else:
                 logger.error("EmailTarget mismatch: ea: %d, et: %d", 
                              ea.email_addr_target_id, et.entity_id)
+        if homemdb:
+            acc.populate_trait(const.trait_exchange_mdb, strval=homemdb)
+            acc.write_db()
+
     
     et.clear()
     ea.clear()
@@ -195,6 +199,7 @@ def usage():
     -d, --dryrun  : Run a fake import. Rollback after run.
     -f, --file    : File to parse.
     -s, --spread  : add spread to account (optional)
+    -m, --homemdb : add homeMDB as trait
     """
     sys.exit(0)
 
@@ -208,10 +213,11 @@ def main():
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:s:c:d',
+                                   'f:s:c:dm',
                                    ['file=',
                                     'spread=',
                                     'sepchar=',
+                                    'homemdb',
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
@@ -219,6 +225,7 @@ def main():
     dryrun = False
     spread = None
     sepchar = ";"
+    homemdb = False
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
@@ -228,6 +235,8 @@ def main():
             spread = val
         elif opt in ('-c', '--sepchar'):
             sepchar = val
+        elif ogt in ('-m', '--homemdb'):
+            homemdb = True
 
     if infile is None:
         usage()
@@ -254,7 +263,7 @@ def main():
         except AttributeError:
             logger.error("No spread %s defined", spread)
 
-    process_line(infile, spread, sepchar)
+    process_line(infile, spread, sepchar, homemdb)
 
     attempt_commit()
 
