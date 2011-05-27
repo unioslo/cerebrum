@@ -228,7 +228,7 @@ def main():
 
     dryrun = False
     spread = None
-    sepchar = ";"
+    sepchar = ":"
     homemdb = False
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
