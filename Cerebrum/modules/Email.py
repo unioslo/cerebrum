@@ -1965,8 +1965,9 @@ class AccountEmailMixin(Account.Account):
                 entdom.find(ou, affiliation=aff)
                 # If the default domain is specified, ignore this
                 # affiliation.
-                if entdom.entity_email_domain_id == dom.entity_id:
-                    continue
+                if use_default_domain:
+                    if entdom.entity_email_domain_id == dom.entity_id:
+                        continue
                 domains.append(entdom.entity_email_domain_id)
             except Errors.NotFoundError:
                 # Otherwise, try falling back to tha maildomain associated
@@ -1999,12 +2000,14 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
+                print "entdom find email.py"
                 if use_default_domain:
                     # If the default domai n is specified, ignore this
                     # affiliation.
                     if entdom.entity_email_domain_id == dom.entity_id:
                         continue
-                    return entdom.entity_email_domain_id
+                print "return entdom.entity_email_domain_id"
+                return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
             # Otherwise, try falling back to tha maildomain associated
@@ -2012,9 +2015,10 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou)
-                if entdom.entity_email_domain_id == dom.entity_id:
-                    continue
-                return entdom.entity_email_domain_id
+                if use_default_domain:
+                    if entdom.entity_email_domain_id == dom.entity_id:
+                        continue
+                    return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
         if use_default_domain:
