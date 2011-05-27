@@ -78,7 +78,7 @@ def process_line(infile, spread, sepchar, homemdb):
         logger.debug5("Processing %s", line)
 
         fields = [l.strip() for l in line.split(sepchar)]
-        if len(fields) < 2 or if (homemdb and len(fields) != 4):
+        if len(fields) < 2 or (homemdb and len(fields) != 4):
             logger.error("Bad line: %s." % line)
             continue
         
