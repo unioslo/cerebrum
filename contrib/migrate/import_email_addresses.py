@@ -247,7 +247,7 @@ def main():
         usage()
 
     db = Factory.get('Database')()
-    db.cl_init(change_program='import_uname')
+    db.cl_init(change_program='import_mail')
     constants = Factory.get('Constants')(db)
     account = Factory.get('Account')(db)
     group = Factory.get('Group')(db)
