@@ -1846,6 +1846,8 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         # because we now want to sync groups with
                         # person-members. this may cause some errors
                         # if accounts found do not have spread to AD
+                        # and group-member have to be filtered in other
+                        # ways
                     user_id = usr["member_id"]
                     # TODO: this should be solved by the API, but we are not
                     # sure how exactly at this point (Jazz, 2011-05-29)
@@ -1853,7 +1855,10 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         entity.clear()
                         entity.find(user_id)
                     except Errors.NotFoundError:
-                        logger.error("No entity with id %s found, skipping (this should not occur!)", user_id)
+                        self.logger.error("No entity with id %s found, skipping (this should not occur!)", user_id)
+                    if entity.entity_type == self.co.entity_group:
+                        self.logger.debug("%s is a group, will be handled later on, skipping", user_id)
+                        continue
                     if entity.entity_type == self.co.entity_person:
                         # TODO: alternatively a dict
                         # personid2primaryaccount can be initialized
@@ -1864,7 +1869,7 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                         try:
                             user_id = person.get_primary_account()
                         except Errors.NotFoundError:
-                            logger.warn("Person %s has no valid primary account, skipping", user_id)
+                            self.logger.warn("Person %s has no valid primary account, skipping", user_id)
                             continue
                     if user_id not in entity2name:
                         self.logger.warning("Missing name for account id=%s", user_id)
