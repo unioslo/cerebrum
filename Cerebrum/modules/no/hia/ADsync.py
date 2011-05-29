@@ -1825,8 +1825,11 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
         entity2name = dict([(x["entity_id"], x["entity_name"]) for x in 
                            self.group.list_names(self.co.account_namespace)])
         entity2name.update([(x["entity_id"], x["entity_name"]) for x in
-                           self.group.list_names(self.co.group_namespace)])    
+                           self.group.list_names(self.co.group_namespace)])
 
+        entity =  Utils.Factory.get('Entity')(self.db)
+        person = Utils.Factory.get('Person')(self.db)
+        
         for grp in cerebrum_dict:
             if cerebrum_dict[grp].has_key('grp_id'):
                 grp_name = grp.replace(cereconf.AD_GROUP_PREFIX,"")
@@ -1837,10 +1840,32 @@ class ADFullGroupSync(ADutilMixIn.ADgroupUtil):
                 #others do not. They generate errors when not in AD. We still
                 #want to update group membership if in AD.
                 members = list()
-                for usr in (self.group.search_members(
-                        group_id=grp_id, member_spread=
-                        int(self.co.Spread(user_spread)))):
+                for usr in (self.group.search_members(group_id=grp_id)):
+                        # cannot use:
+                        # member_spread=int(self.co.Spread(user_spread))))
+                        # because we now want to sync groups with
+                        # person-members. this may cause some errors
+                        # if accounts found do not have spread to AD
                     user_id = usr["member_id"]
+                    # TODO: this should be solved by the API, but we are not
+                    # sure how exactly at this point (Jazz, 2011-05-29)
+                    try:
+                        entity.clear()
+                        entity.find(user_id)
+                    except Errors.NotFoundError:
+                        logger.error("No entity with id %s found, skipping (this should not occur!)", user_id)
+                    if entity.entity_type == self.co.entity_person:
+                        # TODO: alternatively a dict
+                        # personid2primaryaccount can be initialized
+                        # and used. will look at this option later on
+                        # (Jazz, 2011-05-29)
+                        person.clear()
+                        person.find(user_id)
+                        try:
+                            user_id = person.get_primary_account()
+                        except Errors.NotFoundError:
+                            logger.warn("Person %s has no valid primary account, skipping", user_id)
+                            continue
                     if user_id not in entity2name:
                         self.logger.warning("Missing name for account id=%s", user_id)
                         continue
