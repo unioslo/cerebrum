@@ -203,11 +203,15 @@ class Subnet(Entity):
         """TODO: DOC
 
         """
-        # If no_of_reserved_adr is 0, then only the net address should
-        # be reserved; typically for small, special-purpose subnets.
+        # If no_of_reserved_adr is 0, then only the net and broadcast
+        # address should be reserved; typically for small, special
+        # purpose subnets.
         if self.no_of_reserved_adr == 0:
             self.reserved_adr = set()
             self.reserved_adr.add(self.ip_min)
+            # Add the broadcast unless /32 net
+            if self.ip_min < self.ip_max:
+                self.reserved_adr.add(self.ip_max)
             return
         
         # First, check that we aren't trying to reserve more addresses
