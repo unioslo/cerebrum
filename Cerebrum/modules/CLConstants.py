@@ -139,6 +139,9 @@ class CLConstants(Constants.Constants):
                                     "new expire_date=%(date:expire_date)s"))
     account_password =  _ChangeTypeCode('e_account', 'password',
                                         'new password for %(subject)s')
+    account_password_token = _ChangeTypeCode('e_account', 'passwordtoken',
+                                        'password token sent for %(subject)s',
+                                        ('phone_to=%(string:phone_to)s',))
     account_destroy = _ChangeTypeCode('e_account', 'destroy',
                                     'destroyed %(subject)s')
     # TODO: account_move is obsolete, remove it

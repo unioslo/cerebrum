@@ -92,7 +92,6 @@ class Individuation:
         by priority
         @rtype: list of dicts
         """
-
         # Check if person exists
         ac = Factory.get('Account')(db)
         pe = self.get_person(id_type, ext_id)
@@ -134,7 +133,7 @@ class Individuation:
         ret.sort(key=lambda x: x['priority'])
         return ret
 
-    def generate_token(id_type, ext_id, uname, phone_no, browser_token):
+    def generate_token(self, id_type, ext_id, uname, phone_no, browser_token):
         """
         Generate a token that functions as a short time password for the
         user and send it by SMS.
@@ -188,43 +187,38 @@ class Individuation:
         if not self.send_token(phone_no, token):
             log.error("Couldn't send token to %s for %s" % (phone_no, uname))
             raise Errors.CerebrumRPCException('token_notsent')
-
+        db.log_change(subject_entity=ac.entity_id,
+                      change_type_id=co.account_password_token,
+                      destination_entity=None,
+                      change_params={'phone_to': phone_no})
         # store password token as a trait
         ac.populate_trait(co.trait_password_token, date=now(), numval=0,
-                          strval=hash_token(token, uname))
+                          strval=self.hash_token(token, uname))
         # store browser token as a trait
         ac.populate_trait(co.trait_browser_token, date=now(),
-                          strval=hash_token(browser_token, uname))
+                          strval=self.hash_token(browser_token, uname))
         ac.write_db()
         db.commit()
         return True
 
-    def create_token():
-        """
-        Return random sample of alphanumeric characters
-        """
+    def create_token(self):
+        """Return random sample of alphanumeric characters"""
         alphanum = string.digits + string.ascii_letters
         return ''.join(random.sample(alphanum, cereconf.INDIVIDUATION_TOKEN_LENGTH))
 
     def send_token(self, phone_no, token):
-        """
-        Send token as a SMS message to phone_no
-        """
+        """Send token as a SMS message to phone_no"""
         sms = SMSSender(logger=log)
         msg = getattr(cereconf, 'INDIVIDUATION_SMS_MESSAGE', 
                                 'Your one time password: %s')
         return sms(phone_no, msg % token)
 
     def hash_token(self, token, uname):
-        """
-        Generates a hash of a given token, to avoid storing tokens in plaintext.
-        """
+        """Generates a hash of a given token, to avoid storing tokens in plaintext."""
         return hashlib.md5(uname + token).hexdigest()
 
     def check_token(self, uname, token, browser_token):
-        """
-        Check if token and other data from user is correct.
-        """
+        """Check if token and other data from user is correct."""
         try:
             ac = self.get_account(uname)
         except Errors.CerebrumRPCException:
@@ -424,9 +418,7 @@ class Individuation:
         return True
         
     def is_reserved(self, account, person):
-        """
-        Check that the person/account isn't reserved from using the service.
-        """
+        """Check that the person/account isn't reserved from using the service."""
         # Check if superuser or in any reserved group
         group = Factory.get('Group')(db)
         for gname in (getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ()) +
@@ -447,9 +439,7 @@ class Individuation:
         return False
 
     def is_self_reserved(self, account, person):
-        """
-        Check if the user has reserved himself from using the service.
-        """
+        """Check if the user has reserved himself from using the service."""
         # Check if person is reserved
         for reservation in person.list_traits(code=co.trait_reservation_sms_password,
                                               target_id=person.entity_id):
@@ -463,9 +453,7 @@ class Individuation:
         return False
 
     def is_reserved_publication(self, person):
-        """
-        Check if a person is reserved from being published on the instance's
-        web pages. Most institutions doesn't have this regime.
-        """
+        """Check if a person is reserved from being published on the
+        instance's web pages. Most institutions doesn't have this regime."""
         return False
 
