@@ -74,6 +74,27 @@ class ConstantsCommon(Constants.Constants):
         Constants.Constants.entity_group,
         "Trait marking automatically administered groups with group members.")
 
+    # Traits for the password service (Individuation)
+    trait_password_token = _EntityTraitCode(
+        "password_token", Constants.Constants.entity_account,
+        "Store a one time password for an account")
+    trait_browser_token = _EntityTraitCode(
+        "browser_token", Constants.Constants.entity_account,
+        "Store a browser token for an account")
+    trait_password_failed_attempts = _EntityTraitCode(
+        "passw_attempts", Constants.Constants.entity_account,
+        "Number of times an account has tried to use sms password service")
+    
+    # Trait for reservation from the new password service
+    # TODO: should be replaced by a reservation table later
+    trait_reservation_sms_password = _EntityTraitCode(
+        'reserve_passw', Constants.Constants.entity_account,
+        "Account is reserved from using the SMS password service") 
+    # Trait for reservation from being published at the web
+    # TODO: should be replaced by a reservation table later
+    trait_public_reservation = _EntityTraitCode(
+        'reserve_public', Constants.Constants.entity_person,
+        "Reserved from being published at the web pages")
     
 
 class ConstantsHigherEdu(Constants.Constants):
