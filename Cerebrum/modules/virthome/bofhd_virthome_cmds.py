@@ -1642,12 +1642,20 @@ class BofhdVirthomeCommands(BofhdCommandBase):
 
         group = self._get_group(gname)
         self.ba.can_change_owners(operator.get_entity_id(), group.entity_id)
-        magic_key = self.__setup_request(group.entity_id,
+        ret = {}
+        ret['confirmation_key'] = self.__setup_request(group.entity_id,
                                          self.const.va_group_owner_swap,
                                          params={"old": operator.get_entity_id(),
                                                  "group_id": group.entity_id,
                                                  "new": email,})
-        return {"confirmation_key": magic_key}
+        # check if e-mail matches a valid username
+        try:
+            ac = self._get_account(email)
+            ret['match_user'] = ac.account_name
+            ret['match_user_email'] = self._get_email_address(ac)
+        except CerebrumError:
+            pass
+        return ret
     # end group_change_owner
 
 
