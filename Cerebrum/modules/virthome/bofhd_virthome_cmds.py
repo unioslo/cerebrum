@@ -1740,27 +1740,36 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         EmailAddress(),
         GroupName())
     def group_invite_user(self, operator, email, gname):
-        """Invite e-mail to join gname.
+        """Invite e-mail (or user) to join gname.
 
-        This method is intended to let users invite others to join their
-        groups.
+        This method is intended to let users invite others to join their groups.
+        If email is a username that exists in the db, the user's email address
+        is included in the return.
 
         Only FAs can invite, and only for groups that they own/moderate.
 
-        An invitation will not be executed until the email recipient performns
-        a confirm-like action.
+        An invitation will not be executed until the email recipient performns a
+        confirm-like action.
         """
 
         group = self._get_group(gname)
         # If you can't add members, you can't invite...
         self.ba.can_add_to_group(operator.get_entity_id(), group.entity_id)
 
-        magic_key = self.__setup_request(group.entity_id,
+        ret = {}
+        ret['confirmation_key'] = self.__setup_request(group.entity_id,
                                          self.const.va_group_invitation,
                                          {"inviter_id": operator.get_entity_id(),
                                           "group_id": group.entity_id,
                                           "invitee_mail": email,})
-        return {"confirmation_key": magic_key}
+        # check if e-mail matches a valid username
+        try:
+            ac = self._get_account(email)
+            ret['match_user'] = ac.account_name
+            ret['match_user_email'] = self._get_email_address(ac)
+        except CerebrumError:
+            pass
+        return ret
     # end group_invite_user
 
 
