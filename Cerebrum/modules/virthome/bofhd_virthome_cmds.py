@@ -1702,12 +1702,20 @@ class BofhdVirthomeCommands(BofhdCommandBase):
         self.ba.can_moderate_group(operator.get_entity_id())
         self.ba.can_change_moderators(operator.get_entity_id(), group.entity_id)
 
-        magic_key = self.__setup_request(group.entity_id,
+        ret = {}
+        ret['confirmation_key'] = self.__setup_request(group.entity_id,
                                          self.const.va_group_moderator_add,
                                          params={"inviter_id": operator.get_entity_id(),
                                                  "group_id": group.entity_id,
                                                  "invitee_mail": email,})
-        return {"confirmation_key": magic_key}
+        # check if e-mail matches a valid username
+        try:
+            ac = self._get_account(email)
+            ret['match_user'] = ac.account_name
+            ret['match_user_email'] = self._get_email_address(ac)
+        except CerebrumError:
+            pass
+        return ret
     # end group_invite_moderator
 
         
