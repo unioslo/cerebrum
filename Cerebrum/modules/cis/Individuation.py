@@ -79,6 +79,9 @@ class Individuation:
     CIS? For examples: _check_password, get_person, get_account.
     """
 
+    def __init__(self):
+        log.debug('Cerebrum database: %s' % cereconf.CEREBRUM_DATABASE_NAME)
+
     def get_person_accounts(self, id_type, ext_id):
         """
         Find Person given by id_type and external id and return a list of

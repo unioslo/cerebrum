@@ -65,16 +65,18 @@ class IndividuationServer(SoapListener.BasicSoapServer):
     # The class where the Cerebrum-specific functionality is done
     individuation = None
 
+    # The hock for the site object
+    site = None
+
     def _get_cache(self, session_id):
         """Get the cache which is stored in the session. A temporary cache is
         created if the session doesn't exist (happens at server restarts)."""
-        global site # TODO: this is spaghetti-wrong!
         # Besides, the client could send its previous session id according to
         # what is created by request.getSession() at the same request. This
         # might only happen when the server restarts, so it might not be a real
         # problem.
         try:
-            cache = SoapListener.ISessionCache(site.getSession(session_id))
+            cache = SoapListener.ISessionCache(self.site.getSession(session_id))
         except KeyError:
             # Session doesn't exists, creating default one. Affects only the
             # first call.
@@ -220,7 +222,7 @@ if __name__=='__main__':
             usage()
 
     # Init twisted logger
-    log.startLogging(file(logfile, 'w'))
+    log.startLogging(file(logfile, 'a'))
     #log.callWithLogger(logger, func, *args, **kw)
     #        Utility method which wraps a function in a try:/except:, logs a
     #        failure if one occurrs, and uses the system's logPrefix.
@@ -234,12 +236,21 @@ if __name__=='__main__':
     # TBD: Should Individuation be started once per session instead? Takes
     # more memory, but are there benefits we need, e.g. language control?
 
+    if not use_encryption:
+        private_key_file  = None
+        certificate_file  = None
+        client_cert_files = None
+    else:
+        private_key_file  = cereconf.SSL_PRIVATE_KEY_FILE
+        certificate_file  = cereconf.SSL_CERTIFICATE_FILE
+        client_cert_files = getattr(cereconf, 'INDIVIDUATION_CLIENT_CERT', None)
     server = SoapListener.TwistedSoapStarter(port = int(port),
                 applications = IndividuationServer,
-                private_key_file = cereconf.SSL_PRIVATE_KEY_FILE,
-                certificate_file = cereconf.SSL_CERTIFICATE_FILE,
-                client_cert_files = getattr(cereconf, 'INDIVIDUATION_CLIENT_CERT', None))
-    site = server.site # to make it global and reachable by Individuation (wrong, I know)
+                private_key_file = private_key_file,
+                certificate_file = certificate_file,
+                client_cert_files = client_cert_files,
+                encrypt = use_encryption)
+    IndividuationServer.site = server.site # to make it global and reachable by Individuation (wrong, I know)
     # If sessions' behaviour should be changed (e.g. timeout):
     # server.site.sessionFactory = BasicSession
     server.run()

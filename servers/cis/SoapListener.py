@@ -21,7 +21,6 @@
 
 import socket
 
-from lxml import etree
 import soaplib.core
 from soaplib.core.server import wsgi
 from soaplib.core.service import DefinitionBase
@@ -66,8 +65,8 @@ class BasicSoapServer(DefinitionBase):
         @param the tuple of python params being passed to the method
         @param the soap elements for each argument
         '''
-        print "Calling method %s(%s)" % (method_name, 
-                                         ', '.join(repr(p) for p in py_params))
+        log.msg("Calling method %s(%s)" % (method_name, 
+                                         ', '.join(repr(p) for p in py_params)))
 
     def on_method_return_object(self, py_results):
         '''Called AFTER the service implementing the functionality is called,
@@ -91,7 +90,7 @@ class BasicSoapServer(DefinitionBase):
     
         @param the exception object
         '''
-        print "Exception occured: '%s'" % exc.faultstring
+        log.msg("Exception occured: '%s'" % exc.faultstring)
         if not exc.faultstring.startswith('CerebrumRPCException: '):
             traceback.print_exc()
             # TBD: exchange error messages with default message, to avoid
@@ -114,11 +113,11 @@ class BasicSoapServer(DefinitionBase):
         '''
         return call(*params)
 
-def clientVerificationCallback(connection, x509, errnum, errdepth, ok):
+def clientVerificationCallback(connection, x509, errnum, errdepth, ok=None, test=None):
     """Callback for verifying a client's certificate."""
     if not ok:
-        print 'ERROR: Invalid cert from subject: %s, errnum=%s, errdepth=%s' % (
-                                    x509.get_subject(), errnum, errdepth)
+        log.err('Invalid cert from subject: %s, errnum=%s, errdepth=%s' % (
+                                    x509.get_subject(), errnum, errdepth))
         return False
     return True
 
@@ -154,24 +153,31 @@ class TwistedSoapStarter(BasicSoapStarter):
     # https://example.com/SOAP
     soapchildpath = 'SOAP'
 
+    # The interface the server should be connected to
+    interface = ''
+
     # Callback for verifying client's certificates
     clientverifycallback = clientVerificationCallback
 
     def __init__(self, applications, port, private_key_file=None,
-                 certificate_file=None, client_cert_files=None):
+                 certificate_file=None, client_cert_files=None, encrypt=True):
         """Setting up a standard soap server. If either a key or certificate
         file is given, it will use encryption."""
         #super(TwistedSoapStarter, self).__init__()
         self.setup_soaplib(applications)
         self.setup_twisted()
 
-        if private_key_file or certificate_file: # encrypted
+        if encrypt and not (private_key_file and certificate_file):
+            log.err("Encryption without certificate is not good")
+
+        if encrypt:
             self.setup_encrypted_reactor(port, private_key_file,
                                          certificate_file, client_cert_files)
             url = "https://%s:%d/SOAP/" % (socket.gethostname(), port)
         else: # unencrypted
             self.setup_reactor(port=port)
-            url = "http://%s:%d/SOAP/" % (socket.gethostname(), port)
+            url = "http://%s:%d/SOAP/" % (socket.gethostname(),
+                                          self.port.getHost().port)
         log.msg("Server set up at %s" % url)
         log.msg("WSDL definition at %s?wsdl" % url)
 
@@ -202,16 +208,18 @@ class TwistedSoapStarter(BasicSoapStarter):
             # Tell the server what certificates it should trust:
             # TODO: check how more than one certificate could be added
             ctx.load_verify_locations(client_cert_files)
-        reactor.listenSSL(int(port), self.site, contextFactory=sslcontext)
+        self.port = reactor.listenSSL(int(port), self.site,
+                                      contextFactory=sslcontext,
+                                      interface=self.interface)
 
     def setup_reactor(self, port):
         """Setting up the reactor, without encryption."""
-        reactor.listenTCP(int(port), self.site)
+        self.port = reactor.listenTCP(int(port), self.site,
+                                      interface=self.interface)
 
     def run(self):
         """Starts the soap server"""
         reactor.run()
-
 
 
 ### Hacks at Soaplib/Twisted
@@ -253,7 +261,7 @@ class WSGIResourceSession(WSGIResource):
             # Creates the session if it doesn't exist. When created, twisted
             # automatically creates a cookie for it.
             ISessionCache(request.getSession())
-            print "DEBUG: session id = %s" % request.getSession().uid
+            log.msg("DEBUG: session id = %s" % request.getSession().uid)
         return super(WSGIResourceSession, self).render(request)
 
 # To make use of the session, we need to give it functionality, either by
@@ -298,6 +306,6 @@ def safer_str(o):
         try:
             return o.encode('utf-8')
         except Exception, e:
-            print "Error Unicode: %s" % e
+            log.err("Unicode: %s" % e)
     return reflect._safeFormat(str, o)
 reflect.safe_str = safer_str
