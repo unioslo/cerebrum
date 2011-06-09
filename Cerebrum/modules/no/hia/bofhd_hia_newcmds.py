@@ -446,7 +446,8 @@ class BofhdExtension(BofhdCommandBase):
         if not acc.has_spread(self.const.spread_exchange_account):
             acc.add_spread(self.const.spread_exchange_account)
             acc.write_db()
-        return "OK, migrating %s to Exchange" % (uname)        
+        return "OK, migrating %s to Exchange" % (uname)
+    
     # email move
     #
     all_commands['email_move'] = Command(
@@ -1310,7 +1311,11 @@ class BofhdExtension(BofhdCommandBase):
         account = self._get_account(uname)
         if account.is_expired():
             raise CerebrumError, "Account %s has expired" % account.account_name
-        # Set new mdb value
+        # Check given mdb
+        mdb = mdb.strip()
+        if not mdb in cereconf.EXCHANGE_HOMEMDB_VALID_NEW:
+            raise CerebrumError, "Unvalid mdb"
+        # Set new mdb value            
         account.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
         # Mark that account is migrated to new exchange server
         account.populate_trait(self.const.trait_exchange_migrated)
