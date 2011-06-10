@@ -274,7 +274,7 @@ class Individuation:
         return True
 
     def validate_password(self, password):
-        return self._check_password(password)
+        return self._check_password(str(password))
 
     def _check_password(self, password, account=None):
         pc = PasswordChecker.PasswordChecker(db)
@@ -322,7 +322,7 @@ class Individuation:
             pe.find_by_external_id(getattr(co, id_type), ext_id)
         except AttributeError, e:
             log.error("Wrong id_type: '%s'" % id_type)
-            raise e # unknown error
+            raise Errors.CerebrumRPCException('person_notfound')
         except Errors.NotFoundError:
             log.debug("Couldn't find person with %s='%s'" % (id_type, ext_id))
             raise Errors.CerebrumRPCException('person_notfound')
