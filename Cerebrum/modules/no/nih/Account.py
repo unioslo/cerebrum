@@ -20,6 +20,7 @@
 """"""
 
 import re
+import time
 
 import cereconf
 
