@@ -114,7 +114,8 @@ class BofhdExtension(BofhdCommandBase):
         '_format_changelog_entry', '_format_from_cl', '_get_group_opcode',
         '_get_name_from_object', '_get_constant', '_is_yes', '_remove_auth_target',
         '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to',
-        '_convert_ticks_to_timestamp', '_get_account'
+        '_convert_ticks_to_timestamp', '_get_account', '_get_entity',
+        '_get_entity_name'
         )
 
     def __new__(cls, *arg, **karg):
