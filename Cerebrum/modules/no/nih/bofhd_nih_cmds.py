@@ -34,6 +34,7 @@ from Cerebrum import Database
 
 from Cerebrum.modules.bofhd.cmd_param import *
 from Cerebrum.modules.no.nih import bofhd_nih_help
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
@@ -43,7 +44,7 @@ def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -107,13 +108,11 @@ class BofhdExtension(object):
         #
         # copy relevant helper-functions
         #
-         '_find_persons', '_get_account', '_get_ou', '_format_ou_name',
-        '_get_person', '_get_disk', '_get_group', '_map_person_id', '_get_entity',
-         '_get_boolean', '_entity_info', 'num2str', '_get_affiliationid',
+        '_find_persons', '_format_ou_name', '_get_person', '_get_disk',
+        '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
-        '_format_changelog_entry', '_format_from_cl',
-         '_get_entity_name', '_get_group_opcode', '_get_name_from_object',
-        '_get_constant', '_is_yes', '_remove_auth_target',
+        '_format_changelog_entry', '_format_from_cl', '_get_group_opcode',
+        '_get_name_from_object', '_get_constant', '_is_yes', '_remove_auth_target',
         '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to',
         '_convert_ticks_to_timestamp'
         )
