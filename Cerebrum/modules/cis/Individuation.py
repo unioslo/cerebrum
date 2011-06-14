@@ -268,9 +268,10 @@ class Individuation:
             ac.delete_trait(co.trait_password_token)
             ac.write_db()
             db.commit()
+        except Errors.CerebrumRPCException:
+            pass
         except Errors.NotFoundError, m:
             log.error("Couldn't delete password token trait for %s. %s" % (uname, m))
-            return False
         return True
 
     def validate_password(self, password):
