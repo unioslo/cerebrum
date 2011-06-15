@@ -542,7 +542,7 @@ class EntityContactInfo(Entity):
           contact_type=:c_type"""
         if str(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
-        self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None,
+        self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None,
                             change_params={'type': type,
                                            'src': int(source)})        
         return self.execute(sql, {'e_id': self.entity_id,
