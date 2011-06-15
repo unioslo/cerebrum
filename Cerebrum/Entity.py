@@ -451,8 +451,10 @@ class EntityContactInfo(Entity):
                       'value': value,
                       'desc': description,
                       'alias': alias})
-        self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None)
-
+        self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None,
+                            change_params={'type': int(type),
+                                           'value': value,
+                                           'src': int(source)})
 
     def get_contact_info(self, source=None, type=None):
         return Utils.keep_entries(
@@ -463,7 +465,6 @@ class EntityContactInfo(Entity):
             ORDER BY contact_pref""", {'e_id': self.entity_id}),
             ('source_system', source),
             ('contact_type', type))
-
 
     def populate_contact_info(self, source_system, type=None, value=None,
                               contact_pref=50, description=None, alias=None):
@@ -495,7 +496,7 @@ class EntityContactInfo(Entity):
         self.__data[idx] = {'value': str(value),
                             'alias': alias and str(alias) or None,
                             'description': description}
-
+        
     def write_db(self):
         self.__super.write_db()
         if not hasattr(self, '_src_sys'):
@@ -532,7 +533,6 @@ class EntityContactInfo(Entity):
                                   data[idx]['alias'])
     # end write_db
     
-
     def delete_contact_info(self, source, contact_type, pref='ALL'):
         sql = """
         DELETE FROM [:table schema=cerebrum name=entity_contact_info]
@@ -542,14 +542,16 @@ class EntityContactInfo(Entity):
           contact_type=:c_type"""
         if str(pref) != 'ALL':
             sql += """ AND contact_pref=:pref"""
-        self._db.log_change(self.entity_id, self.const.entity_cinfo_del, None)
+        self._db.log_change(self.entity_id, self.const.entity_cinfo_add, None,
+                            change_params={'type': int(type),
+                                           'value': value,
+                                           'src': int(source)})        
         return self.execute(sql, {'e_id': self.entity_id,
                                   'src': int(source),
                                   'c_type': int(contact_type),
                                   'pref': pref})
     # end delete_contact_info
     
-
     def list_contact_info(self, entity_id=None, source_system=None,
                           contact_type=None, entity_type=None,
                           contact_value=None, contact_alias=None):
@@ -843,7 +845,6 @@ class EntityQuarantine(Entity):
                       'q_type': int(type)})
         self._db.log_change(self.entity_id, self.const.quarantine_del,
                             None, change_params={'q_type': int(type)})
-	
 
     def list_entity_quarantines(self, entity_types=None, quarantine_types=None,
                                 only_active=False):
