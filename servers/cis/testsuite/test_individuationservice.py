@@ -162,7 +162,7 @@ class IndividuationTestSetup:
         for f in ('mod_changelog.sql', 'mod_entity_trait.sql',
                   'mod_password_history.sql', 'mod_posix_user.sql',
                   'mod_email.sql', 'mod_employment.sql', 'mod_sap.sql',
-                  'mod_printer_quota.sql',
+                  'mod_printer_quota.sql', 'mod_stedkode.sql',
                   'bofhd_tables.sql', 'bofhd_auth.sql'):
             extra_files.append(os.path.join(cereconf.CEREBRUM_DDL_DIR, f))
         #bofhd_tables.sql, bofhd_auth.sql, mod_job_runner.sql
@@ -177,6 +177,41 @@ class IndividuationTestSetup:
             makedb.runfile(f, cls.db, debug, 'main')
         cls.db.commit()
         makedb.makeInitialUsers(cls.db)
+
+        # Other tweaks
+        cls.setupCerebrumForIndividuation()
+
+    @classmethod
+    def setupCerebrumForIndividuation(cls):
+        """Local tweaks to the Cerebrum database for the Individuation
+        project."""
+        co = Factory.get('Constants')(cls.db)
+        gr = Factory.get('Group')(cls.db)
+        ac = Factory.get('Account')(cls.db)
+
+        ac.find_by_name(cereconf.INITIAL_ACCOUNTNAME)
+        bootstrap_id = ac.entity_id
+
+        for group in ((getattr(cereconf, 'BOFHD_SUPERUSER_GROUP', ()),) +
+                       getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ())):
+            gr.clear()
+            try:
+                gr.find_by_name(group)
+                continue
+            except Errors.NotFoundError:
+                pass
+            gr.populate(creator_id=bootstrap_id,
+                    visibility=co.group_visibility_all, name=group,
+                    description='Group for individuation')
+            gr.write_db()
+            cls.db.commit()
+
+        # create an ou to put affiliations on
+        ou = Factory.get('OU')(cls.db)
+        ou.populate(name='Basic OU', fakultet=0, institutt=0, avdeling=0,
+                institusjon=0)
+        ou.write_db()
+        ou.commit()
 
     @classmethod
     def tearDownCerebrum(cls):
@@ -230,6 +265,11 @@ class IndividuationTestSetup:
             Individuation.db = db 
             Individuation.Individuation.db = db
             instance = Individuation.Individuation()
+        # overwrite the sender of sms to grab tokens instead of sending them
+        def send_token_grabber(phone_no, token):
+            self.last_token = token
+            return True
+        instance.send_token = send_token_grabber
         self.server = self.createServer(instance=instance, encrypt=encrypt,
                             server_key=server_key, server_cert=server_cert,
                             client_cert=client_cert)
@@ -268,25 +308,31 @@ class IndividuationTestSetup:
         return soap.Proxy(url)
 
     def createPerson(self, birth=DateTime(1970,2,3), first_name=None, last_name=None,
-            system=None, gender=False, fnr=None, ansnr=None, studnr=None):
+            system=None, gender=True, fnr=None, ansnr=None, studnr=None):
         """Shortcut for creating a test person in the db"""
         pe = Factory.get('Person')(self.db)
         co = Factory.get('Constants')(self.db)
-        pe.populate(birth, gender=co.gender_female)
+        if gender:
+            gender = co.gender_female
+        else:
+            gender = co.gender_male
+        pe.populate(birth, gender=gender)
         pe.write_db()
-        pe.affect_names(co.system_sap, co.name_first, co.name_last)
-        pe.populate_name(co.name_first, "Tårnfrid")
-        pe.populate_name(co.name_last, "Jespersen")
-        pe.write_db()
+
+        if first_name or last_name:
+            pe.affect_names(co.system_sap, co.name_first, co.name_last)
+            pe.populate_name(co.name_first, first_name)
+            pe.populate_name(co.name_last, last_name)
+            pe.write_db()
 
         pe.affect_external_id(co.system_sap, co.externalid_fodselsnr,
                                              co.externalid_sap_ansattnr)
-        if not fnr:
-            # there is probably a prettier way...
-            fnr = ''.join([str(random.randint(0,9)) for a in range(0,11)])
-        pe.populate_external_id(co.system_sap, co.externalid_fodselsnr, fnr)
+        if fnr:
+            pe.populate_external_id(co.system_sap, co.externalid_fodselsnr, fnr)
         if ansnr:
             pe.populate_external_id(co.system_sap, co.externalid_sap_ansattnr, ansnr)
+        if studnr:
+            pe.populate_external_id(co.system_fs, co.externalid_studentnr, studnr)
         pe.write_db()
         self.db.commit()
         return pe
@@ -302,7 +348,7 @@ class IndividuationTestSetup:
                     creator_id=bootstrap_id, expire_date=None)
         ac.write_db()
         ac.commit()
-        return True
+        return ac
 
     @staticmethod
     def helper_generate_password_filename(user, system, host=None):
@@ -340,12 +386,14 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         cls.setupCerebrum()
 
     def setUp(self):
-        # trial doesn't seem to use setUpClass()...
+        # trial doesn't seem to use setUpClass()... nosetest does, however
         if not hasattr(self.__class__, 'db'):
-            self.__class__.setupCerebrum()
+            self.__class__.setUpClass()
         self.timeout = 60
         self.server = self.setupServer()
         self.client = self.setupClient()
+        if hasattr(self, 'last_token'):
+            del self.last_token
 
     def assertAccounts(self, data, match):
         """Check that returned accounts are as expected."""
@@ -367,7 +415,7 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
     def test_get_user_by_nonexisting_idtype(self):
         d = self.client.callRemote('get_usernames',
                                    id_type='externalid_foobarbaz', ext_id='123')
-        # TODO: the simple client doesn't seem to be able to figure out what
+        # TODO: twisted's soap client doesn't seem to be able to figure out what
         #       type of failure it receives... Check server's log instead?
         return self.assertFailure(d, error.Error)
 
@@ -394,99 +442,111 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
 
     def test_validate_short_password(self):
         d = self.client.callRemote('validate_password', password='1234')
-        # TODO: the simple client doesn't seem to be able to figure out what
+        # TODO: twisted's soap client doesn't seem to be able to figure out what
         #       type of failure it receives... Check server's log instead?
         d = self.assertFailure(d, error.Error)
         return d
 
-    def assertCerebrumException(self, failure):
-        """Assert that a server fault is of the CerebrumRPCException type."""
-        #failure.trap(Errors.CerebrumRPCException)
-        print "Got: %s" % failure
-        print "Message: %s" % failure.getErrorMessage()
-        print failure.getTraceback()
-        print failure.printDetailedTraceback()
-        for b in dir(failure):
-            print "  %s" % b
-        print failure.value
-        print failure.type
-        print failure.tb
-        print failure.frames
-        print failure.parents
-        print failure.pickled
-        print failure.stack
-        assert False, "Njet!"
-
     def test_validate_password(self):
         d = self.client.callRemote('validate_password', password='q_i#A%U1sB4f+Q')
-        d.addCallback(self.assertTrue)
+        d.addCallback(self.assertEquals, 'true')
         return d
-        
-#    def test_03_generate_token(self):
-#        "Generate and store password token for a user"
-#        assert self.client.service.generate_token("externalid_sap_ansattnr",
-#                                                 "10001626",
-#                                                 "rogertst",
-#                                                 "91726078",
-#                                                 "123qwe")
-#
-#    def test_04_check_token(self):
-#        "check valid token for a user"
-#        btoken = '123qwe'
-#        token = self.helper_generate_sms_token(username='rogertst',
-#                                               browser_token=btoken)
-#        # TODO: will fail, as tokens are hashed in db... 
-#        self.client.service.check_token("rogertst", token, btoken)
-#
-#    def test_check_invalid_token(self):
-#        "check invalid sms token for a user"
-#        btoken = '123qwe'
-#        token = self.helper_generate_sms_token(username='rogertst',
-#                                               browser_token=btoken)
-#        assert not self.client.service.check_token("rogertst", 'foo foo', btoken)
-#
-#    def test_check_invalid_browsertoken(self):
-#        "check that invalid browser_token makes token fail"
-#        btoken = '123qwe'
-#        token = self.helper_generate_sms_token(username='rogertst',
-#                                               browser_token=btoken)
-#        assert not self.client.service.check_token("rogertst", token, 'foofoo')
 
-#    def test_06_set_password(self):
-#        pwd = ''.join(random.sample(map(chr, range(33,126)), 8))
-#        res = self.client.service.set_password("rogertst",
-#                                               pwd,
-#                                               "123qwe",
-#                                               get_token("rogertst"))
+    def test_correct_password_change(self):
+        uname = 'mrtest'
+        browser_token = '123qwe'
+        new_password = 'a_4!Vbx8k#_'
+
+        pe = self.createPerson(first_name='Mister', last_name='Test',
+                               ansnr='1001235')
+        co = Factory.get('Constants')(self.db)
+        ou = Factory.get('OU')(self.db)
+        ou.find_stedkode(0, 0, 0, 0)
+
+        pe.populate_affiliation(source_system=co.system_sap, ou_id=ou.entity_id,
+                affiliation=co.affiliation_ansatt,
+                status=co.affiliation_status_ansatt_vitenskapelig)
+        pe.populate_contact_info(source_system=co.system_sap,
+                                 type=co.contact_mobile_phone,
+                                 value='12345678')
+        pe.write_db()
+        pe.commit()
+        ac = self.createAccount(pe, uname)
+
+        pe = Factory.get('Person')(self.db)
+        d = self.client.callRemote('generate_token',
+                id_type="externalid_sap_ansattnr", ext_id='1001235',
+                username=uname, phone_no='12345678',
+                browser_token=browser_token)
+        d.addCallback(self.assertEquals, 'true')
+        def checkPassword(data):
+            ac.clear()
+            ac.find_by_name(uname)
+            assert ac.verify_auth(new_password), "Password not set"
+        def setPassword(data):
+            d = self.client.callRemote('set_password', username=uname,
+                    new_password=new_password, token=self.last_token,
+                    browser_token=browser_token)
+            d.addCallback(self.assertEquals, 'true')
+            d.addCallback(checkPassword)
+            return d
+        def checkToken(data):
+            d = self.client.callRemote('check_token', username=uname,
+                    token=self.last_token, browser_token=browser_token)
+            # the soap client doesn't seem to handle booleans correctly?
+            d.addCallback(self.assertEquals, 'true') 
+            d.addCallback(setPassword)
+            return d
+        d.addCallback(checkToken)
+        return d
+
+    def test_max_user_attempts(self):
+        # TODO: 
+        # 1. generate tokens for a given user as many times as defined in
+        #    cereconf.INDIVIDUATION_ATTEMPTS
+        # 2. check that you are not allowed to try more times.
+        pass
+    test_max_user_attempts.skip = "TODO"
+
+    def test_max_token_fail_checks(self):
+        # TODO:
+        # 1. generate a token for a given user
+        # 2. fail the check_token as many times as defined in
+        #    cereconf.INDIVIDUATION_TOKEN_ATTEMPTS.
+        # 3. check that token is invalid by checking the correct token
+        # 4. check that set_password aborts the user as well
+        pass
+    test_max_token_fail_checks.skip = "TODO"
+
+    def test_max_token_fail_password(self):
+        # TODO:
+        # 1. generate a token for a given user
+        # 2. fail the set_password as many times as defined in
+        #    cereconf.INDIVIDUATION_TOKEN_ATTEMPTS, by giving wrong token
+        # 3. check that token is invalid by calling set_password with correct
+        #    token.
+        # 4. check that check_password aborts the user as well
+        pass
+    test_max_token_fail_password.skip = "TODO"
 
     def test_abort_token(self):
         d = self.client.callRemote('abort_token', username=cereconf.INITIAL_ACCOUNTNAME)
         # this should never return any error, even if account exists or not
         return d
+    test_abort_token.skip = "TODO"
 
     def test_abort_correct_token(self):
-        # TODO: generate token for a user
+        # TODO:
+        # 1. generate a token for a user
+        # 2. call abort_token
+        # 3. check that neither set_password nor check_token passes
         pass
     test_abort_correct_token.skip = "TODO"
-        
+
     def test_abort_token_nonexisting_user(self):
         d = self.client.callRemote('abort_token', username='test1234_username_125_nonexisting')
         # this should never return any error, even if account exists or not
         return d
-
-#    def test_08_generate_token(self):
-#        "Generate and store password token for a user"
-#        res = self.client.service.generate_token("externalid_studentnr",
-#                                                 "476611",
-#                                                 "joakiho",
-#                                                 "22840195",
-#                                                 "")
-#    
-#    def test_09_check_token(self):
-#        "check token for a user"
-#        res = self.client.service.check_token("joakiho",
-#                                              get_token("joakiho"),
-#                                              "")
 
     def tearDown(self):
         self.tearDownServer()
@@ -502,7 +562,14 @@ class EmptyIndividuation(Individuation.Individuation):
     """Empty Individuation class, to mimic webservice's behaviour without
     Cerebrum."""
     def get_person_accounts(self, id_type, ext_id):
-        return []
+        ret = list()
+        ret.append({'uname': id_type,
+                    'priority': ext_id,
+                    'status': 'statt'})
+        ret.append({'uname': 'new',
+                    'priority': 'test',
+                    'status': 'statt'})
+        return ret
     def generate_token(self, id_type, ext_id, uname, phone_no, browser_token):
         return None
     def send_token(self, phone_no, token):
@@ -510,7 +577,8 @@ class EmptyIndividuation(Individuation.Individuation):
     def check_token(self, uname, token, browser_token):
         return None
     def delete_token(self, uname):
-        return True
+        """Overwriting this to an echo method, for checking data"""
+        return uname
     def _check_password(self, password, account=None):
         return False
     def set_password(self, uname, new_password, token, browser_token):
@@ -519,6 +587,9 @@ class EmptyIndividuation(Individuation.Individuation):
         return None
     def get_account(self, uname):
         return None
+    def validate_password(self, password):
+        """Overwriting this to return data in an exception, for checking data"""
+        raise Errors.CerebrumRPCException(password)
 
 class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
     """Testing the connection of the Individuation webservice, independent of
@@ -621,6 +692,38 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
                 param2='what"s this', arg323=3.3)
         # TODO: shouldn't wrong parameters cause an error?
         d = self.assertFailure(d, error.Error)
+        return d
+
+    def test_safe_strings(self):
+        string = 'test 123'
+        string2 = u'99 _'
+        self.server = self.setupServer(encrypt=False,
+                                       instance=EmptyIndividuation())
+        client = self.setupClient()
+        d = client.callRemote('get_usernames', id_type=string, ext_id=string2)
+        def cb(data):
+            print data.Account
+            self.assertEquals(len(data.Account), 2)
+            account = data.Account[0]
+            self.assertEquals(account.uname, string)
+            self.assertEquals(account.priority, string2)
+        d.addCallback(cb)
+        return d
+
+    def test_xml_data(self):
+        string = u'test & 1% ¤2© ª”«»3' # how to parse this correctly?
+        string2 = u'9³ 5² 8¼'
+        self.server = self.setupServer(encrypt=False,
+                                       instance=EmptyIndividuation())
+        client = self.setupClient()
+        d = client.callRemote('get_usernames', id_type=string, ext_id=string2)
+        def cb(data):
+            print data.Account
+            self.assertEquals(len(data.Account), 2)
+            account = data.Account[0]
+            self.assertEquals(account.uname, string)
+            self.assertEquals(account.priority, string2)
+        d.addCallback(cb)
         return d
 
     def test_encrypted_server_start(self):
