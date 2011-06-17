@@ -113,14 +113,51 @@ class BasicSoapServer(DefinitionBase):
         '''
         return call(*params)
 
-def clientVerificationCallback(connection, x509, errnum, errdepth, ok=None, test=None):
-    """Callback for verifying a client's certificate."""
-    if not ok:
-        log.err('Invalid cert from subject: %s, errnum=%s, errdepth=%s' % (
-                                    x509.get_subject(), errnum, errdepth))
-        return False
-    return True
+def clientVerificationCallback(instance, connection, x509, errnum, errdepth, ok=None):
+    """Callback for verifying a client's certificate. This is called every time
+    listenSSL gets an incoming connection, and is used for more validations,
+    logging and debug.
+    
+    Note that load_verify_locations is called at startup, which tells the server
+    what specific certificates we trust blindly. Connection by these
+    certificates will therefore set ok to True.
 
+    @param instance
+    @type  TwistedSoapStarter, for instance.
+
+    @param connection
+    @type  OpenSSL.SSL.Connection
+
+    @param x509
+    @type  X509.X509
+
+    @param errnum
+    @type  int
+
+    @param errdepth
+    @type  int
+
+    @param ok
+    @type  int
+
+    @return bool
+    True if the client should be allowed a connection, False closes the
+    connection.
+    """
+    if not ok:
+        log.err('Invalid cert: errnum=%s, errdepth=%s' % (errnum, errdepth))
+        try:
+            log.err('  subject: %s' % x509.get_subject())
+            log.err('  issuer:  %s' % x509.get_issuer())
+            log.err('  serial:  %x' % x509.get_serial_number())
+            log.err('  version: %s' % x509.get_version())
+            log.err('  digest: %s (sha1)' % x509.digest('sha1'))
+            log.err('  digest: %s (md5)' % x509.digest('md5'))
+        except Exception, e:
+            log.err('  exception: %s' % e)
+        return False
+    # TODO: validate the hostname as well?
+    return True
 
 class BasicSoapStarter:
     """
@@ -203,11 +240,13 @@ class TwistedSoapStarter(BasicSoapStarter):
                                                       certificate_file)
         if client_cert_files:
             ctx = sslcontext.getContext()
+            # Tell the server what certificates it should trust as signers of
+            # the client's certificate. Specify directory instead if several
+            # certificates are trusted.
+            ctx.load_verify_locations(client_cert_files)
             ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
                            self.clientverifycallback)
-            # Tell the server what certificates it should trust:
-            # TODO: check how more than one certificate could be added
-            ctx.load_verify_locations(client_cert_files)
+            #ctx.set_verify_depth(1) # TODO: check if this is necessary
         self.port = reactor.listenSSL(int(port), self.site,
                                       contextFactory=sslcontext,
                                       interface=self.interface)

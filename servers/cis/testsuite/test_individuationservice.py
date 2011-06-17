@@ -62,11 +62,14 @@ from mx.DateTime import DateTime
 
 import suds
 from twisted.web import soap, error
+from twisted.internet import ssl, reactor, defer
+from twisted.internet.protocol import ClientFactory, Protocol
 from twisted.python import log, failure
 from twisted.trial import unittest
 
 from nose.tools import raises
 
+import OpenSSL
 from M2Crypto import RSA, X509, EVP, m2, ASN1
 
 import cerebrum_path, cereconf
@@ -325,14 +328,19 @@ class IndividuationTestSetup:
             pe.populate_name(co.name_last, last_name)
             pe.write_db()
 
-        pe.affect_external_id(co.system_sap, co.externalid_fodselsnr,
-                                             co.externalid_sap_ansattnr)
         if fnr:
+            pe.affect_external_id(co.system_sap, co.externalid_fodselsnr)
             pe.populate_external_id(co.system_sap, co.externalid_fodselsnr, fnr)
+            pe.write_db()
         if ansnr:
+            pe.affect_external_id(co.system_sap, co.externalid_sap_ansattnr)
             pe.populate_external_id(co.system_sap, co.externalid_sap_ansattnr, ansnr)
+            pe.write_db()
         if studnr:
+            print "STUDENTNUMBER"
+            pe.affect_external_id(co.system_fs, co.externalid_studentnr)
             pe.populate_external_id(co.system_fs, co.externalid_studentnr, studnr)
+            pe.write_db()
         pe.write_db()
         self.db.commit()
         return pe
@@ -548,6 +556,43 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         # this should never return any error, even if account exists or not
         return d
 
+
+    def test_phonenumberchange_delay(self):
+        """Fresh phone numbers can be delayed if config says so."""
+        cereconf.INDIVIDUATION_PHONE_DELAYS = { 
+            'system_fs': {
+                'contact_mobile_phone':   7,
+                'contact_private_mobile': 7,
+            },
+        }
+        # TODO: Updates Individuation's copy of cereconf, check that it works!
+        Individuation.cereconf = cereconf
+
+        ou = Factory.get('OU')(self.db)
+        co = Factory.get('Constants')(self.db)
+        ou.find_stedkode(0, 0, 0, 0)
+        pe = self.createPerson(first_name='Miss', last_name='Test', studnr='007')
+        ac = self.createAccount(pe, 'mstest')
+
+        pe.populate_affiliation(source_system=co.system_fs, ou_id=ou.entity_id,
+                affiliation=co.affiliation_student,
+                status=co.affiliation_status_student_aktiv)
+        pe.write_db()
+        pe.populate_contact_info(source_system=co.system_fs,
+                                 type=co.contact_mobile_phone,
+                                 value='98012345')
+        pe.write_db()
+        self.db.commit()
+
+        # TODO: need to fix so it looks like this person is old, and not a fresh
+        # student
+        d = self.client.callRemote('generate_token',
+                id_type="externalid_studentnr", ext_id='007',
+                username='mstest', phone_no='98012345',
+                browser_token='a')
+        d = self.assertFailure(d, error.Error)
+        return d
+
     def tearDown(self):
         self.tearDownServer()
         del self.client
@@ -602,7 +647,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         pass
 
     def setUp(self):
-        self.timeout = 20 # only testing connection, should not take long
+        self.timeout = 5 # only testing connection, should not take long
         if hasattr(self, 'server'):
             del self.server
 
@@ -613,6 +658,30 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         pkey.assign_rsa(key)
         return (key, pkey)
 
+    def helper_generate_certificate_request(self, pkey):
+        """Create a certificate request."""
+        name = X509.X509_Name()
+        name.C = 'NO'
+        name.ST = 'Oslo'
+        name.L = 'Oslo'
+        name.O = 'University of Oslo'
+        name.OU = 'Cerebrum requestor'
+        name.CN = '127.0.0.1'
+        name.emailAddress = 'test@example.com'
+
+        req = X509.Request()
+        # Seems to default to 0, but we can now set it as well, so just API test
+        req.set_version(req.get_version()) # TODO: set to version 2 as well
+        req.set_pubkey(pkey)
+        req.set_subject_name(name)
+
+        #ext1 = X509.new_extension('Comment', 'Auto Generated')
+        #extstack = X509.X509_Extension_Stack()
+        #extstack.push(ext1)
+        #req.add_extensions(extstack)
+        req.sign(pkey, 'sha1')
+        return req
+
     def helper_generate_certificate(self, pkey):
         """Create a self-signed x509 certificate."""
         name = X509.X509_Name()
@@ -620,7 +689,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         name.ST = 'Oslo'
         name.L = 'Oslo'
         name.O = 'University of Oslo'
-        name.OU = 'Cerebrum'
+        name.OU = 'Cerebrumtesting'
         name.CN = '127.0.0.1'
         name.emailAddress = 'test@example.com'
 
@@ -633,7 +702,7 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         now = ASN1.ASN1_UTCTIME()
         now.set_time(t)
         end = ASN1.ASN1_UTCTIME()
-        end.set_time(t + 60 * 60 * 24 * 365)
+        end.set_time(t + 60 * 60 * 24 * 365 * 10)
         cert.set_not_before(now)
         cert.set_not_after(end)
 
@@ -644,6 +713,30 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         #ext.set_critical(0)
         #cert.add_ext(ext)
         cert.sign(pkey, 'sha1')
+        return cert
+
+    def helper_sign_certificate(self, cakey, cacert, request):
+        """Sign a certificate request by the given ca key and ca certificate."""
+        cert = X509.X509()
+        cert.set_version(2)
+        cert.set_serial_number(1)
+        cert.set_subject(request.get_subject())
+
+        t = long(time.time()) + time.timezone
+        now = ASN1.ASN1_UTCTIME()
+        now.set_time(t)
+        end = ASN1.ASN1_UTCTIME()
+        end.set_time(t + 60 * 60 * 24 * 365 * 10)
+        cert.set_not_before(now)
+        cert.set_not_after(end)
+
+        cert.set_issuer(cacert.get_subject())
+        cert.set_pubkey(request.get_pubkey())
+
+        #ext = X509.new_extension('subjectAltName', 'DNS:localhost')
+        #ext.set_critical(0)
+        #cert.add_ext(ext)
+        cert.sign(cakey, 'sha1')
         return cert
 
     def helper_get_certificate(self):
@@ -665,6 +758,34 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
             f.write(cert.as_pem())
             f.close()
         return (keylocation, certlocation)
+
+    def helper_get_client_certificate(self):
+        """Get a generic client certificate and its public-private key."""
+        (cakey, cacert) = self.helper_get_certificate()
+        key = RSA.load_key(cakey)
+        cakey = EVP.PKey()
+        cakey.assign_rsa(key)
+        cacert = X509.load_cert(cacert)
+
+        keylocation = '/tmp/nosetest_individuation.client.key'
+        certlocation = '/tmp/nosetest_individuation.client.pem'
+
+        try:
+            os.stat(keylocation)
+            os.stat(certlocation)
+        except OSError:
+            (key, pkey) = self.helper_generate_key()
+            f = open(keylocation, 'w')
+            f.write(key.as_pem(cipher=None))
+            f.close()
+
+            req = self.helper_generate_certificate_request(pkey)
+            cert = self.helper_sign_certificate(cakey, cacert, req)
+            f = open(certlocation, 'w')
+            f.write(cert.as_pem())
+            f.close()
+        return (keylocation, certlocation)
+
 
     def test_unencrypted_connection(self):
         self.server = self.setupServer(encrypt=False,
@@ -736,28 +857,80 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
         return d
 
     def test_no_client_certificate(self):
-        client_cert_name = '/tmp/nosetest_individuation.client.pem'
+        #client_cert_name = '/tmp/nosetest_individuation.client.pem'
         (key, cert) = self.helper_get_certificate()
-        (c_key, c_pkey) = self.helper_generate_key()
-        c_cert = self.helper_generate_certificate(c_pkey)
-        f = open(client_cert_name, 'w')
-        f.write(c_cert.as_pem())
-        f.close()
+        #(c_key, c_pkey) = self.helper_generate_key()
+        #c_cert = self.helper_generate_certificate(c_pkey)
+        #f = open(client_cert_name, 'w')
+        #f.write(c_cert.as_pem())
+        #f.close()
         self.server = self.setupServer(encrypt=True, server_key=key,
                                         server_cert=cert,
-                                        client_cert=client_cert_name,
+                                        client_cert=cert,
                                         instance=EmptyIndividuation())
+        # TODO: create a twisted ssl connection instead, and only try to get the
+        # wsdl definitions in a deferred. It should be blocked!
         client = self.setupClient(encrypt=True)
-        return client.callRemote('get_usernames', id_type=1, ext_id=None)
-    test_no_client_certificate.skip = "How to use certificates with the soap client?"
+        d = client.callRemote('get_usernames')
+        return self.assertFailure(d, OpenSSL.SSL.Error)
 
-    def test_wrong_client_certificate(self):
-        assert False
-    test_wrong_client_certificate.skip = "How to use certificates with the soap client?"
+    def test_connection_with_certificate(self):
+        (key, cert)   = self.helper_get_certificate()
+        (ckey, ccert) = self.helper_get_client_certificate()
+        self.server = self.setupServer(encrypt=True, server_key=key,
+                                        server_cert=cert,
+                                        client_cert=cert,
+                                        instance=EmptyIndividuation())
+        f = ConnectionDebuggerFactory()
+        ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
+        ctx = ccf.getContext()
+        def cb2(data):
+            print "ssl: %s" % data
+        ctx.set_info_callback(cb2)
 
-    def test_correct_client_certificate(self):
-        assert False
-    test_correct_client_certificate.skip = "How to use certificates with the soap client?"
+        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+
+        def cb(data):
+            print "data: %s"% data
+        def cbfail(data):
+            print "fail: %s"% data
+        f.d.addErrback(cbfail)
+        f.d.addCallback(cb)
+        # TODO: times out - probably wrong use of deferred in test code
+        return f.d
+
+    def test_connection_with_wrong_certificate(self):
+        (key, cert)   = self.helper_get_certificate()
+        (ckey, ccert) = self.helper_get_client_certificate()
+        self.server = self.setupServer(encrypt=True, server_key=key,
+                                        server_cert=cert,
+                                        client_cert=ccert,
+                                        instance=EmptyIndividuation())
+        f = ConnectionDebuggerFactory()
+        ccf = ssl.DefaultOpenSSLContextFactory(ckey, ccert)
+        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        return self.assertFailure(f.d, OpenSSL.SSL.Error)
+
+    def test_selfsigned_client_certificate(self):
+        # 1. start server with server cert as client authority as well
+        # 2. generate a certificate that is self signed by the client
+        # 3. connect to webservice with self signed certificate, by starting
+        #    twisted's ssl connection and aim for the wsdl.
+        # 4. check that connection is blocked!
+
+        # Simply done by switching the certificates, since ca certificate is self signed
+        (cakey, ca) = self.helper_get_certificate()
+        (key, cert) = self.helper_get_client_certificate()
+
+        (ckey, ccert) = self.helper_get_client_certificate()
+        self.server = self.setupServer(encrypt=True, server_key=key,
+                                        server_cert=cert,
+                                        client_cert=cert,
+                                        instance=EmptyIndividuation())
+        f = ConnectionDebuggerFactory()
+        ccf = ssl.DefaultOpenSSLContextFactory(cakey, ca)
+        port = reactor.connectSSL('127.0.0.1', self.server.port.getHost().port, f, ccf)
+        return self.assertFailure(f.d, OpenSSL.SSL.Error)
 
     def tearDown(self):
         if getattr(self, 'server', None):
@@ -770,6 +943,36 @@ class TestIndividuationConnection(unittest.TestCase, IndividuationTestSetup):
     @classmethod
     def tearDownClass(cls):
         pass
+
+class ConnectionDebuggerProtocol(Protocol):
+    def connectionMade(self):
+        print "connection made!"
+        self.transport.write("GET /SOAP/ HTTP/1.1\nHost: localhost\n\n")
+
+    def dataReceived(self, data):
+        print "data received"
+
+    def connectionLost(self, reason):
+        print "connection lost..."
+
+class ConnectionDebuggerFactory(ClientFactory):
+    """Class which puts the activity into a deferred, as the attribute "d"."""
+    protocol = ConnectionDebuggerProtocol # not necessary to debug the protocol when testing tls
+    def __init__(self):
+        self.d = defer.Deferred()
+
+    #def startedConnecting(self, connector):
+    #    print "started connecting..."
+
+    def clientConnectionFailed(self, _, reason):
+        return self.d.errback(reason)
+
+    def clientConnectionLost(self, _, reason):
+        return self.d.errback(reason)
+
+    def gotData(self, data):
+        print "data received: %s" % data
+        self.d.callback(data)
 
 def get_token(uname):
     db = Factory.get('Database')()

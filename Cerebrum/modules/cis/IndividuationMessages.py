@@ -45,6 +45,8 @@ messages = {
                           'no': u'For mange forsøk, engangspassordet er blitt gjort ugyldig'},
     'timeout_check':     {'en': u'Timeout, one time password got invalid',
                           'no': u'Tidsavbrudd, engangspassord ble gjort ugyldig'},
+    'fresh_phonenumber': {'en': u'Phone number recently changed, not yet available',
+                          'no': u'Telefonnummer er nylig blitt byttet, er ikke tilgjengelig enda'},
     'password_invalid':  {'en': u'Bad password: %s',
                           'no': u'Ugyldig passord: %s'},
 }

@@ -32,7 +32,7 @@ Interface to Cerebrum for the Individuation service.
 """
 
 import random, hashlib
-import string
+import string, pickle
 from mx.DateTime import RelativeDateTime, now
 import cereconf
 from Cerebrum import Errors
@@ -97,19 +97,19 @@ class Individuation:
         """
         # Check if person exists
         ac = Factory.get('Account')(db)
-        pe = self.get_person(id_type, ext_id)
+        person = self.get_person(id_type, ext_id)
 
         # Check reservation
-        if self.is_reserved_publication(pe):
-            log.info("Person id=%s is reserved from publication" % pe.entity_id)
+        if self.is_reserved_publication(person):
+            log.info("Person id=%s is reserved from publication" % person.entity_id)
             # Returns same error message as for non existing persons, to avoid
             # leaking information that a person actually exists in our systems.
             raise Errors.CerebrumRPCException('person_notfound')
         accounts = dict((a['account_id'], 9999999) for a in
-                         ac.list_accounts_by_owner_id(owner_id=pe.entity_id,
+                         ac.list_accounts_by_owner_id(owner_id=person.entity_id,
                                                       filter_expired=False))
         for row in ac.get_account_types(all_persons_types=True,
-                                        owner_id=pe.entity_id,
+                                        owner_id=person.entity_id,
                                         filter_expired=False):
             if accounts[row['account_id']] > int(row['priority']):
                 accounts[row['account_id']] = int(row['priority'])
@@ -136,7 +136,7 @@ class Individuation:
         ret.sort(key=lambda x: x['priority'])
         return ret
 
-    def generate_token(self, id_type, ext_id, uname, phone_no, browser_token):
+    def generate_token(self, id_type, ext_id, uname, phone_no, browser_token=''):
         """
         Generate a token that functions as a short time password for the
         user and send it by SMS.
@@ -160,28 +160,28 @@ class Individuation:
         # Check if account has been checked too many times
         self.check_too_many_attempts(ac)
         # Check if person exists
-        pe = self.get_person(id_type, ext_id)
-        if not ac.owner_id == pe.entity_id:
+        person = self.get_person(id_type, ext_id)
+        if not ac.owner_id == person.entity_id:
             log.debug("Account %s doesn't belong to person %d" % (uname,
-                                                                  pe.entity_id))
+                                                                  person.entity_id))
             raise Errors.CerebrumRPCException('person_notfound')
         # Check if account is blocked
         if not self.check_account(ac):
             log.info("Account %s is blocked" % (ac.account_name))
             raise Errors.CerebrumRPCException('account_blocked')
         # Check if person/account is reserved
-        if self.is_reserved(account=ac, person=pe):
+        if self.is_reserved(account=ac, person=person):
             log.info("Account %s (or person) is reserved" % (ac.account_name))
             raise Errors.CerebrumRPCException('account_reserved')
         # Check if person/account is self reserved
-        if self.is_self_reserved(account=ac, person=pe):
+        if self.is_self_reserved(account=ac, person=person):
             log.info("Account %s (or person) is self reserved" % (ac.account_name))
             raise Errors.CerebrumRPCException('account_self_reserved')
         # Check phone_no
-        if not self.has_phone(pe):
+        if not self.has_phone(person):
             log.debug("No affiliation or phone registered for %s" % ac.account_name)
             raise Errors.CerebrumRPCException('person_miss_info')
-        if not self.check_phone(phone_no, pe):
+        if not self.check_phone(phone_no, person):
             log.debug("phone_no %s not found for %s" % (phone_no, ac.account_name))
             raise Errors.CerebrumRPCException('person_notfound')
         # Create and send token
@@ -198,6 +198,9 @@ class Individuation:
         ac.populate_trait(co.trait_password_token, date=now(), numval=0,
                           strval=self.hash_token(token, uname))
         # store browser token as a trait
+        if type(browser_token) is not str:
+            log.err("Invalid browser_token, type='%s', value='%s'" % (type(browser_token), browser_token))
+            browser_token = ''
         ac.populate_trait(co.trait_browser_token, date=now(),
                           strval=self.hash_token(browser_token, uname))
         ac.write_db()
@@ -206,11 +209,13 @@ class Individuation:
 
     def create_token(self):
         """Return random sample of alphanumeric characters"""
+        #return "phFmZquz" # TODO: remove when done testing
         alphanum = string.digits + string.ascii_letters
         return ''.join(random.sample(alphanum, cereconf.INDIVIDUATION_TOKEN_LENGTH))
 
     def send_token(self, phone_no, token):
         """Send token as a SMS message to phone_no"""
+        #return True # TODO: remove when done testing
         sms = SMSSender(logger=log)
         msg = getattr(cereconf, 'INDIVIDUATION_SMS_MESSAGE', 
                                 'Your one time password: %s')
@@ -317,10 +322,10 @@ class Individuation:
         return True
 
     def get_person(self, id_type, ext_id):
-        pe = Factory.get('Person')(db)
-        pe.clear()
+        person = Factory.get('Person')(db)
+        person.clear()
         try:
-            pe.find_by_external_id(getattr(co, id_type), ext_id)
+            person.find_by_external_id(getattr(co, id_type), ext_id)
         except AttributeError, e:
             log.error("Wrong id_type: '%s'" % id_type)
             raise Errors.CerebrumRPCException('person_notfound')
@@ -328,7 +333,7 @@ class Individuation:
             log.debug("Couldn't find person with %s='%s'" % (id_type, ext_id))
             raise Errors.CerebrumRPCException('person_notfound')
         else:
-            return pe
+            return person
 
     def get_account(self, uname):
         ac = Factory.get('Account')(db)
@@ -376,13 +381,50 @@ class Individuation:
             if int(system) not in pe_systems:
                 continue
             phone_types = [getattr(co, t) for t in types]
-            for row in person.list_contact_info(entity_id=person.entity_id,
+            for cinfo in person.list_contact_info(entity_id=person.entity_id,
                                                 contact_type=phone_types,
                                                 source_system=system):
-                # Crude test. We should probably do this more carefully
-                if phone_no == row['contact_value']:
+                if self.number_match(stored=cinfo['contact_value'], given=phone_no):
+                    delay = self.get_delay(system=sys, type=cinfo['contact_type'])
+                    for row in db.get_log_events(types=co.entity_cinfo_add,
+                                                 any_entity=person.entity_id,
+                                                 sdate=delay):
+                        # TODO: do not trigger this for fresh persons - how to
+                        #       define a person as fresh? By affiliations maybe?
+                        data = pickle.loads(row['change_params'])
+                        if cinfo['contact_value'] == data['value']:
+                            log.info('person:%s recently changed phoneno' % person.entity_id)
+                            # TODO: send email! To all accounts or only the given one?
+                            raise Errors.CerebrumRPCException('fresh_phonenumber')
                     return True
         return False
+
+    def number_match(self, stored, given):
+        """Checks if a given number matches a stored number. Checks, e.g.
+        removing spaces, could be put here, if necessary, but note that the best
+        place to fix such mismatches is in the source system."""
+        if given.strip() == stored.strip():
+            return True
+        # TODO: more checks here?
+        return False
+
+
+    def get_delay(self, system, type):
+        """Return a DateTime set to the correct delay time for numbers of the
+        given type and from the given source system. Numbers must be older than
+        this DateTime to be accepted.
+        
+        If no delay is set for the number, it returns now(), which will be true
+        unless you change your number in the exact same time."""
+
+        delays = getattr(cereconf, 'INDIVIDUATION_PHONE_DELAYS', {}).get(system, {})
+        delay = 0
+        for d in delays:
+            if int(getattr(co, d, 0)) == int(type):
+                delay = int(delays[d])
+                break
+        return now() - RelativeDateTime(days=delay)
+
 
     def check_too_many_attempts(self, account):
         """
