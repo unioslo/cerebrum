@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2007-2010 University of Oslo, Norway
+# Copyright 2007-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -83,6 +83,8 @@ class EphorteConstants(ConstantsBase):
     ephorte_perm_pa = _EphortePermTypeCode('PA', 'Personalsaker AKAN')
     # new permission, as requested by arkiv 2009-12-11
     ephorte_perm_fo = _EphortePermTypeCode('FO', 'Forskningssaker')
+    # new permission, as requested by arkiv 2011-06-17
+    ephorte_perm_fo = _EphortePermTypeCode('ST', 'Studenttilrettelegging i Cerebrum')
     
     # Values from the ePhorte table ARKIVDEL
     ephorte_arkivdel_avtale_uio = _EphorteArkivdelCode(
