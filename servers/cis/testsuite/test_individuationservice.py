@@ -58,7 +58,7 @@ e.g. when testing several modules which needs a clean database.
 """
 
 import sys, os, time, logging, random
-from mx.DateTime import DateTime
+from mx.DateTime import DateTime, DateTimeDelta, now
 
 import suds
 from twisted.web import soap, error
@@ -75,6 +75,7 @@ from M2Crypto import RSA, X509, EVP, m2, ASN1
 import cerebrum_path, cereconf
 from Cerebrum import Errors, Utils
 from Cerebrum.Utils import Factory
+from Cerebrum.modules import Email
 
 from Cerebrum.modules.cis import Individuation
 
@@ -268,11 +269,17 @@ class IndividuationTestSetup:
             Individuation.db = db 
             Individuation.Individuation.db = db
             instance = Individuation.Individuation()
-        # overwrite the sender of sms to grab tokens instead of sending them
+        # overwrite functionality
         def send_token_grabber(phone_no, token):
             self.last_token = token
             return True
         instance.send_token = send_token_grabber
+
+        def sendmail_grabber(toaddr, fromaddr, subject, body, cc=None,
+                charset='iso-8859-1', debug=False):
+            log.msg("email %s -> %s (%s)" % (fromaddr, toaddr, subject))
+        Individuation.sendmail = sendmail_grabber
+        
         self.server = self.createServer(instance=instance, encrypt=encrypt,
                             server_key=server_key, server_cert=server_cert,
                             client_cert=client_cert)
@@ -337,7 +344,6 @@ class IndividuationTestSetup:
             pe.populate_external_id(co.system_sap, co.externalid_sap_ansattnr, ansnr)
             pe.write_db()
         if studnr:
-            print "STUDENTNUMBER"
             pe.affect_external_id(co.system_fs, co.externalid_studentnr)
             pe.populate_external_id(co.system_fs, co.externalid_studentnr, studnr)
             pe.write_db()
@@ -558,14 +564,14 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
 
 
     def test_phonenumberchange_delay(self):
-        """Fresh phone numbers can be delayed if config says so."""
+        """Fresh phone numbers should not be used if config says so."""
         cereconf.INDIVIDUATION_PHONE_DELAYS = { 
             'system_fs': {
                 'contact_mobile_phone':   7,
                 'contact_private_mobile': 7,
             },
         }
-        # TODO: Updates Individuation's copy of cereconf, check that it works!
+        # TODO: check that this overwrite works for all relevant functionality
         Individuation.cereconf = cereconf
 
         ou = Factory.get('OU')(self.db)
@@ -582,15 +588,85 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
                                  type=co.contact_mobile_phone,
                                  value='98012345')
         pe.write_db()
+
+        # Create e-mail address for user
+        ed = Email.EmailDomain(self.db)
+        ed.populate('example.com', 'For testing')
+        ed.write_db()
+        et = Email.EmailTarget(self.db)
+        et.populate(co.email_target_account, ac.entity_id, co.entity_account)
+        et.write_db()
+        ea = Email.EmailAddress(self.db)
+        ea.populate('test', ed.entity_id, et.entity_id)
+        ea.write_db()
+        epa = Email.EmailPrimaryAddressTarget(self.db)
+        epa.populate(ea.entity_id, et)
+        epa.write_db()
+
         self.db.commit()
 
-        # TODO: need to fix so it looks like this person is old, and not a fresh
-        # student
+        # hack the create_date in change_log
+        self.db.execute("""
+            UPDATE [:table schema=cerebrum name=change_log]
+            SET tstamp = :tid 
+            WHERE 
+                subject_entity = :s_id AND
+                change_type_id = :ct_id""", 
+                    {'s_id': pe.entity_id,
+                    'ct_id': co.person_create,
+                    'tid': DateTime(2009, 10, 4),})
+
         d = self.client.callRemote('generate_token',
                 id_type="externalid_studentnr", ext_id='007',
                 username='mstest', phone_no='98012345',
                 browser_token='a')
         d = self.assertFailure(d, error.Error)
+        # TODO: test that sendmail is called with the correct to-address
+        return d
+
+    def test_phonenumberchange_fresh_person(self):
+        """Fresh phone numbers should still be available for new persons"""
+        cereconf.INDIVIDUATION_PHONE_DELAYS = { 
+            'system_fs': {
+                'contact_mobile_phone':   7,
+                'contact_private_mobile': 7,
+            },
+        }
+        # TODO: check that this overwrite works for all relevant functionality
+        Individuation.cereconf = cereconf
+
+        ou = Factory.get('OU')(self.db)
+        co = Factory.get('Constants')(self.db)
+        ou.find_stedkode(0, 0, 0, 0)
+        pe = self.createPerson(first_name='Miss', last_name='Test2', studnr='008')
+        ac = self.createAccount(pe, 'mstest2')
+
+        pe.populate_affiliation(source_system=co.system_fs, ou_id=ou.entity_id,
+                affiliation=co.affiliation_student,
+                status=co.affiliation_status_student_aktiv)
+        pe.write_db()
+        pe.populate_contact_info(source_system=co.system_fs,
+                                 type=co.contact_mobile_phone,
+                                 value='98012345')
+        pe.write_db()
+        self.db.commit()
+
+        # hack the create_date in change_log
+        print self.db.execute("""
+            UPDATE [:table schema=cerebrum name=change_log]
+            SET tstamp = :tid 
+            WHERE 
+                subject_entity = :s_id AND
+                change_type_id = :ct_id""", 
+                    {'s_id': pe.entity_id,
+                    'ct_id': co.person_create,
+                    'tid': now() - DateTimeDelta(5),})
+
+        d = self.client.callRemote('generate_token',
+                id_type="externalid_studentnr", ext_id='008',
+                username='mstest2', phone_no='98012345',
+                browser_token='a')
+        d.addCallback(self.assertEquals, 'true')
         return d
 
     def tearDown(self):

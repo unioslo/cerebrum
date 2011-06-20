@@ -36,7 +36,7 @@ import string, pickle
 from mx.DateTime import RelativeDateTime, now
 import cereconf
 from Cerebrum import Errors
-from Cerebrum.Utils import Factory, SMSSender
+from Cerebrum.Utils import Factory, SMSSender, sendmail
 from Cerebrum.modules import PasswordChecker
 
 class SimpleLogger(object):
@@ -79,6 +79,15 @@ class Individuation:
     CIS? For examples: _check_password, get_person, get_account.
     """
 
+    # The subject of the warning e-mails
+    email_subject = 'Failed password recovery attempt'
+
+    # The signature of the warning e-mails
+    email_signature = 'University of Oslo'
+
+    # The from address
+    email_from = 'noreply@uio.no'
+
     def __init__(self):
         log.debug('Cerebrum database: %s' % cereconf.CEREBRUM_DATABASE_NAME)
 
@@ -96,7 +105,7 @@ class Individuation:
         @rtype: list of dicts
         """
         # Check if person exists
-        ac = Factory.get('Account')(db)
+        account = Factory.get('Account')(db)
         person = self.get_person(id_type, ext_id)
 
         # Check reservation
@@ -106,30 +115,30 @@ class Individuation:
             # leaking information that a person actually exists in our systems.
             raise Errors.CerebrumRPCException('person_notfound')
         accounts = dict((a['account_id'], 9999999) for a in
-                         ac.list_accounts_by_owner_id(owner_id=person.entity_id,
+                         account.list_accounts_by_owner_id(owner_id=person.entity_id,
                                                       filter_expired=False))
-        for row in ac.get_account_types(all_persons_types=True,
+        for row in account.get_account_types(all_persons_types=True,
                                         owner_id=person.entity_id,
                                         filter_expired=False):
             if accounts[row['account_id']] > int(row['priority']):
                 accounts[row['account_id']] = int(row['priority'])
         ret = list()
         for (ac_id, pri) in accounts.iteritems():
-            ac.clear()
+            account.clear()
             try:
-                ac.find(ac_id)
+                account.find(ac_id)
             except Errors.NotFoundError:
                 log.error("Couldn't find account with id %s" % ac_id)
                 continue
             status = 'status_inactive'
-            if not (ac.is_expired() or ac.is_deleted()):
+            if not (account.is_expired() or account.is_deleted()):
                 status = 'status_active'
                 accepted_quars = [int(getattr(co, q)) for q in
                                   cereconf.INDIVIDUATION_ACCEPTED_QUARANTINES]
                 if any(q['quarantine_type'] not in accepted_quars
-                       for q in ac.get_entity_quarantine(only_active=True)):
+                       for q in account.get_entity_quarantine(only_active=True)):
                     status = 'status_inactive'
-            ret.append({'uname': ac.account_name,
+            ret.append({'uname': account.account_name,
                         'priority': pri,
                         'status': status})
         # Sort by priority
@@ -156,33 +165,35 @@ class Individuation:
         """
 
         # Check if account exists
-        ac = self.get_account(uname)
+        account = self.get_account(uname)
         # Check if account has been checked too many times
-        self.check_too_many_attempts(ac)
+        self.check_too_many_attempts(account)
         # Check if person exists
         person = self.get_person(id_type, ext_id)
-        if not ac.owner_id == person.entity_id:
-            log.debug("Account %s doesn't belong to person %d" % (uname,
+        if not account.owner_id == person.entity_id:
+            log.info("Account %s doesn't belong to person %d" % (uname,
                                                                   person.entity_id))
             raise Errors.CerebrumRPCException('person_notfound')
         # Check if account is blocked
-        if not self.check_account(ac):
-            log.info("Account %s is blocked" % (ac.account_name))
+        if not self.check_account(account):
+            log.info("Account %s is blocked" % (account.account_name))
             raise Errors.CerebrumRPCException('account_blocked')
         # Check if person/account is reserved
-        if self.is_reserved(account=ac, person=person):
-            log.info("Account %s (or person) is reserved" % (ac.account_name))
+        if self.is_reserved(account=account, person=person):
+            log.info("Account %s (or person) is reserved" % (account.account_name))
             raise Errors.CerebrumRPCException('account_reserved')
         # Check if person/account is self reserved
-        if self.is_self_reserved(account=ac, person=person):
-            log.info("Account %s (or person) is self reserved" % (ac.account_name))
+        if self.is_self_reserved(account=account, person=person):
+            log.info("Account %s (or person) is self reserved" % (account.account_name))
             raise Errors.CerebrumRPCException('account_self_reserved')
         # Check phone_no
-        if not self.has_phone(person):
-            log.debug("No affiliation or phone registered for %s" % ac.account_name)
+        phone_nos = self.get_phone_numbers(person)
+        if not phone_nos:
+            log.info("No affiliation or phone registered for %s" % account.account_name)
             raise Errors.CerebrumRPCException('person_miss_info')
-        if not self.check_phone(phone_no, person):
-            log.debug("phone_no %s not found for %s" % (phone_no, ac.account_name))
+        if not self.check_phone(phone_no, numbers=phone_nos, person=person,
+                                account=account):
+            log.info("phone_no %s not found for %s" % (phone_no, account.account_name))
             raise Errors.CerebrumRPCException('person_notfound')
         # Create and send token
         token = self.create_token()
@@ -190,20 +201,21 @@ class Individuation:
         if not self.send_token(phone_no, token):
             log.error("Couldn't send token to %s for %s" % (phone_no, uname))
             raise Errors.CerebrumRPCException('token_notsent')
-        db.log_change(subject_entity=ac.entity_id,
+        db.log_change(subject_entity=account.entity_id,
                       change_type_id=co.account_password_token,
                       destination_entity=None,
                       change_params={'phone_to': phone_no})
         # store password token as a trait
-        ac.populate_trait(co.trait_password_token, date=now(), numval=0,
+        account.populate_trait(co.trait_password_token, date=now(), numval=0,
                           strval=self.hash_token(token, uname))
         # store browser token as a trait
         if type(browser_token) is not str:
-            log.err("Invalid browser_token, type='%s', value='%s'" % (type(browser_token), browser_token))
+            log.err("Invalid browser_token, type='%s', value='%s'" % (type(browser_token), 
+                                                                      browser_token))
             browser_token = ''
-        ac.populate_trait(co.trait_browser_token, date=now(),
+        account.populate_trait(co.trait_browser_token, date=now(),
                           strval=self.hash_token(browser_token, uname))
-        ac.write_db()
+        account.write_db()
         db.commit()
         return True
 
@@ -215,7 +227,7 @@ class Individuation:
 
     def send_token(self, phone_no, token):
         """Send token as a SMS message to phone_no"""
-        #return True # TODO: remove when done testing
+        return True # TODO: remove when done testing
         sms = SMSSender(logger=log)
         msg = getattr(cereconf, 'INDIVIDUATION_SMS_MESSAGE', 
                                 'Your one time password: %s')
@@ -228,7 +240,7 @@ class Individuation:
     def check_token(self, uname, token, browser_token):
         """Check if token and other data from user is correct."""
         try:
-            ac = self.get_account(uname)
+            account = self.get_account(uname)
         except Errors.CerebrumRPCException:
             # shouldn't tell what went wrong
             return False
@@ -236,14 +248,14 @@ class Individuation:
         # Check browser_token. The given browser_token may be "" but if so
         # the stored browser_token must be "" as well for the test to pass.
         
-        bt = ac.get_trait(co.trait_browser_token)
+        bt = account.get_trait(co.trait_browser_token)
         if not bt or bt['strval'] != self.hash_token(browser_token, uname):
             log.info("Incorrect browser_token %s for user %s" % (browser_token, uname))
             return False
 
         # Check password token. Keep track of how many times a token is
         # checked to protect against brute force attack (defaults to 20).
-        pt = ac.get_trait(co.trait_password_token)
+        pt = account.get_trait(co.trait_password_token)
         no_checks = int(pt['numval'])
         if no_checks > getattr(cereconf, 'INDIVIDUATION_TOKEN_ATTEMPTS', 20):
             log.info("No. of token checks exceeded for user %s" % uname)
@@ -258,9 +270,9 @@ class Individuation:
             # All is fine
             return True
         log.debug("Token %s incorrect for user %s" % (token, uname))
-        ac.populate_trait(co.trait_password_token, strval=pt['strval'],
+        account.populate_trait(co.trait_password_token, strval=pt['strval'],
                           date=pt['date'], numval=no_checks+1)
-        ac.write_db()
+        account.write_db()
         db.commit()
         return False
 
@@ -269,9 +281,9 @@ class Individuation:
         Delete password token for a given user
         """
         try:
-            ac = self.get_account(uname)
-            ac.delete_trait(co.trait_password_token)
-            ac.write_db()
+            account = self.get_account(uname)
+            account.delete_trait(co.trait_password_token)
+            account.write_db()
             db.commit()
         except Errors.CerebrumRPCException:
             pass
@@ -294,30 +306,33 @@ class Individuation:
     def set_password(self, uname, new_password, token, browser_token):
         if not self.check_token(uname, token, browser_token):
             return False
-        ac = self.get_account(uname)
-        if not self._check_password(new_password, ac):
+        account = self.get_account(uname)
+        if not self._check_password(new_password, account):
             return False
         # All data is good. Set password
-        ac.set_password(new_password)
+        account.set_password(new_password)
         try:
-            ac.write_db()
+            account.write_db()
             db.commit()
             log.info("Password for %s altered." % uname)
         except db.DatabaseError, m:
             log.error("Error when setting password for %s: %s" % (uname, m))
             raise Errors.CerebrumRPCException('error_unknown')
         # Remove "weak password" quarantine
-        for r in ac.get_entity_quarantine():
+        for r in account.get_entity_quarantine():
             for qua in (co.quarantine_autopassord, co.quarantine_svakt_passord):
                 if int(r['quarantine_type']) == qua:
-                    ac.delete_entity_quarantine(qua)
-                    ac.write_db()
+                    account.delete_entity_quarantine(qua)
+                    account.write_db()
                     db.commit()
-        if ac.is_deleted():
+        # TODO: move these checks up and raise exceptions? Wouldn't happen,
+        # since generate_token() checks this already, but might get other
+        # authentication methods later.
+        if account.is_deleted():
             log.warning("user %s is deleted" % uname)
-        elif ac.is_expired():
+        elif account.is_expired():
             log.warning("user %s is expired" % uname)
-        elif ac.get_entity_quarantine(only_active=True):
+        elif account.get_entity_quarantine(only_active=True):
             log.info("user %s has an active quarantine" % uname)
         return True
 
@@ -336,67 +351,73 @@ class Individuation:
             return person
 
     def get_account(self, uname):
-        ac = Factory.get('Account')(db)
+        account = Factory.get('Account')(db)
         try:
-            ac.find_by_name(uname)
+            account.find_by_name(uname)
         except Errors.NotFoundError:
             log.info("Couldn't find account %s" % uname)
             raise Errors.CerebrumRPCException('person_notfound')
         else:
-            return ac
+            return account
 
-    def has_phone(self, person):
+    def get_phone_numbers(self, person):
         """
-        Check if a person has at least one phone number registered to one of its
-        active affiliations.
+        Return a list of the registered phone numbers for a given person. Only
+        the defined source systems and contact types are searched for, and the
+        person must have an active affiliation from a system before a number
+        could be retrieved from that same system.
         """
         old_limit = now() - RelativeDateTime(days=cereconf.INDIVIDUATION_AFF_GRACE_PERIOD)
         pe_systems = [int(af['source_system']) for af in
                       person.list_affiliations(person_id=person.entity_id, include_deleted=True)
                       if (af['deleted_date'] is None or af['deleted_date'] > old_limit)]
+        phones = []
         for sys, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
             system = getattr(co, sys)
             if int(system) not in pe_systems:
                 continue
             phone_types = [getattr(co, t) for t in types]
-            if len(person.list_contact_info(entity_id=person.entity_id,
-                                            contact_type=phone_types,
-                                            source_system=system)) > 0:
-                return True
-        return False
+            for row in person.list_contact_info(entity_id=person.entity_id,
+                               contact_type=phone_types, source_system=system):
+                phones.append({'number': row['contact_value'],
+                               'system': system,
+                               'system_name': sys,
+                               'type':   co.ContactInfo(row['contact_type']),})
+        return phones
 
-    def check_phone(self, phone_no, person):
+    def check_phone(self, phone_no, numbers, person, account):
         """
         Check if given phone_no belongs to person. The phone number is only searched
         for in source systems that the person has active affiliations from and
         contact types as defined in INDIVIDUATION_PHONE_TYPES. Other numbers are
         ignored.
         """
-        old_limit = now() - RelativeDateTime(days=cereconf.INDIVIDUATION_AFF_GRACE_PERIOD)
-        pe_systems = [int(af['source_system']) for af in
-                      person.list_affiliations(person_id=person.entity_id, include_deleted=True)
-                      if (af['deleted_date'] is None or af['deleted_date'] > old_limit)]
-        for sys, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
-            system = getattr(co, sys)
-            if int(system) not in pe_systems:
+        for num in numbers:
+            if not self.number_match(stored=num['number'], given=phone_no):
                 continue
-            phone_types = [getattr(co, t) for t in types]
-            for cinfo in person.list_contact_info(entity_id=person.entity_id,
-                                                contact_type=phone_types,
-                                                source_system=system):
-                if self.number_match(stored=cinfo['contact_value'], given=phone_no):
-                    delay = self.get_delay(system=sys, type=cinfo['contact_type'])
-                    for row in db.get_log_events(types=co.entity_cinfo_add,
-                                                 any_entity=person.entity_id,
-                                                 sdate=delay):
-                        # TODO: do not trigger this for fresh persons - how to
-                        #       define a person as fresh? By affiliations maybe?
-                        data = pickle.loads(row['change_params'])
-                        if cinfo['contact_value'] == data['value']:
-                            log.info('person:%s recently changed phoneno' % person.entity_id)
-                            # TODO: send email! To all accounts or only the given one?
-                            raise Errors.CerebrumRPCException('fresh_phonenumber')
-                    return True
+            delay = self.get_delay(num['system_name'], num['type'])
+            block = False
+            # TODO: move the following loop to its own method
+            for row in db.get_log_events(types=(co.entity_cinfo_add, co.person_create),
+                                         any_entity=person.entity_id,
+                                         sdate=delay):
+                if row['change_type_id'] == co.person_create:
+                    block = False
+                    log.debug("Person %s is fresh" % person.entity_id)
+                    break
+                else:
+                    data = pickle.loads(row['change_params'])
+                    if num['number'] == data['value']:
+                        log.info('person_id=%s recently changed phoneno' % person.entity_id)
+                        block = True
+            if block:
+                self.mail_warning(person=person, account=account,
+                        reason=("Your phone number has recently been"
+                            + " changed. Due to security reasons, it"
+                            + " can not be used by the password service"
+                            + " for a few days."))
+                raise Errors.CerebrumRPCException('fresh_phonenumber')
+            return True
         return False
 
     def number_match(self, stored, given):
@@ -408,7 +429,6 @@ class Individuation:
         # TODO: more checks here?
         return False
 
-
     def get_delay(self, system, type):
         """Return a DateTime set to the correct delay time for numbers of the
         given type and from the given source system. Numbers must be older than
@@ -416,15 +436,29 @@ class Individuation:
         
         If no delay is set for the number, it returns now(), which will be true
         unless you change your number in the exact same time."""
-
-        delays = getattr(cereconf, 'INDIVIDUATION_PHONE_DELAYS', {}).get(system, {})
         delay = 0
+        delays = getattr(cereconf, 'INDIVIDUATION_PHONE_DELAYS', {}).get(system, {})
         for d in delays:
             if int(getattr(co, d, 0)) == int(type):
                 delay = int(delays[d])
                 break
         return now() - RelativeDateTime(days=delay)
 
+    def mail_warning(self, person, account, reason):
+        """Warn a person by sending an e-mail to all its accounts."""
+        msg  = "Someone has tried to recover the password for your account: %s.\n" % account.account_name
+        msg += "This has failed, due to the following reason:\n\n  %s\n\n" % reason
+        msg += "If this was not you, please contact your local IT-department as soon as possible."
+        msg += "\n\n-- \n%s\n" % self.email_signature
+        account2 = Factory.get('Account')(self.db)
+        for row in person.get_accounts():
+            account2.clear()
+            account2.find(row['account_id'])
+            try:
+                log.debug("Emailing user %s (%d)" % (account2.account_name, account2.entity_id))
+                sendmail(account2.get_primary_mailaddress(), self.email_from, self.email_subject, msg)
+            except Errors.NotFoundError, e:
+                log.error("Couldn't warn user %s. Has no primary e-mail address? %s" % (account.account_name, e))
 
     def check_too_many_attempts(self, account):
         """

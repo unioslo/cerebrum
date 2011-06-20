@@ -45,8 +45,10 @@ messages = {
                           'no': u'For mange forsøk, engangspassordet er blitt gjort ugyldig'},
     'timeout_check':     {'en': u'Timeout, one time password got invalid',
                           'no': u'Tidsavbrudd, engangspassord ble gjort ugyldig'},
-    'fresh_phonenumber': {'en': u'Phone number recently changed, not yet available',
-                          'no': u'Telefonnummer er nylig blitt byttet, er ikke tilgjengelig enda'},
+    'fresh_phonenumber': {'en': u'Your phone number has recently been changed in StudWeb, which can not, due to security reasons, be used ' +
+                                u'in a few days. Please contact your local IT-department.',
+                          'no': u'Ditt mobilnummer er nylig byttet i StudentWeb, og kan av sikkerhetsmessige årsaker ikke ' +
+                                u'benyttes før etter noen dager. Vennlighst ta kontakt med din lokale IT-avdeling.'},
     'password_invalid':  {'en': u'Bad password: %s',
                           'no': u'Ugyldig passord: %s'},
 }
