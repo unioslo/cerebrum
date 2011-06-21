@@ -18,15 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
-
-
-# TBD: Være forsiktig med å gi detaljert tilbakemelding i exceptions?
-#      Hvis noen kobler seg på og prøver å hente ut data vil de kunne
-#      lære hva som er riktig id_type, id, etc.
-
-# TODO:
-#   * Gjenbruk kode som sjekker og finner person og bruker
-
 """
 Interface to Cerebrum for the Individuation service.
 """
@@ -360,30 +351,53 @@ class Individuation:
         else:
             return account
 
+    def _get_priorities(self):
+        """Return a double list with the source systems in the prioritized order
+        as defined in the config."""
+        if not hasattr(self, '_priorities_cache'):
+            priorities = {}
+            for sys, values in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
+                if not values.has_key('priority'):
+                    log.error('config missing priority for system %s' % sys)
+                    continue
+                pri = priorities.setdefault(values['priority'], {})
+                pri[sys] = values
+            self._priorities_cache = (priorities[x] for x in sorted(priorities))
+        return self._priorities_cache
+
     def get_phone_numbers(self, person):
         """
         Return a list of the registered phone numbers for a given person. Only
         the defined source systems and contact types are searched for, and the
         person must have an active affiliation from a system before a number
         could be retrieved from that same system.
+
+        Note that the priority set for the source systems matters here. Only the
+        first priority level where the person has an affiliation is checked for
+        numbers, the lower priority levels are ignored.
         """
         old_limit = now() - RelativeDateTime(days=cereconf.INDIVIDUATION_AFF_GRACE_PERIOD)
         pe_systems = [int(af['source_system']) for af in
                       person.list_affiliations(person_id=person.entity_id, include_deleted=True)
                       if (af['deleted_date'] is None or af['deleted_date'] > old_limit)]
-        phones = []
-        for sys, types in cereconf.INDIVIDUATION_PHONE_TYPES.iteritems():
-            system = getattr(co, sys)
-            if int(system) not in pe_systems:
+        for systems in self._get_priorities():
+            sys_codes = [getattr(co, s) for s in systems]
+            if not any(s in sys_codes for s in pe_systems):
+                # person has no affiliation at this priority go to next priority
                 continue
-            phone_types = [getattr(co, t) for t in types]
-            for row in person.list_contact_info(entity_id=person.entity_id,
-                               contact_type=phone_types, source_system=system):
-                phones.append({'number': row['contact_value'],
-                               'system': system,
-                               'system_name': sys,
-                               'type':   co.ContactInfo(row['contact_type']),})
-        return phones
+            phones = []
+            for system, values in systems.iteritems():
+                types = [getattr(co, t) for t in values['types']]
+                sys = getattr(co, system)
+                for row in person.list_contact_info(entity_id=person.entity_id,
+                                   contact_type=types,
+                                   source_system=sys):
+                    phones.append({'number': row['contact_value'],
+                                   'system': sys,
+                                   'system_name': system,
+                                   'type':   co.ContactInfo(row['contact_type']),})
+            return phones
+        return []
 
     def check_phone(self, phone_no, numbers, person, account):
         """
@@ -437,15 +451,21 @@ class Individuation:
         If no delay is set for the number, it returns now(), which will be true
         unless you change your number in the exact same time."""
         delay = 0
-        delays = getattr(cereconf, 'INDIVIDUATION_PHONE_DELAYS', {}).get(system, {})
-        for d in delays:
-            if int(getattr(co, d, 0)) == int(type):
-                delay = int(delays[d])
-                break
+        try:
+            types = cereconf.INDIVIDUATION_PHONE_TYPES[system]['types']
+        except KeyError:
+            log.error('get_delay: Unknown system defined: %s' % system)
+            delay = 0
+        else:
+            for t in types:
+                if int(getattr(co, t, 0)) == int(type):
+                    delay = int(types[t].get('delay', 0))
+                    break
         return now() - RelativeDateTime(days=delay)
 
     def mail_warning(self, person, account, reason):
         """Warn a person by sending an e-mail to all its accounts."""
+        #return # TODO: remove when done testing
         msg  = "Someone has tried to recover the password for your account: %s.\n" % account.account_name
         msg += "This has failed, due to the following reason:\n\n  %s\n\n" % reason
         msg += "If this was not you, please contact your local IT-department as soon as possible."
@@ -471,8 +491,8 @@ class Individuation:
         block_period = now() - RelativeDateTime(seconds=cereconf.INDIVIDUATION_ATTEMPTS_BLOCK_PERIOD)
         if trait and trait['date'] > block_period:
             attempts = int(trait['numval'])
-        log.debug('User %s have tried %d times' % (account.account_name,
-                                                   attempts))
+        log.debug('User %s has tried %d times' % (account.account_name,
+                                                  attempts))
         if attempts > cereconf.INDIVIDUATION_ATTEMPTS:
             log.info("User %s too many attempts, temporarily blocked" %
                      account.account_name)

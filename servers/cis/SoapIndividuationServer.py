@@ -19,6 +19,17 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+"""
+This file provides a SOAP server for the Individuation service at UiO.
+
+This is the glue between Cerebrum and twisted's soap server, as most Cerebrum
+relevant functionality should be placed in Cerebrum/modules/cis/, which should
+not know anything about twisted.
+
+TODO: Describe ...
+
+"""
+
 import sys, socket
 import getopt
 import SoapListener
@@ -41,12 +52,6 @@ try:
 except ImportError:
     CRYPTO_AVAILABLE = False
 
-"""
-This file provides a SOAP server for the Individuation service at UiO.
-
-TODO: Describe ...
-
-"""
 
 class Account(ClassModel):
     # FIXME: define namespace properly 

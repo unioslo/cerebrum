@@ -826,21 +826,51 @@ INDIVIDUATION_ACCEPTED_QUARANTINES = ('quarantine_svakt_passord',
 # the password service. This is to let people that has just quit, or is wrongly
 # registered, to be able to use the service a short time after.
 INDIVIDUATION_AFF_GRACE_PERIOD = 7 # in days
-# The accepted phone numbers for sending SMS, specified for each source system
+
+# Configuration for each source system and its phone types that is accepted for
+# sending SMS. The keys are the name of the source system, the values are:
+#
+#  - priority: In what order the system should be used. Only the person's
+#    affiliations from the highest priority is used, the rest is ignored. This
+#    is used for the scenario where employees which also studies should not be
+#    able to use the phone number registered in the student system for setting
+#    new passwords. The HR system should then have priority 1, while the student
+#    system is at 2. If a person then have an affiliation from the HR system,
+#    the student system is then ignored.
+#
+#    To let employees be able to use their student registrations, the HR and
+#    student systems should have the same priority.
+#
+#  - types: The contact types that should be used from the given system. The
+#    dict contains of the contact types as keys, while the content might
+#    contain:
+#
+#     - delay: (default: 0) Sets the number of days that numbers from this
+#       system will be "quarantined" for use in the password service. This is to
+#       slow down attacks where a user is compromised and the phone number is
+#       changed - the attacker would then have to wait some time before they can
+#       use the phone number for getting the password.
+#
 INDIVIDUATION_PHONE_TYPES = {}
 # Example: {
-#    'system_sap': ('contact_phone',
-#                   'contact_mobile_phone',
-#                   'contact_phone_private',
-#                   'contact_private_mobile',),
-#    'system_fs':  ('contact_phone',
-#                   'contact_mobile_phone',
-#                   'contact_phone_private',
-#                   'contact_private_mobile',),}
+#   'system_sap': {
+#       'priority': 1,
+#       'types': {
+#           'contact_mobile_phone':   {},
+#           'contact_private_mobile': {},
+#       },
+#   },
+#   'system_fs':  {
+#       'priority': 1,
+#       'types': {
+#           'contact_mobile_phone':   {'delay': 7},
+#           'contact_private_mobile': {'delay': 7},
+#       },
+#   },
 
 # Groups that should be reserved from the password service. Bofhd's superuser
 # group is automatically included here.
-INDIVIDUATION_PASW_RESERVED = ('brukerreg',)
+INDIVIDUATION_PASW_RESERVED = (INITIAL_GROUPNAME,)
 
 # The private key used by cerebrum's server(s).
 SSL_PRIVATE_KEY_FILE = '/cerebrum/var/password/cerebrum_key.priv'

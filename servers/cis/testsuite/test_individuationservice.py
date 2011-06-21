@@ -328,6 +328,7 @@ class IndividuationTestSetup:
             gender = co.gender_male
         pe.populate(birth, gender=gender)
         pe.write_db()
+        pe_id = pe.entity_id
 
         if first_name or last_name:
             pe.affect_names(co.system_sap, co.name_first, co.name_last)
@@ -339,14 +340,21 @@ class IndividuationTestSetup:
             pe.affect_external_id(co.system_sap, co.externalid_fodselsnr)
             pe.populate_external_id(co.system_sap, co.externalid_fodselsnr, fnr)
             pe.write_db()
-        if ansnr:
-            pe.affect_external_id(co.system_sap, co.externalid_sap_ansattnr)
-            pe.populate_external_id(co.system_sap, co.externalid_sap_ansattnr, ansnr)
-            pe.write_db()
+            self.db.commit()
+            pe.clear()
+            pe.find(pe_id)
         if studnr:
             pe.affect_external_id(co.system_fs, co.externalid_studentnr)
             pe.populate_external_id(co.system_fs, co.externalid_studentnr, studnr)
             pe.write_db()
+            self.db.commit()
+            pe.clear()
+            pe.find(pe_id)
+        if ansnr:
+            pe.affect_external_id(co.system_sap, co.externalid_sap_ansattnr)
+            pe.populate_external_id(co.system_sap, co.externalid_sap_ansattnr, ansnr)
+            pe.write_db()
+            self.db.commit()
         pe.write_db()
         self.db.commit()
         return pe
@@ -408,6 +416,14 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         self.client = self.setupClient()
         if hasattr(self, 'last_token'):
             del self.last_token
+        # reset variables in cereconf that should be set to default
+        cereconf.INDIVIDUATION_PHONE_TYPES = {
+            'system_sap': { 'types': { 'contact_mobile_phone': {}, 'contact_private_mobile': {}, },
+                'priority': 1,
+            },
+            'system_fs':  { 'types': { 'contact_mobile_phone': {'delay': 7}, 'contact_private_mobile': {'delay': 7}, },
+                'priority': 1,
+            },}
 
     def assertAccounts(self, data, match):
         """Check that returned accounts are as expected."""
@@ -418,6 +434,33 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
         for b in data.Account:
             assert b.uname in match
         # TODO: more we should check?
+
+    def test_config(self):
+        pass
+    test_config.skip = 'TODO'
+
+    def test_config_priorities(self):
+        cereconf.INDIVIDUATION_PHONE_TYPES = {
+            'system_sap': {
+                'types': { 'contact_private_mobile': {}, },
+                'priority': 1,
+            },
+            'system_fs':  {
+                'types': { 'contact_mobile_phone': {'delay': 7}, },
+                'priority': 2,
+            },
+            'system_pbx': {
+                'types': { 'contact_mobile_phone': {}, },
+                'priority': 2,
+            },
+        }
+        pri = list(Individuation.Individuation()._get_priorities())
+        self.assertEquals(len(pri), 2)
+        self.assertTrue(pri[0].has_key('system_sap'))
+        # order doesn't matter inside each priority
+        self.assertEquals(len(pri[1]), 2)
+        self.assertTrue(pri[1].has_key('system_fs'))
+        self.assertTrue(pri[1].has_key('system_pbx'))
 
     def test_get_nonexisting_user(self):
         d = self.client.callRemote('get_usernames',
@@ -565,14 +608,8 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
 
     def test_phonenumberchange_delay(self):
         """Fresh phone numbers should not be used if config says so."""
-        cereconf.INDIVIDUATION_PHONE_DELAYS = { 
-            'system_fs': {
-                'contact_mobile_phone':   7,
-                'contact_private_mobile': 7,
-            },
-        }
-        # TODO: check that this overwrite works for all relevant functionality
-        Individuation.cereconf = cereconf
+        cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_mobile_phone']['delay'] = 7
+        cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_private_mobile']['delay'] = 7
 
         ou = Factory.get('OU')(self.db)
         co = Factory.get('Constants')(self.db)
@@ -626,14 +663,8 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
 
     def test_phonenumberchange_fresh_person(self):
         """Fresh phone numbers should still be available for new persons"""
-        cereconf.INDIVIDUATION_PHONE_DELAYS = { 
-            'system_fs': {
-                'contact_mobile_phone':   7,
-                'contact_private_mobile': 7,
-            },
-        }
-        # TODO: check that this overwrite works for all relevant functionality
-        Individuation.cereconf = cereconf
+        cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_mobile_phone']['delay'] = 7
+        cereconf.INDIVIDUATION_PHONE_TYPES['system_fs']['types']['contact_private_mobile']['delay'] = 7
 
         ou = Factory.get('OU')(self.db)
         co = Factory.get('Constants')(self.db)
@@ -666,6 +697,94 @@ class TestIndividuationService(unittest.TestCase, IndividuationTestSetup):
                 id_type="externalid_studentnr", ext_id='008',
                 username='mstest2', phone_no='98012345',
                 browser_token='a')
+        d.addCallback(self.assertEquals, 'true')
+        return d
+
+    def test_source_order_notoverlap(self):
+        """Employees should not be able to use their student phone numbers if
+        config says so."""
+        # TODO: make sure this affects the Individuation module
+        cereconf.INDIVIDUATION_PHONE_TYPES = {
+            'system_sap': { 'types': {'contact_mobile_phone': {}, },
+                'priority': 1, },
+            'system_fs':  { 'types': { 'contact_mobile_phone': {'delay': 7}, },
+                'priority': 2, }, }
+        co = Factory.get('Constants')(self.db)
+        ou = Factory.get('OU')(self.db)
+        ou.find_stedkode(0, 0, 0, 0)
+        pe = self.createPerson(first_name='Double', last_name='Registered',
+                               ansnr='12345', studnr='12344')
+        pe_id = pe.entity_id
+
+        pe.populate_affiliation(source_system=co.system_sap, ou_id=ou.entity_id,
+                affiliation=co.affiliation_ansatt,
+                status=co.affiliation_status_ansatt_vitenskapelig)
+        pe.populate_contact_info(source_system=co.system_sap,
+                                 type=co.contact_mobile_phone,
+                                 value='12345678')
+        pe.write_db()
+        self.db.commit()
+        pe.clear()
+        pe.find(pe_id)
+        pe.populate_affiliation(source_system=co.system_fs, ou_id=ou.entity_id,
+                affiliation=co.affiliation_student,
+                status=co.affiliation_status_student_aktiv)
+        pe.populate_contact_info(source_system=co.system_fs,
+                                 type=co.contact_mobile_phone,
+                                 value='87654321')
+        pe.write_db()
+        self.db.commit()
+
+        ac = self.createAccount(pe, 'mrduble')
+
+        d = self.client.callRemote('generate_token',
+                id_type="externalid_studentnr", ext_id='12344',
+                username='mrduble', phone_no='87654321',
+                browser_token='b')
+        d = self.assertFailure(d, error.Error)
+        return d
+
+    def test_source_order_overlap(self):
+        """Employees should be able to use their student phone numbers if config
+        says so."""
+        # TODO: make sure this affects the Individuation module
+        cereconf.INDIVIDUATION_PHONE_TYPES = {
+            'system_sap': { 'types': {'contact_mobile_phone': {}, },
+                'priority': 2, },
+            'system_fs':  { 'types': { 'contact_mobile_phone': {'delay': 7}, },
+                'priority': 2, }, }
+        co = Factory.get('Constants')(self.db)
+        ou = Factory.get('OU')(self.db)
+        ou.find_stedkode(0, 0, 0, 0)
+        pe = self.createPerson(first_name='Triple', last_name='Registered',
+                               ansnr='22345', studnr='22344')
+        pe_id = pe.entity_id
+
+        pe.populate_affiliation(source_system=co.system_sap, ou_id=ou.entity_id,
+                affiliation=co.affiliation_ansatt,
+                status=co.affiliation_status_ansatt_vitenskapelig)
+        pe.populate_contact_info(source_system=co.system_sap,
+                                 type=co.contact_mobile_phone,
+                                 value='12345678')
+        pe.write_db()
+        self.db.commit()
+        pe.clear()
+        pe.find(pe_id)
+        pe.populate_affiliation(source_system=co.system_fs, ou_id=ou.entity_id,
+                affiliation=co.affiliation_student,
+                status=co.affiliation_status_student_aktiv)
+        pe.populate_contact_info(source_system=co.system_fs,
+                                 type=co.contact_mobile_phone,
+                                 value='87654321')
+        pe.write_db()
+        self.db.commit()
+
+        ac = self.createAccount(pe, 'mrdubl2')
+
+        d = self.client.callRemote('generate_token',
+                id_type="externalid_studentnr", ext_id='12344',
+                username='mrduble', phone_no='87654321',
+                browser_token='b')
         d.addCallback(self.assertEquals, 'true')
         return d
 
