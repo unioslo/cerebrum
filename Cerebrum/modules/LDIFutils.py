@@ -142,7 +142,7 @@ def entry_string(dn, attrs, add_rdn = True):
     attrs = attrs.items()
     attrs.sort()         # not necessary, but minimizes changes in file
     for attr, vals in attrs:
-        if type(vals) in (tuple,list):
+        if type(vals) in (set,tuple,list):
             for val in vals:
                 if attr in base64_attrs or need_b64(val):
                     extend((attr, ":: ", _base64encode(val)))
