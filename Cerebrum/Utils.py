@@ -822,6 +822,7 @@ class Factory(object):
                       'DBDriver': 'CLASS_DBDRIVER',
                       'EmailLDAP': 'CLASS_EMAILLDAP',
                       'OrgLDIF': 'CLASS_ORGLDIF',
+                      'PosixExport': 'CLASS_POSIXEXPORT',
                       'PosixLDIF': 'CLASS_POSIXLDIF',
                       'PosixUser' : 'CLASS_POSIX_USER',
                       'PosixGroup' : 'CLASS_POSIX_GROUP',
