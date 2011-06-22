@@ -46,7 +46,7 @@ import re
 import string
 
 import cereconf
-from Cerebrum.Utils import Factory
+from Cerebrum.Utils import Factory, argument_to_sql
 from Cerebrum import Errors
 from Cerebrum import Constants
 from Cerebrum.modules import PosixGroup
@@ -193,11 +193,23 @@ class PosixUser(Account_class):
         self.find(account_id)
 
 
-    def list_posix_users(self):
-        """Return account_id of all PosixUsers in database"""
+    def list_posix_users(self, spread=None, filter_expired=False):
+        """Return account_id of all PosixUsers in database. Filters
+        are spread which can be a single spread or a tuple or list of
+        spreads. filter_expired also removes expired accounts."""
+        efrom, ewhere, bind = "", "", {}
+        if spread is not None:
+            efrom += """JOIN [:table schema=cerebrum name=entity_spread] es
+              ON pu.account_id=es.entity_id AND
+              """ + argument_to_sql(spread, 'es.spread', bind, int)
+        if filter_expired:
+            ewhere = "WHERE ai.expire_date IS NULL OR ai.expire_date > [:now]"
+            efrom += """JOIN [:table schema=cerebrum name=account_info] ai
+                      ON ai.account_id=pu.account_id"""
         return self.query("""
-        SELECT account_id, posix_uid, gid
-        FROM [:table schema=cerebrum name=posix_user]""")
+        SELECT pu.account_id, pu.posix_uid, pu.gid, pu.gecos, pu.shell
+        FROM [:table schema=cerebrum name=posix_user] pu %s %s
+        """ % (efrom, ewhere), bind)
 
     def list_extended_posix_users(self, 
                                   auth_method=Constants.auth_type_crypt3_des, 
