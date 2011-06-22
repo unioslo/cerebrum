@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2010 University of Oslo, Norway
+# Copyright 2010-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -29,10 +29,16 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory, SimilarSizeWriter, latin1_to_iso646_60
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
-from Cerebrum.modules import LDIFutils
+from Cerebrum.modules.LDIFutils import ldapconf, \
+     ldif_outfile, end_ldif_outfile, map_constants, map_spreads, \
+     entry_string, container_entry_string, iso2utf
+
 from Cerebrum.QuarantineHandler import QuarantineHandler
 
 MAX_LINE_LENGTH = 1000
+
+class PosixUserData(object):
+    pass
 
 class PosixExport(object):
 
@@ -75,7 +81,6 @@ Options:
     -h | --host-netgroup <file>
       Enables and points to the host netgroup file to be created.
 
-
   NIS export options:
     -s | --shadow <file>
       Enables the creation of a shadow file.
@@ -90,11 +95,10 @@ Options:
       Specify passwd auth method. Mandatory when -p is selected. Does
       not affect LDIF output.
 
-      
 The LDIF option will check for the user, group and netgroup spread
 types. The -p option will need a user spread, the -g option a group
 spread, the -n a netgroup spread and the -h option a houst netgroup
-spread. 
+spread.
 
 Enabling host netgroups will also require a zone. To enable host
 netgroups in the LDIF export, supply a host netgroup spread. This also
@@ -106,7 +110,7 @@ Examples:
  -H NIS_mng@uio -l foo.ldif -p passwd -g groups -n netgroup.user\
  -h netgroup.host -z .uio.no -a MD5-crypt
 
- Creates both a full LDIF file and all four NIS files. 
+ Creates both a full LDIF file and all four NIS files.
 
   generate_posix_data.py -U NIS_user@uio -G NIS_fg@uio -N NIS_ng@uio -l foo.ldif
 
@@ -116,7 +120,7 @@ Examples:
   generate_posix_data.py -U NIS_user@uio -p passwd -s passwd.shadow -a MD5-crypt
 
  Creates a passwd and shadow file.
-  
+
         """
         sys.exit(exitcode)
 
@@ -130,9 +134,9 @@ Examples:
         self.logger = logger
 
         self.short_opts = 'U:G:N:H:l:p:g:n:h:s:z:ea:'
-        self.long_opts = ["user-spread=", "group-spread=", "netgroup-spread=", 
+        self.long_opts = ["user-spread=", "group-spread=", "netgroup-spread=",
                           "host-netgroup-spread=", "ldif=", "passwd=", "group=",
-                          "netgroup=", "host-netgroup=", "shadow=", "zone=", 
+                          "netgroup=", "host-netgroup=", "shadow=", "zone=",
                           "eof", "auth-method="]
         self.options = {}
         self._num = 0
@@ -154,16 +158,17 @@ Examples:
         self.a_id2home = {}
         self.id2uname = {}
         self.spread_d = {}
-        
+
 
     def parse_options(self, get_opts):
         """Parse input and enable the exports. Variables passed through
         command line will override config variables."""
         try:
-            opts, arge = getopt.getopt(get_opts, self.short_opts, self.long_opts)
+            opts, arge = getopt.getopt(get_opts,self.short_opts,self.long_opts)
         except getopt.GetoptError, msg:
             self.usage(1)
         for opt, val in opts:
+            assert val, ("Expected non-empty value", opt, val)
             # spreads
             if opt in ("-U", "--user-spread"):
                 self.options['user-spread'] = val
@@ -195,40 +200,45 @@ Examples:
                 self.options['auth-method'] = val
         # Verify options
         # TODO: write error messages
-        if self.options.get('ldif') and not (self.options.get('user-spread') and
-                                         self.options.get('group-spread') and
-                                         self.options.get('netgroup-spread')):
+        if 'ldif' in self.options and not ('user-spread' in self.options and
+                                           'group-spread' in self.options and
+                                           'netgroup-spread' in self.options):
             self.usage(1)
-        if self.options.get('passwd') and not self.options.get('user-spread'):
+        if 'passwd' in self.options and 'user-spread' not in self.options:
             self.usage(1)
-        if self.options.get('group') and not self.options.get('group-spread'):
+        if 'group' in self.options and 'group-spread' not in self.options:
             self.usage(1)
-        if self.options.get('netgroup') and not self.options.get('netgroup-spread'):
+        if 'netgroup' in self.options and 'netgroup-spread' not in self.options:
             self.usage(1)
-        if self.options.get('host-netgroup') and not self.options.get('host-netgroup-spread'):
+        if 'host-netgroup' in self.options and \
+                'host-netgroup-spread' not in self.options:
             self.usage(1)
-        if self.options.get('host-netgroup') and not self.options.get('zone'):
+        if 'host-netgroup' in self.options and 'zone' not in self.options:
             self.usage(1)
-        if self.options.get('passwd') and not self.options.get('auth-method'):
+        if 'passwd' in self.options and 'auth-method' not in self.options:
             self.usage(1)
 
         # Validate spread from arg
-        for x in ('user-spread', 'group-spread', 'netgroup-spread', 'host-netgroup-spread'):
-            spread = LDIFutils.map_spreads(self.options.get(x))
+        for x in ('user-spread', 'group-spread', 'netgroup-spread',
+                  'host-netgroup-spread'):
+            spread = map_spreads(self.options.get(x))
             if spread:
                 self.spread_d[x] = spread
 
-    
+
     def generate_files(self):
         # Load caches for the specified jobs and open files
-        if self.options.get('ldif'):
-            
-            self.user_dn = LDIFutils.ldapconf('USER', 'dn', default=None, module=posixconf)
-            self.fgrp_dn = LDIFutils.ldapconf('FILEGROUP', 'dn', default=None, module=posixconf)
+        if 'ldif' in self.options:
+
+            self.user_dn = ldapconf('USER', 'dn', default=None,
+                                    module=posixconf)
+            self.fgrp_dn = ldapconf('FILEGROUP', 'dn', default=None,
+                                    module=posixconf)
             self.load_auth_tab()
             self.load_posix_users()
             self.load_groups(self.spread_d['group-spread'], self.filegroups)
-            self.load_groups(self.spread_d['netgroup-spread'], self.user_netgroups)
+            self.load_groups(self.spread_d['netgroup-spread'],
+                             self.user_netgroups)
             self.load_group_gids()
             self.load_auth_tab()
             self.load_disk_tab()
@@ -236,9 +246,9 @@ Examples:
             self.load_quaratines()
             self.load_person_names()
             self.load_account_info()
-            
+
             f_ldif = self.open_ldif()
-        if self.options.get('passwd'):
+        if 'passwd' in self.options:
             self.load_posix_users()
             self.load_group_gids()
             self.load_auth_tab()
@@ -249,35 +259,43 @@ Examples:
             self.load_account_info()
 
             f_passwd, f_shadow = self.open_passwd()
-        if self.options.get('group'):
+        if 'group' in self.options or 'ldif' in self.options:
             self._exported_groups = {}
             self.load_posix_users()
             self.load_groups(self.spread_d['group-spread'], self.filegroups)
             self.load_group_gids()
-            
-            f_group = self.open_group()
-        if self.options.get('netgroup'):
-            self.load_posix_users()
-            self.load_groups(self.spread_d['netgroup-spread'], self.user_netgroups)
 
+        if 'group' in self.options:
+            f_group = self.open_group()
+
+        if 'netgroup' in self.options or 'ldif' in self.options:
+            self.load_posix_users()
+            self.load_groups(self.spread_d['netgroup-spread'],
+                             self.user_netgroups)
+
+        if 'netgroup' in self.options:
             f_netgroup = self.load_netgroup()
-        if self.options.get('host-netgroup'):
-            self.load_groups(self.spread_d['host-netgroup-spread'], self.host_netgroups)
+
+        if 'host-netgroup' in self.options:
+            self.load_groups(self.spread_d['host-netgroup-spread'],
+                             self.host_netgroups)
 
             f_host_netgroup = self.load_host_netgroup()
-        
+
         # Start passing data to functions
         if 'ldif' in self.options or 'passwd' in self.options:
             if 'ldif' in self.options:
-                f_ldif.write(LDIFutils.container_entry_string('USER', module=posixconf))
+                f_ldif.write(container_entry_string('USER', module=posixconf))
             for row in self.posix_users:
                 data = self.gather_user_data(row)
+                if data is None:
+                    continue
                 if 'ldif' in self.options:
                     dn,entry = self.ldif_user(data)
-                    f_ldif.write(LDIFutils.entry_string(dn, entry, False))
+                    f_ldif.write(entry_string(dn, entry, False))
                 if 'passwd' in self.options:
                     # TODO: shadow
-                    passwd = data['passwd']
+                    passwd = data.passwd
                     try:
                         if self.options['auth-method'] == 'NOCRYPT':
                             a = row['account_id']
@@ -286,72 +304,72 @@ Examples:
                                 passwd = 'x'
                     except KeyError:
                         pass
-                    f_passwd.write("%s\n" % self.join((data['uname'], passwd, 
-                                                       data['uid'], data['gid'], 
-                                                       data['gecos'], data['home'], 
-                                                       data['shell'])))
+                    f_passwd.write("%s\n" % self.join((
+                        data.uname, passwd, data.uid, data.gid,
+                        data.gecos, data.home, data.shell)))
 
         if 'ldif' in self.options or 'group' in self.options:
             if 'ldif' in self.options:
-                f_ldif.write(LDIFutils.container_entry_string('FILEGROUP', module=posixconf))
+                f_ldif.write(container_entry_string('FILEGROUP',
+                                                    module=posixconf))
             # Loop over gids to sort properly
             #for gid in self.filegroups:
             from operator import itemgetter
 
             #sorted(self.g_id2gid.iteritems(), key=itemgetter(1))
-            for g_id, gid in sorted(self.g_id2gid.iteritems(), key=itemgetter(1)):
+            for g_id, gid in sorted(self.g_id2gid.iteritems(),
+                                    key=itemgetter(1)):
                 if g_id not in self.filegroups:
                     continue
                 self._exported_groups[self.filegroups[g_id]] = True
                 users = self._expand_filegroup(g_id)
                 if 'ldif' in self.options:
-                    dn,entry = self.ldif_filegroup(self.filegroups[g_id], gid, None, 
-                                                   users)
-                    f_ldif.write(LDIFutils.entry_string(dn, entry, False))
+                    dn,entry = self.ldif_filegroup(self.filegroups[g_id],
+                                                   gid, None, users)
+                    f_ldif.write(entry_string(dn, entry, False))
                 if 'group' in self.options:
-                    f_group.write(self._wrap_line(self.filegroups[g_id], ",".join(users),
-                                                  ':*:%i:' % gid,
-                                                  self._make_tmp_filegroup_name))
+                    f_group.write(self._wrap_line(
+                        self.filegroups[g_id], ",".join(users), ':*:%i:' % gid,
+                        self._make_tmp_filegroup_name))
 
         if 'ldif' in self.options or 'netgroup' in self.options:
             if 'ldif' in self.options:
-                f_ldif.write(LDIFutils.container_entry_string('NETGROUP', module=posixconf))
+                f_ldif.write(container_entry_string('NETGROUP',
+                                                    module=posixconf))
             for g_id in self.user_netgroups:
                 name = self.user_netgroups[g_id]
-                
-            
 
-        if self.options.get('ldif'):
+        if 'ldif' in self.options:
             self.close_ldif(f_ldif)
-        if self.options.get('passwd'):
+        if 'passwd' in self.options:
             self.close_passwd(f_passwd, f_shadow)
-        if self.options.get('group'):
+        if 'group' in self.options:
             self.close_group(f_group)
 
     def open_passwd(self):
         f = SimilarSizeWriter(self.options['passwd'], "w")
         f.set_size_change_limit(10)
         s = None
-        if self.options.get('shadow'):
+        if 'shadow' in self.options:
             s = SimilarSizeWriter(self.options['shadow'], "w")
             s.set_size_change_limit(10)
         return f,s
 
     def close_passwd(self, f, s):
-        if self.options.get('eof'):
+        if 'eof' in self.options:
             f.write('E_O_F\n')
         f.close()
         if s:
             s.close()
-        
+
     def open_ldif(self):
-        f_ldif = LDIFutils.ldif_outfile('POSIX', filename=self.options['ldif'],
-                                        module=posixconf)
-        f_ldif.write(LDIFutils.container_entry_string('POSIX', module=posixconf))
+        f_ldif = ldif_outfile('POSIX', filename=self.options['ldif'],
+                              module=posixconf)
+        f_ldif.write(container_entry_string('POSIX', module=posixconf))
         return f_ldif
 
-    def close_ldif(self, f): 
-        LDIFutils.end_ldif_outfile('POSIX', f, module=posixconf)
+    def close_ldif(self, f):
+        end_ldif_outfile('POSIX', f, module=posixconf)
 
     def open_group(self):
         f = SimilarSizeWriter(self.options['group'], "w")
@@ -360,7 +378,7 @@ Examples:
 
     def close_group(self, f):
         f.close()
-    
+
     def join(self, fields, sep=':'):
         for f in fields:
             if not isinstance(f, str):
@@ -372,87 +390,92 @@ Examples:
 
     def load_posix_users(self):
         # Only populate the cache if cache is empty
-        if self.posix_users <> []: return
-        for row in self.posix_user.list_posix_users(spread = self.spread_d['user-spread']):
+        if self.posix_users: return
+        for row in self.posix_user.list_posix_users(
+                spread=self.spread_d['user-spread']):
             self.account2def_group[int(row['account_id'])] = int(row['gid'])
             self.posix_users.append(row.copy())
-        self.u_id2name = dict([(x["entity_id"], x["entity_name"]) for x in
-                               self.posix_user.list_names(self.co.account_namespace)])
+        self.u_id2name = dict([
+            (x["entity_id"], x["entity_name"]) for
+            x in self.posix_user.list_names(self.co.account_namespace)])
 
 
     def load_group_names(self):
         # Only populate the cache if cache is empty
-        if self.g_id2name <> {}: return
-        self.g_id2name = dict([(x["entity_id"], x["entity_name"]) for x in
-                               self.posix_group.list_names(self.co.group_namespace)])
+        if self.g_id2name: return
+        self.g_id2name = dict([
+            (x["entity_id"], x["entity_name"])
+            for x in self.posix_group.list_names(self.co.group_namespace)])
 
     def load_disk_tab(self):
         # Only populate the cache if cache is empty
-        if self.disk_tab <> {}: return
+        if self.disk_tab: return
         for hd in self.disk.list():
             self.disk_tab[int(hd['disk_id'])] = hd['path']
 
     def load_shell_tab(self):
         # Only populate the cache if cache is empty
-        if self.shell_tab <> {}: return
+        if self.shell_tab: return
         for sh in self.posix_user.list_shells():
             self.shell_tab[int(sh['code'])] = sh['shell']
 
     def load_groups(self, spread, struct):
         # Only populate the cache if cache is empty
-        if struct <> {}: return
+        if struct: return
         for row in self.posix_group.search(spread=int(spread)):
             struct[int(row['group_id'])] = row['name']
 
     def load_group_gids(self):
         # Only populate the cache if cache is empty
-        if self.g_id2gid <> {}: return
+        if self.g_id2gid: return
         for row in self.posix_group.list_posix_groups():
             self.g_id2gid[int(row['group_id'])] = int(row['posix_gid'])
 
     def load_quaratines(self):
         # Only populate the cache if cache is empty
-        if self.quarantines <> {}: return
+        if self.quarantines: return
         now = mx.DateTime.now()
         for row in self.posix_user.list_entity_quarantines(
                             entity_types = self.co.entity_account):
             if (row['start_date'] <= now and (row['end_date'] is None
-                                        or row['end_date'] >= now)
-                                        and (row['disable_until'] is None
-                                        or row['disable_until'] < now)):
+                                              or row['end_date'] >= now)
+                                         and (row['disable_until'] is None
+                                              or row['disable_until'] < now)):
                 # The quarantine in this row is currently active.
-                    self.quarantines.setdefault(int(row['entity_id']), []).append(
-                                int(row['quarantine_type']))
+                self.quarantines.setdefault(int(row['entity_id']), []).append(
+                    int(row['quarantine_type']))
 
     def load_person_names(self):
         # Only populate the cache if cache is empty
-        if self.p_id2name <> {}: return
-        for n in self.person.list_persons_name(source_system=self.co.system_cached, 
-                                               name_type=self.co.name_full):
+        if self.p_id2name: return
+        for n in self.person.list_persons_name(
+                source_system=self.co.system_cached,
+                name_type=self.co.name_full):
             self.p_id2name[n['person_id']] = n['name']
 
     def load_account_info(self):
         # Only populate the cache if cache is empty
-        if self.a_id2owner <> {}: return
-        for row in self.posix_user.list_account_home(home_spread=self.spread_d['user-spread'],
-                                                     account_spread=self.spread_d['user-spread'],
-                                                     include_nohome=True):
+        if self.a_id2owner: return
+        for row in self.posix_user.list_account_home(
+                home_spread=self.spread_d['user-spread'],
+                account_spread=self.spread_d['user-spread'],
+                include_nohome=True):
             self.a_id2owner[row['account_id']] = row['owner_id']
-            self.a_id2home[row['account_id']] = (row['path'], row['disk_id'], row['host_id'], 
-                                                 row['home'])
+            self.a_id2home[row['account_id']] = (
+                row['path'], row['disk_id'], row['host_id'], row['home'])
 
     def _expand_filegroup(self, gid):
         ret = set()
         self.posix_group.clear()
         self.posix_group.find(gid)
-        for row in self.posix_group.search_members(group_id=self.posix_group.entity_id,
-                                                   indirect_members=True,
-                                                   member_type=self.co.entity_account,
-                                                   member_spread=self.spread_d["user-spread"]):
+        for row in self.posix_group.search_members(
+                group_id=self.posix_group.entity_id, indirect_members=True,
+                member_type=self.co.entity_account,
+                member_spread=self.spread_d["user-spread"]):
             account_id = int(row["member_id"])
-            if self.account2def_group.get(account_id, None) == self.posix_group.entity_id:
+            if self.account2def_group.get(account_id) == self.posix_group.entity_id:
                 continue  # Don't include the users primary group
-            name = self.u_id2name.get(account_id, None)
+            name = self.u_id2name.get(account_id)
             if not name:
                 logger.warn("Was %i very recently created?" % int(account_id))
                 continue
@@ -511,71 +534,71 @@ Examples:
 
 
     def gather_user_data(self, row):
-        ret = dict()
-        ret['account_id'] = int(row['account_id'])
-        ret['uname'] = self.u_id2name[ret['account_id']]
-        ret['uid'] = str(row['posix_uid'])
-        ret['gid'] = str(self.g_id2gid[row['gid']])
+        data = PosixUserData()
+        data.account_id = int(row['account_id'])
+        data.uname = uname = self.u_id2name[data.account_id]
+        data.uid = str(row['posix_uid'])
+        data.gid = str(self.g_id2gid[row['gid']])
 
-        ret['passwd'] = '*invalid'
+        data.passwd = '*invalid'
 
         if not row['shell']:
             self.logger.warn("User %s has no posix-shell!" % uname)
-            return None, None
+            return None
         else:
-            ret['shell'] = self.shell_tab[int(row['shell'])]
-        if ret['account_id'] in self.quarantines:
-            qh = QuarantineHandler(self.db, self.quarantines[ret['account_id']])
+            data.shell = self.shell_tab[int(row['shell'])]
+        if data.account_id in self.quarantines:
+            qh = QuarantineHandler(self.db, self.quarantines[data.account_id])
             if qh.should_skip():
-                return None, None
+                return None
             if qh.is_locked():
-                ret['passwd'] = '*locked'
+                data.passwd = '*locked'
             qshell = qh.get_shell()
             if qshell is not None:
-                ret['shell'] = qshell
+                data.shell = qshell
         try:
-            if self.a_id2home[ret['account_id']][1]:
-                disk_path = self.disk_tab[int(self.a_id2home[ret['account_id']][1])]
+            if self.a_id2home[data.account_id][1]:
+                disk_path = self.disk_tab[int(self.a_id2home[data.account_id][1])]
             else:
                 disk_path = None
-            ret['home'] = self.posix_user.resolve_homedir(account_name=ret['uname'], 
-                                                          home=self.a_id2home[ret['account_id']][3],
-                                                          disk_path=disk_path)
+            data.home = self.posix_user.resolve_homedir(
+                account_name=data.uname,
+                home=self.a_id2home[data.account_id][3], disk_path=disk_path)
         except:
             self.logger.warn("User %s has no home-directory!" % uname)
-            return None,None
-        if row['gecos']:
-            ret['gecos'] = latin1_to_iso646_60(row['gecos'])
-        elif ret['account_id'] in self.a_id2owner and self.a_id2owner[ret['account_id']] in self.p_id2name:
-            ret['gecos'] = latin1_to_iso646_60(self.p_id2name[self.a_id2owner[ret['account_id']]])
-        else:
-            ret['gecos'] = ret['uname']
-        return ret
+            return None
 
-    
+        cn = None
+        if data.account_id in self.a_id2owner:
+            cn = self.p_id2name.get(self.a_id2owner[data.account_id])
+        data.gecos = latin1_to_iso646_60(row['gecos'] or cn or data.uname)
+        data.cn    = cn or data.gecos
+        return data
+
     def ldif_user(self, data):
-        passwd = '{crypt}%s' % data['passwd']
-        for uauth in [x for x in self.a_meth if self.auth_format.has_key(x)]:
+        passwd = '{crypt}%s' % data.passwd
+        for uauth in filter(self.auth_format.has_key, self.a_meth):
             #method = int(self.const.auth_type_crypt3_des)
             try:
                 #if uauth in self.auth_format.keys():
-                if self.auth_format[uauth]['format']:
-                    passwd = self.auth_format[uauth]['format'] % \
-                             self.auth_data[data['account_id']][uauth]
-                    passwd_attr = self.auth_format[uauth]['attr'] 
-                else:         
-                    passwd = self.auth_data[data['account_id']][uauth]
+                fmt = self.auth_format[uauth]['format']
+                if fmt:
+                    passwd = fmt % self.auth_data[data.account_id][uauth]
+                    passwd_attr = self.auth_format[uauth]['attr']
+                else:
+                    passwd = self.auth_data[data.account_id][uauth]
             except KeyError:
                 pass
-        entry = {'objectClass':['top','account','posixAccount'],
-                 'uid':(data['uname'],),
-                 'uidNumber':(data['uid'],),
-                 'gidNumber':(data['gid'],),
-                 'homeDirectory':(data['home'],),      
-                 'userPassword':(data['passwd'],),
-                 'loginShell': (data['shell'],),
-                 'gecos':(data['gecos'],)}     
-        dn = ','.join((('uid=' + data['uname']),self.user_dn))
+        entry = {'objectClass':   ['top','account','posixAccount'],
+                 'cn':            (iso2utf(data.cn),),
+                 'uid':           (data.uname,),
+                 'uidNumber':     (data.uid,),
+                 'gidNumber':     (data.gid,),
+                 'homeDirectory': (data.home,),
+                 'userPassword':  (passwd,),
+                 'loginShell':    (data.shell,),
+                 'gecos':         (data.gecos,)}
+        dn = ','.join((('uid=' + data.uname), self.user_dn))
         return dn,entry
 
 
@@ -586,7 +609,7 @@ Examples:
                  'gidNumber':   (str(gid),)}
         if desc:
             # latin1_to_iso646_60 later
-            entry['description'] = (LDIFutils.iso2utf(desc),)
+            entry['description'] = (iso2utf(desc),)
         # There may be duplicates in the resulting sequence
         entry['memberUid'] = members
         dn = ','.join((('cn=' + name), self.fgrp_dn))
@@ -604,23 +627,23 @@ Examples:
         code = '_AuthenticationCode'
         # Priority is arg, else cereconf default value
         # auth_meth_l is a list sent to load_auth_tab and contains
-        # all methods minus primary which is called by 
+        # all methods minus primary which is called by
         auth = posixconf.LDAP['auth_attr']
         if isinstance(auth,dict):
             if not 'userPassword' in auth:
                 self.logger.warn("Only support 'userPassword'-attribute")
                 return None
             default_auth = auth['userPassword'][:1][0]
-            self.user_auth = LDIFutils.map_constants(code, default_auth[0])
+            self.user_auth = map_constants(code, default_auth[0])
             if len(default_auth) == 2:
-                format = default_auth[1]                                         
-            else: 
+                format = default_auth[1]
+            else:
                 format = None
             self.auth_format[int(self.user_auth)] = {'attr':'userPassword',
                                                      'format':format}
             for entry in auth['userPassword'][1:]:
-                auth_t = LDIFutils.map_constants(code, entry[0])
-                if len(entry) == 2: 
+                auth_t = map_constants(code, entry[0])
+                if len(entry) == 2:
                     format = entry[1]
                 else:
                     format = None
@@ -638,30 +661,27 @@ Examples:
 
     def load_auth_tab(self):
         # Only populate the cache if cache is empty
-        if self.auth_data <> {}: return
+        if self.auth_data: return
         self.a_meth = []
         if 'ldif' in self.options:
             self.a_meth = self.ldif_auth_methods()
         if 'passwd' in self.options:
-            # Need to fetch a crypt to check if password should be squashed 
+            # Need to fetch a crypt to check if password should be squashed
             # or 'x'ed.
             if self.options['auth-method'] == 'NOCRYPT':
                 meth = self.co.auth_type_crypt3_des
             else:
-                meth = LDIFutils.map_constants('_AuthenticationCode', 
-                                               self.options['auth-method'])
+                meth = map_constants('_AuthenticationCode',
+                                     self.options['auth-method'])
             if meth not in self.a_meth:
                 self.a_meth.append(meth)
         if self.a_meth:
-            for x in self.posix_user.list_account_authentication(auth_type=self.a_meth):
-                if not x['account_id'] or not x['method']:
+            for x in self.posix_user.list_account_authentication(
+                    auth_type=self.a_meth):
+                if not (x['account_id'] and x['method']):
                     continue
-                acc_id, meth = int(x['account_id']), int(x['method']) 
-                if not acc_id in self.auth_data:
+                acc_id, meth = int(x['account_id']), int(x['method'])
+                if acc_id not in self.auth_data:
                     self.auth_data[acc_id] = {meth : x['auth_data']}
                 else:
-                    self.auth_data[acc_id][meth] = x['auth_data']       
-
-       
-
-    
+                    self.auth_data[acc_id][meth] = x['auth_data']
