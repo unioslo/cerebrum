@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2004 University of Oslo, Norway
+# Copyright 2004-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -51,20 +51,20 @@ needs_base64 = needs_base64_readable
 _dummy = object()
 
 
-def ldapconf(tree, attr, default=_dummy, utf8=True):
-    """Return cereconf.LDAP_<tree>[<attr>] with default, translated to UTF-8.
+def ldapconf(tree, attr, default=_dummy, utf8=True, module=cereconf):
+    """Return module.LDAP_<tree>[<attr>] with default, translated to UTF-8.
 
-    Fetch cereconf.LDAP_<tree>[<attr>], or LDAP[<attr>] if <tree> is None.
+    Fetch module.LDAP_<tree>[<attr>], or LDAP[<attr>] if <tree> is None.
     If <default> is given, it is used if the setting is absent or None.
     If <utf8>, the result is converted to UTF-8, recursing through tuples,
     lists and dict values, but not dict keys.  If <utf8> is a type or list
     of types, only values with or inside these types are converted.
     """
     var = tree is None and 'LDAP' or 'LDAP_' + tree
-    val = getattr(cereconf, var).get(attr, default)
+    val = getattr(module, var).get(attr, default)
     if val is _dummy:
-        raise _Errors.PoliteException("cereconf.%s['%s'] is not set"
-                                      % (var, attr))
+        raise _Errors.PoliteException("%s.%s['%s'] is not set"
+                                      % (module.__name__, var, attr))
     if val is None and default is not _dummy:
         val = default
     if utf8:
@@ -156,37 +156,38 @@ def entry_string(dn, attrs, add_rdn = True):
     result.append("\n")
     return "".join(result)
 
-def container_entry_string(tree_name, attrs = {}):
+def container_entry_string(tree_name, attrs = {}, module=cereconf):
     """Return a string with an LDIF entry for the specified container entry."""
-    entry = dict(ldapconf(None, 'container_attrs', {}))
+    entry = dict(ldapconf(None, 'container_attrs', {}, module=module))
     entry.update(attrs)
-    entry.update(ldapconf(tree_name, 'attrs', {}))
-    return entry_string(ldapconf(tree_name, 'dn'), entry)
+    entry.update(ldapconf(tree_name, 'attrs', {}, module=module))
+    return entry_string(ldapconf(tree_name, 'dn', module=module), entry)
 
 
 def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
-                 max_change=None):
+                 max_change=None, module=cereconf):
     """(Open and) return LDIF outfile for <tree>.
 
     Use <filename> if specified,
-    otherwise cereconf.LDAP_<tree>['file'] unless <explicit_default>,
+    otherwise module.LDAP_<tree>['file'] unless <explicit_default>,
     otherwise return <default> (an open filehandle) if that is not None.
     (explicit_default should be set if <default> was opened from a
-    <filename> argument and not from cereconf.LDAP*['file'].)
+    <filename> argument and not from module.LDAP*['file'].)
 
     When opening a file, use SimilarSizeWriter where close() fails if
     the resulting file has changed more than <max_change>, or
-    cereconf.LDAP_<tree>['max_change'], or cereconf.LDAP['max_change'].
+    module.LDAP_<tree>['max_change'], or module.LDAP['max_change'].
     If max_change is unset or >= 100, just open the file normally.
     """
     if not (filename or explicit_default):
-        filename = getattr(cereconf, 'LDAP_' + tree).get('file')
+        filename = getattr(module, 'LDAP_' + tree).get('file')
         if filename:
-            filename = os.path.join(cereconf.LDAP['dump_dir'], filename)
+            filename = os.path.join(module.LDAP['dump_dir'], filename)
     if filename:
         if max_change is None:
-            max_change = ldapconf(tree, 'max_change',
-                                  ldapconf(None, 'max_change', 100))
+            max_change = ldapconf(tree, 'max_change', default=ldapconf(
+                None, 'max_change', default=100, module=module),
+                                  module=module)
         if max_change < 100:
             f = _Utils.SimilarSizeWriter(filename, 'w')
             f.set_size_change_limit(max_change)
@@ -198,15 +199,15 @@ def ldif_outfile(tree, filename=None, default=None, explicit_default=False,
     raise _Errors.PoliteException(
         "Outfile not specified and LDAP_%s['file'] not set" % (tree,))
 
-def end_ldif_outfile(tree, outfile, default_file=None):
+def end_ldif_outfile(tree, outfile, default_file=None, module=cereconf):
     """Finish the <tree> part of <outfile>.  Close it if != <default_file>."""
-    append_file = getattr(cereconf, 'LDAP_' + tree).get('append_file')
+    append_file = getattr(module, 'LDAP_' + tree).get('append_file')
     if append_file:
-        # Test for isabs() so cereconf.LDAP['dump_dir'] is not required to
+        # Test for isabs() so module.LDAP['dump_dir'] is not required to
         # be set.  (It is a poor variable name for where to fetch an input
         # file.  However, so far we have no need for yet another variable.)
         if not os.path.isabs(append_file):
-            append_file = os.path.join(cereconf.LDAP['dump_dir'], append_file)
+            append_file = os.path.join(module.LDAP['dump_dir'], append_file)
         outfile.write(file(append_file, 'r').read().strip("\n") + "\n\n")
     if outfile is not default_file:
         outfile.close()
