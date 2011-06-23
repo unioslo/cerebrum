@@ -770,6 +770,52 @@ class DistGroupSync(GroupSync):
     """
     Methods for dist group sync
     """
+    def fullsync(self):
+        """
+        This method defines what will be done in the sync.
+        """
+        # Fetch AD-data 
+        self.logger.debug("Fetching AD group data...")
+        addump = self.fetch_ad_data()
+        self.logger.info("Fetched %i AD groups" % len(addump))
+
+        #Fetch cerebrum data.
+        self.logger.debug("Fetching cerebrum data...")
+        self.fetch_cerebrum_data()
+
+        # Compare AD data with Cerebrum data (not members)
+        for gname, ad_group in addump.iteritems():
+            if gname in self.groups:
+                self.groups[gname].in_ad = True
+                self.compare(ad_group, self.groups[gname])
+            else:
+                self.logger.debug("Group %s in AD, but not in Cerebrum" % gname)
+                # Group in AD, but not in Cerebrum:
+                if self.delete_groups:
+                    self.delete_group(ad_group["distinguishedName"])
+
+        # Create group if it exists in Cerebrum but is not in AD
+        for grp in self.groups.itervalues():
+            if grp.in_ad is False and grp.quarantined is False:
+                sid = self.create_ad_group(grp.ad_attrs,
+                                           self.get_default_ou())
+                if sid and self.store_sid:
+                    self.store_ext_sid(grp.group_id, sid)
+            
+        #Syncing group members
+        self.logger.info("Starting sync of group members")
+        self.sync_group_members()
+        
+        #Commiting changes to DB (SID external ID) or not.
+        if self.store_sid:
+            if self.dryrun:
+                self.db.rollback()
+            else:
+                self.db.commit()
+            
+        self.logger.info("Finished group-sync")
+
+
     def fetch_ad_data(self):
         """
         Returns full LDAP path to AD objects of type 'group' and prefix
@@ -782,14 +828,29 @@ class DistGroupSync(GroupSync):
         ret = dict()
         self.server.setGroupAttributes(cereconf.AD_DIST_GRP_ATTRIBUTES)
         ad_dist_grps = self.server.listObjects('group', True, cereconf.AD_LDAP)
-        self.logger.debug("len: %i", len(ad_dist_grps))
         if ad_dist_grps:
             # Only deal with distribution groups. Groupsync deals with security groups.
             for grp_name, properties in ad_dist_grps.iteritems():
                 if 'groupType' in properties and str(properties['groupType']) in ('2', '8',):
-                    print grp_name, str(properties)
                     ret[grp_name] = properties
         return ret
+
+
+    def fetch_cerebrum_data(self):
+        """
+        Fetch relevant cerebrum data for groups with the given spread.
+        Create CerebrumGroup instances and store in self.groups.
+        """
+        # Fetch name, id and description for security groups
+        for row in self.group.search(spread=self.dist_group_spread):
+            gname = unicode(row["name"], cereconf.ENCODING)
+            self.groups[gname] = self.cb_group(gname, row["group_id"],
+                                               row["description"])
+        self.logger.info("Fetched %i groups with spread %s",
+                         len(self.groups), self.sec_group_spread)
+        # Set attr values for comparison with AD
+        for g in self.groups.itervalues():
+            g.calc_ad_attrs()
 
 
     def cb_group(self, gname, group_id, description):
