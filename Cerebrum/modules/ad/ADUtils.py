@@ -37,6 +37,7 @@ import xmlrpclib
 import cerebrum_path
 import cereconf
 from Cerebrum.Utils import read_password
+from Cerebrum.Utils import Factory
 
 
 class ADUtils(object):
@@ -45,11 +46,13 @@ class ADUtils(object):
     accessible by the Cerebrum AD agent running on AD DC.
     """
 
-    def __init__(self, logger, host, port, ad_domain_admin):
+    def __init__(self, db, logger, host, port, ad_domain_admin):
         """
         Connect to AD service
         """
         self.logger = logger
+        self.db = db
+        self.co = Factory.get("Constants")(self.db)
         # Create connection to AD agent
         password = read_password(ad_domain_admin, host)
         url = "https://%s:%s@%s:%s" % (ad_domain_admin, password, host, port)
@@ -124,13 +127,14 @@ class ADUtils(object):
         """
         cmd = getattr(self.server, command)
         try:
+            self.logger.debug3("Running cmd: %s%s", command, str(args))
             ret = cmd(*args)
         except xmlrpclib.ProtocolError, xpe:
             self.logger.critical("Error connecting to AD service: %s %s" %
                                  (xpe.errcode, xpe.errmsg))
             return False,
         except xmlrpclib.Fault, msg:
-            self.logger.warn("Exception from AD service:", msg)
+            self.logger.warn("Exception from AD service: %s", msg)
             return False
         # ret is a list in the form [bool, msg] where the first
         # element tells if the command was succesful or not
@@ -166,6 +170,16 @@ class ADUtils(object):
             self.run_cmd('moveObject', ou)
 
 
+    def rename_object(self, dn, ou, cn):
+        if self.dryrun:
+            self.logger.info("DRYRUN: Not renaming %s to %s,%s" % (dn, cn, ou))
+            return
+
+        if self.run_cmd('bindObject', dn):
+            self.logger.info("Renaming %s to %s,%s" % (dn, cn, ou))
+            self.run_cmd('moveObject', ou, cn)
+
+
     def move_contact(self, dn, ou):
         self.move_object(dn, ou, obj_type="contact")
         
@@ -196,29 +210,47 @@ class ADUtils(object):
         return ret
 
 
+    def get_ou(self, dn):
+        """
+        Extract OU part from distinguishedName
+        """
+        dn = dn.strip()
+        i = dn.find("OU=")
+        if dn and i != -1:
+            return dn[i:]
+
+
 class ADUserUtils(ADUtils):
     """
     User specific methods
     """
+    def __init__(self, db, logger, host, port, ad_domain_admin):
+        ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
+        self.ac = Factory.get("Account")(self.db)
+        self.pe = Factory.get("Person")(self.db)
 
     def move_user(self, dn, ou):
         self.move_object(dn, ou, obj_type="user")
 
 
-    def deactivate_user(self, dn):
+    def deactivate_user(self, ad_user):
         """
         Delete or deactivate user in Cerebrum-controlled OU.
 
-        @param dn: AD attribute distinguishedName 
-        @type dn: str
+        @param ad_user: AD attributes
+        @type dn: dict
         """
+        dn = ad_user["distinguishedName"]
         # Delete or disable?
         if self.delete_users:
             self.delete_user(dn)
         else:
-            self.disable_user(dn)
+            # Check if user is already disabled
+            if not ad_user['ACCOUNTDISABLE']:
+                self.disable_user(dn)
             # Disabled users lives in AD_LOST_AND_FOUND OU
-            self.move_user(dn, cereconf.AD_LOST_AND_FOUND)
+            if self.get_ou(dn) != cereconf.AD_LOST_AND_FOUND:
+                self.move_user(dn, cereconf.AD_LOST_AND_FOUND)
 
 
     def delete_user(self, dn):
@@ -266,7 +298,7 @@ class ADUserUtils(ADUtils):
         if not sid:
             # Don't continue if createObject fails
             return
-        self.logger.info("created user %s" % uname)
+        self.logger.info("created user %s with sid %s", uname, sid)
 
         # Set password
         pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
@@ -284,6 +316,9 @@ class ADGroupUtils(ADUtils):
     """
     Group specific methods
     """
+    def __init__(self, db, logger, host, port, ad_domain_admin):
+        ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
+        self.group = Factory.get("Group")(self.db)
     
     def create_ad_group(self, attrs, ou):
         """
@@ -297,9 +332,21 @@ class ADGroupUtils(ADUtils):
         gname = attrs.pop("name")
         if self.dryrun:
             self.logger.debug("DRYRUN: Not creating group %s" % gname)
+            return
 
-        if self.run_cmd("createObject", "Group", ou, gname):
-            self.logger.info("created group %s" % gname)
+        # Create group object
+        sid = self.run_cmd("createObject", "Group", ou, gname)
+        if not sid:
+            # Don't continue if createObject fails
+            return
+        self.logger.info("created group %s with sid %s", gname, sid)
+        # # Set other properties
+        if attrs.has_key("distinguishedName"):
+            del attrs["distinguishedName"]
+        self.run_cmd("putGroupProperties", attrs)
+        self.run_cmd("setObject")
+        # createObject succeded, return sid
+        return sid
 
 
     def delete_group(self, dn):
@@ -332,5 +379,3 @@ class ADGroupUtils(ADUtils):
         if not self.dryrun and self.run_cmd('bindObject', dn):
             if self.run_cmd("syncMembers", members, False, False):
                 self.logger.info("Synced members for group %s" % dn)
-
-

@@ -138,15 +138,10 @@ class CerebrumUser(CerebrumEntity):
         ad_attrs["displayName"] = "%s %s" % (self.name_first, self.name_last)
         ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.uname,
                                                       self.ou)
-        ad_attrs["ou"] = self.ou
         ad_attrs["ACCOUNTDISABLE"] = self.quarantined
-        ad_attrs["homeDrive"] = "H:"
-        ad_attrs["homeDirectory"] %= self.uname 
-        ad_attrs["Profile path"] %= self.uname 
         ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
         ad_attrs["title"] = self.title
         ad_attrs["telephoneNumber"] = self.contact_phone
-        #ad_attrs["mail"] = ""
         if self.email_addrs:
             ad_attrs["mail"] = self.email_addrs[0]
 
@@ -271,8 +266,7 @@ class CerebrumGroup(CerebrumEntity):
     An instance contains information from Cerebrum and methods for
     comparing this information with the data from AD.
     """
-
-    def __init__(self, name, description, group_id=None):
+    def __init__(self, gname, group_id, description, domain, ou):
         """
         CerebrumGroup constructor
         
@@ -283,8 +277,8 @@ class CerebrumGroup(CerebrumEntity):
         @param description: Group description
         @type description: str
         """
-        CerebrumEntity.__init__(self)
-        self.name = name
+        CerebrumEntity.__init__(self, domain, ou)
+        self.gname = gname
         self.description = description
         self.group_id = group_id
 
@@ -302,20 +296,12 @@ class CerebrumGroup(CerebrumEntity):
         ad_attrs.update(cereconf.AD_GRP_DEFAULTS)
         
         # Do the hardcoding for this sync.
-        ad_attrs["displayName"] = self.name
-        ad_attrs["displayNamePrintable"] = self.name
-        ad_attrs["name"] = cereconf.AD_GROUP_PREFIX + self.name
+        ad_attrs["displayName"] = self.gname
+        ad_attrs["displayNamePrintable"] = self.gname
+        ad_attrs["name"] = cereconf.AD_GROUP_PREFIX + self.gname
         ad_attrs["distinguishedName"] = "CN=%s,%s" % (ad_attrs["name"],
                                                       self.ou)
         ad_attrs["description"] = self.description or "N/A"
-        ad_attrs["OU"] = self.ou
-
-        # Exchange
-        # if self.to_exchange:
-        #     ad_attrs["proxyAddresses"] = ["SMTP:" + self.name + "@" +
-        #                                   self.domain]
-        #     ad_attrs["mailNickname"] = self.name
-        #     ad_attrs["mail"] = self.name + "@" + self.domain
 
         # Convert str to unicode before comparing with AD
         for attr_type, attr_val in ad_attrs.iteritems():
@@ -355,9 +341,12 @@ class CerebrumDistGroup(CerebrumGroup):
         ad_attrs.update(cereconf.AD_DIST_GRP_DEFAULTS)
         
         # Do the hardcoding for this sync.
-        ad_attrs["displayName"] = self.name
-        ad_attrs["displayNamePrintable"] = self.name
+        ad_attrs["displayName"] = self.gname
+        ad_attrs["displayNamePrintable"] = self.gname
         ad_attrs["description"] = self.description or "N/A"
+        ad_attrs["name"] = cereconf.AD_DIST_GROUP_PREFIX + self.gname
+        ad_attrs["distinguishedName"] = "CN=%s,%s" % (ad_attrs["name"],
+                                                      self.ou)
 
         # Convert str to unicode before comparing with AD
         for attr_type, attr_val in ad_attrs.iteritems():

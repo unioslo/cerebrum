@@ -22,33 +22,6 @@
 """
 Module with functions for Cerebrum export to Active Directory at NIH.
 
-
-TODO:
-
-* homedir mapping:
-
-Hjemmeområder:
-
-Administrativt ansatte ( AFD,EA, Informasjonsavdelingen,STA, PØ, Rektoratet)
-\\nihsrvv10-6\ADM_ans
-<file:///\\nihsrvv10-6\ADM_ans>
-( J:\Brukere\ADM_ansatte)
-
-\\nihsrvv20-6\FAG_ans ( Fagligt ansatte- untatt SIM og FI dvs. SCP, SFP, SKP, SKS))
-<file:///\\nihsrvv20-6\FAG_ans>
-G:\brukere\ansatt
-
-SIM-selsjonen:
-\\nihsrvv20-6\SIM-ans
-<file:///\\nihsrvv20-6\SIM-ans>
-E:\brukere\ansatt
-
-Forsvarets institutt ( FI)
-\\nihsrvv20-6\FI-brukere
-<file:///\\nihsrvv20-6\FI-brukere>
-J:\FI\FI_brukere
-
-
 """
 
 
@@ -56,9 +29,19 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.modules.ad.CerebrumData import CerebrumUser
-from Cerebrum.modules.ad.ADSync import ADUserSync, ADGroupSync
+from Cerebrum.modules.ad.ADSync import UserSync
+from Cerebrum.modules.ad.ADSync import GroupSync
+from Cerebrum.modules.ad.ADSync import DistGroupSync
 
-class CerebrumUser(CerebrumUser):
+
+class NIHCerebrumUser(CerebrumUser):
+    def __init__(self, account_id, owner_id, uname, domain, ou):
+        """NIHCerebrumUser constructor"""
+        CerebrumUser.__init__(self, account_id, owner_id, uname, domain, ou)
+        self.aff_status = None
+        self.exchange_homemdb = None
+        
+
     def calc_ad_attrs(self, exchange=False):
         """
         Calculate AD attrs from Cerebrum data.
@@ -72,26 +55,25 @@ class CerebrumUser(CerebrumUser):
         ad_attrs = dict().fromkeys(cereconf.AD_ATTRIBUTES, None)
         # Set predefined default values
         ad_attrs.update(cereconf.AD_ACCOUNT_CONTROL)
-        ad_attrs.update(cereconf.AD_DEFAULTS)
         
         # Do the hardcoding for this sync.
         # Name and case of attributes should be as they are in AD
         ad_attrs["sAMAccountName"] = self.uname
+        ad_attrs["cn"] = self.uname
         ad_attrs["sn"] = self.name_last
         ad_attrs["givenName"] = self.name_first
         ad_attrs["displayName"] = "%s %s" % (self.name_first, self.name_last)
-        ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.uname,
-                                                      self.ou)
-        ad_attrs["ou"] = self.ou
+        ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.uname, self.ou)
         ad_attrs["ACCOUNTDISABLE"] = self.quarantined
         ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
         ad_attrs["title"] = self.title
-
-        # Need to calculate homedir from affiliation 
-        ad_attrs["homeDirectory"] = self.calc_homedir()
-        ad_attrs["homeDrive"] = self.calc_homedrive()
-
-        #ad_attrs["mail"] = ""
+        # Need to calculate homedir and homedrive affiliation
+        homedir = self.calc_homedir()
+        if homedir:
+            ad_attrs["homeDirectory"] = homedir
+        homedrive = self.calc_homedrive()
+        if homedrive:
+            ad_attrs["homeDrive"] = homedrive
         if self.email_addrs:
             ad_attrs["mail"] = self.email_addrs[0]
 
@@ -103,8 +85,9 @@ class CerebrumUser(CerebrumUser):
             for k in cereconf.AD_EXCHANGE_ATTRIBUTES:
                 ad_attrs[k] = None
             ad_attrs.update(cereconf.AD_EXCHANGE_DEFAULTS)
-            
-            # Do the hardcoding for this sync. 
+
+            # Exchange attributes hardcoding
+            ad_attrs["homeMDB"] = self.exchange_homemdb
             ad_attrs["mailNickname"] = self.uname
             # set proxyAddresses attr
             if self.email_addrs:
@@ -120,36 +103,79 @@ class CerebrumUser(CerebrumUser):
                 ad_attrs[attr_type] = unicode(attr_val, cereconf.ENCODING)
 
         self.ad_attrs.update(ad_attrs)
+
     
+    def set_aff_status(self, aff_status):
+        self.aff_status = aff_status
+        
 
     def calc_homedir(self):
-        """Calculate homedir based on account type (affiliation)"""
+        """Calculate homedir based on affiliation status"""
+        if not self.aff_status:
+            return None
+        if self.aff_status.startswith("STUDENT"):
+            ret = cereconf.AFF_STATUS2AD_HOMEDIR.get("STUDENT")
+            return ret % self.uname
+        else:
+            return cereconf.AFF_STATUS2AD_HOMEDIR.get(self.aff_status, "")
 
-        sko = "001122"  # TODO: get sko
-        return "%s\%s" % (sko, self.uname)
         
     def calc_homedrive(self):
-        return "J:"
+        """Calculate homedrive based on affiliation status"""
+        return cereconf.AFF_STATUS2AD_HOMEDRIVE.get(self.aff_status, "")
 
 
-class ADUserSync(ADUserSync):
+class NIHUserSync(UserSync):
     def cb_account(self, account_id, owner_id, uname):
         "wrapper func for easier subclassing"
-        return CerebrumUser(account_id, owner_id, uname, self.ad_domain,
-                            self.get_default_ou())
+        return NIHCerebrumUser(account_id, owner_id, uname, self.ad_domain,
+                               self.get_default_ou())
 
 
     def fetch_cerebrum_data(self):
         # Run superclass' fetch_cerebrum_data
-        super(ADUserSync, self).fetch_cerebrum_data()
-        # In addition, fetch account types
+        super(NIHUserSync, self).fetch_cerebrum_data()
+
+        # In addition, fetch account types and person affiliation
+        # status. Used to define homedir and homedrive 
+        self.logger.debug("..fetch affiliation status..")
         aid2aff = {} # account_id -> priority to aff mapping
         for row in self.ac.list_accounts_by_type(
-            account_spread=self.co.Spread(self.user_spread),
-            affiliation=self.co.affiliation_ansatt):
-            aid2aff.setdefault(int(row['person_id']), {})[
-                int(row['priority'])] = row['affiliation']
+            account_spread=self.co.Spread(self.user_spread)):
+            aid2aff.setdefault(int(row['account_id']), {})[
+                int(row['priority'])] = int(row['affiliation'])
 
+        pid2affstatus = {}
+        for row in self.pe.list_affiliations():
+            pid2affstatus.setdefault(int(row['person_id']), {})[
+                int(row['affiliation'])] = str(row['status'])
+            
+        # Set the highest prioritized affiliation status for each
+        # CerebrumUser
+        for a in self.accounts.itervalues():
+            priority2aff = aid2aff.get(a.account_id)
+            if not priority2aff:
+                continue
+            # Get aff with highest priority (lowest priority value)
+            aff = priority2aff.get(min(priority2aff.keys()))
+            aff2status = pid2affstatus.get(a.owner_id)
+            if not aff2status:
+                continue
+            try:
+                a.set_aff_status(str(self.co.PersonAffStatus(
+                    aff2status.get(aff))))
+            except TypeError:
+                self.logger.warning("Couldn't set aff status for %s" % a.uname)
+
+        # Find homeMDB stored as traits
+        if self.exchange_sync:
+            self.logger.debug("..fetch homemdb traits..")
+            for row in self.ac.list_traits(code=self.co.trait_exchange_mdb):
+                uname = self.id2uname.get(int(row["entity_id"]))
+                if not uname:
+                    continue
+                self.accounts[uname].exchange_homemdb = row["strval"]
+        
 
     def fetch_ad_data_contacts(self):
         """
@@ -161,8 +187,7 @@ class ADUserSync(ADUserSync):
                  objects properties (dict)
         """
         self.server.setContactAttributes(cereconf.AD_CONTACT_FORWARD_ATTRIBUTES)
-        search_ou = self.ad_ldap
-        ad_contacts = self.server.listObjects('contact', True, search_ou)
+        ad_contacts = self.server.listObjects('contact', True, cereconf.AD_LDAP)
         if not ad_contacts:
             return {}
         # Only deal with forwarding contact objects. 
@@ -172,6 +197,8 @@ class ADUserSync(ADUserSync):
         return ad_contacts
 
 
-class ADGroupSync(ADGroupSync):
+class NIHGroupSync(GroupSync):
     pass
 
+class NIHDistGroupSync(DistGroupSync):
+    pass
