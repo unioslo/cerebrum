@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2006-2009 University of Oslo, Norway
+# Copyright 2006-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -50,6 +50,10 @@ class Constants(Constants.Constants):
     affiliation_status_tilknyttet_pensjonist = _PersonAffStatusCode(affiliation_tilknyttet,
                                                                     'pensjonist',
                                                                     'Manuelt registrert, pensjonist.')        
+    # affiliation for park og idrett
+    affiliation_status_tilknyttet_park = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                              'park og idrett',
+                                                              'Manuelt registrert, park og idrett.')        
     ## Spread definitions - user related
     spread_ad_account = _SpreadCode(
         'account@ad', Constants.Constants.entity_account,
