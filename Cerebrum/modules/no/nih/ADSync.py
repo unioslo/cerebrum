@@ -174,7 +174,8 @@ class NIHUserSync(UserSync):
                 uname = self.id2uname.get(int(row["entity_id"]))
                 if not uname:
                     continue
-                self.accounts[uname].exchange_homemdb = row["strval"]
+                self.accounts[uname].exchange_homemdb = "CN=%s,%s" % (
+                    row["strval"], cereconf.AD_EX_HOME_MDB)
         
 
     def fetch_ad_data_contacts(self):
