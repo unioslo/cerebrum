@@ -2000,13 +2000,11 @@ class AccountEmailMixin(Account.Account):
             entdom.clear()
             try:
                 entdom.find(ou, affiliation=aff)
-                print "entdom find email.py"
                 if use_default_domain:
                     # If the default domai n is specified, ignore this
                     # affiliation.
                     if entdom.entity_email_domain_id == dom.entity_id:
                         continue
-                print "return entdom.entity_email_domain_id"
                 return entdom.entity_email_domain_id
             except Errors.NotFoundError:
                 pass
