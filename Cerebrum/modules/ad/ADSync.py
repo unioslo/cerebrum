@@ -568,6 +568,7 @@ class GroupSync(ADGroupUtils):
         """
         ADGroupUtils.__init__(self, db, logger, host, port, ad_domain_admin)
         self.groups = dict()
+        self.dist_groups = list()
         
 
     def configure(self, config_args):
@@ -581,7 +582,7 @@ class GroupSync(ADGroupUtils):
         """
         self.logger.info("Starting group-sync")
         # Sync settings for this module
-        for k in ("group_spread", "user_spread"):
+        for k in ("sec_group_spread", "dist_group_spread", "user_spread"):
             # Group.search() must have spread constant or int to work,
             # unlike Account.search()
             if k in config_args:
@@ -614,6 +615,8 @@ class GroupSync(ADGroupUtils):
             if gname in self.groups:
                 self.groups[gname].in_ad = True
                 self.compare(ad_group, self.groups[gname])
+            elif gname in self.dist_groups:
+                self.logger.debug("Group %s is a dist group. Ignore" % gname)
             else:
                 self.logger.debug("Group %s in AD, but not in Cerebrum" % gname)
                 # Group in AD, but not in Cerebrum:
@@ -631,11 +634,6 @@ class GroupSync(ADGroupUtils):
         #Syncing group members
         self.logger.info("Starting sync of group members")
         self.sync_group_members()
-        
-        #updating Exchange
-        #if self.exchange_sync:
-        #    self.update_Exchange([g.name for g in self.groups.itervalues()
-        #                          if g.update_recipient])
         
         #Commiting changes to DB (SID external ID) or not.
         if self.store_sid:
@@ -672,17 +670,23 @@ class GroupSync(ADGroupUtils):
         Fetch relevant cerebrum data for groups with the given spread.
         Create CerebrumGroup instances and store in self.groups.
         """
-        # Fetch name, id and description
-        for row in self.group.search(spread=self.group_spread):
-            # TBD: Skal gruppenavn kunne være utenfor latin-1?
+        # Fetch name, id and description for security groups
+        for row in self.group.search(spread=self.sec_group_spread):
             gname = unicode(row["name"], cereconf.ENCODING)
             self.groups[gname] = self.cb_group(gname, row["group_id"],
                                                row["description"])
         self.logger.info("Fetched %i groups with spread %s",
-                         len(self.groups), self.group_spread)
+                         len(self.groups), self.sec_group_spread)
         # Set attr values for comparison with AD
         for g in self.groups.itervalues():
             g.calc_ad_attrs()
+
+        # Fetch name for distribution groups
+        for row in self.group.search(spread=self.dist_group_spread):
+            gname = unicode(row["name"], cereconf.ENCODING)
+            self.dist_groups.append(gname)
+        self.logger.info("Fetched %i groups with spread %s",
+                         len(self.dist_groups), self.dist_group_spread)
 
 
     def cb_group(self, gname, group_id, description):
