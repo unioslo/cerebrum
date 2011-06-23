@@ -67,8 +67,12 @@ class ADUtils(object):
         @param ad_objs : object to run command on
         @type  ad_objs: str
         """
-        self.logger.info("Running Update-Recipient for object '%s' "
-                         "against Exchange" % ad_obj)
+        msg = "Running Update-Recipient for object '%s' against Exchange" % ad_obj
+        if self.dryrun:
+            self.logger.debug("Not %s", msg)
+            return
+        self.logger.info(msg)
+
         if cereconf.AD_DC:
             self.run_cmd('run_UpdateRecipient', ad_obj, cereconf.AD_DC)
         else:
@@ -181,6 +185,9 @@ class ADUtils(object):
 
 
     def move_contact(self, dn, ou):
+        if self.dryrun:
+            self.logger.info("DRYRUN: Not moving contact %s" % dn)
+            return
         self.move_object(dn, ou, obj_type="contact")
         
 
@@ -276,6 +283,9 @@ class ADUserUtils(ADUtils):
         @param dn: AD attribute distinguishedName 
         @type dn: str
         """
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not disabling user %s" % dn)
+            return
         self.logger.info("Disabling user %s" % dn)
         self.commit_changes(dn, ACCOUNTDISABLE=True)
          
@@ -375,6 +385,9 @@ class ADGroupUtils(ADUtils):
         @type members: list
         
         """
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not syncing members for %s" % dn)
+            return
         # We must bind to object before calling syncMembers
         if not self.dryrun and self.run_cmd('bindObject', dn):
             if self.run_cmd("syncMembers", members, False, False):
