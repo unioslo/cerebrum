@@ -500,13 +500,13 @@ class VoipAddress(EntityAuthentication, EntityTrait):
         if not (isinstance(value, str) and isinstance(alias, str)):
             return False
 
-        # value must start with a + and be followed by digits only
-        if not (value[0] == "+" and value[1:].isdigit() and alias.isdigit()):
-            return False
-
         # This is a UiO number -- 8 digits and 5 digits for the internal number.
         prefix, number = value[:3], value[3:]
         if not (len(number) == 8 and len(alias) == 5):
+            return False
+
+        # value must start with a + and be followed by digits only
+        if not (value[0] == "+" and value[1:].isdigit() and alias.isdigit()):
             return False
 
         # Norway == +47
