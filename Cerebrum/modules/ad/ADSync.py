@@ -753,8 +753,9 @@ class GroupSync(ADGroupUtils):
                     members.append(uname)
             
             # Find group members
+            # TBD: also allow dist groups
             for memgrp in self.group.search_members(group_id=grp.group_id,
-                                                    member_spread=self.group_spread):
+                                                    member_spread=self.sec_group_spread):
                 gname = memgrp.get('member_name')
                 if gname:
                     members.append(gname)
