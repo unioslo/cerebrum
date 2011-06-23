@@ -341,10 +341,10 @@ class CerebrumDistGroup(CerebrumGroup):
         ad_attrs.update(cereconf.AD_DIST_GRP_DEFAULTS)
         
         # Do the hardcoding for this sync.
-        ad_attrs["displayName"] = self.gname
-        ad_attrs["displayNamePrintable"] = self.gname
-        ad_attrs["description"] = self.description or "N/A"
         ad_attrs["name"] = cereconf.AD_DIST_GROUP_PREFIX + self.gname
+        ad_attrs["displayName"] = ad_attrs["name"]
+        ad_attrs["description"] = self.description or "N/A"
+        ad_attrs["displayNamePrintable"] = ad_attrs["name"]
         ad_attrs["distinguishedName"] = "CN=%s,%s" % (ad_attrs["name"],
                                                       self.ou)
 
