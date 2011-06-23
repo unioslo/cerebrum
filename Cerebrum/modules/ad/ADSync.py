@@ -37,6 +37,8 @@ sync.
 
 """
 
+import time
+import cPickle
 
 import cerebrum_path
 import cereconf
@@ -102,7 +104,10 @@ class UserSync(ADUserUtils):
         self.logger.debug("Fetching AD user data...")
         addump = self.fetch_ad_data()
         self.logger.info("Fetched %i AD users" % len(addump))
-
+        outfile = file('/tmp/ad_data.pkl', 'wb')
+        cPickle.dump(addump, outfile)
+        outfile.close()
+        return
         # Fetch cerebrum data. store in self.accounts
         self.logger.debug("Fetching cerebrum user data...")
         self.fetch_cerebrum_data()
@@ -138,7 +143,7 @@ class UserSync(ADUserUtils):
         # Update Exchange if exchange sync option is true
         if self.exchange_sync:
             #self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
-            #time.sleep(5)
+            time.sleep(5)
             for acc in self.accounts.itervalues():
                 if acc.update_recipient:
                     self.update_Exchange(acc.uname)
