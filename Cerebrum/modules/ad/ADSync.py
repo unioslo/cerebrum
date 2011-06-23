@@ -38,7 +38,6 @@ sync.
 """
 
 import time
-import cPickle
 
 import cerebrum_path
 import cereconf
@@ -97,26 +96,14 @@ class UserSync(ADUserUtils):
                          ", ".join(self.sync_attrs))
         
 
-    def fetch_ad_pickled_data(self):
-        pfile = file('/tmp/ad_data_new.pkl', 'rb')
-        addump = cPickle.load(pfile)
-        pfile.close()
-        return addump
-    
-
     def fullsync(self):
         """
         This method defines what will be done in the sync.
         """
         # Fetch AD-data for users.     
         self.logger.debug("Fetching AD user data...")
-        #addump = self.fetch_ad_data()
-        addump = self.fetch_ad_pickled_data()
+        addump = self.fetch_ad_data()
         self.logger.info("Fetched %i AD users" % len(addump))
-        #outfile = file('/tmp/ad_data.pkl', 'wb')
-        #cPickle.dump(addump, outfile)
-        #outfile.close()
-        #return
         # Fetch cerebrum data. store in self.accounts
         self.logger.debug("Fetching cerebrum user data...")
         self.fetch_cerebrum_data()
