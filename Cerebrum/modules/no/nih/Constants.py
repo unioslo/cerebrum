@@ -52,7 +52,7 @@ class Constants(Constants.Constants):
                                                                     'Manuelt registrert, pensjonist.')        
     # affiliation for park og idrett
     affiliation_status_tilknyttet_park = _PersonAffStatusCode(affiliation_tilknyttet,
-                                                              'park og idrett',
+                                                              'park-idrett',
                                                               'Manuelt registrert, park og idrett.')        
     ## Spread definitions - user related
     spread_ad_account = _SpreadCode(
