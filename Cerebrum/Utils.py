@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2002-2008 University of Oslo, Norway
+# Copyright 2002-2008, 2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -472,6 +472,15 @@ def to_unicode(obj, encoding='utf-8'):
     if isinstance(obj, basestring):
         if not isinstance(obj, unicode):
             obj = unicode(obj, encoding)
+    return obj
+
+
+def unicode2str(obj, encoding='utf-8'):
+    """
+    Encode unicode object to a str with the given encoding
+    """
+    if isinstance(obj, unicode):
+        return obj.encode(encoding)
     return obj
 
 
