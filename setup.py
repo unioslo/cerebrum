@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002, 2003, 2004 University of Oslo, Norway
+# Copyright 2002-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -517,6 +517,7 @@ setup (name = "Cerebrum", version = Cerebrum.__version__,
                    'Cerebrum/extlib',
                    'Cerebrum/extlib/Plex',
                    'Cerebrum/modules',
+                   'Cerebrum/modules/ad',
                    'Cerebrum/modules/dns',
                    'Cerebrum/modules/bofhd',
                    'Cerebrum/modules/job_runner',
