@@ -46,6 +46,7 @@ from Cerebrum.modules.ad.CerebrumData import CerebrumUser
 from Cerebrum.modules.ad.CerebrumData import CerebrumGroup
 from Cerebrum.modules.ad.CerebrumData import CerebrumDistGroup
 from Cerebrum.modules.ad.ADUtils import ADUserUtils, ADGroupUtils
+from Cerebrum.Utils import unicode2str
 from Cerebrum import Errors
 
 
@@ -195,10 +196,9 @@ class UserSync(ADUserUtils):
                 acc = self.accounts.get(uname)
                 if uname:
                     acc.to_exchange = True
-        self.logger.info("Fetched %i cerebrum users with both %s and %s spreads" % (
-            len([1 for a in self.accounts.itervalues() if a.to_exchange is True]),
-            self.user_spread, self.user_exchange_spread))
-            
+            self.logger.info("Fetched %i cerebrum users with both %s and %s spreads" % (
+                len([1 for a in self.accounts.itervalues() if a.to_exchange is True]),
+                self.user_spread, self.user_exchange_spread))
 
         # Remove/mark quarantined users
         self.filter_quarantines()
