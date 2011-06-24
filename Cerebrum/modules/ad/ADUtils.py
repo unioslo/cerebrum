@@ -132,7 +132,10 @@ class ADUtils(object):
         cmd = getattr(self.server, command)
         try:
             self.logger.debug3("Running cmd: %s%s", command, str(args))
-            ret = cmd(*args)
+            if len(args) == 1:
+                ret = cmd(args[0])
+            else:
+                ret = cmd(*args)                
         except xmlrpclib.ProtocolError, xpe:
             self.logger.critical("Error connecting to AD service: %s %s" %
                                  (xpe.errcode, xpe.errmsg))
@@ -314,8 +317,9 @@ class ADUserUtils(ADUtils):
         pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
         self.run_cmd("setPassword", pw)
         # Set other properties
-        if attrs.has_key("distinguishedName"):
-            del attrs["distinguishedName"]
+        for a in ("distinguishedName", "cn"):
+            if attrs.has_key(a):
+                del attrs[a]
         self.run_cmd("putProperties", attrs)
         self.run_cmd("setObject")
         # createObject succeded, return sid
