@@ -792,6 +792,15 @@ SMS_SYSTEM = ''
 SMS_USER   = ''
 
 ###
+### Certificates
+###
+
+# The private key used by Cerebrum's server(s).
+SSL_PRIVATE_KEY_FILE = '/cerebrum/var/password/cerebrum_key.priv'
+# Cerebrum's server(s) x509 certificate.
+SSL_CERTIFICATE_FILE = '/cerebrum/var/certs/cerebrum.pem'
+
+###
 ### The Individuation daemon
 ### A soap-daemon for users to change password, e.g. by SMS.
 ###
@@ -816,8 +825,9 @@ INDIVIDUATION_TOKEN_LENGTH = 8
 INDIVIDUATION_SMS_MESSAGE = "Your one time password:\n%s\nCerebrum"
 # The number of times a token can be checked before it's invalidated
 INDIVIDUATION_TOKEN_ATTEMPTS = 10
-# The location of the certificate for the php client
-#INDIVIDUATION_CLIENT_CERT = '/cerebrum/var/certs/cis_client.pem'
+# The location of the certificate(s) for which is accepted as the signer of the
+# client's certificate. Defaults to Cerebrum's own server certificate.
+INDIVIDUATION_CLIENT_CA = SSL_CERTIFICATE_FILE
 # Quarantines that is accepted for password changes. Quarantines not in this
 # list blocks the user from changing password.
 INDIVIDUATION_ACCEPTED_QUARANTINES = ('quarantine_svakt_passord',
@@ -872,7 +882,3 @@ INDIVIDUATION_PHONE_TYPES = {}
 # group is automatically included here.
 INDIVIDUATION_PASW_RESERVED = (INITIAL_GROUPNAME,)
 
-# The private key used by cerebrum's server(s).
-SSL_PRIVATE_KEY_FILE = '/cerebrum/var/password/cerebrum_key.priv'
-# Cerebrum's server(s) x509 certificate.
-SSL_CERTIFICATE_FILE = '/cerebrum/var/certs/cerebrum.pem'

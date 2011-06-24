@@ -248,7 +248,7 @@ class IndividuationTestSetup:
                     applications = SoapIndividuationServer.IndividuationServer,
                     private_key_file = server_key,
                     certificate_file = server_cert, 
-                    client_cert_files = client_cert)
+                    client_ca = client_cert)
         SoapIndividuationServer.IndividuationServer.site = server.site # to make the site reachable by the Individuation class (wrong, I know)
 
         # The reactor can only be run once in a process, it can not be rerun.

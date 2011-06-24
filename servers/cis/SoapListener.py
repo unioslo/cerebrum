@@ -18,6 +18,12 @@
 # You should have received a copy of the GNU General Public License
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+"""
+The core functionality for SOAP services running in the CIS framework. CIS is
+based on the twisted framework and soaplib.
+
+...
+"""
 
 import socket
 
@@ -28,7 +34,7 @@ from soaplib.core.service import DefinitionBase
 from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.internet import reactor
-from twisted.python import log
+from twisted.python import log, util
 
 try:
     from twisted.internet import ssl
@@ -41,12 +47,6 @@ from OpenSSL import SSL
 
 import traceback
 
-"""
-The core functionality for SOAP services running in the CIS framework. CIS is
-based on the twisted framework and soaplib.
-
-...
-"""
 
 class BasicSoapServer(DefinitionBase):
     """
@@ -65,7 +65,7 @@ class BasicSoapServer(DefinitionBase):
         @param the tuple of python params being passed to the method
         @param the soap elements for each argument
         '''
-        log.msg("Calling method %s(%s)" % (method_name, 
+        log.msg("DEBUG: Calling method %s(%s)" % (method_name, 
                                          ', '.join(repr(p) for p in py_params)))
 
     def on_method_return_object(self, py_results):
@@ -197,7 +197,7 @@ class TwistedSoapStarter(BasicSoapStarter):
     clientverifycallback = clientVerificationCallback
 
     def __init__(self, applications, port, private_key_file=None,
-                 certificate_file=None, client_cert_files=None, encrypt=True):
+                 certificate_file=None, client_ca=None, encrypt=True):
         """Setting up a standard soap server. If either a key or certificate
         file is given, it will use encryption."""
         #super(TwistedSoapStarter, self).__init__()
@@ -209,7 +209,7 @@ class TwistedSoapStarter(BasicSoapStarter):
 
         if encrypt:
             self.setup_encrypted_reactor(port, private_key_file,
-                                         certificate_file, client_cert_files)
+                                         certificate_file, client_ca)
             url = "https://%s:%d/SOAP/" % (socket.gethostname(), port)
         else: # unencrypted
             self.setup_reactor(port=port)
@@ -234,19 +234,19 @@ class TwistedSoapStarter(BasicSoapStarter):
         self.site = Site(self.root)
 
     def setup_encrypted_reactor(self, port, private_key_file,
-                                certificate_file, client_cert_files=None):
-        """Setting up the reactor with encryption."""
+                                certificate_file, client_ca):
+        """Setting up the reactor with encryption and certificate
+        authentication."""
         sslcontext = ssl.DefaultOpenSSLContextFactory(private_key_file,
                                                       certificate_file)
-        if client_cert_files:
-            ctx = sslcontext.getContext()
-            # Tell the server what certificates it should trust as signers of
-            # the client's certificate. Specify directory instead if several
-            # certificates are trusted.
-            ctx.load_verify_locations(client_cert_files)
-            ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
-                           self.clientverifycallback)
-            #ctx.set_verify_depth(1) # TODO: check if this is necessary
+        ctx = sslcontext.getContext()
+        # Tell the server what certificates it should trust as signers of the
+        # client's certificate. Specify directory instead if several
+        # certificates are trusted.
+        ctx.load_verify_locations(client_ca)
+        ctx.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT,
+                       self.clientverifycallback)
+
         self.port = reactor.listenSSL(int(port), self.site,
                                       contextFactory=sslcontext,
                                       interface=self.interface)

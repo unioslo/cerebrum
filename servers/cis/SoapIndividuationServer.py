@@ -187,8 +187,16 @@ class IndividuationServer(SoapListener.BasicSoapServer):
 
 def usage(exitcode=0):
     print """Usage: %s [-p <port number] [-l logfile] [--unencrypted]
-  -p | --port num   Run on alternative port (default: ?)
-  -l | --logfile:   Where to log
+
+Starts up the Individuation webservice on a given port. Please note that
+cereconf.INDIVIDUATION* contains more settings for the service.
+
+  -p
+  --port num        Run on alternative port than defined in cereconf.
+
+  -l
+  --logfile:        Where to log
+
   --instance        The individuation instance which should be used. Defaults
                     to cereconf.INDIVIDUATION_INSTANCE. E.g:
                         Cerebrum.modules.cis.Individuation/Individuation
@@ -196,7 +204,9 @@ def usage(exitcode=0):
                         Cerebrum.modules.cis.UiAindividuation/Individuation
 
   --unencrypted     Don't use https
-  -h | --help       Show this and quit
+
+  -h
+  --help            Show this and quit
     """
     sys.exit(exitcode)
 
@@ -227,33 +237,31 @@ if __name__=='__main__':
             usage()
 
     # Init twisted logger
-    log.startLogging(file(logfile, 'a'))
-    #log.callWithLogger(logger, func, *args, **kw)
-    #        Utility method which wraps a function in a try:/except:, logs a
-    #        failure if one occurrs, and uses the system's logPrefix.
+    logger = log.startLogging(file(logfile, 'a'))
+    logger.timeFormat = '%Y-%d-%m %H:%M:%S'
 
     # Initiate the individuation instance
     module, classname = instance.split('/', 1)
     mod = dyn_import(module)
     cls = getattr(mod, classname)
     IndividuationServer.individuation = cls()
-    print "Individuation is using: %s" % instance
+    log.msg("Individuation is using: %s" % instance)
     # TBD: Should Individuation be started once per session instead? Takes
     # more memory, but are there benefits we need, e.g. language control?
 
     if not use_encryption:
         private_key_file  = None
         certificate_file  = None
-        client_cert_files = None
+        client_ca = None
     else:
         private_key_file  = cereconf.SSL_PRIVATE_KEY_FILE
         certificate_file  = cereconf.SSL_CERTIFICATE_FILE
-        client_cert_files = getattr(cereconf, 'INDIVIDUATION_CLIENT_CERT', None)
+        client_ca = cereconf.INDIVIDUATION_CLIENT_CA
     server = SoapListener.TwistedSoapStarter(port = int(port),
                 applications = IndividuationServer,
                 private_key_file = private_key_file,
                 certificate_file = certificate_file,
-                client_cert_files = client_cert_files,
+                client_ca = client_ca,
                 encrypt = use_encryption)
     IndividuationServer.site = server.site # to make it global and reachable by Individuation (wrong, I know)
     # If sessions' behaviour should be changed (e.g. timeout):
