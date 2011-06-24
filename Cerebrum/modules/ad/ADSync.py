@@ -180,8 +180,10 @@ class UserSync(ADUserUtils):
         if self.exchange_sync:
             for row in self.ac.search(spread=self.user_exchange_spread):
                 uname = row["name"].strip()
+                if self.subset and uname not in self.subset:
+                    continue
                 acc = self.accounts.get(uname)
-                if uname:
+                if acc:
                     acc.to_exchange = True
             self.logger.info("Fetched %i cerebrum users with both %s and %s spreads" % (
                 len([1 for a in self.accounts.itervalues() if a.to_exchange is True]),
