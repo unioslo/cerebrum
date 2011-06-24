@@ -101,23 +101,27 @@ class ADUtils(object):
         ad attribute. 
 
         @param cb_attr: attribute calculated from Cerebrum data
-        @type cb_attr: unicode 
+        @type cb_attr: unicode, list or tuple
         @param ad_attr: Attribute fetched from AD
         @type ad_attr: list || unicode || str
         
-        @rtype: str or None
+        @rtype: cb_attr or None
         @return: cb_attr if attributes differ. None if no difference or
         comparison cannot be made.
         """
-        if isinstance(ad_attr, list):
-            if len(ad_attr) != 1:
-                self.logger.warn("Attr %s from ad is a list. Cannot compare" %
-                                 str(ad_attr))
-                return
-            else:
-                ad_attr = ad_attr[0]
+        # Handle list, typles and (unicode) strings
+        if isinstance(cb_attr, (list, tuple)):
+            cb_attr = list(cb_attr)
+            # if cb_attr is a list, make sure ad_attr is a list 
+            if not isinstance(ad_attr, (list, tuple)):
+                ad_attr = [ad_attr]
+            cb_attr.sort()
+            ad_attr.sort()
+
+        # Now we can compare the attrs
         if cb_attr != ad_attr:
             return cb_attr
+        return
 
 
     def run_cmd(self, command, *args):
