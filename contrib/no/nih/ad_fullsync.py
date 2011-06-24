@@ -93,7 +93,6 @@ def main():
                    "sec_group_spread": cereconf.AD_GROUP_SPREAD,
                    "dist_group_spread": cereconf.AD_DIST_GROUP_SPREAD,
                    "user_exchange_spread": cereconf.AD_EXCHANGE_SPREAD,
-                   #"group_exchange_spread": cereconf.AD_DIST_GROUP_SPREAD,
                    "dryrun": False,
                    "store_sid": False,
                    "forward_sync": False,
@@ -139,9 +138,9 @@ def main():
         elif opt == "--user-exchange-spread":
             config_args["user-exchange-spread"] = val
         elif opt == "--sec-group-spread":
-            config_args["group_spread"] = val
+            config_args["sec_group_spread"] = val
         elif opt == "--dist-group-spread":
-            config_args["group_spread"] = val
+            config_args["dist_group_spread"] = val
         # other options
         elif opt in ('--forward-sync',):
             config_args["forward_sync"] = True
