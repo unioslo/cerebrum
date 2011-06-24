@@ -87,6 +87,7 @@ class NIHCerebrumUser(CerebrumUser):
             ad_attrs.update(cereconf.AD_EXCHANGE_DEFAULTS)
 
             # Exchange attributes hardcoding
+            ad_attrs['msExchHomeServerName'] = cereconf.AD_EX_HOME_SERVER
             ad_attrs["homeMDB"] = self.exchange_homemdb
             ad_attrs["mailNickname"] = self.uname
             # set proxyAddresses attr
