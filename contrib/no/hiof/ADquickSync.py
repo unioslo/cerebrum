@@ -23,6 +23,7 @@
 import getopt, sys, pickle
 import xmlrpclib
 import cerebrum_path
+import cereconf
 
 from Cerebrum.Utils import Factory
 from Cerebrum.modules import ADutilMixIn
@@ -123,7 +124,7 @@ def main():
 
     delete_objects = False
     dry_run = False	
-    ad_ldap = None
+    ad_ldap = cereconf.AD_LDAP
     user_spread = None
     commit_changes = False
     
