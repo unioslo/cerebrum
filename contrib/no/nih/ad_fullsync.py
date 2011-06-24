@@ -136,7 +136,7 @@ def main():
         elif opt == "--user-spread":
             config_args["user_spread"] = val
         elif opt == "--user-exchange-spread":
-            config_args["user-exchange-spread"] = val
+            config_args["user_exchange_spread"] = val
         elif opt == "--sec-group-spread":
             config_args["sec_group_spread"] = val
         elif opt == "--dist-group-spread":
