@@ -96,11 +96,9 @@ class XMLPropertiesParser(object):
         return self
 
     def _check_type(self, type, args):
-        if not ABCTypes.get_type(type, args):
-            #TODO: cleanup
-            raise ABCTypesError, "wrong type and/or argument: '%s' '%s'" % (type,
-                                                                            args)
-            
+        # Should throw exception if anything is fishy
+        ABCTypes.get_type(type, args)
+                    
     def next(self):
         """ """
         # This call with propagate StopIteration when all the (XML) elements
