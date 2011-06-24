@@ -47,6 +47,8 @@ class DataEntity(object):
         self._ids[kind] = value
 
     def add_tag(self, kind, value):
+        if kind == None:
+            return
         self._tags.setdefault(kind, []).append(value)
 
     def add_name(self, kind, value):
