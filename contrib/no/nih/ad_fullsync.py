@@ -84,7 +84,7 @@ def main():
     host = cereconf.AD_SERVER_HOST
     port = cereconf.AD_SERVER_PORT
     delete = None
-    logger_name = "console"
+    logger_name = "cronjob"
     logger_level = "INFO"
     # Configure AD sync. Set default values, then read cereconf and
     # user input.
