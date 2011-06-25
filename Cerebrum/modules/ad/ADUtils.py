@@ -340,6 +340,23 @@ class ADGroupUtils(ADUtils):
         ADUtils.__init__(self, db, logger, host, port, ad_domain_admin)
         self.group = Factory.get("Group")(self.db)
     
+
+    def commit_changes(self, dn, **changes):
+        """
+        Set attributes for account
+
+        @param dn: AD attribute distinguishedName 
+        @type dn: str
+        @param changes: attributes that should be changed in AD
+        @type changes: dict (keyword args)
+        """
+        if not self.dryrun and self.run_cmd('bindObject', dn):
+            self.logger.info("Setting attributes for %s: %s" % (dn, changes))
+            # Set attributes in AD
+            self.run_cmd('putGroupProperties', changes)
+            self.run_cmd('setObject')
+
+
     def create_ad_group(self, attrs, ou):
         """
         Create AD group.
