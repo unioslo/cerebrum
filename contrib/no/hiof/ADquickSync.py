@@ -54,7 +54,15 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
                 if not ans['subject_entity'] in handled:
                     handled.add(ans['subject_entity'])
                     pw = pickle.loads(ans['change_params'])['password']
-                    confirm = self.change_pw(ans['subject_entity'],spread, pw, dry_run)
+                    try: 
+                        confirm = self.change_pw(ans['subject_entity'],
+                                                 spread, pw, dry_run)
+                    except xmlrpclib.ProtocolError, xpe:
+                        self.logger.warn("Caught ProtocolError: %s %s" %
+                                         (xpe.errcode, xpe.errmsg))
+                        self.logger.warn("Couldn't change password for %s" %
+                                         ans['subject_entity'])
+                        confirm = False
                 else:
                     self.logger.debug("user %s already updated" %
                                       ans['subject_entity'])
