@@ -815,7 +815,8 @@ class DistGroupSync(GroupSync):
                  distribution groupproperties (dict)
         """        
         ret = dict()
-        self.server.setGroupAttributes(cereconf.AD_DIST_GRP_ATTRIBUTES)
+        attrs = cereconf.AD_DIST_GRP_ATTRIBUTES + tuple(cereconf.AD_DIST_GRP_DEFAULTS.keys())
+        self.server.setGroupAttributes(attrs)
         ad_dist_grps = self.server.listObjects('group', True, cereconf.AD_LDAP)
         if ad_dist_grps:
             # Only deal with distribution groups. Groupsync deals with security groups.
