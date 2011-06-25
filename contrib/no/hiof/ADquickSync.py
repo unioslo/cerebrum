@@ -63,6 +63,9 @@ class ADquiSync(ADutilMixIn.ADuserUtil):
                         self.logger.warn("Couldn't change password for %s" %
                                          ans['subject_entity'])
                         confirm = False
+                    except Exception, e:
+                        self.logger.warn("Unexpected exception", exc_info=1)
+                        confirm = False                        
                 else:
                     self.logger.debug("user %s already updated" %
                                       ans['subject_entity'])
