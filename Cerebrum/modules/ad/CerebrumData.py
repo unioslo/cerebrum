@@ -328,6 +328,13 @@ class CerebrumDistGroup(CerebrumGroup):
     This class represent a virtual Cerebrum distribution group that
     contain contact objects.
     """
+    def __init__(self, gname, group_id, description, domain, ou):
+        CerebrumGroup.__init__(self, gname, group_id, description, domain, ou)
+        # CN part of distinguishedName and sAMAccountName might differ
+        # for dist groups. We need to know both
+        self.ad_dn = None
+
+
     def calc_ad_attrs(self):
         """
         Calculate AD attrs from Cerebrum data.

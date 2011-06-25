@@ -751,7 +751,7 @@ class GroupSync(ADGroupUtils):
             
             # Sync members
             if members:
-                self.sync_members(grp.ad_attrs.get("distinguishedName"), members)
+                self.sync_members(grp.ad_dn, members)
 
 
 
@@ -775,6 +775,7 @@ class DistGroupSync(GroupSync):
         # Compare AD data with Cerebrum data (not members)
         for gname, ad_group in addump.iteritems():
             if gname in self.groups:
+                self.groups[gname].ad_dn = ad_group["distinguishedName"]
                 self.groups[gname].in_ad = True
                 self.compare(ad_group, self.groups[gname])
             else:
