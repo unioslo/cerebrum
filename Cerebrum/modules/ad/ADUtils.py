@@ -135,7 +135,7 @@ class ADUtils(object):
         """
         cmd = getattr(self.server, command)
         try:
-            self.logger.debug3("Running cmd: %s%s", command, str(args))
+            self.logger.debug("Running cmd: %s%s", command, str(args))
             ret = cmd(*args)                
         except xmlrpclib.ProtocolError, xpe:
             self.logger.critical("Error connecting to AD service: %s %s" %
