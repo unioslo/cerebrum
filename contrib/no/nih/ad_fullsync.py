@@ -184,10 +184,6 @@ def run_sync(logger, host, port, config_args):
         ad_domain_admin = cereconf.AD_DOMAIN_ADMIN_USER
         sync_class = getattr(ADSync, config_args.pop('sync_class'))
         ad_sync = sync_class(db, logger, host, port, ad_domain_admin)
-        # Configure sync
-        ad_sync.configure(config_args)
-        # Run sync
-        ad_sync.fullsync()
     except KeyError, ke:
         logger.error("Missing connection information. Giving up! %s" % ke)
         usage(1)
@@ -195,6 +191,16 @@ def run_sync(logger, host, port, config_args):
         logger.critical("Error connecting to AD service. Giving up!: %s %s" %
                         (xpe.errcode, xpe.errmsg))
         usage(1)
+
+    try:
+        # Configure sync
+        ad_sync.configure(config_args)
+        # Run sync
+        ad_sync.fullsync()
+    except xmlrpclib.ProtocolError, xpe:
+        logger.critical("Received ProtocolError during sync. Quitting! %s %s",
+                        xpe.errcode, xpe.errmsg)
+        sys.exit(2)
 
     
 def true_false(arg):
