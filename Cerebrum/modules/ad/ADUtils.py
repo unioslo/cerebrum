@@ -416,6 +416,6 @@ class ADGroupUtils(ADUtils):
             self.logger.debug("DRYRUN: Not syncing members for %s" % dn)
             return
         # We must bind to object before calling syncMembers
-        if not self.dryrun and self.run_cmd('bindObject', dn):
+        if dn and self.run_cmd('bindObject', dn):
             if self.run_cmd("syncMembers", members, False, False):
                 self.logger.info("Synced members for group %s" % dn)
