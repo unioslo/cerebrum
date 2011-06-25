@@ -341,12 +341,11 @@ class CerebrumDistGroup(CerebrumGroup):
         ad_attrs.update(cereconf.AD_DIST_GRP_DEFAULTS)
         
         # Do the hardcoding for this sync.
-        ad_attrs["name"] = cereconf.AD_DIST_GROUP_PREFIX + self.gname
-        ad_attrs["displayName"] = ad_attrs["name"]
+        ad_attrs["name"] = self.gname
+        ad_attrs["displayName"] = cereconf.AD_DIST_GROUP_PREFIX + self.gname
         ad_attrs["description"] = self.description or "N/A"
-        ad_attrs["displayNamePrintable"] = ad_attrs["name"]
-        ad_attrs["distinguishedName"] = "CN=%s,%s" % (ad_attrs["name"],
-                                                      self.ou)
+        ad_attrs["displayNamePrintable"] = ad_attrs["displayName"]
+        ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.gname, self.ou)
 
         # Convert str to unicode before comparing with AD
         for attr_type, attr_val in ad_attrs.iteritems():
@@ -354,6 +353,5 @@ class CerebrumDistGroup(CerebrumGroup):
                 ad_attrs[attr_type] = unicode(attr_val, cereconf.ENCODING)
         
         self.ad_attrs.update(ad_attrs)
-
 
 

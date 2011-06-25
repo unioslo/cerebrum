@@ -202,5 +202,41 @@ class NIHUserSync(UserSync):
 class NIHGroupSync(GroupSync):
     pass
 
+
 class NIHDistGroupSync(DistGroupSync):
-    pass
+    # Override ADUtils.ADGroupUtils.create_ad_group
+    def create_ad_group(self, attrs, ou):
+        """
+        Create AD group.
+
+        @param attrs: AD attrs to be set for the account
+        @type attrs: dict        
+        @param ou: LDAP path to base ou for the entity type
+        @type ou: str        
+        """
+        gname = attrs.pop("name")
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not creating group %s" % gname)
+            return
+
+        # Create group object
+        sid = self.run_cmd("createObject", "Group", ou, gname)
+        if not sid:
+            # Don't continue if createObject fails
+            return
+        self.logger.info("created group %s with sid %s", gname, sid)
+        # # Set other properties
+        dn = attrs.pop("distinguishedName")
+        self.run_cmd("putGroupProperties", attrs)
+        self.run_cmd("setObject")
+        # Since NIH uses '+' as perfix for dist groups we need to do a
+        # more complicated create group method. We can't send a name
+        # with + directly. Instead we create the group, and then
+        # rename it
+        self.rename_object(dn, ou, "CN=\+%s" % gname)
+
+        # createObject succeded, return sid
+        return sid
+
+
+
