@@ -144,6 +144,11 @@ class ADUtils(object):
         except xmlrpclib.Fault, msg:
             self.logger.warn("Exception from AD service: %s", msg)
             return False
+        except Exception, e:
+            self.logger.warn("Unexpected exception", exc_info=1)
+            self.logger.debug("Failed to run cmd: %s%s", command, str(args))
+            return False
+            
         # ret is a list in the form [bool, msg] where the first
         # element tells if the command was succesful or not
         if not ret[0]:
