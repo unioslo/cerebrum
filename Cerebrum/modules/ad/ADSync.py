@@ -604,6 +604,7 @@ class GroupSync(ADGroupUtils):
         # Compare AD data with Cerebrum data (not members)
         for gname, ad_group in addump.iteritems():
             if gname in self.groups:
+                self.groups[gname].ad_dn = ad_group["distinguishedName"]
                 self.groups[gname].in_ad = True
                 self.compare(ad_group, self.groups[gname])
             elif gname in self.dist_groups:
