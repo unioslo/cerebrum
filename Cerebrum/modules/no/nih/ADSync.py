@@ -126,7 +126,7 @@ class NIHCerebrumUser(CerebrumUser):
         if not self.aff_status:
             return None
         if self.aff_status.startswith("STUDENT"):
-            return = cereconf.AFF_STATUS2AD_HOMEDRIVE.get("STUDENT")
+            return cereconf.AFF_STATUS2AD_HOMEDRIVE.get("STUDENT")
         else:
             return cereconf.AFF_STATUS2AD_HOMEDRIVE.get(self.aff_status, "")
 
