@@ -138,7 +138,7 @@ class UserSync(ADUserUtils):
             
         # Update Exchange if exchange sync option is true
         if self.exchange_sync:
-            #self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+            self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
             time.sleep(5)
             for acc in self.accounts.itervalues():
                 if acc.update_recipient:
@@ -460,6 +460,8 @@ class UserSync(ADUserUtils):
 
         # Special AD control attributes
         for attr, value in cereconf.AD_ACCOUNT_CONTROL.iteritems():
+            if attr in cb_user.ad_attrs:
+                value = cb_user.ad_attrs[attr]
             if attr not in ad_user or ad_user[attr] != value:
                 cb_user.add_change(attr, value)
                 
