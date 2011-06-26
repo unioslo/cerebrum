@@ -840,7 +840,7 @@ class DistGroupSync(GroupSync):
             self.groups[gname] = self.cb_group(gname, row["group_id"],
                                                row["description"])
         self.logger.info("Fetched %i groups with spread %s",
-                         len(self.groups), self.sec_group_spread)
+                         len(self.groups), self.dist_group_spread)
         # Set attr values for comparison with AD
         for g in self.groups.itervalues():
             g.calc_ad_attrs()
