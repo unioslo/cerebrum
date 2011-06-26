@@ -123,7 +123,12 @@ class NIHCerebrumUser(CerebrumUser):
         
     def calc_homedrive(self):
         """Calculate homedrive based on affiliation status"""
-        return cereconf.AFF_STATUS2AD_HOMEDRIVE.get(self.aff_status, "")
+        if not self.aff_status:
+            return None
+        if self.aff_status.startswith("STUDENT"):
+            return = cereconf.AFF_STATUS2AD_HOMEDRIVE.get("STUDENT")
+        else:
+            return cereconf.AFF_STATUS2AD_HOMEDRIVE.get(self.aff_status, "")
 
 
 class NIHUserSync(UserSync):
