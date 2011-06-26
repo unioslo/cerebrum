@@ -68,12 +68,8 @@ class NIHCerebrumUser(CerebrumUser):
         ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
         ad_attrs["title"] = self.title
         # Need to calculate homedir and homedrive affiliation
-        homedir = self.calc_homedir()
-        if homedir:
-            ad_attrs["homeDirectory"] = homedir
-        homedrive = self.calc_homedrive()
-        if homedrive:
-            ad_attrs["homeDrive"] = homedrive
+        ad_attrs["homeDirectory"] = self.calc_homedir()
+        ad_attrs["homeDrive"] = self.calc_homedrive()
         if self.email_addrs:
             ad_attrs["mail"] = self.email_addrs[0]
 
