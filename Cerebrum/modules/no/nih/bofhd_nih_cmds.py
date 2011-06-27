@@ -452,5 +452,30 @@ class BofhdExtension(BofhdCommandBase):
         except Errors.NotFoundError:
             pass
         return info
-    
+
+
+    def _email_info_account(self, operator, acc, et, addrs):
+        self.ba.can_email_info(operator.get_entity_id(), acc)
+        ret = self._email_info_basic(acc, et)
+        try:
+            self.ba.can_email_info_detail(operator.get_entity_id(), acc)
+        except PermissionDenied:
+            pass
+        else:
+            ret += self._email_info_spam(et)
+            ret += self._email_info_detail(acc)
+            ret += self._email_info_forwarding(et, addrs)
+            ret += self._email_info_filters(et)
+
+            # Tell what addresses can be deleted:
+            ea = Email.EmailAddress(self.db)
+            domains = acc.get_prospect_maildomains(use_default_domain=False)
+            deletables = []
+            for addr in et.get_addresses(special=True):
+                ea.clear()
+                ea.find(addr['address_id'])
+                if ea.email_addr_domain_id not in domains:
+                    deletables.append(ea.get_address())
+            ret.append({'deletable': deletables})
+        return ret    
 
