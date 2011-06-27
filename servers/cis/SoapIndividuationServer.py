@@ -35,7 +35,7 @@ import getopt
 import SoapListener
 
 import cerebrum_path, cereconf
-from Cerebrum.modules.cis import Individuation, IndividuationMessages
+from Cerebrum.modules.cis import Individuation
 from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
 
@@ -89,7 +89,7 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             # session from the request, and not as a soap-parameter.
             cache = SoapListener.SessionCache()
         if not cache.has_key('msgs'):
-            cache['msgs'] = Messages(text=IndividuationMessages.messages)
+            cache['msgs'] = Messages(text=self.individuation.messages)
         return cache
 
     def call_wrapper(self, call, params):
@@ -219,7 +219,7 @@ if __name__=='__main__':
     except getopt.GetoptError:
         usage(1)
 
-    use_encryption = CRYPTO_AVAILABLE
+    use_encryption = True
     port     = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
     logfile  = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
     instance = getattr(cereconf, 'INDIVIDUATION_INSTANCE', None)
@@ -238,7 +238,7 @@ if __name__=='__main__':
 
     # Init twisted logger
     logger = log.startLogging(file(logfile, 'a'))
-    logger.timeFormat = '%Y-%d-%m %H:%M:%S'
+    logger.timeFormat = '%Y-%m-%d %H:%M:%S'
 
     # Initiate the individuation instance
     module, classname = instance.split('/', 1)
@@ -256,7 +256,7 @@ if __name__=='__main__':
     else:
         private_key_file  = cereconf.SSL_PRIVATE_KEY_FILE
         certificate_file  = cereconf.SSL_CERTIFICATE_FILE
-        client_ca = cereconf.INDIVIDUATION_CLIENT_CA
+        client_ca         = cereconf.INDIVIDUATION_CLIENT_CA
     server = SoapListener.TwistedSoapStarter(port = int(port),
                 applications = IndividuationServer,
                 private_key_file = private_key_file,
