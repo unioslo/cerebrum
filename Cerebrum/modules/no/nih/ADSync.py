@@ -109,7 +109,7 @@ class NIHCerebrumUser(CerebrumUser):
     def calc_homedir(self):
         """Calculate homedir based on affiliation status"""
         if not self.aff_status:
-            return None
+            return ""
         if self.aff_status.startswith("STUDENT"):
             ret = cereconf.AFF_STATUS2AD_HOMEDIR.get("STUDENT")
             return ret % self.uname
@@ -120,7 +120,7 @@ class NIHCerebrumUser(CerebrumUser):
     def calc_homedrive(self):
         """Calculate homedrive based on affiliation status"""
         if not self.aff_status:
-            return None
+            return ""
         if self.aff_status.startswith("STUDENT"):
             return cereconf.AFF_STATUS2AD_HOMEDRIVE.get("STUDENT")
         else:
@@ -162,6 +162,7 @@ class NIHUserSync(UserSync):
             aff = priority2aff.get(min(priority2aff.keys()))
             aff2status = pid2affstatus.get(a.owner_id)
             if not aff2status:
+                self.logger.debug("No affiliation status for %s" % a.uname)
                 continue
             try:
                 a.set_aff_status(str(self.co.PersonAffStatus(
