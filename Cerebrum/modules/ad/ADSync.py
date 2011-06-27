@@ -362,8 +362,10 @@ class UserSync(ADUserUtils):
                                       cereconf.AD_ACCOUNT_CONTROL)
         ret = self.server.listObjects("user", True, cereconf.AD_LDAP)
         if self.subset:
-            return dict(zip(self.subset,
-                            (ret.get(u) for u in self.subset)))
+            if not set(subset) & set(ret):
+                # No user in subset is in AD. Return empty dict
+                return dict()
+            return dict(zip(self.subset, (ret.get(u) for u in self.subset)))
         return ret
 
 
