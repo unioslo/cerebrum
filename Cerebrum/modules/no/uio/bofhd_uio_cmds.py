@@ -1401,7 +1401,7 @@ class BofhdExtension(BofhdCommandBase):
 
             # Tell what addresses can be deleted:
             ea = Email.EmailAddress(self.db)
-            domains = acc.get_prospect_maildomains()
+            domains = acc.get_prospect_maildomains(use_default_domain=cereconf.EMAIL_DEFAULT_DOMAIN)
             deletables = []
             for addr in et.get_addresses(special=True):
                 ea.clear()
