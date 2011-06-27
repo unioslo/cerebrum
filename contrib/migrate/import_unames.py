@@ -90,9 +90,13 @@ def process_line(infile, maxlen, reserve_unames, set_names):
         fields = [x.strip() for x in line.split(":")]
         if len(fields) == 2:
             fnr, uname = fields
+            lname = fname = bewid = ''
+        elif len(fields) == 3:
+            fnr, uname, bewid = fields
             lname = fname = ''
         elif len(fields) == 4:
             fnr, uname, lname, fname = fields
+            bewid = ''
         else:
             logger.error("Bad line: %s. Skipping" % line.strip())
             continue
@@ -101,7 +105,7 @@ def process_line(infile, maxlen, reserve_unames, set_names):
             logger.error("No fnr. Skipping line: %s" % line.strip())
             continue
 
-        person_id = process_person(fnr, lname, fname, set_names)
+        person_id = process_person(fnr, lname, fname, bewid, set_names)
         if not person_id:
             continue
 
@@ -114,7 +118,7 @@ def process_line(infile, maxlen, reserve_unames, set_names):
             attempt_commit()
 
 
-def process_person(fnr, lname, fname, set_names):
+def process_person(fnr, lname, fname, bewid, set_names):
     """
     Find or create a person; return the person_id corresponding to
     fnr. Set name for new persons if set_name is True.
@@ -146,6 +150,15 @@ def process_person(fnr, lname, fname, set_names):
     e_id = person.entity_id
     logger.info("Created new person with id %s and fnr %s", e_id, fnr)
 
+    if bewid:
+        person.affect_external_id(constants.system_migrate,
+                                  constants.externalid_bewatorid)
+        person.populate_external_id(constants.system_migrate,
+                                    constants.externalid_bewatorid,
+                                    bewid)
+    person.write_db()
+    logger.info("Added BewatorID %s for %s", bewid, fnr)
+    
     if set_names:
         if lname and fname:
             person.affect_names(constants.system_migrate,
