@@ -27,6 +27,16 @@ from Cerebrum.modules.cis import Individuation
 
 class Individuation(Individuation.Individuation):
     """UiA specific behaviour for the individuation service."""
+
+    # The subject of the warning e-mails
+    email_subject = 'Failed password recovery attempt'
+
+    # The signature of the warning e-mails
+    email_signature = 'University of Agder'
+
+    # The from address
+    email_from = 'noreply@uia.no'
+
     # The feedback messages for UiA
     # TBD: put somewhere else?
     messages = {
