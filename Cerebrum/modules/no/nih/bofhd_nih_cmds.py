@@ -33,6 +33,7 @@ from Cerebrum import Errors
 from Cerebrum import Database
 
 from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules import Email
 from Cerebrum.modules.no.nih import bofhd_nih_help
 from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
@@ -65,6 +66,13 @@ class BofhdExtension(BofhdCommandBase):
         '_validate_access_global_ou', 'access_list_opsets', 'access_show_opset',
         'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
         '_get_opset',
+        #
+        # copy relevant e-mail-cmds and util methods
+        #
+        'email_info', '_email_info_account', '_email_info_basic', '_email_info_spam',
+        '_email_info_filters', '_email_info_forwarding', '_split_email_address',
+        '_email_info_mailman', '_email_info_multi', '_email_info_file',
+        '_email_info_pipe', '_email_info_forward',
         #
         # copy relevant group-cmds and util methods
         #
@@ -330,4 +338,119 @@ class BofhdExtension(BofhdCommandBase):
             account.delete_spread(int(s['spread']))
         account.write_db()
         return "User %s queued for deletion immediately" % account.account_name
+
+    # helpers needed for email_info, cannot be copied in the usual way
+    #
+    def __get_valid_email_addrs(self, et, special=False, sort=False):
+        """Return a list of all valid e-mail addresses for the given
+        EmailTarget.  Keep special domain names intact if special is
+        True, otherwise re-write them into real domain names."""
+        addrs = [(r['local_part'], r['domain'])       
+                 for r in et.get_addresses(special=special)]
+        if sort:
+            addrs.sort(lambda x,y: cmp(x[1], y[1]) or cmp(x[0],y[0]))
+        return ["%s@%s" % a for a in addrs]
+
+    def __get_email_target_and_address(self, address):
+        """Returns a tuple consisting of the email target associated
+        with address and the address object.  If there is no at-sign
+        in address, assume it is an account name and return primary
+        address.  Raises CerebrumError if address is unknown.
+        """
+        et = Email.EmailTarget(self.db)
+        ea = Email.EmailAddress(self.db)
+        if address.count('@') == 0:
+            acc = self.Account_class(self.db)
+            try:
+                acc.find_by_name(address)
+                # FIXME: We can't use Account.get_primary_mailaddress
+                # since it rewrites special domains.
+                et = Email.EmailTarget(self.db)
+                et.find_by_target_entity(acc.entity_id)
+                epa = Email.EmailPrimaryAddressTarget(self.db)
+                epa.find(et.entity_id)
+                ea.find(epa.email_primaddr_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, ("No such address: '%s'" % address)
+        elif address.count('@') == 1:
+            try:
+                ea.find_by_address(address)
+                et.find(ea.email_addr_target_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such address: '%s'" % address
+        else:
+            raise CerebrumError, "Malformed e-mail address (%s)" % address
+        return et, ea
+
+    def __get_email_target_and_account(self, address):
+        """Returns a tuple consisting of the email target associated
+        with address and the account if the target type is user.  If
+        there is no at-sign in address, assume it is an account name.
+        Raises CerebrumError if address is unknown."""
+        et, ea = self.__get_email_target_and_address(address)
+        acc = None
+        if et.email_target_type in (self.const.email_target_account,
+                                    self.const.email_target_deleted):
+            acc = self._get_account(et.email_target_entity_id, idtype='id')
+        return et, acc
+    
+    def __get_address(self, etarget):
+        """The argument can be
+        - EmailPrimaryAddressTarget
+        - EmailAddress
+        - EmailTarget (look up primary address and return that, throw
+        exception if there is no primary address)
+        - integer (use as entity_id and look up that target's
+        primary address)
+        The return value is a text string containing the e-mail
+        address.  Special domain names are not rewritten."""
+        ea = Email.EmailAddress(self.db)
+        if isinstance(etarget, (int, long, float)):
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            # may throw exception, let caller handle it
+            epat.find(etarget)
+            ea.find(epat.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailTarget):
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            epat.find(etarget.entity_id)
+            ea.find(epat.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailPrimaryAddressTarget):
+            ea.find(etarget.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailAddress):
+            ea = etarget
+        else:
+            raise ValueError, "Unknown argument (%s)" % repr(etarget)
+        ed = Email.EmailDomain(self.db)
+        ed.find(ea.email_addr_domain_id)
+        return ("%s@%s" % (ea.email_addr_local_part,
+                           ed.email_domain_name))
+
+    def _email_info_detail(self, acc):
+        info = []
+        eq = Email.EmailQuota(self.db)
+        try:
+            eq.find_by_target_entity(acc.entity_id)
+            et = Email.EmailTarget(self.db)
+            et.find_by_target_entity(acc.entity_id)
+            es = Email.EmailServer(self.db)
+            es.find(et.email_server_id)
+            used = 'N/A'
+            limit = None
+            homemdb = None
+            tmp = acc.get_trait(self.const.trait_exchange_mdb)
+            if tmp != None:
+                homemdb = tmp['strval']
+            else:
+                homemdb = 'N/A'
+            info.append({'quota_hard': eq.email_quota_hard,
+                         'quota_soft': eq.email_quota_soft,
+                         'quota_used': used})
+            info.append({'dis_quota_hard': eq.email_quota_hard,
+                         'dis_quota_soft': eq.email_quota_soft})
+            # should not be shown for accounts without exchange-spread, needs fixin', Jazz 2011-02-21
+            info.append({'homemdb': homemdb})
+        except Errors.NotFoundError:
+            pass
+        return info
+    
 
