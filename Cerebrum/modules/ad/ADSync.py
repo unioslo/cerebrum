@@ -462,11 +462,10 @@ class UserSync(ADUserUtils):
 
         # Special AD control attributes
         for attr, value in cereconf.AD_ACCOUNT_CONTROL.iteritems():
-            new_value = value
             if attr in cb_user.ad_attrs:
-                new_value = cb_user.ad_attrs[attr]
-            if attr not in ad_user or ad_user[attr] != new_value:
-                cb_user.add_change(attr, new_value)
+                value = cb_user.ad_attrs[attr]
+            if attr not in ad_user or ad_user[attr] != value:
+                cb_user.add_change(attr, value)
                 
         # Commit changes
         if cb_user.changes:
