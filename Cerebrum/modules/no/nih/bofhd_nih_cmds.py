@@ -69,7 +69,7 @@ class BofhdExtension(BofhdCommandBase):
         #
         # copy relevant e-mail-cmds and util methods
         #
-        'email_info', '_email_info_basic', '_email_info_spam',
+        'email_info', '_email_info_account', '_email_info_basic', '_email_info_spam',
         '_email_info_filters', '_email_info_forwarding', '_split_email_address',
         '_email_info_mailman', '_email_info_multi', '_email_info_file',
         '_email_info_pipe', '_email_info_forward',
@@ -452,31 +452,4 @@ class BofhdExtension(BofhdCommandBase):
         except Errors.NotFoundError:
             pass
         return info
-
-    # Should change Email.py based on a use_default_domain cereconf variable,
-    # Jazz, 2011-06-27
-    def _email_info_account(self, operator, acc, et, addrs):
-        self.ba.can_email_info(operator.get_entity_id(), acc)
-        ret = self._email_info_basic(acc, et)
-        try:
-            self.ba.can_email_info_detail(operator.get_entity_id(), acc)
-        except PermissionDenied:
-            pass
-        else:
-            ret += self._email_info_spam(et)
-            ret += self._email_info_detail(acc)
-            ret += self._email_info_forwarding(et, addrs)
-            ret += self._email_info_filters(et)
-
-            # Tell what addresses can be deleted:
-            ea = Email.EmailAddress(self.db)
-            domains = acc.get_prospect_maildomains(use_default_domain=False)
-            deletables = []
-            for addr in et.get_addresses(special=True):
-                ea.clear()
-                ea.find(addr['address_id'])
-                if ea.email_addr_domain_id not in domains:
-                    deletables.append(ea.get_address())
-            ret.append({'deletable': deletables})
-        return ret    
-
+    
