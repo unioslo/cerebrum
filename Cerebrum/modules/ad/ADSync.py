@@ -80,21 +80,27 @@ class UserSync(ADUserUtils):
                             command line options.
         @type config_args: dict
         """
-        self.logger.info("Starting user-sync")
         # Sync settings for this module
         for k in ("user_spread", "user_exchange_spread", "forward_sync",
                   "exchange_sync", "delete_users", "dryrun", "ad_domain",
                   "store_sid", "subset"):
             if k in config_args:
                 setattr(self, k, config_args.pop(k))
-        
+
+        msg = "Starting user-sync"
+        if self.dryrun:
+            msg += " in dryrun mode. No changes will be performed"
+        self.logger.info(msg)
         # Set which attrs that are to be compared with AD
         self.sync_attrs = cereconf.AD_ATTRIBUTES
         if self.exchange_sync:
             self.sync_attrs += cereconf.AD_EXCHANGE_ATTRIBUTES
         self.logger.info("Configuration done. Will compare attributes: %s" %
                          ", ".join(self.sync_attrs))
-        
+        if self.subset:
+            self.logger.info("Sync will only be run for the subset %s" %
+                             str(self.subset))
+
 
     def fullsync(self):
         """
