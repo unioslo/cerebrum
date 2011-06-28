@@ -91,6 +91,11 @@ class ADUtils(object):
         if not self.dryrun and self.run_cmd('bindObject', dn):
             self.logger.info("Setting attributes for %s: %s" % (dn, changes))
             # Set attributes in AD
+            # Check that no values in changes == None.
+            # That is an error and shouldn't be sent
+            for k, v in changes.iteritems():
+                if v is None:
+                    del changes[k]
             self.run_cmd('putProperties', changes)
             self.run_cmd('setObject')
 
