@@ -26,7 +26,9 @@ This is the glue between Cerebrum and twisted's soap server, as most Cerebrum
 relevant functionality should be placed in Cerebrum/modules/cis/, which should
 not know anything about twisted.
 
-TODO: Describe ...
+Note that the logger is twisted's own logger and not Cerebrum's. Since twisted
+works in parallell the logger can not block. Due to this, the format of the logs
+is not equal to the rest of Cerebrum. This might be something to work on later.
 
 """
 

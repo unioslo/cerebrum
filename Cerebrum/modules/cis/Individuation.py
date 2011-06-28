@@ -247,7 +247,6 @@ class Individuation:
 
     def create_token(self):
         """Return random sample of alphanumeric characters"""
-        #return "phFmZquz" # TODO: remove when done testing
         alphanum = string.digits + string.ascii_letters
         return ''.join(random.sample(alphanum, cereconf.INDIVIDUATION_TOKEN_LENGTH))
 
@@ -558,7 +557,7 @@ class Individuation:
         for gname in (getattr(cereconf, 'INDIVIDUATION_PASW_RESERVED', ()) +
                       (cereconf.BOFHD_SUPERUSER_GROUP,)):
             group.clear()
-            group.find_by_name(gname) # TODO: if groups doesn't exist it should fail!
+            group.find_by_name(gname)
             if account.entity_id in (int(row["member_id"]) for row in
                                      group.search_members(group_id=group.entity_id,
                                                           indirect_members=True,
