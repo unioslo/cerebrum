@@ -34,10 +34,9 @@ is not equal to the rest of Cerebrum. This might be something to work on later.
 
 import sys, socket
 import getopt
-import SoapListener
 
 import cerebrum_path, cereconf
-from Cerebrum.modules.cis import Individuation
+from Cerebrum.modules.cis import Individuation, SoapListener
 from Cerebrum.Utils import Messages, dyn_import
 from Cerebrum import Errors
 
@@ -46,7 +45,7 @@ from soaplib.core.model.primitive import String, Integer, Boolean
 from soaplib.core.model.clazz import ClassModel, Array
 from soaplib.core.model.exception import Fault
 
-from twisted.python import log
+from twisted.python import log, logfile
 
 try:
     from twisted.internet import ssl
@@ -240,6 +239,9 @@ if __name__=='__main__':
 
     # Init twisted logger
     logger = log.startLogging(file(logfile, 'a'))
+    # for rotating logs
+    #logger = log.startLogging(logfile.LogFile.fromFullPath(logfile,
+    #                          rotateLength=1000000))
     logger.timeFormat = '%Y-%m-%d %H:%M:%S'
 
     # Initiate the individuation instance
