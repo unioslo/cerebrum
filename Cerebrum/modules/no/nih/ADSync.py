@@ -111,8 +111,7 @@ class NIHCerebrumUser(CerebrumUser):
         if not self.aff_status:
             return ""
         if self.aff_status.startswith("STUDENT"):
-            ret = cereconf.AFF_STATUS2AD_HOMEDIR.get("STUDENT")
-            return ret % self.uname
+            return cereconf.AFF_STATUS2AD_HOMEDIR.get("STUDENT") + self.uname
         else:
             return cereconf.AFF_STATUS2AD_HOMEDIR.get(self.aff_status, "")
 
