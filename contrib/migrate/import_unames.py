@@ -141,8 +141,13 @@ def process_person(fnr, lname, fname, bewid, set_names):
         gender = constants.gender_female
     year, mon, day = fodselsnr.fodt_dato(fnr)
     person.populate(db.Date(year, mon, day), gender)
-    person.affect_external_id(constants.system_migrate,
-                              constants.externalid_fodselsnr)
+    if bewid:
+        person.affect_external_id(constants.system_migrate,
+                                  constants.externalid_fodselsnr,
+                                  constants.externalid_bewatorid)
+    else:
+        person.affect_external_id(constants.system_migrate,
+                                  constants.externalid_fodselsnr)        
     person.populate_external_id(constants.system_migrate,
                                 constants.externalid_fodselsnr,
                                 fnr)
@@ -151,8 +156,6 @@ def process_person(fnr, lname, fname, bewid, set_names):
     logger.info("Created new person with id %s and fnr %s", e_id, fnr)
 
     if bewid:
-        person.affect_external_id(constants.system_migrate,
-                                  constants.externalid_bewatorid)
         person.populate_external_id(constants.system_migrate,
                                     constants.externalid_bewatorid,
                                     bewid)
