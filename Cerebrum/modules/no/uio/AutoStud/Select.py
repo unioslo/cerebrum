@@ -192,6 +192,34 @@ class SelectMapAktivtSted(SelectMapSuper):
                     self._append_match(matches, select_attrs['profiles'], fs_info)
         return matches
 
+class SelectMapEmnestudSted(SelectMapAktivtSted):
+    def get_matches(self, person_info, member_groups=None, person_affs=None):
+        #print "SelectMapEmnestudSted.get_matches"
+        matches = []
+        for fs_infodict, match_tag, col_postfix in (
+           (self._pc.autostud.emnekode2info,
+            'emnekode', '_reglement'),):
+            #print "***%s" % match_tag
+            for pdta in person_info.get('emnestud', []):
+                #print "***emnestud"
+                if not pdta.has_key(match_tag):
+                    continue  # emnekode not set for some aktiv tags.
+                try:
+                    fs_info = fs_infodict[pdta[match_tag]]
+                except KeyError:
+                    self._logger.error("Ukjent: %s in %s" % (
+                        match_tag, pdta))
+                    continue
+                sko = "%02i%02i%02i" % (int(fs_info['faknr%s' % col_postfix]),
+                                        int(fs_info['instituttnr%s' % col_postfix]),
+                                        int(fs_info['gruppenr%s' % col_postfix]))
+                #self._logger.debug2("Is %s in %s?" % (sko, self._select_map.values()))
+                for select_attrs in self._select_map.values():
+                    if not sko in select_attrs['steder']:
+                        continue
+                    self._append_match(matches, select_attrs['profiles'], fs_info)
+        return matches
+
 class SelectMapTilbudSted(SelectMapAktivtSted):
     def set_select_map(self, select_attrs, profile):
         """build a mapping:
@@ -235,7 +263,7 @@ class SelectMapTilbudSted(SelectMapAktivtSted):
                         continue
                     self._append_match(matches, select_attrs['profiles'], fs_info)
         return matches
-    
+
 class SelectMapEvuSted(SelectMapAktivtSted):
     def set_select_map(self, select_attrs, profile):
         self._logger.debug2("EVU Map: %s -> %s" % (select_attrs, profile))
@@ -326,6 +354,7 @@ class SelectTool(object):
         "privatist_emne": SelectMapTag('emnekode','privatist_emne', 'emnekode'),
         "aktivt_sted": SelectMapAktivtSted(),
         "tilbud_sted": SelectMapTilbudSted(),
+        "emnestud_sted": SelectMapEmnestudSted(),
         "evu_sted": SelectMapEvuSted(),
         "medlem_av_gruppe": SelectMapGroupMember(),
         "person_affiliation": SelectMapPersonAffiliation(),
