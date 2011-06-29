@@ -287,7 +287,7 @@ def process_person_callback(person_info):
         for row in person_info['emnestud']:
             if emne2sko[row['emnekode']] is not None:
                 aktivemne_sted.append(int(emne2sko[row['emnekode']]))
-                logger.debug('Add sko based on emne')
+                logger.debug('Add sko %s based on emne %s', int(emne2sko[row['emnekode']]), row['emnekode'])
 
     for dta_type in person_info.keys():
         x = person_info[dta_type]
@@ -327,7 +327,7 @@ def process_person_callback(person_info):
                 # emnestud and aonther affiliation to the same sko,
                 # but this seems to work for now.
                 try:
-                    sko = emne2sko[p['emnekode']]
+                    sko = emne2sko[row['emnekode']]
                 except KeyError:
                     logger.warn("Fant ingen emner med koden %s" % p['emnekode'])
                     continue  
@@ -499,7 +499,7 @@ def main():
         emne2sko[e['emnekode']] = \
             _get_sko(e, 'faknr_reglement', 'instituttnr_reglement',
                      'gruppenr_reglement')
-        
+
     # create fnr2person_id mapping, always using fnr from FS when set
     person = Factory.get('Person')(db)
     if include_delete:
