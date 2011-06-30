@@ -71,6 +71,7 @@ def process_line(infile, spread, sepchar, homemdb):
     stream = open(infile, 'r')
     commit_count = 0
     commit_limit = 1000
+    mdb = None
 
     # Iterate over all persons:
     for line in stream:
