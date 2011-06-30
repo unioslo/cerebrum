@@ -102,7 +102,7 @@ def process_line(infile, spread, sepchar, homemdb):
             logger.error("No uname given. Skipping!")
             continue
 
-        account = get_account(uname)
+        account = get_account(uname, external_id=extid)
         if account:
             process_mail(account, mtype, addr, spread=spread, homemdb=mdb)
 
@@ -110,26 +110,34 @@ def process_line(infile, spread, sepchar, homemdb):
             attempt_commit()
 
 
-def get_account(uname):
-    try:
-        person.clear()
-        person.find_by_external_id(constants.externalid_uname, uname)
-        # this is not the most robust code, but it should work for all
-        # person objects available at this point
-        tmp = person.get_accounts()
-        if len(tmp) == 0:
-            logger.warn("Skipping, no valid accounts found for '%s'" % uname)
+def get_account(uname, external_id=False):
+    if external_id:
+        try:
+            person.clear()
+            person.find_by_external_id(constants.externalid_uname, uname)
+            # this is not the most robust code, but it should work for all
+            # person objects available at this point
+            tmp = person.get_accounts()
+            if len(tmp) == 0:
+                logger.warn("Skipping, no valid accounts found for '%s'" % uname)
+                return
+            account_id = int(tmp[0]['account_id'])
+            account.clear()
+            account.find(account_id)
+            logger.info("Found account '%s' for user with external name '%s'",
+                        account.account_name, uname)
+            return account
+        except Errors.NotFoundError:
+            logger.warn("Didn't find user with external name '%s'" % uname)
             return
-        account_id = int(tmp[0]['account_id'])
-        account.clear()
-        account.find(account_id)
-        logger.info("Found account '%s' for user with external name '%s'",
-                    account.account_name, uname)
-        return account
+    account.clear()
+    try:
+        account.find_by_name(uname)
     except Errors.NotFoundError:
-        logger.warn("Didn't find user with external name '%s'" % uname)
-        return 
-
+        logger.error("Didn't find account '%s'!", uname)
+        return
+    logger.debug("found account %s", uname)
+    return account
 
 def process_mail(account, mtype, addr, spread=None, homemdb=None):
     et = Email.EmailTarget(db)
@@ -205,6 +213,7 @@ def usage():
     -f, --file    : File to parse.
     -s, --spread  : add spread to account (optional)
     -m, --homemdb : add homeMDB as trait
+    -e, --extid  : check for account by external_id 
     """
     sys.exit(0)
 
@@ -212,17 +221,18 @@ def usage():
 def main():
     global db, constants, account, person, fnr2person_id
     global default_creator_id, default_group_id
-    global dryrun, logger
+    global dryrun, logger, extid
 
     logger = Factory.get_logger("console")
     
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   'f:s:c:dm',
+                                   'f:s:c:edm',
                                    ['file=',
                                     'spread=',
                                     'sepchar=',
                                     'homemdb',
+                                    'extid'
                                     'dryrun'])
     except getopt.GetoptError:
         usage()
@@ -231,6 +241,8 @@ def main():
     spread = None
     sepchar = ":"
     homemdb = False
+    extid = False
+    
     for opt, val in opts:
         if opt in ('-d', '--dryrun'):
             dryrun = True
@@ -242,6 +254,8 @@ def main():
             sepchar = val
         elif opt in ('-m', '--homemdb'):
             homemdb = True
+        elif opt in ('-e', '--extid'):
+            extid = True
 
     if infile is None:
         usage()
