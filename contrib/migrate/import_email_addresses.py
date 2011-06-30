@@ -104,7 +104,10 @@ def process_line(infile, spread, sepchar, homemdb):
 
         account = get_account(uname, external_id=extid)
         if account:
-            process_mail(account, mtype, addr, spread=spread, homemdb=mdb)
+            if mdb:
+                process_mail(account, mtype, addr, spread=spread, homemdb=mdb)
+            else:
+                process_mail(account, mtype, addr, spread=spread)
 
         if commit_count % commit_limit == 0:
             attempt_commit()
