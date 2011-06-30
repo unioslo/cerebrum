@@ -99,9 +99,16 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         self.cache = self._get_cache(params.session_id)
         try:
             return super(IndividuationServer, self).call_wrapper(call, params)
+        except KeyboardInterrupt, e: # don't catch signals like ctrl+c
+            raise e
         except Errors.CerebrumRPCException, e:
             msg = self.cache['msgs'][e.args[0]] % e.args[1:]
             raise Fault(faultstring=e.__doc__ + ': ' + msg)
+        except Exception, e:
+            log.msg('ERROR: Unhandled exception occured')
+            log.err(e)
+            # Don't want the client to know too much about unhandled errors.
+            raise Fault(faultstring='Unknown error')
 
     @rpc(String, String, _returns=Boolean)
     def set_language(self, language, session_id=None):

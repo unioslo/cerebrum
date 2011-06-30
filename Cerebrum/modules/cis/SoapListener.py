@@ -90,11 +90,9 @@ class BasicSoapServer(DefinitionBase):
     
         @param the exception object
         '''
-        log.msg("Exception occured: '%s'" % exc.faultstring)
         if not exc.faultstring.startswith('CerebrumRPCException: '):
+            log.msg("ERROR: Exception: '%s'" % exc.faultstring)
             traceback.print_exc()
-            # TBD: exchange error messages with default message, to avoid
-            # letting people read data they shouldn't read?
 
     def on_method_exception_xml(self, fault_xml):
         '''Called AFTER the exception is serialized, when an error occurs
@@ -300,7 +298,7 @@ class WSGIResourceSession(WSGIResource):
             # Creates the session if it doesn't exist. When created, twisted
             # automatically creates a cookie for it.
             ISessionCache(request.getSession())
-            log.msg("DEBUG: session id = %s" % request.getSession().uid)
+            #log.msg("DEBUG: session id = %s" % request.getSession().uid)
         return super(WSGIResourceSession, self).render(request)
 
 # To make use of the session, we need to give it functionality, either by
