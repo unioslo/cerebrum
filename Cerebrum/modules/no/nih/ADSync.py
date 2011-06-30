@@ -109,17 +109,20 @@ class NIHCerebrumUser(CerebrumUser):
     def calc_homedir(self):
         """Calculate homedir based on affiliation status"""
         if not self.aff_status:
-            return ""
+            return None
         if self.aff_status.startswith("STUDENT"):
             return cereconf.AFF_STATUS2AD_HOMEDIR.get("STUDENT") + self.uname
         else:
-            return cereconf.AFF_STATUS2AD_HOMEDIR.get(self.aff_status, "")
+            ret = cereconf.AFF_STATUS2AD_HOMEDIR.get(self.aff_status, "")
+            if ret:
+                ret += self.uname
+                return ret
 
         
     def calc_homedrive(self):
         """Calculate homedrive based on affiliation status"""
         if not self.aff_status:
-            return ""
+            return None
         if self.aff_status.startswith("STUDENT"):
             return cereconf.AFF_STATUS2AD_HOMEDRIVE.get("STUDENT")
         else:
