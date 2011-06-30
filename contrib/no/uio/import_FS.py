@@ -240,10 +240,21 @@ def filter_affiliations(affiliations):
     
     affiliations.sort(lambda x,y: aff_status_pri_order.get(int(y[2]), 99) -
                       aff_status_pri_order.get(int(x[2]), 99))
+    aktiv = False
     
+    for ou, aff, aff_status in affiliations:
+        if aff_status == int(co.affiliation_status_student_aktiv) or \
+               aff_status == int(co.affiliation_status_student_drgrad) or \
+               aff_status == int(co.affiliation_status_student_evu):
+            aktiv = True
+            
     ret = {}
     for ou, aff, aff_status in affiliations:
-        ret[(ou, aff)] = aff_status
+        if aff_status == int(co.affiliation_status_student_emnestud) and aktiv:
+            logger.debug("Dropping emnestud-affiliation")
+            continue
+        else:
+            ret[(ou, aff)] = aff_status
     return [(ou, aff, aff_status) for (ou, aff), aff_status in ret.items()]
 
 def process_person_callback(person_info):
