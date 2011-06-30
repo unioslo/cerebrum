@@ -45,7 +45,7 @@ from soaplib.core.model.primitive import String, Integer, Boolean
 from soaplib.core.model.clazz import ClassModel, Array
 from soaplib.core.model.exception import Fault
 
-from twisted.python import log, logfile
+from twisted.python import log, logfile, util
 
 try:
     from twisted.internet import ssl
@@ -99,8 +99,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         self.cache = self._get_cache(params.session_id)
         try:
             return super(IndividuationServer, self).call_wrapper(call, params)
-        except KeyboardInterrupt, e: # don't catch signals like ctrl+c
-            raise e
+        except KeyboardInterrupt: # don't catch signals like ctrl+c
+            raise
         except Errors.CerebrumRPCException, e:
             msg = self.cache['msgs'][e.args[0]] % e.args[1:]
             raise Fault(faultstring=e.__doc__ + ': ' + msg)
@@ -245,11 +245,31 @@ if __name__=='__main__':
             usage()
 
     # Init twisted logger
-    logger = log.startLogging(file(logfile, 'a'))
-    # for rotating logs
-    #logger = log.startLogging(logfile.LogFile.fromFullPath(logfile,
-    #                          rotateLength=1000000))
+    class TwistedCerebrumLogger(log.FileLogObserver):
+        """Modifying twisted's logger to but with a format that is more
+        Cerebrum-like."""
+        def emit(self, eventDict):
+            """Changing the default log format.
+
+            TODO: This is a hack, there should be a better way of modifying the
+            log format"""
+            text = log.textFromEventDict(eventDict)
+            if text is None:
+                return
+
+            timeStr = self.formatTime(eventDict['time'])
+            fmtDict = {'system': eventDict['system'], 'text': text.replace("\n", "\n\t")}
+            msgStr = log._safeFormat("[%(system)s] %(text)s\n", fmtDict)
+
+            util.untilConcludes(self.write, timeStr + " cis_individuation: " + msgStr)
+            util.untilConcludes(self.flush)  # Hoorj!
+
+    logger = TwistedCerebrumLogger(file(logfile, 'a'))
     logger.timeFormat = '%Y-%m-%d %H:%M:%S'
+    log.startLoggingWithObserver(logger.emit)
+    # Use: 
+    #   logfile.LofFile.fromFullPath(logfile, rotateLength=100000)
+    # instead of file(logfile, 'a') for automatically rotate the log
 
     # Initiate the individuation instance
     module, classname = instance.split('/', 1)

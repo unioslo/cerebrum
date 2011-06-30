@@ -90,9 +90,8 @@ class BasicSoapServer(DefinitionBase):
     
         @param the exception object
         '''
-        if not exc.faultstring.startswith('CerebrumRPCException: '):
-            log.msg("ERROR: Exception: '%s'" % exc.faultstring)
-            traceback.print_exc()
+        #exc.faultstring
+        pass
 
     def on_method_exception_xml(self, fault_xml):
         '''Called AFTER the exception is serialized, when an error occurs
