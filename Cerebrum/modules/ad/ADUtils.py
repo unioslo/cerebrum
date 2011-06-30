@@ -140,7 +140,7 @@ class ADUtils(object):
         """
         cmd = getattr(self.server, command)
         try:
-            self.logger.debug("Running cmd: %s%s", command, str(args))
+            self.logger.debug3("Running cmd: %s%s", command, str(args))
             ret = cmd(*args)                
         except xmlrpclib.ProtocolError, xpe:
             self.logger.critical("Error connecting to AD service: %s %s" %
@@ -166,6 +166,7 @@ class ADUtils(object):
         if command == "createObject" and len(ret) == 3:
             return ret[2]
         else:
+            self.logger.debug("Command %s ran successfully", command)
             return True
 
 
@@ -331,9 +332,12 @@ class ADUserUtils(ADUtils):
         for a in ("distinguishedName", "cn"):
             if attrs.has_key(a):
                 del attrs[a]
-        self.run_cmd("putProperties", attrs)
-        self.run_cmd("setObject")
-        # createObject succeded, return sid
+        if self.run_cmd("putProperties", attrs) and self.run_cmd("setObject"):
+            # TBD: A bool here to decide if createDir should be performed or not?
+            # Create accountDir for new account if attributes where set.
+            # Give AD time to take a breath before creating homeDir
+            time.sleep(5)
+            self.run_cmd("createDir")
         return sid
 
 
