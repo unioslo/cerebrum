@@ -32,7 +32,7 @@ TODO:
   investigating at least.
 """
 
-
+import time
 import xmlrpclib
 import cerebrum_path
 import cereconf
