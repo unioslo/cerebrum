@@ -146,6 +146,7 @@ Examples:
 
         self.posix_users = []
         self.e_id2name = {}
+        self.p_id2name = {}
         self.auth_data = {}
         self.disk_tab = {}
         self.shell_tab = {}
@@ -234,6 +235,10 @@ Examples:
                                     module=posixconf)
             self.fgrp_dn = ldapconf('FILEGROUP', 'dn', default=None,
                                     module=posixconf)
+            self.ngrp_dn = ldapconf('NETGROUP', 'dn', default=None,
+                                    module=posixconf)
+            self.hgrp_dn = ldapconf('HOSTNETGROUP', 'dn', default=None,
+                                    module=posixconf)
             self.load_auth_tab()
             self.load_posix_users()
             self._build_entity2name_mapping(self.co.account_namespace)
@@ -280,12 +285,14 @@ Examples:
             if 'netgroup' in self.options:
                 f_netgroup = self.open_netgroup()
 
-        if 'host-netgroup' in self.options:
+        if 'host-netgroup' in self.options or \
+                ('host-netgroup-spread' in self.options and 'ldif' in self.options):
             self._build_entity2name_mapping(self.co.group_namespace)
             self._build_entity2name_mapping(self.co.dns_owner_namespace)
             self.load_groups(self.spread_d['host-netgroup-spread'],
                              self.host_netgroups)
-            f_host_netgroup = self.open_host_netgroup()
+            if 'host-netgroup' in self.options:
+                f_host_netgroup = self.open_host_netgroup()
 
         # Start passing data to functions
         if 'ldif' in self.options or 'passwd' in self.options:
@@ -331,8 +338,10 @@ Examples:
                     continue
                 users = self._expand_filegroup(g_id)
                 if 'ldif' in self.options:
-                    dn,entry = self.ldif_filegroup(self.filegroups[g_id],
-                                                   gid, None, users)
+                    # TODO: description
+                    dn = ','.join((('cn='+self.filegroups[g_id]), self.fgrp_dn))
+                    entry = self.ldif_filegroup(self.filegroups[g_id],
+                                                gid, None, users)
                     f_ldif.write(entry_string(dn, entry, False))
                 if 'group' in self.options:
                     f_group.write(self._wrap_line(
@@ -348,14 +357,16 @@ Examples:
                                                     module=posixconf))
             for g_id in self.netgroups:
                 name = self.netgroups[g_id]
-
                 group_members, user_members = \
                     self._expand_netgroup(g_id,
                                           self.co.entity_account,
                                           self.spread_d["user-spread"])
                 if 'ldif' in self.options:
-                    dn,entry = self.ldif_netgroup(self.netgroups[g_id],
-                                                   group_members, user_members)
+                    #TODO: description
+                    dn = ','.join((('cn='+self.netgroups[g_id]), self.ngrp_dn))
+                    entry = self.ldif_netgroup(self.netgroups[g_id], None, 
+                                               group_members,
+                                               ["(,%s,)" % m for m in user_members])
                     f_ldif.write(entry_string(dn, entry, False))
                 if 'netgroup' in self.options:
                     f_netgroup.write(self._wrap_line(
@@ -366,7 +377,8 @@ Examples:
                         self._make_tmp_netgroup_name,
                         is_ng=True))
  
-        if 'host-netgroup' in self.options:
+        if 'host-netgroup' in self.options or \
+                ('host-netgroup-spread' in self.options and 'ldif' in self.options):
             self._num_map = {}
             self._exported_groups = {}
             zone = self.options['zone'].postfix
@@ -379,22 +391,27 @@ Examples:
                 name = self.host_netgroups[g_id]
                 group_members, host_members = \
                     self._expand_netgroup(g_id,self.co.entity_dns_owner, None)
+                formated_host_members = [
+                    " ".join(sorted(group_members)),
+                    " ".join(sorted(["(%s,-,)" % m[:-len(zone)] 
+                                     for m in host_members
+                                     if m.endswith(zone)])),
+                    " ".join(sorted(["(%s,-,)" % m[:-1] 
+                                     for m in host_members]))]
                 if 'ldif' in self.options:
-                    dn,entry = self.ldif_host_netgroup(self.host_netgroups[g_id],
-                                                       group_members, host_members)
+                    #TODO: description
+                    dn = ','.join((('cn='+self.host_netgroups[g_id]), self.hgrp_dn))
+                    entry = self.ldif_netgroup(self.host_netgroups[g_id], None
+                                               group_members, 
+                                               formated_host_members)
                     f_ldif.write(entry_string(dn, entry, False))
-                f_host_netgroup.write(self._wrap_line(
-                        self.host_netgroups[g_id], 
-                        " ".join((
-                            " ".join(sorted(group_members)),
-                            " ".join(sorted(["(%s,-,)" % m[:-len(zone)] 
-                                      for m in host_members
-                                      if m.endswith(zone)])),
-                            " ".join(sorted(["(%s,-,)" % m[:-1] 
-                                             for m in host_members])))),
-                        ' ',
-                        self._make_tmp_host_netgroup_name,
-                        is_ng=True))
+                if 'host-netgroup' in self.options:
+                    f_host_netgroup.write(self._wrap_line(
+                            self.host_netgroups[g_id], 
+                            " ".join(formated_host_members),
+                            ' ',
+                            self._make_tmp_host_netgroup_name,
+                            is_ng=True))
 
         if 'ldif' in self.options:
             self.close_ldif(f_ldif)
@@ -724,8 +741,19 @@ Examples:
             entry['description'] = (iso2utf(desc),)
         # There may be duplicates in the resulting sequence
         entry['memberUid'] = members
-        dn = ','.join((('cn=' + name), self.fgrp_dn))
-        return dn,entry
+        return entry
+
+    def ldif_netgroup(self, name, desc, direct_members, group_members):
+        """Create the group-entry attributes"""
+        entry = {'objectClass': ('top', 'nisNetGroup'),
+                 'cn':          (name,),}
+        if desc:
+            # latin1_to_iso646_60 later
+            entry['description'] = (iso2utf(desc),)
+        # There may be duplicates in the resulting sequence
+        entry['nisNetgroupTriple'] = direct_members
+        entry['memberNisNetgroup'] = group_members
+        return entry
 
 
     def ldif_auth_methods(self):
