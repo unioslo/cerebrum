@@ -69,8 +69,8 @@ class BofhdExtension(BofhdCommandBase):
         #
         # copy relevant e-mail-cmds and util methods
         #
-        'email_info', '_email_info_account', '_email_info_basic', '_email_info_spam',
-        '_email_info_filters', '_email_info_forwarding', '_split_email_address',
+        'email_info', '_email_info_spam', '_email_info_filters',
+        '_email_info_forwarding', '_split_email_address',
         '_email_info_mailman', '_email_info_multi', '_email_info_file',
         '_email_info_pipe', '_email_info_forward',
         #
@@ -87,6 +87,10 @@ class BofhdExtension(BofhdCommandBase):
         #
         'misc_affiliations', 'misc_check_password', 'misc_clear_passwords',
         'misc_stedkode', 'misc_verify_password',
+        #
+        # copy trait-functions
+        #
+        'trait_info', 'trait_list', 'trait_remove', 'trait_set',
         #
         # copy relevant person-cmds and util methods
         #
@@ -427,29 +431,45 @@ class BofhdExtension(BofhdCommandBase):
 
     def _email_info_detail(self, acc):
         info = []
-        eq = Email.EmailQuota(self.db)
         try:
-            eq.find_by_target_entity(acc.entity_id)
             et = Email.EmailTarget(self.db)
             et.find_by_target_entity(acc.entity_id)
-            es = Email.EmailServer(self.db)
-            es.find(et.email_server_id)
-            used = 'N/A'
-            limit = None
             homemdb = None
             tmp = acc.get_trait(self.const.trait_exchange_mdb)
             if tmp != None:
                 homemdb = tmp['strval']
             else:
                 homemdb = 'N/A'
-            info.append({'quota_hard': eq.email_quota_hard,
-                         'quota_soft': eq.email_quota_soft,
-                         'quota_used': used})
-            info.append({'dis_quota_hard': eq.email_quota_hard,
-                         'dis_quota_soft': eq.email_quota_soft})
             # should not be shown for accounts without exchange-spread, needs fixin', Jazz 2011-02-21
             info.append({'homemdb': homemdb})
         except Errors.NotFoundError:
             pass
         return info
     
+    def _email_info_basic(self, acc, et):
+        info = {}
+        data = [ info ]
+        if (et.email_target_type not in (self.const.email_target_Mailman,
+                                         self.const.email_target_Sympa) and
+            et.email_target_alias is not None):
+            info['alias_value'] = et.email_target_alias
+        info["account"] = acc.account_name
+        info["server"] = 'Mail server'
+        info["server_type"] = 'Microsoft Exchange'
+        return data
+    
+    def _email_info_account(self, operator, acc, et, addrs):
+        self.ba.can_email_info(operator.get_entity_id(), acc)
+        ret = self._email_info_basic(acc, et)
+        try:
+            self.ba.can_email_info_detail(operator.get_entity_id(), acc)
+        except PermissionDenied:
+            pass
+        else:
+            # spam settings, forwarding and filters are not used at
+            # NIH for now
+            #ret += self._email_info_spam(et)
+            #ret += self._email_info_forwarding(et, addrs)
+            #ret += self._email_info_filters(et)
+            ret += self._email_info_detail(acc)            
+        return ret
