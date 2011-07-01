@@ -26,6 +26,7 @@ import getopt
 import posixconf
 import cerebrum_path
 from Cerebrum import Errors
+from Cerebrum.Entity import EntityName
 from Cerebrum.Utils import Factory, SimilarSizeWriter, latin1_to_iso646_60
 from Cerebrum.modules import PosixUser
 from Cerebrum.modules import PosixGroup
@@ -129,9 +130,11 @@ Examples:
         self.co = Factory.get('Constants')(self.db)
         self.disk = Factory.get('Disk')(self.db)
         self.person = Factory.get('Person')(self.db)
+        self.group = Factory.get('Group')(self.db)
         self.posix_user = PosixUser.PosixUser(self.db)
         self.posix_group = PosixGroup.PosixGroup(self.db)
         self.logger = logger
+        self._namecachedtime = mx.DateTime.now()
 
         self.short_opts = 'U:G:N:H:l:p:g:n:h:s:z:ea:'
         self.long_opts = ["user-spread=", "group-spread=", "netgroup-spread=",
@@ -142,23 +145,20 @@ Examples:
         self._num = 0
 
         self.posix_users = []
-        self.u_id2name = {}
+        self.e_id2name = {}
         self.auth_data = {}
         self.disk_tab = {}
         self.shell_tab = {}
         self.quarantines = {}
-        self.u_id2name = {}
         self.filegroups = {}
-        self.user_netgroups = {}
+        self.netgroups = {}
         self.host_netgroups = {}
         self.account2def_group = {}
         self.g_id2gid = {}
-        self.p_id2name = {}
         self.a_id2owner = {}
         self.a_id2home = {}
-        self.id2uname = {}
         self.spread_d = {}
-
+        self._names = {}
 
     def parse_options(self, get_opts):
         """Parse input and enable the exports. Variables passed through
@@ -189,11 +189,11 @@ Examples:
             elif opt in ("-g", "--group"):
                 self.options['group'] = val
             elif opt in ("-n", "--netgroup"):
-                self.options['group-spread'] = val
+                self.options['netgroup'] = val
             elif opt in ("-h", "--host-netgroup"):
                 self.options['host-netgroup'] = val
             elif opt in ("-z", "--zone"):
-                self.options['zone'] = val
+                self.options['zone'] = self.co.DnsZone(val)
             elif opt in ("-e", "--eof"):
                 self.options['eof'] = True
             elif opt in ("-a", "--auth-method"):
@@ -236,9 +236,11 @@ Examples:
                                     module=posixconf)
             self.load_auth_tab()
             self.load_posix_users()
+            self._build_entity2name_mapping(self.co.account_namespace)
+            self._build_entity2name_mapping(self.co.group_namespace)
             self.load_groups(self.spread_d['group-spread'], self.filegroups)
             self.load_groups(self.spread_d['netgroup-spread'],
-                             self.user_netgroups)
+                             self.netgroups)
             self.load_group_gids()
             self.load_auth_tab()
             self.load_disk_tab()
@@ -246,10 +248,11 @@ Examples:
             self.load_quaratines()
             self.load_person_names()
             self.load_account_info()
-
             f_ldif = self.open_ldif()
+
         if 'passwd' in self.options:
             self.load_posix_users()
+            self._build_entity2name_mapping(self.co.account_namespace)
             self.load_group_gids()
             self.load_auth_tab()
             self.load_disk_tab()
@@ -257,30 +260,32 @@ Examples:
             self.load_quaratines()
             self.load_person_names()
             self.load_account_info()
-
             f_passwd, f_shadow = self.open_passwd()
+            
         if 'group' in self.options or 'ldif' in self.options:
-            self._exported_groups = {}
             self.load_posix_users()
+            self._build_entity2name_mapping(self.co.account_namespace)
+            self._build_entity2name_mapping(self.co.group_namespace)
             self.load_groups(self.spread_d['group-spread'], self.filegroups)
             self.load_group_gids()
-
-        if 'group' in self.options:
-            f_group = self.open_group()
+            if 'group' in self.options:
+                f_group = self.open_group()
 
         if 'netgroup' in self.options or 'ldif' in self.options:
             self.load_posix_users()
+            self._build_entity2name_mapping(self.co.account_namespace)
+            self._build_entity2name_mapping(self.co.group_namespace)
             self.load_groups(self.spread_d['netgroup-spread'],
-                             self.user_netgroups)
-
-        if 'netgroup' in self.options:
-            f_netgroup = self.load_netgroup()
+                             self.netgroups)
+            if 'netgroup' in self.options:
+                f_netgroup = self.open_netgroup()
 
         if 'host-netgroup' in self.options:
+            self._build_entity2name_mapping(self.co.group_namespace)
+            self._build_entity2name_mapping(self.co.dns_owner_namespace)
             self.load_groups(self.spread_d['host-netgroup-spread'],
                              self.host_netgroups)
-
-            f_host_netgroup = self.load_host_netgroup()
+            f_host_netgroup = self.open_host_netgroup()
 
         # Start passing data to functions
         if 'ldif' in self.options or 'passwd' in self.options:
@@ -309,6 +314,9 @@ Examples:
                         data.gecos, data.home, data.shell)))
 
         if 'ldif' in self.options or 'group' in self.options:
+            self._exported_groups = {}
+            for row in self.group.search(spread=self.spread_d['group-spread']):
+                self._exported_groups[int(row['group_id'])] = row['name']
             if 'ldif' in self.options:
                 f_ldif.write(container_entry_string('FILEGROUP',
                                                     module=posixconf))
@@ -321,7 +329,6 @@ Examples:
                                     key=itemgetter(1)):
                 if g_id not in self.filegroups:
                     continue
-                self._exported_groups[self.filegroups[g_id]] = True
                 users = self._expand_filegroup(g_id)
                 if 'ldif' in self.options:
                     dn,entry = self.ldif_filegroup(self.filegroups[g_id],
@@ -333,11 +340,61 @@ Examples:
                         self._make_tmp_filegroup_name))
 
         if 'ldif' in self.options or 'netgroup' in self.options:
+            self._exported_groups = {}
+            for row in self.group.search(spread=self.spread_d['netgroup-spread']):
+                self._exported_groups[int(row['group_id'])] = row['name']
             if 'ldif' in self.options:
                 f_ldif.write(container_entry_string('NETGROUP',
                                                     module=posixconf))
-            for g_id in self.user_netgroups:
-                name = self.user_netgroups[g_id]
+            for g_id in self.netgroups:
+                name = self.netgroups[g_id]
+
+                group_members, user_members = \
+                    self._expand_netgroup(g_id,
+                                          self.co.entity_account,
+                                          self.spread_d["user-spread"])
+                if 'ldif' in self.options:
+                    dn,entry = self.ldif_netgroup(self.netgroups[g_id],
+                                                   group_members, user_members)
+                    f_ldif.write(entry_string(dn, entry, False))
+                if 'netgroup' in self.options:
+                    f_netgroup.write(self._wrap_line(
+                        self.netgroups[g_id], 
+                        " ".join((" ".join(group_members),
+                                  " ".join(["(,%s,)" % m for m in user_members]))), 
+                        ' ',
+                        self._make_tmp_netgroup_name,
+                        is_ng=True))
+ 
+        if 'host-netgroup' in self.options:
+            self._num_map = {}
+            self._exported_groups = {}
+            zone = self.options['zone'].postfix
+            for row in self.group.search(spread=self.spread_d['host-netgroup-spread']):
+                self._exported_groups[int(row['group_id'])] = row['name']
+            if 'ldif' in self.options:
+                f_ldif.write(container_entry_string('HOSTNETGROUP',
+                                                    module=posixconf))
+            for g_id in self.host_netgroups:
+                name = self.host_netgroups[g_id]
+                group_members, host_members = \
+                    self._expand_netgroup(g_id,self.co.entity_dns_owner, None)
+                if 'ldif' in self.options:
+                    dn,entry = self.ldif_host_netgroup(self.host_netgroups[g_id],
+                                                       group_members, host_members)
+                    f_ldif.write(entry_string(dn, entry, False))
+                f_host_netgroup.write(self._wrap_line(
+                        self.host_netgroups[g_id], 
+                        " ".join((
+                            " ".join(sorted(group_members)),
+                            " ".join(sorted(["(%s,-,)" % m[:-len(zone)] 
+                                      for m in host_members
+                                      if m.endswith(zone)])),
+                            " ".join(sorted(["(%s,-,)" % m[:-1] 
+                                             for m in host_members])))),
+                        ' ',
+                        self._make_tmp_host_netgroup_name,
+                        is_ng=True))
 
         if 'ldif' in self.options:
             self.close_ldif(f_ldif)
@@ -345,6 +402,10 @@ Examples:
             self.close_passwd(f_passwd, f_shadow)
         if 'group' in self.options:
             self.close_group(f_group)
+        if 'netgroup' in self.options:
+            self.close_netgroup(f_netgroup)
+        if 'host-netgroup' in self.options:
+            self.close_host_netgroup(f_host_netgroup)
 
     def open_passwd(self):
         f = SimilarSizeWriter(self.options['passwd'], "w")
@@ -379,6 +440,31 @@ Examples:
     def close_group(self, f):
         f.close()
 
+    def open_netgroup(self):
+        f = SimilarSizeWriter(self.options['netgroup'], "w")
+        f.set_size_change_limit(10)
+        return f
+
+    def close_netgroup(self, f):
+        f.close()
+
+    def open_host_netgroup(self):
+        f = SimilarSizeWriter(self.options['host-netgroup'], "w")
+        f.set_size_change_limit(10)
+        return f
+
+    def close_host_netgroup(self, f):
+        f.close()
+
+    def _build_entity2name_mapping(self, namespace):
+        if namespace in self._names:
+            return
+        en = EntityName(self.db)
+        self.logger.debug("list names in %s" % namespace)
+        for row in en.list_names(namespace):
+            self.e_id2name[int(row['entity_id'])] = row['entity_name']
+        self._names[namespace] = True
+
     def join(self, fields, sep=':'):
         for f in fields:
             if not isinstance(f, str):
@@ -389,50 +475,35 @@ Examples:
         return sep.join(fields)
 
     def load_posix_users(self):
-        # Only populate the cache if cache is empty
         if self.posix_users: return
         for row in self.posix_user.list_posix_users(
                 spread=self.spread_d['user-spread']):
             self.account2def_group[int(row['account_id'])] = int(row['gid'])
             self.posix_users.append(row.copy())
-        self.u_id2name = dict([
-            (x["entity_id"], x["entity_name"]) for
-            x in self.posix_user.list_names(self.co.account_namespace)])
-
-
-    def load_group_names(self):
-        # Only populate the cache if cache is empty
-        if self.g_id2name: return
-        self.g_id2name = dict([
-            (x["entity_id"], x["entity_name"])
-            for x in self.posix_group.list_names(self.co.group_namespace)])
 
     def load_disk_tab(self):
-        # Only populate the cache if cache is empty
         if self.disk_tab: return
         for hd in self.disk.list():
             self.disk_tab[int(hd['disk_id'])] = hd['path']
 
     def load_shell_tab(self):
-        # Only populate the cache if cache is empty
         if self.shell_tab: return
         for sh in self.posix_user.list_shells():
             self.shell_tab[int(sh['code'])] = sh['shell']
 
     def load_groups(self, spread, struct):
-        # Only populate the cache if cache is empty
+        # TBD: This will only act as a filter in reality as e_id2name contains
+        # the group name. Make something more clever.
         if struct: return
         for row in self.posix_group.search(spread=int(spread)):
             struct[int(row['group_id'])] = row['name']
 
     def load_group_gids(self):
-        # Only populate the cache if cache is empty
         if self.g_id2gid: return
         for row in self.posix_group.list_posix_groups():
             self.g_id2gid[int(row['group_id'])] = int(row['posix_gid'])
 
     def load_quaratines(self):
-        # Only populate the cache if cache is empty
         if self.quarantines: return
         now = mx.DateTime.now()
         for row in self.posix_user.list_entity_quarantines(
@@ -446,7 +517,6 @@ Examples:
                     int(row['quarantine_type']))
 
     def load_person_names(self):
-        # Only populate the cache if cache is empty
         if self.p_id2name: return
         for n in self.person.list_persons_name(
                 source_system=self.co.system_cached,
@@ -454,7 +524,6 @@ Examples:
             self.p_id2name[n['person_id']] = n['name']
 
     def load_account_info(self):
-        # Only populate the cache if cache is empty
         if self.a_id2owner: return
         for row in self.posix_user.list_account_home(
                 home_spread=self.spread_d['user-spread'],
@@ -469,21 +538,21 @@ Examples:
         self.posix_group.clear()
         self.posix_group.find(gid)
         for row in self.posix_group.search_members(
-                group_id=self.posix_group.entity_id, indirect_members=True,
+                group_id=self.posix_group.entity_id, 
+                indirect_members=True,
                 member_type=self.co.entity_account,
                 member_spread=self.spread_d["user-spread"]):
             account_id = int(row["member_id"])
             if self.account2def_group.get(account_id) == self.posix_group.entity_id:
                 continue  # Don't include the users primary group
-            name = self.u_id2name.get(account_id)
+            name = self.e_id2name.get(account_id)
             if not name:
-                logger.warn("Was %i very recently created?" % int(account_id))
+                self.logger.warn("Was %i very recently created?" % int(account_id))
                 continue
             ret.add(name)
         return ret
 
-    def _make_tmp_filegroup_name(self, base):
-        name = base
+    def _make_tmp_filegroup_name(self, name):
         harder = False
         while len(name) > 0:
             i = 0
@@ -503,14 +572,57 @@ Examples:
                 i += 1
             harder = True
 
-
     def _make_tmp_netgroup_name(self, name):
         while True:
             tmp_gname = "x%02x" %  self._num
             self._num += 1
-            if tmp_gname not in self.user_netgroups.values():
+            if tmp_gname not in self.netgroups.values():
                 return tmp_gname
 
+    def _make_tmp_host_netgroup_name(self, name):
+        n = self._num_map.get(name, 0)
+        while True:
+            n += 1
+            tmp_gname = "%s-%02x" % (name, n)
+            if not self._exported_groups.has_key(tmp_gname):
+                self._num_map[name] = n
+                return tmp_gname
+
+    def _expand_netgroup(self, gid, member_type, member_spread):
+        """Expand a group and all of its members.  Subgroups are
+        included regardles of spread, but if they are of a different
+        spread, the groups members are expanded.
+        """
+        ret_groups = set()
+        ret_non_groups = set()
+        self.group.clear()
+        self.group.find(gid)
+
+        # direct members
+        for row in self.group.search_members(
+                group_id=self.group.entity_id,
+                member_spread=member_spread,
+                member_type=member_type):
+            member_id = int(row["member_id"])
+            name = self.e_id2name.get(member_id)
+            if not name:
+                if not self._is_new(member_id):
+                    self.logger.warn("Was %i very recently created?", member_id)
+                continue
+            ret_non_groups.add(name)
+        
+        # subgroups
+        for row in self.group.search_members(group_id=gid,
+                                             member_type=self.co.entity_group):
+            t_gid = int(row["member_id"])
+            if t_gid in self._exported_groups:
+                ret_groups.add(self._exported_groups[t_gid])
+            else:
+                t_g, t_ng = self._expand_netgroup(t_gid, member_type, member_spread)
+                ret_groups.update(t_g)
+                ret_non_groups.update(t_ng)
+
+        return ret_groups, ret_non_groups
 
     def _wrap_line(self, group_name, line, g_separator, proc, is_ng=False):
         if is_ng:
@@ -536,7 +648,7 @@ Examples:
     def gather_user_data(self, row):
         data = PosixUserData()
         data.account_id = int(row['account_id'])
-        data.uname = uname = self.u_id2name[data.account_id]
+        data.uname = uname = self.e_id2name[data.account_id]
         data.uid = str(row['posix_uid'])
         data.gid = str(self.g_id2gid[row['gid']])
 
@@ -685,3 +797,18 @@ Examples:
                     self.auth_data[acc_id] = {meth : x['auth_data']}
                 else:
                     self.auth_data[acc_id][meth] = x['auth_data']
+
+    def _is_new(self, entity_id):
+        """
+        Returns true if there is a change log create event for 
+        entity_id (group or account) since we cached entity names.
+        """
+        try:
+            events = list(self.db.get_log_events(
+                    types=(self.co.group_create, self.co.account_create),
+                    subject_entity=entity_id,
+                    sdate=self._namecachedtime))
+            return bool(events)
+        except:
+            self.logger.debug("Checking change log failed: %s", sys.exc_value)
+        return False
