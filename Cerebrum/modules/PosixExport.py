@@ -19,9 +19,10 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import optparse
+import os
 import sys
 import mx
-import getopt
 
 import posixconf
 import cerebrum_path
@@ -42,64 +43,12 @@ class PosixUserData(object):
     pass
 
 class PosixExport(object):
+    usage_string = "Usage: %s [options]%s" % (os.path.basename(sys.argv[0]),"""
 
-    def usage(self, exitcode=0):
-        print """
-Usage: [options]
+Dump NIS and/or LDIF data: passwd, shadow, groups.
 
-Options:
-  Filtering options:
-    -U | --user-spread <spread>
-      Filters which users should be included. Can be a sum of several
-      spreads separated by ','.
-
-    -G | --group-spread <spread>
-      Filters which filegroups should be included. Can be a sum of
-      several spreads separated by ','.
-
-    -N | --netgroup-spread <spread>
-      Filters which netgroups should be included. Can be a sum of
-      several spreads separated by ','.
-
-    -H | --host-netgroup-spread <spread>
-      Filters which host netgroups should be included. Can be a sum of
-      several spreads separated by ','.
-
-  Export options:
-    -l | --ldif <file>
-      Enables LDIF export and points to the file that is to be
-      created.
-
-    -p | --passwd <file>
-      Enables and points to the passwd to be created.
-
-    -g | --group <file>
-      Enables and points to the filegroup file to be created.
-
-    -n | --netgroup <file>
-      Enables and points to the netgroup file to be created.
-
-    -h | --host-netgroup <file>
-      Enables and points to the host netgroup file to be created.
-
-  NIS export options:
-    -s | --shadow <file>
-      Enables the creation of a shadow file.
-
-    -z | --zone <dns zone postfix>
-      Specify zone to use for host netgroups. Mandatory when enabled by -H.
-
-    -e | --eof
-      Appends "E_O_F" at the end of the passwd file.
-
-    -a | --auth-method
-      Specify passwd auth method. Mandatory when -p is selected. Does
-      not affect LDIF output.
-
-The LDIF option will check for the user, group and netgroup spread
-types. The -p option will need a user spread, the -g option a group
-spread, the -n a netgroup spread and the -h option a houst netgroup
-spread.
+Options with FILE arguments enable the particular export type, and
+export to the given file.  They require a corresponding SPREAD option.
 
 Enabling host netgroups will also require a zone. To enable host
 netgroups in the LDIF export, supply a host netgroup spread. This also
@@ -107,9 +56,9 @@ requires a zone.
 
 Examples:
 
-  generate_posix_data.py -U NIS_user@uio -G NIS_fg@uio -N NIS_ng@uio\
- -H NIS_mng@uio -l foo.ldif -p passwd -g groups -n netgroup.user\
- -h netgroup.host -z .uio.no -a MD5-crypt
+  generate_posix_data.py -U NIS_user@uio -G NIS_fg@uio -N NIS_ng@uio \\
+    -H NIS_mng@uio -l foo.ldif -p passwd -g groups -n netgroup.user \\
+    -h netgroup.host -z .uio.no -a MD5-crypt
 
  Creates both a full LDIF file and all four NIS files.
 
@@ -120,10 +69,45 @@ Examples:
 
   generate_posix_data.py -U NIS_user@uio -p passwd -s passwd.shadow -a MD5-crypt
 
- Creates a passwd and shadow file.
+ Creates a passwd and shadow file.""")
 
-        """
-        sys.exit(exitcode)
+    OptionParser = optparse.OptionParser
+
+    def build_option_parser(self):
+        parser = self.OptionParser(self.usage_string)
+        o = parser.add_option
+        o("-U", "--user-spread", metavar="SPREAD", dest="user_spread",
+          help="Filter users by spreads.")
+        o("-G", "--group-spread", metavar="SPREAD", dest="group_spread",
+          help="Filter filegroups by spreads.")
+        o("-N", "--netgroup-spread", metavar="SPREAD", dest="netgroup_spread",
+          help="Filter netgroups by spreads.")
+        o("-H", "--host-netgroup-spread", metavar="SPREAD",
+          dest="host_netgroup_spread",
+          help="Filter host netgroups by spreads.")
+        o("-l", "--ldif", metavar="FILE", dest="ldif",
+          help="Export LDIF to FILE.  Requires '-U', '-G' and '-N'.")
+        o("-p", "--passwd", metavar="FILE", dest="passwd",
+          help="Export passwd file to FILE.  Requires '-U' and '-a'.")
+        o("-g", "--group", metavar="FILE", dest="group",
+          help="Export filegroups to FILE.")
+        o("-n", "--netgroup", metavar="FILE", dest="netgroup",
+          help="Export netgroups to FILE.")
+        o("-j", "--host-netgroup", metavar="FILE", dest="host_netgroup",
+          help="Export host netgroups to FILE.  Requires '-H' and '-z'.")
+        o("-s", "--shadow", metavar="FILE", dest="shadow",
+          help="Export shadow file to FILE.")
+        o("-z", "--zone", metavar="DNS-ZONE-POSTFIX", dest="zone",
+          help="Zone to use for host netgroups.")
+        o("-e", "--eof", dest="eof",
+          help="Append 'E_O_F' at the end of the passwd file.",
+          default=False, action="store_true")
+        o("-a", "--auth-method", metavar="METHOD", dest="auth_method",
+          help="Specify passwd auth method. Does not affect LDIF output.")
+        return parser
+
+    def usage(self, msg):
+        sys.exit("Bad options, try --help.  %s\n%s" % (msg, self.usage_string))
 
     def __init__(self, logger):
         self.db = Factory.get('Database')()
@@ -136,12 +120,6 @@ Examples:
         self.logger = logger
         self._namecachedtime = mx.DateTime.now()
 
-        self.short_opts = 'U:G:N:H:l:p:g:n:h:s:z:ea:'
-        self.long_opts = ["user-spread=", "group-spread=", "netgroup-spread=",
-                          "host-netgroup-spread=", "ldif=", "passwd=", "group=",
-                          "netgroup=", "host-netgroup=", "shadow=", "zone=",
-                          "eof", "auth-method="]
-        self.options = {}
         self._num = 0
 
         self.posix_users = []
@@ -161,76 +139,58 @@ Examples:
         self.spread_d = {}
         self._names = set()
 
-    def parse_options(self, get_opts):
-        """Parse input and enable the exports. Variables passed through
-        command line will override config variables."""
-        try:
-            opts, arge = getopt.getopt(get_opts,self.short_opts,self.long_opts)
-        except getopt.GetoptError, msg:
-            self.usage(1)
-        for opt, val in opts:
-            assert val, ("Expected non-empty value", opt, val)
-            # spreads
-            if opt in ("-U", "--user-spread"):
-                self.options['user-spread'] = val
-            elif opt in ("-G", "--group-spread"):
-                self.options['group-spread'] = val
-            elif opt in ("-N", "--netgroup-spread"):
-                self.options['netgroup-spread'] = val
-            elif opt in ("-H", "--host-negroup-spread"):
-                self.options['host-netgroup-spread'] = val
-            # LDIF
-            elif opt in ("-l", "--ldif"):
-                self.options['ldif'] = val
-            # NIS options
-            elif opt in ("-p", "--passwd"):
-                self.options['passwd'] = val
-            elif opt in ("-s", "--shadow"):
-                self.options['shadow'] = val
-            elif opt in ("-g", "--group"):
-                self.options['group'] = val
-            elif opt in ("-n", "--netgroup"):
-                self.options['netgroup'] = val
-            elif opt in ("-h", "--host-netgroup"):
-                self.options['host-netgroup'] = val
-            elif opt in ("-z", "--zone"):
-                self.options['zone'] = self.co.DnsZone(val)
-            elif opt in ("-e", "--eof"):
-                self.options['eof'] = True
-            elif opt in ("-a", "--auth-method"):
-                self.options['auth-method'] = val
-        # Verify options
-        # TODO: write error messages
-        if 'ldif' in self.options and not ('user-spread' in self.options and
-                                           'group-spread' in self.options and
-                                           'netgroup-spread' in self.options):
-            self.usage(1)
-        if 'passwd' in self.options and 'user-spread' not in self.options:
-            self.usage(1)
-        if 'group' in self.options and 'group-spread' not in self.options:
-            self.usage(1)
-        if 'netgroup' in self.options and 'netgroup-spread' not in self.options:
-            self.usage(1)
-        if 'host-netgroup' in self.options and \
-                'host-netgroup-spread' not in self.options:
-            self.usage(1)
-        if 'host-netgroup' in self.options and 'zone' not in self.options:
-            self.usage(1)
-        if 'passwd' in self.options and 'auth-method' not in self.options:
-            self.usage(1)
+    def parse_options(self):
+        """Parse command line options.  These override config variables."""
+
+        self.opts, args = self.build_option_parser().parse_args()
+        if args:
+            sys.exit("Spurious arguments %s.  Try --help." % ", ".join(args))
+        if self.opts.ldif          and not (self.opts.user_spread and
+                                            self.opts.group_spread and
+                                            self.opts.netgroup_spread):
+            self.usage("--ldif requires -U, -G and -N")
+        if self.opts.passwd        and not (self.opts.user_spread and
+                                            self.opts.auth_method):
+            self.usage("--passwd requirse -U and -a")
+        if self.opts.group         and not self.opts.group_spread:
+            self.usage("--group requires -G")
+        if self.opts.netgroup      and not self.opts.netgroup_spread:
+            self.usage("--netgroup requires -N")
+        if self.opts.host_netgroup and not (self.opts.host_netgroup_spread and
+                                            self.opts.zone):
+            self.usage("--host-netgroup requires -H and -z")
+
+        if self.opts.zone:
+            self.opts.zone = self.co.DnsZone(self.opts.zone)
 
         # Validate spread from arg
         for x in ('user-spread', 'group-spread', 'netgroup-spread',
                   'host-netgroup-spread'):
-            spread = map_spreads(self.options.get(x))
+            spread = map_spreads(getattr(self.opts, x.replace('-', '_')))
             if spread:
                 self.spread_d[x] = spread
 
-
     def generate_files(self):
         # Load caches for the specified jobs and open files
-        if 'ldif' in self.options:
+        f_ldif =             self.setup_ldif()
+        f_passwd, f_shadow = self.setup_passwd() or (None, None)
+        f_group =            self.setup_group()
+        f_netgroup =         self.setup_netgroup()
+        f_host_netgroup =    self.setup_host_netgroup()
+        # Generate the output
+        self.generate_passwd_output(f_ldif, f_passwd, f_shadow)
+        self.generate_filegroup_output(f_ldif, f_group)
+        self.generate_netgroup_output(f_ldif, f_netgroup)
+        self.generate_host_netgroup_output(f_ldif, f_netgroup)
+        # Finish
+        if self.opts.ldif:          self.close_ldif(f_ldif)
+        if self.opts.passwd:        self.close_passwd(f_passwd, f_shadow)
+        if self.opts.group:         self.close_group(f_group)
+        if self.opts.netgroup:      self.close_netgroup(f_netgroup)
+        if self.opts.host_netgroup: self.close_host_netgroup(f_host_netgroup)
 
+    def setup_ldif(self):
+        if self.opts.ldif:
             self.user_dn = ldapconf('USER', 'dn', default=None,
                                     module=posixconf)
             self.fgrp_dn = ldapconf('FILEGROUP', 'dn', default=None,
@@ -243,9 +203,8 @@ Examples:
             self.load_posix_users()
             self._build_entity2name_mapping(self.co.account_namespace)
             self._build_entity2name_mapping(self.co.group_namespace)
-            self.load_groups(self.spread_d['group-spread'], self.filegroups)
-            self.load_groups(self.spread_d['netgroup-spread'],
-                             self.netgroups)
+            self.load_groups('group', self.filegroups)
+            self.load_groups('netgroup', self.netgroups)
             self.load_group_gids()
             self.load_auth_tab()
             self.load_disk_tab()
@@ -253,9 +212,10 @@ Examples:
             self.load_quaratines()
             self.load_person_names()
             self.load_account_info()
-            f_ldif = self.open_ldif()
+            return self.open_ldif()
 
-        if 'passwd' in self.options:
+    def setup_passwd(self):
+        if self.opts.passwd:
             self.load_posix_users()
             self._build_entity2name_mapping(self.co.account_namespace)
             self.load_group_gids()
@@ -265,51 +225,53 @@ Examples:
             self.load_quaratines()
             self.load_person_names()
             self.load_account_info()
-            f_passwd, f_shadow = self.open_passwd()
+            return self.open_passwd()
             
-        if 'group' in self.options or 'ldif' in self.options:
+    def setup_group(self):
+        if self.opts.group or self.opts.ldif:
             self.load_posix_users()
             self._build_entity2name_mapping(self.co.account_namespace)
             self._build_entity2name_mapping(self.co.group_namespace)
-            self.load_groups(self.spread_d['group-spread'], self.filegroups)
+            self.load_groups('group', self.filegroups)
             self.load_group_gids()
-            if 'group' in self.options:
-                f_group = self.open_group()
+            if self.opts.group:
+                return self.open_group()
 
-        if 'netgroup' in self.options or 'ldif' in self.options:
+    def setup_netgroup(self):
+        if self.opts.netgroup or self.opts.ldif:
             self.load_posix_users()
             self._build_entity2name_mapping(self.co.account_namespace)
             self._build_entity2name_mapping(self.co.group_namespace)
-            self.load_groups(self.spread_d['netgroup-spread'],
-                             self.netgroups)
-            if 'netgroup' in self.options:
-                f_netgroup = self.open_netgroup()
+            self.load_groups('netgroup', self.netgroups)
+            if self.opts.netgroup:
+                return self.open_netgroup()
 
-        if 'host-netgroup' in self.options or \
-                ('host-netgroup-spread' in self.options and 'ldif' in self.options):
+    def setup_host_netgroup(self):
+        if self.opts.host_netgroup or \
+                (self.opts.host_netgroup_spread and self.opts.ldif):
             self._build_entity2name_mapping(self.co.group_namespace)
             self._build_entity2name_mapping(self.co.dns_owner_namespace)
-            self.load_groups(self.spread_d['host-netgroup-spread'],
-                             self.host_netgroups)
-            if 'host-netgroup' in self.options:
-                f_host_netgroup = self.open_host_netgroup()
+            self.load_groups('host-netgroup', self.host_netgroups)
+            if self.opts.host_netgroup:
+                return self.open_host_netgroup()
 
-        # Start passing data to functions
-        if 'ldif' in self.options or 'passwd' in self.options:
-            if 'ldif' in self.options:
-                f_ldif.write(container_entry_string('USER', module=posixconf))
-            for row in self.posix_users:
+    def generate_passwd_output(self, f_ldif, f_passwd, f_shadow):
+        if self.opts.ldif:
+            f_ldif.write(container_entry_string('USER', module=posixconf))
+        elif not self.opts.passwd:
+            return
+        for row in self.posix_users:
                 data = self.gather_user_data(row)
                 if data is None:
                     continue
-                if 'ldif' in self.options:
+                if self.opts.ldif:
                     dn,entry = self.ldif_user(data)
                     f_ldif.write(entry_string(dn, entry, False))
-                if 'passwd' in self.options:
+                if self.opts.passwd:
                     # TODO: shadow
                     passwd = data.passwd
                     try:
-                        if self.options['auth-method'] == 'NOCRYPT':
+                        if self.opts.auth_method == 'NOCRYPT':
                             a = row['account_id']
                             m = self.co.auth_type_crypt3_des
                             if passwd == '*invalid' and self.auth_data[a][m]:
@@ -320,127 +282,113 @@ Examples:
                         data.uname, passwd, data.uid, data.gid,
                         data.gecos, data.home, data.shell)))
 
-        if 'ldif' in self.options or 'group' in self.options:
-            self.exported_groups = {}
-            for row in self.group.search(spread=self.spread_d['group-spread']):
-                self.exported_groups[int(row['group_id'])] = row['name']
-            if 'ldif' in self.options:
-                f_ldif.write(container_entry_string('FILEGROUP',
-                                                    module=posixconf))
-            # Loop over gids to sort properly
-            #for gid in self.filegroups:
-            from operator import itemgetter
+    def generate_filegroup_output(self, f_ldif, f_group):
+        if self.opts.ldif:
+            f_ldif.write(container_entry_string('FILEGROUP', module=posixconf))
+        elif not self.opts.group:
+            return
+        self.exported_groups = {}
+        for row in self.group.search(spread=self.spread_d['group-spread']):
+            self.exported_groups[int(row['group_id'])] = row['name']
+        # Loop over gids to sort properly
+        #for gid in self.filegroups:
+        from operator import itemgetter
 
-            #sorted(self.g_id2gid.iteritems(), key=itemgetter(1))
-            for g_id, gid in sorted(self.g_id2gid.iteritems(),
-                                    key=itemgetter(1)):
-                if g_id not in self.filegroups:
-                    continue
-                users = self._expand_filegroup(g_id)
-                if 'ldif' in self.options:
-                    # TODO: description
-                    dn = ','.join((('cn='+self.filegroups[g_id]), self.fgrp_dn))
-                    entry = self.ldif_filegroup(self.filegroups[g_id],
-                                                gid, None, users)
-                    f_ldif.write(entry_string(dn, entry, False))
-                if 'group' in self.options:
-                    f_group.write(self._wrap_line(
-                        self.filegroups[g_id], ",".join(users), ':*:%i:' % gid,
-                        self._make_tmp_filegroup_name))
+        #sorted(self.g_id2gid.iteritems(), key=itemgetter(1))
+        for g_id, gid in sorted(self.g_id2gid.iteritems(), key=itemgetter(1)):
+            if g_id not in self.filegroups:
+                continue
+            users = self._expand_filegroup(g_id)
+            if self.opts.ldif:
+                # TODO: description
+                dn = ','.join((('cn='+self.filegroups[g_id]), self.fgrp_dn))
+                entry = self.ldif_filegroup(self.filegroups[g_id],
+                                            gid, None, users)
+                f_ldif.write(entry_string(dn, entry, False))
+            if self.opts.group:
+                f_group.write(self._wrap_line(
+                    self.filegroups[g_id], ",".join(users), ':*:%i:' % gid,
+                    self._make_tmp_filegroup_name))
 
-        if 'ldif' in self.options or 'netgroup' in self.options:
-            self.exported_groups = {}
-            for row in self.group.search(spread=self.spread_d['netgroup-spread']):
-                self.exported_groups[int(row['group_id'])] = row['name']
-            if 'ldif' in self.options:
-                f_ldif.write(container_entry_string('NETGROUP',
-                                                    module=posixconf))
-            for g_id in self.netgroups:
-                name = self.netgroups[g_id]
-                group_members, user_members = self.expand_netgroup(
-                    g_id, self.co.entity_account, self.spread_d["user-spread"])
-                if 'ldif' in self.options:
-                    #TODO: description
-                    dn = ','.join((('cn='+self.netgroups[g_id]), self.ngrp_dn))
-                    entry = self.ldif_netgroup(self.netgroups[g_id], None, 
-                                               group_members,
-                                               ["(,%s,)" % m for m in user_members])
-                    f_ldif.write(entry_string(dn, entry, False))
-                if 'netgroup' in self.options:
-                    f_netgroup.write(self._wrap_line(
-                        self.netgroups[g_id], 
-                        " ".join((" ".join(group_members),
-                                  " ".join(["(,%s,)" % m for m in user_members]))), 
-                        ' ',
-                        self._make_tmp_netgroup_name,
-                        is_ng=True))
+    def generate_netgroup_output(self, f_ldif, f_netgroup):
+        if self.opts.ldif:
+            f_ldif.write(container_entry_string('NETGROUP', module=posixconf))
+        elif not self.opts.netgroup:
+            return
+        self.exported_groups = {}
+        for row in self.group.search(spread=self.spread_d['netgroup-spread']):
+            self.exported_groups[int(row['group_id'])] = row['name']
+        for g_id in self.netgroups:
+            name = self.netgroups[g_id]
+            group_members, user_members = self.expand_netgroup(
+                g_id, self.co.entity_account, self.spread_d["user-spread"])
+            if self.opts.ldif:
+                #TODO: description
+                dn = ','.join((('cn='+self.netgroups[g_id]), self.ngrp_dn))
+                entry = self.ldif_netgroup(self.netgroups[g_id], None, 
+                                           group_members,
+                                           ["(,%s,)" % m for m in user_members])
+                f_ldif.write(entry_string(dn, entry, False))
+            if self.opts.netgroup:
+                f_netgroup.write(self._wrap_line(
+                    self.netgroups[g_id], 
+                    " ".join((" ".join(group_members),
+                              " ".join(["(,%s,)" % m for m in user_members]))), 
+                    ' ', self._make_tmp_netgroup_name, is_ng=True))
  
-        if 'host-netgroup' in self.options or \
-                ('host-netgroup-spread' in self.options and 'ldif' in self.options):
-            self._num_map = {}
-            self.exported_groups = {}
-            zone = self.options['zone'].postfix
-            for row in self.group.search(spread=self.spread_d['host-netgroup-spread']):
-                self.exported_groups[int(row['group_id'])] = row['name']
-            if 'ldif' in self.options:
-                f_ldif.write(container_entry_string('HOSTNETGROUP',
-                                                    module=posixconf))
-            for g_id in self.host_netgroups:
-                name = self.host_netgroups[g_id]
-                group_members, host_members = \
-                    self.expand_netgroup(g_id,self.co.entity_dns_owner, None)
-                formated_host_members = [
-                    " ".join(sorted(group_members)),
-                    " ".join(sorted(["(%s,-,)" % m[:-len(zone)] 
-                                     for m in host_members
-                                     if m.endswith(zone)])),
-                    " ".join(sorted(["(%s,-,)" % m[:-1] 
-                                     for m in host_members]))]
-                if 'ldif' in self.options:
-                    #TODO: description
-                    dn = ','.join((('cn='+self.host_netgroups[g_id]), self.hgrp_dn))
-                    entry = self.ldif_netgroup(self.host_netgroups[g_id], None,
-                                               group_members,
-                                               formated_host_members)
-                    f_ldif.write(entry_string(dn, entry, False))
-                if 'host-netgroup' in self.options:
-                    f_host_netgroup.write(self._wrap_line(
-                            self.host_netgroups[g_id], 
-                            " ".join(formated_host_members),
-                            ' ',
-                            self._make_tmp_host_netgroup_name,
-                            is_ng=True))
-
-        if 'ldif' in self.options:
-            self.close_ldif(f_ldif)
-        if 'passwd' in self.options:
-            self.close_passwd(f_passwd, f_shadow)
-        if 'group' in self.options:
-            self.close_group(f_group)
-        if 'netgroup' in self.options:
-            self.close_netgroup(f_netgroup)
-        if 'host-netgroup' in self.options:
-            self.close_host_netgroup(f_host_netgroup)
+    def generate_host_netgroup_output(self, f_ldif, f_netgroup):
+        do_ldif = self.opts.host_netgroup_spread and self.opts.ldif
+        if do_ldif:
+            f_ldif.write(container_entry_string('HOSTNETGROUP',module=posixconf))
+        elif not self.opts.host_netgroup:
+            return
+        self._num_map = {}
+        self.exported_groups = {}
+        zone = self.opts.zone.postfix
+        for row in self.group.search(spread=self.spread_d['host-netgroup-spread']):
+            self.exported_groups[int(row['group_id'])] = row['name']
+        for g_id in self.host_netgroups:
+            name = self.host_netgroups[g_id]
+            group_members, host_members = \
+                self.expand_netgroup(g_id,self.co.entity_dns_owner, None)
+            formated_host_members = [
+                " ".join(sorted(group_members)),
+                " ".join(sorted(["(%s,-,)" % m[:-len(zone)] 
+                                 for m in host_members
+                                 if m.endswith(zone)])),
+                " ".join(sorted(["(%s,-,)" % m[:-1] 
+                                 for m in host_members]))]
+            if do_ldif:
+                #TODO: description
+                dn = ','.join((('cn='+self.host_netgroups[g_id]), self.hgrp_dn))
+                entry = self.ldif_netgroup(self.host_netgroups[g_id], None,
+                                           group_members,
+                                           formated_host_members)
+                f_ldif.write(entry_string(dn, entry, False))
+            if self.opts.host_netgroup:
+                f_host_netgroup.write(self._wrap_line(
+                        self.host_netgroups[g_id], 
+                        " ".join(formated_host_members),
+                        ' ', self._make_tmp_host_netgroup_name, is_ng=True))
 
     def open_passwd(self):
-        f = SimilarSizeWriter(self.options['passwd'], "w")
+        f = SimilarSizeWriter(self.opts.passwd, "w")
         f.set_size_change_limit(10)
         s = None
-        if 'shadow' in self.options:
-            s = SimilarSizeWriter(self.options['shadow'], "w")
+        if self.opts.shadow:
+            s = SimilarSizeWriter(self.opts.shadow, "w")
             s.set_size_change_limit(10)
         return f,s
 
     def close_passwd(self, f, s):
-        if 'eof' in self.options:
+        if self.opts.eof:
             f.write('E_O_F\n')
         f.close()
         if s:
             s.close()
 
     def open_ldif(self):
-        f_ldif = ldif_outfile('POSIX', filename=self.options['ldif'],
-                              module=posixconf)
+        f_ldif = ldif_outfile('POSIX',filename=self.opts.ldif,module=posixconf)
         f_ldif.write(container_entry_string('POSIX', module=posixconf))
         return f_ldif
 
@@ -448,7 +396,7 @@ Examples:
         end_ldif_outfile('POSIX', f, module=posixconf)
 
     def open_group(self):
-        f = SimilarSizeWriter(self.options['group'], "w")
+        f = SimilarSizeWriter(self.opts.group, "w")
         f.set_size_change_limit(10)
         return f
 
@@ -456,7 +404,7 @@ Examples:
         f.close()
 
     def open_netgroup(self):
-        f = SimilarSizeWriter(self.options['netgroup'], "w")
+        f = SimilarSizeWriter(self.opts.netgroup, "w")
         f.set_size_change_limit(10)
         return f
 
@@ -464,7 +412,7 @@ Examples:
         f.close()
 
     def open_host_netgroup(self):
-        f = SimilarSizeWriter(self.options['host-netgroup'], "w")
+        f = SimilarSizeWriter(self.opts.host_netgroup, "w")
         f.set_size_change_limit(10)
         return f
 
@@ -506,10 +454,11 @@ Examples:
         for sh in self.posix_user.list_shells():
             self.shell_tab[int(sh['code'])] = sh['shell']
 
-    def load_groups(self, spread, struct):
+    def load_groups(self, group_type, struct):
         # TBD: This will only act as a filter in reality as e_id2name contains
         # the group name. Make something more clever.
         if struct: return
+        spread = self.spread_d[group_type + '-spread']
         for row in self.posix_group.search(spread=int(spread)):
             struct[int(row['group_id'])] = row['name']
 
@@ -800,16 +749,16 @@ Examples:
         # Only populate the cache if cache is empty
         if self.auth_data: return
         self.a_meth = []
-        if 'ldif' in self.options:
+        if self.opts.ldif:
             self.a_meth = self.ldif_auth_methods()
-        if 'passwd' in self.options:
+        if self.opts.passwd:
             # Need to fetch a crypt to check if password should be squashed
             # or 'x'ed.
-            if self.options['auth-method'] == 'NOCRYPT':
+            if self.opts.auth_method == 'NOCRYPT':
                 meth = self.co.auth_type_crypt3_des
             else:
                 meth = map_constants('_AuthenticationCode',
-                                     self.options['auth-method'])
+                                     self.opts.auth_method)
             if meth not in self.a_meth:
                 self.a_meth.append(meth)
         if self.a_meth:
@@ -846,7 +795,7 @@ class PosixExportRadius(PosixExport):
     def ldif_auth_methods(self):
 	# Also fetch NT password, for attribute sambaNTPassword.
         meth = super(PosixExportRadius, self).ldif_auth_methods()
-        if 'ldif' in self.options:
+        if self.opts.ldif:
             self.auth_type_radius = int(self.co.auth_type_md4_nt)
             meth.append(self.auth_type_radius)
 	return meth
