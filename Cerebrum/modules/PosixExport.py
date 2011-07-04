@@ -159,7 +159,7 @@ Examples:
         self.a_id2owner = {}
         self.a_id2home = {}
         self.spread_d = {}
-        self._names = {}
+        self._names = set()
 
     def parse_options(self, get_opts):
         """Parse input and enable the exports. Variables passed through
@@ -321,9 +321,9 @@ Examples:
                         data.gecos, data.home, data.shell)))
 
         if 'ldif' in self.options or 'group' in self.options:
-            self._exported_groups = {}
+            self.exported_groups = {}
             for row in self.group.search(spread=self.spread_d['group-spread']):
-                self._exported_groups[int(row['group_id'])] = row['name']
+                self.exported_groups[int(row['group_id'])] = row['name']
             if 'ldif' in self.options:
                 f_ldif.write(container_entry_string('FILEGROUP',
                                                     module=posixconf))
@@ -349,18 +349,16 @@ Examples:
                         self._make_tmp_filegroup_name))
 
         if 'ldif' in self.options or 'netgroup' in self.options:
-            self._exported_groups = {}
+            self.exported_groups = {}
             for row in self.group.search(spread=self.spread_d['netgroup-spread']):
-                self._exported_groups[int(row['group_id'])] = row['name']
+                self.exported_groups[int(row['group_id'])] = row['name']
             if 'ldif' in self.options:
                 f_ldif.write(container_entry_string('NETGROUP',
                                                     module=posixconf))
             for g_id in self.netgroups:
                 name = self.netgroups[g_id]
-                group_members, user_members = \
-                    self._expand_netgroup(g_id,
-                                          self.co.entity_account,
-                                          self.spread_d["user-spread"])
+                group_members, user_members = self.expand_netgroup(
+                    g_id, self.co.entity_account, self.spread_d["user-spread"])
                 if 'ldif' in self.options:
                     #TODO: description
                     dn = ','.join((('cn='+self.netgroups[g_id]), self.ngrp_dn))
@@ -380,17 +378,17 @@ Examples:
         if 'host-netgroup' in self.options or \
                 ('host-netgroup-spread' in self.options and 'ldif' in self.options):
             self._num_map = {}
-            self._exported_groups = {}
+            self.exported_groups = {}
             zone = self.options['zone'].postfix
             for row in self.group.search(spread=self.spread_d['host-netgroup-spread']):
-                self._exported_groups[int(row['group_id'])] = row['name']
+                self.exported_groups[int(row['group_id'])] = row['name']
             if 'ldif' in self.options:
                 f_ldif.write(container_entry_string('HOSTNETGROUP',
                                                     module=posixconf))
             for g_id in self.host_netgroups:
                 name = self.host_netgroups[g_id]
                 group_members, host_members = \
-                    self._expand_netgroup(g_id,self.co.entity_dns_owner, None)
+                    self.expand_netgroup(g_id,self.co.entity_dns_owner, None)
                 formated_host_members = [
                     " ".join(sorted(group_members)),
                     " ".join(sorted(["(%s,-,)" % m[:-len(zone)] 
@@ -401,8 +399,8 @@ Examples:
                 if 'ldif' in self.options:
                     #TODO: description
                     dn = ','.join((('cn='+self.host_netgroups[g_id]), self.hgrp_dn))
-                    entry = self.ldif_netgroup(self.host_netgroups[g_id], None
-                                               group_members, 
+                    entry = self.ldif_netgroup(self.host_netgroups[g_id], None,
+                                               group_members,
                                                formated_host_members)
                     f_ldif.write(entry_string(dn, entry, False))
                 if 'host-netgroup' in self.options:
@@ -480,7 +478,7 @@ Examples:
         self.logger.debug("list names in %s" % namespace)
         for row in en.list_names(namespace):
             self.e_id2name[int(row['entity_id'])] = row['entity_name']
-        self._names[namespace] = True
+        self._names.add(namespace)
 
     def join(self, fields, sep=':'):
         for f in fields:
@@ -582,9 +580,9 @@ Examples:
                 tname = format % (name, i)
                 if len(tname) > 8:
                     break
-                if tname not in self._exported_groups:
+                if tname not in self.exported_groups:
                     # Hack to reserve the name
-                    self._exported_groups[tname] = True
+                    self.exported_groups[tname] = True
                     return tname
                 i += 1
             harder = True
@@ -601,11 +599,11 @@ Examples:
         while True:
             n += 1
             tmp_gname = "%s-%02x" % (name, n)
-            if not self._exported_groups.has_key(tmp_gname):
+            if tmp_gname not in self.exported_groups:
                 self._num_map[name] = n
                 return tmp_gname
 
-    def _expand_netgroup(self, gid, member_type, member_spread):
+    def expand_netgroup(self, gid, member_type, member_spread):
         """Expand a group and all of its members.  Subgroups are
         included regardles of spread, but if they are of a different
         spread, the groups members are expanded.
@@ -632,10 +630,10 @@ Examples:
         for row in self.group.search_members(group_id=gid,
                                              member_type=self.co.entity_group):
             t_gid = int(row["member_id"])
-            if t_gid in self._exported_groups:
-                ret_groups.add(self._exported_groups[t_gid])
+            if t_gid in self.exported_groups:
+                ret_groups.add(self.exported_groups[t_gid])
             else:
-                t_g, t_ng = self._expand_netgroup(t_gid, member_type, member_spread)
+                t_g, t_ng = self.expand_netgroup(t_gid, member_type, member_spread)
                 ret_groups.update(t_g)
                 ret_non_groups.update(t_ng)
 
@@ -665,23 +663,22 @@ Examples:
     def gather_user_data(self, row):
         data = PosixUserData()
         data.account_id = int(row['account_id'])
-        data.uname = uname = self.e_id2name[data.account_id]
+        data.uname = self.e_id2name[data.account_id]
         data.uid = str(row['posix_uid'])
         data.gid = str(self.g_id2gid[row['gid']])
 
-        data.passwd = '*invalid'
-
         if not row['shell']:
-            self.logger.warn("User %s has no posix-shell!" % uname)
+            self.logger.warn("User %s has no posix-shell!" % data.uname)
             return None
-        else:
-            data.shell = self.shell_tab[int(row['shell'])]
+        data.shell = self.shell_tab[int(row['shell'])]
+
+        data.quarantined, data.passwd = False, '*invalid'
         if data.account_id in self.quarantines:
             qh = QuarantineHandler(self.db, self.quarantines[data.account_id])
             if qh.should_skip():
                 return None
             if qh.is_locked():
-                data.passwd = '*locked'
+                data.quarantined, data.passwd = True, '*locked'
             qshell = qh.get_shell()
             if qshell is not None:
                 data.shell = qshell
@@ -694,7 +691,7 @@ Examples:
                 account_name=data.uname,
                 home=self.a_id2home[data.account_id][3], disk_path=disk_path)
         except:
-            self.logger.warn("User %s has no home-directory!" % uname)
+            self.logger.warn("User %s has no home-directory!" % data.uname)
             return None
 
         cn = None
@@ -707,7 +704,7 @@ Examples:
     def ldif_user(self, data):
         passwd = '{crypt}%s' % data.passwd
         for uauth in filter(self.auth_format.has_key, self.a_meth):
-            #method = int(self.const.auth_type_crypt3_des)
+            #method = int(self.co.auth_type_crypt3_des)
             try:
                 #if uauth in self.auth_format.keys():
                 fmt = self.auth_format[uauth]['format']
@@ -840,3 +837,32 @@ Examples:
         except:
             self.logger.debug("Checking change log failed: %s", sys.exc_value)
         return False
+
+
+class PosixExportRadius(PosixExport):
+    """General mixin for Radius type attributes."""
+    # Based on Cerebrum.modules.PosixLDIF.PosixLDIFRadius
+
+    def ldif_auth_methods(self):
+	# Also fetch NT password, for attribute sambaNTPassword.
+        meth = super(PosixExportRadius, self).ldif_auth_methods()
+        if 'ldif' in self.options:
+            self.auth_type_radius = int(self.co.auth_type_md4_nt)
+            meth.append(self.auth_type_radius)
+	return meth
+
+    def ldif_user(self, data):
+        # Add sambaNTPassword (used by FreeRadius)
+        dn, entry = ret = super(PosixExportRadius, self).ldif_user(data)
+        if not data.quarantined:
+            try:
+                pw = self.auth_data[data.account_id][self.auth_type_radius]
+            except KeyError:
+                pass
+            else:
+                if pw:
+                    entry['sambaNTPassword'] = (pw,)
+                    # TODO: Remove these after Radius-testing
+                    entry['objectClass'].append('sambaSamAccount')
+                    entry['sambaSID'] = entry['uidNumber']
+        return ret
