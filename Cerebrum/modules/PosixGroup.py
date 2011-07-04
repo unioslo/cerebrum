@@ -108,6 +108,12 @@ class PosixGroup(Group_class):
         WHERE group_id=:g_id""", {'g_id': self.entity_id})
         self.__in_db = True
 
+    def list_posix_groups(self):
+        """Return group_id and posix_gid of all PosixGroups in database"""
+        return self.query("""
+        SELECT group_id, posix_gid
+        FROM [:table schema=cerebrum name=posix_group]""")
+
     def find_by_gid(self, gid):
         group_id = self.query_1("""
         SELECT group_id
