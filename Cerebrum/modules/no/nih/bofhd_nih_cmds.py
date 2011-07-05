@@ -114,7 +114,7 @@ class BofhdExtension(BofhdCommandBase):
         'user_find', 'user_password', 'user_set_expire',
         '_user_create_prompt_func_helper', 'user_create_basic_prompt_func',
         '_user_create_set_account_type',
-        'user_set_owner', 'user_set_owner_prompt_func',
+        'user_set_owner', 'user_set_owner_prompt_func', 'user_reserve',
         #
         # copy relevant spread-cmds and util methods
         #
