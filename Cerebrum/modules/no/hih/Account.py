@@ -17,8 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""""""
-
 import re
 
 import cereconf
@@ -53,6 +51,23 @@ class AccountHiHMixin(Account.Account):
         # in unames
         return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
     
+    def make_passwd(self, uname):
+        words = []
+        pwd = []
+        passwd = ""
+        for fname in cereconf.PASSPHRASE_DICTIONARIES:
+            f = file(fname, 'r')
+            for l in f:
+                words.append(l.rstrip())
+            while(1):
+                pwd.append(words[random.randint(0, len(words)-1)])
+                passwd = ' '.join([a for a in pwd])
+                if len(passwd) >= 12 and len(pwd) > 1:
+                    if len(passwd) <= 20:
+                    return passwd
+                else:
+                    pwd.pop(0)
+                                                                                                                                                
 
     def illegal_name(self, name):
         """HiH can only allow max 10 characters in usernames, due to
@@ -89,12 +104,3 @@ class AccountHiHMixin(Account.Account):
             ph.add_history(self, plain)
         return ret
 
-
-
-class AccountHiHEmailMixin(Account.Account):
-    def get_primary_mailaddress(self):
-        primary = self.get_contact_info(type=self.const.contact_email)
-        if primary:
-            return primary[0]['contact_value']
-        else:
-            return "<ukjent>"
