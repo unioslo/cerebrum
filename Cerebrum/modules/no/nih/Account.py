@@ -243,7 +243,7 @@ class AccountNIHMixin(Account.Account):
         mdb_choice = None
         if self.is_employee() or self.is_affiliate():
             mdb_choice = 'Ansatte-Vanlige'
-        elif self.is_student()
+        elif self.is_student():
             mdb_choice = 'Studenter-Vanlige'
         else:
             mdb_choice = 'Ansatte-Vanlige'            
