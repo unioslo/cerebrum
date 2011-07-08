@@ -64,7 +64,7 @@ class AccountHiHMixin(Account.Account):
                 passwd = ' '.join([a for a in pwd])
                 if len(passwd) >= 12 and len(pwd) > 1:
                     if len(passwd) <= 20:
-                    return passwd
+                        return passwd
                 else:
                     pwd.pop(0)
                                                                                                                                                 
