@@ -97,8 +97,13 @@ class AccountNIHMixin(Account.Account):
         for r in self.get_account_types():
             if r['affiliation'] == self.const.affiliation_tilknyttet:
                 return True
-        return False    
+        return False
 
+    def is_student(self):
+        for r in self.get_account_types():
+            if r['affiliation'] == self.const.affiliation_student:
+                return True
+        return False    
 
     def set_password(self, plaintext):
         # Override Account.set_password so that we get a copy of the
@@ -231,11 +236,17 @@ class AccountNIHMixin(Account.Account):
 
                     
     def _autopick_homeMDB(self):
+        # this will not work properly as the affiliations are assigned
+        # to account *after* the first update_email_adresses is run so
+        # we need to check affiliation for person in sted. it must
+        # suffice for now, but it should be fixed.  Jazz, 2011-07-08.
         mdb_choice = None
         if self.is_employee() or self.is_affiliate():
             mdb_choice = 'Ansatte-Vanlige'
-        else:
+        elif self.is_student()
             mdb_choice = 'Studenter-Vanlige'
+        else:
+            mdb_choice = 'Ansatte-Vanlige'            
         if mdb_choice is None:
             raise self._db.IntegrityError, \
                   "Cannot assign mdb"
