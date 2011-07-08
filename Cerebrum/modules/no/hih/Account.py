@@ -55,6 +55,7 @@ class AccountHiHMixin(Account.Account):
         # in unames
         return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
     
+                                                                                                                                                
     def make_passwd(self, uname):
         words = []
         pwd = []
@@ -63,16 +64,16 @@ class AccountHiHMixin(Account.Account):
             f = file(fname, 'r')
             for l in f:
                 words.append(l.rstrip())
-            while(1):
-                pwd.append(words[random.randint(0, len(words)-1)])
-                passwd = ' '.join([a for a in pwd])
-                if len(passwd) >= 12 and len(pwd) > 1:
-                    if len(passwd) <= 20:
-                        return passwd
+        while(1): 
+            pwd.append(words[random.randint(0, len(words)-1)])
+            passwd = ' '.join([a for a in pwd])
+            if len(passwd) >= 12 and len(pwd) > 1:
+                # do not generate passwords longer than 20 chars
+                if len(passwd) <= 20:
+                    return passwd
                 else:
                     pwd.pop(0)
-                                                                                                                                                
-
+                    
     def illegal_name(self, name):
         """HiH can only allow max 10 characters in usernames, due to
         restrictions in e.g. TimeEdit.
