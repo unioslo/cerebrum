@@ -174,7 +174,7 @@ class BofhdExtension(BofhdCommandBase):
     def get_help_strings(self):
         return (bofhd_hih_help.group_help,
                 bofhd_hih_help.command_help,
-                bofhd_ih_help.arg_help)
+                bofhd_hih_help.arg_help)
     
     def get_commands(self, account_id):
         try:
