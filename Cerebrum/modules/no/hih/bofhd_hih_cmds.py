@@ -33,7 +33,9 @@ from Cerebrum import Errors
 from Cerebrum import Database
 
 from Cerebrum.modules.bofhd.cmd_param import *
+from Cerebrum.modules import Email
 from Cerebrum.modules.no.hih import bofhd_hih_help
+from Cerebrum.modules.bofhd.bofhd_core import BofhdCommandBase
 from Cerebrum.Constants import _CerebrumCode, _SpreadCode
 from Cerebrum.modules.bofhd.auth import BofhdAuth
 from Cerebrum.modules.bofhd.utils import _AuthRoleOpCode
@@ -43,7 +45,7 @@ def format_day(field):
     fmt = "yyyy-MM-dd"                  # 10 characters wide
     return ":".join((field, "date", fmt))
 
-class BofhdExtension(object):
+class BofhdExtension(BofhdCommandBase):
     OU_class = Utils.Factory.get('OU')
     Account_class = Factory.get('Account')
     Group_class = Factory.get('Group')
@@ -65,6 +67,15 @@ class BofhdExtension(object):
         'access_list', '_get_auth_op_target', '_grant_auth', '_revoke_auth',
         '_get_opset',
         #
+        # copy relevant e-mail-cmds and util methods
+        #
+        'email_info', '_email_info_spam', '_email_info_filters',
+        '_email_info_forwarding', '_split_email_address',
+        '_email_info_mailman', '_email_info_multi', '_email_info_file',
+        '_email_info_pipe', '_email_info_forward',
+        'email_add_address', '_get_email_domain', 'email_remove_address',
+        '_split_email_address', '_remove_email_address',
+        #
         # copy relevant group-cmds and util methods
         #
         'group_add', 'group_gadd', '_group_add', '_group_add_entity',
@@ -78,6 +89,10 @@ class BofhdExtension(object):
         #
         'misc_affiliations', 'misc_check_password', 'misc_clear_passwords',
         'misc_stedkode', 'misc_verify_password',
+        #
+        # copy trait-functions
+        #
+        'trait_info', 'trait_list', 'trait_remove', 'trait_set',
         #
         # copy relevant person-cmds and util methods
         #
@@ -99,7 +114,7 @@ class BofhdExtension(object):
         'user_find', 'user_password', 'user_set_expire',
         '_user_create_prompt_func_helper', 'user_create_basic_prompt_func',
         '_user_create_set_account_type',
-        'user_set_owner', 'user_set_owner_prompt_func',
+        'user_set_owner', 'user_set_owner_prompt_func', 'user_reserve',
         #
         # copy relevant spread-cmds and util methods
         #
@@ -107,15 +122,14 @@ class BofhdExtension(object):
         #
         # copy relevant helper-functions
         #
-        '_find_persons', '_get_account', '_get_ou', '_format_ou_name',
-        '_get_person', '_get_disk', '_get_group', '_map_person_id', '_get_entity',
-         '_get_boolean', '_entity_info', 'num2str', '_get_affiliationid',
+        '_find_persons', '_format_ou_name', '_get_person', '_get_disk',
+        '_map_person_id', '_entity_info', 'num2str', '_get_affiliationid',
         '_get_affiliation_statusid', '_parse_date', '_today', 'entity_history',
-        '_format_changelog_entry', '_format_from_cl',
-         '_get_entity_name', '_get_group_opcode', '_get_name_from_object',
-        '_get_constant', '_is_yes', '_remove_auth_target',
+        '_format_changelog_entry', '_format_from_cl', '_get_group_opcode',
+        '_get_name_from_object', '_get_constant', '_is_yes', '_remove_auth_target',
         '_remove_auth_role', '_get_cached_passwords', '_parse_date_from_to',
-        '_convert_ticks_to_timestamp'
+        '_convert_ticks_to_timestamp', '_get_account', '_get_entity',
+        '_get_entity_name'
         )
 
     def __new__(cls, *arg, **karg):
@@ -130,15 +144,6 @@ class BofhdExtension(object):
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
             if func[0] != '_' and func not in non_all_cmds:
                 BofhdExtension.all_commands[func] = UiOBofhdExtension.all_commands[func]
-
-        #
-        # Importing hidden_commands for Brukerinfo. 
-        # TODO: This is quick, dirty, bad and ugly.
-        BofhdExtension.hidden_commands = UiOBofhdExtension.hidden_commands.copy()
-        for func in UiOBofhdExtension.hidden_commands:
-            setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
-            BofhdExtension.hidden_commands[func] = UiOBofhdExtension.hidden_commands[func]
-
         x = object.__new__(cls)
         return x
 
@@ -169,7 +174,7 @@ class BofhdExtension(object):
     def get_help_strings(self):
         return (bofhd_hih_help.group_help,
                 bofhd_hih_help.command_help,
-                bofhd_hih_help.arg_help)
+                bofhd_ih_help.arg_help)
     
     def get_commands(self, account_id):
         try:
@@ -195,17 +200,17 @@ class BofhdExtension(object):
     all_commands['person_student_info'] = Command(
         ("person", "student_info"), PersonId(),
         fs=FormatSuggestion([
-          ("Studieprogrammer: %s, %s, %s, %s, tildelt=%s->%s privatist: %s",
-           ("studprogkode", "studieretningkode", "studierettstatkode", "studentstatkode", 
-           format_day("dato_tildelt"), format_day("dato_gyldig_til"), "privatist")),
-          ("Eksamensmeldinger: %s (%s), %s",
-           ("ekskode", "programmer", format_day("dato"))),
-          ("Utd. plan: %s, %s, %d, %s",
-           ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
-            format_day("dato_bekreftet"))),
-          ("Semesterreg: %s, %s, FS bet. reg: %s, endret: %s",
-           ("regformkode", "betformkode", format_day("dato_endring"),
-            format_day("dato_regform_endret")))
+        ("Studieprogrammer: %s, %s, %s, %s, tildelt=%s->%s privatist: %s",
+         ("studprogkode", "studieretningkode", "studierettstatkode", "studentstatkode", 
+	  format_day("dato_tildelt"), format_day("dato_gyldig_til"), "privatist")),
+        ("Eksamensmeldinger: %s (%s), %s",
+         ("ekskode", "programmer", format_day("dato"))),
+        ("Utd. plan: %s, %s, %d, %s",
+         ("studieprogramkode", "terminkode_bekreft", "arstall_bekreft",
+          format_day("dato_bekreftet"))),
+        ("Semesterreg: %s, %s, FS bet. reg: %s, endret: %s",
+         ("regformkode", "betformkode", format_day("dato_endring"),
+          format_day("dato_regform_endret")))
         ]),
         perm_filter='can_get_student_info')
     def person_student_info(self, operator, person_id):
@@ -229,7 +234,7 @@ class BofhdExtension(object):
             ret.append({'studprogkode': row['studieprogramkode'],
                         'studierettstatkode': row['studierettstatkode'],
                         'studentstatkode': row['studentstatkode'],
-            'studieretningkode': row['studieretningkode'],
+			'studieretningkode': row['studieretningkode'],
                         'dato_tildelt': self._convert_ticks_to_timestamp(row['dato_studierett_tildelt']),
                         'dato_gyldig_til': self._convert_ticks_to_timestamp(row['dato_studierett_gyldig_til']),
                         'privatist': row['status_privatist']})
@@ -340,3 +345,133 @@ class BofhdExtension(object):
         account.write_db()
         return "User %s queued for deletion immediately" % account.account_name
 
+    # helpers needed for email_info, cannot be copied in the usual way
+    #
+    def __get_valid_email_addrs(self, et, special=False, sort=False):
+        """Return a list of all valid e-mail addresses for the given
+        EmailTarget.  Keep special domain names intact if special is
+        True, otherwise re-write them into real domain names."""
+        addrs = [(r['local_part'], r['domain'])       
+                 for r in et.get_addresses(special=special)]
+        if sort:
+            addrs.sort(lambda x,y: cmp(x[1], y[1]) or cmp(x[0],y[0]))
+        return ["%s@%s" % a for a in addrs]
+
+    def __get_email_target_and_address(self, address):
+        """Returns a tuple consisting of the email target associated
+        with address and the address object.  If there is no at-sign
+        in address, assume it is an account name and return primary
+        address.  Raises CerebrumError if address is unknown.
+        """
+        et = Email.EmailTarget(self.db)
+        ea = Email.EmailAddress(self.db)
+        if address.count('@') == 0:
+            acc = self.Account_class(self.db)
+            try:
+                acc.find_by_name(address)
+                # FIXME: We can't use Account.get_primary_mailaddress
+                # since it rewrites special domains.
+                et = Email.EmailTarget(self.db)
+                et.find_by_target_entity(acc.entity_id)
+                epa = Email.EmailPrimaryAddressTarget(self.db)
+                epa.find(et.entity_id)
+                ea.find(epa.email_primaddr_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, ("No such address: '%s'" % address)
+        elif address.count('@') == 1:
+            try:
+                ea.find_by_address(address)
+                et.find(ea.email_addr_target_id)
+            except Errors.NotFoundError:
+                raise CerebrumError, "No such address: '%s'" % address
+        else:
+            raise CerebrumError, "Malformed e-mail address (%s)" % address
+        return et, ea
+
+    def __get_email_target_and_account(self, address):
+        """Returns a tuple consisting of the email target associated
+        with address and the account if the target type is user.  If
+        there is no at-sign in address, assume it is an account name.
+        Raises CerebrumError if address is unknown."""
+        et, ea = self.__get_email_target_and_address(address)
+        acc = None
+        if et.email_target_type in (self.const.email_target_account,
+                                    self.const.email_target_deleted):
+            acc = self._get_account(et.email_target_entity_id, idtype='id')
+        return et, acc
+    
+    def __get_address(self, etarget):
+        """The argument can be
+        - EmailPrimaryAddressTarget
+        - EmailAddress
+        - EmailTarget (look up primary address and return that, throw
+        exception if there is no primary address)
+        - integer (use as entity_id and look up that target's
+        primary address)
+        The return value is a text string containing the e-mail
+        address.  Special domain names are not rewritten."""
+        ea = Email.EmailAddress(self.db)
+        if isinstance(etarget, (int, long, float)):
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            # may throw exception, let caller handle it
+            epat.find(etarget)
+            ea.find(epat.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailTarget):
+            epat = Email.EmailPrimaryAddressTarget(self.db)
+            epat.find(etarget.entity_id)
+            ea.find(epat.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailPrimaryAddressTarget):
+            ea.find(etarget.email_primaddr_id)
+        elif isinstance(etarget, Email.EmailAddress):
+            ea = etarget
+        else:
+            raise ValueError, "Unknown argument (%s)" % repr(etarget)
+        ed = Email.EmailDomain(self.db)
+        ed.find(ea.email_addr_domain_id)
+        return ("%s@%s" % (ea.email_addr_local_part,
+                           ed.email_domain_name))
+
+    def _email_info_detail(self, acc):
+        info = []
+        try:
+            et = Email.EmailTarget(self.db)
+            et.find_by_target_entity(acc.entity_id)
+            homemdb = None
+            tmp = acc.get_trait(self.const.trait_exchange_mdb)
+            if tmp != None:
+                homemdb = tmp['strval']
+            else:
+                homemdb = 'N/A'
+            # should not be shown for accounts without exchange-spread, needs fixin', Jazz 2011-02-21
+            info.append({'homemdb': homemdb})
+        except Errors.NotFoundError:
+            pass
+        return info
+    
+    def _email_info_basic(self, acc, et):
+        info = {}
+        data = [ info ]
+        if (et.email_target_type not in (self.const.email_target_Mailman,
+                                         self.const.email_target_Sympa) and
+            et.email_target_alias is not None):
+            info['alias_value'] = et.email_target_alias
+        info["account"] = acc.account_name
+        info["server"] = 'Mail server'
+        info["server_type"] = 'Microsoft Exchange'
+        return data
+    
+    def _email_info_account(self, operator, acc, et, addrs):
+        self.ba.can_email_info(operator.get_entity_id(), acc)
+        ret = self._email_info_basic(acc, et)
+        try:
+            self.ba.can_email_info_detail(operator.get_entity_id(), acc)
+        except PermissionDenied:
+            pass
+        else:
+            # spam settings, forwarding and filters are not used at
+            # HiH for now
+            #ret += self._email_info_spam(et)
+            #ret += self._email_info_forwarding(et, addrs)
+            #ret += self._email_info_filters(et)
+            ret += self._email_info_detail(acc)            
+        return ret
