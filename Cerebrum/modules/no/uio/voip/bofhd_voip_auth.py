@@ -197,7 +197,7 @@ class BofhdVoipAuth(auth.BofhdAuth):
         address = VoipAddress(self._db)
         address.find(client.voip_address_id)
 
-        if address.owner_entity_id == acc.owner_entity_id:
+        if address.owner_entity_id == acc.owner_id:
             return True
 
         raise PermissionDenied("Account id=%s cannot change sipSecret of "
