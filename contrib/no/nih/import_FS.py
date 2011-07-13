@@ -146,8 +146,7 @@ def _calc_address(person_info):
     # FS.DELTAKER   *_hjem (5) 
     rules = [
         ('fagperson', ('_arbeide', '_hjemsted', '_besok_adr')),
-        # ('aktiv', ('_semadr', '_hjemsted', None)),
-        ('aktiv', ('_hjemsted', None)),        
+        ('aktiv', ('_hjemsted', '_semadr_', 'None)),        
         ('evu', ('_job', '_hjem', None)),
         ]
     adr_map = {
