@@ -136,6 +136,9 @@ class UserSync(ADUserUtils):
                                              self.get_default_ou())
                 if sid and self.store_sid:
                     self.store_ext_sid(acc.account_id, sid)
+                if sid and acc.to_exchange:
+                    time.sleep(5)
+                    self.update_Exchange(acc.uname)
 
         # Sync forward addresses and forward distribution groups if
         # forward sync option is true
