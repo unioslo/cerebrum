@@ -118,15 +118,20 @@ def _get_sted_address(a_dict, k_institusjon, k_fak, k_inst, k_gruppe):
 def _ext_address_info(a_dict, kline1, kline2, kline3, kpost, kland):
     ret = {}
     ret['address_text'] = "\n".join([a_dict.get(f, None)
-                                     for f in (kline1, kline2)
+                                     for f in (kline1.strip(), kline2.strip())
                                      if a_dict.get(f, None)])
-    postal_number = a_dict.get(kpost, '')
+    postal_number = a_dict.get(kpost.strip(), '')
     if postal_number:
         postal_number = "%04i" % int(postal_number)
     ret['postal_number'] = postal_number
-    ret['city'] =  a_dict.get(kline3, '')
+    city = a_dict.get(kline3.strip(), '')
+    if city:
+        ret['city'] =  city
+    else:
+        ret['city'] = None
+    logger.debug('%s,  %s,  %s', ret['address_text'], postal_number, city)
     if len(ret['address_text']) == 1:
-        logger.debug("Address might not be complete, but we need to cover one-line addresses")
+        logger.debug('possibly incomplete address %s', ret['address_text'])
     # we have to register at least the city in order to have a "proper" address
     # this mean that addresses containing only ret['city'] will be imported
     # as well
