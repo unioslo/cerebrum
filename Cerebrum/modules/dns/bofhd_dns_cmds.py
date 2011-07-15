@@ -1,5 +1,5 @@
 # -*- coding: iso-8859-1 -*-
-# Copyright 2005-2008 University of Oslo, Norway
+# Copyright 2005-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -17,6 +17,7 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
+import os
 import cerebrum_path
 import cereconf
 
@@ -1167,8 +1168,9 @@ class BofhdExtension(BofhdCommandBase):
             raise PermissionDenied("You are not allowed to do this for '%s'" % host_id)
         
         if ipnumber.find_by_mac(mac_adr) and not force:
-            raise CerebrumError("MAC-adr '%s' already in use, "
-                                "must force (y)" % mac_adr)
+            raise CerebrumError("MAC-adr '%s' already in use, must force (y)%s"
+                                "MAC-adr '%s' is in use by '%s'" %
+                                (mac_adr, os.linesep, mac_adr, host_id))
             
         # Cannot associate a MAC-address unless we have a single
         # specific address to associate with.
