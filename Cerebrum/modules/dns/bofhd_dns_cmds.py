@@ -1166,11 +1166,12 @@ class BofhdExtension(BofhdCommandBase):
         # Now that we have the IP, ensure operator has proper permissions to do this
         if not self.ba.can_do_lita_dns_by_ip(operator.get_entity_id(), arecords[0]['a_ip']):
             raise PermissionDenied("You are not allowed to do this for '%s'" % host_id)
-        
-        if ipnumber.find_by_mac(mac_adr) and not force:
+
+        res = ipnumber.find_by_mac(mac_adr)
+        if res and not force:
             raise CerebrumError("MAC-adr '%s' already in use, must force (y)%s"
                                 "MAC-adr '%s' is in use by '%s'" %
-                                (mac_adr, os.linesep, mac_adr, host_id))
+                                (mac_adr, os.linesep, mac_adr, res[0]['a_ip']))
             
         # Cannot associate a MAC-address unless we have a single
         # specific address to associate with.
