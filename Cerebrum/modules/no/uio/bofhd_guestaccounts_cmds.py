@@ -221,7 +221,6 @@ class BofhdExtension(BofhdCommandBase):
         owner = self.util.get_target(groupname, default_lookup="group")
         try:
             user_list = self.bgu.request_guest_users(int(nr), end_date, comment,
-                                                     self.const.entity_group,
                                                      owner.entity_id,
                                                      operator.get_entity_id())
             for uname, comment, e_id, passwd in user_list:
