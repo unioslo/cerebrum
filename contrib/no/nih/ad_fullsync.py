@@ -89,6 +89,7 @@ def main():
     # Configure AD sync. Set default values, then read cereconf and
     # user input.
     config_args = {'ad_domain': cereconf.AD_DOMAIN,
+                   'ad_ldap': cereconf.AD_LDAP,
                    "user_spread": cereconf.AD_ACCOUNT_SPREAD,
                    "sec_group_spread": cereconf.AD_GROUP_SPREAD,
                    "dist_group_spread": cereconf.AD_DIST_GROUP_SPREAD,

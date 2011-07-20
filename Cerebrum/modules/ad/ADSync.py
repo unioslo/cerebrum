@@ -83,10 +83,10 @@ class UserSync(ADUserUtils):
         # Sync settings for this module
         for k in ("user_spread", "user_exchange_spread", "forward_sync",
                   "exchange_sync", "delete_users", "dryrun", "ad_domain",
-                  "store_sid", "subset"):
+                  "ad_ldap", "store_sid", "subset"):
             if k in config_args:
                 setattr(self, k, config_args.pop(k))
-
+                
         msg = "Starting user-sync"
         if self.dryrun:
             msg += " in dryrun mode. No changes will be performed"
@@ -369,7 +369,7 @@ class UserSync(ADUserUtils):
         # Setting the user attributes to be fetched.
         self.server.setUserAttributes(self.sync_attrs,
                                       cereconf.AD_ACCOUNT_CONTROL)
-        ret = self.server.listObjects("user", True, cereconf.AD_LDAP)
+        ret = self.server.listObjects("user", True, self.ad_ldap)
         if self.subset:
             tmp = dict()
             for u in self.subset:
@@ -390,7 +390,7 @@ class UserSync(ADUserUtils):
         """
         ret = dict()
         self.server.setContactAttributes(cereconf.AD_CONTACT_FORWARD_ATTRIBUTES)
-        ad_contacts = self.server.listObjects('contact', True, cereconf.AD_LDAP)
+        ad_contacts = self.server.listObjects('contact', True, self.ad_ldap)
         if ad_contacts:
             # Only deal with forwarding contact objects. 
             for object_name, properties in ad_contacts.iteritems():
@@ -411,7 +411,7 @@ class UserSync(ADUserUtils):
         """        
         ret = dict()
         self.server.setGroupAttributes(cereconf.AD_DIST_GRP_ATTRIBUTES)
-        ad_dist_grps = self.server.listObjects('group', True, cereconf.AD_LDAP)
+        ad_dist_grps = self.server.listObjects('group', True, self.ad_ldap)
         if ad_dist_grps:
             # Only deal with forwarding groups. Groupsync deals with other groups.
             for grp_name, properties in ad_dist_grps.iteritems():
@@ -533,6 +533,11 @@ class UserSync(ADUserUtils):
     def get_default_ou(self):
         "Return default user ou"
         return cereconf.AD_USER_OU
+    
+
+    def get_deleted_ou(self):
+        "Return deleted ou"
+        return cereconf.AD_LOST_AND_FOUND
     
 
     def get_default_contacts_ou(self):
@@ -666,7 +671,7 @@ class GroupSync(ADGroupUtils):
         @rtype: dict
         """
         self.server.setGroupAttributes(self.sync_attrs)
-        return self.server.listObjects('group', True, cereconf.AD_LDAP)
+        return self.server.listObjects('group', True, self.ad_ldap)
 
 
     def fetch_cerebrum_data(self):
@@ -833,7 +838,7 @@ class DistGroupSync(GroupSync):
         ret = dict()
         attrs = cereconf.AD_DIST_GRP_ATTRIBUTES + tuple(cereconf.AD_DIST_GRP_DEFAULTS.keys())
         self.server.setGroupAttributes(attrs)
-        ad_dist_grps = self.server.listObjects('group', True, cereconf.AD_LDAP)
+        ad_dist_grps = self.server.listObjects('group', True, self.ad_ldap)
         if ad_dist_grps:
             # Only deal with distribution groups. Groupsync deals with security groups.
             for grp_name, properties in ad_dist_grps.iteritems():
