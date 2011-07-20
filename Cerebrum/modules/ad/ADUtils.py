@@ -272,8 +272,8 @@ class ADUserUtils(ADUtils):
             if not ad_user['ACCOUNTDISABLE']:
                 self.disable_user(dn)
             # Disabled users lives in AD_LOST_AND_FOUND OU
-            if self.get_ou(dn) != cereconf.AD_LOST_AND_FOUND:
-                self.move_user(dn, cereconf.AD_LOST_AND_FOUND)
+            if self.get_ou(dn) != self.get_deleted_ou():
+                self.move_user(dn, self.get_deleted_ou())
 
 
     def delete_user(self, dn):
@@ -329,16 +329,22 @@ class ADUserUtils(ADUtils):
         # Set password
         pw = unicode(self.ac.make_passwd(uname), cereconf.ENCODING)
         self.run_cmd("setPassword", pw)
-        # Set other properties
+
+        # Set properties. First remove any properties that cannot be set like this
         for a in ("distinguishedName", "cn"):
             if attrs.has_key(a):
                 del attrs[a]
+        # Don't send attrs with value == None
+        for k, v in attrs.items():
+            if v is None:
+                del attrs[k]
         if self.run_cmd("putProperties", attrs) and self.run_cmd("setObject"):
             # TBD: A bool here to decide if createDir should be performed or not?
             # Create accountDir for new account if attributes where set.
             # Give AD time to take a breath before creating homeDir
-            time.sleep(5)
-            self.run_cmd("createDir")
+            if cereconf.AD_CREATE_HOMEDIR:
+                time.sleep(5)
+                self.run_cmd("createDir")
         return sid
 
 
