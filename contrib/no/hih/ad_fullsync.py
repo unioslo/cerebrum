@@ -163,6 +163,7 @@ def main():
     if not host:
         host = getattr(cereconf, "AD_SERVER_HOST_"+prefix)
     config_args["ad_ldap"] = getattr(cereconf, "AD_LDAP_"+prefix)
+    config_args["ad_dc"] = getattr(cereconf, "AD_DC_"+prefix)
     config_args["ad_domain"] = getattr(cereconf, "AD_DOMAIN_"+prefix)
 
     # specific args for the different sync types:
