@@ -79,9 +79,11 @@ class ADUtils(object):
         except AttributeError:
             ad_dc = getattr(cereconf, "AD_DC", None)
 
-        # Stupid method in AD service does explicit None test
-        self.run_cmd('run_UpdateRecipient', ad_obj, ad_dc or None)
-        
+        if ad_dc:
+            self.run_cmd('run_UpdateRecipient', ad_obj, ad_dc)
+        else:
+            self.run_cmd('run_UpdateRecipient', ad_obj)
+            
 
     def commit_changes(self, dn, **changes):
         """
