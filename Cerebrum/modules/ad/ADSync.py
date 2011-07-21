@@ -83,7 +83,7 @@ class UserSync(ADUserUtils):
         # Sync settings for this module
         for k in ("user_spread", "user_exchange_spread", "forward_sync",
                   "exchange_sync", "delete_users", "dryrun", "ad_domain",
-                  "ad_ldap", "store_sid", "subset"):
+                  "ad_ldap", "ad_dc", "store_sid", "subset"):
             if k in config_args:
                 setattr(self, k, config_args.pop(k))
                 

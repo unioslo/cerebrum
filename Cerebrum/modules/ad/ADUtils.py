@@ -73,10 +73,14 @@ class ADUtils(object):
             return
         self.logger.info(msg)
 
-        if cereconf.AD_DC:
-            self.run_cmd('run_UpdateRecipient', ad_obj, cereconf.AD_DC)
-        else:
-            self.run_cmd('run_UpdateRecipient', ad_obj)
+        # Use self.ad_dc if it exists, otherwise try cereconf.AD_DC
+        try:
+            ad_dc = self.ad_dc
+        except AttributeError:
+            ad_dc = getattr(cereconf, "AD_DC", None)
+
+        # Stupid method in AD service does explicit None test
+        self.run_cmd('run_UpdateRecipient', ad_obj, ad_dc or None)
         
 
     def commit_changes(self, dn, **changes):
