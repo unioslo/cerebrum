@@ -17,8 +17,6 @@
 # along with Cerebrum; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-""""""
-
 import re
 import time
 
@@ -28,7 +26,7 @@ from Cerebrum import Account
 from Cerebrum import Errors
 from Cerebrum.modules import Email
 from Cerebrum.modules import PasswordHistory
-
+from Cerebrum.Utils import Factory
 
 class AccountNIHMixin(Account.Account):
     """Account mixin class providing functionality specific to NIH."""
@@ -86,21 +84,21 @@ class AccountNIHMixin(Account.Account):
         return False
 
 
-    def is_employee(self):
-        for r in self.get_account_types():
+    def is_employee(self, person):
+        for r in person.get_affiliations():
             if r['affiliation'] == self.const.affiliation_ansatt:
                 return True
         return False
 
 
-    def is_affiliate(self):
-        for r in self.get_account_types():
+    def is_affiliate(self, person):
+        for r in person.get_affiliations():
             if r['affiliation'] == self.const.affiliation_tilknyttet:
                 return True
         return False
 
-    def is_student(self):
-        for r in self.get_account_types():
+    def is_student(self, person):
+        for r in person.get_affiliations():
             if r['affiliation'] == self.const.affiliation_student:
                 return True
         return False    
@@ -236,14 +234,18 @@ class AccountNIHMixin(Account.Account):
 
                     
     def _autopick_homeMDB(self):
-        # this will not work properly as the affiliations are assigned
-        # to account *after* the first update_email_adresses is run so
-        # we need to check affiliation for person in sted. it must
-        # suffice for now, but it should be fixed.  Jazz, 2011-07-08.
         mdb_choice = None
-        if self.is_employee() or self.is_affiliate():
+        person = Factory.get("Person")(self._db)
+        person.clear()
+        try:
+            person.find(int(self.owner_id))
+        except Errors.NotFoundError:
+            raise self._db.IntegrityError, \
+                'No personal owner found'
+            return
+        if self.is_employee(person) or self.is_affiliate(person):
             mdb_choice = 'Ansatte-Vanlige'
-        elif self.is_student():
+        elif self.is_student(person):
             mdb_choice = 'Studenter-Vanlige'
         else:
             mdb_choice = 'Ansatte-Vanlige'            
