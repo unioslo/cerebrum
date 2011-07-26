@@ -255,8 +255,6 @@ def process_person_callback(person_info):
             year = 1970
     except fodselsnr.InvalidFnrError:
         logger.warn("Ugyldig fødselsnr for: %s %s (%s)", 
-                    person_info['fornavn'], 
-                    person_info['etternavn'], 
                     person_info['fodselsdato'])
         return
 
