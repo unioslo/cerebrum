@@ -254,7 +254,7 @@ def process_person_callback(person_info):
             # Seems to be a bug in time.mktime on some machines
             year = 1970
     except fodselsnr.InvalidFnrError:
-        logger.warn("Ugyldig fødselsnr for: %s %s (%s)", 
+        logger.warn("Ugyldig fødselsnr for: %s", 
                     person_info['fodselsdato'])
         return
 
