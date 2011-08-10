@@ -27,8 +27,9 @@ relevant functionality should be placed in Cerebrum/modules/cis/, which should
 not know anything about twisted.
 
 Note that the logger is twisted's own logger and not Cerebrum's. Since twisted
-works in parallell the logger can not block. Due to this, the format of the logs
-is not equal to the rest of Cerebrum. This might be something to work on later.
+works in parallell the logger should not be blocked. Due to this, the format of
+the logs is not equal to the rest of Cerebrum. This might be something to work
+on later.
 
 """
 
@@ -229,12 +230,12 @@ if __name__=='__main__':
 
     use_encryption = True
     port     = getattr(cereconf, 'INDIVIDUATION_SERVICE_PORT', 0)
-    logfile  = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
+    logfilename = getattr(cereconf, 'INDIVIDUATION_SERVICE_LOGFILE', None)
     instance = getattr(cereconf, 'INDIVIDUATION_INSTANCE', None)
 
     for opt, val in opts:
         if opt in ('-l', '--logfile'):
-            logfile = val
+            logfilename = val
         elif opt in ('-p', '--port'):
             port = int(val)
         elif opt in ('--unencrypted',):
@@ -264,12 +265,13 @@ if __name__=='__main__':
             util.untilConcludes(self.write, timeStr + " cis_individuation: " + msgStr)
             util.untilConcludes(self.flush)  # Hoorj!
 
-    logger = TwistedCerebrumLogger(file(logfile, 'a'))
+    logger = TwistedCerebrumLogger(logfile.LogFile.fromFullPath(logfilename,
+                    rotateLength = 50 * 1024 * 1024, # max size of each log file
+                    maxRotatedFiles = 100,
+                    #defaultMode=None # the file mode at creation
+               ))
     logger.timeFormat = '%Y-%m-%d %H:%M:%S'
     log.startLoggingWithObserver(logger.emit)
-    # Use: 
-    #   logfile.LofFile.fromFullPath(logfile, rotateLength=100000)
-    # instead of file(logfile, 'a') for automatically rotate the log
 
     # Initiate the individuation instance
     module, classname = instance.split('/', 1)
