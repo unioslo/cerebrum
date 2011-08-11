@@ -267,7 +267,7 @@ if __name__=='__main__':
 
     logger = TwistedCerebrumLogger(logfile.LogFile.fromFullPath(logfilename,
                     rotateLength = 50 * 1024 * 1024, # max size of each log file
-                    maxRotatedFiles = 100,
+                    maxRotatedFiles = 10,
                     #defaultMode=None # the file mode at creation
                ))
     logger.timeFormat = '%Y-%m-%d %H:%M:%S'
