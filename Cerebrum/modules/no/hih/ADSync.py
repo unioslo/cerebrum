@@ -58,6 +58,10 @@ class HIHCerebrumUser(CerebrumUser):
         # Set predefined default values
         ad_attrs.update(cereconf.AD_ACCOUNT_CONTROL)
         ad_attrs.update(cereconf.AD_DEFAULTS)
+        if self.is_student():
+            ad_attrs.update(cereconf.AD_DEFAULTS_STUDENT)
+        else:
+            ad_attrs.update(cereconf.AD_DEFAULTS_ANSATT)
         
         # Do the hardcoding for this sync.
         # Name and case of attributes should be as they are in AD
