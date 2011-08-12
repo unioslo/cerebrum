@@ -105,7 +105,6 @@ class HIHCerebrumUser(CerebrumUser):
                 ad_attrs.update(cereconf.AD_EXCHANGE_DEFAULTS_ANSATT)                
 
             # Exchange attributes hardcoding
-            ad_attrs['msExchHomeServerName'] = cereconf.AD_EX_HOME_SERVER
             ad_attrs["mailNickname"] = self.uname
             if self.is_student():                
                 ad_attrs["homeMDB"] = cereconf.AD_HOMEMDB_STUDENT
