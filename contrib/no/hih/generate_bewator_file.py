@@ -89,6 +89,8 @@ def process(userout, groupout):
     ent2fullname = dict((row['person_id'], row['name']) for row in
                      pe.list_persons_name(source_system=co.system_cached,
                                           name_type=co.name_full))
+    ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
+                     pe.list_contact_info(source_system=co.system_sap))
     employees = set(row['person_id'] for row in 
                      pe.list_affiliations(source_system=co.system_sap))
     students = set(row['person_id'] for row in 
@@ -147,16 +149,27 @@ def process(userout, groupout):
         else:
             line.append('tittel')
             line.append('avdeling')
-            line.append('mobil')
+            phone = ent2phone[ent]
+            if len(phone) == 8 and phone.is_digit():
+                line.append('mobil')
+            else:
+                line.append('')
+        
+        # TODO: loop over the items in line and substitute '; with something
+        # else? E.g. ':'
         userout.write(';'.join(line))
         userout.write("\n")
     logger.debug("Users finished")
 
     logger.debug("Starting on groups")
     for g in gr.search(spread=co.spread_adgang_group):
-        members = set(ent2adgid[row['member_id']] for row in
-                      gr.search_members(group_id=g['group_id'],
-                                        member_type=co.entity_person))
+        try:
+            members = set(ent4adgid[row['member_id']] for row in
+                          gr.search_members(group_id=g['group_id'],
+                                            member_type=co.entity_person))
+        except KeyError, e:
+            logger.warning("Some person is missing bewator id group %d. Group is skipped.", g['name'])
+            continue
         groupout.write("%s;%s\n" % (g['name'], ','.join(members)))
     logger.debug("Groups finished")
     
