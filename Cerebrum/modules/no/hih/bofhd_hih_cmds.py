@@ -97,7 +97,6 @@ class BofhdExtension(BofhdCommandBase):
         # copy relevant person-cmds and util methods
         #
         'person_accounts', 'person_affiliation_add',
-        '_person_affiliation_add_helper',
         'person_affiliation_remove', 'person_create',
         'person_find', 'person_info', 'person_list_user_priorities',
         'person_set_user_priority', 'person_set_name',
@@ -475,3 +474,34 @@ class BofhdExtension(BofhdCommandBase):
             #ret += self._email_info_filters(et)
             ret += self._email_info_detail(acc)            
         return ret
+
+    def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
+        """Helper-function for adding an affiliation to a person with
+        permission checking.  person is expected to be a person
+        object, while ou, aff and aff_status should be the textual
+        representation from the client"""
+        aff = self._get_affiliationid(aff)
+        aff_status = self._get_affiliation_statusid(aff, aff_status)
+        ou = self._get_ou(stedkode=ou)
+
+        # Assert that the person already have the affiliation
+        has_aff = False
+        for a in person.get_affiliations():
+            if a['ou_id'] == ou.entity_id and a['affiliation'] == aff:
+                if a['status'] == aff_status:
+                    has_aff = True
+                elif a['source_system'] == self.const.system_manual:
+                    raise CerebrumError, ("Person has conflicting aff_status "
+                                          "for this OU/affiliation combination")
+        if not has_aff:
+            self.ba.can_add_affiliation(operator.get_entity_id(),
+                                        person, ou, aff, aff_status)
+            person.add_affiliation(ou.entity_id, aff,
+                                   self.const.system_manual, aff_status)
+            person.write_db()
+        return ou, aff, aff_status
+
+    def _person_create_externalid_helper(self, person):
+        person.affect_external_id(self.const.system_manual,
+                                  self.const.externalid_fodselsnr,
+                                  self.const.externalid_bewatorid)    
