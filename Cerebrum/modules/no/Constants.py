@@ -184,7 +184,11 @@ class ConstantsUniversityColleges(Constants.Constants):
                                                                'Registrert i HR, gjest')
     affiliation_status_tilknyttet_gjestefors = _PersonAffStatusCode(affiliation_tilknyttet,
                                                                     'gjesteforsker',
-                                                                    'Registrert i HR, gjesteforsker')    
+                                                                    'Registrert i HR, gjesteforsker')
+
+    affiliation_status_tilknyttet_nosrc = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                               'nosource',
+                                                               'Ekstern person, ltilknyttet uten rgistrering')    
     affiliation_tilknyttet_fagperson = _PersonAffStatusCode(affiliation_tilknyttet,
                                                             'fperson',
                                                             'Dummy, do not use')
