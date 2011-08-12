@@ -44,10 +44,10 @@ def usage(exitcode):
 def institutt_grupper():
     # sko 220000 has id = 5735
     alle_stud_22 = person.list_affiliations(affiliation=const.affiliation_student, ou_id=5735)
-    alle_ans_22 = person.list_affiliations(affiliation=const.affiliation_student, ou_id=5735)    
+    alle_ans_22 = person.list_affiliations(affiliation=const.affiliation_ansatt, ou_id=5735)    
     # sko 230000 has id = 5748 
     alle_stud_23 = person.list_affiliations(affiliation=const.affiliation_student, ou_id=5748)
-    alle_ans_23 = person.list_affiliations(affiliation=const.affiliation_student, ou_id=5748) 
+    alle_ans_23 = person.list_affiliations(affiliation=const.affiliation_ansatt, ou_id=5748) 
     
     # groups used are: ans-220000, stud-220000, ans-230000, stud-230000
     # no other 'institutter' exist at HiH for now
@@ -160,7 +160,7 @@ def studieprog_grupper(fsconn):
             grp.populate(creator_id=2,
                          visibility=const.group_visibility_all,
                          name=grp_name, 
-                         description=x['studieprognavn'])
+                         description='Alle studenter på ' + x['studieprognavn'])
             try:
                 grp.write_db()
             except db.DatabaseError, m:
@@ -177,7 +177,7 @@ def studieprog_grupper(fsconn):
 
         # studieprog-group is either found or created. checking memberships
         for x in fs.undervisning.list_studenter_studieprog(x['studieprogramkode']):
-            fnr =  "%06d%05d" % (int(x['fodselsdato']), int(x['personnr']))
+            fnr = "%06d%05d" % (int(x['fodselsdato']), int(x['personnr']))
             person.clear()
             try:
                 person.find_by_external_id(const.externalid_fodselsnr, fnr, source_system=const.system_fs,
@@ -210,7 +210,10 @@ def kull_grupper(fsconn, studieprogramkode):
         except Errors.NotFoundError:
             logger.info("Could not find kull group %s, creating", grp_name)
             # all groups are created/owned by bootstrap_account, id = 2
-            desc = "%s-%s %s - %s" % (x['terminkode'], x['arstall'], x['studiekullnavn'], studieprogramkode)
+            desc = "Alle studenter på kull %s, %s %s (%s)" % (x['studiekullnavn'], 
+                                                              x['terminkode'], 
+                                                              x['arstall'], 
+                                                              studieprogramkode)
             grp.populate(creator_id=2,
                          visibility=const.group_visibility_all,
                          name=grp_name, 
@@ -251,7 +254,61 @@ def kull_grupper(fsconn, studieprogramkode):
                 except db.DatabaseError, m:
                     raise CerebrumError, "Database error: %s" % m
 
+def undervisningsmelding_grupper(fsconn):
+    for x in fs.undervisning.list_undervisningenheter():
+        grp_name = 'emne-%s-%s-%s' % (x['emnekode'], x['terminkode'], x['arstall'])
+        grp.clear()
+        try:
+            grp.find_by_name(grp_name)
+        except Errors.NotFoundError:
+            logger.info("Could not find emne group %s, creating", grp_name)
+            # all groups are created/owned by bootstrap_account, id = 2
+            desc = "Alle studenter undervisningsmeldt på %s, %s %s" % (x['emnekode'], 
+                                                                       x['arstall'], 
+                                                                       x['terminkode'])
+            grp.populate(creator_id=2,
+                         visibility=const.group_visibility_all,
+                         name=grp_name, 
+                         description=desc)
+            try:
+                grp.write_db()
+            except db.DatabaseError, m:
+                raise Errors.CerebrumError, "Database error: %s" % m
 
+        # check if the group is tagged for export to LMS, tagg if not
+        if not grp.has_spread(const.spread_lms_group):
+            grp.add_spread(const.spread_lms_group)
+            logger.debug("Added spread to LMS for kull group %s", grp_name)
+            try:
+                grp.write_db()
+            except db.DatabaseError, m:
+                raise Errors.CerebrumError, "Database error: %s" % m
+
+        # update memberships in emne-groups
+        for y in fs.undervisning.list_studenter_underv_enhet(x['institusjonsnr'], x['emnekode'],
+                                                             x['versjonskode'], x['terminkode'], 
+                                                             x['arstall'], x['terminnr']):
+            fnr = "%06d%05d" % (int(y['fodselsdato']), int(y['personnr']))
+            person.clear()
+            try:
+                person.find_by_external_id(const.externalid_fodselsnr, fnr, source_system=const.system_fs,
+                                           entity_type=const.entity_person)
+            except Errors.NotFoundError:
+                logger.error("Could not find person %s in Cerebrum", fnr)
+                continue
+            # all memberships are based on primary account
+            primary_acc_id = person.get_primary_account()
+            if primary_acc_id == None:
+                logger.error("Could not find any primary account for person %s, skipping", fnr)
+                continue
+            if not grp.has_member(primary_acc_id):
+                grp.add_member(primary_acc_id)
+                logger.debug("Added %s to group %s", primary_acc_id, grp.group_name)
+                try:
+                    grp.write_db()
+                except db.DatabaseError, m:
+                    raise CerebrumError, "Database error: %s" % m
+        
 def main():
     global db, const, ou, grp, person, acc, fs, logger
 
@@ -272,9 +329,12 @@ def main():
 
     logger.info("Updating instittut groups")
     institutt_grupper()
+
+    logger.info("Updating emne/underv.enh groups")
+    undervisningsmelding_grupper(fs)
     
     logger.info("All done, commiting to database")
-    db.commit()
+    db.rollback()
 
 if __name__ == '__main__':
     main()
