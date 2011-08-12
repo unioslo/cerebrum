@@ -89,8 +89,8 @@ def process(userout, groupout):
     ent2fullname = dict((row['person_id'], row['name']) for row in
                      pe.list_persons_name(source_system=co.system_cached,
                                           name_type=co.name_full))
-    #ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
-    #                 pe.list_contact_info(source_system=co.system_sap))
+    ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
+                     pe.list_contact_info(source_system=co.system_sap))
     employees = set(row['person_id'] for row in 
                      pe.list_affiliations(source_system=co.system_sap))
     students = set(row['person_id'] for row in 
