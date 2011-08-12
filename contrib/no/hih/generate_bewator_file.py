@@ -68,7 +68,7 @@ ac = Factory.get('Account')(db)
 gr = Factory.get('Group')(db)
 ou = Factory.get('OU')(db)
 co = Factory.get('Constants')(db)
-logger = Factory.get_logger('console')
+logger = Factory.get_logger('cronjob')
 
 def process(userout, groupout):
     logger.debug('Start caching data')
