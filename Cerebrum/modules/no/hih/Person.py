@@ -25,7 +25,7 @@ from Cerebrum import Errors
 from Cerebrum.Utils import Factory
 
 
-class PersonHiHMixin(Account.Account):
+class PersonHiHMixin(Person.Person):
     """Person mixin class providing functionality specific to HiH.
 
     The methods of the core Person class that are overridden here,
