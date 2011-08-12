@@ -48,27 +48,23 @@ class PersonHiHMixin(Person.Person):
         #
         # if bew_id is found for person, don't generate a new one
         bew_id = self.get_external_id(id_type=self.const.externalid_bewatorid)
-        if bew_id != []:
-            return
-
-        # if affiliation being added is ansatt or tilknyttet generate
-        # bewator_id from the bewatorid_ans_seq
-        if int(affiliation) in [int(self.const.affiliation_ansatt),
-                                int(self.const.affiliation_tilknyttet)]:
+        if bew_id == []:
+            # if affiliation being added is ansatt or tilknyttet generate
+            # bewator_id from the bewatorid_ans_seq
+            if int(affiliation) in [int(self.const.affiliation_ansatt),
+                                    int(self.const.affiliation_tilknyttet)]:
                 bew_id = '01221' + str(self.nextval('bewatorid_ans_seq')) + '0'
                 self.populate_external_id(self.const.system_manual,
                                           self.const.externalid_bewatorid,
                                           bew_id)
-                self.write_db()
-                return
             
-        if int(affiliation) == int(self.const.affiliation_student):
-            if int(status) == int(self.const.affiliation_status_student_ekstern):
-                bew_id = '01221' + str(self.nextval('bewatorid_extstud_seq')) + '0'
-                self.populate_external_id(self.const.system_manual,
-                                          self.const.externalid_bewatorid,
-                                          bew_id)
-                self.write_db()
-            # for all other students we register bewator_id during
+            if int(affiliation) == int(self.const.affiliation_student):
+                if int(status) == int(self.const.affiliation_status_student_ekstern):
+                    bew_id = '01221' + str(self.nextval('bewatorid_extstud_seq')) + '0'
+                    self.populate_external_id(self.const.system_manual,
+                                              self.const.externalid_bewatorid,
+                                              bew_id)
+            self.write_db()
+            # for  other students we register bewator_id during
             # FS-import
         self.__super.add_affiliation(ou_id, affiliation, source, status)            
