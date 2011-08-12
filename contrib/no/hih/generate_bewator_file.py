@@ -149,12 +149,12 @@ def process(userout, groupout):
         else:
             line.append('tittel')
             line.append('avdeling')
-            # Jazz, 2011-08-12
-            # we need to think about the phone numbers, we need to use
-            # both system_sap, system_fs and system_manual here
-            #phone = ent2phone[ent]
-            #if len(phone) == 8 and phone.is_digit():
-            #    line.append('mobil')
+            if ent in ent2phone:
+                phone = ent2phone[ent]
+            else:
+                phone = None
+            if len(phone) == 8 and phone.is_digit():
+                line.append('mobil')
             else:
                 line.append('')
         
