@@ -769,6 +769,9 @@ EPHORTE_EGNE_SAKER_SKO = ''
 EPHORTE_NEW2OLD_PERMISSIONS = {}
 EPHORTE_OLD2NEW_PERMISSIONS = {}
 
+## Vars needed by the physical access controll system bewator
+BEWATOR_ID_RANGES = {}
+
 # Oracle default DB driver
 DB_DRIVER_ORACLE = "cx_Oracle"
 
