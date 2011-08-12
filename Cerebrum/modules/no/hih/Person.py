@@ -49,7 +49,7 @@ class PersonHiHMixin(Account.Account):
         #
         # if bew_id is found for person, don't generate a new one
         bew_id = self.get_external_id(id_type=self.const.externalid_bewatorid)
-        if bew_id =! []:
+        if bew_id != []:
             return
 
         # if affiliation being added is ansatt or tilknyttet generate
