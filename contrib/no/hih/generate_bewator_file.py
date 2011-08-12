@@ -132,20 +132,18 @@ def process(userout, groupout):
             logger.warning("Person %d not employee/student (or hasn't studno/ansno)" % ent)
             continue
 
-        # TODO: handle undefined names and other cached data
-
         # etternavn
-        line.append(ent2lastname[ent])
+        line.append(ent2lastname.get(ent, ''))
         # fornavn
-        line.append(ent2firstname[ent])
+        line.append(ent2firstname.get(ent, ''))
         # fullt navn
-        line.append(ent2fullname[ent])
+        line.append(ent2fullname.get(ent, ''))
         # fødselsdato        
         # TODO: not sure about the format
         line.append(row['birth_date'].strftime('%Y-%m-%d'))
 
         # brukernavn
-        line.append(ent2account[ent])
+        line.append(ent2account.get(ent, ''))
 
         if ent not in employees:
             line.append('')
@@ -160,6 +158,7 @@ def process(userout, groupout):
             # konkatenering med |
             line.append('|'.join(ent2avdeling.get(ent, '')))
 
+            # mobil
             phone = ent2phone.get(ent, '')
             if phone:
                 if len(phone) == 8 and phone.is_digit():
