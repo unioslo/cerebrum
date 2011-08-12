@@ -94,7 +94,12 @@ class ADUtils(object):
         @param changes: attributes that should be changed in AD
         @type changes: dict (keyword args)
         """
-        if not self.dryrun and self.run_cmd('bindObject', dn):
+        if self.dryrun:
+            self.logger.debug("DRYRUN: Not setting attributes for %s: %s" %
+                              (dn, changes))
+            return
+        
+        if self.run_cmd('bindObject', dn):
             # Set attributes in AD
             # Check that no values in changes == None.
             # That is an error and shouldn't be sent
