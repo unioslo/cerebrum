@@ -224,6 +224,21 @@ class HIHUndervisning(access_FS.Undervisning):
                                      "terminkode_kull"   : terminkode,
                                      "arstall_kull"      : arstall})
 
+    def list_kull_at_studieprog(self, studieprogramkode):
+        """Henter informasjon om aktive studiekull på et gitt studieprogram."""
+        qry = """
+        SELECT
+          k.studieprogramkode, k.terminkode, k.arstall, k.studiekullnavn, 
+          k.kulltrinn_start, k.terminnr_maks, k.status_generer_epost,
+          s.institusjonsnr_studieansv, s.faknr_studieansv,
+          s.instituttnr_studieansv, s.gruppenr_studieansv
+        FROM  fs.kull k, fs.studieprogram s
+        WHERE
+          k.status_aktiv = 'J' AND
+          s.studieprogramkode = k.studieprogramkode AND
+          k.studieprogramkode = :studieprogramkode
+        """
+        return self.db.query(qry, {'k.studieprogramkode': studieprogramkode}) 
 
 class HIHStudieInfo(access_FS.StudieInfo):
     def list_emner(self):
