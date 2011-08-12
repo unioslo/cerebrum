@@ -134,6 +134,8 @@ class ConstantsHigherEdu(Constants.Constants):
         affiliation_student, 'aktiv', 'Student, aktiv')
     affiliation_status_student_privatist = _PersonAffStatusCode(
         affiliation_student, 'privatist', 'Student, privatist')
+    affiliation_status_student_drgrad = _PersonAffStatusCode(
+        affiliation_student, 'drgrad', 'Student, drgrad')
 
     ## Affiliations for employees
     affiliation_ansatt = _PersonAffiliationCode('ANSATT', 'Ansatt')
@@ -183,7 +185,10 @@ class ConstantsUniversityColleges(Constants.Constants):
     affiliation_status_tilknyttet_gjestefors = _PersonAffStatusCode(affiliation_tilknyttet,
                                                                     'gjesteforsker',
                                                                     'Registrert i HR, gjesteforsker')    
-
+    affiliation_tilknyttet_fagperson = _PersonAffStatusCode(affiliation_tilknyttet,
+                                                            'fperson',
+                                                            'Dummy, do not use')
+    
     ## quarantine definitions
     quarantine_generell = _QuarantineCode('generell',
                                           'Generell sperring')
@@ -264,7 +269,10 @@ class ConstantsUniversityColleges(Constants.Constants):
         'person@lms', Constants.Constants.entity_person,
         'Person kjent i organisasjonens LMS')    
 
-
+    ## Spread definitions - group related
+    spread_lms_group = _SpreadCode(
+        'group@lms', Constants.Constants.entity_group,
+        'Gruppen kjent i LMS')
 
 #
 #  SAP magic below
