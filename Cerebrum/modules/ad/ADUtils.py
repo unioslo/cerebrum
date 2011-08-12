@@ -126,7 +126,11 @@ class ADUtils(object):
         @return: cb_attr if attributes differ. None if no difference or
         comparison cannot be made.
         """
-        # Handle list, typles and (unicode) strings
+        # Sometimes attrs from ad are put in a list
+        if isinstance(ad_attr, (list, tuple)) and len(ad_attr) == 1:
+            ad_attr = ad_attr[0]
+        
+        # Handle list, tuples and (unicode) strings
         if isinstance(cb_attr, (list, tuple)):
             cb_attr = list(cb_attr)
             # if cb_attr is a list, make sure ad_attr is a list 
