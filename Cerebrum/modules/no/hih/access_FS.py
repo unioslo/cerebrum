@@ -167,6 +167,19 @@ class HIHUndervisning(access_FS.Undervisning):
                              {'aar': start_aar,
                               'semester': start_semester})
 
+    def list_studenter_studieprog(self, studieprogramkode):
+        """Lag en oversikt over alle aktive studenter på gitt studieprogram"""
+        qry = """
+              SELECT DISTINCT 
+               fodselsdato, personnr
+              FROM fs.studieprogramstudent
+              WHERE status_privatist = 'N' AND
+               studentstatkode IN ('AKTIV', 'PERMISJON') AND
+               NVL(dato_studierett_gyldig_til,SYSDATE)>= SYSDATE AND
+               studieprogramkode = :studieprogramkode
+             """
+        return self.db.query(qry, {'studieprogramkode': studieprogramkode})
+
     def list_studenter_underv_enhet(self, institusjonsnr, emnekode, versjonskode,
                                     terminkode, arstall, terminnr):
         """ Finn fødselsnumrene til alle studenter på et gitt 
