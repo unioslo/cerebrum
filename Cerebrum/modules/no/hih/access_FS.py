@@ -236,7 +236,7 @@ class HIHUndervisning(access_FS.Undervisning):
         WHERE
           k.status_aktiv = 'J' AND
           s.studieprogramkode = k.studieprogramkode AND
-          k.studieprogramkode = %s
+          k.studieprogramkode = '%s'
         """ % studieprogramkode
         return self.db.query(qry) 
 
