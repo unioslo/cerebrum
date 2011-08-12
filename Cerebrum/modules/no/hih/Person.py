@@ -1,0 +1,79 @@
+# -*- coding: iso-8859-1 -*-
+# Copyright 2010 University of Oslo, Norway
+#
+# This file is part of Cerebrum.
+#
+# Cerebrum is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Cerebrum is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Cerebrum; if not, write to the Free Software Foundation,
+# Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+
+
+import cereconf
+
+from Cerebrum import Person
+from Cerebrum import Errors
+from Cerebrum.Utils import Factory
+
+
+class PersonHiHMixin(Account.Account):
+    """Person mixin class providing functionality specific to HiH.
+
+    The methods of the core Person class that are overridden here,
+    ensure that any Person objects generated through
+    Cerebrum.Utils.Factory.get() provide functionality that reflects
+    the policies as stated by HiH.
+    """
+    def add_affiliation(self, ou_id, affiliation, source, status):
+        self.__super.add_affiliation(ou_id, affiliation_source_status)
+        # bewator-ids are built as follows
+        #
+        # affiliation ANSATT and TILKNYTTET:
+        # 01221 + free cereconf.BEWATOR_ID_RANGES['ANSATT'/TILKNYTTET] + 0
+        #
+        # affiliation STUDENT/ekstern:
+        # 01221 + free cereconf.BEWATOR_ID_RANGES['STUDENT/ekstern'] + 0
+        #
+        # affiliation STUDENT:
+        # 01221 + studnr from fs + 0
+
+        #
+        # if bew_id is found for person, don't generate a new one
+        bew_id = self.get_external_id(id_type=self.const.externalid_bewatorid)
+        if bew_id =! []:
+            return
+
+        # if affiliation being added is ansatt or tilknyttet generate
+        # bewator_id from the bewatorid_ans_seq
+        if int(affiliation) in [int(self.const.affiliation_ansatt),
+                                int(self.const.affiliation_tilknyttet)]:
+                bew_id = int(self.nextval('bewatorid_ans_seq'))
+                self.affect_external_id(constants.system_manual,
+                                        self.const.externalid_bewatorid)
+                self.populate_external_id(constants.system_manual,
+                                          constants.externalid_bewatorid,
+                                          bew_id)
+                self.write_db()
+                return
+            
+        if int(affiliation) == int(self.const.affiliation_student):
+            if int(status) == int(self.const.affiliation_status_student_ekstern):
+                bew_id = int(self.nextval('bewatorid_extstud_seq'))
+                self.affect_external_id(constants.system_manual,
+                                        self.const.externalid_bewatorid)
+                self.populate_external_id(constants.system_manual,
+                                          constants.externalid_bewatorid,
+                                          bew_id)
+                self.write_db()
+            # for all other students we register bewator_id during
+            # FS-import
+            
