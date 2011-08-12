@@ -66,6 +66,7 @@ db = Factory.get('Database')()
 pe = Factory.get('Person')(db)
 ac = Factory.get('Account')(db)
 gr = Factory.get('Group')(db)
+ou = Factory.get('OU')(db)
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger('console')
 
@@ -99,6 +100,11 @@ def process(userout, groupout):
     students = set(row['person_id'] for row in 
                      pe.list_affiliations(source_system=co.system_fs,
                                           affiliation=co.affiliation_student))
+    ou2acr = dict((row['ou_id'], row['acronym']) for row in ou.search())
+    ent2avdeling = dict()
+    for row in pe.list_affiliations(source_system=co.system_sap):
+        ent2avdeling.setdefault(row['person_id'], []).append(ou2acr[row['ou_id']])
+
     # TODO: this does not guarantee primary accounts - is that ok?
     ent2account = dict((row['owner_id'], row['name']) for row in 
                      ac.search(owner_type=co.entity_person))
@@ -141,9 +147,6 @@ def process(userout, groupout):
         # brukernavn
         line.append(ent2account[ent])
 
-        # tittel...
-        # avdeling...
-        # mobil
         if ent not in employees:
             line.append('')
             line.append('')
@@ -151,7 +154,12 @@ def process(userout, groupout):
         else:
             # tittel
             line.append(ent2title.get(ent, ''))
-            line.append('avdeling')
+            # avdeling
+            # TODO: usikker på korleis personar med fleire avdelingar skal
+            # presenterast - tolka spesifikasjonen sin <avdeling|''> som
+            # konkatenering med |
+            line.append('|'.join(ent2avdeling.get(ent, '')))
+
             phone = ent2phone.get(ent, '')
             if phone:
                 if len(phone) == 8 and phone.is_digit():
