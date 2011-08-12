@@ -49,7 +49,6 @@ class UserLDIF(object):
         self.db = Factory.get('Database')()
         self.const = Factory.get('Constants')(self.db)
         self.account = Factory.get('Account')(self.db)
-        self.md4_auth = self.make_auths(self.const.auth_type_md4_nt)
         self.auth = None
         for auth_type in (self.const.auth_type_crypt3_des,
                           self.const.auth_type_md5_crypt):
@@ -65,22 +64,19 @@ class UserLDIF(object):
             info = self.auth[account_id]
             uname = LDIFutils.iso2utf(str(info[0]))
             auth = info[1]
-            ntAuth = self.md4_auth.get(account_id, noAuth)[1]
             if account_id in self.quarantines:
                 qh = QuarantineHandler(self.db, self.quarantines[account_id])
                 if qh.should_skip():
                     continue
                 if qh.is_locked():
-                    auth = ntAuth = None
+                    auth = None
             dn = ','.join(('uid=' + uname, self.user_dn))
             entry = {
-                'objectClass': ['top', 'account'],
+                'objectClass': ['account'],
                 'uid': (uname,),}
             if auth:
                 entry['objectClass'].append('simpleSecurityObject')
                 entry['userPassword'] = ('{crypt}' + auth,)
-            if ntAuth:
-                entry['ntPassword'] = (ntAuth,)
             fd.write(LDIFutils.entry_string(dn, entry, False))
         LDIFutils.end_ldif_outfile('USER', fd)
 
