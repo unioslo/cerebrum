@@ -310,9 +310,14 @@ def process_person_callback(person_info):
     if studentnr is not None:
         new_person.affect_external_id(co.system_fs,
                                       co.externalid_fodselsnr,
-                                      co.externalid_studentnr)
+                                      co.externalid_studentnr,
+                                      co.externalid_bewatorid)
         new_person.populate_external_id(co.system_fs, co.externalid_studentnr,
                                         studentnr)
+        bew_id = '01221' + studentnr + '0'  
+        new_person.populate_external_id(co.system_manual,
+                                        co.externalid_bewatorid,
+                                        bew_id)
     else:
         new_person.affect_external_id(co.system_fs,
                                       co.externalid_fodselsnr)
