@@ -97,7 +97,7 @@ class BofhdExtension(BofhdCommandBase):
         # copy relevant person-cmds and util methods
         #
         'person_accounts', 'person_affiliation_add',
-        '_person_affiliation_add_helper',
+        '_person_affiliation_add_helper', '_person_create_externalid_helper',
         'person_affiliation_remove', 'person_create',
         'person_find', 'person_info', 'person_list_user_priorities',
         'person_set_user_priority', 'person_set_name',
