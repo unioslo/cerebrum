@@ -71,4 +71,4 @@ class PersonHiHMixin(Person.Person):
                 self.write_db()
             # for all other students we register bewator_id during
             # FS-import
-        self.__super.add_affiliation(ou_id, affiliation_source_status)            
+        self.__super.add_affiliation(ou_id, affiliation, source, status)            
