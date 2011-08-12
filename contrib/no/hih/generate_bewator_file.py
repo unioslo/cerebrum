@@ -89,8 +89,8 @@ def process(userout, groupout):
     ent2fullname = dict((row['person_id'], row['name']) for row in
                      pe.list_persons_name(source_system=co.system_cached,
                                           name_type=co.name_full))
-    ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
-                     pe.list_contact_info(source_system=co.system_sap))
+    #ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
+    #                 pe.list_contact_info(source_system=co.system_sap))
     employees = set(row['person_id'] for row in 
                      pe.list_affiliations(source_system=co.system_sap))
     students = set(row['person_id'] for row in 
@@ -149,9 +149,12 @@ def process(userout, groupout):
         else:
             line.append('tittel')
             line.append('avdeling')
-            phone = ent2phone[ent]
-            if len(phone) == 8 and phone.is_digit():
-                line.append('mobil')
+            # Jazz, 2011-08-12
+            # we need to think about the phone numbers, we need to use
+            # both system_sap, system_fs and system_manual here
+            #phone = ent2phone[ent]
+            #if len(phone) == 8 and phone.is_digit():
+            #    line.append('mobil')
             else:
                 line.append('')
         
