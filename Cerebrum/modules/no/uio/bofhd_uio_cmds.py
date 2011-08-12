@@ -6707,8 +6707,7 @@ Addresses and settings:
                 except Errors.NotFoundError:
                     pass
                 person.clear()
-                person.affect_external_id(self.const.system_manual,
-                                          self.const.externalid_fodselsnr)
+                self._person_create_externalid_helper(person)
                 person.populate_external_id(self.const.system_manual,
                                             self.const.externalid_fodselsnr,
                                             id)
@@ -6727,6 +6726,9 @@ Addresses and settings:
             raise CerebrumError, "Database error: %s" % m
         return {'person_id': person.entity_id}
 
+    def _person_create_externalid_helper(self, person):
+        person.affect_external_id(self.const.system_manual,
+                                  self.const.externalid_fodselsnr)    
     # person find
     all_commands['person_find'] = Command(
         ("person", "find"), PersonSearchType(), SimpleString(),
