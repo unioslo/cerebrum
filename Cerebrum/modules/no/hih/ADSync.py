@@ -68,7 +68,6 @@ class HIHCerebrumUser(CerebrumUser):
         ad_attrs["sAMAccountName"] = self.uname
         ad_attrs["sn"] = self.name_last
         ad_attrs["givenName"] = self.name_first
-        ad_attrs["cn"] = "%s %s" % (self.name_first, self.name_last)
         ad_attrs["displayName"] = "%s %s" % (self.name_first, self.name_last)
         ad_attrs["ACCOUNTDISABLE"] = self.quarantined
         ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
@@ -76,11 +75,13 @@ class HIHCerebrumUser(CerebrumUser):
         ad_attrs["telephoneNumber"] = self.contact_phone
         
         if self.is_student():
+            ad_attrs["cn"] = self.uname
             ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.uname,
                                                           self.ou)
             ad_attrs["homeDirectory"] = cereconf.AD_HOME_DIR_STUDENT % self.uname
             ad_attrs["profilePath"] = cereconf.AD_PROFILE_PATH_STUDENT % self.uname
         else:
+            ad_attrs["cn"] = "%s %s" % (self.name_first, self.name_last)
             ad_attrs["distinguishedName"] = "CN=%s %s,%s" % (self.name_first,
                                                              self.name_last,
                                                              self.ou)
