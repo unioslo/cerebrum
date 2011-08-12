@@ -39,7 +39,7 @@ class UserLDIF(object):
     def make_auths(self, auth_type, old=None):
         auth = old or {}
         for row in self.account.list_account_authentication(auth_type,
-                                                            filter_expired=False):
+                                                            filter_expired=True):
             auth[int(row['account_id'])] = (row['entity_name'],
                                             row['auth_data'])
         return auth
@@ -58,7 +58,6 @@ class UserLDIF(object):
     def dump(self):
         fd = LDIFutils.ldif_outfile('USER')
         fd.write(LDIFutils.container_entry_string('USER'))
-        noAuth = (None, None)
         for row in self.account.search():
             account_id = row['account_id']
             info = self.auth[account_id]
