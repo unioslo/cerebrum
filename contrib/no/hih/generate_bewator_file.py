@@ -152,7 +152,7 @@ def process(userout, groupout):
             if ent in ent2phone:
                 phone = ent2phone[ent]
             else:
-                phone = None
+                phone = 'N/A'
             if len(phone) == 8 and phone.is_digit():
                 line.append('mobil')
             else:
