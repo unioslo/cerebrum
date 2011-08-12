@@ -24,7 +24,13 @@ category:metainfo;
 version=1.0;
 
 category:drop;
-drop SEQUENCE bewatorid_seq;
+drop SEQUENCE bewatorid_ans_seq;
+
+category:drop;
+drop SEQUENCE bewatorid_extstud_seq;
 
 category:code;
-CREATE SEQUENCE bewatorid_seq INCREMENT BY 1 MINVALUE 210001 MAXVALUE 219999 NO CYCLE;
+CREATE SEQUENCE bewatorid_ans_seq INCREMENT BY 1 MINVALUE 210001 MAXVALUE 219999 NO CYCLE;
+
+category:code;
+CREATE SEQUENCE bewatorid_extstud_seq INCREMENT BY 1 MINVALUE 700000 MAXVALUE 799999 NO CYCLE;
