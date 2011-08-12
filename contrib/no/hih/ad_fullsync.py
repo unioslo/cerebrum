@@ -37,7 +37,6 @@ Usage: [options]
   --port: which port to connect to
   --domain: ovverride domain given in cereconf  
   --user-sync: sync users to AD and Exchange
-  --group-sync: sync groups to AD and Exchange
   --forward-sync: sync forward addresses to AD and Exchange
   --sec-group-sync: sync security groups to AD 
   --dist-group-sync: sync distribution groups to AD and Exchange
@@ -45,7 +44,7 @@ Usage: [options]
   --user-spread SPREAD: overrides spread from cereconf
   --sec-group-spread SPREAD: overrides spread from cereconf
   --dist-group-spread SPREAD: overrides spread from cereconf
-  --user-exchange-spread SPREAD: overrides spread from cereconf
+  --exchange-spread SPREAD: overrides spread from cereconf
   --store-sid: write sid of new AD objects to cerebrum databse as external ids.
                default is _not_ to write sid to database.
   --delete: if user-sync: Should obsolete users be disabled or deleted? 
@@ -75,7 +74,7 @@ def main():
             "help", "dryrun", "host=", "port=", "domain=", "delete", 
             "store-sid", "user-sync", "forward-sync", "sec-group-sync",
             "dist-group-sync", "exchange-sync", "user-spread=",
-            "sec-group-spread=", "dist-group-spread=", "user-exchange-spread=",
+            "sec-group-spread=", "dist-group-spread=", "exchange-spread=",
             "subset=", "logger-level=", "logger-name="])
     except getopt.GetoptError, e:
         print e
@@ -86,8 +85,9 @@ def main():
     domain = None
     delete = None
     user_spread = None
-    group_spread = None
-    exchange_spread = None
+    sec_group_spread = None
+    dist_group_spread = None
+    user_exchange_spread = None
     logger_name = "console"
     logger_level = "INFO"
     # Configure AD sync. Set default values, then read cereconf and
@@ -96,6 +96,7 @@ def main():
                    "store_sid": False,
                    "forward_sync": False,
                    "exchange_sync": False,
+                   "name_prefix": None,
                    "subset": []}
     
     for opt, val in opts:
@@ -134,13 +135,13 @@ def main():
             sync_type = "dist-group"
         # spreads
         elif opt == "--user-spread":
-            config_args["user_spread"] = val
-        elif opt == "--user-exchange-spread":
-            config_args["user_exchange_spread"] = val
+            user_spread = val
+        elif opt == "--exchange-spread":
+            user_exchange_spread = val
         elif opt == "--sec-group-spread":
-            config_args["sec_group_spread"] = val
+            sec_group_spread = val
         elif opt == "--dist-group-spread":
-            config_args["dist_group_spread"] = val
+            dist_group_spread = val
         # other options
         elif opt in ('--forward-sync',):
             config_args["forward_sync"] = True
@@ -180,23 +181,27 @@ def main():
             user_spread or getattr(cereconf, "AD_ACCOUNT_SPREAD_"+prefix))
         if config_args["exchange_sync"]:
             config_args["user_exchange_spread"] = (
-                exchange_spread or getattr(cereconf,
-                                           "AD_EXCHANGE_SPREAD_"+prefix))
+                user_exchange_spread or getattr(cereconf,
+                                                "AD_EXCHANGE_SPREAD_"+prefix))
 
-    elif sync_type == 'group':
-        config_args["sync_class"] = "ADGroupSync"
-        # If delete and spread options is given use given value. If
-        # not use cereconf.
+    elif sync_type == 'sec-group':
+        config_args["sync_class"] = "HIHGroupSync"
+    elif sync_type == 'dist-group':
+        config_args["sync_class"] = "HIHDistGroupSync"
+
+
+    # Delete groups or not?
+    if sync_type in ('sec-group', 'dist-group'):
         config_args["delete_groups"] = getattr(cereconf,"AD_DELETE_GROUPS_"+prefix)
         if delete is not None:
             config_args["delete_groups"] = delete
-        config_args["group_spread"] = (
-            group_spread or getattr(cereconf, "AD_GROUP_SPREAD_"+prefix))
+
+        config_args["sec_group_spread"] = (
+            sec_group_spread or getattr(cereconf, "AD_GROUP_SPREAD_"+prefix))
+        config_args["dist_group_spread"] = (
+            dist_group_spread or getattr(cereconf, "AD_DIST_GROUP_SPREAD_"+prefix))
         config_args["user_spread"] = (
             user_spread or getattr(cereconf, "AD_ACCOUNT_SPREAD_"+prefix))
-        if config_args["exchange_sync"]:
-            config_args["group_exchange_spread"] = (
-                exchange_spread or getattr(cereconf, "AD_GROUP_EXCHANGE_SPREAD_"+prefix))
 
     # Run AD sync
     run_sync(logger, host, port, config_args)
