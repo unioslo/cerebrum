@@ -56,8 +56,6 @@ class PersonHiHMixin(Person.Person):
         if int(affiliation) in [int(self.const.affiliation_ansatt),
                                 int(self.const.affiliation_tilknyttet)]:
                 bew_id = '01221' + str(self.nextval('bewatorid_ans_seq')) + '0'
-                self.affect_external_id(self.const.system_manual,
-                                        self.const.externalid_bewatorid)
                 self.populate_external_id(self.const.system_manual,
                                           self.const.externalid_bewatorid,
                                           bew_id)
@@ -67,8 +65,6 @@ class PersonHiHMixin(Person.Person):
         if int(affiliation) == int(self.const.affiliation_student):
             if int(status) == int(self.const.affiliation_status_student_ekstern):
                 bew_id = '01221' + str(self.nextval('bewatorid_extstud_seq')) + '0'
-                self.affect_external_id(self.const.system_manual,
-                                        self.const.externalid_bewatorid)
                 self.populate_external_id(self.const.system_manual,
                                           self.const.externalid_bewatorid,
                                           bew_id)
