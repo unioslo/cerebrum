@@ -35,6 +35,15 @@ from Cerebrum.modules.ad.ADSync import DistGroupSync
 
 
 class HIHCerebrumUser(CerebrumUser):
+    def is_student(self):
+        # It seems smarter to compare domain, but on the testserver
+        # employees and students are in the same domain...
+        #if self.domain == AD_DOMAIN_STUDENT:
+        if cereconf.AD_LDAP_STUDENT in self.ou:
+            return True
+        return False
+
+    
     def calc_ad_attrs(self, exchange=False):
         """
         Calculate AD attrs from Cerebrum data.
@@ -53,9 +62,9 @@ class HIHCerebrumUser(CerebrumUser):
         # Do the hardcoding for this sync.
         # Name and case of attributes should be as they are in AD
         ad_attrs["sAMAccountName"] = self.uname
-        ad_attrs["cn"] = self.uname
         ad_attrs["sn"] = self.name_last
         ad_attrs["givenName"] = self.name_first
+        ad_attrs["cn"] = "%s %s" % (self.name_first, self.name_last)
         ad_attrs["displayName"] = "%s %s" % (self.name_first, self.name_last)
         ad_attrs["distinguishedName"] = "CN=%s %s,%s" % (self.name_first,
                                                          self.name_last,
@@ -63,8 +72,15 @@ class HIHCerebrumUser(CerebrumUser):
         ad_attrs["ACCOUNTDISABLE"] = self.quarantined
         ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
         ad_attrs["title"] = self.title
-        # TODO: finn en bedre måte å gjøre dette på
-        ad_attrs["homeDirectory"] = cereconf.AD_HOME_DIR_ANSATT % self.uname
+        ad_attrs["telephoneNumber"] = self.contact_phone
+        
+        if self.is_student():
+            ad_attrs["homeDirectory"] = cereconf.AD_HOME_DIR_STUDENT % self.uname
+            ad_attrs["profilePath"] = cereconf.AD_PROFILE_PATH_STUDENT % self.uname
+        else:
+            ad_attrs["homeDirectory"] = cereconf.AD_HOME_DIR_ANSATT % self.uname
+            ad_attrs["profilePath"] = cereconf.AD_PROFILE_PATH_ANSATT % self.uname
+
         if self.email_addrs:
             ad_attrs["mail"] = self.email_addrs[0]
 
@@ -76,11 +92,19 @@ class HIHCerebrumUser(CerebrumUser):
             for k in cereconf.AD_EXCHANGE_ATTRIBUTES:
                 ad_attrs[k] = None
             ad_attrs.update(cereconf.AD_EXCHANGE_DEFAULTS)
+            if self.is_student():
+                ad_attrs.update(cereconf.AD_EXCHANGE_DEFAULTS_STUDENT)
+            else:
+                ad_attrs.update(cereconf.AD_EXCHANGE_DEFAULTS_ANSATT)                
 
             # Exchange attributes hardcoding
             ad_attrs['msExchHomeServerName'] = cereconf.AD_EX_HOME_SERVER
-            #ad_attrs["homeMDB"] = self.exchange_homemdb
             ad_attrs["mailNickname"] = self.uname
+            if self.is_student():                
+                ad_attrs["homeMDB"] = cereconf.AD_HOMEMDB_STUDENT
+            else:
+                ad_attrs["homeMDB"] = cereconf.AD_HOMEMDB_ANSATT
+                
             # set proxyAddresses attr
             if self.email_addrs:
                 tmp = ["SMTP:" + self.email_addrs[0]]
@@ -99,6 +123,34 @@ class HIHCerebrumUser(CerebrumUser):
 
 
 class HIHUserSync(UserSync):
+    def fetch_ad_data(self):
+        """
+        Fetch all or a subset of users in search_ou from AD.
+        
+        @return: AD attributes and values for AD objects of type
+                 'user' in search_ou and child ous of this ou.
+        @rtype: dict (uname -> {attr type: value} mapping)
+        """
+        # Setting the user attributes to be fetched.
+        self.server.setUserAttributes(self.sync_attrs,
+                                      cereconf.AD_ACCOUNT_CONTROL)
+        ret = self.server.listObjects("user", True, self.ad_ldap)
+        if not ret:
+            return
+        # lowercase all keys
+        retdict = dict()
+        for k,v in ret.iteritems():
+            retdict[k.lower()] = v
+            
+        if self.subset:
+            tmp = dict()
+            for u in self.subset:
+                if u in retdict:
+                    tmp[u] = retdict.get(u)
+            retdict = tmp
+        return retdict
+
+
     def cb_account(self, account_id, owner_id, uname):
         "wrapper func for easier subclassing"
         return HIHCerebrumUser(account_id, owner_id, uname, self.ad_domain,
@@ -120,34 +172,35 @@ class HIHGroupSync(GroupSync):
 
 
 class HIHDistGroupSync(DistGroupSync):
+    pass
     # Override ADUtils.ADGroupUtils.create_ad_group
-    def create_ad_group(self, attrs, ou):
-        """
-        Create AD group.
-
-        @param attrs: AD attrs to be set for the account
-        @type attrs: dict        
-        @param ou: LDAP path to base ou for the entity type
-        @type ou: str        
-        """
-        gname = attrs.pop("name")
-        if self.dryrun:
-            self.logger.debug("DRYRUN: Not creating group %s" % gname)
-            return
-
-        # Create group object
-        sid = self.run_cmd("createObject", "Group", ou, gname)
-        if not sid:
-            # Don't continue if createObject fails
-            return
-        self.logger.info("created group %s with sid %s", gname, sid)
-        # # Set other properties
-        dn = attrs.pop("distinguishedName")
-        self.run_cmd("putGroupProperties", attrs)
-        self.run_cmd("setObject")
-
-        # createObject succeded, return sid
-        return sid
+    #def create_ad_group(self, attrs, ou):
+    #    """
+    #    Create AD group.
+    #
+    #    @param attrs: AD attrs to be set for the account
+    #    @type attrs: dict        
+    #    @param ou: LDAP path to base ou for the entity type
+    #    @type ou: str        
+    #    """
+    #    gname = attrs.pop("name")
+    #    if self.dryrun:
+    #        self.logger.debug("DRYRUN: Not creating group %s" % gname)
+    #        return
+    #
+    #    # Create group object
+    #    sid = self.run_cmd("createObject", "Group", ou, gname)
+    #    if not sid:
+    #        # Don't continue if createObject fails
+    #        return
+    #    self.logger.info("created group %s with sid %s", gname, sid)
+    #    # # Set other properties
+    #    dn = attrs.pop("distinguishedName")
+    #    self.run_cmd("putGroupProperties", attrs)
+    #    self.run_cmd("setObject")
+    #
+    #    # createObject succeded, return sid
+    #    return sid
 
 
 
