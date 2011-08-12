@@ -596,7 +596,7 @@ class GroupSync(ADGroupUtils):
             if k in config_args:
                 setattr(self, k, self.co.Spread(config_args[k]))
         for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
-                  "ad_domain", "subset", "name_prefix"):
+                  "ad_ldap", "ad_domain", "subset", "name_prefix"):
             setattr(self, k, config_args[k])
 
         # Set which attrs that are to be compared with AD
