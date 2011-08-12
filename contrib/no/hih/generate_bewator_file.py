@@ -161,7 +161,7 @@ def process(userout, groupout):
             # mobil
             phone = ent2phone.get(ent, '')
             if phone:
-                if len(phone) == 8 and phone.is_digit():
+                if len(phone) == 8 and phone.isdigit():
                     line.append(phone)
                 else:
                     line.append(phone)
