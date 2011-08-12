@@ -89,6 +89,9 @@ def process(userout, groupout):
     ent2fullname = dict((row['person_id'], row['name']) for row in
                      pe.list_persons_name(source_system=co.system_cached,
                                           name_type=co.name_full))
+    ent2title = dict((row['person_id'], row['name']) for row in
+                     pe.list_persons_name(source_system=co.system_sap,
+                                          name_type=co.name_work_title))
     ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
                      pe.list_contact_info(source_system=co.system_sap))
     employees = set(row['person_id'] for row in 
@@ -146,10 +149,10 @@ def process(userout, groupout):
             line.append('')
             line.append('')
         else:
-            line.append('tittel')
+            # tittel
+            line.append(ent2title.get(ent, ''))
             line.append('avdeling')
-            if ent in ent2phone:
-                phone = ent2phone[ent]
+            phone = ent2phone.get(ent, '')
             if phone:
                 if len(phone) == 8 and phone.is_digit():
                     line.append(phone)
