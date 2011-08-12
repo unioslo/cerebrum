@@ -151,10 +151,11 @@ def process(userout, groupout):
             line.append('avdeling')
             if ent in ent2phone:
                 phone = ent2phone[ent]
-            else:
-                line.append('')
-            if len(phone) == 8 and phone.is_digit():
-                line.append(phone)
+            if phone:
+                if len(phone) == 8 and phone.is_digit():
+                    line.append(phone)
+                else:
+                    line.append(phone)
             else:
                 line.append('')
         
