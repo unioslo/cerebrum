@@ -34,7 +34,6 @@ class PersonHiHMixin(Person.Person):
     the policies as stated by HiH.
     """
     def add_affiliation(self, ou_id, affiliation, source, status):
-        self.__super.add_affiliation(ou_id, affiliation_source_status)
         # bewator-ids are built as follows
         #
         # affiliation ANSATT and TILKNYTTET:
@@ -56,24 +55,24 @@ class PersonHiHMixin(Person.Person):
         # bewator_id from the bewatorid_ans_seq
         if int(affiliation) in [int(self.const.affiliation_ansatt),
                                 int(self.const.affiliation_tilknyttet)]:
-                bew_id = '01221' + self.nextval('bewatorid_ans_seq') + '0'
-                self.affect_external_id(constants.system_manual,
+                bew_id = '01221' + str(self.nextval('bewatorid_ans_seq')) + '0'
+                self.affect_external_id(self.const.system_manual,
                                         self.const.externalid_bewatorid)
-                self.populate_external_id(constants.system_manual,
-                                          constants.externalid_bewatorid,
+                self.populate_external_id(self.const.system_manual,
+                                          self.const.externalid_bewatorid,
                                           bew_id)
                 self.write_db()
                 return
             
         if int(affiliation) == int(self.const.affiliation_student):
             if int(status) == int(self.const.affiliation_status_student_ekstern):
-                bew_id = '01221' + self.nextval('bewatorid_extstud_seq') + '0'
-                self.affect_external_id(constants.system_manual,
+                bew_id = '01221' + str(self.nextval('bewatorid_extstud_seq')) + '0'
+                self.affect_external_id(self.const.system_manual,
                                         self.const.externalid_bewatorid)
-                self.populate_external_id(constants.system_manual,
-                                          constants.externalid_bewatorid,
+                self.populate_external_id(self.const.system_manual,
+                                          self.const.externalid_bewatorid,
                                           bew_id)
                 self.write_db()
             # for all other students we register bewator_id during
             # FS-import
-            
+        self.__super.add_affiliation(ou_id, affiliation_source_status)            
