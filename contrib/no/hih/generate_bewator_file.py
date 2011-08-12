@@ -99,15 +99,14 @@ def process(userout, groupout):
     # TODO: this does not guarantee primary accounts - is that ok?
     ent2account = dict((row['owner_id'], row['name']) for row in 
                      ac.search(owner_type=co.entity_person))
-    finished = []
+    published = set()
 
     logger.debug('Starting on users')
     for row in pe.search(spread=co.spread_adgang_person, exclude_deceased=True):
         ent = row['person_id']
-        if ent in finished: # TODO: this is not necessary if pe.search only
+        if ent in published: # TODO: this is not necessary if pe.search only
                             # returns same person once
             continue
-        finished.append(ent)
 
         # adgangskort-id
         if not ent2adgid.has_key(ent):
@@ -163,6 +162,8 @@ def process(userout, groupout):
         # else? E.g. ':'
         userout.write(';'.join(line))
         userout.write("\n")
+        published.add(ent)
+
     logger.debug("Users finished")
 
     logger.debug("Starting on groups")
@@ -170,9 +171,10 @@ def process(userout, groupout):
         try:
             members = set(ent4adgid[row['member_id']] for row in
                           gr.search_members(group_id=g['group_id'],
-                                            member_type=co.entity_person))
+                                            member_type=co.entity_person)
+                           if row['member_id'] in published)
         except KeyError, e:
-            logger.warning("Some person is missing bewator id group %d. Group is skipped.", g['name'])
+            logger.warning("%s - person missing bewator id. Skipping group %s.", e, g['name'])
             continue
         groupout.write("%s;%s\n" % (g['name'], ','.join(members)))
     logger.debug("Groups finished")
