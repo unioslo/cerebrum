@@ -129,8 +129,8 @@ def process(userout, groupout):
         elif ent in students and ent2studno.has_key(ent):
             line.append(ent2studno[ent])
         else:
-            logger.warning("Person %d not employee/student (or hasn't studno/ansno)" % ent)
-            continue
+            logger.debug("Person %d not employee/student (or hasn't studno/ansno), " % ent)
+            line.append('')
 
         # etternavn
         line.append(ent2lastname.get(ent, ''))
