@@ -67,7 +67,16 @@ class PersonHiHMixin(Person.Person):
                     self.populate_external_id(self.const.system_manual,
                                               self.const.externalid_bewatorid,
                                               bew_id)
+                # for other students we usually register bewator_id during
+                # FS-import
+                else:
+                    tmp = self.get_external_id(source_system=self.const.system_fs,
+                                               id_type=self.const.externalid_studentnr)
+                    if tmp:
+                        studentnr = tmp[0]['external_id']
+                    if not studentnr:
+                        # cannot create bewator id for this person
+                        return 
+                    bew_id = '01221' + studentnr + '0'
             self.write_db()
-            # for  other students we register bewator_id during
-            # FS-import
         self.__super.add_affiliation(ou_id, affiliation, source, status)            
