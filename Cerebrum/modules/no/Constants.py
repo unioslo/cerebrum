@@ -136,7 +136,7 @@ class ConstantsHigherEdu(Constants.Constants):
         affiliation_student, 'privatist', 'Student, privatist')
     affiliation_status_student_drgrad = _PersonAffStatusCode(
         affiliation_student, 'drgrad', 'Student, drgrad')
-    affiliation_status_student_drgrad = _PersonAffStatusCode(
+    affiliation_status_student_ekstern = _PersonAffStatusCode(
         affiliation_student, 'ekstern', 'Student, ekstern')    
 
     ## Affiliations for employees
