@@ -206,7 +206,7 @@ def main():
                 user_spread or getattr(cereconf, "AD_ACCOUNT_SPREAD_"+prefix))
         elif sync_type == 'dist-group':
             config_args["user_spread"] = (
-                user_spread or getattr(cereconf, "AD_EXHANGE_SPREAD_"+prefix))
+                user_spread or getattr(cereconf, "AD_EXHCANGE_SPREAD_"+prefix))
 
     # Run AD sync
     run_sync(logger, host, port, config_args)
