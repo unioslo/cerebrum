@@ -314,8 +314,11 @@ def process_person_callback(person_info):
                                       co.externalid_bewatorid)
         new_person.populate_external_id(co.system_fs, co.externalid_studentnr,
                                         studentnr)
-        bew_id = '01221' + studentnr + '0'  
-        new_person.populate_external_id(co.system_manual,
+        bew_id = '01221' + studentnr + '0'
+        
+        # we have to use system_fs here (for technical reasons) even
+        # though we should be using system_manual
+        new_person.populate_external_id(co.system_fs,
                                         co.externalid_bewatorid,
                                         bew_id)
     else:
