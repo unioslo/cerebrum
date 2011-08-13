@@ -174,7 +174,11 @@ class HIHUserSync(UserSync):
 
 
 class HIHGroupSync(GroupSync):
-    pass
+    def get_default_ou(self):
+        """
+        Return default OU for groups.
+        """
+        return "%s,%s" % (cereconf.AD_GROUP_OU, self.ad_ldap)
 
 
 class HIHDistGroupSync(DistGroupSync):
