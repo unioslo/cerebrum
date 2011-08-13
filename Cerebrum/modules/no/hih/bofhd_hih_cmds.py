@@ -96,8 +96,8 @@ class BofhdExtension(BofhdCommandBase):
         #
         # copy relevant person-cmds and util methods
         #
-        'person_accounts', 'person_affiliation_remove', 'person_create',
-        'person_find', 'person_info', 'person_list_user_priorities',
+        'person_accounts', 'person_affiliation_remove', 'person_affiliation_add',
+        'person_create', 'person_find', 'person_info', 'person_list_user_priorities',
         'person_set_user_priority', 'person_set_name',
         #
         # copy relevant quarantine-cmds and util methods
@@ -473,20 +473,6 @@ class BofhdExtension(BofhdCommandBase):
             #ret += self._email_info_filters(et)
             ret += self._email_info_detail(acc)            
         return ret
-
-    # person affilation_add
-    all_commands['person_affiliation_add'] = Command(
-        ("person", "affiliation_add"), PersonId(help_ref="person_id_other"),
-        OU(), Affiliation(), AffiliationStatus(),
-        perm_filter='can_add_affiliation')
-    def person_affiliation_add(self, operator, person_id, ou, aff, aff_status):
-        try:
-            person = self._get_person(*self._map_person_id(person_id))
-        except Errors.TooManyRowsError:
-            raise CerebrumError("Unexpectedly found more than one person")
-        ou, aff, aff_status = self._person_affiliation_add_helper(
-            operator, person, ou, aff, aff_status)
-        return "OK, added %s@%s to %s" % (aff, self._format_ou_name(ou), person.entity_id)
     
     def _person_affiliation_add_helper(self, operator, person, ou, aff, aff_status):
         """Helper-function for adding an affiliation to a person with
@@ -496,8 +482,7 @@ class BofhdExtension(BofhdCommandBase):
         aff = self._get_affiliationid(aff)
         aff_status = self._get_affiliation_statusid(aff, aff_status)
         ou = self._get_ou(stedkode=ou)
-        person.affect_external_id(self.const.system_manual,
-                                  self.const.externalid_bewatorid)    
+
         # Assert that the person already have the affiliation
         has_aff = False
         for a in person.get_affiliations():
