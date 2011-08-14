@@ -125,11 +125,20 @@ tag is present, hdr and footer will be empty.
             os.chdir(os.path.dirname(filename))
         base_filename = filename[:filename.rindex('.')] 
         try:
+            if cereconf.PRINT_DVIPS_CMD:
+                format_sys_cmd = "%s -f < %s.dvi > %s.ps 2>> %s" % (cereconf.PRINT_DVIPS_CMD,
+                                                                    base_filename, base_filename,
+                                                                    logfile)
+            elif cereconf.PRINT_DVIPDF_CMD:
+                format_sys_cmd = "%s %s.dvi %s.pdf 2>> %s" % (cereconf.PRINT_DVIPDF_CMD,
+                                                              base_filename, base_filename,
+                                                              logfile)
+            else:
+                raise IOError("Error spooling job, see %s for details" % logfile)
             if type == 'tex':
                 status = (os.system("%s --interaction nonstopmode %s >> %s 2>&1" % (
                     cereconf.PRINT_LATEX_CMD, filename, logfile)) or
-                          os.system("%s -f < %s.dvi > %s.ps 2>> %s" % (
-                    cereconf.PRINT_DVIPS_CMD, base_filename, base_filename, logfile)))
+                          os.system("%s" % (format_sys_cmd)))
                 if status:
                     raise IOError("Error spooling job, see %s for details" % logfile)
             if not skip_lpr:
