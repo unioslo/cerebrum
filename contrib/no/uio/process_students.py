@@ -128,6 +128,7 @@ class AccountUtil(object):
             logger.warn("OUCH! person %s not found" % fnr)
             return None
         if cereconf.USE_STUDENTNR_AS_UNAME:
+            logger.debug("using studentnr as uname")
             stdnr_lst = person.get_external_id(source_system=const.system_fs,
                                                 id_type=const.externalid_studentnr)
             if stdnr_lst:
@@ -155,6 +156,7 @@ class AccountUtil(object):
                 assert last_name.count(' ') == 0
                 uname = account.suggest_unames(const.account_namespace,
                                                first_name, last_name)[0]
+        logger.info("uname %s will be used", uname) 
         account.populate(uname,
                          const.entity_person,
                          person.entity_id,
