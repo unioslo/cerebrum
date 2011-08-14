@@ -118,6 +118,7 @@ class AccountUtil(object):
     def create_user(fnr, profile):
         # dryruning this method is unfortunately a bit tricky
         assert not dryrun
+        uname = None
         logger.info("CREATE")
         person = Factory.get('Person')(db)
         try:
@@ -126,27 +127,34 @@ class AccountUtil(object):
         except Errors.NotFoundError:
             logger.warn("OUCH! person %s not found" % fnr)
             return None
-
-        try:
-            first_name = person.get_name(const.system_cached, const.name_first)
-        except Errors.NotFoundError:
-            # This can happen if the person has no first name and no
-            # authoritative system has set an explicit name_first variant.
-            first_name = ""
-        if not persons[fnr].get_affiliations():
-            logger.error("The person %s has no student affiliations" % fnr)
-            return None
-        try:
-            last_name = person.get_name(const.system_cached, const.name_last)
-        except Errors.NotFoundError:
-            # See above.  In such a case, name_last won't be set either,
-            # but name_full will exist.
-            last_name = person.get_name(const.system_cached, const.name_full)
-            assert last_name.count(' ') == 0
-
+        if cereconf.USE_STUDENTNR_AS_UNAME:
+            stdnr_lst = person.get_external_id(source_system=const.system_fs,
+                                                id_type=const.externalid_studentnr)
+            if stdnr_lst:
+                uname = stdnr_lst[0]['external_id']
+        #
+        # if cereconf.USE_STUDENTNR_AS_UNAME is not used or studentnr is not found
+        # produce uname according to the usual algorithm
         account = Factory.get('Account')(db)
-        uname = account.suggest_unames(const.account_namespace,
-                                       first_name, last_name)[0]
+        if not uname:
+            try:
+                first_name = person.get_name(const.system_cached, const.name_first)
+            except Errors.NotFoundError:
+                # This can happen if the person has no first name and no
+                # authoritative system has set an explicit name_first variant.
+                first_name = ""
+            if not persons[fnr].get_affiliations():
+                logger.error("The person %s has no student affiliations" % fnr)
+                return None
+            try:
+                last_name = person.get_name(const.system_cached, const.name_last)
+            except Errors.NotFoundError:
+                # See above.  In such a case, name_last won't be set either,
+                # but name_full will exist.
+                last_name = person.get_name(const.system_cached, const.name_full)
+                assert last_name.count(' ') == 0
+                uname = account.suggest_unames(const.account_namespace,
+                                               first_name, last_name)[0]
         account.populate(uname,
                          const.entity_person,
                          person.entity_id,
@@ -257,6 +265,10 @@ class AccountUtil(object):
                 user.del_account_type(dta[0], dta[1])
             elif c_id == 'add_quarantine':
                 start_at = strftime('%Y-%m-%d', localtime(dta[1] + time()))
+                # Fix dette!
+                # sett --quarantine-exempt krever 
+                # sjekk om opsjonen --quarantine-exempt er på
+                # sjekk om personen har en annen aff og hvis så skip
                 user.add_entity_quarantine(
                     dta[0], default_creator_id, 'automatic', start_at)
             elif c_id == 'disk_kvote':
@@ -1012,10 +1024,18 @@ def make_letters(data_file=None, type=None, range=None):
         f=open(data_file, 'r')
         tmp_passwords = pickle.load(f)
         f.close()
-        for r in [int(x) for x in range.split(",")]:
-            tmp = tmp_passwords["%s-%i" % (type, r)]
-            tmp.append(r)
-            all_passwords[tmp[0]] = tmp[1]
+        if range == '*':
+            s = 0
+            while s <= len(tmp_passwords):
+                tmp = tmp_passwords["%s-%i" % (type, s)]
+                tmp.append(s)
+                all_passwords[tmp[0]] = tmp[1]
+                s = s + 1
+        else:
+            for r in [int(x) for x in range.split(",")]:
+                tmp = tmp_passwords["%s-%i" % (type, r)]
+                tmp.append(r)
+                all_passwords[tmp[0]] = tmp[1]
     person = Factory.get('Person')(db)
     account = Factory.get('Account')(db)
     ou = Factory.get('OU')(db)
