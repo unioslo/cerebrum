@@ -325,6 +325,7 @@ VALID_DISK_TOPLEVELS = None
 # Configure commands needed to send processed templates to printer
 PRINT_LATEX_CMD=None
 PRINT_DVIPS_CMD=None
+PRINT_DVIPDF_CMD=None
 PRINT_LPR_CMD=None
 PRINT_PRINTER=None
 PRINT_BARCODE=None
