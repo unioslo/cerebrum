@@ -503,7 +503,7 @@ class Individuation:
         msg += "This has failed, due to the following reason:\n\n  %s\n\n" % reason
         msg += "If this was not you, please contact your local IT-department as soon as possible."
         msg += "\n\n-- \n%s\n" % self.email_signature
-        account2 = Factory.get('Account')(self.db)
+        account2 = Factory.get('Account')(db)
         for row in person.get_accounts():
             account2.clear()
             account2.find(row['account_id'])
