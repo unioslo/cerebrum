@@ -95,14 +95,14 @@ class Fronter(object):
         for i in institutter:
             tmp = {'title': 'Alle studenter på ' + ' ' + i,
                    'group_id': 'stud-' + i,
-                   'parent_id': 'root', #'Groups' + ' ' + i,
+                   'parent_id': '99 NO-FS Studenter importert fra FS', #'root', #'Groups' + ' ' + i,
                    'typeval': ''}
             ret.append(tmp)
 
         for i in institutter:
             tmp = {'title': 'Alle ansatte på' + ' ' + i,
                    'group_id': 'ans-' + i,
-                   'parent_id': 'root', #'Groups' + ' ' + i,
+                   'parent_id': '98 NO-FS Ansatte importert fra FS', #'root', #'Groups' + ' ' + i,
                    'typeval': ''}
             ret.append(tmp)
         return ret
@@ -506,7 +506,7 @@ def register_group(title, desc):
      #    parent_id = 'root ' + 'studieprogrammer' + ' kull'
      #else:
      #    parent_id = 'root'
-     parent_id = 'root'
+     parent_id = '99 NO-FS Studenter importert fra FS'
      new_group[title] = {'title': desc,
                          'parent': parent_id,
                          'description': title,
