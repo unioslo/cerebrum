@@ -121,7 +121,7 @@ class AccountHiHMixin(Account.Account):
             ctgs = [int(r['category']) for r in ed.get_categories()]
             local_parts = []
             if int(self.const.email_domain_category_cnaddr) in ctgs:
-                local_parts.append(self.get_email_cn_local_part())
+                local_parts.append(self.get_email_cn_local_part(given_names=1, max_initials=1))
                 local_parts.append(self.account_name)
             elif int(self.const.email_domain_category_uidaddr) in ctgs:
                 local_parts.append(self.account_name)
@@ -168,7 +168,7 @@ class AccountHiHMixin(Account.Account):
 
 
     def suggest_unames(self, domain, fname, lname, maxlen=8, suffix=""):
-        # Override Account.suggest_unames as HiHH allows up to 10 chars
+        # Override Account.suggest_unames as HiH allows up to 10 chars
         # in unames
         return self.__super.suggest_unames(domain, fname, lname, maxlen=10)
     
