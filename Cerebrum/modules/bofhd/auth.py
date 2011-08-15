@@ -519,6 +519,8 @@ class BofhdAuth(DatabaseAccessor):
                       query_run_any=False):
         if self.is_superuser(operator):
             return True
+        if query_run_any:
+            return True
         raise PermissionDenied("Not allowed to set trait")
 
     def can_remove_trait(self, operator, trait=None, ety=None, target=None,
