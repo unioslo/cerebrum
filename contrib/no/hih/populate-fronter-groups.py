@@ -150,7 +150,7 @@ def studieprog_grupper(fsconn):
         # naming studieprogram-groups with a prefix (studieprog-) and
         # studieprogramkode from FS. description for group will be the
         # full name of the studieprogram
-        grp_name = "studieprog-%s" % x['studieprogramkode']
+        grp_name = "studieprogram-%s" % x['studieprogramkode']
         grp.clear()
         try:
             grp.find_by_name(grp_name)
@@ -285,9 +285,12 @@ def undervisningsmelding_grupper(fsconn):
                 raise Errors.CerebrumError, "Database error: %s" % m
 
         # update memberships in emne-groups
-        for y in fs.undervisning.list_studenter_underv_enhet(x['institusjonsnr'], x['emnekode'],
-                                                             x['versjonskode'], x['terminkode'], 
-                                                             x['arstall'], x['terminnr']):
+        for y in fs.undervisning.list_studenter_underv_enhet(x['institusjonsnr'], 
+                                                             x['emnekode'],
+                                                             x['versjonskode'], 
+                                                             x['terminkode'], 
+                                                             x['arstall'], 
+                                                             x['terminnr']):
             fnr = "%06d%05d" % (int(y['fodselsdato']), int(y['personnr']))
             person.clear()
             try:
