@@ -33,6 +33,7 @@ import string
 import sys
 import time
 import traceback
+import socket
 import urllib2, urllib, urlparse
 
 # 2.2 and 2.3 compatibility cruft
@@ -1596,7 +1597,17 @@ class SMSSender():
         self._logger.debug("Sending SMS to %s (user: %s, system: %s)"
                 % (phone_to, self._user, self._system))
 
-        ret = urllib2.urlopen(self._url, postdata) #, self.timeout)
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(120) # in seconds
+
+        try:
+            ret = urllib2.urlopen(self._url, postdata) #, self.timeout) in urllib2 v2.6
+        except urllib2.URLError:
+            self._logger.warning('SMS gateway timed out')
+            socket.setdefaulttimeout(old_timeout)
+            return False
+        socket.setdefaulttimeout(old_timeout)
+
         if ret.code is not 200:
             self._logger.warning("SMS gateway responded with code "
                 "%s - %s" % (ret.code, ret.msg))
