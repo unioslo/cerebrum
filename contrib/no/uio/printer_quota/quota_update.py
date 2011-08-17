@@ -265,17 +265,15 @@ def get_students():
             tmp_gyldige.setdefault(int(row['person_id']), []).append(aff)
 
     logger.debug("listed all affilations, calculating")
-
-    fritak_tilknyttet = (int(const.affiliation_tilknyttet_pcvakt),
-                         int(const.affiliation_tilknyttet_grlaerer),
-                         int(const.affiliation_tilknyttet_bilag))
+    # we don't use this anymore. keeping it just in case some similar
+    # requirement occurs
+    #
+    # fritak_tilknyttet = (int(const.affiliation_tilknyttet_pcvakt),
+    #                     int(const.affiliation_tilknyttet_grlaerer),
+    #                     int(const.affiliation_tilknyttet_bilag))
     logger.debug2("Gyldige: %s" % str(tmp_gyldige))
     for pid in tmp_gyldige.keys():
-        if [x for x in tmp_gyldige[pid] if x[1] in fritak_tilknyttet]:
-            # Fritak via TILKNYTTET affiliation
-            logger.debug2("%i: fritak_tilknyttet" % pid)
-            continue
-        elif (int(const.affiliation_student),
+        if (int(const.affiliation_student),
             int(const.affiliation_status_student_aktiv)) in tmp_gyldige[pid]:
             # Har minst en gyldig STUDENT/aktiv affiliation
             ret.append(pid)
