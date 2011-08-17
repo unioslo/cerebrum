@@ -40,6 +40,8 @@ class Individuation(Individuation.Individuation):
     # The feedback messages for UiA
     # TBD: put somewhere else?
     messages = {
+        'error_unknown':     {'en': u'An unknown error occured',
+                              'no': u'En ukjent feil oppstod'},
         'person_notfound':   {'en': u'Could not find a person by given data, please try again. Please note that you will ' + 
                                     u'not be able to use this service if you are reserved from being published on UiA\'s ' +
                                     u'web pages.',
