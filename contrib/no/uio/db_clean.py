@@ -164,6 +164,9 @@ class CleanChangeLog(object):
         int(co.account_type_add): 3600*24*31,
         int(co.account_type_mod): 3600*24*31,
         int(co.account_type_del): 3600*24*31,
+        # Phones for tokens are only necessary to store as long as it takes to
+        # find out of a password theft
+        int(co.account_password_token): 3600*24*31,
         }
 
     if never_forget_homedir:
