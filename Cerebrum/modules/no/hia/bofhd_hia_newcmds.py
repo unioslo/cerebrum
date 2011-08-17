@@ -1304,7 +1304,7 @@ class BofhdExtension(BofhdCommandBase):
 
     all_commands['user_migrate_exchange'] = Command(
 	("user", "migrate_exchange"), 
-        AccountName(help_ref="account_name", repeat=False),
+        AccountName(help_ref="account_name", repeat=True),
         SimpleString(help_ref='string_mdb'),        
 	perm_filter='is_superuser')
     def user_migrate_exchange(self, operator, uname, mdb):
@@ -1317,8 +1317,6 @@ class BofhdExtension(BofhdCommandBase):
             raise CerebrumError, "Unvalid mdb"
         # Set new mdb value            
         account.populate_trait(self.const.trait_exchange_mdb, strval=mdb)
-        # Mark that account is migrated to new exchange server
-        account.populate_trait(self.const.trait_exchange_migrated)
         # Mark that account is being migrated
         account.populate_trait(self.const.trait_exchange_under_migration)        
         account.write_db()
@@ -1333,7 +1331,10 @@ class BofhdExtension(BofhdCommandBase):
         account = self._get_account(uname)
         if account.is_expired():
             raise CerebrumError, "Account %s has expired" % account.account_name
+        # Account migration is finished
         account.delete_trait(self.const.trait_exchange_under_migration)
+        # Mark that account now is migrated to new exchange server
+        account.populate_trait(self.const.trait_exchange_migrated)
         account.write_db()
         return "OK, deleted trait for user %s" % uname
 
