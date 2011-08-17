@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 
-# Copyright 2002-2009 University of Oslo, Norway
+# Copyright 2002-2011 University of Oslo, Norway
 #
 # This file is part of Cerebrum.
 #
@@ -360,6 +360,14 @@ class CleanChangeLog(object):
              'toggleable': False,
              'triggers': (co.ephorte_perm_add, co.ephorte_perm_rem)}])
 
+    # Password tokens
+    if hasattr(co, 'account_password_token'):
+        keep_togglers.extend([
+            {'columns': ('subject_entity', ),
+             'toggleable': False,
+             'triggers': (co.account_password_token, )}
+            ])
+    
 
     def process_log(self):
         if 0:
