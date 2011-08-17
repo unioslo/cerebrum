@@ -73,9 +73,6 @@ class Fronter(object):
         self.spread = _config.get('spread', None)
         self.groups = self.get_frontergroups_names()
         self.s_nodes = self.std_inst_nodes()
-        #self.studieprog_nodes = self.std_studieprog_nodes()
-        # self.std_grp_nodes = self.std_grp_nodes()
-        # self.std_f_e_nodes = self.std_nodes()
         self.uname2extid = self.uname2ext_id_fnr()
 
     def uname2ext_id_fnr(self):
@@ -210,6 +207,12 @@ class FronterXML(object):
                            fronter.useraccess(data['USERACCESS'])})
         self.xml.emptyTag('institutionrole',
                           {'institutionroletype': data['INSTROLETYPE']})
+        self.xml.startTag('adr')
+        self.xml.dataElement('street', data['STREET'])
+        self.xml.dataElement('pcode', data['ZIP'])
+        self.xml.dataElement('country', data['COUNTRY'])                
+        self.xml.endTag('adr')
+        self.xml.dataElement('tel', data['MOBILE'], {'teltype': 3})
         self.xml.endTag('person')
 
     def group_to_XML(self, id, recstatus, data, type):
@@ -378,6 +381,8 @@ def init_globals():
 def list_users_for_fronter_export():  
     ret = []
     email_addr = ""
+    mobile = None
+    address = None
     account = Factory.get("Account")(db)
     person = Factory.get("Person")(db)
     for row in account.list_all_with_spread(const.spread_lms_account):
@@ -395,6 +400,27 @@ def list_users_for_fronter_export():
             logger.error("Account %s is impersonal, but has lms spread.",
                          account.account_name)
             continue
+        tmp = None
+        tmp = [x["contact_value"] for x in person.get_contact_info(source=const.system_fs, 
+                                                                   type=const.contact_mobile_phone)]
+        if tmp:
+            mobile = tmp[0]
+        addr = None
+        addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
+        street = zip = city = country = ''
+        if addr:
+            address = addr[0]
+            alines = address['address_text'].split("\n")+[""]
+            if alines:
+                street = alines[0] + '\n' + alines[1]
+        if str(address['city']):
+            city = str(address['city'])
+        if str(address['postal_number']):
+            zip = str(address['postal_number'])
+        if address['country']:
+            country = address['country']
+        else:
+            country = 'Norge'
         roletype = 'Student'
         for a in person.get_affiliations():
             if a['affiliation'] == int(const.affiliation_ansatt) or \
@@ -403,7 +429,13 @@ def list_users_for_fronter_export():
         tmp = {'email': email_addr,
                'uname': account.account_name,
                'fullname': person.get_name(const.system_cached, const.name_full),
-               'roletype': roletype} # ,
+               'mobile': mobile,
+               'address': addr,
+               'roletype': roletype,
+               'street': street,
+               'zip': zip,
+               'city': city,
+               'country': country} # ,
                # 'pwd': pwd}
         ret.append(tmp)
     return ret
@@ -423,7 +455,12 @@ def get_new_users():
                        'EMAIL': user['email'],
                        'USERACCESS': 0,
                        'PASSWORD': 'ldap1:', 
-                       'INSTROLETYPE': user['roletype']
+                       'INSTROLETYPE': user['roletype'],
+                       'MOBILE': user['mobile'],
+                       'STREET': user['street'],
+                       'ZIP': user['zip'],
+                       'CITY': user['city'],
+                       'COUNTRY': user['country']
                        }
 
         if 'All_users' in fronter.export:
@@ -441,71 +478,12 @@ def get_new_users():
     return users
 
 new_groupmembers = {}
-# def update_elev_ans_groups():
-#     db = Factory.get("Database")()
-#     ou = Factory.get("OU")(db)
-#     person = Factory.get("Person")(db)
-#     const =  Factory.get("Constants")(db)
-#     sted = {}
-#     elever = {}
-#     ansatte = {}
-#     tilknyttet = {}
-#     ret = []
-    
-#     schools = ('ASKI', 'BORG', 'FRED', 'GLEM', 'GREA',
-#                'HALD', 'KALN', 'KIRK', 'MALA', 'MYSE',
-#                'OSTFAG', 'STOL', 'BORGRESS', 'OFKGS')
-#     for s in schools:
-#         ou.clear()
-#         sted = ou.search(acronym=s)
-#         elever = person.list_affiliations(affiliation=const.affiliation_elev,
-#                                           ou_id=sted[0]['ou_id'])
-#         ansatte = person.list_affiliations(affiliation=const.affiliation_ansatt,
-#                                            ou_id=sted[0]['ou_id'])
-#         tilknyttet = person.list_affiliations(
-#             affiliation=const.affiliation_tilknyttet,
-#             ou_id=sted[0]['ou_id'])
-#         elev_group_id = s + 'all_students'
-#         ans_group_id = s + 'Employees'
-#         tilk_group_id = s + 'Affiliates'
-#         for e in elever:
-#             person.clear()
-#             person.find(e['person_id'])
-#             fnr = person.get_external_id(source_system=const.system_ekstens,
-#                                          id_type=const.externalid_fodselsnr)
-#             ret.append({'group_id': elev_group_id,
-#                         'member_id': fnr[0][2]})
-#         for a in ansatte:
-#             person.clear()
-#             person.find(a['person_id'])
-#             fnr = person.get_external_id(source_system=const.system_ekstens,
-#                                          id_type=const.externalid_fodselsnr)
-#             ret.append({'group_id': ans_group_id,
-#                         'member_id': fnr[0][2]})
-#         for t in tilknyttet:
-#             person.clear()
-#             person.find(t['person_id'])
-#             fnr = person.get_external_id(source_system=const.system_ekstens,
-#                                          id_type=const.externalid_fodselsnr)
-#             ret.append({'group_id': tilk_group_id,
-#                         'member_id': fnr[0][2]})
-        
-#     return ret
-            
+
 new_group = {}
 def register_group(title, desc):
      """Adds info in new_group about group."""
      parent_id = ""
      pid, rest = title.split('-', 1)
-     #
-     # register all groups at root for now
-     #
-     #if pid == 'studieprog':
-     #    parent_id = 'root ' + ' studieprogrammer' 
-     #elif pid == 'kull':
-     #    parent_id = 'root ' + 'studieprogrammer' + ' kull'
-     #else:
-     #    parent_id = 'root'
      parent_id = '99 NO-FS Studenter importert fra FS'
      new_group[title] = {'title': desc,
                          'parent': parent_id,
@@ -528,10 +506,6 @@ def main():
     # tegn.
     locale.setlocale(locale.LC_CTYPE, ('en_US', 'iso88591'))
     
-    # elev_ans_grupper = {}
-    # elev_ans_grupper = update_elev_ans_groups()
-
-
     init_globals()
 
     fxml.start_xml_file()
@@ -591,18 +565,6 @@ def main():
     #                 'parent': 'root',
     #                 'typeval': 'ALLE'}
     #fxml.group_to_XML('All_users', fronter.STATUS_ADD, all_users_dat, 2)
-
-    # for gname, data in new_school_nodes.iteritems():
-    #     if re.search('Groups', gname):
-    #         fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
-
-    # for gname, data in new_school_nodes.iteritems():
-    #     if re.search('Students', gname) or re.search('faggrupper', gname):
-    #         fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
-            
-    # for gname, data in new_school_nodes.iteritems():
-    #     if re.search('all_students', gname) or re.search('Employees', gname) or re.search('Affiliates', gname):
-    #         fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 2)
 
     for gname, data in new_group.iteritems():
         fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 2)
