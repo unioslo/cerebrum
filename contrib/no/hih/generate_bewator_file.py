@@ -70,6 +70,17 @@ ou = Factory.get('OU')(db)
 co = Factory.get('Constants')(db)
 logger = Factory.get_logger('cronjob')
 
+def usage(exitcode=0):
+    print """Usage: %s --userfile <path> --groupfile <path>
+
+    Generate two csv files with data for the access system Bewator.
+    
+    --userfile      The csv file with user data for bewator
+
+    --groupfile     The csv file with access data for bewator
+    """ % sys.argv[0]
+    sys.exit(exitcode)
+
 def process(userout, groupout):
     logger.debug('Start caching data')
     # cache all relevant data
@@ -204,8 +215,7 @@ def main():
 
     for opt, val in opts:
         if opt in ('-h', '--help'):
-            print "not implemented yet"
-            sys.exit(0)
+            usage()
         elif opt in ('--userfile',):
             userout = file(val, 'w')
         elif opt in ('--groupfile',):
