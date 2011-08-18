@@ -407,8 +407,6 @@ def list_users_for_fronter_export():
                 tmp = [x["contact_value"] for x in person.get_contact_info(source=const.system_fs, type=const.contact_mobile_phone)]
                 if tmp:
                     mobile = tmp[0]
-                else:
-                    mobile = ''
                 addr = None
                 addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
 
@@ -430,6 +428,7 @@ def list_users_for_fronter_export():
             if a['affiliation'] == int(const.affiliation_ansatt) or \
                a['affiliation'] == int(const.affiliation_tilknyttet):
                 roletype = 'Staff'
+                mobile = ''
         tmp = {'email': email_addr,
                'uname': account.account_name,
                'fullname': person.get_name(const.system_cached, 
