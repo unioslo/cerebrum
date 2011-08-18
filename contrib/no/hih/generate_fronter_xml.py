@@ -453,7 +453,7 @@ def get_new_users():
         user_params = {'FAMILY': names.pop(),
                        'GIVEN': " ".join(names),
                        'EMAIL': user['email'],
-                       'USERACCESS': 0,
+                       'USERACCESS': 'User',
                        'PASSWORD': 'ldap1:', 
                        'INSTROLETYPE': user['roletype'],
                        'MOBILE': user['mobile'],
