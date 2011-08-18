@@ -360,7 +360,7 @@ def process_person_callback(person_info):
 
         new_person.populate_external_id(co.system_fs, co.externalid_studentnr,
                                         studentnr)
-        new_bew_id = '01221%06d0' % studentnr
+        new_bew_id = '01221%06d0' % int(studentnr)
         logger.debug("Adding bewator-ID %s for %s", new_bew_id, studentnr)
         # we have to use system_fs here (for technical reasons) even
         # though we should be using system_manual
