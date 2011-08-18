@@ -337,7 +337,7 @@ def main():
     undervisningsmelding_grupper(fs)
     
     logger.info("All done, commiting to database")
-    db.rollback()
+    db.commit()
 
 if __name__ == '__main__':
     main()
