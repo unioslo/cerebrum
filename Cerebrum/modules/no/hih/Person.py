@@ -73,7 +73,7 @@ class PersonHiHMixin(Person.Person):
                     tmp = self.get_external_id(source_system=self.const.system_fs,
                                                id_type=self.const.externalid_studentnr)
                     if tmp:
-                        studentnr = tmp[0]['external_id']
+                        studentnr = "%06d" % tmp[0]['external_id']
                     if not studentnr:
                         # cannot create bewator id for this person
                         return 
