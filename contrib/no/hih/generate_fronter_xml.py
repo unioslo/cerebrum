@@ -522,8 +522,8 @@ def main():
         else:
             logger.warn("Could not find extid for %s", uname)
 
-    for n in fronter.s_nodes:
-        register_inst_nodes(n['title'], n['group_id'], n['parent_id'], n['typeval'])
+    #for n in fronter.s_nodes:
+    #    register_inst_nodes(n['title'], n['group_id'], n['parent_id'], n['typeval'])
     #for s in fronter.studieprog_nodes:
     #    register_inst_nodes(s['title'], s['group_id'], s['parent_id'], s['typeval'])
     # for k in fronter.std_f_e_nodes:
