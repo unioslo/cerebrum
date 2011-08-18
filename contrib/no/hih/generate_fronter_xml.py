@@ -400,29 +400,31 @@ def list_users_for_fronter_export():
             logger.error("Account %s is impersonal, but has lms spread.",
                          account.account_name)
             continue
-        tmp = None
-        tmp = [x["contact_value"] for x in person.get_contact_info(source=const.system_fs, 
-                                                                   type=const.contact_mobile_phone)]
-        if tmp:
-            mobile = tmp[0]
-        else:
-            mobile = ''
-        addr = None
-        addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
         street = zip = city = country = ''
-        if addr:
-            address = addr[0]
-            alines = address['address_text'].split("\n")+[""]
-            if alines:
-                street = alines[0] + '\n' + alines[1]
-        if str(address['city']):
-            city = str(address['city'])
-        if str(address['postal_number']):
-            zip = str(address['postal_number'])
-        if address['country']:
-            country = address['country']
-        else:
-            country = 'Norge'
+        for a in person.get_affiliations():
+            if a['affiliation'] == int(const.affiliation_student):
+                tmp = None
+                tmp = [x["contact_value"] for x in person.get_contact_info(source=const.system_fs, type=const.contact_mobile_phone)]
+                if tmp:
+                    mobile = tmp[0]
+                else:
+                    mobile = ''
+                addr = None
+                addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
+
+                if addr:
+                    address = addr[0]
+                    alines = address['address_text'].split("\n")+[""]
+                if alines:
+                    street = alines[0] + '\n' + alines[1]
+                if str(address['city']):
+                    city = str(address['city'])
+                if str(address['postal_number']):
+                    zip = str(address['postal_number'])
+                if address['country']:
+                    country = address['country']
+                else:
+                    country = 'Norge'
         roletype = 'Student'
         for a in person.get_affiliations():
             if a['affiliation'] == int(const.affiliation_ansatt) or \
@@ -430,15 +432,15 @@ def list_users_for_fronter_export():
                 roletype = 'Staff'
         tmp = {'email': email_addr,
                'uname': account.account_name,
-               'fullname': person.get_name(const.system_cached, const.name_full),
+               'fullname': person.get_name(const.system_cached, 
+                                           const.name_full),
                'mobile': mobile,
                'address': addr,
                'roletype': roletype,
                'street': street,
                'zip': zip,
                'city': city,
-               'country': country} # ,
-               # 'pwd': pwd}
+               'country': country}
         ret.append(tmp)
     return ret
 
