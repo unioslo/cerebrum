@@ -9012,7 +9012,7 @@ Addresses and settings:
         person = Utils.Factory.get('Person')(self.db)
         person.clear()
         if arg.find(":") != -1:
-            idtype, value = arg.split(":")
+            idtype, value = arg.split(":", 1)
             if not value:
                 raise CerebrumError, "Unable to parse person id %r" % arg
             if idtype == 'exp':
