@@ -210,6 +210,7 @@ class FronterXML(object):
         self.xml.startTag('adr')
         self.xml.dataElement('street', data['STREET'])
         self.xml.dataElement('pcode', data['ZIP'])
+        self.xml.dataElement('city', data['CITY'])
         self.xml.dataElement('country', data['COUNTRY'])                
         self.xml.endTag('adr')
         self.xml.dataElement('tel', data['MOBILE'], {'teltype': 3})
