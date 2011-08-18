@@ -49,7 +49,7 @@ new_users = None
 host_config = {
     'hih.no': {'DBinst': 'hihfronter',
                'admins': 'fronter-admins',
-               'export': '', #['All_users'],
+               'export': ['All_users'],
                'spread': 'spread_lms_acc',
                },
     }
@@ -405,6 +405,8 @@ def list_users_for_fronter_export():
                                                                    type=const.contact_mobile_phone)]
         if tmp:
             mobile = tmp[0]
+        else:
+            mobile = ''
         addr = None
         addr = person.get_entity_address(source=const.system_fs, type=const.address_post)
         street = zip = city = country = ''
@@ -453,7 +455,7 @@ def get_new_users():
         user_params = {'FAMILY': names.pop(),
                        'GIVEN': " ".join(names),
                        'EMAIL': user['email'],
-                       'USERACCESS': 'User',
+                       #'USERACCESS': 'User',
                        'PASSWORD': 'ldap1:', 
                        'INSTROLETYPE': user['roletype'],
                        'MOBILE': user['mobile'],
@@ -561,10 +563,10 @@ def main():
     for gname, data in new_inst_nodes.iteritems():
         fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 0)
     
-    #all_users_dat = {'title': 'All_users',
-    #                 'parent': 'root',
-    #                 'typeval': 'ALLE'}
-    #fxml.group_to_XML('All_users', fronter.STATUS_ADD, all_users_dat, 2)
+    all_users_dat = {'title': 'All_users',
+                     'parent': 'root',
+                     'typeval': 'ALLE'}
+    fxml.group_to_XML('All_users', fronter.STATUS_ADD, all_users_dat, 2)
 
     for gname, data in new_group.iteritems():
         fxml.group_to_XML(gname, fronter.STATUS_ADD, data, 2)
