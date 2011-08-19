@@ -87,14 +87,34 @@ class EntityTrait(Entity):
             if self.__trait_updates[code] == 'UPDATE':
                 binds = ", ".join(["%s=:%s" % (c, c)
                                    for c in self.__traits[code]])
+                # Find out if we are simply "touch"-ing a trait thus
+                # updating its date. We shouldn't changelog such an event.
+                #
+                # Old trait is fished out of the database with a query. get_traits()
+                # ignore the database when self.__traits is set (as it should).
+                changelog = True
+                try:
+                    old_trait = self.query_1("""
+                    SELECT * 
+                    FROM [:table schema=cerebrum name=entity_trait]
+                    WHERE entity_id=:entity_id AND code=:code
+                    """, {'entity_id': self.entity_id, 'code': int(code)})
+                
+                    changelog = False
+                    for i in ('target_id', 'numval', 'strval'):
+                        if old_trait.get(i) <> self.__traits[code].get(i):
+                            changelog = True
+                except Errors.NotFoundError:
+                    pass
                 self.execute("""
                 UPDATE [:table schema=cerebrum name=entity_trait]
                 SET %s
                 WHERE entity_id = :entity_id AND code = :code
                 """ % binds,
                              self.__traits[code])
-                self._db.log_change(self.entity_id, self.const.trait_mod, None,
-                                    change_params=params)
+                if changelog:
+                    self._db.log_change(self.entity_id, self.const.trait_mod, None,
+                                        change_params=params)
             else:
                 binds = ", ".join([":%s" % c
                                    for c in self.__traits[code]])
