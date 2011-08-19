@@ -33,7 +33,7 @@ on later.
 
 """
 
-import sys, socket
+import sys, socket, traceback
 import getopt
 
 import cerebrum_path, cereconf
@@ -108,7 +108,10 @@ class IndividuationServer(SoapListener.BasicSoapServer):
         except Exception, e:
             log.msg('ERROR: Unhandled exception occured')
             log.err(e)
-            # Don't want the client to know too much about unhandled errors.
+            log.msg(traceback.format_exc())
+
+            # Don't want the client to know too much about unhandled errors, so
+            # return a generic error.
             raise Fault(faultstring='Unknown error')
 
     @rpc(String, String, _returns=Boolean)
