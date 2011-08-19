@@ -38,7 +38,7 @@ from Cerebrum.modules.ad.ADSync import DistGroupSync
 class HIHCerebrumUser(CerebrumUser):
     def __init__(self, account_id, owner_id, uname, domain, ou):
         """
-        CerebrumUser constructor
+        HIHCerebrumUser constructor
         
         @param account_id: Cerebrum id
         @type account_id: int
