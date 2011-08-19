@@ -1151,17 +1151,15 @@ def make_letters(data_file=None, type=None, range=None):
             counters[letter_type] = 1
         if data_file is not None:
             dta[order_by][account_id]['lopenr'] = all_passwords[account_id][2]
-            if not no_barcode:
-                if not os.path.exists("barcode_%s.eps" % account_id):
-                    make_barcode(account_id)
+            if not os.path.exists("barcode_%s.eps" % account_id):
+                make_barcode(account_id)
         else:
             dta[order_by][account_id]['lopenr'] = counters[letter_type]
             letter_info["%s-%i" % (brev_profil['mal'], counters[letter_type])] = \
                                 [account_id, [password, brev_profil, counters[letter_type]]]
             # We allways create a barcode file, this is not strictly
             # neccesary
-            if not no_barcode:
-                make_barcode(account_id)
+            make_barcode(account_id)
         dta[order_by][account_id]['barcode'] = os.path.realpath('barcode_%s.eps' %  account_id)
         files[letter_type].write(tpls[letter_type].apply_template(
             'body', dta[order_by][account_id], no_quote=('barcode',)))
@@ -1190,7 +1188,7 @@ def make_barcode(account_id):
     ret = os.system("%s -e EAN -E -n -b %012i > barcode_%s.eps" % (
         cereconf.PRINT_BARCODE, account_id, account_id))
     if ret:
-        logger.warn("Barcode returned %s" % ret)
+        logger.warn("Bardode returned %s" % ret)
 
 def _filter_person_info(person_info):
     """Makes debugging easier by removing some of the irrelevant
@@ -1297,7 +1295,6 @@ def main():
                                     'dryrun', 'validate',
                                     'with-quarantines',
                                     'with-diskquota',
-                                    'no-barcode',
                                     'posix-tables'])
     except getopt.GetoptError, e:
         usage(str(e))
@@ -1305,7 +1302,7 @@ def main():
     global student_info_file, studconfig_file, only_dump_to, studieprogs_file, \
            dryrun, emne_info_file, move_users, remove_groupmembers, \
            workdir, paper_money_file, ou_perspective, with_quarantines,\
-           with_diskquota, posix_tables, no_barcode
+           with_diskquota, posix_tables
 
     recalc_pq = False
     validate = False
@@ -1313,7 +1310,6 @@ def main():
     reset_diskquota = False
     with_diskquota = False
     posix_tables = False
-    no_barcode = False
     for opt, val in opts:
         if opt in ('-d', '--debug'):
             debug += 1
@@ -1352,8 +1348,6 @@ def main():
             int(ou_perspective)   # Assert that it is defined
         elif opt in ('--only-dump-results',):
             only_dump_to = val
-        elif opt in ('--no-barcode',):
-            no_barcode = True
         elif opt in ('--dryrun',):
             dryrun = True
         elif opt in ('--validate',):
@@ -1407,7 +1401,7 @@ def usage(error=None):
     Actions:
       -c | --create-user: create new users
       -u | --update-accounts: update existing accounts
-     --reprint range: re-print letters in case of paper-jam etc.
+      --reprint range: re-print letters in case of paper-jam etc.
         (comma separated)
       --recalc-pq: recalculate printerquota settings (does not update
         quota).  Cannot be combined with -c/-u
@@ -1426,7 +1420,6 @@ def usage(error=None):
         entering make_letters
       --workdir dir:  set workdir for --reprint
       --with-lpr: Spool the file with new user letters to printer
-      --no-barcode
 
     Action limiters/enablers:
       --remove-groupmembers: remove groupmembers if profile says so
