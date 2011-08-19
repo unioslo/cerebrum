@@ -265,8 +265,11 @@ class Individuation:
         return sms(phone_no, msg % token)
 
     def hash_token(self, token, uname):
-        """Generates a hash of a given token, to avoid storing tokens in plaintext."""
-        return hashlib.md5(uname + token).hexdigest()
+        """Generates a hash of a given token, to avoid storing tokens in
+        plaintext."""
+        # need to convert unicode into bytes, e.g. utf8, or else hashlib
+        # converts it into ascii, which doesn't work for e.g. æøå.
+        return hashlib.sha1(unicode(uname + token).encode('utf8')).hexdigest()
 
     def check_token(self, uname, token, browser_token):
         """Check if token and other data from user is correct."""
@@ -330,16 +333,18 @@ class Individuation:
         return True
 
     def validate_password(self, password):
-        return self._check_password(str(password))
+        return self._check_password(password)
 
     def _check_password(self, password, account=None):
         db = Factory.get('Database')()
         db.cl_init(change_program='individuation_service')
-
         pc = PasswordChecker.PasswordChecker(db)
         try:
             pc.goodenough(account, password, uname="foobar")
         except PasswordChecker.PasswordGoodEnoughException, m:
+            # The PasswordChecker is in iso8859-1, so we need to convert its
+            # message to unicode before we raise it.
+            m = unicode(str(m), 'iso8859-1')
             raise Errors.CerebrumRPCException('password_invalid', m)
         else:
             return True
