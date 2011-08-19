@@ -182,7 +182,7 @@ class ADUtils(object):
         if command == "createObject" and len(ret) == 3:
             return ret[2]
         else:
-            self.logger.debug("Command %s ran successfully", command)
+            self.logger.debug3("Command %s ran successfully", command)
             return True
 
 

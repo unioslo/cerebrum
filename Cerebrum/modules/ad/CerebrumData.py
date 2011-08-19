@@ -331,6 +331,39 @@ class CerebrumDistGroup(CerebrumGroup):
     This class represent a virtual Cerebrum distribution group that
     contain contact objects.
     """
+    def __init__(self, gname, group_id, description, domain, ou):
+        """
+        CerebrumDistGroup constructor
+        
+        @param name: Cerebrum group name
+        @type name: str
+        @param group_id: Cerebrum id
+        @type group_id: int
+        @param description: Group description
+        @type description: str
+        """
+        CerebrumGroup.__init__(self, gname, group_id, description, domain, ou)
+        # Dist groups should be exposed to Exchange
+        self.to_exchange = True
+        
+
+    def add_change(self, attr_type, value):
+        """
+        Add attribute type and value that is to be synced to AD. Some
+        attributes changes must be sent to Exchange also. If that is
+        the case set update_recipient to True
+
+        @param attr_type: AD attribute type
+        @type attr_type: str
+        @param value: AD attribute value
+        @type value: varies
+        """
+        self.changes[attr_type] = value
+        # Should update_Recipients be run for this dist group?
+        if not self.update_recipient and attr_type in cereconf.AD_DIST_GRP_UPDATE_EX:
+            self.update_recipient = True
+
+
     def calc_ad_attrs(self):
         """
         Calculate AD attrs from Cerebrum data.
@@ -349,6 +382,7 @@ class CerebrumDistGroup(CerebrumGroup):
         ad_attrs["description"] = self.description or "N/A"
         ad_attrs["displayNamePrintable"] = ad_attrs["displayName"]
         ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.gname, self.ou)
+        # TODO: add mail and proxyAddresses, etc
 
         # Convert str to unicode before comparing with AD
         for attr_type, attr_val in ad_attrs.iteritems():

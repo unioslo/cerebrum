@@ -779,6 +779,32 @@ class DistGroupSync(GroupSync):
     """
     Methods for dist group sync
     """
+    def configure(self, config_args):
+        """
+        Read configuration options from args and cereconf to decide
+        which data to sync.
+
+        @param config_args: Configuration data from cereconf and/or
+                            command line options.
+        @type config_args: dict
+        """
+        self.logger.info("Starting group-sync")
+        # Sync settings for this module
+        for k in ("sec_group_spread", "dist_group_spread", "user_spread"):
+            # Group.search() must have spread constant or int to work,
+            # unlike Account.search()
+            if k in config_args:
+                setattr(self, k, self.co.Spread(config_args[k]))
+        for k in ("exchange_sync", "delete_groups", "dryrun", "store_sid",
+                  "ad_ldap", "ad_domain", "subset", "name_prefix"):
+            setattr(self, k, config_args[k])
+
+        # Set which attrs that are to be compared with AD
+        self.sync_attrs = cereconf.AD_DIST_GRP_ATTRIBUTES
+        self.logger.info("Configuration done. Will compare attributes: %s" %
+                         str(self.sync_attrs))
+
+
     def fullsync(self):
         """
         This method defines what will be done in the sync.
@@ -812,6 +838,13 @@ class DistGroupSync(GroupSync):
                 if sid and self.store_sid:
                     self.store_ext_sid(grp.group_id, sid)
             
+        # Update Exchange if needed
+        self.logger.debug("Sleeping for 5 seconds to give ad-ldap time to update") 
+        time.sleep(5)
+        for grp in self.groups.itervalues():
+            if grp.update_recipient:
+                self.update_Exchange(grp.gname)
+
         #Syncing group members
         self.logger.info("Starting sync of group members")
         self.sync_group_members()
