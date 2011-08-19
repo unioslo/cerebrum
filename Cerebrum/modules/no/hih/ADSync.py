@@ -36,6 +36,21 @@ from Cerebrum.modules.ad.ADSync import DistGroupSync
 
 
 class HIHCerebrumUser(CerebrumUser):
+    def __init__(self, account_id, owner_id, uname, domain, ou):
+        """
+        CerebrumUser constructor
+        
+        @param account_id: Cerebrum id
+        @type account_id: int
+        @param owner_id: Cerebrum owner id
+        @type owner_id: int
+        @param uname: Cerebrum account name
+        @type uname: str
+        """
+        CerebrumUser.__init__(self, account_id, owner_id, uname, domain, ou)
+        self.contact_mobile_phone = ""
+
+
     def is_student(self):
         # It seems smarter to compare domain, but on the testserver
         # employees and students are in the same domain...
