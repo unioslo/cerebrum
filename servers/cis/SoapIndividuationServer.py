@@ -106,7 +106,8 @@ class IndividuationServer(SoapListener.BasicSoapServer):
             msg = self.cache['msgs'][e.args[0]] % e.args[1:]
             raise Fault(faultstring=e.__doc__ + ': ' + msg)
         except Exception, e:
-            log.msg('ERROR: Unhandled exception occured')
+            # If anything breaks in here, it will not get logged. Beware!
+            log.msg('ERROR: Unhandled exception: %s' % type(e))
             log.err(e)
             log.msg(traceback.format_exc())
 
