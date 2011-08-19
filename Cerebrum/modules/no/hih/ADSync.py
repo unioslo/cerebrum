@@ -136,6 +136,7 @@ class HIHUserSync(UserSync):
         """
         Get contact info: phonenumber and title. Personal title takes precedence.
         """
+        self.logger.debug("..fetch hih contact info..")
         pid2data = {}
         # Get phone number
         for row in self.pe.list_contact_info(source_system=(self.co.system_sap,

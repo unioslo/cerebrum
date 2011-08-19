@@ -204,15 +204,10 @@ class UserSync(ADUserUtils):
             [1 for v in self.accounts.itervalues() if v.quarantined]))
 
         # fetch names
-        self.logger.debug("..fetch name information..")
-        self.fetch_names()
-        
+        self.fetch_names()        
         # fetch contact info: phonenumber and title
-        self.logger.debug("..fetch contact info..")
         self.fetch_contact_info()
-
         # fetch email info
-        self.logger.debug("..fetch email info..")
         self.fetch_email_info()
     
 
@@ -241,6 +236,7 @@ class UserSync(ADUserUtils):
         """
         # Fetch names from Cerebrum for all persons
         # TBD: getdict_persons_names might be faster
+        self.logger.debug("..fetch name information..")
         pid2names = {}
         for row in self.pe.list_persons_name(
             source_system = self.co.system_cached,
@@ -262,6 +258,7 @@ class UserSync(ADUserUtils):
         """
         Get contact info: phonenumber and title. Personal title takes precedence.
         """
+        self.logger.debug("..fetch contact info..")
         pid2data = {}
         # Get phone number
         for row in self.pe.list_contact_info(source_system=self.co.system_sap,
@@ -287,6 +284,7 @@ class UserSync(ADUserUtils):
 
     def fetch_email_info(self):
         """Get email addresses from Cerebrum"""
+        self.logger.debug("..fetch email info..")
         # Get primary email addr
         for uname, prim_mail in self.ac.getdict_uname2mailaddr(
             filter_expired=True, primary_only=True).iteritems():
