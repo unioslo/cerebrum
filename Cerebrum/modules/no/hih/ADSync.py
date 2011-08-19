@@ -29,6 +29,7 @@ import cerebrum_path
 import cereconf
 
 from Cerebrum.modules.ad.CerebrumData import CerebrumUser
+from Cerebrum.modules.ad.CerebrumData import CerebrumDistGroup
 from Cerebrum.modules.ad.ADSync import UserSync
 from Cerebrum.modules.ad.ADSync import GroupSync
 from Cerebrum.modules.ad.ADSync import DistGroupSync
@@ -72,7 +73,7 @@ class HIHCerebrumUser(CerebrumUser):
         ad_attrs["ACCOUNTDISABLE"] = self.quarantined
         ad_attrs["userPrincipalName"] = "%s@%s" % (self.uname, self.domain) 
         ad_attrs["title"] = self.title
-        ad_attrs["telephoneNumber"] = self.contact_phone
+        ad_attrs["telephoneNumber"] = self.contact_mobile_phone
         
         if self.is_student():
             ad_attrs["cn"] = self.uname
@@ -129,6 +130,36 @@ class HIHCerebrumUser(CerebrumUser):
 
 
 class HIHUserSync(UserSync):
+
+    # HIH wants to export mobile phones bothe for students and employees
+    def fetch_contact_info(self):
+        """
+        Get contact info: phonenumber and title. Personal title takes precedence.
+        """
+        pid2data = {}
+        # Get phone number
+        for row in self.pe.list_contact_info(source_system=(self.co.system_sap,
+                                                            self.co.system_fs),
+                                             entity_type=self.co.entity_person,
+                                             contact_type=self.co.contact_mobile_phone):
+            pid2data.setdefault(int(row["entity_id"]), {})[
+                int(row["contact_type"])] = row["contact_value"]
+        # Get title
+        for row in self.pe.list_persons_name(
+            source_system = self.co.system_sap,
+            name_type     = [self.co.name_personal_title,
+                             self.co.name_work_title]):
+            pid2data.setdefault(int(row["person_id"]), {})[
+                int(row["name_variant"])] = row["name"]
+        # set data
+        for acc in self.accounts.itervalues():
+            data = pid2data.get(acc.owner_id)
+            if data:
+                acc.contact_mobile_phone = data.get(int(self.co.contact_mobile_phone), "")
+                acc.title = (data.get(int(self.co.name_personal_title), "") or
+                             data.get(int(self.co.name_work_title), ""))
+
+
     def fetch_ad_data(self):
         """
         Fetch all or a subset of users in search_ou from AD.
@@ -181,11 +212,52 @@ class HIHGroupSync(GroupSync):
         return "%s,%s" % (cereconf.AD_GROUP_OU, self.ad_ldap)
 
 
+class HIHCerebrumDistGroup(CerebrumDistGroup):
+    """
+    This class represent a virtual Cerebrum distribution group that
+    contain contact objects.
+    """
+    def calc_ad_attrs(self):
+        """
+        Calculate AD attrs from Cerebrum data.
+        
+        How to calculate AD attr values from Cerebrum data and policy
+        must be hardcoded somewhere. Do this here and try to leave the
+        rest of the code general.
+        """
+        # Read which attrs to calculate from cereconf
+        ad_attrs = dict().fromkeys(cereconf.AD_DIST_GRP_ATTRIBUTES, None)
+        ad_attrs.update(cereconf.AD_DIST_GRP_DEFAULTS)
+        
+        # Do the hardcoding for this sync.
+        ad_attrs["name"] = self.gname
+        ad_attrs["displayName"] = cereconf.AD_DIST_GROUP_PREFIX + self.gname
+        ad_attrs["description"] = self.description or "N/A"
+        ad_attrs["displayNamePrintable"] = self.gname
+        ad_attrs["distinguishedName"] = "CN=%s,%s" % (self.gname, self.ou)
+        # TODO: spesifiser disse. Likt for stud og ans?
+        #ad_attrs["mail"] = ""
+        #ad_attrs["mailNickName"] = ""
+        #ad_attrs["proxyAddresses"] = ""
+
+        # Convert str to unicode before comparing with AD
+        for attr_type, attr_val in ad_attrs.iteritems():
+            if type(attr_val) is str:
+                ad_attrs[attr_type] = unicode(attr_val, cereconf.ENCODING)
+        
+        self.ad_attrs.update(ad_attrs)
+
+
 class HIHDistGroupSync(DistGroupSync):
+    def cb_group(self, gname, group_id, description):
+        "wrapper func for easier subclassing"
+        return HIHCerebrumDistGroup(gname, group_id, description,
+                                    self.ad_domain, self.get_default_ou())
+
+
     def get_default_ou(self):
         """
         Return default OU for groups.
         """
         return "%s,%s" % (cereconf.AD_GROUP_OU, self.ad_ldap)
-
 
