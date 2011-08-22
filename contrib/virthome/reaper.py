@@ -34,7 +34,6 @@ from Cerebrum.Entity import EntitySpread
 from Cerebrum.Entity import EntityName
 
 
-GRACE_PERIOD = DateTimeDelta(3)
 logger = Factory.get_logger("cronjob")
 
  
@@ -292,7 +291,7 @@ def delete_unconfirmed_accounts(account_np_type, db):
     account = Factory.get("Account")(db)
     for row in db.get_log_events(types=const.va_pending_create):
         tstamp = row["tstamp"]
-        if now() - tstamp <= GRACE_PERIOD:
+        if now() - tstamp <= cereconf.GRACE_PERIOD:
             continue
 
         account_id = int(row["subject_entity"])
@@ -346,7 +345,7 @@ def delete_stale_events(cl_events, db):
     logger.debug("Deleting stale requests: %s", typeset_request)
     for event in db.get_log_events(types=cl_events):
         tstamp = event["tstamp"]
-        if now() - tstamp <= GRACE_PERIOD:
+        if now() - tstamp <= cereconf.GRACE_PERIOD:
             continue
 
         logger.debug("Deleting stale event %s (@%s) for entity %s (id=%s)",
