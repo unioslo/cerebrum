@@ -309,7 +309,7 @@ def process_person_callback(person_info):
             etternavn = p['etternavn']
             fornavn = p['fornavn']
         if p.has_key('studentnr_tildelt'):
-            studentnr = p['studentnr_tildelt']
+            studentnr = '%06d' % p['studentnr_tildelt']
     
         # Get affiliations
         if dta_type in ('fagperson',):
@@ -360,6 +360,7 @@ def process_person_callback(person_info):
 
         new_person.populate_external_id(co.system_fs, co.externalid_studentnr,
                                         studentnr)
+        logger.debug("Studentnr is %d", studentnr)
         new_bew_id = '01221%06d0' % int(studentnr)
         logger.debug("Adding bewator-ID %s for %s", new_bew_id, studentnr)
         # we have to use system_fs here (for technical reasons) even
