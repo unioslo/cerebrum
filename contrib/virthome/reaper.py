@@ -14,6 +14,7 @@ The code should be generic enough to be used on any installation.
 
 import getopt
 import sys
+import pickle
 
 from mx.DateTime import now
 from mx.DateTime import DateTimeDelta
@@ -345,7 +346,23 @@ def delete_stale_events(cl_events, db):
     logger.debug("Deleting stale requests: %s", typeset_request)
     for event in db.get_log_events(types=cl_events):
         tstamp = event["tstamp"]
-        if now() - tstamp <= cereconf.GRACE_PERIOD:
+        timeout = cereconf.GRACE_PERIOD
+        try:
+            params = pickle.loads(event["change_params"])
+            timeout = DateTimeDelta(params['timeout'])
+
+            logger.debug('Timeout set to %s for %s',
+                         timeout.strftime('%Y-%m-%d'),
+                         event['change_id'])
+
+            if timeout > cereconf.MAX_INVITE_PERIOD:
+                logger.warning('Too long timeout (%s) for for %s',
+                               timeout.strftime('%Y-%m-%d'),
+                               event['change_id'])
+                timeout = cereconf.MAX_INVITE_PERIOD
+        except KeyError:
+           pass
+        if now() - tstamp <= timeout:
             continue
 
         logger.debug("Deleting stale event %s (@%s) for entity %s (id=%s)",
