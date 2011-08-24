@@ -84,12 +84,8 @@ class Individuation:
     messages = {
         'error_unknown':     {'en': u'An unknown error occured',
                               'no': u'En ukjent feil oppstod'},
-        'person_notfound':   {'en': u'Could not find a person by given data, please try again. Please note that you will ' + 
-                                    u'not be able to use this service if you are reserved from being published on UiO\'s ' +
-                                    u'web pages.',
-                              'no': (u'Kunne ikke finne personen ut fra oppgitte data, vennligst prøv igjen. Merk at du ' + 
-                                     u'ikke kan bruke denne tjenesten om du har reservert deg fra å bli publisert på UiO ' +
-                                     u'sine nettsider.')},
+        'person_notfound':   {'en': u'Could not find a person by given data, please try again.',
+                              'no': u'Kunne ikke finne personen ut fra oppgitte data, vennligst prøv igjen.',},
         'person_miss_info':  {'en': u'Not all your information is available. Please contact your HR department or student office.',
                               'no': u'Ikke all din informasjon er tilgjengelig. Vennligst ta kontakt med din personalavdeling eller studentkontor.'},
         'account_blocked':   {'en': u'This account is inactive. Please contact your local IT.',
