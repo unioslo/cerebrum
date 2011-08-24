@@ -73,8 +73,9 @@ class BofhdExtension(BofhdCommandBase):
         '_email_info_forwarding', '_split_email_address',
         '_email_info_mailman', '_email_info_multi', '_email_info_file',
         '_email_info_pipe', '_email_info_forward',
-        'email_add_address', '_get_email_domain', 'email_remove_address',
-        '_split_email_address', '_remove_email_address',
+        'email_add_address', '_get_email_domain', 
+        'email_reassign_address', 'email_remove_address', 
+        '_split_email_address', '_remove_email_address', 
         #
         # copy relevant group-cmds and util methods
         #
