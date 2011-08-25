@@ -270,7 +270,7 @@ class HiAEVU(access_FS.EVU):
                p.adresseland_hjemsted, d.deltakernr, d.emailadresse,
                k.etterutdkurskode, e.studieprogramkode,
                e.faknr_adm_ansvar, e.instituttnr_adm_ansvar,
-               e.gruppenr_adm_ansvar, p.kjonn, p.status_dod
+               e.gruppenr_adm_ansvar, p.kjonn, p.status_dod, p.telefonnr_mobil
         FROM fs.deltaker d, fs.person p, fs.kursdeltakelse k,
              fs.etterutdkurs e
         WHERE p.fodselsdato=d.fodselsdato AND
