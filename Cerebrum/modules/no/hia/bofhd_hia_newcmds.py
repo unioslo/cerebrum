@@ -203,7 +203,6 @@ class BofhdExtension(BofhdCommandBase):
         for func in UiOBofhdExtension.hidden_commands:
             setattr(cls, func, UiOBofhdExtension.__dict__.get(func))
             BofhdExtension.hidden_commands[func] = UiOBofhdExtension.hidden_commands[func]
-        #print BofhdExtension.hidden_commands
 
         x = object.__new__(cls)
         return x
@@ -1441,3 +1440,18 @@ class BofhdExtension(BofhdCommandBase):
 
         return result
     # end __get_all_related_maillist_targets
+
+    # group multi_remove
+    all_commands['group_multi_remove'] = Command(
+        ("group", "multi_remove"), 
+        MemberType(help_ref='member_type', default='account'),
+        MemberName(help_ref="member_name_src", repeat=True),
+        GroupName(help_ref="group_name_dest", repeat=True),
+        perm_filter='can_alter_group')
+    def group_multi_remove(self, operator, member_type, src_name, dest_group):
+        '''Removes a person, account or group from a given group.'''
+        if member_type not in ('group', 'account', 'person'):
+            return 'Unknown member_type "%s"' % (member_type)
+        return self._group_remove(operator, src_name, dest_group,
+                                  member_type=member_type)
+

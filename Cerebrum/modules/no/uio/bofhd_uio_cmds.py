@@ -5066,6 +5066,8 @@ Addresses and settings:
                           default_lookup=idtype, restrict_to=['Person'])
             except Errors.TooManyRowsError:
                 raise CerebrumError("Unexpectedly found more than one person")
+        else:
+            raise CerebrumError("Unknown member_type: %s" % member_type)
         group_d = self._get_group(dest_group)
         return self._group_remove_entity(operator, src_entity, group_d)
 
