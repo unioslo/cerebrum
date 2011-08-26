@@ -47,9 +47,18 @@ Generer to csv-filer for å eksporteres til adgangskontrollsystemet Bewator:
         - 8: <tittel|''>: For ansatte er dette stillingstittel fra SAP. For
           studenter skal feltet være blankt.
 
-        - 9: <avdeling|''>: akronym for tilsettingsenheten (f.eks. STUDADM for
-          Studieadministrasjonen, Tjeneste for Tjenesteyting osv.). For
-          studenter skal feltet være blankt.
+        - 9: <avdeling|''>: akronym for tilsettingsenheten eller studiestedet,
+          på formen::
+          
+            STEDKODE (enhetsnavn)
+
+          for eksempel::
+
+            230000 (STUDADM)
+
+          TBD: hva om en har flere stedkoder? Bruke den første og beste, eller
+          ta med alle?
+          TODO: har her lagt inn | som separator mellom stedkodane.
 
         - 10: <mobil>: Mobiltelefonnummer fra SAP eller FS dersom det er
           tilgjengelig. Det skal sjekkes at nummeret består av 8 siffer, andre
@@ -123,9 +132,13 @@ def process(userout, groupout):
                      pe.list_affiliations(source_system=co.system_fs,
                                           affiliation=co.affiliation_student))
     ou2acr = dict((row['ou_id'], row['acronym']) for row in ou.search())
+    ou2sko = dict((row['ou_id'], "%02d%02d%02d" % (row['fakultet'], row['institutt'], row['avdeling'])) for row in ou.get_stedkoder())
     ent2avdeling = dict()
     for row in pe.list_affiliations(source_system=co.system_sap):
-        ent2avdeling.setdefault(row['person_id'], []).append(ou2acr[row['ou_id']])
+        ent2avdeling.setdefault(row['person_id'], []).append("%s (%s)" % (ou2sko[row['ou_id']], ou2acr[row['ou_id']]))
+    ent2studiestad = dict()
+    for row in pe.list_affiliations(source_system=co.system_fs):
+        ent2studiestad.setdefault(row['person_id'], []).append("%s (%s)" % (ou2sko[row['ou_id']], ou2acr[row['ou_id']]))
 
     # TODO: this does not guarantee primary accounts - is that ok?
     ent2account = dict((row['owner_id'], row['name']) for row in 
@@ -171,17 +184,16 @@ def process(userout, groupout):
             # tittel
             line.append(ent2title.get(ent, ''))
             # avdeling
-            # TODO: usikker på korleis personar med fleire avdelingar skal
-            # presenterast - tolka spesifikasjonen sin <avdeling|''> som
-            # konkatenering med |
             line.append('|'.join(ent2avdeling.get(ent, '')))
         elif ent in students:
             # tittel
             line.append('')
             # avdeling
-            line.append('')
+            line.append('|'.join(ent2studiestad.get(ent, '')))
         else:
+            # tittel
             line.append('')
+            # avdeling
             line.append('')
 
         # mobil
