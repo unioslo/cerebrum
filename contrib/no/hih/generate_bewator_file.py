@@ -25,24 +25,35 @@ Generer to csv-filer for å eksporteres til adgangskontrollsystemet Bewator:
 
         <adgangskort-id>;<studentnr|ansattnr>;<etternavn>;<fornavn>;<fullt navn>;<fødselsdato>;<brukernavn>;<tittel|''>;<avdeling|''>;<mobil>
 
-        - <adgangskort-id>: en external_id som alle personer skal ha fått
+        - 1: <adgangskort-id>: en external_id som alle personer skal ha fått
           generert (se contrib/no/hih/generate_bewator_spreads_and_ids.py).
           Skal vere unike.
 
-        - <studentnr|ansattnr>: student- eller ansattnummer slik denne er
+        - 2: <studentnr|ansattnr>: student- eller ansattnummer slik denne er
           registrert i Cerebrum. For personer som både er student og ansatt
           eksporteres ansattnummer.
 
-        - <tittel|''>: For ansatte er dette stillingstittel fra SAP. For
+        - 3: <etternavn>
+
+        - 4: <fornavn>
+
+        - 5: <fullt navn>
+
+        - 6: <fødselsdato>: TBD: kva format? Er YYYY-MM-DD ok?
+
+        - 7: <brukernavn>: TBD: Primærbrukar? Ein av brukarane? Alle
+          brukarane?
+
+        - 8: <tittel|''>: For ansatte er dette stillingstittel fra SAP. For
           studenter skal feltet være blankt.
 
-        - <avdeling|''>: akronym for tilsettingsenheten (f.eks. STUDADM for
+        - 9: <avdeling|''>: akronym for tilsettingsenheten (f.eks. STUDADM for
           Studieadministrasjonen, Tjeneste for Tjenesteyting osv.). For
           studenter skal feltet være blankt.
 
-        - <mobil>: Mobiltelefonnummer fra SAP dersom det er tilgjengelig. For
-          studenter skal feltet være blankt. Det skal sjekkes at nummeret består
-          av 8 siffer, andre kombinasjoner skal forkastes.
+        - 10: <mobil>: Mobiltelefonnummer fra SAP eller FS dersom det er
+          tilgjengelig. Det skal sjekkes at nummeret består av 8 siffer, andre
+          kombinasjoner skal forkastes.
 
     2. Tilgangsgrupper:
 
@@ -105,7 +116,7 @@ def process(userout, groupout):
                      pe.list_persons_name(source_system=co.system_sap,
                                           name_type=co.name_work_title))
     ent2phone = dict((row['entity_id'], row['contact_value']) for row in 
-                     pe.list_contact_info(source_system=co.system_sap))
+                     pe.list_contact_info(source_system=(co.system_sap, co.system_fs)))
     employees = set(row['person_id'] for row in 
                      pe.list_affiliations(source_system=co.system_sap))
     students = set(row['person_id'] for row in 
@@ -156,11 +167,7 @@ def process(userout, groupout):
         # brukernavn
         line.append(ent2account.get(ent, ''))
 
-        if ent not in employees:
-            line.append('')
-            line.append('')
-            line.append('')
-        else:
+        if ent in employees:
             # tittel
             line.append(ent2title.get(ent, ''))
             # avdeling
@@ -168,16 +175,20 @@ def process(userout, groupout):
             # presenterast - tolka spesifikasjonen sin <avdeling|''> som
             # konkatenering med |
             line.append('|'.join(ent2avdeling.get(ent, '')))
+        elif ent in students:
+            # tittel
+            line.append('')
+            # avdeling
+            line.append('')
+        else:
+            line.append('')
+            line.append('')
 
-            # mobil
-            phone = ent2phone.get(ent, '')
-            if phone:
-                if len(phone) == 8 and phone.isdigit():
-                    line.append(phone)
-                else:
-                    line.append(phone)
-            else:
-                line.append('')
+        # mobil
+        phone = ent2phone.get(ent, '')
+        if not phone or len(phone) != 8 or not phone.isdigit():
+            phone = ''
+        line.append(phone)
         
         # TODO: loop over the items in line and substitute '; with something
         # else? E.g. ':'
